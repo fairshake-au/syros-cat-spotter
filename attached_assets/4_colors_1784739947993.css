@@ -1,0 +1,91 @@
+/* Purropolis color system — a sun-bleached Cycladic palette.
+   Aegean blue + whitewash walls, with bougainvillea, sun, and terracotta
+   accents borrowed from the alleys of Ermoupolis. */
+:root {
+  /* ---- Base palette ---- */
+  /* Aegean — the primary brand blue (dome-and-shutter blue) */
+  --aegean-900: #0a3350;
+  --aegean-800: #0f4a72;
+  --aegean-700: #135f92;
+  --aegean-600: #1c77c3; /* primary */
+  --aegean-500: #2f92dc;
+  --aegean-400: #66b2e8;
+  --aegean-300: #a3d1f2;
+  --aegean-200: #cfe7f9;
+  --aegean-100: #e8f4fc;
+
+  /* Whitewash — warm Cycladic whites & sun-warmed stone neutrals */
+  --stone-900: #1b2a38; /* ink */
+  --stone-800: #2c3e4f;
+  --stone-700: #47596a;
+  --stone-600: #667889;
+  --stone-500: #8c9caa;
+  --stone-400: #b6c2cc;
+  --stone-300: #d7dee4;
+  --stone-200: #e9edf0;
+  --stone-100: #f4f2ec; /* warm whitewash */
+  --stone-000: #fefcf7; /* paper white */
+
+  /* Bougainvillea — hot pink/magenta */
+  --bougain-700: #b02f66;
+  --bougain-600: #d64185;
+  --bougain-500: #e8558a;
+  --bougain-300: #f6a9c8;
+  --bougain-100: #fce4ee;
+
+  /* Sun — warm marigold yellow */
+  --sun-700: #d99413;
+  --sun-600: #f5b023;
+  --sun-500: #ffc94d;
+  --sun-300: #ffe0a0;
+  --sun-100: #fff5df;
+
+  /* Terracotta — clay pot warmth */
+  --terra-700: #b8552f;
+  --terra-600: #e07856;
+  --terra-500: #ee9070;
+  --terra-300: #f6c2ac;
+  --terra-100: #fbe8de;
+
+  /* Olive — muted herb green (island scrub) */
+  --olive-700: #5f6f36;
+  --olive-600: #7f9349;
+  --olive-500: #9fb168;
+  --olive-300: #cbd6a8;
+  --olive-100: #eef1e0;
+
+  /* ---- Semantic aliases ---- */
+  --color-primary: var(--aegean-600);
+  --color-primary-hover: var(--aegean-700);
+  --color-primary-press: var(--aegean-800);
+  --color-primary-soft: var(--aegean-100);
+  --color-accent: var(--bougain-500);
+  --color-accent-hover: var(--bougain-600);
+  --color-highlight: var(--sun-500);
+
+  --text-strong: var(--stone-900);
+  --text-body: var(--stone-800);
+  --text-muted: var(--stone-600);
+  --text-faint: var(--stone-500);
+  --text-on-primary: var(--stone-000);
+  --text-link: var(--aegean-700);
+  --text-link-hover: var(--bougain-600);
+
+  --surface-page: var(--stone-100);
+  --surface-card: var(--stone-000);
+  --surface-sunk: var(--stone-200);
+  --surface-inverse: var(--aegean-900);
+
+  --border-soft: var(--stone-300);
+  --border-strong: var(--stone-400);
+  --border-focus: var(--aegean-500);
+
+  --status-success: var(--olive-600);
+  --status-success-soft: var(--olive-100);
+  --status-warning: var(--sun-600);
+  --status-warning-soft: var(--sun-100);
+  --status-danger: var(--terra-700);
+  --status-danger-soft: var(--terra-100);
+  --status-info: var(--aegean-500);
+  --status-info-soft: var(--aegean-100);
+}

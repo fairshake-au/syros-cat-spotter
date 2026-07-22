@@ -1,0 +1,6 @@
+/* Purropolis webfonts.
+   NOTE: no brand font binaries were provided, so these are Google Fonts
+   substitutions chosen for a friendly, rounded, broad-audience feel with
+   full Greek-script support (needed for Syros place names). Swap in licensed
+   binaries + local @font-face when available. */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Space+Mono:wght@400;700&display=swap&subset=greek,latin');
