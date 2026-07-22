@@ -1,45 +1,17 @@
-# [Project name]
+# Syros Cat Spotter
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+## Overview
+A mobile app (Expo) for tourists and residents of Syros, Greece to identify and catalog unique street cats. Users photograph cats; AI vision matching compares the photo against known cats and returns likelihood scores. Users confirm a match or name/register a new cat. Gamified with points (10 per confirmed sighting, 50 per new cat) and badges. Anonymous per-device identity (no accounts). Trilingual UI: English, Greek, French. Works offline: cats catalog is cached and sightings are queued, then matched on reconnect.
 
-## Run & Operate
-
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
-
-## Stack
-
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
-
-## Where things live
-
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
-
-## Architecture decisions
-
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
+## Architecture
+- `artifacts/cat-spotter` — Expo app (expo-router, 4 tabs: Map, Cats, Spot, Profile; plus `cat/[id]` and `review` screens).
+  - `context/` — Language (i18n + AsyncStorage), Device (anonymous device id), Offline (NetInfo + queued sightings sync).
+  - `components/AppMap.tsx` / `AppMap.web.tsx` — platform-split map: react-native-maps (pinned 1.18.0) on native, OpenStreetMap iframe fallback on web (react-native-maps does not bundle on web).
+  - Photos resized to 900px / JPEG 0.7 before upload (base64).
+- `artifacts/api-server` — Express API. Routes: cats, photos (serves images from Postgres), sightings (AI matching + resolve), profiles/leaderboard. Badges computed server-side from stats (`lib/badges.ts`).
+- AI matching: `artifacts/api-server/src/lib/matching.ts` — Replit AI Integrations OpenAI proxy, vision model `gpt-5.6-terra`, compares submitted photo against up to 10 nearest cats, returns JSON confidences.
+- `lib/api-spec/openapi.yaml` — API contract; regen with `pnpm --filter @workspace/api-spec run codegen`.
+- `lib/db` — Drizzle schema: photos (base64 in Postgres), cats, sightings, profiles.
 
 ## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Goal is Apple + Android app-store publication; keep app.json static and store-ready (no EAS commands from agent; Replit Expo Launch is iOS-only).

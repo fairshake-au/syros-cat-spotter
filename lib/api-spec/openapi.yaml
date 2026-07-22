@@ -3,20 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Syros Cat Spotter API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: cats
+    description: Cat catalog
+  - name: sightings
+    description: Cat sightings and matching
+  - name: profiles
+    description: Device profiles, points, badges
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +29,245 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /cats:
+    get:
+      operationId: listCats
+      tags: [cats]
+      summary: List all cats in the catalog
+      parameters:
+        - name: lat
+          in: query
+          required: false
+          schema: { type: number }
+        - name: lng
+          in: query
+          required: false
+          schema: { type: number }
+      responses:
+        "200":
+          description: Cats, sorted by distance when lat/lng provided
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cat"
+  /cats/{catId}:
+    get:
+      operationId: getCat
+      tags: [cats]
+      summary: Get a cat with its sighting history
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Cat detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatDetail"
+        "404":
+          description: Not found
+  /sightings:
+    post:
+      operationId: createSighting
+      tags: [sightings]
+      summary: Submit a cat photo and location; returns AI match candidates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSightingRequest"
+      responses:
+        "201":
+          description: Sighting created with match candidates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResult"
+  /sightings/{sightingId}/resolve:
+    post:
+      operationId: resolveSighting
+      tags: [sightings]
+      summary: Confirm a match to an existing cat, or register a new named cat
+      parameters:
+        - name: sightingId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveSightingRequest"
+      responses:
+        "200":
+          description: Sighting resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResolveResult"
+        "404":
+          description: Not found
+        "409":
+          description: Already resolved
+  /profiles/{deviceId}:
+    get:
+      operationId: getProfile
+      tags: [profiles]
+      summary: Get (or lazily create) a device profile with points and badges
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [profiles]
+      summary: Top spotters by points
+      responses:
+        "200":
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
+        status: { type: string }
+      required: [status]
+    Cat:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        photoUrl: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        sightingsCount: { type: integer }
+        lastSeenAt: { type: string }
+        distanceKm:
+          type: number
+          nullable: true
       required:
-        - status
-
+        [id, name, description, photoUrl, lat, lng, sightingsCount, lastSeenAt]
+    Sighting:
+      type: object
+      properties:
+        id: { type: integer }
+        catId:
+          type: integer
+          nullable: true
+        deviceId: { type: string }
+        photoUrl: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        createdAt: { type: string }
+      required: [id, deviceId, photoUrl, lat, lng, createdAt]
+    CatDetail:
+      type: object
+      properties:
+        cat:
+          $ref: "#/components/schemas/Cat"
+        sightings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sighting"
+      required: [cat, sightings]
+    CreateSightingRequest:
+      type: object
+      properties:
+        deviceId: { type: string }
+        photoBase64:
+          type: string
+          description: JPEG image as base64 (no data URI prefix)
+        lat: { type: number }
+        lng: { type: number }
+      required: [deviceId, photoBase64, lat, lng]
+    MatchCandidate:
+      type: object
+      properties:
+        catId: { type: integer }
+        name: { type: string }
+        photoUrl: { type: string }
+        confidence:
+          type: number
+          description: Match likelihood 0-1
+        reasoning: { type: string }
+      required: [catId, name, photoUrl, confidence, reasoning]
+    MatchResult:
+      type: object
+      properties:
+        sightingId: { type: integer }
+        isCatPhoto:
+          type: boolean
+          description: False when the AI could not find a cat in the photo
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchCandidate"
+      required: [sightingId, isCatPhoto, candidates]
+    ResolveSightingRequest:
+      type: object
+      properties:
+        catId:
+          type: integer
+          nullable: true
+          description: Existing cat to confirm as the match
+        newCatName:
+          type: string
+          nullable: true
+          description: Name for a new unique cat (when no match)
+    ResolveResult:
+      type: object
+      properties:
+        cat:
+          $ref: "#/components/schemas/Cat"
+        pointsAwarded: { type: integer }
+        isNewCat: { type: boolean }
+        newBadges:
+          type: array
+          items: { type: string }
+        profile:
+          $ref: "#/components/schemas/Profile"
+      required: [cat, pointsAwarded, isNewCat, newBadges, profile]
+    Profile:
+      type: object
+      properties:
+        deviceId: { type: string }
+        points: { type: integer }
+        totalSightings: { type: integer }
+        uniqueCatsDiscovered: { type: integer }
+        catsSpotted: { type: integer }
+        badges:
+          type: array
+          items: { type: string }
+      required:
+        [deviceId, points, totalSightings, uniqueCatsDiscovered, catsSpotted, badges]
+    LeaderboardEntry:
+      type: object
+      properties:
+        deviceId: { type: string }
+        points: { type: integer }
+        uniqueCatsDiscovered: { type: integer }
+        rank: { type: integer }
+      required: [deviceId, points, uniqueCatsDiscovered, rank]

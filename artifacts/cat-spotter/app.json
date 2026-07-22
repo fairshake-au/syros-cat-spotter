@@ -28,7 +28,20 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Syros Cat Spotter uses your location to record where cats are seen and to show cats near you."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Syros Cat Spotter needs access to your photos so you can submit cat sightings.",
+          "cameraPermission": "Syros Cat Spotter uses the camera to photograph cats you spot."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

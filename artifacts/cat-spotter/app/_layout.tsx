@@ -13,6 +13,12 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { setBaseUrl } from '@workspace/api-client-react';
+import { LanguageProvider } from '@/context/LanguageContext';
+import { DeviceProvider } from '@/context/DeviceContext';
+import { OfflineProvider } from '@/context/OfflineContext';
+
+setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -23,6 +29,8 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="cat/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="review" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -47,11 +55,17 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView>
-            <KeyboardProvider>
-              <RootLayoutNav />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
+          <LanguageProvider>
+            <DeviceProvider>
+              <OfflineProvider>
+                <GestureHandlerRootView>
+                  <KeyboardProvider>
+                    <RootLayoutNav />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </OfflineProvider>
+            </DeviceProvider>
+          </LanguageProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
