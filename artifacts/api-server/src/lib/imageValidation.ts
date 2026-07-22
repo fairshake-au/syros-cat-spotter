@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import heicConvert from "heic-convert";
 
 const MAX_STORED_BYTES = 5 * 1024 * 1024; // ~5 MB stored cap
 // Absolute ceiling on what we will even attempt to decode. Anything bigger is
@@ -17,7 +18,9 @@ export type ValidatedImage = {
 
 export type ImageValidationError = { error: string };
 
-function detectMime(buf: Buffer): ValidatedImage["mime"] | null {
+type DetectedFormat = "jpeg" | "png" | "webp" | "heic";
+
+function detectFormat(buf: Buffer): DetectedFormat | null {
   // JPEG: FF D8 FF
   if (
     buf.length >= 3 &&
@@ -25,21 +28,48 @@ function detectMime(buf: Buffer): ValidatedImage["mime"] | null {
     buf[1] === 0xd8 &&
     buf[2] === 0xff
   ) {
-    return "image/jpeg";
+    return "jpeg";
   }
   // PNG: 89 50 4E 47 0D 0A 1A 0A
   const pngSig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
   if (buf.length >= 8 && pngSig.every((b, i) => buf[i] === b)) {
-    return "image/png";
+    return "png";
+  }
+  // WebP: "RIFF" .... "WEBP"
+  if (
+    buf.length >= 12 &&
+    buf.toString("ascii", 0, 4) === "RIFF" &&
+    buf.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "webp";
+  }
+  // HEIC/HEIF (ISO BMFF): box size + "ftyp" + a known HEIF brand.
+  if (buf.length >= 12 && buf.toString("ascii", 4, 8) === "ftyp") {
+    const brand = buf.toString("ascii", 8, 12);
+    const heifBrands = ["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1", "avif"];
+    if (heifBrands.includes(brand)) {
+      return "heic";
+    }
   }
   return null;
+}
+
+async function normalizeToJpeg(input: Buffer): Promise<Buffer> {
+  return sharp(input, { failOn: "error" })
+    .rotate() // apply EXIF orientation so stored pixels are upright
+    .resize(MAX_DIMENSION, MAX_DIMENSION, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+    .toBuffer();
 }
 
 /**
  * Decodes, validates and normalizes a base64 photo upload before it is stored
  * or sent to the AI matcher.
  *
- * - Rejects malformed base64 and non-JPEG/PNG content.
+ * - Rejects malformed base64 and content that is not JPEG/PNG/HEIC/HEIF/WebP.
  * - Fully decodes the image (verifying it is a real image, not just correct
  *   magic bytes), bounds its dimensions to MAX_DIMENSION on the longest edge,
  *   and re-encodes it as JPEG. Oversized but valid photos are shrunk to fit
@@ -71,25 +101,39 @@ export async function validatePhotoBase64(
     return { error: "Image too large: uploads must be at most 20 MB" };
   }
 
-  const mime = detectMime(input);
-  if (!mime) {
-    return { error: "Unsupported image format: only JPEG and PNG are accepted" };
+  const format = detectFormat(input);
+  if (!format) {
+    return {
+      error:
+        "Unsupported image format: only JPEG, PNG, HEIC/HEIF, and WebP are accepted",
+    };
   }
 
   // Normalize: fully decode (catches corrupt/truncated files that pass the
   // magic-byte check), bound dimensions, re-encode as JPEG.
   let buffer: Buffer;
   try {
-    buffer = await sharp(input, { failOn: "error" })
-      .rotate() // apply EXIF orientation so stored pixels are upright
-      .resize(MAX_DIMENSION, MAX_DIMENSION, {
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
-      .toBuffer();
+    buffer = await normalizeToJpeg(input);
   } catch {
-    return { error: "Image could not be decoded: file appears corrupt" };
+    if (format === "heic") {
+      // sharp's bundled libvips cannot decode HEVC-compressed HEIC (the
+      // default iPhone format). Fall back to a WASM decoder, then run the
+      // decoded JPEG through the same normalization pipeline.
+      try {
+        const decoded = Buffer.from(
+          await heicConvert({
+            buffer: new Uint8Array(input),
+            format: "JPEG",
+            quality: 0.9,
+          }),
+        );
+        buffer = await normalizeToJpeg(decoded);
+      } catch {
+        return { error: "Image could not be decoded: file appears corrupt" };
+      }
+    } else {
+      return { error: "Image could not be decoded: file appears corrupt" };
+    }
   }
 
   // Extremely unlikely after downscaling, but keep the storage cap hard:

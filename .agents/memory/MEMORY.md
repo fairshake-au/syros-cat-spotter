@@ -1,6 +1,7 @@
 - [Anonymous device identity](anonymous-device-identity.md) — device ids are bearer credentials; public API responses must expose opaque spotterCode only, never raw device ids.
 - [Dev DB schema drift](db-schema-drift.md) — drizzle "Failed query" 500s usually mean the dev DB is behind the schema; run the db package's push script before debugging app code.
 - [Typecheck needs libs built first](typecheck-project-refs.md) — run root `typecheck:libs` before per-artifact tsc, or stale lib dist causes phantom TS2339 errors.
+- [HEIC decoding limits in sharp](heic-decoding.md) — bundled libvips can't decode HEVC HEIC (iPhone default); fall back to heic-convert WASM then re-normalize with sharp.
 - [Drizzle wraps pg error codes](drizzle-error-codes.md) — check the `cause` chain for pg codes like 23505; top-level `err.code` is undefined under drizzle-orm.
 - [Generated client stale types](generated-client-stale-types.md) — if app typecheck misses fields that exist in the client source, rebuild declarations with `npx tsc -b lib/api-client-react`.
 - [Push notification dispatch point](push-notifications.md) — all spotter push notifications route through the api-server notifications helper; it's a console-log stub awaiting real delivery infra.
