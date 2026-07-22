@@ -93,7 +93,8 @@ export default function CatDetailScreen() {
                 <Feather name="star" size={14} color={colors.mutedForeground} />
                 <Text style={[styles.meta, { color: colors.mutedForeground }]}>
                   {t('discoveredBy')}{' '}
-                  {cat.discovererNickname ??
+                  {cat.discovererUsername ??
+                    cat.discovererNickname ??
                     `${t('spotter')} ${cat.discovererSpotterCode}`}
                 </Text>
               </View>
@@ -133,6 +134,14 @@ export default function CatDetailScreen() {
                 />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
                   {new Date(s.createdAt).toLocaleDateString()}
+                </Text>
+                <Text
+                  style={[styles.sightingSpotter, { color: colors.mutedForeground }]}
+                  numberOfLines={1}
+                >
+                  {s.spotterUsername ??
+                    s.spotterNickname ??
+                    `${t('spotter')} ${s.spotterCode}`}
                 </Text>
               </View>
             ))}
@@ -177,4 +186,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   sightingDate: { fontSize: 11, fontFamily: 'Nunito_400Regular' },
+  sightingSpotter: { fontSize: 11, fontFamily: 'Nunito_600SemiBold' },
 });

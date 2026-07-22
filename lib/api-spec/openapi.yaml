@@ -487,6 +487,9 @@ components:
         discovererNickname:
           type: string
           nullable: true
+        discovererUsername:
+          type: string
+          nullable: true
         ownerName:
           type: ["string", "null"]
           description: Display name of the resident who claimed this cat
@@ -527,6 +530,12 @@ components:
           type: integer
           nullable: true
         spotterCode: { type: string }
+        spotterUsername:
+          type: string
+          nullable: true
+        spotterNickname:
+          type: string
+          nullable: true
         photoUrl: { type: string }
         lat: { type: number }
         lng: { type: number }

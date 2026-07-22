@@ -49,6 +49,7 @@ export const RegisterCatResponse = zod.object({
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
+  "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 })
@@ -74,6 +75,7 @@ export const ListCatsResponseItem = zod.object({
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
+  "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 })
@@ -100,6 +102,7 @@ export const GetCatResponse = zod.object({
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
+  "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 }),
@@ -107,6 +110,8 @@ export const GetCatResponse = zod.object({
   "id": zod.number(),
   "catId": zod.number().nullish(),
   "spotterCode": zod.string(),
+  "spotterUsername": zod.string().nullish(),
+  "spotterNickname": zod.string().nullish(),
   "photoUrl": zod.string(),
   "lat": zod.number(),
   "lng": zod.number(),
@@ -147,6 +152,7 @@ export const UpdateCatResponse = zod.object({
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
+  "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 })
@@ -184,6 +190,7 @@ export const ClaimCatResponse = zod.object({
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
+  "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 })
@@ -259,6 +266,7 @@ export const ResolveSightingResponse = zod.object({
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
+  "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 }),

@@ -10,6 +10,8 @@ export interface Sighting {
   id: number;
   catId?: number | null;
   spotterCode: string;
+  spotterUsername?: string | null;
+  spotterNickname?: string | null;
   photoUrl: string;
   lat: number;
   lng: number;

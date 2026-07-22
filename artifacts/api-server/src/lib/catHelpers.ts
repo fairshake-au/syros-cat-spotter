@@ -47,6 +47,7 @@ export interface CatWithStats {
   discovererNickname: string | null;
   ownerName: string | null;
   homeDescription: string | null;
+  discovererUsername: string | null;
 }
 
 export async function listCatsWithStats(
@@ -60,6 +61,10 @@ export async function listCatsWithStats(
       lastSeenAt: sql<string | null>`to_char(max(${sightingsTable.createdAt}) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
       discovererNickname: sql<string | null>`(
         select ${profilesTable.nickname} from ${profilesTable}
+        where ${profilesTable.deviceId} = ${catsTable.discovererDeviceId}
+      )`,
+      discovererUsername: sql<string | null>`(
+        select ${profilesTable.username} from ${profilesTable}
         where ${profilesTable.deviceId} = ${catsTable.discovererDeviceId}
       )`,
     })
@@ -87,6 +92,7 @@ export async function listCatsWithStats(
       discovererNickname: r.discovererNickname ?? null,
       ownerName: r.cat.ownerName,
       homeDescription: r.cat.homeDescription,
+      discovererUsername: r.discovererUsername ?? null,
     };
     if (lat !== undefined && lng !== undefined) {
       c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);

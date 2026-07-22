@@ -36,7 +36,10 @@ router.post("/cats/name-suggestions", async (req, res) => {
 
 async function catPayload(cat: Cat, sightingsCount: number, lastSeenAt: string) {
   const [profile] = await db
-    .select({ nickname: profilesTable.nickname })
+    .select({
+      nickname: profilesTable.nickname,
+      username: profilesTable.username,
+    })
     .from(profilesTable)
     .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
   return {
@@ -50,6 +53,7 @@ async function catPayload(cat: Cat, sightingsCount: number, lastSeenAt: string) 
     lastSeenAt,
     discovererSpotterCode: spotterCode(cat.discovererDeviceId),
     discovererNickname: profile?.nickname ?? null,
+    discovererUsername: profile?.username ?? null,
     ownerName: cat.ownerName,
     homeDescription: cat.homeDescription,
   };
@@ -111,8 +115,13 @@ router.get("/cats/:catId", async (req, res) => {
     return;
   }
   const sightings = await db
-    .select()
+    .select({
+      sighting: sightingsTable,
+      spotterUsername: profilesTable.username,
+      spotterNickname: profilesTable.nickname,
+    })
     .from(sightingsTable)
+    .leftJoin(profilesTable, eq(profilesTable.deviceId, sightingsTable.deviceId))
     .where(
       and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")),
     )
@@ -122,12 +131,15 @@ router.get("/cats/:catId", async (req, res) => {
     cat: await catPayload(
       cat,
       sightings.length,
-      sightings[0]?.createdAt.toISOString() ?? cat.createdAt.toISOString(),
+      sightings[0]?.sighting.createdAt.toISOString() ??
+        cat.createdAt.toISOString(),
     ),
-    sightings: sightings.map((s) => ({
+    sightings: sightings.map(({ sighting: s, spotterUsername, spotterNickname }) => ({
       id: s.id,
       catId: s.catId,
       spotterCode: spotterCode(s.deviceId),
+      spotterUsername: spotterUsername ?? null,
+      spotterNickname: spotterNickname ?? null,
       photoUrl: photoUrl(s.photoId),
       lat: s.lat,
       lng: s.lng,

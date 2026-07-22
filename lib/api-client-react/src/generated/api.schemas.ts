@@ -78,6 +78,7 @@ export interface Cat {
   distanceKm?: number | null;
   discovererSpotterCode?: string;
   discovererNickname?: string | null;
+  discovererUsername?: string | null;
   /**
      * Display name of the resident who claimed this cat
      * @nullable
@@ -137,6 +138,8 @@ export interface Sighting {
   id: number;
   catId?: number | null;
   spotterCode: string;
+  spotterUsername?: string | null;
+  spotterNickname?: string | null;
   photoUrl: string;
   lat: number;
   lng: number;

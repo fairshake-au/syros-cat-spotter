@@ -65,6 +65,20 @@ export function CatCard({ cat }: { cat: Cat }) {
             </>
           )}
         </View>
+        {!!cat.discovererSpotterCode && (
+          <View style={styles.metaRow}>
+            <Feather name="star" size={12} color={colors.mutedForeground} />
+            <Text
+              style={[styles.meta, { color: colors.mutedForeground }]}
+              numberOfLines={1}
+            >
+              {t('discoveredBy')}{' '}
+              {cat.discovererUsername ??
+                cat.discovererNickname ??
+                `${t('spotter')} ${cat.discovererSpotterCode}`}
+            </Text>
+          </View>
+        )}
       </View>
     </Pressable>
   );
