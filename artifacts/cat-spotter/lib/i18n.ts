@@ -123,6 +123,10 @@ const en: Dict = {
   landingShuffle: 'Shuffle',
   landingStart: 'Start spotting',
   landingOffline: 'You need to be online to pick your username.',
+  notificationsTitle: 'Notifications',
+  markAllRead: 'Mark all read',
+  noNotifications: 'No notifications yet. Spot a cat to follow its updates!',
+  justNow: 'now',
 };
 
 const el: Dict = {
@@ -240,6 +244,10 @@ const el: Dict = {
   landingShuffle: 'Ανακάτεμα',
   landingStart: 'Ξεκινήστε',
   landingOffline: 'Πρέπει να είστε συνδεδεμένοι για να διαλέξετε όνομα χρήστη.',
+  notificationsTitle: 'Ειδοποιήσεις',
+  markAllRead: 'Όλα ως αναγνωσμένα',
+  noNotifications: 'Καμία ειδοποίηση ακόμα. Εντοπίστε μια γάτα για να ακολουθήσετε τα νέα της!',
+  justNow: 'τώρα',
 };
 
 const fr: Dict = {
@@ -357,6 +365,10 @@ const fr: Dict = {
   landingShuffle: 'Mélanger',
   landingStart: 'C\u2019est parti',
   landingOffline: 'Vous devez être en ligne pour choisir votre nom d\u2019utilisateur.',
+  notificationsTitle: 'Notifications',
+  markAllRead: 'Tout marquer comme lu',
+  noNotifications: 'Aucune notification pour le moment. Repérez un chat pour suivre ses nouvelles !',
+  justNow: 'maintenant',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

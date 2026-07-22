@@ -21,19 +21,25 @@ import type {
 
 import type {
   ApiErrorBody,
+  AppNotification,
   Cat,
   CatClaim,
   CatDetail,
   CatOwnerUpdate,
   CatRegistration,
+  CatUpdate,
   CheckUsernameAvailabilityParams,
   ClaimUsernameRequest,
+  CreateCatUpdateRequest,
   CreateSightingRequest,
   HealthStatus,
   LeaderboardEntry,
   ListCatsParams,
+  MarkAllNotificationsRead200,
   MatchResult,
   Profile,
+  RegisterPushToken200,
+  RegisterPushTokenRequest,
   ResolveResult,
   ResolveSightingRequest,
   SuggestCatNamesRequest,
@@ -521,6 +527,78 @@ export const useClaimCat = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getClaimCatMutationOptions(options));
+    }
+
+export const getCreateCatUpdateUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}/updates`
+}
+
+/**
+ * @summary Owner-only — broadcast an update about a cat to its subscribers
+ */
+export const createCatUpdate = async (catId: number,
+    createCatUpdateRequest: CreateCatUpdateRequest, options?: RequestInit): Promise<CatUpdate> => {
+
+  return customFetch<CatUpdate>(getCreateCatUpdateUrl(catId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createCatUpdateRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateCatUpdateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCatUpdate>>, TError,{catId: number;data: BodyType<CreateCatUpdateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCatUpdate>>, TError,{catId: number;data: BodyType<CreateCatUpdateRequest>}, TContext> => {
+
+const mutationKey = ['createCatUpdate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCatUpdate>>, {catId: number;data: BodyType<CreateCatUpdateRequest>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  createCatUpdate(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCatUpdateMutationResult = NonNullable<Awaited<ReturnType<typeof createCatUpdate>>>
+    export type CreateCatUpdateMutationBody = BodyType<CreateCatUpdateRequest>
+    export type CreateCatUpdateMutationError = ErrorType<void>
+
+    /**
+ * @summary Owner-only — broadcast an update about a cat to its subscribers
+ */
+export const useCreateCatUpdate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCatUpdate>>, TError,{catId: number;data: BodyType<CreateCatUpdateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCatUpdate>>,
+        TError,
+        {catId: number;data: BodyType<CreateCatUpdateRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateCatUpdateMutationOptions(options));
     }
 
 export const getCreateSightingUrl = () => {
@@ -1119,6 +1197,226 @@ export const useClaimUsername = <TError = ErrorType<void>,
       return useMutation(getClaimUsernameMutationOptions(options));
     }
 
+export const getListNotificationsUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/notifications/${deviceId}`
+}
+
+/**
+ * @summary List notifications for a device, newest first
+ */
+export const listNotifications = async (deviceId: string, options?: RequestInit): Promise<AppNotification[]> => {
+
+  return customFetch<AppNotification[]>(getListNotificationsUrl(deviceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListNotificationsQueryKey = (deviceId: string,) => {
+    return [
+    `/api/notifications/${deviceId}`
+    ] as const;
+    }
+
+
+export const getListNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listNotifications>>, TError = ErrorType<unknown>>(deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListNotificationsQueryKey(deviceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listNotifications>>> = ({ signal }) => listNotifications(deviceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: deviceId !== null && deviceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listNotifications>>>
+export type ListNotificationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List notifications for a device, newest first
+ */
+
+export function useListNotifications<TData = Awaited<ReturnType<typeof listNotifications>>, TError = ErrorType<unknown>>(
+ deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListNotificationsQueryOptions(deviceId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkAllNotificationsReadUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/notifications/${deviceId}/read-all`
+}
+
+/**
+ * @summary Mark all notifications for a device as read
+ */
+export const markAllNotificationsRead = async (deviceId: string, options?: RequestInit): Promise<MarkAllNotificationsRead200> => {
+
+  return customFetch<MarkAllNotificationsRead200>(getMarkAllNotificationsReadUrl(deviceId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkAllNotificationsReadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAllNotificationsRead>>, TError,{deviceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markAllNotificationsRead>>, TError,{deviceId: string}, TContext> => {
+
+const mutationKey = ['markAllNotificationsRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markAllNotificationsRead>>, {deviceId: string}> = (props) => {
+          const {deviceId} = props ?? {};
+
+          return  markAllNotificationsRead(deviceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkAllNotificationsReadMutationResult = NonNullable<Awaited<ReturnType<typeof markAllNotificationsRead>>>
+
+    export type MarkAllNotificationsReadMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark all notifications for a device as read
+ */
+export const useMarkAllNotificationsRead = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAllNotificationsRead>>, TError,{deviceId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markAllNotificationsRead>>,
+        TError,
+        {deviceId: string},
+        TContext
+      > => {
+      return useMutation(getMarkAllNotificationsReadMutationOptions(options));
+    }
+
+export const getRegisterPushTokenUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/profile/${deviceId}/push-token`
+}
+
+/**
+ * @summary Register or update the Expo push token for a device
+ */
+export const registerPushToken = async (deviceId: string,
+    registerPushTokenRequest: RegisterPushTokenRequest, options?: RequestInit): Promise<RegisterPushToken200> => {
+
+  return customFetch<RegisterPushToken200>(getRegisterPushTokenUrl(deviceId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(registerPushTokenRequest)
+  }
+);}
+
+
+
+
+
+export const getRegisterPushTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{deviceId: string;data: BodyType<RegisterPushTokenRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{deviceId: string;data: BodyType<RegisterPushTokenRequest>}, TContext> => {
+
+const mutationKey = ['registerPushToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerPushToken>>, {deviceId: string;data: BodyType<RegisterPushTokenRequest>}> = (props) => {
+          const {deviceId,data} = props ?? {};
+
+          return  registerPushToken(deviceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterPushTokenMutationResult = NonNullable<Awaited<ReturnType<typeof registerPushToken>>>
+    export type RegisterPushTokenMutationBody = BodyType<RegisterPushTokenRequest>
+    export type RegisterPushTokenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Register or update the Expo push token for a device
+ */
+export const useRegisterPushToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{deviceId: string;data: BodyType<RegisterPushTokenRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerPushToken>>,
+        TError,
+        {deviceId: string;data: BodyType<RegisterPushTokenRequest>},
+        TContext
+      > => {
+      return useMutation(getRegisterPushTokenMutationOptions(options));
+    }
+
 export const getGetLeaderboardUrl = () => {
 
 
@@ -1128,7 +1426,7 @@ export const getGetLeaderboardUrl = () => {
 }
 
 /**
- * @summary Top spotters by points
+ * @summary Top spotters ranked by points
  */
 export const getLeaderboard = async ( options?: RequestInit): Promise<LeaderboardEntry[]> => {
 
@@ -1175,7 +1473,7 @@ export type GetLeaderboardQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Top spotters by points
+ * @summary Top spotters ranked by points
  */
 
 export function useGetLeaderboard<TData = Awaited<ReturnType<typeof getLeaderboard>>, TError = ErrorType<unknown>>(

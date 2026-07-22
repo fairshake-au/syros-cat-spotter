@@ -5,6 +5,63 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+export interface RegisterPushTokenRequest {
+  token: string;
+}
+
+export type CreateCatUpdateRequestUpdateType = typeof CreateCatUpdateRequestUpdateType[keyof typeof CreateCatUpdateRequestUpdateType];
+
+
+export const CreateCatUpdateRequestUpdateType = {
+  desexed: 'desexed',
+  adopted: 'adopted',
+  general: 'general',
+} as const;
+
+export interface CreateCatUpdateRequest {
+  updateType: CreateCatUpdateRequestUpdateType;
+  message: string;
+}
+
+export type CatUpdateUpdateType = typeof CatUpdateUpdateType[keyof typeof CatUpdateUpdateType];
+
+
+export const CatUpdateUpdateType = {
+  sighting: 'sighting',
+  desexed: 'desexed',
+  adopted: 'adopted',
+  general: 'general',
+} as const;
+
+export interface CatUpdate {
+  id: number;
+  catId: number;
+  updateType: CatUpdateUpdateType;
+  message: string;
+  createdAt: string;
+}
+
+export type AppNotificationUpdateType = typeof AppNotificationUpdateType[keyof typeof AppNotificationUpdateType];
+
+
+export const AppNotificationUpdateType = {
+  sighting: 'sighting',
+  desexed: 'desexed',
+  adopted: 'adopted',
+  general: 'general',
+} as const;
+
+export interface AppNotification {
+  id: number;
+  catId: number;
+  catName: string;
+  catPhotoUrl: string;
+  updateType: AppNotificationUpdateType;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -214,5 +271,13 @@ lng?: number;
 
 export type CheckUsernameAvailabilityParams = {
 name: string;
+};
+
+export type MarkAllNotificationsRead200 = {
+  updated: number;
+};
+
+export type RegisterPushToken200 = {
+  ok: boolean;
 };
 

@@ -16,6 +16,8 @@ tags:
     description: Cat sightings and matching
   - name: profiles
     description: Device profiles, points, badges
+  - name: notifications
+    description: Cat update notifications and push tokens
 paths:
   /healthz:
     get:
@@ -143,6 +145,35 @@ paths:
           description: Not found
         "409":
           description: Cat already claimed by a different device
+  /cats/{catId}/updates:
+    post:
+      operationId: createCatUpdate
+      tags: [notifications]
+      summary: Owner-only — broadcast an update about a cat to its subscribers
+      security:
+        - ownerToken: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCatUpdateRequest"
+      responses:
+        "201":
+          description: Update created and fanned out to subscribers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatUpdate"
+        "401":
+          description: Missing or invalid owner token
+        "404":
+          description: Cat not found
   /sightings:
     post:
       operationId: createSighting
@@ -302,20 +333,83 @@ paths:
               $ref: "#/components/schemas/ClaimUsernameRequest"
       responses:
         "200":
-          description: Updated profile
+          description: Username claimed
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
-        "400":
-          description: Invalid username
         "409":
           description: Username already taken
+  /notifications/{deviceId}:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications for a device, newest first
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppNotification"
+  /notifications/{deviceId}/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications for a device as read
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: All notifications marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated: { type: integer }
+                required: [updated]
+  /profile/{deviceId}/push-token:
+    put:
+      operationId: registerPushToken
+      tags: [notifications]
+      summary: Register or update the Expo push token for a device
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterPushTokenRequest"
+      responses:
+        "200":
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                required: [ok]
   /leaderboard:
     get:
       operationId: getLeaderboard
       tags: [profiles]
-      summary: Top spotters by points
+      summary: Top spotters ranked by points
       responses:
         "200":
           description: Leaderboard entries
@@ -326,7 +420,50 @@ paths:
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
 components:
+  securitySchemes:
+    ownerToken:
+      type: http
+      scheme: bearer
+      description: OWNER_SECRET bearer token for owner-only endpoints
   schemas:
+    RegisterPushTokenRequest:
+      type: object
+      properties:
+        token: { type: string }
+      required: [token]
+    CreateCatUpdateRequest:
+      type: object
+      properties:
+        updateType:
+          type: string
+          enum: [desexed, adopted, general]
+        message: { type: string }
+      required: [updateType, message]
+    CatUpdate:
+      type: object
+      properties:
+        id: { type: integer }
+        catId: { type: integer }
+        updateType:
+          type: string
+          enum: [sighting, desexed, adopted, general]
+        message: { type: string }
+        createdAt: { type: string }
+      required: [id, catId, updateType, message, createdAt]
+    AppNotification:
+      type: object
+      properties:
+        id: { type: integer }
+        catId: { type: integer }
+        catName: { type: string }
+        catPhotoUrl: { type: string }
+        updateType:
+          type: string
+          enum: [sighting, desexed, adopted, general]
+        message: { type: string }
+        read: { type: boolean }
+        createdAt: { type: string }
+      required: [id, catId, catName, catPhotoUrl, updateType, message, read, createdAt]
     HealthStatus:
       type: object
       properties:

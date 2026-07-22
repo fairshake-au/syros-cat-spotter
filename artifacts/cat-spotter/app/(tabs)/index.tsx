@@ -17,6 +17,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { absoluteUrl, SYROS_CENTER } from '@/lib/urls';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function MapScreen() {
   const colors = useColors();
@@ -52,9 +53,12 @@ export default function MapScreen() {
           },
         ]}
       >
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('appName')}
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            {t('appName')}
+          </Text>
+          <NotificationBell />
+        </View>
         {locating && (
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {t('locating')}
@@ -114,6 +118,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: { fontSize: 22, fontFamily: 'Poppins_700Bold' },
   subtitle: { fontSize: 12, fontFamily: 'Nunito_400Regular', marginTop: 2 },

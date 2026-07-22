@@ -190,6 +190,27 @@ export const ClaimCatResponse = zod.object({
 
 
 /**
+ * @summary Owner-only — broadcast an update about a cat to its subscribers
+ */
+export const CreateCatUpdateParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+export const CreateCatUpdateBody = zod.object({
+  "updateType": zod.enum(['desexed', 'adopted', 'general']),
+  "message": zod.string()
+})
+
+export const CreateCatUpdateResponse = zod.object({
+  "id": zod.number(),
+  "catId": zod.number(),
+  "updateType": zod.enum(['sighting', 'desexed', 'adopted', 'general']),
+  "message": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Submit a cat photo and location; returns AI match candidates
  */
 export const CreateSightingBody = zod.object({
@@ -369,7 +390,55 @@ export const ClaimUsernameResponse = zod.object({
 
 
 /**
- * @summary Top spotters by points
+ * @summary List notifications for a device, newest first
+ */
+export const ListNotificationsParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const ListNotificationsResponseItem = zod.object({
+  "id": zod.number(),
+  "catId": zod.number(),
+  "catName": zod.string(),
+  "catPhotoUrl": zod.string(),
+  "updateType": zod.enum(['sighting', 'desexed', 'adopted', 'general']),
+  "message": zod.string(),
+  "read": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+
+
+/**
+ * @summary Mark all notifications for a device as read
+ */
+export const MarkAllNotificationsReadParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const MarkAllNotificationsReadResponse = zod.object({
+  "updated": zod.number()
+})
+
+
+/**
+ * @summary Register or update the Expo push token for a device
+ */
+export const RegisterPushTokenParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const RegisterPushTokenBody = zod.object({
+  "token": zod.string()
+})
+
+export const RegisterPushTokenResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Top spotters ranked by points
  */
 export const GetLeaderboardResponseItem = zod.object({
   "spotterCode": zod.string().describe('Opaque public spotter identifier (never the raw device id)'),

@@ -21,9 +21,9 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { LanguageProvider } from '@/context/LanguageContext';
-import { DeviceProvider } from '@/context/DeviceContext';
+import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
-import { useDevice } from '@/context/DeviceContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 import { LandingScreen } from '@/components/LandingScreen';
 import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
@@ -52,6 +52,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="cat/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="review" options={{ headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -98,11 +99,13 @@ export default function RootLayout() {
           <LanguageProvider>
             <DeviceProvider>
               <OfflineProvider>
-                <GestureHandlerRootView>
-                  <KeyboardProvider>
-                    <OnboardingGate />
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
+                <NotificationProvider>
+                  <GestureHandlerRootView>
+                    <KeyboardProvider>
+                      <OnboardingGate />
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </NotificationProvider>
               </OfflineProvider>
             </DeviceProvider>
           </LanguageProvider>

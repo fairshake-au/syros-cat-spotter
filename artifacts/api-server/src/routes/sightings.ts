@@ -18,6 +18,8 @@ import {
   profilePayload,
 } from "../lib/catHelpers";
 import { badgesFor } from "../lib/badges";
+import { createUpdateAndFanOut } from "../lib/notificationFanout";
+import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 
@@ -206,6 +208,23 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       target: profilesTable.deviceId,
       set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
     });
+
+  // Auto-subscribe the resolving spotter to this cat, then notify the cat's
+  // other subscribers that it was spotted again.
+  await db
+    .insert(catSubscriptionsTable)
+    .values({ deviceId: sighting.deviceId, catId: cat.id })
+    .onConflictDoNothing();
+
+  await createUpdateAndFanOut({
+    cat,
+    updateType: "sighting",
+    message: isNewCat
+      ? `${cat.name} was just discovered on Syros!`
+      : `${cat.name} was spotted again!`,
+    triggerSightingId: sightingId,
+    excludeDeviceId: sighting.deviceId,
+  });
 
   const profile = await profilePayload(sighting.deviceId);
   const newBadges = profile.badges.filter((b) => !badgesBefore.includes(b));

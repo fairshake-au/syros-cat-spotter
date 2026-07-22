@@ -16,6 +16,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { CatCard } from '@/components/CatCard';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function CatsScreen() {
   const colors = useColors();
@@ -37,9 +38,12 @@ export default function CatsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('allCats')}
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            {t('allCats')}
+          </Text>
+          <NotificationBell />
+        </View>
         <View
           style={[
             styles.searchBox,
@@ -88,6 +92,11 @@ export default function CatsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingBottom: 10, gap: 10 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: { fontSize: 22, fontFamily: 'Poppins_700Bold' },
   searchBox: {
     flexDirection: 'row',
