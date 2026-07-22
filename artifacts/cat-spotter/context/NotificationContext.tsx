@@ -17,7 +17,33 @@ import {
   useRegisterPushToken,
   type AppNotification,
 } from '@workspace/api-client-react';
+import { router } from 'expo-router';
+import { getCat } from '@workspace/api-client-react';
 import { useDevice } from './DeviceContext';
+
+/**
+ * Navigate to the cat referenced by a tapped push notification, or fall
+ * back to the notifications inbox when the cat no longer exists (or the
+ * payload has no usable catId).
+ */
+async function handleNotificationResponse(
+  response: Notifications.NotificationResponse,
+) {
+  const data = response.notification.request.content.data as
+    | Record<string, unknown>
+    | undefined;
+  const catId = Number(data?.catId);
+  if (Number.isFinite(catId) && catId > 0) {
+    try {
+      await getCat(catId);
+      router.push(`/cat/${catId}`);
+      return;
+    } catch {
+      // Cat is gone (or unreachable) — fall through to the inbox.
+    }
+  }
+  router.push('/notifications');
+}
 
 // Foreground notifications show a banner and update the badge.
 Notifications.setNotificationHandler({
@@ -93,6 +119,27 @@ export function NotificationProvider({
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
+
+  // Deep-link when the user taps a push notification: foreground/background
+  // taps arrive via the listener; a cold-start tap is retrieved once.
+  const coldStartHandledRef = useRef(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        void handleNotificationResponse(response);
+      },
+    );
+    if (!coldStartHandledRef.current) {
+      coldStartHandledRef.current = true;
+      Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (response) void handleNotificationResponse(response);
+        })
+        .catch(() => {});
+    }
+    return () => sub.remove();
+  }, []);
 
   const query = useListNotifications(deviceId ?? '', {
     query: {
