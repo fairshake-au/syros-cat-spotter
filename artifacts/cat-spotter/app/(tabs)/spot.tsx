@@ -24,6 +24,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
+import { SightingPhoto } from '@/components/SightingPhoto';
 
 interface PickedPhoto {
   uri: string;
@@ -333,8 +334,9 @@ export default function SpotScreen() {
                   { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
-                <Image
-                  source={{ uri: item.photoUri }}
+                <SightingPhoto
+                  uri={item.photoUri}
+                  base64={item.photoBase64}
                   style={styles.pendingThumb}
                   contentFit="cover"
                 />

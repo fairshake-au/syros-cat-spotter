@@ -23,6 +23,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useDevice } from '@/context/DeviceContext';
+import { SightingPhoto } from '@/components/SightingPhoto';
 import { absoluteUrl } from '@/lib/urls';
 
 interface ReviewData {
@@ -39,7 +40,7 @@ export default function ReviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { remove } = useOffline();
+  const { remove, pending } = useOffline();
   const { deviceId } = useDevice();
   const params = useLocalSearchParams<{ data?: string }>();
 
@@ -209,8 +210,13 @@ export default function ReviewScreen() {
             <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
               {t('yourPhoto')}
             </Text>
-            <Image
-              source={{ uri: data.photoUri }}
+            <SightingPhoto
+              uri={data.photoUri}
+              base64={
+                data.localId
+                  ? pending.find((p) => p.localId === data.localId)?.photoBase64
+                  : undefined
+              }
               style={[styles.photo, { borderColor: colors.border }]}
               contentFit="cover"
             />
