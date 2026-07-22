@@ -1,1 +1,2 @@
 - [Anonymous device identity](anonymous-device-identity.md) — device ids are bearer credentials; public API responses must expose opaque spotterCode only, never raw device ids.
+- [Dev DB schema drift](db-schema-drift.md) — drizzle "Failed query" 500s usually mean the dev DB is behind the schema; run the db package's push script before debugging app code.

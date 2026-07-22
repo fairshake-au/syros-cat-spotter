@@ -24,6 +24,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { UsernameEditor } from '@/components/UsernameEditor';
 import { BADGE_IDS, BADGE_ICONS, LANGUAGES } from '@/lib/i18n';
 
 export default function ProfileScreen() {
@@ -137,6 +138,11 @@ export default function ProfileScreen() {
               </View>
             </View>
           </View>
+        )}
+
+        {/* Username */}
+        {isOnline && !!deviceId && (
+          <UsernameEditor currentUsername={profile?.username ?? null} />
         )}
 
         {/* Nickname */}
