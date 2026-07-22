@@ -7,7 +7,7 @@ const router: IRouter = Router();
 router.get("/photos/:photoId", async (req, res) => {
   const photoId = Number(req.params.photoId);
   if (!Number.isInteger(photoId)) {
-    res.status(404).end();
+    res.status(404).json({ error: "Not found" });
     return;
   }
   const [photo] = await db
@@ -15,7 +15,7 @@ router.get("/photos/:photoId", async (req, res) => {
     .from(photosTable)
     .where(eq(photosTable.id, photoId));
   if (!photo) {
-    res.status(404).end();
+    res.status(404).json({ error: "Not found" });
     return;
   }
   const buffer = Buffer.from(photo.data, "base64");

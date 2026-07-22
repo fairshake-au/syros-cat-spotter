@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import express from "express";
 import request from "supertest";
 import { jsonErrorHandler } from "./app";
+import app from "./app";
 
 // The handler is registered last in app.ts (after the /api router), so any
 // error thrown by a route flows into it. Here we exercise the exported
@@ -36,5 +37,20 @@ describe("JSON error handler", () => {
     expect(res.body).toEqual({
       error: "Something went wrong. Please try again.",
     });
+  });
+});
+
+describe("JSON 404 for unmatched /api routes", () => {
+  it("returns { error: 'Not found' } JSON instead of HTML", async () => {
+    const res = await request(app).get("/api/does-not-exist");
+    expect(res.status).toBe(404);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.body).toEqual({ error: "Not found" });
+  });
+
+  it("covers non-GET methods too", async () => {
+    const res = await request(app).post("/api/nope").send({});
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Not found" });
   });
 });

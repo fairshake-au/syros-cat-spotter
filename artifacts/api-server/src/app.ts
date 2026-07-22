@@ -41,6 +41,13 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// JSON 404 for any unmatched /api route: without this, requests fall through
+// to Express's default HTML 404 page, which the mobile app can't distinguish
+// from a real server failure.
+app.use("/api", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Not found" });
+});
+
 // JSON error handler: log full details server-side, but never leak stack
 // traces, SQL, or other internals to clients (Express default is an HTML
 // page containing the full stack trace).
