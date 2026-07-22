@@ -128,25 +128,25 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  --background: 206 75% 11%;     /* aegean-950 deep night navy */
+  --foreground: 43 78% 98%;      /* stone-000 whitewash */
+  --card: 205 78% 18%;           /* aegean-900 */
+  --card-foreground: 43 78% 98%;
+  --popover: 205 78% 18%;
+  --popover-foreground: 43 78% 98%;
+  --primary: 206 71% 52%;        /* aegean-500 */
+  --primary-foreground: 43 78% 98%;
+  --secondary: 204 77% 25%;      /* aegean-800 */
+  --secondary-foreground: 206 78% 89%; /* aegean-200 */
+  --muted: 204 77% 25%;          /* aegean-800 */
+  --muted-foreground: 207 18% 76%; /* stone-400 */
+  --accent: 338 76% 62%;         /* bougain-500 */
+  --accent-foreground: 43 78% 98%;
+  --destructive: 15 69% 61%;     /* terra-600 */
+  --destructive-foreground: 206 75% 11%;
+  --border: 204 77% 25%;         /* aegean-800 */
+  --input: 204 77% 25%;
+  --ring: 206 71% 52%;           /* aegean-500 */
   --chart-1: 220 70% 50%;
   --chart-2: 160 60% 45%;
   --chart-3: 30 80% 55%;

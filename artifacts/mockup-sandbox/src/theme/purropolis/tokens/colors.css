@@ -4,6 +4,7 @@
 :root {
   /* ---- Base palette ---- */
   /* Aegean — the primary brand blue (dome-and-shutter blue) */
+  --aegean-950: #071e30; /* deep night Aegean (dark-mode page) */
   --aegean-900: #0a3350;
   --aegean-800: #0f4a72;
   --aegean-700: #135f92;
@@ -88,4 +89,42 @@
   --status-danger-soft: var(--terra-100);
   --status-info: var(--aegean-500);
   --status-info-soft: var(--aegean-100);
+}
+
+/* Purropolis dark mode — a Cycladic night: deep Aegean navy surfaces,
+   whitewash text, the same bougainvillea/sun/terracotta accents. */
+.dark {
+  --color-primary: var(--aegean-500);
+  --color-primary-hover: var(--aegean-400);
+  --color-primary-press: var(--aegean-600);
+  --color-primary-soft: var(--aegean-800);
+  --color-accent: var(--bougain-500);
+  --color-accent-hover: var(--bougain-300);
+  --color-highlight: var(--sun-500);
+
+  --text-strong: var(--stone-000);
+  --text-body: var(--stone-200);
+  --text-muted: var(--stone-400);
+  --text-faint: var(--stone-500);
+  --text-on-primary: var(--stone-000);
+  --text-link: var(--aegean-300);
+  --text-link-hover: var(--bougain-300);
+
+  --surface-page: var(--aegean-950);
+  --surface-card: var(--aegean-900);
+  --surface-sunk: var(--aegean-800);
+  --surface-inverse: var(--stone-100);
+
+  --border-soft: var(--aegean-800);
+  --border-strong: var(--aegean-700);
+  --border-focus: var(--aegean-400);
+
+  --status-success: var(--olive-500);
+  --status-success-soft: #20290f;
+  --status-warning: var(--sun-500);
+  --status-warning-soft: #33270c;
+  --status-danger: var(--terra-600);
+  --status-danger-soft: #3a1d10;
+  --status-info: var(--aegean-400);
+  --status-info-soft: #0c3b5d;
 }

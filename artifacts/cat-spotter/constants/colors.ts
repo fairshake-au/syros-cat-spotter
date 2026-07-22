@@ -7,6 +7,7 @@
 
 /** Raw Purropolis palette (base ramps). */
 export const palette = {
+  aegean950: '#071e30', // deep night Aegean (dark-mode page)
   aegean900: '#0a3350',
   aegean800: '#0f4a72',
   aegean700: '#135f92',
@@ -103,6 +104,57 @@ const colors = {
     // Borders and input outlines
     border: palette.stone300, // border-soft
     input: palette.stone300,
+  },
+
+  dark: {
+    // Legacy aliases (kept for backward compatibility)
+    text: palette.stone000,
+    tint: palette.aegean500,
+
+    // Core surfaces — deep Aegean night navy with whitewash text
+    background: palette.aegean950, // surface-page
+    foreground: palette.stone000, // text-strong
+
+    // Cards / elevated surfaces
+    card: palette.aegean900, // surface-card
+    cardForeground: palette.stone000,
+
+    // Primary action color (brighter aegean for contrast on navy)
+    primary: palette.aegean500,
+    primaryForeground: palette.stone000, // text-on-primary
+
+    // Secondary / less-emphasis interactive surfaces
+    secondary: palette.aegean800, // color-primary-soft (dark)
+    secondaryForeground: palette.aegean200,
+
+    // Muted / subdued elements (dividers, timestamps, placeholders)
+    muted: palette.aegean800, // surface-sunk (dark)
+    mutedForeground: palette.stone400, // text-muted (dark)
+
+    // Accent highlights (badges, selected items, focus rings)
+    accent: palette.bougain500,
+    accentForeground: palette.stone000,
+
+    // Highlight (marigold sun)
+    highlight: palette.sun500,
+
+    // Destructive actions (lighter terra for contrast on navy)
+    destructive: palette.terra600, // status-danger (dark)
+    destructiveForeground: palette.stone000,
+
+    // Status colors (soft tints become deep night washes)
+    success: palette.olive500,
+    successSoft: '#20290f',
+    warning: palette.sun500,
+    warningSoft: '#33270c',
+    danger: palette.terra600,
+    dangerSoft: '#3a1d10',
+    info: palette.aegean400,
+    infoSoft: '#0c3b5d',
+
+    // Borders and input outlines
+    border: palette.aegean800, // border-soft (dark)
+    input: palette.aegean800,
   },
 
   radius: 14, // --radius-md
