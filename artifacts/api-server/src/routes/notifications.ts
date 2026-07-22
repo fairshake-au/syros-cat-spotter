@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { photoUrl } from "../lib/catHelpers";
+import { requireDeviceAuth } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 
 const router: IRouter = Router();
@@ -53,11 +54,8 @@ router.post("/cats/:catId/updates", async (req, res) => {
 });
 
 router.get("/notifications/:deviceId", async (req, res) => {
-  const deviceId = String(req.params.deviceId);
-  if (!deviceId || deviceId.length > 128) {
-    res.status(400).json({ error: "Invalid device id" });
-    return;
-  }
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
 
   const rows = await db
     .select({
@@ -94,11 +92,8 @@ router.get("/notifications/:deviceId", async (req, res) => {
 });
 
 router.post("/notifications/:deviceId/read-all", async (req, res) => {
-  const deviceId = String(req.params.deviceId);
-  if (!deviceId || deviceId.length > 128) {
-    res.status(400).json({ error: "Invalid device id" });
-    return;
-  }
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
 
   const updated = await db
     .update(notificationsTable)
@@ -115,11 +110,8 @@ router.post("/notifications/:deviceId/read-all", async (req, res) => {
 });
 
 router.put("/profile/:deviceId/push-token", async (req, res) => {
-  const deviceId = String(req.params.deviceId);
-  if (!deviceId || deviceId.length > 128) {
-    res.status(400).json({ error: "Invalid device id" });
-    return;
-  }
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
   const body = RegisterPushTokenBody.parse(req.body);
 
   await db

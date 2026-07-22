@@ -356,7 +356,7 @@ export const CheckUsernameAvailabilityQueryParams = zod.object({
 
 export const CheckUsernameAvailabilityResponse = zod.object({
   "available": zod.boolean(),
-  "reason": zod.string().nullish().describe('Why the name is unavailable (\"taken\" or \"invalid\")')
+  "reason": zod.string().nullish().describe('Why the name is unavailable (\"taken\", \"invalid\" or \"offensive\")')
 })
 
 
@@ -404,6 +404,10 @@ export const ListNotificationsParams = zod.object({
   "deviceId": zod.coerce.string()
 })
 
+export const ListNotificationsHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
 export const ListNotificationsResponseItem = zod.object({
   "id": zod.number(),
   "catId": zod.number(),
@@ -424,6 +428,10 @@ export const MarkAllNotificationsReadParams = zod.object({
   "deviceId": zod.coerce.string()
 })
 
+export const MarkAllNotificationsReadHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
 export const MarkAllNotificationsReadResponse = zod.object({
   "updated": zod.number()
 })
@@ -434,6 +442,10 @@ export const MarkAllNotificationsReadResponse = zod.object({
  */
 export const RegisterPushTokenParams = zod.object({
   "deviceId": zod.coerce.string()
+})
+
+export const RegisterPushTokenHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
 })
 
 export const RegisterPushTokenBody = zod.object({

@@ -8,6 +8,6 @@
 
 export interface UsernameAvailability {
   available: boolean;
-  /** Why the name is unavailable ("taken" or "invalid") */
+  /** Why the name is unavailable ("taken", "invalid" or "offensive") */
   reason?: string | null;
 }

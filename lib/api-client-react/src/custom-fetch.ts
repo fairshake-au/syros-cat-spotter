@@ -44,6 +44,20 @@ export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
 }
 
+let _deviceSecretGetter: AuthTokenGetter | null = null;
+
+/**
+ * Register a getter that supplies the device's private secret. Before every
+ * fetch the getter is invoked; when it returns a non-null string, an
+ * `X-Device-Secret` header is attached to the request. The API uses it to
+ * verify ownership of the device id on owner-only endpoints.
+ *
+ * Pass `null` to clear the getter.
+ */
+export function setDeviceSecretGetter(getter: AuthTokenGetter | null): void {
+  _deviceSecretGetter = getter;
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -355,6 +369,15 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  // Attach the device secret when a getter is configured and the header
+  // has not been explicitly provided.
+  if (_deviceSecretGetter && !headers.has("x-device-secret")) {
+    const secret = await _deviceSecretGetter();
+    if (secret) {
+      headers.set("x-device-secret", secret);
     }
   }
 

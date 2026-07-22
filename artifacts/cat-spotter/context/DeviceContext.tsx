@@ -7,8 +7,10 @@ import React, {
   useState,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setDeviceSecretGetter } from '@workspace/api-client-react';
 
 const STORAGE_KEY = 'cat-spotter/device-id';
+const SECRET_KEY = 'cat-spotter/device-secret';
 const USERNAME_KEY = 'cat-spotter/username';
 const OWNED_CATS_KEY = 'cat-spotter/owned-cat-ids';
 
@@ -16,6 +18,19 @@ function makeDeviceId(): string {
   return (
     'dev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
   );
+}
+
+/**
+ * Private per-device secret, sent as the `X-Device-Secret` header so the
+ * server can verify this device owns its deviceId. Never shown in the UI
+ * and never included in URLs or request bodies.
+ */
+function makeDeviceSecret(): string {
+  let secret = '';
+  while (secret.length < 32) {
+    secret += Math.random().toString(36).slice(2);
+  }
+  return 'sec-' + Date.now().toString(36) + '-' + secret.slice(0, 32);
 }
 
 interface DeviceContextValue {
@@ -56,7 +71,14 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.getItem(STORAGE_KEY),
       AsyncStorage.getItem(USERNAME_KEY),
       AsyncStorage.getItem(OWNED_CATS_KEY),
-    ]).then(async ([storedId, storedName, storedOwned]) => {
+      AsyncStorage.getItem(SECRET_KEY),
+    ]).then(async ([storedId, storedName, storedOwned, storedSecret]) => {
+      let secret = storedSecret;
+      if (!secret) {
+        secret = makeDeviceSecret();
+        await AsyncStorage.setItem(SECRET_KEY, secret);
+      }
+      setDeviceSecretGetter(() => secret);
       if (storedOwned) {
         try {
           const parsed = JSON.parse(storedOwned);

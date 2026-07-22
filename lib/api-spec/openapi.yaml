@@ -350,6 +350,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
       responses:
         "200":
           description: Notifications
@@ -369,6 +370,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
       responses:
         "200":
           description: All notifications marked read
@@ -389,6 +391,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
       requestBody:
         required: true
         content:
@@ -420,6 +423,15 @@ paths:
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
 components:
+  parameters:
+    DeviceSecretHeader:
+      name: X-Device-Secret
+      in: header
+      required: true
+      description: >-
+        Device-generated private secret proving ownership of the device id.
+        Bound to the device id on first use; must match on later requests.
+      schema: { type: string }
   securitySchemes:
     ownerToken:
       type: http

@@ -1,3 +1,4 @@
+- [Device secret auth](device-secret-auth.md) — owner-only endpoints need the X-Device-Secret header (TOFU-bound hash); never trust a deviceId from path/body alone.
 - [Anonymous device identity](anonymous-device-identity.md) — device ids are bearer credentials; public API responses must expose opaque spotterCode only, never raw device ids.
 - [Dev DB schema drift](db-schema-drift.md) — drizzle "Failed query" 500s usually mean the dev DB is behind the schema; run the db package's push script before debugging app code.
 - [Typecheck needs libs built first](typecheck-project-refs.md) — run root `typecheck:libs` before per-artifact tsc, or stale lib dist causes phantom TS2339 errors.

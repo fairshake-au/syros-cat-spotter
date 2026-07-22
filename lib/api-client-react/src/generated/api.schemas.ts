@@ -241,7 +241,7 @@ export interface UpdateProfileRequest {
 
 export interface UsernameAvailability {
   available: boolean;
-  /** Why the name is unavailable ("taken" or "invalid") */
+  /** Why the name is unavailable ("taken", "invalid" or "offensive") */
   reason?: string | null;
 }
 
@@ -266,6 +266,11 @@ export interface LeaderboardEntry {
   uniqueCatsDiscovered: number;
   rank: number;
 }
+
+/**
+ * Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.
+ */
+export type DeviceSecretHeaderParameter = string;
 
 export type ListCatsParams = {
 lat?: number;
