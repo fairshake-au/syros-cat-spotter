@@ -19,6 +19,7 @@ import {
 } from "../lib/catHelpers";
 import { badgesFor } from "../lib/badges";
 import { matchCatPhoto } from "../lib/matching";
+import { validatePhotoBase64 } from "../lib/imageValidation";
 
 const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
@@ -29,9 +30,16 @@ const router: IRouter = Router();
 router.post("/sightings", async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
 
+  const validated = validatePhotoBase64(body.photoBase64);
+  if ("error" in validated) {
+    res.status(400).json({ error: validated.error });
+    return;
+  }
+  const normalizedBase64 = validated.buffer.toString("base64");
+
   const [photo] = await db
     .insert(photosTable)
-    .values({ data: body.photoBase64, mime: "image/jpeg" })
+    .values({ data: normalizedBase64, mime: validated.mime })
     .returning();
   const [sighting] = await db
     .insert(sightingsTable)
@@ -80,7 +88,7 @@ router.post("/sightings", async (req, res) => {
         });
       }
     }
-    const result = await matchCatPhoto(body.photoBase64, candidateInputs);
+    const result = await matchCatPhoto(normalizedBase64, candidateInputs);
     isCatPhoto = result.isCatPhoto;
     const byId = new Map(nearest.map((n) => [n.cat.id, n.cat]));
     candidates = result.matches

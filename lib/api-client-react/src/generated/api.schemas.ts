@@ -38,7 +38,7 @@ export interface CatDetail {
 
 export interface CreateSightingRequest {
   deviceId: string;
-  /** JPEG image as base64 (no data URI prefix) */
+  /** JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded */
   photoBase64: string;
   lat: number;
   lng: number;

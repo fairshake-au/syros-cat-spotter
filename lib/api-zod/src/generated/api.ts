@@ -74,7 +74,7 @@ export const GetCatResponse = zod.object({
  */
 export const CreateSightingBody = zod.object({
   "deviceId": zod.string(),
-  "photoBase64": zod.string().describe('JPEG image as base64 (no data URI prefix)'),
+  "photoBase64": zod.string().describe('JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded'),
   "lat": zod.number(),
   "lng": zod.number()
 })

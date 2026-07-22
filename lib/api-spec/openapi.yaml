@@ -89,6 +89,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MatchResult"
+        "400":
+          description: Invalid image (not JPEG/PNG, malformed base64, or over 5 MB decoded)
   /sightings/{sightingId}/resolve:
     post:
       operationId: resolveSighting
@@ -199,7 +201,7 @@ components:
         deviceId: { type: string }
         photoBase64:
           type: string
-          description: JPEG image as base64 (no data URI prefix)
+          description: JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded
         lat: { type: number }
         lng: { type: number }
       required: [deviceId, photoBase64, lat, lng]
