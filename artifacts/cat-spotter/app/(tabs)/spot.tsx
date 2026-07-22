@@ -22,6 +22,8 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useLocation } from '@/hooks/useLocation';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { LocationPicker } from '@/components/LocationPicker';
+import { useOfflineTiles } from '@/lib/offlineTiles';
 
 interface PickedPhoto {
   uri: string;
@@ -47,6 +49,23 @@ export default function SpotScreen() {
   const { coords, denied, loading: locating, refresh } = useLocation();
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The location the user confirms on the map (initialized from GPS).
+  const [pickedCoords, setPickedCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const tiles = useOfflineTiles();
+
+  React.useEffect(() => {
+    if (photo && coords && !pickedCoords) {
+      setPickedCoords({ latitude: coords.latitude, longitude: coords.longitude });
+    }
+  }, [photo, coords, pickedCoords]);
+
+  const clearPhoto = () => {
+    setPhoto(null);
+    setPickedCoords(null);
+  };
 
   const pickPhoto = async (fromCamera: boolean) => {
     try {
@@ -69,17 +88,19 @@ export default function SpotScreen() {
   };
 
   const submit = async () => {
-    if (!photo || !coords || !deviceId) return;
+    // Require the explicitly confirmed location — never raw GPS.
+    const finalCoords = pickedCoords;
+    if (!photo || !finalCoords || !deviceId) return;
     if (!isOnline) {
       await enqueue({
         localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         photoBase64: photo.base64,
         photoUri: photo.uri,
-        lat: coords.latitude,
-        lng: coords.longitude,
+        lat: finalCoords.latitude,
+        lng: finalCoords.longitude,
         createdAt: new Date().toISOString(),
       });
-      setPhoto(null);
+      clearPhoto();
       Alert.alert(t('queuedOffline'));
       return;
     }
@@ -88,10 +109,10 @@ export default function SpotScreen() {
       const result = await createSighting({
         deviceId,
         photoBase64: photo.base64,
-        lat: coords.latitude,
-        lng: coords.longitude,
+        lat: finalCoords.latitude,
+        lng: finalCoords.longitude,
       });
-      setPhoto(null);
+      clearPhoto();
       router.push({
         pathname: '/review',
         params: {
@@ -151,7 +172,7 @@ export default function SpotScreen() {
               contentFit="cover"
             />
             <Pressable
-              onPress={() => setPhoto(null)}
+              onPress={clearPhoto}
               style={[styles.smallBtn, { backgroundColor: colors.secondary }]}
             >
               <Feather
@@ -230,14 +251,40 @@ export default function SpotScreen() {
           </Text>
         )}
 
+        {photo && pickedCoords && (
+          <View style={{ gap: 8 }}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {t('confirmLocation')}
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              {t('confirmLocationHint')}
+            </Text>
+            <LocationPicker
+              latitude={pickedCoords.latitude}
+              longitude={pickedCoords.longitude}
+              onChange={setPickedCoords}
+              pinColor={colors.accent}
+              style={styles.locationPicker}
+            />
+            {tiles.downloading && (
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                {t('mapDownloading').replace(
+                  '{pct}',
+                  String(Math.round(tiles.progress * 100)),
+                )}
+              </Text>
+            )}
+          </View>
+        )}
+
         <Pressable
           onPress={submit}
-          disabled={!photo || !coords || submitting || !deviceId}
+          disabled={!photo || !pickedCoords || submitting || !deviceId}
           style={[
             styles.submitBtn,
             {
               backgroundColor: colors.accent,
-              opacity: !photo || !coords || submitting ? 0.5 : 1,
+              opacity: !photo || !pickedCoords || submitting ? 0.5 : 1,
             },
           ]}
         >
@@ -361,6 +408,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   smallBtnText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  locationPicker: { height: 260 },
   denied: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   submitBtn: {
     flexDirection: 'row',

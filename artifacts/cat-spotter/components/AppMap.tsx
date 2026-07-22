@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { Image } from 'expo-image';
+import { OsmTiles } from './OsmTiles';
 
 export interface AppMapMarker {
   id: string;
@@ -44,6 +45,7 @@ export function AppMap({
       scrollEnabled={interactive}
       zoomEnabled={interactive}
     >
+      <OsmTiles />
       {markers.map((m) => (
         <Marker
           key={m.id}

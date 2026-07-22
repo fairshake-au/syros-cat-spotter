@@ -16,8 +16,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider } from '@/context/DeviceContext';
-import { OfflineProvider } from '@/context/OfflineContext';
+import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
+import { ensureOfflineTiles } from '@/lib/offlineTiles';
 
 setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 
@@ -25,6 +26,17 @@ setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+/** Downloads the offline Syros map tiles on first launch, retries on reconnect. */
+function OfflineTilesLoader() {
+  const { isOnline } = useOffline();
+  useEffect(() => {
+    if (isOnline) {
+      ensureOfflineTiles();
+    }
+  }, [isOnline]);
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -61,6 +73,7 @@ export default function RootLayout() {
               <OfflineProvider>
                 <GestureHandlerRootView>
                   <KeyboardProvider>
+                    <OfflineTilesLoader />
                     <RootLayoutNav />
                     <ReviewReadyBanner />
                   </KeyboardProvider>

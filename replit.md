@@ -7,6 +7,8 @@ A mobile app (Expo) for tourists and residents of Syros, Greece to identify and 
 - `artifacts/cat-spotter` — Expo app (expo-router, 4 tabs: Map, Cats, Spot, Profile; plus `cat/[id]` and `review` screens).
   - `context/` — Language (i18n + AsyncStorage), Device (anonymous device id), Offline (NetInfo + queued sightings sync).
   - `components/AppMap.tsx` / `AppMap.web.tsx` — platform-split map: react-native-maps (pinned 1.18.0) on native, OpenStreetMap iframe fallback on web (react-native-maps does not bundle on web).
+  - Offline map: `lib/offlineTiles.ts` pre-downloads OSM tiles for Syros (z11–15 island-wide, z16 Ermoupoli/Ano Syros, ~350 tiles) to FileSystem on first online launch; `components/OsmTiles.tsx` switches native maps to the local `file://` tile template once ready.
+  - Location confirmation: submitting a sighting requires confirming the spot on a pan-to-pick map (`components/LocationPicker.tsx`, center-fixed pin; web fallback uses nudge arrows over an OSM iframe). Confirmed coords are used for both online submits and the offline queue.
   - Photos resized to 900px / JPEG 0.7 before upload (base64).
 - `artifacts/api-server` — Express API. Routes: cats, photos (serves images from Postgres), sightings (AI matching + resolve), profiles/leaderboard. Badges computed server-side from stats (`lib/badges.ts`).
 - AI matching: `artifacts/api-server/src/lib/matching.ts` — Replit AI Integrations OpenAI proxy, vision model `gpt-5.6-terra`, compares submitted photo against up to 10 nearest cats, returns JSON confidences.
