@@ -1,4 +1,9 @@
-import express, { type Express } from "express";
+import express, {
+  type Express,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -30,5 +35,24 @@ app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// JSON error handler: log full details server-side, but never leak stack
+// traces, SQL, or other internals to clients (Express default is an HTML
+// page containing the full stack trace).
+export function jsonErrorHandler(
+  err: unknown,
+  req: Request,
+  res: Response,
+  _next: NextFunction,
+): void {
+  req.log?.error({ err }, "Unhandled route error");
+  if (res.headersSent) {
+    res.end();
+    return;
+  }
+  res.status(500).json({ error: "Something went wrong. Please try again." });
+}
+
+app.use(jsonErrorHandler);
 
 export default app;
