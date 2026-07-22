@@ -21,6 +21,59 @@ export interface Cat {
   distanceKm?: number | null;
   discovererSpotterCode?: string;
   discovererNickname?: string | null;
+  /**
+     * Display name of the resident who claimed this cat
+     * @nullable
+     */
+  ownerName?: string | null;
+  /**
+     * Where the cat lives, as described by its owner
+     * @nullable
+     */
+  homeDescription?: string | null;
+}
+
+export interface CatRegistration {
+  /** @minLength 1 */
+  deviceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name: string;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  ownerName: string;
+  /** @maxLength 200 */
+  homeDescription: string;
+  lat: number;
+  lng: number;
+}
+
+export interface CatClaim {
+  /** @minLength 1 */
+  deviceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  ownerName: string;
+  /** @maxLength 200 */
+  homeDescription: string;
+}
+
+export interface CatOwnerUpdate {
+  /** @minLength 1 */
+  deviceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name?: string;
+  /** @maxLength 200 */
+  homeDescription?: string;
 }
 
 export interface Sighting {

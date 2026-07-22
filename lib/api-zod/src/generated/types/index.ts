@@ -7,7 +7,10 @@
  */
 
 export * from './cat';
+export * from './catClaim';
 export * from './catDetail';
+export * from './catOwnerUpdate';
+export * from './catRegistration';
 export * from './checkUsernameAvailabilityParams';
 export * from './claimUsernameRequest';
 export * from './createSightingRequest';

@@ -15,6 +15,9 @@ export const catsTable = pgTable("cats", {
   lat: doublePrecision("lat").notNull(),
   lng: doublePrecision("lng").notNull(),
   discovererDeviceId: text("discoverer_device_id").notNull(),
+  ownerDeviceId: text("owner_device_id"),
+  ownerName: text("owner_name"),
+  homeDescription: text("home_description"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

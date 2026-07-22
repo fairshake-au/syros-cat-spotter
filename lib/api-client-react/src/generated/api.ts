@@ -21,7 +21,10 @@ import type {
 
 import type {
   Cat,
+  CatClaim,
   CatDetail,
+  CatOwnerUpdate,
+  CatRegistration,
   CheckUsernameAvailabilityParams,
   ClaimUsernameRequest,
   CreateSightingRequest,
@@ -140,6 +143,77 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getRegisterCatUrl = () => {
+
+
+
+
+  return `/api/cats`
+}
+
+/**
+ * @summary Register a brand-new owned cat (resident registration, no sighting required)
+ */
+export const registerCat = async (catRegistration: CatRegistration, options?: RequestInit): Promise<Cat> => {
+
+  return customFetch<Cat>(getRegisterCatUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catRegistration)
+  }
+);}
+
+
+
+
+
+export const getRegisterCatMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext> => {
+
+const mutationKey = ['registerCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerCat>>, {data: BodyType<CatRegistration>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerCat(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterCatMutationResult = NonNullable<Awaited<ReturnType<typeof registerCat>>>
+    export type RegisterCatMutationBody = BodyType<CatRegistration>
+    export type RegisterCatMutationError = ErrorType<void>
+
+    /**
+ * @summary Register a brand-new owned cat (resident registration, no sighting required)
+ */
+export const useRegisterCat = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerCat>>,
+        TError,
+        {data: BodyType<CatRegistration>},
+        TContext
+      > => {
+      return useMutation(getRegisterCatMutationOptions(options));
+    }
 
 export const getListCatsUrl = (params?: ListCatsParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -301,6 +375,150 @@ export function useGetCat<TData = Awaited<ReturnType<typeof getCat>>, TError = E
 
 
 
+
+export const getUpdateCatUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}`
+}
+
+/**
+ * @summary Rename a cat or update its home description (owner only)
+ */
+export const updateCat = async (catId: number,
+    catOwnerUpdate: CatOwnerUpdate, options?: RequestInit): Promise<Cat> => {
+
+  return customFetch<Cat>(getUpdateCatUrl(catId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catOwnerUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCatMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCat>>, TError,{catId: number;data: BodyType<CatOwnerUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCat>>, TError,{catId: number;data: BodyType<CatOwnerUpdate>}, TContext> => {
+
+const mutationKey = ['updateCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCat>>, {catId: number;data: BodyType<CatOwnerUpdate>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  updateCat(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCatMutationResult = NonNullable<Awaited<ReturnType<typeof updateCat>>>
+    export type UpdateCatMutationBody = BodyType<CatOwnerUpdate>
+    export type UpdateCatMutationError = ErrorType<void>
+
+    /**
+ * @summary Rename a cat or update its home description (owner only)
+ */
+export const useUpdateCat = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCat>>, TError,{catId: number;data: BodyType<CatOwnerUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCat>>,
+        TError,
+        {catId: number;data: BodyType<CatOwnerUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCatMutationOptions(options));
+    }
+
+export const getClaimCatUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}/claim`
+}
+
+/**
+ * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ */
+export const claimCat = async (catId: number,
+    catClaim: CatClaim, options?: RequestInit): Promise<Cat> => {
+
+  return customFetch<Cat>(getClaimCatUrl(catId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catClaim)
+  }
+);}
+
+
+
+
+
+export const getClaimCatMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext> => {
+
+const mutationKey = ['claimCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimCat>>, {catId: number;data: BodyType<CatClaim>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  claimCat(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimCatMutationResult = NonNullable<Awaited<ReturnType<typeof claimCat>>>
+    export type ClaimCatMutationBody = BodyType<CatClaim>
+    export type ClaimCatMutationError = ErrorType<void>
+
+    /**
+ * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ */
+export const useClaimCat = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimCat>>,
+        TError,
+        {catId: number;data: BodyType<CatClaim>},
+        TContext
+      > => {
+      return useMutation(getClaimCatMutationOptions(options));
+    }
 
 export const getCreateSightingUrl = () => {
 

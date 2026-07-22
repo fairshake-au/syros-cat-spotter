@@ -45,6 +45,8 @@ export interface CatWithStats {
   distanceKm?: number;
   discovererSpotterCode: string;
   discovererNickname: string | null;
+  ownerName: string | null;
+  homeDescription: string | null;
 }
 
 export async function listCatsWithStats(
@@ -83,6 +85,8 @@ export async function listCatsWithStats(
       lastSeenAt: r.lastSeenAt ?? r.cat.createdAt.toISOString(),
       discovererSpotterCode: spotterCode(r.cat.discovererDeviceId),
       discovererNickname: r.discovererNickname ?? null,
+      ownerName: r.cat.ownerName,
+      homeDescription: r.cat.homeDescription,
     };
     if (lat !== undefined && lng !== undefined) {
       c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);

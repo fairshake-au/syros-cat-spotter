@@ -18,4 +18,14 @@ export interface Cat {
   distanceKm?: number | null;
   discovererSpotterCode?: string;
   discovererNickname?: string | null;
+  /**
+     * Display name of the resident who claimed this cat
+     * @nullable
+     */
+  ownerName?: string | null;
+  /**
+     * Where the cat lives, as described by its owner
+     * @nullable
+     */
+  homeDescription?: string | null;
 }

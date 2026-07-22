@@ -17,6 +17,44 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Register a brand-new owned cat (resident registration, no sighting required)
+ */
+
+export const registerCatBodyNameMax = 60;
+
+export const registerCatBodyOwnerNameMax = 60;
+
+export const registerCatBodyHomeDescriptionMax = 200;
+
+
+
+export const RegisterCatBody = zod.object({
+  "deviceId": zod.string().min(1),
+  "name": zod.string().min(1).max(registerCatBodyNameMax),
+  "ownerName": zod.string().min(1).max(registerCatBodyOwnerNameMax),
+  "homeDescription": zod.string().max(registerCatBodyHomeDescriptionMax),
+  "lat": zod.number(),
+  "lng": zod.number()
+})
+
+export const RegisterCatResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "photoUrl": zod.string(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "sightingsCount": zod.number(),
+  "lastSeenAt": zod.string(),
+  "distanceKm": zod.number().nullish(),
+  "discovererSpotterCode": zod.string().optional(),
+  "discovererNickname": zod.string().nullish(),
+  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+})
+
+
+/**
  * @summary List all cats in the catalog
  */
 export const ListCatsQueryParams = zod.object({
@@ -35,7 +73,9 @@ export const ListCatsResponseItem = zod.object({
   "lastSeenAt": zod.string(),
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
-  "discovererNickname": zod.string().nullish()
+  "discovererNickname": zod.string().nullish(),
+  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 })
 export const ListCatsResponse = zod.array(ListCatsResponseItem)
 
@@ -59,7 +99,9 @@ export const GetCatResponse = zod.object({
   "lastSeenAt": zod.string(),
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
-  "discovererNickname": zod.string().nullish()
+  "discovererNickname": zod.string().nullish(),
+  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 }),
   "sightings": zod.array(zod.object({
   "id": zod.number(),
@@ -70,6 +112,80 @@ export const GetCatResponse = zod.object({
   "lng": zod.number(),
   "createdAt": zod.string()
 }))
+})
+
+
+/**
+ * @summary Rename a cat or update its home description (owner only)
+ */
+export const UpdateCatParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+
+export const updateCatBodyNameMax = 60;
+
+export const updateCatBodyHomeDescriptionMax = 200;
+
+
+
+export const UpdateCatBody = zod.object({
+  "deviceId": zod.string().min(1),
+  "name": zod.string().min(1).max(updateCatBodyNameMax).optional(),
+  "homeDescription": zod.string().max(updateCatBodyHomeDescriptionMax).optional()
+})
+
+export const UpdateCatResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "photoUrl": zod.string(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "sightingsCount": zod.number(),
+  "lastSeenAt": zod.string(),
+  "distanceKm": zod.number().nullish(),
+  "discovererSpotterCode": zod.string().optional(),
+  "discovererNickname": zod.string().nullish(),
+  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+})
+
+
+/**
+ * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ */
+export const ClaimCatParams = zod.object({
+  "catId": zod.coerce.number()
+})
+
+
+export const claimCatBodyOwnerNameMax = 60;
+
+export const claimCatBodyHomeDescriptionMax = 200;
+
+
+
+export const ClaimCatBody = zod.object({
+  "deviceId": zod.string().min(1),
+  "ownerName": zod.string().min(1).max(claimCatBodyOwnerNameMax),
+  "homeDescription": zod.string().max(claimCatBodyHomeDescriptionMax)
+})
+
+export const ClaimCatResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "photoUrl": zod.string(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "sightingsCount": zod.number(),
+  "lastSeenAt": zod.string(),
+  "distanceKm": zod.number().nullish(),
+  "discovererSpotterCode": zod.string().optional(),
+  "discovererNickname": zod.string().nullish(),
+  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 })
 
 
@@ -121,7 +237,9 @@ export const ResolveSightingResponse = zod.object({
   "lastSeenAt": zod.string(),
   "distanceKm": zod.number().nullish(),
   "discovererSpotterCode": zod.string().optional(),
-  "discovererNickname": zod.string().nullish()
+  "discovererNickname": zod.string().nullish(),
+  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
 }),
   "pointsAwarded": zod.number(),
   "isNewCat": zod.boolean(),

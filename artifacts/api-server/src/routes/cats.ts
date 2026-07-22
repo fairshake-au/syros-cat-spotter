@@ -1,9 +1,52 @@
 import { Router, type IRouter } from "express";
-import { db, catsTable, sightingsTable, profilesTable } from "@workspace/db";
-import { and, eq, desc } from "drizzle-orm";
+import {
+  RegisterCatBody,
+  ClaimCatBody,
+  UpdateCatBody,
+} from "@workspace/api-zod";
+import {
+  db,
+  catsTable,
+  sightingsTable,
+  profilesTable,
+  type Cat,
+} from "@workspace/db";
+import { and, eq, desc, isNull, sql } from "drizzle-orm";
 import { listCatsWithStats, photoUrl, spotterCode } from "../lib/catHelpers";
+import { notifyCatSpotters } from "../lib/notifications";
 
 const router: IRouter = Router();
+
+async function catPayload(cat: Cat, sightingsCount: number, lastSeenAt: string) {
+  const [profile] = await db
+    .select({ nickname: profilesTable.nickname })
+    .from(profilesTable)
+    .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
+  return {
+    id: cat.id,
+    name: cat.name,
+    description: cat.description,
+    photoUrl: photoUrl(cat.primaryPhotoId),
+    lat: cat.lat,
+    lng: cat.lng,
+    sightingsCount,
+    lastSeenAt,
+    discovererSpotterCode: spotterCode(cat.discovererDeviceId),
+    discovererNickname: profile?.nickname ?? null,
+    ownerName: cat.ownerName,
+    homeDescription: cat.homeDescription,
+  };
+}
+
+async function sightingsCountFor(catId: number): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(sightingsTable)
+    .where(
+      and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")),
+    );
+  return row?.n ?? 0;
+}
 
 router.get("/cats", async (req, res) => {
   const lat = req.query.lat !== undefined ? Number(req.query.lat) : undefined;
@@ -13,6 +56,30 @@ router.get("/cats", async (req, res) => {
     Number.isFinite(lng) ? lng : undefined,
   );
   res.json(cats);
+});
+
+// Resident registers a brand-new owned cat (no sighting required).
+router.post("/cats", async (req, res) => {
+  const body = RegisterCatBody.parse(req.body);
+  const [cat] = await db
+    .insert(catsTable)
+    .values({
+      name: body.name.trim().slice(0, 60),
+      description: "",
+      // No photo yet — 0 is a sentinel; the photos route 404s for it and the
+      // owner (or a first sighting) can supply a real photo later.
+      primaryPhotoId: 0,
+      lat: body.lat,
+      lng: body.lng,
+      discovererDeviceId: body.deviceId,
+      ownerDeviceId: body.deviceId,
+      ownerName: body.ownerName.trim().slice(0, 60),
+      homeDescription: body.homeDescription.trim().slice(0, 200),
+    })
+    .returning();
+  res
+    .status(201)
+    .json(await catPayload(cat!, 0, cat!.createdAt.toISOString()));
 });
 
 router.get("/cats/:catId", async (req, res) => {
@@ -35,25 +102,11 @@ router.get("/cats/:catId", async (req, res) => {
     .orderBy(desc(sightingsTable.createdAt));
 
   res.json({
-    cat: {
-      id: cat.id,
-      name: cat.name,
-      description: cat.description,
-      photoUrl: photoUrl(cat.primaryPhotoId),
-      lat: cat.lat,
-      lng: cat.lng,
-      sightingsCount: sightings.length,
-      lastSeenAt:
-        sightings[0]?.createdAt.toISOString() ?? cat.createdAt.toISOString(),
-      discovererSpotterCode: spotterCode(cat.discovererDeviceId),
-      discovererNickname:
-        (
-          await db
-            .select({ nickname: profilesTable.nickname })
-            .from(profilesTable)
-            .where(eq(profilesTable.deviceId, cat.discovererDeviceId))
-        )[0]?.nickname ?? null,
-    },
+    cat: await catPayload(
+      cat,
+      sightings.length,
+      sightings[0]?.createdAt.toISOString() ?? cat.createdAt.toISOString(),
+    ),
     sightings: sightings.map((s) => ({
       id: s.id,
       catId: s.catId,
@@ -64,6 +117,105 @@ router.get("/cats/:catId", async (req, res) => {
       createdAt: s.createdAt.toISOString(),
     })),
   });
+});
+
+// Claim an unclaimed cat. Idempotent for the same device; 409 for others.
+router.post("/cats/:catId/claim", async (req, res) => {
+  const catId = Number(req.params.catId);
+  if (!Number.isInteger(catId)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const body = ClaimCatBody.parse(req.body);
+
+  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  if (!cat) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  if (cat.ownerDeviceId && cat.ownerDeviceId !== body.deviceId) {
+    res.status(409).json({ error: "Cat already claimed by another resident" });
+    return;
+  }
+
+  let updated = cat;
+  if (!cat.ownerDeviceId) {
+    // Guard against a concurrent claim: only set ownership if still unclaimed.
+    const [row] = await db
+      .update(catsTable)
+      .set({
+        ownerDeviceId: body.deviceId,
+        ownerName: body.ownerName.trim().slice(0, 60),
+        homeDescription: body.homeDescription.trim().slice(0, 200),
+      })
+      .where(and(eq(catsTable.id, catId), isNull(catsTable.ownerDeviceId)))
+      .returning();
+    if (!row) {
+      res.status(409).json({ error: "Cat already claimed by another resident" });
+      return;
+    }
+    updated = row;
+
+    // Fire-and-forget: never blocks or fails the response.
+    void notifyCatSpotters(catId, body.deviceId, {
+      title: `${updated.name} has a home!`,
+      body: `${updated.ownerName} claimed ${updated.name}. ${updated.homeDescription ?? ""}`.trim(),
+      data: { type: "cat_claimed", catId },
+    });
+  }
+
+  const count = await sightingsCountFor(catId);
+  res.json(await catPayload(updated, count, new Date().toISOString()));
+});
+
+// Owner renames the cat or updates its home description.
+router.patch("/cats/:catId", async (req, res) => {
+  const catId = Number(req.params.catId);
+  if (!Number.isInteger(catId)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const body = UpdateCatBody.parse(req.body);
+
+  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  if (!cat) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (!cat.ownerDeviceId || cat.ownerDeviceId !== body.deviceId) {
+    res.status(403).json({ error: "Only the cat's owner can update it" });
+    return;
+  }
+
+  const changes: Partial<typeof catsTable.$inferInsert> = {};
+  if (body.name !== undefined) changes.name = body.name.trim().slice(0, 60);
+  if (body.homeDescription !== undefined)
+    changes.homeDescription = body.homeDescription.trim().slice(0, 200);
+
+  let updated = cat;
+  if (Object.keys(changes).length > 0) {
+    const [row] = await db
+      .update(catsTable)
+      .set(changes)
+      .where(eq(catsTable.id, catId))
+      .returning();
+    updated = row!;
+
+    const renamed = changes.name !== undefined && changes.name !== cat.name;
+    void notifyCatSpotters(catId, body.deviceId, {
+      title: renamed
+        ? `${cat.name} is now ${updated.name}!`
+        : `${updated.name} has an update`,
+      body: renamed
+        ? `${updated.ownerName} renamed their cat.`
+        : `${updated.ownerName} updated ${updated.name}'s home details.`,
+      data: { type: "cat_updated", catId },
+    });
+  }
+
+  const count = await sightingsCountFor(catId);
+  res.json(await catPayload(updated, count, new Date().toISOString()));
 });
 
 export default router;

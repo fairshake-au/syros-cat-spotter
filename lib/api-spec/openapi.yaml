@@ -30,6 +30,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
   /cats:
+    post:
+      operationId: registerCat
+      tags: [cats]
+      summary: Register a brand-new owned cat (resident registration, no sighting required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatRegistration"
+      responses:
+        "201":
+          description: Cat created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cat"
+        "400":
+          description: Invalid input
     get:
       operationId: listCats
       tags: [cats]
@@ -71,6 +90,59 @@ paths:
                 $ref: "#/components/schemas/CatDetail"
         "404":
           description: Not found
+    patch:
+      operationId: updateCat
+      tags: [cats]
+      summary: Rename a cat or update its home description (owner only)
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatOwnerUpdate"
+      responses:
+        "200":
+          description: Updated cat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cat"
+        "403":
+          description: Device is not the owner of this cat
+        "404":
+          description: Not found
+  /cats/{catId}/claim:
+    post:
+      operationId: claimCat
+      tags: [cats]
+      summary: Claim an unclaimed cat as its owner (idempotent for the same device)
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatClaim"
+      responses:
+        "200":
+          description: Cat claimed (or already claimed by this device)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cat"
+        "404":
+          description: Not found
+        "409":
+          description: Cat already claimed by a different device
   /sightings:
     post:
       operationId: createSighting
@@ -254,8 +326,38 @@ components:
         discovererNickname:
           type: string
           nullable: true
+        ownerName:
+          type: ["string", "null"]
+          description: Display name of the resident who claimed this cat
+        homeDescription:
+          type: ["string", "null"]
+          description: Where the cat lives, as described by its owner
       required:
         [id, name, description, photoUrl, lat, lng, sightingsCount, lastSeenAt]
+    CatRegistration:
+      type: object
+      properties:
+        deviceId: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        ownerName: { type: string, minLength: 1, maxLength: 60 }
+        homeDescription: { type: string, maxLength: 200 }
+        lat: { type: number }
+        lng: { type: number }
+      required: [deviceId, name, ownerName, homeDescription, lat, lng]
+    CatClaim:
+      type: object
+      properties:
+        deviceId: { type: string, minLength: 1 }
+        ownerName: { type: string, minLength: 1, maxLength: 60 }
+        homeDescription: { type: string, maxLength: 200 }
+      required: [deviceId, ownerName, homeDescription]
+    CatOwnerUpdate:
+      type: object
+      properties:
+        deviceId: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        homeDescription: { type: string, maxLength: 200 }
+      required: [deviceId]
     Sighting:
       type: object
       properties:
