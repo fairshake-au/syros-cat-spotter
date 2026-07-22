@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { createSighting, type MatchCandidate } from '@workspace/api-client-react';
+import { createSighting } from '@workspace/api-client-react';
 import { photoRejectionKey } from '@/lib/photoRejection';
 import {
   cleanupOrphanPhotos,
@@ -19,38 +19,17 @@ import {
   supportsPhotoFiles,
 } from '@/lib/pendingPhotos';
 import { useDevice } from './DeviceContext';
+import {
+  applyServerFailure,
+  classifySyncFailure,
+  markStaleItems,
+  resetForRetry,
+  type PendingSighting,
+} from '../lib/offlineQueue';
+
+export type { PendingSighting };
 
 const QUEUE_KEY = 'cat-spotter/pending-sightings';
-
-/** Server-error retries before an item is marked failed. */
-const MAX_SYNC_ATTEMPTS = 3;
-/** Queued items older than this are flagged as stale and can never sync. */
-const MAX_QUEUE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-export interface PendingSighting {
-  localId: string;
-  /**
-   * Inline base64 photo. Only kept on web (no persistent file system) and
-   * for legacy items queued before photos moved to document storage.
-   */
-  photoBase64?: string;
-  /** Display URI — points at the persisted photo file once enqueued. */
-  photoUri: string;
-  lat: number;
-  lng: number;
-  createdAt: string;
-  status: 'queued' | 'review' | 'error' | 'rejected';
-  /** Why the item is in the error state. */
-  errorKind?: 'server' | 'stale';
-  /** Consecutive server-error sync failures. */
-  failCount?: number;
-  // Translation key explaining a permanent server rejection:
-  rejectionKey?: string;
-  // Populated once synced with the server:
-  sightingId?: number;
-  isCatPhoto?: boolean;
-  candidates?: MatchCandidate[];
-}
 
 /** What callers provide when queueing — always includes the photo base64. */
 export type EnqueueInput = Omit<PendingSighting, 'status' | 'photoBase64'> & {
@@ -123,18 +102,9 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       try {
         const items = JSON.parse(raw) as PendingSighting[];
         // Flag very old queued items as stale — they can never sync.
-        const now = Date.now();
-        let changed = false;
-        let next = items.map((p) => {
-          if (
-            p.status === 'queued' &&
-            now - new Date(p.createdAt).getTime() > MAX_QUEUE_AGE_MS
-          ) {
-            changed = true;
-            return { ...p, status: 'error' as const, errorKind: 'stale' as const };
-          }
-          return p;
-        });
+        const stale = markStaleItems(items, Date.now());
+        let next = stale.items;
+        let changed = stale.changed;
         // Move any legacy inline base64 photos into document storage.
         const migrated = await migratePhotosToFiles(next);
         next = migrated.items;
@@ -215,28 +185,11 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             await persist(items);
             continue;
           }
-          const isServerError =
-            err instanceof Error && err.name === 'ApiError';
-          if (isServerError) {
+          const decision = classifySyncFailure(err, item.failCount);
+          if (decision.kind === 'server') {
             // The server responded but rejected the sighting — count the
             // failure and flag the item once it keeps failing.
-            const failCount = (item.failCount ?? 0) + 1;
-            const status =
-              err !== null &&
-              typeof err === 'object' &&
-              'status' in err &&
-              typeof (err as { status?: unknown }).status === 'number'
-                ? (err as { status: number }).status
-                : 0;
-            const permanent =
-              (status >= 400 && status < 500) || failCount >= MAX_SYNC_ATTEMPTS;
-            items = items.map((p) =>
-              p.localId === item.localId
-                ? permanent
-                  ? { ...p, status: 'error' as const, errorKind: 'server' as const, failCount }
-                  : { ...p, failCount }
-                : p,
-            );
+            items = applyServerFailure(items, item.localId, decision);
             await persist(items);
             // Move on — other queued items may still succeed.
             continue;
@@ -300,13 +253,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
   const retry = useCallback(
     async (localId: string) => {
-      await persist(
-        pendingRef.current.map((p) =>
-          p.localId === localId
-            ? { ...p, status: 'queued' as const, errorKind: undefined, failCount: 0 }
-            : p,
-        ),
-      );
+      await persist(resetForRetry(pendingRef.current, localId));
       await syncNow();
     },
     [persist, syncNow],

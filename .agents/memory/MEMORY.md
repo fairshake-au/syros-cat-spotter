@@ -4,5 +4,6 @@
 - [HEIC decoding limits in sharp](heic-decoding.md) — bundled libvips can't decode HEVC HEIC (iPhone default); fall back to heic-convert WASM then re-normalize with sharp.
 - [Drizzle wraps pg error codes](drizzle-error-codes.md) — check the `cause` chain for pg codes like 23505; top-level `err.code` is undefined under drizzle-orm.
 - [Generated client stale types](generated-client-stale-types.md) — if app typecheck misses fields that exist in the client source, rebuild declarations with `npx tsc -b lib/api-client-react`.
+- [Generated code drift](generated-code-drift.md) — "no exported member" / unknown-route typecheck errors after merges usually mean stale orval client or Expo typed routes; regenerate, don't debug.
 - [Push notification dispatch point](push-notifications.md) — all spotter push notifications route through the api-server notifications helper; it's a console-log stub awaiting real delivery infra.
 - [Orval codegen pitfalls](orval-codegen.md) — name request bodies as components (zod name collisions); expo typed routes need the dev workflow running; avoid pkill -f self-kills.

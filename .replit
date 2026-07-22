@@ -24,6 +24,10 @@ args = "api-test"
 task = "workflow.run"
 args = "api-typecheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "mobile-test"
+
 [[workflows.workflow]]
 name = "api-test"
 author = "agent"
@@ -45,6 +49,17 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run typecheck"
+
+[[workflows.workflow]]
+name = "mobile-test"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/cat-spotter run test"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
