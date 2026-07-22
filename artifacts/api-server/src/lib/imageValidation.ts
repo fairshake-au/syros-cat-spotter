@@ -1,4 +1,14 @@
-const MAX_DECODED_BYTES = 5 * 1024 * 1024; // ~5 MB decoded
+import sharp from "sharp";
+
+const MAX_STORED_BYTES = 5 * 1024 * 1024; // ~5 MB stored cap
+// Absolute ceiling on what we will even attempt to decode. Anything bigger is
+// almost certainly not a phone photo (and would blow past the JSON body limit
+// anyway).
+const MAX_INPUT_BYTES = 20 * 1024 * 1024;
+// Bound on the longest edge of a stored photo. Plenty for display and AI
+// matching while keeping storage and token costs low.
+const MAX_DIMENSION = 2048;
+const JPEG_QUALITY = 80;
 
 export type ValidatedImage = {
   buffer: Buffer;
@@ -26,40 +36,77 @@ function detectMime(buf: Buffer): ValidatedImage["mime"] | null {
 }
 
 /**
- * Decodes and validates a base64 photo upload before it is stored or sent to
- * the AI matcher. Rejects malformed base64, non-JPEG/PNG content, and images
- * larger than ~5 MB decoded.
+ * Decodes, validates and normalizes a base64 photo upload before it is stored
+ * or sent to the AI matcher.
+ *
+ * - Rejects malformed base64 and non-JPEG/PNG content.
+ * - Fully decodes the image (verifying it is a real image, not just correct
+ *   magic bytes), bounds its dimensions to MAX_DIMENSION on the longest edge,
+ *   and re-encodes it as JPEG. Oversized but valid photos are shrunk to fit
+ *   under the 5 MB cap instead of being rejected.
  */
-export function validatePhotoBase64(
+export async function validatePhotoBase64(
   photoBase64: string,
-): ValidatedImage | ImageValidationError {
+): Promise<ValidatedImage | ImageValidationError> {
   // Tolerate a data URI prefix, but strip it before decoding.
   const raw = photoBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, "").trim();
 
   if (raw.length === 0) {
     return { error: "photoBase64 is empty" };
   }
-  // Fast pre-check: base64 inflates by ~4/3, so an obviously oversized string
+  // Fast pre-check: base64 inflates by ~4/3, so an absurdly oversized string
   // can be rejected without decoding it.
-  if (raw.length > (MAX_DECODED_BYTES * 4) / 3 + 4) {
-    return { error: "Image too large: decoded size must be at most 5 MB" };
+  if (raw.length > (MAX_INPUT_BYTES * 4) / 3 + 4) {
+    return { error: "Image too large: uploads must be at most 20 MB" };
   }
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) {
     return { error: "photoBase64 is not valid base64" };
   }
 
-  const buffer = Buffer.from(raw, "base64");
-  if (buffer.length === 0) {
+  const input = Buffer.from(raw, "base64");
+  if (input.length === 0) {
     return { error: "photoBase64 is not valid base64" };
   }
-  if (buffer.length > MAX_DECODED_BYTES) {
-    return { error: "Image too large: decoded size must be at most 5 MB" };
+  if (input.length > MAX_INPUT_BYTES) {
+    return { error: "Image too large: uploads must be at most 20 MB" };
   }
 
-  const mime = detectMime(buffer);
+  const mime = detectMime(input);
   if (!mime) {
     return { error: "Unsupported image format: only JPEG and PNG are accepted" };
   }
 
-  return { buffer, mime };
+  // Normalize: fully decode (catches corrupt/truncated files that pass the
+  // magic-byte check), bound dimensions, re-encode as JPEG.
+  let buffer: Buffer;
+  try {
+    buffer = await sharp(input, { failOn: "error" })
+      .rotate() // apply EXIF orientation so stored pixels are upright
+      .resize(MAX_DIMENSION, MAX_DIMENSION, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+      .toBuffer();
+  } catch {
+    return { error: "Image could not be decoded: file appears corrupt" };
+  }
+
+  // Extremely unlikely after downscaling, but keep the storage cap hard:
+  // re-encode at lower quality before giving up.
+  if (buffer.length > MAX_STORED_BYTES) {
+    try {
+      buffer = await sharp(buffer)
+        .resize(1280, 1280, { fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 60, mozjpeg: true })
+        .toBuffer();
+    } catch {
+      return { error: "Image could not be processed" };
+    }
+    if (buffer.length > MAX_STORED_BYTES) {
+      return { error: "Image too large: could not compress under 5 MB" };
+    }
+  }
+
+  return { buffer, mime: "image/jpeg" };
 }

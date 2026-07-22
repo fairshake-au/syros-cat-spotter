@@ -30,7 +30,7 @@ const router: IRouter = Router();
 router.post("/sightings", async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
 
-  const validated = validatePhotoBase64(body.photoBase64);
+  const validated = await validatePhotoBase64(body.photoBase64);
   if ("error" in validated) {
     res.status(400).json({ error: validated.error });
     return;
