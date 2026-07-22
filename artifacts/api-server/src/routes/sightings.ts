@@ -23,6 +23,7 @@ import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import { containsOffensiveLanguage } from "../lib/moderation";
+import { aiLimiter } from "../middlewares/rateLimit";
 
 const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
@@ -30,7 +31,7 @@ const MAX_CANDIDATES = 10;
 
 const router: IRouter = Router();
 
-router.post("/sightings", async (req, res) => {
+router.post("/sightings", aiLimiter, async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
 
   const validated = await validatePhotoBase64(body.photoBase64);

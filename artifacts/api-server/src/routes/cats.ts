@@ -16,10 +16,11 @@ import { and, eq, desc, isNull, sql } from "drizzle-orm";
 import { listCatsWithStats, photoUrl, spotterCode } from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
 import { suggestCatNames } from "../lib/nameSuggestions";
+import { aiLimiter } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
-router.post("/cats/name-suggestions", async (req, res) => {
+router.post("/cats/name-suggestions", aiLimiter, async (req, res) => {
   const body = SuggestCatNamesBody.parse(req.body);
   const cats = await db.select({ name: catsTable.name }).from(catsTable);
   try {

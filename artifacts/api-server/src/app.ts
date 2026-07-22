@@ -11,6 +11,11 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Exactly one proxy (Replit's) sits in front of the server; trust it so
+// req.ip reflects the real client for per-IP rate limiting, without letting
+// clients spoof arbitrary X-Forwarded-For chains.
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
