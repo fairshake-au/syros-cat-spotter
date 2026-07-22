@@ -6,6 +6,16 @@ import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 
 const router: IRouter = Router();
 
+/** True when err (or any error in its cause chain) is a Postgres unique violation. */
+function isUniqueViolation(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let depth = 0; cur && typeof cur === "object" && depth < 5; depth++) {
+    if ((cur as { code?: string }).code === "23505") return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 // Static /profiles/* routes must come before the /profiles/:deviceId param route.
 router.get("/profiles/username-availability", async (req, res) => {
   const name = normalizeUsername(req.query.name);
@@ -57,7 +67,8 @@ router.post("/profiles/:deviceId/username", async (req, res) => {
       .where(eq(profilesTable.deviceId, deviceId));
   } catch (err: unknown) {
     // Unique-index race: someone claimed the same name concurrently.
-    if (err && typeof err === "object" && (err as { code?: string }).code === "23505") {
+    // Drizzle may wrap the pg error, so check the cause chain for code 23505.
+    if (isUniqueViolation(err)) {
       res.status(409).json({ error: "Username already taken" });
       return;
     }
