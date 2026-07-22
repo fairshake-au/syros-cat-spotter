@@ -54,6 +54,7 @@ export const AppNotificationUpdateType = {
 export interface AppNotification {
   id: number;
   catId: number;
+  catUpdateId: number;
   catName: string;
   catPhotoUrl: string;
   updateType: AppNotificationUpdateType;
@@ -282,6 +283,10 @@ name: string;
 };
 
 export type MarkAllNotificationsRead200 = {
+  updated: number;
+};
+
+export type MarkNotificationRead200 = {
   updated: number;
 };
 

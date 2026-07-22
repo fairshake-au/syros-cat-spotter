@@ -80,6 +80,36 @@ describe("device auth on notification endpoints", () => {
     expect(res.status).toBe(403);
   });
 
+  it("rejects mark-single-read without a device secret", async () => {
+    const res = await request(app).post(
+      `/api/notifications/${device("a")}/1/read`,
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects mark-single-read with a wrong secret", async () => {
+    // device("b") was bound to SECRET_A in an earlier test.
+    const res = await request(app)
+      .post(`/api/notifications/${device("b")}/1/read`)
+      .set("X-Device-Secret", SECRET_B);
+    expect(res.status).toBe(403);
+  });
+
+  it("allows the owner to mark a single notification read", async () => {
+    const res = await request(app)
+      .post(`/api/notifications/${device("b")}/999999/read`)
+      .set("X-Device-Secret", SECRET_A);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ updated: 0 });
+  });
+
+  it("rejects a non-numeric notification id", async () => {
+    const res = await request(app)
+      .post(`/api/notifications/${device("b")}/abc/read`)
+      .set("X-Device-Secret", SECRET_A);
+    expect(res.status).toBe(400);
+  });
+
   it("blocks push-token hijacking with a wrong secret", async () => {
     // Victim registers their token with their secret.
     const victim = await request(app)

@@ -16,6 +16,7 @@ import { useGetCat, getGetCatQueryKey } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
+import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { absoluteUrl } from '@/lib/urls';
@@ -25,10 +26,32 @@ export default function CatDetailScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; updateId?: string }>();
   const catId = Number(params.id);
+  const updateId = Number(params.updateId);
   const { ownedCatIds } = useDevice();
+  const { notifications, markRead } = useNotifications();
   const [sheet, setSheet] = React.useState<'claim' | 'edit' | null>(null);
+
+  // The inbox row matching the tapped push notification, if any.
+  const highlighted = React.useMemo(
+    () =>
+      Number.isFinite(updateId) && updateId > 0
+        ? notifications.find(
+            (n) => n.catUpdateId === updateId && n.catId === catId,
+          )
+        : undefined,
+    [notifications, updateId, catId],
+  );
+
+  // Mark the matching inbox row read once it is known.
+  const markedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (highlighted && !highlighted.read && !markedRef.current) {
+      markedRef.current = true;
+      markRead(highlighted.id);
+    }
+  }, [highlighted, markRead]);
 
   const query = useGetCat(catId, {
     query: { enabled: Number.isFinite(catId), queryKey: getGetCatQueryKey(catId) },
@@ -124,6 +147,38 @@ export default function CatDetailScreen() {
               </View>
             )}
           </View>
+
+          {highlighted && (
+            <View
+              style={[
+                styles.updateBanner,
+                { backgroundColor: colors.card, borderColor: colors.primary },
+              ]}
+            >
+              <Feather
+                name={
+                  highlighted.updateType === 'adopted'
+                    ? 'home'
+                    : highlighted.updateType === 'desexed'
+                      ? 'heart'
+                      : highlighted.updateType === 'sighting'
+                        ? 'eye'
+                        : 'bell'
+                }
+                size={18}
+                color={colors.primary}
+              />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.updateLabel, { color: colors.primary }]}>
+                  {t('catUpdateBanner')} ·{' '}
+                  {new Date(highlighted.createdAt).toLocaleDateString()}
+                </Text>
+                <Text style={[styles.updateMessage, { color: colors.foreground }]}>
+                  {highlighted.message}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {isClaimed ? (
             <OwnershipBanner
@@ -241,6 +296,16 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   claimText: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  updateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+  },
+  updateLabel: { fontSize: 11, fontFamily: 'Nunito_700Bold', textTransform: 'uppercase' },
+  updateMessage: { fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   meta: { fontSize: 13, fontFamily: 'Nunito_400Regular' },
   mapWrap: {

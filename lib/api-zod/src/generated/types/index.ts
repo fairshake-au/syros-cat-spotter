@@ -26,6 +26,7 @@ export * from './healthStatus';
 export * from './leaderboardEntry';
 export * from './listCatsParams';
 export * from './markAllNotificationsRead200';
+export * from './markNotificationRead200';
 export * from './matchCandidate';
 export * from './matchResult';
 export * from './profile';

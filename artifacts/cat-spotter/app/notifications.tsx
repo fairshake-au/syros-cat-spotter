@@ -51,7 +51,13 @@ export default function NotificationsScreen() {
   const renderItem = ({ item }: { item: AppNotification }) => (
     <Pressable
       onPress={() =>
-        router.push({ pathname: '/cat/[id]', params: { id: String(item.catId) } })
+        router.push({
+          pathname: '/cat/[id]',
+          params: {
+            id: String(item.catId),
+            updateId: String(item.catUpdateId),
+          },
+        })
       }
       style={[
         styles.row,

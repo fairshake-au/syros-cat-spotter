@@ -60,6 +60,7 @@ router.get("/notifications/:deviceId", async (req, res) => {
   const rows = await db
     .select({
       id: notificationsTable.id,
+      catUpdateId: notificationsTable.catUpdateId,
       read: notificationsTable.read,
       createdAt: notificationsTable.createdAt,
       updateType: catUpdatesTable.updateType,
@@ -81,6 +82,7 @@ router.get("/notifications/:deviceId", async (req, res) => {
     rows.map((r) => ({
       id: r.id,
       catId: r.catId,
+      catUpdateId: r.catUpdateId,
       catName: r.catName,
       catPhotoUrl: photoUrl(r.catPrimaryPhotoId),
       updateType: r.updateType,
@@ -101,6 +103,30 @@ router.post("/notifications/:deviceId/read-all", async (req, res) => {
     .where(
       and(
         eq(notificationsTable.deviceId, deviceId),
+        eq(notificationsTable.read, false),
+      ),
+    )
+    .returning({ id: notificationsTable.id });
+
+  res.json({ updated: updated.length });
+});
+
+router.post("/notifications/:deviceId/:notificationId/read", async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
+  const notificationId = Number(req.params.notificationId);
+  if (!Number.isInteger(notificationId)) {
+    res.status(400).json({ error: "Invalid notification id" });
+    return;
+  }
+
+  const updated = await db
+    .update(notificationsTable)
+    .set({ read: true })
+    .where(
+      and(
+        eq(notificationsTable.deviceId, deviceId),
+        eq(notificationsTable.id, notificationId),
         eq(notificationsTable.read, false),
       ),
     )

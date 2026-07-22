@@ -10,6 +10,7 @@ import type { AppNotificationUpdateType } from './appNotificationUpdateType';
 export interface AppNotification {
   id: number;
   catId: number;
+  catUpdateId: number;
   catName: string;
   catPhotoUrl: string;
   updateType: AppNotificationUpdateType;

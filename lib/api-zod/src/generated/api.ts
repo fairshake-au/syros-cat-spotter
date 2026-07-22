@@ -411,6 +411,7 @@ export const ListNotificationsHeader = zod.object({
 export const ListNotificationsResponseItem = zod.object({
   "id": zod.number(),
   "catId": zod.number(),
+  "catUpdateId": zod.number(),
   "catName": zod.string(),
   "catPhotoUrl": zod.string(),
   "updateType": zod.enum(['sighting', 'desexed', 'adopted', 'general']),
@@ -433,6 +434,23 @@ export const MarkAllNotificationsReadHeader = zod.object({
 })
 
 export const MarkAllNotificationsReadResponse = zod.object({
+  "updated": zod.number()
+})
+
+
+/**
+ * @summary Mark a single notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  "deviceId": zod.coerce.string(),
+  "notificationId": zod.coerce.number()
+})
+
+export const MarkNotificationReadHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const MarkNotificationReadResponse = zod.object({
   "updated": zod.number()
 })
 

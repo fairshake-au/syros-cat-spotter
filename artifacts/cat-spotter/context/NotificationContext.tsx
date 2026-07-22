@@ -14,6 +14,7 @@ import {
   useListNotifications,
   getListNotificationsQueryKey,
   useMarkAllNotificationsRead,
+  useMarkNotificationRead,
   useRegisterPushToken,
   type AppNotification,
 } from '@workspace/api-client-react';
@@ -33,10 +34,18 @@ async function handleNotificationResponse(
     | Record<string, unknown>
     | undefined;
   const catId = Number(data?.catId);
+  const catUpdateId = Number(data?.catUpdateId);
   if (Number.isFinite(catId) && catId > 0) {
     try {
       await getCat(catId);
-      router.push(`/cat/${catId}`);
+      if (Number.isFinite(catUpdateId) && catUpdateId > 0) {
+        router.push({
+          pathname: '/cat/[id]',
+          params: { id: String(catId), updateId: String(catUpdateId) },
+        });
+      } else {
+        router.push(`/cat/${catId}`);
+      }
       return;
     } catch {
       // Cat is gone (or unreachable) — fall through to the inbox.
@@ -63,6 +72,7 @@ interface NotificationContextValue {
   isLoading: boolean;
   refetch: () => void;
   markAllRead: () => void;
+  markRead: (notificationId: number) => void;
 }
 
 const NotificationContext = createContext<NotificationContextValue>({
@@ -71,6 +81,7 @@ const NotificationContext = createContext<NotificationContextValue>({
   isLoading: false,
   refetch: () => {},
   markAllRead: () => {},
+  markRead: () => {},
 });
 
 export function NotificationProvider({
@@ -161,6 +172,18 @@ export function NotificationProvider({
     },
   });
 
+  const markReadMutation = useMarkNotificationRead({
+    mutation: {
+      onSuccess: () => {
+        if (deviceId) {
+          queryClient.invalidateQueries({
+            queryKey: getListNotificationsQueryKey(deviceId),
+          });
+        }
+      },
+    },
+  });
+
   const notifications = useMemo(() => query.data ?? [], [query.data]);
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -183,6 +206,14 @@ export function NotificationProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId, markAllMutation.mutate]);
 
+  const markRead = useCallback(
+    (notificationId: number) => {
+      if (deviceId) markReadMutation.mutate({ deviceId, notificationId });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deviceId, markReadMutation.mutate],
+  );
+
   const value = useMemo(
     () => ({
       notifications,
@@ -190,8 +221,9 @@ export function NotificationProvider({
       isLoading: query.isLoading,
       refetch,
       markAllRead,
+      markRead,
     }),
-    [notifications, unreadCount, query.isLoading, refetch, markAllRead],
+    [notifications, unreadCount, query.isLoading, refetch, markAllRead, markRead],
   );
 
   return (

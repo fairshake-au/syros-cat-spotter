@@ -381,6 +381,31 @@ paths:
                 properties:
                   updated: { type: integer }
                 required: [updated]
+  /notifications/{deviceId}/{notificationId}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a single notification as read
+      parameters:
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Notification marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated: { type: integer }
+                required: [updated]
   /profile/{deviceId}/push-token:
     put:
       operationId: registerPushToken
@@ -467,6 +492,7 @@ components:
       properties:
         id: { type: integer }
         catId: { type: integer }
+        catUpdateId: { type: integer }
         catName: { type: string }
         catPhotoUrl: { type: string }
         updateType:
@@ -475,7 +501,7 @@ components:
         message: { type: string }
         read: { type: boolean }
         createdAt: { type: string }
-      required: [id, catId, catName, catPhotoUrl, updateType, message, read, createdAt]
+      required: [id, catId, catUpdateId, catName, catPhotoUrl, updateType, message, read, createdAt]
     HealthStatus:
       type: object
       properties:
