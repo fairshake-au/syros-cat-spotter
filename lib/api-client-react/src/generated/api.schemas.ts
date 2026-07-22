@@ -19,12 +19,14 @@ export interface Cat {
   sightingsCount: number;
   lastSeenAt: string;
   distanceKm?: number | null;
+  discovererSpotterCode?: string;
+  discovererNickname?: string | null;
 }
 
 export interface Sighting {
   id: number;
   catId?: number | null;
-  deviceId: string;
+  spotterCode: string;
   photoUrl: string;
   lat: number;
   lng: number;
@@ -61,6 +63,8 @@ export interface MatchResult {
 }
 
 export interface ResolveSightingRequest {
+  /** Device credential of the sighting owner; must match the sighting */
+  deviceId: string;
   /** Existing cat to confirm as the match */
   catId?: number | null;
   /** Name for a new unique cat (when no match) */
@@ -69,6 +73,8 @@ export interface ResolveSightingRequest {
 
 export interface Profile {
   deviceId: string;
+  spotterCode: string;
+  nickname?: string | null;
   points: number;
   totalSightings: number;
   uniqueCatsDiscovered: number;
@@ -84,8 +90,18 @@ export interface ResolveResult {
   profile: Profile;
 }
 
+export interface UpdateProfileRequest {
+  /**
+     * Display name for the leaderboard; empty or null clears it
+     * @maxLength 24
+     */
+  nickname?: string | null;
+}
+
 export interface LeaderboardEntry {
-  deviceId: string;
+  /** Opaque public spotter identifier (never the raw device id) */
+  spotterCode: string;
+  nickname?: string | null;
   points: number;
   uniqueCatsDiscovered: number;
   rank: number;

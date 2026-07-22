@@ -88,6 +88,16 @@ export default function CatDetailScreen() {
                 {new Date(cat.lastSeenAt).toLocaleDateString()}
               </Text>
             </View>
+            {!!cat.discovererSpotterCode && (
+              <View style={styles.metaRow}>
+                <Feather name="star" size={14} color={colors.mutedForeground} />
+                <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+                  {t('discoveredBy')}{' '}
+                  {cat.discovererNickname ??
+                    `${t('spotter')} ${cat.discovererSpotterCode}`}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={[styles.mapWrap, { borderColor: colors.border }]}>

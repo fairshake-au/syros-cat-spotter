@@ -1,0 +1,1 @@
+- [Anonymous device identity](anonymous-device-identity.md) — device ids are bearer credentials; public API responses must expose opaque spotterCode only, never raw device ids.

@@ -18,3 +18,4 @@ export * from './profile';
 export * from './resolveResult';
 export * from './resolveSightingRequest';
 export * from './sighting';
+export * from './updateProfileRequest';

@@ -135,6 +135,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
+    patch:
+      operationId: updateProfile
+      tags: [profiles]
+      summary: Update profile settings such as the leaderboard nickname
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "400":
+          description: Invalid nickname
   /leaderboard:
     get:
       operationId: getLeaderboard
@@ -170,6 +194,10 @@ components:
         distanceKm:
           type: number
           nullable: true
+        discovererSpotterCode: { type: string }
+        discovererNickname:
+          type: string
+          nullable: true
       required:
         [id, name, description, photoUrl, lat, lng, sightingsCount, lastSeenAt]
     Sighting:
@@ -179,12 +207,12 @@ components:
         catId:
           type: integer
           nullable: true
-        deviceId: { type: string }
+        spotterCode: { type: string }
         photoUrl: { type: string }
         lat: { type: number }
         lng: { type: number }
         createdAt: { type: string }
-      required: [id, deviceId, photoUrl, lat, lng, createdAt]
+      required: [id, spotterCode, photoUrl, lat, lng, createdAt]
     CatDetail:
       type: object
       properties:
@@ -231,6 +259,9 @@ components:
     ResolveSightingRequest:
       type: object
       properties:
+        deviceId:
+          type: string
+          description: Device credential of the sighting owner; must match the sighting
         catId:
           type: integer
           nullable: true
@@ -239,6 +270,7 @@ components:
           type: string
           nullable: true
           description: Name for a new unique cat (when no match)
+      required: [deviceId]
     ResolveResult:
       type: object
       properties:
@@ -252,10 +284,22 @@ components:
         profile:
           $ref: "#/components/schemas/Profile"
       required: [cat, pointsAwarded, isNewCat, newBadges, profile]
+    UpdateProfileRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+          nullable: true
+          maxLength: 24
+          description: Display name for the leaderboard; empty or null clears it
     Profile:
       type: object
       properties:
         deviceId: { type: string }
+        spotterCode: { type: string }
+        nickname:
+          type: string
+          nullable: true
         points: { type: integer }
         totalSightings: { type: integer }
         uniqueCatsDiscovered: { type: integer }
@@ -264,12 +308,17 @@ components:
           type: array
           items: { type: string }
       required:
-        [deviceId, points, totalSightings, uniqueCatsDiscovered, catsSpotted, badges]
+        [deviceId, spotterCode, points, totalSightings, uniqueCatsDiscovered, catsSpotted, badges]
     LeaderboardEntry:
       type: object
       properties:
-        deviceId: { type: string }
+        spotterCode:
+          type: string
+          description: Opaque public spotter identifier (never the raw device id)
+        nickname:
+          type: string
+          nullable: true
         points: { type: integer }
         uniqueCatsDiscovered: { type: integer }
         rank: { type: integer }
-      required: [deviceId, points, uniqueCatsDiscovered, rank]
+      required: [spotterCode, points, uniqueCatsDiscovered, rank]

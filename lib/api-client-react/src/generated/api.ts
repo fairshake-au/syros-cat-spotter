@@ -29,7 +29,8 @@ import type {
   MatchResult,
   Profile,
   ResolveResult,
-  ResolveSightingRequest
+  ResolveSightingRequest,
+  UpdateProfileRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -516,6 +517,78 @@ export function useGetProfile<TData = Awaited<ReturnType<typeof getProfile>>, TE
 
 
 
+
+export const getUpdateProfileUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/profiles/${deviceId}`
+}
+
+/**
+ * @summary Update profile settings such as the leaderboard nickname
+ */
+export const updateProfile = async (deviceId: string,
+    updateProfileRequest: UpdateProfileRequest, options?: RequestInit): Promise<Profile> => {
+
+  return customFetch<Profile>(getUpdateProfileUrl(deviceId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateProfileRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfile>>, TError,{deviceId: string;data: BodyType<UpdateProfileRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProfile>>, TError,{deviceId: string;data: BodyType<UpdateProfileRequest>}, TContext> => {
+
+const mutationKey = ['updateProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProfile>>, {deviceId: string;data: BodyType<UpdateProfileRequest>}> = (props) => {
+          const {deviceId,data} = props ?? {};
+
+          return  updateProfile(deviceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateProfile>>>
+    export type UpdateProfileMutationBody = BodyType<UpdateProfileRequest>
+    export type UpdateProfileMutationError = ErrorType<void>
+
+    /**
+ * @summary Update profile settings such as the leaderboard nickname
+ */
+export const useUpdateProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfile>>, TError,{deviceId: string;data: BodyType<UpdateProfileRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProfile>>,
+        TError,
+        {deviceId: string;data: BodyType<UpdateProfileRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateProfileMutationOptions(options));
+    }
 
 export const getGetLeaderboardUrl = () => {
 

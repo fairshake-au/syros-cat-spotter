@@ -6,13 +6,16 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useGetProfile,
   useGetLeaderboard,
+  useUpdateProfile,
   getGetProfileQueryKey,
   getGetLeaderboardQueryKey,
 } from '@workspace/api-client-react';
@@ -45,6 +48,32 @@ export default function ProfileScreen() {
 
   const profile = profileQuery.data;
   const earned = new Set(profile?.badges ?? []);
+
+  const queryClient = useQueryClient();
+  const [nicknameDraft, setNicknameDraft] = React.useState('');
+  const [nicknameSaved, setNicknameSaved] = React.useState(false);
+  React.useEffect(() => {
+    setNicknameDraft(profile?.nickname ?? '');
+  }, [profile?.nickname]);
+  const updateProfile = useUpdateProfile({
+    mutation: {
+      onSuccess: (updated) => {
+        queryClient.setQueryData(getGetProfileQueryKey(deviceId ?? ''), updated);
+        queryClient.invalidateQueries({ queryKey: getGetLeaderboardQueryKey() });
+        setNicknameSaved(true);
+        setTimeout(() => setNicknameSaved(false), 2000);
+      },
+    },
+  });
+  const trimmedDraft = nicknameDraft.trim();
+  const nicknameDirty = trimmedDraft !== (profile?.nickname ?? '');
+  const saveNickname = () => {
+    if (!deviceId || !nicknameDirty || updateProfile.isPending) return;
+    updateProfile.mutate({
+      deviceId,
+      data: { nickname: trimmedDraft.length > 0 ? trimmedDraft : null },
+    });
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -105,6 +134,56 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Nickname */}
+        {isOnline && !!deviceId && (
+          <View style={{ gap: 10 }}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {t('nickname')}
+            </Text>
+            <View style={styles.nicknameRow}>
+              <TextInput
+                value={nicknameDraft}
+                onChangeText={setNicknameDraft}
+                placeholder={t('nicknamePlaceholder')}
+                placeholderTextColor={colors.mutedForeground}
+                maxLength={24}
+                returnKeyType="done"
+                onSubmitEditing={saveNickname}
+                style={[
+                  styles.nicknameInput,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                  },
+                ]}
+              />
+              <Pressable
+                onPress={saveNickname}
+                disabled={!nicknameDirty || updateProfile.isPending}
+                style={[
+                  styles.saveBtn,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: !nicknameDirty || updateProfile.isPending ? 0.5 : 1,
+                  },
+                ]}
+              >
+                {updateProfile.isPending ? (
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                ) : (
+                  <Text style={[styles.saveText, { color: colors.primaryForeground }]}>
+                    {nicknameSaved ? t('saved') : t('save')}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={[styles.nicknameHint, { color: colors.mutedForeground }]}>
+              {t('nicknameHint')}
+            </Text>
+          </View>
+        )}
+
         {/* Badges */}
         <View style={{ gap: 10 }}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
@@ -158,10 +237,11 @@ export default function ProfileScreen() {
               {t('leaderboard')}
             </Text>
             {leaderboardQuery.data!.map((entry) => {
-              const isMe = entry.deviceId === deviceId;
+              const isMe =
+                !!profile?.spotterCode && entry.spotterCode === profile.spotterCode;
               return (
                 <View
-                  key={entry.deviceId}
+                  key={entry.spotterCode}
                   style={[
                     styles.leaderRow,
                     {
@@ -178,8 +258,10 @@ export default function ProfileScreen() {
                     numberOfLines={1}
                   >
                     {isMe
-                      ? t('you')
-                      : `${t('spotter')} ${entry.deviceId.slice(-4).toUpperCase()}`}
+                      ? entry.nickname
+                        ? `${entry.nickname} (${t('you')})`
+                        : t('you')
+                      : entry.nickname ?? `${t('spotter')} ${entry.spotterCode}`}
                   </Text>
                   <Text style={[styles.leaderPoints, { color: colors.primary }]}>
                     {entry.points} {t('points')}
@@ -280,6 +362,26 @@ const styles = StyleSheet.create({
   rank: { fontSize: 13, fontFamily: 'Inter_600SemiBold', width: 32 },
   leaderName: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium' },
   leaderPoints: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  nicknameRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  nicknameInput: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+  },
+  saveBtn: {
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 76,
+  },
+  saveText: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  nicknameHint: { fontSize: 12, fontFamily: 'Inter_400Regular' },
   langRow: { flexDirection: 'row', gap: 10 },
   langBtn: {
     flex: 1,

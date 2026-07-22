@@ -8,6 +8,8 @@
 
 export interface Profile {
   deviceId: string;
+  spotterCode: string;
+  nickname?: string | null;
   points: number;
   totalSightings: number;
   uniqueCatsDiscovered: number;

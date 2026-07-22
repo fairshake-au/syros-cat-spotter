@@ -128,6 +128,13 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     res.status(409).json({ error: "Sighting already resolved" });
     return;
   }
+  // Ownership check: the device credential must match the sighting owner.
+  // Sighting ids are enumerable, so without this any caller could resolve
+  // someone else's sighting and receive their profile (device credential).
+  if (body.deviceId !== sighting.deviceId) {
+    res.status(403).json({ error: "Not your sighting" });
+    return;
+  }
 
   const statsBefore = await getProfileStats(sighting.deviceId);
   const badgesBefore = badgesFor(statsBefore);

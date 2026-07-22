@@ -33,7 +33,9 @@ export const ListCatsResponseItem = zod.object({
   "lng": zod.number(),
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish()
+  "distanceKm": zod.number().nullish(),
+  "discovererSpotterCode": zod.string().optional(),
+  "discovererNickname": zod.string().nullish()
 })
 export const ListCatsResponse = zod.array(ListCatsResponseItem)
 
@@ -55,12 +57,14 @@ export const GetCatResponse = zod.object({
   "lng": zod.number(),
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish()
+  "distanceKm": zod.number().nullish(),
+  "discovererSpotterCode": zod.string().optional(),
+  "discovererNickname": zod.string().nullish()
 }),
   "sightings": zod.array(zod.object({
   "id": zod.number(),
   "catId": zod.number().nullish(),
-  "deviceId": zod.string(),
+  "spotterCode": zod.string(),
   "photoUrl": zod.string(),
   "lat": zod.number(),
   "lng": zod.number(),
@@ -100,6 +104,7 @@ export const ResolveSightingParams = zod.object({
 })
 
 export const ResolveSightingBody = zod.object({
+  "deviceId": zod.string().describe('Device credential of the sighting owner; must match the sighting'),
   "catId": zod.number().nullish().describe('Existing cat to confirm as the match'),
   "newCatName": zod.string().nullish().describe('Name for a new unique cat (when no match)')
 })
@@ -114,13 +119,17 @@ export const ResolveSightingResponse = zod.object({
   "lng": zod.number(),
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish()
+  "distanceKm": zod.number().nullish(),
+  "discovererSpotterCode": zod.string().optional(),
+  "discovererNickname": zod.string().nullish()
 }),
   "pointsAwarded": zod.number(),
   "isNewCat": zod.boolean(),
   "newBadges": zod.array(zod.string()),
   "profile": zod.object({
   "deviceId": zod.string(),
+  "spotterCode": zod.string(),
+  "nickname": zod.string().nullish(),
   "points": zod.number(),
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
@@ -139,6 +148,35 @@ export const GetProfileParams = zod.object({
 
 export const GetProfileResponse = zod.object({
   "deviceId": zod.string(),
+  "spotterCode": zod.string(),
+  "nickname": zod.string().nullish(),
+  "points": zod.number(),
+  "totalSightings": zod.number(),
+  "uniqueCatsDiscovered": zod.number(),
+  "catsSpotted": zod.number(),
+  "badges": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Update profile settings such as the leaderboard nickname
+ */
+export const UpdateProfileParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const updateProfileBodyNicknameMax = 24;
+
+
+
+export const UpdateProfileBody = zod.object({
+  "nickname": zod.string().max(updateProfileBodyNicknameMax).nullish().describe('Display name for the leaderboard; empty or null clears it')
+})
+
+export const UpdateProfileResponse = zod.object({
+  "deviceId": zod.string(),
+  "spotterCode": zod.string(),
+  "nickname": zod.string().nullish(),
   "points": zod.number(),
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
@@ -151,7 +189,8 @@ export const GetProfileResponse = zod.object({
  * @summary Top spotters by points
  */
 export const GetLeaderboardResponseItem = zod.object({
-  "deviceId": zod.string(),
+  "spotterCode": zod.string().describe('Opaque public spotter identifier (never the raw device id)'),
+  "nickname": zod.string().nullish(),
   "points": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "rank": zod.number()

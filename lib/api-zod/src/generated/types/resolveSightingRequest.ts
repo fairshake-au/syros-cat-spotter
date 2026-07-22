@@ -7,6 +7,8 @@
  */
 
 export interface ResolveSightingRequest {
+  /** Device credential of the sighting owner; must match the sighting */
+  deviceId: string;
   /** Existing cat to confirm as the match */
   catId?: number | null;
   /** Name for a new unique cat (when no match) */

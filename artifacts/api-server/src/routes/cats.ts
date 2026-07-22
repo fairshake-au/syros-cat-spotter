@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, catsTable, sightingsTable } from "@workspace/db";
+import { db, catsTable, sightingsTable, profilesTable } from "@workspace/db";
 import { and, eq, desc } from "drizzle-orm";
-import { listCatsWithStats, photoUrl } from "../lib/catHelpers";
+import { listCatsWithStats, photoUrl, spotterCode } from "../lib/catHelpers";
 
 const router: IRouter = Router();
 
@@ -45,11 +45,19 @@ router.get("/cats/:catId", async (req, res) => {
       sightingsCount: sightings.length,
       lastSeenAt:
         sightings[0]?.createdAt.toISOString() ?? cat.createdAt.toISOString(),
+      discovererSpotterCode: spotterCode(cat.discovererDeviceId),
+      discovererNickname:
+        (
+          await db
+            .select({ nickname: profilesTable.nickname })
+            .from(profilesTable)
+            .where(eq(profilesTable.deviceId, cat.discovererDeviceId))
+        )[0]?.nickname ?? null,
     },
     sightings: sightings.map((s) => ({
       id: s.id,
       catId: s.catId,
-      deviceId: s.deviceId,
+      spotterCode: spotterCode(s.deviceId),
       photoUrl: photoUrl(s.photoId),
       lat: s.lat,
       lng: s.lng,

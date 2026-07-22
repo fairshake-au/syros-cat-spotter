@@ -16,4 +16,6 @@ export interface Cat {
   sightingsCount: number;
   lastSeenAt: string;
   distanceKm?: number | null;
+  discovererSpotterCode?: string;
+  discovererNickname?: string | null;
 }

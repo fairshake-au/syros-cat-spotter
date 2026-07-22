@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { db, catsTable, sightingsTable, profilesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { badgesFor, type ProfileStats } from "./badges";
@@ -19,6 +20,15 @@ export function haversineKm(
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+/**
+ * Opaque public identifier for a device profile. Device IDs act as the
+ * bearer credential in this anonymous-profile model, so they must never
+ * appear in public API responses (leaderboard, cat credits, sightings).
+ */
+export function spotterCode(deviceId: string): string {
+  return createHash("sha256").update(deviceId).digest("hex").slice(0, 4).toUpperCase();
+}
+
 export function photoUrl(photoId: number): string {
   return `/api/photos/${photoId}`;
 }
@@ -33,6 +43,8 @@ export interface CatWithStats {
   sightingsCount: number;
   lastSeenAt: string;
   distanceKm?: number;
+  discovererSpotterCode: string;
+  discovererNickname: string | null;
 }
 
 export async function listCatsWithStats(
@@ -44,6 +56,10 @@ export async function listCatsWithStats(
       cat: catsTable,
       sightingsCount: sql<number>`count(${sightingsTable.id})::int`,
       lastSeenAt: sql<string | null>`to_char(max(${sightingsTable.createdAt}) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+      discovererNickname: sql<string | null>`(
+        select ${profilesTable.nickname} from ${profilesTable}
+        where ${profilesTable.deviceId} = ${catsTable.discovererDeviceId}
+      )`,
     })
     .from(catsTable)
     .leftJoin(
@@ -65,6 +81,8 @@ export async function listCatsWithStats(
       lng: r.cat.lng,
       sightingsCount: r.sightingsCount,
       lastSeenAt: r.lastSeenAt ?? r.cat.createdAt.toISOString(),
+      discovererSpotterCode: spotterCode(r.cat.discovererDeviceId),
+      discovererNickname: r.discovererNickname ?? null,
     };
     if (lat !== undefined && lng !== undefined) {
       c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);
@@ -127,8 +145,14 @@ export async function getProfileStats(deviceId: string): Promise<ProfileStats> {
 
 export async function profilePayload(deviceId: string) {
   const stats = await getProfileStats(deviceId);
+  const [profile] = await db
+    .select({ nickname: profilesTable.nickname })
+    .from(profilesTable)
+    .where(eq(profilesTable.deviceId, deviceId));
   return {
     deviceId,
+    spotterCode: spotterCode(deviceId),
+    nickname: profile?.nickname ?? null,
     points: stats.points,
     totalSightings: stats.totalSightings,
     uniqueCatsDiscovered: stats.uniqueCatsDiscovered,

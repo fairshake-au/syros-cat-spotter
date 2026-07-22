@@ -22,6 +22,7 @@ import {
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
+import { useDevice } from '@/context/DeviceContext';
 import { absoluteUrl } from '@/lib/urls';
 
 interface ReviewData {
@@ -39,6 +40,7 @@ export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { remove } = useOffline();
+  const { deviceId } = useDevice();
   const params = useLocalSearchParams<{ data?: string }>();
 
   const data = useMemo<ReviewData | null>(() => {
@@ -69,20 +71,26 @@ export default function ReviewScreen() {
   };
 
   const confirm = async (catId: number) => {
+    if (!deviceId) return;
     setBusy(true);
     try {
-      await finishAndInvalidate(await resolveSighting(data.sightingId, { catId }));
+      await finishAndInvalidate(
+        await resolveSighting(data.sightingId, { deviceId, catId }),
+      );
     } catch {
       setBusy(false);
     }
   };
 
   const registerNew = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !deviceId) return;
     setBusy(true);
     try {
       await finishAndInvalidate(
-        await resolveSighting(data.sightingId, { newCatName: newName.trim() }),
+        await resolveSighting(data.sightingId, {
+          deviceId,
+          newCatName: newName.trim(),
+        }),
       );
     } catch {
       setBusy(false);
