@@ -222,6 +222,8 @@ export interface Profile {
   uniqueCatsDiscovered: number;
   catsSpotted: number;
   badges: string[];
+  /** Ids of cats this device owns. Only returned on the device's own profile route (the deviceId path param is the credential); never exposed in public payloads. */
+  ownedCatIds: number[];
 }
 
 export interface ResolveResult {

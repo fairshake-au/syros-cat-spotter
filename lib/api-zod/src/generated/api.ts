@@ -282,7 +282,8 @@ export const ResolveSightingResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string())
+  "badges": zod.array(zod.string()),
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
 })
 })
 
@@ -315,7 +316,8 @@ export const GetProfileResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string())
+  "badges": zod.array(zod.string()),
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
 })
 
 
@@ -343,7 +345,8 @@ export const UpdateProfileResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string())
+  "badges": zod.array(zod.string()),
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
 })
 
 
@@ -393,7 +396,8 @@ export const ClaimUsernameResponse = zod.object({
   "totalSightings": zod.number(),
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string())
+  "badges": zod.array(zod.string()),
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
 })
 
 

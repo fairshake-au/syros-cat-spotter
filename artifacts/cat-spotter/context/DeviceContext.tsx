@@ -7,7 +7,10 @@ import React, {
   useState,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setDeviceSecretGetter } from '@workspace/api-client-react';
+import {
+  getProfile,
+  setDeviceSecretGetter,
+} from '@workspace/api-client-react';
 
 const STORAGE_KEY = 'cat-spotter/device-id';
 const SECRET_KEY = 'cat-spotter/device-secret';
@@ -105,6 +108,25 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     setUsernameState(name);
     AsyncStorage.setItem(USERNAME_KEY, name);
   }, []);
+
+  // Hydrate the owned-cat list from the server so edit rights survive
+  // reinstalls / storage clears (the local cache is just a fast start).
+  useEffect(() => {
+    if (!deviceId) return;
+    let cancelled = false;
+    getProfile(deviceId)
+      .then((profile) => {
+        if (cancelled || !Array.isArray(profile.ownedCatIds)) return;
+        setOwnedCatIds((prev) => {
+          const merged = Array.from(new Set([...prev, ...profile.ownedCatIds]));
+          AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(merged));
+          return merged;
+        });
+      })
+      .catch(() => {
+        // Offline or server unreachable: keep the locally cached list.
+      });
+  }, [deviceId]);
 
   const addOwnedCat = useCallback((catId: number) => {
     setOwnedCatIds((prev) => {

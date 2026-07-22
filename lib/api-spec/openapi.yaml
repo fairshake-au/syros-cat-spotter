@@ -723,8 +723,15 @@ components:
         badges:
           type: array
           items: { type: string }
+        ownedCatIds:
+          type: array
+          items: { type: integer }
+          description: >-
+            Ids of cats this device owns. Only returned on the device's own
+            profile route (the deviceId path param is the credential); never
+            exposed in public payloads.
       required:
-        [deviceId, spotterCode, points, totalSightings, uniqueCatsDiscovered, catsSpotted, badges]
+        [deviceId, spotterCode, points, totalSightings, uniqueCatsDiscovered, catsSpotted, badges, ownedCatIds]
     LeaderboardEntry:
       type: object
       properties:

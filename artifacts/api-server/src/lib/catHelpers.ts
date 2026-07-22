@@ -162,6 +162,12 @@ export async function profilePayload(deviceId: string) {
     })
     .from(profilesTable)
     .where(eq(profilesTable.deviceId, deviceId));
+  // Safe to return here: the deviceId path param is itself the credential for
+  // this profile, so listing the cats it owns leaks nothing to other users.
+  const ownedCats = await db
+    .select({ id: catsTable.id })
+    .from(catsTable)
+    .where(eq(catsTable.ownerDeviceId, deviceId));
   return {
     deviceId,
     spotterCode: spotterCode(deviceId),
@@ -172,5 +178,6 @@ export async function profilePayload(deviceId: string) {
     uniqueCatsDiscovered: stats.uniqueCatsDiscovered,
     catsSpotted: stats.catsSpotted,
     badges: badgesFor(stats),
+    ownedCatIds: ownedCats.map((c) => c.id),
   };
 }
