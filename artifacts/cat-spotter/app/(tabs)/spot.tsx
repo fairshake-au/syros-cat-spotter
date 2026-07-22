@@ -32,6 +32,13 @@ interface PickedPhoto {
   base64: string;
 }
 
+// The server accepts native HEIC/HEIF (plus JPEG/PNG/WebP) and normalizes
+// everything to JPEG itself, so photos are uploaded as captured — no
+// on-device JPEG re-encode. `shrink` remains only as a fallback for assets
+// the picker couldn't return base64 for, or that are too big to upload raw
+// (the server rejects inputs over 20 MB).
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
 async function shrink(uri: string): Promise<PickedPhoto> {
   const result = await ImageManipulator.manipulateAsync(
     uri,
@@ -39,6 +46,16 @@ async function shrink(uri: string): Promise<PickedPhoto> {
     { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
   );
   return { uri: result.uri, base64: result.base64 ?? '' };
+}
+
+async function toPickedPhoto(
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<PickedPhoto> {
+  // base64 length * 3/4 ≈ decoded byte size.
+  if (asset.base64 && asset.base64.length * 0.75 <= MAX_UPLOAD_BYTES) {
+    return { uri: asset.uri, base64: asset.base64 };
+  }
+  return shrink(asset.uri);
 }
 
 export default function SpotScreen() {
@@ -77,13 +94,18 @@ export default function SpotScreen() {
         if (!perm.granted) return;
       }
       const result = fromCamera
-        ? await ImagePicker.launchCameraAsync({ quality: 0.8 })
+        ? await ImagePicker.launchCameraAsync({ quality: 1, base64: true })
         : await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
-            quality: 0.8,
+            quality: 1,
+            base64: true,
+            // Hand over the library asset in its native representation
+            // (HEIC on iPhones) instead of transcoding to JPEG on-device.
+            preferredAssetRepresentationMode:
+              ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
           });
       if (!result.canceled && result.assets[0]) {
-        setPhoto(await shrink(result.assets[0].uri));
+        setPhoto(await toPickedPhoto(result.assets[0]));
       }
     } catch {
       Alert.alert(t('error'));
