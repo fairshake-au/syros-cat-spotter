@@ -15,6 +15,9 @@ import { AppMap } from '@/components/AppMap';
 import { useGetCat, getGetCatQueryKey } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
+import { useDevice } from '@/context/DeviceContext';
+import { OwnershipBanner } from '@/components/OwnershipBanner';
+import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { absoluteUrl } from '@/lib/urls';
 
 export default function CatDetailScreen() {
@@ -24,6 +27,8 @@ export default function CatDetailScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string }>();
   const catId = Number(params.id);
+  const { ownedCatIds } = useDevice();
+  const [sheet, setSheet] = React.useState<'claim' | 'edit' | null>(null);
 
   const query = useGetCat(catId, {
     query: { enabled: Number.isFinite(catId), queryKey: getGetCatQueryKey(catId) },
@@ -55,6 +60,8 @@ export default function CatDetailScreen() {
   }
 
   const { cat, sightings } = data;
+  const isClaimed = !!cat.ownerName;
+  const isOwner = isClaimed && ownedCatIds.includes(cat.id);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -78,9 +85,26 @@ export default function CatDetailScreen() {
         </View>
         <View style={{ padding: 16, gap: 16 }}>
           <View style={{ gap: 4 }}>
-            <Text style={[styles.name, { color: colors.foreground }]}>
-              {cat.name}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.name, { color: colors.foreground }]}>
+                {cat.name}
+              </Text>
+              {isOwner && (
+                <Pressable
+                  onPress={() => setSheet('edit')}
+                  hitSlop={8}
+                  style={[
+                    styles.editBtn,
+                    { borderColor: colors.border, backgroundColor: colors.card },
+                  ]}
+                >
+                  <Feather name="edit-2" size={13} color={colors.primary} />
+                  <Text style={[styles.editText, { color: colors.primary }]}>
+                    {t('editCat')}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
             <View style={styles.metaRow}>
               <Feather name="eye" size={14} color={colors.mutedForeground} />
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>
@@ -100,6 +124,23 @@ export default function CatDetailScreen() {
               </View>
             )}
           </View>
+
+          {isClaimed ? (
+            <OwnershipBanner
+              ownerName={cat.ownerName!}
+              homeDescription={cat.homeDescription}
+            />
+          ) : (
+            <Pressable
+              onPress={() => setSheet('claim')}
+              style={[styles.claimBtn, { backgroundColor: colors.primary }]}
+            >
+              <Feather name="home" size={16} color={colors.primaryForeground} />
+              <Text style={[styles.claimText, { color: colors.primaryForeground }]}>
+                {t('claimCat')}
+              </Text>
+            </Pressable>
+          )}
 
           <View style={[styles.mapWrap, { borderColor: colors.border }]}>
             <AppMap
@@ -148,6 +189,14 @@ export default function CatDetailScreen() {
           </View>
         </View>
       </ScrollView>
+      {sheet !== null && (
+        <ClaimCatSheet
+          visible
+          mode={sheet}
+          cat={cat}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </View>
   );
 }
@@ -166,7 +215,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     opacity: 0.92,
   },
-  name: { fontSize: 26, fontFamily: 'Poppins_700Bold' },
+  name: { fontSize: 26, fontFamily: 'Poppins_700Bold', flexShrink: 1 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  editText: { fontSize: 12, fontFamily: 'Nunito_700Bold' },
+  claimBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 13,
+  },
+  claimText: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   meta: { fontSize: 13, fontFamily: 'Nunito_400Regular' },
   mapWrap: {

@@ -31,12 +31,19 @@ export function CatCard({ cat }: { cat: Cat }) {
         },
       ]}
     >
-      <Image
-        source={{ uri: absoluteUrl(cat.photoUrl) }}
-        style={styles.photo}
-        contentFit="cover"
-        transition={200}
-      />
+      <View>
+        <Image
+          source={{ uri: absoluteUrl(cat.photoUrl) }}
+          style={styles.photo}
+          contentFit="cover"
+          transition={200}
+        />
+        {!!cat.ownerName && (
+          <View style={[styles.homeBadge, { backgroundColor: colors.primary }]}>
+            <Feather name="home" size={12} color={colors.primaryForeground} />
+          </View>
+        )}
+      </View>
       <View style={styles.info}>
         <Text
           style={[styles.name, { color: colors.foreground }]}
@@ -94,6 +101,17 @@ const styles = StyleSheet.create({
   photo: {
     width: '100%',
     aspectRatio: 1,
+  },
+  homeBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.95,
   },
   info: {
     padding: 10,

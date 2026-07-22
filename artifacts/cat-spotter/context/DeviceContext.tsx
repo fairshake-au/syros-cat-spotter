@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'cat-spotter/device-id';
 const USERNAME_KEY = 'cat-spotter/username';
+const OWNED_CATS_KEY = 'cat-spotter/owned-cat-ids';
 
 function makeDeviceId(): string {
   return (
@@ -25,6 +26,14 @@ interface DeviceContextValue {
   isReady: boolean;
   /** Persist the username locally after a successful server claim. */
   setUsername: (name: string) => void;
+  /**
+   * Cat ids this device has claimed ownership of. The API never exposes
+   * ownerDeviceId, so ownership is remembered locally after a successful
+   * claim (and confirmed server-side on every edit via deviceId).
+   */
+  ownedCatIds: number[];
+  /** Record a successful ownership claim for a cat. */
+  addOwnedCat: (catId: number) => void;
 }
 
 const DeviceContext = createContext<DeviceContextValue>({
@@ -32,18 +41,32 @@ const DeviceContext = createContext<DeviceContextValue>({
   username: null,
   isReady: false,
   setUsername: () => {},
+  ownedCatIds: [],
+  addOwnedCat: () => {},
 });
 
 export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [username, setUsernameState] = useState<string | null>(null);
+  const [ownedCatIds, setOwnedCatIds] = useState<number[]>([]);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(STORAGE_KEY),
       AsyncStorage.getItem(USERNAME_KEY),
-    ]).then(async ([storedId, storedName]) => {
+      AsyncStorage.getItem(OWNED_CATS_KEY),
+    ]).then(async ([storedId, storedName, storedOwned]) => {
+      if (storedOwned) {
+        try {
+          const parsed = JSON.parse(storedOwned);
+          if (Array.isArray(parsed)) {
+            setOwnedCatIds(parsed.filter((n) => typeof n === 'number'));
+          }
+        } catch {
+          // ignore corrupt storage
+        }
+      }
       if (storedId) {
         setDeviceId(storedId);
       } else {
@@ -61,9 +84,18 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(USERNAME_KEY, name);
   }, []);
 
+  const addOwnedCat = useCallback((catId: number) => {
+    setOwnedCatIds((prev) => {
+      if (prev.includes(catId)) return prev;
+      const next = [...prev, catId];
+      AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const value = useMemo(
-    () => ({ deviceId, username, isReady, setUsername }),
-    [deviceId, username, isReady, setUsername],
+    () => ({ deviceId, username, isReady, setUsername, ownedCatIds, addOwnedCat }),
+    [deviceId, username, isReady, setUsername, ownedCatIds, addOwnedCat],
   );
   return (
     <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>

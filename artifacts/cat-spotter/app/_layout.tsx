@@ -26,6 +26,7 @@ import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { LandingScreen } from '@/components/LandingScreen';
 import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
+import { OwnershipNoticeBanner } from '@/components/OwnershipNoticeBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 
 setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
@@ -67,6 +68,7 @@ function OnboardingGate() {
       <OfflineTilesLoader />
       <RootLayoutNav />
       <ReviewReadyBanner />
+      <OwnershipNoticeBanner />
     </>
   );
 }
