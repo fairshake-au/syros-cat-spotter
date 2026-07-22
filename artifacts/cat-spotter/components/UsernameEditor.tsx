@@ -76,8 +76,12 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
         setTimeout(() => setSaved(false), 2000);
       },
       onError: (err: unknown) => {
-        const status = (err as { status?: number })?.status;
-        setClaimError(status === 409 ? t('landingTaken') : t('error'));
+        const e = err as { status?: number; data?: { code?: string } | null };
+        if (e?.data?.code === 'offensive_username') {
+          setClaimError(t('usernameRejected'));
+        } else {
+          setClaimError(e?.status === 409 ? t('landingTaken') : t('error'));
+        }
       },
     },
   });
@@ -109,7 +113,12 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
       return { text: t('landingAvailable'), color: colors.primary, icon: 'check-circle' as const };
     if (taken)
       return {
-        text: availability.data?.reason === 'invalid' ? t('landingInvalid') : t('landingTaken'),
+        text:
+          availability.data?.reason === 'offensive'
+            ? t('usernameRejected')
+            : availability.data?.reason === 'invalid'
+              ? t('landingInvalid')
+              : t('landingTaken'),
         color: colors.destructive ?? '#c0392b',
         icon: 'x-circle' as const,
       };

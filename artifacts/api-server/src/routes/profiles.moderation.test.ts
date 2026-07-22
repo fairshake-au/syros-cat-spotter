@@ -37,6 +37,24 @@ describe("containsOffensiveLanguage", () => {
   });
 });
 
+describe("username moderation", () => {
+  it("rejects an offensive username claim with 400 and code offensive_username", async () => {
+    const res = await request(app)
+      .post(`/api/profiles/${device("u")}/username`)
+      .send({ username: "malakas123" });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("offensive_username");
+  });
+
+  it("reports offensive usernames as unavailable with reason=offensive", async () => {
+    const res = await request(app)
+      .get("/api/profiles/username-availability")
+      .query({ name: "putain de chat" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ available: false, reason: "offensive" });
+  });
+});
+
 describe("PATCH /api/profiles/:deviceId nickname moderation", () => {
   it("rejects an offensive nickname with 400 and code offensive_nickname", async () => {
     const res = await request(app)

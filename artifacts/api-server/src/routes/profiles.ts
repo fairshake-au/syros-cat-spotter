@@ -24,6 +24,10 @@ router.get("/profiles/username-availability", async (req, res) => {
     res.json({ available: false, reason: "invalid" });
     return;
   }
+  if (containsOffensiveLanguage(name)) {
+    res.json({ available: false, reason: "offensive" });
+    return;
+  }
   const [existing] = await db
     .select({ deviceId: profilesTable.deviceId })
     .from(profilesTable)
@@ -44,6 +48,13 @@ router.post("/profiles/:deviceId/username", async (req, res) => {
   const username = normalizeUsername(req.body?.username);
   if (!username) {
     res.status(400).json({ error: "Username must be 3-24 letters, numbers or spaces" });
+    return;
+  }
+  if (containsOffensiveLanguage(username)) {
+    res.status(400).json({
+      error: "Username contains offensive language",
+      code: "offensive_username",
+    });
     return;
   }
   // Taken by someone else? (unique index still guards against races)

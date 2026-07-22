@@ -22,6 +22,7 @@ import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
+import { containsOffensiveLanguage } from "../lib/moderation";
 
 const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
@@ -159,6 +160,13 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     isNewCat = false;
   } else if (body.newCatName && body.newCatName.trim().length > 0) {
     const name = body.newCatName.trim().slice(0, 60);
+    if (containsOffensiveLanguage(name)) {
+      res.status(400).json({
+        error: "Cat name contains offensive language",
+        code: "OFFENSIVE_NAME",
+      });
+      return;
+    }
     const [taken] = await db
       .select({ id: catsTable.id })
       .from(catsTable)

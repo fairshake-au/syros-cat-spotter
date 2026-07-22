@@ -58,7 +58,7 @@ export default function ReviewScreen() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResolveResult | null>(null);
   const [showNewCat, setShowNewCat] = useState(false);
-  const [nameTaken, setNameTaken] = useState(false);
+  const [nameError, setNameError] = useState<'taken' | 'offensive' | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState(false);
@@ -92,7 +92,7 @@ export default function ReviewScreen() {
   const registerNew = async () => {
     if (!newName.trim() || !deviceId) return;
     setBusy(true);
-    setNameTaken(false);
+    setNameError(null);
     try {
       await finishAndInvalidate(
         await resolveSighting(data.sightingId, {
@@ -101,12 +101,12 @@ export default function ReviewScreen() {
         }),
       );
     } catch (err) {
-      if (
-        err instanceof ApiError &&
-        (err.data as { code?: string } | null)?.code === 'NAME_TAKEN'
-      ) {
-        setNameTaken(true);
-      }
+      const code =
+        err instanceof ApiError
+          ? (err.data as { code?: string } | null)?.code
+          : undefined;
+      if (code === 'NAME_TAKEN') setNameError('taken');
+      else if (code === 'OFFENSIVE_NAME') setNameError('offensive');
       setBusy(false);
     }
   };
@@ -332,7 +332,7 @@ export default function ReviewScreen() {
               value={newName}
               onChangeText={(v) => {
                 setNewName(v);
-                if (nameTaken) setNameTaken(false);
+                if (nameError) setNameError(null);
               }}
               placeholder={t('nameYourCat')}
               placeholderTextColor={colors.mutedForeground}
@@ -341,14 +341,14 @@ export default function ReviewScreen() {
                 styles.input,
                 {
                   color: colors.foreground,
-                  borderColor: nameTaken ? colors.destructive : colors.input,
+                  borderColor: nameError ? colors.destructive : colors.input,
                   backgroundColor: colors.background,
                 },
               ]}
             />
-            {nameTaken ? (
+            {nameError ? (
               <Text style={[styles.errorText, { color: colors.destructive }]}>
-                {t('nameTaken')}
+                {t(nameError === 'offensive' ? 'catNameRejected' : 'nameTaken')}
               </Text>
             ) : null}
             <Pressable
@@ -380,7 +380,7 @@ export default function ReviewScreen() {
                     key={s}
                     onPress={() => {
                       setNewName(s);
-                      if (nameTaken) setNameTaken(false);
+                      if (nameError) setNameError(null);
                     }}
                     style={[
                       styles.chip,

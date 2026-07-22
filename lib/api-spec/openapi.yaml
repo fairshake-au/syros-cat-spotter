@@ -650,7 +650,7 @@ components:
         reason:
           type: string
           nullable: true
-          description: Why the name is unavailable ("taken" or "invalid")
+          description: Why the name is unavailable ("taken", "invalid" or "offensive")
       required: [available]
     UsernameSuggestions:
       type: object
