@@ -45,7 +45,8 @@ export default function SpotScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { deviceId } = useDevice();
-  const { isOnline, pending, enqueue, remove, syncNow, syncing } = useOffline();
+  const { isOnline, pending, enqueue, remove, retry, syncNow, syncing } =
+    useOffline();
   const { coords, denied, loading: locating, refresh } = useLocation();
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -345,17 +346,77 @@ export default function SpotScreen() {
                         color:
                           item.status === 'review'
                             ? colors.accent
-                            : colors.mutedForeground,
+                            : item.status === 'error'
+                              ? colors.destructive
+                              : colors.mutedForeground,
                       },
                     ]}
                   >
-                    {item.status === 'review' ? t('needsReview') : t('queued')}
+                    {item.status === 'review'
+                      ? t('needsReview')
+                      : item.status === 'error'
+                        ? item.errorKind === 'stale'
+                          ? t('syncFailedStale')
+                          : t('syncFailedServer')
+                        : t('queued')}
                   </Text>
                   <Text
                     style={[styles.pendingDate, { color: colors.mutedForeground }]}
                   >
                     {new Date(item.createdAt).toLocaleString()}
                   </Text>
+                  {item.status === 'error' && (
+                    <View style={styles.errorActions}>
+                      {item.errorKind !== 'stale' && (
+                        <Pressable
+                          onPress={() => retry(item.localId)}
+                          disabled={syncing || !isOnline}
+                          style={[
+                            styles.errorBtn,
+                            {
+                              backgroundColor: colors.secondary,
+                              opacity: syncing || !isOnline ? 0.5 : 1,
+                            },
+                          ]}
+                        >
+                          <Feather
+                            name="refresh-ccw"
+                            size={13}
+                            color={colors.secondaryForeground}
+                          />
+                          <Text
+                            style={[
+                              styles.errorBtnText,
+                              { color: colors.secondaryForeground },
+                            ]}
+                          >
+                            {t('retrySync')}
+                          </Text>
+                        </Pressable>
+                      )}
+                      <Pressable
+                        onPress={() => remove(item.localId)}
+                        style={[
+                          styles.errorBtn,
+                          { backgroundColor: colors.destructive },
+                        ]}
+                      >
+                        <Feather
+                          name="trash-2"
+                          size={13}
+                          color={colors.destructiveForeground ?? '#fff'}
+                        />
+                        <Text
+                          style={[
+                            styles.errorBtnText,
+                            { color: colors.destructiveForeground ?? '#fff' },
+                          ]}
+                        >
+                          {t('discard')}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
                 {item.status === 'review' ? (
                   <Feather
@@ -363,11 +424,11 @@ export default function SpotScreen() {
                     size={18}
                     color={colors.mutedForeground}
                   />
-                ) : (
+                ) : item.status === 'queued' ? (
                   <Pressable onPress={() => remove(item.localId)} hitSlop={8}>
                     <Feather name="x" size={16} color={colors.mutedForeground} />
                   </Pressable>
-                )}
+                ) : null}
               </Pressable>
             ))}
           </View>
@@ -437,4 +498,14 @@ const styles = StyleSheet.create({
   pendingThumb: { width: 48, height: 48, borderRadius: 10 },
   pendingStatus: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   pendingDate: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  errorActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  errorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  errorBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
 });

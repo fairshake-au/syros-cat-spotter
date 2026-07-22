@@ -14,6 +14,11 @@ import { useDevice } from './DeviceContext';
 
 const QUEUE_KEY = 'cat-spotter/pending-sightings';
 
+/** Server-error retries before an item is marked failed. */
+const MAX_SYNC_ATTEMPTS = 3;
+/** Queued items older than this are flagged as stale and can never sync. */
+const MAX_QUEUE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 export interface PendingSighting {
   localId: string;
   photoBase64: string;
@@ -21,7 +26,11 @@ export interface PendingSighting {
   lat: number;
   lng: number;
   createdAt: string;
-  status: 'queued' | 'review';
+  status: 'queued' | 'review' | 'error';
+  /** Why the item is in the error state. */
+  errorKind?: 'server' | 'stale';
+  /** Consecutive server-error sync failures. */
+  failCount?: number;
   // Populated once synced with the server:
   sightingId?: number;
   isCatPhoto?: boolean;
@@ -33,6 +42,8 @@ interface OfflineContextValue {
   pending: PendingSighting[];
   enqueue: (item: Omit<PendingSighting, 'status'>) => Promise<void>;
   remove: (localId: string) => Promise<void>;
+  /** Put a failed item back in the queue and try syncing again. */
+  retry: (localId: string) => Promise<void>;
   syncNow: () => Promise<void>;
   syncing: boolean;
   /** Number of synced sightings waiting for the user's review. */
@@ -60,7 +71,24 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.getItem(QUEUE_KEY).then((raw) => {
       if (raw) {
         try {
-          setPending(JSON.parse(raw) as PendingSighting[]);
+          const items = JSON.parse(raw) as PendingSighting[];
+          // Flag very old queued items as stale — they can never sync.
+          const now = Date.now();
+          let changed = false;
+          const next = items.map((p) => {
+            if (
+              p.status === 'queued' &&
+              now - new Date(p.createdAt).getTime() > MAX_QUEUE_AGE_MS
+            ) {
+              changed = true;
+              return { ...p, status: 'error' as const, errorKind: 'stale' as const };
+            }
+            return p;
+          });
+          setPending(next);
+          if (changed) {
+            AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(next)).catch(() => {});
+          }
         } catch {
           // corrupted queue — drop it
         }
@@ -69,6 +97,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persist = useCallback(async (items: PendingSighting[]) => {
+    pendingRef.current = items;
     setPending(items);
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(items));
   }, []);
@@ -103,8 +132,34 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           );
           await persist(items);
           syncedAny = true;
-        } catch {
-          // still offline or server error — keep queued
+        } catch (err) {
+          const isServerError =
+            err instanceof Error && err.name === 'ApiError';
+          if (isServerError) {
+            // The server responded but rejected the sighting — count the
+            // failure and flag the item once it keeps failing.
+            const failCount = (item.failCount ?? 0) + 1;
+            const status =
+              err !== null &&
+              typeof err === 'object' &&
+              'status' in err &&
+              typeof (err as { status?: unknown }).status === 'number'
+                ? (err as { status: number }).status
+                : 0;
+            const permanent =
+              (status >= 400 && status < 500) || failCount >= MAX_SYNC_ATTEMPTS;
+            items = items.map((p) =>
+              p.localId === item.localId
+                ? permanent
+                  ? { ...p, status: 'error' as const, errorKind: 'server' as const, failCount }
+                  : { ...p, failCount }
+                : p,
+            );
+            await persist(items);
+            // Move on — other queued items may still succeed.
+            continue;
+          }
+          // Network failure — still offline, keep everything queued.
           break;
         }
       }
@@ -145,6 +200,20 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  const retry = useCallback(
+    async (localId: string) => {
+      await persist(
+        pendingRef.current.map((p) =>
+          p.localId === localId
+            ? { ...p, status: 'queued' as const, errorKind: undefined, failCount: 0 }
+            : p,
+        ),
+      );
+      await syncNow();
+    },
+    [persist, syncNow],
+  );
+
   const dismissReviewPrompt = useCallback(() => {
     setReviewPromptVisible(false);
   }, []);
@@ -167,6 +236,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       pending,
       enqueue,
       remove,
+      retry,
       syncNow,
       syncing,
       reviewReadyCount,
@@ -178,6 +248,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       pending,
       enqueue,
       remove,
+      retry,
       syncNow,
       syncing,
       reviewReadyCount,
