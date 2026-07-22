@@ -17,6 +17,7 @@ import { setBaseUrl } from '@workspace/api-client-react';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider } from '@/context/DeviceContext';
 import { OfflineProvider } from '@/context/OfflineContext';
+import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 
 setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 
@@ -61,6 +62,7 @@ export default function RootLayout() {
                 <GestureHandlerRootView>
                   <KeyboardProvider>
                     <RootLayoutNav />
+                    <ReviewReadyBanner />
                   </KeyboardProvider>
                 </GestureHandlerRootView>
               </OfflineProvider>

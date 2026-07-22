@@ -5,13 +5,15 @@ import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Badge, Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useLanguage } from '@/context/LanguageContext';
+import { useOffline } from '@/context/OfflineContext';
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
 function NativeTabLayout() {
   const { t } = useLanguage();
+  const { reviewReadyCount } = useOffline();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
@@ -25,6 +27,7 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="spot">
         <Icon sf={{ default: 'camera', selected: 'camera.fill' }} />
         <Label>{t('tabSpot')}</Label>
+        {reviewReadyCount > 0 && <Badge>{String(reviewReadyCount)}</Badge>}
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: 'person', selected: 'person.fill' }} />
@@ -37,6 +40,7 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const colors = useColors();
   const { t } = useLanguage();
+  const { reviewReadyCount } = useOffline();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const isIOS = Platform.OS === 'ios';
@@ -101,6 +105,13 @@ function ClassicTabLayout() {
         name="spot"
         options={{
           title: t('tabSpot'),
+          tabBarBadge: reviewReadyCount > 0 ? reviewReadyCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.accent,
+            color: colors.accentForeground,
+            fontSize: 11,
+            fontFamily: 'Inter_600SemiBold',
+          },
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="camera" tintColor={color} size={24} />

@@ -35,6 +35,11 @@ interface OfflineContextValue {
   remove: (localId: string) => Promise<void>;
   syncNow: () => Promise<void>;
   syncing: boolean;
+  /** Number of synced sightings waiting for the user's review. */
+  reviewReadyCount: number;
+  /** True right after queued sightings finish syncing, until dismissed. */
+  reviewPromptVisible: boolean;
+  dismissReviewPrompt: () => void;
 }
 
 const OfflineContext = createContext<OfflineContextValue | undefined>(
@@ -46,6 +51,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
   const [pending, setPending] = useState<PendingSighting[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
   const syncingRef = useRef(false);
   const pendingRef = useRef<PendingSighting[]>([]);
   pendingRef.current = pending;
@@ -73,6 +79,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     if (queued.length === 0) return;
     syncingRef.current = true;
     setSyncing(true);
+    let syncedAny = false;
     try {
       let items = [...pendingRef.current];
       for (const item of queued) {
@@ -95,6 +102,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
               : p,
           );
           await persist(items);
+          syncedAny = true;
         } catch {
           // still offline or server error — keep queued
           break;
@@ -103,6 +111,9 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     } finally {
       syncingRef.current = false;
       setSyncing(false);
+      if (syncedAny) {
+        setReviewPromptVisible(true);
+      }
     }
   }, [deviceId, persist]);
 
@@ -134,9 +145,45 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     [persist],
   );
 
+  const dismissReviewPrompt = useCallback(() => {
+    setReviewPromptVisible(false);
+  }, []);
+
+  const reviewReadyCount = useMemo(
+    () => pending.filter((p) => p.status === 'review').length,
+    [pending],
+  );
+
+  // Hide the prompt automatically once nothing is left to review.
+  useEffect(() => {
+    if (reviewReadyCount === 0) {
+      setReviewPromptVisible(false);
+    }
+  }, [reviewReadyCount]);
+
   const value = useMemo(
-    () => ({ isOnline, pending, enqueue, remove, syncNow, syncing }),
-    [isOnline, pending, enqueue, remove, syncNow, syncing],
+    () => ({
+      isOnline,
+      pending,
+      enqueue,
+      remove,
+      syncNow,
+      syncing,
+      reviewReadyCount,
+      reviewPromptVisible,
+      dismissReviewPrompt,
+    }),
+    [
+      isOnline,
+      pending,
+      enqueue,
+      remove,
+      syncNow,
+      syncing,
+      reviewReadyCount,
+      reviewPromptVisible,
+      dismissReviewPrompt,
+    ],
   );
 
   return (
