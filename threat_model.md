@@ -41,7 +41,7 @@ The `OWNER_SECRET` environment variable guards the one privileged endpoint; if u
 
 ### Tampering
 
-No rate limiting or authentication guards the two AI-backed write endpoints (`POST /sightings`, `POST /cats/name-suggestions`). An attacker can flood these to exhaust paid API quota. Cat name creation via both `POST /cats` and `POST /sightings/:id/resolve` bypasses the offensive-language filter applied to nicknames and usernames, allowing offensive cat names to enter the public registry.
+No rate limiting or authentication guards the two AI-backed write endpoints (`POST /sightings`, `POST /cats/name-suggestions`). An attacker can flood these to exhaust paid API quota. Cat name creation and renaming (`POST /cats`, `POST /sightings/:id/resolve`, `PATCH /cats/:catId`) now apply the same offensive-language filter used for nicknames and usernames, rejecting offensive names with `400 OFFENSIVE_NAME`.
 
 ### Information Disclosure
 

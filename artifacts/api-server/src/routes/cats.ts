@@ -17,6 +17,7 @@ import { listCatsWithStats, photoUrl, spotterCode } from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter } from "../middlewares/rateLimit";
+import { containsOffensiveLanguage } from "../lib/moderation";
 
 const router: IRouter = Router();
 
@@ -83,10 +84,18 @@ router.get("/cats", async (req, res) => {
 // Resident registers a brand-new owned cat (no sighting required).
 router.post("/cats", async (req, res) => {
   const body = RegisterCatBody.parse(req.body);
+  const name = body.name.trim().slice(0, 60);
+  if (containsOffensiveLanguage(name)) {
+    res.status(400).json({
+      error: "Cat name contains offensive language",
+      code: "OFFENSIVE_NAME",
+    });
+    return;
+  }
   const [cat] = await db
     .insert(catsTable)
     .values({
-      name: body.name.trim().slice(0, 60),
+      name,
       description: "",
       // No photo yet — 0 is a sentinel; the photos route 404s for it and the
       // owner (or a first sighting) can supply a real photo later.
@@ -219,7 +228,17 @@ router.patch("/cats/:catId", async (req, res) => {
   }
 
   const changes: Partial<typeof catsTable.$inferInsert> = {};
-  if (body.name !== undefined) changes.name = body.name.trim().slice(0, 60);
+  if (body.name !== undefined) {
+    const newName = body.name.trim().slice(0, 60);
+    if (containsOffensiveLanguage(newName)) {
+      res.status(400).json({
+        error: "Cat name contains offensive language",
+        code: "OFFENSIVE_NAME",
+      });
+      return;
+    }
+    changes.name = newName;
+  }
   if (body.homeDescription !== undefined)
     changes.homeDescription = body.homeDescription.trim().slice(0, 200);
 
