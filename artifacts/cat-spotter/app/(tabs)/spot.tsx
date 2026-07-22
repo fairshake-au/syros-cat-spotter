@@ -21,6 +21,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useLocation } from '@/hooks/useLocation';
+import { photoRejectionKey } from '@/lib/photoRejection';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
@@ -126,8 +127,13 @@ export default function SpotScreen() {
           }),
         },
       });
-    } catch {
-      Alert.alert(t('error'));
+    } catch (err) {
+      const rejectionKey = photoRejectionKey(err);
+      if (rejectionKey) {
+        Alert.alert(t('photoRejectedTitle'), t(rejectionKey));
+      } else {
+        Alert.alert(t('error'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -348,7 +354,8 @@ export default function SpotScreen() {
                         color:
                           item.status === 'review'
                             ? colors.accent
-                            : item.status === 'error'
+                            : item.status === 'error' ||
+                                item.status === 'rejected'
                               ? colors.destructive
                               : colors.mutedForeground,
                       },
@@ -360,8 +367,20 @@ export default function SpotScreen() {
                         ? item.errorKind === 'stale'
                           ? t('syncFailedStale')
                           : t('syncFailedServer')
-                        : t('queued')}
+                        : item.status === 'rejected'
+                          ? t('photoRejectedTitle')
+                          : t('queued')}
                   </Text>
+                  {item.status === 'rejected' && (
+                    <Text
+                      style={[
+                        styles.pendingDate,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {t(item.rejectionKey ?? 'photoRejectedQueued')}
+                    </Text>
+                  )}
                   <Text
                     style={[styles.pendingDate, { color: colors.mutedForeground }]}
                   >

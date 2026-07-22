@@ -10,6 +10,7 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { createSighting, type MatchCandidate } from '@workspace/api-client-react';
+import { photoRejectionKey } from '@/lib/photoRejection';
 import { useDevice } from './DeviceContext';
 
 const QUEUE_KEY = 'cat-spotter/pending-sightings';
@@ -26,11 +27,13 @@ export interface PendingSighting {
   lat: number;
   lng: number;
   createdAt: string;
-  status: 'queued' | 'review' | 'error';
+  status: 'queued' | 'review' | 'error' | 'rejected';
   /** Why the item is in the error state. */
   errorKind?: 'server' | 'stale';
   /** Consecutive server-error sync failures. */
   failCount?: number;
+  // Translation key explaining a permanent server rejection:
+  rejectionKey?: string;
   // Populated once synced with the server:
   sightingId?: number;
   isCatPhoto?: boolean;
@@ -133,6 +136,18 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           await persist(items);
           syncedAny = true;
         } catch (err) {
+          const rejectionKey = photoRejectionKey(err);
+          if (rejectionKey) {
+            // Permanent rejection (bad format / too large) — retrying will
+            // never succeed, so mark it rejected and move on.
+            items = items.map((p) =>
+              p.localId === item.localId
+                ? { ...p, status: 'rejected' as const, rejectionKey }
+                : p,
+            );
+            await persist(items);
+            continue;
+          }
           const isServerError =
             err instanceof Error && err.name === 'ApiError';
           if (isServerError) {
