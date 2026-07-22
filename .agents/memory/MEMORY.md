@@ -1,5 +1,6 @@
 - [Anonymous device identity](anonymous-device-identity.md) — device ids are bearer credentials; public API responses must expose opaque spotterCode only, never raw device ids.
 - [Dev DB schema drift](db-schema-drift.md) — drizzle "Failed query" 500s usually mean the dev DB is behind the schema; run the db package's push script before debugging app code.
+- [Typecheck needs libs built first](typecheck-project-refs.md) — run root `typecheck:libs` before per-artifact tsc, or stale lib dist causes phantom TS2339 errors.
 - [Drizzle wraps pg error codes](drizzle-error-codes.md) — check the `cause` chain for pg codes like 23505; top-level `err.code` is undefined under drizzle-orm.
 - [Push notification dispatch point](push-notifications.md) — all spotter push notifications route through the api-server notifications helper; it's a console-log stub awaiting real delivery infra.
 - [Orval codegen pitfalls](orval-codegen.md) — name request bodies as components (zod name collisions); expo typed routes need the dev workflow running; avoid pkill -f self-kills.
