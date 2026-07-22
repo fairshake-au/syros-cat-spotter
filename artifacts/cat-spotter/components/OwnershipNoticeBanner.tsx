@@ -24,11 +24,13 @@ interface OwnershipSnapshotEntry {
 type Snapshot = Record<string, OwnershipSnapshotEntry>;
 
 /**
- * In-app "[Name] now has a home!" notice. Push delivery is a server-side
- * stub for now, so on app open we compare the catalog's ownership state
- * against the last snapshot this device saw; a cat that gained an owner (or
- * was renamed while owned) since then triggers a tappable banner that opens
- * the cat's detail screen. The device's own claims are excluded.
+ * In-app "[Name] now has a home!" notice. Real Expo push delivery covers
+ * devices with a registered push token, but pushes can be missed (permission
+ * denied, simulators, Expo Go limits), so on app open we also compare the
+ * catalog's ownership state against the last snapshot this device saw; a cat
+ * that gained an owner (or was renamed while owned) since then triggers a
+ * tappable banner that opens the cat's detail screen. The device's own
+ * claims are excluded.
  */
 export function OwnershipNoticeBanner() {
   const colors = useColors();

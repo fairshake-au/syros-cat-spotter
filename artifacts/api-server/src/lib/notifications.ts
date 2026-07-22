@@ -1,5 +1,7 @@
-import { db, sightingsTable } from "@workspace/db";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { db, pushTokensTable, sightingsTable } from "@workspace/db";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { logger } from "./logger";
+import { sendPushNotification } from "./push";
 
 export interface CatNotification {
   title: string;
@@ -8,22 +10,44 @@ export interface CatNotification {
 }
 
 /**
- * Dispatch a push notification to a set of devices.
+ * Dispatch a real Expo push notification to a set of devices.
  *
- * Placeholder dispatch point for the push-notification infrastructure being
- * built separately (spotter notifications task). Once that lands (e.g. Expo
- * push tokens stored per device), replace the body of this function with the
- * real delivery call — all callers already route through here.
+ * Looks up each device's stored Expo push token and delivers through the
+ * Expo push service. Devices without a registered token are skipped (they
+ * still learn about changes via the in-app ownership banner). Best-effort:
+ * errors are logged, never thrown.
  */
 export async function notifyDevices(
   deviceIds: string[],
   notification: CatNotification,
 ): Promise<void> {
   if (deviceIds.length === 0) return;
-  console.log(
-    `[notifications] dispatch to ${deviceIds.length} device(s): ${notification.title} — ${notification.body}`,
-    { deviceIds, data: notification.data },
-  );
+  try {
+    const tokens = await db
+      .select()
+      .from(pushTokensTable)
+      .where(inArray(pushTokensTable.deviceId, deviceIds));
+    logger.info(
+      {
+        devices: deviceIds.length,
+        tokens: tokens.length,
+        title: notification.title,
+      },
+      "Dispatching push notifications",
+    );
+    await Promise.all(
+      tokens.map((t) =>
+        sendPushNotification(
+          t.token,
+          notification.title,
+          notification.body,
+          notification.data,
+        ),
+      ),
+    );
+  } catch (err) {
+    logger.warn({ err }, "Push dispatch failed");
+  }
 }
 
 /**

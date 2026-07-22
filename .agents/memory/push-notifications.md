@@ -1,10 +1,10 @@
 ---
 name: Push notification dispatch point
-description: Where cat-related push notifications are dispatched in the API server and what remains stubbed.
+description: Where cat-related push notifications are dispatched in the API server.
 ---
 
-The cat ownership feature (claim/rename) notifies prior spotters via `notifyCatSpotters` / `notifyDevices` in the api-server's `src/lib/notifications.ts`.
+All spotter push notifications route through two api-server dispatch points that now do real Expo push delivery via the shared `sendPushNotification` helper (Expo push HTTP API): `notifyDevices`/`notifyCatSpotters` in `src/lib/notifications.ts` (ownership claim/rename) and `createUpdateAndFanOut` in `src/lib/notificationFanout.ts` (cat updates).
 
-**Why:** The dedicated spotter-notification task had not landed when ownership shipped, so `notifyDevices` is a console-log stub. Callers are fire-and-forget (`void` + internal try/catch) so delivery failures never affect HTTP responses.
+**Why:** Devices register Expo push tokens per deviceId (`push_tokens` table, one token per device). Delivery is best-effort and fire-and-forget everywhere — callers use `void` + internal try/catch so push failures never affect HTTP responses.
 
-**How to apply:** When real push infra lands (e.g. Expo push tokens per device), replace only the body of `notifyDevices` — all callers already route through it and pass `{ title, body, data: { type, catId } }` payloads (`type`: `cat_claimed` / `cat_updated`).
+**How to apply:** Add new notification kinds by calling these helpers with `{ title, body, data: { type, catId } }`; the mobile tap handler navigates by `data.catId`. Devices without tokens (web, denied permission, Expo Go limits) still get in-app fallbacks (inbox polling, ownership snapshot banner).
