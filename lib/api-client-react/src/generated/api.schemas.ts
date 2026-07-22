@@ -74,6 +74,7 @@ export interface ResolveSightingRequest {
 export interface Profile {
   deviceId: string;
   spotterCode: string;
+  username?: string | null;
   nickname?: string | null;
   points: number;
   totalSightings: number;
@@ -98,9 +99,28 @@ export interface UpdateProfileRequest {
   nickname?: string | null;
 }
 
+export interface UsernameAvailability {
+  available: boolean;
+  /** Why the name is unavailable ("taken" or "invalid") */
+  reason?: string | null;
+}
+
+export interface UsernameSuggestions {
+  suggestions: string[];
+}
+
+export interface ClaimUsernameRequest {
+  /**
+     * @minLength 3
+     * @maxLength 24
+     */
+  username: string;
+}
+
 export interface LeaderboardEntry {
   /** Opaque public spotter identifier (never the raw device id) */
   spotterCode: string;
+  username?: string | null;
   nickname?: string | null;
   points: number;
   uniqueCatsDiscovered: number;
@@ -110,5 +130,9 @@ export interface LeaderboardEntry {
 export type ListCatsParams = {
 lat?: number;
 lng?: number;
+};
+
+export type CheckUsernameAvailabilityParams = {
+name: string;
 };
 

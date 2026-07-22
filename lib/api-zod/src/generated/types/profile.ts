@@ -9,6 +9,7 @@
 export interface Profile {
   deviceId: string;
   spotterCode: string;
+  username?: string | null;
   nickname?: string | null;
   points: number;
   totalSightings: number;

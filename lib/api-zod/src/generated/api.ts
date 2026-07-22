@@ -129,6 +129,7 @@ export const ResolveSightingResponse = zod.object({
   "profile": zod.object({
   "deviceId": zod.string(),
   "spotterCode": zod.string(),
+  "username": zod.string().nullish(),
   "nickname": zod.string().nullish(),
   "points": zod.number(),
   "totalSightings": zod.number(),
@@ -149,6 +150,7 @@ export const GetProfileParams = zod.object({
 export const GetProfileResponse = zod.object({
   "deviceId": zod.string(),
   "spotterCode": zod.string(),
+  "username": zod.string().nullish(),
   "nickname": zod.string().nullish(),
   "points": zod.number(),
   "totalSightings": zod.number(),
@@ -176,6 +178,57 @@ export const UpdateProfileBody = zod.object({
 export const UpdateProfileResponse = zod.object({
   "deviceId": zod.string(),
   "spotterCode": zod.string(),
+  "username": zod.string().nullish(),
+  "nickname": zod.string().nullish(),
+  "points": zod.number(),
+  "totalSightings": zod.number(),
+  "uniqueCatsDiscovered": zod.number(),
+  "catsSpotted": zod.number(),
+  "badges": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Check whether a username is free (case-insensitive)
+ */
+export const CheckUsernameAvailabilityQueryParams = zod.object({
+  "name": zod.coerce.string()
+})
+
+export const CheckUsernameAvailabilityResponse = zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string().nullish().describe('Why the name is unavailable (\"taken\" or \"invalid\")')
+})
+
+
+/**
+ * @summary Fun cat-themed username ideas, excluding taken names
+ */
+export const GetUsernameSuggestionsResponse = zod.object({
+  "suggestions": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Claim a unique username for a device profile
+ */
+export const ClaimUsernameParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const claimUsernameBodyUsernameMin = 3;
+export const claimUsernameBodyUsernameMax = 24;
+
+
+
+export const ClaimUsernameBody = zod.object({
+  "username": zod.string().min(claimUsernameBodyUsernameMin).max(claimUsernameBodyUsernameMax)
+})
+
+export const ClaimUsernameResponse = zod.object({
+  "deviceId": zod.string(),
+  "spotterCode": zod.string(),
+  "username": zod.string().nullish(),
   "nickname": zod.string().nullish(),
   "points": zod.number(),
   "totalSightings": zod.number(),
@@ -190,6 +243,7 @@ export const UpdateProfileResponse = zod.object({
  */
 export const GetLeaderboardResponseItem = zod.object({
   "spotterCode": zod.string().describe('Opaque public spotter identifier (never the raw device id)'),
+  "username": zod.string().nullish(),
   "nickname": zod.string().nullish(),
   "points": zod.number(),
   "uniqueCatsDiscovered": zod.number(),

@@ -99,6 +99,11 @@ export default function ProfileScreen() {
               { backgroundColor: colors.primary },
             ]}
           >
+            {!!profile?.username && (
+              <Text style={[styles.username, { color: colors.primaryForeground }]}>
+                {profile.username}
+              </Text>
+            )}
             <Text style={[styles.pointsValue, { color: colors.primaryForeground }]}>
               {profile?.points ?? 0}
             </Text>
@@ -257,11 +262,17 @@ export default function ProfileScreen() {
                     style={[styles.leaderName, { color: colors.foreground }]}
                     numberOfLines={1}
                   >
-                    {isMe
-                      ? entry.nickname
-                        ? `${entry.nickname} (${t('you')})`
-                        : t('you')
-                      : entry.nickname ?? `${t('spotter')} ${entry.spotterCode}`}
+                    {(() => {
+                      const displayName =
+                        entry.username ??
+                        entry.nickname ??
+                        `${t('spotter')} ${entry.spotterCode}`;
+                      return isMe
+                        ? entry.username || entry.nickname
+                          ? `${displayName} (${t('you')})`
+                          : t('you')
+                        : displayName;
+                    })()}
                   </Text>
                   <Text style={[styles.leaderPoints, { color: colors.primary }]}>
                     {entry.points} {t('points')}
@@ -324,6 +335,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
+  username: { fontSize: 16, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
   pointsValue: { fontSize: 44, fontFamily: 'Inter_700Bold' },
   pointsLabel: { fontSize: 14, fontFamily: 'Inter_500Medium', opacity: 0.9 },
   statsRow: {

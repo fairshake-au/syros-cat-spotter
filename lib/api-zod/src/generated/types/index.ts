@@ -8,6 +8,8 @@
 
 export * from './cat';
 export * from './catDetail';
+export * from './checkUsernameAvailabilityParams';
+export * from './claimUsernameRequest';
 export * from './createSightingRequest';
 export * from './healthStatus';
 export * from './leaderboardEntry';
@@ -19,3 +21,5 @@ export * from './resolveResult';
 export * from './resolveSightingRequest';
 export * from './sighting';
 export * from './updateProfileRequest';
+export * from './usernameAvailability';
+export * from './usernameSuggestions';

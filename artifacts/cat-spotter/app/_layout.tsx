@@ -17,6 +17,8 @@ import { setBaseUrl } from '@workspace/api-client-react';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
+import { useDevice } from '@/context/DeviceContext';
+import { LandingScreen } from '@/components/LandingScreen';
 import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 
@@ -48,6 +50,20 @@ function RootLayoutNav() {
   );
 }
 
+/** Shows the one-time landing screen until a username has been claimed. */
+function OnboardingGate() {
+  const { isReady, username } = useDevice();
+  if (!isReady) return null;
+  if (!username) return <LandingScreen />;
+  return (
+    <>
+      <OfflineTilesLoader />
+      <RootLayoutNav />
+      <ReviewReadyBanner />
+    </>
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -73,9 +89,7 @@ export default function RootLayout() {
               <OfflineProvider>
                 <GestureHandlerRootView>
                   <KeyboardProvider>
-                    <OfflineTilesLoader />
-                    <RootLayoutNav />
-                    <ReviewReadyBanner />
+                    <OnboardingGate />
                   </KeyboardProvider>
                 </GestureHandlerRootView>
               </OfflineProvider>

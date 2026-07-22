@@ -22,6 +22,8 @@ import type {
 import type {
   Cat,
   CatDetail,
+  CheckUsernameAvailabilityParams,
+  ClaimUsernameRequest,
   CreateSightingRequest,
   HealthStatus,
   LeaderboardEntry,
@@ -30,7 +32,9 @@ import type {
   Profile,
   ResolveResult,
   ResolveSightingRequest,
-  UpdateProfileRequest
+  UpdateProfileRequest,
+  UsernameAvailability,
+  UsernameSuggestions
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -588,6 +592,239 @@ export const useUpdateProfile = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateProfileMutationOptions(options));
+    }
+
+export const getCheckUsernameAvailabilityUrl = (params: CheckUsernameAvailabilityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/profiles/username-availability?${stringifiedParams}` : `/api/profiles/username-availability`
+}
+
+/**
+ * @summary Check whether a username is free (case-insensitive)
+ */
+export const checkUsernameAvailability = async (params: CheckUsernameAvailabilityParams, options?: RequestInit): Promise<UsernameAvailability> => {
+
+  return customFetch<UsernameAvailability>(getCheckUsernameAvailabilityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCheckUsernameAvailabilityQueryKey = (params?: CheckUsernameAvailabilityParams,) => {
+    return [
+    `/api/profiles/username-availability`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCheckUsernameAvailabilityQueryOptions = <TData = Awaited<ReturnType<typeof checkUsernameAvailability>>, TError = ErrorType<unknown>>(params: CheckUsernameAvailabilityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof checkUsernameAvailability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCheckUsernameAvailabilityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof checkUsernameAvailability>>> = ({ signal }) => checkUsernameAvailability(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof checkUsernameAvailability>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type CheckUsernameAvailabilityQueryResult = NonNullable<Awaited<ReturnType<typeof checkUsernameAvailability>>>
+export type CheckUsernameAvailabilityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check whether a username is free (case-insensitive)
+ */
+
+export function useCheckUsernameAvailability<TData = Awaited<ReturnType<typeof checkUsernameAvailability>>, TError = ErrorType<unknown>>(
+ params: CheckUsernameAvailabilityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof checkUsernameAvailability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getCheckUsernameAvailabilityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetUsernameSuggestionsUrl = () => {
+
+
+
+
+  return `/api/profiles/username-suggestions`
+}
+
+/**
+ * @summary Fun cat-themed username ideas, excluding taken names
+ */
+export const getUsernameSuggestions = async ( options?: RequestInit): Promise<UsernameSuggestions> => {
+
+  return customFetch<UsernameSuggestions>(getGetUsernameSuggestionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUsernameSuggestionsQueryKey = () => {
+    return [
+    `/api/profiles/username-suggestions`
+    ] as const;
+    }
+
+
+export const getGetUsernameSuggestionsQueryOptions = <TData = Awaited<ReturnType<typeof getUsernameSuggestions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsernameSuggestions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUsernameSuggestionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsernameSuggestions>>> = ({ signal }) => getUsernameSuggestions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsernameSuggestions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUsernameSuggestionsQueryResult = NonNullable<Awaited<ReturnType<typeof getUsernameSuggestions>>>
+export type GetUsernameSuggestionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Fun cat-themed username ideas, excluding taken names
+ */
+
+export function useGetUsernameSuggestions<TData = Awaited<ReturnType<typeof getUsernameSuggestions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsernameSuggestions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUsernameSuggestionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimUsernameUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/profiles/${deviceId}/username`
+}
+
+/**
+ * @summary Claim a unique username for a device profile
+ */
+export const claimUsername = async (deviceId: string,
+    claimUsernameRequest: ClaimUsernameRequest, options?: RequestInit): Promise<Profile> => {
+
+  return customFetch<Profile>(getClaimUsernameUrl(deviceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(claimUsernameRequest)
+  }
+);}
+
+
+
+
+
+export const getClaimUsernameMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimUsername>>, TError,{deviceId: string;data: BodyType<ClaimUsernameRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimUsername>>, TError,{deviceId: string;data: BodyType<ClaimUsernameRequest>}, TContext> => {
+
+const mutationKey = ['claimUsername'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimUsername>>, {deviceId: string;data: BodyType<ClaimUsernameRequest>}> = (props) => {
+          const {deviceId,data} = props ?? {};
+
+          return  claimUsername(deviceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimUsernameMutationResult = NonNullable<Awaited<ReturnType<typeof claimUsername>>>
+    export type ClaimUsernameMutationBody = BodyType<ClaimUsernameRequest>
+    export type ClaimUsernameMutationError = ErrorType<void>
+
+    /**
+ * @summary Claim a unique username for a device profile
+ */
+export const useClaimUsername = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimUsername>>, TError,{deviceId: string;data: BodyType<ClaimUsernameRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimUsername>>,
+        TError,
+        {deviceId: string;data: BodyType<ClaimUsernameRequest>},
+        TContext
+      > => {
+      return useMutation(getClaimUsernameMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = () => {

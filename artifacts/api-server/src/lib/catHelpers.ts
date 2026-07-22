@@ -146,12 +146,16 @@ export async function getProfileStats(deviceId: string): Promise<ProfileStats> {
 export async function profilePayload(deviceId: string) {
   const stats = await getProfileStats(deviceId);
   const [profile] = await db
-    .select({ nickname: profilesTable.nickname })
+    .select({
+      nickname: profilesTable.nickname,
+      username: profilesTable.username,
+    })
     .from(profilesTable)
     .where(eq(profilesTable.deviceId, deviceId));
   return {
     deviceId,
     spotterCode: spotterCode(deviceId),
+    username: profile?.username ?? null,
     nickname: profile?.nickname ?? null,
     points: stats.points,
     totalSightings: stats.totalSightings,

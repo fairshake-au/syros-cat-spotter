@@ -1,9 +1,70 @@
 import { Router, type IRouter } from "express";
 import { db, profilesTable, catsTable } from "@workspace/db";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
+import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 
 const router: IRouter = Router();
+
+// Static /profiles/* routes must come before the /profiles/:deviceId param route.
+router.get("/profiles/username-availability", async (req, res) => {
+  const name = normalizeUsername(req.query.name);
+  if (!name) {
+    res.json({ available: false, reason: "invalid" });
+    return;
+  }
+  const [existing] = await db
+    .select({ deviceId: profilesTable.deviceId })
+    .from(profilesTable)
+    .where(sql`lower(${profilesTable.username}) = ${name.toLowerCase()}`);
+  res.json(existing ? { available: false, reason: "taken" } : { available: true });
+});
+
+router.get("/profiles/username-suggestions", async (_req, res) => {
+  res.json({ suggestions: await suggestUsernames(6) });
+});
+
+router.post("/profiles/:deviceId/username", async (req, res) => {
+  const deviceId = String(req.params.deviceId);
+  if (!deviceId || deviceId.length > 128) {
+    res.status(400).json({ error: "Invalid device id" });
+    return;
+  }
+  const username = normalizeUsername(req.body?.username);
+  if (!username) {
+    res.status(400).json({ error: "Username must be 3-24 letters, numbers or spaces" });
+    return;
+  }
+  // Taken by someone else? (unique index still guards against races)
+  const [existing] = await db
+    .select({ deviceId: profilesTable.deviceId })
+    .from(profilesTable)
+    .where(
+      and(
+        sql`lower(${profilesTable.username}) = ${username.toLowerCase()}`,
+        ne(profilesTable.deviceId, deviceId),
+      ),
+    );
+  if (existing) {
+    res.status(409).json({ error: "Username already taken" });
+    return;
+  }
+  await db.insert(profilesTable).values({ deviceId }).onConflictDoNothing();
+  try {
+    await db
+      .update(profilesTable)
+      .set({ username })
+      .where(eq(profilesTable.deviceId, deviceId));
+  } catch (err: unknown) {
+    // Unique-index race: someone claimed the same name concurrently.
+    if (err && typeof err === "object" && (err as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "Username already taken" });
+      return;
+    }
+    throw err;
+  }
+  res.json(await profilePayload(deviceId));
+});
 
 router.get("/profiles/:deviceId", async (req, res) => {
   const deviceId = String(req.params.deviceId);
@@ -56,6 +117,7 @@ router.get("/leaderboard", async (_req, res) => {
   const rows = await db
     .select({
       deviceId: profilesTable.deviceId,
+      username: profilesTable.username,
       nickname: profilesTable.nickname,
       points: profilesTable.points,
       uniqueCatsDiscovered: sql<number>`(

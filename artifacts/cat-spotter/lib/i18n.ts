@@ -93,6 +93,19 @@ const en: Dict = {
   badge_explorer_desc: 'Record 25 sightings',
   badge_island_legend: 'Island Legend',
   badge_island_legend_desc: 'Earn 500 points',
+  landingWelcome: 'Welcome to Syros Cat Spotter!',
+  landingIntro: 'Pick a username and your language to start spotting the cats of Syros.',
+  landingUsernameLabel: 'Your username',
+  landingUsernamePlaceholder: 'Pick a unique username…',
+  landingTooShort: 'At least 3 characters',
+  landingChecking: 'Checking availability…',
+  landingAvailable: 'Available!',
+  landingTaken: 'That name is already taken',
+  landingInvalid: 'Only letters, numbers and spaces are allowed',
+  landingSuggest: 'Need an idea?',
+  landingShuffle: 'Shuffle',
+  landingStart: 'Start spotting',
+  landingOffline: 'You need to be online to pick your username.',
 };
 
 const el: Dict = {
@@ -180,6 +193,19 @@ const el: Dict = {
   badge_explorer_desc: 'Καταγράψτε 25 παρατηρήσεις',
   badge_island_legend: 'Θρύλος του Νησιού',
   badge_island_legend_desc: 'Κερδίστε 500 πόντους',
+  landingWelcome: 'Καλώς ήρθατε στις Γάτες της Σύρου!',
+  landingIntro: 'Διαλέξτε όνομα χρήστη και γλώσσα για να αρχίσετε να εντοπίζετε τις γάτες της Σύρου.',
+  landingUsernameLabel: 'Το όνομα χρήστη σας',
+  landingUsernamePlaceholder: 'Διαλέξτε ένα μοναδικό όνομα…',
+  landingTooShort: 'Τουλάχιστον 3 χαρακτήρες',
+  landingChecking: 'Έλεγχος διαθεσιμότητας…',
+  landingAvailable: 'Διαθέσιμο!',
+  landingTaken: 'Αυτό το όνομα χρησιμοποιείται ήδη',
+  landingInvalid: 'Επιτρέπονται μόνο γράμματα, αριθμοί και κενά',
+  landingSuggest: 'Θέλετε μια ιδέα;',
+  landingShuffle: 'Ανακάτεμα',
+  landingStart: 'Ξεκινήστε',
+  landingOffline: 'Πρέπει να είστε συνδεδεμένοι για να διαλέξετε όνομα χρήστη.',
 };
 
 const fr: Dict = {
@@ -267,6 +293,19 @@ const fr: Dict = {
   badge_explorer_desc: 'Enregistrez 25 observations',
   badge_island_legend: 'Légende de l\u2019Île',
   badge_island_legend_desc: 'Gagnez 500 points',
+  landingWelcome: 'Bienvenue sur Chats de Syros !',
+  landingIntro: 'Choisissez un nom d\u2019utilisateur et votre langue pour commencer à repérer les chats de Syros.',
+  landingUsernameLabel: 'Votre nom d\u2019utilisateur',
+  landingUsernamePlaceholder: 'Choisissez un nom unique…',
+  landingTooShort: 'Au moins 3 caractères',
+  landingChecking: 'Vérification de la disponibilité…',
+  landingAvailable: 'Disponible !',
+  landingTaken: 'Ce nom est déjà pris',
+  landingInvalid: 'Seuls les lettres, chiffres et espaces sont autorisés',
+  landingSuggest: 'Besoin d\u2019une idée ?',
+  landingShuffle: 'Mélanger',
+  landingStart: 'C\u2019est parti',
+  landingOffline: 'Vous devez être en ligne pour choisir votre nom d\u2019utilisateur.',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

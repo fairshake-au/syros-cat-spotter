@@ -159,6 +159,62 @@ paths:
                 $ref: "#/components/schemas/Profile"
         "400":
           description: Invalid nickname
+  /profiles/username-availability:
+    get:
+      operationId: checkUsernameAvailability
+      tags: [profiles]
+      summary: Check whether a username is free (case-insensitive)
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsernameAvailability"
+  /profiles/username-suggestions:
+    get:
+      operationId: getUsernameSuggestions
+      tags: [profiles]
+      summary: Fun cat-themed username ideas, excluding taken names
+      responses:
+        "200":
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsernameSuggestions"
+  /profiles/{deviceId}/username:
+    post:
+      operationId: claimUsername
+      tags: [profiles]
+      summary: Claim a unique username for a device profile
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimUsernameRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "400":
+          description: Invalid username
+        "409":
+          description: Username already taken
   /leaderboard:
     get:
       operationId: getLeaderboard
@@ -292,11 +348,38 @@ components:
           nullable: true
           maxLength: 24
           description: Display name for the leaderboard; empty or null clears it
+    UsernameAvailability:
+      type: object
+      properties:
+        available: { type: boolean }
+        reason:
+          type: string
+          nullable: true
+          description: Why the name is unavailable ("taken" or "invalid")
+      required: [available]
+    UsernameSuggestions:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items: { type: string }
+      required: [suggestions]
+    ClaimUsernameRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 24
+      required: [username]
     Profile:
       type: object
       properties:
         deviceId: { type: string }
         spotterCode: { type: string }
+        username:
+          type: string
+          nullable: true
         nickname:
           type: string
           nullable: true
@@ -315,6 +398,9 @@ components:
         spotterCode:
           type: string
           description: Opaque public spotter identifier (never the raw device id)
+        username:
+          type: string
+          nullable: true
         nickname:
           type: string
           nullable: true

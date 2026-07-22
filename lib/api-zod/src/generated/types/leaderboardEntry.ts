@@ -9,6 +9,7 @@
 export interface LeaderboardEntry {
   /** Opaque public spotter identifier (never the raw device id) */
   spotterCode: string;
+  username?: string | null;
   nickname?: string | null;
   points: number;
   uniqueCatsDiscovered: number;
