@@ -53,6 +53,7 @@ export default function ProfileScreen() {
   const queryClient = useQueryClient();
   const [nicknameDraft, setNicknameDraft] = React.useState('');
   const [nicknameSaved, setNicknameSaved] = React.useState(false);
+  const [nicknameError, setNicknameError] = React.useState<string | null>(null);
   React.useEffect(() => {
     setNicknameDraft(profile?.nickname ?? '');
   }, [profile?.nickname]);
@@ -62,7 +63,14 @@ export default function ProfileScreen() {
         queryClient.setQueryData(getGetProfileQueryKey(deviceId ?? ''), updated);
         queryClient.invalidateQueries({ queryKey: getGetLeaderboardQueryKey() });
         setNicknameSaved(true);
+        setNicknameError(null);
         setTimeout(() => setNicknameSaved(false), 2000);
+      },
+      onError: (err) => {
+        const data = (err as { data?: { code?: string } | null })?.data;
+        setNicknameError(
+          data?.code === 'offensive_nickname' ? t('nicknameRejected') : t('error'),
+        );
       },
     },
   });
@@ -154,7 +162,10 @@ export default function ProfileScreen() {
             <View style={styles.nicknameRow}>
               <TextInput
                 value={nicknameDraft}
-                onChangeText={setNicknameDraft}
+                onChangeText={(text) => {
+                  setNicknameDraft(text);
+                  setNicknameError(null);
+                }}
                 placeholder={t('nicknamePlaceholder')}
                 placeholderTextColor={colors.mutedForeground}
                 maxLength={24}
@@ -189,6 +200,11 @@ export default function ProfileScreen() {
                 )}
               </Pressable>
             </View>
+            {!!nicknameError && (
+              <Text style={[styles.nicknameHint, { color: colors.destructive ?? '#c0392b' }]}>
+                {nicknameError}
+              </Text>
+            )}
             <Text style={[styles.nicknameHint, { color: colors.mutedForeground }]}>
               {t('nicknameHint')}
             </Text>

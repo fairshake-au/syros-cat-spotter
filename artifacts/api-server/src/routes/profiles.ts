@@ -3,6 +3,7 @@ import { db, profilesTable, catsTable } from "@workspace/db";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
+import { containsOffensiveLanguage } from "../lib/moderation";
 
 const router: IRouter = Router();
 
@@ -107,6 +108,12 @@ router.patch("/profiles/:deviceId", async (req, res) => {
     if (nickname.length === 0) nickname = null;
     else if (nickname.length > 24) {
       res.status(400).json({ error: "Nickname must be 24 characters or fewer" });
+      return;
+    } else if (containsOffensiveLanguage(nickname)) {
+      res.status(400).json({
+        error: "Nickname contains offensive language",
+        code: "offensive_nickname",
+      });
       return;
     }
   }
