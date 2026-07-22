@@ -13,7 +13,7 @@ export function AppMap({
   longitude,
   latitudeDelta = 0.06,
   markers,
-  markerBorderColor = '#1B6CA8',
+  markerBorderColor = '#1c77c3',
   style,
 }: AppMapProps) {
   const d = latitudeDelta;
@@ -93,5 +93,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   markerImage: { width: '100%', height: '100%' },
-  chipText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: '#1C2733' },
+  chipText: { fontSize: 11, fontFamily: 'Nunito_600SemiBold', color: '#1b2a38' },
 });

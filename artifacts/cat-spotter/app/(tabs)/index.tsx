@@ -115,8 +115,8 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  title: { fontSize: 22, fontFamily: 'Inter_700Bold' },
-  subtitle: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  title: { fontSize: 22, fontFamily: 'Poppins_700Bold' },
+  subtitle: { fontSize: 12, fontFamily: 'Nunito_400Regular', marginTop: 2 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   fab: {
     position: 'absolute',
@@ -133,5 +133,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 5,
   },
-  fabText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  fabText: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
 });

@@ -88,7 +88,7 @@ export default function CatsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingBottom: 10, gap: 10 },
-  title: { fontSize: 22, fontFamily: 'Inter_700Bold' },
+  title: { fontSize: 22, fontFamily: 'Poppins_700Bold' },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Nunito_400Regular',
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
   },
   center: {
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontSize: 14,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Nunito_400Regular',
     textAlign: 'center',
   },
   row: { gap: 12, paddingHorizontal: 0, marginBottom: 12 },

@@ -441,8 +441,8 @@ export default function SpotScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingBottom: 10, gap: 4 },
-  title: { fontSize: 22, fontFamily: 'Inter_700Bold' },
-  subtitle: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  title: { fontSize: 22, fontFamily: 'Poppins_700Bold' },
+  subtitle: { fontSize: 13, fontFamily: 'Nunito_400Regular' },
   pickRow: { gap: 12 },
   pickBtn: {
     flexDirection: 'row',
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
   },
-  pickBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  pickBtnText: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
   previewWrap: { gap: 10 },
   preview: {
     width: '100%',
@@ -468,9 +468,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  smallBtnText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  smallBtnText: { fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
   locationPicker: { height: 260 },
-  denied: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  denied: { fontSize: 13, fontFamily: 'Nunito_600SemiBold' },
   submitBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -479,14 +479,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
   },
-  submitText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  submitText: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
   pendingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
-  syncText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  sectionTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
+  syncText: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
   pendingItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -496,8 +496,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pendingThumb: { width: 48, height: 48, borderRadius: 10 },
-  pendingStatus: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  pendingDate: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  pendingStatus: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
+  pendingDate: { fontSize: 12, fontFamily: 'Nunito_400Regular', marginTop: 2 },
   errorActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
   errorBtn: {
     flexDirection: 'row',
@@ -507,5 +507,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
   },
-  errorBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  errorBtnText: { fontSize: 12, fontFamily: 'Nunito_700Bold' },
 });

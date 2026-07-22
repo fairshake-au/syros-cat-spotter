@@ -34,7 +34,7 @@ export function AppMap({
   markers,
   showsUserLocation,
   interactive = true,
-  markerBorderColor = '#1B6CA8',
+  markerBorderColor = '#1c77c3',
   style,
 }: AppMapProps) {
   return (

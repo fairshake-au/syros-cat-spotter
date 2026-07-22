@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Nunito_700Bold',
   },
   metaRow: {
     flexDirection: 'row',
@@ -96,6 +96,6 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 12,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Nunito_400Regular',
   },
 });

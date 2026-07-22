@@ -20,7 +20,7 @@ export function LocationPicker({
   latitude,
   longitude,
   onChange,
-  pinColor = '#E0704A',
+  pinColor = '#e8558a',
   style,
 }: LocationPickerProps) {
   // Only the first coords should re-position the map; afterwards the user

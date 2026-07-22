@@ -14,7 +14,7 @@ export function LocationPicker({
   latitude,
   longitude,
   onChange,
-  pinColor = '#E0704A',
+  pinColor = '#e8558a',
   style,
 }: LocationPickerProps) {
   const d = 0.004;
@@ -85,8 +85,8 @@ const styles = StyleSheet.create({
     left: 8,
     bottom: 8,
     fontSize: 11,
-    fontFamily: 'Inter_500Medium',
-    color: '#1C2733',
+    fontFamily: 'Nunito_600SemiBold',
+    color: '#1b2a38',
     backgroundColor: 'rgba(255,255,255,0.9)',
     paddingHorizontal: 6,
     paddingVertical: 3,

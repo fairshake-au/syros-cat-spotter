@@ -230,9 +230,9 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  sectionTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  current: { flex: 1, fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  current: { flex: 1, fontSize: 15, fontFamily: 'Nunito_700Bold' },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  editText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  editText: { fontSize: 12, fontFamily: 'Nunito_700Bold' },
   input: {
     flex: 1,
     borderRadius: 12,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Nunito_600SemiBold',
   },
   saveBtn: {
     borderRadius: 12,
@@ -260,8 +260,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 76,
   },
-  saveText: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  saveText: { fontSize: 14, fontFamily: 'Nunito_700Bold' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statusText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  hint: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  statusText: { fontSize: 13, fontFamily: 'Nunito_600SemiBold' },
+  hint: { fontSize: 12, fontFamily: 'Nunito_400Regular' },
 });

@@ -157,9 +157,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     opacity: 0.92,
   },
-  name: { fontSize: 26, fontFamily: 'Inter_700Bold' },
+  name: { fontSize: 26, fontFamily: 'Poppins_700Bold' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  meta: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  meta: { fontSize: 13, fontFamily: 'Nunito_400Regular' },
   mapWrap: {
     borderRadius: 14,
     borderWidth: 1,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     height: 180,
   },
   map: { flex: 1 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  sectionTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
   sightingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   sightingItem: { width: '30.5%', gap: 4 },
   sightingPhoto: {
@@ -176,5 +176,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  sightingDate: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  sightingDate: { fontSize: 11, fontFamily: 'Nunito_400Regular' },
 });
