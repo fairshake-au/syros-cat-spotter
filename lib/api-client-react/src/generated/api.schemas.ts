@@ -124,6 +124,33 @@ export interface ResolveSightingRequest {
   newCatName?: string | null;
 }
 
+export interface ApiErrorBody {
+  error: string;
+  /** Machine-readable error code (e.g. NAME_TAKEN) */
+  code?: string;
+}
+
+/**
+ * Language for the generated names
+ */
+export type SuggestCatNamesRequestLanguage = typeof SuggestCatNamesRequestLanguage[keyof typeof SuggestCatNamesRequestLanguage];
+
+
+export const SuggestCatNamesRequestLanguage = {
+  en: 'en',
+  el: 'el',
+  fr: 'fr',
+} as const;
+
+export interface SuggestCatNamesRequest {
+  /** Language for the generated names */
+  language: SuggestCatNamesRequestLanguage;
+}
+
+export interface SuggestCatNamesResult {
+  suggestions: string[];
+}
+
 export interface Profile {
   deviceId: string;
   spotterCode: string;

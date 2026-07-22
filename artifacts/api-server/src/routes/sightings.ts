@@ -156,17 +156,36 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     pointsAwarded = POINTS_CONFIRM;
     isNewCat = false;
   } else if (body.newCatName && body.newCatName.trim().length > 0) {
-    const [created] = await db
-      .insert(catsTable)
-      .values({
-        name: body.newCatName.trim().slice(0, 60),
-        description: "",
-        primaryPhotoId: sighting.photoId,
-        lat: sighting.lat,
-        lng: sighting.lng,
-        discovererDeviceId: sighting.deviceId,
-      })
-      .returning();
+    const name = body.newCatName.trim().slice(0, 60);
+    const [taken] = await db
+      .select({ id: catsTable.id })
+      .from(catsTable)
+      .where(sql`lower(${catsTable.name}) = lower(${name})`);
+    if (taken) {
+      res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
+      return;
+    }
+    let created;
+    try {
+      [created] = await db
+        .insert(catsTable)
+        .values({
+          name,
+          description: "",
+          primaryPhotoId: sighting.photoId,
+          lat: sighting.lat,
+          lng: sighting.lng,
+          discovererDeviceId: sighting.deviceId,
+        })
+        .returning();
+    } catch (err: any) {
+      // Unique-index violation from a concurrent submission of the same name.
+      if (err?.code === "23505" || err?.cause?.code === "23505") {
+        res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
+        return;
+      }
+      throw err;
+    }
     cat = created!;
     pointsAwarded = POINTS_NEW_CAT;
     isNewCat = true;

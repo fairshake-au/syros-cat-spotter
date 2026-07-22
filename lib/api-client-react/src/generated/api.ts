@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApiErrorBody,
   Cat,
   CatClaim,
   CatDetail,
@@ -35,6 +36,8 @@ import type {
   Profile,
   ResolveResult,
   ResolveSightingRequest,
+  SuggestCatNamesRequest,
+  SuggestCatNamesResult,
   UpdateProfileRequest,
   UsernameAvailability,
   UsernameSuggestions
@@ -618,7 +621,7 @@ export const resolveSighting = async (sightingId: number,
 
 
 
-export const getResolveSightingMutationOptions = <TError = ErrorType<void>,
+export const getResolveSightingMutationOptions = <TError = ErrorType<void | ApiErrorBody>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveSighting>>, TError,{sightingId: number;data: BodyType<ResolveSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof resolveSighting>>, TError,{sightingId: number;data: BodyType<ResolveSightingRequest>}, TContext> => {
 
@@ -647,12 +650,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ResolveSightingMutationResult = NonNullable<Awaited<ReturnType<typeof resolveSighting>>>
     export type ResolveSightingMutationBody = BodyType<ResolveSightingRequest>
-    export type ResolveSightingMutationError = ErrorType<void>
+    export type ResolveSightingMutationError = ErrorType<void | ApiErrorBody>
 
     /**
  * @summary Confirm a match to an existing cat, or register a new named cat
  */
-export const useResolveSighting = <TError = ErrorType<void>,
+export const useResolveSighting = <TError = ErrorType<void | ApiErrorBody>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveSighting>>, TError,{sightingId: number;data: BodyType<ResolveSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof resolveSighting>>,
@@ -661,6 +664,77 @@ export const useResolveSighting = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getResolveSightingMutationOptions(options));
+    }
+
+export const getSuggestCatNamesUrl = () => {
+
+
+
+
+  return `/api/cats/name-suggestions`
+}
+
+/**
+ * @summary Generate fun, available cat name suggestions in the given language
+ */
+export const suggestCatNames = async (suggestCatNamesRequest: SuggestCatNamesRequest, options?: RequestInit): Promise<SuggestCatNamesResult> => {
+
+  return customFetch<SuggestCatNamesResult>(getSuggestCatNamesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(suggestCatNamesRequest)
+  }
+);}
+
+
+
+
+
+export const getSuggestCatNamesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestCatNames>>, TError,{data: BodyType<SuggestCatNamesRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suggestCatNames>>, TError,{data: BodyType<SuggestCatNamesRequest>}, TContext> => {
+
+const mutationKey = ['suggestCatNames'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suggestCatNames>>, {data: BodyType<SuggestCatNamesRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  suggestCatNames(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuggestCatNamesMutationResult = NonNullable<Awaited<ReturnType<typeof suggestCatNames>>>
+    export type SuggestCatNamesMutationBody = BodyType<SuggestCatNamesRequest>
+    export type SuggestCatNamesMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate fun, available cat name suggestions in the given language
+ */
+export const useSuggestCatNames = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestCatNames>>, TError,{data: BodyType<SuggestCatNamesRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suggestCatNames>>,
+        TError,
+        {data: BodyType<SuggestCatNamesRequest>},
+        TContext
+      > => {
+      return useMutation(getSuggestCatNamesMutationOptions(options));
     }
 
 export const getGetProfileUrl = (deviceId: string,) => {

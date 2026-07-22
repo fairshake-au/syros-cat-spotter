@@ -3,6 +3,7 @@ import {
   RegisterCatBody,
   ClaimCatBody,
   UpdateCatBody,
+  SuggestCatNamesBody,
 } from "@workspace/api-zod";
 import {
   db,
@@ -14,8 +15,24 @@ import {
 import { and, eq, desc, isNull, sql } from "drizzle-orm";
 import { listCatsWithStats, photoUrl, spotterCode } from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
+import { suggestCatNames } from "../lib/nameSuggestions";
 
 const router: IRouter = Router();
+
+router.post("/cats/name-suggestions", async (req, res) => {
+  const body = SuggestCatNamesBody.parse(req.body);
+  const cats = await db.select({ name: catsTable.name }).from(catsTable);
+  try {
+    const suggestions = await suggestCatNames(
+      body.language,
+      cats.map((c) => c.name),
+    );
+    res.json({ suggestions });
+  } catch (err) {
+    req.log.error({ err }, "Cat name suggestion failed");
+    res.status(502).json({ error: "Name generation failed" });
+  }
+});
 
 async function catPayload(cat: Cat, sightingsCount: number, lastSeenAt: string) {
   const [profile] = await db

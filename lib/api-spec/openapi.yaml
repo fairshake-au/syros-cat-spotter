@@ -189,7 +189,31 @@ paths:
         "404":
           description: Not found
         "409":
-          description: Already resolved
+          description: Already resolved, or the new cat name is already taken (code NAME_TAKEN)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /cats/name-suggestions:
+    post:
+      operationId: suggestCatNames
+      tags: [cats]
+      summary: Generate fun, available cat name suggestions in the given language
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestCatNamesRequest"
+      responses:
+        "200":
+          description: Suggested names, none of which are already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestCatNamesResult"
+        "502":
+          description: Name generation failed
   /profiles/{deviceId}:
     get:
       operationId: getProfile
@@ -429,6 +453,29 @@ components:
           nullable: true
           description: Name for a new unique cat (when no match)
       required: [deviceId]
+    ApiErrorBody:
+      type: object
+      properties:
+        error: { type: string }
+        code:
+          type: string
+          description: Machine-readable error code (e.g. NAME_TAKEN)
+      required: [error]
+    SuggestCatNamesRequest:
+      type: object
+      properties:
+        language:
+          type: string
+          enum: [en, el, fr]
+          description: Language for the generated names
+      required: [language]
+    SuggestCatNamesResult:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items: { type: string }
+      required: [suggestions]
     ResolveResult:
       type: object
       properties:

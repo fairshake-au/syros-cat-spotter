@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './apiErrorBody';
 export * from './cat';
 export * from './catClaim';
 export * from './catDetail';
@@ -23,6 +24,9 @@ export * from './profile';
 export * from './resolveResult';
 export * from './resolveSightingRequest';
 export * from './sighting';
+export * from './suggestCatNamesRequest';
+export * from './suggestCatNamesRequestLanguage';
+export * from './suggestCatNamesResult';
 export * from './updateProfileRequest';
 export * from './usernameAvailability';
 export * from './usernameSuggestions';

@@ -259,6 +259,18 @@ export const ResolveSightingResponse = zod.object({
 
 
 /**
+ * @summary Generate fun, available cat name suggestions in the given language
+ */
+export const SuggestCatNamesBody = zod.object({
+  "language": zod.enum(['en', 'el', 'fr']).describe('Language for the generated names')
+})
+
+export const SuggestCatNamesResponse = zod.object({
+  "suggestions": zod.array(zod.string())
+})
+
+
+/**
  * @summary Get (or lazily create) a device profile with points and badges
  */
 export const GetProfileParams = zod.object({

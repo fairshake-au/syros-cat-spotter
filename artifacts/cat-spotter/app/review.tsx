@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   resolveSighting,
+  suggestCatNames,
+  ApiError,
   type MatchCandidate,
   type ResolveResult,
 } from '@workspace/api-client-react';
@@ -36,7 +38,7 @@ interface ReviewData {
 
 export default function ReviewScreen() {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -56,6 +58,10 @@ export default function ReviewScreen() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResolveResult | null>(null);
   const [showNewCat, setShowNewCat] = useState(false);
+  const [nameTaken, setNameTaken] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState(false);
 
   if (!data) {
     return (
@@ -86,6 +92,7 @@ export default function ReviewScreen() {
   const registerNew = async () => {
     if (!newName.trim() || !deviceId) return;
     setBusy(true);
+    setNameTaken(false);
     try {
       await finishAndInvalidate(
         await resolveSighting(data.sightingId, {
@@ -93,8 +100,28 @@ export default function ReviewScreen() {
           newCatName: newName.trim(),
         }),
       );
-    } catch {
+    } catch (err) {
+      if (
+        err instanceof ApiError &&
+        (err.data as { code?: string } | null)?.code === 'NAME_TAKEN'
+      ) {
+        setNameTaken(true);
+      }
       setBusy(false);
+    }
+  };
+
+  const fetchSuggestions = async () => {
+    setSuggesting(true);
+    setSuggestError(false);
+    try {
+      const res = await suggestCatNames({ language });
+      setSuggestions(res.suggestions);
+      if (res.suggestions.length === 0) setSuggestError(true);
+    } catch {
+      setSuggestError(true);
+    } finally {
+      setSuggesting(false);
     }
   };
 
@@ -303,7 +330,10 @@ export default function ReviewScreen() {
             </Text>
             <TextInput
               value={newName}
-              onChangeText={setNewName}
+              onChangeText={(v) => {
+                setNewName(v);
+                if (nameTaken) setNameTaken(false);
+              }}
               placeholder={t('nameYourCat')}
               placeholderTextColor={colors.mutedForeground}
               maxLength={40}
@@ -311,11 +341,64 @@ export default function ReviewScreen() {
                 styles.input,
                 {
                   color: colors.foreground,
-                  borderColor: colors.input,
+                  borderColor: nameTaken ? colors.destructive : colors.input,
                   backgroundColor: colors.background,
                 },
               ]}
             />
+            {nameTaken ? (
+              <Text style={[styles.errorText, { color: colors.destructive }]}>
+                {t('nameTaken')}
+              </Text>
+            ) : null}
+            <Pressable
+              onPress={fetchSuggestions}
+              disabled={suggesting}
+              style={[
+                styles.suggestBtn,
+                { borderColor: colors.border, opacity: suggesting ? 0.6 : 1 },
+              ]}
+            >
+              {suggesting ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Feather name="zap" size={15} color={colors.primary} />
+              )}
+              <Text style={[styles.suggestBtnText, { color: colors.primary }]}>
+                {suggesting ? t('suggestingNames') : t('suggestNames')}
+              </Text>
+            </Pressable>
+            {suggestError ? (
+              <Text style={[styles.errorText, { color: colors.destructive }]}>
+                {t('suggestNamesError')}
+              </Text>
+            ) : null}
+            {suggestions.length > 0 ? (
+              <View style={styles.chipRow}>
+                {suggestions.map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={() => {
+                      setNewName(s);
+                      if (nameTaken) setNameTaken(false);
+                    }}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: colors.secondary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.chipText, { color: colors.secondaryForeground }]}
+                    >
+                      {s}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
             <Pressable
               onPress={registerNew}
               disabled={busy || !newName.trim()}
@@ -390,6 +473,25 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
   newCatBox: { gap: 10, padding: 14, borderRadius: 14, borderWidth: 1 },
+  errorText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  suggestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  suggestBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  chipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   input: {
     borderWidth: 1,
     borderRadius: 12,
