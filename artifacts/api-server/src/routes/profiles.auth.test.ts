@@ -72,6 +72,29 @@ describe("GET /api/profiles/:deviceId auth", () => {
   });
 });
 
+describe("POST /api/profiles/:deviceId/username auth", () => {
+  // This route responds with the full private payload on success, so an
+  // unauthenticated claim would hand the spotting graph to anyone who knows a
+  // device id — even though the route "only" sets a username.
+  it("refuses an unauthenticated username claim", async () => {
+    const res = await request(app)
+      .post(`/api/profiles/${OWNER}/username`)
+      .send({ username: "HijackName" })
+      .expect(401);
+    expect(res.body.spottedCatIds).toBeUndefined();
+    expect(res.body.currentStreakDays).toBeUndefined();
+  });
+
+  it("refuses a claim presenting the wrong secret", async () => {
+    const res = await request(app)
+      .post(`/api/profiles/${OWNER}/username`)
+      .set("X-Device-Secret", ATTACKER_SECRET)
+      .send({ username: "HijackName" })
+      .expect(403);
+    expect(res.body.spottedCatIds).toBeUndefined();
+  });
+});
+
 describe("PATCH /api/profiles/:deviceId auth", () => {
   it("lets the owner set a nickname", async () => {
     const res = await request(app)

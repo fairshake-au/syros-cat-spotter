@@ -40,12 +40,13 @@ router.get("/profiles/username-suggestions", async (_req, res) => {
   res.json({ suggestions: await suggestUsernames(6) });
 });
 
+// Claiming a username writes to the device's profile and responds with the
+// full private payload, so it needs the same credential as reading it. Without
+// this, knowing a device id was enough to both squat its username and read back
+// its streak and spotted-cat list from the success response.
 router.post("/profiles/:deviceId/username", async (req, res) => {
-  const deviceId = String(req.params.deviceId);
-  if (!deviceId || deviceId.length > 128) {
-    res.status(400).json({ error: "Invalid device id" });
-    return;
-  }
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
   const username = normalizeUsername(req.body?.username);
   if (!username) {
     res.status(400).json({ error: "Username must be 3-24 letters, numbers or spaces" });

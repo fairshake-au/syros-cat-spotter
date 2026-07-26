@@ -74,6 +74,10 @@ export default function SpotScreen() {
     useOffline();
   const { coords, denied, loading: locating, refresh } = useLocation();
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
+  // Stamped when the photo is picked. Submitting can happen minutes later —
+  // and across local midnight — so using submit time would put the sighting on
+  // the wrong day for streak purposes.
+  const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // The location the user confirms on the map (initialized from GPS).
   const [pickedCoords, setPickedCoords] = useState<{
@@ -90,6 +94,7 @@ export default function SpotScreen() {
 
   const clearPhoto = () => {
     setPhoto(null);
+    setCapturedAt(null);
     setPickedCoords(null);
   };
 
@@ -112,6 +117,7 @@ export default function SpotScreen() {
           });
       if (!result.canceled && result.assets[0]) {
         setPhoto(await toPickedPhoto(result.assets[0]));
+        setCapturedAt(new Date().toISOString());
       }
     } catch {
       Alert.alert(t('error'));
@@ -129,7 +135,7 @@ export default function SpotScreen() {
         photoUri: photo.uri,
         lat: finalCoords.latitude,
         lng: finalCoords.longitude,
-        createdAt: new Date().toISOString(),
+        createdAt: capturedAt ?? new Date().toISOString(),
       });
       clearPhoto();
       Alert.alert(t('queuedOffline'));
@@ -142,9 +148,9 @@ export default function SpotScreen() {
         photoBase64: photo.base64,
         lat: finalCoords.latitude,
         lng: finalCoords.longitude,
-        // Sent on the online path too, so capture time is the single source of
-        // truth for a sighting's day regardless of how it reached the server.
-        capturedAt: new Date().toISOString(),
+        // Capture time, not submit time, and sent on the online path too so a
+        // sighting's day is decided the same way however it reached the server.
+        capturedAt: capturedAt ?? new Date().toISOString(),
       });
       clearPhoto();
       router.push({

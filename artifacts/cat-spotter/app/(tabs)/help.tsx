@@ -166,7 +166,11 @@ function CampaignContent({
           colors={['#e8558a', '#e07856']}
           style={StyleSheet.absoluteFillObject}
         />
-        <Text style={styles.heroPaw}>🐾</Text>
+        {/* Centred by the wrapping View rather than textAlignVertical, which
+            is Android-only and left the paw stuck to the top on iOS and web. */}
+        <View style={styles.heroPawWrap} pointerEvents="none">
+          <Text style={styles.heroPaw}>🐾</Text>
+        </View>
         <View style={styles.heroTextWrap}>
           <Text style={styles.heroEyebrow}>{t('campaignEyebrow')}</Text>
           <Text style={styles.heroTitle}>{campaign.title}</Text>
@@ -323,14 +327,12 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     overflow: 'hidden',
   },
+  heroPawWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   heroPaw: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    textAlign: 'center',
-    textAlignVertical: 'center',
     fontSize: 90,
     opacity: 0.9,
   },

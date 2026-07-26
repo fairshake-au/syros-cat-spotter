@@ -57,12 +57,11 @@ export default function HomeScreen() {
   // (or mid-fetch) we have cats and no stats. Everything derived from the
   // profile must be absent rather than zero in that window: rendering "0 of 10"
   // and locking every card is a wrong answer that looks like a right one.
-  const hasStats = profile !== undefined;
-  // An older server can return a profile without `spottedCatIds`. In that
-  // case `hasStats` is true but we have no idea which cats are collected —
-  // locking every card (including ones the user already has) is a wrong
-  // answer that looks plausible. Locks must gate on the array actually
-  // being present, not just on the profile existing.
+  //
+  // An older server can also return a profile *without* `spottedCatIds`, so
+  // the presence of the profile is not enough — collection state gates on the
+  // array actually being there. Ordering and locks share this one flag so they
+  // can never disagree about the same fact.
   const hasCollectionData = Array.isArray(profile?.spottedCatIds);
 
   // The cat-alog total is authoritative from the server, but it can lag the
@@ -82,11 +81,11 @@ export default function HomeScreen() {
   // ones the design's "Spot to unlock" treatment is actually for. Without stats
   // we cannot tell collected from not, so leave the order alone.
   const nearby = useMemo(() => {
-    if (!hasStats) return cats.slice(0, NEARBY_LIMIT);
+    if (!hasCollectionData) return cats.slice(0, NEARBY_LIMIT);
     const uncollected = cats.filter((c) => !spottedIds.has(c.id));
     const collected = cats.filter((c) => spottedIds.has(c.id));
     return [...uncollected, ...collected].slice(0, NEARBY_LIMIT);
-  }, [cats, spottedIds, hasStats]);
+  }, [cats, spottedIds, hasCollectionData]);
 
   // `username` comes from DeviceContext and survives offline, so greet by name
   // even when the profile fetch hasn't landed.
@@ -178,7 +177,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.tile}>
             <StatTile
-              value={profile?.badges.length ?? dash}
+              value={profile?.badges?.length ?? dash}
               label={t('statBadges')}
               tone="bougain"
               style={styles.tileInner}
