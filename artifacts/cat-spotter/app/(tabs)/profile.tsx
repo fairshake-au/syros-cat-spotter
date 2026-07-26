@@ -61,6 +61,9 @@ export default function ProfileScreen() {
   // The profile is not cached locally, so offline (or mid-fetch) there are no
   // stats. Show an em dash rather than a plausible-looking zero.
   const dash = '\u2014';
+  // Online but the profile wouldn't load — most likely the device credential no
+  // longer matches. Distinguish that from simply being offline.
+  const statsError = isOnline && profileQuery.isError && profile === undefined;
   // An older/mid-fetch profile can be missing `badges` entirely. Rendering
   // "0 of 7" and drawing every badge locked is the same plausible-wrong-zero
   // failure as the stat tiles \u2014 treat "no array" as unknown, not "none
@@ -109,6 +112,11 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <OfflineBanner />
+      {statsError && (
+        <Text style={[styles.statsError, { color: colors.mutedForeground }]}>
+          {t('statsUnavailable')}
+        </Text>
+      )}
       <ScrollView
         contentContainerStyle={{
           paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
@@ -438,6 +446,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displayBold,
     fontSize: fontSizes['2xs'],
     color: '#fff',
+  },
+  statsError: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes['2xs'],
+    textAlign: 'center',
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[3],
   },
   statsRow: {
     flexDirection: 'row',

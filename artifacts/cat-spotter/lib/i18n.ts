@@ -238,6 +238,7 @@ const en: Dict = {
   howStepHelp: 'Help them thrive',
   howStepHelpBody: 'Your spots help us desex & vaccinate the colonies.',
   campaignOpensAt: 'Opens {host} in your browser',
+  statsUnavailable: 'Couldn\'t load your stats just now.',
 };
 
 const el: Dict = {
@@ -470,6 +471,7 @@ const el: Dict = {
   howStepHelp: 'Βοήθησέ τες να ευημερήσουν',
   howStepHelpBody: 'Οι παρατηρήσεις σου βοηθούν στη στείρωση και τον εμβολιασμό.',
   campaignOpensAt: 'Ανοίγει το {host} στο πρόγραμμα περιήγησης',
+  statsUnavailable: 'Δεν φορτώθηκαν τα στατιστικά σου αυτή τη στιγμή.',
 };
 
 const fr: Dict = {
@@ -702,6 +704,7 @@ const fr: Dict = {
   howStepHelp: 'Aide-les à s\'épanouir',
   howStepHelpBody: 'Tes observations aident à stériliser et vacciner les colonies.',
   campaignOpensAt: 'Ouvre {host} dans votre navigateur',
+  statsUnavailable: 'Impossible de charger vos statistiques pour le moment.',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

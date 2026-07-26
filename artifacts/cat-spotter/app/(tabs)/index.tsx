@@ -53,10 +53,15 @@ export default function HomeScreen() {
     },
   });
   const profile = profileQuery.data;
-  // The cats list is cached to AsyncStorage but the profile is not, so offline
-  // (or mid-fetch) we have cats and no stats. Everything derived from the
-  // profile must be absent rather than zero in that window: rendering "0 of 10"
-  // and locking every card is a wrong answer that looks like a right one.
+  // The cats list is cached to AsyncStorage but the profile is not. Until a
+  // profile has ever loaded we have cats and no stats, and everything derived
+  // from the profile must read as absent rather than zero: "0 of 10" with every
+  // card locked is a wrong answer that looks like a right one.
+  //
+  // React Query keeps the last successful payload while the query is disabled,
+  // so going offline shows recent stats rather than blanking them. That is
+  // deliberate — recently-true beats unknown, and the offline banner is already
+  // on screen. Only a device that has never loaded a profile sees dashes.
   //
   // An older server can also return a profile *without* `spottedCatIds`, so
   // the presence of the profile is not enough — collection state gates on the
@@ -93,6 +98,10 @@ export default function HomeScreen() {
     profile?.nickname ?? profile?.username ?? username ?? t('homeFallbackName');
   const streak = profile?.currentStreakDays ?? 0;
   const dash = '—';
+  // A failed fetch while online is not the same as being offline — most likely
+  // the device credential no longer matches. Say so instead of showing the same
+  // empty state and letting the user assume their spots vanished.
+  const statsError = isOnline && profileQuery.isError && profile === undefined;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -156,6 +165,11 @@ export default function HomeScreen() {
         </View>
 
         <OfflineBanner />
+        {statsError && (
+          <Text style={[styles.statsError, { color: colors.mutedForeground }]}>
+            {t('statsUnavailable')}
+          </Text>
+        )}
 
         {/* Stat tiles — every figure is server-derived. */}
         <View style={styles.tiles}>
@@ -310,6 +324,13 @@ const styles = StyleSheet.create({
   },
   // StatTile carries a 120px minWidth for standalone use; three across at 375px
   // would overflow, so let them shrink here.
+  statsError: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes['2xs'],
+    textAlign: 'center',
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[3],
+  },
   tile: { flex: 1, minWidth: 0 },
   tileInner: { minWidth: 0 },
   section: { paddingHorizontal: spacing[4], paddingTop: spacing[5] },
