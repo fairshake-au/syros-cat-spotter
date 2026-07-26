@@ -106,13 +106,19 @@ export default function CatDetailScreen() {
 
   // fansCount and careTimeline are new fields and the generated fetch client
   // does no runtime validation, so an app talking to an older server would get
-  // undefined here and crash on every cat. Degrade instead.
+  // undefined here. That must not crash — but it also must not be treated as
+  // a real zero/empty: "0 Fans" and an empty Care Timeline both look like
+  // genuine measurements, when they can only mean an older server (a real
+  // cat always has at least a synthetic `discovered` care event). Keep
+  // "undefined" distinguishable from "really zero"/"really empty" all the
+  // way to render.
   const { cat, sightings } = data;
-  const fansCount = data.fansCount ?? 0;
-  const careTimeline = data.careTimeline ?? [];
+  const fansCount = data.fansCount;
+  const careTimeline = data.careTimeline;
   const isClaimed = !!cat.ownerName;
   const isOwner = isClaimed && ownedCatIds.includes(cat.id);
-  const isDesexed = careTimeline.some((e) => e.type === 'desexed');
+  const isDesexed = (careTimeline ?? []).some((e) => e.type === 'desexed');
+  const dash = '—';
   const locationLabel = cat.description?.trim();
 
   return (
@@ -254,58 +260,60 @@ export default function CatDetailScreen() {
             />
             <StatTile
               style={{ flex: 1 }}
-              value={fansCount}
+              value={fansCount ?? dash}
               label={t('fansStat')}
               tone="bougain"
             />
           </View>
 
-          <View style={{ gap: 11 }}>
-            <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
-              {t('careTimelineTitle')}
-            </Text>
-            {careTimeline.map((event, index) => {
-              // An unknown type (older/newer server, or a leaked `sighting`
-              // row) must not take the whole screen down.
-              const meta = CARE_META[event.type] ?? CARE_META.general;
-              return (
-                <View key={index} style={styles.careRow}>
-                  <View style={[styles.careIcon, { backgroundColor: meta.bg }]}>
-                    <Text style={{ fontSize: 14 }}>{meta.icon}</Text>
+          {careTimeline !== undefined && (
+            <View style={{ gap: 11 }}>
+              <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
+                {t('careTimelineTitle')}
+              </Text>
+              {careTimeline.map((event, index) => {
+                // An unknown type (older/newer server, or a leaked `sighting`
+                // row) must not take the whole screen down.
+                const meta = CARE_META[event.type] ?? CARE_META.general;
+                return (
+                  <View key={index} style={styles.careRow}>
+                    <View style={[styles.careIcon, { backgroundColor: meta.bg }]}>
+                      <Text style={{ fontSize: 14 }}>{meta.icon}</Text>
+                    </View>
+                    <Text style={[styles.careText, { color: colors.foreground }]}>
+                      {event.type === 'discovered' ? (
+                        <>
+                          <Text style={styles.careBold}>
+                            {t('careTypeDiscoveredPrefix')}
+                          </Text>{' '}
+                          {event.message}
+                        </>
+                      ) : (
+                        <>
+                          <Text style={styles.careBold}>
+                            {t(
+                              event.type === 'desexed'
+                                ? 'careTypeDesexed'
+                                : event.type === 'adopted'
+                                  ? 'careTypeAdopted'
+                                  : 'careTypeGeneral',
+                            )}
+                          </Text>{' '}
+                          · {event.message}
+                        </>
+                      )}
+                    </Text>
+                    <Text style={[styles.careDate, { color: colors.mutedForeground }]}>
+                      {new Date(event.at).toLocaleDateString(undefined, {
+                        month: 'short',
+                        year: '2-digit',
+                      })}
+                    </Text>
                   </View>
-                  <Text style={[styles.careText, { color: colors.foreground }]}>
-                    {event.type === 'discovered' ? (
-                      <>
-                        <Text style={styles.careBold}>
-                          {t('careTypeDiscoveredPrefix')}
-                        </Text>{' '}
-                        {event.message}
-                      </>
-                    ) : (
-                      <>
-                        <Text style={styles.careBold}>
-                          {t(
-                            event.type === 'desexed'
-                              ? 'careTypeDesexed'
-                              : event.type === 'adopted'
-                                ? 'careTypeAdopted'
-                                : 'careTypeGeneral',
-                          )}
-                        </Text>{' '}
-                        · {event.message}
-                      </>
-                    )}
-                  </Text>
-                  <Text style={[styles.careDate, { color: colors.mutedForeground }]}>
-                    {new Date(event.at).toLocaleDateString(undefined, {
-                      month: 'short',
-                      year: '2-digit',
-                    })}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          )}
 
           <View style={[styles.mapWrap, { borderColor: colors.border }]}>
             <AppMap

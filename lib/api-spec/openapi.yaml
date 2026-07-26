@@ -670,6 +670,14 @@ components:
           description: JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded
         lat: { type: number }
         lng: { type: number }
+        capturedAt:
+          type: string
+          nullable: true
+          description: >-
+            ISO timestamp of when the photo was taken, for sightings queued
+            offline and synced later. Omit for an immediate submission. The
+            server clamps this (not in the future, at most 30 days old) before
+            storing, since it is client-supplied and feeds streak day buckets.
       required: [deviceId, photoBase64, lat, lng]
     MatchCandidate:
       type: object

@@ -58,6 +58,12 @@ export default function HomeScreen() {
   // profile must be absent rather than zero in that window: rendering "0 of 10"
   // and locking every card is a wrong answer that looks like a right one.
   const hasStats = profile !== undefined;
+  // An older server can return a profile without `spottedCatIds`. In that
+  // case `hasStats` is true but we have no idea which cats are collected —
+  // locking every card (including ones the user already has) is a wrong
+  // answer that looks plausible. Locks must gate on the array actually
+  // being present, not just on the profile existing.
+  const hasCollectionData = Array.isArray(profile?.spottedCatIds);
 
   // The cat-alog total is authoritative from the server, but it can lag the
   // locally-cached list while offline — take whichever is larger so the
@@ -135,15 +141,17 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${Math.min(100, Math.round(progress * 100))}%`,
-                    backgroundColor: palette.sun500,
-                  },
-                ]}
-              />
+              {spotted !== undefined && (
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${Math.min(100, Math.round(progress * 100))}%`,
+                      backgroundColor: palette.sun500,
+                    },
+                  ]}
+                />
+              )}
             </View>
           </View>
         </View>
@@ -207,7 +215,7 @@ export default function HomeScreen() {
                   {/* Decorative only. An interactive overlay here would swallow
                       the card's own tap and strand the user — tapping a locked
                       cat must still open its profile. */}
-                  {hasStats && !spottedIds.has(cat.id) && (
+                  {hasCollectionData && !spottedIds.has(cat.id) && (
                     <View style={styles.lockOverlay} pointerEvents="none">
                       <Text style={styles.lockIcon} allowFontScaling={false}>
                         🔒

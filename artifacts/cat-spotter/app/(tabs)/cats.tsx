@@ -14,8 +14,11 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
+import colorsConst from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, borderWidths } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
+import { useDevice } from '@/context/DeviceContext';
+import { useOffline } from '@/context/OfflineContext';
 import { useLocation } from '@/hooks/useLocation';
 import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -24,6 +27,13 @@ import { AppMap } from '@/components/AppMap';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Chip } from '@/components/purropolis';
 import { absoluteUrl, SYROS_CENTER } from '@/lib/urls';
+import {
+  useGetProfile,
+  getGetProfileQueryKey,
+} from '@workspace/api-client-react';
+
+/** CatCard's own corner radius — the lock overlay has to match it exactly. */
+const catCardRadius = colorsConst.radius;
 
 /**
  * Cat-alog filters. `owned` and `nearby` are computed from data we actually
@@ -46,9 +56,27 @@ export default function CatalogScreen() {
     coords?.latitude,
     coords?.longitude,
   );
+  const { deviceId } = useDevice();
+  const { isOnline } = useOffline();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [showMap, setShowMap] = useState(false);
+
+  const profileQuery = useGetProfile(deviceId ?? '', {
+    query: {
+      enabled: !!deviceId && isOnline,
+      queryKey: getGetProfileQueryKey(deviceId ?? ''),
+    },
+  });
+  const profile = profileQuery.data;
+  // Mirror Home's guard exactly: an older server can return a profile
+  // without `spottedCatIds`, so locks must depend on the array actually
+  // being present, not just on the profile existing.
+  const hasCollectionData = Array.isArray(profile?.spottedCatIds);
+  const spottedIds = useMemo(
+    () => new Set(profile?.spottedCatIds ?? []),
+    [profile?.spottedCatIds],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -204,7 +232,11 @@ export default function CatalogScreen() {
             🐾
           </Text>
           <Text style={[styles.empty, { color: colors.mutedForeground }]}>
-            {cats.length === 0 ? t('noCats') : t('noCatsSearch')}
+            {filter === 'nearby' && !coords
+              ? t('filterNeedsLocation')
+              : cats.length === 0
+                ? t('noCats')
+                : t('noCatsSearch')}
           </Text>
         </View>
       ) : (
@@ -217,7 +249,22 @@ export default function CatalogScreen() {
             padding: spacing[3],
             paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
           }}
-          renderItem={({ item }) => <CatCard cat={item} />}
+          renderItem={({ item }) => (
+            <View style={styles.gridItem}>
+              <CatCard cat={item} />
+              {/* Decorative only. An interactive overlay here would swallow
+                  the card's own tap and strand the user — tapping a locked
+                  cat must still open its profile. */}
+              {hasCollectionData && !spottedIds.has(item.id) && (
+                <View style={styles.lockOverlay} pointerEvents="none">
+                  <Text style={styles.lockIcon} allowFontScaling={false}>
+                    🔒
+                  </Text>
+                  <Text style={styles.lockText}>{t('homeSpotToUnlock')}</Text>
+                </View>
+              )}
+            </View>
+          )}
         />
       )}
     </View>
@@ -285,4 +332,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   row: { gap: spacing[3], marginBottom: spacing[3] },
+  gridItem: { flex: 1, position: 'relative' },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(27,42,56,0.72)',
+    // Match CatCard's own corner radius, not the DS `lg` step, or the card
+    // shows through at the corners.
+    borderRadius: catCardRadius,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  lockIcon: { fontSize: 30 },
+  lockText: {
+    fontFamily: fonts.displayBold,
+    fontSize: fontSizes.sm,
+    color: '#fff',
+    textAlign: 'center',
+  },
 });

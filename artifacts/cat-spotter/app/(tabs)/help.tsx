@@ -25,15 +25,16 @@ import { Button } from '@/components/purropolis/Button';
 import { ProgressBar } from '@/components/purropolis/ProgressBar';
 import { Chip } from '@/components/purropolis/Chip';
 import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
+import { daysLeft, safeDonateUrl } from '@/lib/campaignDates';
 
-/**
- * Days remaining until `endsAt` (an ISO date). Never negative — a campaign
- * that has already ended reads as 0 days left rather than a negative number.
- */
-function daysLeft(endsAt: string): number | null {
-  const end = new Date(endsAt).getTime();
-  if (Number.isNaN(end)) return null;
-  return Math.max(0, Math.ceil((end - Date.now()) / 86_400_000));
+/** Alert.alert is a no-op on RN web, so route through window.alert there. */
+function notifyError(message: string) {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    window.alert(message);
+  } else {
+    Alert.alert(message);
+  }
 }
 
 function formatCents(cents: number, currency: string): string {
@@ -67,28 +68,30 @@ export default function HelpScreen() {
     [campaign],
   );
 
-  const canDonate = !!campaign?.donateUrl;
+  // The server already rejects anything that isn't absolute https, but this
+  // button is trusted UI: a tampered response must not be able to send someone
+  // to an arbitrary scheme. Re-validate here and show where the button goes.
+  const donateUrl = safeDonateUrl(campaign?.donateUrl);
+  const canDonate = !!donateUrl;
+  const donateHost = donateUrl ? new URL(donateUrl).host : null;
 
   const openDonate = async (amountCents: number | null) => {
-    if (!campaign?.donateUrl) return;
-    let url = campaign.donateUrl;
-    // Presentational only — this just pre-fills the external donation
-    // page's amount field via a query param. No charge happens in-app.
+    if (!donateUrl) return;
+    // Built from the already-validated URL, so a parse failure is impossible
+    // here and we never fall back to opening an unvalidated string.
+    const parsed = new URL(donateUrl);
     if (amountCents != null) {
-      try {
-        const parsed = new URL(url);
-        parsed.searchParams.set('amount', String(amountCents / 100));
-        url = parsed.toString();
-      } catch {
-        // donateUrl wasn't a parseable absolute URL — open it verbatim.
-      }
+      // Presentational only — this pre-fills the external donation page's
+      // amount field. No charge happens in-app.
+      parsed.searchParams.set('amount', String(amountCents / 100));
     }
+    const url = parsed.toString();
     try {
       const can = await Linking.canOpenURL(url);
       if (!can) throw new Error('cannot open');
       await Linking.openURL(url);
     } catch {
-      Alert.alert(t('error'));
+      notifyError(t('error'));
     }
   };
 
@@ -122,6 +125,7 @@ export default function HelpScreen() {
             insetsTop={insets.top}
             remainingDays={remainingDays}
             canDonate={canDonate}
+            donateHost={donateHost}
             selectedCents={selectedCents}
             onSelectAmount={setSelectedCents}
             onDonate={openDonate}
@@ -137,6 +141,7 @@ function CampaignContent({
   insetsTop,
   remainingDays,
   canDonate,
+  donateHost,
   selectedCents,
   onSelectAmount,
   onDonate,
@@ -145,6 +150,7 @@ function CampaignContent({
   insetsTop: number;
   remainingDays: number | null;
   canDonate: boolean;
+  donateHost: string | null;
   selectedCents: number | null;
   onSelectAmount: (cents: number | null) => void;
   onDonate: (amountCents: number | null) => void;
@@ -279,6 +285,11 @@ function CampaignContent({
                   )
                 : t('campaignDonateCta')}
             </Button>
+            {!!donateHost && (
+              <Text style={[styles.donateHost, { color: colors.mutedForeground }]}>
+                {t('campaignOpensAt').replace('{host}', donateHost)}
+              </Text>
+            )}
           </>
         ) : (
           <>
@@ -358,6 +369,12 @@ const styles = StyleSheet.create({
   blurbBox: { borderRadius: radii.md, padding: spacing[3] },
   blurbText: { fontFamily: fonts.body, fontSize: fontSizes.xs, lineHeight: fontSizes.xs * 1.5 },
 
+  donateHost: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes['2xs'],
+    textAlign: 'center',
+    marginTop: spacing[2],
+  },
   notOpenYet: {
     textAlign: 'center',
     fontFamily: fonts.bodySemiBold,

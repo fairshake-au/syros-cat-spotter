@@ -216,6 +216,8 @@ export interface CreateSightingRequest {
   photoBase64: string;
   lat: number;
   lng: number;
+  /** ISO timestamp of when the photo was taken, for sightings queued offline and synced later. Omit for an immediate submission. The server clamps this (not in the future, at most 30 days old) before storing, since it is client-supplied and feeds streak day buckets. */
+  capturedAt?: string | null;
 }
 
 export interface MatchCandidate {

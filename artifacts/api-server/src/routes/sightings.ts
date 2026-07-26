@@ -18,6 +18,7 @@ import {
   profilePayload,
 } from "../lib/catHelpers";
 import { badgesFor } from "../lib/badges";
+import { clampCaptureTime } from "../lib/captureTime";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
@@ -53,6 +54,10 @@ router.post("/sightings", aiLimiter, async (req, res) => {
       lat: body.lat,
       lng: body.lng,
       status: "pending",
+      // When the client queued this offline, the spot happened before the sync.
+      // Store the capture time (clamped) so streak day buckets reflect when the
+      // cat was actually seen rather than when the network came back.
+      createdAt: clampCaptureTime(body.capturedAt),
     })
     .returning();
 

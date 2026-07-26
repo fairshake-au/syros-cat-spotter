@@ -61,8 +61,15 @@ export default function ProfileScreen() {
   // The profile is not cached locally, so offline (or mid-fetch) there are no
   // stats. Show an em dash rather than a plausible-looking zero.
   const dash = '\u2014';
-  const earned = new Set(profile?.badges ?? []);
-  const earnedCount = BADGE_IDS.filter((id) => earned.has(id)).length;
+  // An older/mid-fetch profile can be missing `badges` entirely. Rendering
+  // "0 of 7" and drawing every badge locked is the same plausible-wrong-zero
+  // failure as the stat tiles \u2014 treat "no array" as unknown, not "none
+  // earned".
+  const hasBadgeData = Array.isArray(profile?.badges);
+  const earned = new Set(hasBadgeData ? profile!.badges : []);
+  const earnedCount = hasBadgeData
+    ? BADGE_IDS.filter((id) => earned.has(id)).length
+    : null;
   const streakDays = profile?.currentStreakDays ?? 0;
 
   const queryClient = useQueryClient();
@@ -245,45 +252,55 @@ export default function ProfileScreen() {
                 ]}
               >
                 {`${t('badges')} · ${t('profileBadgeCount')
-                  .replace('{earned}', String(earnedCount))
+                  .replace(
+                    '{earned}',
+                    earnedCount === null ? dash : String(earnedCount),
+                  )
                   .replace('{total}', String(BADGE_IDS.length))}`}
               </Text>
             </View>
-            <View style={styles.badgeGrid}>
-              {BADGE_IDS.map((id, index) => {
-                const has = earned.has(id);
-                const tone = BADGE_TONES[index % BADGE_TONES.length];
-                return (
-                  <View key={id} style={styles.badgeCell}>
-                    <View
-                      style={[
-                        styles.badgeIconTile,
-                        { backgroundColor: has ? tone.bg : colors.muted, opacity: has ? 1 : 0.5 },
-                      ]}
-                    >
-                      {has ? (
-                        <Feather
-                          name={(BADGE_ICONS[id] ?? 'award') as never}
-                          size={26}
-                          color={tone.fg}
-                        />
-                      ) : (
-                        <Text style={styles.lockEmoji}>🔒</Text>
-                      )}
+            {/* Without a `badges` array we cannot tell earned from
+                un-earned — rendering the grid would either draw every badge
+                locked (asserting "you've earned nothing") or unlocked
+                (asserting the opposite), both wrong. Omit it entirely until
+                real data arrives. */}
+            {hasBadgeData && (
+              <View style={styles.badgeGrid}>
+                {BADGE_IDS.map((id, index) => {
+                  const has = earned.has(id);
+                  const tone = BADGE_TONES[index % BADGE_TONES.length];
+                  return (
+                    <View key={id} style={styles.badgeCell}>
+                      <View
+                        style={[
+                          styles.badgeIconTile,
+                          { backgroundColor: has ? tone.bg : colors.muted, opacity: has ? 1 : 0.5 },
+                        ]}
+                      >
+                        {has ? (
+                          <Feather
+                            name={(BADGE_ICONS[id] ?? 'award') as never}
+                            size={26}
+                            color={tone.fg}
+                          />
+                        ) : (
+                          <Text style={styles.lockEmoji}>🔒</Text>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.badgeName,
+                          { color: has ? colors.foreground : colors.mutedForeground },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {t(`badge_${id}`)}
+                      </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.badgeName,
-                        { color: has ? colors.foreground : colors.mutedForeground },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {t(`badge_${id}`)}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           {/* Leaderboard */}

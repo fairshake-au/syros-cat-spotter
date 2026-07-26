@@ -230,7 +230,8 @@ export const CreateSightingBody = zod.object({
   "deviceId": zod.string(),
   "photoBase64": zod.string().describe('JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded'),
   "lat": zod.number(),
-  "lng": zod.number()
+  "lng": zod.number(),
+  "capturedAt": zod.string().nullish().describe('ISO timestamp of when the photo was taken, for sightings queued offline and synced later. Omit for an immediate submission. The server clamps this (not in the future, at most 30 days old) before storing, since it is client-supplied and feeds streak day buckets.')
 })
 
 export const CreateSightingResponse = zod.object({

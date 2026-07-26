@@ -158,6 +158,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             photoBase64,
             lat: item.lat,
             lng: item.lng,
+            // This item may have sat in the queue for days. Send the time the
+            // photo was actually taken, or the streak credits the day the
+            // network came back instead of the day the cat was spotted.
+            capturedAt: item.createdAt,
           });
           items = items.map((p) =>
             p.localId === item.localId

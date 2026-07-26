@@ -142,6 +142,9 @@ export default function SpotScreen() {
         photoBase64: photo.base64,
         lat: finalCoords.latitude,
         lng: finalCoords.longitude,
+        // Sent on the online path too, so capture time is the single source of
+        // truth for a sighting's day regardless of how it reached the server.
+        capturedAt: new Date().toISOString(),
       });
       clearPhoto();
       router.push({

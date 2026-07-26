@@ -4,6 +4,7 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 import { containsOffensiveLanguage } from "../lib/moderation";
+import { requireDeviceAuth } from "../lib/deviceAuth";
 
 const router: IRouter = Router();
 
@@ -89,21 +90,21 @@ router.post("/profiles/:deviceId/username", async (req, res) => {
   res.json(await profilePayload(deviceId));
 });
 
+// The profile payload is a private view of one device: points, streak, owned
+// cats, and `spottedCatIds` — a list of every cat that device has visited,
+// which is closer to a location history than to a score. Device ids are not
+// secrets (they travel in request paths; see lib/db/src/schema/devices.ts), so
+// the path param alone cannot authorise this. The `X-Device-Secret` header can,
+// and the client already sends it on every request.
 router.get("/profiles/:deviceId", async (req, res) => {
-  const deviceId = String(req.params.deviceId);
-  if (!deviceId || deviceId.length > 128) {
-    res.status(400).json({ error: "Invalid device id" });
-    return;
-  }
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
   res.json(await profilePayload(deviceId));
 });
 
 router.patch("/profiles/:deviceId", async (req, res) => {
-  const deviceId = String(req.params.deviceId);
-  if (!deviceId || deviceId.length > 128) {
-    res.status(400).json({ error: "Invalid device id" });
-    return;
-  }
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
   const raw = req.body?.nickname;
   if (raw !== null && raw !== undefined && typeof raw !== "string") {
     res.status(400).json({ error: "Nickname must be a string" });

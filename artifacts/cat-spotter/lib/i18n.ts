@@ -159,6 +159,7 @@ const en: Dict = {
   filterAll: 'All',
   filterNearMe: 'Near me',
   filterHasHome: 'Has a home',
+  filterNeedsLocation: 'Turn on location to see cats near you.',
   viewList: 'List',
   viewMap: 'Map',
   clear: 'Clear',
@@ -236,6 +237,7 @@ const en: Dict = {
   howStepCatalogBody: 'We check if it\'s a new furriend or one we know.',
   howStepHelp: 'Help them thrive',
   howStepHelpBody: 'Your spots help us desex & vaccinate the colonies.',
+  campaignOpensAt: 'Opens {host} in your browser',
 };
 
 const el: Dict = {
@@ -389,6 +391,7 @@ const el: Dict = {
   filterAll: 'Όλες',
   filterNearMe: 'Κοντά μου',
   filterHasHome: 'Έχει σπίτι',
+  filterNeedsLocation: 'Ενεργοποιήστε την τοποθεσία για να δείτε γάτες κοντά σας.',
   viewList: 'Λίστα',
   viewMap: 'Χάρτης',
   clear: 'Καθαρισμός',
@@ -466,6 +469,7 @@ const el: Dict = {
   howStepCatalogBody: 'Ελέγχουμε αν είναι καινούρια ή γνωστή μας.',
   howStepHelp: 'Βοήθησέ τες να ευημερήσουν',
   howStepHelpBody: 'Οι παρατηρήσεις σου βοηθούν στη στείρωση και τον εμβολιασμό.',
+  campaignOpensAt: 'Ανοίγει το {host} στο πρόγραμμα περιήγησης',
 };
 
 const fr: Dict = {
@@ -619,6 +623,7 @@ const fr: Dict = {
   filterAll: 'Tous',
   filterNearMe: 'Près de moi',
   filterHasHome: 'A un foyer',
+  filterNeedsLocation: 'Activez la localisation pour voir les chats près de vous.',
   viewList: 'Liste',
   viewMap: 'Carte',
   clear: 'Effacer',
@@ -696,6 +701,7 @@ const fr: Dict = {
   howStepCatalogBody: 'On vérifie si c\'est un nouveau miaou-ami ou un habitué.',
   howStepHelp: 'Aide-les à s\'épanouir',
   howStepHelpBody: 'Tes observations aident à stériliser et vacciner les colonies.',
+  campaignOpensAt: 'Ouvre {host} dans votre navigateur',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

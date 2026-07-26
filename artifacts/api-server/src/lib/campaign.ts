@@ -25,6 +25,26 @@ export interface Campaign {
   suggestedAmountsCents: number[];
 }
 
+/**
+ * The donate URL is opened from a trusted in-app button, so a mis-set env var
+ * (or a tampered response) would walk users straight from "Chip in €10" to an
+ * attacker's page. Only absolute https URLs are allowed through; anything else
+ * — http, `javascript:`, a relative path, junk — becomes empty, and the client
+ * renders the no-donations-yet state instead of a button.
+ */
+export function sanitizeDonateUrl(raw: string | undefined): string {
+  if (!raw || raw.trim() === "") return "";
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.trim());
+  } catch {
+    return "";
+  }
+  if (parsed.protocol !== "https:") return "";
+  if (!parsed.hostname) return "";
+  return parsed.toString();
+}
+
 function intFromEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw === undefined || raw.trim() === "") return fallback;
@@ -49,7 +69,7 @@ export function getCampaign(): Campaign {
     catsHelped: intFromEnv("CAMPAIGN_CATS_HELPED", 0),
     donors: intFromEnv("CAMPAIGN_DONORS", 0),
     endsAt: process.env.CAMPAIGN_ENDS_AT ?? "2026-12-31",
-    donateUrl: process.env.CAMPAIGN_DONATE_URL ?? "",
+    donateUrl: sanitizeDonateUrl(process.env.CAMPAIGN_DONATE_URL),
     suggestedAmountsCents: [500, 1000, 2500, 5000],
   };
 }
