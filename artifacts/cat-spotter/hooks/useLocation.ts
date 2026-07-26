@@ -51,13 +51,34 @@ export function useLocation(): UseLocationResult {
             setDenied(true);
             return;
           }
-          const pos = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+          // getCurrentPositionAsync has no timeout on iOS and can hang
+          // indefinitely. Show a cached fix immediately when available, and
+          // cap the fresh GPS read with a hard timeout.
+          const lastKnown = await Location.getLastKnownPositionAsync({
+            maxAge: 5 * 60 * 1000,
           });
-          setCoords({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          });
+          if (lastKnown) {
+            setCoords({
+              latitude: lastKnown.coords.latitude,
+              longitude: lastKnown.coords.longitude,
+            });
+            setLoading(false);
+          }
+          const pos = await Promise.race([
+            Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            }),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000)),
+          ]);
+          if (pos) {
+            setCoords({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          } else if (!lastKnown) {
+            // Timed out with no cached position either.
+            setDenied(true);
+          }
         }
       } catch {
         setDenied(true);
