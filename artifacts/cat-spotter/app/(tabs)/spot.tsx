@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -26,6 +27,11 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
+import { Button } from '@/components/purropolis/Button';
+import { IconButton } from '@/components/purropolis/IconButton';
+import { Card } from '@/components/purropolis/Card';
+import { Badge } from '@/components/purropolis/Badge';
+import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
 
 interface PickedPhoto {
   uri: string;
@@ -176,306 +182,316 @@ export default function SpotScreen() {
     });
   };
 
+  // Short "📍 lat, lng" chip text — we have no reverse-geocoded place name,
+  // so we show rounded coordinates instead of the design's mock "Vaporia".
+  const locationChipText = pickedCoords
+    ? `📍 ${pickedCoords.latitude.toFixed(3)}, ${pickedCoords.longitude.toFixed(3)}`
+    : coords
+      ? `📍 ${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)}`
+      : locating
+        ? `📍 ${t('locating')}`
+        : null;
+
+  const badgeToneForStatus = (
+    status: (typeof pending)[number]['status'],
+  ): 'success' | 'warning' | 'danger' | 'info' => {
+    switch (status) {
+      case 'review':
+        return 'info';
+      case 'error':
+      case 'rejected':
+        return 'danger';
+      default:
+        return 'warning';
+    }
+  };
+
+  const pendingSection = pending.length > 0 && (
+    <View style={{ gap: spacing[3] }}>
+      <View style={styles.pendingHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+          {t('pendingSightings')}
+        </Text>
+        {isOnline && (
+          <Pressable onPress={syncNow} disabled={syncing}>
+            <Text style={[styles.syncText, { color: colors.primary }]}>
+              {syncing ? '…' : t('syncNow')}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+      {pending.map((item) => (
+        <Card
+          key={item.localId}
+          padding={spacing[3]}
+          onPress={item.status === 'review' ? () => reviewPending(item) : undefined}
+          style={styles.pendingItem}
+        >
+          <SightingPhoto
+            uri={item.photoUri}
+            base64={item.photoBase64}
+            style={styles.pendingThumb}
+            contentFit="cover"
+          />
+          <View style={{ flex: 1, gap: spacing[1] }}>
+            <Badge tone={badgeToneForStatus(item.status)}>
+              {item.status === 'review'
+                ? t('needsReview')
+                : item.status === 'error'
+                  ? item.errorKind === 'stale'
+                    ? t('syncFailedStale')
+                    : t('syncFailedServer')
+                  : item.status === 'rejected'
+                    ? t('photoRejectedTitle')
+                    : t('queued')}
+            </Badge>
+            {item.status === 'rejected' && (
+              <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
+                {t(item.rejectionKey ?? 'photoRejectedQueued')}
+              </Text>
+            )}
+            <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
+              {new Date(item.createdAt).toLocaleString()}
+            </Text>
+            {item.status === 'error' && (
+              <View style={styles.errorActions}>
+                {item.errorKind !== 'stale' && (
+                  <Pressable
+                    onPress={() => retry(item.localId)}
+                    disabled={syncing || !isOnline}
+                    style={[
+                      styles.errorBtn,
+                      {
+                        backgroundColor: colors.secondary,
+                        opacity: syncing || !isOnline ? 0.5 : 1,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name="refresh-ccw"
+                      size={13}
+                      color={colors.secondaryForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.errorBtnText,
+                        { color: colors.secondaryForeground },
+                      ]}
+                    >
+                      {t('retrySync')}
+                    </Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => remove(item.localId)}
+                  style={[styles.errorBtn, { backgroundColor: colors.destructive }]}
+                >
+                  <Feather
+                    name="trash-2"
+                    size={13}
+                    color={colors.destructiveForeground ?? '#fff'}
+                  />
+                  <Text
+                    style={[
+                      styles.errorBtnText,
+                      { color: colors.destructiveForeground ?? '#fff' },
+                    ]}
+                  >
+                    {t('discard')}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+          {item.status === 'review' ? (
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          ) : item.status === 'queued' ? (
+            <Pressable onPress={() => remove(item.localId)} hitSlop={8}>
+              <Feather name="x" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
+        </Card>
+      ))}
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('spotTitle')}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {t('spotSubtitle')}
-        </Text>
+        {photo ? (
+          <View style={styles.detailsHeaderRow}>
+            <Pressable onPress={clearPhoto} hitSlop={8}>
+              <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
+            </Pressable>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              {t('newSpotTitle')}
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              {t('spotTitle')}
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              {t('spotSubtitle')}
+            </Text>
+          </>
+        )}
       </View>
       <OfflineBanner />
       <ScrollView
         contentContainerStyle={{
-          padding: 16,
-          gap: 16,
+          padding: spacing[4],
+          gap: spacing[4],
           paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
         }}
       >
         {photo ? (
-          <View style={styles.previewWrap}>
-            <Image
-              source={{ uri: photo.uri }}
-              style={[styles.preview, { borderColor: colors.border }]}
-              contentFit="cover"
-            />
-            <Pressable
-              onPress={clearPhoto}
-              style={[styles.smallBtn, { backgroundColor: colors.secondary }]}
-            >
-              <Feather
-                name="refresh-ccw"
-                size={15}
-                color={colors.secondaryForeground}
+          // ── Details state: captured photo, location confirm, submit ──
+          <>
+            <View style={styles.detailsIntroRow}>
+              <Image
+                source={{ uri: photo.uri }}
+                style={[styles.thumb, { borderColor: colors.border }]}
+                contentFit="cover"
               />
-              <Text
-                style={[styles.smallBtnText, { color: colors.secondaryForeground }]}
-              >
-                {t('retake')}
-              </Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.pickRow}>
-            {Platform.OS !== 'web' && (
-              <Pressable
-                onPress={() => pickPhoto(true)}
-                style={[styles.pickBtn, { backgroundColor: colors.primary }]}
-              >
-                <Feather name="camera" size={22} color={colors.primaryForeground} />
-                <Text
-                  style={[styles.pickBtnText, { color: colors.primaryForeground }]}
-                >
-                  {t('takePhoto')}
+              <View style={{ flex: 1, gap: spacing[1] }}>
+                <Text style={[styles.niceShot, { color: colors.foreground }]}>
+                  {t('niceShot')}
                 </Text>
-              </Pressable>
-            )}
-            <Pressable
-              onPress={() => pickPhoto(false)}
-              style={[
-                styles.pickBtn,
-                {
-                  backgroundColor:
-                    Platform.OS === 'web' ? colors.primary : colors.secondary,
-                },
-              ]}
-            >
-              <Feather
-                name="image"
-                size={22}
-                color={
-                  Platform.OS === 'web'
-                    ? colors.primaryForeground
-                    : colors.secondaryForeground
-                }
-              />
-              <Text
-                style={[
-                  styles.pickBtnText,
-                  {
-                    color:
-                      Platform.OS === 'web'
-                        ? colors.primaryForeground
-                        : colors.secondaryForeground,
-                  },
-                ]}
-              >
-                {t('chooseFromLibrary')}
+                <Text style={[styles.niceShotHint, { color: colors.mutedForeground }]}>
+                  {t('addDetailsHint')}
+                </Text>
+                <Pressable onPress={clearPhoto}>
+                  <Text style={[styles.addAnother, { color: colors.primary }]}>
+                    {t('addAnotherPhoto')}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={{ gap: spacing[2] }}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+                {t('whereDidYouSeeIt')}
               </Text>
-            </Pressable>
+              {locationChipText && (
+                <View
+                  style={[
+                    styles.locationField,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.locationFieldText, { color: colors.foreground }]}>
+                    {locationChipText}
+                  </Text>
+                </View>
+              )}
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                {t('confirmLocationHint')}
+              </Text>
+              {denied && (
+                <Pressable onPress={refresh}>
+                  <Text style={[styles.denied, { color: colors.destructive }]}>
+                    {t('locationDenied')}
+                  </Text>
+                </Pressable>
+              )}
+              {pickedCoords && (
+                <LocationPicker
+                  latitude={pickedCoords.latitude}
+                  longitude={pickedCoords.longitude}
+                  onChange={setPickedCoords}
+                  pinColor={colors.accent}
+                  style={styles.locationPicker}
+                />
+              )}
+              {tiles.downloading && (
+                <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                  {t('mapDownloading').replace(
+                    '{pct}',
+                    String(Math.round(tiles.progress * 100)),
+                  )}
+                </Text>
+              )}
+            </View>
+
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              disabled={!pickedCoords || submitting || !deviceId}
+              onPress={submit}
+              iconLeft={
+                submitting ? (
+                  <ActivityIndicator color={colors.primaryForeground} size="small" />
+                ) : undefined
+              }
+            >
+              {submitting ? t('submitting') : t('checkForMatches')}
+            </Button>
+          </>
+        ) : (
+          // ── Capture state: dark viewfinder treatment ──
+          <View style={[styles.viewfinder, shadows.md]}>
+            <LinearGradient
+              colors={['#3a5266', '#1b2a38']}
+              style={StyleSheet.absoluteFillObject}
+            />
+            {/* textAlignVertical is Android-only, so centre with flexbox or the
+                stand-in rides the top edge on iOS and web. */}
+            <View style={styles.viewfinderEmojiWrap} pointerEvents="none">
+              <Text style={styles.viewfinderEmoji}>🐈‍⬛</Text>
+            </View>
+            <View style={styles.viewfinderTopRow}>
+              <View style={styles.viewfinderSpacer} />
+              {locationChipText ? (
+                <View style={styles.locationChip}>
+                  <Text style={styles.locationChipText}>{locationChipText}</Text>
+                </View>
+              ) : (
+                <View style={styles.viewfinderSpacer} />
+              )}
+              <View style={styles.viewfinderSpacer} />
+            </View>
+            <View style={styles.framingRect} pointerEvents="none" />
+            <Text style={styles.captureHint}>{t('captureHint')}</Text>
+            <View style={styles.controlRow}>
+              <IconButton
+                label={t('chooseFromLibrary')}
+                onPress={() => pickPhoto(false)}
+                style={styles.translucentIconBtn}
+              >
+                <Feather name="image" size={20} color="#fff" />
+              </IconButton>
+              {Platform.OS !== 'web' && (
+                <Pressable
+                  onPress={() => pickPhoto(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('takePhoto')}
+                  style={({ pressed }) => [
+                    styles.shutter,
+                    { opacity: pressed ? 0.85 : 1 },
+                  ]}
+                />
+              )}
+            </View>
           </View>
         )}
 
-        {denied && (
+        {denied && !photo && (
           <Pressable onPress={refresh}>
             <Text style={[styles.denied, { color: colors.destructive }]}>
               {t('locationDenied')}
             </Text>
           </Pressable>
         )}
-        {locating && !coords && (
+        {locating && !coords && !photo && (
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {t('locating')}
           </Text>
         )}
 
-        {photo && pickedCoords && (
-          <View style={{ gap: 8 }}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {t('confirmLocation')}
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {t('confirmLocationHint')}
-            </Text>
-            <LocationPicker
-              latitude={pickedCoords.latitude}
-              longitude={pickedCoords.longitude}
-              onChange={setPickedCoords}
-              pinColor={colors.accent}
-              style={styles.locationPicker}
-            />
-            {tiles.downloading && (
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                {t('mapDownloading').replace(
-                  '{pct}',
-                  String(Math.round(tiles.progress * 100)),
-                )}
-              </Text>
-            )}
-          </View>
-        )}
-
-        <Pressable
-          onPress={submit}
-          disabled={!photo || !pickedCoords || submitting || !deviceId}
-          style={[
-            styles.submitBtn,
-            {
-              backgroundColor: colors.accent,
-              opacity: !photo || !pickedCoords || submitting ? 0.5 : 1,
-            },
-          ]}
-        >
-          {submitting ? (
-            <>
-              <ActivityIndicator color={colors.accentForeground} size="small" />
-              <Text
-                style={[styles.submitText, { color: colors.accentForeground }]}
-              >
-                {t('submitting')}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Feather name="send" size={18} color={colors.accentForeground} />
-              <Text
-                style={[styles.submitText, { color: colors.accentForeground }]}
-              >
-                {t('submitSighting')}
-              </Text>
-            </>
-          )}
-        </Pressable>
-
-        {pending.length > 0 && (
-          <View style={{ gap: 10 }}>
-            <View style={styles.pendingHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                {t('pendingSightings')}
-              </Text>
-              {isOnline && (
-                <Pressable onPress={syncNow} disabled={syncing}>
-                  <Text style={[styles.syncText, { color: colors.primary }]}>
-                    {syncing ? '…' : t('syncNow')}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            {pending.map((item) => (
-              <Pressable
-                key={item.localId}
-                onPress={() => item.status === 'review' && reviewPending(item)}
-                style={[
-                  styles.pendingItem,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <SightingPhoto
-                  uri={item.photoUri}
-                  base64={item.photoBase64}
-                  style={styles.pendingThumb}
-                  contentFit="cover"
-                />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.pendingStatus,
-                      {
-                        color:
-                          item.status === 'review'
-                            ? colors.accent
-                            : item.status === 'error' ||
-                                item.status === 'rejected'
-                              ? colors.destructive
-                              : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    {item.status === 'review'
-                      ? t('needsReview')
-                      : item.status === 'error'
-                        ? item.errorKind === 'stale'
-                          ? t('syncFailedStale')
-                          : t('syncFailedServer')
-                        : item.status === 'rejected'
-                          ? t('photoRejectedTitle')
-                          : t('queued')}
-                  </Text>
-                  {item.status === 'rejected' && (
-                    <Text
-                      style={[
-                        styles.pendingDate,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      {t(item.rejectionKey ?? 'photoRejectedQueued')}
-                    </Text>
-                  )}
-                  <Text
-                    style={[styles.pendingDate, { color: colors.mutedForeground }]}
-                  >
-                    {new Date(item.createdAt).toLocaleString()}
-                  </Text>
-                  {item.status === 'error' && (
-                    <View style={styles.errorActions}>
-                      {item.errorKind !== 'stale' && (
-                        <Pressable
-                          onPress={() => retry(item.localId)}
-                          disabled={syncing || !isOnline}
-                          style={[
-                            styles.errorBtn,
-                            {
-                              backgroundColor: colors.secondary,
-                              opacity: syncing || !isOnline ? 0.5 : 1,
-                            },
-                          ]}
-                        >
-                          <Feather
-                            name="refresh-ccw"
-                            size={13}
-                            color={colors.secondaryForeground}
-                          />
-                          <Text
-                            style={[
-                              styles.errorBtnText,
-                              { color: colors.secondaryForeground },
-                            ]}
-                          >
-                            {t('retrySync')}
-                          </Text>
-                        </Pressable>
-                      )}
-                      <Pressable
-                        onPress={() => remove(item.localId)}
-                        style={[
-                          styles.errorBtn,
-                          { backgroundColor: colors.destructive },
-                        ]}
-                      >
-                        <Feather
-                          name="trash-2"
-                          size={13}
-                          color={colors.destructiveForeground ?? '#fff'}
-                        />
-                        <Text
-                          style={[
-                            styles.errorBtnText,
-                            { color: colors.destructiveForeground ?? '#fff' },
-                          ]}
-                        >
-                          {t('discard')}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-                {item.status === 'review' ? (
-                  <Feather
-                    name="chevron-right"
-                    size={18}
-                    color={colors.mutedForeground}
-                  />
-                ) : item.status === 'queued' ? (
-                  <Pressable onPress={() => remove(item.localId)} hitSlop={8}>
-                    <Feather name="x" size={16} color={colors.mutedForeground} />
-                  </Pressable>
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
-        )}
+        {pendingSection}
       </ScrollView>
     </View>
   );
@@ -483,72 +499,108 @@ export default function SpotScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingBottom: 10, gap: 4 },
-  title: { fontSize: 22, fontFamily: 'Poppins_700Bold' },
-  subtitle: { fontSize: 13, fontFamily: 'Nunito_400Regular' },
-  pickRow: { gap: 12 },
-  pickBtn: {
-    flexDirection: 'row',
+  header: { paddingHorizontal: spacing[4], paddingBottom: spacing[2], gap: spacing[1] },
+  title: { fontSize: fontSizes.xl, fontFamily: fonts.displayBold },
+  subtitle: { fontSize: fontSizes.xs, fontFamily: fonts.body },
+  detailsHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+
+  // Capture (viewfinder) state
+  viewfinder: {
+    height: 420,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    justifyContent: 'space-between',
+  },
+  viewfinderEmojiWrap: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: 14,
   },
-  pickBtnText: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
-  previewWrap: { gap: 10 },
-  preview: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 16,
-    borderWidth: 1,
+  viewfinderEmoji: {
+    textAlign: 'center',
+    fontSize: 130,
   },
-  smallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  smallBtnText: { fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
-  locationPicker: { height: 260 },
-  denied: { fontSize: 13, fontFamily: 'Nunito_600SemiBold' },
-  submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: 14,
-  },
-  submitText: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
-  pendingHeader: {
+  viewfinderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: spacing[3],
   },
-  sectionTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
-  syncText: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
-  pendingItem: {
+  viewfinderSpacer: { width: 38, height: 38 },
+  locationChip: {
+    paddingVertical: spacing[1] + 2,
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  locationChipText: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.xs, color: '#fff' },
+  framingRect: {
+    flex: 1,
+    marginHorizontal: spacing[7],
+    marginVertical: spacing[2],
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.5)',
+    borderRadius: radii.xl,
+  },
+  captureHint: {
+    textAlign: 'center',
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSizes.sm,
+    color: 'rgba(255,255,255,0.92)',
+    marginBottom: spacing[3],
+  },
+  controlRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 10,
-    borderRadius: 14,
-    borderWidth: 1,
+    justifyContent: 'center',
+    gap: spacing[7],
+    paddingBottom: spacing[6],
   },
-  pendingThumb: { width: 48, height: 48, borderRadius: 10 },
-  pendingStatus: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
-  pendingDate: { fontSize: 12, fontFamily: 'Nunito_400Regular', marginTop: 2 },
-  errorActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  translucentIconBtn: { backgroundColor: 'rgba(255,255,255,0.2)' },
+  shutter: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: '#fff',
+    borderWidth: 5,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+
+  // Details state
+  detailsIntroRow: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
+  thumb: { width: 88, height: 88, borderRadius: radii.lg, borderWidth: 1 },
+  niceShot: { fontSize: fontSizes.md, fontFamily: fonts.displayBold },
+  niceShotHint: { fontSize: fontSizes.xs, fontFamily: fonts.body, lineHeight: fontSizes.xs * 1.45 },
+  addAnother: { marginTop: spacing[1], fontSize: fontSizes['2xs'], fontFamily: fonts.displayBold },
+  fieldLabel: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold, textTransform: 'uppercase' },
+  locationField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderRadius: radii.md,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+  },
+  locationFieldText: { fontFamily: fonts.bodySemiBold, fontSize: fontSizes.sm },
+  locationPicker: { height: 220 },
+  denied: { fontSize: fontSizes.xs, fontFamily: fonts.bodyBold },
+
+  // Pending list
+  pendingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontSize: fontSizes.md, fontFamily: fonts.bodyBold },
+  syncText: { fontSize: fontSizes.xs, fontFamily: fonts.bodyBold },
+  pendingItem: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  pendingThumb: { width: 48, height: 48, borderRadius: radii.sm },
+  pendingDate: { fontSize: fontSizes['2xs'], fontFamily: fonts.body },
+  errorActions: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[1] },
   errorBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    gap: spacing[1] + 2,
+    paddingVertical: spacing[1] + 2,
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.xs,
   },
-  errorBtnText: { fontSize: 12, fontFamily: 'Nunito_700Bold' },
+  errorBtnText: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold },
 });

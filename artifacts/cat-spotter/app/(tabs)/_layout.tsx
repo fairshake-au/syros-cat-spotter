@@ -17,17 +17,21 @@ function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: 'map', selected: 'map.fill' }} />
-        <Label>{t('tabMap')}</Label>
+        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
+        <Label>{t('tabHome')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="cats">
         <Icon sf={{ default: 'pawprint', selected: 'pawprint.fill' }} />
-        <Label>{t('tabCats')}</Label>
+        <Label>{t('tabCatalog')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="spot">
         <Icon sf={{ default: 'camera', selected: 'camera.fill' }} />
         <Label>{t('tabSpot')}</Label>
         {reviewReadyCount > 0 && <Badge>{String(reviewReadyCount)}</Badge>}
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="help">
+        <Icon sf={{ default: 'heart', selected: 'heart.fill' }} />
+        <Label>{t('tabHelp')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: 'person', selected: 'person.fill' }} />
@@ -80,19 +84,19 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tabMap'),
+          title: t('tabHome'),
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="map" tintColor={color} size={24} />
+              <SymbolView name="house" tintColor={color} size={24} />
             ) : (
-              <Feather name="map" size={22} color={color} />
+              <Feather name="home" size={22} color={color} />
             ),
         }}
       />
       <Tabs.Screen
         name="cats"
         options={{
-          title: t('tabCats'),
+          title: t('tabCatalog'),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="pawprint" tintColor={color} size={24} />
@@ -117,6 +121,18 @@ function ClassicTabLayout() {
               <SymbolView name="camera" tintColor={color} size={24} />
             ) : (
               <Feather name="camera" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="help"
+        options={{
+          title: t('tabHelp'),
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="heart" tintColor={color} size={24} />
+            ) : (
+              <Feather name="heart" size={22} color={color} />
             ),
         }}
       />

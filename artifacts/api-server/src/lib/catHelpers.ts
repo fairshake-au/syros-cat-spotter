@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 import { db, catsTable, sightingsTable, profilesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { badgesFor, type ProfileStats } from "./badges";
+import {
+  STREAK_TIMEZONE,
+  streakFromDays,
+  todayInStreakTimezone,
+} from "./streak";
 
 export function haversineKm(
   lat1: number,
@@ -153,6 +158,68 @@ export async function getProfileStats(deviceId: string): Promise<ProfileStats> {
   };
 }
 
+/** Consecutive days this device has resolved at least one sighting. */
+export async function computeStreak(deviceId: string): Promise<number> {
+  const rows = await db
+    .selectDistinct({
+      day: sql<string>`to_char(${sightingsTable.createdAt} at time zone ${STREAK_TIMEZONE}, 'YYYY-MM-DD')`,
+    })
+    .from(sightingsTable)
+    .where(
+      and(
+        eq(sightingsTable.deviceId, deviceId),
+        eq(sightingsTable.status, "resolved"),
+      ),
+    );
+
+  return streakFromDays(
+    rows.map((r) => r.day),
+    todayInStreakTimezone(),
+  );
+}
+
+/**
+ * Cat ids this device has personally spotted — drives the design's
+ * collected-vs-"Spot to unlock" treatment on the Home and Cat-alog grids.
+ */
+export async function spottedCatIds(deviceId: string): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ catId: sightingsTable.catId })
+    .from(sightingsTable)
+    .where(
+      and(
+        eq(sightingsTable.deviceId, deviceId),
+        eq(sightingsTable.status, "resolved"),
+      ),
+    );
+  return rows
+    .map((r) => r.catId)
+    .filter((id): id is number => id !== null)
+    .sort((a, b) => a - b);
+}
+
+/** How many distinct devices have spotted this cat — the design's "Fans" tile. */
+export async function fansCount(catId: number): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(distinct ${sightingsTable.deviceId})::int` })
+    .from(sightingsTable)
+    .where(
+      and(
+        eq(sightingsTable.catId, catId),
+        eq(sightingsTable.status, "resolved"),
+      ),
+    );
+  return row?.n ?? 0;
+}
+
+/** Size of the whole cat-alog — the denominator in "12 of 142 cats spotted". */
+export async function totalCatCount(): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(catsTable);
+  return row?.n ?? 0;
+}
+
 export async function profilePayload(deviceId: string) {
   const stats = await getProfileStats(deviceId);
   const [profile] = await db
@@ -168,6 +235,11 @@ export async function profilePayload(deviceId: string) {
     .select({ id: catsTable.id })
     .from(catsTable)
     .where(eq(catsTable.ownerDeviceId, deviceId));
+  const [currentStreakDays, spotted, totalCats] = await Promise.all([
+    computeStreak(deviceId),
+    spottedCatIds(deviceId),
+    totalCatCount(),
+  ]);
   return {
     deviceId,
     spotterCode: spotterCode(deviceId),
@@ -179,5 +251,8 @@ export async function profilePayload(deviceId: string) {
     catsSpotted: stats.catsSpotted,
     badges: badgesFor(stats),
     ownedCatIds: ownedCats.map((c) => c.id),
+    currentStreakDays,
+    spottedCatIds: spotted,
+    totalCats,
   };
 }

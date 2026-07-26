@@ -8,11 +8,16 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppMap } from '@/components/AppMap';
-import { useGetCat, getGetCatQueryKey } from '@workspace/api-client-react';
+import {
+  useGetCat,
+  getGetCatQueryKey,
+  type CareEvent,
+} from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
@@ -20,6 +25,23 @@ import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { absoluteUrl } from '@/lib/urls';
+import { Badge, Tag, StatTile, IconButton, Button } from '@/components/purropolis';
+import { palette } from '@/constants/colors';
+import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
+
+function catCode(id: number): string {
+  return `SYR-${String(id).padStart(4, '0')}`;
+}
+
+const CARE_META: Record<
+  CareEvent['type'],
+  { icon: string; bg: string }
+> = {
+  desexed: { icon: '✂️', bg: palette.aegean100 },
+  adopted: { icon: '🏠', bg: palette.bougain100 },
+  general: { icon: '📣', bg: palette.olive100 },
+  discovered: { icon: '📍', bg: palette.sun100 },
+};
 
 export default function CatDetailScreen() {
   const colors = useColors();
@@ -76,15 +98,17 @@ export default function CatDetailScreen() {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Text style={{ color: colors.mutedForeground }}>{t('error')}</Text>
         <Pressable onPress={close} style={{ marginTop: 12 }}>
-          <Text style={{ color: colors.primary }}>← {t('tabCats')}</Text>
+          <Text style={{ color: colors.primary }}>← {t('tabCatalog')}</Text>
         </Pressable>
       </View>
     );
   }
 
-  const { cat, sightings } = data;
+  const { cat, sightings, fansCount, careTimeline } = data;
   const isClaimed = !!cat.ownerName;
   const isOwner = isClaimed && ownedCatIds.includes(cat.id);
+  const isDesexed = careTimeline.some((e) => e.type === 'desexed');
+  const locationLabel = cat.description?.trim();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -95,39 +119,56 @@ export default function CatDetailScreen() {
             style={styles.hero}
             contentFit="cover"
           />
-          <Pressable
-            onPress={close}
-            style={[
-              styles.backBtn,
-              { top: insets.top + 8, backgroundColor: colors.background },
-            ]}
-            hitSlop={8}
-          >
-            <Feather name="arrow-left" size={20} color={colors.foreground} />
-          </Pressable>
-        </View>
-        <View style={{ padding: 16, gap: 16 }}>
-          <View style={{ gap: 4 }}>
-            <View style={styles.nameRow}>
-              <Text style={[styles.name, { color: colors.foreground }]}>
+          <LinearGradient
+            colors={['rgba(10,51,80,0.7)', 'rgba(10,51,80,0)']}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 0, y: 0.45 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View style={[styles.heroTopRow, { top: insets.top + 8 }]}>
+            <IconButton variant="solid" label={t('tabCatalog')} onPress={close}>
+              <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
+            </IconButton>
+          </View>
+          <View style={styles.heroBottom}>
+            <View style={styles.heroNameRow}>
+              <Text style={styles.heroName} numberOfLines={1}>
                 {cat.name}
               </Text>
-              {isOwner && (
-                <Pressable
-                  onPress={() => setSheet('edit')}
-                  hitSlop={8}
-                  style={[
-                    styles.editBtn,
-                    { borderColor: colors.border, backgroundColor: colors.card },
-                  ]}
-                >
-                  <Feather name="edit-2" size={13} color={colors.primary} />
-                  <Text style={[styles.editText, { color: colors.primary }]}>
-                    {t('editCat')}
-                  </Text>
-                </Pressable>
-              )}
+              <Text style={styles.heroMonoId}>{catCode(cat.id)}</Text>
             </View>
+          </View>
+        </View>
+        <View style={{ padding: 16, gap: 16 }}>
+          <View style={{ gap: 10 }}>
+            {isOwner && (
+              <Pressable
+                onPress={() => setSheet('edit')}
+                hitSlop={8}
+                style={[
+                  styles.editBtn,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                <Feather name="edit-2" size={13} color={colors.primary} />
+                <Text style={[styles.editText, { color: colors.primary }]}>
+                  {t('editCat')}
+                </Text>
+              </Pressable>
+            )}
+
+            {isDesexed && (
+              <View style={styles.badgeRow}>
+                <Badge tone="success">{t('desexedBadge')}</Badge>
+              </View>
+            )}
+
+            {locationLabel ? (
+              <View style={styles.badgeRow}>
+                <Tag tone="neutral">📍 {locationLabel}</Tag>
+              </View>
+            ) : null}
+
             <View style={styles.metaRow}>
               <Feather name="eye" size={14} color={colors.mutedForeground} />
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>
@@ -186,16 +227,78 @@ export default function CatDetailScreen() {
               homeDescription={cat.homeDescription}
             />
           ) : (
-            <Pressable
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              iconLeft={
+                <Feather name="home" size={16} color={colors.primaryForeground} />
+              }
               onPress={() => setSheet('claim')}
-              style={[styles.claimBtn, { backgroundColor: colors.primary }]}
             >
-              <Feather name="home" size={16} color={colors.primaryForeground} />
-              <Text style={[styles.claimText, { color: colors.primaryForeground }]}>
-                {t('claimCat')}
-              </Text>
-            </Pressable>
+              {t('claimCat')}
+            </Button>
           )}
+
+          <View style={styles.statsRow}>
+            <StatTile
+              style={{ flex: 1 }}
+              value={cat.sightingsCount}
+              label={t('timesSpottedStat')}
+              tone="aegean"
+            />
+            <StatTile
+              style={{ flex: 1 }}
+              value={fansCount}
+              label={t('fansStat')}
+              tone="bougain"
+            />
+          </View>
+
+          <View style={{ gap: 11 }}>
+            <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
+              {t('careTimelineTitle')}
+            </Text>
+            {careTimeline.map((event, index) => {
+              const meta = CARE_META[event.type];
+              return (
+                <View key={index} style={styles.careRow}>
+                  <View style={[styles.careIcon, { backgroundColor: meta.bg }]}>
+                    <Text style={{ fontSize: 14 }}>{meta.icon}</Text>
+                  </View>
+                  <Text style={[styles.careText, { color: colors.foreground }]}>
+                    {event.type === 'discovered' ? (
+                      <>
+                        <Text style={styles.careBold}>
+                          {t('careTypeDiscoveredPrefix')}
+                        </Text>{' '}
+                        {event.message}
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.careBold}>
+                          {t(
+                            event.type === 'desexed'
+                              ? 'careTypeDesexed'
+                              : event.type === 'adopted'
+                                ? 'careTypeAdopted'
+                                : 'careTypeGeneral',
+                          )}
+                        </Text>{' '}
+                        · {event.message}
+                      </>
+                    )}
+                  </Text>
+                  <Text style={[styles.careDate, { color: colors.mutedForeground }]}>
+                    {new Date(event.at).toLocaleDateString(undefined, {
+                      month: 'short',
+                      year: '2-digit',
+                    })}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
 
           <View style={[styles.mapWrap, { borderColor: colors.border }]}>
             <AppMap
@@ -260,26 +363,40 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { width: '100%', aspectRatio: 1.3 },
-  backBtn: {
+  heroTopRow: {
     position: 'absolute',
     left: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.92,
-  },
-  name: { fontSize: 26, fontFamily: 'Poppins_700Bold', flexShrink: 1 },
-  nameRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
   },
+  heroBottom: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    bottom: 16,
+  },
+  heroNameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  heroName: {
+    fontSize: fontSizes['2xl'],
+    fontFamily: fonts.displayBold,
+    color: '#fff',
+    lineHeight: fontSizes['2xl'] * lineHeights.tight,
+    flexShrink: 1,
+  },
+  heroMonoId: {
+    fontSize: fontSizes['2xs'],
+    fontFamily: fonts.mono,
+    color: 'rgba(255,255,255,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: radii.xs,
+    overflow: 'hidden',
+  },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 6,
     borderWidth: 1,
     borderRadius: 999,
@@ -287,15 +404,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   editText: { fontSize: 12, fontFamily: 'Nunito_700Bold' },
-  claimBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    paddingVertical: 13,
-  },
-  claimText: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
   updateBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -308,6 +416,33 @@ const styles = StyleSheet.create({
   updateMessage: { fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   meta: { fontSize: 13, fontFamily: 'Nunito_400Regular' },
+  statsRow: { flexDirection: 'row', gap: 10 },
+  eyebrow: {
+    fontSize: fontSizes['2xs'],
+    fontFamily: fonts.bodyBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  careRow: { flexDirection: 'row', gap: 11, alignItems: 'center' },
+  careIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  careText: {
+    flex: 1,
+    fontSize: fontSizes.xs + 0.5,
+    fontFamily: fonts.body,
+  },
+  careBold: {
+    fontFamily: fonts.bodyBold,
+  },
+  careDate: {
+    fontSize: fontSizes['3xs'],
+    fontFamily: fonts.mono,
+  },
   mapWrap: {
     borderRadius: 14,
     borderWidth: 1,

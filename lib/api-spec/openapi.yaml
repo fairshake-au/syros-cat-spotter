@@ -447,6 +447,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
+  /campaign:
+    get:
+      operationId: getCampaign
+      tags: [campaign]
+      summary: The colony fundraising campaign shown on the Help tab
+      responses:
+        "200":
+          description: Campaign configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
 components:
   parameters:
     DeviceSecretHeader:
@@ -579,6 +591,19 @@ components:
         lng: { type: number }
         createdAt: { type: string }
       required: [id, spotterCode, photoUrl, lat, lng, createdAt]
+    CareEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [desexed, adopted, general, discovered]
+          description: |
+            Care events recorded against the cat. `discovered` is synthesised
+            from the cat's own creation, and its `message` is the discoverer's
+            display name rather than free text.
+        message: { type: string }
+        at: { type: string }
+      required: [type, message, at]
     CatDetail:
       type: object
       properties:
@@ -588,7 +613,54 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Sighting"
-      required: [cat, sightings]
+        fansCount:
+          type: integer
+          description: Distinct devices that have spotted this cat
+        careTimeline:
+          type: array
+          description: Care history, newest first, oldest entry always `discovered`
+          items:
+            $ref: "#/components/schemas/CareEvent"
+      required: [cat, sightings, fansCount, careTimeline]
+    Campaign:
+      type: object
+      description: |
+        Colony fundraising campaign shown on the Help tab. Server-side config, so
+        figures can be corrected without an app release. There is no payments
+        backend: the app opens `donateUrl` externally and no money moves through
+        this API.
+      properties:
+        id: { type: string }
+        title: { type: string }
+        blurb: { type: string }
+        currency:
+          type: string
+          enum: [EUR]
+        goalCents: { type: integer }
+        raisedCents: { type: integer }
+        catsHelped: { type: integer }
+        donors: { type: integer }
+        endsAt: { type: string }
+        donateUrl:
+          type: string
+          description: Empty when no donation page is configured; the client hides the CTA
+        suggestedAmountsCents:
+          type: array
+          items: { type: integer }
+      required:
+        [
+          id,
+          title,
+          blurb,
+          currency,
+          goalCents,
+          raisedCents,
+          catsHelped,
+          donors,
+          endsAt,
+          donateUrl,
+          suggestedAmountsCents,
+        ]
     CreateSightingRequest:
       type: object
       properties:
@@ -730,8 +802,36 @@ components:
             Ids of cats this device owns. Only returned on the device's own
             profile route (the deviceId path param is the credential); never
             exposed in public payloads.
+        currentStreakDays:
+          type: integer
+          description: >-
+            Consecutive days (Europe/Athens) with at least one resolved
+            sighting. Survives a day not yet spotted; breaks after a full
+            missed day.
+        spottedCatIds:
+          type: array
+          items: { type: integer }
+          description: >-
+            Ids of cats this device has personally spotted, driving the
+            collected-vs-locked treatment on the cat grids. Same privacy
+            reasoning as ownedCatIds.
+        totalCats:
+          type: integer
+          description: Size of the whole cat-alog — the denominator in "12 of 142".
       required:
-        [deviceId, spotterCode, points, totalSightings, uniqueCatsDiscovered, catsSpotted, badges, ownedCatIds]
+        [
+          deviceId,
+          spotterCode,
+          points,
+          totalSightings,
+          uniqueCatsDiscovered,
+          catsSpotted,
+          badges,
+          ownedCatIds,
+          currentStreakDays,
+          spottedCatIds,
+          totalCats,
+        ]
     LeaderboardEntry:
       type: object
       properties:

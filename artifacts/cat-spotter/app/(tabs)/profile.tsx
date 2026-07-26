@@ -20,12 +20,22 @@ import {
   getGetLeaderboardQueryKey,
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
+import { palette } from '@/constants/colors';
+import { fonts, fontSizes, radii, spacing, tracking } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { UsernameEditor } from '@/components/UsernameEditor';
+import { Avatar, Card, StatTile } from '@/components/purropolis';
 import { BADGE_IDS, BADGE_ICONS, LANGUAGES } from '@/lib/i18n';
+
+const BADGE_TONES: { bg: string; fg: string }[] = [
+  { bg: palette.sun100, fg: palette.sun700 },
+  { bg: palette.bougain100, fg: palette.bougain700 },
+  { bg: palette.aegean100, fg: palette.aegean800 },
+  { bg: palette.olive100, fg: palette.olive700 },
+];
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -49,6 +59,8 @@ export default function ProfileScreen() {
 
   const profile = profileQuery.data;
   const earned = new Set(profile?.badges ?? []);
+  const earnedCount = BADGE_IDS.filter((id) => earned.has(id)).length;
+  const streakDays = profile?.currentStreakDays ?? 0;
 
   const queryClient = useQueryClient();
   const [nicknameDraft, setNicknameDraft] = React.useState('');
@@ -86,260 +98,274 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('tabProfile')}
-        </Text>
-      </View>
       <OfflineBanner />
       <ScrollView
         contentContainerStyle={{
-          padding: 16,
-          gap: 20,
           paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
         }}
       >
         {profileQuery.isLoading && isOnline ? (
-          <ActivityIndicator color={colors.primary} />
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
         ) : (
           <View
             style={[
-              styles.pointsCard,
-              { backgroundColor: colors.primary },
+              styles.hero,
+              { backgroundColor: colors.primary, paddingTop: insets.top + 28 },
             ]}
           >
+            <Text style={styles.heroPaw}>🐾</Text>
+            <Avatar name={profile?.username || t('spotter')} ring size="xl" />
             {!!profile?.username && (
               <Text style={[styles.username, { color: colors.primaryForeground }]}>
                 {profile.username}
               </Text>
             )}
-            <Text style={[styles.pointsValue, { color: colors.primaryForeground }]}>
-              {profile?.points ?? 0}
-            </Text>
-            <Text style={[styles.pointsLabel, { color: colors.primaryForeground }]}>
-              {t('points')}
-            </Text>
-            <View style={styles.statsRow}>
-              <View style={styles.stat}>
-                <Text style={[styles.statValue, { color: colors.primaryForeground }]}>
-                  {profile?.totalSightings ?? 0}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.primaryForeground }]}>
-                  {t('totalSightings')}
-                </Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={[styles.statValue, { color: colors.primaryForeground }]}>
-                  {profile?.catsSpotted ?? 0}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.primaryForeground }]}>
-                  {t('catsSpotted')}
-                </Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={[styles.statValue, { color: colors.primaryForeground }]}>
-                  {profile?.uniqueCatsDiscovered ?? 0}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.primaryForeground }]}>
-                  {t('uniqueCats')}
-                </Text>
-              </View>
+            <View style={styles.heroSubRow}>
+              <Text style={[styles.heroSub, { color: colors.primaryForeground }]}>
+                {t('profileRole')}
+              </Text>
+              {streakDays > 0 && (
+                <>
+                  <Text style={[styles.heroSub, { color: colors.primaryForeground }]}>·</Text>
+                  {/* A `sun`-toned Tag is built for the light page surface; on the
+                      Aegean hero its amber-on-cream reads as unreadable mush.
+                      Use the same translucent-white chip as the Home hero. */}
+                  <View style={styles.streakChip}>
+                    <Text style={styles.streakChipText}>
+                      {`\u{1F525} ${t('profileStreak').replace('{n}', String(streakDays))}`}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         )}
 
-        {/* Username */}
-        {isOnline && !!deviceId && (
-          <UsernameEditor currentUsername={profile?.username ?? null} />
-        )}
+        <View style={{ padding: 16, gap: 20 }}>
+          {/* Stat row */}
+          <View style={styles.statsRow}>
+            <StatTile
+              value={profile?.catsSpotted ?? 0}
+              label={t('catsSpotted')}
+              tone="aegean"
+              style={styles.statTile}
+            />
+            <StatTile
+              value={profile?.uniqueCatsDiscovered ?? 0}
+              label={t('profileFirstFinds')}
+              tone="sun"
+              style={styles.statTile}
+            />
+            <StatTile
+              value={profile?.points ?? 0}
+              label={t('points')}
+              tone="olive"
+              style={styles.statTile}
+            />
+          </View>
 
-        {/* Nickname */}
-        {isOnline && !!deviceId && (
+          {/* Username */}
+          {isOnline && !!deviceId && (
+            <UsernameEditor currentUsername={profile?.username ?? null} />
+          )}
+
+          {/* Nickname */}
+          {isOnline && !!deviceId && (
+            <View style={{ gap: 10 }}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                {t('nickname')}
+              </Text>
+              <View style={styles.nicknameRow}>
+                <TextInput
+                  value={nicknameDraft}
+                  onChangeText={(text) => {
+                    setNicknameDraft(text);
+                    setNicknameError(null);
+                  }}
+                  placeholder={t('nicknamePlaceholder')}
+                  placeholderTextColor={colors.mutedForeground}
+                  maxLength={24}
+                  returnKeyType="done"
+                  onSubmitEditing={saveNickname}
+                  style={[
+                    styles.nicknameInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                    },
+                  ]}
+                />
+                <Pressable
+                  onPress={saveNickname}
+                  disabled={!nicknameDirty || updateProfile.isPending}
+                  style={[
+                    styles.saveBtn,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: !nicknameDirty || updateProfile.isPending ? 0.5 : 1,
+                    },
+                  ]}
+                >
+                  {updateProfile.isPending ? (
+                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                  ) : (
+                    <Text style={[styles.saveText, { color: colors.primaryForeground }]}>
+                      {nicknameSaved ? t('saved') : t('save')}
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+              {!!nicknameError && (
+                <Text style={[styles.nicknameHint, { color: colors.destructive ?? '#c0392b' }]}>
+                  {nicknameError}
+                </Text>
+              )}
+              <Text style={[styles.nicknameHint, { color: colors.mutedForeground }]}>
+                {t('nicknameHint')}
+              </Text>
+            </View>
+          )}
+
+          {/* Badges */}
           <View style={{ gap: 10 }}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {t('nickname')}
-            </Text>
-            <View style={styles.nicknameRow}>
-              <TextInput
-                value={nicknameDraft}
-                onChangeText={(text) => {
-                  setNicknameDraft(text);
-                  setNicknameError(null);
-                }}
-                placeholder={t('nicknamePlaceholder')}
-                placeholderTextColor={colors.mutedForeground}
-                maxLength={24}
-                returnKeyType="done"
-                onSubmitEditing={saveNickname}
+            <View style={styles.badgeHeaderRow}>
+              <Text
                 style={[
-                  styles.nicknameInput,
+                  styles.eyebrow,
                   {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    color: colors.foreground,
-                  },
-                ]}
-              />
-              <Pressable
-                onPress={saveNickname}
-                disabled={!nicknameDirty || updateProfile.isPending}
-                style={[
-                  styles.saveBtn,
-                  {
-                    backgroundColor: colors.primary,
-                    opacity: !nicknameDirty || updateProfile.isPending ? 0.5 : 1,
+                    color: colors.mutedForeground,
+                    letterSpacing: fontSizes['2xs'] * tracking.wider,
                   },
                 ]}
               >
-                {updateProfile.isPending ? (
-                  <ActivityIndicator size="small" color={colors.primaryForeground} />
-                ) : (
-                  <Text style={[styles.saveText, { color: colors.primaryForeground }]}>
-                    {nicknameSaved ? t('saved') : t('save')}
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-            {!!nicknameError && (
-              <Text style={[styles.nicknameHint, { color: colors.destructive ?? '#c0392b' }]}>
-                {nicknameError}
+                {`${t('badges')} · ${t('profileBadgeCount')
+                  .replace('{earned}', String(earnedCount))
+                  .replace('{total}', String(BADGE_IDS.length))}`}
               </Text>
-            )}
-            <Text style={[styles.nicknameHint, { color: colors.mutedForeground }]}>
-              {t('nicknameHint')}
-            </Text>
+            </View>
+            <View style={styles.badgeGrid}>
+              {BADGE_IDS.map((id, index) => {
+                const has = earned.has(id);
+                const tone = BADGE_TONES[index % BADGE_TONES.length];
+                return (
+                  <View key={id} style={styles.badgeCell}>
+                    <View
+                      style={[
+                        styles.badgeIconTile,
+                        { backgroundColor: has ? tone.bg : colors.muted, opacity: has ? 1 : 0.5 },
+                      ]}
+                    >
+                      {has ? (
+                        <Feather
+                          name={(BADGE_ICONS[id] ?? 'award') as never}
+                          size={26}
+                          color={tone.fg}
+                        />
+                      ) : (
+                        <Text style={styles.lockEmoji}>🔒</Text>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.badgeName,
+                        { color: has ? colors.foreground : colors.mutedForeground },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {t(`badge_${id}`)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
           </View>
-        )}
 
-        {/* Badges */}
-        <View style={{ gap: 10 }}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {t('badges')}
-          </Text>
-          <View style={styles.badgeGrid}>
-            {BADGE_IDS.map((id) => {
-              const has = earned.has(id);
-              return (
-                <View
-                  key={id}
-                  style={[
-                    styles.badge,
-                    {
-                      backgroundColor: has ? colors.secondary : colors.muted,
-                      borderColor: has ? colors.primary : colors.border,
-                      opacity: has ? 1 : 0.55,
-                    },
-                  ]}
-                >
-                  <Feather
-                    name={(BADGE_ICONS[id] ?? 'award') as never}
-                    size={20}
-                    color={has ? colors.primary : colors.mutedForeground}
-                  />
-                  <Text
+          {/* Leaderboard */}
+          {isOnline && (leaderboardQuery.data?.length ?? 0) > 0 && (
+            <View style={{ gap: 10 }}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                {t('leaderboard')}
+              </Text>
+              {leaderboardQuery.data!.map((entry) => {
+                const isMe =
+                  !!profile?.spotterCode && entry.spotterCode === profile.spotterCode;
+                return (
+                  <Card
+                    key={entry.spotterCode}
+                    flat={!isMe}
+                    padding={12}
                     style={[
-                      styles.badgeName,
-                      { color: has ? colors.foreground : colors.mutedForeground },
+                      styles.leaderRow,
+                      isMe && { borderColor: colors.primary, borderWidth: 1.5 },
                     ]}
-                    numberOfLines={1}
                   >
-                    {t(`badge_${id}`)}
-                  </Text>
-                  <Text
-                    style={[styles.badgeDesc, { color: colors.mutedForeground }]}
-                    numberOfLines={2}
-                  >
-                    {t(`badge_${id}_desc`)}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
+                    <Text style={[styles.rank, { color: colors.mutedForeground }]}>
+                      #{entry.rank}
+                    </Text>
+                    <Text
+                      style={[styles.leaderName, { color: colors.foreground }]}
+                      numberOfLines={1}
+                    >
+                      {(() => {
+                        const displayName =
+                          entry.username ??
+                          entry.nickname ??
+                          `${t('spotter')} ${entry.spotterCode}`;
+                        return isMe
+                          ? entry.username || entry.nickname
+                            ? `${displayName} (${t('you')})`
+                            : t('you')
+                          : displayName;
+                      })()}
+                    </Text>
+                    <Text style={[styles.leaderPoints, { color: colors.primary }]}>
+                      {entry.points} {t('points')}
+                    </Text>
+                  </Card>
+                );
+              })}
+            </View>
+          )}
 
-        {/* Leaderboard */}
-        {isOnline && (leaderboardQuery.data?.length ?? 0) > 0 && (
+          {/* Language */}
           <View style={{ gap: 10 }}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {t('leaderboard')}
+              {t('language')}
             </Text>
-            {leaderboardQuery.data!.map((entry) => {
-              const isMe =
-                !!profile?.spotterCode && entry.spotterCode === profile.spotterCode;
-              return (
-                <View
-                  key={entry.spotterCode}
-                  style={[
-                    styles.leaderRow,
-                    {
-                      backgroundColor: isMe ? colors.secondary : colors.card,
-                      borderColor: isMe ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.rank, { color: colors.mutedForeground }]}>
-                    #{entry.rank}
-                  </Text>
-                  <Text
-                    style={[styles.leaderName, { color: colors.foreground }]}
-                    numberOfLines={1}
-                  >
-                    {(() => {
-                      const displayName =
-                        entry.username ??
-                        entry.nickname ??
-                        `${t('spotter')} ${entry.spotterCode}`;
-                      return isMe
-                        ? entry.username || entry.nickname
-                          ? `${displayName} (${t('you')})`
-                          : t('you')
-                        : displayName;
-                    })()}
-                  </Text>
-                  <Text style={[styles.leaderPoints, { color: colors.primary }]}>
-                    {entry.points} {t('points')}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Language */}
-        <View style={{ gap: 10 }}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {t('language')}
-          </Text>
-          <View style={styles.langRow}>
-            {LANGUAGES.map((lang) => {
-              const active = lang.code === language;
-              return (
-                <Pressable
-                  key={lang.code}
-                  onPress={() => setLanguage(lang.code)}
-                  style={[
-                    styles.langBtn,
-                    {
-                      backgroundColor: active ? colors.primary : colors.card,
-                      borderColor: active ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  <Text
+            <View style={styles.langRow}>
+              {LANGUAGES.map((lang) => {
+                const active = lang.code === language;
+                return (
+                  <Pressable
+                    key={lang.code}
+                    onPress={() => setLanguage(lang.code)}
                     style={[
-                      styles.langText,
+                      styles.langBtn,
                       {
-                        color: active
-                          ? colors.primaryForeground
-                          : colors.foreground,
+                        backgroundColor: active ? colors.primary : colors.card,
+                        borderColor: active ? colors.primary : colors.border,
                       },
                     ]}
                   >
-                    {lang.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.langText,
+                        {
+                          color: active
+                            ? colors.primaryForeground
+                            : colors.foreground,
+                        },
+                      ]}
+                    >
+                      {lang.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -349,49 +375,89 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingBottom: 10 },
-  title: { fontSize: 22, fontFamily: 'Poppins_700Bold' },
-  pointsCard: {
-    borderRadius: 18,
-    padding: 20,
+  loadingBox: { paddingVertical: 60, alignItems: 'center' },
+  hero: {
     alignItems: 'center',
-    gap: 2,
+    paddingBottom: spacing[6],
+    paddingHorizontal: spacing[4],
+    overflow: 'hidden',
   },
-  username: { fontSize: 16, fontFamily: 'Nunito_700Bold', marginBottom: 4 },
-  pointsValue: { fontSize: 44, fontFamily: 'Poppins_700Bold' },
-  pointsLabel: { fontSize: 14, fontFamily: 'Nunito_600SemiBold', opacity: 0.9 },
+  heroPaw: {
+    position: 'absolute',
+    left: -10,
+    bottom: -20,
+    fontSize: 110,
+    opacity: 0.12,
+    transform: [{ rotate: '12deg' }],
+  },
+  username: {
+    fontFamily: fonts.displayBold,
+    fontSize: fontSizes.xl,
+    marginTop: spacing[2],
+  },
+  heroSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    marginTop: spacing[1],
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  heroSub: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.xs,
+    opacity: 0.85,
+  },
+  streakChip: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: spacing[3],
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+  },
+  streakChipText: {
+    fontFamily: fonts.displayBold,
+    fontSize: fontSizes['2xs'],
+    color: '#fff',
+  },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignSelf: 'stretch',
-    marginTop: 16,
+    gap: spacing[2],
   },
-  stat: { alignItems: 'center', gap: 2 },
-  statValue: { fontSize: 18, fontFamily: 'Poppins_700Bold' },
-  statLabel: { fontSize: 11, fontFamily: 'Nunito_400Regular', opacity: 0.85 },
+  statTile: { flex: 1, minWidth: 0 },
   sectionTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
+  eyebrow: {
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSizes['2xs'],
+    textTransform: 'uppercase',
+  },
+  badgeHeaderRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: spacing[3],
   },
-  badge: {
-    width: '47.5%',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 12,
-    gap: 6,
+  badgeCell: {
+    width: '21%',
+    alignItems: 'center',
+    gap: spacing[1],
   },
-  badgeName: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
-  badgeDesc: { fontSize: 11, fontFamily: 'Nunito_400Regular' },
+  badgeIconTile: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockEmoji: { fontSize: 20 },
+  badgeName: {
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSizes['3xs'],
+    textAlign: 'center',
+  },
   leaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   rank: { fontSize: 13, fontFamily: 'Nunito_700Bold', width: 32 },
   leaderName: { flex: 1, fontSize: 14, fontFamily: 'Nunito_600SemiBold' },

@@ -5,10 +5,15 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { CareEvent } from './careEvent';
 import type { Cat } from './cat';
 import type { Sighting } from './sighting';
 
 export interface CatDetail {
   cat: Cat;
   sightings: Sighting[];
+  /** Distinct devices that have spotted this cat */
+  fansCount: number;
+  /** Care history, newest first, oldest entry always `discovered` */
+  careTimeline: CareEvent[];
 }

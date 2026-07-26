@@ -147,9 +147,67 @@ export interface Sighting {
   createdAt: string;
 }
 
+/**
+ * Care events recorded against the cat. `discovered` is synthesised
+ * from the cat's own creation, and its `message` is the discoverer's
+ * display name rather than free text.
+ */
+export type CareEventType = typeof CareEventType[keyof typeof CareEventType];
+
+
+export const CareEventType = {
+  desexed: 'desexed',
+  adopted: 'adopted',
+  general: 'general',
+  discovered: 'discovered',
+} as const;
+
+export interface CareEvent {
+  /**
+     * Care events recorded against the cat. `discovered` is synthesised
+     * from the cat's own creation, and its `message` is the discoverer's
+     * display name rather than free text.
+     */
+  type: CareEventType;
+  message: string;
+  at: string;
+}
+
 export interface CatDetail {
   cat: Cat;
   sightings: Sighting[];
+  /** Distinct devices that have spotted this cat */
+  fansCount: number;
+  /** Care history, newest first, oldest entry always `discovered` */
+  careTimeline: CareEvent[];
+}
+
+export type CampaignCurrency = typeof CampaignCurrency[keyof typeof CampaignCurrency];
+
+
+export const CampaignCurrency = {
+  EUR: 'EUR',
+} as const;
+
+/**
+ * Colony fundraising campaign shown on the Help tab. Server-side config, so
+ * figures can be corrected without an app release. There is no payments
+ * backend: the app opens `donateUrl` externally and no money moves through
+ * this API.
+ */
+export interface Campaign {
+  id: string;
+  title: string;
+  blurb: string;
+  currency: CampaignCurrency;
+  goalCents: number;
+  raisedCents: number;
+  catsHelped: number;
+  donors: number;
+  endsAt: string;
+  /** Empty when no donation page is configured; the client hides the CTA */
+  donateUrl: string;
+  suggestedAmountsCents: number[];
 }
 
 export interface CreateSightingRequest {
@@ -224,6 +282,12 @@ export interface Profile {
   badges: string[];
   /** Ids of cats this device owns. Only returned on the device's own profile route (the deviceId path param is the credential); never exposed in public payloads. */
   ownedCatIds: number[];
+  /** Consecutive days (Europe/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day. */
+  currentStreakDays: number;
+  /** Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds. */
+  spottedCatIds: number[];
+  /** Size of the whole cat-alog — the denominator in "12 of 142". */
+  totalCats: number;
 }
 
 export interface ResolveResult {

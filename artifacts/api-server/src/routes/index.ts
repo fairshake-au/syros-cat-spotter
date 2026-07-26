@@ -5,6 +5,7 @@ import photosRouter from "./photos";
 import sightingsRouter from "./sightings";
 import profilesRouter from "./profiles";
 import notificationsRouter from "./notifications";
+import campaignRouter from "./campaign";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(photosRouter);
 router.use(sightingsRouter);
 router.use(profilesRouter);
 router.use(notificationsRouter);
+router.use(campaignRouter);
 
 export default router;
