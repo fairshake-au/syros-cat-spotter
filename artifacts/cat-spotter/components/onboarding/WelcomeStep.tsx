@@ -5,6 +5,7 @@ import { palette } from '@/constants/colors';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/purropolis';
+import { FairShakeMark } from '@/components/FairShakeMark';
 
 /**
  * First-run hero. Deliberately renders on the Aegean gradient rather than the
@@ -60,7 +61,13 @@ export function WelcomeStep({ onNext }: { onNext: () => void }) {
         <Pressable onPress={explainRestore} style={styles.restore}>
           <Text style={styles.restoreText}>{t('welcomeHaveAccount')}</Text>
         </Pressable>
-        <Text style={styles.madeWith}>{t('welcomeMadeWith')}</Text>
+        <View style={styles.attribution}>
+          <Text style={styles.madeWith}>{t('welcomeMadeWith')}</Text>
+          <View style={styles.byline}>
+            <FairShakeMark size={15} />
+            <Text style={styles.fairShake}>Fair Shake</Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -111,10 +118,23 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: 'rgba(255,255,255,0.9)',
   },
+  attribution: { alignItems: 'center', gap: 6, marginTop: 4 },
   madeWith: {
     fontFamily: fonts.body,
     fontSize: fontSizes['2xs'],
     color: 'rgba(255,255,255,0.62)',
     textAlign: 'center',
+  },
+  byline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  fairShake: {
+    // The Fair Shake wordmark is set in its own brand face, not Purropolis's.
+    fontFamily: Platform.select({
+      web: "'Schibsted Grotesk', 'DM Sans', system-ui, sans-serif",
+      default: fonts.displayBold,
+    }),
+    fontWeight: '800',
+    fontSize: 12.5,
+    letterSpacing: -0.375,
+    color: '#fff',
   },
 });

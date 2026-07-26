@@ -406,14 +406,10 @@ export default function ReviewScreen() {
                     >
                       {c.name}
                     </Text>
-                    <Text
-                      style={[
-                        styles.monoTiny,
-                        { color: colors.mutedForeground, backgroundColor: colors.muted },
-                      ]}
-                    >
-                      {catCode(c.catId)}
-                    </Text>
+                    {/* The catalog code is deliberately absent here: when you're
+                        picking between look-alikes the name and the match score
+                        are the decision, and SYR-#### is just noise. It still
+                        appears on the cat profile and on the celebrate screen. */}
                   </View>
                   {tone === 'neutral' ? (
                     <Tag tone="neutral">
@@ -501,14 +497,6 @@ const styles = StyleSheet.create({
   candidatePhoto: { width: 66, height: 66, borderRadius: radii.sm },
   candidateNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   candidateName: { fontSize: fontSizes.md, fontFamily: fonts.displayBold, flexShrink: 1 },
-  monoTiny: {
-    fontSize: 10,
-    fontFamily: fonts.mono,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radii.xs,
-    overflow: 'hidden',
-  },
   reasoning: { fontSize: fontSizes['2xs'], fontFamily: fonts.body },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 },
   dividerLine: { flex: 1, height: 1.5 },

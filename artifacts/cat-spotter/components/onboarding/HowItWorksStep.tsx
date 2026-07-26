@@ -21,10 +21,14 @@ export function HowItWorksStep({
   const { t } = useLanguage();
   const [requesting, setRequesting] = useState(false);
 
+  // The step number is rendered from the index rather than baked into the
+  // translated title, so inserting a step never means renumbering copy in three
+  // languages.
   const steps = [
-    { emoji: '📍', tint: palette.aegean100, title: t('howStep1Title'), body: t('howStep1Body') },
-    { emoji: '🐱', tint: palette.sun100, title: t('howStep2Title'), body: t('howStep2Body') },
-    { emoji: '❤️', tint: palette.bougain100, title: t('howStep3Title'), body: t('howStep3Body') },
+    { emoji: '📍', tint: palette.aegean100, title: t('howStepSpot'), body: t('howStepSpotBody') },
+    { emoji: '🚫', tint: palette.terra100, title: t('howStepDontFeed'), body: t('howStepDontFeedBody') },
+    { emoji: '🐱', tint: palette.sun100, title: t('howStepCatalog'), body: t('howStepCatalogBody') },
+    { emoji: '❤️', tint: palette.bougain100, title: t('howStepHelp'), body: t('howStepHelpBody') },
   ];
 
   // Ask up front so the map and the spot flow have coordinates when first used.
@@ -49,12 +53,17 @@ export function HowItWorksStep({
         <Text
           onPress={onSkip}
           suppressHighlighting
+          numberOfLines={1}
           style={[styles.skip, { color: colors.mutedForeground }]}
         >
           {t('skip')}
         </Text>
-        <StepDots total={3} active={1} />
-        <View style={styles.topBarSpacer} />
+        {/* Centred independently of the Skip label's width. Greek "Παράλειψη"
+            is more than twice the length of "Skip", so a fixed-width label and
+            matching spacer would either wrap or shove the dots off-centre. */}
+        <View style={styles.dots} pointerEvents="none">
+          <StepDots total={3} active={1} />
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -80,7 +89,7 @@ export function HowItWorksStep({
               </View>
               <View style={styles.cardText}>
                 <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  {s.title}
+                  {`${i + 1} · ${s.title}`}
                 </Text>
                 <Text style={[styles.cardBody, { color: colors.mutedForeground }]}>
                   {s.body}
@@ -124,38 +133,48 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing[5],
     paddingBottom: 6,
+    minHeight: 28,
   },
-  skip: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.sm, width: 44 },
-  topBarSpacer: { width: 44 },
-  scroll: { paddingHorizontal: spacing[5], paddingTop: spacing[5] },
+  skip: {
+    fontFamily: fonts.displaySemiBold,
+    fontSize: fontSizes.sm,
+    zIndex: 1,
+  },
+  dots: {
+    ...StyleSheet.absoluteFillObject,
+    top: undefined,
+    bottom: 6,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  scroll: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
   heading: { gap: 6 },
   title: {
     fontFamily: fonts.displayBold,
-    fontSize: 26,
-    lineHeight: 30,
+    fontSize: 24,
+    lineHeight: 28,
   },
   subtitle: { fontFamily: fonts.body, fontSize: fontSizes.sm },
-  cards: { paddingTop: spacing[5], gap: spacing[3] },
+  cards: { paddingTop: spacing[4], gap: 11 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
+    gap: 14,
     borderRadius: radii.lg,
-    padding: spacing[4],
+    padding: 14,
   },
   cardIcon: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardEmoji: { fontSize: 28 },
+  cardEmoji: { fontSize: 26 },
   cardText: { flex: 1, gap: 2 },
-  cardTitle: { fontFamily: fonts.displayBold, fontSize: fontSizes.md },
+  cardTitle: { fontFamily: fonts.displayBold, fontSize: 15.5 },
   cardBody: { fontFamily: fonts.body, fontSize: fontSizes.xs, lineHeight: 19 },
   footer: { paddingHorizontal: spacing[5], gap: spacing[3] },
   permission: {
