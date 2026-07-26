@@ -24,7 +24,7 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { NotificationProvider } from '@/context/NotificationContext';
-import { LandingScreen } from '@/components/LandingScreen';
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 import { OwnershipNoticeBanner } from '@/components/OwnershipNoticeBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
@@ -62,7 +62,7 @@ function RootLayoutNav() {
 function OnboardingGate() {
   const { isReady, username } = useDevice();
   if (!isReady) return null;
-  if (!username) return <LandingScreen />;
+  if (!username) return <OnboardingFlow />;
   return (
     <>
       <OfflineTilesLoader />

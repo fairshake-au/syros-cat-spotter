@@ -1,15 +1,20 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { db, pool, profilesTable } from "@workspace/db";
+import { db, pool, profilesTable, deviceCredentialsTable } from "@workspace/db";
 import { like } from "drizzle-orm";
 import app from "../app";
 import { containsOffensiveLanguage } from "../lib/moderation";
 
 const PREFIX = "vitest-modn-";
 const device = (suffix: string) => `${PREFIX}${suffix}`;
+// Profile reads/writes are device-authenticated; the secret binds on first use.
+const SECRET = "vitest-modn-secret-0123456789ab";
 
 async function cleanup() {
   await db.delete(profilesTable).where(like(profilesTable.deviceId, `${PREFIX}%`));
+  await db
+    .delete(deviceCredentialsTable)
+    .where(like(deviceCredentialsTable.deviceId, `${PREFIX}%`));
 }
 
 beforeAll(cleanup);
@@ -41,6 +46,7 @@ describe("username moderation", () => {
   it("rejects an offensive username claim with 400 and code offensive_username", async () => {
     const res = await request(app)
       .post(`/api/profiles/${device("u")}/username`)
+      .set("X-Device-Secret", SECRET)
       .send({ username: "malakas123" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("offensive_username");
@@ -59,6 +65,7 @@ describe("PATCH /api/profiles/:deviceId nickname moderation", () => {
   it("rejects an offensive nickname with 400 and code offensive_nickname", async () => {
     const res = await request(app)
       .patch(`/api/profiles/${device("a")}`)
+      .set("X-Device-Secret", SECRET)
       .send({ nickname: "malakas123" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("offensive_nickname");
@@ -67,6 +74,7 @@ describe("PATCH /api/profiles/:deviceId nickname moderation", () => {
   it("rejects a disguised offensive nickname", async () => {
     const res = await request(app)
       .patch(`/api/profiles/${device("a")}`)
+      .set("X-Device-Secret", SECRET)
       .send({ nickname: "f u c k cats" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("offensive_nickname");
@@ -75,6 +83,7 @@ describe("PATCH /api/profiles/:deviceId nickname moderation", () => {
   it("accepts a friendly nickname", async () => {
     const res = await request(app)
       .patch(`/api/profiles/${device("a")}`)
+      .set("X-Device-Secret", SECRET)
       .send({ nickname: "Cat Friend" });
     expect(res.status).toBe(200);
     expect(res.body.nickname).toBe("Cat Friend");

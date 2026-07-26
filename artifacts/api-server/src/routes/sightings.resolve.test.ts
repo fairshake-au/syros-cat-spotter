@@ -23,6 +23,7 @@ import app from "../app";
 
 const DEVICE = "vitest-resolve-device";
 const CAT_PREFIX = "VitestResolveCat";
+const RESOLVE_SECRET = "vitest-resolve-secret-0123456789ab";
 
 // 1x1 white JPEG — resolve never re-validates the photo, it only needs a row.
 const TINY_JPEG_B64 =
@@ -128,6 +129,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
 
     const res = await request(app)
       .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: device, catId });
 
     expect(res.status).toBe(200);
@@ -157,6 +159,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
 
     const res = await request(app)
       .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: device, newCatName: name });
 
     expect(res.status).toBe(200);
@@ -181,6 +184,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     const s1 = await insertSighting(confirmDevice);
     const res1 = await request(app)
       .post(`/api/sightings/${s1}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: confirmDevice, catId });
     expect(res1.status).toBe(200);
     expect(res1.body.newBadges).toContain("first_sighting");
@@ -190,6 +194,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     const s2 = await insertSighting(confirmDevice);
     const res2 = await request(app)
       .post(`/api/sightings/${s2}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: confirmDevice, catId });
     expect(res2.body.newBadges).not.toContain("first_sighting");
 
@@ -197,6 +202,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     const s3 = await insertSighting(discoverDevice);
     const res3 = await request(app)
       .post(`/api/sightings/${s3}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: discoverDevice, newCatName: `${CAT_PREFIX}-BadgeNew` });
     expect(res3.status).toBe(200);
     expect(res3.body.newBadges).toContain("first_discovery");
@@ -210,6 +216,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
 
     const res = await request(app)
       .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: `${DEVICE}-attacker`, catId });
 
     expect(res.status).toBe(403);
@@ -234,11 +241,13 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
 
     const first = await request(app)
       .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: device, catId });
     expect(first.status).toBe(200);
 
     const second = await request(app)
       .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: device, catId });
     expect(second.status).toBe(409);
 
@@ -259,7 +268,43 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     const sightingId = await insertSighting(device);
     const res2 = await request(app)
       .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: device, catId: 999999999 });
     expect(res2.status).toBe(404);
+  });
+});
+
+describe("POST /api/sightings/:sightingId/resolve auth", () => {
+  // Bind the device's secret first. Trust-on-first-use means an *unbound*
+  // device accepts whatever secret it is shown, so without this the
+  // wrong-secret case would legitimately succeed and the test would be
+  // asserting nothing.
+  beforeAll(async () => {
+    await request(app)
+      .get(`/api/profiles/${DEVICE}`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
+      .expect(200);
+  });
+
+  // This route awards points, can create a cat, and returns the owner's full
+  // profile. Matching the supplied deviceId against the sighting's owner is not
+  // authentication — device ids travel in request bodies.
+  it("refuses to resolve without the device secret", async () => {
+    const sightingId = await insertSighting(DEVICE);
+    const res = await request(app)
+      .post(`/api/sightings/${sightingId}/resolve`)
+      .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}Unauthed` })
+      .expect(401);
+    expect(res.body.profile).toBeUndefined();
+  });
+
+  it("refuses to resolve with the wrong device secret", async () => {
+    const sightingId = await insertSighting(DEVICE);
+    const res = await request(app)
+      .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", "wrong-secret-0123456789abcdefgh")
+      .send({ deviceId: DEVICE, newCatName: `${CAT_PREFIX}Unauthed2` })
+      .expect(403);
+    expect(res.body.profile).toBeUndefined();
   });
 });

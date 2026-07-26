@@ -116,7 +116,13 @@ export const GetCatResponse = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "createdAt": zod.string()
-}))
+})),
+  "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),
+  "careTimeline": zod.array(zod.object({
+  "type": zod.enum(['desexed', 'adopted', 'general', 'discovered']).describe('Care events recorded against the cat. `discovered` is synthesised\nfrom the cat\'s own creation, and its `message` is the discoverer\'s\ndisplay name rather than free text.\n'),
+  "message": zod.string(),
+  "at": zod.string()
+})).describe('Care history, newest first, oldest entry always `discovered`')
 })
 
 
@@ -224,7 +230,8 @@ export const CreateSightingBody = zod.object({
   "deviceId": zod.string(),
   "photoBase64": zod.string().describe('JPEG or PNG image as base64 (no data URI prefix), max 5 MB decoded'),
   "lat": zod.number(),
-  "lng": zod.number()
+  "lng": zod.number(),
+  "capturedAt": zod.string().nullish().describe('ISO timestamp of when the photo was taken, for sightings queued offline and synced later. Omit for an immediate submission. The server clamps this (not in the future, at most 30 days old) before storing, since it is client-supplied and feeds streak day buckets.')
 })
 
 export const CreateSightingResponse = zod.object({
@@ -283,7 +290,10 @@ export const ResolveSightingResponse = zod.object({
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
   "badges": zod.array(zod.string()),
-  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
+  "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
+  "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
+  "totalCats": zod.number().describe('Size of the whole cat-alog — the denominator in \"12 of 142\".')
 })
 })
 
@@ -317,7 +327,10 @@ export const GetProfileResponse = zod.object({
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
   "badges": zod.array(zod.string()),
-  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
+  "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
+  "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
+  "totalCats": zod.number().describe('Size of the whole cat-alog — the denominator in \"12 of 142\".')
 })
 
 
@@ -346,7 +359,10 @@ export const UpdateProfileResponse = zod.object({
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
   "badges": zod.array(zod.string()),
-  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
+  "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
+  "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
+  "totalCats": zod.number().describe('Size of the whole cat-alog — the denominator in \"12 of 142\".')
 })
 
 
@@ -397,7 +413,10 @@ export const ClaimUsernameResponse = zod.object({
   "uniqueCatsDiscovered": zod.number(),
   "catsSpotted": zod.number(),
   "badges": zod.array(zod.string()),
-  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.')
+  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
+  "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
+  "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
+  "totalCats": zod.number().describe('Size of the whole cat-alog — the denominator in \"12 of 142\".')
 })
 
 
@@ -491,5 +510,23 @@ export const GetLeaderboardResponseItem = zod.object({
   "rank": zod.number()
 })
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
+
+
+/**
+ * @summary The colony fundraising campaign shown on the Help tab
+ */
+export const GetCampaignResponse = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "blurb": zod.string(),
+  "currency": zod.enum(['EUR']),
+  "goalCents": zod.number(),
+  "raisedCents": zod.number(),
+  "catsHelped": zod.number(),
+  "donors": zod.number(),
+  "endsAt": zod.string(),
+  "donateUrl": zod.string().describe('Empty when no donation page is configured; the client hides the CTA'),
+  "suggestedAmountsCents": zod.array(zod.number())
+}).describe('Colony fundraising campaign shown on the Help tab. Server-side config, so\nfigures can be corrected without an app release. There is no payments\nbackend: the app opens `donateUrl` externally and no money moves through\nthis API.\n')
 
 

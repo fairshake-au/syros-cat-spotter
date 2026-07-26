@@ -25,6 +25,7 @@ describe("POST /api/profiles/:deviceId/username", () => {
   it("claims a valid username and returns the profile", async () => {
     const res = await request(app)
       .post(`/api/profiles/${device("a")}/username`)
+      .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`)
       .send({ username: name("Alpha") });
     expect(res.status).toBe(200);
     expect(res.body.username).toBe(name("Alpha"));
@@ -33,6 +34,7 @@ describe("POST /api/profiles/:deviceId/username", () => {
   it("allows the same device to re-claim its own name", async () => {
     const res = await request(app)
       .post(`/api/profiles/${device("a")}/username`)
+      .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`)
       .send({ username: name("Alpha") });
     expect(res.status).toBe(200);
     expect(res.body.username).toBe(name("Alpha"));
@@ -41,6 +43,7 @@ describe("POST /api/profiles/:deviceId/username", () => {
   it("rejects an exact duplicate from another device with 409", async () => {
     const res = await request(app)
       .post(`/api/profiles/${device("b")}/username`)
+      .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`)
       .send({ username: name("Alpha") });
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/taken/i);
@@ -49,6 +52,7 @@ describe("POST /api/profiles/:deviceId/username", () => {
   it("rejects a different-casing duplicate with 409", async () => {
     const res = await request(app)
       .post(`/api/profiles/${device("b")}/username`)
+      .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`)
       .send({ username: name("Alpha").toUpperCase() });
     expect(res.status).toBe(409);
   });
@@ -63,6 +67,7 @@ describe("POST /api/profiles/:deviceId/username", () => {
   ])("rejects invalid username (%s) with 400", async (_label, bad) => {
     const res = await request(app)
       .post(`/api/profiles/${device("c")}/username`)
+      .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`)
       .send({ username: bad });
     expect(res.status).toBe(400);
   });
@@ -70,8 +75,14 @@ describe("POST /api/profiles/:deviceId/username", () => {
   it("lets only one of two concurrent claims for the same name succeed", async () => {
     const contested = name("Race");
     const [r1, r2] = await Promise.all([
-      request(app).post(`/api/profiles/${device("race1")}/username`).send({ username: contested }),
-      request(app).post(`/api/profiles/${device("race2")}/username`).send({ username: contested }),
+      request(app)
+        .post(`/api/profiles/${device("race1")}/username`)
+        .set("X-Device-Secret", "vitest-shared-device-secret-0123456789")
+        .send({ username: contested }),
+      request(app)
+        .post(`/api/profiles/${device("race2")}/username`)
+        .set("X-Device-Secret", "vitest-shared-device-secret-0123456789")
+        .send({ username: contested }),
     ]);
     const statuses = [r1.status, r2.status].sort();
     expect(statuses).toEqual([200, 409]);

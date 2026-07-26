@@ -59,6 +59,13 @@ export const radii = {
 
 /** Soft warm-tinted shadows (Aegean navy). */
 export const shadows = {
+  xs: {
+    shadowColor: '#1b2a38',
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
   sm: {
     shadowColor: '#1b2a38',
     shadowOpacity: 0.08,
@@ -73,4 +80,35 @@ export const shadows = {
     shadowOffset: { width: 0, height: 6 },
     elevation: 5,
   },
+} as const;
+
+/**
+ * Letter-spacing multipliers (em), translated 1:1 from the web
+ * `--tracking-*` tokens. RN's `letterSpacing` is an absolute point value,
+ * so multiply by a text's fontSize at the call site, e.g.
+ * `fontSizes['2xs'] * tracking.wider`.
+ */
+export const tracking = {
+  tight: -0.02,
+  normal: 0,
+  wide: 0.04,
+  wider: 0.12,
+} as const;
+
+/**
+ * Line-height multipliers, translated 1:1 from the web `--leading-*`
+ * tokens. Multiply by a text's fontSize at the call site, e.g.
+ * `fontSizes.md * lineHeights.tight`.
+ */
+export const lineHeights = {
+  tight: 1.1,
+  snug: 1.25,
+  normal: 1.5,
+  relaxed: 1.65,
+} as const;
+
+/** Border widths, translated 1:1 from the web `--border-width*` tokens. */
+export const borderWidths = {
+  thin: 1.5,
+  thick: 2.5,
 } as const;

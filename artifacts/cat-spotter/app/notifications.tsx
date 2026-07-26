@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -7,15 +7,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AppNotification } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
+import { palette } from '@/constants/colors';
+import { fonts, fontSizes, spacing, tracking } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useNotifications } from '@/context/NotificationContext';
-import { absoluteUrl } from '@/lib/urls';
 
 function relativeTime(iso: string, t: (k: string) => string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -28,6 +28,28 @@ function relativeTime(iso: string, t: (k: string) => string): string {
   if (days < 7) return `${days}d`;
   return new Date(iso).toLocaleDateString();
 }
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+const UPDATE_STYLE: Record<
+  AppNotification['updateType'],
+  { icon: keyof typeof Feather.glyphMap; bg: string; fg: string }
+> = {
+  sighting: { icon: 'check', bg: palette.aegean100, fg: palette.aegean800 },
+  desexed: { icon: 'scissors', bg: palette.olive100, fg: palette.olive700 },
+  adopted: { icon: 'heart', bg: palette.bougain100, fg: palette.bougain700 },
+  general: { icon: 'bell', bg: palette.sun100, fg: palette.sun700 },
+};
+
+type Row =
+  | { kind: 'header'; key: string; label: string }
+  | { kind: 'item'; key: string; notification: AppNotification };
 
 export default function NotificationsScreen() {
   const colors = useColors();
@@ -48,65 +70,97 @@ export default function NotificationsScreen() {
     else router.replace('/(tabs)');
   };
 
-  const renderItem = ({ item }: { item: AppNotification }) => (
-    <Pressable
-      onPress={() =>
-        router.push({
-          pathname: '/cat/[id]',
-          params: {
-            id: String(item.catId),
-            updateId: String(item.catUpdateId),
-          },
-        })
-      }
-      style={[
-        styles.row,
-        {
-          backgroundColor: item.read ? colors.background : colors.card,
-          borderBottomColor: colors.border,
-        },
-      ]}
-    >
-      <Image
-        source={{ uri: absoluteUrl(item.catPhotoUrl) }}
-        style={[styles.thumb, { borderColor: colors.border }]}
-        contentFit="cover"
-      />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[styles.catName, { color: colors.foreground }]}>
-          {item.catName}
-        </Text>
-        <Text
-          style={[styles.message, { color: colors.mutedForeground }]}
-          numberOfLines={2}
-        >
-          {item.message}
-        </Text>
-      </View>
-      <View style={styles.rightCol}>
-        <Text style={[styles.time, { color: colors.mutedForeground }]}>
-          {relativeTime(item.createdAt, t)}
-        </Text>
-        {!item.read && (
-          <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+  const rows = useMemo<Row[]>(() => {
+    const now = new Date();
+    const today: AppNotification[] = [];
+    const earlier: AppNotification[] = [];
+    for (const n of notifications) {
+      if (isSameDay(new Date(n.createdAt), now)) today.push(n);
+      else earlier.push(n);
+    }
+    const out: Row[] = [];
+    if (today.length > 0) {
+      out.push({ kind: 'header', key: 'hdr-today', label: t('notificationsToday') });
+      today.forEach((n) => out.push({ kind: 'item', key: `n-${n.id}`, notification: n }));
+    }
+    if (earlier.length > 0) {
+      out.push({ kind: 'header', key: 'hdr-earlier', label: t('notificationsEarlier') });
+      earlier.forEach((n) => out.push({ kind: 'item', key: `n-${n.id}`, notification: n }));
+    }
+    return out;
+  }, [notifications, t]);
+
+  const renderRow = ({ item }: { item: Row }) => {
+    if (item.kind === 'header') {
+      return (
+        <View style={styles.sectionHeader}>
+          <Text
+            style={[
+              styles.eyebrow,
+              {
+                color: colors.mutedForeground,
+                letterSpacing: fontSizes['2xs'] * tracking.wider,
+              },
+            ]}
+          >
+            {item.label}
+          </Text>
+        </View>
+      );
+    }
+
+    const n = item.notification;
+    const iconStyle = UPDATE_STYLE[n.updateType] ?? UPDATE_STYLE.general;
+
+    return (
+      <Pressable
+        onPress={() =>
+          router.push({
+            pathname: '/cat/[id]',
+            params: {
+              id: String(n.catId),
+              updateId: String(n.catUpdateId),
+            },
+          })
+        }
+        style={[
+          styles.row,
+          { backgroundColor: n.read ? 'transparent' : colors.secondary },
+        ]}
+      >
+        {n.read ? (
+          <View style={styles.dotSlot} />
+        ) : (
+          <View style={styles.dotSlot}>
+            <View style={[styles.dot, { backgroundColor: colors.accent }]} />
+          </View>
         )}
-      </View>
-    </Pressable>
-  );
+        <View style={[styles.iconCircle, { backgroundColor: iconStyle.bg }]}>
+          <Feather name={iconStyle.icon} size={18} color={iconStyle.fg} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text
+            style={[styles.message, { color: colors.foreground }]}
+            numberOfLines={2}
+          >
+            {n.message}
+          </Text>
+          <Text style={[styles.time, { color: colors.mutedForeground }]}>
+            {relativeTime(n.createdAt, t)}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + 8, borderBottomColor: colors.border },
-        ]}
-      >
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={close} hitSlop={8}>
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('notificationsTitle')}
+          {t('notificationsTitle')} 🔔
         </Text>
         {unreadCount > 0 ? (
           <Pressable onPress={markAllRead} hitSlop={8}>
@@ -131,9 +185,9 @@ export default function NotificationsScreen() {
         </View>
       ) : (
         <FlatList
-          data={notifications}
-          keyExtractor={(n) => String(n.id)}
-          renderItem={renderItem}
+          data={rows}
+          keyExtractor={(row) => row.key}
+          renderItem={renderRow}
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         />
       )}
@@ -145,15 +199,14 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 12,
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[3],
+    gap: spacing[3],
   },
-  title: { fontSize: 18, fontFamily: 'Inter_700Bold', flex: 1 },
-  markAll: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  title: { fontSize: fontSizes.xl, fontFamily: fonts.displayBold, flex: 1 },
+  markAll: { fontSize: fontSizes.xs, fontFamily: fonts.bodyBold },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -163,21 +216,35 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontSize: 14,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Nunito_400Regular',
     textAlign: 'center',
+  },
+  sectionHeader: {
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[1],
+  },
+  eyebrow: {
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSizes['2xs'],
+    textTransform: 'uppercase',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: spacing[3],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
   },
-  thumb: { width: 48, height: 48, borderRadius: 24, borderWidth: 1 },
-  catName: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
-  message: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  rightCol: { alignItems: 'flex-end', gap: 6 },
-  time: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  dotSlot: { width: 8, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  message: { fontSize: fontSizes.xs, fontFamily: fonts.body, lineHeight: fontSizes.xs * 1.4 },
+  time: { fontSize: fontSizes['3xs'], fontFamily: fonts.body },
 });

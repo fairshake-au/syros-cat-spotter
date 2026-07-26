@@ -10,10 +10,16 @@ import {
   catsTable,
   sightingsTable,
   profilesTable,
+  catUpdatesTable,
   type Cat,
 } from "@workspace/db";
-import { and, eq, desc, isNull, sql } from "drizzle-orm";
-import { listCatsWithStats, photoUrl, spotterCode } from "../lib/catHelpers";
+import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
+import {
+  fansCount,
+  listCatsWithStats,
+  photoUrl,
+  spotterCode,
+} from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter } from "../middlewares/rateLimit";
@@ -137,6 +143,32 @@ router.get("/cats/:catId", async (req, res) => {
     )
     .orderBy(desc(sightingsTable.createdAt));
 
+  // Care timeline: the cat's own update history, newest first. Sighting-type
+  // updates are excluded — the sightings list below already covers those, and
+  // repeating them would drown the care events the timeline exists to show.
+  const updates = await db
+    .select()
+    .from(catUpdatesTable)
+    .where(
+      and(
+        eq(catUpdatesTable.catId, catId),
+        ne(catUpdatesTable.updateType, "sighting"),
+      ),
+    )
+    .orderBy(desc(catUpdatesTable.createdAt));
+
+  const [fans, discovererProfile] = await Promise.all([
+    fansCount(catId),
+    db
+      .select({
+        username: profilesTable.username,
+        nickname: profilesTable.nickname,
+      })
+      .from(profilesTable)
+      .where(eq(profilesTable.deviceId, cat.discovererDeviceId))
+      .then((r) => r[0]),
+  ]);
+
   res.json({
     cat: await catPayload(
       cat,
@@ -144,6 +176,23 @@ router.get("/cats/:catId", async (req, res) => {
       sightings[0]?.sighting.createdAt.toISOString() ??
         cat.createdAt.toISOString(),
     ),
+    fansCount: fans,
+    careTimeline: [
+      ...updates.map((u) => ({
+        type: u.updateType,
+        message: u.message,
+        at: u.createdAt.toISOString(),
+      })),
+      // The cat-alog entry itself is always the oldest event on the timeline.
+      {
+        type: "discovered" as const,
+        message:
+          discovererProfile?.username ??
+          discovererProfile?.nickname ??
+          spotterCode(cat.discovererDeviceId),
+        at: cat.createdAt.toISOString(),
+      },
+    ],
     sightings: sightings.map(({ sighting: s, spotterUsername, spotterNickname }) => ({
       id: s.id,
       catId: s.catId,

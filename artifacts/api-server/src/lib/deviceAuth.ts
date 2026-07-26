@@ -34,7 +34,23 @@ export async function requireDeviceAuth(
   req: Request,
   res: Response,
 ): Promise<string | null> {
-  const deviceId = String(req.params["deviceId"] ?? "");
+  return verifyDeviceSecret(req, res, String(req.params["deviceId"] ?? ""));
+}
+
+/**
+ * As {@link requireDeviceAuth}, but for routes where the device id arrives
+ * somewhere other than a `:deviceId` path param — e.g. the sighting-resolve
+ * route, which takes it in the body.
+ *
+ * Any route that returns a device's private payload has to go through one of
+ * these two. A route that merely compares a supplied device id against a stored
+ * one is checking a public value against itself.
+ */
+export async function verifyDeviceSecret(
+  req: Request,
+  res: Response,
+  deviceId: string,
+): Promise<string | null> {
   if (!deviceId || deviceId.length > 128) {
     res.status(400).json({ error: "Invalid device id" });
     return null;

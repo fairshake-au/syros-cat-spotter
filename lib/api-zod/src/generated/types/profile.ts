@@ -18,4 +18,10 @@ export interface Profile {
   badges: string[];
   /** Ids of cats this device owns. Only returned on the device's own profile route (the deviceId path param is the credential); never exposed in public payloads. */
   ownedCatIds: number[];
+  /** Consecutive days (Europe/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day. */
+  currentStreakDays: number;
+  /** Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds. */
+  spottedCatIds: number[];
+  /** Size of the whole cat-alog — the denominator in "12 of 142". */
+  totalCats: number;
 }
