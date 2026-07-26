@@ -11,8 +11,11 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import { palette } from '@/constants/colors';
-import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
+import colorsConst, { palette } from '@/constants/colors';
+import { fonts, fontSizes, spacing } from '@/constants/theme';
+
+/** CatCard's own corner radius — the lock overlay has to match it exactly. */
+const catCardRadius = colorsConst.radius;
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
@@ -35,7 +38,7 @@ export default function HomeScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { deviceId } = useDevice();
+  const { deviceId, username } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useLocation();
   const { cats, isLoading } = useCatsWithCache(
@@ -50,13 +53,19 @@ export default function HomeScreen() {
     },
   });
   const profile = profileQuery.data;
+  // The cats list is cached to AsyncStorage but the profile is not, so offline
+  // (or mid-fetch) we have cats and no stats. Everything derived from the
+  // profile must be absent rather than zero in that window: rendering "0 of 10"
+  // and locking every card is a wrong answer that looks like a right one.
+  const hasStats = profile !== undefined;
 
   // The cat-alog total is authoritative from the server, but it can lag the
   // locally-cached list while offline — take whichever is larger so the
   // denominator is never smaller than the cats actually on screen.
   const totalCats = Math.max(profile?.totalCats ?? 0, cats.length);
-  const spotted = profile?.catsSpotted ?? 0;
-  const progress = totalCats > 0 ? spotted / totalCats : 0;
+  const spotted = profile?.catsSpotted;
+  const progress =
+    spotted !== undefined && totalCats > 0 ? spotted / totalCats : 0;
 
   const spottedIds = useMemo(
     () => new Set(profile?.spottedCatIds ?? []),
@@ -64,16 +73,21 @@ export default function HomeScreen() {
   );
 
   // Nearby cats the user has not collected yet lead the strip — those are the
-  // ones the design's "Spot to unlock" treatment is actually for.
+  // ones the design's "Spot to unlock" treatment is actually for. Without stats
+  // we cannot tell collected from not, so leave the order alone.
   const nearby = useMemo(() => {
+    if (!hasStats) return cats.slice(0, NEARBY_LIMIT);
     const uncollected = cats.filter((c) => !spottedIds.has(c.id));
     const collected = cats.filter((c) => spottedIds.has(c.id));
     return [...uncollected, ...collected].slice(0, NEARBY_LIMIT);
-  }, [cats, spottedIds]);
+  }, [cats, spottedIds, hasStats]);
 
+  // `username` comes from DeviceContext and survives offline, so greet by name
+  // even when the profile fetch hasn't landed.
   const displayName =
-    profile?.nickname ?? profile?.username ?? t('homeFallbackName');
+    profile?.nickname ?? profile?.username ?? username ?? t('homeFallbackName');
   const streak = profile?.currentStreakDays ?? 0;
+  const dash = '—';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -115,7 +129,7 @@ export default function HomeScreen() {
 
           <View style={styles.progressBlock}>
             <View style={styles.progressLine}>
-              <Text style={styles.progressValue}>{spotted}</Text>
+              <Text style={styles.progressValue}>{spotted ?? dash}</Text>
               <Text style={styles.progressLabel}>
                 {t('homeOfNCats').replace('{n}', String(totalCats))}
               </Text>
@@ -140,23 +154,26 @@ export default function HomeScreen() {
         <View style={styles.tiles}>
           <View style={styles.tile}>
             <StatTile
-              value={spotted}
+              value={spotted ?? dash}
               label={t('statSpotted')}
               tone="aegean"
+              style={styles.tileInner}
             />
           </View>
           <View style={styles.tile}>
             <StatTile
-              value={profile?.uniqueCatsDiscovered ?? 0}
+              value={profile?.uniqueCatsDiscovered ?? dash}
               label={t('statFirstFinds')}
               tone="sun"
+              style={styles.tileInner}
             />
           </View>
           <View style={styles.tile}>
             <StatTile
-              value={profile?.badges.length ?? 0}
+              value={profile?.badges.length ?? dash}
               label={t('statBadges')}
               tone="bougain"
+              style={styles.tileInner}
             />
           </View>
         </View>
@@ -187,20 +204,18 @@ export default function HomeScreen() {
               {nearby.map((cat) => (
                 <View key={cat.id} style={styles.gridItem}>
                   <CatCard cat={cat} />
-                  {!spottedIds.has(cat.id) && (
-                    <Pressable
-                      style={styles.lockOverlay}
-                      onPress={() => router.push('/spot')}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('homeSpotToUnlock')}
-                    >
+                  {/* Decorative only. An interactive overlay here would swallow
+                      the card's own tap and strand the user — tapping a locked
+                      cat must still open its profile. */}
+                  {hasStats && !spottedIds.has(cat.id) && (
+                    <View style={styles.lockOverlay} pointerEvents="none">
                       <Text style={styles.lockIcon} allowFontScaling={false}>
                         🔒
                       </Text>
                       <Text style={styles.lockText}>
                         {t('homeSpotToUnlock')}
                       </Text>
-                    </Pressable>
+                    </View>
                   )}
                 </View>
               ))}
@@ -286,7 +301,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4],
     paddingTop: spacing[4],
   },
-  tile: { flex: 1 },
+  // StatTile carries a 120px minWidth for standalone use; three across at 375px
+  // would overflow, so let them shrink here.
+  tile: { flex: 1, minWidth: 0 },
+  tileInner: { minWidth: 0 },
   section: { paddingHorizontal: spacing[4], paddingTop: spacing[5] },
   sectionHead: {
     flexDirection: 'row',
@@ -306,7 +324,9 @@ const styles = StyleSheet.create({
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(27,42,56,0.72)',
-    borderRadius: radii.lg,
+    // Match CatCard's own corner radius, not the DS `lg` step, or the card
+    // shows through at the corners.
+    borderRadius: catCardRadius,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,

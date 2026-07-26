@@ -58,6 +58,9 @@ export default function ProfileScreen() {
   });
 
   const profile = profileQuery.data;
+  // The profile is not cached locally, so offline (or mid-fetch) there are no
+  // stats. Show an em dash rather than a plausible-looking zero.
+  const dash = '\u2014';
   const earned = new Set(profile?.badges ?? []);
   const earnedCount = BADGE_IDS.filter((id) => earned.has(id)).length;
   const streakDays = profile?.currentStreakDays ?? 0;
@@ -147,19 +150,19 @@ export default function ProfileScreen() {
           {/* Stat row */}
           <View style={styles.statsRow}>
             <StatTile
-              value={profile?.catsSpotted ?? 0}
+              value={profile?.catsSpotted ?? dash}
               label={t('catsSpotted')}
               tone="aegean"
               style={styles.statTile}
             />
             <StatTile
-              value={profile?.uniqueCatsDiscovered ?? 0}
+              value={profile?.uniqueCatsDiscovered ?? dash}
               label={t('profileFirstFinds')}
               tone="sun"
               style={styles.statTile}
             />
             <StatTile
-              value={profile?.points ?? 0}
+              value={profile?.points ?? dash}
               label={t('points')}
               tone="olive"
               style={styles.statTile}

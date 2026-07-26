@@ -104,7 +104,12 @@ export default function CatDetailScreen() {
     );
   }
 
-  const { cat, sightings, fansCount, careTimeline } = data;
+  // fansCount and careTimeline are new fields and the generated fetch client
+  // does no runtime validation, so an app talking to an older server would get
+  // undefined here and crash on every cat. Degrade instead.
+  const { cat, sightings } = data;
+  const fansCount = data.fansCount ?? 0;
+  const careTimeline = data.careTimeline ?? [];
   const isClaimed = !!cat.ownerName;
   const isOwner = isClaimed && ownedCatIds.includes(cat.id);
   const isDesexed = careTimeline.some((e) => e.type === 'desexed');
@@ -260,7 +265,9 @@ export default function CatDetailScreen() {
               {t('careTimelineTitle')}
             </Text>
             {careTimeline.map((event, index) => {
-              const meta = CARE_META[event.type];
+              // An unknown type (older/newer server, or a leaked `sighting`
+              // row) must not take the whole screen down.
+              const meta = CARE_META[event.type] ?? CARE_META.general;
               return (
                 <View key={index} style={styles.careRow}>
                   <View style={[styles.careIcon, { backgroundColor: meta.bg }]}>
