@@ -52,6 +52,7 @@ describe("POST /api/sightings/:id/resolve cat name moderation", () => {
     const sighting = await createPendingSighting();
     const res = await request(app)
       .post(`/api/sightings/${sighting.id}/resolve`)
+      .set("X-Device-Secret", "vitest-resolve-secret-0123456789ab")
       .send({ deviceId: DEVICE, newCatName: "malakas the cat" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("OFFENSIVE_NAME");
@@ -61,6 +62,7 @@ describe("POST /api/sightings/:id/resolve cat name moderation", () => {
     const sighting = await createPendingSighting();
     const res = await request(app)
       .post(`/api/sightings/${sighting.id}/resolve`)
+      .set("X-Device-Secret", "vitest-resolve-secret-0123456789ab")
       .send({ deviceId: DEVICE, newCatName: "p u t a i n" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("OFFENSIVE_NAME");

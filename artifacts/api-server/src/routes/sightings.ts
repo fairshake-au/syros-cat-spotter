@@ -19,6 +19,7 @@ import {
 } from "../lib/catHelpers";
 import { badgesFor } from "../lib/badges";
 import { clampCaptureTime } from "../lib/captureTime";
+import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
@@ -137,13 +138,17 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     res.status(409).json({ error: "Sighting already resolved" });
     return;
   }
-  // Ownership check: the device credential must match the sighting owner.
-  // Sighting ids are enumerable, so without this any caller could resolve
-  // someone else's sighting and receive their profile (device credential).
+  // Ownership check. The supplied device id must name the sighting's owner AND
+  // the caller must prove they hold that device's secret. Comparing the two ids
+  // alone would be checking a public value against itself: device ids travel in
+  // request bodies and sighting ids are enumerable, so that would let anyone who
+  // learned a device id resolve its sightings — awarding points, creating cats,
+  // and receiving the owner's full profile in the response.
   if (body.deviceId !== sighting.deviceId) {
     res.status(403).json({ error: "Not your sighting" });
     return;
   }
+  if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
 
   const statsBefore = await getProfileStats(sighting.deviceId);
   const badgesBefore = badgesFor(statsBefore);

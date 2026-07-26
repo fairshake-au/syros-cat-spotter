@@ -203,7 +203,10 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
-              {t('homeNearbyEyebrow')}
+              {/* The server only sorts by distance when it was given coords.
+                  Without them this strip is just "some cats", so don't call it
+                  nearby. */}
+              {coords ? t('homeNearbyEyebrow') : t('homeToCollectEyebrow')}
             </Text>
             <Pressable onPress={() => router.push('/cats')}>
               <Text style={[styles.seeAll, { color: colors.primary }]}>
