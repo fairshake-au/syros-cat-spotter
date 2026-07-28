@@ -1,0 +1,661 @@
+<title>Purropolis — a proposal for Syros Cats</title>
+
+<style>
+  :root {
+    --ground: #FBFAF7; --raised: #FFFFFF; --ink: #16232B; --ink-soft: #4A5C67;
+    --ink-faint: #7C8B94; --rule: #E2DDD2; --rule-soft: #EFEBE3;
+    --aegean: #1B5E86; --aegean-deep: #12435F; --bougainvillea: #B8256B;
+    --terracotta: #B85C2B; --olive: #5F7350; --sun: #D9A21B; --code-bg: #F2EFE8;
+    --shadow: 0 1px 2px rgba(22,35,43,.05), 0 8px 24px -12px rgba(22,35,43,.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #101A20; --raised: #16232B; --ink: #E8E3D9; --ink-soft: #A9B6BD;
+      --ink-faint: #77878F; --rule: #27373F; --rule-soft: #1E2C34;
+      --aegean: #6FB4DA; --aegean-deep: #9BCDE8; --bougainvillea: #EE8AB4;
+      --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F; --code-bg: #1B2A32;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #101A20; --raised: #16232B; --ink: #E8E3D9; --ink-soft: #A9B6BD;
+    --ink-faint: #77878F; --rule: #27373F; --rule-soft: #1E2C34;
+    --aegean: #6FB4DA; --aegean-deep: #9BCDE8; --bougainvillea: #EE8AB4;
+    --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F; --code-bg: #1B2A32;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+  :root[data-theme="light"] {
+    --ground: #FBFAF7; --raised: #FFFFFF; --ink: #16232B; --ink-soft: #4A5C67;
+    --ink-faint: #7C8B94; --rule: #E2DDD2; --rule-soft: #EFEBE3;
+    --aegean: #1B5E86; --aegean-deep: #12435F; --bougainvillea: #B8256B;
+    --terracotta: #B85C2B; --olive: #5F7350; --sun: #D9A21B; --code-bg: #F2EFE8;
+    --shadow: 0 1px 2px rgba(22,35,43,.05), 0 8px 24px -12px rgba(22,35,43,.14);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Avenir Next", Avenir, "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 17.5px; line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: none; margin: 0; padding: 0 40px 110px 96px; display: grid; grid-template-columns: 1fr; gap: 0 56px; }
+  @media (min-width: 1000px) {
+    .wrap { grid-template-columns: 210px minmax(0, 1fr); }
+    .masthead { grid-column: 1 / -1; }
+    nav.toc { display: block; }
+  }
+
+  .masthead { padding: 64px 0 38px; border-bottom: 2px solid var(--rule); margin-bottom: 48px; }
+  .mark { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin: 0 0 22px; }
+  .mark .paw { color: var(--sun); }
+  .mark .op { color: var(--bougainvillea); }
+
+  h1 { font-size: clamp(32px, 5vw, 50px); line-height: 1.1; letter-spacing: -.022em; font-weight: 700; margin: 0 0 18px; text-wrap: balance; max-width: none; }
+  .standfirst { font-size: 20px; line-height: 1.55; color: var(--ink-soft); max-width: none; margin: 0 0 28px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px 28px; font-size: 13.5px; color: var(--ink-faint); }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  .notice { margin-top: 30px; padding: 20px 24px; background: var(--raised); border: 1px solid var(--rule); border-left: 3px solid var(--bougainvillea); border-radius: 3px; font-size: 16px; color: var(--ink-soft); max-width: none; box-shadow: var(--shadow); }
+  .notice strong { color: var(--ink); font-weight: 650; }
+  .notice p { margin: 0 0 12px; max-width: none; }
+  .notice p:last-child { margin: 0; }
+
+  nav.toc { display: none; position: sticky; top: 30px; align-self: start; font-size: 13px; line-height: 1.45; padding-top: 6px; }
+  nav.toc p { margin: 0 0 14px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  nav.toc a { color: var(--ink-soft); text-decoration: none; display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
+  nav.toc a span { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  nav.toc a:hover, nav.toc a:hover span { color: var(--aegean); }
+  nav.toc a:focus-visible, main a:focus-visible { outline: 2px solid var(--aegean); outline-offset: 3px; }
+
+  main { min-width: 0; }
+  section { margin-bottom: 58px; scroll-margin-top: 26px; }
+
+  h2 { font-size: 12px; letter-spacing: .17em; text-transform: uppercase; font-weight: 700; color: var(--aegean); margin: 0 0 6px; display: flex; align-items: baseline; gap: 12px; }
+  h2::before { content: attr(data-n); font-variant-numeric: tabular-nums; color: var(--ink-faint); font-weight: 600; }
+  .h2title { font-size: clamp(25px, 3.1vw, 31px); line-height: 1.2; letter-spacing: -.018em; font-weight: 700; margin: 0 0 24px; padding-bottom: 15px; border-bottom: 1px solid var(--rule); text-wrap: balance; }
+  h3 { font-size: 19px; line-height: 1.3; letter-spacing: -.01em; font-weight: 680; margin: 36px 0 12px; text-wrap: balance; }
+
+  p, li { max-width: none; }
+  p { margin: 0 0 17px; }
+  ul, ol { margin: 0 0 18px; padding-left: 22px; }
+  li { margin-bottom: 9px; }
+  li::marker { color: var(--ink-faint); }
+  strong { font-weight: 680; }
+  em { font-style: italic; color: var(--ink-soft); }
+
+  blockquote { margin: 0 0 22px; padding: 20px 24px; background: var(--raised); border: 1px solid var(--rule); border-radius: 3px; box-shadow: var(--shadow); font-size: 19px; line-height: 1.45; color: var(--ink); max-width: none; }
+  blockquote p { margin: 0; max-width: none; }
+  blockquote .opts { margin-top: 12px; font-size: 15px; color: var(--aegean); font-weight: 650; }
+
+  .tw { overflow-x: auto; margin: 0 0 24px; }
+  table { border-collapse: collapse; width: 100%; min-width: 460px; font-size: 15px; line-height: 1.5; }
+  th, td { text-align: left; padding: 11px 16px 11px 0; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; border-bottom: 1px solid var(--rule); padding-bottom: 9px; }
+  td:last-child, th:last-child { padding-right: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+  .num, .money td + td, .money td + td + td, .money td + td + td + td { font-variant-numeric: tabular-nums; }
+  tr.total td { border-top: 1px solid var(--rule); border-bottom: none; font-weight: 700; padding-top: 13px; }
+  tr.sub td { color: var(--ink-soft); }
+
+  .why { margin: 0 0 20px; padding: 15px 20px; border-left: 2px solid var(--olive); background: var(--rule-soft); border-radius: 0 3px 3px 0; font-size: 16px; color: var(--ink-soft); max-width: none; }
+  .why p { margin: 0 0 10px; max-width: none; }
+  .why p:last-child { margin: 0; }
+  .why b { color: var(--ink); font-weight: 650; }
+
+  .ask { border-left-color: var(--bougainvillea); }
+  .warn { border-left-color: var(--terracotta); }
+
+  .qlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .qlist li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; margin: 0; max-width: none; font-size: 16px; line-height: 1.5; }
+  .qlist li i { font-style: normal; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; color: var(--bougainvillea); background: var(--rule-soft); border-radius: 3px; height: 24px; display: grid; place-items: center; }
+
+  .headline { display: flex; flex-direction: column; gap: 18px; margin: 0 0 28px; }
+  .headline > div { padding: 18px 22px; background: var(--raised); border: 1px solid var(--rule); border-radius: 3px; box-shadow: var(--shadow); max-width: none; }
+  .headline h4 { margin: 0 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+  .headline p { margin: 0; font-size: 16px; color: var(--ink-soft); max-width: none; }
+  .headline .n { color: var(--bougainvillea); font-weight: 700; }
+
+  footer { margin-top: 16px; padding-top: 26px; border-top: 2px solid var(--rule); font-size: 16px; color: var(--ink-soft); max-width: 78ch; font-style: italic; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+
+  /* ---------- paragraph numbers ----------
+     Static markup, no scripting: every numbered block carries data-pn and
+     renders its number in the left margin for reference in comments. */
+  [data-pn] { position: relative; }
+  [data-pn]::before {
+    content: attr(data-pn);
+    position: absolute;
+    left: -62px;
+    width: 46px;
+    text-align: right;
+    font: 600 12px/1.9 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    opacity: .65;
+    user-select: all;
+  }
+  h3[data-pn]::before { line-height: 2.1; }
+  @media (max-width: 780px) {
+    .wrap { padding-left: 20px; }
+    [data-pn]::before { position: static; display: block; margin-bottom: 2px; text-align: left; width: auto; opacity: .8; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="mark"><span class="paw">🐾</span> Purr<span class="op">·opolis</span> &nbsp;·&nbsp; prepared for Syros Cats</p>
+    <h1>An app that maps every cat on the island</h1>
+    <p class="standfirst">What it does, who it's for, what we'd like your view on, and what it costs to run. A draft — nothing here is fixed.</p>
+    <div class="meta">
+      <span><b>For</b> — Syros Cats</span>
+      <span><b>Status</b> — Draft for comment</span>
+      <span><b>Date</b> — 28 July 2026</span>
+    </div>
+    <div class="notice">
+      <p><strong>Please argue with it.</strong> The sections most likely to be wrong are the ones where we've guessed at how you work — what you track about each cat, how your colonies are organised, how you want to hear about a sick animal. We would far rather rebuild a section now than build the wrong thing twice.</p>
+      <p><strong>Every block is numbered in the left margin.</strong> To comment, quote the number — “¶14: this is wrong because…”. Numbers stay stable unless the text itself changes.</p>
+      <p>One thing worth saying plainly: <strong>this app is only as useful to you as the data discipline behind it.</strong> A cat catalogue tourists enjoy is easy. A record you can put in a funding application is a different standard, and most of the careful design in here exists to reach it.</p>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#s1"><span>01</span> What it's for</a></li>
+      <li><a href="#s2"><span>02</span> Who uses it</a></li>
+      <li><a href="#s3"><span>03</span> Spotting a cat</a></li>
+      <li><a href="#s4"><span>04</span> What we know</a></li>
+      <li><a href="#s5"><span>05</span> Deciding what's true</a></li>
+      <li><a href="#s6"><span>06</span> Public contributions</a></li>
+      <li><a href="#s7"><span>07</span> Cats in trouble</a></li>
+      <li><a href="#s8"><span>08</span> Colonies &amp; feeders</a></li>
+      <li><a href="#s9"><span>09</span> Your team</a></li>
+      <li><a href="#s10"><span>10</span> Your impact</a></li>
+      <li><a href="#s11"><span>11</span> Mapping the island</a></li>
+      <li><a href="#s12"><span>12</span> Donations &amp; income</a></li>
+      <li><a href="#s13"><span>13</span> Recognising cats</a></li>
+      <li><a href="#s14"><span>14</span> Privacy</a></li>
+      <li><a href="#s15"><span>15</span> The app's name</a></li>
+      <li><a href="#s16"><span>16</span> Running costs</a></li>
+      <li><a href="#s17"><span>17</span> Over to you</a></li>
+      <li><a href="#s18"><span>18</span> Not building</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="s1">
+      <h2 data-n="01">Purpose</h2>
+      <p class="h2title">What the app is for</p>
+      <p data-pn="1">Syros has a large population of street cats and a small number of people working to care for them. The gap between those two facts is information: which cats exist, where they live, which have been sterilised, which need help, and where the next effort would do the most good.</p>
+      <p data-pn="2">There are thousands of people on the island every summer who like cats, carry a camera, and walk everywhere. The app turns that attention into a record.</p>
+      <p data-pn="3"><strong>For a spotter</strong>, it's a game: photograph a cat, find out whether it's one the island already knows, name it if it's new, collect the ones you've met, and see how you rank.</p>
+      <p data-pn="4"><strong>For a resident</strong>, it's recognition: the cat you've fed for six years gets a name, a page and a history, and you're on it.</p>
+      <p data-pn="5"><strong>For you</strong>, it's a census that maintains itself — cats, locations, photographs, dates, sterilisation status and welfare concerns, gathered by people who are enjoying themselves rather than working for you.</p>
+      <div class="why" data-pn="6"><p><b>The principle underneath everything:</b> spotting must stay effortless, or there is no data. Every operational feature in here is built so that it never gets between someone and their fun.</p></div>
+    </section>
+
+    <section id="s2">
+      <h2 data-n="02">People</h2>
+      <p class="h2title">Who uses it, and what they can do</p>
+      <p data-pn="7">Nobody needs an account to use the app. A spotter opens it and starts. Accounts exist only for people whose word needs to carry extra weight.</p>
+      <p data-pn="8">Everyone is a <strong>spotter</strong> — that's the base role, and every other role is added on top of it. A vet is a spotter who can also record surgery. We've deliberately not called it “visitor”, because a good many of the best spotters live here.</p>
+      <div class="tw">
+        <table data-pn="9">
+          <thead><tr><th>Role</th><th>Who</th><th>What's different for them</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Spotter</strong></td><td>Anyone</td><td>Spots cats, names new ones, contributes observations, collects and competes</td></tr>
+            <tr><td><strong>Resident</strong></td><td>Anyone who lives here</td><td>All of the above, plus claiming a cat as theirs</td></tr>
+            <tr><td><strong>Cat guardian</strong></td><td>A resident you've endorsed</td><td>Their word about their cats' condition carries weight; you hold their contact details</td></tr>
+            <tr><td><strong>Volunteer</strong></td><td>Invited by you</td><td>Records field observations, confirms what spotters report, responds to welfare reports</td></tr>
+            <tr><td><strong>Partner vet</strong></td><td>Invited by you</td><td>Records sterilisations and vaccinations as definitive</td></tr>
+            <tr><td><strong>Staff</strong></td><td>Syros Cats</td><td>Everything, plus colonies, broadcasts and reporting</td></tr>
+            <tr><td><strong>Admin</strong></td><td>You decide</td><td>Invites and removes people</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p data-pn="10"><strong>Invitations come from you.</strong> There is no way to sign up and declare yourself a vet. You send an invitation, the person accepts, and they hold that role until you remove it. If you remove it, everything they recorded stays — correctly attributed to them, at the time they recorded it.</p>
+      <p data-pn="11">Signing in doesn't put someone into a different app. It adds controls to the app they already have, so a volunteer standing in front of a cat can record what they see without going back to a desk.</p>
+    </section>
+
+    <section id="s3">
+      <h2 data-n="03">The core</h2>
+      <p class="h2title">Spotting a cat</p>
+      <p data-pn="12">Someone photographs a cat. The app compares that photograph against the cats it already knows and asks: <em>have we met this one before?</em></p>
+      <p data-pn="13">It shows the closest few matches with a plain-English reason for each — <em>“the white bib and the notch in the left ear match”</em> — and the person confirms one, or says it's nobody they recognise and gives the new cat a name. New names must be unique across the island, and a button suggests unused ones in whichever language they're using.</p>
+      <p data-pn="14">Confirming a known cat earns points. Naming a new one earns more. Points build streaks, badges and a leaderboard, and that machinery is doing real work: <strong>it's what makes someone photograph the fourth cat rather than stopping at the first.</strong></p>
+      <p data-pn="15"><strong>It all works with no signal.</strong> Syros has plenty of places with no coverage, and that's exactly where the cats are. Photographs, locations and the map itself work offline; anything waiting is submitted automatically when the phone finds a connection — and the sighting is dated to when the photograph was taken, not when it eventually uploaded.</p>
+    </section>
+
+    <section id="s4">
+      <h2 data-n="04">The record</h2>
+      <p class="h2title">What the app knows about each cat</p>
+      <p data-pn="16">Each cat has a page: photograph, name, a code like SYR-0042, where it's usually seen, everyone who's ever spotted it, and its history.</p>
+      <p data-pn="17"><strong>Appearance</strong> — colour, pattern, and distinguishing features like a white bib, a notched ear or a kinked tail. Chosen from lists rather than typed, so a Greek volunteer, a French tourist and an English one describing the same cat produce the same searchable record rather than three different words. It's also how the app can support the way people actually talk: <em>“the tortoiseshell by the bakery”</em> rather than <em>“SYR-0042”</em>.</p>
+      <p data-pn="18"><strong>Health and care</strong> — sterilised, ear-tipped, vaccinated, sex, age, pregnant or nursing, general condition, and sadly sometimes deceased.</p>
+      <p data-pn="19"><strong>Who looks after it</strong> — its guardian, if it has one, and where it lives.</p>
+      <p data-pn="20"><strong>How the cat lives.</strong> A simple status, because not every cat in the record is living the same kind of life:</p>
+      <div class="tw">
+        <table data-pn="21">
+          <thead><tr><th>Status</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Street</strong></td><td>Free-roaming, no regular carer</td></tr>
+            <tr><td><strong>Fed</strong></td><td>Free-roaming, but fed regularly by a guardian or at a feeding station &mdash; no owner</td></tr>
+            <tr><td><strong>In care</strong></td><td>Temporarily off the street &mdash; recovering from surgery, being treated, or with a carer</td></tr>
+            <tr><td><strong>Deceased</strong></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="why" data-pn="22"><p>This matters for more than tidiness. It stops the app inviting people to go and find a cat that's recovering indoors, and it lets you see at a glance how much of the island's population has someone keeping an eye on it &mdash; a different question from how much has been sterilised, and just as useful.</p></div>
+      <div class="why ask" data-pn="23"><p><b>We've kept all of this deliberately short.</b> If knowing something wouldn't change what anyone does, it isn't worth asking anyone to record it. If we've left out something you track, that's the single most useful correction you can give us.</p></div>
+    </section>
+
+    <section id="s5">
+      <h2 data-n="05">Trust</h2>
+      <p class="h2title">How the app decides what's true</p>
+      <p data-pn="24">This is the part we'd most like you to understand, because it's what makes the numbers defensible.</p>
+      <p data-pn="25">A tourist, a resident, a volunteer and a vet can all say something about the same cat, and they are not making the same kind of claim. <em>“I think I saw a clipped ear”</em> and <em>“I sterilised this cat on 14 May”</em> differ in kind, and if they overwrite each other in the same box, your figures become unciteable.</p>
+      <p data-pn="26">So <strong>nobody edits a cat's health status.</strong> People add observations — dated, attributed, often with the photograph that prompted them. The app works out the status from all of them, and always shows how sure it is:</p>
+      <div class="tw">
+        <table data-pn="27">
+          <thead><tr><th>Level</th><th>Means</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Confirmed</strong></td><td>Someone authoritative said so</td><td>Your vet recorded the operation</td></tr>
+            <tr><td><strong>Likely</strong></td><td>Several people independently agree</td><td>Three spotters have seen a clipped ear</td></tr>
+            <tr><td><strong>Reported</strong></td><td>One person, unconfirmed</td><td>A spotter thinks she may be pregnant</td></tr>
+            <tr><td><strong>Unknown</strong></td><td>Nobody has said</td><td>Most cats, at the start</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p data-pn="28">Authority is specific rather than general. A vet's word settles whether a cat has been sterilised and carries no special weight on where it sleeps. A guardian's word about their own cat's condition outranks a passing spotter's, and never outranks a vet's on surgery.</p>
+      <p data-pn="29"><strong>Nothing is ever deleted.</strong> A correction is added on top and the original stays visible. That's deliberate, for a reason you'll recognise: <strong>a cat with no ear-tip may well have been sterilised anyway.</strong> The record needs to show that being worked out, not quietly hide the disagreement.</p>
+      <p data-pn="30">Which leads to the rule we'd most like you to check:</p>
+      <blockquote data-pn="31"><p>An ear-tip that's visible is strong evidence a cat was sterilised. An ear-tip that isn't visible is evidence of almost nothing at all.</p></blockquote>
+      <div class="why warn" data-pn="32"><p>The app will never move a cat toward “not sterilised” because people can't see a clip — no matter how many people can't see it. Only you or a vet can say a cat hasn't been done. <b>Getting this the wrong way round would put every unclipped-but-sterilised cat on your trapping list</b> and send volunteers out for nothing, which is the worst thing this app could do to you.</p></div>
+    </section>
+
+    <section id="s6">
+      <h2 data-n="06">Contributions</h2>
+      <p class="h2title">How spotters help without being asked to do work</p>
+      <p data-pn="33">The app looks at each photograph and can often tell what colour a cat is, what pattern it has, and whether an ear looks clipped. So it proposes, and the person confirms:</p>
+      <blockquote data-pn="34">
+        <p data-pn="35"><em>One quick thing — is Agatha's ear clipped?</em></p>
+        <p class="opts" data-pn="36">Yes, clipped &nbsp;·&nbsp; No, looks whole &nbsp;·&nbsp; Can't tell</p>
+      </blockquote>
+      <p data-pn="37">One tap. “Can't tell” is a perfectly good answer and stops the app asking forever. It appears after they've earned their points, never before, and only ever one question at a time — never a form.</p>
+      <div class="why" data-pn="38"><p><b>Two safeguards worth knowing about.</b> The app's own guess is never recorded as fact on subtle things; it becomes a question. And where the app <i>has</i> suggested an answer, we record that it did — because five people agreeing with the same suggestion isn't the same as five people independently noticing something, and your sterilisation figure shouldn't treat them as if it were.</p><p>For plainly visible things like colour, the app records its own reading directly, because it's more reliable than a guess from someone who has never seen a tortoiseshell before.</p></div>
+    </section>
+
+    <section id="s7">
+      <h2 data-n="07">Welfare</h2>
+      <p class="h2title">Reporting a cat in trouble</p>
+      <p data-pn="39">Separate from the game, always available, never buried: <strong>this cat needs help.</strong> A photograph, the location, and a choice between <em>needs attention</em> and <em>urgent</em>.</p>
+      <p data-pn="40">Where these usually fail is the middle step — so urgent reports notify volunteers straight away rather than sitting in a list, and others go to whoever is nearest or covers that area. A volunteer marks it seen, acting or resolved — <strong>and the person who reported it is told what happened.</strong> Without that last step people stop reporting, and it costs almost nothing to include.</p>
+      <div class="why ask" data-pn="41"><p><b>We need your guidance on two things:</b> what should happen to an urgent report at two in the morning, and whether you want spotters to see that a report exists at all, or only the person who made it.</p></div>
+    </section>
+
+    <section id="s8">
+      <h2 data-n="08">Places</h2>
+      <p class="h2title">Colonies and the feeding network</p>
+      <p data-pn="42"><strong>Colonies.</strong> The app groups cats by where they're actually seen, and you name the groups. That way the names match the colonies you already talk about, and nothing has to be redrawn every time a cat moves. All the reporting groups by colony, because that's the unit you plan in.</p>
+      <p data-pn="43"><strong>Feeding sites.</strong> Where cats are fed — fixed stations or informal spots — which colony each serves, and what condition it's in.</p>
+      <div class="why" data-pn="44"><p>This is more useful than it sounds. Cats gather predictably where they're fed, so a map of feeding sites is a map of <b>where you can reliably find and trap the cats you need to sterilise.</b> A colony with no feeder is a welfare problem; a colony with three uncoordinated feeders is a different one.</p></div>
+      <p data-pn="45"><strong>Feeders.</strong> The people who provision those sites. You can record their name and contact details <strong>with their consent</strong>, recorded properly and withdrawable at any time.</p>
+      <div class="why warn" data-pn="46"><p><b>One thing we'd advise on, and want your view.</b> We think feeding sites and feeders should be visible to you and your volunteers, and <b>not to the public</b>. Two reasons. People who feed street cats sometimes get grief from neighbours, and publishing their locations hands that over. And known feeding sites attract abandonment — people leave unwanted cats and kittens where they know cats get fed, which makes your problem worse in exactly the places you're working hardest. You'll know better than us how real those risks are on Syros.</p></div>
+    </section>
+
+    <section id="s9">
+      <h2 data-n="09">Your team</h2>
+      <p class="h2title">What the app can do for your team</p>
+      <p data-pn="47">You'll go on running most of your work the way you run it now, and the app doesn't ask you to change that. What it can do is make some of it easier, using information it already holds &mdash; <strong>nothing here asks anyone to type something twice.</strong> Take up as much or as little of it as suits you, whenever it suits you.</p>
+      <p data-pn="48"><strong>Confirming what spotters find.</strong> The screen we'd expect gets used most is a list of cats where spotters have got most of the way there and one volunteer's confirmation would settle it, sorted by how close they are to you. This is the whole design earning its keep: hundreds of people do the finding, a handful of volunteers do the confirming. Realistically it's a few minutes of tapping that turns a summer of photographs into figures you can publish.</p>
+      <p data-pn="49"><strong>The day list.</strong> A volunteer opens the app and sees what's worth doing <em>here, today</em>: cats due a check, welfare reports assigned to them, and confirmations that would settle a colony's status. Nobody has to schedule any of it &mdash; the app works it out from what it already knows.</p>
+      <p data-pn="50"><strong>Trapping rounds.</strong> Choose a colony and the app can already tell you which cats aren't sterilised, where they're usually seen, which feeding site they use and when each was last seen. That's most of a target list, assembled without anyone compiling it.</p>
+      <p data-pn="51"><strong>Getting cats home.</strong> A sterilised cat has to go back exactly where it came from, and the app knows precisely where. It also works offline, which a note in a van on a clinic day tends not to &mdash; volunteers are outdoors more than visitors are, and often with worse signal.</p>
+      <p data-pn="52"><strong>What a cat has cost.</strong> Because vet visits are recorded against the cat they were for, the cost per cat adds up on its own. That's the figure funders ask for, and the one that makes &ldquo;&euro;60 sterilises a cat&rdquo; a fact rather than an estimate.</p>
+      <p data-pn="53"><strong>Institutional memory.</strong> Small organisations lose a great deal when a long-standing volunteer moves away. Anything recorded here survives that &mdash; rarely the reason anyone adopts something, and often the biggest benefit two years later.</p>
+      <p data-pn="54"><strong>What we won't build:</strong> accounting, payroll, stock control, or a general task system. You either have ways of doing these or don't need them, and each one would add something for you to maintain in exchange for very little.</p>
+      <div class="why warn" data-pn="55"><p><b>And two honest cautions.</b> Every feature here asks somebody to record something, so each one has to save more time than it costs &mdash; if it doesn't, don't use it, and tell us. And if any of your work does come to rest on this app, you should be able to get everything out of it in a usable form at any time, and carry on without it. We'd rather write that down now than have you discover it later.</p></div>
+    </section>
+
+    <section id="s10">
+      <h2 data-n="10">Impact</h2>
+      <p class="h2title">Reporting what you've achieved</p>
+      <p data-pn="56">Every figure the app produces carries its own confidence:</p>
+      <blockquote data-pn="57"><p>142 cats known · 89 confirmed sterilised · 23 likely · 30 unknown</p></blockquote>
+      <p data-pn="58">It's tempting to publish the round number. The honest one is stronger — a funder who can see the uncertainty trusts the total, and a spotter who sees 30 unknowns sees something they can personally help with.</p>
+      <p data-pn="59">Because every observation is dated and attributed, the app can answer <em>“how many cats did we sterilise between January and December”</em> rather than merely asserting it. That's exportable, with the method stated, for funding applications and annual reports.</p>
+      <p data-pn="60"><strong>For your own planning:</strong> sterilisation coverage colony by colony, which colonies are growing, which have no feeder, and — free of charge — which parts of Syros nobody has ever photographed. That last is both a gap in your data and something the app can actively send spotters to fill.</p>
+      <p data-pn="61"><strong>For press and supporters:</strong> milestones worth telling people about, like the hundredth cat, or a colony reaching full coverage.</p>
+    </section>
+
+    <section id="s11">
+      <h2 data-n="11">Reach</h2>
+      <p class="h2title">Getting the island mapped, and keeping people coming back</p>
+
+      <h3 data-pn="62">The problem we have to solve</h3>
+      <p data-pn="63">Collecting cats is a game that ends. Once someone has met the cats near them, the app has nothing left to ask — a few days for a visitor, sooner and permanently for a resident. So the app needs reasons to open it that aren't “find a new cat”.</p>
+      <p data-pn="64">Happily, the best of those reasons is something you need anyway.</p>
+      <div class="why" data-pn="65"><p><b>Checking on cats nobody has seen lately.</b> A cat unseen for two months is a question; six months is a welfare concern. So the app starts asking: <i>“Nobody has seen Kyra since April — she's usually near the fish market.”</i> That never runs out, it's genuinely useful to you, and it changes the app from a collection someone finishes into a patch they look after. <b>If we build one thing for engagement, it's this one.</b></p></div>
+      <p data-pn="66"><strong>Telling people what happened to their cats.</strong> <em>“Agatha, the cat you named in June, was sterilised last week.”</em> This is the only thing that works after someone has gone home — the whole post-trip relationship, and, not coincidentally, the honest moment to mention donating.</p>
+      <p data-pn="67"><strong>Going where nobody has been.</strong> For anyone staying long enough to be systematic, the coverage map turns a walk into a contribution.</p>
+
+      <h3 data-pn="68">Families staying longer — the Boundless Life cohort</h3>
+      <p data-pn="69">Groups like the Boundless Life families are, we think, <strong>the only people who can actually map the island.</strong> A visitor has four days and stays near the harbour; a resident walks the same three streets. A family here for one to three months, with children who have structured time and no fixed itinerary, can systematically cover Ano Syros, Vari, Galissas and Kini — exactly the places nobody photographs. And because those cohorts arrive continuously, each intake is a fresh wave of mappers rather than a one-off push.</p>
+      <p data-pn="70">It's also where the teaching side of the app becomes serious rather than decorative — which is the next part.</p>
+
+      <h3 data-pn="71">What the app teaches</h3>
+      <p data-pn="72">Not trivia. A short curriculum in seven strands, written so a visitor absorbs it in one-line pieces while spotting, and a class can work through it properly.</p>
+      <div class="tw">
+        <table data-pn="73">
+          <thead><tr><th>Strand</th><th>What it covers</th></tr></thead>
+          <tbody>
+            <tr><td><strong>1 · Reading a cat</strong></td><td>Colours and patterns, and why almost every tortoiseshell is female. What an ear-tip means. Body language — a flat ear, a slow blink, a twitching tail, and what each is telling you.</td></tr>
+            <tr><td><strong>2 · Life in a colony</strong></td><td>What a colony is and how it's organised. Territory, who eats first, where cats sleep, why they are where they are.</td></tr>
+            <tr><td><strong>3 · Why sterilisation works</strong></td><td>The arithmetic of one unsterilised female and her descendants over five years — a number that shocks people, and does more persuading than any appeal. Why trap-neuter-return is kinder and more effective than removing cats. What happens at the clinic, and why the ear is tipped.</td></tr>
+            <tr><td><strong>4 · Being around a street cat</strong></td><td>How to approach one, when not to, why not to pick one up — and why not to feed them, which gets its own treatment below.</td></tr>
+            <tr><td><strong>5 · When a cat needs help</strong></td><td>Eye infections, mange, wounds, limping, pregnancy, kittens. The difference between a cat that is thin and a cat that is ill. Who to tell, and how.</td></tr>
+            <tr><td><strong>6 · The cats of Syros</strong></td><td>Ermoupoli, Ano Syros, Vari, the harbour — how the island's cats live differently in different places, and why.</td></tr>
+            <tr><td><strong>7 · Being a scientist</strong></td><td>Why a date and a place turn a photograph into evidence. Why “can't tell” is a good answer. How what you record becomes the thing that funds the next round of sterilisations.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 data-pn="74">The feeding nudge, at the moment it matters</h3>
+      <p data-pn="75">Someone standing in front of a hungry cat holding half a sandwich is the only audience that will ever really take this in, so that is where it's said — briefly, at the point of spotting, with the reasons a tap away:</p>
+      <ul data-pn="76">
+        <li>Human food makes cats ill. Cats can't digest milk, and salty or processed food does real harm.</li>
+        <li>Food left out draws rats and gulls, and causes trouble with neighbours and businesses — which makes life harder for the cats, not easier.</li>
+        <li>Cats crowding at an unmanaged food source pass disease to each other.</li>
+        <li>It pulls cats towards roads and busy tourist areas.</li>
+        <li><strong>You run proper feeding, with the right food in the right places.</strong> The most useful thing a visitor can do is support that — and the app says so, at exactly that moment.</li>
+      </ul>
+
+      <h3 data-pn="77">Three ways it reaches people</h3>
+      <ul data-pn="78">
+        <li><strong>While spotting</strong> — one line at a time, chosen for the cat in front of them. Most people will only ever meet the curriculum this way, and that's fine.</li>
+        <li><strong>A field guide</strong> — the whole thing, browsable, filling in as someone meets the cats that illustrate it.</li>
+        <li><strong>Cat School</strong> — the seven strands as a proper short course with a quiz and a certificate, for Boundless cohorts and school groups.</li>
+      </ul>
+
+      <h3 data-pn="79">Why an education programme should want this</h3>
+      <p data-pn="80">The material is genuinely cross-curricular, which makes it easy for a teacher to justify:</p>
+      <div class="tw">
+        <table data-pn="81">
+          <thead><tr><th>Subject</th><th>What the cats teach</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Maths</strong></td><td>Exponential growth, from one unsterilised female; percentages and coverage</td></tr>
+            <tr><td><strong>Biology</strong></td><td>Coat-colour genetics — tortoiseshells are a textbook example; disease and ecology</td></tr>
+            <tr><td><strong>Geography</strong></td><td>Surveying, mapping, and finding the gaps</td></tr>
+            <tr><td><strong>Data literacy</strong></td><td>Evidence, confidence, and being honest about uncertainty</td></tr>
+            <tr><td><strong>Citizenship</strong></td><td>Animal welfare and shared responsibility for a place</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="why ask" data-pn="82"><p><b>What we need from you here</b> isn't whether to teach, but whether we've got it <i>right</i> — the sterilisation arithmetic, the welfare guidance, and anything on that list you'd say differently. It's your expertise being passed to several hundred families a year, so it should sound like you.</p></div>
+      <p data-pn="83"><strong>And the occasional joke.</strong> Light, rare, and in the spaces where nothing else is happening. Written separately in each language, because a pun that works in English is not a pun in Greek.</p>
+
+      <h3 data-pn="84">Rewarding the right things</h3>
+      <p data-pn="85">Points aren't decoration; they steer behaviour. So they point at what you need.</p>
+      <div class="why warn" data-pn="86"><p><b>Recognising a known cat is worth nearly as much as naming a new one.</b> This matters more than it sounds: if discovery paid much better, people would effectively be paid to declare cats unknown — and every duplicate makes your island count, your sterilisation percentage and your trapping list wrong. The gap stays deliberately small.</p></div>
+      <p data-pn="87"><strong>Points follow need.</strong> The app knows which cats haven't been seen in months, which have unknown health, and which areas are unsurveyed — so those are worth more, with the reason shown. In effect <strong>the scoring is your task list</strong>, and people chasing points do work you'd otherwise be asking volunteers to do.</p>
+      <p data-pn="88">There's recognition for being <em>accurate</em> rather than merely busy — someone whose reports your volunteers keep confirming visibly earns standing — and time-limited leaderboards, so a visitor arriving in August is playing for something they can actually win.</p>
+
+      <h3 data-pn="89">Other things worth doing</h3>
+      <p data-pn="90">Ideas we'd like your view on:</p>
+      <ul data-pn="91">
+        <li><strong>Coverage map</strong> — showing where nobody has looked, so a walk becomes a contribution.</li>
+        <li><strong>Neighbourhood challenges</strong> — <em>“Ano Syros: 12 cats known, probably many more.”</em></li>
+        <li><strong>Seasonal pushes</strong> — a census weekend, promoted with you.</li>
+        <li><strong>QR codes in cafés, hotels and on ferries</strong>, so the app is discoverable at the moment someone is looking at a cat. Cheap, and probably the highest-yield thing on this list.</li>
+        <li><strong>Cat-friendly business partners</strong> — venues that display the app and appear in it.</li>
+        <li><strong>A souvenir</strong> — at the end of a trip, “the cats you met on Syros”, shareable, and something they can order printed and posted home (section 12).</li>
+        <li><strong>Telling visitors what happened next</strong> — <em>“Agatha, the cat you met in June, has been sterilised.”</em> We think this is the strongest retention idea in the app, and the most natural moment to ask for a donation.</li>
+        <li><strong>Schools and local groups</strong> — the app is a decent teaching tool about street animal welfare.</li>
+        <li><strong>Recruiting from your best contributors</strong> — someone who has photographed sixty cats is a volunteer waiting to be asked.</li>
+      </ul>
+    </section>
+
+    <section id="s12">
+      <h2 data-n="12">Giving</h2>
+      <p class="h2title">Donations and other income</p>
+      <p data-pn="92"><strong>When you ask matters more than how.</strong> The strongest moment by a distance is <em>after</em> someone has gone home and learns their cat was helped — the outcome comes first and the ask follows it. Second is the end of a trip, alongside “the 14 cats you met on Syros”. A donate button on its own is the weakest option, because it asks in the abstract.</p>
+
+      <h3 data-pn="93">A ladder of outcomes, not a row of amounts</h3>
+      <p data-pn="94">Each rung says what it buys, so even the smallest gift is a specific act:</p>
+      <div class="tw">
+        <table data-pn="95">
+          <thead><tr><th>Amount</th><th>Buys</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="num"><strong>€1</strong></td><td>Feeds a cat for a day</td><td>Almost no friction — anyone can</td></tr>
+            <tr><td class="num"><strong>€7</strong></td><td>Feeds a cat for a week</td><td></td></tr>
+            <tr><td class="num"><strong>€25</strong></td><td>A week's petrol for your volunteers</td><td>Funds the work, not just the cat</td></tr>
+            <tr><td class="num"><strong>€50–60</strong></td><td>Sterilises one cat</td><td>The headline</td></tr>
+            <tr><td class="num"><strong>€120</strong></td><td>Sterilises two</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="why" data-pn="96"><p>The ladder matters more than any single rung. A €60 ask converts a few people and loses the rest in silence; a €1 ask converts almost anyone and begins a relationship. <b>The first donation's job is to make the second one possible.</b></p></div>
+      <p data-pn="97">We'd keep the petrol tier distinct, because it funds <em>your volunteers</em> rather than the cats — the unglamorous cost nobody normally offers to cover, and one some donors specifically prefer.</p>
+      <p data-pn="98"><strong>One practical note on the €1 tier.</strong> Card processing takes a fixed fee per payment, so a single €1 donation loses a large share of itself. The fix isn't to drop it — it converts best — but to sell the outcome and bill it sensibly: <em>“feed a cat for a month, €30”</em> is one payment, keeps the €1-a-day framing, and gives you regular income instead of a one-off.</p>
+
+      <h3 data-pn="99">Alongside the ladder</h3>
+      <ul data-pn="100">
+        <li><strong>Sponsor a sterilisation</strong> — the strongest single product, because it's specific: someone pays for a named cat's operation and is later told it happened. You cannot buy that kind of connection to a donor. And because €50–60 is a decision rather than an impulse, <strong>letting several people co-fund one cat matters</strong>: <em>“Agatha's sterilisation — €38 of €60, 4 supporters”</em> lets someone give €10 and still be part of a specific outcome.</li>
+        <li><strong>Sponsor a cat monthly</strong> — attached to a specific animal, with updates as it's spotted.</li>
+        <li><strong>Give it as a gift</strong> — a sterilisation in someone's name; works for Christmas and for “in memory of”.</li>
+        <li><strong>Ways to help that aren't money</strong> — sharing, volunteering, adopting. Some of the most committed users have the least to give, and we don't want to waste them.</li>
+        <li><strong>Show where it went</strong> — every euro tied back to cats in the record.</li>
+      </ul>
+      <div class="why warn" data-pn="101"><p><b>One principle we'd hold firmly: money never buys points.</b> Donors get thanked and recognised, never ranked. The moment giving moves someone up a leaderboard, the leaderboard stops measuring who helped and starts measuring who paid.</p></div>
+
+      <h3 data-pn="102">Souvenirs, printed and posted home</h3>
+      <p data-pn="103">A second income stream that asks nobody to donate.</p>
+      <p data-pn="104">At the end of a trip, someone can order a keepsake of a cat they actually met — a fridge magnet, a mug, a set of postcards, a small framed print, or a calendar of the twelve cats they met — printed and delivered to their home address. They pay for a thing they want; <strong>the margin goes to you.</strong></p>
+      <div class="why" data-pn="105"><p><b>What makes it a souvenir rather than a photo print</b> is that it carries the record: the cat's name, its catalogue code, the date and the place they met it, and who spotted it. <i>Loukoumi · SYR-0042 · Ano Syros · 14 June 2026.</i> Nobody else can sell that, because nobody else has it.</p></div>
+
+      <p data-pn="106"><strong>Three ways the money could work:</strong></p>
+      <div class="tw">
+        <table data-pn="107">
+          <thead><tr><th>Model</th><th>How</th><th>Trade-off</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Markup</strong></td><td>A print-on-demand company prints and ships; we add a margin that comes to you</td><td>Simplest. No stock, no risk, predictable per-item income</td></tr>
+            <tr><td><strong>Charity partnership</strong></td><td>Some printers run charity schemes with a set commission</td><td>Less to manage, less control over margin</td></tr>
+            <tr><td><strong>Your own shop</strong></td><td>You buy, hold and ship</td><td>Best margin, but it makes you a retailer — VAT, returns, packing, complaints</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p data-pn="108"><strong>We'd recommend the markup model</strong>, with the printing company as the seller of record. That keeps returns, tax and customer service with them, and keeps you a charity rather than a shop.</p>
+
+      <p data-pn="109"><strong>What matters when choosing the company:</strong></p>
+      <ul data-pn="110">
+        <li><strong>Printing inside the EU</strong>, so a European visitor's order doesn't cross a customs border — cheaper, faster, and no unexpected import charges landing on a supporter.</li>
+        <li><strong>An interface we can connect to</strong>, so a mug of a specific cat can be created automatically rather than by hand.</li>
+        <li><strong>Good quality on small items</strong> — magnets and mugs, not just posters.</li>
+        <li><strong>They are the seller</strong>, not you.</li>
+        <li><strong>Decent environmental credentials</strong>, which this audience will notice.</li>
+      </ul>
+      <p data-pn="111">Several established companies meet all of that. We'd shortlist and test print quality with real cat photographs before committing, since a disappointing magnet reflects on you rather than on them.</p>
+
+      <div class="why ask" data-pn="112"><p><b>Whose photograph is it?</b> The person who took a photo owns it. So souvenirs should use <b>your own photograph</b> of a cat by default — which is also the better souvenir, since it's the moment <i>you</i> met her. If someone wants a cat they've met but not photographed well, the app's terms would need to cover using the catalogue picture, agreed up front rather than assumed.</p><p><b>How large can we print?</b> Photographs are held at a size comfortable for magnets, mugs, postcards and small prints, and marginal for anything poster-sized. If large prints matter to you, the app should keep a higher-resolution copy from the outset — cheap now, impossible retrospectively.</p></div>
+
+      <p data-pn="113"><strong>Keep it quiet.</strong> A shop that shouts undermines the feeling that this is a charity's app. One tasteful offer at the end of a trip, and on a cat's page for someone who's already fond of her.</p>
+      <div class="why warn" data-pn="114">
+        <p data-pn="115"><b>Three practical warnings.</b></p>
+        <p data-pn="116">Card processing takes a small percentage and a fixed fee per transaction, so very small donations lose a disproportionate amount — worth setting sensible minimums.</p>
+        <p data-pn="117"><b>Apple and Google take a substantial cut of anything bought inside an app</b>, and getting charitable donations treated correctly means following their rules precisely — usually with donations happening outside the app itself. Done carelessly, this gets the app rejected from the stores.</p>
+        <p data-pn="118">And you'd need to tell us how donations reach you, and what receipts Greek charity rules require.</p>
+      </div>
+    </section>
+
+    <section id="s13">
+      <h2 data-n="13">Recognition</h2>
+      <p class="h2title">Telling one cat from another</p>
+      <p data-pn="119">The app compares a new photograph against cats it already knows. This matters more than it appears: <strong>if the same cat gets registered three times, every number in section 10 is wrong</strong> — the island count, the sterilisation proportion, and the list of cats you think still need trapping.</p>
+      <p data-pn="120">So it's built to be checkable rather than taken on faith. Every time someone confirms a match, they are effectively saying “yes, these two photographs are the same cat” — which gives a growing body of human-verified answers to test the recognition against, and to keep testing it as the catalogue grows. <strong>We will always be able to tell you how accurate it is</strong>, rather than assuring you that it works.</p>
+      <p data-pn="121">The app also gives itself a visual memory of every cat on the island, so a cat that has wandered to the other side of Ermoupoli is still recognised — matching on what a cat looks like rather than only on where it was last seen.</p>
+      <div class="why" data-pn="122"><p><b>One honest limitation:</b> a great many Greek street cats are tabbies who genuinely look alike, and some pairs will defeat any system. The app is designed to say “I'm not sure” clearly rather than guess, and to let a person settle it.</p></div>
+    </section>
+
+    <section id="s14">
+      <h2 data-n="14">Privacy</h2>
+      <p class="h2title">Looking after people's data</p>
+      <p data-pn="123">For ordinary users the app deliberately knows almost nothing about anybody — no names, no emails, no accounts. But the roles in section 2 do involve holding personal details, and that should be decided deliberately rather than by accident.</p>
+      <p data-pn="124"><strong>What would be stored about people:</strong> guardians' addresses, and optionally their names and contact details. Feeders' names and contact details, with consent. Volunteer and vet accounts.</p>
+      <p data-pn="125"><strong>Who sees it:</strong> you and your team. None of it appears anywhere in the public app, which continues to show only chosen display names.</p>
+      <p data-pn="126"><strong>This is personal data under GDPR</strong>, which means a stated purpose, a proper basis, real deletion when someone asks, and a retention limit. Entirely normal for a charity to hold — but it needs a decision, not a form field.</p>
+      <div class="why ask" data-pn="127"><p><b>Something we should decide together.</b> The app shows where each cat lives. For most cats that's harmless and useful. Wildlife apps routinely blur locations for animals that could be harmed by people knowing where they are, and poisoning incidents are not unknown in Greece. We can show approximate locations rather than exact ones for any cat you flag. <b>Do you want that, and for which cats?</b></p><p>Also worth your view: photographs taken in public sometimes include people in the background, and children use apps like this. Both are manageable; both are easier handled by choice than by complaint.</p></div>
+    </section>
+
+    <section id="s15">
+      <h2 data-n="15">Naming</h2>
+      <p class="h2title">What the app should be called</p>
+
+      <p data-pn="128">Worth settling before anything is published, because an app store name is painful to change once people have started recommending it to each other. Two candidates are in play: a descriptive one — <em>Cats of Syros</em>, in whichever language — and a brand, <em>Purropolis</em>.</p>
+
+      <h3 data-pn="129">What a good name has to do here</h3>
+      <ul data-pn="130">
+        <li><strong>Work in Greek, English and French</strong> — not merely translate, but land. The app is properly trilingual and the name shouldn't be the one part that isn't.</li>
+        <li><strong>Be findable.</strong> Someone typing “Syros” or “cats” into an app store should find it. This argues for a descriptive name.</li>
+        <li><strong>Be memorable and repeatable.</strong> Someone in a café should be able to tell a stranger what to search for. This argues against a descriptive name.</li>
+        <li><strong>Survive success.</strong> If this works on Syros, it works on Paros, Naxos or anywhere else with street cats and visitors. A name with “Syros” in it has to be thrown away the first time that happens.</li>
+      </ul>
+      <p data-pn="131">The findable/memorable tension has a standard resolution: <strong>a brand name plus a descriptive subtitle.</strong> Both app stores support exactly this — a short name and a separate subtitle line — so we can have “Purropolis” for the memory and “Cats of Syros” for the search, without choosing.</p>
+
+      <h3 data-pn="132">The recommendation: one joke, remade in three languages</h3>
+      <p data-pn="133"><em>Purropolis</em> is <strong>purr</strong> + <strong>-opolis</strong>, the Greek for city. It has a lovely local accident built into it: Syros's own capital is <strong>Ερμούπολη</strong> — Ermoupoli, “Hermes' city”. A cat-city named the same way sits naturally on this island in a way it wouldn't anywhere else.</p>
+      <p data-pn="134">But the pun only half-survives translation. “Purr” means nothing in Greek — the Greek for purring is <em>γουργουρητό</em> — so a Greek speaker gets the “city” and misses the cat. The same is true in French.</p>
+      <p data-pn="135">So rather than transliterating one name into three alphabets, <strong>we'd remake the same joke in each language</strong>, keeping one shape:</p>
+      <div class="tw">
+        <table data-pn="136">
+          <thead><tr><th>Language</th><th>Name</th><th>The joke</th></tr></thead>
+          <tbody>
+            <tr><td>English</td><td><strong>Purropolis</strong></td><td>purr + city</td></tr>
+            <tr><td>Greek</td><td><strong>Γατούπολη</strong></td><td>γάτα (cat) + -ούπολη — exactly the Ερμούπολη pattern</td></tr>
+            <tr><td>French</td><td><strong>Ronronopolis</strong></td><td>ronron (purr) + city</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="why ask" data-pn="137"><p><b>Γατούπολη is the strongest of the three</b> and we'd want your ear on it, because it's the one that has to be right. It's the pun a Greek would actually make, it echoes Ermoupoli directly, and it needs no explanation to anyone on the island.</p></div>
+      <p data-pn="138">This costs nothing extra: both app stores let you set a different name per language, and the app already translates everything else. The wordmark is set in type rather than drawn as a logo, so it can be set in Greek script just as easily as Latin.</p>
+
+      <h3 data-pn="139">What we'd need to check</h3>
+      <p data-pn="140">Trademark conflicts and domain availability for whichever name is chosen, and — the reason this section exists at all — <strong>whether Γατούπολη actually sounds good to Greek speakers, or slightly silly in a way we can't hear.</strong> Please tell us honestly; it's much cheaper to hear now.</p>
+
+      <div class="why warn" data-pn="141"><p><b>One thing to avoid: not “Syros Cats”.</b> That's your name, and an app carrying it would imply the app <i>is</i> you — which matters if it ever gets something wrong, and matters more if it ever operates somewhere you don't.</p></div>
+    </section>
+
+    <section id="s16">
+      <h2 data-n="16">Money</h2>
+      <p class="h2title">What it costs to run</p>
+      <p data-pn="142">These are <strong>running costs only</strong> — the ongoing bill to keep the app working. Development effort is separate.</p>
+
+      <h3 data-pn="143">The assumptions</h3>
+      <p data-pn="144">Each photograph is stored at about 400 KB after processing, at three levels of activity:</p>
+      <div class="tw">
+        <table data-pn="145">
+          <thead><tr><th>Level</th><th>Sightings per month</th><th>Roughly</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Quiet</strong></td><td class="num">900</td><td>30 a day</td></tr>
+            <tr><td><strong>Growing</strong></td><td class="num">3,600</td><td>120 a day</td></tr>
+            <tr><td><strong>Busy</strong></td><td class="num">12,000</td><td>400 a day, in summer</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 data-pn="146">Where the money actually goes</h3>
+      <div class="headline" data-pn="147">
+        <div>
+          <h4><span class="n">1.</span> The photo-recognition is most of the bill, not the hosting</h4>
+          <p data-pn="148">Every time someone spots a cat, the app compares that photograph against known cats using an AI service, and that comparison is charged for. At the <em>Growing</em> level it comes to about <strong>$76 a month</strong> — more than the hosting. At <em>Busy</em>, around <strong>$250</strong>. This is why the app's own visual memory matters financially as well as for accuracy: comparing fingerprints rather than sending photographs off for inspection cuts the cost by more than half, and far further once the comparison happens on the phone. It is the single largest cost decision in the project.</p>
+        </div>
+        <div>
+          <h4><span class="n">2.</span> Where photographs are kept is the only cost that grows forever</h4>
+          <p data-pn="149">Photographs can live inside the database or in ordinary file storage, and the difference is about <strong>65 times</strong>. In the database they'd cost roughly $30 a month in year one, $60 in year two and $90 in year three, for pictures nobody is looking at; in file storage that's a rounding error. The figures below assume file storage except where noted.</p>
+        </div>
+        <div>
+          <h4><span class="n">3.</span> Volunteer accounts are free</h4>
+          <p data-pn="150">The sign-in service covers up to 50,000 people at no cost. Your volunteer list will never come close.</p>
+        </div>
+      </div>
+
+      <h3 data-pn="151">The three options compared</h3>
+      <p data-pn="152">All figures monthly, at the <em>Growing</em> level, in year one.</p>
+      <div class="tw">
+        <table class="money" data-pn="153">
+          <thead><tr><th></th><th>Replit</th><th>Supabase</th><th>Amazon</th></tr></thead>
+          <tbody>
+            <tr class="sub"><td>Server</td><td>$20</td><td>~$10</td><td>~$15</td></tr>
+            <tr class="sub"><td>Database</td><td>$30 <em>(if photos live here, and rising)</em></td><td>$25 <em>(storage included)</em></td><td>~$14</td></tr>
+            <tr class="sub"><td>Photo storage</td><td><em>in the database</em></td><td><em>included</em></td><td>~$2</td></tr>
+            <tr class="sub"><td>Delivering photos</td><td>included</td><td>included</td><td>~$3</td></tr>
+            <tr class="sub"><td>Sign-in, maps, notifications</td><td>free</td><td>free</td><td>free</td></tr>
+            <tr><td><strong>Running the app</strong></td><td><strong>~$50</strong></td><td><strong>~$35</strong></td><td><strong>~$34</strong></td></tr>
+            <tr class="sub"><td>AI recognition</td><td>$76</td><td>$76</td><td>$76</td></tr>
+            <tr class="total"><td>Total</td><td>~$126</td><td>~$111</td><td>~$110</td></tr>
+            <tr class="sub"><td>The same, in year three</td><td>~$190</td><td>~$115</td><td>~$120</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="why" data-pn="154"><p><b>What this actually tells us.</b> The three options sit within about $15 a month of each other, and the AI recognition is more than half of every one of them. <b>Which company hosts the app is not where the money is.</b> The recognition approach and where photographs are kept are — together those take the <i>Growing</i> bill from about $126 to somewhere near <b>$45</b>, on any of the three.</p></div>
+
+      <p data-pn="155"><strong>In character, briefly.</strong> <em>Replit</em> is the least work to run, but it charges database rates for photograph storage, which is why its bill keeps climbing while the others stay flat. <em>Supabase</em> is the best fit: it bundles database, file storage and sign-in into one predictable charge, its included allowances cover years of photographs, and it needs no specialist to run — it's what we'd recommend. <em>Amazon</em> is marginally cheaper at scale and by far the most flexible, but it's several services to configure and keep secure, and for an organisation without technical staff that flexibility is a liability rather than a feature.</p>
+
+      <p data-pn="156"><strong>Not included above:</strong> Apple charges $99 a year for an app store account and Google a one-off $25; a domain name is about $15 a year; and if donations are added, card processing takes a percentage. Call it $150 a year of fixed extras.</p>
+
+      <p data-pn="157"><strong>One thing to watch:</strong> the offline maps use free public map data, which has usage rules a popular app can bump into. If the app takes off, a paid map provider costs roughly $10–50 a month and removes the risk.</p>
+    </section>
+
+    <section id="s17">
+      <h2 data-n="17">Over to you</h2>
+      <p class="h2title">What we need from you</p>
+      <p data-pn="158">The questions where your answer changes what we build:</p>
+      <ol class="qlist" data-pn="159">
+        <li><i>01</i><span><strong>What do you actually track about each cat today?</strong> If there's a spreadsheet, its column headings beat anything we've guessed in section 4.</span></li>
+        <li><i>02</i><span><strong>Should the feeding map be private to your team?</strong> We think yes — section 8.</span></li>
+        <li><i>03</i><span><strong>How should an urgent welfare report reach you, and what happens out of hours?</strong></span></li>
+        <li><i>04</i><span><strong>Do your colonies have fixed names</strong> we should use?</span></li>
+        <li><i>05</i><span><strong>Do you have existing sterilisation records</strong> we could load in, so the app starts with your history rather than from zero?</span></li>
+        <li><i>06</i><span><strong>Who is responsible for the personal data</strong> the app would hold — you, as the organisation it's collected for?</span></li>
+        <li><i>07</i><span><strong>How long should contact details be kept</strong>, and what happens when someone stops volunteering?</span></li>
+        <li><i>08</i><span><strong>Should any cats' locations be shown only approximately?</strong></span></li>
+        <li><i>09</i><span><strong>How do donations reach you</strong>, and what do Greek charity rules require by way of receipts?</span></li>
+        <li><i>10</i><span><strong>Which engagement ideas in section 11 are worth your time</strong> — particularly QR codes in cafés and hotels, which needs your local relationships more than our software.</span></li>
+        <li><i>11</i><span><strong>What would you want children taught</strong> through the app — the welfare and sterilisation messages you'd most want a hundred visiting families to go home understanding?</span></li>
+        <li><i>12</i><span><strong>Are the donation amounts right?</strong> We've assumed €1 feeds a cat for a day, €25 covers a week's petrol, and €50–60 sterilises one. Correct any of those and we'll rebuild the ladder around your figures.</span></li>
+        <li><i>13</i><span><strong>Does Γατούπολη sound right to a Greek ear</strong>, or slightly silly in a way we can't hear? Section 15 — the one question where we most need a native speaker.</span></li>
+        <li><i>14</i><span><strong>Have we got the teaching right?</strong> Section 11 — particularly the sterilisation arithmetic and the welfare guidance. It's your expertise reaching several hundred families a year, so it should sound like you.</span></li>
+        <li><i>15</i><span><strong>How does a day's work actually go</strong> for one of your volunteers? Section 9 is built from what the app can know, not from watching anyone work, and an hour of the latter would improve it more than anything else in this document.</span></li>
+        <li><i>16</i><span><strong>How large should souvenirs print?</strong> Section 12 — if you'd want posters and large prints as well as magnets and mugs, we need to keep bigger photographs from the start. Cheap now, impossible later.</span></li>
+      </ol>
+    </section>
+
+    <section id="s18">
+      <h2 data-n="18">Boundaries</h2>
+      <p class="h2title">What we're deliberately not building</p>
+      <p data-pn="160">So expectations are clear:</p>
+      <ul data-pn="161">
+        <li><strong>A full trap-neuter-return case management system</strong> — no trap scheduling, clinic capacity planning or detailed medical histories. The app records what happened to a cat; it doesn't run your operations.</li>
+        <li><strong>A system to run your organisation.</strong> The app can make parts of your work easier using what it already knows. It is not accounting, payroll, stock control or a task manager, and it doesn't expect you to change how you work.</li>
+        <li><strong>Public sign-up.</strong> Ordinary users stay anonymous, permanently. It's what keeps the app effortless.</li>
+        <li><strong>Anything that asks a spotter to do admin.</strong> Every contribution is one tap, optional, and after they've had their fun.</li>
+        <li><strong>A veterinary record system.</strong> Vets record outcomes here; their own systems remain their own.</li>
+      </ul>
+      <footer>This is a draft and we expect it to change. Please mark up anything that's wrong, missing, or more complicated in practice than it looks on paper — particularly sections 4, 7, 8, 9 and 11, where we've been guessing at how you work.</footer>
+    </section>
+
+  </main>
+</div>
+
+
+
+
+
+
