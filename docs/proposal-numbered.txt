@@ -2,345 +2,425 @@ Purropolis proposal - numbered blocks
 Reference these numbers when commenting, e.g. "14: this is wrong because..."
 ========================================================================
 
-   1  Syros has a large population of street cats and a small number of people working to care for them. The gap between those two facts is information: which cats exist, where they live, which have been sterilised, which need help, and where the next effort would do the most good.
+   1  Syros has a large population of street cats and a small number of people working to care for them. The gap between those two facts is information. Nobody currently knows which cats exist, where they live, which of them have been sterilised, which need help, or where the next effort would do the most good.
 
-   2  There are thousands of people on the island every summer who like cats, carry a camera, and walk everywhere. The app turns that attention into a record.
+   2  There are thousands of people on the island every summer who like cats, carry a camera and walk everywhere. This app turns that attention into a record.
 
-   3  For a visitor , it's a game: photograph a cat, find out whether it's one the island already knows, name it if it's new, collect the ones you've met, and see how you rank.
+   3  The people it is built for
 
-   4  For a resident , it's recognition: the cat you've fed for six years gets a name, a page and a history, and you're on it.
+   4  Visitors experience it as a game. They photograph a cat, find out whether it is one the island already knows, name it if it is new, collect the ones they have met, and see how they rank against other people.
 
-   5  For Syros Cats and its volunteers , it is none of those things. It is a working record and a tool: which cats are sterilised, which colonies need attention, which animal somebody has just reported as injured, and what you can put in front of a funder at the end of the year. Nobody on your team is using this app for entertainment, and it is not designed as though they were.
+   5  Residents experience it as recognition. The cat somebody has fed for six years gets a name, a page and a history, and the person who feeds it is named on that page.
 
-   6  The app therefore serves two audiences with opposite needs. For the public it has to be effortless, or they stop and there is no data at all. For your team it has to be dependable, precise and quick to work with. Where the two pull against each other, we keep the public side effortless, because everything your team gets out of the app depends on the public putting things into it.
+   6  Families staying for a season , such as those who come to the island with Boundless Life, are a distinct group and matter more than their numbers suggest. They are here for one to three months rather than four days, they range far beyond the harbour, and their children have structured time. They are the group most likely to reach the parts of Syros that short-stay visitors never walk through.
 
-   7  Worth settling early, because an app store name is painful to change once people have started recommending it to each other, and because the words we choose have to work in Greek, English and French.
+   7  Syros Cats and its volunteers experience none of the above. For your team this is a working record and a tool. It tells you which cats are sterilised, which colonies need attention, which animal somebody has just reported as injured, and what you can put in front of a funder at the end of the year. Nobody on your team is using this app for entertainment, and it has not been designed as though they were.
 
-   8  What a good name has to do
+   8  Two ideas that run through the whole design
 
-   9  Work in all three languages. The app is properly trilingual and the name shouldn't be the one part that isn't. Be findable. Someone typing “Syros” or “cats” into an app store should find it. This argues for a plain, descriptive name. Be memorable and repeatable. Someone in a café should be able to tell a stranger what to search for. This argues for a distinctive name. Survive success. If this works on Syros it could 
+   9  The first is citizen science . That phrase describes ordinary people, with no scientific training, collecting real observations that researchers or organisations then use. Birdwatchers counting garden birds on a set weekend each year is the best known example, and the results are used in genuine population studies. This app is the same idea applied to cats: a visitor photographing a cat in an alley is not playing at 
 
-  10  Two options, and they can be combined
+  10  The second is that raising engagement and money for Syros Cats is an explicit objective of this app, not a side effect . A tourist who has met and named a cat is far more likely to give than one who has read a poster, and the app is deliberately built to convert affection for a specific animal into support for the organisation that cares for it. Sections 15 and 17 are about that directly.
 
-  11  The plain option The distinctive option Name Syros Cat Spotters Purropolis Greek Γάτες της Σύρου (Gátes tis Sýrou) Γατούπολη (Gatoúpoli) French Chats de Syros Ronronopolis Strength Instantly understood, easy to translate, easy to find in a search Memorable, repeatable, travels beyond Syros Weakness Forgettable, and tied to one island Means nothing until explained
+  11  The needs of these groups fit together rather than competing. The public side has to stay effortless, because a visitor who finds it tedious simply stops, and every record your team relies on comes from somebody enjoying themselves. The more enjoyable the app is, the more data you get, the better your reporting becomes, and the more compelling the case for donating. Each part feeds the next.
 
-  12  Purropolis is “purr” plus “-opolis”, the Greek for city. It has a local accident built into it: Syros's own capital is Ερμούπολη (Ermoúpoli) , “Hermes' city”, so a cat-city named the same way sits naturally on this island in a way it would nowhere else. The pun does not survive translation, since “purr” means nothing in Greek, where purring is γουργουρητό (gourgouritó) . So each language gets the same joke remade rat
+  12  This is worth settling early, because an app store name is painful to change once people have started recommending it to each other, and because the words we choose have to work in Greek, English and French.
 
-  13  Our recommendation is to use both. Both app stores let you set a name and a separate subtitle, and a different pair for each language. So the name can be Purropolis (Γατούπολη / Ronronopolis) with the subtitle “Syros cat spotters” underneath it. The distinctive name is what people remember and repeat; the plain subtitle is what makes it findable. Nothing has to be given up.
+  13  What a good name has to do
 
-  14  One name to avoid: “Syros Cats”. That is your name, and an app carrying it would imply the app is you, which matters if it ever gets something wrong, and matters more if it ever operates somewhere you don't.
+  14  Work in all three languages. The app is properly trilingual and the name should not be the one part that is not. Be findable. Someone typing “Syros” or “cats” into an app store should find it, which argues for a plain, descriptive name. Be memorable and repeatable. Someone in a café should be able to tell a stranger what to search for, which argues for a distinctive name. Travel to other places. You have told us you 
 
-  15  Spotter or snapper?
+  15  Three options
 
-  16  You suggested “snapper”, after the colloquial sense of snapping a photo. It is warmer and more casual than “spotter”, and it lowers the barrier: anyone can take a snap.
+  16  Cat Spotters Syros Cat Spotters Purropolis Greek Παρατηρητές Γατών (Paratirités Gatón) Γάτες της Σύρου (Gátes tis Sýrou) Γατούπολη (Gatoúpoli) French Observateurs de Chats Chats de Syros Ronronopolis Strength Understood instantly, translates cleanly, and works anywhere. Another island becomes “Paros Cat Spotters” with no rebuild and no confusion. Clear, findable, and obviously about Syros. Memorable and repeatable, a
 
-  17  Our recommendation is to keep spotter as the name of the role, and use snap freely as the verb in marketing and in the app's own encouragement. Three reasons.
+  17  Purropolis combines “purr” with “-opolis”, the Greek for city. It has a local accident built into it, because Syros's own capital is Ερμούπολη (Ermoúpoli) , meaning “Hermes' city”, so a cat-city named the same way belongs to this island in a way it would belong nowhere else. The joke does not survive translation, since “purr” means nothing in Greek, where purring is γουργουρητό (gourgouritó) . Each language would the
 
-  18  It describes the actual contribution. The value someone adds is not the photograph, it is recognising which cat it is. A hundred snaps of unidentified cats are worth very little; a hundred confirmed identifications are a census. It supports the educational side. “Spotter” carries the sense of careful observation, as in birdwatching. That connects directly to the citizen science idea in section 14, which is what makes
+  18  Our recommendation is to use two names together. Both app stores let you set a name and a separate subtitle, and a different pair for each language. So the app could be called Purropolis with the subtitle “Syros Cat Spotters” underneath it. The distinctive name is what people remember and repeat, and the plain subtitle is what makes it findable. If the conversations with other organisations are serious, we would lean
 
-  19  Language The role The action English Spotter Spot a cat · snap a cat Greek Παρατηρητής (Paratiritís) , meaning observer Εντόπισε μια γάτα (Entópise mia gáta) , meaning locate a cat French Observateur Repérer un chat, meaning to spot a cat
+  19  One name to avoid is “Syros Cats”. That is your name, and an app carrying it would imply that the app is you. That matters if the app ever gets something wrong, and it matters more if it ever operates somewhere you do not.
 
-  20  So: “snap” is what you do, “spotter” is what you become. If you would rather lead with snapper we can, but we would want the role to stay “spotter” underneath, because everything the data does depends on identification rather than photography.
+  20  Spotter or snapper?
 
-  21  Nobody needs an account to use the app. A spotter opens it and starts. Accounts exist only for people whose word needs to carry extra weight.
+  21  You suggested “snapper”, after the colloquial sense of snapping a photograph. It is warmer and more casual than “spotter”, and it lowers the barrier, because anyone can take a snap.
 
-  22  Everyone is a spotter . That is the base role, and every other role is added on top of it, so a vet is a spotter who can also record surgery. We have deliberately not called it “visitor”, because a good many of the best spotters live here.
+  22  Our recommendation is to keep spotter as the name of the role, and to use snap freely as the verb in marketing and in the app's own encouragement. There are three reasons for that.
 
-  23  Role Who What's different for them Spotter Anyone Spots cats, names new ones, contributes observations, collects and competes Resident Anyone who lives here All of the above, plus claiming a cat as theirs Cat guardian A resident you've endorsed Their word about their cats' condition carries weight; you hold their contact details Syros Cats volunteer Invited by you Records field observations, confirms or corrects what
+  23  It describes the actual contribution. The value someone adds is not the photograph, it is recognising which cat it is. A hundred photographs of unidentified cats are worth very little, while a hundred confirmed identifications are a census. It supports the educational side. “Spotter” carries the sense of careful observation, as in birdwatching, which connects directly to the citizen science idea in section 16. It tra
 
-  24  Invitations come from you. There is no way to sign up and declare yourself a vet. You send an invitation, the person accepts, and they hold that role until you remove it. If you remove it, everything they recorded stays, correctly attributed to them, at the time they recorded it.
+  24  Language The role The action English Spotter Spot a cat, or snap a cat Greek Παρατηρητής (Paratiritís) , meaning observer Εντόπισε μια γάτα (Entópise mia gáta) , meaning locate a cat French Observateur Repérer un chat, meaning to spot a cat
 
-  25  Signing in doesn't put someone into a different app. It adds controls to the app they already have, so a volunteer standing in front of a cat can record what they see without going back to a desk.
+  25  In short, snapping is what somebody does and spotting is what they become. If you would rather lead with “snapper” we can, but we would want the underlying role to remain “spotter”, because everything the data does depends on identification rather than photography.
 
-  26  Someone photographs a cat. The app compares that photograph against the cats it already knows and asks: have we met this one before?
+  26  Nobody needs an account to use the app. A spotter opens it and starts immediately. Accounts exist for two different reasons: to unlock extra features for people who want them, and to give weight to the word of people whose word should carry weight.
 
-  27  It shows the closest few matches with a plain-English reason for each, such as “the white bib and the notch in the left ear match”, and the person confirms one, or says it's nobody they recognise and gives the new cat a name. New names must be unique across the island, and a button suggests unused ones in whichever language they're using.
+  27  Everyone is a spotter . That is the base role, and every other role is added on top of it, so a vet is a spotter who can also record surgery.
 
-  28  Confirming a known cat earns points. Naming a new one earns more. Points build streaks, badges and a leaderboard, which section 12 explains from first principles.
+  28  Role How they get it What is different for them Spotter Nothing required Spots cats, names new ones, contributes observations, collects and competes Resident Signs up themselves All of the above, plus claiming a cat, recording that they feed one, and keeping their history across devices Cat guardian Invited by you Oversees an area, its feeding sites and the cats in it; their observations about that area carry weight 
 
-  29  It all works with no signal. Syros has plenty of places with no or limited mobile coverage, and that's exactly where the cats are. Photographs, locations and the map itself work offline; anything waiting is submitted automatically when the phone finds a connection, and the sighting is dated to when the photograph was taken, not when it eventually uploaded.
+  29  Residents can sign up on their own. Nothing about claiming a cat or recording that you feed one requires your permission, and asking for it would put a barrier in front of the most valuable contributors on the island.
 
-  30  Everything in this section is our assumption, not your instruction. We have guessed at what is worth capturing, judging each item against two tests: does it help you run your work, and does it help the public stay engaged or learn something. We have no way of knowing whether we've guessed right. This is the section where your corrections are worth the most.
+  30  Every other role comes only by invitation from you. That covers cat guardians, volunteers, vets, your own management team and administrators. There is no way for somebody to sign up and declare themselves a vet. You send an invitation, the person accepts it, and they hold that role until you remove it. If you remove it, everything they recorded stays in place, correctly attributed to them at the time they recorded it
 
-  31  Each cat has a page: photograph, name, a code like SYR-0042, where it's usually seen, everyone who's ever spotted it, and its history.
+  31  Signing in does not move somebody into a different app. It adds features to the app they already have, so a volunteer standing in front of a cat can record what they see without going back to a desk, and a resident keeps their spotting history if they change phones.
 
-  32  Appearance , meaning colour, pattern, and distinguishing features like a white bib, a notched ear or a kinked tail. Chosen from lists rather than typed, so a Greek volunteer, a French tourist and an English one describing the same cat produce the same searchable record rather than three different words. It's also how the app can support the way people actually talk, as in “the tortoiseshell by the bakery” rather than
+  32  The tables above describe permissions. This section describes experience, which is a more useful thing to react to.
 
-  33  Health and care , meaning sterilised, ear-tipped, vaccinated, sex, age, pregnant or nursing, general condition, and deceased.
+  33  A visitor
 
-  34  Who looks after it , meaning its guardian, if it has one, and where it lives.
+  34  They hear about the app from a QR code in a café or from another guest. They install it, choose a language, pick a nickname and are spotting within a minute, with no account and no email address. On a walk they photograph four cats. Three are already known, so they confirm each one and earn points, and one is new, so they name her and earn more. The app asks a single question after each spot, such as whether an ear l
 
-  35  How the cat lives. A simple status, because not every cat in the record is living the same kind of life:
+  35  A resident
 
-  36  Status Means Street Free-roaming, no regular carer Fed Free-roaming, but fed regularly by a guardian or at a feeding station, with no owner In care Temporarily off the street, recovering from surgery, being treated, or with a carer Deceased Confirmed, or presumed after a long absence (below)
+  36  They sign up, which takes a moment, and claim the cat that lives behind their building, giving it a name and describing where it sleeps. They record that they feed it. Because they see the same cats constantly, the collecting side runs out quickly, so the app shifts to asking them different things: whether a cat nobody has seen since April is still around, and whether an animal that looks thin is unwell. Their observ
 
-  37  This matters for more than tidiness. It stops the app inviting people to go and find a cat that's recovering indoors, and it lets you see at a glance how much of the island's population has someone keeping an eye on it, which is a different question from how much has been sterilised, and just as useful.
+  37  A family staying for a season
 
-  38  Cats that quietly disappear
+  38  The parents sign up and the children spot under a shared group. The group has a neighbourhood to survey and a target, and the app shows how much of that area has been covered and what remains. Over a few weeks the family works through the education material, and at the end they can see exactly what their group contributed to the island's record.
 
-  39  Most street cats are never confirmed dead. They simply stop being seen. If the app does nothing about that, the catalogue grows for ever, the island's cat count climbs past anything real, and every percentage calculated against it slowly becomes meaningless.
+  39  A cat guardian
 
-  40  So the app assumes a lifespan. After a set period with no sighting at all, a cat moves automatically to presumed deceased : it leaves the active population count, stops appearing as a cat to go and find, and stays fully in the record and the history. If anyone photographs it the next day, it returns to its previous status immediately and nothing is lost.
+  40  They are invited by you and accept. Their area, its feeding sites and its cats are grouped together in the app, and they can see at a glance which cats have not been seen recently, which have no sterilisation record and which sites need attention. When they walk their round they confirm or correct what spotters have reported. If somebody reports an injured cat in their area, they are among the people who could be tol
 
-  41  You need to set that period. Street cats on an island like this are commonly said to live a few years, while cats in a managed and fed colony often live much longer, so the right number is a judgement about Syros rather than a fact we can look up. It is one setting and can be changed at any time. We would also suggest showing “not seen since March 2025” on the cat's page rather than announcing a death, since a cat th
+  41  A Syros Cats volunteer
 
-  42  This is the part we'd most like you to understand, because it's what makes your numbers defensible.
+  42  They open the app already knowing what they are doing that day. Before a trapping round they pull up a colony and see which cats are unsterilised, where each is usually found, and which feeding site they gather at. In the field they record what happened to each cat. The app works without a signal and syncs when it finds one. They are not expected to review other people's contributions, because the record settles itse
 
-  43  Everyone using the app is collecting observations about cats, including their health, and we want as many of those as possible. The design question is not who is allowed to contribute. It is how the app turns a large number of contributions of very different reliability into one answer that is worth publishing.
+  43  A vet
 
-  44  A tourist, a resident, a volunteer and a vet can all say something about the same cat, and they are not making the same kind of claim. “I think I saw a clipped ear” and “I sterilised this cat on 14 May” differ in kind. If the app simply let each new contribution overwrite the last, a vet's record could be replaced by a guess, and your figures would be worth nothing to a funder.
+  44  They record each sterilisation and vaccination as they perform it, taking a few seconds, including for cats that did not come through Syros Cats. Their entries are treated as definitive and cannot be overwritten by anybody else's guess.
 
-  45  So the app keeps every observation rather than replacing one with another. Each is dated, attributed, and usually carries the photograph that prompted it. The cat's status is then worked out from all of them together, and the app always shows how confident it is:
+  45  Syros Cats management
 
-  46  Level Means Example Confirmed Someone authoritative said so A vet recorded the operation Likely Several people independently agree Three spotters have seen a clipped ear Reported One person, unconfirmed A spotter thinks she may be pregnant Unknown Nobody has said Most cats, at the start
+  46  They use the app mostly for the things nobody else can do. They name colonies, send updates to people who follow a particular cat, pull the figures for a funding application, and look at which parts of the island are under-surveyed or under-sterilised when deciding where the next campaign goes.
 
-  47  The practical effect is that the data improves on its own as the app is used. Every additional observation moves a cat closer to a settled answer, without anybody having to review anything. A cat nobody has looked at closely sits at “unknown”, and a cat several people have independently reported the same thing about becomes “likely” by itself.
+  47  Somebody photographs a cat. The app compares that photograph against the cats it already knows and asks whether this is one it has met before.
 
-  48  Authority is specific rather than general. A vet's word settles whether a cat has been sterilised and carries no special weight on where it sleeps. A guardian's word about their own cat's condition outranks a passing spotter's, and never outranks a vet's on surgery.
+  48  It shows the closest few matches, with a plain explanation for each, such as “the white bib and the notch in the left ear match”. The person either confirms one of them, or says that it is nobody they recognise and gives the new cat a name. New names must be unique across the island, and a button suggests unused ones in whichever language they are using.
 
-  49  Nothing is ever deleted. A correction is added on top and the original stays visible, so the record shows how an answer was reached rather than hiding the disagreement.
+  49  The app only compares against cats seen within about 500 metres of where the photograph was taken. That is our estimate of how far a street cat ordinarily ranges, and it does two useful things. It makes the matching more accurate, because the app is not being asked to consider cats from the other side of the island that this one could not plausibly be. It also makes it cheaper, since every comparison costs money, as 
 
-  50  One rule worth stating explicitly, because a great deal rests on it:
+  50  Confirming a known cat earns points, and naming a new one earns more. Points build into streaks, badges and a leaderboard, all of which section 14 explains from first principles.
 
-  51  A clipped ear tip means the cat has almost certainly been sterilised. No visible clip means very little, because plenty of sterilised cats have no clip, or were photographed from the wrong side.
+  51  It works in places with no or limited mobile coverage , which matters because Syros has plenty of those and that is often exactly where the cats are. Photographs, locations and the map itself all work offline, and anything waiting is submitted automatically once the phone finds a connection. The sighting is dated to when the photograph was taken rather than when it was uploaded. It does need a connection at some poin
 
-  52  So the app treats a clipped ear as strong evidence on its own, and treats “no clip visible” as no evidence at all rather than as evidence against. Correct us if that does not match what you see in practice.
+  52  Everything in this section is our assumption rather than your instruction. We have guessed at what is worth capturing, judging each item against two tests: whether it helps you run your work, and whether it helps the public stay engaged or learn something. We have no way of knowing whether we have guessed correctly, so this is the section where your corrections are worth the most.
 
-  53  The app looks at each photograph and can often tell what colour a cat is, what pattern it has, and whether an ear looks clipped. So it proposes, and the person confirms:
+  53  Each cat has its own page, showing a photograph, a name, a reference code such as SYR-0042, where it is usually seen, everybody who has ever spotted it, and its history.
 
-  54  
+  54  Appearance covers colour, pattern and distinguishing features such as a white bib, a notched ear or a kinked tail. These are chosen from lists rather than typed, so that a Greek volunteer, a French tourist and an English one describing the same cat all produce the same searchable record rather than three different words.
 
-  55  One quick thing: is Agatha's ear clipped?
+  55  Health and care covers whether the cat is sterilised, whether its ear is tipped, what it has been vaccinated against, its sex, its approximate age, whether it is pregnant or nursing, its general condition, and whether it has died.
 
-  56  Yes, clipped · No, looks whole · Can't tell
+  56  People connected to the cat are recorded as specific relationships rather than a vague sense of who cares for it, because the relationships are genuinely different from each other.
 
-  57  One tap. “Can't tell” is a perfectly good answer and stops the app asking forever. It appears after they've earned their points, never before, and only ever one question at a time, never a form.
+  57  Relationship What it means Feeder Somebody who regularly provides food to this cat, whether at a station or informally Owner Somebody who considers the cat theirs, typically a resident whose cat comes and goes Temporary carer Whoever has the cat right now while it is off the street, such as Syros Cats during convalescence or a vet during and after an operation Cat guardian Not a relationship to one cat at all. A guar
 
-  58  The same approach covers appearance. A spotter confirms the cat's colour, its pattern and its distinguishing marks the same way, usually just by agreeing with what the app has already worked out. Those details matter more than they look: they are what lets the app tell two similar cats apart, and what lets you search for “the tortoiseshell near the bakery”.
+  58  How the cat lives is a single status, because not every cat in the record is living the same kind of life.
 
-  59  One safeguard worth knowing about. When the app suggests an answer and someone agrees with it, we record that the suggestion came first. Five people agreeing with the same suggestion is weaker evidence than five people noticing the same thing independently, and your sterilisation figure should not treat the two as equal. For obvious things like coat colour the app simply records its own reading, because it is more re
+  59  Status Means Street Free-roaming, with nobody regularly providing for it Fed Free-roaming, but fed regularly by a feeder or at a feeding station, with no owner In care Temporarily off the street, recovering from surgery, being treated, or with a carer Deceased Confirmed, or presumed after a long absence, as described below
 
-  60  Separate from the game, always available, never buried: this cat needs help. A photograph, the location, and a choice between needs attention and urgent .
+  60  This distinction matters for more than tidiness. It stops the app inviting people to go and find a cat that is recovering indoors, and it lets you see at a glance how much of the island's cat population has somebody keeping an eye on it, which is a different question from how many have been sterilised and just as useful.
 
-  61  Where these usually fail is the middle step, so urgent reports notify volunteers straight away rather than sitting in a list, and others go to whoever is nearest or covers that area. A volunteer marks it seen, acting or resolved, and the person who reported it is told what happened. Without that last step people stop reporting, and it costs almost nothing to include.
+  61  Cats that quietly disappear
 
-  62  We need your guidance on two things: what should happen to an urgent report at two in the morning, and whether you want spotters to see that a report exists at all, or only the person who made it.
+  62  Most street cats are never confirmed dead. They simply stop being seen. If the app does nothing about that, the catalogue grows for ever, the island's cat count climbs past anything real, and every percentage calculated against it slowly becomes meaningless.
 
-  63  Colonies. The app groups cats by where they're actually seen, and you name the groups. That way the names match the colonies you already talk about, and nothing has to be redrawn every time a cat moves. All the reporting groups by colony, because that's the unit you plan in.
+  63  So the app assumes a lifespan. After three years with no sighting at all, a cat moves automatically to “presumed deceased”. It leaves the active population count and stops appearing as a cat to go and find, while staying fully in the record and the history. If anybody photographs it the next day it returns to its previous status immediately and nothing is lost. On the cat's page the app says “not seen since March 202
 
-  64  Feeding sites. Where cats are fed, whether fixed stations or informal spots, which colony each serves, and what condition it's in. Cats gather predictably where they are fed, so this is also a map of where you can reliably find the cats you need to trap.
+  64  Two questions for you on this section. First, is three years about right for a Syros street cat, given that fed colony cats often live considerably longer than unmanaged ones? It is a single setting and can be changed at any time. Second, and more importantly: what else would be useful to record that we have not thought of? Anything you currently write down, or wish you could, is worth telling us about, even if it se
 
-  65  Feeders. The people who provision those sites. You can record their name and contact details with their consent , recorded properly and withdrawable at any time.
+  65  This is the part we would most like you to understand, because it is what makes your numbers defensible.
 
-  66  One thing we'd advise on, and want your view. We think feeding sites and feeders should be visible to you and your volunteers, and not to the public . Two reasons. People who feed street cats sometimes face hostility from neighbours, and publishing their locations hands that over. And known feeding sites attract abandonment, since people leave unwanted cats and kittens where they know cats get fed, which makes your p
+  66  Everybody using the app is collecting observations about cats, including their health, and we want as many of those as possible. The design question is not who is allowed to contribute. It is how the app turns a large number of contributions of very different reliability into one answer that is worth publishing.
 
-  67  You'll go on running most of your work the way you run it now, and the app doesn't ask you to change that. What it can do is make some of it easier, using information it already holds, so nothing here asks anyone to type something twice. Take up as much or as little of it as suits you, whenever it suits you.
+  67  A tourist, a resident, a volunteer and a vet can all say something about the same cat, and they are not making the same kind of claim. “I think I saw a clipped ear” and “I sterilised this cat on 14 May” are different in kind. If the app simply let each new contribution overwrite the last, a vet's record could be replaced by a guess, and your figures would be worth nothing to a funder.
 
-  68  The data settles itself. You do not have to review or approve what spotters report. As more people observe the same cat, the app becomes more certain on its own, and your volunteers only get involved where it matters: correcting something that looks wrong, or recording something only they can know, such as a clinic visit. If nobody from your team ever opened the app, the record would still improve every week.
+  68  So the app keeps every observation rather than replacing one with another. Each is dated, attributed, and usually carries the photograph that prompted it. The cat's status is then worked out from all of them together, and the app always shows how confident it is.
 
-  69  Trapping rounds. Choose a colony and the app can already tell you which cats aren't sterilised, where they're usually seen, which feeding site they use and when each was last seen. That's most of a target list, assembled without anyone compiling it.
+  69  Level Means Example Confirmed Somebody authoritative said so A vet recorded the operation Likely Several people independently agree Three spotters have seen a clipped ear Reported One person, unconfirmed A spotter thinks she may be pregnant Unknown Nobody has said Most cats, at the start
 
-  70  What a cat has cost. Because vet visits are recorded against the cat they were for, the cost per cat adds up on its own. That's the figure funders ask for, and the one that makes “€60 sterilises a cat” a fact rather than an estimate.
+  70  The practical effect is that the data improves on its own as the app is used. Every additional observation moves a cat closer to a settled answer without anybody having to review anything. A cat nobody has looked at closely sits at “unknown”, and a cat that several people have independently reported the same thing about becomes “likely” by itself.
 
-  71  Institutional memory. Small organisations lose a great deal when a long-standing volunteer moves away. Anything recorded here survives that, which is rarely the reason anyone adopts something and often the biggest benefit two years later.
+  71  Authority is specific rather than general. A vet's word settles whether a cat has been sterilised and carries no special weight on where it sleeps. A guardian's word about their own area outranks a passing spotter's, and never outranks a vet's on surgery.
 
-  72  Two honest cautions. Every feature here asks somebody to record something, so each one has to save more time than it costs. If it doesn't, don't use it, and tell us. And if any of your work does come to rest on this app, you should be able to get everything out of it in a usable form at any time, and carry on without it. We'd rather write that down now than have you discover it later.
+  72  Nothing is ever deleted. A correction is added on top and the original stays visible, so the record shows how an answer was reached rather than hiding the disagreement.
 
-  73  Every figure the app produces carries its own confidence, and says plainly what each part means:
+  73  One rule is worth stating explicitly, because a great deal rests on it.
 
-  74  
+  74  A clipped ear tip means the cat has almost certainly been sterilised. No visible clip means very little, because plenty of sterilised cats have no clip, or were photographed from the wrong side.
 
-  75  142 cats known on Syros
+  75  The app therefore treats a clipped ear as strong evidence on its own, and treats “no clip visible” as no evidence at all rather than as evidence against. Please correct us if that does not match what you see in practice.
 
-  76  89 confirmed sterilised, by a vet or by your own records 23 probably sterilised: a clipped ear seen by several people, not yet confirmed 30 with no information either way
+  76  The app examines each photograph and can often tell what colour a cat is, what pattern it has, and whether an ear looks clipped. It therefore proposes an answer and the person simply confirms it.
 
-  77  Because every observation is dated and attributed, the app can answer “how many cats did we sterilise between January and December” rather than merely asserting it. That's exportable, with the method stated, for funding applications and annual reports.
+  77  
 
-  78  For your own planning: sterilisation coverage colony by colony, which colonies are growing, which have no feeder, and which parts of Syros nobody has ever photographed. That last is both a gap in your data and something the app can actively send spotters to fill.
+  78  One quick thing: is Agatha's ear clipped?
 
-  79  For press and supporters: milestones worth telling people about, like the hundredth cat, or a colony reaching full coverage.
+  79  Yes, clipped · No, looks whole · Can't tell
 
-  80  Counting every sterilisation on the island, not only yours
+  80  That is one tap. “Can't tell” is a perfectly good answer and stops the app asking again. The question appears after somebody has earned their points, never before, and only ever one question at a time rather than as a form.
 
-  81  We'd like to offer the island's vets their own way in. A vet with an account could record every cat they sterilise, with its home location, whether or not the cat came through Syros Cats.
+  81  The same approach covers appearance. A spotter confirms the cat's colour, its pattern and its distinguishing marks in the same way, usually just by agreeing with what the app has already worked out. Those details matter more than they look, because they are what lets the app tell two similar cats apart, and what helps to identify unique cats with more reliability.
 
-  82  That turns your reporting from “cats we have sterilised” into “cats on Syros that are sterilised” , which is a far stronger thing to put in front of a funder or a municipality, because it describes the actual state of the island rather than the scale of one organisation's activity. It also stops your volunteers being sent to trap cats that a private owner had done last year. The cost to a vet is a few seconds per ope
+  82  One safeguard is worth knowing about. When the app suggests an answer and somebody agrees with it, we record that the suggestion came first. Five people agreeing with the same suggestion is weaker evidence than five people noticing the same thing independently, and your sterilisation figure should not treat the two as equal. For obvious things such as coat colour the app simply records its own reading, because it is 
 
-  83  This section assumes no familiarity with these ideas. They are the standard machinery of apps that people use voluntarily, and they are the reason a visitor photographs the fourth cat rather than stopping at the first.
+  83  An app that lets anybody add content needs protection against misuse, and against ordinary honest mistakes. Some of this is already built, and some of it we are proposing.
 
-  84  The problem they solve is simple. Nobody is paid to use this app, and nothing obliges anyone to keep going. Left alone, most people would photograph one cat, enjoy it, and never open the app again. Everything below exists to convert a single pleasant moment into a habit that lasts a week, or a season.
+  84  Only on Syros
 
-  85  Idea What it is What it does for you Points A number that goes up each time someone does something useful, such as recognising a known cat or finding a new one. Tells people, immediately, that what they just did mattered. Also lets us steer effort: things you need more of can be worth more. Badges Small awards for reaching a milestone, such as meeting ten cats or being the first to find one in a neighbourhood. Gives 
+  85  The app is for the cats of Syros, and it should not be possible to fill it with cats from anywhere else, whether mischievously or by accident. So two rules apply.
 
-  86  The important design principle, and the reason this section matters to you: whatever earns points is what people will go and do. So the points must be pointed at what you actually need. Recognising a cat that is already in the catalogue has to be worth nearly as much as naming a new one, or people will keep declaring cats “new”, and every duplicate makes your island count, your sterilisation percentage and your trapp
+  86  Somebody outside Syros cannot add or change anything. They can look at the catalogue and read about the cats, but adding a sighting, naming a cat or editing a record all require being on the island. A cat cannot be added at a location outside Syros. Even from a phone on the island, a sighting placed somewhere off the island is refused.
 
-  87  The problem to solve
+  87  This also protects your figures, since a catalogue containing cats from three countries would make every island statistic meaningless.
 
-  88  Collecting cats is a game that ends. Once someone has met the cats near them, the app has nothing left to ask: a few days for a visitor, sooner and permanently for a resident. So the app needs reasons to open it that aren't “find a new cat”.
+  88  Already built
 
-  89  Happily, the best of those reasons is something you need anyway.
+  89  Offensive names are rejected. Cat names, nicknames and usernames are all checked against a list of offensive words in English, Greek and French. The check is deliberately hard to sidestep, so replacing letters with numbers or writing a Greek word in Latin characters does not get around it. Photographs without a cat in them go no further. The app checks each photograph and, if there is no cat in it, tells the person s
 
-  90  Checking on cats nobody has seen lately. A cat unseen for two months is a question; six months is a welfare concern. So the app asks: “Nobody has seen Kyra since April. She's usually near the fish market.” That never runs out, it's genuinely useful to you, and it turns the app from a collection someone finishes into a patch they look after. If we get one thing right for engagement, it's this.
+  90  Worth adding, in our view
 
-  91  Telling people what happened to their cats. “Agatha, the cat you named in June, was sterilised last week.” This is the only thing that works after someone has gone home, and it is the whole post-trip relationship.
+  91  A “report an issue” button on every cat and every photograph. No automatic check catches everything, and when something does get through, the people who see it first will be your users. A single tap that flags it for your team to look at is inexpensive to build and is the difference between an embarrassment lasting an hour and lasting a month. A simple queue for your team showing what has been reported, with the abil
 
-  92  Going where nobody has been. For anyone staying long enough to be systematic, the coverage map turns a walk into a contribution.
+  92  A question for you. Who should receive these reports, and how quickly would you want to know? A photograph that somebody finds offensive is not an emergency in the way an injured cat is, but it is the kind of thing that reflects on your name rather than ours.
 
-  93  Who actually maps the island
+  93  This is kept separate from everything else in the app, is always available, and is never buried. Somebody who finds a cat in trouble takes a photograph, confirms the location, and chooses between “needs attention” and “urgent”.
 
-  94  Everyone does, and the app depends on that. Residents know their own streets better than any visitor ever will and see the same cats across years. Visitors arrive in large numbers and cover the harbour and the town thoroughly. Neither group, on its own, reaches the parts of Syros that nobody walks through on a short holiday.
+  94  The step where systems like this usually fail is the middle one, where a report is filed and nothing visibly happens. So the report has to reach a person, and that person has to be able to mark it as seen, being dealt with, or resolved. The person who made the report is then told what happened , which costs almost nothing and is the difference between somebody reporting the next cat and not bothering.
 
-  95  That is where longer-staying families, such as those with Boundless Life, are likely to matter most. A family here for one to three months, with children who have structured time and no fixed itinerary, is far more likely to range across Ano Syros, Vari, Galissas and Kini than someone here for four days near the port. They are not a substitute for residents or visitors; they are the channel most likely to fill the ga
+  95  We have deliberately not decided who gets told, because we do not know how you work. Options include everybody in your team, volunteers within a certain distance, the guardian for that area, or a single person on duty who then decides. There is also a real question about whether an urgent report should interrupt somebody's evening at all, or wait until morning. Please tell us what would actually work , including what
 
-  96  Things we'd propose doing
+  96  Colonies. The app groups cats by where they are actually seen, and you give the groups names. That way the names match the colonies you already talk about, and nothing has to be redrawn every time a cat moves. All of the reporting is grouped by colony, because that is the unit you plan in.
 
-  97  A coverage map , showing where nobody has looked, so a walk becomes a contribution. QR codes in cafés, hotels and on ferries , so the app is discoverable at the moment someone is looking at a cat. Cheap, and probably the highest-yield item on this list. Cat-friendly business partners , meaning venues that display the app and appear in it. Telling visitors what happened next , long after they've gone home. Schools and
+  97  Feeding sites. These are the places where cats are fed, whether fixed stations or informal spots, along with which colony each one serves and what condition it is in. Cats gather predictably where they are fed, so this is also a map of where you can reliably find the cats you need to trap.
 
-  98  The app has thousands of people's attention for a week each, at the exact moment they're looking at a street cat. That's a rare opportunity to change what people understand and do, and we'd rather use it than fill it with trivia.
+  98  Feeders. These are the people who provision those sites. You can record a feeder's name and contact details with their consent, recorded properly and withdrawable at any time.
 
-  99  Everything below is a concrete proposal. Please cut, correct and add: the substance is your expertise, not ours.
+  99  A question we cannot answer ourselves. Should feeding sites and feeders be visible to the public, or only to you and your volunteers? Two arguments for keeping them private have been put to us. People who feed street cats sometimes face hostility from neighbours, and publishing their locations would hand that over. Known feeding sites can also attract abandonment, where people leave unwanted cats and kittens in place
 
- 100  Real science, done by children
+ 100  You will go on running most of your work the way you run it now, and the app does not ask you to change that. What it can do is make some of it easier, using information it already holds, so that nothing here asks anybody to type something twice. Take up as much or as little of it as suits you, whenever it suits you.
 
- 101  This is the idea we'd most like to build the educational side around, because it is the one that makes the app worth a school's or a family's time rather than merely enjoyable.
+ 101  The data settles itself. You do not have to review or approve what spotters report. As more people observe the same cat the app becomes more certain on its own, and your volunteers only need to get involved where it matters, either by correcting something that looks wrong or by recording something only they can know, such as a clinic visit. If nobody from your team ever opened the app, the record would still improve 
 
- 102  A child using this app is not pretending to be a scientist. They are doing the actual work: observing an animal carefully, recording what they see, distinguishing one individual from another, noticing that their evidence can be wrong, and contributing to a dataset that a real organisation uses to make real decisions. That is what field biology is, and almost no child ever gets to do it.
+ 102  Trapping rounds. When you choose a colony, the app can already tell you which cats are not sterilised, where each is usually seen, which feeding site they use, and when each was last seen. That is most of a target list, assembled without anybody compiling it.
 
- 103  What that gives a programme like Boundless Life: a genuine field study running for the length of a stay, with a defined territory, a real research question, data the children collect themselves, and a visible result at the end. Not a project about cats. A contribution to an island's animal welfare programme that would not have happened without them, and that they can point at afterwards. It also teaches the harder le
+ 103  What a cat has cost. Because vet visits are recorded against the cat they were for, the cost per cat adds up on its own. That is the figure funders ask for, and it is what makes a claim such as “€60 sterilises a cat” a fact rather than an estimate.
 
- 104  Practically: a cohort can be given a neighbourhood to survey, a target number of cats, and their own view of what they have contributed. At the end they get a summary of what their group found, how much of the island's record they are responsible for, and what Syros Cats did with it.
+ 104  Institutional memory. Small organisations lose a great deal when a long-standing volunteer moves away. Anything recorded here survives that, which is rarely the reason anybody adopts a system and is often the biggest benefit two years later.
 
- 105  The feeding nudge
+ 105  Two honest cautions. Every feature here asks somebody to record something, so each one has to save more time than it costs. If it does not, please do not use it, and tell us. And if any of your work does come to rest on this app, you should be able to get everything out of it in a usable form at any time and carry on without it. We would rather write that down now than have you discover it later.
 
- 106  The most valuable thing the app can say, at the only moment it will land.
+ 106  Every figure the app produces carries its own confidence, and says plainly what each part means.
 
- 107  Where it appears: in the spot flow, on the screen where someone has just photographed a cat and is waiting a few seconds for the app to identify it. Not as a pop-up, not on every spot, and never before they've had their result. It also appears on a cat's own page, quietly, under the cat's details, and once during the app's introduction.
+ 107  
 
- 108  
+ 108  142 cats known on Syros
 
- 109  Thinking of sharing your lunch?
+ 109  89 confirmed sterilised, by a vet or by your own records 23 probably sterilised, meaning a clipped ear seen by several people but not yet confirmed 30 with no information either way
 
- 110  We'd gently ask you not to. Here's why, and it takes thirty seconds.
+ 110  Because every observation is dated and attributed, the app can answer a question such as “how many cats did we sterilise between January and December” rather than merely asserting a number. That can be exported, with the method stated, for funding applications and annual reports.
 
- 111  And then, briefly and without lecturing:
+ 111  For your own planning, the app can show sterilisation coverage colony by colony, which colonies are growing, which have no feeder, and which parts of Syros nobody has ever photographed. That last one is both a gap in your data and something the app can actively send spotters to fill.
 
- 112  The cats are fed already. Syros Cats and local guardians feed these colonies properly, with the right food, in the right places, all year round. Summer feeding creates a winter problem. This is the part visitors never see. A colony fed generously by tourists through July and August grows accustomed to an abundant, easy food source and comes to rely on people for it. In October that food source gets on a ferry and goe
+ 112  For press and supporters, it can flag milestones worth telling people about, such as the hundredth cat or a colony reaching full coverage.
 
- 113  Critically, it ends with something to do instead. “Syros Cats feeds this colony properly, every day, including in winter. €1 covers a cat for a day.” A nudge that only says “don't” is a nudge people ignore. One that redirects the impulse gives the person a way to act on exactly the feeling that made them reach for the sandwich. We think this may be the single highest-impact feature in the whole app, and it costs almo
+ 113  Counting every sterilisation on the island, not only yours
 
- 114  Facts, in the seconds people are already waiting
+ 114  We would like to offer the island's vets their own way in. A vet with an account could record every cat they sterilise, along with where it lives, whether or not that cat came through Syros Cats.
 
- 115  While the app works out which cat it's looking at, there's a short wait. Rather than a spinner, a card, and where possible one about the cat just photographed , because that's the version people remember:
+ 115  That turns your reporting from “cats we have sterilised” into “cats on Syros that are sterilised” , which is a far stronger thing to put in front of a funder or a municipality, because it describes the actual state of the island rather than the scale of one organisation's activity. It also stops your volunteers being sent to trap cats that a private owner had done last year. The cost to a vet is a few seconds per ope
 
- 116  Almost every tortoiseshell is female, because the gene for orange sits on the X chromosome. That notch in her ear isn't an injury. It's how vets mark a cat that's been sterilised, done under anaesthetic so she never feels it. White cats with blue eyes are often deaf, which is why this one didn't run when you approached. Cats have a scent map of the island we can't see. He knows exactly where he is. A cat's “hello” is
+ 116  The problem these solve is simple. Nobody is paid to use this app, and nothing obliges anybody to keep going. Left alone, most people would photograph one cat, enjoy it, and never open the app again. Everything below exists to turn a single pleasant moment into a habit that lasts a week, or a season.
 
- 117  A short course, in strands
+ 117  Idea What it is What it does for you Points A number that goes up each time somebody does something useful, such as recognising a known cat or finding a new one. Tells people immediately that what they just did mattered. Also lets us steer effort, because things you need more of can be made worth more. Badges Small awards for reaching a milestone, such as meeting ten cats or being the first to find one in a particula
 
- 118  Strand What it covers 1 · Reading a cat Colours and patterns, and why almost every tortoiseshell is female. What an ear-tip means. Body language: a flat ear, a slow blink, a twitching tail, and what each is telling you. 2 · Life in a colony What a colony is and how it's organised. Territory, who eats first, where cats sleep, why they are where they are. 3 · Why sterilisation works Explained below, because it is the o
+ 118  The important design principle, and the reason this section matters to you, is that whatever earns points is what people will go and do. So the points must be pointed at what you actually need. Recognising a cat that is already in the catalogue has to be worth nearly as much as naming a new one, or people will keep declaring cats to be new, and every duplicate makes your island count, your sterilisation percentage an
 
- 119  Most people arrive with one of two instincts: that something should be done about the number of cats, or that nothing should be done to them at all. Both are addressed by the same explanation, and it is worth giving properly.
+ 119  The problem to solve
 
- 120  The arithmetic. A single unsterilised female and her surviving descendants can become dozens of cats within a few years, because cats can have two or three litters a year and their daughters begin breeding within months. Shown as a simple growing figure rather than a claim, this does the persuading on its own. It also explains why the situation on the island is not anybody's fault: it is what cats do, unless somebody
+ 120  Collecting cats is a game that ends. Once somebody has met the cats near them, the app has nothing left to ask, which takes a few days for a visitor and happens sooner and permanently for a resident. So the app needs reasons to open it that are not “find a new cat”.
 
- 121  Delivered as five short pieces rather than an essay, each attached to a moment where it makes sense: the ear-tip explanation when someone photographs a clipped ear, the arithmetic when they meet a kitten.
+ 121  Fortunately the best of those reasons is something you need anyway.
 
- 122  Cat jokes
+ 122  Checking on cats nobody has seen lately. A cat unseen for two months is a question, and one unseen for six months is a welfare concern. So the app asks: “Nobody has seen Kyra since April. She is usually near the fish market.” That never runs out, it is genuinely useful to you, and it turns the app from a collection somebody finishes into a patch they look after. If we get one thing right for engagement, it should be 
 
- 123  Sparingly, in the places where nothing else is happening, such as an empty screen or a loading moment. Enough to give the app a personality, rare enough not to wear out. One constraint worth flagging: jokes don't translate. A pun that works in English is not a pun in Greek or French, so each language needs its own, written by someone who speaks it. We'd welcome yours.
+ 123  Telling people what happened to their cats. A message some weeks later saying that Agatha, the cat somebody named in June, has been sterilised is the only thing that works after they have gone home, and it is the whole of the relationship after a trip ends.
 
- 124  When you ask matters more than how. The strongest moment by a distance is after someone has gone home and learns their cat was helped, because the outcome comes first and the ask follows it. Second is the end of a trip, alongside “the 14 cats you met on Syros”. A donate button on a help screen, asking in the abstract, is the weakest of the options.
+ 124  Going where nobody has been. For anybody staying long enough to be systematic, a map showing unsurveyed areas turns a walk into a contribution.
 
- 125  A ladder of outcomes, not a row of amounts
+ 125  Who actually maps the island
 
- 126  Each rung says what it buys, so even the smallest gift is a specific act:
+ 126  Everybody does, and the app depends on that. Residents know their own streets better than any visitor ever will and see the same cats across years. Visitors arrive in large numbers and cover the harbour and the town thoroughly. Neither group, on its own, reaches the parts of Syros that nobody walks through on a short holiday.
 
- 127  Amount Buys €1 Feeds a cat for a day Almost no friction, and anyone can €7 Feeds a cat for a week €25 A week's petrol for your volunteers Funds the work, not just the cat €50 to €60 Sterilises one cat The headline €120 Sterilises two
+ 127  That is where longer-staying families, such as those with Boundless Life, are likely to matter most. A family here for one to three months, with children who have structured time and no fixed itinerary, is far more likely to range across Ano Syros, Vari, Galissas and Kini than somebody here for four days near the port. They are not a substitute for residents or visitors, but they are the channel most likely to fill t
 
- 128  Please confirm or correct every figure in this table. We have built the ladder on numbers taken second-hand, and if any of them are wrong the app will be telling several thousand people a year something untrue about your costs. We would rather use your figures than our estimates.
+ 128  Things we would propose doing
 
- 129  The ladder matters more than any single rung. A €60 ask converts a few people and loses the rest in silence; a €1 ask converts almost anyone and begins a relationship. The first donation's job is to make the second one possible.
+ 129  A coverage map , showing where nobody has looked, so that a walk becomes a contribution. QR codes in cafés, hotels and on ferries , so that the app is discoverable at the moment somebody is looking at a cat. This is cheap, and probably the highest-yield item on the list. Cat-friendly business partners , meaning venues that display the app and appear in it. Telling visitors what happened next , long after they have go
 
- 130  We'd keep the petrol tier distinct, because it funds your volunteers rather than the cats: the unglamorous cost nobody normally offers to cover, and one some donors specifically prefer.
+ 130  The app has thousands of people's attention for a week each, at the exact moment they are looking at a street cat. That is a rare opportunity to change what people understand and do, and we would rather use it than fill it with trivia.
 
- 131  One practical note on the €1 tier. Card processing takes a fixed fee per payment, so a single €1 donation loses a large share of itself. The fix isn't to drop it, since it converts best, but to sell the outcome and bill it sensibly: “feed a cat for a month, €30” is one payment, keeps the €1-a-day framing, and gives you regular income instead of a one-off.
+ 131  Everything below is a concrete proposal. Please cut it, correct it and add to it, because the substance is your expertise rather than ours.
 
- 132  Sponsoring a cat in extended care
+ 132  Real science, done by citizen scientists, including children
 
- 133  We had considered letting someone sponsor any individual street cat, and we'd advise against it. A sponsor paying monthly for a cat that is spotted twice a year, with nothing new to report in between, will conclude they have been taken for granted, and they would be right.
+ 133  This is the idea we would most like to build the educational side around, because it is what makes the app worth a school's or a family's time rather than merely enjoyable.
 
- 134  What does work is sponsoring the cats that are genuinely with you, in extended care . A cat convalescing at Syros Cats for months after an amputation has a real story, a real and continuing cost, and something new to say every week. That is a sponsorship worth having on both sides.
+ 134  Somebody using this app is not pretending to be a scientist. They are doing the actual work: observing an animal carefully, recording what they see, distinguishing one individual from another, noticing that their own evidence can be wrong, and contributing to a dataset that a real organisation uses to make real decisions. That is what field biology is, and very few people ever get to do it.
 
- 135  How it would work. A small number of featured cats in long-term care, each with its own page: what happened, what treatment it is having, what the care costs, and updates as it recovers. People can contribute to that cat's care, or fund a specific operation. When the cat recovers, everyone who helped is told, and they see the outcome they paid for. This is the strongest fundraising product in the app, and it is hones
+ 135  What that offers a programme such as Boundless Life is a genuine field study running for the length of a stay, with a defined territory, a real question, data the users collect themselves, and a visible result at the end. It is not a project about cats. It is a contribution to an island's animal welfare programme that would not have happened without them, and one they can point at afterwards. It also teaches the hard
 
- 136  Other ways to give
+ 136  In practice, a group of users, such as a Boundless Life cohort, can be given a neighbourhood to survey and a target number of cats, along with their own view of what they have contributed.
 
- 137  Sponsor a sterilisation , which is specific and completable: someone pays for a named cat's operation and is later told it happened. Because €50 to €60 is a decision rather than an impulse, letting several people co-fund one cat matters . “Agatha's sterilisation: €38 of €60, four supporters” lets someone give €10 and still be part of a specific outcome. Give it as a gift , such as a sterilisation in someone's name, w
+ 137  How the app would actually do that. A group is created with a joining code, and anybody who enters that code has their spotting counted toward the group as well as to themselves. Because every sighting already carries a location, a date and a spotter, the app can then work out and display the group's own figures without anybody compiling anything: how many cats the group has found, how many of those were previously u
 
- 138  Donations earn points, weighted sensibly. Giving is a genuine contribution and the app should recognise it. The weighting has to be chosen with some care, so that money supplements effort rather than replacing it, and nobody can simply buy the top of the leaderboard. We'd suggest donation points count toward badges and recognition but sit on their own footing in the rankings, and we'd want your view.
+ 138  How the teaching reaches people
 
- 139  Two practical constraints. Apple and Google take a substantial cut of anything bought inside an app, and getting charitable donations treated correctly requires following their rules precisely, which usually means donations happen outside the app itself. Done carelessly this gets the app rejected from the stores. And you'd need to tell us how donations reach you, and what receipts or acknowledgements Greek charity ru
+ 139  None of this is delivered as a course somebody has to sit down and work through, because almost nobody would. It is delivered as short pieces attached to the moment where each one makes sense: the explanation of an ear tip when somebody photographs a clipped ear, the arithmetic of an unsterilised colony when they meet a kitten, and the advice about approaching a cat the first time they get close to one. The material 
 
- 140  The app is designed to know as little about people as it can. Spotters are anonymous, with no name, no email and no account, and that is deliberate.
+ 140  The feeding nudge
 
- 141  This is a design decision with a purpose. The less personal data the app collects, the fewer GDPR obligations attach to it, and the less there is for anyone to lose. We have kept collection to the minimum the app genuinely needs. Where personal data is unavoidable, the app is designed to help you comply : a stated purpose for each item, real deletion when someone asks, retention limits, and access confined to your te
+ 141  This is the most valuable thing the app can say, at the only moment it will land.
 
- 142  What would be stored about people: guardians' addresses, and optionally their names and contact details. Feeders' names and contact details, with consent. Volunteer and vet accounts.
+ 142  Where it appears. It appears in the spotting flow, on the screen where somebody has just photographed a cat and is waiting a few seconds for the app to identify it. It is not a pop-up, it does not appear on every spot, and it never appears before somebody has had their result. It also appears quietly on a cat's own page beneath its details, and once during the app's introduction.
 
- 143  Who sees it: you and your team. None of it appears anywhere in the public app, which shows only chosen display names.
+ 143  
 
- 144  Where cats live
+ 144  Thinking of sharing your lunch?
 
- 145  The app shows where each cat is usually seen. For most cats that is harmless and useful, but poisoning incidents are not unknown in Greece, and wildlife apps routinely blur locations for animals that could be harmed by people knowing where they are.
+ 145  We would gently ask you not to. Here is why, and it takes thirty seconds.
 
- 146  So we'd propose showing an approximate location publicly for any cat you flag as at risk, while the exact location stays visible to Syros Cats, your volunteers, the cat's guardian, and any signed-in user you choose to trust . The blurring applies only to the anonymous public view, so it never gets in the way of the people who need to find the animal.
+ 146  The explanation that follows is brief and does not lecture.
 
- 147  Your call on two things: whether you want this at all, and which cats or areas it should apply to. Also worth your view: photographs taken in public sometimes include people in the background, and children use apps like this. Both are manageable, and both are easier handled by choice than by complaint.
+ 147  Feeding by visitors creates a problem that arrives in winter. This is the part visitors never see. A colony fed generously by tourists through July and August comes to rely on an abundant and easy food source. In October that food source gets on a ferry and goes home. The cats do not, and the island cannot support the numbers that a generous summer encouraged. The animals suffer for it in the months when nobody is wa
 
- 148  The app compares a new photograph against cats it already knows. This matters more than it appears: if the same cat gets registered three times, every number in section 11 is wrong , including the island count, the sterilisation proportion, and the list of cats you think still need trapping.
+ 148  Critically, it ends with something to do instead. The message closes with a line such as “Syros Cats feeds colonies properly, all year round. €1 covers a cat for a day.” A nudge that only says “do not” is a nudge people ignore, whereas one that redirects the impulse gives the person a way to act on exactly the feeling that made them reach for the sandwich. We think this may be the single highest-impact feature in the
 
- 149  So recognition gets more attention than a photo-matching feature normally would. The app compares against every cat on the island rather than only nearby ones, so a cat that has moved is still found. Its accuracy is measured against sightings people have already confirmed, since every confirmed sighting is effectively someone saying “yes, these two photographs are the same cat”, which is exactly what is needed to tes
+ 149  Facts, in the seconds people are already waiting
 
- 150  One honest limitation: a great many Greek street cats are tabbies who genuinely look alike, and some pairs will defeat any system. The app is designed to say “I'm not sure” clearly rather than guess, and to let a person settle it.
+ 150  Identifying a cat takes a few seconds, during which the screen would otherwise show nothing but a loading indicator. We would use that moment to show a single short fact, chosen where possible to be about the cat that has just been photographed, because a fact about the animal in front of somebody is the version they remember. Examples of the kind of thing we mean are below.
 
- 151  These are running costs only , meaning the ongoing bill to keep the app working. Development effort is separate. Figures are converted from US dollar list prices at roughly €0.92 to the dollar, and rounded.
+ 151  Almost every tortoiseshell is female, because the gene for orange sits on the X chromosome. That notch in her ear is not an injury. It is how vets mark a cat that has been sterilised, done under anaesthetic so she never feels it. White cats with blue eyes are often deaf, which is why this one did not run when you approached. Cats have a scent map of the island that we cannot see. He knows exactly where he is. A cat's
 
- 152  We propose running the app on Supabase, which bundles the database, the photograph storage and the sign-in service into one predictable charge and needs no specialist to operate.
+ 152  The strands
 
- 153  What drives the bill
+ 153  Strand What it covers 1 · Reading a cat Colours and patterns, and why almost every tortoiseshell is female. What an ear tip means. Body language, including a flat ear, a slow blink and a twitching tail, and what each is telling you. 2 · Life in a colony What a colony is and how it is organised. Territory, who eats first, where cats sleep, and why they are where they are. 3 · Why sterilisation works Set out in full be
 
- 154  Almost all of it is one thing: recognising cats in photographs . Everything else, meaning hosting, storage, sign-in, maps and notifications, comes to roughly €30 a month and barely moves.
+ 154  Most people arrive with one of two instincts, either that something should be done about the number of cats, or that nothing should be done to them at all. The same explanation addresses both, and it is worth giving properly.
 
- 155  There are two ways to do the recognition, and the difference between them is the difference between an affordable app and an expensive one.
+ 155  The arithmetic. A single unsterilised female and her surviving descendants can become dozens of cats within a few years, because cats can have two or three litters a year and their daughters begin breeding within months. Shown as a growing figure rather than as a claim, this does the persuading on its own. It also explains that the situation on the island is nobody's fault, because it is simply what cats do unless so
 
- 156  Approach How it works Cost per spot Send every photo to an AI service Each spot uploads the new photograph plus about ten known cats for comparison, and pays per request. About €0.019 Give the app its own visual memory The app learns to describe each cat as a numeric fingerprint and compares fingerprints, using the AI service only to settle the final few candidates. About €0.009 The same, running on the phone Once th
+ 156  Cat jokes
 
- 157  To answer the question directly: the “recognition” line in the table below is the whole of the machine learning component. The second and third rows above are the machine learning approach, and they are how the cost comes down. It is the same feature either way, and the spotter sees no difference.
+ 157  These would appear sparingly, in the places where nothing else is happening, such as an empty screen or a loading moment. There should be enough to give the app a personality and few enough that they do not wear out. One constraint is worth flagging, which is that jokes do not translate. A pun that works in English is not a pun in Greek or French, so each language needs its own, written by somebody who speaks it. We 
 
- 158  Monthly cost, at three levels of activity
+ 158  When the app asks matters more than how it asks. The strongest moment by a distance is after somebody has gone home and learns that their cat was helped, because the outcome comes first and the request follows it. The second strongest is the end of a trip, alongside a summary of the cats they met. A donate button on a help screen, asking in the abstract, is the weakest of the options.
 
- 159  Level of use Spots per month Recognition Everything else Total With visual memory Quiet 900 €17 €30 €47 €38 Growing 3,600 €70 €30 €100 €65 Busy summer 12,000 €232 €33 €265 €145
+ 159  A ladder of outcomes, not a row of amounts
 
- 160  So a realistic first full year sits somewhere around €65 to €100 a month , and a busy season costs more only while it is busy.
+ 160  Each rung says what it buys, so that even the smallest gift is a specific act rather than an abstract contribution.
 
- 161  Fixed extras , roughly €105 a year: an Apple developer account at about €91 a year, a one-off Google fee of about €23, and a domain name at about €14 a year. If donations are added, card processing takes a percentage on top.
+ 161  Amount What it buys €1 Feeds a cat for a day Almost no friction, and anybody can €7 Feeds a cat for a week €25 A week's petrol for your volunteers Funds the work, not only the cat €50 to €60 Sterilises one cat The headline €110 Keeps this app running for a month, for the whole island Covers everything in section 20 €120 Sterilises two cats
 
- 162  Not part of the first release, and not part of the version after it. We are recording it here because it could become a useful income stream once the app is established, and because it is worth knowing it is possible while other decisions are being made. Nothing below needs a decision now.
+ 162  Please confirm or correct every figure in this table, and add any we have missed. We have built the ladder on numbers taken second-hand, and if any of them are wrong the app will be telling several thousand people a year something untrue about your costs. We would also welcome other amounts and the things they buy, because you will know the costs that matter and we are guessing. A vaccination, a course of treatment f
 
- 163  Someone who has spent a week meeting the cats of Syros forms a genuine attachment to specific animals. At the moment they leave, they want something, and there is nothing to give them.
+ 163  The ladder matters more than any single rung on it. A request for €60 converts a few people and loses the rest in silence, whereas a request for €1 converts almost anybody and begins a relationship. The first donation's real job is to make the second one possible.
 
- 164  The idea is to let people order a physical keepsake showing a cat they photographed, printed and posted to their home address by a print-on-demand partner: a magnet, a mug, a print, a tote bag, a set of postcards. And a calendar, Twelve Cats of Syros , published each autumn, which is the classic charity fundraiser and would write itself from a year of photographs.
+ 164  We would keep the petrol rung distinct, because it funds your volunteers rather than the cats. It is the unglamorous cost that nobody normally offers to cover, and some donors specifically prefer it.
 
- 165  How it would make money. Print-on-demand partners charge a base cost per item and let the seller set the retail price, so the difference is yours. A mug costing around €9 to print and post within the EU can sell for €22 to someone who wants a picture of a cat they met, so a margin in the region of half the retail price is realistic, with calendars better still.
+ 165  There is one practical note on the €1 rung. Card processing takes a fixed fee on every payment, so a single €1 donation loses a large share of itself. The answer is not to drop it, since it converts best, but to sell the outcome and bill it sensibly, so that “feed a cat for a month, €30” is a single payment that keeps the framing of a euro a day and gives you regular income instead of a one-off.
 
- 166  What would need thinking through. Whose photograph it is, where the simplest and fairest answer is that people can only order souvenirs of photographs they took themselves. Whether phone photographs print well enough, which they do for small items and not for large ones. Which partner, where the requirements are EU-based production, automated ordering and help with VAT. And whether you want to be the seller, keeping 
+ 166  Sponsoring a cat in extended care
 
- 167  The reason this is a later question: a souvenir shop is a small commercial operation with returns, complaints and postal mishaps attached, and it should never become something that consumes your time. It is worth doing only once the app itself is working and there is somebody to hand the day-to-day handling to.
+ 167  We had considered letting somebody sponsor any individual street cat, and we would advise against it. A sponsor paying monthly for a cat that is spotted twice a year, with nothing new to report in between, will conclude that they have been taken for granted, and they would be right.
 
- 168  The questions where your answer changes what we build:
+ 168  What does work is sponsoring the cats that are genuinely with you, in extended care. A cat convalescing at Syros Cats for months after an amputation has a real story, a real and continuing cost, and something new to say every week. That is a sponsorship worth having on both sides.
 
- 169  01 What do you actually track about each cat? Section 5 is our assumption, not your instruction. If there's a spreadsheet, its column headings beat anything we've guessed. 02 How long should a cat go unseen before the app presumes it has gone? Section 5. 03 Is the clipped-ear rule right as we've stated it in section 6? 04 Should the feeding map be private to your team? We think yes. Section 9. 05 How should an urgent
+ 169  How it would work. A small number of featured cats in long-term care would each have their own page, describing what happened, what treatment they are having, what the care costs and how they are recovering. People could contribute to that cat's care, or fund a specific operation. When the cat recovers, everybody who helped is told and sees the outcome they paid for. This is the strongest fundraising product in the a
 
- 170  So expectations are clear:
+ 170  Other ways to give
 
- 171  A system to run your organisation. The app can make parts of your work easier using what it already knows. It is not accounting, payroll, stock control or a task manager, and it doesn't expect you to change how you work. Public sign-up. Spotters stay anonymous, permanently. It's what keeps the app effortless and what keeps your data protection obligations small. Anything that asks a spotter to do admin. Every contrib
+ 171  Sponsoring a sterilisation , which is specific and completable, because somebody pays for a named cat's operation and is later told that it happened. Since €50 to €60 is a decision rather than an impulse, letting several people co-fund one cat matters. A page showing “Agatha's sterilisation: €38 of €60, four supporters” lets somebody give €10 and still be part of a specific outcome. Giving it as a gift , such as a st
+
+ 172  Adoption is also possible through the app, though we would expect it to be rare enough that it should not shape the design.
+
+ 173  Donations earn points, weighted sensibly. Giving is a genuine contribution and the app should recognise it. The weighting needs choosing with some care, so that money supplements effort rather than replacing it and nobody can simply buy the top of the leaderboard. We would suggest that donation points count towards badges and recognition while sitting on their own footing in the rankings, and we would like your view.
+
+ 174  Two practical constraints. Apple and Google take a substantial share of anything bought inside an app, and having charitable donations treated correctly requires following their rules precisely, which usually means the donation happens outside the app itself. Done carelessly, this gets an app rejected from the stores. Separately, you would need to tell us how donations reach you and what receipts or acknowledgements 
+
+ 175  The app is designed to know as little about people as it can. Spotters are anonymous, with no name, no email address and no account, and that is a deliberate choice rather than an oversight.
+
+ 176  The design objective is to collect as little personal data as possible. The less the app holds, the fewer data protection obligations attach to it and the less there is for anybody to lose. Where personal data is genuinely necessary, the app is built to help you meet those obligations, with a stated purpose for each item, real deletion when somebody asks, retention limits, and access confined to the people who need i
+
+ 177  The personal data the app would hold is limited to the following: the addresses of cat guardians, and optionally their names and contact details; the names and contact details of feeders, with their consent; and accounts for volunteers, vets and your own team. None of it appears anywhere in the public app, which shows only chosen display names.
+
+ 178  Who is responsible under GDPR
+
+ 179  You asked a good question about this, and it deserves a direct answer. Fair Shake would be providing and operating this app for you as a service, which affects how responsibility is divided.
+
+ 180  Data protection law distinguishes between the organisation that decides why personal data is collected, called the controller, and the organisation that handles it on the first one's instructions , called the processor. The controller carries most of the legal obligations, and the processor carries a narrower but real set of its own.
+
+ 181  Most likely position Syros Cats Controller for the data collected for your work, including guardians, feeders and volunteers. You decide why those records exist and what they are used for. Fair Shake Processor, operating the app on your instructions, plus controller in its own right for the small amount of data that exists only to run the service itself.
+
+ 182  In practice that means a written agreement between us, setting out what Fair Shake may and may not do with the data, the security expected, how we help you respond if somebody asks for their data or asks for it to be deleted, how quickly we tell you about any breach, and which suppliers sit behind the service. It also means the data should be stored in the European Union, which the suppliers we propose all support.
+
+ 183  We are not lawyers, and this is our understanding rather than legal advice. The division above is the usual one for an arrangement like this, but it is worth confirming, particularly because Fair Shake is making a good many of the design decisions about what gets collected, which can affect the analysis. The concrete step is a short written agreement between the two organisations, and it is much easier to put in plac
+
+ 184  Where cats live
+
+ 185  The app shows where each cat is usually seen. For most cats that is harmless and useful, but poisoning incidents are not unknown in Greece, and apps that record wildlife routinely blur the locations of animals that could be harmed by people knowing where they are.
+
+ 186  We would therefore propose showing only an approximate location to the anonymous public for any cat you flag as at risk. The exact location would remain visible to Syros Cats, to your volunteers, to the cat's guardian and feeders, and to any signed-in user you choose to trust. The blurring applies only to the anonymous public view, so it never gets in the way of the people who might need to find the animal.
+
+ 187  Your call on two things. Whether you want this at all, and which cats or areas it should apply to. It is also worth your view that photographs taken in public sometimes include people in the background, and that children use apps like this. Both are manageable, and both are much easier handled by choice than by complaint.
+
+ 188  The app compares each new photograph against cats it already knows. This matters more than it might appear, because if the same cat gets registered three times then every number in section 13 is wrong, including the island count, the sterilisation proportion, and the list of cats you think still need trapping.
+
+ 189  Recognition therefore gets more attention than a photo-matching feature normally would. The app compares a new photograph only against cats seen within about 500 metres of where it was taken , which is our estimate of how far a street cat ordinarily ranges. That makes the comparison both more accurate and considerably cheaper than considering every cat on the island, and it is a number we would want you to sanity-che
+
+ 190  The accuracy of the matching is measured against sightings that people have already confirmed, since every confirmed sighting is effectively somebody saying that two photographs show the same cat, which is exactly what is needed to test it.
+
+ 191  One honest limitation. A great many Greek street cats are tabbies who genuinely look alike, and some pairs will defeat any system. The app is designed to say “I am not sure” clearly rather than to guess, and to let a person settle it.
+
+ 192  These are estimated running costs, based on suppliers' current published prices. They are what it costs to keep the app working, and they are separate from the effort of building it. Fair Shake would pass these costs through to you at cost, with no margin added. Prices are converted from US dollars at roughly €0.92 to the dollar and rounded, and they may move if a supplier changes its pricing.
+
+ 193  We propose running the app on a service called Supabase, which bundles the database, the photograph storage and the sign-in system into one predictable charge and needs no specialist to operate.
+
+ 194  What drives the bill
+
+ 195  Almost all of it is one thing, which is recognising cats in photographs. Everything else, meaning the hosting, the storage, the sign-in, the maps and the notifications, comes to roughly €30 a month and barely moves.
+
+ 196  There are two ways to do the recognition, and the difference between them is the difference between an affordable app and an expensive one. Both are forms of machine learning, which is the general term for software that learns patterns from examples rather than following rules somebody wrote by hand.
+
+ 197  Approach How it works Cost per spot Send every photograph to an outside service Each spot uploads the new photograph along with the known cats nearby for comparison, and we pay for every request. About €0.019 Give the app its own visual memory The app learns to describe each cat as a set of numbers, compares those instead of whole photographs, and uses the outside service only to settle the final few candidates. Abou
+
+ 198  Monthly cost, at three levels of activity
+
+ 199  Level of use Spots per month Recognition Everything else Total With visual memory Quiet 900 €17 €30 €47 €38 Growing 3,600 €70 €30 €100 €65 Busy summer 12,000 €232 €33 €265 €145
+
+ 200  A realistic first full year therefore sits somewhere around €65 to €100 a month , and a busy season costs more only while it is busy. Including the fixed costs below, roughly €110 a month covers everything.
+
+ 201  On top of that there are fixed annual costs of about €105 , which cover listing the app on the Apple and Google app stores and registering a domain name. If donations are added, card processing takes a percentage of each gift.
+
+ 202  This is not part of the first release, and not part of the version after it. We are recording it here because it could become a useful income stream once the app is established, and because it is worth knowing that it is possible while other decisions are being made. Nothing below needs a decision now.
+
+ 203  Somebody who has spent a week meeting the cats of Syros forms a genuine attachment to specific animals. At the moment they leave they want something to take with them, and there is nothing to give them.
+
+ 204  The idea is to let people order a physical keepsake showing a cat they photographed, printed and posted to their home address by a printing partner. That could be a magnet, a mug, a print, a tote bag or a set of postcards. It could also include a calendar, published each autumn, which is the classic charity fundraiser and would assemble itself from a year of photographs.
+
+ 205  Printing partners of this kind charge a base cost per item and let the seller set the retail price, so the difference belongs to the seller. A mug costing around €9 to print and post within the European Union can sell for €22 to somebody who wants a picture of a cat they met, so a margin of roughly half the retail price is realistic, with calendars better still.
+
+ 206  Several things would need thinking through before doing it. There is the question of whose photograph it is, where the simplest and fairest answer is that people can only order souvenirs of photographs they took themselves. There is the question of whether phone photographs print well enough, which they do for small items and not for large ones. There is the choice of partner, where the requirements are production in
+
+ 207  The reason this is a later question is that a souvenir shop is a small commercial operation, with returns, complaints and postal mishaps attached, and it should never become something that consumes your time. It is worth doing only once the app itself is working and there is somebody to hand the day-to-day handling to.
+
+ 208  These are the questions where your answer changes what we build.
+
+ 209  01 What do you actually track about each cat, and what else would be useful to record? Section 6 is our assumption rather than your instruction. If there is a spreadsheet, its column headings beat anything we have guessed. 02 Is three years the right period before the app presumes a cat has gone? Section 6. 03 Is 500 metres a sensible range for how far a Syros street cat wanders? Sections 5 and 19. 04 Is the clipped-
+
+ 210  These are stated so that expectations are clear.
+
+ 211  A system to run your organisation. The app can make parts of your work easier using what it already knows. It is not accounting, payroll, stock control or a task manager, and it does not expect you to change how you work. Public sign-up as a requirement. Spotters can always stay anonymous. That is what keeps the app effortless and what keeps the data protection obligations small. Anything that asks a spotter to do ad
 
