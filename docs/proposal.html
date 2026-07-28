@@ -1,5 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Purropolis — a proposal for Syros Cats</title>
-
 <style>
   :root {
     --ground: #FBFAF7; --raised: #FFFFFF; --ink: #16232B; --ink-soft: #4A5C67;
@@ -44,7 +48,7 @@
   @media (min-width: 1000px) {
     .wrap { grid-template-columns: 210px minmax(0, 1fr); }
     .masthead { grid-column: 1 / -1; }
-    nav.toc { display: block; }
+    .wrap > nav.toc { display: block; }
   }
 
   .masthead { padding: 64px 0 38px; border-bottom: 2px solid var(--rule); margin-bottom: 48px; }
@@ -145,7 +149,8 @@
     [data-pn]::before { position: static; display: block; margin-bottom: 2px; text-align: left; width: auto; opacity: .8; }
   }
 </style>
-
+</head>
+<body>
 <div class="wrap">
 
   <header class="masthead">
@@ -653,9 +658,5 @@
 
   </main>
 </div>
-
-
-
-
-
-
+</body>
+</html>
