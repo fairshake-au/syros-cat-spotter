@@ -172,9 +172,45 @@ Because every observation is dated and attributed, the app can answer *"how many
 
 ---
 
-## 11. Getting the island mapped
+## 11. Getting the island mapped, and keeping people coming back
 
-Your ask for "as many cats as possible, across the island" needs the app to do more than wait. Things we'd propose, and want your view on which are worth it:
+### The problem we have to solve
+
+Collecting cats is a game that ends. Once someone has met the cats near them, the app has nothing left to ask — a few days for a visitor, sooner and permanently for a resident. So the app needs reasons to open it that aren't "find a new cat".
+
+Happily, the best of those reasons is something you need anyway.
+
+**Checking on cats nobody has seen lately.** A cat unseen for two months is a question; six months is a welfare concern. So the app starts asking: *"Nobody has seen Kyra since April — she's usually near the fish market."* That never runs out, it's genuinely useful to you, and it changes the app from a collection someone finishes into a patch they look after. **If we build one thing for engagement, it's this one.**
+
+**Telling people what happened to their cats.** *"Agatha, the cat you named in June, was sterilised last week."* This is the only thing that works after someone has gone home, and it's the whole post-trip relationship — and, not coincidentally, the honest moment to mention donating.
+
+**Going where nobody has been.** For anyone staying long enough to be systematic, the coverage map turns a walk into a contribution.
+
+### Families staying longer — the Boundless Life cohort
+
+Groups like the Boundless Life families are, we think, **the only people who can actually map the island.** A visitor has four days and stays near the harbour; a resident walks the same three streets. A family here for one to three months, with children who have structured time and no fixed itinerary, can systematically cover Ano Syros, Vari, Galissas and Kini — exactly the places nobody photographs. And because those cohorts arrive continuously, each intake is a fresh wave of mappers rather than a one-off push.
+
+It's also where the learning side of the app becomes serious rather than decorative: animal welfare, why sterilisation works, island ecology, and real citizen science that children are doing rather than reading about. We'd like your view on what you'd want taught, since it's your expertise being passed on.
+
+### Cat facts, and the occasional joke
+
+Small things, placed where there's already a wait — the few seconds while the app works out which cat it's looking at currently shows nothing but a spinner.
+
+The ones we care most about aren't trivia. **"Please don't feed the cats" is currently one line in the introduction that nobody reads.** Explaining *why*, at the moment someone is standing in front of a hungry cat holding a sandwich, is the difference between a piece of copy and a change in behaviour. Same for how to approach a cat safely, and what to actually do about an injured one. That's your welfare message reaching people at the only moment it can land.
+
+### Rewarding the right things
+
+Two changes we'd make to how points work, both because the current version quietly works against you.
+
+**Naming a "new" cat currently earns five times more than recognising a known one.** That pays people to declare cats unknown — and every duplicate makes your island count, your sterilisation percentage and your trapping list wrong. We'd narrow that gap considerably.
+
+**Points should follow what you need.** The app knows which cats haven't been seen in months, which have unknown health, and which areas are unsurveyed — so those become worth more, with the reason shown. In effect **the scoring system becomes your task list**, and people chasing points do the work you'd otherwise be asking volunteers to do.
+
+We'd also add recognition for being *accurate* rather than merely busy — someone whose reports your volunteers keep confirming visibly earns standing — and time-limited leaderboards, so a visitor arriving in August is playing for something they can actually win.
+
+### Other things worth doing
+
+Things we'd propose, and want your view on which are worth it:
 
 - **Coverage map** — showing where nobody has looked, so a walk becomes a contribution.
 - **Neighbourhood challenges** — *"Ano Syros: 12 cats known, probably many more."*
@@ -190,12 +226,35 @@ Your ask for "as many cats as possible, across the island" needs the app to do m
 
 ## 12. Donations
 
-Today the app can only point at an external page. What it could do:
+Today the app can only point at an external page.
 
-- **Chip in** — small one-off amounts, on the Help tab.
-- **Sponsor a sterilisation** — the strongest option, because it's specific: someone pays for a named cat's operation and later gets told it happened. You can't buy that kind of connection to a donor.
-- **Sponsor a cat** — a monthly amount attached to a specific animal, with updates as it's spotted.
+**When you ask matters more than how.** The strongest moment by a distance is *after* someone has gone home and learns their cat was helped — the outcome comes first and the ask follows it. Second is the end of a trip, alongside "the 14 cats you met on Syros". A donate button on the Help tab, which is what exists now, is the weakest of the options, because it asks in the abstract.
+
+**A ladder of outcomes, not a row of amounts.** Each rung says what it buys, so even the smallest gift is a specific act:
+
+| | Buys | |
+|---|---|---|
+| **€1** | Feeds a cat for a day | Almost no friction — anyone can |
+| **€7** | Feeds a cat for a week | |
+| **€25** | A week's petrol for your volunteers | Funds the work, not just the cat |
+| **€50–60** | Sterilises one cat | The headline |
+| **€120** | Sterilises two | |
+
+The ladder matters more than any single rung. A €60 ask converts a few people and loses the rest in silence; a €1 ask converts almost anyone and begins a relationship. **The first donation's job is to make the second one possible.**
+
+We'd keep the petrol tier distinct, because it funds *your volunteers* rather than the cats — the unglamorous cost nobody normally offers to cover, and one some donors specifically prefer.
+
+**One practical note on the €1 tier.** Card processing takes a fixed fee per payment, so a single €1 donation loses a large share of itself. The fix isn't to drop it — it converts best — but to sell the outcome and bill it sensibly: *"feed a cat for a month, €30"* is one payment, keeps the €1-a-day framing, and gives you regular income instead of a one-off.
+
+Alongside the ladder:
+
+- **Sponsor a sterilisation** — the strongest single product, because it's specific: someone pays for a named cat's operation and is later told it happened. You cannot buy that kind of connection to a donor. And because €50–60 is a decision rather than an impulse, **letting several people co-fund one cat matters**: *"Agatha's sterilisation — €38 of €60, 4 supporters"* lets someone give €10 and still be part of a specific outcome.
+- **Sponsor a cat monthly** — attached to a specific animal, with updates as it's spotted.
+- **Give it as a gift** — a sterilisation in someone's name; works for Christmas and for "in memory of".
+- **Ways to help that aren't money** — sharing, volunteering, adopting. Some of the most committed users have the least to give, and we don't want to waste them.
 - **Show where it went** — every euro tied back to cats in the record.
+
+**One principle we'd hold firmly: money never buys points.** Donors get thanked and recognised, never ranked. The moment giving moves someone up a leaderboard, the leaderboard stops measuring who helped and starts measuring who paid.
 
 **Three practical warnings.**
 
@@ -302,6 +361,8 @@ The questions where your answer changes what we build:
 8. **Should any cats' locations be shown only approximately?** (Section 14.)
 9. **How do donations reach you**, and what do Greek charity rules require by way of receipts? (Section 12.)
 10. **Which of the engagement ideas in section 11 are worth your time** — particularly QR codes in cafés and hotels, which needs your local relationships more than our software.
+11. **What would you want children taught** through the app — the welfare and sterilisation messages you'd most want a hundred visiting families to go home understanding?
+12. **Are the donation amounts right?** We've assumed €1 feeds a cat for a day, €25 covers a week's petrol, and €50–60 sterilises one. Correct any of those and we'll rebuild the ladder around your figures.
 
 ---
 
