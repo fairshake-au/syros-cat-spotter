@@ -12,7 +12,7 @@
 
 This describes the app as a single finished thing: what it does, who it's for, and what it would cost to run. It deliberately doesn't separate what already works from what we still have to build, because that distinction matters to us and not to you. What matters to you is whether this is the right product.
 
-**Please argue with it.** The sections most likely to be wrong are the ones where we've guessed at how you work — what you track about each cat, how your colonies are organised, how you want to be contacted about a sick animal. We would much rather rebuild a section now than build the wrong thing twice. Questions we already know we need you to answer are collected in section 16, but comments anywhere are welcome.
+**Please argue with it.** The sections most likely to be wrong are the ones where we've guessed at how you work — what you track about each cat, how your colonies are organised, how you want to be contacted about a sick animal. We would much rather rebuild a section now than build the wrong thing twice. Questions we already know we need you to answer are collected in section 17, but comments anywhere are welcome.
 
 One thing worth saying plainly at the outset: **this app is only as useful to you as the data discipline behind it.** A cat catalogue that tourists enjoy is easy. A record you can put in a funding application is a different standard, and most of the careful design in here exists to reach it.
 
@@ -36,11 +36,13 @@ The design principle underneath everything: **the tourist experience must stay e
 
 ## 2. Who uses it, and what they can do
 
-Nobody needs an account to use the app. A visitor opens it and starts. Accounts exist only for people whose word needs to carry extra weight.
+Nobody needs an account to use the app. A spotter opens it and starts. Accounts exist only for people whose word needs to carry extra weight.
+
+Everyone is a **spotter** — that's the base role, and every other role is added on top of it. A vet is a spotter who can also record surgery. We've deliberately not called it "visitor", because a good many of the best spotters live here.
 
 | | Who | What's different for them |
 |---|---|---|
-| **Visitor** | Anyone | Spots cats, names new ones, contributes observations, collects and competes |
+| **Spotter** | Anyone | Spots cats, names new ones, contributes observations, collects and competes |
 | **Resident** | Anyone who lives here | Everything above, plus claiming a cat as theirs |
 | **Cat guardian** | A resident you've endorsed | Their word about their cats' condition carries weight; you hold their contact details |
 | **Volunteer** | Invited by you | Records field observations, confirms what the public reports, responds to welfare reports |
@@ -292,7 +294,48 @@ Today the app knows almost nothing about anybody — no names, no emails, no acc
 
 ---
 
-## 15. What it costs to run
+## 15. What the app should be called
+
+The app currently has **two names and can't decide between them.** Internally the brand is *Purropolis*; the app store listing says *Syros Cat Spotter*; and the Greek and French say *Γάτες της Σύρου* and *Chats de Syros* — "Cats of Syros". That needs settling before anything is published, because an app store name is painful to change once people have started recommending it to each other.
+
+### What a good name has to do here
+
+- **Work in Greek, English and French** — not merely translate, but land. The app is properly trilingual and the name shouldn't be the one part that isn't.
+- **Be findable.** Someone typing "Syros" or "cats" into an app store should find it. This argues for a descriptive name.
+- **Be memorable and repeatable.** Someone in a café should be able to tell a stranger what to search for. This argues against a descriptive name.
+- **Survive success.** If this works on Syros, it works on Paros, Naxos or anywhere else with street cats and visitors. *Syros Cat Spotter* is a name that has to be thrown away the first time that happens.
+
+The findable/memorable tension has a standard resolution: **a brand name plus a descriptive subtitle.** Both app stores support exactly this — a short name and a separate subtitle line — so we can have "Purropolis" for the memory and "Cats of Syros" for the search, without choosing.
+
+### The recommendation: one joke, remade in three languages
+
+*Purropolis* is **purr** + **-opolis**, the Greek for city. It has a lovely local accident built into it: Syros's own capital is **Ερμούπολη** — Ermoupoli, "Hermes' city". A cat-city named the same way sits naturally on this island in a way it wouldn't anywhere else.
+
+But the pun only half-survives translation. "Purr" means nothing in Greek — the Greek for purring is *γουργουρητό* — so a Greek speaker gets the "city" and misses the cat. The same is true in French.
+
+So rather than transliterating one name into three alphabets, **we'd remake the same joke in each language**, keeping one shape:
+
+| | Name | The joke |
+|---|---|---|
+| **English** | **Purropolis** | purr + city |
+| **Greek** | **Γατούπολη** | γάτα (cat) + -ούπολη — exactly the Ερμούπολη pattern |
+| **French** | **Ronronopolis** | ronron (purr) + city |
+
+**Γατούπολη is the strongest of the three** and we'd want your ear on it, because it's the one that has to be right. It's the pun a Greek would actually make, it echoes Ermoupoli directly, and it needs no explanation to anyone on the island.
+
+This costs nothing extra: both app stores let you set a different name per language, and the app already translates everything else. The wordmark is set in type rather than drawn as a logo, so it can be set in Greek script just as easily as Latin.
+
+### What we'd need to check
+
+Trademark conflicts and domain availability for whichever name is chosen, and — the reason this section exists at all — **whether Γατούπολη actually sounds good to Greek speakers, or slightly silly in a way we can't hear.** Please tell us honestly; it's much cheaper to hear now.
+
+### One thing to avoid
+
+**Not "Syros Cats".** That's your name, and an app carrying it would imply the app *is* you — which matters if it ever gets something wrong, and matters more if it ever operates somewhere you don't.
+
+---
+
+## 16. What it costs to run
 
 These are **running costs only** — the ongoing bill to keep the app working. Development effort is separate.
 
@@ -347,7 +390,7 @@ All figures monthly, at the *Growing* level, in year one.
 
 ---
 
-## 16. What we need from you
+## 17. What we need from you
 
 The questions where your answer changes what we build:
 
@@ -363,10 +406,11 @@ The questions where your answer changes what we build:
 10. **Which of the engagement ideas in section 11 are worth your time** — particularly QR codes in cafés and hotels, which needs your local relationships more than our software.
 11. **What would you want children taught** through the app — the welfare and sterilisation messages you'd most want a hundred visiting families to go home understanding?
 12. **Are the donation amounts right?** We've assumed €1 feeds a cat for a day, €25 covers a week's petrol, and €50–60 sterilises one. Correct any of those and we'll rebuild the ladder around your figures.
+13. **Does Γατούπολη sound right to a Greek ear**, or slightly silly in a way we can't hear? (Section 15 — the one question where we most need a native speaker.)
 
 ---
 
-## 17. What we're deliberately not building
+## 18. What we are deliberately not building
 
 So expectations are clear:
 
