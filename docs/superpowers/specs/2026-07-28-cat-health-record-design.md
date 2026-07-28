@@ -335,4 +335,4 @@ These need answering by the charity, not by us:
 - Full TNR case management — trap scheduling, clinic capacity, medical histories beyond §4.1. Flag for trapping, record the outcome, done.
 - Payments (sub-project F).
 - Public sign-up of any kind.
-- Merge and split of duplicate cat records — a real gap (spec gap 4), but it belongs with sub-project G once matching quality is measured.
+- ~~Merge and split of duplicate cat records~~ **No longer deferred (28 July, later):** Samuel pulled duplicate-merge forward as a user-facing workflow, alongside litter records with kitten graduation. Both are specified in the charity proposal (§5 "When kittens arrive", §6 "When the same cat gets counted twice") and reuse this spec's claims model: same-cat links are observations that climb the confidence ladder, merges require human confirmation, are reversible, and never delete; litter-attached observations transfer to graduated individuals via the litter link. Split (one entry that turns out to be two cats) remains deferred to sub-project G.
