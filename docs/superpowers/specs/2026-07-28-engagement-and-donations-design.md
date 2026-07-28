@@ -131,21 +131,41 @@ The app tells people "don't feed the cats" once, in onboarding, where nobody rea
 
 **This is welfare impact wearing an engagement costume**, and it is the part Syros Cats will care about most.
 
-### 5.4 A field guide that fills in
+### 5.4 The curriculum
+
+Seven strands, concrete enough to commission content against:
+
+| | Strand | Covers |
+|---|---|---|
+| **1** | Reading a cat | Colours and patterns; why almost every tortoiseshell is female; what an ear-tip means; body language |
+| **2** | Life in a colony | What a colony is; territory, hierarchy, where cats sleep and why |
+| **3** | Why sterilisation works | The arithmetic of one unsterilised female over five years; why TNR beats removal; what happens at the clinic; why the ear is tipped |
+| **4** | Being around a street cat | Approaching, not picking up, and the feeding nudge |
+| **5** | When a cat needs help | Eye infections, mange, wounds, limping, pregnancy, kittens; thin versus ill; who to tell |
+| **6** | The cats of Syros | How cats live differently in Ermoupoli, Ano Syros, Vari and the harbour |
+| **7** | Being a scientist | Why a date and a place turn a photo into evidence; why "can't tell" is a good answer; how the record becomes funding |
+
+Strands 1 and 5 do double duty: they teach exactly the observation vocabulary the health record depends on, so better teaching produces better data.
+
+**The feeding nudge** is the highest-value single piece and belongs at the point of spotting, with the reasons one tap away: human food makes cats ill (lactose, salt, processed food); food left out draws rats and gulls and creates conflict with neighbours and businesses; crowding at an unmanaged source spreads disease; it pulls cats toward roads. Closing on what Syros Cats *do* — managed feeding, right food, right places — turns a prohibition into a redirection.
+
+**Cross-curricular hooks** are the pitch to an education programme: exponential growth and percentages (maths), coat-colour genetics and disease (biology), surveying and mapping (geography), evidence and uncertainty (data literacy), animal welfare (citizenship). Tortoiseshell X-inactivation and exponential population growth are both standard school topics that happen to be sitting in the street outside.
+
+### 5.5 A field guide that fills in
 
 Coat patterns, ear-tips and what they mean, why TNR works, island ecology. Gives the learning somewhere to accumulate, and for Boundless it is the backbone of programme mode — a cohort can be taught through it rather than merely entertained.
 
-### 5.5 A daily something
+### 5.6 A daily something
 
 One fact, or a two-question quiz: a reason to open the app on a day with no cats. Modest, cheap, and what keeps a streak alive when the weather is bad.
 
-### 5.6 Humour, with two constraints
+### 5.7 Humour, with two constraints
 
 Humour has a half-life — a joke seen twice is worse than none — so jokes belong in rotating, low-stakes spots: empty states, loading, the occasional error.
 
 **Puns do not translate.** A gag written in English is not a gag in Greek or French, so humour must be **authored per language**, not translated. That is a real content cost, and the reason to keep the joke count small and the fact count large.
 
-### 5.7 Author the content; do not generate it live
+### 5.8 Author the content; do not generate it live
 
 A hundred or so reviewed facts, written once, cost nothing to serve and cannot hallucinate. Generating per request would add cost to every screen and eventually tell someone something false about cats — which is exactly the credibility the charity is lending this app. AI may draft; the shipped artefact is reviewed content.
 
@@ -185,7 +205,24 @@ Alongside the ladder:
 - **Give as a gift** — a sterilisation in someone's name. Works at Christmas, and for "in memory of".
 - **Non-monetary giving, first class** — share, volunteer, adopt. Many of the most engaged users have the least money, and treating cash as the only contribution wastes them.
 
-### 6.3 The €1 problem, and how to keep it
+### 6.3 Souvenirs: a second income stream that asks nobody to donate
+
+Print-on-demand keepsakes of a cat someone actually met — magnet, mug, postcard set, small framed print, or a calendar of the twelve cats they met — ordered at the end of a trip and delivered home. The buyer purchases something they want; the margin goes to the charity.
+
+**What makes it a souvenir rather than a photo print** is that it carries the record: cat name, catalogue code, date and place met, and who spotted it. *Loukoumi · SYR-0042 · Ano Syros · 14 June 2026.* Nobody else can sell that, because nobody else holds it — and it is generated entirely from data the app already has.
+
+**Revenue model: markup, with the vendor as merchant of record.** Vendor prints and ships; the app adds a margin. Rejected alternatives: a vendor charity scheme (less margin control) and self-fulfilment (best margin, but it makes the charity a retailer with VAT, returns and customer service).
+
+**Vendor selection criteria** — EU production (so EU buyers cross no customs border), an API for programmatic product creation from a specific photo, quality on small items rather than posters, merchant-of-record status, and environmental credentials. Several established vendors qualify; shortlist and test print quality with real cat photographs before committing.
+
+**Two blockers to resolve before building:**
+
+1. **Photo rights.** The photographer owns the photo. Souvenirs therefore default to **the buyer's own photograph** of the cat — better emotionally and clean legally. Using the catalogue photo requires an explicit licence in the app's terms, agreed up front.
+2. **Print resolution.** Photos are normalised to 2048px on the longest edge at JPEG quality 80 — comfortable for magnets, mugs, postcards and small prints, marginal above roughly A4. **If large prints matter, the app must retain a higher-resolution original from the outset**, which is a cheap decision now and impossible retrospectively. Note this interacts with the storage cost analysis: keeping originals increases photo storage, which is precisely why they belong in object storage rather than Postgres.
+
+**Restraint is part of the design.** One offer at end of trip, one on a cat's page. A shop that shouts undermines the charity framing that makes the rest of the app work.
+
+### 6.4 The €1 problem, and how to keep it
 
 Card processing costs roughly a fixed fee plus a small percentage, so **a €1 donation can lose a quarter or more of its value to fees**. That is not a reason to drop the tier — it is the highest-converting rung on the ladder — but taking it as a single card payment is wasteful enough that the charity would notice.
 
@@ -197,7 +234,7 @@ Three ways to keep the €1 framing without the fee drag, in order of preference
 
 What to avoid: holding a balance for users, which turns the app into a payments product with the regulatory weight that implies.
 
-### 6.4 Cost correction and its consequence
+### 6.5 Cost correction and its consequence
 
 Syros Cats report a sterilisation costs **€50–60**, not the €25 in the app's campaign copy (filed as SYC-14).
 
@@ -205,15 +242,15 @@ Syros Cats report a sterilisation costs **€50–60**, not the €25 in the app
 
 Suggested amounts reshape around the real cost: **€10 / €25 / €60 (sterilise a cat) / €120**, with the sterilisation tier as the hero.
 
-### 6.5 Transparency is the unfair advantage
+### 6.6 Transparency is the unfair advantage
 
 *"This sterilisation was funded by three supporters"* on a cat's care timeline is just another observation in the record already designed. Most charities can only describe where money goes in aggregate; this one can point at a specific cat on a specific date.
 
-### 6.6 Money must never buy points
+### 6.7 Money must never buy points
 
 No score, no rank, no leaderboard movement for donating. Recognition is fine — a supporter mark, a thank-you on the cat's page — but the moment euros convert into standing, the leaderboard stops measuring contribution and starts measuring wallet, and everything in §4 is undone.
 
-### 6.7 Practical constraints that decide the build
+### 6.8 Practical constraints that decide the build
 
 - **Apple and Google take a large cut of in-app purchases.** Charitable donations escape it only if handled exactly to their rules — in practice, checkout outside the app. Done carelessly, this gets the app rejected from the stores.
 - **Card processing has a fixed fee per transaction**, so very small gifts lose a disproportionate share. Set a sensible minimum.
@@ -237,7 +274,9 @@ Donation flows are tested for the invariant that **no donation event can alter p
 2. **Does Boundless have a safeguarding policy** that imposes requirements beyond §2.1?
 3. **Confirmed sterilisation and vaccination costs** for the campaign copy (SYC-14).
 4. **How donations reach Syros Cats**, and Greek receipt requirements.
-5. **Who authors the content library** — facts, welfare guidance and jokes, in three languages. This is a content commission, not an engineering task, and the Greek and French need native writers rather than translation.
+5. **Who authors the content library** — the seven strands, welfare guidance and jokes, in three languages. This is a content commission, not an engineering task, and the Greek and French need native writers rather than translation. Syros Cats should review the sterilisation arithmetic and welfare guidance for accuracy.
+6. **Maximum souvenir print size**, which determines whether the app must retain higher-resolution originals from day one (§6.3).
+7. **Print-on-demand vendor shortlist**, tested with real cat photographs before committing.
 
 ---
 

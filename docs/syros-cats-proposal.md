@@ -10,7 +10,7 @@
 
 ## How to read this, and what we need from you
 
-This describes the app as a single finished thing: what it does, who it's for, and what it would cost to run. It deliberately doesn't separate what already works from what we still have to build, because that distinction matters to us and not to you. What matters to you is whether this is the right product.
+This describes the app: what it does, who it's for, and what it would cost to run. It's written as a whole, because what matters is whether this is the right product — not the order we build it in.
 
 **Please argue with it.** The sections most likely to be wrong are the ones where we've guessed at how you work — what you track about each cat, how your colonies are organised, how you want to be contacted about a sick animal. We would much rather rebuild a section now than build the wrong thing twice. Questions we already know we need you to answer are collected in section 17, but comments anywhere are welcome.
 
@@ -192,45 +192,83 @@ Happily, the best of those reasons is something you need anyway.
 
 Groups like the Boundless Life families are, we think, **the only people who can actually map the island.** A visitor has four days and stays near the harbour; a resident walks the same three streets. A family here for one to three months, with children who have structured time and no fixed itinerary, can systematically cover Ano Syros, Vari, Galissas and Kini — exactly the places nobody photographs. And because those cohorts arrive continuously, each intake is a fresh wave of mappers rather than a one-off push.
 
-It's also where the learning side of the app becomes serious rather than decorative: animal welfare, why sterilisation works, island ecology, and real citizen science that children are doing rather than reading about. We'd like your view on what you'd want taught, since it's your expertise being passed on.
+It's also where the teaching side of the app becomes serious rather than decorative — which is the next part.
 
-### Cat facts, and the occasional joke
+### What the app teaches
 
-Small things, placed where there's already a wait — the few seconds while the app works out which cat it's looking at currently shows nothing but a spinner.
+Not trivia. A short curriculum in seven strands, written so that a visitor absorbs it in one-line pieces while spotting, and a class can work through it properly.
 
-The ones we care most about aren't trivia. **"Please don't feed the cats" is currently one line in the introduction that nobody reads.** Explaining *why*, at the moment someone is standing in front of a hungry cat holding a sandwich, is the difference between a piece of copy and a change in behaviour. Same for how to approach a cat safely, and what to actually do about an injured one. That's your welfare message reaching people at the only moment it can land.
+**1 · Reading a cat.** Colours and patterns, and why almost every tortoiseshell is female. What an ear-tip means. Body language — a flat ear, a slow blink, a twitching tail, and what each is telling you.
+
+**2 · Life in a colony.** What a colony is and how it's organised. Territory, who eats first, where cats sleep, why they are where they are.
+
+**3 · Why sterilisation works.** The arithmetic of an unsterilised female and her descendants over five years — a number that shocks people, and does more persuading than any appeal. Why trap-neuter-return is both kinder and more effective than removing cats. What happens at the clinic, and why the ear is tipped.
+
+**4 · Being around a street cat.** How to approach one, when not to, why not to pick one up — and why not to feed them, which gets its own treatment below.
+
+**5 · When a cat needs help.** Eye infections, mange, wounds, limping, pregnancy, kittens. The difference between a cat that is thin and a cat that is ill. Who to tell, and how.
+
+**6 · The cats of Syros.** Ermoupoli, Ano Syros, Vari, the harbour — how the island's cats live differently in different places, and why.
+
+**7 · Being a scientist.** Why a date and a place turn a photograph into evidence. Why "can't tell" is a good answer. How what you record becomes the thing that funds the next round of sterilisations.
+
+**The feeding nudge, at the moment it matters.** Someone standing in front of a hungry cat holding half a sandwich is the only audience that will ever really take this in, so that's where it's said — briefly, at the point of spotting, with the reasons a tap away:
+
+- Human food makes cats ill. Cats can't digest milk, and salty or processed food does real harm.
+- Food left out draws rats and gulls, and causes trouble with neighbours and businesses — which makes life harder for the cats, not easier.
+- Cats crowding at an unmanaged food source pass disease to each other.
+- It pulls cats towards roads and busy tourist areas.
+- **You run proper feeding, with the right food in the right places.** The most useful thing a visitor can do is support that — and the app says so, at exactly that moment.
+
+**Three ways it reaches people:**
+
+- **While spotting** — one line at a time, chosen for the cat in front of them. Most people will only ever meet the curriculum this way, and that's fine.
+- **A field guide** — the whole thing, browsable, filling in as someone meets the cats that illustrate it.
+- **Cat School** — the seven strands as a proper short course with a quiz and a certificate, for Boundless cohorts and school groups.
+
+**Why an education programme should want this.** The material is genuinely cross-curricular, which makes it easy for a teacher to justify:
+
+| Subject | What the cats teach |
+|---|---|
+| **Maths** | Exponential growth, from one unsterilised female; percentages and coverage |
+| **Biology** | Coat-colour genetics — tortoiseshells are a textbook example; disease and ecology |
+| **Geography** | Surveying, mapping, and finding the gaps |
+| **Data literacy** | Evidence, confidence, and being honest about uncertainty |
+| **Citizenship** | Animal welfare and shared responsibility for a place |
+
+**What we need from you here** isn't whether to teach, but whether we've got it *right* — the sterilisation arithmetic, the welfare guidance, and anything on that list you'd say differently. It's your expertise being passed to several hundred families a year, so it should sound like you.
+
+**And the occasional joke.** Light, rare, and in the spaces where nothing else is happening. Written separately in each language, because a pun that works in English is not a pun in Greek.
 
 ### Rewarding the right things
 
-Two changes we'd make to how points work, both because the current version quietly works against you.
+Points aren't decoration; they steer behaviour. So they point at what you need.
 
-**Naming a "new" cat currently earns five times more than recognising a known one.** That pays people to declare cats unknown — and every duplicate makes your island count, your sterilisation percentage and your trapping list wrong. We'd narrow that gap considerably.
+**Recognising a known cat is worth nearly as much as naming a new one.** This matters more than it sounds: if discovery paid much better, people would effectively be paid to declare cats unknown — and every duplicate makes your island count, your sterilisation percentage and your trapping list wrong. The gap stays deliberately small.
 
-**Points should follow what you need.** The app knows which cats haven't been seen in months, which have unknown health, and which areas are unsurveyed — so those become worth more, with the reason shown. In effect **the scoring system becomes your task list**, and people chasing points do the work you'd otherwise be asking volunteers to do.
+**Points follow need.** The app knows which cats haven't been seen in months, which have unknown health, and which areas are unsurveyed — so those are worth more, with the reason shown. In effect **the scoring is your task list**, and people chasing points do work you'd otherwise be asking volunteers to do.
 
-We'd also add recognition for being *accurate* rather than merely busy — someone whose reports your volunteers keep confirming visibly earns standing — and time-limited leaderboards, so a visitor arriving in August is playing for something they can actually win.
+There's recognition for being *accurate* rather than merely busy — someone whose reports your volunteers keep confirming visibly earns standing — and time-limited leaderboards, so a visitor arriving in August is playing for something they can actually win.
 
 ### Other things worth doing
 
-Things we'd propose, and want your view on which are worth it:
+Ideas we'd like your view on:
 
 - **Coverage map** — showing where nobody has looked, so a walk becomes a contribution.
 - **Neighbourhood challenges** — *"Ano Syros: 12 cats known, probably many more."*
 - **Seasonal pushes** — a census weekend, promoted with you.
 - **QR codes in cafés, hotels and ferries**, so the app is discoverable at the moment someone is looking at a cat. Cheap, and probably the highest-yield thing on this list.
 - **Cat-friendly business partners** — venues that display the app and appear in it.
-- **A souvenir** — at the end of a trip, "the cats you met on Syros" as something shareable. Visitors want to remember specific cats, and it costs us nothing.
+- **A souvenir** — at the end of a trip, "the cats you met on Syros" as something shareable, and something they can order printed and posted home (section 12).
 - **Telling visitors what happened next** — *"Agatha, the cat you met in June, has been sterilised."* We think this is the strongest retention idea in the app and the most natural moment to ask for a donation.
 - **Schools and local groups** — the app is a decent teaching tool about street animal welfare.
 - **Recruiting from your best contributors** — someone who's photographed sixty cats is a volunteer waiting to be asked.
 
 ---
 
-## 12. Donations
+## 12. Donations and other income
 
-Today the app can only point at an external page.
-
-**When you ask matters more than how.** The strongest moment by a distance is *after* someone has gone home and learns their cat was helped — the outcome comes first and the ask follows it. Second is the end of a trip, alongside "the 14 cats you met on Syros". A donate button on the Help tab, which is what exists now, is the weakest of the options, because it asks in the abstract.
+**When you ask matters more than how.** The strongest moment by a distance is *after* someone has gone home and learns their cat was helped — the outcome comes first and the ask follows it. Second is the end of a trip, alongside "the 14 cats you met on Syros". A donate button on its own is the weakest option, because it asks in the abstract.
 
 **A ladder of outcomes, not a row of amounts.** Each rung says what it buys, so even the smallest gift is a specific act:
 
@@ -258,6 +296,42 @@ Alongside the ladder:
 
 **One principle we'd hold firmly: money never buys points.** Donors get thanked and recognised, never ranked. The moment giving moves someone up a leaderboard, the leaderboard stops measuring who helped and starts measuring who paid.
 
+### Souvenirs, printed and posted home
+
+A second income stream that asks nobody to donate.
+
+At the end of a trip, someone can order a keepsake of a cat they actually met — a fridge magnet, a mug, a set of postcards, a small framed print, or a calendar of the twelve cats they met — printed and delivered to their home address. They pay for a thing they want; **the margin goes to you.**
+
+**What makes it a souvenir rather than a photo print** is that it carries the record: the cat's name, its catalogue code, the date and the place they met it, and who spotted it. *Loukoumi · SYR-0042 · Ano Syros · 14 June 2026.* Nobody else can sell that, because nobody else has it.
+
+**Three ways the money could work:**
+
+| | How | Trade-off |
+|---|---|---|
+| **Markup** | A print-on-demand company prints and ships; we add a margin that comes to you | Simplest. No stock, no risk, predictable per-item income |
+| **Charity partnership** | Some printers run charity schemes with a set commission | Less to manage, less control over margin |
+| **Your own shop** | You buy, hold and ship | Best margin, but it makes you a retailer — VAT, returns, packing, complaints |
+
+**We'd recommend the markup model**, with the printing company as the seller of record. That keeps returns, tax and customer service with them, and keeps you a charity rather than a shop.
+
+**What matters when choosing the company:**
+
+- **Printing inside the EU**, so a European visitor's order doesn't cross a customs border — cheaper, faster, and no unexpected import charges landing on a supporter.
+- **An interface we can connect to**, so a mug of a specific cat can be created automatically rather than by hand.
+- **Good quality on small items** — magnets and mugs, not just posters.
+- **They are the seller**, not you.
+- **Decent environmental credentials**, which this audience will notice.
+
+Several established companies meet all of that. We'd shortlist and test print quality with real cat photographs before committing, since a disappointing magnet reflects on you rather than on them.
+
+**Two things we'd need to settle first.**
+
+**Whose photograph is it?** The person who took a photo owns it. So souvenirs should use **your own photograph** of a cat by default — which is also the better souvenir, since it's the moment *you* met her. If someone wants a cat they've met but not photographed well, we'd need the app's terms to cover using the catalogue picture, agreed up front rather than assumed.
+
+**How large can we print?** Photographs are held at a size that is comfortable for magnets, mugs, postcards and small prints, and marginal for anything poster-sized. If large prints matter to you, the app should keep a higher-resolution copy from the outset — a decision that's cheap now and impossible retrospectively.
+
+**Keep it quiet.** A shop that shouts undermines the feeling that this is a charity's app. One tasteful offer at the end of a trip, and on a cat's page for someone who's already fond of her.
+
 **Three practical warnings.**
 
 Card processing takes a small percentage and a fixed fee per transaction, so very small donations lose a disproportionate amount — worth setting sensible minimums.
@@ -272,7 +346,9 @@ And you'd need to tell us how donations reach you, and what receipts or acknowle
 
 The app compares a new photograph against cats it already knows. This matters more than it appears: **if the same cat gets registered three times, every number in section 10 is wrong** — the island count, the sterilisation proportion, and the list of cats you think still need trapping.
 
-We're planning to improve this in two steps. First, **measure how well it currently works**, which we can do using the sightings people have already confirmed — every confirmed sighting is effectively a person saying "yes, these two photographs are the same cat", which is exactly what's needed to test it. Second, give the app a proper visual memory so it compares against every cat on the island rather than only the nearest ones — a cat that has moved is currently almost invisible to it.
+So it's built to be checkable rather than taken on faith. Every time someone confirms a match, they are effectively saying "yes, these two photographs are the same cat" — which gives us a growing body of human-verified answers to test the recognition against, and to keep testing it as the catalogue grows. **We will always be able to tell you how accurate it is**, rather than assuring you that it works.
+
+The app also gives itself a visual memory of every cat on the island, so a cat that has wandered to the other side of Ermoupoli is still recognised — matching on what a cat looks like rather than only on where it was last seen.
 
 **One honest limitation:** a great many Greek street cats are tabbies who genuinely look alike, and some pairs will defeat any system. The app is designed to say "I'm not sure" clearly rather than guess, and to let a person settle it.
 
@@ -280,7 +356,7 @@ We're planning to improve this in two steps. First, **measure how well it curren
 
 ## 14. Privacy and looking after people's data
 
-Today the app knows almost nothing about anybody — no names, no emails, no accounts. Several things in here change that, and they should be decided deliberately rather than by accident.
+For ordinary users the app deliberately knows almost nothing about anybody — no names, no emails, no accounts. But the roles in section 2 do involve holding personal details, and that should be decided deliberately rather than by accident.
 
 **What would be stored about people:** guardians' addresses, and optionally their names and contact details. Feeders' names and contact details, with consent. Volunteer and vet accounts.
 
@@ -296,14 +372,14 @@ Today the app knows almost nothing about anybody — no names, no emails, no acc
 
 ## 15. What the app should be called
 
-The app currently has **two names and can't decide between them.** Internally the brand is *Purropolis*; the app store listing says *Syros Cat Spotter*; and the Greek and French say *Γάτες της Σύρου* and *Chats de Syros* — "Cats of Syros". That needs settling before anything is published, because an app store name is painful to change once people have started recommending it to each other.
+Worth settling before anything is published, because an app store name is painful to change once people have started recommending it to each other. Two candidates are in play: a descriptive one — *Cats of Syros*, in whichever language — and a brand, *Purropolis*.
 
 ### What a good name has to do here
 
 - **Work in Greek, English and French** — not merely translate, but land. The app is properly trilingual and the name shouldn't be the one part that isn't.
 - **Be findable.** Someone typing "Syros" or "cats" into an app store should find it. This argues for a descriptive name.
 - **Be memorable and repeatable.** Someone in a café should be able to tell a stranger what to search for. This argues against a descriptive name.
-- **Survive success.** If this works on Syros, it works on Paros, Naxos or anywhere else with street cats and visitors. *Syros Cat Spotter* is a name that has to be thrown away the first time that happens.
+- **Survive success.** If this works on Syros, it works on Paros, Naxos or anywhere else with street cats and visitors. A name with "Syros" in it has to be thrown away the first time that happens.
 
 The findable/memorable tension has a standard resolution: **a brand name plus a descriptive subtitle.** Both app stores support exactly this — a short name and a separate subtitle line — so we can have "Purropolis" for the memory and "Cats of Syros" for the search, without choosing.
 
@@ -349,24 +425,24 @@ Everything below assumes each photograph is stored at about 400 KB after process
 | **Growing** | 3,600 | 120 a day |
 | **Busy** | 12,000 | 400 a day, summer |
 
-### The three biggest surprises
+### Where the money actually goes
 
-**1. The photo-recognition is the bill.** Comparing a new photograph against known cats currently costs roughly two cents each time, because it sends eleven photographs to an AI service on every single spot. At the *Growing* level that's about **$76 a month** — more than the hosting. At *Busy*, about **$250 a month**.
+**1. The photo-recognition is most of the bill.** Every time someone spots a cat, the app compares that photograph against known cats using an AI service, and that comparison is charged for. At the *Growing* level it comes to roughly **$76 a month** — more than the hosting. At *Busy*, around **$250 a month**.
 
-Giving the app its own visual memory (section 13) cuts this by roughly half immediately, and by very much more once it can do the comparison on the phone itself. **That single change saves more money than any other decision in this document.**
+This is why the app's own visual memory (section 13) matters financially as well as for accuracy: comparing fingerprints rather than sending photographs off for inspection cuts the cost by more than half, and by very much more once the comparison happens on the phone itself. **It is the single largest cost decision in the project.**
 
-**2. Storing photographs inside the database is the only cost that never stops growing.** They're currently kept in the database itself, which costs about 65 times more than ordinary file storage. At the *Growing* level that's roughly $30 a month in year one, $60 in year two, $90 in year three — for photographs nobody is looking at. Moving them to file storage makes that a rounding error. **This should be fixed regardless of anything else here.**
+**2. Where photographs are kept is the only cost that grows forever.** Photographs can live inside the database or in ordinary file storage, and the difference is about **65 times**. Kept in the database, they'd cost roughly $30 a month in year one, $60 in year two and $90 in year three, for pictures nobody is looking at; in file storage that's a rounding error. The figures below assume file storage everywhere except where noted.
 
-**3. Volunteer accounts are free.** The service we'd use for sign-in covers up to 50,000 people at no cost. Your volunteer list will never approach that.
+**3. Volunteer accounts are free.** The sign-in service covers up to 50,000 people at no cost. Your volunteer list will never approach that.
 
 ### The three architectures compared
 
 All figures monthly, at the *Growing* level, in year one.
 
-| | Today (Replit) | Supabase | Amazon Web Services |
+| | Replit | Supabase | Amazon Web Services |
 |---|---|---|---|
 | Server | $20 | ~$10 | ~$15 |
-| Database | $30 *(photos included, and rising)* | $25 *(covers storage too)* | ~$14 |
+| Database | $30 *(if photos live here, and rising)* | $25 *(covers storage too)* | ~$14 |
 | Photo storage | *in the database* | *included* | ~$2 |
 | Delivering photos | included | included | ~$3 |
 | Sign-in | free | free | free |
@@ -376,11 +452,11 @@ All figures monthly, at the *Growing* level, in year one.
 | **Total** | **~$126** | **~$111** | **~$110** |
 | **Same, in year three** | **~$190** | **~$115** | **~$120** |
 
-**What this actually tells us.** The three options are within about $15 a month of each other, and the AI recognition is more than half of every one of them. **Changing hosting provider is not where the money is.** Fixing the recognition and moving the photographs out of the database is — together those take the *Growing* bill from about $126 to somewhere near **$45**, on any of the three.
+**What this actually tells us.** The three options sit within about $15 a month of each other, and the AI recognition is more than half of every one of them. **Which company hosts the app is not where the money is.** The recognition approach and where photographs are kept are — together those take the *Growing* bill from about $126 to somewhere near **$45**, on any of the three.
 
 **In character**, briefly:
 
-- **Today's setup** is the least work, and the only one whose bill grows every month forever, because of the photograph problem.
+- **Replit** is the least work to run, but it charges database rates for photograph storage, which is why its bill keeps climbing while the others stay flat.
 - **Supabase** is the best fit: it bundles database, file storage and sign-in into one predictable $25, its included allowances comfortably cover years of photographs, and it needs no specialist to run. It's what we'd recommend.
 - **Amazon** is marginally cheaper at scale and by far the most flexible, but it's several services to configure and keep secure. For an organisation without technical staff, that flexibility is a liability rather than a feature.
 
@@ -407,6 +483,8 @@ The questions where your answer changes what we build:
 11. **What would you want children taught** through the app — the welfare and sterilisation messages you'd most want a hundred visiting families to go home understanding?
 12. **Are the donation amounts right?** We've assumed €1 feeds a cat for a day, €25 covers a week's petrol, and €50–60 sterilises one. Correct any of those and we'll rebuild the ladder around your figures.
 13. **Does Γατούπολη sound right to a Greek ear**, or slightly silly in a way we can't hear? (Section 15 — the one question where we most need a native speaker.)
+14. **Have we got the teaching right?** (Section 11.) Particularly the sterilisation arithmetic and the welfare guidance — it's your expertise reaching several hundred families a year, so it should sound like you.
+15. **How large should souvenirs print?** (Section 12.) If you'd want posters and large prints as well as magnets and mugs, we need to keep bigger photographs from the start — cheap now, impossible later.
 
 ---
 
