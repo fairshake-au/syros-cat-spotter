@@ -65,7 +65,7 @@ export function getCampaign(): Campaign {
     // sterilisation is €50–60 per cat, not the €25 the design mockup showed.
     blurb:
       process.env.CAMPAIGN_BLURB ??
-      "€10 covers a rabies vaccine. €50 desexes one cat. Every euro goes to the vet in Ερμούπολη.",
+      "€10 covers a rabies vaccine. €50–60 desexes one cat. Every euro goes to the vet in Ερμούπολη.",
     currency: "EUR",
     goalCents: intFromEnv("CAMPAIGN_GOAL_CENTS", 400_000),
     raisedCents: intFromEnv("CAMPAIGN_RAISED_CENTS", 0),
