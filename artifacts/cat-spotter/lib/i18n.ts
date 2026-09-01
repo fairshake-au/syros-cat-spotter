@@ -631,7 +631,7 @@ const fr: Dict = {
   viewList: 'Liste',
   viewMap: 'Carte',
   clear: 'Effacer',
-  welcomeTitle: 'Syros Cat Spotter',
+  welcomeTitle: 'Chats de Syros',
   welcomeSubtitle: 'Repère, nomme et aide les chats des rues de Syros — un miaou-ami à la fois. 🐾',
   welcomeCta: 'Commencer',
   welcomeHaveAccount: 'J\'ai déjà un compte',
