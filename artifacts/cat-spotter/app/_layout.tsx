@@ -28,8 +28,9 @@ import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 import { OwnershipNoticeBanner } from '@/components/OwnershipNoticeBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
+import { apiOrigin } from '@/lib/urls';
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+setBaseUrl(apiOrigin());
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
