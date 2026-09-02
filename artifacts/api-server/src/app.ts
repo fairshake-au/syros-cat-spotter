@@ -57,6 +57,17 @@ export function jsonErrorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "name" in err &&
+    err.name === "ZodError" &&
+    "issues" in err &&
+    Array.isArray(err.issues)
+  ) {
+    res.status(400).json({ error: "Invalid request", issues: err.issues });
+    return;
+  }
   req.log?.error({ err }, "Unhandled route error");
   if (res.headersSent) {
     res.end();
