@@ -385,6 +385,91 @@ tr:last-child td { border-bottom: none; }
   width: 100%; padding-top: 16px; border-top: 1.5px solid var(--line);
   font-size: 14.5px; color: var(--muted);
 }
+
+/* ---- press additions: facts box, pull quotes, boilerplate, placeholders ---- */
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+}
+@media (min-width: 640px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.facts div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 20px;
+  border-bottom: 1.5px solid var(--line);
+}
+@media (min-width: 640px) {
+  .facts div:nth-child(odd) { border-right: 1.5px solid var(--line); }
+  .facts div:nth-last-child(-n+2) { border-bottom: none; }
+}
+.facts div:last-child { border-bottom: none; }
+.facts dt {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.facts dd { margin: 0; font-size: 15.5px; color: var(--ink); font-weight: 600; }
+
+blockquote.quote {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 26px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-left: 5px solid var(--blue);
+  border-radius: 20px;
+}
+blockquote.quote p {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+  max-width: 40ch;
+}
+blockquote.quote cite {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+
+.sub { display: flex; flex-direction: column; gap: 4px; }
+.sub h3 { font-size: 17px; }
+
+.about { display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 640px) { .about { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.tbc {
+  background: var(--sun-soft);
+  border-bottom: 1.5px solid #f0d493;
+  padding: 0 3px;
+  font-style: normal;
+  color: #8a6410;
+  font-weight: 700;
+}
+
+@media print {
+  .facts { border-radius: 8px; }
+  .facts div { padding: .3rem .5rem; }
+  .facts dt { font-size: 6pt; }
+  .facts dd { font-size: 7.6pt; }
+  blockquote.quote { padding: .5rem .7rem; border-radius: 8px; break-inside: avoid; }
+  blockquote.quote p { font-size: 9pt; max-width: none; }
+  blockquote.quote cite { font-size: 7pt; }
+  .sub h3 { font-size: 8.2pt; }
+  .about { gap: .5rem; }
+  .tbc { background: none; border-bottom: 1px solid #8a6410; }
+}
 </style>
 
 <div class="wrap">
@@ -392,34 +477,52 @@ tr:last-child td { border-bottom: none; }
 
   <header class="topbar">
     <div class="mark"><svg class="paw" width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="21" r="8.5" fill="#1c77c3"/><circle cx="6.5" cy="12.5" r="4.2" fill="#1c77c3"/><circle cx="14" cy="7.5" r="4.2" fill="#d64185"/><circle cx="22.5" cy="8.5" r="4.2" fill="#1c77c3"/><circle cx="29" cy="15" r="4.2" fill="#1c77c3"/></svg><span class="dsp">Cat <b>Spotters</b></span></div>
-    <span class="chip">For media</span>
+    <span class="chip">For media &mdash; launching October</span>
   </header>
 
   <header class="mast">
     <h1>An island is naming every cat on it</h1>
-    <p class="lede">Syros is building a name-by-name register of every street cat on the island &mdash; and the people doing the fieldwork are the tourists who were photographing those cats anyway.</p>
+    <p class="lede">In October, Syros starts building a name-by-name register of every street cat on the island. The fieldwork will be done by the tourists who were photographing those cats anyway.</p>
     <div class="meta">
-      <span><strong>For</strong> editors and journalists</span>
-      <span><strong>Syros, Cyclades, Greece</strong></span>
-      <span><strong>September 2026</strong></span>
+      <span><strong>Launch</strong> October 2026</span>
+      <span><strong>Sign up</strong> catspotters.com</span>
+      <span><strong>Contact</strong> <em class="tbc">[NAME, role, +30 &hellip;]</em> &middot; hello@catspotters.com</span>
     </div>
   </header>
 
   <section>
     <h2>The story</h2>
-    <p>Every place facing cat overpopulation has two challenges: a large population of street cats, and a small number of people looking after them. The gap between them is information, so the work gets planned from memory rather than evidence. Cat Spotters, designed by Fair Shake with the volunteers of Syros Cats, closes that gap from an unexpected direction: it turns the thousands of photographs visitors already take into dated, located, identified records &mdash; so Syros Cats can see where the cats actually are, and send volunteers where a morning of their time will do most good.</p>
+    <p>Anywhere with too many street cats has the same two problems: a lot of cats, and very few people looking after them. What sits between them is information. Nobody knows how many cats there are, where they are, or which have been sterilised &mdash; so the work gets planned from memory, and from whoever complained most recently.</p>
+    <p>Cat Spotters closes that gap from an unexpected direction. Every summer, visitors to Syros take thousands of photographs of its cats, and every one of them goes home in a pocket. The app turns those photographs into dated, located, identified records &mdash; so Syros Cats can see where the cats actually are, and send a volunteer where a morning of their time does the most good.</p>
     <div class="story">
       <p>A visitor photographs a tabby in Ano Syros, learns the island has never met her, and names her <span class="cat">Agatha</span>. Others confirm her over the summer, and one notices her ear is not clipped. In September the round above Ano Syros brings up an unsterilised female: it is Agatha. In October the visitor, long since home, is told Agatha was sterilised last week.</p>
     </div>
+    <blockquote class="quote">
+      <p>&ldquo;Without records you are guessing. You go where somebody last complained, not where the kittens are.&rdquo;</p>
+      <cite><em class="tbc">[NAME &ndash; TBC]</em>, Syros Cats</cite>
+    </blockquote>
+  </section>
+
+  <section>
+    <h2>Facts at a glance</h2>
+    <dl class="facts">
+      <div><dt>Launch</dt><dd>October 2026</dd></div>
+      <div><dt>Where</dt><dd>Syros, Cyclades, Greece</dd></div>
+      <div><dt>How to get it</dt><dd>catspotters.com, App Store, Google Play</dd></div>
+      <div><dt>Cost</dt><dd>Free. No account needed</dd></div>
+      <div><dt>Languages</dt><dd>English, Greek, French</dd></div>
+      <div><dt>To sterilise one cat</dt><dd>&euro;50&ndash;60</dd></div>
+      <div><dt>Volunteers at Syros Cats</dt><dd><em class="tbc">[N &ndash; confirm]</em></dd></div>
+      <div><dt>Sterilised in the last 12 months</dt><dd><em class="tbc">[N &ndash; from vet invoices]</em></dd></div>
+    </dl>
   </section>
 
   <section>
     <h2>How it works</h2>
-    <p>Cat Spotters opens in a browser at catspotters.com and installs from the App Store and Google Play. It is free, runs in English, Greek and French, and needs no account.</p>
     <div class="grid">
       <div class="card card--lead">
         <h3>Photograph a cat</h3>
-        <p>The app answers one question: have we met this one before? It shows the closest matches with a plain reason such as &ldquo;the white bib and the notch in the left ear match&rdquo;, and the person confirms one or names a new cat. Photographs, locations and the map work with no connection, which matters on an island full of places that have none.</p>
+        <p>The app answers one question: have we met this one before? It shows the closest matches with a plain reason such as &ldquo;the white bib and the notch in the left ear match&rdquo;, and the person confirms one or names a new cat. Photographs, locations and the map work with no connection; identifying the cat needs a signal at some point, which can be later, back at the hotel.</p>
       </div>
       <div class="card">
         <h3>A game that keeps people going</h3>
@@ -430,18 +533,29 @@ tr:last-child td { border-bottom: none; }
         <p>A photograph, a location, and a choice between &ldquo;needs attention&rdquo; and &ldquo;urgent&rdquo;. Wherever it can, the app closes the loop: the report reaches a person, and whoever made it hears back.</p>
       </div>
     </div>
+    <blockquote class="quote">
+      <p>&ldquo;Every summer those photographs go home in a pocket and are never seen again. We have given them somewhere to land.&rdquo;</p>
+      <cite><em class="tbc">[NAME &ndash; TBC]</em>, Fair Shake</cite>
+    </blockquote>
   </section>
 
   <section>
     <h2>Why it matters</h2>
-    <div class="table-wrap">
-      <table>
-        <tbody>
-          <tr><td>It is real citizen science</td><td>Ordinary people with no training collecting observations that inform real decisions &mdash; the same idea as the garden bird counts that feed real population studies. Every observation is dated and attributed, so Syros Cats can answer &ldquo;how many cats were sterilised this year&rdquo; with the method stated rather than asserting a number.</td></tr>
-          <tr><td>It teaches at the right moment</td><td>While a photograph is identified, the screen shows a short fact instead of a spinner: what a clipped ear means, why sterilisation is the humane answer, why sharing your lunch in August harms a cat in November.</td></tr>
-          <tr><td>It converts affection into action</td><td>A donation of <span class="num">&euro;50&ndash;60</span> sterilises one cat, and each kitten of the four litters it will now not have would need the same again. The app asks at the two moments feeling runs highest: on the spot, and when somebody hears their cat was helped.</td></tr>
-        </tbody>
-      </table>
+    <div class="sub">
+      <h3>It is a story about a street, not only about cats</h3>
+      <p>Uncontrolled breeding is hard on the cats first &mdash; kittens die of disease, dehydration and cars &mdash; then on the people living alongside them, and then on the handful of volunteers trying to keep up with it. Sterilisation is the humane answer and the only one that works; everything else manages how bad it gets.</p>
+    </div>
+    <blockquote class="quote">
+      <p>&ldquo;People think this is a story about cats. It is a story about a street.&rdquo;</p>
+      <cite><em class="tbc">[NAME &ndash; TBC]</em>, Syros Cats</cite>
+    </blockquote>
+    <div class="sub">
+      <h3>It is citizen science</h3>
+      <p>Ordinary people with no training collecting observations that inform real decisions &mdash; the same idea as the garden bird counts that feed genuine population studies. Every observation is dated and attributed, so Syros Cats can answer &ldquo;how many cats were sterilised this year&rdquo; with the method stated, rather than asserting a number. If the island&rsquo;s vets opt in, it becomes a count of every sterilised cat on Syros.</p>
+    </div>
+    <div class="sub">
+      <h3>It teaches at the moment somebody is standing there</h3>
+      <p>While a photograph is identified, the screen shows a short fact instead of a spinner: what a clipped ear means, why sterilisation is the humane answer, and why sharing your lunch in August harms a cat in November. Then it gives people something to do instead: <span class="num">&euro;50&ndash;60</span> sterilises one cat.</p>
     </div>
   </section>
 
@@ -450,17 +564,32 @@ tr:last-child td { border-bottom: none; }
     <div class="table-wrap">
       <table>
         <tbody>
-          <tr><td>Who is behind it</td><td><strong>Syros Cats</strong>, the volunteer organisation caring for the island&rsquo;s street cats, and <strong>Fair Shake</strong>, which operates the app and designed it with Syros Cats on a pro bono basis.</td></tr>
-          <tr><td>Figures and interviews</td><td>Cats on the register, sterilisations recorded and spotters, on request. Interviews, screenshots and footage available; cat photographs with the spotter&rsquo;s permission and credit. <em>[Launch date, live figures, spokespeople and quotes to be confirmed.]</em></td></tr>
-          <tr><td>Two things to get right</td><td>The ear tip is not an injury &mdash; it is how vets mark a sterilised cat, done under anaesthetic. And the app does not ask visitors to feed cats; it asks them not to, and explains why.</td></tr>
+          <tr><td>Two things to get right</td><td>An ear tip is <strong>not an injury</strong> &mdash; it is how vets mark a sterilised cat, done under anaesthetic. And the app does not ask visitors to feed street cats; it asks them <strong>not</strong> to, and explains why.</td></tr>
+          <tr><td>Available on request</td><td>Interviews with Syros Cats volunteers and with Fair Shake. Press-cleared photographs, including a clipped ear, a volunteer at work and app screenshots, with captions and credits. Thirty seconds of footage of the app in use. Logo pack. <em class="tbc">[Assets to be assembled before pitching.]</em></td></tr>
+          <tr><td>Figures</td><td>Volunteers, sterilisations recorded and money spent, on request. Nobody knows how many street cats Syros has &mdash; that is the point of the register, and we will not quote a number we cannot stand behind.</td></tr>
+          <tr><td>Media contact</td><td><em class="tbc">[NAME, role, telephone]</em> &middot; hello@catspotters.com &middot; <em class="tbc">[Embargo, if any.]</em></td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
+  <section>
+    <h2>About</h2>
+    <div class="about">
+      <div class="card">
+        <h3>Syros Cats</h3>
+        <p>A volunteer organisation caring for the street cats of Syros in the Greek Cyclades. It traps, sterilises and returns cats, treats the sick and injured, and works with the island&rsquo;s vets and residents. It is run by volunteers around their own jobs.</p>
+      </div>
+      <div class="card">
+        <h3>Fair Shake</h3>
+        <p>A technology organisation that builds tools giving people access to things otherwise out of reach. It designed Cat Spotters with Syros Cats and operates it on a pro bono basis: it charges nothing, takes nothing from donations, and has no commercial interest in the app.</p>
+      </div>
+    </div>
+  </section>
+
   <footer class="foot">
     <div class="mark"><svg class="paw" width="24" height="24" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="21" r="8.5" fill="#66b2e8"/><circle cx="6.5" cy="12.5" r="4.2" fill="#66b2e8"/><circle cx="14" cy="7.5" r="4.2" fill="#e8558a"/><circle cx="22.5" cy="8.5" r="4.2" fill="#66b2e8"/><circle cx="29" cy="15" r="4.2" fill="#66b2e8"/></svg><span class="dsp">catspotters<b>.com</b></span></div>
-    <p><strong>Media contact</strong> <a href="mailto:hello@catspotters.com">hello@catspotters.com</a>. Cat Spotters is designed by <a href="https://syroscats.com">Syros Cats</a> and <a href="https://fairshake.com.au">Fair Shake</a>.</p>
+    <p><strong>Launching October 2026.</strong> Sign up at catspotters.com. Media contact <a href="mailto:hello@catspotters.com">hello@catspotters.com</a>.</p>
   </footer>
 
 </main>
