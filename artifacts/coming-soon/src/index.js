@@ -21,7 +21,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const LANGS = new Set(['en', 'el', 'fr']);
 
 const SLUGS = new Set(Object.keys(DOCUMENTS));
-const COOKIE = 'cs_pass';
+const COOKIE = '__Host-cs_pass';
 const COOKIE_DAYS = 30;
 const TEAM_LINK_TTL = 300; // seconds; the hop from the workspace to the document
 
@@ -69,21 +69,50 @@ async function verify(secret, token) {
   return kind;
 }
 
-function cookies(request) {
+/**
+ * Every value sent under a name, not just the last one. A browser will happily
+ * send two cookies of the same name — one host-only, one set with Domain= from
+ * a subdomain — and taking only the last lets a subdomain shadow the real one.
+ */
+function cookieValues(request, name) {
   const raw = request.headers.get('cookie') || '';
-  const out = {};
+  const out = [];
   for (const part of raw.split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+    if (i > 0 && part.slice(0, i).trim() === name) {
+      out.push(part.slice(i + 1).trim().replace(/^"|"$/g, ''));
+    }
   }
   return out;
 }
 
-// Domain-scoped so that catspotters.com and www.catspotters.com — both of
-// which serve these documents — count as the same visit. Nobody should be
-// asked for the password twice because of a missing "www".
+/** True if any cookie sent under `name` is a valid token of `kind`. */
+async function hasToken(request, env, name, kind) {
+  for (const value of cookieValues(request, name)) {
+    if ((await verify(env.SIGNING_KEY, value)) === kind) return true;
+  }
+  return false;
+}
+
+/** Reject a cross-site POST outright; a missing Origin is not a free pass. */
+function sameOrigin(request, url) {
+  const origin = request.headers.get('origin');
+  return origin !== null && origin === url.origin;
+}
+
+/** Cheap per-IP throttle. Fails open only if the binding is missing. */
+async function throttled(request, env, limiter) {
+  if (!limiter) return false;
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const { success } = await limiter.limit({ key: ip });
+  return !success;
+}
+
+// Host-only and __Host- prefixed, so no subdomain can set or shadow it. The
+// "www" case is handled by redirecting to the apex instead of by widening the
+// cookie, which would have sent the unlock token to every subdomain.
 const setCookie = (value, seconds) =>
-  `${COOKIE}=${value}; Domain=catspotters.com; Path=/; Max-Age=${seconds}; HttpOnly; Secure; SameSite=Lax`;
+  `${COOKIE}=${value}; Path=/; Max-Age=${seconds}; HttpOnly; Secure; SameSite=Lax`;
 
 // ---- settings ------------------------------------------------------------
 
@@ -104,8 +133,10 @@ async function subscribe(request, env, url) {
   if (request.method !== 'POST') return json({ ok: false }, 405);
 
   // Same-origin only: this endpoint exists for the page's own form.
-  const origin = request.headers.get('origin');
-  if (origin && new URL(origin).host !== url.host) return json({ ok: false }, 403);
+  if (!sameOrigin(request, url)) return json({ ok: false }, 403);
+  if (await throttled(request, env, env.SUBSCRIBE_RL)) {
+    return json({ ok: false, error: 'slow_down' }, 429);
+  }
 
   let body;
   try {
@@ -137,8 +168,10 @@ async function subscribe(request, env, url) {
 
 async function unlock(request, env, url) {
   if (request.method !== 'POST') return json({ ok: false }, 405);
-  const origin = request.headers.get('origin');
-  if (origin && new URL(origin).host !== url.host) return json({ ok: false }, 403);
+  if (!sameOrigin(request, url)) return json({ ok: false }, 403);
+  if (await throttled(request, env, env.UNLOCK_RL)) {
+    return json({ ok: false, error: 'slow_down' }, 429);
+  }
 
   let body;
   try {
@@ -149,9 +182,11 @@ async function unlock(request, env, url) {
 
   const given = String(body.password ?? '').trim();
   const actual = await setting(env, 'gate_password');
-  if (!actual || given.toLowerCase() !== actual.toLowerCase()) {
-    return json({ ok: false, error: 'wrong' }, 401);
-  }
+  // Compared as MACs so the check is constant-time, and case-sensitively:
+  // folding case threw away roughly a bit per letter of a phrase somebody chose.
+  const ok =
+    actual && (await sign(env.SIGNING_KEY, `pw:${given}`)) === (await sign(env.SIGNING_KEY, `pw:${actual}`));
+  if (!ok) return json({ ok: false, error: 'wrong' }, 401);
 
   const seconds = COOKIE_DAYS * 24 * 60 * 60;
   const token = await sign(env.SIGNING_KEY, `pass:${Math.floor(Date.now() / 1000) + seconds}`);
@@ -173,13 +208,17 @@ async function enter(request, env, url) {
   });
 }
 
+const PRIVATE = {
+  'cache-control': 'private, no-store, max-age=0',
+  vary: 'Cookie',
+  'referrer-policy': 'no-referrer',
+  'x-frame-options': 'DENY',
+};
+
 async function document(request, env, slug) {
   if (!(await isLocked(env, slug))) return html(DOCUMENTS[slug]);
-
-  const kind = await verify(env.SIGNING_KEY, cookies(request)[COOKIE]);
-  if (kind === 'pass') return html(DOCUMENTS[slug]);
-
-  return html(GATE_PAGE, 401, { 'cache-control': 'no-store' });
+  if (await hasToken(request, env, COOKIE, 'pass')) return html(DOCUMENTS[slug], 200, PRIVATE);
+  return html(GATE_PAGE, 401, PRIVATE);
 }
 
 export default {

@@ -15,7 +15,7 @@
 import { WORKSPACE_PAGE, SIGNIN_PAGE } from './pages.js';
 
 const SITE = 'https://catspotters.com';
-const SESSION = 'cs_admin';
+const SESSION = '__Host-cs_admin';
 const SESSION_DAYS = 30;
 const LINK_TTL = 15 * 60; // seconds
 const HOP_TTL = 300; // the signed hop from here to a document
@@ -78,23 +78,41 @@ async function verify(secret, token) {
   for (let i = 0; i < token.length; i++) diff |= expected.charCodeAt(i) ^ token.charCodeAt(i);
   if (diff !== 0) return null;
   const parts = payload.split(':');
-  if (Number(parts[1]) * 1000 < Date.now()) return null;
+  // Number(undefined) is NaN and every NaN comparison is false, so a payload
+  // with no expiry would otherwise sail through as a token that never expires.
+  if (!/^\d+$/.test(parts[1] ?? '') || Number(parts[1]) * 1000 < Date.now()) return null;
   return parts;
 }
 
-function cookies(request) {
+/** Every value under a name: a subdomain can send a second cookie of the same
+ *  name, and taking only the last would let it shadow the real session. */
+function cookieValues(request, name) {
   const raw = request.headers.get('cookie') || '';
-  const out = {};
+  const out = [];
   for (const part of raw.split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+    if (i > 0 && part.slice(0, i).trim() === name) {
+      out.push(part.slice(i + 1).trim().replace(/^"|"$/g, ''));
+    }
   }
   return out;
 }
 
+/** Reject a cross-site POST outright; a missing Origin is not a free pass.
+ *  SameSite=Lax treats every *.catspotters.com host as same-site, so this is
+ *  the check that stands between a compromised subdomain and these endpoints. */
+function sameOrigin(request, url) {
+  const origin = request.headers.get('origin');
+  return origin !== null && origin === url.origin;
+}
+
 async function session(request, env) {
-  const parts = await verify(env.SIGNING_KEY, cookies(request)[SESSION]);
-  if (!parts || parts[0] !== 'admin') return null;
+  let parts = null;
+  for (const value of cookieValues(request, SESSION)) {
+    const candidate = await verify(env.SIGNING_KEY, value);
+    if (candidate && candidate[0] === 'admin') { parts = candidate; break; }
+  }
+  if (!parts) return null;
   const email = parts.slice(2).join(':');
   // Removing somebody from the table ends their session at the next request,
   // rather than whenever their cookie happens to expire.
@@ -180,8 +198,7 @@ function signinPage(env, message = '') {
 
 async function requestLink(request, env, url) {
   if (request.method !== 'POST') return json({ ok: false }, 405);
-  const origin = request.headers.get('origin');
-  if (origin && new URL(origin).host !== url.host) return json({ ok: false }, 403);
+  if (!sameOrigin(request, url)) return json({ ok: false }, 403);
 
   let body;
   try {
@@ -193,35 +210,43 @@ async function requestLink(request, env, url) {
   const email = String(body.email ?? '').trim().toLowerCase();
   const row = await env.DB.prepare('SELECT email FROM admins WHERE email = ?').bind(email).first();
 
-  // Do not reveal who is on the list: an address that is not on it gets the
-  // same answer as one that is, and simply never receives anything.
-  if (!row) return json({ ok: true });
-
-  const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
-  await env.DB.prepare('INSERT INTO signin_tokens (token, email, expires_at) VALUES (?, ?, ?)')
-    .bind(token, email, Math.floor(Date.now() / 1000) + LINK_TTL)
-    .run();
-
-  const link = `${url.origin}/auth?t=${token}`;
-  const sent = await sendLink(env, email, link);
-  if (!sent) {
-    console.error('no mail transport configured; link not delivered for', email);
-    return json({ ok: false, message: 'Email sending is not switched on yet. Ask Fair Shake to let you in.' }, 503);
+  if (row) {
+    const token = b64url(crypto.getRandomValues(new Uint8Array(32)));
+    await env.DB.prepare('INSERT INTO signin_tokens (token, email, expires_at) VALUES (?, ?, ?)')
+      .bind(token, email, Math.floor(Date.now() / 1000) + LINK_TTL)
+      .run();
+    // Opportunistic tidy-up: nothing else ever removes spent tokens.
+    await env.DB.prepare('DELETE FROM signin_tokens WHERE expires_at < ?')
+      .bind(Math.floor(Date.now() / 1000) - 86400)
+      .run();
+    if (!(await sendLink(env, email, `${url.origin}/auth?t=${token}`))) {
+      console.error('mail transport unavailable; link not delivered for', email);
+    }
   }
+
+  // The same answer either way, and after the same delay. An address that is
+  // not on the list must not be distinguishable from one that is — by status
+  // code, by response shape, or by how long the reply took.
+  await new Promise((resolve) => setTimeout(resolve, 400));
   return json({ ok: true });
 }
 
 async function consumeLink(request, env, url) {
   const token = url.searchParams.get('t') || '';
+  // One conditional write rather than read-then-write: two simultaneous visits
+  // (a mail scanner prefetching while the person clicks) would otherwise both
+  // find used_at empty and both be handed a session.
   const row = await env.DB.prepare(
-    'SELECT email, expires_at, used_at FROM signin_tokens WHERE token = ?',
-  ).bind(token).first();
+    "UPDATE signin_tokens SET used_at = datetime('now') " +
+      'WHERE token = ? AND used_at IS NULL AND expires_at >= ? RETURNING email',
+  )
+    .bind(token, Math.floor(Date.now() / 1000))
+    .first();
 
-  if (!row || row.used_at || row.expires_at < Math.floor(Date.now() / 1000)) {
+  if (!row) {
     return signinPage(env, 'That link has been used already, or it has expired. Here is a fresh one.');
   }
 
-  await env.DB.prepare("UPDATE signin_tokens SET used_at = datetime('now') WHERE token = ?").bind(token).run();
   return new Response(null, { status: 302, headers: { location: '/', 'set-cookie': await grant(env, row.email) } });
 }
 
@@ -293,8 +318,14 @@ export default {
     }
     if (path === '/') return workspace(request, env, email);
     if (path.startsWith('/open/')) return openDoc(env, path.slice('/open/'.length));
-    if (path === '/api/lock' && request.method === 'POST') return setLock(request, env);
-    if (path === '/api/password' && request.method === 'POST') return setPassword(request, env);
+    if (path === '/api/lock' && request.method === 'POST') {
+      if (!sameOrigin(request, url)) return json({ ok: false }, 403);
+      return setLock(request, env);
+    }
+    if (path === '/api/password' && request.method === 'POST') {
+      if (!sameOrigin(request, url)) return json({ ok: false }, 403);
+      return setPassword(request, env);
+    }
 
     return new Response('Not found', { status: 404 });
   },
