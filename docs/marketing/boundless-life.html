@@ -1,0 +1,601 @@
+<title>Cat Spotters for Boundless Life</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Space+Mono:wght@400&display=swap&subset=greek,latin">
+<style>
+/* Cat Spotters documents — the catspotters.com design system.
+   Tokens, type and component idiom lifted from artifacts/coming-soon/public/index.html
+   so these pages sit on the site without a seam. Single-theme by design: the site
+   commits to the sun-bleached light palette, so every colour is painted explicitly. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  /* Ink */
+  --ink: #1b2a38; --body: #47596a; --muted: #667889; --faint: #8c9caa;
+  /* Ground */
+  --page: #f4f2ec; --card: #fefcf7; --line: #e9edf0; --rule: #d7dee4;
+  /* Accents */
+  --blue: #1c77c3; --blue-deep: #135f92; --navy: #0a3350; --night: #071e30;
+  --sky: #a3d1f2; --pink: #d64185; --pink-soft: #fce4ee;
+  --sun: #ffc94d; --sun-soft: #fff5df; --olive: #7f9349; --olive-soft: #eef1e0;
+  --clay: #b8552f;
+  /* Shadows, warm-tinted */
+  --sh-sm: 0 2px 6px rgba(27,42,56,.08);
+  --sh-md: 0 6px 16px rgba(27,42,56,.10);
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--body);
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16.5px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .dsp {
+  font-family: 'Poppins', 'Trebuchet MS', system-ui, sans-serif;
+  margin: 0;
+  color: var(--ink);
+}
+p { margin: 0; }
+strong { font-weight: 700; color: var(--ink); }
+em { font-style: italic; }
+a { color: var(--blue-deep); }
+a:hover { color: var(--pink); }
+a:focus-visible, button:focus-visible {
+  outline: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(47,146,220,.35);
+}
+
+/* ---- shell ---- */
+
+.wrap { width: 100%; max-width: 54rem; margin: 0 auto; padding: 0 20px; }
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  padding: 26px 0 56px;
+}
+
+/* ---- wordmark ---- */
+
+.mark { display: flex; align-items: center; gap: 11px; }
+.mark .dsp {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.mark .dsp b { font-weight: 700; color: var(--pink); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1.5px solid var(--rule);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 15px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1.5px solid var(--rule);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---- masthead ---- */
+
+.mast { display: flex; flex-direction: column; gap: 16px; }
+
+h1 {
+  font-size: clamp(2rem, 4.6vw, 3.1rem);
+  line-height: 1.07;
+  letter-spacing: -0.028em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.lede {
+  font-size: clamp(1.0625rem, 2vw, 1.1875rem);
+  line-height: 1.55;
+  color: var(--body);
+  max-width: 46ch;
+  text-wrap: pretty;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: baseline;
+  font-size: 14px;
+  color: var(--faint);
+}
+.meta strong {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+/* ---- sections ---- */
+
+section { display: flex; flex-direction: column; gap: 16px; }
+
+h2 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--rule);
+}
+
+h3 { font-size: 19px; font-weight: 600; line-height: 1.25; }
+
+p { max-width: 68ch; text-wrap: pretty; }
+p + p { margin-top: 14px; }
+.opening { font-size: 17.5px; }
+
+/* ---- cards ---- */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+@media (min-width: 720px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 22px 24px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+}
+.card p { font-size: 15.5px; line-height: 1.55; max-width: none; }
+.card--lead { border-color: var(--sky); box-shadow: var(--sh-sm); }
+
+.card-head { display: flex; align-items: center; gap: 12px; }
+.paw { flex: 0 0 auto; }
+
+/* ---- the story strip ---- */
+
+.story {
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-left: 5px solid var(--pink);
+  border-radius: 20px;
+  padding: 24px 26px;
+}
+.story p { font-size: 16px; max-width: none; }
+.story .cat { color: var(--pink); font-weight: 800; }
+
+/* ---- tables ---- */
+
+.table-wrap {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  padding: 6px 22px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+th, td { text-align: left; padding: 14px 10px; border-bottom: 1.5px solid var(--line); vertical-align: top; }
+th {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+td:first-child {
+  font-family: 'Poppins', system-ui, sans-serif;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15.5px;
+  width: 30%;
+  padding-right: 22px;
+}
+tr:last-child td { border-bottom: none; }
+
+.num { font-weight: 800; color: var(--blue-deep); white-space: nowrap; }
+.id { font-family: 'Space Mono', ui-monospace, monospace; font-size: .92em; color: var(--blue-deep); }
+
+/* ---- the ask ---- */
+
+.ask {
+  background: var(--navy);
+  border-radius: 28px;
+  padding: 28px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ask h3 { color: var(--card); max-width: 26ch; }
+.ask ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.ask li { font-size: 15.5px; line-height: 1.55; color: var(--sky); }
+.ask li strong { color: var(--card); }
+
+/* ---- footer ---- */
+
+.foot {
+  background: var(--night);
+  border-radius: 28px;
+  padding: 26px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.foot .dsp { font-size: 17px; font-weight: 600; color: #e9edf0; }
+.foot .dsp b { color: var(--sky); font-weight: 600; }
+.foot p { font-size: 14px; line-height: 1.55; color: var(--faint); max-width: 52ch; }
+.foot a { color: var(--sky); font-weight: 700; text-decoration: none; border-bottom: 1px solid var(--blue-deep); }
+.foot a:hover { color: var(--card); }
+
+/* ---- print ---- */
+
+@page { size: A4; margin: 12mm 13mm; }
+
+@media print {
+  body { font-size: 8pt; line-height: 1.36; background: #fff; }
+  .wrap { max-width: none; padding: 0; }
+  .sheet { gap: .75rem; padding: 0; }
+  .topbar { padding-bottom: .4rem; }
+  .mark .dsp { font-size: 11pt; }
+  h1 { font-size: 18pt; }
+  .lede { font-size: 9pt; max-width: none; }
+  .meta { font-size: 6.6pt; gap: 4px 14px; }
+  .meta strong { font-size: 6pt; }
+  h2 { font-size: 6.8pt; padding-bottom: .22rem; }
+  h3 { font-size: 8.6pt; }
+  .opening { font-size: 8.4pt; }
+  p { max-width: none; }
+  p + p { margin-top: .45rem; }
+  .grid { grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+  .card { padding: .45rem .6rem; gap: .12rem; border-radius: 8px; break-inside: avoid; }
+  .card p, .ask li, table, td, th { font-size: 7.5pt; }
+  td:first-child { font-size: 7.5pt; }
+  .table-wrap { padding: 0 .5rem; border-radius: 8px; }
+  th, td { padding: .3rem .45rem; }
+  .story, .ask, .foot { padding: .6rem .75rem; border-radius: 10px; break-inside: avoid; }
+  .story p { font-size: 7.8pt; }
+  .ask { background: #fff; border: 1.5px solid #0a3350; }
+  .ask h3, .ask li strong { color: #0a3350; }
+  .ask li { color: #47596a; }
+  .ask ul { gap: .2rem; }
+  .foot { background: #fff; border-top: 1.5px solid #d7dee4; border-radius: 0; padding: .4rem 0; }
+  .foot .dsp { color: #1b2a38; font-size: 8pt; }
+  .foot .dsp b { color: #135f92; }
+  .foot p, .foot a { color: #667889; font-size: 6.8pt; }
+  section { gap: .42rem; break-inside: avoid; }
+}
+
+/* ---- workspace + gate (admin.catspotters.com and the password screen) ---- */
+
+.intro { display: flex; flex-direction: column; gap: 12px; }
+
+.who {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; color: var(--muted);
+}
+.who .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--olive); flex: 0 0 auto; }
+.who a { color: var(--blue-deep); font-weight: 700; }
+
+.docs { display: flex; flex-direction: column; gap: 18px; }
+
+.doc {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 24px 26px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+}
+.doc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.doc h3 { font-size: 20px; }
+.doc .url {
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 13px; color: var(--blue-deep); word-break: break-all;
+}
+.doc p { font-size: 15.5px; line-height: 1.55; max-width: none; }
+
+.state {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 32px; padding: 0 14px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.state--locked { background: var(--sun-soft); color: #8a6410; border: 1.5px solid #f0d493; }
+.state--open { background: var(--olive-soft); color: #4d5c2b; border: 1.5px solid #cbd6a8; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 20px;
+  font-family: 'Poppins', system-ui, sans-serif; font-size: 15px; font-weight: 600;
+  border-radius: 999px; border: 1.5px solid transparent; cursor: pointer;
+  text-decoration: none; background: none;
+}
+.btn--primary { background: var(--blue); color: var(--card); box-shadow: var(--sh-md); }
+.btn--primary:hover { background: var(--blue-deep); color: var(--card); }
+.btn--ghost { border-color: var(--rule); color: var(--muted); background: var(--card); }
+.btn--ghost:hover { border-color: var(--blue); color: var(--blue-deep); }
+
+.key {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 20px 24px; background: var(--page);
+  border: 1.5px dashed var(--rule); border-radius: 20px;
+}
+.key .word {
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 21px; font-weight: 700; color: var(--ink); letter-spacing: .02em;
+}
+
+/* the gate */
+
+.gate { min-height: 100svh; display: grid; place-items: center; padding: 32px 20px; }
+.gate-card {
+  width: 100%; max-width: 27rem;
+  display: flex; flex-direction: column; gap: 18px; align-items: flex-start;
+  padding: 34px 32px 30px;
+  background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 28px; box-shadow: var(--sh-md);
+}
+.gate-card h1 { font-size: 27px; line-height: 1.15; }
+.gate-card p { font-size: 15.5px; }
+.gate form { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.gate input[type=password] {
+  width: 100%; min-height: 54px; padding: 0 20px;
+  font-family: inherit; font-size: 17px; color: var(--ink);
+  background: var(--page); border: 1.5px solid var(--rule); border-radius: 999px;
+}
+.gate input[type=password]:focus-visible {
+  outline: none; border-color: #2f92dc; box-shadow: 0 0 0 4px rgba(47,146,220,.35);
+}
+.gate .btn--primary { width: 100%; min-height: 54px; font-size: 17px; }
+.gate .sep {
+  width: 100%; padding-top: 16px; border-top: 1.5px solid var(--line);
+  font-size: 14.5px; color: var(--muted);
+}
+
+/* ---- press additions: facts box, pull quotes, boilerplate, placeholders ---- */
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+}
+@media (min-width: 640px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.facts div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 20px;
+  border-bottom: 1.5px solid var(--line);
+}
+@media (min-width: 640px) {
+  .facts div:nth-child(odd) { border-right: 1.5px solid var(--line); }
+  .facts div:nth-last-child(-n+2) { border-bottom: none; }
+}
+.facts div:last-child { border-bottom: none; }
+.facts dt {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.facts dd { margin: 0; font-size: 15.5px; color: var(--ink); font-weight: 600; }
+
+blockquote.quote {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 26px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-left: 5px solid var(--blue);
+  border-radius: 20px;
+}
+blockquote.quote p {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+  max-width: 40ch;
+}
+blockquote.quote cite {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+
+.sub { display: flex; flex-direction: column; gap: 4px; }
+.sub h3 { font-size: 17px; }
+
+.about { display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 640px) { .about { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.tbc {
+  background: var(--sun-soft);
+  border-bottom: 1.5px solid #f0d493;
+  padding: 0 3px;
+  font-style: normal;
+  color: #8a6410;
+  font-weight: 700;
+}
+
+@media print {
+  .facts { border-radius: 8px; }
+  .facts div { padding: .3rem .5rem; }
+  .facts dt { font-size: 6pt; }
+  .facts dd { font-size: 7.6pt; }
+  blockquote.quote { padding: .5rem .7rem; border-radius: 8px; break-inside: avoid; }
+  blockquote.quote p { font-size: 9pt; max-width: none; }
+  blockquote.quote cite { font-size: 7pt; }
+  .sub h3 { font-size: 8.2pt; }
+  .about { gap: .5rem; }
+  .tbc { background: none; border-bottom: 1px solid #8a6410; }
+}
+
+.err { font-size: 14.5px; color: var(--clay); padding-left: 20px; }
+[hidden] { display: none !important; }
+
+/* ---- sign-in ---- */
+
+.btn--google {
+  width: 100%; min-height: 54px; font-size: 16px;
+  background: var(--card); color: var(--ink);
+  border: 1.5px solid var(--rule);
+}
+.btn--google:hover { border-color: var(--blue); color: var(--ink); }
+.btn--google[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+
+.or {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  font-size: 13px; color: var(--faint); text-transform: uppercase; letter-spacing: .1em;
+}
+.or::before, .or::after { content: ""; flex: 1; height: 1.5px; background: var(--line); }
+
+.gate input[type=email] {
+  width: 100%; min-height: 54px; padding: 0 20px;
+  font-family: inherit; font-size: 17px; color: var(--ink);
+  background: var(--page); border: 1.5px solid var(--rule); border-radius: 999px;
+}
+.gate input[type=email]:focus-visible {
+  outline: none; border-color: #2f92dc; box-shadow: 0 0 0 4px rgba(47,146,220,.35);
+}
+.gate input:disabled { opacity: .6; }
+.ok { font-size: 14.5px; color: #4d5c2b; padding-left: 20px; }
+</style>
+
+<div class="wrap">
+<main class="sheet">
+
+  <header class="topbar">
+    <div class="mark"><svg class="paw" width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="21" r="8.5" fill="#1c77c3"/><circle cx="6.5" cy="12.5" r="4.2" fill="#1c77c3"/><circle cx="14" cy="7.5" r="4.2" fill="#d64185"/><circle cx="22.5" cy="8.5" r="4.2" fill="#1c77c3"/><circle cx="29" cy="15" r="4.2" fill="#1c77c3"/></svg><span class="dsp">Cat <b>Spotters</b></span></div>
+    <span class="chip">For Boundless Life</span>
+  </header>
+
+  <header class="mast">
+    <h1>A field study on the doorstep, for the length of a stay</h1>
+    <p class="lede">Real science for children who are already curious about the cats they walk past every day &mdash; and a contribution to the island that would not happen without them.</p>
+    <div class="meta">
+      <span><strong>For</strong> Boundless Life &mdash; education and community teams</span>
+      <span><strong>Syros, Greece</strong></span>
+      <span><strong>September 2026</strong></span>
+    </div>
+  </header>
+
+  <section>
+    <h2>What the app is</h2>
+    <p>Syros has a large population of street cats, a small number of people caring for them, and no record of how many there are or which have been sterilised. Cat Spotters closes that gap by turning the photographs people already take into a record the island can use.</p>
+    <p>You photograph a cat and the app answers one question: <em>have we met this one before?</em> It shows the closest matches with a plain reason &mdash; &ldquo;the white bib and the notch in the left ear match&rdquo; &mdash; and you confirm one or name a cat nobody has met. Spotters earn points, badges and streaks, the same machinery Duolingo uses. It opens in a browser at catspotters.com and installs from the app stores, runs in English, Greek and French, and needs no account.</p>
+  </section>
+
+  <section>
+    <h2>Why a cohort is a distinctive contributor</h2>
+    <p>Everybody maps the island, and the app depends on that: residents watch the same streets across years, tourists cover the harbour thoroughly. Families staying for a season reach what those two leave &mdash; children with structured time and no fixed itinerary range across Ano Syros, Vari, Galissas and Kini in a way nobody does in four days. Because the record persists, a cohort in April can also be told what happened to the cats a cohort in October first found.</p>
+  </section>
+
+  <section>
+    <h2>What a cohort would do</h2>
+    <div class="grid">
+      <div class="card card--lead">
+        <h3>Join with a code, take a territory</h3>
+        <p>A group is created with a joining code, and anybody who enters it has their spotting counted toward the group. The cohort gets a neighbourhood and a target, and a coverage map shows where nobody has looked yet.</p>
+      </div>
+      <div class="card">
+        <h3>Watch the score, keep the result</h3>
+        <p>Cats found, how many previously unknown, how much of the area covered. At the end of the stay that becomes a summary the group keeps, with a note from Syros Cats saying what the work led to.</p>
+      </div>
+      <div class="card">
+        <h3>Everyone gains from the same walk</h3>
+        <p>Residents get streets that are easier to live on. Visitors get something to do on the island that gives rather than takes. The cats get found, counted and sterilised. One afternoon&rsquo;s walking serves all three at once.</p>
+      </div>
+      <div class="card">
+        <h3>Learn while doing it</h3>
+        <p>Teaching arrives as moments, not lessons: while a photograph is identified, the screen shows one short fact, where possible about the cat just photographed.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The learning underneath</h2>
+    <p>Children using this app are learning about science in the field. They are observing an animal carefully, telling one individual from another, discovering their own evidence can be wrong, and contributing to a dataset that informs real decisions. That is field biology, and very few children get to do it &mdash; and it teaches that <em>&ldquo;I&rsquo;m not sure&rdquo;</em> is a valuable answer rather than a failure.</p>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><td>Reading a cat</td><td>Colours, patterns and body language: the flat ear, the slow blink, the upright tail as a greeting.</td></tr>
+          <tr><td>Life in a colony</td><td>What a colony is, how territory works, who eats first, where cats sleep and why.</td></tr>
+          <tr><td>Why sterilisation works</td><td>The arithmetic of one unsterilised female, why removing cats fails, and why an ear tip is good news rather than an injury.</td></tr>
+          <tr><td>Being around a street cat</td><td>How to approach one, when not to, and why not to share your lunch &mdash; the hardest one to explain to a child, and the one that matters most.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What a collaboration would look like</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Who</th><th>Provides</th><th>Gains</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Boundless Life</td><td>An education contact to shape how it fits a cohort&rsquo;s week, a group set up at each arrival, a mention in the welcome, and honest feedback on what works with different ages.</td><td>A place-based science project on the doorstep, ready to run and needing no preparation &mdash; and a visible contribution to the island each cohort is living on, which families take home as a result they can point to.</td></tr>
+          <tr><td>Syros Cats</td><td>The expertise behind everything the app teaches, and a note at the end of each stay saying what the group&rsquo;s work led to.</td><td>Coverage of the parts of the island short-stay visitors never reach, and a fresh wave of contributors with every cohort that arrives.</td></tr>
+          <tr><td>The island</td><td>&mdash;</td><td>Streets that are easier to live on, cats that are found and sterilised rather than multiplying, and visitors who leave understanding why it matters.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Children&rsquo;s data.</strong> The app is built to know as little about anybody as it can. A spotter is anonymous by default &mdash; no name, email address or account &mdash; and a child can take part fully that way. Group membership is a joining code, not a profile.</p>
+    <div class="ask">
+      <h3>What we would like to talk about</h3>
+      <ul>
+        <li><strong>A trial with one cohort</strong>, with a neighbourhood assigned and a summary at the end, before anybody commits to more.</li>
+        <li><strong>This could travel to other Boundless Life locations.</strong> The app is not specific to Syros &mdash; it works anywhere with street cats and a local organisation caring for them.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="mark"><svg class="paw" width="24" height="24" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="21" r="8.5" fill="#66b2e8"/><circle cx="6.5" cy="12.5" r="4.2" fill="#66b2e8"/><circle cx="14" cy="7.5" r="4.2" fill="#e8558a"/><circle cx="22.5" cy="8.5" r="4.2" fill="#66b2e8"/><circle cx="29" cy="15" r="4.2" fill="#66b2e8"/></svg><span class="dsp">catspotters<b>.com</b></span></div>
+    <p>Cat Spotters is designed by <a href="https://syroscats.com">Syros Cats</a> and <a href="https://fairshake.com.au">Fair Shake</a>. <a href="mailto:hello@catspotters.com">hello@catspotters.com</a></p>
+  </footer>
+
+</main>
+</div>
