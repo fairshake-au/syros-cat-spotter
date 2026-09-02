@@ -68,6 +68,13 @@ catalog:
 
 autoInstallPeers: false
 
+auditConfig:
+  # Metro's build-time image probe has no patched image-size release yet.
+  # Keep these explicit until Expo/Metro replaces the dependency.
+  ignoreGhsas:
+    - GHSA-5p2g-fcmc-qvqq
+    - GHSA-w3rx-r6r6-pgpr
+
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
@@ -155,6 +162,27 @@ overrides:
   "@expo/ngrok-bin>@expo/ngrok-bin-sunos-x64": "-"
   "@expo/ngrok-bin>@expo/ngrok-bin-win32-ia32": "-"
   "@expo/ngrok-bin>@expo/ngrok-bin-win32-x64": "-"
+  # Security-patched transitive dependencies required by Expo and build tooling.
+  "@expo/ngrok>uuid": "11.1.1"
+  "xcode>uuid": "11.1.1"
+  "@expo/xcpretty>js-yaml": "4.3.1"
+  "orval>js-yaml": "4.3.1"
+  "@istanbuljs/load-nyc-config>js-yaml": "3.15.1"
+  "minimatch@3>brace-expansion": "1.1.18"
+  "minimatch@9>brace-expansion": "2.1.4"
+  "minimatch@10>brace-expansion": "5.0.9"
+  "@expo/cli>undici": "6.28.0"
+  "jsdom>undici": "7.29.0"
+  "@expo/plist>@xmldom/xmldom": "0.8.15"
+  "plist>@xmldom/xmldom": "0.9.12"
+  browserslist: "4.28.8"
+  decode-uri-component: "0.5.0"
+  fast-uri: "3.1.6"
+  ip-address: "10.3.1"
+  nanoid: "3.3.18"
+  postcss: "8.5.23"
+  qs: "6.16.0"
+  tar: "7.5.21"
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
-  esbuild: "0.27.3"
+  esbuild: "0.28.1"

@@ -70,7 +70,16 @@ export default function SpotScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { deviceId } = useDevice();
-  const { isOnline, pending, enqueue, remove, retry, syncNow, syncing } =
+  const {
+    isOnline,
+    pending,
+    enqueue,
+    remove,
+    retry,
+    replacePhoto,
+    syncNow,
+    syncing,
+  } =
     useOffline();
   const { coords, denied, loading: locating, refresh } = useLocation();
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
@@ -98,11 +107,13 @@ export default function SpotScreen() {
     setPickedCoords(null);
   };
 
-  const pickPhoto = async (fromCamera: boolean) => {
+  const choosePhoto = async (
+    fromCamera: boolean,
+  ): Promise<PickedPhoto | null> => {
     try {
       if (fromCamera && Platform.OS !== 'web') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return;
+        if (!perm.granted) return null;
       }
       const result = fromCamera
         ? await ImagePicker.launchCameraAsync({ quality: 1, base64: true })
@@ -116,12 +127,51 @@ export default function SpotScreen() {
               ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
           });
       if (!result.canceled && result.assets[0]) {
-        setPhoto(await toPickedPhoto(result.assets[0]));
-        setCapturedAt(new Date().toISOString());
+        return await toPickedPhoto(result.assets[0]);
       }
     } catch {
       Alert.alert(t('error'));
     }
+    return null;
+  };
+
+  const pickPhoto = async (fromCamera: boolean) => {
+    const picked = await choosePhoto(fromCamera);
+    if (picked) {
+      setPhoto(picked);
+      setCapturedAt(new Date().toISOString());
+    }
+  };
+
+  const replaceRejectedPhoto = async (
+    localId: string,
+    fromCamera: boolean,
+  ) => {
+    const picked = await choosePhoto(fromCamera);
+    if (picked) {
+      await replacePhoto(localId, {
+        photoBase64: picked.base64,
+        photoUri: picked.uri,
+      });
+    }
+  };
+
+  const offerPhotoReplacement = (localId: string) => {
+    Alert.alert(t('replacePhoto'), t('replacePhotoHint'), [
+      ...(Platform.OS === 'web'
+        ? []
+        : [
+            {
+              text: t('takePhoto'),
+              onPress: () => void replaceRejectedPhoto(localId, true),
+            },
+          ]),
+      {
+        text: t('chooseFromLibrary'),
+        onPress: () => void replaceRejectedPhoto(localId, false),
+      },
+      { text: t('cancel'), style: 'cancel' },
+    ]);
   };
 
   const submit = async () => {
@@ -233,7 +283,13 @@ export default function SpotScreen() {
         <Card
           key={item.localId}
           padding={spacing[3]}
-          onPress={item.status === 'review' ? () => reviewPending(item) : undefined}
+          onPress={
+            item.status === 'review'
+              ? () => reviewPending(item)
+              : item.status === 'rejected'
+                ? () => offerPhotoReplacement(item.localId)
+                : undefined
+          }
           style={styles.pendingItem}
         >
           <SightingPhoto
@@ -255,9 +311,34 @@ export default function SpotScreen() {
                     : t('queued')}
             </Badge>
             {item.status === 'rejected' && (
-              <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
-                {t(item.rejectionKey ?? 'photoRejectedQueued')}
-              </Text>
+              <>
+                <Text
+                  style={[styles.pendingDate, { color: colors.mutedForeground }]}
+                >
+                  {t(item.rejectionKey ?? 'photoRejectedQueued')}
+                </Text>
+                <Pressable
+                  onPress={() => offerPhotoReplacement(item.localId)}
+                  style={[styles.errorBtn, styles.replaceBtn, { backgroundColor: colors.secondary }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('replacePhoto')}
+                  testID={`replace-photo-${item.localId}`}
+                >
+                  <Feather
+                    name="camera"
+                    size={13}
+                    color={colors.secondaryForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.errorBtnText,
+                      { color: colors.secondaryForeground },
+                    ]}
+                  >
+                    {t('replacePhoto')}
+                  </Text>
+                </Pressable>
+              </>
             )}
             <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
               {new Date(item.createdAt).toLocaleString()}
@@ -612,4 +693,5 @@ const styles = StyleSheet.create({
     borderRadius: radii.xs,
   },
   errorBtnText: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold },
+  replaceBtn: { alignSelf: 'flex-start', marginTop: spacing[1] },
 });

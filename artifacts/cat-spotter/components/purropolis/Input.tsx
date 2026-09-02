@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, radii, spacing, borderWidths } from '@/constants/theme';
 
@@ -9,7 +9,7 @@ export interface InputProps extends TextInputProps {
   helper?: string;
   error?: string;
   iconLeft?: ReactNode;
-  style?: StyleProp<ViewStyle>;
+  style?: StyleProp<TextStyle>;
 }
 
 export function Input({ label, helper, error, iconLeft, style, onFocus, onBlur, ...rest }: InputProps) {

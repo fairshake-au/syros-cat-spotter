@@ -60,9 +60,12 @@ export function getCampaign(): Campaign {
   return {
     id: process.env.CAMPAIGN_ID ?? "vaporia-desexing",
     title: process.env.CAMPAIGN_TITLE ?? "Help us desex the Vaporia colony",
+    // Costs here are donor-facing claims about a charity's finances — check
+    // the canonical-facts table in CLAUDE.md before changing them. A
+    // sterilisation is €50–60 per cat, not the €25 the design mockup showed.
     blurb:
       process.env.CAMPAIGN_BLURB ??
-      "€10 covers a rabies vaccine. €25 desexes one cat. Every euro goes to the vet in Ερμούπολη.",
+      "€10 covers a rabies vaccine. €50–60 desexes one cat. Every euro goes to the vet in Ερμούπολη.",
     currency: "EUR",
     goalCents: intFromEnv("CAMPAIGN_GOAL_CENTS", 400_000),
     raisedCents: intFromEnv("CAMPAIGN_RAISED_CENTS", 0),

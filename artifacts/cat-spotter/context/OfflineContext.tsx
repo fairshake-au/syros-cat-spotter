@@ -36,6 +36,11 @@ export type EnqueueInput = Omit<PendingSighting, 'status' | 'photoBase64'> & {
   photoBase64: string;
 };
 
+export interface ReplacementPhoto {
+  photoBase64: string;
+  photoUri: string;
+}
+
 interface OfflineContextValue {
   isOnline: boolean;
   pending: PendingSighting[];
@@ -43,6 +48,8 @@ interface OfflineContextValue {
   remove: (localId: string) => Promise<void>;
   /** Put a failed item back in the queue and try syncing again. */
   retry: (localId: string) => Promise<void>;
+  /** Replace a rejected item's photo while preserving its capture metadata. */
+  replacePhoto: (localId: string, photo: ReplacementPhoto) => Promise<void>;
   syncNow: () => Promise<void>;
   syncing: boolean;
   /** Number of synced sightings waiting for the user's review. */
@@ -263,6 +270,39 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     [persist, syncNow],
   );
 
+  const replacePhoto = useCallback(
+    async (localId: string, photo: ReplacementPhoto) => {
+      const item = pendingRef.current.find((p) => p.localId === localId);
+      if (!item || item.status !== 'rejected') return;
+
+      const fileUri = await savePendingPhoto(
+        localId,
+        photo.photoUri,
+        photo.photoBase64,
+      );
+      const replacement: PendingSighting = {
+        ...item,
+        photoUri: fileUri ?? photo.photoUri,
+        photoBase64: fileUri ? undefined : photo.photoBase64,
+        status: 'queued',
+        rejectionKey: undefined,
+        errorKind: undefined,
+        failCount: 0,
+        sightingId: undefined,
+        isCatPhoto: undefined,
+        candidates: undefined,
+      };
+      await persist(
+        pendingRef.current.map((p) => (p.localId === localId ? replacement : p)),
+      );
+      if (!item.photoBase64 && item.photoUri !== replacement.photoUri) {
+        deletePendingPhoto(item.photoUri).catch(() => {});
+      }
+      await syncNow();
+    },
+    [persist, syncNow],
+  );
+
   const dismissReviewPrompt = useCallback(() => {
     setReviewPromptVisible(false);
   }, []);
@@ -286,6 +326,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       enqueue,
       remove,
       retry,
+      replacePhoto,
       syncNow,
       syncing,
       reviewReadyCount,
@@ -298,6 +339,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       enqueue,
       remove,
       retry,
+      replacePhoto,
       syncNow,
       syncing,
       reviewReadyCount,

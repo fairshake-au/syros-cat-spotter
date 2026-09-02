@@ -153,9 +153,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   const statsBefore = await getProfileStats(sighting.deviceId);
   const badgesBefore = badgesFor(statsBefore);
 
-  let cat;
-  let pointsAwarded: number;
-  let isNewCat: boolean;
+  let existingCat: typeof catsTable.$inferSelect | undefined;
+  let newCatName: string | undefined;
 
   if (body.catId != null) {
     const [existing] = await db
@@ -166,9 +165,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       res.status(404).json({ error: "Cat not found" });
       return;
     }
-    cat = existing;
-    pointsAwarded = POINTS_CONFIRM;
-    isNewCat = false;
+    existingCat = existing;
   } else if (body.newCatName && body.newCatName.trim().length > 0) {
     const name = body.newCatName.trim().slice(0, 60);
     if (containsOffensiveLanguage(name)) {
@@ -186,55 +183,66 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
       return;
     }
-    let created;
-    try {
-      [created] = await db
-        .insert(catsTable)
-        .values({
-          name,
-          description: "",
-          primaryPhotoId: sighting.photoId,
-          lat: sighting.lat,
-          lng: sighting.lng,
-          discovererDeviceId: sighting.deviceId,
-        })
-        .returning();
-    } catch (err: any) {
-      // Unique-index violation from a concurrent submission of the same name.
-      if (err?.code === "23505" || err?.cause?.code === "23505") {
-        res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
-        return;
-      }
-      throw err;
-    }
-    cat = created!;
-    pointsAwarded = POINTS_NEW_CAT;
-    isNewCat = true;
+    newCatName = name;
   } else {
     res.status(400).json({ error: "Provide catId or newCatName" });
     return;
   }
 
-  await db
-    .update(sightingsTable)
-    .set({ catId: cat.id, status: "resolved" })
-    .where(eq(sightingsTable.id, sightingId));
+  let resolution;
+  try {
+    resolution = await db.transaction(async (tx) => {
+      let cat = existingCat;
+      const isNewCat = newCatName != null;
+      const pointsAwarded = isNewCat ? POINTS_NEW_CAT : POINTS_CONFIRM;
 
-  await db
-    .insert(profilesTable)
-    .values({ deviceId: sighting.deviceId, points: pointsAwarded })
-    .onConflictDoUpdate({
-      target: profilesTable.deviceId,
-      set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
+      if (newCatName != null) {
+        [cat] = await tx
+          .insert(catsTable)
+          .values({
+            name: newCatName,
+            description: "",
+            primaryPhotoId: sighting.photoId,
+            lat: sighting.lat,
+            lng: sighting.lng,
+            discovererDeviceId: sighting.deviceId,
+          })
+          .returning();
+      }
+
+      await tx
+        .update(sightingsTable)
+        .set({ catId: cat!.id, status: "resolved" })
+        .where(eq(sightingsTable.id, sightingId));
+
+      await tx
+        .insert(profilesTable)
+        .values({ deviceId: sighting.deviceId, points: pointsAwarded })
+        .onConflictDoUpdate({
+          target: profilesTable.deviceId,
+          set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
+        });
+
+      await tx
+        .insert(catSubscriptionsTable)
+        .values({ deviceId: sighting.deviceId, catId: cat!.id })
+        .onConflictDoNothing();
+
+      return { cat: cat!, pointsAwarded, isNewCat };
     });
+  } catch (err: any) {
+    // Unique-index violation from a concurrent submission of the same name.
+    if (err?.code === "23505" || err?.cause?.code === "23505") {
+      res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
+      return;
+    }
+    throw err;
+  }
 
-  // Auto-subscribe the resolving spotter to this cat, then notify the cat's
-  // other subscribers that it was spotted again.
-  await db
-    .insert(catSubscriptionsTable)
-    .values({ deviceId: sighting.deviceId, catId: cat.id })
-    .onConflictDoNothing();
+  const { cat, pointsAwarded, isNewCat } = resolution;
 
+  // Notification fan-out is best-effort and deliberately happens only after
+  // the core resolve writes have committed.
   await createUpdateAndFanOut({
     cat,
     updateType: "sighting",
