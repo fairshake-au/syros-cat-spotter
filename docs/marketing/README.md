@@ -1,14 +1,18 @@
 # Cat Spotters — marketing one-pagers
 
-Three audience-specific versions of the same product story, sharing one house style
-(the Purropolis palette used by the Syros Cats proposal at
-`proposals.fairshake.au/catspotters`).
+Audience-specific versions of the same product story, built on the catspotters.com
+design system — the tokens, type and component idiom in
+`artifacts/coming-soon/public/index.html` on the `claude/catspotters-coming-soon`
+branch, so these pages sit on the site without a seam. Single-theme light by design:
+the site commits to the sun-bleached palette, so every colour is painted explicitly.
 
-| File | Audience | Lead colour |
+| File | Becomes | Audience |
 |---|---|---|
-| `charities.html` | Other cat charities and the purpose sector. Adds the Syros Cats–only side of the app. | Aegean |
-| `boundless-life.html` | Boundless Life — a pitch for collaboration with their cohorts. | Olive |
-| `media.html` | Editors and journalists. Contains bracketed placeholders for figures and quotes. | Terracotta |
+| `charities.html` | `catspotters.com/forpurpose` | Other cat charities and the purpose sector. Adds the Syros Cats–only side of the app. |
+| `boundless-life.html` | `catspotters.com/boundless` | Boundless Life — a pitch for collaboration with their cohorts. |
+| `media.html` | `catspotters.com/media` | Editors and journalists. Contains bracketed placeholders for figures and quotes. |
+| `workspace.html` | `admin.catspotters.com` | The shared Syros Cats / Fair Shake hub. Design only — not yet wired to auth. |
+| `gate.html` | the password screen | What an outside reader meets before a locked document. Design only. |
 
 ## Editing
 

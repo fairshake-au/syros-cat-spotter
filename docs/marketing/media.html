@@ -1,261 +1,404 @@
 <title>Cat Spotters Media Kit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&family=Space+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Space+Mono:wght@400&display=swap&subset=greek,latin">
 <style>
-/* Cat Spotters one-pagers — Purropolis house style.
-   Palette and dark-theme tokens carried over from the Syros Cats proposal
-   published at proposals.fairshake.au/catspotters.
-   Each page sets --accent / --accent-soft / --accent-wash in its own :root block
-   AFTER this sheet, so the lead colour changes per audience. */
+/* Cat Spotters documents — the catspotters.com design system.
+   Tokens, type and component idiom lifted from artifacts/coming-soon/public/index.html
+   so these pages sit on the site without a seam. Single-theme by design: the site
+   commits to the sun-bleached light palette, so every colour is painted explicitly. */
+
+*, *::before, *::after { box-sizing: border-box; }
 
 :root {
-  --ground: #FBFAF7; --raised: #FFFFFF; --sunken: #F4F1E9;
-  --ink: #16232B; --ink-soft: #4A5C67; --ink-faint: #7C8B94;
-  --rule: #E2DDD2; --rule-soft: #EFEBE3;
-  --aegean: #1B5E86; --bougainvillea: #B8256B;
-  --terracotta: #B85C2B; --olive: #5F7350; --sun: #D9A21B;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ground: #101A20; --raised: #16232B; --sunken: #1B2A32;
-    --ink: #E8E3D9; --ink-soft: #A9B6BD; --ink-faint: #77878F;
-    --rule: #27373F; --rule-soft: #1E2C34;
-    --aegean: #6FB4DA; --bougainvillea: #EE8AB4;
-    --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F;
-  }
-}
-:root[data-theme="dark"] {
-  --ground: #101A20; --raised: #16232B; --sunken: #1B2A32;
-  --ink: #E8E3D9; --ink-soft: #A9B6BD; --ink-faint: #77878F;
-  --rule: #27373F; --rule-soft: #1E2C34;
-  --aegean: #6FB4DA; --bougainvillea: #EE8AB4;
-  --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F;
+  /* Ink */
+  --ink: #1b2a38; --body: #47596a; --muted: #667889; --faint: #8c9caa;
+  /* Ground */
+  --page: #f4f2ec; --card: #fefcf7; --line: #e9edf0; --rule: #d7dee4;
+  /* Accents */
+  --blue: #1c77c3; --blue-deep: #135f92; --navy: #0a3350; --night: #071e30;
+  --sky: #a3d1f2; --pink: #d64185; --pink-soft: #fce4ee;
+  --sun: #ffc94d; --sun-soft: #fff5df; --olive: #7f9349; --olive-soft: #eef1e0;
+  --clay: #b8552f;
+  /* Shadows, warm-tinted */
+  --sh-sm: 0 2px 6px rgba(27,42,56,.08);
+  --sh-md: 0 6px 16px rgba(27,42,56,.10);
 }
 
-* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--ground);
-  color: var(--ink);
-  font-family: Nunito, "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.55;
+  background: var(--page);
+  color: var(--body);
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16.5px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
+h1, h2, h3, .dsp {
+  font-family: 'Poppins', 'Trebuchet MS', system-ui, sans-serif;
+  margin: 0;
+  color: var(--ink);
+}
+p { margin: 0; }
+strong { font-weight: 700; color: var(--ink); }
+em { font-style: italic; }
+a { color: var(--blue-deep); }
+a:hover { color: var(--pink); }
+a:focus-visible, button:focus-visible {
+  outline: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(47,146,220,.35);
+}
+
+/* ---- shell ---- */
+
+.wrap { width: 100%; max-width: 54rem; margin: 0 auto; padding: 0 20px; }
+
 .sheet {
-  max-width: 50rem;
-  margin: 0 auto;
-  padding: 3rem 1.5rem 4rem;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: 34px;
+  padding: 26px 0 56px;
+}
+
+/* ---- wordmark ---- */
+
+.mark { display: flex; align-items: center; gap: 11px; }
+.mark .dsp {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.mark .dsp b { font-weight: 700; color: var(--pink); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1.5px solid var(--rule);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 15px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1.5px solid var(--rule);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* ---- masthead ---- */
 
-.mast { display: flex; flex-direction: column; gap: .6rem; }
-
-.mark-line {
-  font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .7rem;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
+.mast { display: flex; flex-direction: column; gap: 16px; }
 
 h1 {
-  font-family: Poppins, "Avenir Next", system-ui, sans-serif;
+  font-size: clamp(2rem, 4.6vw, 3.1rem);
+  line-height: 1.07;
+  letter-spacing: -0.028em;
   font-weight: 700;
-  font-size: clamp(1.9rem, 1.2rem + 2.4vw, 2.7rem);
-  line-height: 1.08;
-  letter-spacing: -.02em;
   text-wrap: balance;
-  margin: 0;
 }
 
-.standfirst {
-  font-size: 1.06rem;
-  line-height: 1.5;
-  color: var(--ink-soft);
-  max-width: 40rem;
-  margin: 0;
+.lede {
+  font-size: clamp(1.0625rem, 2vw, 1.1875rem);
+  line-height: 1.55;
+  color: var(--body);
+  max-width: 46ch;
   text-wrap: pretty;
 }
 
 .meta {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem .9rem;
+  gap: 8px 22px;
   align-items: baseline;
-  padding-top: .8rem;
-  border-top: 2px solid var(--accent);
-  font-family: "Space Mono", ui-monospace, monospace;
-  font-size: .72rem;
-  letter-spacing: .06em;
-  color: var(--ink-faint);
+  font-size: 14px;
+  color: var(--faint);
 }
-.meta strong { color: var(--ink-soft); font-weight: 400; }
+.meta strong {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
 
 /* ---- sections ---- */
 
-section { display: flex; flex-direction: column; gap: .8rem; }
+section { display: flex; flex-direction: column; gap: 16px; }
 
 h2 {
-  font-family: Poppins, system-ui, sans-serif;
-  font-weight: 600;
-  font-size: .74rem;
-  letter-spacing: .13em;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent);
-  margin: 0;
-  padding-bottom: .5rem;
-  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--rule);
 }
 
-h3 {
-  font-family: Poppins, system-ui, sans-serif;
-  font-weight: 600;
-  font-size: .95rem;
-  margin: 0 0 .15rem;
-  color: var(--ink);
-}
+h3 { font-size: 19px; font-weight: 600; line-height: 1.25; }
 
-p { margin: 0; max-width: 42rem; text-wrap: pretty; }
-p + p { margin-top: .7rem; }
+p { max-width: 68ch; text-wrap: pretty; }
+p + p { margin-top: 14px; }
+.opening { font-size: 17.5px; }
 
-strong { font-weight: 700; color: var(--ink); }
-em { font-style: italic; color: var(--ink-soft); }
-
-.lede { font-size: 1rem; }
-
-/* ---- feature grid ---- */
+/* ---- cards ---- */
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
-  gap: 1rem;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+@media (min-width: 720px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .card {
-  background: var(--raised);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  padding: .95rem 1.05rem;
   display: flex;
   flex-direction: column;
-  gap: .3rem;
+  gap: 9px;
+  padding: 22px 24px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
 }
-.card p { font-size: .88rem; color: var(--ink-soft); }
+.card p { font-size: 15.5px; line-height: 1.55; max-width: none; }
+.card--lead { border-color: var(--sky); box-shadow: var(--sh-sm); }
 
-.card--lead { border-left: 3px solid var(--accent); }
+.card-head { display: flex; align-items: center; gap: 12px; }
+.paw { flex: 0 0 auto; }
 
 /* ---- the story strip ---- */
 
 .story {
-  background: var(--sunken);
-  border-radius: 12px;
-  padding: 1.2rem 1.35rem;
-  border-left: 3px solid var(--bougainvillea);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-left: 5px solid var(--pink);
+  border-radius: 20px;
+  padding: 24px 26px;
 }
-.story p { font-size: .95rem; color: var(--ink-soft); }
-.story .cat { color: var(--bougainvillea); font-weight: 700; }
+.story p { font-size: 16px; max-width: none; }
+.story .cat { color: var(--pink); font-weight: 800; }
 
 /* ---- tables ---- */
 
-.table-wrap { overflow-x: auto; }
+.table-wrap {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  padding: 6px 22px;
+}
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: .88rem;
-  font-variant-numeric: tabular-nums;
-}
-th, td {
-  text-align: left;
-  padding: .5rem .7rem;
-  border-bottom: 1px solid var(--rule-soft);
-  vertical-align: top;
-}
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; }
+th, td { text-align: left; padding: 14px 10px; border-bottom: 1.5px solid var(--line); vertical-align: top; }
 th {
-  font-family: Poppins, system-ui, sans-serif;
+  font-family: 'Poppins', system-ui, sans-serif;
   font-weight: 600;
-  font-size: .68rem;
-  letter-spacing: .1em;
+  font-size: 12px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-faint);
-  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
 }
-td:first-child { color: var(--ink); font-weight: 600; width: 32%; }
+td:first-child {
+  font-family: 'Poppins', system-ui, sans-serif;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15.5px;
+  width: 30%;
+  padding-right: 22px;
+}
 tr:last-child td { border-bottom: none; }
 
-.mono {
-  font-family: "Space Mono", ui-monospace, monospace;
-  font-size: .92em;
-  color: var(--accent);
-}
+.num { font-weight: 800; color: var(--blue-deep); white-space: nowrap; }
+.id { font-family: 'Space Mono', ui-monospace, monospace; font-size: .92em; color: var(--blue-deep); }
 
-/* ---- ask / footer ---- */
+/* ---- the ask ---- */
 
 .ask {
-  background: var(--raised);
-  border: 1px solid var(--rule);
-  border-top: 3px solid var(--accent);
-  border-radius: 10px;
-  padding: 1.2rem 1.35rem;
+  background: var(--navy);
+  border-radius: 28px;
+  padding: 28px 30px;
   display: flex;
   flex-direction: column;
-  gap: .55rem;
+  gap: 14px;
 }
-.ask ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
-.ask li { font-size: .9rem; color: var(--ink-soft); }
-.ask li strong { color: var(--ink); }
+.ask h3 { color: var(--card); max-width: 26ch; }
+.ask ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.ask li { font-size: 15.5px; line-height: 1.55; color: var(--sky); }
+.ask li strong { color: var(--card); }
 
-.colophon {
-  font-size: .78rem;
-  color: var(--ink-faint);
-  border-top: 1px solid var(--rule);
-  padding-top: .9rem;
-  max-width: none;
+/* ---- footer ---- */
+
+.foot {
+  background: var(--night);
+  border-radius: 28px;
+  padding: 26px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
 }
-.colophon a { color: var(--accent); }
+.foot .dsp { font-size: 17px; font-weight: 600; color: #e9edf0; }
+.foot .dsp b { color: var(--sky); font-weight: 600; }
+.foot p { font-size: 14px; line-height: 1.55; color: var(--faint); max-width: 52ch; }
+.foot a { color: var(--sky); font-weight: 700; text-decoration: none; border-bottom: 1px solid var(--blue-deep); }
+.foot a:hover { color: var(--card); }
 
-/* ---- print: one page ---- */
+/* ---- print ---- */
 
 @page { size: A4; margin: 12mm 13mm; }
 
 @media print {
-  :root { --ground: #FFFFFF; --raised: #FFFFFF; --sunken: #F6F3EC; }
-  body { font-size: 8pt; line-height: 1.34; background: #FFFFFF; color: #16232B; }
-  .sheet { max-width: none; padding: 0; gap: .7rem; }
-  h1 { font-size: 17pt; }
-  .standfirst { font-size: 8.8pt; }
-  .meta { font-size: 6.2pt; padding-top: .4rem; }
-  h2 { font-size: 6.6pt; padding-bottom: .2rem; }
-  h3 { font-size: 8.2pt; }
-  .lede { font-size: 8.4pt; }
+  body { font-size: 8pt; line-height: 1.36; background: #fff; }
+  .wrap { max-width: none; padding: 0; }
+  .sheet { gap: .75rem; padding: 0; }
+  .topbar { padding-bottom: .4rem; }
+  .mark .dsp { font-size: 11pt; }
+  h1 { font-size: 18pt; }
+  .lede { font-size: 9pt; max-width: none; }
+  .meta { font-size: 6.6pt; gap: 4px 14px; }
+  .meta strong { font-size: 6pt; }
+  h2 { font-size: 6.8pt; padding-bottom: .22rem; }
+  h3 { font-size: 8.6pt; }
+  .opening { font-size: 8.4pt; }
   p { max-width: none; }
   p + p { margin-top: .45rem; }
-  .grid { gap: .4rem; grid-template-columns: repeat(3, 1fr); }
-  .card { padding: .42rem .55rem; gap: .15rem; break-inside: avoid; }
-  .card p, .ask li, table, td, th { font-size: 7.6pt; }
-  th, td { padding: .3rem .5rem; }
-  .story, .ask { padding: .55rem .7rem; break-inside: avoid; }
-  .ask ul { gap: .22rem; }
+  .grid { grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+  .card { padding: .45rem .6rem; gap: .12rem; border-radius: 8px; break-inside: avoid; }
+  .card p, .ask li, table, td, th { font-size: 7.5pt; }
+  td:first-child { font-size: 7.5pt; }
+  .table-wrap { padding: 0 .5rem; border-radius: 8px; }
+  th, td { padding: .3rem .45rem; }
+  .story, .ask, .foot { padding: .6rem .75rem; border-radius: 10px; break-inside: avoid; }
+  .story p { font-size: 7.8pt; }
+  .ask { background: #fff; border: 1.5px solid #0a3350; }
+  .ask h3, .ask li strong { color: #0a3350; }
+  .ask li { color: #47596a; }
+  .ask ul { gap: .2rem; }
+  .foot { background: #fff; border-top: 1.5px solid #d7dee4; border-radius: 0; padding: .4rem 0; }
+  .foot .dsp { color: #1b2a38; font-size: 8pt; }
+  .foot .dsp b { color: #135f92; }
+  .foot p, .foot a { color: #667889; font-size: 6.8pt; }
   section { gap: .42rem; break-inside: avoid; }
-  .colophon { font-size: 6.6pt; padding-top: .4rem; }
+}
+
+/* ---- workspace + gate (admin.catspotters.com and the password screen) ---- */
+
+.intro { display: flex; flex-direction: column; gap: 12px; }
+
+.who {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; color: var(--muted);
+}
+.who .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--olive); flex: 0 0 auto; }
+.who a { color: var(--blue-deep); font-weight: 700; }
+
+.docs { display: flex; flex-direction: column; gap: 18px; }
+
+.doc {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 24px 26px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+}
+.doc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.doc h3 { font-size: 20px; }
+.doc .url {
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 13px; color: var(--blue-deep); word-break: break-all;
+}
+.doc p { font-size: 15.5px; line-height: 1.55; max-width: none; }
+
+.state {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 32px; padding: 0 14px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.state--locked { background: var(--sun-soft); color: #8a6410; border: 1.5px solid #f0d493; }
+.state--open { background: var(--olive-soft); color: #4d5c2b; border: 1.5px solid #cbd6a8; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 20px;
+  font-family: 'Poppins', system-ui, sans-serif; font-size: 15px; font-weight: 600;
+  border-radius: 999px; border: 1.5px solid transparent; cursor: pointer;
+  text-decoration: none; background: none;
+}
+.btn--primary { background: var(--blue); color: var(--card); box-shadow: var(--sh-md); }
+.btn--primary:hover { background: var(--blue-deep); color: var(--card); }
+.btn--ghost { border-color: var(--rule); color: var(--muted); background: var(--card); }
+.btn--ghost:hover { border-color: var(--blue); color: var(--blue-deep); }
+
+.key {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 20px 24px; background: var(--page);
+  border: 1.5px dashed var(--rule); border-radius: 20px;
+}
+.key .word {
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 21px; font-weight: 700; color: var(--ink); letter-spacing: .02em;
+}
+
+/* the gate */
+
+.gate { min-height: 100svh; display: grid; place-items: center; padding: 32px 20px; }
+.gate-card {
+  width: 100%; max-width: 27rem;
+  display: flex; flex-direction: column; gap: 18px; align-items: flex-start;
+  padding: 34px 32px 30px;
+  background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 28px; box-shadow: var(--sh-md);
+}
+.gate-card h1 { font-size: 27px; line-height: 1.15; }
+.gate-card p { font-size: 15.5px; }
+.gate form { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.gate input[type=password] {
+  width: 100%; min-height: 54px; padding: 0 20px;
+  font-family: inherit; font-size: 17px; color: var(--ink);
+  background: var(--page); border: 1.5px solid var(--rule); border-radius: 999px;
+}
+.gate input[type=password]:focus-visible {
+  outline: none; border-color: #2f92dc; box-shadow: 0 0 0 4px rgba(47,146,220,.35);
+}
+.gate .btn--primary { width: 100%; min-height: 54px; font-size: 17px; }
+.gate .sep {
+  width: 100%; padding-top: 16px; border-top: 1.5px solid var(--line);
+  font-size: 14.5px; color: var(--muted);
 }
 </style>
 <style>:root { --accent: var(--terracotta); }</style>
 
+<div class="wrap">
 <main class="sheet">
 
+  <header class="topbar">
+    <div class="mark"><svg class="paw" width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="21" r="8.5" fill="#1c77c3"/><circle cx="6.5" cy="12.5" r="4.2" fill="#1c77c3"/><circle cx="14" cy="7.5" r="4.2" fill="#d64185"/><circle cx="22.5" cy="8.5" r="4.2" fill="#1c77c3"/><circle cx="29" cy="15" r="4.2" fill="#1c77c3"/></svg><span class="dsp">Cat <b>Spotters</b></span></div>
+    <span class="chip">For media</span>
+  </header>
+
   <header class="mast">
-    <div class="mark-line">Media information &middot; Syros Cats &amp; Fair Shake</div>
-    <h1>Cat Spotters</h1>
-    <p class="standfirst">Syros is building a name-by-name register of every street cat on the island &mdash; and the people doing the fieldwork are the tourists who were photographing those cats anyway.</p>
+    <h1>An island is naming every cat on it</h1>
+    <p class="opening">Syros is building a name-by-name register of every street cat on the island &mdash; and the people doing the fieldwork are the tourists who were photographing those cats anyway.</p>
     <div class="meta">
       <span><strong>For</strong> editors and journalists</span>
       <span><strong>Place</strong> Syros, Cyclades, Greece</span>
@@ -265,7 +408,7 @@ tr:last-child td { border-bottom: none; }
 
   <section>
     <h2>The story</h2>
-    <p class="lede">Every Greek island has the same two facts sitting side by side: a large population of street cats, and a small number of people looking after them. The gap between those facts is information. Nobody knows how many cats there are, which have been sterilised, which are in trouble, or where the next effort would do the most good &mdash; so the work is planned from memory and goodwill rather than evidence.</p>
+    <p class="opening">Every Greek island has the same two facts sitting side by side: a large population of street cats, and a small number of people looking after them. The gap between those facts is information. Nobody knows how many cats there are, which have been sterilised, which are in trouble, or where the next effort would do the most good &mdash; so the work is planned from memory and goodwill rather than evidence.</p>
     <p>Cat Spotters, built by Fair Shake with the volunteers of Syros Cats, closes that gap from an unexpected direction. Visitors already photograph the island&rsquo;s cats in their thousands. The app turns each photograph into a dated, located, identified record &mdash; and turns the person who took it into a supporter who hears, months later, what happened to the cat they named.</p>
   </section>
 
@@ -286,7 +429,7 @@ tr:last-child td { border-bottom: none; }
       </div>
       <div class="card">
         <h3>Every cat has a page</h3>
-        <p>A photograph, a name, a code such as <span class="mono">SYR-0042</span>, where it is usually seen, its health and history, and everybody who has ever spotted it.</p>
+        <p>A photograph, a name, a code such as <span class="id">SYR-0042</span>, where it is usually seen, its health and history, and everybody who has ever spotted it.</p>
       </div>
       <div class="card">
         <h3>A game that keeps people going</h3>
@@ -311,7 +454,7 @@ tr:last-child td { border-bottom: none; }
           <tr><td>It is real citizen science</td><td>Ordinary people with no training collecting observations an organisation genuinely uses &mdash; the same idea as the garden bird counts that feed real population studies. Every observation is dated and attributed, and the app always shows how confident it is: confirmed by a vet, likely where several people agree, or reported by one.</td></tr>
           <tr><td>It makes sterilisation figures defensible</td><td>Syros Cats can answer &ldquo;how many cats were sterilised this year&rdquo; with the method stated, rather than asserting a number &mdash; the difference between an anecdote and a funding application. Give the island&rsquo;s vets their own access and it becomes a count of every sterilised cat on Syros, not only the charity&rsquo;s own.</td></tr>
           <tr><td>It teaches at the right moment</td><td>While a photograph is being identified the screen shows one short fact instead of a spinner: what a clipped ear means, why removing cats fails while sterilising a colony works, and why sharing your lunch with a cat in August harms it in November.</td></tr>
-          <tr><td>It converts affection into money</td><td>A donation of <span class="mono">&euro;50&ndash;60</span> sterilises one cat &mdash; a cat that will not have four more litters, each of which would have needed the same again. The app asks after the outcome, not before it.</td></tr>
+          <tr><td>It converts affection into money</td><td>A donation of <span class="num">&euro;50&ndash;60</span> sterilises one cat &mdash; a cat that will not have four more litters, each of which would have needed the same again. The app asks after the outcome, not before it.</td></tr>
         </tbody>
       </table>
     </div>
@@ -332,6 +475,10 @@ tr:last-child td { border-bottom: none; }
     </div>
   </section>
 
-  <p class="colophon"><strong>Media contact</strong> &middot; Fair Shake &middot; <a href="mailto:hello@fairshake.au">hello@fairshake.au</a>. Syros Cats cares for the street cats of Syros in the Cyclades, Greece. Fair Shake builds technology that gives people access to things that are otherwise out of reach.</p>
+  <footer class="foot">
+    <div class="mark"><svg class="paw" width="24" height="24" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="21" r="8.5" fill="#66b2e8"/><circle cx="6.5" cy="12.5" r="4.2" fill="#66b2e8"/><circle cx="14" cy="7.5" r="4.2" fill="#e8558a"/><circle cx="22.5" cy="8.5" r="4.2" fill="#66b2e8"/><circle cx="29" cy="15" r="4.2" fill="#66b2e8"/></svg><span class="dsp">catspotters<b>.com</b></span></div>
+    <p>Cat Spotters is built by <a href="https://syroscats.com">Syros Cats</a> and <a href="https://fairshake.com.au">Fair Shake</a>. <a href="mailto:hello@catspotters.com">hello@catspotters.com</a></p>
+  </footer>
 
 </main>
+</div>
