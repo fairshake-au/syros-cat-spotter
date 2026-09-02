@@ -40,6 +40,14 @@ describe('i18n dictionaries', () => {
     }
   });
 
+  it('uses the requested product name for the welcome title in every language', () => {
+    for (const code of LANG_CODES) {
+      expect(TRANSLATIONS[code].welcomeTitle, `welcomeTitle in ${code}`).toBe(
+        'Syros Cat Spotters',
+      );
+    }
+  });
+
   // The pun is spelled the British way to match catspotters.com, which is the
   // source of truth for it. This locks the rule, not the copy: any English
   // string reintroducing American "catalog" fails, but the wording stays free
