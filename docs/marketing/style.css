@@ -1,0 +1,244 @@
+/* Cat Spotters one-pagers — Purropolis house style.
+   Palette and dark-theme tokens carried over from the Syros Cats proposal
+   published at proposals.fairshake.au/catspotters.
+   Each page sets --accent / --accent-soft / --accent-wash in its own :root block
+   AFTER this sheet, so the lead colour changes per audience. */
+
+:root {
+  --ground: #FBFAF7; --raised: #FFFFFF; --sunken: #F4F1E9;
+  --ink: #16232B; --ink-soft: #4A5C67; --ink-faint: #7C8B94;
+  --rule: #E2DDD2; --rule-soft: #EFEBE3;
+  --aegean: #1B5E86; --bougainvillea: #B8256B;
+  --terracotta: #B85C2B; --olive: #5F7350; --sun: #D9A21B;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #101A20; --raised: #16232B; --sunken: #1B2A32;
+    --ink: #E8E3D9; --ink-soft: #A9B6BD; --ink-faint: #77878F;
+    --rule: #27373F; --rule-soft: #1E2C34;
+    --aegean: #6FB4DA; --bougainvillea: #EE8AB4;
+    --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #101A20; --raised: #16232B; --sunken: #1B2A32;
+  --ink: #E8E3D9; --ink-soft: #A9B6BD; --ink-faint: #77878F;
+  --rule: #27373F; --rule-soft: #1E2C34;
+  --aegean: #6FB4DA; --bougainvillea: #EE8AB4;
+  --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: Nunito, "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sheet {
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ---- masthead ---- */
+
+.mast { display: flex; flex-direction: column; gap: .6rem; }
+
+.mark-line {
+  font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .7rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  font-family: Poppins, "Avenir Next", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.9rem, 1.2rem + 2.4vw, 2.7rem);
+  line-height: 1.08;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.standfirst {
+  font-size: 1.06rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 40rem;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem .9rem;
+  align-items: baseline;
+  padding-top: .8rem;
+  border-top: 2px solid var(--accent);
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: .72rem;
+  letter-spacing: .06em;
+  color: var(--ink-faint);
+}
+.meta strong { color: var(--ink-soft); font-weight: 400; }
+
+/* ---- sections ---- */
+
+section { display: flex; flex-direction: column; gap: .8rem; }
+
+h2 {
+  font-family: Poppins, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: .74rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+h3 {
+  font-family: Poppins, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: .95rem;
+  margin: 0 0 .15rem;
+  color: var(--ink);
+}
+
+p { margin: 0; max-width: 42rem; text-wrap: pretty; }
+p + p { margin-top: .7rem; }
+
+strong { font-weight: 700; color: var(--ink); }
+em { font-style: italic; color: var(--ink-soft); }
+
+.lede { font-size: 1rem; }
+
+/* ---- feature grid ---- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: .95rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.card p { font-size: .88rem; color: var(--ink-soft); }
+
+.card--lead { border-left: 3px solid var(--accent); }
+
+/* ---- the story strip ---- */
+
+.story {
+  background: var(--sunken);
+  border-radius: 12px;
+  padding: 1.2rem 1.35rem;
+  border-left: 3px solid var(--bougainvillea);
+}
+.story p { font-size: .95rem; color: var(--ink-soft); }
+.story .cat { color: var(--bougainvillea); font-weight: 700; }
+
+/* ---- tables ---- */
+
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+  font-variant-numeric: tabular-nums;
+}
+th, td {
+  text-align: left;
+  padding: .5rem .7rem;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: top;
+}
+th {
+  font-family: Poppins, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
+}
+td:first-child { color: var(--ink); font-weight: 600; width: 32%; }
+tr:last-child td { border-bottom: none; }
+
+.mono {
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: .92em;
+  color: var(--accent);
+}
+
+/* ---- ask / footer ---- */
+
+.ask {
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 1.2rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+.ask ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
+.ask li { font-size: .9rem; color: var(--ink-soft); }
+.ask li strong { color: var(--ink); }
+
+.colophon {
+  font-size: .78rem;
+  color: var(--ink-faint);
+  border-top: 1px solid var(--rule);
+  padding-top: .9rem;
+  max-width: none;
+}
+.colophon a { color: var(--accent); }
+
+/* ---- print: one page ---- */
+
+@page { size: A4; margin: 12mm 13mm; }
+
+@media print {
+  :root { --ground: #FFFFFF; --raised: #FFFFFF; --sunken: #F6F3EC; }
+  body { font-size: 8pt; line-height: 1.34; background: #FFFFFF; color: #16232B; }
+  .sheet { max-width: none; padding: 0; gap: .7rem; }
+  h1 { font-size: 17pt; }
+  .standfirst { font-size: 8.8pt; }
+  .meta { font-size: 6.2pt; padding-top: .4rem; }
+  h2 { font-size: 6.6pt; padding-bottom: .2rem; }
+  h3 { font-size: 8.2pt; }
+  .lede { font-size: 8.4pt; }
+  p { max-width: none; }
+  p + p { margin-top: .45rem; }
+  .grid { gap: .4rem; grid-template-columns: repeat(3, 1fr); }
+  .card { padding: .42rem .55rem; gap: .15rem; break-inside: avoid; }
+  .card p, .ask li, table, td, th { font-size: 7.6pt; }
+  th, td { padding: .3rem .5rem; }
+  .story, .ask { padding: .55rem .7rem; break-inside: avoid; }
+  .ask ul { gap: .22rem; }
+  section { gap: .42rem; break-inside: avoid; }
+  .colophon { font-size: 6.6pt; padding-top: .4rem; }
+}

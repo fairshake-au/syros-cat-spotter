@@ -1,0 +1,370 @@
+<title>Cat Spotters for Charities</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&family=Space+Mono:wght@400&display=swap">
+<style>
+/* Cat Spotters one-pagers — Purropolis house style.
+   Palette and dark-theme tokens carried over from the Syros Cats proposal
+   published at proposals.fairshake.au/catspotters.
+   Each page sets --accent / --accent-soft / --accent-wash in its own :root block
+   AFTER this sheet, so the lead colour changes per audience. */
+
+:root {
+  --ground: #FBFAF7; --raised: #FFFFFF; --sunken: #F4F1E9;
+  --ink: #16232B; --ink-soft: #4A5C67; --ink-faint: #7C8B94;
+  --rule: #E2DDD2; --rule-soft: #EFEBE3;
+  --aegean: #1B5E86; --bougainvillea: #B8256B;
+  --terracotta: #B85C2B; --olive: #5F7350; --sun: #D9A21B;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #101A20; --raised: #16232B; --sunken: #1B2A32;
+    --ink: #E8E3D9; --ink-soft: #A9B6BD; --ink-faint: #77878F;
+    --rule: #27373F; --rule-soft: #1E2C34;
+    --aegean: #6FB4DA; --bougainvillea: #EE8AB4;
+    --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #101A20; --raised: #16232B; --sunken: #1B2A32;
+  --ink: #E8E3D9; --ink-soft: #A9B6BD; --ink-faint: #77878F;
+  --rule: #27373F; --rule-soft: #1E2C34;
+  --aegean: #6FB4DA; --bougainvillea: #EE8AB4;
+  --terracotta: #E29365; --olive: #A3BC8E; --sun: #E8C35F;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: Nunito, "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sheet {
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ---- masthead ---- */
+
+.mast { display: flex; flex-direction: column; gap: .6rem; }
+
+.mark-line {
+  font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .7rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  font-family: Poppins, "Avenir Next", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.9rem, 1.2rem + 2.4vw, 2.7rem);
+  line-height: 1.08;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.standfirst {
+  font-size: 1.06rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 40rem;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem .9rem;
+  align-items: baseline;
+  padding-top: .8rem;
+  border-top: 2px solid var(--accent);
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: .72rem;
+  letter-spacing: .06em;
+  color: var(--ink-faint);
+}
+.meta strong { color: var(--ink-soft); font-weight: 400; }
+
+/* ---- sections ---- */
+
+section { display: flex; flex-direction: column; gap: .8rem; }
+
+h2 {
+  font-family: Poppins, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: .74rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+h3 {
+  font-family: Poppins, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: .95rem;
+  margin: 0 0 .15rem;
+  color: var(--ink);
+}
+
+p { margin: 0; max-width: 42rem; text-wrap: pretty; }
+p + p { margin-top: .7rem; }
+
+strong { font-weight: 700; color: var(--ink); }
+em { font-style: italic; color: var(--ink-soft); }
+
+.lede { font-size: 1rem; }
+
+/* ---- feature grid ---- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: .95rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.card p { font-size: .88rem; color: var(--ink-soft); }
+
+.card--lead { border-left: 3px solid var(--accent); }
+
+/* ---- the story strip ---- */
+
+.story {
+  background: var(--sunken);
+  border-radius: 12px;
+  padding: 1.2rem 1.35rem;
+  border-left: 3px solid var(--bougainvillea);
+}
+.story p { font-size: .95rem; color: var(--ink-soft); }
+.story .cat { color: var(--bougainvillea); font-weight: 700; }
+
+/* ---- tables ---- */
+
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+  font-variant-numeric: tabular-nums;
+}
+th, td {
+  text-align: left;
+  padding: .5rem .7rem;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: top;
+}
+th {
+  font-family: Poppins, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
+}
+td:first-child { color: var(--ink); font-weight: 600; width: 32%; }
+tr:last-child td { border-bottom: none; }
+
+.mono {
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: .92em;
+  color: var(--accent);
+}
+
+/* ---- ask / footer ---- */
+
+.ask {
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 1.2rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+.ask ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
+.ask li { font-size: .9rem; color: var(--ink-soft); }
+.ask li strong { color: var(--ink); }
+
+.colophon {
+  font-size: .78rem;
+  color: var(--ink-faint);
+  border-top: 1px solid var(--rule);
+  padding-top: .9rem;
+  max-width: none;
+}
+.colophon a { color: var(--accent); }
+
+/* ---- print: one page ---- */
+
+@page { size: A4; margin: 12mm 13mm; }
+
+@media print {
+  :root { --ground: #FFFFFF; --raised: #FFFFFF; --sunken: #F6F3EC; }
+  body { font-size: 8pt; line-height: 1.34; background: #FFFFFF; color: #16232B; }
+  .sheet { max-width: none; padding: 0; gap: .7rem; }
+  h1 { font-size: 17pt; }
+  .standfirst { font-size: 8.8pt; }
+  .meta { font-size: 6.2pt; padding-top: .4rem; }
+  h2 { font-size: 6.6pt; padding-bottom: .2rem; }
+  h3 { font-size: 8.2pt; }
+  .lede { font-size: 8.4pt; }
+  p { max-width: none; }
+  p + p { margin-top: .45rem; }
+  .grid { gap: .4rem; grid-template-columns: repeat(3, 1fr); }
+  .card { padding: .42rem .55rem; gap: .15rem; break-inside: avoid; }
+  .card p, .ask li, table, td, th { font-size: 7.6pt; }
+  th, td { padding: .3rem .5rem; }
+  .story, .ask { padding: .55rem .7rem; break-inside: avoid; }
+  .ask ul { gap: .22rem; }
+  section { gap: .42rem; break-inside: avoid; }
+  .colophon { font-size: 6.6pt; padding-top: .4rem; }
+}
+</style>
+<style>:root { --accent: var(--aegean); }</style>
+
+<main class="sheet">
+
+  <header class="mast">
+    <div class="mark-line">Syros Cats &middot; Fair Shake</div>
+    <h1>Cat Spotters</h1>
+    <p class="standfirst">An app that turns a tourist&rsquo;s photograph into an island-wide cat census &mdash; and turns the affection behind that photograph into sterilisations. Built by Fair Shake with Syros Cats, and built to be handed to any organisation doing this work.</p>
+    <div class="meta">
+      <span><strong>For</strong> animal-welfare organisations and the purpose sector</span>
+      <span><strong>Themes</strong> engagement &middot; citizen science &middot; sterilisation</span>
+      <span><strong>September 2026</strong></span>
+    </div>
+  </header>
+
+  <section>
+    <h2>The gap we are closing</h2>
+    <p class="lede">Every island and every city with street cats has the same two facts sitting side by side: a large cat population, and a small number of people caring for them. The gap between them is <strong>information</strong>. Nobody knows how many cats there are, which have been sterilised, which are in trouble, or where the next trapping round would do the most good.</p>
+    <p>Meanwhile thousands of visitors walk past those cats every summer with a phone in their pocket, photographing them out of pure affection, and none of it reaches anybody who could use it. Cat Spotters is the bridge. It is a game for the public and a working record for the charity, and the same tap does both jobs at once.</p>
+  </section>
+
+  <div class="story">
+    <p>A visitor photographs a tabby in Ano Syros, learns the island has never met her, and names her <span class="cat">Agatha</span>. The sighting is filed with a photograph, a place and a date. Over the summer other people meet Agatha and confirm her, and one notices her ear is not clipped. In September the Syros Cats team, planning a trapping round, sees an unsterilised female: it is Agatha. In October the visitor, long since home, gets a message saying Agatha was sterilised last week. Under it is a button that pays for the next cat.</p>
+  </div>
+
+  <section>
+    <h2>What the public side does</h2>
+    <div class="grid">
+      <div class="card card--lead">
+        <h3>Spot a cat</h3>
+        <p>Photograph a cat and the app answers one question: have we met this one before? It shows the closest matches with a plain reason &mdash; &ldquo;the white bib and the notch in the left ear match&rdquo; &mdash; and the person confirms one or names a new cat.</p>
+      </div>
+      <div class="card">
+        <h3>No account, three languages</h3>
+        <p>A spotter is contributing within a minute of installing, with no name and no email address. The whole app runs in English, Greek and French. Named accounts exist, but only to unlock extras and to give weight to people whose word should carry it.</p>
+      </div>
+      <div class="card">
+        <h3>Every cat has a page</h3>
+        <p>A photograph, a name, a code such as <span class="mono">SYR-0042</span>, where it is usually seen, everybody who has ever spotted it, and its full history &mdash; appearance, health, who feeds it, and how it lives.</p>
+      </div>
+      <div class="card">
+        <h3>Points, badges, streaks</h3>
+        <p>Confirming a known cat is worth nearly as much as naming a new one, deliberately, so that people do not keep declaring cats new. Whatever earns points is what people go and do, so the scoring quietly becomes the charity&rsquo;s task list.</p>
+      </div>
+      <div class="card">
+        <h3>Reporting a cat in trouble</h3>
+        <p>Always available, never buried. A photograph, a confirmed location, and a choice between &ldquo;needs attention&rdquo; and &ldquo;urgent&rdquo;. Crucially, the report reaches a person, and <strong>the person who reported it is told what happened</strong>.</p>
+      </div>
+      <div class="card">
+        <h3>Reporting a litter</h3>
+        <p>The moment a kitten appears in a photograph the app asks how many can be seen, prompts the spotter to find and photograph the mother, and estimates age. The litter gets a page, the mother is recorded as nursing, and the team gets the trapping window.</p>
+      </div>
+      <div class="card">
+        <h3>Teaching in the moment</h3>
+        <p>While a photograph is being identified, the screen shows one short fact instead of a spinner &mdash; what a clipped ear means, why removing cats fails and sterilising works, why sharing your lunch harms a colony in winter, and how to be around a street cat.</p>
+      </div>
+      <div class="card">
+        <h3>Coverage map and groups</h3>
+        <p>A map of where nobody has looked yet, so a walk becomes a contribution. Groups join with a code, get a neighbourhood and a target, and see their own figures and an end-of-stay summary.</p>
+      </div>
+      <div class="card">
+        <h3>Works where the signal does not</h3>
+        <p>Photographs, locations and the map itself work with no connection, and queued spots are submitted automatically and dated to when the photograph was taken. Identifying a cat still needs a connection at some point, because the comparison happens on our side.</p>
+      </div>
+      <div class="card">
+        <h3>The donation ladder</h3>
+        <p>The strongest moment to ask is after somebody has gone home and learns their cat was helped. Each rung says what it buys: <span class="mono">&euro;1</span> feeds a cat for a day, <span class="mono">&euro;25</span> is a week&rsquo;s petrol for volunteers, <span class="mono">&euro;50&ndash;60</span> sterilises one cat.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What only Syros Cats sees</h2>
+    <p>The public side has to stay effortless, because every record the team relies on comes from somebody enjoying themselves. Behind it sits a working tool that nobody outside the organisation ever opens.</p>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><td>Invited roles</td><td>Residents sign themselves up. Every other role &mdash; <strong>cat guardian</strong>, volunteer, vet, management, admin &mdash; comes only by invitation, so nobody can declare themselves a vet. Remove a role and everything that person recorded stays, attributed to them at the time.</td></tr>
+          <tr><td>Defensible figures</td><td>Every observation is kept, dated and attributed, and the cat&rsquo;s status is worked out from all of them together with its confidence shown: <strong>confirmed</strong> by a vet or the team, <strong>likely</strong> where several people independently agree, <strong>reported</strong> by one person, or <strong>unknown</strong>. Nothing is ever deleted; a correction is added on top.</td></tr>
+          <tr><td>Trapping rounds</td><td>Open a colony and the target list is most of the way written: which cats are unsterilised, where each is usually found, which feeding site they gather at, and when each was last seen.</td></tr>
+          <tr><td>Colonies and feeding sites</td><td>Cats grouped by where they are actually seen, with colonies named to match the ones the team already talks about, plus the feeding sites that serve them and the feeders who provision them, recorded with consent and withdrawable.</td></tr>
+          <tr><td>Duplicate control</td><td>Duplicates are the single biggest threat to the numbers. The app surfaces likely duplicates from three directions and merges only on human confirmation, keeping every sighting from both records. Everybody involved keeps their points.</td></tr>
+          <tr><td>Every sterilisation, not only yours</td><td>Give the island&rsquo;s vets their own way in and the reporting changes from &ldquo;cats we have sterilised&rdquo; to <strong>&ldquo;cats on this island that are sterilised&rdquo;</strong> &mdash; the state of the island rather than the activity of one organisation, which is a far stronger thing to put in front of a funder or a municipality.</td></tr>
+          <tr><td>Reporting and export</td><td>Sterilisation coverage colony by colony, which colonies are growing, which have no feeder, and which areas nobody has photographed. Figures export with the method stated, and existing records can be loaded in so the app starts with the charity&rsquo;s history rather than from zero.</td></tr>
+          <tr><td>Cost and acquittals</td><td>Vet visits are recorded against the cat they were for, so cost per cat adds up on its own for record-keeping and funding acquittals.</td></tr>
+          <tr><td>Moderation and safety</td><td>Offensive names are rejected in all three languages, photographs with no cat in them go no further, contributions are limited to the island, and a report-an-issue queue lets the team hide a photograph or rename a cat in one tap. Cats flagged as at risk show only an approximate location to the anonymous public, while the exact location stays with the team, guardians and feeders.</td></tr>
+          <tr><td>Institutional memory</td><td>Small organisations lose a great deal when a long-standing volunteer moves away. Anything recorded here survives that &mdash; and everything can be exported in a usable form at any time.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why this counts as citizen science</h2>
+    <p>Citizen science means ordinary people with no training collecting real observations that an organisation then uses &mdash; birdwatchers counting garden birds feed genuine population studies, and a visitor photographing a cat in an alley is doing the same thing. Someone using this app is observing an animal carefully, telling one individual from another, discovering their own evidence can be wrong, and contributing to a dataset a real charity uses for real decisions. That is field biology, and very few people ever get to do it.</p>
+    <p>It also teaches the harder lesson underneath &mdash; that evidence has different strengths and that <em>&ldquo;I&rsquo;m not sure&rdquo;</em> is a valuable answer &mdash; and people learn it by using the app rather than by being told. That is what makes this worth a school&rsquo;s time, not just a tourist&rsquo;s.</p>
+  </section>
+
+  <section>
+    <h2>Why it points at sterilisation</h2>
+    <p>Every part of the design bends toward the same outcome. A clipped ear tip is treated as strong evidence of sterilisation, while no visible clip is treated as no evidence at all rather than as evidence against. Litter reports find kittens in time to help them and their mothers in time to prevent the next litter. Colony data plans the round. And the teaching does the persuading: one unsterilised female and her surviving descendants become dozens of cats within a few years; removing cats fails because others move in and breed back within a season; sterilising the colony leaves the same cats holding their territory, no longer breeding, gradually declining as they age.</p>
+    <p>Then the app closes the loop that most charity apps leave open. A donation of <strong>&euro;50&ndash;60</strong> is a cat that will not have four more litters, each of which would have needed the same again &mdash; and the person asked is somebody who has met and named a specific animal, which is a very different proposition from somebody who has read a poster.</p>
+  </section>
+
+  <section>
+    <h2>Built to be handed on</h2>
+    <p>Nothing in the design is specific to Syros except the map. The same app runs anywhere there are street cats, a charity that needs numbers it can defend, and visitors who like taking photographs &mdash; each place with its own name and its own local face. Fair Shake builds and operates it as a managed service, passing the running costs through at cost with no margin, which for an island the size of Syros is roughly <span class="mono">&euro;110</span> a month all-in.</p>
+    <div class="ask">
+      <h3>If you run this work somewhere else, we would like to hear from you</h3>
+      <ul>
+        <li><strong>Tell us what we have got wrong.</strong> The design is built on how one organisation works. The parts most likely to be wrong are the ones where we have guessed.</li>
+        <li><strong>Take it for your own island or city.</strong> We would rather every organisation ran the same tool with a local face than each built its own.</li>
+        <li><strong>Compare notes on the record.</strong> Shared definitions of what &ldquo;sterilised&rdquo; means, and how confident anyone is, would make everybody&rsquo;s figures worth more.</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="colophon"><strong>Syros Cats</strong> cares for the street cats of Syros in the Cyclades, Greece. <strong>Fair Shake</strong> builds technology that gives people access to things that are otherwise out of reach, and is building and operating Cat Spotters with Syros Cats. Contact: <a href="mailto:hello@fairshake.au">hello@fairshake.au</a>.</p>
+
+</main>
