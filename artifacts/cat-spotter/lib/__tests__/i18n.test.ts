@@ -39,4 +39,15 @@ describe('i18n dictionaries', () => {
       }
     }
   });
+
+  // The pun is spelled the British way to match catspotters.com, which is the
+  // source of truth for it. This locks the rule, not the copy: any English
+  // string reintroducing American "catalog" fails, but the wording stays free
+  // to change.
+  it('spells catalogue the British way in English', () => {
+    const offenders = Object.entries(TRANSLATIONS.en)
+      .filter(([, value]) => /catalog(?!ue)/i.test(value))
+      .map(([key, value]) => `${key}: ${value}`);
+    expect(offenders).toEqual([]);
+  });
 });
