@@ -522,3 +522,49 @@ describe('retry', () => {
     expect(persistedQueue()[0]).toMatchObject({ status: 'queued' });
   });
 });
+
+describe('replacePhoto', () => {
+  it('requeues and syncs a rejected item with a new photo and original metadata', async () => {
+    const createdAt = '2026-08-31T10:15:00.000Z';
+    seedQueue([
+      makeItem({
+        status: 'rejected',
+        rejectionKey: 'photoInvalid',
+        createdAt,
+        lat: 37.441,
+        lng: 24.942,
+      }),
+    ]);
+    createSighting.mockResolvedValueOnce({
+      sightingId: 22,
+      isCatPhoto: true,
+      candidates: [],
+    });
+
+    const ctx = renderProvider();
+    await waitFor(() => expect(ctx.current.pending).toHaveLength(1));
+    await act(async () => {
+      await ctx.current.replacePhoto('local-1', {
+        photoBase64: 'replacement-photo',
+        photoUri: 'file://replacement.jpg',
+      });
+    });
+
+    expect(createSighting).toHaveBeenCalledWith({
+      deviceId: 'device-1',
+      photoBase64: 'replacement-photo',
+      lat: 37.441,
+      lng: 24.942,
+      capturedAt: createdAt,
+    });
+    expect(ctx.current.pending[0]).toMatchObject({
+      status: 'review',
+      sightingId: 22,
+      photoUri: 'file://replacement.jpg',
+      createdAt,
+      lat: 37.441,
+      lng: 24.942,
+    });
+    expect(ctx.current.pending[0].rejectionKey).toBeUndefined();
+  });
+});

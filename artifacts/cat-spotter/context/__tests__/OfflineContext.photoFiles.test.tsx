@@ -73,7 +73,12 @@ vi.mock('@react-native-community/netinfo', () => ({
 }));
 
 vi.mock('@workspace/api-client-react', () => ({
-  createSighting: vi.fn(),
+  createSighting: vi.fn(async () => ({
+    sightingId: 42,
+    isCatPhoto: true,
+    candidates: [],
+  })),
+  ApiError: class ApiError extends Error {},
 }));
 
 vi.mock('../DeviceContext', () => ({
@@ -150,6 +155,44 @@ describe('offline queue photo-file lifecycle', () => {
 
     await waitFor(() => expect(files.has(file)).toBe(false));
     expect(result.current.pending).toHaveLength(0);
+  });
+
+  it('replacePhoto overwrites the persisted photo and preserves sighting metadata', async () => {
+    const oldFile = `${PHOTOS_DIR}/replace-1.jpg`;
+    const createdAt = '2026-08-30T08:00:00.000Z';
+    files.set(oldFile, 'OLD_PHOTO');
+    storage.set(
+      QUEUE_KEY,
+      JSON.stringify([
+        {
+          ...baseItem('replace-1'),
+          photoUri: oldFile,
+          createdAt,
+          status: 'rejected',
+          rejectionKey: 'photoInvalid',
+        },
+      ]),
+    );
+    const { result } = renderHook(() => useOffline(), { wrapper });
+    await waitFor(() => expect(result.current.pending).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.replacePhoto('replace-1', {
+        photoBase64: 'NEW_PHOTO',
+        photoUri: 'file:///cache/new.jpg',
+      });
+    });
+
+    expect(files.get(oldFile)).toBe('NEW_PHOTO');
+    expect(result.current.pending[0]).toMatchObject({
+      photoUri: oldFile,
+      createdAt,
+      lat: 37.4,
+      lng: 24.9,
+      status: 'review',
+      sightingId: 42,
+    });
+    expect(result.current.pending[0].rejectionKey).toBeUndefined();
   });
 
   it('launch-time sweep deletes orphan files but keeps referenced ones', async () => {
