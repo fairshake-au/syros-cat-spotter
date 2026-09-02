@@ -51,3 +51,5 @@ Thumbs.db
 # Design-canvas working copies (extracted from the published artifact)
 design/coming-soon/live*/
 design/coming-soon/cur/
+
+.wrangler/

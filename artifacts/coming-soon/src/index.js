@@ -20,9 +20,20 @@ export default {
     if (url.pathname !== '/api/subscribe') return env.ASSETS.fetch(request);
     if (request.method !== 'POST') return json({ ok: false }, 405);
 
-    // Same-origin only: this endpoint exists for the page's own form.
+    // Rejects a browser posting from another site. It is not a real gate — a
+    // script can simply omit the header — so the Turnstile token below is what
+    // actually protects this endpoint. `Origin: null` is a legitimate value
+    // (sandboxed iframes, file://) and must not crash the parse.
     const origin = request.headers.get('origin');
-    if (origin && new URL(origin).host !== url.host) return json({ ok: false }, 403);
+    if (origin) {
+      let host = null;
+      try {
+        host = new URL(origin).host;
+      } catch {
+        return json({ ok: false }, 403);
+      }
+      if (host !== url.host) return json({ ok: false }, 403);
+    }
 
     let body;
     try {
@@ -30,14 +41,25 @@ export default {
     } catch {
       return json({ ok: false, error: 'bad_request' }, 400);
     }
+    // JSON.parse('null') and JSON.parse('"x"') both succeed; neither has fields.
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      return json({ ok: false, error: 'bad_request' }, 400);
+    }
 
     // Honeypot: a field the real form leaves empty and scripted bots fill in.
     // Answer 200 so the bot has nothing to learn from the response.
-    if (typeof body.website === 'string' && body.website !== '') return json({ ok: true });
+    if (typeof body.hp_check === 'string' && body.hp_check !== '') return json({ ok: true });
 
     // Turnstile: the token is single-use and verified server-side. A page that
     // cannot reach challenges.cloudflare.com never gets a token, so a missing
     // one is a rejection, not a reason to let the request through.
+    // An unset secret would make siteverify fail for every visitor; fail loudly
+    // in the log rather than silently turning sign-ups off.
+    if (!env.TURNSTILE_SECRET) {
+      console.error('TURNSTILE_SECRET is not set — rejecting every sign-up');
+      return json({ ok: false, error: 'server' }, 500);
+    }
+
     const token = String(body.token ?? '');
     if (!token) return json({ ok: false, error: 'verify' }, 400);
 

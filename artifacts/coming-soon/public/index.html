@@ -18,7 +18,7 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   :root {
-    --ink: #1b2a38; --body: #47596a; --muted: #667889; --faint: #8c9caa;
+    --ink: #1b2a38; --body: #47596a; --muted: #55677a; --faint: #5f7183;
     --page: #f4f2ec; --card: #fefcf7; --line: #e9edf0; --rule: #d7dee4;
     --blue: #1c77c3; --navy: #0a3350; --night: #071e30; --sky: #a3d1f2;
     --pink: #d64185; --sun: #ffc94d; --olive: #7f9349; --clay: #b8552f;
@@ -68,6 +68,9 @@
   }
   button.cta:disabled { opacity: .6; cursor: default; }
   .cf-turnstile { min-height: 65px; }
+  .fallback { font-size: 14px; color: var(--clay); padding-left: 20px; }
+  .close .fallback { color: var(--sun); }
+  .noscript { max-width: 520px; padding: 18px 22px; background: #fff5df; border: 1.5px solid #ffe0a0; border-radius: 20px; font-size: 15px; }
   .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
   .note { font-size: 14px; color: var(--faint); padding-left: 20px; }
   .err { font-size: 14px; color: var(--clay); padding-left: 20px; }
@@ -95,6 +98,7 @@
   .close .note { color: var(--sky); padding: 0; }
   .close input[type=email] { border-color: #135f92; }
   .close button.cta { color: var(--navy); background: var(--sun); }
+  .close .err { color: var(--sun); }
   .close .done { background: transparent; border-color: #135f92; }
   .close .done h3 { color: var(--card); }
   .close .done p { color: var(--sky); }
@@ -117,6 +121,7 @@
   }
 </style>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<noscript><style>form[data-signup]{display:none}.cf-turnstile{display:none}</style></noscript>
 </head>
 <body>
 
@@ -132,7 +137,7 @@
     </div>
     <nav class="langs" aria-label="Language">
       <button type="button" data-lang="en" aria-pressed="true">EN</button>
-      <button type="button" data-lang="el" aria-pressed="false">ΕΛ</button>
+      <button type="button" data-lang="el" lang="el" aria-pressed="false">ΕΛ</button>
       <button type="button" data-lang="fr" aria-pressed="false">FR</button>
     </nav>
   </header>
@@ -140,28 +145,30 @@
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <span class="eyebrow" data-t="eyebrow"></span>
-        <h1 data-t="h1"></h1>
-        <p class="lede" data-t="sub"></p>
+        <span class="eyebrow" data-t="eyebrow">Syros · Cyclades · Greece</span>
+        <h1 data-t="h1">Help the cats of Syros live better lives.</h1>
+        <p class="lede" data-t="sub">Photograph a cat in the alleys of Ermoupoli and the app works out who it is. Locals and visitors are building one shared record of every cat on the island.</p>
 
         <form data-signup novalidate>
           <div class="row">
             <label class="hp" for="e1">Email</label>
-            <input id="e1" type="email" name="email" autocomplete="email" required>
-            <label class="hp" for="w1">Leave this empty</label>
-            <input id="w1" class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
-            <button type="submit" class="cta" data-t="cta"></button>
+            <input id="e1" type="email" name="email" autocomplete="email" maxlength="254" required placeholder="your@email.com">
+            <input id="w1" class="hp" type="text" name="hp_check" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button type="submit" class="cta" data-t="cta">Tell me when it is live</button>
           </div>
           <div class="cf-turnstile" data-sitekey="0x4AAAAAAEkn48x_yF85IS_y" data-action="turnstile-spin-v2" data-language="auto" data-theme="light"></div>
-          <p class="err" data-err hidden></p>
-          <p class="note" data-t="micro"></p>
-          <p class="note" data-t="privacy"></p>
+          <p class="err" data-err role="alert" hidden></p>
+      <p class="fallback" data-fallback hidden></p>
+          <p class="fallback" data-fallback hidden></p>
+          <p class="note" data-t="micro">One email the day it launches. Nothing else, ever.</p>
+          <p class="note" data-t="privacy">Your address is stored only to send that one email, and is never shared.</p>
         </form>
+        <noscript><p class="noscript">Signing up needs JavaScript. Email <a href="mailto:hello@catspotters.com">hello@catspotters.com</a> and we will add you to the list.</p></noscript>
         <div class="done" data-done hidden>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7f9349" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px" aria-hidden="true"><path d="M20 6 L9 17 l-5 -5"/></svg>
           <div>
-            <h3 class="dsp" data-t="doneTitle"></h3>
-            <p data-t="doneBody"></p>
+            <h3 class="dsp" data-t="doneTitle">You are on the list.</h3>
+            <p data-t="doneBody">We will write once — the day Cat Spotters opens on Syros.</p>
           </div>
         </div>
       </div>
@@ -173,8 +180,8 @@
 <section class="band">
   <div class="wrap">
     <div class="band-head">
-      <span class="eyebrow" data-t="howEyebrow"></span>
-      <h2 data-t="howTitle"></h2>
+      <span class="eyebrow" data-t="howEyebrow">How it works</span>
+      <h2 data-t="howTitle">Three taps in a Syros alley</h2>
     </div>
     <div class="cards">
       <div class="card">
@@ -182,58 +189,59 @@
           <span class="icon" style="background:#e8f4fc">
             <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="#1c77c3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 A2 2 0 0 1 5 6.5 h2.2 L8.6 4.2 h6.8 L16.8 6.5 H19 a2 2 0 0 1 2 2 v9 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 Z"/><circle cx="12" cy="13" r="3.6"/></svg>
           </span>
-          <h3 data-t="step1"></h3>
+          <h3 data-t="step1">Spot a cat</h3>
         </div>
-        <p data-t="step1Body"></p>
+        <p data-t="step1Body">Snap a photo when you meet one on the steps. The app records where, so each cat is tied to the right colony.</p>
       </div>
       <div class="card">
         <div class="card-head">
           <span class="icon" style="background:#fce4ee">
             <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="#d64185" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.4"/><path d="M3.5 9 h17 M9 4 v16"/><path d="M13 13.4 l2 2 l3.4 -3.6"/></svg>
           </span>
-          <h3 data-t="step2"></h3>
+          <h3 data-t="step2">Add it to the cat‑alogue</h3>
         </div>
-        <p data-t="step2Body"></p>
+        <p data-t="step2Body">We check your photo against every cat the island already knows. If nobody has met this one, you get to name it.</p>
       </div>
       <div class="card">
         <div class="card-head">
           <span class="icon" style="background:#eef1e0">
             <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="#5f6f36" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.2 C 5.4 16 2.8 12.6 2.8 9.3 A4.5 4.5 0 0 1 12 7 a4.5 4.5 0 0 1 9.2 2.3 c0 3.3 -2.6 6.7 -9.2 10.9 Z"/><path d="M12 10.4 v4 M10 12.4 h4"/></svg>
           </span>
-          <h3 data-t="step3"></h3>
+          <h3 data-t="step3">Help them thrive</h3>
         </div>
-        <p data-t="step3Body"></p>
+        <p data-t="step3Body">Your sightings show which colonies to reach next, and which cats have already been treated and sterilised.</p>
       </div>
     </div>
   </div>
 </section>
 
 <section class="wrap why">
-  <span class="eyebrow" data-t="whyEyebrow"></span>
-  <h2 style="max-width:22ch" data-t="whyTitle"></h2>
-  <p data-t="whyBody"></p>
+  <span class="eyebrow" data-t="whyEyebrow">Citizen science</span>
+  <h2 style="max-width:22ch" data-t="whyTitle">An island-wide cat census, one photo at a time.</h2>
+  <p data-t="whyBody">Every photo adds one cat to the island’s record: which cat, which neighbourhood, already sterilised or still to come. Visitors walking the alleys meet cats that rarely get recorded; locals know the ones that have lived on their step for years. Put together it becomes a picture nobody could build alone — and it shows exactly where the next round of treating and sterilising should go.</p>
 </section>
 
 <section class="close">
   <div class="wrap inner">
-    <h2 data-t="closeTitle"></h2>
+    <h2 data-t="closeTitle">Be there the day the cat‑alogue opens.</h2>
     <form data-signup novalidate style="align-items:center">
       <div class="row" style="width:100%">
         <label class="hp" for="e2">Email</label>
-        <input id="e2" type="email" name="email" autocomplete="email" required>
-        <label class="hp" for="w2">Leave this empty</label>
-        <input id="w2" class="hp" type="text" name="website" tabindex="-1" autocomplete="off">
-        <button type="submit" class="cta" data-t="cta"></button>
+        <input id="e2" type="email" name="email" autocomplete="email" maxlength="254" required placeholder="your@email.com">
+        <input id="w2" class="hp" type="text" name="hp_check" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit" class="cta" data-t="cta">Tell me when it is live</button>
       </div>
       <div class="cf-turnstile" data-sitekey="0x4AAAAAAEkn48x_yF85IS_y" data-action="turnstile-spin-v2" data-language="auto" data-theme="light"></div>
-      <p class="err" data-err hidden></p>
-      <p class="note" data-t="micro"></p>
+      <p class="err" data-err role="alert" hidden></p>
+      <p class="fallback" data-fallback hidden></p>
+      <p class="note" data-t="micro">One email the day it launches. Nothing else, ever.</p>
+      <p class="note" data-t="privacy">Your address is stored only to send that one email, and is never shared.</p>
     </form>
     <div class="done" data-done hidden>
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cbd6a8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px" aria-hidden="true"><path d="M20 6 L9 17 l-5 -5"/></svg>
       <div>
-        <h3 class="dsp" data-t="doneTitle"></h3>
-        <p data-t="doneBody"></p>
+        <h3 class="dsp" data-t="doneTitle">You are on the list.</h3>
+        <p data-t="doneBody">We will write once — the day Cat Spotters opens on Syros.</p>
       </div>
     </div>
   </div>
@@ -250,17 +258,17 @@
       <span class="dsp">catspotters.com</span>
     </div>
     <p>
-      <span data-t="footerLead"></span>
+      <span data-t="footerLead">Made with ❤️ in Ερμούπολη by</span>
       <a href="https://syroscats.com">Syros Cats</a>
-      <span data-t="andWord"></span>
-      <a href="https://fairshake.com.au">Fair Shake</a><span data-t="footerTail"></span>
+      <span data-t="andWord">and</span>
+      <a href="https://fairshake.com.au">Fair Shake</a><span data-t="footerTail"> · Coming October 2026 ·</span>
       <a href="mailto:hello@catspotters.com">hello@catspotters.com</a>
     </p>
   </div>
 </footer>
 
 <script>
-var COPY = {"en": {"label": "EN", "eyebrow": "Syros · Cyclades · Greece", "h1": "Help the cats of Syros live better lives.", "sub": "Photograph a cat in the alleys of Ermoupoli and the app works out who it is. Locals and visitors are building one shared record of every cat on the island.", "placeholder": "your@email.com", "cta": "Tell me when it is live", "micro": "One email the day it launches. Nothing else, ever.", "err": "That does not look like an email address.", "doneTitle": "You are on the list.", "doneBody": "We will write once — the day Cat Spotters opens on Syros.", "howEyebrow": "How it works", "howTitle": "Three taps in a Syros alley", "step1": "Spot a cat", "step1Body": "Snap a photo when you meet one on the steps. The app records where, so each cat is tied to the right colony.", "step2": "Add it to the cat‑alogue", "step2Body": "We check your photo against every cat the island already knows. If nobody has met this one, you get to name it.", "step3": "Help them thrive", "step3Body": "Your sightings show which colonies to reach next, and which cats have already been treated and sterilised.", "whyEyebrow": "Citizen science", "whyTitle": "An island-wide cat census, one photo at a time.", "whyBody": "Every photo adds one cat to the island’s record: which cat, which neighbourhood, already sterilised or still to come. Visitors walking the alleys meet cats that rarely get recorded; locals know the ones that have lived on their step for years. Put together it becomes a picture nobody could build alone — and it shows exactly where the next round of treating and sterilising should go.", "closeTitle": "Be there the day the cat‑alogue opens.", "andWord": "and", "footerLead": "Made with ❤️ in Ερμούπολη by", "footerTail": " · Coming October 2026 ·", "privacy": "Your address is stored only to send that one email, and is never shared.", "failed": "Something went wrong. Please try again.", "verify": "Please complete the check above the button."}, "el": {"label": "ΕΛ", "eyebrow": "Σύρος · Κυκλάδες · Ελλάδα", "h1": "Βοήθησε τις γάτες της Σύρου να ζουν καλύτερα.", "sub": "Φωτογράφισε μια γάτα στα σοκάκια της Ερμούπολης και η εφαρμογή αναγνωρίζει ποια είναι. Ντόπιοι και επισκέπτες χτίζουν μαζί ένα κοινό αρχείο για κάθε γάτα του νησιού.", "placeholder": "το email σου", "cta": "Ειδοποίησέ με", "micro": "Ένα email τη μέρα που βγαίνει. Τίποτε άλλο, ποτέ.", "err": "Αυτό δεν μοιάζει με διεύθυνση email.", "doneTitle": "Μπήκες στη λίστα.", "doneBody": "Θα σου γράψουμε μία φορά — τη μέρα που ανοίγει το Cat Spotters στη Σύρο.", "howEyebrow": "Πώς λειτουργεί", "howTitle": "Τρία πατήματα σε ένα σοκάκι", "step1": "Βρες μια γάτα", "step1Body": "Βγάλε φωτογραφία όταν συναντήσεις μια γάτα στα σκαλιά. Η εφαρμογή κρατά το πού, ώστε κάθε γάτα να συνδέεται με τη σωστή αποικία.", "step2": "Πρόσθεσέ τη στον γατά‑λογο", "step2Body": "Ελέγχουμε τη φωτογραφία σου με κάθε γάτα που ήδη γνωρίζει το νησί. Αν δεν την έχει συναντήσει κανείς, της δίνεις εσύ όνομα.", "step3": "Βοήθησέ τες να ευημερήσουν", "step3Body": "Οι παρατηρήσεις σου δείχνουν ποιες αποικίες σειρά έχουν και ποιες γάτες έχουν ήδη περιθαλφθεί και στειρωθεί.", "whyEyebrow": "Επιστήμη των πολιτών", "whyTitle": "Μια απογραφή των γατών του νησιού, μία φωτογραφία τη φορά.", "whyBody": "Κάθε φωτογραφία προσθέτει μία γάτα στο αρχείο του νησιού: ποια γάτα, ποια γειτονιά, στειρωμένη ήδη ή όχι ακόμη. Οι επισκέπτες συναντούν στα σοκάκια γάτες που σπάνια καταγράφονται· οι ντόπιοι ξέρουν εκείνες που ζουν χρόνια στο σκαλί τους. Μαζί προκύπτει μια εικόνα που κανείς δεν θα μπορούσε να φτιάξει μόνος — και δείχνει πού ακριβώς πρέπει να πάει ο επόμενος γύρος περίθαλψης και στειρώσεων.", "closeTitle": "Να είσαι εκεί τη μέρα που ανοίγει ο γατά‑λογος.", "andWord": "και", "footerLead": "Φτιαγμένο με ❤️ στην Ερμούπολη από", "footerTail": " · Έρχεται Οκτώβριος 2026 ·", "privacy": "Η διεύθυνσή σου αποθηκεύεται μόνο για αυτό το ένα email και δεν κοινοποιείται ποτέ.", "failed": "Κάτι πήγε στραβά. Δοκίμασε ξανά.", "verify": "Ολοκλήρωσε τον έλεγχο πάνω από το κουμπί."}, "fr": {"label": "FR", "eyebrow": "Syros · Cyclades · Grèce", "h1": "Aide les chats de Syros à mieux vivre.", "sub": "Prends une photo d’un chat dans les ruelles d’Ermoúpoli et l’application reconnaît de qui il s’agit. Habitants et visiteurs construisent ensemble un registre partagé de chaque chat de l’île.", "placeholder": "ton@email.com", "cta": "Préviens-moi", "micro": "Un seul email, le jour du lancement. Rien d’autre, jamais.", "err": "Cela ne ressemble pas à une adresse email.", "doneTitle": "Tu es sur la liste.", "doneBody": "On t’écrira une seule fois — le jour où Cat Spotters ouvre à Syros.", "howEyebrow": "Comment ça marche", "howTitle": "Trois gestes dans une ruelle de Syros", "step1": "Repère un chat", "step1Body": "Prends une photo quand tu en croises un sur les marches. L’app note l’endroit, pour que chaque chat soit rattaché à la bonne colonie.", "step2": "Ajoute-le au cat‑alogue", "step2Body": "On compare ta photo à tous les chats que l’île connaît déjà. Si personne ne l’a encore croisé, c’est toi qui le nommes.", "step3": "Aide-les à s’épanouir", "step3Body": "Tes observations montrent quelles colonies rejoindre ensuite, et quels chats ont déjà été soignés et stérilisés.", "whyEyebrow": "Science participative", "whyTitle": "Un recensement des chats de l’île, une photo à la fois.", "whyBody": "Chaque photo ajoute un chat au registre de l’île : quel chat, quel quartier, déjà stérilisé ou pas encore. Les visiteurs croisent dans les ruelles des chats rarement recensés ; les habitants connaissent ceux qui vivent depuis des années sur leur marche. Ensemble, cela donne une image que personne ne pourrait construire seul — et elle montre exactement où doit aller la prochaine série de soins et de stérilisations.", "closeTitle": "Sois là le jour où le cat‑alogue ouvre.", "andWord": "et", "footerLead": "Fait avec ❤️ à Ermoúpoli par", "footerTail": " · Arrive en octobre 2026 ·", "privacy": "Ton adresse est conservée uniquement pour cet unique email et n’est jamais partagée.", "failed": "Une erreur est survenue. Réessaie.", "verify": "Merci de compléter la vérification au-dessus du bouton."}};
+var COPY = {"en": {"label": "EN", "eyebrow": "Syros · Cyclades · Greece", "h1": "Help the cats of Syros live better lives.", "sub": "Photograph a cat in the alleys of Ermoupoli and the app works out who it is. Locals and visitors are building one shared record of every cat on the island.", "placeholder": "your@email.com", "cta": "Tell me when it is live", "micro": "One email the day it launches. Nothing else, ever.", "err": "That does not look like an email address.", "doneTitle": "You are on the list.", "doneBody": "We will write once — the day Cat Spotters opens on Syros.", "howEyebrow": "How it works", "howTitle": "Three taps in a Syros alley", "step1": "Spot a cat", "step1Body": "Snap a photo when you meet one on the steps. The app records where, so each cat is tied to the right colony.", "step2": "Add it to the cat‑alogue", "step2Body": "We check your photo against every cat the island already knows. If nobody has met this one, you get to name it.", "step3": "Help them thrive", "step3Body": "Your sightings show which colonies to reach next, and which cats have already been treated and sterilised.", "whyEyebrow": "Citizen science", "whyTitle": "An island-wide cat census, one photo at a time.", "whyBody": "Every photo adds one cat to the island’s record: which cat, which neighbourhood, already sterilised or still to come. Visitors walking the alleys meet cats that rarely get recorded; locals know the ones that have lived on their step for years. Put together it becomes a picture nobody could build alone — and it shows exactly where the next round of treating and sterilising should go.", "closeTitle": "Be there the day the cat‑alogue opens.", "andWord": "and", "footerLead": "Made with ❤️ in Ερμούπολη by", "footerTail": " · Coming October 2026 ·", "privacy": "Your address is stored only to send that one email, and is never shared.", "failed": "Something went wrong. Please try again.", "verify": "Please complete the check above the button.", "blocked": "The spam check could not load, so the form is unavailable. Email us instead:", "title": "Cat Spotters — every street cat on Syros, known by name", "metaDescription": "A free app for the alleys of Ermoupoli. Photograph a cat and help the island look after it. Coming October 2026."}, "el": {"label": "ΕΛ", "eyebrow": "Σύρος · Κυκλάδες · Ελλάδα", "h1": "Βοήθησε τις γάτες της Σύρου να ζουν καλύτερα.", "sub": "Φωτογράφισε μια γάτα στα σοκάκια της Ερμούπολης και η εφαρμογή αναγνωρίζει ποια είναι. Ντόπιοι και επισκέπτες χτίζουν μαζί ένα κοινό αρχείο για κάθε γάτα του νησιού.", "placeholder": "το email σου", "cta": "Ειδοποίησέ με", "micro": "Ένα email τη μέρα που βγαίνει. Τίποτε άλλο, ποτέ.", "err": "Αυτό δεν μοιάζει με διεύθυνση email.", "doneTitle": "Μπήκες στη λίστα.", "doneBody": "Θα σου γράψουμε μία φορά — τη μέρα που ανοίγει το Cat Spotters στη Σύρο.", "howEyebrow": "Πώς λειτουργεί", "howTitle": "Τρία πατήματα σε ένα σοκάκι", "step1": "Βρες μια γάτα", "step1Body": "Βγάλε φωτογραφία όταν συναντήσεις μια γάτα στα σκαλιά. Η εφαρμογή κρατά το πού, ώστε κάθε γάτα να συνδέεται με τη σωστή αποικία.", "step2": "Πρόσθεσέ τη στον γατά‑λογο", "step2Body": "Ελέγχουμε τη φωτογραφία σου με κάθε γάτα που ήδη γνωρίζει το νησί. Αν δεν την έχει συναντήσει κανείς, της δίνεις εσύ όνομα.", "step3": "Βοήθησέ τες να ευημερήσουν", "step3Body": "Οι παρατηρήσεις σου δείχνουν ποιες αποικίες σειρά έχουν και ποιες γάτες έχουν ήδη περιθαλφθεί και στειρωθεί.", "whyEyebrow": "Επιστήμη των πολιτών", "whyTitle": "Μια απογραφή των γατών του νησιού, μία φωτογραφία τη φορά.", "whyBody": "Κάθε φωτογραφία προσθέτει μία γάτα στο αρχείο του νησιού: ποια γάτα, ποια γειτονιά, στειρωμένη ήδη ή όχι ακόμη. Οι επισκέπτες συναντούν στα σοκάκια γάτες που σπάνια καταγράφονται· οι ντόπιοι ξέρουν εκείνες που ζουν χρόνια στο σκαλί τους. Μαζί προκύπτει μια εικόνα που κανείς δεν θα μπορούσε να φτιάξει μόνος — και δείχνει πού ακριβώς πρέπει να πάει ο επόμενος γύρος περίθαλψης και στειρώσεων.", "closeTitle": "Να είσαι εκεί τη μέρα που ανοίγει ο γατά‑λογος.", "andWord": "και", "footerLead": "Φτιαγμένο με ❤️ στην Ερμούπολη από", "footerTail": " · Έρχεται Οκτώβριος 2026 ·", "privacy": "Η διεύθυνσή σου αποθηκεύεται μόνο για αυτό το ένα email και δεν κοινοποιείται ποτέ.", "failed": "Κάτι πήγε στραβά. Δοκίμασε ξανά.", "verify": "Ολοκλήρωσε τον έλεγχο πάνω από το κουμπί.", "blocked": "Ο έλεγχος ασφαλείας δεν φόρτωσε, οπότε η φόρμα δεν είναι διαθέσιμη. Στείλε μας email:", "title": "Cat Spotters — κάθε αδέσποτη γάτα της Σύρου, με το όνομά της", "metaDescription": "Μια δωρεάν εφαρμογή για τα σοκάκια της Ερμούπολης. Φωτογράφισε μια γάτα και βοήθησε το νησί να τη φροντίσει. Έρχεται τον Οκτώβριο 2026."}, "fr": {"label": "FR", "eyebrow": "Syros · Cyclades · Grèce", "h1": "Aide les chats de Syros à mieux vivre.", "sub": "Prends une photo d’un chat dans les ruelles d’Ermoúpoli et l’application reconnaît de qui il s’agit. Habitants et visiteurs construisent ensemble un registre partagé de chaque chat de l’île.", "placeholder": "ton@email.com", "cta": "Préviens-moi", "micro": "Un seul email, le jour du lancement. Rien d’autre, jamais.", "err": "Cela ne ressemble pas à une adresse email.", "doneTitle": "Tu es sur la liste.", "doneBody": "On t’écrira une seule fois — le jour où Cat Spotters ouvre à Syros.", "howEyebrow": "Comment ça marche", "howTitle": "Trois gestes dans une ruelle de Syros", "step1": "Repère un chat", "step1Body": "Prends une photo quand tu en croises un sur les marches. L’app note l’endroit, pour que chaque chat soit rattaché à la bonne colonie.", "step2": "Ajoute-le au cat‑alogue", "step2Body": "On compare ta photo à tous les chats que l’île connaît déjà. Si personne ne l’a encore croisé, c’est toi qui le nommes.", "step3": "Aide-les à s’épanouir", "step3Body": "Tes observations montrent quelles colonies rejoindre ensuite, et quels chats ont déjà été soignés et stérilisés.", "whyEyebrow": "Science participative", "whyTitle": "Un recensement des chats de l’île, une photo à la fois.", "whyBody": "Chaque photo ajoute un chat au registre de l’île : quel chat, quel quartier, déjà stérilisé ou pas encore. Les visiteurs croisent dans les ruelles des chats rarement recensés ; les habitants connaissent ceux qui vivent depuis des années sur leur marche. Ensemble, cela donne une image que personne ne pourrait construire seul — et elle montre exactement où doit aller la prochaine série de soins et de stérilisations.", "closeTitle": "Sois là le jour où le cat‑alogue ouvre.", "andWord": "et", "footerLead": "Fait avec ❤️ à Ermoúpoli par", "footerTail": " · Arrive en octobre 2026 ·", "privacy": "Ton adresse est conservée uniquement pour cet unique email et n’est jamais partagée.", "failed": "Une erreur est survenue. Réessaie.", "verify": "Merci de compléter la vérification au-dessus du bouton.", "blocked": "La vérification anti-spam n’a pas pu se charger, le formulaire est indisponible. Écris-nous :", "title": "Cat Spotters — chaque chat des rues de Syros, connu par son nom", "metaDescription": "Une application gratuite pour les ruelles d’Ermoúpoli. Prends un chat en photo et aide l’île à veiller sur lui. Arrive en octobre 2026."}};
 (function () {
   var saved = null;
   try { saved = localStorage.getItem('cs-lang'); } catch (e) {}
@@ -270,6 +278,9 @@ var COPY = {"en": {"label": "EN", "eyebrow": "Syros · Cyclades · Greece", "h1"
   function apply(lang) {
     var t = COPY[lang];
     document.documentElement.lang = lang;
+    if (t.title) document.title = t.title;
+    var md = document.querySelector('meta[name=description]');
+    if (md && t.metaDescription) md.setAttribute('content', t.metaDescription);
     document.querySelectorAll('[data-t]').forEach(function (el) {
       var v = t[el.getAttribute('data-t')];
       if (v !== undefined) el.textContent = v;
@@ -290,6 +301,24 @@ var COPY = {"en": {"label": "EN", "eyebrow": "Syros · Cyclades · Greece", "h1"
   document.querySelectorAll('.langs button').forEach(function (b) {
     b.addEventListener('click', function () { apply(b.dataset.lang); });
   });
+
+
+  // If challenges.cloudflare.com is blocked, no widget ever mounts and no token
+  // is ever issued. Say so plainly and give a route that still works, rather
+  // than pointing at a check that is not on the screen.
+  setTimeout(function () {
+    document.querySelectorAll('form[data-signup]').forEach(function (form) {
+      if (form.hidden) return;
+      if (form.elements['cf-turnstile-response']) return;
+      var fb = form.querySelector('[data-fallback]');
+      var w = form.querySelector('.cf-turnstile');
+      if (w) w.style.display = 'none';
+      if (fb) {
+        fb.innerHTML = COPY[current].blocked + ' <a href="mailto:hello@catspotters.com">hello@catspotters.com</a>';
+        fb.hidden = false;
+      }
+    });
+  }, 12000);
 
   document.querySelectorAll('form[data-signup]').forEach(function (form) {
     var done = form.parentElement.querySelector('[data-done]');
@@ -317,16 +346,21 @@ var COPY = {"en": {"label": "EN", "eyebrow": "Syros · Cyclades · Greece", "h1"
       fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: email, lang: current, website: form.elements.website.value, token: token })
+        body: JSON.stringify({ email: email, lang: current, hp_check: form.elements.hp_check.value, token: token })
       })
         .then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
         .then(function (res) {
           if (!res.ok) throw new Error(res.error || 'failed');
           form.hidden = true;
-          if (done) done.hidden = false;
+          if (done) {
+            done.hidden = false;
+            var h = done.querySelector('h3');
+            if (h) { h.setAttribute('tabindex', '-1'); h.focus(); }
+          }
         })
-        .catch(function () {
-          err.textContent = COPY[current].failed;
+        .catch(function (e) {
+          var m = { invalid_email: 'err', verify: 'verify' }[e && e.message];
+          err.textContent = COPY[current][m || 'failed'];
           err.hidden = false;
           btn.disabled = false;
           if (window.turnstile && widget) window.turnstile.reset(widget);
