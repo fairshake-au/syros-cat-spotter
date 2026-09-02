@@ -9,10 +9,39 @@
     <div class="mark"><svg class="paw" width="42" height="42" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="21" r="8.5" fill="#1c77c3"/><circle cx="6.5" cy="12.5" r="4.2" fill="#1c77c3"/><circle cx="14" cy="7.5" r="4.2" fill="#d64185"/><circle cx="22.5" cy="8.5" r="4.2" fill="#1c77c3"/><circle cx="29" cy="15" r="4.2" fill="#1c77c3"/></svg><span class="dsp">Cat <b>Spotters</b></span></div>
     <h1>This one is not public yet.</h1>
     <p>Syros Cats shared it with you. Enter the word they gave you and you will stay in on this device for 30 days.</p>
-    <form>
-      <input id="pw" type="password" aria-label="Password" placeholder="Password" autocomplete="current-password">
-      <button class="btn btn--primary" type="submit">Open the document</button>
+    <form id="f">
+      <input id="pw" type="password" aria-label="Password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn btn--primary" type="submit" id="go">Open the document</button>
+      <p class="err" id="err" hidden>That is not the password. Check it with whoever sent you the link.</p>
     </form>
     <p class="sep">From Syros Cats or Fair Shake? <a href="https://admin.catspotters.com">Sign in instead</a> and you will not be asked again.</p>
   </div>
 </main>
+
+<script>
+  const f = document.getElementById('f');
+  const pw = document.getElementById('pw');
+  const go = document.getElementById('go');
+  const err = document.getElementById('err');
+
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.hidden = true;
+    go.disabled = true;
+    go.textContent = 'Checking\u2026';
+    try {
+      const res = await fetch('/api/unlock', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: pw.value }),
+      });
+      if (res.ok) { location.reload(); return; }
+      err.hidden = false;
+      pw.select();
+    } catch {
+      err.hidden = false;
+    }
+    go.disabled = false;
+    go.textContent = 'Open the document';
+  });
+</script>

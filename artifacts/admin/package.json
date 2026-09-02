@@ -1,0 +1,8 @@
+{
+  "name": "@workspace/catspotters-admin",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  }
+}

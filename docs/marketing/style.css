@@ -465,3 +465,33 @@ blockquote.quote cite {
   .about { gap: .5rem; }
   .tbc { background: none; border-bottom: 1px solid #8a6410; }
 }
+
+.err { font-size: 14.5px; color: var(--clay); padding-left: 20px; }
+[hidden] { display: none !important; }
+
+/* ---- sign-in ---- */
+
+.btn--google {
+  width: 100%; min-height: 54px; font-size: 16px;
+  background: var(--card); color: var(--ink);
+  border: 1.5px solid var(--rule);
+}
+.btn--google:hover { border-color: var(--blue); color: var(--ink); }
+.btn--google[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+
+.or {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  font-size: 13px; color: var(--faint); text-transform: uppercase; letter-spacing: .1em;
+}
+.or::before, .or::after { content: ""; flex: 1; height: 1.5px; background: var(--line); }
+
+.gate input[type=email] {
+  width: 100%; min-height: 54px; padding: 0 20px;
+  font-family: inherit; font-size: 17px; color: var(--ink);
+  background: var(--page); border: 1.5px solid var(--rule); border-radius: 999px;
+}
+.gate input[type=email]:focus-visible {
+  outline: none; border-color: #2f92dc; box-shadow: 0 0 0 4px rgba(47,146,220,.35);
+}
+.gate input:disabled { opacity: .6; }
+.ok { font-size: 14.5px; color: #4d5c2b; padding-left: 20px; }
