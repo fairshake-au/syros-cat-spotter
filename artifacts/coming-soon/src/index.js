@@ -35,6 +35,27 @@ export default {
     // Answer 200 so the bot has nothing to learn from the response.
     if (typeof body.website === 'string' && body.website !== '') return json({ ok: true });
 
+    // Turnstile: the token is single-use and verified server-side. A page that
+    // cannot reach challenges.cloudflare.com never gets a token, so a missing
+    // one is a rejection, not a reason to let the request through.
+    const token = String(body.token ?? '');
+    if (!token) return json({ ok: false, error: 'verify' }, 400);
+
+    const verify = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        secret: env.TURNSTILE_SECRET,
+        response: token,
+        remoteip: request.headers.get('cf-connecting-ip') ?? '',
+      }),
+    });
+    const outcome = await verify.json().catch(() => ({ success: false }));
+    if (!outcome.success) {
+      console.warn('turnstile rejected', outcome['error-codes']);
+      return json({ ok: false, error: 'verify' }, 403);
+    }
+
     const email = String(body.email ?? '').trim().toLowerCase();
     if (email.length > 254 || !EMAIL.test(email)) return json({ ok: false, error: 'invalid_email' }, 400);
 
