@@ -92,11 +92,24 @@ function resolveHtmlFor(pathname) {
 }
 
 const server = http.createServer((req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host}`);
-  let pathname = decodeURIComponent(url.pathname);
+  let pathname;
+  try {
+    const url = new URL(req.url || '/', `http://${req.headers.host}`);
+    // Malformed percent-encoding (e.g. a request for "/%") makes
+    // decodeURIComponent throw; uncaught, that would kill the process on a
+    // single bad request.
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    return send(res, 400, { 'content-type': 'text/plain' }, 'Bad Request');
+  }
 
-  if (basePath && pathname.startsWith(basePath)) {
-    pathname = pathname.slice(basePath.length) || '/';
+  // Strip the base path only on a segment boundary, so BASE_PATH=/app
+  // matches /app and /app/x but never /appliance.
+  if (basePath) {
+    if (pathname === basePath) pathname = '/';
+    else if (pathname.startsWith(basePath + '/')) {
+      pathname = pathname.slice(basePath.length);
+    }
   }
 
   if (pathname === '/status') {
