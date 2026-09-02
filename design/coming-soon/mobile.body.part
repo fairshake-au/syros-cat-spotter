@@ -1,0 +1,160 @@
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap&subset=greek,latin" />
+  <style>
+    body { margin: 0; background: #f4f2ec; font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #2c3e4f; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #135f92; text-decoration: none; }
+    a:hover { color: #d64185; }
+    h1, h2, h3, .dsp { font-family: 'Poppins', 'Trebuchet MS', system-ui, sans-serif; margin: 0; }
+    p { margin: 0; }
+    input { font-family: inherit; }
+    .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #667889; }
+    .card { display: flex; flex-direction: column; gap: 12px; padding: 24px; background: #f4f2ec; border: 1.5px solid #e9edf0; border-radius: 20px; }
+    .icon { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 14px; }
+    .h3 { font-size: 20px; font-weight: 600; color: #1b2a38; }
+    .body { font-size: 16px; line-height: 1.6; color: #47596a; }
+  </style>
+</helmet>
+
+<div style="width: 390px; background: #f4f2ec">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 4px">
+    <div style="display: flex; align-items: center; gap: 9px">
+      <svg width="28" height="28" viewBox="0 0 34 34" aria-hidden="true">
+        <circle cx="17" cy="21" r="8.5" fill="#1c77c3" /><circle cx="6.5" cy="12.5" r="4.2" fill="#1c77c3" />
+        <circle cx="14" cy="7.5" r="4.2" fill="#d64185" /><circle cx="22.5" cy="8.5" r="4.2" fill="#1c77c3" />
+        <circle cx="29" cy="15" r="4.2" fill="#1c77c3" />
+      </svg>
+      <span class="dsp" style="font-size: 20px; font-weight: 700; color: #1b2a38; letter-spacing: -0.02em">Cat <span style="color: #d64185">Spotters</span></span>
+    </div>
+    <div style="display: flex; gap: 6px">
+      <span style="display: flex; align-items: center; height: 44px; padding: 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #fefcf7; background: #1c77c3; border-radius: 999px">EN</span>
+      <span style="display: flex; align-items: center; height: 44px; padding: 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #667889; border: 1.5px solid #d7dee4; border-radius: 999px">ΕΛ</span>
+      <span style="display: flex; align-items: center; height: 44px; padding: 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #667889; border: 1.5px solid #d7dee4; border-radius: 999px">FR</span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 18px; padding: 24px 20px 40px">
+    <span class="eyebrow">Syros · Cyclades · Greece</span>
+    <h1 style="font-size: 38px; line-height: 1.08; letter-spacing: -0.026em; font-weight: 700; color: #1b2a38; text-wrap: pretty">Help the cats of Syros live better lives.</h1>
+    <p style="font-size: 17px; line-height: 1.6; color: #47596a; text-wrap: pretty">Photograph a cat in the alleys of Ermoupoli and the app works out who it is. Locals and visitors are building one shared record of every cat on the island.</p>
+    <div style="filter: drop-shadow(0 14px 34px rgba(27, 42, 56, 0.16)); margin: 4px 0">
+      <!--SCENE-->
+    </div>
+
+    <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <input type="email" value="{{ email }}" onChange="{{ onEmail }}" placeholder="your@email.com" style="width: 100%; height: 56px; padding: 0 20px; font-size: 17px; color: #1b2a38; background: #fefcf7; border: 1.5px solid #d7dee4; border-radius: 999px; outline: none" />
+        <button onClick="{{ submit }}" style="width: 100%; height: 56px; font-family: 'Poppins', sans-serif; font-size: 17px; font-weight: 600; color: #fefcf7; background: #1c77c3; border: none; border-radius: 999px; cursor: pointer; box-shadow: 0 6px 16px rgba(27, 42, 56, 0.16)">Tell me when it is live</button>
+        <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+          <p style="font-size: 14px; color: #b8552f; padding-left: 20px">That does not look like an email address.</p>
+        </sc-if>
+        <p style="font-size: 14px; color: #8c9caa; padding-left: 20px">One email the day it launches. Nothing else, ever.</p>
+      </div>
+    </sc-if>
+    <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; align-items: flex-start; gap: 14px; padding: 20px 22px; background: #fefcf7; border: 1.5px solid #cbd6a8; border-radius: 20px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7f9349" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px"><path d="M20 6 L9 17 l-5 -5" /></svg>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span class="dsp" style="font-size: 18px; font-weight: 600; color: #1b2a38">You are on the list.</span>
+          <p style="font-size: 15px; line-height: 1.55; color: #47596a">We will write once — the day Cat Spotters opens on Syros.</p>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+
+  <div style="background: #fefcf7; border-top: 1.5px solid #e9edf0; border-bottom: 1.5px solid #e9edf0; padding: 44px 20px">
+    <div style="display: flex; flex-direction: column; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span class="eyebrow">How it works</span>
+        <h2 style="font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: #1b2a38">Three taps in a Syros alley</h2>
+      </div>
+      <div class="card">
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div style="display: flex; align-items: center; gap: 14px">
+          <div style="display: flex; align-items: center; gap: 14px">
+          <span class="icon" style="background: #e8f4fc">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c77c3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 A2 2 0 0 1 5 6.5 h2.2 L8.6 4.2 h6.8 L16.8 6.5 H19 a2 2 0 0 1 2 2 v9 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 Z" /><circle cx="12" cy="13" r="3.6" /></svg>
+        </span>
+          <h3 class="h3">Spot a cat</h3>
+        </div>
+        <p class="body">Snap a photo when you meet one on the steps. The app records where, so each cat is tied to the right colony.</p>
+      </div>
+      <div class="card">
+        <span class="icon" style="background: #fce4ee">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d64185" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2.4" /><path d="M3.5 9 h17 M9 4 v16" /><path d="M13 13.4 l2 2 l3.4 -3.6" /></svg>
+        </span>
+          <h3 class="h3">Add it to the cat‑alogue</h3>
+        </div>
+        <p class="body">We check your photo against every cat the island already knows. If nobody has met this one, you get to name it.</p>
+      </div>
+      <div class="card">
+        <span class="icon" style="background: #eef1e0">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5f6f36" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.2 C 5.4 16 2.8 12.6 2.8 9.3 A4.5 4.5 0 0 1 12 7 a4.5 4.5 0 0 1 9.2 2.3 c0 3.3 -2.6 6.7 -9.2 10.9 Z" /><path d="M12 10.4 v4 M10 12.4 h4" /></svg>
+        </span>
+          <h3 class="h3">Help them thrive</h3>
+        </div>
+        <p class="body">Your sightings show which colonies to reach next, and which cats have already been treated and sterilised.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 48px 20px">
+    <span class="eyebrow">Citizen science</span>
+    <h2 style="font-size: 28px; line-height: 1.16; font-weight: 700; letter-spacing: -0.022em; color: #1b2a38; text-wrap: pretty">An island-wide cat census, one photo at a time.</h2>
+    <p class="body">Every photo adds one cat to the island’s record: which cat, which neighbourhood, already sterilised or still to come. Visitors walking the alleys meet cats that rarely get recorded; locals know the ones that have lived on their step for years. Put together it becomes a picture nobody could build alone — and it shows exactly where the next round of treating and sterilising should go.</p>
+    <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding: 22px 24px; background: #fce4ee; border-radius: 20px">
+      <span class="dsp" style="font-size: 40px; font-weight: 700; color: #b02f66; letter-spacing: -0.02em">€50–60</span>
+      <span style="font-size: 16px; line-height: 1.45; color: #b02f66; font-weight: 600">sterilises one cat, once, for the rest of its life</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 6px; padding: 24px; background: #fff5df; border: 1.5px solid #ffe0a0; border-radius: 20px">
+      <span class="icon" style="background: #ffe0a0">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d99413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 L21.4 19.6 H2.6 Z" /><path d="M12 9.4 v4.4 M12 16.6 v0.1" /></svg>
+      </span>
+      <h3 class="h3">Please do not feed them</h3>
+      <p class="body">Scraps make cats sick, draw them onto busy roads, and crowd colonies faster than they can be sterilised. The people who care for them feed them properly — the kindest thing a visitor can do is take the photo and walk on.</p>
+    </div>
+  </div>
+
+  <div style="background: #0a3350; padding: 48px 20px">
+    <div style="display: flex; flex-direction: column; gap: 18px">
+      <h2 style="font-size: 28px; line-height: 1.16; font-weight: 700; letter-spacing: -0.022em; color: #fefcf7; text-wrap: pretty">Be there the day the cat‑alogue opens.</h2>
+      <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <input type="email" value="{{ email }}" onChange="{{ onEmail }}" placeholder="your@email.com" style="width: 100%; height: 56px; padding: 0 20px; font-size: 17px; color: #1b2a38; background: #fefcf7; border: 1.5px solid #135f92; border-radius: 999px; outline: none" />
+          <button onClick="{{ submit }}" style="width: 100%; height: 56px; font-family: 'Poppins', sans-serif; font-size: 17px; font-weight: 600; color: #0a3350; background: #ffc94d; border: none; border-radius: 999px; cursor: pointer">Tell me when it is live</button>
+          <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size: 14px; color: #ffc94d; padding-left: 20px">That does not look like an email address.</p>
+          </sc-if>
+          <p style="font-size: 14px; color: #a3d1f2; padding-left: 20px">One email the day it launches. Nothing else, ever.</p>
+        </div>
+      </sc-if>
+      <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+        <p style="font-size: 17px; line-height: 1.55; color: #a3d1f2">We will write once — the day Cat Spotters opens on Syros.</p>
+      </sc-if>
+    </div>
+  </div>
+
+
+  <div style="padding: 36px 20px 8px">
+    <p style="text-align: center; font-size: 18px; line-height: 1.5; color: #47596a">Built together by <a href="[SYROS CATS URL]" style="font-weight: 700; border-bottom: 2px solid #cfe7f9">Syros Cats</a> and <a href="https://fairshake.com.au" style="font-weight: 700; border-bottom: 2px solid #cfe7f9">Fair Shake</a></p>
+  </div>
+
+  <div style="background: #071e30; padding: 28px 20px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 9px">
+        <svg width="22" height="22" viewBox="0 0 34 34" aria-hidden="true">
+          <circle cx="17" cy="21" r="8.5" fill="#66b2e8" /><circle cx="6.5" cy="12.5" r="4.2" fill="#66b2e8" />
+          <circle cx="14" cy="7.5" r="4.2" fill="#e8558a" /><circle cx="22.5" cy="8.5" r="4.2" fill="#66b2e8" />
+          <circle cx="29" cy="15" r="4.2" fill="#66b2e8" />
+        </svg>
+        <span class="dsp" style="font-size: 16px; font-weight: 600; color: #e9edf0">catspotters.com</span>
+      </div>
+      <p style="font-size: 14px; line-height: 1.55; color: #8c9caa">Made with ❤️ in Ερμούπολη · Coming [LAUNCH WINDOW] · [CONTACT EMAIL]</p>
+    </div>
+  </div>
+
+</div>
+</x-dc>

@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Design-canvas working copies (extracted from the published artifact)
+design/coming-soon/live*/
+design/coming-soon/cur/

@@ -1,0 +1,146 @@
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":2500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { lang: 'en', email: '', done: false, err: false };
+  }
+
+  copy() {
+    return {
+      en: {
+        label: 'EN',
+        eyebrow: 'Syros · Cyclades · Greece',
+        h1: 'Help the cats of Syros live better lives.',
+        sub: 'Photograph a cat in the alleys of Ermoupoli and the app works out who it is. Locals and visitors are building one shared record of every cat on the island.',
+        placeholder: 'your@email.com',
+        cta: 'Tell me when it is live',
+        micro: 'One email the day it launches. Nothing else, ever.',
+        err: 'That does not look like an email address.',
+        doneTitle: 'You are on the list.',
+        doneBody: 'We will write once — the day Cat Spotters opens on Syros.',
+        howEyebrow: 'How it works',
+        howTitle: 'Three taps in a Syros alley',
+        step1: 'Spot a cat',
+        step1Body: 'Snap a photo when you meet one on the steps. The app records where, so each cat is tied to the right colony.',
+        step2: 'Add it to the cat‑alogue',
+        step2Body: 'We check your photo against every cat the island already knows. If nobody has met this one, you get to name it.',
+        step3: 'Help them thrive',
+        step3Body: 'Your sightings show which colonies to reach next, and which cats have already been treated and sterilised.',
+        whyEyebrow: 'Citizen science',
+        whyTitle: 'An island-wide cat census, one photo at a time.',
+        whyBody: 'Every photo adds one cat to the island’s record: which cat, which neighbourhood, already sterilised or still to come. Visitors walking the alleys meet cats that rarely get recorded; locals know the ones that have lived on their step for years. Put together it becomes a picture nobody could build alone — and it shows exactly where the next round of treating and sterilising should go.',
+        statLabel: 'sterilises one cat, once, for the rest of its life',
+        feedTitle: 'Please do not feed them',
+        feedBody: 'Scraps make cats sick, draw them onto busy roads, and crowd colonies faster than they can be sterilised. The people who care for them feed them properly — the kindest thing a visitor can do is take the photo and walk on.',
+        closeTitle: 'Be there the day the cat‑alogue opens.',
+        builtBy: 'Built together by',
+        andWord: 'and',
+        footer: 'Made with ❤️ in Ερμούπολη · Coming [LAUNCH WINDOW] · [CONTACT EMAIL]'
+      },
+      el: {
+        label: 'ΕΛ',
+        eyebrow: 'Σύρος · Κυκλάδες · Ελλάδα',
+        h1: 'Βοήθησε τις γάτες της Σύρου να ζουν καλύτερα.',
+        sub: 'Φωτογράφισε μια γάτα στα σοκάκια της Ερμούπολης και η εφαρμογή αναγνωρίζει ποια είναι. Ντόπιοι και επισκέπτες χτίζουν μαζί ένα κοινό αρχείο για κάθε γάτα του νησιού.',
+        placeholder: 'το email σου',
+        cta: 'Ειδοποίησέ με',
+        micro: 'Ένα email τη μέρα που βγαίνει. Τίποτε άλλο, ποτέ.',
+        err: 'Αυτό δεν μοιάζει με διεύθυνση email.',
+        doneTitle: 'Μπήκες στη λίστα.',
+        doneBody: 'Θα σου γράψουμε μία φορά — τη μέρα που ανοίγει το Cat Spotters στη Σύρο.',
+        howEyebrow: 'Πώς λειτουργεί',
+        howTitle: 'Τρία πατήματα σε ένα σοκάκι',
+        step1: 'Βρες μια γάτα',
+        step1Body: 'Βγάλε φωτογραφία όταν συναντήσεις μια γάτα στα σκαλιά. Η εφαρμογή κρατά το πού, ώστε κάθε γάτα να συνδέεται με τη σωστή αποικία.',
+        step2: 'Πρόσθεσέ τη στον γατά‑λογο',
+        step2Body: 'Ελέγχουμε τη φωτογραφία σου με κάθε γάτα που ήδη γνωρίζει το νησί. Αν δεν την έχει συναντήσει κανείς, της δίνεις εσύ όνομα.',
+        step3: 'Βοήθησέ τες να ευημερήσουν',
+        step3Body: 'Οι παρατηρήσεις σου δείχνουν ποιες αποικίες σειρά έχουν και ποιες γάτες έχουν ήδη περιθαλφθεί και στειρωθεί.',
+        whyEyebrow: 'Επιστήμη των πολιτών',
+        whyTitle: 'Μια απογραφή των γατών του νησιού, μία φωτογραφία τη φορά.',
+        whyBody: 'Κάθε φωτογραφία προσθέτει μία γάτα στο αρχείο του νησιού: ποια γάτα, ποια γειτονιά, στειρωμένη ήδη ή όχι ακόμη. Οι επισκέπτες συναντούν στα σοκάκια γάτες που σπάνια καταγράφονται· οι ντόπιοι ξέρουν εκείνες που ζουν χρόνια στο σκαλί τους. Μαζί προκύπτει μια εικόνα που κανείς δεν θα μπορούσε να φτιάξει μόνος — και δείχνει πού ακριβώς πρέπει να πάει ο επόμενος γύρος περίθαλψης και στειρώσεων.',
+        statLabel: 'στειρώνει μία γάτα, μία φορά, για όλη της τη ζωή',
+        feedTitle: 'Μην τις ταΐζεις',
+        feedBody: 'Τα αποφάγια αρρωσταίνουν τις γάτες, τις τραβούν σε πολυσύχναστους δρόμους και πληθαίνουν τις αποικίες πιο γρήγορα απ’ ό,τι προλαβαίνουμε να στειρώσουμε. Όσοι τις φροντίζουν τις ταΐζουν σωστά — το πιο ευγενικό που μπορεί να κάνει ένας επισκέπτης είναι να βγάλει τη φωτογραφία και να συνεχίσει.',
+        closeTitle: 'Να είσαι εκεί τη μέρα που ανοίγει ο γατά‑λογος.',
+        builtBy: 'Το φτιάχνουν μαζί οι',
+        andWord: 'και η',
+        footer: 'Φτιαγμένο με ❤️ στην Ερμούπολη · Έρχεται [ΠΕΡΙΟΔΟΣ] · [EMAIL ΕΠΙΚΟΙΝΩΝΙΑΣ]'
+      },
+      fr: {
+        label: 'FR',
+        eyebrow: 'Syros · Cyclades · Grèce',
+        h1: 'Aide les chats de Syros à mieux vivre.',
+        sub: 'Prends une photo d’un chat dans les ruelles d’Ermoúpoli et l’application reconnaît de qui il s’agit. Habitants et visiteurs construisent ensemble un registre partagé de chaque chat de l’île.',
+        placeholder: 'ton@email.com',
+        cta: 'Préviens-moi',
+        micro: 'Un seul email, le jour du lancement. Rien d’autre, jamais.',
+        err: 'Cela ne ressemble pas à une adresse email.',
+        doneTitle: 'Tu es sur la liste.',
+        doneBody: 'On t’écrira une seule fois — le jour où Cat Spotters ouvre à Syros.',
+        howEyebrow: 'Comment ça marche',
+        howTitle: 'Trois gestes dans une ruelle de Syros',
+        step1: 'Repère un chat',
+        step1Body: 'Prends une photo quand tu en croises un sur les marches. L’app note l’endroit, pour que chaque chat soit rattaché à la bonne colonie.',
+        step2: 'Ajoute-le au cat‑alogue',
+        step2Body: 'On compare ta photo à tous les chats que l’île connaît déjà. Si personne ne l’a encore croisé, c’est toi qui le nommes.',
+        step3: 'Aide-les à s’épanouir',
+        step3Body: 'Tes observations montrent quelles colonies rejoindre ensuite, et quels chats ont déjà été soignés et stérilisés.',
+        whyEyebrow: 'Science participative',
+        whyTitle: 'Un recensement des chats de l’île, une photo à la fois.',
+        whyBody: 'Chaque photo ajoute un chat au registre de l’île : quel chat, quel quartier, déjà stérilisé ou pas encore. Les visiteurs croisent dans les ruelles des chats rarement recensés ; les habitants connaissent ceux qui vivent depuis des années sur leur marche. Ensemble, cela donne une image que personne ne pourrait construire seul — et elle montre exactement où doit aller la prochaine série de soins et de stérilisations.',
+        statLabel: 'stérilise un chat, une fois, pour toute sa vie',
+        feedTitle: 'Ne les nourris pas',
+        feedBody: 'Les restes rendent les chats malades, les attirent sur les routes passantes et font grossir les colonies plus vite qu’on ne peut les stériliser. Ceux qui s’en occupent les nourrissent correctement — le plus gentil qu’un visiteur puisse faire, c’est prendre la photo et poursuivre son chemin.',
+        closeTitle: 'Sois là le jour où le cat‑alogue ouvre.',
+        builtBy: 'Construit ensemble par',
+        andWord: 'et',
+        footer: 'Fait avec ❤️ à Ermoúpoli · Arrive [PÉRIODE] · [EMAIL DE CONTACT]'
+      }
+    };
+  }
+
+  renderVals() {
+    const all = this.copy();
+    const active = this.state.lang;
+    const t = all[active] || all.en;
+
+    const langs = ['en', 'el', 'fr'].map((code) => {
+      const on = code === active;
+      return {
+        code: code,
+        label: all[code].label,
+        pick: () => this.setState({ lang: code }),
+        style: [
+          'height: 38px',
+          'padding: 0 18px',
+          "font-family: 'Nunito', sans-serif",
+          'font-size: 14px',
+          'font-weight: 700',
+          'letter-spacing: 0.04em',
+          'border-radius: 999px',
+          'cursor: pointer',
+          on ? 'background: #1c77c3' : 'background: transparent',
+          on ? 'color: #fefcf7' : 'color: #667889',
+          on ? 'border: 1.5px solid #1c77c3' : 'border: 1.5px solid #d7dee4'
+        ].join('; ')
+      };
+    });
+
+    return {
+      t: t,
+      langs: langs,
+      email: this.state.email,
+      done: this.state.done,
+      notDone: !this.state.done,
+      hasErr: this.state.err,
+      onEmail: (e) => this.setState({ email: e.target.value, err: false }),
+      submit: () => {
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(this.state.email.trim());
+        if (ok) this.setState({ done: true, err: false });
+        else this.setState({ err: true });
+      }
+    };
+  }
+}
+</script>
