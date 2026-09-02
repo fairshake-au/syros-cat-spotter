@@ -1,0 +1,173 @@
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap&subset=greek,latin" />
+  <style>
+    body { margin: 0; background: #f4f2ec; font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #2c3e4f; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #135f92; text-decoration: none; }
+    a:hover { color: #d64185; }
+    h1, h2, h3, .dsp { font-family: 'Poppins', 'Trebuchet MS', system-ui, sans-serif; margin: 0; }
+    p { margin: 0; }
+    input { font-family: inherit; }
+    .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #667889; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; background: #f4f2ec">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; width: 1120px; margin: 0 auto; padding: 28px 0 8px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <circle cx="17" cy="21" r="8.5" fill="#1c77c3" />
+        <circle cx="6.5" cy="12.5" r="4.2" fill="#1c77c3" />
+        <circle cx="14" cy="7.5" r="4.2" fill="#d64185" />
+        <circle cx="22.5" cy="8.5" r="4.2" fill="#1c77c3" />
+        <circle cx="29" cy="15" r="4.2" fill="#1c77c3" />
+      </svg>
+      <span class="dsp" style="font-size: 25px; font-weight: 700; color: #1b2a38; letter-spacing: -0.02em">Cat <span style="color: #d64185">Spotters</span></span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <sc-for list="{{ langs }}" as="lang" hint-placeholder-count="3">
+        <button onClick="{{ lang.pick }}" style="{{ lang.style }}">{{ lang.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1.02fr 1fr; gap: 64px; align-items: center; width: 1120px; margin: 0 auto; padding: 56px 0 88px">
+    <div style="display: flex; flex-direction: column; gap: 24px; align-items: flex-start">
+      <span class="eyebrow">{{ t.eyebrow }}</span>
+      <h1 style="font-size: 62px; line-height: 1.06; letter-spacing: -0.028em; font-weight: 700; color: #1b2a38; text-wrap: pretty">{{ t.h1 }}</h1>
+      <p style="font-size: 20px; line-height: 1.6; color: #47596a; max-width: 46ch; text-wrap: pretty">{{ t.sub }}</p>
+
+      <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 480px; margin-top: 8px">
+          <div style="display: flex; gap: 10px">
+            <input type="email" value="{{ email }}" onChange="{{ onEmail }}" placeholder="{{ t.placeholder }}" style="flex-grow: 1; height: 58px; padding: 0 20px; font-size: 17px; color: #1b2a38; background: #fefcf7; border: 1.5px solid #d7dee4; border-radius: 999px; outline: none" />
+            <button onClick="{{ submit }}" style="height: 58px; padding: 0 28px; font-family: 'Poppins', sans-serif; font-size: 17px; font-weight: 600; color: #fefcf7; background: #1c77c3; border: none; border-radius: 999px; cursor: pointer; box-shadow: 0 6px 16px rgba(27, 42, 56, 0.16); white-space: nowrap">{{ t.cta }}</button>
+          </div>
+          <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size: 14px; color: #b8552f; padding-left: 20px">{{ t.err }}</p>
+          </sc-if>
+          <p style="font-size: 14px; color: #8c9caa; padding-left: 20px">{{ t.micro }}</p>
+        </div>
+      </sc-if>
+      <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: flex-start; gap: 16px; width: 100%; max-width: 480px; margin-top: 8px; padding: 22px 26px; background: #fefcf7; border: 1.5px solid #cbd6a8; border-radius: 20px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7f9349" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px"><path d="M20 6 L9 17 l-5 -5" /></svg>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span class="dsp" style="font-size: 19px; font-weight: 600; color: #1b2a38">{{ t.doneTitle }}</span>
+            <p style="font-size: 15px; line-height: 1.55; color: #47596a">{{ t.doneBody }}</p>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="filter: drop-shadow(0 24px 60px rgba(27, 42, 56, 0.18))">
+      <!--SCENE-->
+    </div>
+  </div>
+
+
+  <div style="background: #fefcf7; border-top: 1.5px solid #e9edf0; border-bottom: 1.5px solid #e9edf0; padding: 76px 0">
+    <div style="width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 44px">
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center">
+        <span class="eyebrow">{{ t.howEyebrow }}</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.02em; color: #1b2a38">{{ t.howTitle }}</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px">
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 32px; background: #f4f2ec; border: 1.5px solid #e9edf0; border-radius: 20px">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #e8f4fc; border-radius: 14px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1c77c3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 A2 2 0 0 1 5 6.5 h2.2 L8.6 4.2 h6.8 L16.8 6.5 H19 a2 2 0 0 1 2 2 v9 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 Z" /><circle cx="12" cy="13" r="3.6" /></svg>
+          </span>
+            <h3 style="font-size: 22px; font-weight: 600; color: #1b2a38">{{ t.step1 }}</h3>
+          </div>
+          <p style="font-size: 16px; line-height: 1.6; color: #47596a">{{ t.step1Body }}</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 32px; background: #f4f2ec; border: 1.5px solid #e9edf0; border-radius: 20px">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #fce4ee; border-radius: 14px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d64185" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2.4" /><path d="M3.5 9 h17 M9 4 v16" /><path d="M13 13.4 l2 2 l3.4 -3.6" /></svg>
+          </span>
+            <h3 style="font-size: 22px; font-weight: 600; color: #1b2a38">{{ t.step2 }}</h3>
+          </div>
+          <p style="font-size: 16px; line-height: 1.6; color: #47596a">{{ t.step2Body }}</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 32px; background: #f4f2ec; border: 1.5px solid #e9edf0; border-radius: 20px">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #eef1e0; border-radius: 14px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5f6f36" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.2 C 5.4 16 2.8 12.6 2.8 9.3 A4.5 4.5 0 0 1 12 7 a4.5 4.5 0 0 1 9.2 2.3 c0 3.3 -2.6 6.7 -9.2 10.9 Z" /><path d="M12 10.4 v4 M10 12.4 h4" /></svg>
+          </span>
+            <h3 style="font-size: 22px; font-weight: 600; color: #1b2a38">{{ t.step3 }}</h3>
+          </div>
+          <p style="font-size: 16px; line-height: 1.6; color: #47596a">{{ t.step3Body }}</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div style="width: 1120px; margin: 0 auto; padding: 88px 0; display: grid; grid-template-columns: 1.15fr 1fr; gap: 64px; align-items: start">
+    <div style="display: flex; flex-direction: column; gap: 20px">
+      <span class="eyebrow">{{ t.whyEyebrow }}</span>
+      <h2 style="font-size: 40px; line-height: 1.14; font-weight: 700; letter-spacing: -0.022em; color: #1b2a38; text-wrap: pretty; max-width: 18ch">{{ t.whyTitle }}</h2>
+      <p style="font-size: 18px; line-height: 1.65; color: #47596a; max-width: 52ch; text-wrap: pretty">{{ t.whyBody }}</p>
+      <div style="display: flex; align-items: baseline; gap: 16px; margin-top: 12px; padding: 24px 28px; background: #fce4ee; border-radius: 20px">
+        <span class="dsp" style="font-size: 46px; font-weight: 700; color: #b02f66; letter-spacing: -0.02em; white-space: nowrap">€50–60</span>
+        <span style="font-size: 17px; line-height: 1.45; color: #b02f66; font-weight: 600">{{ t.statLabel }}</span>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 14px; padding: 32px; background: #fff5df; border: 1.5px solid #ffe0a0; border-radius: 20px">
+      <span style="display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; background: #ffe0a0; border-radius: 14px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d99413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 L21.4 19.6 H2.6 Z" /><path d="M12 9.4 v4.4 M12 16.6 v0.1" /></svg>
+      </span>
+      <h3 style="font-size: 22px; font-weight: 600; color: #1b2a38">{{ t.feedTitle }}</h3>
+      <p style="font-size: 16px; line-height: 1.62; color: #47596a">{{ t.feedBody }}</p>
+    </div>
+  </div>
+
+  <div style="background: #0a3350; padding: 76px 0">
+    <div style="width: 720px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center">
+      <h2 style="font-size: 38px; line-height: 1.14; font-weight: 700; letter-spacing: -0.022em; color: #fefcf7; text-wrap: pretty; max-width: 20ch">{{ t.closeTitle }}</h2>
+      <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 500px; align-items: center">
+          <div style="display: flex; gap: 10px; width: 100%">
+            <input type="email" value="{{ email }}" onChange="{{ onEmail }}" placeholder="{{ t.placeholder }}" style="flex-grow: 1; height: 58px; padding: 0 20px; font-size: 17px; color: #1b2a38; background: #fefcf7; border: 1.5px solid #135f92; border-radius: 999px; outline: none" />
+            <button onClick="{{ submit }}" style="height: 58px; padding: 0 28px; font-family: 'Poppins', sans-serif; font-size: 17px; font-weight: 600; color: #0a3350; background: #ffc94d; border: none; border-radius: 999px; cursor: pointer; white-space: nowrap">{{ t.cta }}</button>
+          </div>
+          <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size: 14px; color: #ffc94d">{{ t.err }}</p>
+          </sc-if>
+          <p style="font-size: 14px; color: #a3d1f2">{{ t.micro }}</p>
+        </div>
+      </sc-if>
+      <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+        <p style="font-size: 18px; line-height: 1.55; color: #a3d1f2; max-width: 40ch">{{ t.doneBody }}</p>
+      </sc-if>
+    </div>
+  </div>
+
+
+  <div style="padding: 48px 0 8px">
+    <p style="width: 1120px; margin: 0 auto; text-align: center; font-size: 21px; line-height: 1.5; color: #47596a">{{ t.builtBy }} <a href="[SYROS CATS URL]" style="font-weight: 700; border-bottom: 2px solid #cfe7f9">Syros Cats</a> {{ t.andWord }} <a href="https://fairshake.com.au" style="font-weight: 700; border-bottom: 2px solid #cfe7f9">Fair Shake</a></p>
+  </div>
+
+  <div style="background: #071e30; padding: 40px 0">
+    <div style="width: 1120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 32px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="26" height="26" viewBox="0 0 34 34" aria-hidden="true">
+          <circle cx="17" cy="21" r="8.5" fill="#66b2e8" /><circle cx="6.5" cy="12.5" r="4.2" fill="#66b2e8" />
+          <circle cx="14" cy="7.5" r="4.2" fill="#e8558a" /><circle cx="22.5" cy="8.5" r="4.2" fill="#66b2e8" />
+          <circle cx="29" cy="15" r="4.2" fill="#66b2e8" />
+        </svg>
+        <span class="dsp" style="font-size: 18px; font-weight: 600; color: #e9edf0">catspotters.com</span>
+      </div>
+      <p style="font-size: 15px; color: #8c9caa">{{ t.footer }}</p>
+    </div>
+  </div>
+
+</div>
+</x-dc>

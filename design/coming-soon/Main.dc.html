@@ -1,0 +1,304 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&amp;family=Nunito:wght@400;600;700;800&amp;display=swap&amp;subset=greek,latin">
+  <style>
+    body { margin: 0; background: #f4f2ec; font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; color: #2c3e4f; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    a { color: #135f92; text-decoration: none; }
+    a:hover { color: #d64185; }
+    h1, h2, h3, .dsp { font-family: 'Poppins', 'Trebuchet MS', system-ui, sans-serif; margin: 0; }
+    p { margin: 0; }
+    input { font-family: inherit; }
+    .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #667889; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; background: #f4f2ec">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; width: 1120px; margin: 0 auto; padding: 28px 0 8px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <circle cx="17" cy="21" r="8.5" fill="#1c77c3"></circle>
+        <circle cx="6.5" cy="12.5" r="4.2" fill="#1c77c3"></circle>
+        <circle cx="14" cy="7.5" r="4.2" fill="#d64185"></circle>
+        <circle cx="22.5" cy="8.5" r="4.2" fill="#1c77c3"></circle>
+        <circle cx="29" cy="15" r="4.2" fill="#1c77c3"></circle>
+      </svg>
+      <span class="dsp" style="font-size: 25px; font-weight: 700; color: #1b2a38; letter-spacing: -0.02em">Cat <span style="color: #d64185">Spotters</span></span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <sc-for list="{{ langs }}" as="lang" hint-placeholder-count="3">
+        <button onClick="{{ lang.pick }}" style="{{ lang.style }}">{{ lang.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1.02fr 1fr; gap: 64px; align-items: center; width: 1120px; margin: 0 auto; padding: 56px 0 88px">
+    <div style="display: flex; flex-direction: column; gap: 24px; align-items: flex-start">
+      <span class="eyebrow">{{ t.eyebrow }}</span>
+      <h1 style="font-size: 62px; line-height: 1.06; letter-spacing: -0.028em; font-weight: 700; color: #1b2a38; text-wrap: pretty">{{ t.h1 }}</h1>
+      <p style="font-size: 20px; line-height: 1.6; color: #47596a; max-width: 46ch; text-wrap: pretty">{{ t.sub }}</p>
+
+      <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 480px; margin-top: 8px">
+          <div style="display: flex; gap: 10px">
+            <input type="email" value="{{ email }}" onChange="{{ onEmail }}" placeholder="{{ t.placeholder }}" style="flex-grow: 1; height: 58px; padding: 0 20px; font-size: 17px; color: #1b2a38; background: #fefcf7; border: 1.5px solid #d7dee4; border-radius: 999px; outline: none">
+            <button onClick="{{ submit }}" style="height: 58px; padding: 0 28px; font-family: 'Poppins', sans-serif; font-size: 17px; font-weight: 600; color: #fefcf7; background: #1c77c3; border: none; border-radius: 999px; cursor: pointer; box-shadow: 0 6px 16px rgba(27, 42, 56, 0.16); white-space: nowrap">{{ t.cta }}</button>
+          </div>
+          <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size: 14px; color: #b8552f; padding-left: 20px">{{ t.err }}</p>
+          </sc-if>
+          <p style="font-size: 14px; color: #8c9caa; padding-left: 20px">{{ t.micro }}</p>
+        </div>
+      </sc-if>
+      <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: flex-start; gap: 16px; width: 100%; max-width: 480px; margin-top: 8px; padding: 22px 26px; background: #fefcf7; border: 1.5px solid #cbd6a8; border-radius: 20px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7f9349" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px"><path d="M20 6 L9 17 l-5 -5"></path></svg>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span class="dsp" style="font-size: 19px; font-weight: 600; color: #1b2a38">{{ t.doneTitle }}</span>
+            <p style="font-size: 15px; line-height: 1.55; color: #47596a">{{ t.doneBody }}</p>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="filter: drop-shadow(0 24px 60px rgba(27, 42, 56, 0.18))">
+      <img src="syros-alley.jpg" alt="A Syros alley in Ermoupoli, full of cats" style="display: block; width: 100%; height: auto; border-radius: 28px; border: 3px solid #0a3350">
+    </div>
+  </div>
+
+
+  <div style="background: #fefcf7; border-top: 1.5px solid #e9edf0; border-bottom: 1.5px solid #e9edf0; padding: 76px 0">
+    <div style="width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 44px">
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center">
+        <span class="eyebrow">{{ t.howEyebrow }}</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.02em; color: #1b2a38">{{ t.howTitle }}</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px">
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 32px; background: #f4f2ec; border: 1.5px solid #e9edf0; border-radius: 20px">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #e8f4fc; border-radius: 14px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1c77c3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 A2 2 0 0 1 5 6.5 h2.2 L8.6 4.2 h6.8 L16.8 6.5 H19 a2 2 0 0 1 2 2 v9 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 Z"></path><circle cx="12" cy="13" r="3.6"></circle></svg>
+          </span>
+            <h3 style="font-size: 22px; font-weight: 600; color: #1b2a38">{{ t.step1 }}</h3>
+          </div>
+          <p style="font-size: 16px; line-height: 1.6; color: #47596a">{{ t.step1Body }}</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 32px; background: #f4f2ec; border: 1.5px solid #e9edf0; border-radius: 20px">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #fce4ee; border-radius: 14px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d64185" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2.4"></rect><path d="M3.5 9 h17 M9 4 v16"></path><path d="M13 13.4 l2 2 l3.4 -3.6"></path></svg>
+          </span>
+            <h3 style="font-size: 22px; font-weight: 600; color: #1b2a38">{{ t.step2 }}</h3>
+          </div>
+          <p style="font-size: 16px; line-height: 1.6; color: #47596a">{{ t.step2Body }}</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 32px; background: #f4f2ec; border: 1.5px solid #e9edf0; border-radius: 20px">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #eef1e0; border-radius: 14px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5f6f36" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.2 C 5.4 16 2.8 12.6 2.8 9.3 A4.5 4.5 0 0 1 12 7 a4.5 4.5 0 0 1 9.2 2.3 c0 3.3 -2.6 6.7 -9.2 10.9 Z"></path><path d="M12 10.4 v4 M10 12.4 h4"></path></svg>
+          </span>
+            <h3 style="font-size: 22px; font-weight: 600; color: #1b2a38">{{ t.step3 }}</h3>
+          </div>
+          <p style="font-size: 16px; line-height: 1.6; color: #47596a">{{ t.step3Body }}</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div style="width: 1120px; margin: 0 auto; padding: 88px 0; display: flex; flex-direction: column; gap: 20px; align-items: center; text-align: center">
+    <span class="eyebrow">{{ t.whyEyebrow }}</span>
+    <h2 style="font-size: 40px; line-height: 1.14; font-weight: 700; letter-spacing: -0.022em; color: #1b2a38; text-wrap: pretty; max-width: 22ch">{{ t.whyTitle }}</h2>
+    <p style="font-size: 18px; line-height: 1.65; color: #47596a; max-width: 62ch; text-wrap: pretty">{{ t.whyBody }}</p>
+  </div>
+
+  <div style="background: #0a3350; padding: 76px 0">
+    <div style="width: 720px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center">
+      <h2 style="font-size: 38px; line-height: 1.14; font-weight: 700; letter-spacing: -0.022em; color: #fefcf7; text-wrap: pretty; max-width: 20ch">{{ t.closeTitle }}</h2>
+      <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 500px; align-items: center">
+          <div style="display: flex; gap: 10px; width: 100%">
+            <input type="email" value="{{ email }}" onChange="{{ onEmail }}" placeholder="{{ t.placeholder }}" style="flex-grow: 1; height: 58px; padding: 0 20px; font-size: 17px; color: #1b2a38; background: #fefcf7; border: 1.5px solid #135f92; border-radius: 999px; outline: none">
+            <button onClick="{{ submit }}" style="height: 58px; padding: 0 28px; font-family: 'Poppins', sans-serif; font-size: 17px; font-weight: 600; color: #0a3350; background: #ffc94d; border: none; border-radius: 999px; cursor: pointer; white-space: nowrap">{{ t.cta }}</button>
+          </div>
+          <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+            <p style="font-size: 14px; color: #ffc94d">{{ t.err }}</p>
+          </sc-if>
+          <p style="font-size: 14px; color: #a3d1f2">{{ t.micro }}</p>
+        </div>
+      </sc-if>
+      <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+        <p style="font-size: 18px; line-height: 1.55; color: #a3d1f2; max-width: 40ch">{{ t.doneBody }}</p>
+      </sc-if>
+    </div>
+  </div>
+
+
+  <div style="background: #071e30; padding: 40px 0">
+    <div style="width: 1120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 32px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <svg width="26" height="26" viewBox="0 0 34 34" aria-hidden="true">
+          <circle cx="17" cy="21" r="8.5" fill="#66b2e8"></circle><circle cx="6.5" cy="12.5" r="4.2" fill="#66b2e8"></circle>
+          <circle cx="14" cy="7.5" r="4.2" fill="#e8558a"></circle><circle cx="22.5" cy="8.5" r="4.2" fill="#66b2e8"></circle>
+          <circle cx="29" cy="15" r="4.2" fill="#66b2e8"></circle>
+        </svg>
+        <span class="dsp" style="font-size: 18px; font-weight: 600; color: #e9edf0">catspotters.com</span>
+      </div>
+      <p style="font-size: 15px; color: #8c9caa">{{ t.footerLead }} <a href="https://syroscats.com" style="color: #a3d1f2; font-weight: 700; border-bottom: 1px solid #135f92">Syros Cats</a> {{ t.andWord }} <a href="https://fairshake.com.au" style="color: #a3d1f2; font-weight: 700; border-bottom: 1px solid #135f92">Fair Shake</a>{{ t.footerTail }} <a href="mailto:hello@catspotters.com" style="color: #a3d1f2; font-weight: 700; border-bottom: 1px solid #135f92">hello@catspotters.com</a></p>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":2500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { lang: 'en', email: '', done: false, err: false };
+  }
+
+  copy() {
+    return {
+      en: {
+        label: 'EN',
+        eyebrow: 'Syros · Cyclades · Greece',
+        h1: 'Help the cats of Syros live better lives.',
+        sub: 'Photograph a cat in the alleys of Ermoupoli and the app works out who it is. Locals and visitors are building one shared record of every cat on the island.',
+        placeholder: 'your@email.com',
+        cta: 'Tell me when it is live',
+        micro: 'One email the day it launches. Nothing else, ever.',
+        err: 'That does not look like an email address.',
+        doneTitle: 'You are on the list.',
+        doneBody: 'We will write once — the day Cat Spotters opens on Syros.',
+        howEyebrow: 'How it works',
+        howTitle: 'Three taps in a Syros alley',
+        step1: 'Spot a cat',
+        step1Body: 'Snap a photo when you meet one on the steps. The app records where, so each cat is tied to the right colony.',
+        step2: 'Add it to the cat‑alogue',
+        step2Body: 'We check your photo against every cat the island already knows. If nobody has met this one, you get to name it.',
+        step3: 'Help them thrive',
+        step3Body: 'Your sightings show which colonies to reach next, and which cats have already been treated and sterilised.',
+        whyEyebrow: 'Citizen science',
+        whyTitle: 'An island-wide cat census, one photo at a time.',
+        whyBody: 'Every photo adds one cat to the island’s record: which cat, which neighbourhood, already sterilised or still to come. Visitors walking the alleys meet cats that rarely get recorded; locals know the ones that have lived on their step for years. Put together it becomes a picture nobody could build alone — and it shows exactly where the next round of treating and sterilising should go.',
+        closeTitle: 'Be there the day the cat‑alogue opens.',
+        andWord: 'and',
+        footerLead: 'Made with ❤️ in Ερμούπολη by',
+        footerTail: ' · Coming October 2026 ·'
+      },
+      el: {
+        label: 'ΕΛ',
+        eyebrow: 'Σύρος · Κυκλάδες · Ελλάδα',
+        h1: 'Βοήθησε τις γάτες της Σύρου να ζουν καλύτερα.',
+        sub: 'Φωτογράφισε μια γάτα στα σοκάκια της Ερμούπολης και η εφαρμογή αναγνωρίζει ποια είναι. Ντόπιοι και επισκέπτες χτίζουν μαζί ένα κοινό αρχείο για κάθε γάτα του νησιού.',
+        placeholder: 'το email σου',
+        cta: 'Ειδοποίησέ με',
+        micro: 'Ένα email τη μέρα που βγαίνει. Τίποτε άλλο, ποτέ.',
+        err: 'Αυτό δεν μοιάζει με διεύθυνση email.',
+        doneTitle: 'Μπήκες στη λίστα.',
+        doneBody: 'Θα σου γράψουμε μία φορά — τη μέρα που ανοίγει το Cat Spotters στη Σύρο.',
+        howEyebrow: 'Πώς λειτουργεί',
+        howTitle: 'Τρία πατήματα σε ένα σοκάκι',
+        step1: 'Βρες μια γάτα',
+        step1Body: 'Βγάλε φωτογραφία όταν συναντήσεις μια γάτα στα σκαλιά. Η εφαρμογή κρατά το πού, ώστε κάθε γάτα να συνδέεται με τη σωστή αποικία.',
+        step2: 'Πρόσθεσέ τη στον γατά‑λογο',
+        step2Body: 'Ελέγχουμε τη φωτογραφία σου με κάθε γάτα που ήδη γνωρίζει το νησί. Αν δεν την έχει συναντήσει κανείς, της δίνεις εσύ όνομα.',
+        step3: 'Βοήθησέ τες να ευημερήσουν',
+        step3Body: 'Οι παρατηρήσεις σου δείχνουν ποιες αποικίες σειρά έχουν και ποιες γάτες έχουν ήδη περιθαλφθεί και στειρωθεί.',
+        whyEyebrow: 'Επιστήμη των πολιτών',
+        whyTitle: 'Μια απογραφή των γατών του νησιού, μία φωτογραφία τη φορά.',
+        whyBody: 'Κάθε φωτογραφία προσθέτει μία γάτα στο αρχείο του νησιού: ποια γάτα, ποια γειτονιά, στειρωμένη ήδη ή όχι ακόμη. Οι επισκέπτες συναντούν στα σοκάκια γάτες που σπάνια καταγράφονται· οι ντόπιοι ξέρουν εκείνες που ζουν χρόνια στο σκαλί τους. Μαζί προκύπτει μια εικόνα που κανείς δεν θα μπορούσε να φτιάξει μόνος — και δείχνει πού ακριβώς πρέπει να πάει ο επόμενος γύρος περίθαλψης και στειρώσεων.',
+        closeTitle: 'Να είσαι εκεί τη μέρα που ανοίγει ο γατά‑λογος.',
+        andWord: 'και',
+        footerLead: 'Φτιαγμένο με ❤️ στην Ερμούπολη από',
+        footerTail: ' · Έρχεται Οκτώβριος 2026 ·'
+      },
+      fr: {
+        label: 'FR',
+        eyebrow: 'Syros · Cyclades · Grèce',
+        h1: 'Aide les chats de Syros à mieux vivre.',
+        sub: 'Prends une photo d’un chat dans les ruelles d’Ermoúpoli et l’application reconnaît de qui il s’agit. Habitants et visiteurs construisent ensemble un registre partagé de chaque chat de l’île.',
+        placeholder: 'ton@email.com',
+        cta: 'Préviens-moi',
+        micro: 'Un seul email, le jour du lancement. Rien d’autre, jamais.',
+        err: 'Cela ne ressemble pas à une adresse email.',
+        doneTitle: 'Tu es sur la liste.',
+        doneBody: 'On t’écrira une seule fois — le jour où Cat Spotters ouvre à Syros.',
+        howEyebrow: 'Comment ça marche',
+        howTitle: 'Trois gestes dans une ruelle de Syros',
+        step1: 'Repère un chat',
+        step1Body: 'Prends une photo quand tu en croises un sur les marches. L’app note l’endroit, pour que chaque chat soit rattaché à la bonne colonie.',
+        step2: 'Ajoute-le au cat‑alogue',
+        step2Body: 'On compare ta photo à tous les chats que l’île connaît déjà. Si personne ne l’a encore croisé, c’est toi qui le nommes.',
+        step3: 'Aide-les à s’épanouir',
+        step3Body: 'Tes observations montrent quelles colonies rejoindre ensuite, et quels chats ont déjà été soignés et stérilisés.',
+        whyEyebrow: 'Science participative',
+        whyTitle: 'Un recensement des chats de l’île, une photo à la fois.',
+        whyBody: 'Chaque photo ajoute un chat au registre de l’île : quel chat, quel quartier, déjà stérilisé ou pas encore. Les visiteurs croisent dans les ruelles des chats rarement recensés ; les habitants connaissent ceux qui vivent depuis des années sur leur marche. Ensemble, cela donne une image que personne ne pourrait construire seul — et elle montre exactement où doit aller la prochaine série de soins et de stérilisations.',
+        closeTitle: 'Sois là le jour où le cat‑alogue ouvre.',
+        andWord: 'et',
+        footerLead: 'Fait avec ❤️ à Ermoúpoli par',
+        footerTail: ' · Arrive en octobre 2026 ·'
+      }
+    };
+  }
+
+  renderVals() {
+    const all = this.copy();
+    const active = this.state.lang;
+    const t = all[active] || all.en;
+
+    const langs = ['en', 'el', 'fr'].map((code) => {
+      const on = code === active;
+      return {
+        code: code,
+        label: all[code].label,
+        pick: () => this.setState({ lang: code }),
+        style: [
+          'height: 38px',
+          'padding: 0 18px',
+          "font-family: 'Nunito', sans-serif",
+          'font-size: 14px',
+          'font-weight: 700',
+          'letter-spacing: 0.04em',
+          'border-radius: 999px',
+          'cursor: pointer',
+          on ? 'background: #1c77c3' : 'background: transparent',
+          on ? 'color: #fefcf7' : 'color: #667889',
+          on ? 'border: 1.5px solid #1c77c3' : 'border: 1.5px solid #d7dee4'
+        ].join('; ')
+      };
+    });
+
+    return {
+      t: t,
+      langs: langs,
+      email: this.state.email,
+      done: this.state.done,
+      notDone: !this.state.done,
+      hasErr: this.state.err,
+      onEmail: (e) => this.setState({ email: e.target.value, err: false }),
+      submit: () => {
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(this.state.email.trim());
+        if (ok) this.setState({ done: true, err: false });
+        else this.setState({ err: true });
+      }
+    };
+  }
+}
+</script>
+
+</body>
+</html>

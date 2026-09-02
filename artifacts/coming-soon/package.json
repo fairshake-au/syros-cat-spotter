@@ -1,0 +1,10 @@
+{
+  "name": "@workspace/coming-soon",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate": "wrangler d1 execute catspotters-signups --remote --file=./schema.sql"
+  }
+}
