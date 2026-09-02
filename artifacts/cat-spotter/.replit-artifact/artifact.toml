@@ -14,9 +14,12 @@ localPort = 23789
 [services.development]
 run = "pnpm --filter @workspace/cat-spotter run dev"
 
+# Production serves the WEB export (a real website in the browser), not the
+# Expo Go bundles. The Expo Go pipeline (scripts/build.js + server/serve.js)
+# remains available for phone demos via `run build` / `run serve`.
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/cat-spotter", "run", "build" ]
-run = [ "pnpm", "--filter", "@workspace/cat-spotter", "run", "serve" ]
+build = [ "pnpm", "--filter", "@workspace/cat-spotter", "run", "build:web" ]
+run = [ "pnpm", "--filter", "@workspace/cat-spotter", "run", "serve:web" ]
 
 [services.env]
 PORT = "23789"

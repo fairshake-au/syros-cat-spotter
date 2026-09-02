@@ -184,7 +184,12 @@ export function NotificationProvider({
     },
   });
 
-  const notifications = useMemo(() => query.data ?? [], [query.data]);
+  // Guard against non-array payloads (e.g. a proxy or captive portal
+  // answering 200 with HTML) — better an empty inbox than the error boundary.
+  const notifications = useMemo(
+    () => (Array.isArray(query.data) ? query.data : []),
+    [query.data],
+  );
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
     [notifications],

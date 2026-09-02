@@ -29,7 +29,15 @@ import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 import { OwnershipNoticeBanner } from '@/components/OwnershipNoticeBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+// On web the app is served by the same deployment as the API, so the API is
+// always same-origin — no baked-in domain needed, and the bundle works on any
+// domain (dev preview, password-protected staging, the final custom domain).
+// Native builds still need the domain baked in at build time.
+setBaseUrl(
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : `https://${process.env.EXPO_PUBLIC_DOMAIN}`,
+);
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
