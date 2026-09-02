@@ -11,7 +11,7 @@ import {
   catUpdatesTable,
   notificationsTable,
 } from "@workspace/db";
-import { eq, like, inArray, sql } from "drizzle-orm";
+import { eq, like, ilike, inArray, sql } from "drizzle-orm";
 
 // The resolve flow never calls the AI matcher, but importing the app pulls it
 // in; keep it mocked so this suite stays fully offline.
@@ -66,7 +66,7 @@ async function cleanup() {
   const cats = await db
     .select({ id: catsTable.id })
     .from(catsTable)
-    .where(like(catsTable.name, `${CAT_PREFIX}%`));
+    .where(ilike(catsTable.name, `${CAT_PREFIX}%`));
   const catIds = cats.map((c) => c.id);
   if (catIds.length > 0) {
     const updates = await db
@@ -122,6 +122,65 @@ afterAll(async () => {
 });
 
 describe("POST /api/sightings/:sightingId/resolve", () => {
+  it("rejects a differently-cased duplicate name and leaves the sighting pending", async () => {
+    const device = `${DEVICE}-duplicate`;
+    const existingName = `${CAT_PREFIX}-CaseGuard`;
+    await seedCat(existingName);
+    const sightingId = await insertSighting(device);
+
+    const res = await request(app)
+      .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
+      .send({ deviceId: device, newCatName: existingName.toLowerCase() });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("NAME_TAKEN");
+
+    const [sighting] = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sightingId));
+    expect(sighting!.status).toBe("pending");
+    expect(sighting!.catId).toBeNull();
+  });
+
+  it("creates exactly one cat when two sightings concurrently claim the same name", async () => {
+    const name = `${CAT_PREFIX}-Concurrent`;
+    const deviceA = `${DEVICE}-concurrent-a`;
+    const deviceB = `${DEVICE}-concurrent-b`;
+    const [sightingA, sightingB] = await Promise.all([
+      insertSighting(deviceA),
+      insertSighting(deviceB),
+    ]);
+
+    const responses = await Promise.all([
+      request(app)
+        .post(`/api/sightings/${sightingA}/resolve`)
+        .set("X-Device-Secret", RESOLVE_SECRET)
+        .send({ deviceId: deviceA, newCatName: name }),
+      request(app)
+        .post(`/api/sightings/${sightingB}/resolve`)
+        .set("X-Device-Secret", RESOLVE_SECRET)
+        .send({ deviceId: deviceB, newCatName: name.toLowerCase() }),
+    ]);
+
+    expect(responses.map((res) => res.status).sort()).toEqual([200, 409]);
+    expect(responses.find((res) => res.status === 409)?.body.code).toBe("NAME_TAKEN");
+
+    const cats = await db
+      .select({ id: catsTable.id })
+      .from(catsTable)
+      .where(sql`lower(${catsTable.name}) = lower(${name})`);
+    expect(cats).toHaveLength(1);
+
+    const sightings = await db
+      .select({ status: sightingsTable.status })
+      .from(sightingsTable)
+      .where(inArray(sightingsTable.id, [sightingA, sightingB]));
+    expect(sightings.filter((s) => s.status === "resolved")).toHaveLength(1);
+    expect(sightings.filter((s) => s.status === "pending")).toHaveLength(1);
+  });
+
   it("awards 10 points when resolving to an existing cat", async () => {
     const device = `${DEVICE}-confirm`;
     const catId = await seedCat(`${CAT_PREFIX}-Existing`);
