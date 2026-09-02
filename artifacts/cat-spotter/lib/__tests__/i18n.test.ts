@@ -3,6 +3,10 @@ import { BADGE_IDS, LANGUAGES, TRANSLATIONS, type Language } from '../i18n';
 
 const LANG_CODES = Object.keys(TRANSLATIONS) as Language[];
 
+function placeholders(value: string): string[] {
+  return [...new Set(value.match(/\{[^{}]+\}/g) ?? [])].sort();
+}
+
 describe('i18n dictionaries', () => {
   it('has a dictionary for every declared language', () => {
     expect(LANG_CODES.sort()).toEqual(LANGUAGES.map((l) => l.code).sort());
@@ -36,6 +40,15 @@ describe('i18n dictionaries', () => {
     for (const code of LANG_CODES) {
       for (const [key, value] of Object.entries(TRANSLATIONS[code])) {
         expect(value.trim(), `${code}.${key}`).not.toBe('');
+      }
+    }
+  });
+
+  it('uses the same placeholders for each key in every language', () => {
+    for (const key of Object.keys(TRANSLATIONS.en)) {
+      const expected = placeholders(TRANSLATIONS.en[key]);
+      for (const code of LANG_CODES) {
+        expect(placeholders(TRANSLATIONS[code][key]), `${code}.${key}`).toEqual(expected);
       }
     }
   });
