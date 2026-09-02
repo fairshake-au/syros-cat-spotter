@@ -32,7 +32,8 @@ The build work fits the window. The things that can sink October are all **lead 
 - [ ] Icons and splash under the Cat Spotters brand; store screenshots ×3 languages
 - [ ] Permission strings (camera, photo library, location) in all three languages — Apple rejects vague ones
 - [ ] **Google Maps API key for Android** — `react-native-maps` on Android requires one even with our OSM tiles on top; without it the map renders blank. Restrict the key to the app signature. iOS uses Apple Maps, no key.
-- [ ] Create `eas.json`; EAS Build for both platforms with managed credentials (Samuel runs builds — EAS is the practical path; Replit's Expo Launch is iOS-only)
+- [ ] Create `eas.json`; EAS Build for both platforms with managed credentials (Samuel runs builds)
+- [ ] Verified 3 Sep: Replit's guided mobile publishing ("Expo Launch" wizard) covers **iOS only** — build → TestFlight → App Store, so it can carry our iOS path if preferred over raw EAS. **Google Play has no guided path on Replit** ("can be accomplished manually"), so Android goes through EAS + Play Console regardless. Replit's "Publish" button on a mobile app produces an **Expo Go preview URL**, not a web app — a browser-usable web deployment needs the web export served as a normal web deployment (section C)
 - [ ] Point `EXPO_PUBLIC_DOMAIN` at the production API domain
 - [ ] Verify push end to end: Expo push token registration on device, FCM credentials for Android via EAS, one real notification received on each platform
 
