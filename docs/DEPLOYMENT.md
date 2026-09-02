@@ -1,0 +1,73 @@
+# MVP Deployment Runbook
+
+**Goal:** Cat Spotters (Syros) live in both app stores in October 2026, testing 1–14 September.
+**Companion to:** [PRODUCT-SPEC.md](PRODUCT-SPEC.md) §2 (what we ship) — this is *how it gets to users*.
+**State as verified 2 Sep:** API never deployed (`.replit` has an autoscale config, nothing live). No bundle identifiers, no `eas.json`, no Android Maps key. Push delivery code exists but is unverified end to end. AI matching runs through Replit's OpenAI integration.
+
+---
+
+## The critical path (start these today)
+
+The build work fits the window. The things that can sink October are all **lead times owned by other people**:
+
+1. **Google Play Console account.** A personal account must run a closed test with 12+ testers for 14 continuous days before it can even *apply* for production access. Started this week, the Syros Cats WhatsApp testers satisfy it inside our own testing window; started late, it alone pushes launch past October. An organisation account is exempt but needs its own verification. **Decision + registration: today.**
+2. **Apple Developer Program.** Individual enrolment is days; organisation enrolment needs a D-U-N-S number and can take weeks. Enrol now, whichever entity. TestFlight (our iOS testing channel) needs it too, so this gates testing, not just launch.
+3. **Domain** (Samuel, already actioned). Needed early because stores require a support URL and privacy policy URL at submission.
+4. **Privacy policy + support page** on the new domain. Both stores require them; ours must cover photos, location, and the new optional email collection. The Syros Cats ↔ Fair Shake data agreement (spec §15 of the proposal) should land at the same time.
+5. **First store builds this week**, so the 1–14 Sep testing happens on TestFlight and the Play closed track rather than on dev builds — that's what makes the Play 14-day clock run concurrently with our testing.
+
+## A. Store accounts and compliance
+
+- [ ] Choose the publishing entity (Fair Shake vs Samuel personally) — affects both enrolments and the Play 14-day rule
+- [ ] Apple Developer Program enrolment (€99/yr)
+- [ ] Google Play Console (€23 one-off) + closed-testing track
+- [ ] Privacy policy (en/el/fr) + support page on the new domain
+- [ ] Apple privacy nutrition labels + Play data-safety form (photos, precise location, optional email; no tracking, no ads)
+- [ ] Age rating questionnaires (should land 4+/Everyone)
+- [ ] Confirm final store name with Syros Cats; check name availability in both stores
+
+## B. App build pipeline
+
+- [ ] Set `ios.bundleIdentifier` and `android.package` (e.g. `au.fairshake.catspotters`) — **unset today**
+- [ ] Icons and splash under the Cat Spotters brand; store screenshots ×3 languages
+- [ ] Permission strings (camera, photo library, location) in all three languages — Apple rejects vague ones
+- [ ] **Google Maps API key for Android** — `react-native-maps` on Android requires one even with our OSM tiles on top; without it the map renders blank. Restrict the key to the app signature. iOS uses Apple Maps, no key.
+- [ ] Create `eas.json`; EAS Build for both platforms with managed credentials (Samuel runs builds — EAS is the practical path; Replit's Expo Launch is iOS-only)
+- [ ] Point `EXPO_PUBLIC_DOMAIN` at the production API domain
+- [ ] Verify push end to end: Expo push token registration on device, FCM credentials for Android via EAS, one real notification received on each platform
+
+## C. Backend to production
+
+- [ ] **Hosting call (resolves the open item): compute stays on Replit through launch.** The AI matching uses Replit's OpenAI integration; migrating compute now means replacing that with a direct API key mid-sprint for no launch benefit. Revisit in Phase 3 (Oct–Dec, low season).
+- [ ] Photos out of Postgres into object storage now (migration script for existing rows + new upload path) — the one infrastructure change worth making before launch
+- [ ] Deploy the API as a Replit deployment on the custom domain (`api.` subdomain), TLS on
+- [ ] Production Postgres with **backups enabled and a restore actually tested once**
+- [ ] Environment: `OWNER_SECRET` set, `CAMPAIGN_*` set with corrected €50–60 copy (SYC-14), log level
+- [ ] Confirm `trust proxy` matches Replit's production proxy chain (rate limiting depends on it)
+- [ ] Outbound email for welfare/report notifications to admin@syroscats via Resend on the new domain (SPF/DKIM so Google Workspace doesn't junk it)
+- [ ] Uptime monitor on `/api/healthz` + error alerting to Samuel
+
+## D. Product changes (spec §2)
+
+Tracked in PRODUCT-SPEC.md §2 — rename, safety screen, feeding nudge, clipped-tip question with photo, 500m, points 25/15, notes + food/water, thin-slice sterilised status, records import, blurred public locations, welfare flow with capacity messaging, minimal staff dashboard, email capture v1. Riskiest for the window: staff dashboard, records import, email capture — all three can slip to the hardening phase without moving launch.
+
+## E. Testing (1–14 Sep)
+
+- [ ] iOS via TestFlight, Android via the Play closed track (starts the 14-day clock)
+- [ ] 12+ testers recruited through the Syros Cats WhatsApp group
+- [ ] On-island field pass: offline queue and sync, offline tiles, HEIC photos, GPS accuracy, Greek/French UI
+- [ ] Seed with imported Syros Cats sterilisation records; plan the purge of test cats/sightings before launch
+- [ ] Native-speaker review of Greek and French strings (SYC-4)
+
+## F. Submission and launch
+
+- [ ] Submit both stores by ~20 September (review is usually days, but October needs slack)
+- [ ] Play production access application once the 14-day test completes (~15 Sep at earliest)
+- [ ] Launch-day config: campaign figures, colony names entered, feeding sites loaded (private), staff dashboard credentials handed to Syros Cats
+- [ ] QR materials printed for cafés/hotels/Kini, pointing at the domain, which routes to the right store
+
+## G. Watch items
+
+- OSM tile policy: ~350 pre-downloaded tiles per install is tolerable at launch scale; budget a paid tile provider (€10–50/mo) if installs take off
+- The stale docs/syros-cats-proposal.md mirror and the Purropolis-branded proposal artifact still need the rename pass (SYC-17)
+- Play's 14-day rule assumes testers stay opted in continuously — brief the WhatsApp group not to leave the test
