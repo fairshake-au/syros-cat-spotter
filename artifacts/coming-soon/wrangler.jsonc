@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "catspotters-coming-soon",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "observability": { "enabled": true },
+  "routes": [
+    { "pattern": "catspotters.com", "custom_domain": true },
+    { "pattern": "www.catspotters.com", "custom_domain": true }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "catspotters-signups",
+      "database_id": "875b34ad-1c2d-4297-8dca-2041e7261a05"
+    }
+  ]
+}
