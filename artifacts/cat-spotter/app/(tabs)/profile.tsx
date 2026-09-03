@@ -22,6 +22,7 @@ import {
 import { useColors } from '@/hooks/useColors';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, tracking } from '@/constants/theme';
+import { useAppearance } from '@/context/AppearanceContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
@@ -39,6 +40,7 @@ const BADGE_TONES: { bg: string; fg: string }[] = [
 
 export default function ProfileScreen() {
   const colors = useColors();
+  const { appearance, setAppearance } = useAppearance();
   const { t, language, setLanguage } = useLanguage();
   const insets = useSafeAreaInsets();
   const { deviceId } = useDevice();
@@ -395,6 +397,69 @@ export default function ProfileScreen() {
               })}
             </View>
           </View>
+
+          {/* Appearance */}
+          <View style={{ gap: 10 }}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {t('appearance')}
+            </Text>
+            <View
+              style={[
+                styles.appearanceRow,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              {(
+                [
+                  {
+                    key: 'system',
+                    label: t('appearanceSystem'),
+                    icon: 'smartphone',
+                  },
+                  { key: 'light', label: t('appearanceLight'), icon: 'sun' },
+                  { key: 'dark', label: t('appearanceDark'), icon: 'moon' },
+                ] as const
+              ).map((option) => {
+                const active = option.key === appearance;
+                return (
+                  <Pressable
+                    key={option.key}
+                    testID={`appearance-${option.key}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={option.label}
+                    onPress={() => setAppearance(option.key)}
+                    style={[
+                      styles.appearanceBtn,
+                      {
+                        backgroundColor: active ? colors.primary : 'transparent',
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name={option.icon}
+                      size={16}
+                      color={
+                        active ? colors.primaryForeground : colors.mutedForeground
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.appearanceText,
+                        {
+                          color: active
+                            ? colors.primaryForeground
+                            : colors.foreground,
+                        },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -526,4 +591,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   langText: { fontSize: 14, fontFamily: 'Nunito_700Bold' },
+  appearanceRow: {
+    flexDirection: 'row',
+    gap: spacing[1],
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing[1],
+  },
+  appearanceBtn: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[1],
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing[1],
+  },
+  appearanceText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSizes['3xs'],
+    textAlign: 'center',
+  },
 });

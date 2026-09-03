@@ -9,6 +9,7 @@ import { Badge, Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs
 import { SymbolView } from 'expo-symbols';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
+import { useAppearance } from '@/context/AppearanceContext';
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
 function NativeTabLayout() {
@@ -45,8 +46,11 @@ function ClassicTabLayout() {
   const colors = useColors();
   const { t } = useLanguage();
   const { reviewReadyCount } = useOffline();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { appearance } = useAppearance();
+  const systemScheme = useColorScheme();
+  const isDark =
+    appearance === 'dark' ||
+    (appearance === 'system' && systemScheme === 'dark');
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 

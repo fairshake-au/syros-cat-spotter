@@ -20,6 +20,7 @@ import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/spac
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
+import { AppearanceProvider } from '@/context/AppearanceContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
@@ -97,23 +98,25 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <LanguageProvider>
-            <DeviceProvider>
-              <OfflineProvider>
-                <NotificationProvider>
-                  <GestureHandlerRootView>
-                    <KeyboardProvider>
-                      <OnboardingGate />
-                    </KeyboardProvider>
-                  </GestureHandlerRootView>
-                </NotificationProvider>
-              </OfflineProvider>
-            </DeviceProvider>
-          </LanguageProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AppearanceProvider>
+          <ErrorBoundary>
+            <LanguageProvider>
+              <DeviceProvider>
+                <OfflineProvider>
+                  <NotificationProvider>
+                    <GestureHandlerRootView>
+                      <KeyboardProvider>
+                        <OnboardingGate />
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </NotificationProvider>
+                </OfflineProvider>
+              </DeviceProvider>
+            </LanguageProvider>
+          </ErrorBoundary>
+        </AppearanceProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
