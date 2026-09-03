@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import type { AppMapProps } from './AppMap';
+import { useColors } from '@/hooks/useColors';
 
 /**
  * Web fallback: react-native-maps is native-only, so on web we embed an
@@ -13,9 +14,11 @@ export function AppMap({
   longitude,
   latitudeDelta = 0.06,
   markers,
-  markerBorderColor = '#1c77c3',
+  markerBorderColor,
   style,
 }: AppMapProps) {
+  const colors = useColors();
+  const resolvedMarkerBorderColor = markerBorderColor ?? colors.primary;
   const d = latitudeDelta;
   const bbox = [
     longitude - d,
@@ -40,10 +43,20 @@ export function AppMap({
           contentContainerStyle={styles.stripContent}
         >
           {markers.map((m) => (
-            <Pressable key={m.id} onPress={m.onPress} style={styles.chip}>
+            <Pressable
+              key={m.id}
+              onPress={m.onPress}
+              style={[styles.chip, { backgroundColor: colors.card }]}
+            >
               {m.imageUrl ? (
                 <View
-                  style={[styles.markerWrap, { borderColor: markerBorderColor }]}
+                  style={[
+                    styles.markerWrap,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: resolvedMarkerBorderColor,
+                    },
+                  ]}
                 >
                   <Image
                     source={{ uri: m.imageUrl }}
@@ -55,11 +68,18 @@ export function AppMap({
                 <View
                   style={[
                     styles.markerWrap,
-                    { borderColor: m.pinColor ?? markerBorderColor },
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: m.pinColor ?? resolvedMarkerBorderColor,
+                    },
                   ]}
                 />
               )}
-              {m.title ? <Text style={styles.chipText}>{m.title}</Text> : null}
+              {m.title ? (
+                <Text style={[styles.chipText, { color: colors.cardForeground }]}>
+                  {m.title}
+                </Text>
+              ) : null}
             </Pressable>
           ))}
         </ScrollView>
@@ -80,7 +100,6 @@ const styles = StyleSheet.create({
   chip: {
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 12,
     padding: 8,
   },
@@ -90,8 +109,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: 'hidden',
-    backgroundColor: '#fff',
   },
   markerImage: { width: '100%', height: '100%' },
-  chipText: { fontSize: 11, fontFamily: 'Nunito_600SemiBold', color: '#1b2a38' },
+  chipText: { fontSize: 11, fontFamily: 'Nunito_600SemiBold' },
 });

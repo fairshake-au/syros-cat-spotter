@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { Image } from 'expo-image';
 import { OsmTiles } from './OsmTiles';
+import { useColors } from '@/hooks/useColors';
 
 export interface AppMapMarker {
   id: string;
@@ -34,9 +35,12 @@ export function AppMap({
   markers,
   showsUserLocation,
   interactive = true,
-  markerBorderColor = '#1c77c3',
+  markerBorderColor,
   style,
 }: AppMapProps) {
+  const colors = useColors();
+  const resolvedMarkerBorderColor = markerBorderColor ?? colors.primary;
+
   return (
     <MapView
       style={[styles.map, style]}
@@ -51,11 +55,16 @@ export function AppMap({
           key={m.id}
           coordinate={{ latitude: m.latitude, longitude: m.longitude }}
           title={m.title}
-          pinColor={m.pinColor}
+          pinColor={m.pinColor ?? colors.primary}
           onCalloutPress={m.onPress}
         >
           {m.imageUrl ? (
-            <View style={[styles.markerWrap, { borderColor: markerBorderColor }]}>
+            <View
+              style={[
+                styles.markerWrap,
+                { backgroundColor: colors.card, borderColor: resolvedMarkerBorderColor },
+              ]}
+            >
               <Image
                 source={{ uri: m.imageUrl }}
                 style={styles.markerImage}
@@ -77,7 +86,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: 'hidden',
-    backgroundColor: '#fff',
   },
   markerImage: { width: '100%', height: '100%' },
 });

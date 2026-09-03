@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { LocationPickerProps } from './LocationPicker';
+import { useColors } from '@/hooks/useColors';
 
 const STEP = 0.0004; // ~40m per nudge
 
@@ -14,9 +15,11 @@ export function LocationPicker({
   latitude,
   longitude,
   onChange,
-  pinColor = '#e8558a',
+  pinColor,
   style,
 }: LocationPickerProps) {
+  const colors = useColors();
+  const resolvedPinColor = pinColor ?? colors.accent;
   const d = 0.004;
   const bbox = [
     longitude - d,
@@ -32,9 +35,12 @@ export function LocationPicker({
   const arrow = (name: 'arrow-up' | 'arrow-down' | 'arrow-left' | 'arrow-right', dLat: number, dLon: number) => (
     <Pressable
       onPress={() => nudge(dLat, dLon)}
-      style={[styles.arrowBtn, { borderColor: pinColor }]}
+      style={[
+        styles.arrowBtn,
+        { backgroundColor: colors.card, borderColor: resolvedPinColor },
+      ]}
     >
-      <Feather name={name} size={16} color={pinColor} />
+      <Feather name={name} size={16} color={resolvedPinColor} />
     </Pressable>
   );
 
@@ -54,7 +60,12 @@ export function LocationPicker({
           {arrow('arrow-right', 0, STEP)}
         </View>
       </View>
-      <Text style={styles.coords}>
+      <Text
+        style={[
+          styles.coords,
+          { backgroundColor: colors.card, color: colors.cardForeground },
+        ]}
+      >
         {latitude.toFixed(5)}, {longitude.toFixed(5)}
       </Text>
     </View>
@@ -78,7 +89,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
   },
   coords: {
     position: 'absolute',
@@ -86,8 +96,6 @@ const styles = StyleSheet.create({
     bottom: 8,
     fontSize: 11,
     fontFamily: 'Nunito_600SemiBold',
-    color: '#1b2a38',
-    backgroundColor: 'rgba(255,255,255,0.9)',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,

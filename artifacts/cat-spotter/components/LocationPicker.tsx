@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
 import { Feather } from '@expo/vector-icons';
 import { OsmTiles } from './OsmTiles';
+import { useColors } from '@/hooks/useColors';
 
 export interface LocationPickerProps {
   latitude: number;
@@ -20,9 +21,11 @@ export function LocationPicker({
   latitude,
   longitude,
   onChange,
-  pinColor = '#e8558a',
+  pinColor,
   style,
 }: LocationPickerProps) {
+  const colors = useColors();
+  const resolvedPinColor = pinColor ?? colors.accent;
   // Only the first coords should re-position the map; afterwards the user
   // is in control and we merely report the center back.
   const initial = useRef({ latitude, longitude });
@@ -49,7 +52,7 @@ export function LocationPicker({
         <Feather
           name="map-pin"
           size={36}
-          color={pinColor}
+          color={resolvedPinColor}
           style={styles.pin}
         />
       </View>
