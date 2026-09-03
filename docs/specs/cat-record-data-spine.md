@@ -1,9 +1,13 @@
 # The cat record data spine
 
-**Status:** For review
+**Status:** Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`)
 **Owner:** Samuel
-**Covers:** SYC-40 (life status and presumed-deceased), SYC-49 (records import), SYC-41 (blurred public locations), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
-**Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md)
+**Covers:** SYC-40 (life status and presumed-deceased), SYC-49 (records import), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
+**Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) · [`docs/specs/team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) · [`docs/specs/email-capture.md`](./email-capture.md) · [`docs/specs/hosting-and-photo-storage.md`](./hosting-and-photo-storage.md)
+
+**What this document owns**, per the ownership table in `DECISIONS.md`: the cat record model, observations and how status is worked out; presumed-deceased; location blurring, the nearest-cat oracle and feeding-site privacy; records import and matching; and the deletion mechanism. Other specs reference this behaviour rather than restating it. In particular, `team-access-and-welfare-queue.md` independently described a status-column-plus-audit-log record model — the exact design §2 rejects by name. **That description is struck; this document owns the record.** Sign-in, roles, the dashboard, the welfare queue and the safety copy are that document's, and are referenced here, never redefined.
+
+**Section numbering changed in this revision.** Deletion (§8) and the status-change feed (§9) are new sections; the technical specification is now §10 and the migration plan §11. Anything citing the old §9.x should cite §10.x.
 
 ---
 
@@ -21,7 +25,7 @@ The shape matters more than the features. Getting the features later is a sprint
 
 An observation is one small statement: *"On 14 June, a spotter photographed this cat and said its left ear tip was clipped."* Observations are never edited and never deleted. If someone is wrong, a later observation supersedes the earlier one, and both stay in the record.
 
-### Options considered
+### 2.1 Options considered
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
@@ -30,13 +34,29 @@ An observation is one small statement: *"On 14 June, a spotter photographed this
 | **C. Append-only observations, status derived on read** | One small table of claims; a pure function computes status | The claim trail *is* the evidence. Confidence levels become possible. New roles and new attributes are additive. Matches how the rest of this app already thinks — badges, streaks, fan counts and catalogue totals are all derived, explicitly so they cannot drift. | Every read computes. The resolution rules become their own body of logic that needs hard tests, because a wrong confidence level looks exactly like a right one. |
 | **D. Observations plus a cached status column** | C, with a materialised cache for querying | C's honesty with A's read speed | Cache invalidation, which is a real cost to carry before there is any measured need for it. |
 
-### Recommendation
+### 2.2 Recommendation
 
 **Option C.** At Syros scale — hundreds of cats, thousands of sightings — deriving on read costs nothing measurable, and the complexity buys the one property this project cannot do without: numbers that survive scrutiny.
 
-Option D is the version this becomes at a hundred times the size. Because the cache would be a pure function of the observation log, it can be added later by adding a column and a rebuild script — no data model change, no history rewrite. We do not build it now. We revisit it the first time a map or catalogue query measurably slows down.
+Option D is the version this becomes at a hundred times the size. Because the cache would be a pure function of the observation log, it can be added later by adding a column and a rebuild script — no data model change, no history rewrite. We do not build it now.
 
 **This decision is what makes SYC-52 additive rather than a rewrite.** The confidence engine is the resolver getting smarter. The table it reads from is the table we are creating here.
+
+### 2.3 Will deriving on read actually be fast enough?
+
+The review's answer, which we accept: yes for the arithmetic, no for the surrounding query. The resolver itself is a fold over tens of thousands of rows in JavaScript and costs single-digit milliseconds. What is not fine is the endpoint it sits inside.
+
+Three volumes matter, and each gets a named answer rather than an assurance:
+
+| Where | What it looks like today | What this spec requires |
+|---|---|---|
+| **The catalogue** (`GET /cats`) | Unpaginated. Every cat, every app open, with a `LEFT JOIN sightings … GROUP BY` and two correlated sub-queries per row. The whole payload is then written to the phone's cache. | **Paginate it**, and load each cat's observations in one batched query keyed by cat id — never one query per cat. Pagination is cheaper than caching and it is the fix that keeps working as the catalogue grows. |
+| **The map** | Same endpoint, same payload | The map needs position, name, photo and status — not history. Serve the map from the same paginated response; never a per-cat round trip. |
+| **Offline sync** | The catalogue response is stored whole under one key | The phone stores a *derived summary* per cat, not the observation log. Nothing about this design puts the evidence trail on a tourist's phone. |
+
+**The trigger everyone forgets to build.** §13 risk 6 says "revisit if a catalogue query goes above 200 ms". Today there is no timing instrumentation, no slow-query log and no metrics anywhere in the API, so that trigger is unobservable and therefore not a mitigation. **Request-duration logging on `GET /cats` and `GET /cats/{id}` ships in the same change as the resolver**, or the first person to notice the slowdown is a user.
+
+Separately, and outside this spec's scope but worth naming because it will hurt first: `POST /sightings` already does a full table scan of `cats` plus one base64 photo fetch per candidate out of Postgres. §6.3 changes what that query selects on; making it cheap belongs with the photo-storage work in `hosting-and-photo-storage.md`.
 
 ---
 
@@ -55,7 +75,7 @@ Plus one derived state that is **not** a status anyone sets:
 
 | Derived | What it means | How it appears |
 |---|---|---|
-| **Presumed deceased** | Nobody has seen this cat for three years. | The cat page says *"Not seen since June 2024."* The app never announces a death. |
+| **Presumed deceased** | Nothing has been heard of this cat for three years. | The cat page says *"Not seen since June 2024."* The app never announces a death. |
 
 ### 3.2 Who can set what
 
@@ -66,30 +86,49 @@ Plus one derived state that is **not** a status anyone sets:
 | **Resident who has claimed a cat** | Homed, on their own claimed cat |
 | **Any spotter** | Nothing directly. A spotter's *sighting* is itself evidence the cat is alive, which is the strongest and most common life-status signal we get. A spotter who notices something worrying uses the note field or the trouble report. |
 
-**Deceased is reversible.** Cats presumed dead walk back into frame. A "deceased" observation is superseded by a later observation — including, most powerfully, a new photograph. It is never deleted, so the record shows the mistake being worked out rather than hiding it. This matters: on a small island, a cat reported dead by one person and then photographed alive is a normal Tuesday.
+**Deceased is reversible, and the app makes that happen by itself.** Cats presumed dead walk back into frame. On a small island, a cat reported dead by one person and then photographed alive is a normal Tuesday.
 
-### 3.3 Presumed deceased at three years
+The rule, stated so the resolver can actually perform it: **a resolved sighting dated after a `deceased` observation clears that observation in the same read.** No job, no queue, no team member in the loop. The photograph is the evidence; the cat page shows *"Lives on the street"* again the moment the sighting resolves. Both statements stay in the record and the disagreement is flagged for the team as context — but the *display* corrects itself immediately. Previously this spec promised the behaviour in prose and had no rule that produced it; a spotter's sighting is not a `life_status` observation, so "the newest life_status wins" left the cat dead. That gap is closed in §10.2.
 
-**Derived, never stored.** The rule is: no resolved sighting for 36 months, and no explicit life status set more recently than the last sighting.
+### 3.3 What the cat page says when a cat has died
 
-This is deliberately a computed value rather than a flag set by a nightly job.
+A cat with a live `deceased` status shows one quiet line: *"No longer with us."* Nothing more — no date headline, no cause, no photograph treatment. The cat keeps its page, its photos, its history, and it keeps counting toward the collection of everyone who ever spotted it. Nobody loses a cat they found.
+
+Three consequences that need deciding rather than discovering:
+
+- **Notifications stop.** Anyone following that cat stops receiving "spotted again" pushes; the follow itself is kept, so a sighting that clears the deceased status resumes them. This is why the fan-out has to check life status: without it, everyone who ever spotted her keeps getting *"Agatha was spotted again!"* about a cat the team has recorded as dead, which is the cruellest bug in the app.
+- **No email, ever, about a death.** Per F4 in `DECISIONS.md`: presumed-deceased is reversible by one sighting, so an email you may have to retract is worse than no email. `email-capture.md` owns the sending; this document simply never emits a death as a notifiable change (§9.3).
+- **The collection denominator.** A deceased cat stays in "12 of 142" and stays collectable. Removing it would silently revise every spotter's progress downward, which is a worse harm than a slightly stale denominator.
+
+### 3.4 Presumed deceased at three years
+
+**Derived, never stored.**
 
 | Option | Benefits | Risks |
 |---|---|---|
 | **Nightly job sets a flag** | Cheap to query. Explicit. | The flag needs unsetting. Every unsetting path is a bug waiting to happen — the classic failure is a cat photographed on Saturday still showing as presumed dead on Monday. Also invites a notification ("Loukoumi is presumed deceased") that we never want to send. |
-| **Computed from the last sighting date (recommended)** | Reverts the instant a new photo arrives, with no job and no code path to forget. Impossible for the flag to be stale, because there is no flag. | Every list query needs the last-sighting date — which it already computes for "last seen". |
+| **Computed from the last evidence of life (recommended)** | Reverts the instant a new photo arrives, with no job and no code path to forget. Impossible for the flag to be stale, because there is no flag. | Every list query needs the last-evidence date — which it already computes for "last seen". |
 
 **Recommendation: computed.**
 
-**What it does and does not do.** A presumed-deceased cat leaves the active counts — colony coverage, "cats needing sterilisation", the targeting view. It stays fully in the record, keeps its page, keeps its history, and keeps counting toward the spotter's collection and the discoverer's credit. Nobody loses a cat they found.
+**Computed from what, exactly.** The previous rule keyed off sightings alone, and that broke in four places the review found. The rule is now: presumed deceased when **the newest evidence that this cat was alive is more than 36 months old**, where evidence of life is the newest of:
+
+- a resolved sighting,
+- any observation whose kind implies the cat was alive at `observedAt` — a `life_status` of street, homed or in care; a `sterilised` record (a cat on a clinic table is alive); an `ear_tip` observation,
+- a linked import record's operation date,
+- failing all of those, the date the cat record was created.
+
+That last clause is what stops a cat registered by a resident this afternoon — no photo, no sightings — being presumed deceased this afternoon, or the comparison blowing up against a null. A `deceased` observation is not evidence of life and overrides the derivation entirely; the cat shows §3.3's line instead.
+
+**What it does and does not do.** A presumed-deceased cat leaves the active counts — colony coverage, "cats needing sterilisation", the targeting view. It stays fully in the record, keeps its page, keeps its history, and keeps counting toward the spotter's collection and the discoverer's credit.
 
 **What the app says.** Never "presumed deceased" as a headline, and never a notification. The cat page reads *"Not seen since June 2024"* in the same quiet place it would read *"Last seen yesterday"*. The team dashboard is the only surface that uses the words "presumed deceased", because the team is using it as a filter, not reading it as news.
 
-### 3.4 What a spotter and the team actually experience
+### 3.5 What a spotter and the team actually experience
 
-A spotter sees a small, plain line on the cat page: *"Lives on the street"*, *"Has a home"*, *"In Syros Cats' care"*, or *"Not seen since June 2024"*. No status pickers, no forms, nothing to fill in. The spot flow is untouched.
+A spotter sees a small, plain line on the cat page: *"Lives on the street"*, *"Has a home"*, *"In Syros Cats' care"*, *"No longer with us"*, or *"Not seen since June 2024"*. No status pickers, no forms, nothing to fill in. The spot flow is untouched.
 
-A team member on the dashboard sees the status as an editable field with a short reason box, and a list underneath of every previous statement about this cat, who made it and when.
+A team member on the dashboard sees the status as an editable field with a short reason box, and a list underneath of every previous statement about this cat, who made it and when. The dashboard itself is specified in `team-access-and-welfare-queue.md`; what it writes is §10.6's life-status endpoint.
 
 ---
 
@@ -101,19 +140,32 @@ A team member on the dashboard sees the status as an editable field with a short
 
 Cats get sterilised without a clip — an older operation, a different vet's practice, a clip that healed subtly, or simply a photo taken from the wrong side. The clip is **usually on the left ear**, which means a right-side photo tells you nothing at all.
 
-**Absence of a visible clip is never negative evidence.** No number of "no clip visible" answers can move a cat toward "not sterilised". Only a Syros Cats team member or a vet can assert that a cat has not been sterilised.
+**Absence of a visible clip is never negative evidence.** No number of "no clip visible" answers can move a cat toward "not sterilised". Only a Syros Cats team member, a vet, or an imported Syros Cats record can assert that a cat has not been sterilised.
 
-The reason this gets its own section, its own dedicated test, and a place in this document's opening summary: getting it backwards puts every unclipped-but-sterilised cat onto the trapping list. **The failure mode is real people driving to real places, setting a trap for a cat that was done four years ago.** It wastes the scarcest thing the charity has and it distresses the cat. Sterilisation costs Syros Cats €50–60 per cat; a wasted trapping trip costs volunteer hours they cannot buy back.
+This rule gets its own section, its own named test and a line in the opening summary because **it fails in both directions and both directions cost real animals**:
 
-### 4.2 The three levels
+- **Getting it backwards** — treating "no clip visible" as "not sterilised" — puts every unclipped-but-sterilised cat onto the trapping list. The failure mode is real people driving to real places and setting a trap for a cat that was done four years ago. Sterilisation costs Syros Cats €50–60 per cat; a wasted trapping trip costs volunteer hours they cannot buy back.
+- **Being too eager the other way** — letting one misread photo sit at *Likely* forever — quietly deprioritises a cat that has *not* been done, and the result is a litter. This is the direction the one-photo rule in §4.3 creates, and it is why §4.5 exists.
 
-| Level | Reached when | Shown as |
+### 4.2 The three levels, and what the public sees
+
+| Level | Reached when | Shown as, to everyone |
 |---|---|---|
-| **Confirmed** | An imported Syros Cats record, a team entry, or a vet says the cat was sterilised | *"Sterilised — confirmed by Syros Cats"* |
-| **Likely** | One or more photo-backed sightings report a clipped tip, and nothing authoritative contradicts it | *"Probably sterilised — a clipped ear tip has been seen"* |
+| **Confirmed sterilised** | An imported Syros Cats record, a team entry, or a vet says the cat was sterilised, and nothing more recent and equally authoritative says otherwise | *"Sterilised — confirmed by Syros Cats"* |
+| **Likely sterilised** | One or more photo-backed sightings report a clipped tip, and nothing authoritative contradicts it | *"Probably sterilised — a clipped ear tip has been seen"* |
+| **Confirmed not sterilised** | A team member, a vet, or an imported record says this cat has not been sterilised, and nothing more recent and equally authoritative says otherwise | *"Not sterilised — Syros Cats' records"* |
 | **Unknown** | Nothing has been said, or only "can't tell" / "no clip visible" answers exist | *"Not known yet"* |
 
-A fourth level, **Reported**, exists in the data model and the resolver's output type from day one but is not yet reachable — it is where SYC-52 will place a single unconfirmed public claim once prompted-versus-volunteered weighting arrives. Building the ladder with all four rungs now means the later change is a resolver change, not a schema change. See §8.
+**Per D4, a confirmed negative is shown publicly.** The earlier draft of this spec recommended hiding it — showing *"Not known yet"* to the public while the team saw the truth. Samuel decided against that: the app should be honest, and a person looking at a cat should be able to see that this one still needs help.
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **Show the confirmed negative publicly (chosen)** | The app tells the truth. A donation ask against a specific unsterilised cat is the most honest version of the ask there is. A guardian or resident reading the page can act on it. No second, hidden version of the record for staff — one truth, one display. | It paints a target. The public map now says *this specific cat, roughly here, has not been sterilised*, which is a sharper signal than a location alone for anyone hostile to street cats. It also invites a specific kind of wrongness: a mis-matched import row that says "not sterilised" is now a public accusation about the wrong cat. |
+| **Show it as "not known yet"** | Removes the targeting signal entirely. | Two versions of the truth in one system, which is the thing §2 exists to prevent, and a dishonest one facing the public. |
+
+**Recommendation, and the decision: show it.** Two things follow and are not optional. First, **this sharpens the targeting risk in §6 and must be disclosed to Syros Cats alongside the colony-averaging limitation in §6.2** — they are accepting both together, and the combination is stronger than either alone. Second, the correction path in §4.5 becomes load-bearing rather than nice to have, because a wrong public negative is now visible to everybody.
+
+A fourth level, **Reported**, exists in the data model and the resolver's output type from day one but is not yet reachable — it is where SYC-52 will place a single unconfirmed public claim once prompted-versus-volunteered weighting arrives. Building the ladder with all its rungs now means the later change is a resolver change, not a schema change. See §10.
 
 **Confidence never crosses attributes.** A *Confirmed* ear tip is a confirmed statement about an ear, not about an operation. It contributes to sterilised reaching *Likely* and can never make it *Confirmed*. This is the §4.1 rule expressed as something the resolver enforces rather than a convention it hopes for.
 
@@ -121,10 +173,10 @@ A fourth level, **Reported**, exists in the data model and the resolver's output
 
 | Option | Benefits | Risks |
 |---|---|---|
-| **One is enough (recommended)** | Matches reality: a clipped tip in a photograph is a physical fact, not an opinion. Fills the record from the first season. Simple to explain: "somebody saw the clip." | One misread photo shows as *Likely*. Contained, because *Likely* is honestly labelled as probable, is visibly superseded by any team entry, and never blocks anything — it lowers a colony's priority slightly, it does not remove a cat from the list. |
+| **One is enough (recommended)** | Matches reality: a clipped tip in a photograph is a physical fact, not an opinion. Fills the record from the first season. Simple to explain: "somebody saw the clip." | One misread photo shows as *Likely*, and an unsterilised cat sitting at *Likely* is deprioritised for trapping and produces a litter. Only tolerable with a working correction path — see §4.5. |
 | **Two independent spotters required** | Higher bar; fewer wrong *Likely* labels | Most cats are spotted by one person. This would leave the majority of genuinely-clipped cats sitting at *Unknown* through an entire season, which is a worse error than the one it prevents — and it is exactly the error that sends volunteers out to trap already-done cats. |
 
-**Recommendation: one photo-backed clipped-tip observation reaches *Likely*.** The cat page shows how many people have said it and links to the photos, so the strength of the evidence is visible without needing an extra level. When SYC-52 lands, prompted confirmations (where the app pre-filled the answer) will be weighted below volunteered ones, and it is that change — not a count threshold — that hardens this.
+**Recommendation: one photo-backed clipped-tip observation reaches *Likely*** — with §4.5's correction path shipping in the same change, not later. The cat page shows how many people have said it and links to the photos, so the strength of the evidence is visible without needing an extra level.
 
 ### 4.4 The question a spotter is asked
 
@@ -132,15 +184,36 @@ On the reward screen, after the points, one tap:
 
 > **+15 points** · Agatha spotted again
 >
-> *One quick thing — is Agatha's ear tip clipped?* (usually the left ear — [see an example](#))
+> *One quick thing — is Agatha's ear tip clipped?* (usually the left ear — see the example photo)
 > `Yes, clipped` &nbsp; `No, looks whole` &nbsp; `Can't tell`
 >
 > *Skip*
 
+- **The example photo is required, not decorative.** It shows a clean clipped tip beside a torn or notched ear, with one line: *a clip is a straight cut across the tip; a notch or a tear is a battle scar, not a sterilisation mark.* Notch-versus-clip is the single most predictable error an untrained tourist will make in this app, and the picture is the cheapest defence against it. It comes from `docs/PRODUCT-SPEC.md` §2.2 and must be a real asset before this question ships — the earlier draft linked to a dead anchor.
 - **"Can't tell" is a first-class answer**, recorded as such, and it stops the app asking that spotter about that cat again. It is not a failure and it is not treated as "no".
-- **"No, looks whole"** is recorded faithfully and has exactly one effect: it is visible to the team as context. It does not move the status. It never will.
+- **"No, looks whole"** from a spotter is recorded faithfully and has exactly one effect: it is visible to the team as context. It does not move the status. It never will.
 - **Skipping** leaves the attribute *Unknown*, which is the truthful state.
 - Which ear was seen is recorded when the answer is "yes" (left / right / not sure), because the left-ear convention makes a right-ear clip worth a second look — not disqualifying, just interesting.
+
+### 4.5 Fixing a wrong *Likely* — the correction path
+
+A tourist taps "Yes, clipped" at a torn ear. The cat is now *Probably sterilised*. Until this revision, nothing in the system could undo that: a team member's `ear_tip { clipped: false }` was defined as never affecting the level, a staff `sterilised: false` was a different attribute with undefined precedence, the confirmation queue was deferred, and there was no API for writing a superseding observation at all. The most predictable error in the app was permanent.
+
+Three things fix it, and all three ship together:
+
+1. **A supersede write.** A team member viewing the evidence photo can mark that specific observation superseded, with a reason, from the cat page in the dashboard. It writes a new observation pointing at the old one; nothing is deleted and the mistake stays visible in the trail. `POST /observations/{id}/supersede` in §10.6.
+2. **`clipped: false` means something when a team member says it.** The §4.1 asymmetry is about *spotters*, and it is unchanged: no volume of public "no clip visible" answers moves anything. But a Syros Cats team member or vet looking at the same photograph and judging *that is a torn ear* is an authoritative statement about the ear, and it supersedes the spotter's `clipped: true` on that cat. It moves sterilised from *Likely* back to *Unknown* — never to a negative, because an unclipped ear is still not evidence of an unsterilised cat.
+3. **A *Likely* review list.** Not the full confirmation queue (still deferred) — just a dashboard list of cats sitting at *Likely* with their evidence photos, newest first, and the two buttons *looks right* / *that's not a clip*. A few minutes a week clears a season's errors.
+
+### 4.6 Precedence — which statement wins
+
+This is the rule the old spec got wrong, and it is worth stating plainly because it is what makes every correction in this document actually execute.
+
+**Among authoritative statements about sterilisation — team, vet, or imported record — the newest one by the date it describes wins, whichever way it points.** A 2019 import saying "sterilised" loses to a 2026 staff entry saying "not sterilised". A 2026 import saying "not sterilised" loses to a 2024 vet record saying "sterilised" only if the vet record is newer, which it is not — so the import wins. There is no thumb on the scale for positives.
+
+Only when there is no authoritative statement at all does the clipped-tip evidence get consulted, and it can only ever produce *Likely*.
+
+The reason this matters: §5.5 promises that a later team entry corrects a mis-matched import row. That is the highest-consequence correction in the system — it is how a cat wrongly labelled from someone else's record gets its own record back — and under the old "any positive ever, wins" rule it could not happen.
 
 ---
 
@@ -152,78 +225,112 @@ Syros Cats keeps sterilisation and TNR records today and will hand them over. Jo
 
 We ask for whatever they already have, in whatever form they already have it — a spreadsheet export is ideal, a photograph of a notebook page is acceptable and gets typed up. We do not ask them to restructure their records to suit us; that is a request a small charity should never receive from software.
 
-The columns we hope to find, and what each is worth:
-
 | Field | Why it matters | If missing |
 |---|---|---|
 | **Date of the operation** | Orders the evidence; drives impact reporting by date range | Import as "date unknown"; the record still confirms sterilisation, it just cannot be counted in a period |
 | **The cat's name or their reference** | The strongest matching signal we have | Falls back to colony plus description |
 | **Colony or location** | Second-strongest matching signal; colonies have fixed names, usually the place plus the name of the person caring for the colony | Matching relies on name alone |
-| **Sex** | Fills an attribute we otherwise rarely learn | Left unknown |
+| **Sex** | Fills an attribute we otherwise rarely learn, and is the strongest way to *rule out* a wrong match | Left unknown |
 | **Vet or clinic** | Provenance; supports funder reporting | Recorded as "Syros Cats record" |
 | **Ear tip clipped, and which side** | Lets us cross-check crowd observations | Assumed nothing |
 | **Cat guardian's name** | Matching signal, and the route to a guardian account later | Ignored |
 | **Cost** | Funder reporting against the €50–60 per cat figure | Ignored |
 | **Free-text notes** | Kept verbatim; often the only thing that identifies a cat | — |
 
-### 5.2 The pipeline
+### 5.2 What a real charity's records actually look like
+
+The pipeline below is built for the file we will actually receive, not the file we would like. Four things are near-certain and each needs an answer before the first upload, not after:
+
+- **The same cat appears more than once.** A cat done in 2019 and treated again in 2023 is two rows and one cat. Two volunteers recording the same operation is two rows and one operation. The import cannot tell these apart by content alone, so it does not try: both rows are kept, both are matched, and the *pool count* in §5.4 is de-duplicated before publication rather than at import.
+- **Spelling is inconsistent.** "Mimi", "Mimí", "MIMI", "Mimi (bakery)". Normalisation folds case and trims, but it does not invent a canonical spelling; near-matches go to review.
+- **Greek and Latin script for the same cat.** "Ρούλα" in the charity's book and "Roula" in the app are the same animal. A transliteration table (the standard ELOT 743 mappings plus the handful of local habits — ου/ou, γκ/gk, and both directions) is applied when scoring near-matches. It never auto-links on its own.
+- **Greek text is harder than "case-fold" suggests.** Final sigma (ς versus σ), accents (Μιμή versus ΜΙΜΗ — Greek drops the accent when capitalised), and Unicode normalisation (the same name typed on an iPhone and pasted from a Word document can be different byte sequences). All names are normalised to **NFC on write** — in the app as well as the importer — and matching compares an accent-stripped, final-sigma-folded, case-folded form. This also means the catalogue's "names are unique, case-insensitively" guarantee needs a migration-level test asserting what it actually does with `Μιμή` (NFC), `Μιμή` (NFD) and `ΜΙΜΗ`. See §10.7.
+- **Cats known by two names.** The charity's "Μιμή, the one-eyed one by the bakery" and the app's "Mimi" must be able to be one cat with two recorded names — see §5.6.
+
+### 5.3 The pipeline
 
 Four stages, each of which can be stopped and inspected.
 
-1. **Land the file, untouched.** Every row is stored verbatim in a staging table alongside a hash of its content and the name of the file it came from. Nothing is interpreted yet. This is what makes the import re-runnable and re-derivable — if we discover in six months that the matching was too eager, we re-run it against the original rows rather than reconstructing them.
-2. **Normalise.** Dates parsed (Greek and English formats), names trimmed and case-folded, colonies mapped onto the app's colony names. Anything that will not parse is flagged, not guessed.
-3. **Match to a cat in the app.** Scored, never automatic beyond a high bar. See §5.3.
-4. **Apply.** Matched rows become observations with provenance `import` and source `Syros Cats records`, which resolve to *Confirmed*. Unmatched rows wait in a pool. See §5.4.
+1. **Land the file, untouched.** Every row is stored verbatim in a staging table alongside a hash of its content, its position in the file, and a hash of the whole file. Nothing is interpreted yet. This is what makes the import re-runnable and re-derivable — if we discover in six months that the matching was too eager, we re-run it against the original rows rather than reconstructing them.
+2. **Normalise.** Dates parsed (Greek and English formats), names normalised as §5.2 describes, colonies mapped onto the app's colony names. Anything that will not parse is flagged, not guessed.
+3. **Match to a cat in the app.** Scored, never automatic beyond a high bar. See §5.4.
+4. **Apply.** Matched rows become observations with provenance `import` and source `Syros Cats records`, which resolve to *Confirmed*. Unmatched rows wait in a pool. See §5.5.
 
-**Re-running the import is safe.** The pair (source file, row hash) is unique, so the same row imported twice produces one observation. A corrected spreadsheet re-imported later adds only the changed rows.
+**Any photograph arriving with the records goes through the same pipeline as a photo taken in the app.** The charity's records may come with pictures — a photo of a cat on the clinic table, a snapshot attached to a spreadsheet row, a phone picture of a notebook page. Those are photographs taken on somebody's phone, which means they carry the GPS tag of where they were taken, which is a vet's premises or a colony's exact feeding spot.
 
-### 5.3 Matching imported records to cats in the app
+The upload path strips that metadata (§6.4.5). **The import must not have a direct-insert path into the photos table.** Every imported image is validated and re-encoded through the same `validatePhotoBase64` pipeline as a spotter's photo — same format checks, same size limits, same strip — with no shortcut for "it came from the charity so it must be fine". An import that writes photo rows directly would silently publish exact coordinates on a public, permanently-cached endpoint, defeating every control in §6 for exactly the cats the charity cares most about.
+
+This is a dependency in both directions. `hosting-and-photo-storage.md` owns the test that a JPEG uploaded with a GPS block comes back without one; today the image-validation suite has eleven tests and **not one of them asserts that GPS metadata is gone** — the only EXIF-adjacent test asserts that orientation is honoured. That test covers the upload path only. This document requires the same assertion against the import path (§10.8 test 13), because a stripping guarantee that holds on one of two entrances is not a guarantee.
+
+**Re-running the import is genuinely safe — which it was not, as previously specified.** The old design made the row identity unique on *(batch id, row hash)*, and a re-upload creates a new batch with a new id. Every row would have inserted again, matched again, and written a second observation. Re-uploading the spreadsheet because you were not sure the first one worked — the single most likely operational event in the whole feature — would have doubled the confirmed-sterilisation count that goes to funders.
+
+The identity is now **(file content hash, row hash, row position)**, unique across the whole table:
+
+- **The same file uploaded twice** is recognised as the same file. The second upload reports "this file is already imported, 214 rows, nothing to do" and writes nothing.
+- **Genuinely identical rows within one file** — the charity recorded the same cat twice, identically — both survive, because the row's position in the file is part of its identity. Discarding one would throw away a real record.
+- **A corrected file** is a different file. The rows that are unchanged are recognised as already imported and skipped. The rows that changed are new rows, and here the old design left two contradictory live observations from one real-world record with nothing linking them. Instead: a corrected row **supersedes** the observation written by the row it replaces, matched on the charity's own reference where the file has one, and on (file lineage, row position) where it does not. The superseded observation stays in the trail with the reason *"replaced by a corrected import"*. Where neither key is available the row lands in review rather than guessing.
+
+### 5.4 Matching imported records to cats in the app
 
 Candidates are scored, and the score decides what happens — it never decides silently.
 
 | Signal | Weight |
 |---|---|
-| Cat name matches, case-insensitive, exactly | Very strong |
-| Cat name is a near-match (one or two characters, or a known transliteration between Greek and Latin script) | Strong |
+| Cat name matches, case-insensitive and accent-insensitive, exactly | Very strong |
+| Cat name is a near-match (one or two characters, or a known Greek↔Latin transliteration) | Strong |
 | Colony matches | Moderate |
 | Record location within 500 m of the cat's sightings | Moderate |
 | Cat guardian's name matches the claimed owner | Moderate |
-| Sex contradicts a recorded sex | Strong negative |
+| Sex contradicts a recorded sex | **Strong negative — vetoes an auto-link outright** |
 
 | Outcome | Rule | What happens |
 |---|---|---|
-| **Auto-linked** | Exact name match, and exactly one cat in the catalogue has that name | Applied immediately. Names are already unique case-insensitively across the catalogue, so this is unambiguous by construction. |
-| **Needs review** | Any other scoring cat | Lands in the team dashboard's import queue: the record on one side, up to three candidate cats with photos on the other, and buttons for *this one* / *none of these*. |
-| **Unmatched** | Nothing scores | Goes to the waiting pool. See §5.4. |
+| **Auto-linked** | Exact name match, **and** exactly one cat in the catalogue has that name, **and** at least one corroborating signal (colony match, a record location within 500 m of the cat's sightings, or a guardian-name match), **and** no negative signal | Applied immediately, and recorded as auto-linked so the whole set can be reviewed or reversed as a group. |
+| **Needs review** | Any other scoring cat, including a name-only match with nothing corroborating | Lands in the team dashboard's import queue: the record on one side, up to three candidate cats with photos on the other, and buttons for *this one* / *none of these*. |
+| **Unmatched** | Nothing scores | Goes to the waiting pool. See §5.5. |
+
+**Why name alone is no longer enough.** The previous rule auto-linked on an exact unique name, reasoning that names are unique across the catalogue "so this is unambiguous by construction". Uniqueness is real — the database enforces it — but it guarantees *at most one candidate*, not *the right one*. App cat names come from an AI suggester asked for names in the user's language, drawing on the same small pool of common Greek cat names the charity's own records use. "Ρούλα" in the charity's Ano Syros records and "Roula" the tabby a French tourist named in Kini are one exact-name auto-link that no human ever sees — and the result is a *Confirmed* sterilisation, or now under D4 a *public confirmed negative*, on the wrong cat. A few hundred rows in a review queue is one afternoon for Jo. It is the cheapest insurance in the document.
 
 **Nothing is auto-linked on location or colony alone.** In a thirty-cat colony, "a sterilised cat near the bakery" identifies no individual.
 
-### 5.4 Records with no cat yet
+### 5.5 Records with no cat yet
 
-Most of Syros Cats' records will describe cats the app has never photographed. This is the interesting case, and there are two ways to handle it.
+Most of Syros Cats' records will describe cats the app has never photographed.
 
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Create a photo-less cat entry for every unmatched record** | Every sterilisation is immediately visible and countable. The island count jumps to something closer to reality. | The catalogue fills with cats nobody can spot, collect, or see a photo of. The collection grid — the reason tourists come back — becomes mostly locked grey squares for cats that may not exist any more. Duplicates become near-certain when the real cat is later photographed and named something else. |
-| **B. Hold them in a waiting pool, attach on first sighting (recommended)** | The public catalogue stays honest: everything in it is a cat somebody has seen. Impact reporting still counts these records, from the pool, because the pool is part of the data. When a matching cat is later spotted, the team gets a suggestion and one tap links the record — turning a first sighting into a *Confirmed* sterilisation. | Two places to look when answering "is this cat done?" — handled by the resolver consulting both, so only the code sees the seam. |
+| **B. Hold them in a waiting pool, attach on first sighting (recommended)** | The public catalogue stays honest: everything in it is a cat somebody has seen. Impact reporting still counts these records, from the pool, because the pool is part of the data. When a matching cat is later spotted, the team gets a suggestion and one tap links the record — turning a first sighting into a *Confirmed* sterilisation. | Two places to look when answering "is this cat done?" — handled by the resolver consulting both, so only the code sees the seam. And the two places can double-count; see below. |
 
-**Recommendation: Option B.** The catalogue is a record of cats that have been seen; the pool is a record of operations that have been performed. Both are true, and conflating them damages the one that tourists interact with.
+**Recommendation: Option B.** The catalogue is a record of cats that have been seen; the pool is a record of operations that have been performed.
 
-Impact figures report both, plainly: *"142 cats in the catalogue: 89 confirmed sterilised, 23 likely, 30 not known. A further 46 sterilisations are on record for cats not yet photographed."*
+**The counting is honest about its own overlap.** A pool record is "a cat not yet photographed" only if the matching was right, and unmatched-because-hard is the common case rather than the rare one. A record that failed to match a cat already in the catalogue is counted twice. Two rows for one cat under two spellings both sit in the pool and both count. So:
 
-### 5.5 When the import contradicts what the app derived
+- The pool figure is **de-duplicated before publication** — rows that match each other on the charity's reference, or on normalised name plus colony, count once.
+- The reporting sentence names the overlap rather than implying precision it does not have: *"142 cats in the catalogue: 89 confirmed sterilised, 23 likely, 12 confirmed not sterilised, 18 not known. We hold records of a further 46 sterilisations for cats not yet photographed — some of these may be cats already listed above."*
+- **The "further 46" will go down over time, and that is success, not a mistake.** Every time a pool record links to a newly-photographed cat, the pool drops by one and the confirmed count rises by one. A funder-facing number that moves downward needs its explanation written before it moves, not after.
+
+### 5.6 A cat's names, over time
+
+The cat's name is the strongest matching signal we have, and today nothing preserves it: renaming a cat overwrites the name in place, with no history, so an owner renaming their cat destroys the only strong key every future import run would have used. There is also no way to say that a cat is known by two names, which §5.2 says is the normal case.
+
+**A cat's names are recorded append-only, like everything else** — every name it has been known by, with who gave it, when, and where the name came from (spotter, owner rename, charity record, transliteration). The current name is the newest non-superseded one; the rest are matching keys. Imports match against all of them. This is also the natural home for the Greek/Latin pairs in §5.2.
+
+**Names given by a deleted user are kept.** A name becomes shared community property the moment other people use it; see §8.4.
+
+### 5.7 When the import contradicts what the app derived
 
 | Situation | What happens | Why |
 |---|---|---|
 | App says *Likely* (clipped tip seen), import confirms sterilised | Becomes *Confirmed*. Both observations stay. | The crowd was right, and the record now says so with authority. |
 | App says *Unknown*, import confirms sterilised | Becomes *Confirmed*. | The whole point of the import. |
-| App says *Likely*, import record says the cat was **not** sterilised (e.g. a trapping that did not proceed) | Newest dated statement wins. Flagged for the team either way. | A team assertion of "not sterilised" is authoritative, but a clipped tip photographed *after* that date means something changed. The team sees the conflict and decides. |
-| Import confirms sterilised, a later team entry says not sterilised | The later team entry wins, and the conflict is flagged prominently. | Almost always means the record was matched to the wrong cat. This is the signal that the matching needs correcting. |
-| Two import rows disagree with each other about the same cat | Both applied; the newer date wins; flagged. | Their records, their conflict — we surface it rather than silently picking. |
+| App says *Likely*, import record says the cat was **not** sterilised (e.g. a trapping that did not proceed) | The import is authoritative and it wins, because clipped-tip evidence can never outrank an authoritative statement (§4.6). Publicly the cat reads *"Not sterilised"* per D4. Flagged for the team. | A clipped tip photographed after that date is genuinely interesting — but *interesting* is a flag for a human, not a reason for the resolver to override the record. |
+| Import confirms sterilised, a later team entry says not sterilised | The later team entry wins, and the conflict is flagged prominently. | Almost always means the record was matched to the wrong cat. This is the signal that the matching needs correcting — and under §4.6 it now actually executes. |
+| Two import rows disagree with each other about the same cat | Both applied; the newer operation date wins; flagged. | Their records, their conflict — we surface it rather than silently picking. |
 
 **No import row ever overwrites or deletes anything.** Every one of these outcomes is an addition to the trail, and every one is reversible by adding a further observation.
 
-**Unlinking is supported.** A record linked to the wrong cat can be unlinked from the team dashboard; the link removal is itself recorded, the record returns to the review queue, and the derived status recomputes immediately.
+**Unlinking is supported.** A record linked to the wrong cat can be unlinked from the team dashboard; the unlink supersedes the observation the link wrote, the record returns to the review queue (`needs_review`), and the derived status recomputes immediately. There is one state for this transition, not two.
 
 ---
 
@@ -238,62 +345,131 @@ Two different things, and they need two different answers.
 
 The second is the one that quietly defeats most blurring schemes, so it drives the method.
 
+**D4 raises the stakes on both.** The public map now says *this specific cat, roughly here, has not been sterilised*. That is a sharper signal than a location alone, and it is the reason §6.2's accepted limitation has to be put to Syros Cats explicitly rather than filed away.
+
 ### 6.2 The blurring method
 
 | Option | How it works | Benefits | Risks |
 |---|---|---|---|
 | **A. Random jitter per request** | Add a random offset each time the location is served | Trivial to implement; looks blurred | **Defeated completely by averaging.** Sample the same cat two hundred times and the mean of the offsets converges on the true position. This is the standard mistake. |
 | **B. Fixed random offset per cat** | One offset generated per cat, stored, reused forever | Immune to averaging | The offset is a stored secret that must never leak, and a single leak exposes that cat exactly. Also produces a map where cats appear in the sea or on cliff faces, which looks broken. |
-| **C. Snap to a fixed grid (recommended)** | The island is divided into fixed cells. The public location of a cat is the centre of the cell its true location falls in. | Deterministic — a thousand requests return one identical answer, so repeated sampling yields exactly nothing. No secret to leak. Cheap: a rounding operation, no state. Honest to display: a circle over a cell is a truthful picture of what is known. | Cats near a cell boundary can appear to jump between cells if their true position drifts across it — mitigated because we snap the cat's *derived* location, which moves rarely. A cell centre can land in the sea; we display a circle, not a pin, so this reads correctly. |
-| **D. No public locations at all** | Cat pages show a colony name and no map position | Perfect privacy | Kills the map, which is a large part of why the app is enjoyable, and removes the "cats near you" experience the whole spot flow leads with. |
+| **C. Snap to a fixed grid (chosen)** | The island is divided into fixed cells. The public location of a cat is the centre of the cell its true location falls in. | Deterministic — a thousand requests return one identical answer, so repeated sampling of *one cat* yields exactly nothing. No secret to leak. Cheap: a rounding operation, no state. | Averaging across *many* cats still recovers a colony centre — see below. A cell centre can land in the sea; we display a shape, not a pin, so this reads correctly. |
+| **D. Snap every cat in a colony to one shared colony centre** | All cats in a colony publish the identical point | Averaging returns exactly the published value and yields nothing at all | Costs the map its texture — thirty cats on one dot in the middle of town. Requires colony membership for every cat, which most cats do not have yet. |
+| **E. No public locations at all** | Cat pages show a colony name and no map position | Perfect privacy | Kills the map, which is a large part of why the app is enjoyable, and removes the "cats near you" experience the whole spot flow leads with. |
 
-**Recommendation: Option C, with a cell size of 250 m and a displayed circle of 300 m radius.**
+**Decision (F2): Option C, 250 m cells, kept as specified.**
 
-Practically: latitude and longitude are quantised to a grid of roughly 250 m (about 0.00225° of latitude, with the longitude step scaled by the cosine of Syros's latitude so cells stay square). The published position is the centre of the cell. The map draws a soft 300 m circle, never a pin, with the label *"Somewhere around here"*.
+Practically: latitude and longitude are quantised to a grid of roughly 250 m (about 0.00225° of latitude, with the longitude step scaled by the cosine of Syros's latitude so cells stay square). The published position is the centre of the cell.
 
-**Why 250 m and not 100 m or 1 km.** At 100 m a cell often contains one doorway, which is not protection. At 1 km, half of Syros is one circle and the map stops saying anything. 250 m is roughly a block of Ermoupoli: enough to find the cat if you walk around and look, which is the intended experience, and not enough to point at a specific house. This number is a judgement call and is written as a single configuration value so it can be changed after the team sees the first real map.
+**Why 250 m and not 100 m or 1 km.** At 100 m a cell often contains one doorway, which is not protection. At 1 km, half of Syros is one circle and the map stops saying anything. 250 m is roughly a block of Ermoupoli: enough to find the cat if you walk around and look, which is the intended experience, and not enough to point at a specific house. This number is written as a single configuration value so it can be changed after the team sees the first real map.
 
-### 6.3 How this interacts with the 500 m matching cap
+#### The accepted limitation, stated at its real size
 
-**It does not, and that is deliberate.**
+Grid snapping protects an individual cat perfectly against repeated sampling. **It does not protect a colony.** Each cat's published point is its true point pushed to a cell centre; those errors are effectively independent from cat to cat and spread roughly evenly across a cell. Average the published points of the cats in one colony and the errors cancel. The maths is ordinary: the error on the average shrinks with the square root of the number of cats, so **thirty cats in one colony give the colony's centre to about 45 metres**. Forty-five metres is a specific corner of a specific street.
 
-Matching a new photo against cats within 500 m happens **on the server, using exact coordinates, always.** Blurring is applied when a payload is built for a public reader — it is a presentation rule, never a data rule. The exact position is stored, is used for matching, targeting, colony clustering and every internal calculation, and is simply not published.
+Colonies exist because cats gather where they are fed. So the number recovered is, in practice, the feeding site — which is precisely the information §6.6 keeps out of public payloads entirely, and precisely the targeting concern Syros Cats raised at the 1 September meeting.
+
+**This is a knowingly accepted limitation, not an oversight and not a bug to be fixed later.** Option D would close it and was considered and rejected: it needs colony membership the data does not have, and it flattens the map that makes the app worth opening. We are choosing a working map over a guarantee we cannot fully make.
+
+What acceptance requires, and none of it is optional:
+
+- **Syros Cats hear it in plain language, before launch, together with D4.** The sentence is: *someone patient enough to average the map can work out roughly where a colony is fed, to about the width of a street. We can stop them finding one cat; we cannot stop them finding the colony.* They accept it or they ask us to change it — it is their island and their neighbours.
+- **The acceptance is recorded**, with a date, alongside D4's public unsterilised status. (Agenda item and ticket, per `DECISIONS.md` Part 4.)
+- **§6.6's private-feeding-site toggle is never oversold.** It is honest about the site row itself and it does not hide the cats clustered on it. Anyone describing that toggle to the charity says so.
+
+#### The drawn circle was overstating the protection
+
+The map drew a 300 m radius circle around a 250 m cell. That circle covers about 283,000 m²; the cell it represents is 62,500 m². **The picture claimed roughly four and a half times more privacy than exists**, and the grid is not secret — anyone who reads the code, or simply notices that published points fall on a lattice, knows exactly which 250 m box the cat is in.
+
+It was also misleading in the other direction for honest users: a cat sitting at a cell corner is up to about 177 m from the drawn centre, so a tourist walking to the middle of the circle can be walking away from the cat.
+
+**Fix: draw the cell.** The map shows the 250 m square (with softened corners so it reads as a region, not a building footprint), labelled *"Somewhere in here"*. It is truthful, it is the same shape the guarantee is made about, and it removes the need to explain a discrepancy to anybody. `BLUR_DISPLAY_RADIUS_METRES` is retired; the API publishes the cell size and the client draws it.
+
+#### One improvement worth taking
+
+The grid origin is derived from a **server-held secret** — one fixed sub-cell offset applied to the whole island, `HMAC(secret) → offset`. This stays entirely deterministic: a thousand requests still return one identical answer, there is no per-cat secret, and no averaging attack is opened. What it buys is that the cell boundaries are not reconstructable by reading the source, so an attacker knows the cat is within 250 m of the published point rather than knowing precisely which box. If the offset ever leaked, the guarantee degrades to exactly what it is today — which is why it is worth doing and not worth worrying about.
+
+### 6.3 The nearest-cat oracle on `POST /sightings` — fixed, not accepted
+
+**This is the one thing in §6 that is not a judgement call.** The previous version of this section opened *"It does not interact, and that is deliberate"* and treated photo matching as an internal consumer of exact coordinates. It is not internal, and the endpoint is not a non-issue.
+
+What the code does today, verified: `POST /sightings` is unauthenticated, takes a `lat`/`lng` chosen entirely by the caller, loads every cat, sorts them by true distance from that point, takes the ten nearest, and returns matching candidates — cat id, name, photo URL and confidence — straight back in the response.
+
+That is a question-answering service about the unpublished coordinates. The attack needs nothing that is not already public: photos are served unauthenticated from sequential ids, so fetch the target cat's own photo, resubmit it at a probe coordinate, and see whether the cat comes back. Each probe is a geometric constraint. Bisect, repeat from a few bearings, and a 250 m cell falls in tens of probes. The rate limit does not stop it — 20 requests per 15 minutes **per IP address** is roughly 1,900 probes a day from one address and trivially multiplied across addresses.
+
+Grid snapping is not defeated by averaging the published value. It is defeated by a second endpoint that answers questions about the value we did not publish.
+
+**Three changes, all required:**
+
+1. **Candidate selection runs on the blurred grid.** The ten candidates are chosen by distance from the *snapped* probe point to the *snapped* cat positions. Every cat in the same cell is equivalent, so probing tells the caller which cell they are pointing at — which they already knew, because they chose the coordinate. The ordering that leaked true distance is gone.
+   - **The accuracy objection is answerable.** Quantisation could push a genuinely-near cat out of the ten, so the candidate radius widens to **750 m** to absorb it, and the candidate list is re-ranked by the vision model anyway, which is what actually decides the match. Matching quality is preserved; the ordering channel is not.
+2. **Rate-limited per device, not per IP.** `POST /sightings` requires the device secret the resolve endpoint already requires, and the limit counts against the device. An attacker can still register devices, but each one is a deliberate act with its own budget rather than a free IP rotation.
+3. **A candidate set never reveals its own geography.** Candidates below a real confidence threshold are not returned with `catId` and `name` at all, and the response never orders or annotates candidates by true distance.
+
+**Test:** probe the endpoint from a grid of coordinates with a known cat's photo and assert the returned set does not vary with sub-cell movements of the probe, and does not reveal ordering by true distance.
 
 Two consequences to hold on to:
 
-- If blurring were ever applied before matching, a 250 m quantisation inside a 500 m radius would misjudge candidates near the edge, and the matching quality — on which every impact number rests — would degrade for a privacy benefit that was already achieved elsewhere. There is a test asserting the matching path reads exact coordinates.
-- On-device matching, when it arrives, changes this picture: a phone that matches offline needs candidate locations locally. The answer then is that on-device matching runs against the *photo fingerprints* of nearby cats without needing their published coordinates to be exact, and any exact coordinates cached on a device belong to a signed-in team member's device only. Flagged here so it is not discovered late.
+- Exact coordinates remain stored and remain used for the team's own work — targeting, colony clustering, welfare response. Blurring is a publication rule. What changed is that *answering a stranger's question about the exact value* counts as publication.
+- On-device matching, when it arrives, runs against the *photo fingerprints* of nearby cats without needing exact coordinates on the phone. Exact coordinates never reach the mobile app at all (§6.5). Flagged here so it is not discovered late.
 
-### 6.4 Preventing de-anonymisation by repeated sampling
+### 6.4 The other channels that give the position back
 
-Grid snapping handles the obvious attack. Four less obvious leaks close the rest:
+Grid snapping handles the obvious attack. These close the rest.
 
-1. **Per-sighting coordinates are never public.** This is the big one. Blurring a cat's single location while publishing forty exact sighting coordinates for that cat protects nothing — the sightings cluster on the truth. Public sighting history shows photo, spotter and date, and no position. The team sees positions.
-2. **Distance is computed from the published position, not the true one.** Publishing an exact "1.37 km away" alongside a blurred dot lets anyone with three positions trilaterate the true point in seconds. Public `distanceKm` is computed from the cell centre and rounded to 100 m.
+1. **Per-sighting coordinates are never public.** This is the big one. Blurring a cat's single location while publishing forty exact sighting coordinates for that cat protects nothing — the sightings cluster on the truth. Public sighting history shows photo, spotter and date, and no position. The team sees positions. *(Today `GET /cats/{id}` returns `lat`/`lng` on every sighting. This is the change that removes them.)*
+2. **Distance is computed from the published position, not the true one.** Publishing an exact "1.37 km away" alongside a blurred point lets anyone with three positions trilaterate the true point in seconds. Public `distanceKm` is computed from the cell centre and rounded to 100 m.
 3. **Sorting is stable and coarse.** "Cats near me" sorts by the same blurred distance everyone else sees. Two cats in one cell tie, and ties break on cat id, not on true distance.
-4. **Timestamps are coarse in public.** Public "last seen" is a date, not a timestamp. An exact time plus a small area is a pattern of life — for the cat, and for the person who feeds it at the same hour every day.
+4. **Timestamps are coarse in public — and two channels currently hand the time back.** Public "last seen" is a date, not a timestamp, because an exact time plus a small area is a pattern of life for the cat and for the person who feeds it at the same hour every day. But:
+   - **Photo ids are a global clock.** Photo ids are sequential and photos are served unauthenticated from an enumerable URL that appears in every public sighting. Every public sighting therefore carries a total ordering against every other one, and calibrating a few known ids reconstructs approximate times for all of them. **Sighting photos must be served under an opaque, non-enumerable id** — this is the same hardening F7a requires for other reasons, and it is specified in `hosting-and-photo-storage.md`; this document states the dependency.
+   - **Push notifications are live.** Resolving a sighting subscribes you to that cat, and every later sighting fans out *"Agatha was spotted again!"* within seconds. Anyone who spots a cat once gets a minute-accurate feed of every subsequent sighting of it, forever. **Sighting notifications for cats the recipient does not own are batched or coarsened**, and the coarsening applies to the notification body too — "spotted again today", not a timestamp.
 
-A test suite asserts each of these by making the same request repeatedly and confirming byte-identical geography, and by confirming no public payload contains a raw sighting coordinate.
+   Until both are closed, the coarse-timestamp claim is a partial protection and this spec says so rather than implying otherwise.
+5. **Photos carry location in two ways, and only one of them is fixable.**
+   - **EXIF GPS.** Every upload is currently re-encoded through sharp, which drops metadata unless it is explicitly asked to keep it. That is a default, not a decision — and a perfectly reasonable future change to preserve colour profiles or orientation would silently republish exact capture coordinates on a public, permanently-cached endpoint, defeating everything else in this section. **It becomes a stated requirement with a test**: upload a JPEG carrying GPS EXIF, fetch it back, assert there is no GPS block. The image-validation suite has eleven tests today and none of them makes that assertion.
+   - **The second entrance.** The strip only helps if every photo goes through it. **The records import must have no direct-insert path into the photos table** — imported images are validated and re-encoded exactly like a spotter's, per §5.3. A photo attached to a charity record is a phone picture taken at a clinic or a feeding spot, which is the most sensitive coordinate in the system.
+   - **The picture itself.** A doorway, a house number, a shop sign, a recognisable balcony. No blurring scheme touches this and none ever will. Syros Cats should hear it from this document rather than discover it: the photographs are the least blurred thing we publish.
 
-### 6.5 Who sees exact locations
+### 6.5 Who sees exact locations, and where the blurring lives
 
 | Who | Sees |
 |---|---|
-| The public, signed out | Blurred cell centre, 300 m circle, coarse distance, no sighting positions |
-| A spotter, on their own sightings | Their own exact positions — it is their data and their walk |
-| Cat guardian, on cats they look after | Exact position of those cats |
-| Syros Cats team | Everything, exactly |
+| **The public — which is every user of the mobile app** | Cell centre, the 250 m cell drawn, coarse distance, no sighting positions |
+| A spotter, on their own sightings | The positions they themselves recorded — their own walk, on their own device |
+| Syros Cats team, on the dashboard | Everything, exactly |
 
-**The offline cache carries whatever the API returns.** The app's catalogue cache is a store of API responses, so blurring must be applied server-side when the payload is constructed — never in the rendering layer, or the exact figures sit on every tourist's phone in plain view. Two rules follow: the server decides based on the authenticated caller, and a device that signs out of a team account purges its cached catalogue and re-fetches. Offline support in this app is partial — photos, capture locations and map tiles work without signal, and the spot queue syncs later; a signed-out team device with a stale cache is exactly the gap this rule closes.
+**The mobile app is always a public reader.** There is no sign-in in the app and there is not going to be one: identity is an anonymous per-device id plus a device secret. The team dashboard is a separate web workspace with its own sign-in, specified in `team-access-and-welfare-queue.md`. Staff never sign in to the mobile app, so exact coordinates never reach it.
 
-### 6.6 Feeding sites
+This replaces the previous rule, which said "a device that signs out of a team account purges its cached catalogue". There is no team account in the app and no sign-out to hang that on; the mitigation was written for the wrong piece of software.
+
+**What actually keeps it true.** The catalogue cache on the phone is a single unversioned key with no expiry and no eviction, written on every successful fetch. Two rules:
+
+- **The cache key carries the viewer tier and a version** — `cats-cache/public/v2`. A tier can then never read another tier's cache, and a payload-shape change forces a re-fetch rather than waiting for expiry.
+- **Any future team mode in the mobile app must use a distinct key.** If exact coordinates ever landed in the public key they would sit there indefinitely with nothing to purge them.
+
+**Offline support in this app is partial**, and the cache is why this rule matters: photos, capture locations and map tiles work without signal and the spot queue syncs later, but a stale catalogue can outlive a deploy by weeks. Blurring is applied server-side when the payload is built — never in the rendering layer, or the exact figures sit on every tourist's phone in plain view, one screen away.
+
+### 6.6 The cat's published position should be where the cat is
+
+There is currently no derived cat location. A cat's stored position is written once — from the first sighting that created it, or from a resident's input — and **no code path ever updates it**. It is a frozen snapshot of one GPS reading.
+
+Three consequences, in increasing order of importance:
+
+- The old boundary-flicker mitigation ("we snap the cat's *derived* location, which moves rarely") described a mechanism that does not exist. A point that never moves cannot flicker, which is fine, but the spec should not claim machinery it does not have.
+- **The published cell is a quantisation of where the discovering spotter was standing.** That is a disclosure about a person, not a cat.
+- A cat first photographed by a tourist at the ferry terminal is pinned at the ferry terminal forever. "Cats near me" — the experience Option E was rejected to preserve — degrades as the catalogue ages, and no amount of blurring fixes a wrong point.
+
+**Recommendation: build the derived position.** A cat's position is the centre of its recent resolved sightings — the most recent cluster, recomputed on write, snapped for publication. It is a small addition and it is what makes the map true. If it is deferred, this document must say plainly that the published position is the *discovery* position, and the map label must not imply otherwise.
+
+### 6.7 Feeding sites
 
 Feeding sites are mapped in full, and are **private by default**. Syros Cats chooses individual sites to make public.
 
 - **Private sites do not appear in public payloads at all** — not blurred, not as a count, not as a heat overlay. A blurred dot still says "there is a feeding site roughly here", which is most of the information someone dumping kittens needs. Absence is the only honest privacy setting for these.
-- **Public sites show their exact position.** Making a site public is a deliberate act with a purpose — directing people to somewhere they can help — and a 300 m circle around a food bowl serves nobody. The team is choosing exposure knowingly, site by site.
+- **Public sites show their exact position.** Making a site public is a deliberate act with a purpose — directing people to somewhere they can help — and a blurred circle around a food bowl serves nobody. The team is choosing exposure knowingly, site by site.
 - The toggle is per site, on the team dashboard, defaulted to private, and shows a one-line reminder of why: cat feeders face neighbour hostility, and known feeding sites attract abandonment.
 - **Cat locations are still blurred near a public feeding site.** The two settings are independent; making a site public never publishes the exact position of a cat.
+- **And the honest caveat from §6.2:** suppressing the feeding-site row does not suppress the cats clustered on it. Anyone patient enough to average a colony's published positions gets the site's neighbourhood to about 45 m regardless of this toggle. The toggle is real and worth having; it is not a guarantee, and it is never described as one.
 
 ---
 
@@ -312,9 +488,9 @@ Not publishing them is the whole design:
 - It keeps moderation load near zero. Nothing a stranger types is shown to another stranger, so there is nothing to moderate in public, and the offensive-language filter that guards cat names is not load-bearing here.
 - It changes what people write. A note nobody will read except the charity gets *"limping on back left, hiding under the blue boat"* — which is useful. A public note gets performance.
 
-The team dashboard shows notes on the cat page and in a single reviewable stream, newest first, with the sighting photo attached. A note mentioning injury, illness or kittens is highlighted, because the trouble-report flow is not the only way distress reaches us — most of the time somebody just types it.
+The team dashboard shows notes on the cat page and in a single reviewable stream, newest first, with the sighting photo attached. A note mentioning injury, illness or kittens is highlighted, because the trouble-report flow is not the only way distress reaches us — most of the time somebody just types it. What happens to that highlight, and how fast anybody sees it, is `team-access-and-welfare-queue.md`'s to specify (and per F1, nothing pages a human).
 
-Notes may contain personal information (a person's name, a doorway). They are stored under the same handling as everything else in §9: purpose stated, team-scoped, deletable on request, and covered by a retention position.
+Notes may contain personal information (a person's name, a doorway). They are stored under the same handling as everything else here: purpose stated, team-scoped, covered by §8's deletion mechanism and by a retention position.
 
 ### 7.2 "Do they have food and water?"
 
@@ -328,34 +504,116 @@ Skipping is normal and costs nothing.
 
 ---
 
-## 8. What we are leaving room for
+## 8. Deleting a person from the record
 
-The full confidence engine (SYC-52) is a later phase. This section is the explicit list of what it will need, so that it arrives as a resolver change and a few new observation kinds — never as a migration that rewrites history.
+This section owns the deletion mechanism (F3). `email-capture.md` owns the privacy policy wording, the controller question and the email-only deletion route; what happens *in the data* is here.
 
-Recorded from day one, even though nothing reads them yet:
+### 8.1 The principle, in one sentence
 
-| We record now | So that later we can | Why it cannot be added later |
-|---|---|---|
-| **Provenance** — `volunteered`, `prompted`, `machine`, `import`, `legacy` | Weight prompted confirmations below volunteered ones. If three people were each shown the same pre-filled "left ear looks clipped", they agreed with one model's guess three times; they did not independently observe anything. | It is unrecoverable retrospectively. Discovering in six months that a threshold was too low is a re-derivation if provenance was recorded and permanent contamination if it was not. It costs one column. |
-| **The observer's role at the time of writing** | Apply authority per attribute — a vet outranks everyone on clinical facts and has no special standing on where a cat sleeps. | Roles change and people are revoked. A role looked up at read time gives the wrong answer for every historical observation. |
-| **All four confidence levels in the resolver's return type** | Introduce *Reported* without changing any caller's shape | Adding a level to an enum that clients switch on exhaustively is a breaking change across the app and the offline cache. |
-| **A `kind` string on every observation, from an open vocabulary** | Add vaccinated, sex, age class, pregnant/nursing, condition, appearance without a schema change | A column-per-attribute design needs a migration and a deploy for each new question. |
-| **A structured `value` (JSON) rather than a boolean** | Hold "sterilised on 3 March at Dr X's clinic, €55" and "ear tip seen, left side" in the same table | Booleans cannot grow. |
-| **`observed_at` separate from `created_at`** | Order evidence by when the thing happened, not when it was typed — essential for imports of ten-year-old records and for offline sightings synced days later | Retrofitting an observation date onto rows that only recorded insertion time is guesswork. |
-| **`supersedes` / retraction as its own observation** | Corrections that stay visible | A delete is not recoverable. |
-| **Expiry semantics on the kind, not the row** | Age pregnancy and nursing out of current status into history, or a cat is permanently pregnant in the app | Requires knowing which kinds expire, which is a property of the vocabulary — free if the vocabulary is data, expensive if it is a column layout. |
+**We delete everything that identifies you. The cat sightings stay, with your name off them.**
 
-**Not built now, on purpose:** per-attribute authority tables, prompted-versus-volunteered weighting, machine-written observations and their measured thresholds, the *Reported* level, the confirmation queue, pregnancy expiry, appearance vocabulary, duplicate merge. Every one of them is a resolver or vocabulary addition on top of this table.
+That is the sentence for the privacy policy and it is also literally what the code does. Nobody's deletion request should cost a cat its history — the observation that Agatha was alive on 14 June 2026 is a fact about Agatha, and it is the charity's evidence base. What made it personal was the link to a person, and that is the thing that goes.
 
-The resolver lives in one pure, dependency-free module with no database access, tested in isolation — the same treatment `streak.ts` received, for the same reason: it fails silently and plausibly. A wrong confidence level looks exactly like a right one.
+### 8.2 Deleting yourself, in the app, without asking anyone
+
+**Self-service is the primary route, not a convenience.** Settings has a **"Delete my data"** action that severs the person immediately.
+
+**The device is the identity, so holding the phone is the proof.** There is no account, no password and no email round trip to authenticate against — the device id plus its secret *is* who you are in this app. That has two consequences and both are stated on the confirmation screen: anyone holding the unlocked phone can trigger it, and there is no undo.
+
+The confirmation screen is clear and not alarming. It says exactly what goes and exactly what stays:
+
+> **Delete your data?**
+>
+> This removes: your points and badges, your streak, the list of spots you've made, your nickname and username, your email address if you gave us one, and the link between you and everything you've spotted.
+>
+> This keeps: the cats you photographed and the sightings themselves, now with nobody's name on them, and any names you gave cats — other people use those names now.
+>
+> This can't be undone, and we can't get it back for you.
+>
+> `Delete my data` &nbsp; `Keep my data`
+
+**A delete link in every email.** Anyone who gave us an address gets a working delete link in every message we send — for the person who no longer has the app but does have the email. The link deletes the same things the in-app action does. (`email-capture.md` owns the email plumbing; the link resolves to this mechanism.)
+
+**The staff route stays as a fallback.** hello@catspotters.com remains published for people who lost the device or would rather ask a human, and the dashboard gets a staff action to service those requests on the legal clock. Self-service should reduce that to a trickle, which is the point: it saves the charity manual work and removes the risk of a deadline expiring in a volunteer's unread mail.
+
+### 8.3 Exactly what is removed
+
+| Removed — gone, not flagged | Kept — unlinked |
+|---|---|
+| The device row and its secret | Every sighting: photo, date, position, cat |
+| The profile: nickname, username, points, streak, badges | Every observation the person wrote: ear tip, food and water, notes |
+| The email address and the identifying parts of its consent record | Cat records, including cats they discovered |
+| The link from every sighting and observation to that person | Names they gave cats (§8.4) |
+| Cat follows, push tokens, queued notifications | The discoverer credit on a cat, shown as *"a spotter"* |
+| Their own device-visible history of where they walked | Aggregate counts the charity has already reported |
+
+**"Unlinked" means the identifying columns are cleared and the row is stamped as redacted**, not that the row is deleted. That distinction is the whole design: the sighting keeps its evidential value and loses its owner.
+
+**Sighting notes need one extra step.** A note is free text and may name a person or a doorway, so clearing the author id is not enough. On deletion, the person's own notes are **removed from the observation** (the observation row survives, stamped redacted, with its value emptied) — a note is the one field where the content itself can be the identifying thing.
+
+### 8.4 Cat names are kept
+
+Someone names a cat Agatha. Other spotters spot Agatha, the charity's records get updated to say Agatha, and a guardian on the phone talks about Agatha. **The name became shared community property the moment other people used it**, and stripping it out would rewrite everyone else's experience of the app to service one person's departure. Names are kept, and the confirmation screen says so before anyone taps delete.
+
+### 8.5 The technical shape, and why it is built now
+
+The observation and sighting tables are append-only: rows are inserted and never updated. Deletion is the one operation that has to reach back into history, so it needs a defined way in — otherwise the first deletion request is either impossible or breaks the immutability guarantee everything else depends on.
+
+**A redaction column, added now.** Every append-only table carries `redactedAt` (timestamp, null by default) and `redactionReason`. Deletion clears the identifying columns on the matching rows and stamps them. That is one column added today, versus a migration across two seasons of observations later — which is exactly why F3 says *now*.
+
+The immutability guard is written so that redaction is the only permitted update, and it is written that way from the first migration rather than relaxed later.
+
+**Deletion is one transaction and it is synchronous.** No nightly sweep, no queue. The person taps the button and by the time the screen changes it has happened. Propagation to the mail provider happens in the same operation (`email-capture.md` §5.3).
+
+**A suppression hash of the email address survives**, one-way and irreversible, so that an address that asked to be forgotten is not re-mailed if somebody types it again. It cannot be turned back into an address.
+
+**Tests that must exist:** after deletion, no query anywhere returns the device id, the email, the nickname or the username; the cat's sighting count is unchanged; the cat's derived sterilised and life status are unchanged; the name the person gave is unchanged; and running the deletion twice is safe.
 
 ---
 
-## 9. Technical specification
+## 9. Telling the email job that something changed
+
+`email-capture.md` owns the nightly job and every decision about what gets sent to whom. This section owns the one thing the job cannot compute for itself: **what this cat's status is now, and what it was when we last told anybody.** F4 requires that contract to be defined here, and defined clearly, because the failure mode is a mailbox full of news about operations that happened in 2019.
+
+### 9.1 What we expose
+
+Two things, and no more:
+
+1. **A resolved status snapshot per cat** — the derived sterilised level and value, the life status, and the date each was derived from. This is exactly what the resolver already computes for the cat page; the job reads it rather than re-implementing the rules, so the email and the app can never disagree about whether a cat is sterilised.
+2. **A notified-status record per cat** — the snapshot as it stood the last time a message went out about that cat, with the date. The job compares the two, and a difference is a candidate piece of news.
+
+The comparison is deliberately on the *derived* status, not on the arrival of an observation. A second import row confirming what we already knew is not news. A cat going from *Likely* to *Confirmed* is.
+
+### 9.2 Seeding the baseline so history is never news
+
+Syros Cats' historical records are the single biggest injection of status changes the app will ever see, and every one of them would look like a change to a naive comparison. Importing a 2019 sterilisation must not send anybody *"the cat you named has been sterilised!"*.
+
+**The baseline is seeded as the import lands, inside the same operation**, not afterwards by a separate job that might not run:
+
+- Before any import batch is applied, every cat in the catalogue gets a notified-status record set to its current derived status. Nothing changes for anybody; we are just writing down where we started.
+- As the batch is applied, each affected cat's notified-status record is advanced to the newly-derived status **without sending anything**, and stamped with the reason `import baseline`.
+- The nightly job therefore wakes up to a system where nothing has changed. Changes from that moment on are genuine news.
+- The same seeding runs for **any** bulk write — a backfill, a re-import, a correction sweep. Any operation touching more than a threshold of cats at once (say fifty) seeds rather than notifies, and says so in its log.
+
+The equivalent applies to a brand-new cat: a cat's first status is not a change, so a cat enters with its notified-status record already matching.
+
+### 9.3 What never counts as a change
+
+- **Death, in any form.** Neither an explicit `deceased` status nor presumed-deceased is ever emitted as a notifiable change (F4). Presumed-deceased is reversible by one sighting, and an email you may have to retract is worse than no email.
+- **A status going backwards to *Unknown*** — a correction under §4.5 — is a correction, not news. The notified record is updated silently so the *next* genuine change is still detected.
+- **Anything about a cat whose record is being corrected in bulk**, per §9.2.
+
+### 9.4 Timing
+
+Up to a day's delay is acceptable and expected. The job is nightly, the comparison is cheap, and nothing in this design requires a status change to reach anybody quickly. Everything about batching, caps, consent and the actual sending belongs to `email-capture.md`.
+
+---
+
+## 10. Technical specification
 
 Everything above is the product. Everything below is how it is built.
 
-### 9.1 Observations
+### 10.1 Observations
 
 ```ts
 // lib/db/src/schema/observations.ts
@@ -364,7 +622,7 @@ export const observationsTable = pgTable("observations", {
   catId: integer("cat_id").notNull(),
 
   // Open vocabulary. Phase 1 emits: life_status, sterilised, ear_tip,
-  // food_and_water, note. Later phases add kinds without a migration.
+  // food_and_water, note, name. Later phases add kinds without a migration.
   kind: text("kind").notNull(),
 
   // Structured, kind-specific. e.g.
@@ -374,17 +632,28 @@ export const observationsTable = pgTable("observations", {
   //   ear_tip        { clipped: false } | { clipped: "cant_tell" }
   //   food_and_water { present: true } | { present: false } | { present: "cant_tell" }
   //   note           { text: "…" }
+  //   name           { name: "Μιμή", normalised: "μιμη", script: "el" }
   value: jsonb("value").notNull(),
 
-  // Who said it. Exactly one of deviceId / accountId is set.
+  // Who said it. Exactly one of deviceId / accountId is set, until redaction
+  // clears both — enforced by a CHECK constraint (see below).
   deviceId: text("device_id"),
   accountId: text("account_id"),
   // The observer's role AT THE TIME OF WRITING. Never looked up at read time.
   roleAtTime: text("role_at_time").notNull().default("public"),
   // public | guardian | volunteer | vet | staff | admin | system
+  // Whether that authority applied to THIS cat at the time of writing.
+  authorityScope: text("authority_scope").notNull().default("none"),
+  // none | guardian_of_this_cat | owner_of_this_cat
 
   // volunteered | prompted | machine | import | legacy
   provenance: text("provenance").notNull().default("volunteered"),
+  // What the app pre-filled, when provenance is "prompted", and what produced
+  // it. Without these, three agreements with one wrong guess are indis-
+  // tinguishable from three independent observations — which is the entire
+  // point of recording provenance at all.
+  suggestedValue: jsonb("suggested_value"),
+  suggestionSource: text("suggestion_source"),   // e.g. "match-v3"
 
   sightingId: integer("sighting_id"),   // when it came from a spot
   photoId: integer("photo_id"),         // the evidence
@@ -397,15 +666,25 @@ export const observationsTable = pgTable("observations", {
   // Retraction/correction: points at the observation this one replaces.
   supersedesId: integer("supersedes_id"),
   supersedeReason: text("supersede_reason"),
+
+  // §8. The only permitted update to a row in this table.
+  redactedAt: timestamp("redacted_at", { withTimezone: true }),
+  redactionReason: text("redaction_reason"),
 }, (t) => [
   index("observations_cat_kind_idx").on(t.catId, t.kind, t.observedAt),
   index("observations_kind_idx").on(t.kind),
+  check("observations_attribution_ck", sql`
+    ${t.redactedAt} is not null
+    or (${t.deviceId} is null) <> (${t.accountId} is null)
+  `),
 ]);
 ```
 
-Rows are inserted and never updated or deleted. A database trigger or repository-level guard enforces this; the API layer exposes no update or delete path.
+Rows are inserted and never updated or deleted, with one exception: the redaction stamp and the clearing of identifying columns in §8. A database trigger or repository-level guard enforces exactly that, and the API layer exposes no other update or delete path.
 
-### 9.2 The resolver
+**`observedAt` validation.** Team, vet and import writes may carry any past date — staff entering "sterilised on 3 March 2019" must work. Public writes are clamped by the existing capture-time rule (30 days back), which is the app's only precedent for a client-supplied date and would silently corrupt a historical import if applied to one. Future dates are rejected everywhere.
+
+### 10.2 The resolver
 
 ```ts
 // artifacts/api-server/src/lib/resolve.ts — pure, no db, no io
@@ -415,17 +694,18 @@ export interface Resolved<T> {
   value: T | null;
   confidence: Confidence;
   supportingObservationIds: number[];
+  conflicts: number[];            // surfaced to the team, never to the public
   asOf: string;
 }
 
 export function resolveSterilised(
   observations: Observation[],
-  importRecords: ImportRecord[],   // §5.4 waiting pool, when linked
+  importRecords: ImportRecord[],   // §5.5 waiting pool, when linked
 ): Resolved<boolean>;
 
 export function resolveLifeStatus(
   observations: Observation[],
-  lastSightingAt: string | null,
+  evidenceOfLife: { at: string; source: string } | null,   // §3.4
   now: Date,
 ): Resolved<"street" | "homed" | "in_care" | "deceased"> & {
   presumedDeceased: boolean;
@@ -435,17 +715,52 @@ export function resolveLifeStatus(
 
 Phase-1 rules the resolver implements:
 
-- **Sterilised.** Any non-superseded observation with `kind: "sterilised"`, `value.sterilised === true`, and `roleAtTime` in {vet, staff, admin} or `provenance: "import"` → **confirmed**. Otherwise, any non-superseded `ear_tip` with `value.clipped === true` → **likely**. Otherwise → **unknown**. `value.clipped === false` and `"cant_tell"` are collected into `supportingObservationIds` for display and **never affect the level**. A `sterilised: false` assertion resolves to a confirmed negative only from {vet, staff, admin} or an import row.
-- **Life status.** The newest non-superseded `life_status` observation by `observedAt` wins. `presumedDeceased` is true when there is no resolved sighting within 36 months and no `life_status` observation newer than the last sighting. A `deceased` status with a resolved sighting after it is reported as a conflict to the team and does not suppress the sighting.
-- **Never crosses attributes.** There is an explicit test that no quantity or authority of `ear_tip` observations can produce `confidence: "confirmed"` on sterilised.
+**Sterilised — an ordered fold, not a set of independent clauses.**
 
-### 9.3 Import tables
+1. Discard superseded and redacted-value observations.
+2. Take the **authoritative** `sterilised` assertions: `roleAtTime` in {vet, staff, admin}, or `provenance: "import"`. **The newest by `observedAt` wins, whatever sign it carries.** `true` → *confirmed sterilised*; `false` → *confirmed not sterilised*, which is displayed publicly per D4.
+3. Only if there is no authoritative assertion at all: any non-superseded `ear_tip` with `clipped: true` and a `photoId` → *likely*, unless an authoritative `ear_tip { clipped: false }` (roleAtTime in {vet, staff, admin}) supersedes or postdates it, in which case → *unknown*.
+4. Otherwise → *unknown*.
+
+A spotter's `clipped: false` or `"cant_tell"` is collected into `supportingObservationIds` for display and **never affects the level** — the §4.1 asymmetry, unchanged. `ear_tip` can never produce *confirmed*, in either direction.
+
+**Life status.**
+
+- The newest non-superseded `life_status` observation by `observedAt` wins — **except** that a resolved sighting dated after a live `deceased` observation clears it in the same read, returning `street` and recording the disagreement in `conflicts` (§3.2). No job, no queue.
+- `presumedDeceased` is true when the newest **evidence of life** (§3.4) is more than 36 months old and no `life_status` observation is newer than it. A live `deceased` status suppresses the presumed-deceased derivation entirely.
+
+**Never crosses attributes.** There is an explicit test that no quantity or authority of `ear_tip` observations can produce `confidence: "confirmed"` on sterilised.
+
+### 10.3 Names, aliases and merges
+
+```ts
+// Cat names are observations (kind: "name"), so §10.1 already stores them.
+// Identity, however, needs its own table — merging cat B into cat A cannot
+// repoint observations.catId without violating the append-only rule.
+export const catIdentityTable = pgTable("cat_identity", {
+  id: serial("id").primaryKey(),
+  catId: integer("cat_id").notNull(),
+  canonicalCatId: integer("canonical_cat_id").notNull(),
+  reason: text("reason"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  supersedesId: integer("supersedes_id"),   // an unmerge is a new row
+});
+```
+
+The resolver reads through this table, so a merge is a row and an unmerge is another row. Duplicate merge itself is still deferred, but the table lands now: it is the only version of merge that is reversible, and merge was pulled forward as a user-facing workflow precisely because it must be.
+
+**NFC normalisation on write**, in the app and the importer alike, plus a migration-level test asserting what `cats_name_lower_unique` actually does with `Μιμή` (NFC), `Μιμή` (NFD) and `ΜΙΜΗ` under this database's collation. Whatever the answer, it is written down — the "unique by construction" argument in §5.4 is only as strong as the collation underneath it, and nobody has checked.
+
+### 10.4 Import tables
 
 ```ts
 export const importBatchesTable = pgTable("import_batches", {
   id: serial("id").primaryKey(),
   filename: text("filename").notNull(),
-  uploadedBy: text("uploaded_by").notNull(),
+  fileHash: text("file_hash").notNull(),    // sha256 of the whole file
+  supersedesBatchId: integer("supersedes_batch_id"),  // a corrected re-upload
+  uploadedBy: text("uploaded_by").notNull(),          // staff identity, see below
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
   rowCount: integer("row_count").notNull(),
   notes: text("notes"),
@@ -454,26 +769,36 @@ export const importBatchesTable = pgTable("import_batches", {
 export const importRecordsTable = pgTable("import_records", {
   id: serial("id").primaryKey(),
   batchId: integer("batch_id").notNull(),
+  fileHash: text("file_hash").notNull(),    // denormalised for the unique index
   rowHash: text("row_hash").notNull(),      // sha256 of the raw row
+  rowOrdinal: integer("row_ordinal").notNull(),  // position in the file
+  sourceKey: text("source_key"),            // the charity's own reference, if any
   raw: jsonb("raw").notNull(),              // the row, verbatim, forever
   parsed: jsonb("parsed"),                  // normalised fields, null if unparseable
   parseErrors: jsonb("parse_errors"),
   catId: integer("cat_id"),                 // null while unmatched
   matchState: text("match_state").notNull().default("unmatched"),
-  // unmatched | needs_review | auto_linked | linked | rejected | unlinked
+  // unmatched | needs_review | auto_linked | linked | rejected
   matchScore: doublePrecision("match_score"),
   matchCandidates: jsonb("match_candidates"),
   reviewedBy: text("reviewed_by"),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
 }, (t) => [
-  uniqueIndex("import_records_batch_row_unique").on(t.batchId, t.rowHash),
+  // Globally unique, NOT batch-scoped. Re-uploading the same file is a no-op;
+  // identical rows within one file both survive on rowOrdinal.
+  uniqueIndex("import_records_identity_unique").on(t.fileHash, t.rowHash, t.rowOrdinal),
   index("import_records_state_idx").on(t.matchState),
+  index("import_records_source_key_idx").on(t.sourceKey),
 ]);
 ```
 
-Linking an import record writes an `observations` row with `provenance: "import"` and `importRecordId` set. Unlinking supersedes that observation and returns the record to `needs_review`.
+Linking an import record writes an `observations` row with `provenance: "import"` and `importRecordId` set. Unlinking supersedes that observation and returns the record to `needs_review` — one state for that transition; `unlinked` is not a separate state.
 
-### 9.4 Feeding sites
+**`uploadedBy` and `reviewedBy` depend on staff identity**, which comes from `team-access-and-welfare-queue.md` and is unshipped. The import step is therefore blocked on staff sign-in existing, which the migration plan in §11 states explicitly rather than leaving to be discovered.
+
+**`roleAtTime` values outrun what exists.** `guardian`, `volunteer` and `vet` are recorded from day one and are **unreachable in phase 1** — the team-access spec builds one role. Nobody should build a UI expecting them.
+
+### 10.5 Feeding sites
 
 ```ts
 export const feedingSitesTable = pgTable("feeding_sites", {
@@ -490,22 +815,42 @@ export const feedingSitesTable = pgTable("feeding_sites", {
 });
 ```
 
-The public sites endpoint filters `isPublic = true` in the query, not in the serialiser. Private rows never enter a public response object.
+The public sites endpoint filters `isPublic = true` **in the query, not in the serialiser**. Private rows never enter a public response object.
 
-### 9.5 Location blurring
+### 10.6 Location blurring, and where it is actually applied
 
 ```ts
 // artifacts/api-server/src/lib/blur.ts — pure
 export const BLUR_CELL_METRES = 250;
-export const BLUR_DISPLAY_RADIUS_METRES = 300;
+// BLUR_DISPLAY_RADIUS_METRES is retired — the client draws the cell (§6.2).
 
 export function blurPosition(lat: number, lng: number): { lat: number; lng: number };
 export function publicDistanceKm(fromLat, fromLng, catLat, catLng): number; // blurs first, rounds to 0.1
 ```
 
-Applied in one place: the payload builders in `artifacts/api-server/src/lib/catHelpers.ts`. `listCatsWithStats` and the cat-detail builder take a `viewer` argument (`public | owner | guardian | team`) and blur unless the viewer is entitled to exact positions. `haversineKm` continues to receive exact coordinates for matching and internal use, unchanged.
+**There is one serialiser and every emitter goes through it.** The previous spec named `catHelpers.ts` and said the cat-detail builder lives there. It does not. Verified against the code, **four** paths emit exact coordinates today and all four must be routed through `serialiseCat(cat, viewer)`:
 
-### 9.6 API changes
+| Emitter | Where | Serves | Today |
+|---|---|---|---|
+| `listCatsWithStats` | `lib/catHelpers.ts` | `GET /cats` | Emits `lat`/`lng` from the row |
+| `catPayload` | `routes/cats.ts` — **not** `catHelpers.ts` | `GET /cats/{id}`, `POST /cats`, `POST /cats/{id}/claim`, `PATCH /cats/{id}` | Emits `lat`/`lng` from the row |
+| The inline cat object in resolve | `routes/sightings.ts` | `POST /sightings/{id}/resolve` | Returns **the cat's** exact stored position to any spotter who confirms a match on any cat |
+| The sightings array | `routes/cats.ts` | `GET /cats/{id}` | Returns `lat`/`lng` on every public sighting (§6.4.1) |
+
+The third one deserves naming: the old §6.5 entitled a spotter to "their own exact positions — it is their data and their walk". The resolve response does not return the spotter's position; it returns the *cat's*, which is the thing being protected. That is a straight leak on the most-used authenticated path in the app.
+
+**How `viewer` is determined, per endpoint.** `GET /cats` has no caller identity at all today — no device id, no header, no session, just `lat`/`lng` query parameters. So the owner and guardian tiers of the old §6.5 were unimplementable on the surface that matters most.
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Accept an authenticated device on `GET /cats` and return exact positions for cats that device owns** | An owner's own cat is exact everywhere | An API change on the highest-traffic endpoint; a mixed-precision list that the offline cache then stores under one key; more surface to get wrong |
+| **B. The list is always public-blurred; exact positions only on the detail page, for an authenticated owner (recommended)** | One precision per cache key, so the cache rule in §6.5 stays simple and true. No change to the list endpoint's shape. The list is the payload that lands on every phone, so keeping it uniformly public is the safe default. | An owner sees their own cat blurred in the list and exact on its page — a small inconsistency, easily explained by a line on the detail page |
+
+**Recommendation: Option B.** And a prerequisite that is not optional: **`POST /cats/{catId}/claim` does not currently verify the device secret** (unlike resolve, which does). Any caller can claim any unclaimed cat with an arbitrary device id and thereby promote themselves into the owner tier for that cat — self-service access to exact coordinates. The claim endpoint gets `verifyDeviceSecret` before the owner tier means anything at all.
+
+`haversineKm` continues to receive exact coordinates for internal work. Candidate selection on `POST /sightings` does not — see §6.3.
+
+### 10.7 API changes
 
 `Cat` and `CatDetail` gain:
 
@@ -517,9 +862,9 @@ locationPrecision:
   type: string
   enum: [exact, approximate]
   description: |
-    "approximate" means lat/lng are the centre of a ~250 m cell and should be
-    drawn as a circle of locationRadiusM, never as a pin.
-locationRadiusM: { type: integer, nullable: true }
+    "approximate" means lat/lng are the centre of a cell of locationCellM
+    metres and must be drawn as that cell, never as a pin.
+locationCellM: { type: integer, nullable: true }
 notSeenSince: { type: string, nullable: true }
 sterilised:
   type: object
@@ -531,63 +876,96 @@ sterilised:
 
 `lat`/`lng` keep their names and meaning ("where this cat is") — clients do not branch on a different field. `locationPrecision` tells the map how to draw it. Public `CatDetail.sightings[]` drops `lat` and `lng` entirely; the team payload keeps them.
 
-`POST /sightings/{id}/resolve` accepts optional `earTip` (`clipped_left | clipped_right | clipped_unsure | looks_whole | cant_tell`), `foodAndWater` (`yes | no | cant_tell`), and `note` (string, ≤500 chars). Each written as its own observation with `provenance: "prompted"` when the app pre-filled the answer and `"volunteered"` when it did not.
+New and changed endpoints:
 
-### 9.7 Tests that must exist
+- `POST /sightings/{id}/resolve` accepts optional `earTip` (`clipped_left | clipped_right | clipped_unsure | looks_whole | cant_tell`), `foodAndWater` (`yes | no | cant_tell`), and `note` (string, ≤500 chars). Each written as its own observation with `provenance: "prompted"` when the app pre-filled the answer — recording `suggestedValue` and `suggestionSource` — and `"volunteered"` when it did not. **Its response no longer carries the cat's exact position.**
+- `POST /observations` (team) — writes a life-status or sterilised observation with a reason. §4.5, §3.5.
+- `POST /observations/{id}/supersede` (team) — the correction path. §4.5.
+- `GET /observations/review/likely` (team) — the *Likely* review list. §4.5.
+- `DELETE /me` (device-authenticated) — self-service deletion. §8.2.
+- `POST /sightings` requires the device secret and is rate-limited per device. §6.3.
+- `POST /cats/{catId}/claim` requires the device secret. §10.6.
+
+### 10.8 Tests that must exist
 
 The resolver carries the design risk, so it carries the tests.
 
-1. **The ear-tip asymmetry.** No quantity, authority or recency of "no clip visible" observations moves sterilised away from its current level or toward a negative. Dedicated, named, and commented with why it exists.
+1. **The ear-tip asymmetry.** No quantity, authority or recency of *spotter* "no clip visible" observations moves sterilised away from its current level or toward a negative. Dedicated, named, and commented with why it exists.
 2. A clipped-tip observation reaches *likely* and never *confirmed*, whoever wrote it.
-3. An import row reaches *confirmed*, and a later staff negative supersedes it while leaving both in the trail.
-4. Presumed-deceased reverts on a sighting dated after a `deceased` observation, in the same read, with no job run.
-5. Presumed-deceased is computed from `observedAt`, so an offline sighting synced four days late still counts from when it was taken.
-6. Every public payload is asserted to contain no exact coordinate, no sighting coordinate, no note, no private feeding site, and no raw device id.
-7. The same public request repeated a hundred times with varied viewer positions returns byte-identical geography.
-8. The matching path reads exact coordinates, asserted directly against the 500 m candidate query.
-9. Import is idempotent: the same file twice produces one set of observations.
+3. **Precedence between two authoritative assertions**, both directions: an import `true` dated 2024 followed by a staff `false` dated 2026 resolves to a confirmed negative; the same two in the opposite date order resolve positive. (Nothing in the previous test list covered this, which is how §5.7's correction path came to be unimplementable.)
+4. An authoritative `ear_tip { clipped: false }` superseding a spotter's `clipped: true` returns sterilised to *unknown* and never to a negative.
+5. Presumed-deceased reverts on a sighting dated after a `deceased` observation, in the same read, with no job run.
+6. A cat created today with no sightings is not presumed deceased, and a cat whose only recent evidence is a linked import record is not presumed deceased.
+7. Presumed-deceased is computed from `observedAt`, so an offline sighting synced four days late still counts from when it was taken.
+8. **Every public payload** — asserted against all four emitters in §10.6 by name — contains no exact coordinate, no sighting coordinate, no note, no private feeding site and no raw device id.
+9. The same public request repeated a hundred times with varied viewer positions returns byte-identical geography.
+10. **The nearest-cat oracle.** Probing `POST /sightings` from a grid of coordinates returns a candidate set that does not vary with sub-cell movement of the probe and does not reveal ordering by true distance.
+11. **Import idempotency, done properly:** the same file uploaded as two separate batches produces one set of observations. A corrected file supersedes rather than duplicating. Two identical rows within one file both survive.
+12. **Auto-link safety:** a name-only match with no corroborating signal does not auto-link; a name match with a contradicting sex does not auto-link.
+13. **EXIF, on both entrances:** a JPEG uploaded with a GPS block comes back from the photo endpoint with no GPS block — asserted for a spotter's upload (owned by `hosting-and-photo-storage.md`) **and** for a photo arriving with an imported record. Plus a structural assertion that the import writes photos only through `validatePhotoBase64`.
+14. **Deletion:** after `DELETE /me`, no query returns the device id, email, nickname or username; sighting counts, derived statuses and cat names are unchanged; a second call is safe.
+15. **Notification baseline:** applying an import batch of historical records produces zero notifiable status changes.
+16. **Greek names:** the migration-level normalisation test in §10.3.
 
 ---
 
-## 10. Migrating what is already there
+## 11. Migrating what is already there
 
 Nothing is thrown away and no existing behaviour changes for a spotter.
 
+### 11.1 Real migrations, before the Play clock (F6)
+
+Two things are required and neither is negotiable:
+
+1. **All of September's schema work lands before the fourteen-day Google Play closed test begins.** The sequencing is what protects the October launch: a schema change during the closed test either restarts the clock or ships against a database the testers' build does not match.
+2. **Generated migrations with checked-in history, and a verified rollback.** The database today is managed with `drizzle-kit push` and there is no migrations directory at all — the schema is whatever the last push made it. That has already 500'd every endpoint in the app once (`.agents/memory/db-schema-drift.md`), and roughly twelve new tables are arriving in this spec and its siblings.
+
+So before any table below is created: switch to `drizzle-kit generate`, check in the generated SQL, baseline the existing schema as the first migration, run it forward against a copy of the live database, and **verify that rolling one migration back works** rather than assuming it does.
+
+### 11.2 The sequence
+
 | Step | What happens | Risk handling |
 |---|---|---|
-| 1. Create the tables | `observations`, `import_batches`, `import_records`, `feeding_sites`. Nothing reads them yet. | Additive; no existing column touched. |
+| 0. Migration history | Baseline the current schema, switch to generated migrations, prove a rollback. | Nothing else in this table is safe without it. |
+| 1. Create the tables | `observations`, `cat_identity`, `import_batches`, `import_records`, `feeding_sites`, plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). |
 | 2. Backfill life status | Nothing is written. Every cat with no `life_status` observation resolves to **street**, which is correct for essentially every cat in the catalogue. | The default is the truth here, so an empty table is an accurate table. |
-| 3. Backfill from the care timeline | Existing `desexed` care updates become `sterilised` observations with `provenance: "legacy"`, `roleAtTime: "staff"` (they were written through the admin endpoint), and `observedAt` set to the update's date. Existing `adopted` updates become `life_status: homed`. | `legacy` provenance means these can be re-derived or discounted later if the confidence engine decides they should be weighted differently. |
-| 4. Claimed cats are **not** made "homed" | A resident claiming a cat means "this is my cat, I feed it" — usually a street cat with a person. Cats registered through `POST /cats` (owner registration, no sighting) become **homed**, because that flow only exists for cats living with someone. | Guardians are asked once, in the app, to confirm — one tap, dismissible, never nagged. |
-| 5. Turn on blurring | The payload builders start blurring, and public sighting coordinates disappear from responses. | Deployed with the client change that draws circles instead of pins. Clients still holding a cached exact payload are served correct data on next fetch; a version bump on the catalogue cache key forces a re-fetch rather than waiting for expiry. |
-| 6. Add the two sighting questions | Reward screen gains one tap question and one optional box. | No change to the spot, match or resolve paths. |
-| 7. Import the Syros Cats records | Staged, reviewed in the dashboard, applied. | Reversible per row; the raw rows are kept permanently. |
+| 3. Backfill from the care timeline | Existing `desexed` care updates become `sterilised` observations with `provenance: "legacy"`, `roleAtTime: "staff"` (they were written through the admin endpoint), and `observedAt` set to the update's date. Existing `adopted` updates become `life_status: homed`. | `legacy` provenance means these can be re-derived or discounted later. Runs as a bulk write, so it seeds the notification baseline rather than notifying (§9.2). |
+| 4. Claimed cats are **not** made "homed" | A resident claiming a cat means "this is my cat, I feed it" — usually a street cat with a person. Cats registered through `POST /cats` (owner registration, no sighting) become **homed**, because that flow only exists for cats living with someone, and from now on that endpoint writes the observation at creation rather than relying on a backfill. | Guardians are asked once, in the app, to confirm — one tap, dismissible, never nagged. |
+| 5. Close the oracle and secure the claim | `POST /sightings` moves to blurred candidate selection with per-device rate limiting; `POST /cats/{catId}/claim` gains device-secret verification. | Ships before blurring, not after — blurring a payload while the oracle answers questions about the true value is a privacy promise that is already false. |
+| 6. Turn on blurring | All four emitters route through `serialiseCat`; public sighting coordinates disappear; the resolve response stops returning the cat's exact position. | Deployed with the client change that draws cells instead of pins, and with a cache-key version bump (`cats-cache/public/v2`) so no phone keeps serving an exact payload. |
+| 7. Add the two sighting questions | Reward screen gains one tap question and one optional box, with the real example photo. | No change to the spot, match or resolve paths. |
+| 8. Self-service deletion | Settings action, confirmation screen, `DELETE /me`. | Depends only on step 1's redaction column. |
+| 9. Import the Syros Cats records | Staged, reviewed in the dashboard, applied — seeding the notification baseline as it goes. | **Depends on staff sign-in existing** (`team-access-and-welfare-queue.md`) for `uploadedBy` and the review queue. Reversible per row; raw rows kept permanently. |
 
-Steps 1–6 are independent of the records handover and are not blocked by it.
+Steps 0–8 are independent of the records handover. Step 9 is not, and it is also not independent of staff sign-in.
 
 ---
 
-## 11. Risks
+## 12. Risks
 
 | # | Risk | Consequence | Mitigation |
 |---|---|---|---|
-| 1 | **The ear-tip rule gets inverted by a well-meaning later change** — someone reasonably concludes that ten "no clip visible" answers should mean something | Volunteers driving out to trap cats sterilised years ago, wasting the charity's scarcest resource and distressing the cat | The rule is stated in the product spec, this spec, a named test, and a comment on the resolver branch. The test's failure message says what breaks in the real world. |
-| 2 | **The records import matches rows to the wrong cats** — a single wrong link makes a *Confirmed* sterilisation on a cat that has not had one | Worse than no import: the cat drops off the trapping list with a confident label | Only exact unique name matches auto-link. Everything else is human-reviewed with photos. Raw rows kept forever; unlinking is one action and recomputes immediately. |
-| 3 | **Location blurring leaks through a side channel** — a new endpoint, a sort order, a distance figure, or the offline cache carrying an exact payload | The privacy promise made to Syros Cats is quietly false, and nobody finds out until someone shows them | Blurring lives in the payload builders, not the renderers; tests assert no public payload holds an exact or per-sighting coordinate; the cache key is versioned; signing out purges. |
-| 4 | Notes arrive containing urgent welfare information and sit unread in a stream | A cat that needed help did not get it, and the app collected the evidence | Notes matching injury/illness/litter keywords in all three languages are highlighted in the dashboard and counted in the daily team summary. The trouble-report flow stays the primary route and is signposted from the note box. |
-| 5 | The records handover slips past the import window | The season's *Confirmed* baseline never arrives, and every figure stays *Likely* | The import is built and tested against a synthetic file so it is ready the day the records arrive; nothing else in this spec is blocked on it. Owner: Syros Cats, chased by Samuel. |
-| 6 | Deriving status on every read becomes slow as the catalogue grows | Catalogue and map feel sluggish | The cached-status column (§2, option D) is a pure function of the log, addable without a data model change. Trigger: any catalogue query above 200 ms. |
-| 7 | Notes and guardian details make this an app that processes personal data properly for the first time | GDPR obligations that a "we hold almost nothing" threat model does not cover | Purpose stated at the point of entry, team-scoped access, real deletion, a written retention position. Sequenced as one deliberate change, not scattered fields. Owner: Samuel. |
+| 1 | **The ear-tip rule gets inverted by a well-meaning later change** — someone reasonably concludes that ten "no clip visible" answers should mean something | Volunteers driving out to trap cats sterilised years ago, wasting the charity's scarcest resource and distressing the cat | The rule is stated in the product spec, this spec, a named test, and a comment on the resolver branch. The test's failure message says what breaks in the real world. §4.5's authoritative `clipped: false` is deliberately scoped to team and vet so it cannot be mistaken for a general relaxation. |
+| 2 | **The records import matches rows to the wrong cats** — a wrong link makes a *Confirmed* sterilisation, or under D4 a **public** *not sterilised*, on a cat it does not describe | Worse than no import: a cat drops off the trapping list with a confident label, or is publicly labelled from someone else's record | Auto-link now requires a corroborating signal and no negative signal (§5.4). Everything else is human-reviewed with photos. §4.6 makes the correction actually execute. Raw rows kept forever; unlinking is one action and recomputes immediately. |
+| 3 | **Location blurring leaks through a side channel** — a new endpoint, a sort order, a distance figure, or the offline cache carrying an exact payload | The privacy promise made to Syros Cats is quietly false, and nobody finds out until someone shows them | Blurring lives in one serialiser that all four emitters call; tests assert no public payload holds an exact or per-sighting coordinate; the cache key carries tier and version. The one endpoint that previously defeated all of it is §6.3, now closed. |
+| 4 | **Colony averaging recovers feeding sites** | The targeting concern Syros Cats raised is not fully answered by anything we build | **Knowingly accepted** (F2), at its real magnitude of ~45 m for a thirty-cat colony, disclosed to Syros Cats in plain language alongside D4 and recorded as accepted. Owner: Samuel. |
+| 5 | **D4's public negative becomes a target list** | Someone hostile filters the map for unsterilised cats in one neighbourhood | Accepted with D4, disclosed with risk 4, and mitigated only by the blurring that also protects everything else. Reviewable after the first season: the display rule is one branch in the serialiser. |
+| 6 | Notes arrive containing urgent welfare information and sit unread | A cat that needed help did not get it, and the app collected the evidence | Notes matching injury/illness/litter keywords in all three languages are highlighted in the dashboard. The trouble-report flow stays the primary route and is signposted from the note box. **Per F1, nothing pages a human, by design** — `team-access-and-welfare-queue.md` owns that copy and it is load-bearing. |
+| 7 | The records handover slips past the import window | The season's *Confirmed* baseline never arrives | The import is built and tested against a synthetic file so it is ready the day the records arrive. Also blocked on staff sign-in (§11.2 step 9), which is the dependency the old plan did not name. Owner: Syros Cats, chased by Samuel. |
+| 8 | Deriving status on every read becomes slow | Catalogue and map feel sluggish | Pagination and batched observation loading in the first cut (§2.3); the cached-status column is a pure function of the log and addable without a data model change. **Trigger: any catalogue query above 200 ms — with the request-duration logging that makes that trigger observable shipping in the same change.** |
+| 9 | Notes, names and guardian details make this an app that processes personal data properly for the first time | Obligations a "we hold almost nothing" threat model does not cover | §8's self-service deletion, purpose stated at the point of entry, team-scoped access, a written retention position. Sequenced as one deliberate change. Privacy policy owned by `email-capture.md`. Owner: Samuel. |
+| 10 | **Someone deletes their data by accident, or a phone is handed to a friend** | Irreversible loss of one person's points and history | The confirmation screen states exactly what goes and that it cannot be undone (§8.2). Accepted: the device is the identity, and requiring an email round trip would exclude the anonymous majority the app is built for. |
 
 ---
 
-## 12. Open questions
+## 13. Open questions
 
 | # | Question | Owner | Why it needs a person |
 |---|---|---|---|
 | 1 | **Is 250 m the right blur cell for Syros?** A cell is about a block of Ermoupoli. Too coarse and the map stops being useful in dense town; too fine and it points at a doorway. | Syros Cats, with Samuel | Local knowledge beats any number we pick. One config value; changeable after they see the first real map. |
-| 2 | **Should a public feeding site show its exact position, or be blurred too?** This spec recommends exact, on the grounds that making a site public is a deliberate act with a purpose. | Syros Cats | It is their exposure and their neighbours. |
-| 3 | **What shape are the existing sterilisation records actually in?** §5.1 is our best guess at the columns. Their real headings beat our inference. | Syros Cats (Jo, Susan) | Blocks nothing, but the sooner it is known the less rework in the matching. |
-| 4 | **Do we ever show "not sterilised" publicly?** A confirmed negative is real information and it is also a target painted on a cat. | **Samuel — genuinely needs a decision** | Recommendation: no. Publicly, a cat is *sterilised (confirmed)*, *probably sterilised*, or *not known yet*, and a confirmed negative displays as *not known yet* while the team sees the truth. It costs the public nothing and removes a targeting risk we cannot take back. |
-| 5 | **Should a cat guardian be able to mark their own cat deceased without team confirmation?** | Syros Cats | Recommendation: yes — they are the person most likely to know, and it is reversible by any later sighting. |
-| 6 | **How long do we keep sighting notes?** They may contain personal information. | Samuel, with Syros Cats | Recommendation: indefinitely for notes attached to a welfare outcome, three years otherwise, deletable on request. |
+| 2 | **Do Syros Cats accept the colony-averaging limitation and D4's public "not sterilised", together?** §6.2 states the magnitude honestly; §4.2 states what the map will now say. | **Syros Cats — needs a recorded answer, not an assumption** | It is their island, their neighbours and their reputation. F2 requires the acceptance be recorded with a date. |
+| 3 | **Should a public feeding site show its exact position, or be blurred too?** Recommendation: exact, because making a site public is a deliberate act with a purpose. | Syros Cats | It is their exposure and their neighbours. |
+| 4 | **What shape are the existing sterilisation records actually in?** §5.1 is our best guess at the columns; §5.2 is our best guess at the mess. | Syros Cats (Jo, Susan) | Blocks nothing, but the sooner it is known the less rework in the matching — and the transliteration table needs their real spellings. |
+| 5 | **Should a cat guardian be able to mark their own cat deceased without team confirmation?** | Syros Cats | Recommendation: yes — they are the person most likely to know, and it is reversible by any later sighting (§3.2). |
+| 6 | **How long do we keep sighting notes?** They may contain personal information. | Samuel, with Syros Cats | Recommendation: indefinitely for notes attached to a welfare outcome, three years otherwise, removed immediately on deletion (§8.3). |
+| 7 | **Is the derived cat position (§6.6) in this phase or the next?** | Samuel | It is a small addition that makes the map true; deferring it means the published position is the discovery position and the spec must say so out loud. |
