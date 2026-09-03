@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -6,16 +5,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useGetProfile,
   useGetLeaderboard,
-  useUpdateProfile,
   getGetProfileQueryKey,
   getGetLeaderboardQueryKey,
 } from '@workspace/api-client-react';
@@ -76,40 +72,6 @@ export default function ProfileScreen() {
     ? BADGE_IDS.filter((id) => earned.has(id)).length
     : null;
   const streakDays = profile?.currentStreakDays ?? 0;
-
-  const queryClient = useQueryClient();
-  const [nicknameDraft, setNicknameDraft] = React.useState('');
-  const [nicknameSaved, setNicknameSaved] = React.useState(false);
-  const [nicknameError, setNicknameError] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    setNicknameDraft(profile?.nickname ?? '');
-  }, [profile?.nickname]);
-  const updateProfile = useUpdateProfile({
-    mutation: {
-      onSuccess: (updated) => {
-        queryClient.setQueryData(getGetProfileQueryKey(deviceId ?? ''), updated);
-        queryClient.invalidateQueries({ queryKey: getGetLeaderboardQueryKey() });
-        setNicknameSaved(true);
-        setNicknameError(null);
-        setTimeout(() => setNicknameSaved(false), 2000);
-      },
-      onError: (err) => {
-        const data = (err as { data?: { code?: string } | null })?.data;
-        setNicknameError(
-          data?.code === 'offensive_nickname' ? t('nicknameRejected') : t('error'),
-        );
-      },
-    },
-  });
-  const trimmedDraft = nicknameDraft.trim();
-  const nicknameDirty = trimmedDraft !== (profile?.nickname ?? '');
-  const saveNickname = () => {
-    if (!deviceId || !nicknameDirty || updateProfile.isPending) return;
-    updateProfile.mutate({
-      deviceId,
-      data: { nickname: trimmedDraft.length > 0 ? trimmedDraft : null },
-    });
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -189,64 +151,6 @@ export default function ProfileScreen() {
           {/* Username */}
           {isOnline && !!deviceId && (
             <UsernameEditor currentUsername={profile?.username ?? null} />
-          )}
-
-          {/* Nickname */}
-          {isOnline && !!deviceId && (
-            <View style={{ gap: 10 }}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                {t('nickname')}
-              </Text>
-              <View style={styles.nicknameRow}>
-                <TextInput
-                  value={nicknameDraft}
-                  onChangeText={(text) => {
-                    setNicknameDraft(text);
-                    setNicknameError(null);
-                  }}
-                  placeholder={t('nicknamePlaceholder')}
-                  placeholderTextColor={colors.mutedForeground}
-                  maxLength={24}
-                  returnKeyType="done"
-                  onSubmitEditing={saveNickname}
-                  style={[
-                    styles.nicknameInput,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      color: colors.foreground,
-                    },
-                  ]}
-                />
-                <Pressable
-                  onPress={saveNickname}
-                  disabled={!nicknameDirty || updateProfile.isPending}
-                  style={[
-                    styles.saveBtn,
-                    {
-                      backgroundColor: colors.primary,
-                      opacity: !nicknameDirty || updateProfile.isPending ? 0.5 : 1,
-                    },
-                  ]}
-                >
-                  {updateProfile.isPending ? (
-                    <ActivityIndicator size="small" color={colors.primaryForeground} />
-                  ) : (
-                    <Text style={[styles.saveText, { color: colors.primaryForeground }]}>
-                      {nicknameSaved ? t('saved') : t('save')}
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-              {!!nicknameError && (
-                <Text style={[styles.nicknameHint, { color: colors.destructive ?? '#c0392b' }]}>
-                  {nicknameError}
-                </Text>
-              )}
-              <Text style={[styles.nicknameHint, { color: colors.mutedForeground }]}>
-                {t('nicknameHint')}
-              </Text>
-            </View>
           )}
 
           {/* Badges */}
@@ -342,10 +246,9 @@ export default function ProfileScreen() {
                       {(() => {
                         const displayName =
                           entry.username ??
-                          entry.nickname ??
                           `${t('spotter')} ${entry.spotterCode}`;
                         return isMe
-                          ? entry.username || entry.nickname
+                          ? entry.username
                             ? `${displayName} (${t('you')})`
                             : t('you')
                           : displayName;
@@ -562,26 +465,6 @@ const styles = StyleSheet.create({
   rank: { fontSize: 13, fontFamily: 'Nunito_700Bold', width: 32 },
   leaderName: { flex: 1, fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
   leaderPoints: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
-  nicknameRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  nicknameInput: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    fontFamily: 'Nunito_600SemiBold',
-  },
-  saveBtn: {
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 76,
-  },
-  saveText: { fontSize: 14, fontFamily: 'Nunito_700Bold' },
-  nicknameHint: { fontSize: 12, fontFamily: 'Nunito_400Regular' },
   langRow: { flexDirection: 'row', gap: 10 },
   langBtn: {
     flex: 1,
