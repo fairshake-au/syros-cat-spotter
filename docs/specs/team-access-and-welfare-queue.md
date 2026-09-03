@@ -1,141 +1,325 @@
 # Team access and the welfare queue
 
 **Feature spec · Cat Spotters (Syros)**
-**Version:** 1.0 · 3 September 2026
+**Version:** 2.0 · 3 September 2026 · supersedes v1.0 of the same date
 **Covers:** PRODUCT-SPEC §2.5 (cat in trouble), §2.6 (team access), and the sign-in that makes both usable.
 **Linear:** SYC-42 (report flow, urgent) · SYC-43 (staff dashboard) · SYC-44 (report an issue) · SYC-25 (mail transport, urgent) · SYC-26 (Google sign-in) · SYC-29 (adding people) · SYC-30 (admin@syroscats.com as a recipient).
-**Status:** for adversarial review, then Samuel's approval, then an implementation plan.
+**Status:** rewritten against `docs/specs/DECISIONS.md`, which wins over this document wherever they differ.
+
+### What this document owns, and what it borrows
+
+Four specs were written on the same day and contradicted each other in fourteen places. Each area now has exactly one owner. **This document owns** sign-in and the trust boundary between the two systems, roles and capabilities, the staff dashboard, the welfare queue, the "this cat needs help" flow, and **all capacity and safety copy**.
+
+It borrows, and does not restate:
+
+| What | Owner |
+|---|---|
+| The cat record, observations, how status is derived, presumed-deceased | `cat-record-data-spine.md` |
+| Location blurring, feeding-site privacy and precision, the `feeding_sites` table | `cat-record-data-spine.md` |
+| The deletion mechanism itself (F3) | `cat-record-data-spine.md` |
+| Email consent copy, verification, the four email moments, the nightly notify job | `email-capture.md` |
+| Privacy policy content, the controller, the withdrawal route | `email-capture.md` |
+| Hosting, photo storage, the photo endpoint, migrations | `hosting-and-photo-storage.md` |
+
+**Struck from v1.0:** this spec previously invented its own cat-record model — editable status columns plus a `record_changes` audit log — which is precisely the design the data spine rejects by name. It is gone. A team correction is an observation, written by the resolver's own rules. This spec also defined `feeding_sites` a second, different way; that definition is gone too.
 
 ---
 
 ## 1. The short version
 
-Today a tourist can meet a hundred cats on Syros and photograph every one of them. If one of those cats is bleeding, starving, or has just had kittens under a taverna chair, the app has nothing to say and Syros Cats never hears about it. Meanwhile the charity — the people who actually know what to do — have no window into any of the data being collected about their own island.
+Today a tourist can meet a hundred cats on Syros and photograph every one of them. If one of those cats is bleeding, starving, or has just had kittens under a taverna chair, the app has nothing to say and Syros Cats never hears about it. Meanwhile the charity — the people who actually know what to do — have no window into the data being collected about their own island.
 
-This spec closes both gaps with three connected pieces:
+Three connected pieces close both gaps:
 
-1. **One staff sign-in.** A Syros Cats person types their email address, gets a link, clicks it, and they are in. No password to remember, no password to leak, no password to rotate when somebody leaves.
-2. **A staff dashboard.** One page that answers "what needs us today?" — the welfare queue, the feeding-site map, the ability to fix a wrong record, and colony names that match the names they already use out loud.
-3. **A report flow for the public.** "This cat needs help" and "there's something wrong with this photo", both reaching admin@syroscats.com *and* an in-app queue, with the reporter told what happened next.
+1. **One staff sign-in.** A Syros Cats person types their email address, gets a link, clicks it, and they are in. No password to remember, no password to leak, no password to change when somebody leaves.
+2. **A staff dashboard**, sitting next to the cat data it is about. One page that answers "what needs us today?" — the welfare queue, the feeding-site map, the ability to fix a wrong record, and colony names that match the names people already use out loud.
+3. **A report flow for the public.** "This cat needs help" and "there's something wrong with this photo", both reaching a shared Syros Cats mailbox *and* an in-app queue, with the reporter told honestly what happens next.
 
-Running through all of it is the piece that matters most and is easiest to get wrong: **capacity messaging**. Syros Cats are a small charity with finite money and finite space. Their goal is *fewer cats in their own care and more care happening in the community* — while still capturing every scrap of data about what is going on. A report button that quietly promises "we'll come and get it" would make their lives worse, not better. Section 5 is the design that avoids that, and it is the section to read first if you only read one.
+### The thing that matters most, and it is not code
+
+Syros Cats are a few people with finite money and finite space. Their goal is *fewer cats in their own care and more care happening in the community.* A report button that quietly promises "we'll come and get it" would make their lives worse, not better.
+
+So we have made a deliberate, uncomfortable decision, recorded in DECISIONS.md as F1:
+
+> **Nothing in this system pages a human. There is no urgent alarm, by design.**
+
+An urgent report goes into the queue and into the shared inbox, and then it waits until somebody chooses to look. No phone buzzes. No rota is woken. A report about a genuinely dying cat can sit unseen for two days, and on a Sunday in February it probably will.
+
+We did not build an alarm because an alarm is a promise, and nobody has agreed to be on the end of it. Building one would make the app dishonest in a new way rather than making it safer. What makes this survivable is the copy: **the app has to send urgent cases to a vet first, and be unmistakable about it.** Section 5 is that copy. If you read one section, read that one — it is load-bearing, not decorative.
 
 ### The two audiences want the same thing from different angles
 
-A worried tourist wants to know that the cat they found will be alright, and that telling someone was worth doing. A cat guardian who has fed the same alley for nine years wants the record to be correct and the charity to know what she already knows. These are **complementary** needs: the tourist supplies attention and a photo at the moment it matters; the guardian and the team supply the judgment about what it means. The welfare queue is where those two meet.
+A worried tourist wants to know that the cat they found will be alright, and that telling someone was worth doing. A cat guardian who has fed the same alley for nine years wants the record to be correct and the charity to know what she already knows. These needs are **complementary**: the tourist supplies attention and a photograph at the moment it matters; the guardian and the team supply the judgment about what it means. The welfare queue is where those two meet.
 
 ---
 
-## 2. Staff sign-in
+## 2. Staff sign-in and the trust boundary
 
 ### 2.1 What a Syros Cats person experiences
 
-She opens the workspace on her phone. One field: her email address. She types it and taps "Send me a link".
+She opens `admin.catspotters.com` on her phone. One field: her email address. She types it and taps "Send me a link".
 
-Whatever she typed, the screen says the same thing: *"If that address is on the list, a link is on its way. It works once and lasts fifteen minutes."* It says that even for an address that is not on the list, and it takes the same moment to say it — otherwise the page becomes a tool for finding out who at Syros Cats has access.
+Whatever she typed, the screen says the same thing, after the same delay: *"If that address is on the list, a link is on its way. It works once and lasts fifteen minutes."* It says that even for an address that is not on the list — otherwise the page becomes a tool for finding out who at Syros Cats has access.
 
-She opens her mail, taps the link, and she is in, for thirty days, on that device. There is nothing to memorise and nothing to write on a Post-it. If she is on a shared computer she taps "Sign out" and the session is gone.
+She opens her mail and taps the link. She lands on a small page with one button: **"Yes, sign me in."** She taps it and she is in — the workspace documents she already uses, and now a **"Cat Spotters dashboard"** link that takes her straight into the queue without typing anything again. The session lasts thirty days on that device. If she is on a borrowed computer she taps "Sign out" and it is gone.
 
-If somebody leaves the charity, their address comes off the list and their next click bounces them back to the sign-in page. There is no shared secret circulating that has to be changed for everyone else too.
+If somebody leaves the charity, their address comes off the list and their next request bounces them to the sign-in page — in both systems, because there is only one list.
 
-### 2.2 Why email links rather than passwords
+### 2.2 Why email links rather than passwords — and what it costs
 
-A shared password is the worst of both worlds for a small team: everybody knows it, nobody can prove who used it, and removing one person means disrupting all of them. An email link inverts that. The mailbox is the credential, and the mailbox is already the thing Syros Cats protect. It also means the list of who has access is a list of email addresses — something the charity can read, understand, and ask to change without a technical conversation.
+A shared password is the worst of both worlds for a small team: everybody knows it, nobody can prove who used it, and removing one person means disrupting all of them. An email link inverts that. The mailbox is the credential, and the mailbox is already the thing Syros Cats protect. The list of who has access becomes a list of email addresses — something the charity can read, understand, and ask to change without a technical conversation.
 
-The link is single-use and short-lived (fifteen minutes) precisely because email is not a private channel: it sits in inboxes, gets forwarded, gets scanned by security software. A link that stops working the moment it has been used, and expires within the length of a coffee, is a poor prize for anyone who gets hold of it later.
+Three honest costs, all of which this spec has to deal with rather than wave at:
 
-### 2.3 Decision: how the email actually gets sent
+- **Single-use, short-lived links are not free.** A link that dies on first use is a poor prize for anyone who finds it later. It is also a link a corporate mail scanner can destroy before its owner reaches it. §2.5 fixes that; it is not a theoretical worry.
+- **A shared mailbox is not a person.** See §2.8.
+- **Mail can fail.** If the transactional mail path is down, nobody can sign in. §2.10 covers what that looks like and what the way back in is.
 
-The sign-in flow is only as real as the mail transport behind it. A link nobody receives is a locked door. This decision also carries the welfare-report emails in section 5 and the issue reports in section 6 — it is one dependency serving three features, which is why it is the first thing to settle.
+### 2.3 Decision (recorded): the dashboard moves, the front door stays
+
+**Decided in DECISIONS.md D3 and F5.** Recorded here with the reasoning, because implementers will ask why sign-in and dashboard live in different places.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. Resend** (a transactional email service) | The workspace calls Resend's HTTP API with an API key held as a platform secret. The sending domain `catspotters.com` is verified once with DNS records. | Fits the platform exactly — an HTTP call, no mail server, no ports. Real deliverability tooling: we can see that a message was accepted, bounced, or spam-foldered, which matters enormously when the failure mode is "Susan says she never got it". One provider covers sign-in links, welfare reports, issue reports and later the "your cat was sterilised" loop. Sends to any address, so it does **not** need admin@syroscats.com to be verified by anybody at Syros Cats first. Free tier comfortably covers this volume. | One more supplier in the stack, and one API key to hold safely (see 2.5). Domain verification needs DNS records added — minutes of work, but it is a step. |
-| **B. Cloudflare Email Sending** | The platform sends the mail itself through a built-in binding. DNS records on `catspotters.com`. | No third-party account and, importantly, **no API key at all** — the permission is a platform binding rather than a secret that can leak. Fewest moving parts. | Less mature; thinner sending logs, so diagnosing "it didn't arrive" is harder. Reputation and deliverability are less within our control. Still needs the same DNS work, so it does not save the step it appears to save. |
-| **C. Google Workspace SMTP** (send as admin@syroscats.com) | Authenticate to Google's mail servers and send as the charity's own address. | Mail genuinely comes from Syros Cats, which is the friendliest possible "from" line. No new supplier. | The platform the workspace runs on has no real SMTP client — this fights the architecture rather than using it. Requires either an app password or a service-account OAuth grant stored as a long-lived credential; an app password in particular is a reusable key to the charity's mailbox, which is a much worse thing to hold than a send-only API key. Google throttles and occasionally blocks programmatic sending, and when it does, sign-in stops for everyone. **Not recommended in any form.** |
-| **D. Google sign-in instead of email** (SYC-26) | People sign in with the Google account they already use for admin@syroscats.com. Google proves who they are; our list decides whether they get in. | No email to deliver at all, so the mail problem disappears for sign-in. One tap for anyone already signed in to Google, which most of them will be. | Only helps people with a Google account — and it does not remove the mail dependency, because welfare reports and issue reports still have to be sent. Needs an OAuth client created outside the platform, plus a client ID and secret. Adds a second identity path to keep correct: **Google proving who somebody is must never be the same thing as letting them in** — the allow-list check still has to happen after Google answers. |
+| **A. Everything on the app backend.** Rebuild magic-link sign-in in Express, retire `admin.catspotters.com`. | One codebase, one platform. | Nothing to trust across a boundary; simplest mental model. | Throws away a working, reviewed sign-in flow and rebuilds it in a codebase with none of the primitives. The workspace documents Syros Cats already use would have to move too. Most work, no product gain. |
+| **B. Everything on Cloudflare.** Dashboard in the Worker, calling the Express API for every screen. | Reuses the existing sign-in exactly. | Every screen is a network hop from its data. Permissions enforced twice. The API grows a staff-only surface guarded separately. Slower and more fragile for no gain. |
+| **C. ✅ Sign-in stays on Cloudflare; the dashboard lives on the app's own backend, and the API trusts a token the Worker issues.** | `admin.catspotters.com` remains the front door and hands off to the dashboard. | The queue sits next to the cat data it acts on, in the same database, with no cross-network hop per screen. The working sign-in flow is kept and improved rather than rewritten. One list of people (§2.7), one deletion to remove somebody. | A trust boundary now exists between two systems, and a boundary specified vaguely is a security hole. That is the work §2.4 does, and it is the whole cost of this option. |
+| **D. Two separate sign-ins, one per system.** | Simplest to build. | Directly contradicts the requirement. Two links in two inboxes for the same person is exactly the friction that stops a volunteer using a tool. |
 
-**Recommendation: A now, D soon, B named as the fallback.**
+**Recommendation: C**, as decided. The trust boundary is a known, bounded piece of engineering; rebuilding sign-in or accepting a per-screen network hop are both larger and worse.
 
-Take Resend. It unblocks sign-in, welfare reports and issue reports in one move, it is already the shape the code expects, and its logs are the difference between "we think the email went" and "we know it did". Add Google sign-in as a second door once the first door works — it is a genuine convenience for a team already living in Google Workspace, and it makes sign-in survive a mail outage. If domain verification with Resend stalls for any reason, Cloudflare Email Sending is the fallback and requires no code rethink, only a different send call.
+### 2.4 The trust boundary — how the API knows who is knocking
 
-One useful side effect: because Resend delivers to any address, **welfare reports can go straight to admin@syroscats.com without waiting for anyone at Syros Cats to click a verification link** (the blocker in SYC-30). SYC-30 is still worth finishing so that mail to `hello@catspotters.com` reaches the charity too — but it stops being on the critical path for this feature.
-
-### 2.4 Decision: where the staff dashboard lives
-
-The cat data and the workspace currently sit in different places. That is fine for documents; it is not fine for a dashboard that has to show cats, sightings and welfare reports.
+This is the part that must not be hand-waved. Three ways to do it:
 
 | Option | Benefits | Risks |
 |---|---|---|
-| **A. Dashboard on the app's own backend, one sign-in issued there; the document workspace links across.** | One source of truth for cats. The queue sits next to the data it acts on. One identity, one allow-list, one place to add or remove a person. | The sign-in flow has to exist in a second codebase — the design carries over, the code does not. |
-| **B. Dashboard inside the existing workspace, calling the app's API for everything.** | Reuses the sign-in that already exists. Nothing new to stand up. | Every screen becomes a network hop away from its data; permissions have to be enforced twice; the API grows a staff-only surface that must be guarded separately. Slower and more fragile for no real gain. |
-| **C. Two separate sign-ins, one per system.** | Simplest to build. | Directly contradicts the requirement — "one Syros Cats staff sign-in". Two links in two inboxes for the same person is exactly the friction that stops a volunteer using a tool. |
+| **A. Shared HMAC secret.** The Worker signs a token with a secret the API also holds. | Simplest. No key distribution beyond two secret stores. Symmetric signing is one line either side. | **The API can mint sign-ins.** Anything that leaks an environment variable out of the Replit deployment — a log, a crash dump, a dependency — hands over the ability to become any staff member. Rotation means a coordinated change in two places. |
+| **B. ✅ Asymmetric signature (Ed25519).** The Worker holds a private key and signs; the API holds only the matching **public** key, pinned in its configuration. | The API cannot forge a token even if every secret it holds is stolen — it can only check them. Rotation is publishing a new public key; the API can accept two during a changeover. Ed25519 is built into both runtimes (WebCrypto in the Worker, `node:crypto` in Express); no library. | One more concept than a shared secret. The public key has to be got into the API's config correctly — a wrong key means nobody can sign in, which is at least a loud, obvious failure rather than a silent one. |
+| **C. Call-back verification.** The token is an opaque id; the API asks the Worker "is this valid, and who is it?" | No cryptography to get wrong. Instant revocation. | A network round trip on the sign-in hop, and a hard dependency in the wrong direction. Adds a second failure mode for no benefit over B. |
 
-**Recommendation: A.** One identity, issued by the backend that owns the cat data, with the document workspace recognising the same person. The list of who is allowed in lives in one table, and adding a colleague (SYC-29) is one row, once.
+**Recommendation: B.** The asymmetric version costs perhaps twenty lines more than the shared secret and removes the single worst outcome — a leak on the busier, less locked-down side of the boundary being enough to impersonate staff.
 
-### 2.5 Handling the sending key safely — non-negotiable
+**The token, precisely.** A compact JWS (JSON Web Signature), `alg: EdDSA`, with these claims:
 
-The Resend API key is a credential that can send mail as `catspotters.com`. It must be set as a **platform secret** (`wrangler secret put RESEND_API_KEY` / the deployment platform's secret store), never:
+```
+iss  "https://admin.catspotters.com"        // who minted it
+aud  "https://team.catspotters.com"         // who may accept it — the dashboard origin, §2.6
+sub  "<person id>"                          // the stable id from the people table, not the address
+eml  "susan@example.com"                    // lower-cased, for display and logging
+sv   3                                      // session version, §2.9 — bumped to log somebody out
+iat  <unix seconds>
+exp  <iat + 60>                             // sixty seconds. This is a hand-off, not a session.
+jti  "<16 random bytes, base64url>"         // single use, §2.4 replay
+```
+
+**It is a hand-off token, not a session token.** The Worker's "Cat Spotters dashboard" link carries it once; the API validates it, immediately spends the `jti`, and sets **its own** session cookie. The Cloudflare token never lives longer than a minute and never sits in a browser store. Revocation then belongs to the API, where the data is, rather than to a token nobody can recall.
+
+**What the API does, in order, on every hand-off:**
+
+1. Parse without trusting the header. **The algorithm is pinned in code to `EdDSA`;** the `alg` field in the token is never read to choose a verifier. (This is how "algorithm confusion" attacks work, and the defence is one line.)
+2. Verify the signature against the pinned public key (or either of two, during a rotation).
+3. Check `iss` and `aud` are exactly the expected strings. A token minted for something else is refused even if the signature is perfect.
+4. Check `exp` and `iat` with **60 seconds** of clock-skew tolerance in each direction.
+5. Check `jti` has not been seen. Spent ids are held for ten minutes, which is long past `exp`, and then dropped.
+6. Look `sub` up in `people`. Not on the list any more → refused. `sv` lower than the row's current session version → refused.
+7. Only now, issue the dashboard session.
+
+**When any of that fails**, the API does the same thing every time: **HTTP 401, a fixed body (`{"error":"not_signed_in"}`), no detail about which check failed, and a redirect for browsers back to `admin.catspotters.com`.** The real reason is logged server-side with the `jti` and the request id so a support question has an answer. There is no partial trust and no fallback path: a token that fails any check buys nothing at all. Explicitly, the API never accepts an unsigned identity header, never trusts an `X-User-Email`, and has no "development bypass" that could ship.
+
+### 2.5 The two confirmed bugs in the live flow, and the fixes
+
+Both are in `admin/src/index.js` in the `fairshake-au/catspotters-website` repository, read on 3 September 2026. Both are confirmed by reading the code, not inferred.
+
+**Bug 1 — the enumeration padding does not pad.** The code's comment says the reply comes "after the same delay" either way. It does not. For an address on the list, `requestLink()` does an INSERT, a DELETE and a **full outbound HTTPS round trip to `api.resend.com`** — and *then* sleeps a fixed 400 ms. For an address not on the list it does one SELECT and sleeps the same 400 ms. The difference is the Resend call: typically 100–500 ms, and variable. Averaged over a few dozen samples the endpoint is a reliable oracle for "does this person have access to Syros Cats' systems?" — the exact thing the design says it must not be. With no rate limit (§2.6) an attacker can take as many samples as they like.
+
+> **Fix.** Two changes. (a) Take the send off the response path — `ctx.waitUntil(sendLink(...))`. (b) Pad to a **deadline**, not by a duration: record `t0` on entry, and before replying `await sleep(Math.max(0, t0 + 800 - Date.now()))`. Both branches then return at the same wall-clock offset from the request. Also correct the comment, which currently describes a mitigation that does not hold.
+
+**Bug 2 — the mail-scanner defence closes the wrong half.** The conditional write (`UPDATE … WHERE used_at IS NULL … RETURNING email`) stops *two* sessions being issued. The real-world failure is different: the scanner is the **only** consumer. Microsoft Defender for Office, Proofpoint, Barracuda and Gmail's own link handling all issue a GET on links in mail, and `/auth` consumes the token on GET. The session cookie goes to the scanner, which throws it away, and the human clicks a link that is already spent and reads "That link has been used already." Every fresh link is burnt before she reaches it. She cannot diagnose it, and there is no support function to call.
+
+> **Fix, in three parts.** (a) **Do not consume on GET.** `/auth?t=` renders a small page with one button that **POSTs** the token. Scanners do not POST. Keep the conditional write on the POST. (b) Allow the same token to be re-presented within **60 seconds** and return the same session, so a double-tap or a back button is not a lockout. (c) Allow up to **three** unexpired outstanding tokens per address, so asking for a second link does not invalidate the first one that is still in flight. The POST also carries the same-origin check the rest of the Worker uses, which closes the login-CSRF gap `/auth` has today.
+
+**§2.2's framing changes with this.** Single-use is not an unqualified good; it is a trade against a real, common failure. We keep it, with the three softeners above, and we say so.
+
+### 2.6 Rate limits, the dashboard's address, and where limits are actually counted
+
+**The request-a-link endpoint has no rate limit today.** `admin/wrangler.jsonc` declares no rate-limit binding and `requestLink()` throttles nothing. The same-origin check stops a browser on another site; it stops nothing from `curl`, because `Origin` is a header the caller sets. Meanwhile the *public* site worker next door gets this right — `site/wrangler.jsonc` declares `UNLOCK_RL` (8/min) and `SUBSCRIBE_RL` (5/min) and `site/src/index.js` has a `throttled()` helper. The pattern exists in the same repository; the sign-in endpoint was simply left off it.
+
+Left unfixed, this is not only an inbox-flooding nuisance: every request spends a transactional send, and transactional sends are what welfare mail runs on (§2.10).
+
+**Limits, stated here rather than deferred to a general section:**
+
+| Surface | Limit | On breach |
+|---|---|---|
+| `POST /api/signin`, per address | 3 per 15 minutes | Fail closed: reply with the same "if that address is on the list…" message, send nothing. |
+| `POST /api/signin`, per IP | 20 per hour | Same. |
+| Outstanding unused tokens per address | 3 | Oldest is expired to make room. |
+| `POST /auth` (token redemption), per IP | 30 per hour | 429. |
+| Welfare report submit, per IP | 10 per hour | 429; see §4.4 for why per-device is not the control here. |
+| Verification/acknowledgement mail, per recipient address | 1 per 24 hours, 3 lifetime before suppression | The queue row is still written. Always. |
+
+Crossing either sign-in threshold raises a dashboard banner and a log line the team can see.
+
+**Where these are counted matters.** The Worker limits use Cloudflare's rate-limit bindings, exactly as `site/` already does. The API's limits currently use `express-rate-limit` with its default in-memory store (`artifacts/api-server/src/middlewares/rateLimit.ts`), which is per-process — Replit autoscale runs several processes, so every limit is silently multiplied by the instance count and reset on each deploy.
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Leave it.** | Nothing to do. | The stated limits are fiction. A limit you have written down and do not enforce is worse than none, because you stop thinking about the surface. |
+| **B. Pin the deployment to one instance until launch.** | Free, immediate, honest. | Caps throughput; easy to forget and silently undo with a settings change. |
+| **C. ✅ A Postgres-backed store, plus B until it lands.** | Postgres is already there and already the source of truth; one small table, shared by every instance, surviving deploys. | A database write per limited request — trivial at this volume. |
+
+**Recommendation: C, with B in place from day one** so the window between "we wrote the limits down" and "the limits are real" is not open.
+
+**The dashboard's address is `team.catspotters.com`** — a second custom domain on the *same* Replit deployment that serves the API. This is a decision, not a detail, and v1.0's silence about it was a blocking unknown:
+
+- The session cookie is `__Host-cs_team`, which is host-only by definition, so it is set and read on `team.catspotters.com` and is **never** sent to `api.catspotters.com` or anywhere else.
+- Every dashboard request is same-origin, so the wildcard-CORS problem does not arise for the dashboard at all.
+- `app.use(cors())` in `app.ts` is a wildcard origin and must still be replaced with an explicit allow-list. Wildcard CORS cannot be combined with credentialed requests, so leaving it is both too permissive and, the moment anything cross-origin needs a cookie, non-functional.
+
+### 2.7 One list of people — resolving a claim that was false when it was written
+
+v1.0 said "one identity, one allow-list, one table". That was already untrue: `site/schema.sql` defines an `admins` table in the D1 database `catspotters-signups`, and `admin/src/index.js` authenticates against it on **every** request. The app's data lives in Postgres on Replit. Two people tables, two databases, two platforms — and removing a departing volunteer means two deletions, which is exactly the thing nobody remembers to do twice.
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. `admins` in D1 stays canonical; Postgres holds a synced copy.** | No change to the Worker. | The sync is a background job that can lag or break silently. A removal that has not synced is still a working dashboard session. Worst of both. |
+| **B. ✅ `people` in Postgres is canonical. The Worker asks the API.** `requestLink()` replaces its `SELECT … FROM admins` with a server-to-server call to `GET /internal/people/allowed`, authenticated with its own credential. `admins` is emptied and kept only as a documented break-glass row. | Genuinely one list, one deletion, one place the charity's list of people lives — next to the roles, scopes and attribution the dashboard needs anyway. Removal is immediate everywhere. | Sign-in now depends on the API being reachable. If it is down, nobody can sign in — so it must **fail closed with an honest message** ("Sign-in is temporarily unavailable — this is our fault, not yours"), never fail open. The allow-list check must not leak timing either: it sits inside the same padded deadline from §2.5. |
+| **C. Keep both, maintained by hand.** | Nothing to build. | The status quo, and the failure this design exists to prevent. |
+
+**Recommendation: B.** The break-glass exception is written down rather than pretended away: **exactly one** row may remain in `admins` — Samuel's address — so that a total API outage does not lock everyone out of the workspace documents, which are unrelated to the cat data. It grants the workspace, never the dashboard. It is reviewed at launch and again at each quarterly check.
+
+**One more thing the boundary has to fix.** `admin/wrangler.jsonc` records that the workspace **shares its `SIGNING_KEY` with the public site worker**, so anything holding the public site's document-gate secret can mint a workspace session cookie. Extending that key to a third system would be spreading a known weakness. So: the dashboard hand-off uses its **own** Ed25519 key pair (§2.4), unrelated to `SIGNING_KEY`, and separating `SIGNING_KEY` between the two Workers is filed as its own piece of work.
+
+### 2.8 Shared mailboxes, and why `admin@syroscats.com` is a recipient and never an account
+
+The whole argument for email links over a shared password is that a password cannot tell you who used it. That argument collapses if the first row anyone adds is a shared mailbox — and it will be, because `admin@syroscats.com` is the address everybody knows, it is a Google Workspace mailbox several people read, and it is deliberately the destination for every welfare report. Add it to `people` and everyone with mailbox access becomes one identity, any of them can read the sign-in link, and "who made this correction?" answers with a mailbox.
+
+**Rules, enforced in code and not just written down:**
+
+- Shared and role addresses are **refused on insert**, with a deny-list on the local part (`admin@`, `info@`, `hello@`, `contact@`, `team@`, `office@`, `support@`) and a clear message explaining why.
+- Every person gets their **own** address. If a volunteer has no work address, a personal one is correct — that is what the design assumes.
+- `admin@syroscats.com` is a **recipient**. It receives welfare alerts. It never signs in.
+
+### 2.9 Who is on the list, and what leaving looks like
+
+`people` holds: person id, email (unique, lower-cased), name, session version, when they were added and by whom. Roles and scopes live in a separate table (§7). Adding a colleague (SYC-29) is one row.
+
+Three operational truths the charity should be told plainly, because they change behaviour:
+
+- **Removal takes effect at the next request**, in both systems, because both consult the same list. A browser somebody left signed in on the other side of the island stops working the next time it asks for anything.
+- **A leaked cookie needs a way back.** Every session carries the person's `session_version`; bumping it signs that person out everywhere, immediately, without touching anybody else. v1.0's only remedy was rotating a shared signing key, which signs out the whole charity.
+- **Shared passwords retire on the same day** staff sign-in goes live (DECISIONS D7). **No overlap period.** Running two credential models side by side means the password remains the real way in, nobody learns the new flow, and removing a person still requires changing a secret everyone shares. On switch-over day: the document gate password is changed to a value only the workspace shows, everyone signs in once by link, and the old password is retired. One credential model, not two.
+
+### 2.10 Decision (recorded): how mail is actually sent
+
+**Decided in DECISIONS.md D2.** Resend, **split into two sending identities on separate subdomains, with separate keys**.
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. ✅ Resend, two identities.** `mail.catspotters.com` for transactional mail, `news.catspotters.com` for cat news. Separate Resend domains, separate DKIM keys, separate API keys. | An HTTP call — no mail server, no ports — which suits both runtimes. Real delivery logs, which is the difference between "we think it went" and "we know it did"; that matters enormously when the failure mode is "Susan says she never got it". Sends to any recipient with no enrolment step, so welfare mail reaches `admin@syroscats.com` without anybody at Syros Cats clicking anything — SYC-30 comes off the critical path. **The split is the point**: a tourist marking a cat-news email as spam damages the reputation of `news.`, not the subdomain that carries sign-in links and welfare reports. | Two domains to verify with DNS rather than one. Two keys to hold. The dependency does not vanish, it moves — until the DNS records land, Resend restricts sending to the account owner's own address, so it is now Samuel's DNS rather than Syros Cats' inbox on the critical path. Better, but not nothing. |
+| **B. Cloudflare Email Sending.** | No API key at all — a platform binding rather than a secret. | **Not available.** The mail that matters here is sent by an Express server on Replit; a Workers binding does not exist in that runtime. Removed as an option and removed as the fallback, where v1.0 wrongly named it. |
+| **C. Google Workspace SMTP** (send as `admin@syroscats.com`). | The friendliest possible "from" line. No new supplier. | Needs an app password or a service-account grant held long-term. **An app password is a reusable key to the charity's entire mailbox** — a far worse thing to hold than a send-only API key. Google throttles and occasionally blocks programmatic sending, and when it does, sign-in stops for everyone. **Rejected.** (v1.0 rejected this for the wrong reason — it claimed the runtime has no SMTP client, and Node does. The conclusion was right; the argument was not.) |
+| **D. Google sign-in instead of an emailed link** (SYC-26). | No email to deliver for sign-in, so a mail outage stops locking people out. One tap for a team already living in Google Workspace. | Does not remove the mail dependency — reports, verification and acknowledgements still have to be sent. Needs an OAuth client, a client id and a secret. Adds a second identity path: **Google proving who somebody is must never be the same thing as letting them in** — the allow-list check still happens after Google answers. |
+
+**Recommendation: A now, D soon, Postmark named as the upgrade path.** Take Resend with the split. Add Google sign-in as a second door once the first works — it is a real convenience and it makes sign-in survive a mail outage. If transactional deliverability on a new domain proves weak, **Postmark** is the upgrade; it is a different provider behind the same one send function, not a rethink.
+
+**Two identities, concretely:**
+
+| Identity | Sends | From | Key held by |
+|---|---|---|---|
+| **Transactional** — `mail.catspotters.com` | Staff sign-in links; email verification; report acknowledgements; report status updates; the welfare alert to `admin@syroscats.com`; issue reports | `Cat Spotters <signin@mail.catspotters.com>` / `Syros Cats via Cat Spotters <reports@mail.catspotters.com>`, **`Reply-To: admin@syroscats.com`** on anything a reporter might answer | The Worker (Cloudflare secret) for sign-in; the API (Replit deployment secret) for everything else — two keys on the same domain, so either can be rotated without touching the other |
+| **News** — `news.catspotters.com` | "The cat you named was sterilised" and other loop-closing mail (owned by `email-capture.md`) | `Cat Spotters <news@news.catspotters.com>` | The API, a third key |
+
+**Be precise about what the split does and does not buy.** It buys separate sending reputation, separate DKIM keys, separate revocation and separate delivery logs. It does **not** by itself buy a separate volume allowance — Resend's send caps are account-level, so a flood on one identity can still eat the account's headroom. Two things close that gap, and both are ours to build:
+
+1. **The rate limits in §2.6**, which are what actually stop a login form or a report form generating mail without bound.
+2. **A priority budget inside the one send function.** Every send declares a purpose. When the daily budget is being approached, the function sheds load in a fixed order: news first, then verification, then acknowledgements. **Sign-in links and welfare alerts are never shed.** If it ever has to shed, it raises a dashboard banner saying so.
+
+Re-check Resend's current published limits before committing — they change — and budget for the paid tier rather than assuming a free allowance covers a launch.
+
+**The single-provider failure has to be built, not just named.** A send-failure rate above a threshold raises a dashboard banner; a written half-page cutover procedure lives in `docs/DEPLOYMENT.md`, so the answer to "Resend is down on a Sunday" is a runbook and not "wait for Samuel". Resend's `delivered`, `bounced` and `complained` webhooks are ingested; bounces and complaints go onto a suppression list, and the suppression list also suppresses *verification* sends, not just later ones.
+
+### 2.11 Handling the keys — non-negotiable
+
+Every one of these credentials — the Resend keys, the Ed25519 private key, the Worker's server-to-server credential for the allow-list check, and Google's client secret if D lands — can be used to impersonate the charity or its staff. Each is held in the platform's own secret store: **Replit deployment secrets** for the API, `wrangler secret put` for the Worker. Never:
 
 - written into a configuration file that is committed to a repository,
-- pasted into a scheduled routine, automation, or agent prompt,
-- included in a runbook, ticket, or chat message.
+- pasted into a scheduled routine, an automation, or an agent prompt,
+- included in a runbook, a Linear ticket, or a chat message.
 
-If a scheduled or automated job ever needs to send mail, it reads the secret from the platform at run time; the alternative — a key sitting in cleartext inside a routine — turns one convenience into a permanent exposure that no rotation schedule can undo. Scope the key to sending only, and treat rotation as a five-minute job so that rotating it is never the reason not to.
-
-Google's client secret (option D) has exactly the same rule.
-
-### 2.6 Who is on the list
-
-The allow-list is a table of people: email address, name, role, and when they were added. Adding a colleague is adding a row; removing them is removing one, and their next request ends their session.
-
-Two operational truths the charity should be told plainly, because they change behaviour:
-
-- A thirty-day session on a device is convenient and also real — someone removed from the list loses access at their next request, but a browser they left signed in elsewhere is not something we can reach into. Shared or borrowed devices should be signed out.
-- Any shared password that exists alongside this (for public documents, say) is visible to everyone with access, so removing a person realistically means changing that password too. **Recommendation: retire shared passwords entirely once the staff sign-in is live.** One credential model, not two.
+If a scheduled or automated job ever needs to send mail, it reads the secret from the platform at run time. **A key sitting in cleartext inside a routine turns one convenience into a permanent exposure that no rotation schedule undoes** — the routine is the leak, and it keeps leaking. Scope each key to the narrowest thing it needs to do, and treat rotation as a five-minute job so that rotating it is never the reason not to.
 
 ---
 
 ## 3. The staff dashboard
 
-One page, mobile-first, because a Syros Cats volunteer is far more likely to open this standing in a street than sitting at a desk.
+One page, mobile-first, because a Syros Cats volunteer is far more likely to open this standing in a street than sitting at a desk. Served from `team.catspotters.com` (§2.6).
 
 ### 3.1 What needs us today — the welfare queue
 
-The landing view. A list, newest and most urgent first:
+The landing view. A list, ordered urgent-first and then newest-first.
 
-- **Urgent** reports at the top, marked unmistakably.
+- **Urgent** at the top, marked unmistakably. **Severity changes the order of this list and nothing else** — it does not make anybody arrive sooner, because nobody is dispatched. Anything in the interface that implies otherwise is a bug (§5).
 - **Needs attention** below.
-- Each row: the photo, where it was found (exact location — this is the team view), how long ago, what the reporter said, and whether the reporter left a way to contact them.
-- Each row has one of four states: **New · Looking at it · Done · Not for us**. Changing the state is one tap, and it is what triggers the reporter's update (section 5.5).
-- A free-text note field on each report, visible to the team only — "Maria went, cat had already moved on".
-- If the report can be tied to a cat already in the catalogue, the row links straight to that cat's record.
+- Each row: the photo, where it was found (**exact** location — this is the team view), how long ago, what the reporter said, whether the report is tagged as a litter, and **whether the reporter left a way to be contacted**.
+- **The reporter's email address is not shown.** Agreed with `email-capture.md`: the address stays inside the app's own system, the queue shows a yes/no, and replies are sent from the dashboard using fixed copy (§5.3). The alert email to the shared mailbox does not carry it either (§4.3) — hiding it from one screen while emailing it to a mailbox several people read would achieve nothing.
+- Four states: **New · Looking at it · Done · Nothing needed**. One tap to change. Moving a report to a **closing** state (*Done* or *Nothing needed*) is what sends the reporter their one update; *Looking at it* is for the team's own use and sends nothing (§5.3h).
+- A free-text **team note** on each report, visible to the team only — "Maria went, cat had already moved on."
+- If the report can be tied to a cat already in the catalogue, the row links to that cat's record.
+- A **delivery state** per report: whether the reporter's mail was accepted, delivered, bounced or suppressed, so "did they get it?" has an answer.
 
-The queue is deliberately not a ticketing system. Four states, one note field, no assignment, no due dates. A charity of this size will use a simple thing and abandon a complicated one.
+The queue is deliberately not a ticketing system. Four states, one note, no assignment, no due dates. A charity of this size will use a simple thing and abandon a complicated one.
+
+**One thing the queue must never grow: an "escalate" or "page someone" button.** There is nobody to page (F1). A button that looks like one would restore the promise the design deliberately does not make.
 
 ### 3.2 The feeding-site map
 
-Every feeding site on the island, on a map, **visible only to Syros Cats by default**. Each site has a switch: *private* (the default) or *public*. A site only becomes visible in the public app when someone at Syros Cats turns that switch on, one site at a time.
+Every feeding site on the island, on a map, **visible only to Syros Cats by default**. Each site has one switch: *private* (the default) or *public*, flipped one site at a time, with who flipped it and when recorded — not to police anybody, but so "how did this become public?" always has an answer. There is no bulk action.
 
-This is a safety feature, not a preference. A public list of where cats reliably gather is a public list of where to find cats, and the charity has good reasons to worry about who else reads it. So: private unless deliberately opened, no bulk "make everything public" action, and a plain-English line on the toggle saying what turning it on means. Turning a site public is recorded with who did it and when — not to police anybody, but so the question "how did this become public?" always has an answer.
+This is a safety feature, not a preference: a public list of where cats reliably gather is a public list of where to find cats.
 
-**Dependency:** the list of sites that may be public comes from Syros Cats. It is requested early and it never blocks — every site simply stays private until they say otherwise, which is the correct default anyway.
+**The record itself is `cat-record-data-spine.md` §9.4** — that spec owns the `feeding_sites` table, the privacy model and, importantly, **the precision at which a public site is shown** (its §6.6 recommends that a site made public shows its exact position, on the grounds that a 300 m circle around a food bowl serves nobody). This spec does not restate any of it and does not define the table a second time, as v1.0 did.
+
+**Cross-spec note:** v1.0 introduced a `colonies` table with a guardian name, which the data spine does not have — it carries `colonyName` as text. Colony naming matters operationally (§3.4) and the join will be wanted the moment guardians arrive (§7). **That table is the data spine's to add, not ours**, and it is raised there rather than defined here.
+
+**Dependency:** the list of sites that may be public comes from Syros Cats. It is requested early and **never blocks** — every site stays private until they say otherwise, which is the correct default anyway. The list is configuration, not code.
 
 ### 3.3 Fixing what is wrong
 
 Small corrections, done in seconds, by people who actually know:
 
-- **Hide a photo** — one tap, reversible, no confirmation dialogue theatre. A bad photo comes down first and gets discussed afterwards.
-- **Rename a cat** — because the AI-suggested or tourist-supplied name is sometimes simply wrong, and the charity's name for a cat is the real one.
+- **Hide a photo** — one tap, reversible, no confirmation theatre. A bad photo comes down first and gets discussed afterwards.
+- **Rename a cat** — the AI-suggested or tourist-supplied name is sometimes simply wrong, and the charity's name for a cat is the real one.
 - **Correct a life status** — street, homed, in care, deceased.
-- **Correct a sterilisation record** — a team entry is *Confirmed*; a clipped tip seen by a spotter is *Likely*; the absence of a visible clip is never evidence of anything. Photographs are taken from the wrong side all the time.
-- Every correction records who made it and when, so a disagreement can be traced rather than argued.
+- **Correct a sterilisation record** — a team entry is *Confirmed*; a **clipped tip** seen by a spotter is *Likely*; **the absence of a visible clipped tip is never evidence of anything**, because photographs are taken from the wrong side all the time.
+
+**How a correction is stored is not this spec's decision.** A correction is an **observation** — appended, carrying `roleAtTime: "staff"`, the person's id, and `supersedesId` pointing at what it replaces — exactly as `cat-record-data-spine.md` §9.1 defines. Status is derived on read by that spec's resolver. v1.0's editable status columns and separate `record_changes` log are struck: they would have produced a dashboard writing to one model while the cat page read another, with no rule for which wins.
+
+The attribution the dashboard needs — who changed what, when — comes from the observation rows themselves. Who may **read** that history, and whether a correction can be undone or only re-corrected, is a question for the data spine; the dashboard shows what that spec permits.
 
 ### 3.4 Colony names
 
-Colonies get the names Syros Cats already use — a place plus the name of the person who looks after it ("Vaporia — Eleni's"). The dashboard lets the team create a colony, name it that way, and attach feeding sites and cats to it.
+Colonies get the names Syros Cats already use — a place plus the person who looks after it ("Vaporia — Eleni's"). The dashboard lets the team name a colony that way and attach feeding sites and cats to it.
 
-This sounds like a small feature and is not. The charity's operational vocabulary is colony names; a system that invents its own names quietly stops matching the conversations people have on the phone, and then nobody trusts it. The person named in a colony is a **cat guardian** — the term the charity uses — and naming a colony after her is the first, lightest step towards the full guardian role in section 7.
+This sounds small and is not. The charity's operational vocabulary *is* colony names; a system that invents its own quietly stops matching the conversations people have on the phone, and then nobody trusts it. The person named is a **cat guardian** — the charity's term — and naming a colony after her is the first, lightest step towards the guardian role in §7.
+
+### 3.5 Deletion requests that arrive by email
+
+`hello@catspotters.com` is the published fallback for somebody who lost their phone, or would simply rather ask a human (DECISIONS D6). Self-service in the app is the main route and should reduce this to a trickle — but a trickle still has a legal clock on it, and it must not need Samuel.
+
+**This spec provides the dashboard action; it does not design the mechanism.** The severing itself — what goes, what stays, and how an append-only store honours an erasure — is `cat-record-data-spine.md`'s (F3).
+
+What the team sees:
+
+- A **"Data requests"** section, kept separate from the welfare queue so a deletion request never competes with an injured cat for attention.
+- Each request shows the address that asked, when it arrived, **when the legal clock runs out** (one calendar month from receipt, counted down in days), and one button: **"Delete this person's details."**
+- Before it fires, plain-English confirmation of exactly what goes — their email address, the link between them and their sightings, their points and streaks — and what stays: **the cat sightings themselves, unlinked and anonymous, so no cat loses its history**, and any names they gave cats, which belong to the community once other people use them. It is irreversible and says so.
+- Afterwards the action is recorded — who did it, when, against which request — because "did we action that?" needs an answer, and because a regulator asking is a foreseeable event.
+- A request whose clock has fewer than seven days left is pinned to the top of that section. **This is the one place a countdown appears anywhere in the dashboard, and it is deliberate**: it is a legal deadline the charity actually holds, not a promise about cats we have not made.
+
+### 3.6 What the dashboard does not do
+
+No assignment. No due dates on reports. No alerting, paging, escalation or on-call rota (F1). No bulk "make everything public". No direct database editing of anybody's access. No free composition of email to members of the public (§5.3).
 
 ---
 
@@ -143,149 +327,257 @@ This sounds like a small feature and is not. The charity's operational vocabular
 
 ### 4.1 Where it starts
 
-A "this cat needs help" action is available from the obvious places: the camera flow, a cat's record, and the map. It is never buried, and it is never the biggest thing on the screen — most cats are fine, and an app that shouts "REPORT A PROBLEM" at everyone teaches people to ignore it.
+A "this cat needs help" action sits in the obvious places: the camera flow, a cat's record, and the map. It is never buried, and it is never the biggest thing on the screen — most cats are fine, and an app that shouts REPORT A PROBLEM at everybody teaches people to ignore it.
 
 ### 4.2 What the reporter is asked
 
-Short. Someone using this is worried, possibly upset, and possibly standing in the sun with one hand on their phone.
+Short. Somebody using this is worried, possibly upset, and possibly standing in the sun with one hand on their phone.
 
 1. **A photo** — reused automatically if they have just taken one.
-2. **Where** — the confirmed location, exactly as the spotting flow does it, so a poor GPS fix does not send someone to the wrong street.
+2. **Where** — the confirmed location, exactly as the spotting flow does it, so a poor GPS fix does not send anybody to the wrong street.
 3. **How bad** — two choices, in plain words:
    - *Needs attention* — "Thin, limping, sore eye, or just not right."
    - *Urgent* — "Badly hurt, collapsed, or in danger right now."
 4. **What you saw** — free text, optional, no character counter, no format.
-5. **A litter?** — a tick box: "This is kittens, or a mother with kittens." This changes what the app says next (section 5.4).
-6. **Your email** — optional, with the reason stated: "So we can tell you what happened. We use it for this and nothing else, and you can ask us to delete it." Consent-based, purpose-stated, deletable.
+5. **Is this kittens?** — a tick box: "This is kittens, or a mother with kittens." This changes what the app says next (§5.3).
+6. **Your email** — optional. **The consent wording is `email-capture.md` §3.4's, verbatim, and that spec is the single source for it.** v1.0 carried a second, different wording; it is struck. The reporter also sees the separate, unticked "also email me news about the cats I've met" box that spec defines — a different purpose, so a different consent.
+
+**A draft is written the moment severity and location are set**, before anything else is typed. If the person abandons the flow at the guidance screen, the team still sees that somebody reported a cat in that street. An abandoned report that leaves nothing is the exact outcome the charity most wants to avoid.
 
 ### 4.3 What happens when they submit
 
-Two things at once:
+**On screen, immediately, before any email exists:** confirmation that the report is in (§5.3's confirmation copy). This is deliberate and comes from DECISIONS F7b — there is no verification step, no waiting and no friction at the moment somebody is trying to help a hurt cat.
 
-- An email to **admin@syroscats.com**, containing the photo, the location, a map link, the severity, the note, and the reporter's contact if they gave one — everything needed to act without opening anything else.
-- A row in the **in-app queue** (section 3.1), which is where the team actually works and where the reporter's status update comes from.
+Then, in the background:
 
-If the phone has no signal, the report queues locally alongside offline sightings and sends when signal returns. **Be precise about this with users:** the report is safely saved on the device, and it reaches Syros Cats when the phone next has a connection. It is not delivered while offline, and the confirmation screen says so rather than implying someone has already been told.
+- **A row in the queue** (§3.1). **The queue row is the source of truth.** It is written first and it is written even when every email fails, is rate-limited, or is suppressed. Nothing that happens to mail can lose a report.
+- **The photo attaches after the row**, and the row shows *photo pending* until it does. A queue row with no photo is a report the team cannot triage, so the state is visible rather than mysterious. Photos on reports are handled exactly as sighting photos are — magic-byte detection, full decode, EXIF rotation, bounded and re-encoded, size caps — and are stored the same way they are, which per DECISIONS D1 means **in Postgres for now**; `hosting-and-photo-storage.md` owns that and owns the later move.
+- **An alert email to `admin@syroscats.com`**, queued with retry, never sent inline: the photo, the location, a map link, the severity, the litter flag and the reporter's note. Urgent reports carry a distinct subject line. **It does not carry the reporter's address** — it says "the reporter left contact details; reply from the dashboard."
+- **If the reporter gave an address**, `email-capture.md`'s verification message goes to it and **nothing else is sent to that address until they confirm** (F7b). This is what stops the report form being a machine for sending mail from a charity's domain to a stranger's inbox.
+
+**If the phone has no signal**, the report queues locally alongside offline sightings and sends when signal returns. Be precise with users: the report is **saved on the device** and reaches Syros Cats when the phone next has a connection. It is not delivered while offline, and the confirmation screen says so rather than implying anybody has been told. If an unsent report is still sitting there after 24 hours, the phone reminds its owner once: *"You have a cat report that hasn't sent yet."*
+
+### 4.4 Keeping the flow from being abused
+
+The report endpoint is public and unauthenticated, it costs money (image handling) and it costs attention (a queue a human reads), which is the scarcest resource in this entire system.
+
+- **Device identity is not an abuse control here.** `deviceAuth.ts` is trust-on-first-use: the first request presenting a secret for an id binds it, so an attacker mints a fresh device per request at no cost. Per-device limits are a courtesy control against a buggy client and are treated as diagnostic only. The controls that bear weight are **per IP**, **per recipient address**, and the **global daily send ceiling** (§2.6, §2.10).
+- **Turnstile on the report submit.** A charity app with an unauthenticated public write endpoint is the textbook case; the widget is invisible to almost everybody and stops scripted floods.
+- **Recipient-address limits** (§2.6) mean the same address cannot be mailed repeatedly no matter how many reports name it. **The queue row is written anyway** — suppression must never lose a report.
+- **Bounce and complaint webhooks** feed a suppression list, which also suppresses verification sends.
 
 ---
 
-## 5. Capacity messaging — the most important part of this spec
+## 5. Capacity and safety copy — the most important part of this spec
 
-### 5.1 The problem in one paragraph
+### 5.1 The principle, and the decision behind it
 
-Syros Cats can only look after so many cats. Every cat that comes into their care costs money they would rather spend on sterilisation, which is what actually reduces suffering on the island over time — at **€50–60 per cat**, one sterilisation prevents far more misery than one rescue. Their aim is *fewer cats in their care and more care happening in the community*: a visitor who takes a sick cat to a vet themselves, or a resident who keeps an eye on a litter where it is, does more good than a report that becomes an expectation the charity cannot meet. But the charity still wants the data — every one of those cats should end up in the record.
+Every cat that comes into Syros Cats' care costs money they would rather spend on sterilisation, which is what actually reduces suffering on the island over time. At **€50–60 per cat**, one sterilisation prevents far more misery than one rescue. Their aim is *fewer cats in their care, more care happening in the community.* But they still want the data — every one of those cats should end up in the record.
 
-So the flow has to do something delicate: **capture the report, and at the same time move the reporter towards acting themselves.** Not by refusing to help. By being honest, early, and warm about what happens next.
+So the flow has to do something delicate: **capture the report, and at the same time move the reporter towards acting themselves** — not by refusing to help, but by being honest, early and warm about what happens next.
 
-### 5.2 Where the messaging goes
+**Decision (recorded): no urgent alarm.**
 
-Two moments, deliberately:
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Page a human.** An urgent report pushes to the WhatsApp group Syros Cats already use, or an SMS to a rota phone, with re-notification after N hours. | The stated risk — "a dying cat and nobody sees it for two days" — is actively mitigated rather than merely documented. | **It is a promise nobody has agreed to keep.** There is no rota; there is no funding for one; the charity has not asked for one. An alert that nobody answers is worse than no alert, because the app has now told a reporter that somebody was told. A WhatsApp group at 3am on a Sunday in February is two people asleep. It also quietly makes the charity feel accountable for outcomes they cannot deliver. |
+| **B. ✅ No alarm. Honest copy instead.** Reports reach the shared inbox and the queue. Severity sets queue order. Nothing wakes anybody. | The app promises exactly what it delivers. It sends urgent cases to the one route that is genuinely fast — a vet — rather than to a queue. It does not make Syros Cats the emergency service for an island's cats, which is the outcome that would consume the charity. | **A report about a genuinely dying cat can sit unseen for two days.** Accepted, deliberately, with our eyes open. Survivable **only** because the copy sent that case to a vet before the report was ever submitted. If the copy is weak, this decision is indefensible — which is why the copy is treated as a launch blocker, not a polish item. |
 
-- **Before submitting**, on the severity step — a short block of guidance that gives the reporter a better option than waiting.
-- **After submitting**, on the confirmation screen and in the acknowledgement email — Syros Cats' standard reply, so the person has it in writing.
+**Recommendation: B**, as decided in F1. And the consequence written through everything below: **there is no language anywhere in this product implying that anyone is monitoring, standing by, on call, or coming.** Severity changes the order of a list. It does not change the speed of anything.
 
-Guidance before the report, not instead of it. The report always goes through. Nobody is ever blocked from telling the charity something.
+### 5.2 Where the copy goes
 
-### 5.3 Draft copy — for Syros Cats to review
+Four moments, deliberately:
 
-> **Everything below is a draft written to be corrected.** It is a starting point so Syros Cats have something concrete to react to, not a proposal to publish as-is. The charity has the final word on every line, and Susan's standard reply (5.6) replaces the acknowledgement wording once it arrives.
+- **Onboarding**, once, about healthy street cats (§5.3a).
+- **Before submitting**, on the severity step, different for urgent and for needs-attention (§5.3b, §5.3c) — guidance *before* the report, never instead of it. **The report always goes through. Nobody is ever blocked from telling the charity something.**
+- **Immediately after submitting**, on the confirmation screen (§5.3e).
+- **In the acknowledgement email**, once the address is verified (§5.3f), so the person has it in writing.
 
-**On the severity step, when "Urgent" is chosen:**
+Same rule, same words, in the flow and in the mail. A message that appears in only one place is a message half the people never see.
 
-> **If this cat is badly hurt, the fastest help is a vet.**
-> Syros Cats is a small charity and there may not be anyone free to come out today. If you are able to take this cat to a vet yourself, that is the quickest thing that can happen for it — and it might save its life.
+**A layout note that is part of the design, not decoration.** The urgent block is long because it has to be. It is shown as a short lead, then a clearly labelled expander — **"How to move a hurt cat safely"** — open by default on first use. The lead must never be the discouraging half: leading with "we may not come" turns a worried person away at the exact moment we want them to press Send.
+
+### 5.3 The copy
+
+> **These are drafts written to be corrected.** They are a starting point so Syros Cats have something concrete to react to. The charity has the final word on every line. Susan's standard reply (§5.6) replaces the acknowledgement wording when it arrives. **One exception, and it is important: the injured-cat handling advice in (b) is not a free swap** — see §5.4.
+
+#### (a) Onboarding — healthy street cats
+
+> **Look, don't touch.**
 >
-> Please know the vet will normally charge you for the visit. If that is difficult, tell us in your report and send it anyway.
+> The cats of Syros are not pets, and they are not strays. They live here. Most of them are fed, watched over and known by somebody.
 >
-> Either way, please send this report. It tells us where this cat is and helps us look after the cats of Syros.
+> Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road, away from dogs, and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.
 >
-> *[Nearest vets — Ermoupoli · phone · map]*
+> So: photograph them, admire them, leave them be.
+>
+> **If you find a cat that is hurt or sick, that is different, and the app will tell you what to do.**
 
-**On the severity step, when "Needs attention" is chosen:**
+#### (b) The severity step — "Urgent"
 
-> **Thank you for noticing.**
-> Reports like this are how Syros Cats know which cats need checking. Someone will look at it, though it may not be today — the team is small and the island is large.
+> ### Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.
 >
-> If the cat seems to be getting worse, a vet is the fastest help, and you can send another report any time.
+> **If this cat is badly hurt, the fastest help is a vet — and it is worth going without waiting for us.** Syros Cats is a handful of people. Nobody is on duty, nothing alerts anybody, and this report may not be read today.
+>
+> ---
+>
+> **▾ How to move a hurt cat safely** *(open by default)*
+>
+> A hurt cat will bite and scratch, hard, while you are helping it. It is frightened and in pain, and it does not know you are on its side. Even a cat that knows you will do this.
+>
+> **Never use bare hands.** Drop a towel, a jumper or a jacket right over it, including its head. Lift it wrapped, and put it straight into a box or a carrier you can close. Keep it dark and quiet. Don't give it food or water, and don't try to treat the injury yourself.
+>
+> **If you can't do that safely, stop.** If you are on your own, if it is fighting you, if it is under a car or somewhere you would have to climb, or if you simply aren't sure — don't. **Send the report and phone a vet for advice instead.** Nobody expects you to get hurt for this, and a bite or a scratch from a street cat needs a doctor, not a plaster.
+>
+> ---
+>
+> **What it costs.** The vet will charge you for the visit. Syros Cats cannot pay you back unless you agree it with them beforehand.
+>
+> **You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive, and tell us in your report.
+>
+> **Vets on Syros** *(name · phone · hours · map)*
+>
+> Either way, please send this report. It tells the team where this cat is, and it is how the cats of Syros get looked after at all.
 
-**On the confirmation screen, after any report:**
+*If Syros Cats cannot supply out-of-hours vet cover (§5.5), the lead changes to what a person can actually do tonight:* **"Somewhere quiet, dark and safe. Water within reach. No food if it is badly hurt. Then send this report, and call a vet first thing."**
 
-> **Sent. Thank you.**
-> Syros Cats have this now, with your photo and the location.
->
-> They will look at every report, but they cannot always come out — often the best thing for a cat is someone nearby keeping an eye on it, and you have already done the most important part by telling them.
->
-> *[If an email was given]* We will email you when the team has looked at it.
->
-> *[Susan's standard reply appears here — see 5.6]*
+#### (c) The severity step — "Needs attention"
 
-**When the report is marked as a litter:**
-
-> **Please talk to us before you bring kittens anywhere.**
-> Kittens are almost always better off where they are, with their mother, than moved. She is usually nearby even when you cannot see her, and she is far better at this than any of us.
+> ### Thank you for noticing.
 >
-> If they are truly in danger, please **contact Syros Cats first** rather than turning up with them. There may not be space, and a kitten that arrives unannounced is much harder to help than one we have planned for.
+> Reports like this are how Syros Cats know which cats to check on. Send it — a thin cat with a sore eye is worth recording, and the record is what tells the team where to spend what little they have.
 >
-> **admin@syroscats.com** · *[phone, once confirmed]*
+> Please know what this is and isn't: it goes to a small charity, not to a rescue service. Nobody is on duty. Somebody reads the list when they can, and that may be a few days.
 >
-> Sending this report is exactly the right thing to do. It helps us plan sterilisation for the mother, which is what stops the next litter — around **€50–60** does it, and it is the single most useful thing anyone can pay for on this island.
+> If the cat gets worse in the meantime, a vet is the fastest help — and you can send another report any time.
 
-**In the acknowledgement email:**
+#### (d) When the report is marked as a litter
 
-> Subject: We have your report about a cat on Syros
+> ### Please don't move them, and please don't bring them anywhere.
+>
+> Kittens are almost always better off exactly where they are, with their mother. She is usually close by even when you cannot see her, and she is far better at this than any of us. If they look round and quiet, she is doing her job.
+>
+> If they are in real danger — in the road, in water, in the sun with no shade — move them the shortest distance to somewhere safe **nearby**, where she can still find them. Not away.
+>
+> Syros Cats has limited space and limited money, and kittens arriving unannounced are the hardest thing of all for them to help. **Talk to them before you bring anyone anything:** admin@syroscats.com *[· phone or WhatsApp, once Syros Cats confirm one]*. There may be nobody able to answer today.
+>
+> Sending this report is exactly the right thing to do. It tells the team where the mother is, and getting her sterilised — around **€50–60** — is what stops the next litter.
+
+*The donation ask does not appear here.* Somebody crouched over a cardboard box is not being asked for money. The ask moves to the acknowledgement email, where it reads as gratitude rather than as a toll.
+
+#### (e) The confirmation screen, immediately after any report
+
+> ### Sent. Syros Cats have this.
+>
+> Your photo and the location are saved, and this report is in the charity's list.
+>
+> **What happens next, honestly:** somebody at Syros Cats will read it when they can. Nobody is on duty and nothing alerts anybody. It may be a few days. Urgent reports are read before the others — but read first is not the same as read fast, and we would rather tell you that than let you assume otherwise.
+>
+> **If this cat is badly hurt, please don't wait for us.** A vet is the fastest help there is. *[Vets on Syros]*
+>
+> *[If an email was given]* We've sent one message to that address to check it's right. Tap the link in it and we'll write to you when someone has looked at this report. Until you do, we won't send you anything at all.
+>
+> *[If offline]* This report is saved on your phone and sends itself the moment you have a signal. Nobody has been told yet.
+
+#### (f) The verification email
+
+> Subject: **Is this your email address?**
+>
+> Somebody gave this address to the Cat Spotters app while reporting a cat on Syros.
+>
+> **[ Yes, this is my address ]**
+>
+> Your report has already reached Syros Cats — this only decides whether we can write to you about it.
+>
+> If this wasn't you, just ignore this message. We won't send you anything else, and we delete the address within seven days.
+
+#### (g) The acknowledgement email — sent only after the address is verified
+
+> Subject: **Your cat report reached Syros Cats**
+> Reply-To: admin@syroscats.com
 >
 > Hello,
 >
-> Thank you for telling us about this cat. Your report and photo reached Syros Cats on *[date]*.
+> Thank you for telling us about this cat. Your report and your photo reached Syros Cats on *[date]*, and it is in their list.
 >
-> Someone will look at it. We cannot always come out — we are a small charity and there are a great many cats — but every report goes into the record, and the record is what lets us plan sterilisation where it will do the most good.
+> We should be straight with you about what happens now. Syros Cats is a few people on an island with a great many cats. **Nobody is on duty and nothing alerts anybody** — somebody reads the list when they can. Urgent reports are read before the others, but that changes the order, not the speed. It can be days.
 >
-> If this cat is badly hurt and you are able to take it to a vet yourself, please do; the vet will normally charge for the visit. If it is a litter of kittens, please contact us before bringing them anywhere.
+> That is exactly why, **if this cat is badly hurt, the fastest help is a vet, and it is worth doing without waiting for us.** *[Vets on Syros]* They will charge for the visit, and the charity cannot pay it back unless it was agreed with them beforehand. If you do move the cat: never bare hands, use a towel and a closed box, and don't attempt it if you are alone or unsure.
 >
-> We will write again when the team has been able to look at this.
+> *[Litter variant]* Please don't move the kittens or bring them anywhere — talk to Syros Cats first. Their mother is almost certainly nearby and is far better at this than any of us.
 >
-> Syros Cats
-> admin@syroscats.com
+> **We will write to you once more, and only once: when somebody has finished looking at your report.** You won't hear from us in between — there is nothing honest we could say. Nothing else, ever, unless you asked for it.
+>
+> Every report goes into the record, and the record is what lets the charity plan sterilisation where it does the most good — around €50–60 a cat, and the single most useful thing anybody can pay for on this island. *[If you'd like to help with that]*
+>
+> *[Delete my details]* — removes your address and takes your name off this report. The report itself stays, so the cat keeps its history.
+>
+> Syros Cats · admin@syroscats.com
 
-### 5.4 Litter reports specifically
+#### (h) The reporter's update — fixed copy per state
 
-Ticking "this is kittens" changes three things: the guidance above appears in place of the general text, the queue row is tagged as a litter, and the acknowledgement carries the "contact us first, don't just turn up" line. Same rule, same words, in the flow and in the email — a message that only appears in one place is a message half the people never see.
+**Exactly two messages per report, at most: the acknowledgement, and one when the report reaches a closing state.** Agreed with `email-capture.md`, which is the owner of the four email moments. v1.0 promised "twice and no more" while describing a message on every state change, which its own four-state queue could not deliver.
 
-### 5.5 Closing the loop with the reporter
+**Moving a report to *Looking at it* sends the reporter nothing, and that is deliberate.** An interim "somebody is on it" message is a statement about response speed, and F1 refuses to make one. It would also be the single easiest way to reintroduce the promise this whole design exists to avoid: a person who has been told somebody is looking will reasonably expect somebody to arrive. The state exists for the team's own use in the queue and stays there.
 
-If the reporter gave an email address, they hear from us twice and no more:
+**The internal state name never appears in anything a reporter reads.** A tourist who reported a bleeding cat must never receive an email carrying the words "Not for us."
 
-1. **Straight away** — the acknowledgement above.
-2. **When the team changes the state** — one message when the report moves to *Looking at it*, *Done*, or *Not for us*, with a sentence the team can edit before it sends.
+| Internal state | Reporter is emailed? | Subject | Body |
+|---|---|---|---|
+| **Looking at it** | **No** — see above | — | — |
+| **Done** | Yes | About the cat you reported | "Somebody at Syros Cats has looked into this and the report is closed. *[optional team sentence]* Thank you for telling them — the record is better for it." |
+| **Nothing needed** | Yes | About the cat you reported | "Somebody at Syros Cats has looked at this one, and there is nothing they need to do. Usually that means the cat has moved on, or it is a healthy community cat that somebody is already feeding and keeping an eye on. That isn't a brush-off — the report is in the record either way, and the record is what tells them where sterilisation will do the most good. If something changes, please send another one." |
 
-No newsletter, no drip campaign, no third message. The email was given for one purpose and it gets used for that purpose. Every message carries a one-click way to delete the address entirely.
+If a report is moved straight from *New* to a closing state, that is still one message. If it goes *New → Looking at it → Done*, it is still one message, sent at *Done*. Duplicates are suppressed on the closing transition, so re-opening and re-closing a report does not mail somebody twice.
 
-If they gave no email, the confirmation screen is the whole of the loop, and it says so honestly rather than implying a follow-up that will never come.
+The **optional team sentence** is exactly that: optional, added to the *Done* message only, short, appended to the fixed copy and never replacing it, with a reminder on screen that it is going to a member of the public. Everything else is fixed. Free composition into an email to a stranger is not a feature this dashboard has.
 
-### 5.6 Dependency: Susan's standard reply
+### 5.4 Duty of care — stated explicitly
 
-Syros Cats already have a form of words they use when someone reports a sick cat. Susan is sending it. When it arrives it replaces the drafts in 5.3 — theirs is better, because it is what they actually say and it carries their name.
+The injured-cat block (§5.3b) is **advice a member of the public may act on, in a foreign country, alone**, given by an app built by Fair Shake and carrying Syros Cats' name. That deserves to be named rather than assumed:
 
-**This never blocks the build.** The draft copy above ships as a placeholder in a single copy file, marked clearly, and swapping it in is a text change requiring no code and no release of the app if the copy is served from configuration. The request goes to Syros Cats early, in writing, with the drafts attached so they have something easy to react to rather than a blank page.
+- The advice is deliberately **two-sided**. It tells somebody how to do it safely *and* tells them plainly not to, and what to do instead, if they cannot. It never asks anybody to take a risk, and it says in as many words that nobody expects them to get hurt.
+- It carries the **medical line** — a bite or a scratch from a street cat needs a doctor — because the injury that follows from taking our advice is the foreseeable one.
+- It carries the **money line** and the **decision-at-the-vet line**, because being landed with an unexpected bill or asked to consent to euthanasia are both real, and both would damage Syros Cats more than the unreported cat would have.
+- **Saying nothing is worse.** People help anyway. Without guidance they do it bare-handed.
+
+**Before launch this block must be signed off by Syros Cats *and* checked against whatever liability and insurance position Fair Shake is taking.** Unlike everything else in §5.3, it is **not** a copy swap that can be changed from configuration afterwards without that same sign-off — the configuration mechanism carries a marker on this block saying so. That is a workflow rule, not a technical lock.
+
+### 5.5 Dependencies in this section
+
+| Dependency | Owner | Blocking? |
+|---|---|---|
+| **Susan's standard reply** | Syros Cats (Susan) | **Never blocks.** The drafts above ship as a placeholder served from configuration, marked clearly, and swapping them is a text change with no code and no app release. |
+| **A named list of Syros vets — names, phone numbers, hours, and what happens out of hours** | Syros Cats | **Blocks the urgent variant specifically**; the rest of the flow ships without it. The urgent copy's whole structure is "nobody is coming, a vet is faster, here is a vet." Remove the third clause and it is "nobody is coming" with a placeholder underneath. If there is no out-of-hours cover, use the alternative lead in §5.3b. |
+| **A phone or WhatsApp number for litters** | Syros Cats | **Blocks nothing, weakens §5.3d badly.** A person crouched over a box will not email and wait. If there is no number, the copy must not ask them to make contact it cannot support — it leans harder on "leave them where they are, she is nearby". |
+| **Translation into Greek and French** | Syros Cats / SYC-4 | **Blocks launch of this copy.** The app ships in three languages; every word above is English. The reporter's language is stored on the report row so the acknowledgement and the update go out in the language they used. Every "it's just a copy swap" in this document is a copy swap **×3**. |
+| **The public feeding-site list** | Syros Cats | **Never blocks.** Everything is private until they say otherwise (§3.2). Configuration, not code. |
+
+### 5.6 Testing the copy
+
+The copy is the mitigation for the largest accepted risk in the product, so it gets tested like one, during the September closed test with the WhatsApp testers — who include actual tourists:
+
+- Does anybody come away believing somebody is coming? (If yes, the copy has failed.)
+- Does anybody come away not knowing a vet is the fast route? (Same.)
+- **What is the abandonment rate at the severity step?** An abandoned report is the outcome the charity least wants, and the drafts above put the encouragement first specifically to protect against it. The draft-on-severity rule in §4.2 means we can measure this rather than guess.
 
 ---
 
 ## 6. "Report an issue" on cats and photos
 
-Every cat record and every photo carries a quiet "Report an issue" action.
+Every cat record and every photo carries a quiet "Report an issue" action. The reporter picks a reason in plain words — wrong information about this cat · this is not a cat, or not this cat · the photo is upsetting or inappropriate · something else — plus an optional note and an optional email, which follows the same verification rule as everything else (F7b).
 
-The reporter picks a reason in plain words:
+It reaches the same two places, arriving in the queue but **visually distinct and never above a welfare report**. A wrong name is not an emergency.
 
-- Wrong information about this cat
-- This is not a cat / not this cat
-- The photo is upsetting or inappropriate
-- Something else
+**Objectionable content is treated differently in one specific way, and v1.0 got the safeguard wrong.** A photo reported as upsetting or inappropriate is hidden quickly, because the cost of briefly hiding a good photo of a cat is nothing and the cost of leaving genuinely objectionable content up is real. But v1.0 hid it on a **single unauthenticated report**, and claimed the safeguard was that "repeated reports from the same device that are all overturned are a signal the team can see." Device identity does not support that claim: `deviceAuth.ts` is trust-on-first-use, so an attacker mints a new device per report and one short script hides the entire catalogue, one photo at a time.
 
-Plus an optional note, and an optional email.
+**So the auto-hide is gated:**
 
-It goes to the same two places: **admin@syroscats.com** and the in-app queue, arriving in the same list as welfare reports but visually distinct — a wrong name is not an emergency and must never sit at the top of a queue above an injured animal.
-
-**Objectionable content is treated differently in one specific way.** A photo reported as upsetting or inappropriate is **hidden immediately, automatically, before any human looks at it**, and appears in the queue for the team to restore or confirm. The reasoning is simple: the cost of briefly hiding a perfectly good photo of a cat is nothing, and the cost of leaving genuinely objectionable content visible while waiting for a volunteer to wake up is real. Repeated reports from the same device that are all overturned are a signal the team can see, which is how abuse of the hide-it button gets noticed.
+- Reports from **two or more distinct devices *and* distinct IPs** trigger the automatic hide, and Turnstile sits on the report action.
+- A **single** report hides the photo from **public views only** while leaving it visible to staff and to the person who uploaded it — so a real problem still goes dark within seconds, without one anonymous request being enough to erase a photo entirely.
+- Hide volume above a daily threshold raises a dashboard banner.
+- Restoring is one tap, and it is attributed.
 
 ---
 
@@ -293,72 +585,101 @@ It goes to the same two places: **admin@syroscats.com** and the in-app queue, ar
 
 ### 7.1 What exists now
 
-One role: **Syros Cats staff**. Everyone on the list can see everything and change everything in the dashboard. For a team of this size that is honest and correct — inventing permissions nobody has asked for produces a system where the person who needs to fix something can't.
+One role: **Syros Cats staff**. Everyone on the list can see and change everything in the dashboard. For a team this size that is honest and correct — inventing permissions nobody asked for produces a system where the person who needs to fix something cannot.
 
 ### 7.2 What is coming
 
-Later, the same access model carries invited roles: **cat guardians** (who look after specific colonies and are authorised to arrange sterilisation the charity pays for), **volunteers**, and **vets**. Those roles need things this one does not — a guardian should see her own colonies in full and other people's approximately; a vet needs to record a procedure but has no business renaming cats; a volunteer working a hillside with no mobile data needs the colony view to work offline.
+The same access model later carries invited **cat guardians** (who look after specific colonies and are authorised to arrange sterilisation the charity pays for), **volunteers**, and **vets**. Those roles need things this one does not: a guardian should see her own colonies in full and other people's approximately; a vet records a procedure but has no business renaming cats; a volunteer on a hillside with no mobile data needs the colony view to work offline.
 
-### 7.3 What we are leaving room for, deliberately
+### 7.3 What we are leaving room for, so that later arrives without a rebuild
 
-So that later arrives without a rebuild:
+- **People, not admins.** The access table is a table of *people* (§2.9), and it is the only one (§2.7).
+- **Roles and scopes are a join table from day one — not columns.** `person_scopes` (person id, role, colony id nullable). v1.0 put `role` and `scope` on the person as scalar columns, which is exactly the retrofit it claimed to be avoiding: a cat guardian looks after **several** colonies, and real people hold two roles at once — a staff member who is also the guardian of her own alley. A single column forces either a delimited string or the migration we said we would not do. The cost today is one small table.
+- **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. From the first commit the dashboard calls them by name: `view_exact_location` · `hide_photo` · `restore_photo` · `rename_cat` · `set_life_status` · `set_sterilisation` · `set_site_public` · `change_report_state` · `add_team_note` · `manage_people` · `action_deletion_request`. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
+- **Invitation is the only way in, at every tier.** A guardian will use the same email-link flow. No second sign-in mechanism gets built for the second role.
+- **Every change is attributed from the first record**, as an observation carrying the person's id and `roleAtTime` (`cat-record-data-spine.md` §9.1). Attribution added later cannot describe the past — which is precisely why `roleAtTime` is recorded at write time and never looked up afterwards.
+- **Colony membership already exists** (§3.4), so "which colonies is this person a guardian of?" is a join, not a new concept.
 
-- **People, not admins.** The access table is a table of *people* with a role, not a table of administrators. Adding a second role is adding a value, not adding a table.
-- **Permission checks ask "can this person do this?", never "is this person staff?".** Every check goes through a single capability function. When guardians arrive, that function changes; the screens do not.
-- **Scope is a first-class idea from day one.** A person's access has a scope — today "everything", tomorrow "these colonies". The data model carries the column even while there is only one value in it, because retro-fitting scope into permission checks written without it is the expensive version of this work.
-- **Invitation is the only way in, at every tier.** The email-link flow is the same flow a guardian will use. No second sign-in mechanism gets built for the second role.
-- **Every change is attributed.** Who did it and when, from the first record. Attribution added later cannot describe the past.
-- **Colony membership already exists** (section 3.4), so "which colonies is this person a guardian of?" is a join, not a new concept.
+Explicitly **not** built now: an invitation interface, per-field permissions, approval workflows, or an offline volunteer view. Those belong with the roles they serve.
 
-What we are explicitly *not* building now: an invitation user interface, per-field permissions, approval workflows, or an offline volunteer view. Those belong with the roles they serve.
+**The real rework risk was never the role column.** It was two people tables on two platforms (§2.7): guardians arriving into that split would break the "no rebuild" claim for reasons that have nothing to do with roles. That is why §2.7 is settled here rather than left open.
 
 ---
 
 ## 8. Technical notes
 
-*This section is for whoever implements it. Everything above is the product; this is the wiring.*
+*This section is for whoever implements it. Everything above is the product; this is the wiring.* **Two runtimes are involved and they are not interchangeable:** sign-in is a **Cloudflare Worker** (`admin.catspotters.com`, D1, wrangler secrets); the dashboard, the API and the queue are **Express on Node, deployed on Replit** (`team.catspotters.com` and `api.catspotters.com`, Postgres, Replit deployment secrets). v1.0 was written as though everything were a Worker; every instruction below is against the runtime that actually runs it.
 
-### 8.1 Sign-in mechanics
+### 8.1 Sign-in mechanics — Cloudflare Worker
 
-- **Allow-list first.** A sign-in link is only minted for an address present in the people table. The response, the status code, and the response *time* are identical either way — a padded delay before replying, so the endpoint cannot be used to enumerate who has access.
-- **Token:** 32 bytes of cryptographic randomness, stored with the address and an expiry. **Fifteen minutes, single use.**
-- **Single use means a conditional write, not read-then-write.** `UPDATE … SET used_at = now WHERE token = ? AND used_at IS NULL AND expires_at >= ? RETURNING email`. A mail scanner prefetching the link while the person clicks it must not result in two valid sessions.
-- **Session:** signed cookie, `HttpOnly`, `Secure`, `SameSite=Lax`, `__Host-` prefixed, thirty days. Every request re-checks the address against the people table, so removal takes effect at the next request rather than at cookie expiry.
-- **Read every cookie of that name, not the last one.** A sibling subdomain can set a same-named cookie; taking only one value lets it shadow the real session.
-- **Signature verification is constant-time**, and a token whose payload has no parseable expiry is rejected rather than treated as never expiring.
-- **Cross-site POSTs are refused outright.** A missing `Origin` header is not a free pass — `SameSite=Lax` treats every sibling subdomain as same-site, so this check is what stands between a compromised subdomain and these endpoints.
-- **Google sign-in (when added):** exchange the code, read the *verified* email claim, and **only then** check the people table. Google authenticating someone is not authorisation. Redirect URI registered exactly; client ID and secret as platform secrets.
+- **Allow-list first, over the boundary.** A link is minted only for an address the API confirms is in `people` (§2.7). The call fails closed.
+- **Identical replies.** Same body, same status, and — after the fix in §2.5 — the same wall-clock time, by padding to a deadline with the send moved off the response path.
+- **Token:** 32 bytes of cryptographic randomness in `signin_tokens` (D1), with the address and an expiry. **Fifteen minutes.** Up to three outstanding per address.
+- **Consumed on POST, never on GET** (§2.5), with the conditional write `UPDATE … SET used_at = … WHERE token = ? AND used_at IS NULL AND expires_at >= ? RETURNING email`, a 60-second re-presentation window, and the same-origin check applied to the POST.
+- **Workspace session:** signed cookie, `HttpOnly`, `Secure`, `SameSite=Lax`, `__Host-` prefixed, thirty days. **Read every cookie of that name, not the last one** — a sibling subdomain can set a same-named cookie and shadow the real session. Signature verification is constant-time, and a payload with no parseable expiry is rejected rather than treated as never expiring. Both behaviours exist in the current code and are correct; keep them.
+- **Cross-site POSTs refused outright.** A missing `Origin` header is not a free pass: `SameSite=Lax` treats every sibling `*.catspotters.com` host as same-site, so this check is what stands between a compromised subdomain and these endpoints.
+- **The dashboard hand-off** is the Ed25519 JWS of §2.4, minted on demand when the "Cat Spotters dashboard" link is followed, sixty-second life, single use.
+- **A separate key from `SIGNING_KEY`.** The workspace currently shares `SIGNING_KEY` with the public site worker. The hand-off key pair is new and unrelated, and separating `SIGNING_KEY` between the two Workers is its own ticket.
+- **Google sign-in (when added):** exchange the code, read the **verified** email claim, and **only then** check the allow-list. Google authenticating somebody is not authorising them. Redirect URI registered exactly; client id and secret as platform secrets.
 
-### 8.2 Mail
+### 8.2 The dashboard session — Express
 
-- `RESEND_API_KEY` and `MAIL_FROM` as platform secrets (see 2.5). Sending domain verified with SPF/DKIM DNS records on `catspotters.com`; DMARC set once the domain is verified.
-- **Sign-in mail and report mail use one send function** with different templates, so there is one place where delivery failures are logged and one place to swap providers.
+- Hand-off validated exactly as §2.4 lists, then a **`__Host-cs_team` cookie** on `team.catspotters.com`: signed, `HttpOnly`, `Secure`, `SameSite=Lax`, thirty days, carrying person id and `session_version`.
+- **Every request re-checks** the person against `people` and compares `session_version`. Removal and forced sign-out both take effect at the next request.
+- **CORS:** replace `app.use(cors())` with an explicit allow-list and `credentials: true`. The dashboard itself is same-origin and needs none of it; the mobile app's origins are enumerated.
+- **Rate limiting:** a Postgres-backed store (§2.6), with the deployment pinned to one instance until it lands.
+
+### 8.3 Mail
+
+- Three keys, three purposes, two sending domains (§2.10), each in the right platform's secret store (§2.11).
+- **One send function**, purpose-tagged, with the priority budget of §2.10. One place where failures are logged, one place to swap providers.
 - **A failed send is logged loudly and never silently swallowed.** A sign-in endpoint that says "sent!" when nothing was sent is worse than one that admits the problem.
-- **Welfare and issue emails are queued, not sent inline.** Report submission must succeed even when the mail provider is having a bad afternoon — the queue row is the source of truth, the email is a notification about it. Retry with backoff; surface persistent failure in the dashboard so the team knows mail is behind.
-- Reporter-supplied text is escaped in the HTML part of every email. Header injection is prevented by never interpolating user input into headers.
+- **Welfare and issue mail is queued, not sent inline**, with retry and backoff. **The queue row is the source of truth; the email is a notification about it.** This is the best decision in v1.0's technical section and it is unchanged.
+- **`Reply-To: admin@syroscats.com`** on every reporter-facing message. A reporter *will* reply, with exactly the update that matters — "it's moved, it's outside the bakery now" — and without this it goes to a `hello@` mailbox that SYC-30 is the ticket for descoping.
+- **Persistent send failure raises a dashboard banner.** It does not page anybody, for the same reason nothing else does (F1).
+- Reporter-supplied text is escaped in the HTML part of every message, and user input is never interpolated into headers.
+- **User-supplied cat names in outbound charity mail** pass the moderation filter that exists (`routes/cats.moderation.test.ts`), whose threshold was tuned for in-app display, not for a charity's outbound mail. Re-check the threshold for this path.
 
-### 8.3 Data
+### 8.4 Data
 
-New tables, alongside the existing schema:
+New tables owned by this spec, alongside the existing schema:
 
-- `people` — email (unique, lowercased), name, role, scope, added_at, added_by.
-- `signin_tokens` — token, email, expires_at, used_at. Spent tokens tidied opportunistically.
-- `welfare_reports` — id, kind (`welfare` | `content`), severity (`attention` | `urgent`), is_litter, photo, lat/lng, note, reporter_email (nullable), reporter_device, cat_id (nullable), state, state_changed_at, state_changed_by, team_note, created_at.
-- `feeding_sites` — id, name, lat/lng, colony_id, is_public (default false), made_public_by, made_public_at.
-- `colonies` — id, name, place, guardian_name.
-- `record_changes` — an append-only log of corrections: what, who, when, before, after.
+- **`people`** (Postgres) — id, email (unique, lower-cased, role-address deny-list enforced), name, session_version, added_at, added_by.
+- **`person_scopes`** (Postgres) — person_id, role, colony_id (nullable). One row per role-and-scope pair (§7.3).
+- **`welfare_reports`** (Postgres) — id, kind (`welfare` | `content`), severity (`attention` | `urgent`), is_litter, photo_id, lat/lng, note, reporter_language, reporter_contact_id (nullable — the address itself is held by `email-capture.md`'s verified-contact model, not on this row), reporter_device, cat_id (nullable), state, state_changed_at, state_changed_by, team_note, is_draft, created_at.
+- **`report_state_events`** (Postgres) — report_id, from_state, to_state, person_id, at, plus which reporter message was sent, so duplicate suppression (§5.3h) is a query and not a guess.
+- **`mail_deliveries`** (Postgres) — message id, purpose, recipient hash, state (queued/accepted/delivered/bounced/complained/suppressed), updated_at. Fed by the Resend webhook; read by the queue's delivery column.
+- **`signin_tokens`** and **`admins`** stay in **D1**, on the Worker side. `admins` holds at most the one documented break-glass row (§2.7).
 
-Photos attached to reports follow the same handling as sighting photos — magic-byte detection, full decode, EXIF rotation, bounded and re-encoded, size caps — and are stored in object storage rather than the database.
+**Explicitly not created:** `record_changes` and `colonies` and a second `feeding_sites` — see the ownership table at the top and §3.2/§3.3.
 
-### 8.4 Abuse and rate limits
-
-Report endpoints are public and unauthenticated, and they cost money (image handling) and attention (a queue a human reads). Rate limit per device and per IP on the same basis as the existing AI-backed endpoints. A flood of junk reports is a denial-of-service against the charity's attention, which is the scarcest resource in this entire system.
+**A welfare report should also become an observation.** A report is the strongest single statement anybody ever makes about a cat's condition, and as things stand the record the data spine exists to build would not contain it. A `welfare_report` observation on filing (and a `welfare_outcome` observation when the team closes it) is cheap now and a backfill later — but the observation vocabulary is the data spine's, so it is **raised there, not defined here**.
 
 ### 8.5 Privacy
 
-- Reporter email addresses are personal data collected for a stated purpose, with consent, and deletable on request — one-click from every message we send.
-- Exact cat and feeding-site locations are visible to the team. Public views show cat locations approximately, and feeding sites not at all unless individually made public.
-- Team notes on reports are never shown publicly.
+- **Retention, stated rather than implied.** Reports and their photos are kept for **three years** — they are the cat's history, and the charity's case for funding. A **reporter's email address on a report is kept for 90 days after the report reaches a final state**, then deleted, because its purpose is finished; an address held under the separate news consent follows `email-capture.md`'s rule instead. An unverified address is deleted after **7 days**. Written into the privacy policy `email-capture.md` owns.
+- **The one-click delete link in every message** needs a real mechanism, not a URL: a signed, expiring token, scoped to one address, rate-limited, revealing nothing about whether an address exists. Done casually it becomes an enumeration surface of its own. It is the same mechanism `email-capture.md` specifies; this spec uses it and does not invent a second one.
+- **Exact cat and feeding-site locations are visible to the team.** Public precision is the data spine's rule, including for public feeding sites, and this spec does not set a second one.
+- **Team notes are never shown publicly**, and never reach the reporter.
+- **Syros Cats is the data controller** (D6). Resend is a processor: a DPA, a transfer mechanism and provider-side deletion **verified by test rather than assumed** are `email-capture.md`'s to record, and this spec's mail paths are inside that scope.
+- **A welfare report is a new category of personal data** and the privacy policy must say so before store submission: a precise location plus a photograph that may contain bystanders, vehicles and property, emailed to a third-party mailbox and stored by a third-party mail provider.
+- **`threat_model.md` is stale** on two points this spec touches — it says no rate limiting exists (it does: `middlewares/rateLimit.ts`) and that device ids are unverified (they are secret-bound, trust-on-first-use). One combined refresh across all four specs, before the privacy policy is written.
+
+### 8.6 Tests that must exist
+
+Named here so they appear in the implementation plan rather than being remembered afterwards. This repository already tests routes properly with vitest.
+
+1. An address **not** on the list produces a byte-identical response, and the response time distributions of the two branches overlap.
+2. The allow-list is checked **before** a token is minted, and a failed allow-list call fails closed.
+3. A **GET** on `/auth?t=` does **not** consume the token; a subsequent POST succeeds.
+4. A second POST of the same token within 60 seconds returns the same session; after that, it is refused.
+5. Each rate limit in §2.6 is enforced, and enforced across two processes.
+6. A hand-off token fails validation on each of: bad signature, wrong `aud`, wrong `iss`, expired, replayed `jti`, unknown `sub`, stale `sv` — and each produces the identical 401.
+7. The pinned algorithm cannot be overridden by the token's own `alg` header.
+8. A report submitted while every mail path fails still writes a queue row.
+9. No reporter-facing message contains an internal state name.
+10. A role address is refused by `people` insert.
+11. `session_version` bump invalidates an existing dashboard cookie at the next request.
 
 ---
 
@@ -368,37 +689,48 @@ Report endpoints are public and unauthenticated, and they cost money (image hand
 
 | # | Risk | Why it matters | What we do |
 |---|---|---|---|
-| **1** | **The capacity messaging lands wrong and hurts the charity.** Too soft and people expect a rescue service; too hard and a worried tourist feels told off and never reports again. | This is the whole design. Getting it wrong creates either an unmeetable expectation or a silent island. | Syros Cats review every word before launch. Test the copy on the WhatsApp testers, who include actual tourists. Serve the copy from configuration so it can be corrected without an app release. Owner: **Samuel** (drafts), **Syros Cats** (final wording). |
-| **2** | **Mail transport slips, and it blocks everything.** Sign-in, welfare reports, issue reports and acknowledgements all sit on the same dependency. | A dashboard nobody can sign in to and reports nobody receives is a feature that does not exist. Two urgent tickets already sit on this. | Settle the provider decision first, before dashboard work starts. Verify with a real send to a real Syros Cats inbox, not a test address. Have the fallback (Cloudflare Email Sending) identified so a stall does not become a rethink. Owner: **Samuel**. |
-| **3** | **A report arrives about a genuinely dying cat and nobody sees it for two days.** | The one outcome that would damage trust in both directions — the reporter's and the charity's. | Urgent reports are visibly separated in the queue and carry an unmistakable subject line in the email. Be honest in the copy about response times rather than implying a service level. Consider a phone number in the urgent guidance if Syros Cats want one. Owner: **Syros Cats** (whether to publish a number). |
-
-Also worth naming, below the top three: a feeding-site location becoming public by accident (mitigated by private-by-default, per-site toggles, and an attributed audit trail); abuse of the auto-hide on photos (mitigated by team restore and per-device patterns); and email addresses accumulating without a deletion path (mitigated by one-click deletion in every message).
+| **1** | **A report about a genuinely dying cat sits unseen for two days.** | It is the accepted cost of F1, not a bug. The outcome that would damage trust in both directions. | **Accepted deliberately.** The mitigation is the copy, and only the copy: urgent cases are sent to a vet before the report is submitted, on screen and again in the acknowledgement. The copy is therefore a launch blocker and gets tested on real tourists (§5.6). We do **not** add an alarm to feel better about it. Owner: **Samuel** (copy), **Syros Cats** (final wording). |
+| **2** | **The capacity messaging lands wrong.** Too soft and people expect a rescue service; too hard and a worried tourist feels told off and never reports again. | This is the whole design. Getting it wrong creates either an unmeetable expectation or a silent island. | Syros Cats review every word. Test on the WhatsApp testers. Serve from configuration so it can be corrected without an app release — with the §5.4 exception. Watch the abandonment rate at the severity step. |
+| **3** | **Somebody is hurt following our injured-cat advice.** | Foreseeable, and it falls on a person the app encouraged. | §5.3b's two-sided wording, the explicit "if you can't do it safely, don't", the medical line, and the §5.4 sign-off gate before launch. |
+| **4** | **Mail transport slips and blocks everything.** Sign-in, welfare reports, issue reports, verification and acknowledgements all sit on it. | A dashboard nobody can sign in to, and reports nobody receives, is a feature that does not exist. | Settle mail before dashboard work starts. Verify with a real send to a real Syros Cats inbox, not a test address. The two-identity split, the priority budget, the suppression list and a written cutover procedure (§2.10). Owner: **Samuel**. |
+| **5** | **A sign-in surface is abused into silencing welfare mail.** | The failure chain is: no rate limit → unlimited sends → allowance exhausted → injured-cat mail stops. A security bug that becomes a welfare failure. | §2.6's limits, the identity split, and the priority budget that never sheds welfare or sign-in mail. |
+| **6** | **The dashboard is written for one runtime and deployed on another.** | v1.0's technical section assumed Cloudflare Workers throughout; an implementer would hit wildcard CORS, a `__Host-` cookie with no stated origin, and per-process rate limits on day one. | §8 is written against the two real runtimes, and §2.6 names the dashboard's origin — which was a blocking unknown, not a detail. |
+| **7** | **A feeding site becomes public by accident.** | It is a list of where to find cats. | Private by default, per-site toggles, no bulk action, attributed. Precision owned by the data spine. |
+| **8** | **The photo auto-hide is used to vandalise the catalogue.** | One script, one hidden photo at a time, and volunteers restoring by hand. | §6's gating: two devices and two IPs for a full hide, public-only hide on a single report, Turnstile, and a volume alert. |
 
 ### 9.2 Open questions
 
 | Question | Owner | Notes |
 |---|---|---|
-| Susan's standard reply text | **Syros Cats (Susan)** | Requested; drafts in 5.3 stand in until it arrives. **Never blocks** — it is a copy swap. |
-| Which feeding sites may be public | **Syros Cats** | Requested early. **Never blocks** — everything stays private until they say otherwise, which is the right default regardless. |
-| Is there a phone number for genuinely urgent cases, and may we publish it? | **Syros Cats** | Changes the urgent guidance copy. Ships without one if the answer is no. |
-| A named list of Syros vets with hours and phone numbers | **Syros Cats** | Makes "go to a vet" actionable rather than aspirational. Without it the guidance is weaker but still correct. |
-| Who else goes on the access list, and with what name (SYC-29) | **Syros Cats** | One row each. |
-| Should `hello@catspotters.com` also reach the charity (SYC-30) | **Samuel** | Worth finishing, but no longer on this feature's critical path if reports are sent directly. Worth raising with them whether a distribution list beats a forward to one person's mailbox. |
-| Do reporters get a status update by push as well as email, when they use the app? | **Samuel** | Would close the loop for the majority who give no email address. |
+| A named list of Syros vets — hours, phone numbers, **and out-of-hours cover** | **Syros Cats** | **Blocks the urgent variant** (§5.5). The single most load-bearing dependency in this spec. |
+| Susan's standard reply | **Syros Cats (Susan)** | Never blocks — configuration swap ×3 languages. |
+| A phone or WhatsApp number for litter reports | **Syros Cats** | Weakens §5.3d badly if absent. Ships without one. |
+| Which feeding sites may be public | **Syros Cats** | Never blocks — everything is private until they say otherwise. |
+| Who else goes on the access list, with what name (SYC-29) | **Syros Cats** | One row each; no role addresses (§2.8). |
+| Greek and French translation of every word in §5 | **Syros Cats / SYC-4** | Blocks the copy's launch. Needs a date and a named reviewer. |
+| Should `hello@catspotters.com` also reach the charity (SYC-30) | **Samuel** | No longer on this feature's critical path. Worth asking whether a distribution list beats a forward to one person's mailbox. |
+| Do reporters get a status update by push as well as email? | **Samuel** | Would close the loop for the majority who give no address — and, unlike mail, it costs no sending allowance. |
+| Separating `SIGNING_KEY` between the workspace and the public site | **Samuel** | Not blocking this feature, since the hand-off uses its own key pair. Still worth closing. |
 
-### 9.3 What needs Samuel specifically
+### 9.3 The cut line, if the window bites
 
-1. **Confirm the mail provider** (2.3) — Resend recommended. Everything else waits on this.
-2. **Confirm where the dashboard lives** (2.4) — one backend, one sign-in, recommended.
-3. **Confirm shared passwords retire** once staff sign-in is live (2.6), rather than running two credential models side by side.
+`DEPLOYMENT.md` §D already names the staff dashboard as one of three items that can slip without moving launch, and this spec adds a sign-in, a trust boundary, a dashboard, a public report flow, a mail dependency and copy in three languages inside the store-submission window. So, stated rather than discovered:
+
+1. **Ships first, and works with no dashboard at all:** the report flow, the on-screen confirmation, the safety copy, and the alert email to the shared inbox. This is the whole of the user-visible value.
+2. **Ships next:** sign-in, the trust boundary, and the welfare queue.
+3. **Slips to hardening if it must:** the feeding-site map and colony naming.
 
 ---
 
 ## 10. What "done" looks like
 
-- A Syros Cats person who has never seen the app can get from "I have an email address" to "I am looking at the queue" without anybody running a database command for them.
-- A worried tourist can report an injured cat in under a minute, understands what will and will not happen next, knows a vet is the fastest help and that it will probably cost them, and does not feel dismissed.
-- A litter report always says "contact us first, don't just turn up" — in the app and in the email.
-- Every report is in two places: the charity's inbox and a queue that remembers.
+- A Syros Cats person who has never seen the app gets from "I have an email address" to "I am looking at the queue" without anybody running a database command — **including when her mail passes through a scanning gateway.**
+- Removing somebody from the charity is **one deletion, in one place**, and ends their access to both systems at their next request.
+- A worried tourist can report an injured cat in under a minute, and comes away knowing three things: the report is in, **a vet is the fast route because nothing else is fast**, and nobody is coming.
+- **Nobody comes away believing somebody is standing by**, because nobody is.
+- A litter report always says "talk to us first, don't just turn up" — in the app and in the email.
+- Every report is in two places: the charity's inbox and a queue that remembers — **and the queue row exists even when every email failed.**
+- No address ever receives mail from us that has not been confirmed by the person holding it.
 - Every feeding site is private until Syros Cats decide otherwise, one at a time.
-- Nothing in this build has to be unpicked when cat guardians, volunteers and vets get their own accounts.
+- A deletion request that arrives by email can be actioned by a volunteer, inside the legal month, without Samuel.
+- Nothing here has to be unpicked when cat guardians, volunteers and vets get their own accounts.
