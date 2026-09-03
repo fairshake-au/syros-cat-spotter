@@ -23,6 +23,7 @@ const {
   readAsStringAsync,
   deleteAsync,
   readDirectoryAsync,
+    manipulateAsync,
 } =
   vi.hoisted(() => {
     const storage = new Map<string, string>();
@@ -34,7 +35,15 @@ const {
         storage.set(key, value);
       }),
       netInfoListeners: [] as Array<
-        (state: { isConnected: boolean }) => void
+        (state: {
+          isConnected: boolean;
+          type?: string;
+          details?: {
+            isConnectionExpensive?: boolean;
+            cellularGeneration?: string;
+            strength?: number;
+          };
+        }) => void
       >,
       createSighting: vi.fn(),
       photoFiles,
@@ -62,6 +71,10 @@ const {
           .filter((uri) => uri.startsWith(`${directory}/`))
           .map((uri) => uri.slice(uri.lastIndexOf('/') + 1)),
       ),
+      manipulateAsync: vi.fn(async () => ({
+        uri: 'file://optimized.jpg',
+        base64: 'optimized-photo-data',
+      })),
     };
   });
 
@@ -76,6 +89,11 @@ vi.mock('@react-native-community/netinfo', () => ({
       return () => {};
     }),
   },
+}));
+
+vi.mock('expo-image-manipulator', () => ({
+  manipulateAsync,
+  SaveFormat: { JPEG: 'jpeg' },
 }));
 
 vi.mock('react-native', () => ({
@@ -464,6 +482,54 @@ describe('syncNow', () => {
       }),
     );
   });
+
+  it('uses a smaller temporary photo when syncing over cellular data', async () => {
+    const photoUri = 'file:///documents/pending-photos/cellular.jpg';
+    photoFiles.set(photoUri, 'full-size-photo');
+    seedQueue([
+      makeItem({
+        localId: 'cellular-1',
+        photoBase64: undefined,
+        photoUri,
+      }),
+    ]);
+    createSighting.mockResolvedValueOnce({
+      sightingId: 4,
+      isCatPhoto: true,
+      candidates: [],
+    });
+
+    const ctx = renderProvider();
+    await waitFor(() => expect(ctx.current.pending).toHaveLength(1));
+
+    await act(async () => {
+      netInfoListeners.forEach((cb) =>
+        cb({
+          isConnected: true,
+          type: 'cellular',
+          details: { cellularGeneration: '4g' },
+        }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(ctx.current.pending[0]).toMatchObject({
+        status: 'review',
+        sightingId: 4,
+      }),
+    );
+    expect(manipulateAsync).toHaveBeenCalledWith(
+      photoUri,
+      [{ resize: { width: 1280 } }],
+      expect.objectContaining({
+        compress: 0.72,
+        base64: true,
+      }),
+    );
+    expect(createSighting).toHaveBeenCalledWith(
+      expect.objectContaining({ photoBase64: 'optimized-photo-data' }),
+    );
+  });
 });
 
 describe('retry', () => {
@@ -560,7 +626,7 @@ describe('replacePhoto', () => {
     expect(ctx.current.pending[0]).toMatchObject({
       status: 'review',
       sightingId: 22,
-      photoUri: 'file://replacement.jpg',
+      photoUri: 'file:///documents/pending-photos/local-1.jpg',
       createdAt,
       lat: 37.441,
       lng: 24.942,

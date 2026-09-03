@@ -1,10 +1,10 @@
 ---
-name: Native HEIC upload from Expo picker
-description: How the mobile app avoids on-device JPEG transcodes now the server accepts HEIC
+name: Adaptive native photo uploads
+description: How the mobile app preserves native originals while reducing constrained-network uploads
 ---
 
-The server normalizes all uploads (JPEG/PNG/WebP/HEIC) to JPEG itself, so the client should not re-encode.
+Keep the picker and offline-queue photo in its native original format. Upload that original on normal Wi-Fi, but create a temporary smaller JPEG for cellular, expensive, or weak Wi-Fi connections.
 
-**Why:** expo-image-picker with `quality < 1` transcodes to JPEG on-device, and an extra ImageManipulator JPEG pass double-compresses. Server input cap is 20 MB, so raw phone photos fit.
+**Why:** Requesting picker quality below 1 always transcodes, even when bandwidth is plentiful. A temporary derivative only when the current connection is constrained keeps the full-quality path while avoiding multi-megabyte uploads on island cellular networks.
 
-**How to apply:** request `quality: 1, base64: true` from the picker; for library picks add `preferredAssetRepresentationMode: Current` to keep native HEIC. Only fall back to an on-device shrink when the asset has no base64 or exceeds ~15 MB. Offline photo queue and expo-image rendering are format-agnostic (iOS decodes HEIC natively).
+**How to apply:** Request `quality: 1, base64: true`; for library picks use the current native representation. Never overwrite the queued original with the optimized derivative. Re-evaluate the network when queued uploads sync, because the connection can change after capture.

@@ -12,6 +12,11 @@ import NetInfo from '@react-native-community/netinfo';
 import { createSighting } from '@workspace/api-client-react';
 import { photoRejectionKey } from '@/lib/photoRejection';
 import {
+  optimizePhotoForUpload,
+  shouldOptimizePhoto,
+  type UploadNetworkState,
+} from '@/lib/photoUpload';
+import {
   cleanupOrphanPhotos,
   deletePendingPhoto,
   readPendingPhotoBase64,
@@ -43,6 +48,8 @@ export interface ReplacementPhoto {
 
 interface OfflineContextValue {
   isOnline: boolean;
+  /** True when uploads should use a smaller temporary photo representation. */
+  isConstrainedNetwork: boolean;
   pending: PendingSighting[];
   enqueue: (item: EnqueueInput) => Promise<void>;
   remove: (localId: string) => Promise<void>;
@@ -96,10 +103,14 @@ async function migratePhotosToFiles(
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const { deviceId } = useDevice();
   const [isOnline, setIsOnline] = useState(true);
+  const [networkState, setNetworkState] = useState<UploadNetworkState | null>(
+    null,
+  );
   const [pending, setPending] = useState<PendingSighting[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
   const syncingRef = useRef(false);
+  const networkStateRef = useRef<UploadNetworkState | null>(null);
   const pendingRef = useRef<PendingSighting[]>([]);
   pendingRef.current = pending;
 
@@ -160,9 +171,14 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           continue;
         }
         try {
+          let uploadPhotoBase64 = photoBase64;
+          if (shouldOptimizePhoto(networkStateRef.current)) {
+            const optimized = await optimizePhotoForUpload(item.photoUri);
+            if (optimized) uploadPhotoBase64 = optimized;
+          }
           const result = await createSighting({
             deviceId,
-            photoBase64,
+            photoBase64: uploadPhotoBase64,
             lat: item.lat,
             lng: item.lng,
             // This item may have sat in the queue for days. Send the time the
@@ -220,6 +236,9 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
+      const uploadNetwork = state as UploadNetworkState;
+      networkStateRef.current = uploadNetwork;
+      setNetworkState(uploadNetwork);
       const online = !!state.isConnected;
       setIsOnline(online);
       if (online) {
@@ -322,6 +341,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       isOnline,
+      isConstrainedNetwork: shouldOptimizePhoto(networkState),
       pending,
       enqueue,
       remove,
@@ -335,6 +355,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       isOnline,
+      networkState,
       pending,
       enqueue,
       remove,

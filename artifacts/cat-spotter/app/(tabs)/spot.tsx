@@ -21,6 +21,9 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import {
+  optimizePhotoForUpload,
+} from '@/lib/photoUpload';
 import { useLocation } from '@/hooks/useLocation';
 import { photoRejectionKey } from '@/lib/photoRejection';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -72,6 +75,7 @@ export default function SpotScreen() {
   const { deviceId } = useDevice();
   const {
     isOnline,
+    isConstrainedNetwork,
     pending,
     enqueue,
     remove,
@@ -88,6 +92,7 @@ export default function SpotScreen() {
   // the wrong day for streak purposes.
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [optimizingUpload, setOptimizingUpload] = useState(false);
   // The location the user confirms on the map (initialized from GPS).
   const [pickedCoords, setPickedCoords] = useState<{
     latitude: number;
@@ -193,9 +198,18 @@ export default function SpotScreen() {
     }
     setSubmitting(true);
     try {
+      let uploadPhoto = photo;
+      if (isConstrainedNetwork) {
+        setOptimizingUpload(true);
+        const optimizedBase64 = await optimizePhotoForUpload(photo.uri);
+        if (optimizedBase64) {
+          uploadPhoto = { ...photo, base64: optimizedBase64 };
+        }
+        setOptimizingUpload(false);
+      }
       const result = await createSighting({
         deviceId,
-        photoBase64: photo.base64,
+        photoBase64: uploadPhoto.base64,
         lat: finalCoords.latitude,
         lng: finalCoords.longitude,
         // Capture time, not submit time, and sent on the online path too so a
@@ -222,6 +236,7 @@ export default function SpotScreen() {
         Alert.alert(t('error'));
       }
     } finally {
+      setOptimizingUpload(false);
       setSubmitting(false);
     }
   };
@@ -517,7 +532,11 @@ export default function SpotScreen() {
                 ) : undefined
               }
             >
-              {submitting ? t('submitting') : t('checkForMatches')}
+              {submitting
+                ? optimizingUpload
+                  ? t('optimizingPhoto')
+                  : t('submitting')
+                : t('checkForMatches')}
             </Button>
           </>
         ) : (

@@ -7,6 +7,6 @@
 - [Generated client stale types](generated-client-stale-types.md) — if app typecheck misses fields that exist in the client source, rebuild declarations with `npx tsc -b lib/api-client-react`.
 - [Generated code drift](generated-code-drift.md) — "no exported member" / unknown-route typecheck errors after merges usually mean stale orval client or Expo typed routes; regenerate, don't debug.
 - [Push notification dispatch point](push-notifications.md) — all spotter push notifications route through the api-server notifications helper; it's a console-log stub awaiting real delivery infra.
-- [Native HEIC upload from Expo picker](native-heic-upload.md) — picker quality<1 forces on-device JPEG transcode; use quality 1 + base64 + representationMode Current, server normalizes.
+- [Adaptive native photo uploads](native-heic-upload.md) — keep picker originals; upload raw on good Wi‑Fi and make a temporary smaller JPEG only on constrained connections.
 - [Orval codegen pitfalls](orval-codegen.md) — name request bodies as components (zod name collisions); expo typed routes need the dev workflow running; avoid pkill -f self-kills.
 - [pnpm security overrides](pnpm-security-overrides.md) — extend the workspace override map; a package.json override block can displace platform-pruning overrides and bloat the lockfile.

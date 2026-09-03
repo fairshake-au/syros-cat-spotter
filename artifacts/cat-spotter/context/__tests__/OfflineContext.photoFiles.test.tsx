@@ -72,6 +72,11 @@ vi.mock('@react-native-community/netinfo', () => ({
   },
 }));
 
+vi.mock('expo-image-manipulator', () => ({
+  manipulateAsync: vi.fn(),
+  SaveFormat: { JPEG: 'jpeg' },
+}));
+
 vi.mock('@workspace/api-client-react', () => ({
   createSighting: vi.fn(async () => ({
     sightingId: 42,
