@@ -513,7 +513,18 @@ components:
         message: { type: string }
         read: { type: boolean }
         createdAt: { type: string }
-      required: [id, catId, catUpdateId, catName, catPhotoUrl, updateType, message, read, createdAt]
+      required:
+        [
+          id,
+          catId,
+          catUpdateId,
+          catName,
+          catPhotoUrl,
+          updateType,
+          message,
+          read,
+          createdAt,
+        ]
     HealthStatus:
       type: object
       properties:
@@ -732,6 +743,14 @@ components:
           type: string
           enum: [en, el, fr]
           description: Language for the generated names
+        excludeNames:
+          type: array
+          maxItems: 100
+          description: Names already shown in this naming session
+          items:
+            type: string
+            minLength: 1
+            maxLength: 40
       required: [language]
     SuggestCatNamesResult:
       type: object

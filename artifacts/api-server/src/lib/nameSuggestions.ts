@@ -13,9 +13,17 @@ const LANGUAGE_NAMES: Record<string, string> = {
 export async function suggestCatNames(
   language: "en" | "el" | "fr",
   takenNames: string[],
+  excludeNames: string[] = [],
   count = 5,
 ): Promise<string[]> {
-  const taken = new Set(takenNames.map((n) => n.trim().toLowerCase()));
+  const unavailable = new Set(
+    [...takenNames, ...excludeNames]
+      .map((n) => n.trim().toLowerCase())
+      .filter((n) => n.length > 0),
+  );
+  const excludedNames = [
+    ...new Set([...takenNames, ...excludeNames].map((n) => n.trim())),
+  ].filter((n) => n.length > 0);
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.6-terra",
@@ -26,8 +34,8 @@ export async function suggestCatNames(
         content:
           `Suggest ${count * 2} fun, playful, family-friendly names for a street cat on the Greek island of Syros. ` +
           `The names must be in ${LANGUAGE_NAMES[language]}. Each name must be short (1-2 words, max 25 characters), charming and varied in style.\n` +
-          (takenNames.length > 0
-            ? `Do NOT use any of these already-taken names (or trivial variations of them): ${takenNames.join(", ")}.\n`
+          (excludedNames.length > 0
+            ? `Do NOT use any of these unavailable names (or trivial variations of them): ${excludedNames.join(", ")}.\n`
             : "") +
           `Respond with ONLY valid JSON, no markdown: {"names": ["...", "..."]}`,
       },
@@ -48,7 +56,7 @@ export async function suggestCatNames(
     ? parsed.names
         .filter((n): n is string => typeof n === "string")
         .map((n) => n.trim().slice(0, 40))
-        .filter((n) => n.length > 0 && !taken.has(n.toLowerCase()))
+        .filter((n) => n.length > 0 && !unavailable.has(n.toLowerCase()))
     : [];
 
   // Dedupe case-insensitively and cap the list.

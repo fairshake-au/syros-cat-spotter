@@ -34,6 +34,7 @@ router.post("/cats/name-suggestions", aiLimiter, async (req, res) => {
     const suggestions = await suggestCatNames(
       body.language,
       cats.map((c) => c.name),
+      body.excludeNames ?? [],
     );
     res.json({ suggestions });
   } catch (err) {
@@ -42,7 +43,11 @@ router.post("/cats/name-suggestions", aiLimiter, async (req, res) => {
   }
 });
 
-async function catPayload(cat: Cat, sightingsCount: number, lastSeenAt: string) {
+async function catPayload(
+  cat: Cat,
+  sightingsCount: number,
+  lastSeenAt: string,
+) {
   const [profile] = await db
     .select({
       nickname: profilesTable.nickname,
@@ -72,7 +77,10 @@ async function sightingsCountFor(catId: number): Promise<number> {
     .select({ n: sql<number>`count(*)::int` })
     .from(sightingsTable)
     .where(
-      and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")),
+      and(
+        eq(sightingsTable.catId, catId),
+        eq(sightingsTable.status, "resolved"),
+      ),
     );
   return row?.n ?? 0;
 }
@@ -114,9 +122,7 @@ router.post("/cats", async (req, res) => {
       homeDescription: body.homeDescription.trim().slice(0, 200),
     })
     .returning();
-  res
-    .status(201)
-    .json(await catPayload(cat!, 0, cat!.createdAt.toISOString()));
+  res.status(201).json(await catPayload(cat!, 0, cat!.createdAt.toISOString()));
 });
 
 router.get("/cats/:catId", async (req, res) => {
@@ -125,7 +131,10 @@ router.get("/cats/:catId", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  const [cat] = await db
+    .select()
+    .from(catsTable)
+    .where(eq(catsTable.id, catId));
   if (!cat) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -137,9 +146,15 @@ router.get("/cats/:catId", async (req, res) => {
       spotterNickname: profilesTable.nickname,
     })
     .from(sightingsTable)
-    .leftJoin(profilesTable, eq(profilesTable.deviceId, sightingsTable.deviceId))
+    .leftJoin(
+      profilesTable,
+      eq(profilesTable.deviceId, sightingsTable.deviceId),
+    )
     .where(
-      and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")),
+      and(
+        eq(sightingsTable.catId, catId),
+        eq(sightingsTable.status, "resolved"),
+      ),
     )
     .orderBy(desc(sightingsTable.createdAt));
 
@@ -193,17 +208,19 @@ router.get("/cats/:catId", async (req, res) => {
         at: cat.createdAt.toISOString(),
       },
     ],
-    sightings: sightings.map(({ sighting: s, spotterUsername, spotterNickname }) => ({
-      id: s.id,
-      catId: s.catId,
-      spotterCode: spotterCode(s.deviceId),
-      spotterUsername: spotterUsername ?? null,
-      spotterNickname: spotterNickname ?? null,
-      photoUrl: photoUrl(s.photoId),
-      lat: s.lat,
-      lng: s.lng,
-      createdAt: s.createdAt.toISOString(),
-    })),
+    sightings: sightings.map(
+      ({ sighting: s, spotterUsername, spotterNickname }) => ({
+        id: s.id,
+        catId: s.catId,
+        spotterCode: spotterCode(s.deviceId),
+        spotterUsername: spotterUsername ?? null,
+        spotterNickname: spotterNickname ?? null,
+        photoUrl: photoUrl(s.photoId),
+        lat: s.lat,
+        lng: s.lng,
+        createdAt: s.createdAt.toISOString(),
+      }),
+    ),
   });
 });
 
@@ -216,7 +233,10 @@ router.post("/cats/:catId/claim", async (req, res) => {
   }
   const body = ClaimCatBody.parse(req.body);
 
-  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  const [cat] = await db
+    .select()
+    .from(catsTable)
+    .where(eq(catsTable.id, catId));
   if (!cat) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -240,7 +260,9 @@ router.post("/cats/:catId/claim", async (req, res) => {
       .where(and(eq(catsTable.id, catId), isNull(catsTable.ownerDeviceId)))
       .returning();
     if (!row) {
-      res.status(409).json({ error: "Cat already claimed by another resident" });
+      res
+        .status(409)
+        .json({ error: "Cat already claimed by another resident" });
       return;
     }
     updated = row;
@@ -266,7 +288,10 @@ router.patch("/cats/:catId", async (req, res) => {
   }
   const body = UpdateCatBody.parse(req.body);
 
-  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  const [cat] = await db
+    .select()
+    .from(catsTable)
+    .where(eq(catsTable.id, catId));
   if (!cat) {
     res.status(404).json({ error: "Not found" });
     return;

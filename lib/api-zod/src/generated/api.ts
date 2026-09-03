@@ -301,8 +301,15 @@ export const ResolveSightingResponse = zod.object({
 /**
  * @summary Generate fun, available cat name suggestions in the given language
  */
+export const suggestCatNamesBodyExcludeNamesItemMax = 40;
+
+export const suggestCatNamesBodyExcludeNamesMax = 100;
+
+
+
 export const SuggestCatNamesBody = zod.object({
-  "language": zod.enum(['en', 'el', 'fr']).describe('Language for the generated names')
+  "language": zod.enum(['en', 'el', 'fr']).describe('Language for the generated names'),
+  "excludeNames": zod.array(zod.string().min(1).max(suggestCatNamesBodyExcludeNamesItemMax)).max(suggestCatNamesBodyExcludeNamesMax).optional().describe('Names already shown in this naming session')
 })
 
 export const SuggestCatNamesResponse = zod.object({

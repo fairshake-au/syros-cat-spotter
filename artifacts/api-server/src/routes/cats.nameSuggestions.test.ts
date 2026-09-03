@@ -77,4 +77,13 @@ describe("POST /api/cats/name-suggestions", () => {
       ),
     ).toBe(false);
   });
+
+  it("never returns names excluded by the current naming session", async () => {
+    const res = await request(app)
+      .post("/api/cats/name-suggestions")
+      .send({ language: "en", excludeNames: ["Fresh Name"] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.suggestions).toEqual(["Another Name"]);
+  });
 });

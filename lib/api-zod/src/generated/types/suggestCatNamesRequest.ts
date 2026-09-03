@@ -10,4 +10,11 @@ import type { SuggestCatNamesRequestLanguage } from './suggestCatNamesRequestLan
 export interface SuggestCatNamesRequest {
   /** Language for the generated names */
   language: SuggestCatNamesRequestLanguage;
+  /**
+     * Names already shown in this naming session
+     * @maxItems 100
+     * @items.minLength 1
+     * @items.maxLength 40
+     */
+  excludeNames?: string[];
 }

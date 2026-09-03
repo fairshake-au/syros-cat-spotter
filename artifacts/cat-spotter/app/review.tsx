@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -6,29 +6,42 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQueryClient } from '@tanstack/react-query';
+} from "react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { Feather } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   resolveSighting,
   suggestCatNames,
   ApiError,
   type MatchCandidate,
   type ResolveResult,
-} from '@workspace/api-client-react';
-import { useColors } from '@/hooks/useColors';
-import { useLanguage } from '@/context/LanguageContext';
-import { useOffline } from '@/context/OfflineContext';
-import { useDevice } from '@/context/DeviceContext';
-import { SightingPhoto } from '@/components/SightingPhoto';
-import { absoluteUrl } from '@/lib/urls';
-import { Button, Badge, Tag, Card, IconButton, Input } from '@/components/purropolis';
-import { palette } from '@/constants/colors';
-import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
+} from "@workspace/api-client-react";
+import { useColors } from "@/hooks/useColors";
+import { useLanguage } from "@/context/LanguageContext";
+import { useOffline } from "@/context/OfflineContext";
+import { useDevice } from "@/context/DeviceContext";
+import { SightingPhoto } from "@/components/SightingPhoto";
+import { absoluteUrl } from "@/lib/urls";
+import {
+  Button,
+  Badge,
+  Tag,
+  Card,
+  IconButton,
+  Input,
+} from "@/components/purropolis";
+import { palette } from "@/constants/colors";
+import {
+  fonts,
+  fontSizes,
+  radii,
+  spacing,
+  lineHeights,
+} from "@/constants/theme";
 
 interface ReviewData {
   sightingId: number;
@@ -39,13 +52,13 @@ interface ReviewData {
 }
 
 function catCode(id: number): string {
-  return `SYR-${String(id).padStart(4, '0')}`;
+  return `SYR-${String(id).padStart(4, "0")}`;
 }
 
-function confidenceTone(confidence: number): 'success' | 'warning' | 'neutral' {
-  if (confidence >= 0.75) return 'success';
-  if (confidence >= 0.4) return 'warning';
-  return 'neutral';
+function confidenceTone(confidence: number): "success" | "warning" | "neutral" {
+  if (confidence >= 0.75) return "success";
+  if (confidence >= 0.4) return "warning";
+  return "neutral";
 }
 
 export default function ReviewScreen() {
@@ -66,19 +79,22 @@ export default function ReviewScreen() {
     }
   }, [params.data]);
 
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ResolveResult | null>(null);
   const [showNewCat, setShowNewCat] = useState(false);
-  const [nameError, setNameError] = useState<'taken' | 'offensive' | null>(null);
+  const [nameError, setNameError] = useState<"taken" | "offensive" | null>(
+    null,
+  );
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [shownSuggestions, setShownSuggestions] = useState<string[]>([]);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState(false);
 
   if (!data) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.mutedForeground }}>{t('error')}</Text>
+        <Text style={{ color: colors.mutedForeground }}>{t("error")}</Text>
       </View>
     );
   }
@@ -117,8 +133,8 @@ export default function ReviewScreen() {
         err instanceof ApiError
           ? (err.data as { code?: string } | null)?.code
           : undefined;
-      if (code === 'NAME_TAKEN') setNameError('taken');
-      else if (code === 'OFFENSIVE_NAME') setNameError('offensive');
+      if (code === "NAME_TAKEN") setNameError("taken");
+      else if (code === "OFFENSIVE_NAME") setNameError("offensive");
       setBusy(false);
     }
   };
@@ -127,8 +143,12 @@ export default function ReviewScreen() {
     setSuggesting(true);
     setSuggestError(false);
     try {
-      const res = await suggestCatNames({ language });
+      const res = await suggestCatNames({
+        language,
+        excludeNames: shownSuggestions,
+      });
       setSuggestions(res.suggestions);
+      setShownSuggestions((shown) => [...shown, ...res.suggestions]);
       if (res.suggestions.length === 0) setSuggestError(true);
     } catch {
       setSuggestError(true);
@@ -139,7 +159,7 @@ export default function ReviewScreen() {
 
   const close = () => {
     if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)');
+    else router.replace("/(tabs)");
   };
 
   // ----- Success state -----
@@ -155,27 +175,39 @@ export default function ReviewScreen() {
           <Feather name="check" size={34} color={colors.accentForeground} />
         </View>
         <Text style={[styles.successTitle, { color: colors.foreground }]}>
-          {result.isNewCat ? t('newCatRegistered') : t('matchConfirmed')}
+          {result.isNewCat ? t("newCatRegistered") : t("matchConfirmed")}
         </Text>
         <Text style={[styles.successCat, { color: colors.primary }]}>
           {result.cat.name}
         </Text>
-        <Text style={[styles.monoId, { color: colors.mutedForeground, backgroundColor: colors.muted }]}>
+        <Text
+          style={[
+            styles.monoId,
+            { color: colors.mutedForeground, backgroundColor: colors.muted },
+          ]}
+        >
           {catCode(result.cat.id)}
         </Text>
         <Text style={[styles.points, { color: colors.foreground }]}>
-          +{result.pointsAwarded} {t('pointsAwarded')}
+          +{result.pointsAwarded} {t("pointsAwarded")}
         </Text>
         {result.newBadges.map((b) => (
           <View
             key={b}
             style={[styles.badgePill, { backgroundColor: colors.secondary }]}
           >
-            <Feather name="award" size={16} color={colors.secondaryForeground} />
+            <Feather
+              name="award"
+              size={16}
+              color={colors.secondaryForeground}
+            />
             <Text
-              style={[styles.badgePillText, { color: colors.secondaryForeground }]}
+              style={[
+                styles.badgePillText,
+                { color: colors.secondaryForeground },
+              ]}
             >
-              {t('newBadge')} {t(`badge_${b}`)}
+              {t("newBadge")} {t(`badge_${b}`)}
             </Text>
           </View>
         ))}
@@ -184,7 +216,7 @@ export default function ReviewScreen() {
           size="lg"
           onPress={() => {
             router.replace({
-              pathname: '/cat/[id]',
+              pathname: "/cat/[id]",
               params: { id: String(result.cat.id) },
             });
           }}
@@ -206,18 +238,18 @@ export default function ReviewScreen() {
       >
         <Feather name="help-circle" size={44} color={colors.mutedForeground} />
         <Text style={[styles.successTitle, { color: colors.foreground }]}>
-          {t('notACat')}
+          {t("notACat")}
         </Text>
         <Text
           style={[
             styles.subtitle,
-            { color: colors.mutedForeground, textAlign: 'center' },
+            { color: colors.mutedForeground, textAlign: "center" },
           ]}
         >
-          {t('notACatMsg')}
+          {t("notACatMsg")}
         </Text>
         <Button variant="primary" size="lg" onPress={close}>
-          {t('tryAgain')}
+          {t("tryAgain")}
         </Button>
       </View>
     );
@@ -235,7 +267,7 @@ export default function ReviewScreen() {
             {data.candidates.length > 0 ? (
               <IconButton
                 variant="ghost"
-                label={t('tryAgain')}
+                label={t("tryAgain")}
                 onPress={() => setShowNewCat(false)}
               >
                 <Feather name="chevron-left" size={22} color="#fff" />
@@ -251,27 +283,33 @@ export default function ReviewScreen() {
             <View style={styles.celebrateAvatar}>
               <Text style={{ fontSize: 52 }}>🐈‍⬛</Text>
             </View>
-            <Text style={styles.celebrateTitle}>{t('aNewFurriend')}</Text>
-            <Text style={styles.celebrateSubtitle}>{t('newFurriendSubtitle')}</Text>
+            <Text style={styles.celebrateTitle}>{t("aNewFurriend")}</Text>
+            <Text style={styles.celebrateSubtitle}>
+              {t("newFurriendSubtitle")}
+            </Text>
           </View>
         </LinearGradient>
 
         <ScrollView
           style={[styles.nameSheet, { backgroundColor: colors.background }]}
-          contentContainerStyle={{ padding: 22, gap: 12, paddingBottom: insets.bottom + 32 }}
+          contentContainerStyle={{
+            padding: 22,
+            gap: 12,
+            paddingBottom: insets.bottom + 32,
+          }}
         >
           <Input
-            label={t('nameYourFurriend')}
+            label={t("nameYourFurriend")}
             value={newName}
             onChangeText={(v) => {
               setNewName(v);
               if (nameError) setNameError(null);
             }}
-            placeholder={t('nameYourCat')}
+            placeholder={t("nameYourCat")}
             maxLength={40}
             error={
               nameError
-                ? t(nameError === 'offensive' ? 'catNameRejected' : 'nameTaken')
+                ? t(nameError === "offensive" ? "catNameRejected" : "nameTaken")
                 : undefined
             }
           />
@@ -288,25 +326,35 @@ export default function ReviewScreen() {
               {suggesting ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Feather name="zap" size={15} color={colors.primary} />
+                <Feather
+                  name={suggestions.length > 0 ? "shuffle" : "zap"}
+                  size={15}
+                  color={colors.primary}
+                />
               )}
               <Text style={[styles.suggestBtnText, { color: colors.primary }]}>
-                {suggesting ? t('suggestingNames') : t('suggestNames')}
+                {suggesting
+                  ? t("suggestingNames")
+                  : suggestions.length > 0
+                    ? t("moreNameIdeas")
+                    : t("suggestNames")}
               </Text>
             </Pressable>
           </View>
           {suggestError ? (
             <Text style={[styles.errorText, { color: colors.destructive }]}>
-              {t('suggestNamesError')}
+              {t("suggestNamesError")}
             </Text>
           ) : null}
           {suggestions.length > 0 ? (
             <View style={styles.chipRow}>
-              <Text style={[styles.tryLabel, { color: colors.mutedForeground }]}>
-                {t('tryLabel')}
+              <Text
+                style={[styles.tryLabel, { color: colors.mutedForeground }]}
+              >
+                {t("tryLabel")}
               </Text>
               {suggestions.map((s, i) => {
-                const tones = ['bougain', 'sun', 'olive'] as const;
+                const tones = ["bougain", "sun", "olive"] as const;
                 return (
                   <Pressable
                     key={s}
@@ -331,9 +379,12 @@ export default function ReviewScreen() {
             style={{ marginTop: 8 }}
           >
             {busy ? (
-              <ActivityIndicator size="small" color={colors.primaryForeground} />
+              <ActivityIndicator
+                size="small"
+                color={colors.primaryForeground}
+              />
             ) : (
-              t('addToCatalogButton')
+              t("addToCatalogButton")
             )}
           </Button>
         </ScrollView>
@@ -345,11 +396,15 @@ export default function ReviewScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <IconButton variant="ghost" label={t('tryAgain')} onPress={close}>
-          <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
+        <IconButton variant="ghost" label={t("tryAgain")} onPress={close}>
+          <Feather
+            name="chevron-left"
+            size={22}
+            color={colors.mutedForeground}
+          />
         </IconButton>
         <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('haveWeMetTitle')}
+          {t("haveWeMetTitle")}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -362,8 +417,10 @@ export default function ReviewScreen() {
       >
         <View style={styles.photoRow}>
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
-              {t('yourPhoto')}
+            <Text
+              style={[styles.photoLabel, { color: colors.mutedForeground }]}
+            >
+              {t("yourPhoto")}
             </Text>
             <SightingPhoto
               uri={data.photoUri}
@@ -380,10 +437,10 @@ export default function ReviewScreen() {
 
         <View style={{ gap: 4 }}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {data.candidates.length} {t('lookalikesFound')}
+            {data.candidates.length} {t("lookalikesFound")}
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {t('matchQuestion')}
+            {t("matchQuestion")}
           </Text>
         </View>
 
@@ -401,7 +458,10 @@ export default function ReviewScreen() {
                 <View style={{ flex: 1, gap: 5 }}>
                   <View style={styles.candidateNameRow}>
                     <Text
-                      style={[styles.candidateName, { color: colors.foreground }]}
+                      style={[
+                        styles.candidateName,
+                        { color: colors.foreground },
+                      ]}
                       numberOfLines={1}
                     >
                       {c.name}
@@ -411,13 +471,13 @@ export default function ReviewScreen() {
                         are the decision, and SYR-#### is just noise. It still
                         appears on the cat profile and on the celebrate screen. */}
                   </View>
-                  {tone === 'neutral' ? (
+                  {tone === "neutral" ? (
                     <Tag tone="neutral">
-                      {pct}% {t('matchPill')}
+                      {pct}% {t("matchPill")}
                     </Tag>
                   ) : (
                     <Badge tone={tone}>
-                      {pct}% {t('matchPill')}
+                      {pct}% {t("matchPill")}
                     </Badge>
                   )}
                 </View>
@@ -429,7 +489,7 @@ export default function ReviewScreen() {
                 {c.reasoning}
               </Text>
               <Button
-                variant={index === 0 ? 'primary' : 'secondary'}
+                variant={index === 0 ? "primary" : "secondary"}
                 size="md"
                 block
                 disabled={busy}
@@ -438,10 +498,12 @@ export default function ReviewScreen() {
                 {busy ? (
                   <ActivityIndicator
                     size="small"
-                    color={index === 0 ? colors.primaryForeground : colors.foreground}
+                    color={
+                      index === 0 ? colors.primaryForeground : colors.foreground
+                    }
                   />
                 ) : (
-                  t('thatsTheOne')
+                  t("thatsTheOne")
                 )}
               </Button>
             </Card>
@@ -449,11 +511,15 @@ export default function ReviewScreen() {
         })}
 
         <View style={styles.dividerRow}>
-          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          <View
+            style={[styles.dividerLine, { backgroundColor: colors.border }]}
+          />
           <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>
-            {t('or')}
+            {t("or")}
           </Text>
-          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          <View
+            style={[styles.dividerLine, { backgroundColor: colors.border }]}
+          />
         </View>
 
         <Pressable
@@ -461,11 +527,21 @@ export default function ReviewScreen() {
           style={[styles.newCatCard, { backgroundColor: colors.secondary }]}
         >
           <Text style={{ fontSize: 30 }}>✨</Text>
-          <Text style={[styles.newCatCardTitle, { color: colors.secondaryForeground }]}>
-            {t('newCatCardTitle')}
+          <Text
+            style={[
+              styles.newCatCardTitle,
+              { color: colors.secondaryForeground },
+            ]}
+          >
+            {t("newCatCardTitle")}
           </Text>
-          <Text style={[styles.newCatCardSubtitle, { color: colors.secondaryForeground }]}>
-            {t('newCatCardSubtitle')}
+          <Text
+            style={[
+              styles.newCatCardSubtitle,
+              { color: colors.secondaryForeground },
+            ]}
+          >
+            {t("newCatCardSubtitle")}
           </Text>
         </Pressable>
       </ScrollView>
@@ -475,11 +551,11 @@ export default function ReviewScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingBottom: 6,
   },
@@ -487,28 +563,55 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.lg,
     fontFamily: fonts.displayBold,
   },
-  subtitle: { fontSize: fontSizes.sm, fontFamily: fonts.body, lineHeight: fontSizes.sm * lineHeights.normal },
-  photoRow: { flexDirection: 'row', gap: 12 },
-  photoLabel: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodySemiBold },
-  photo: { width: '100%', aspectRatio: 1.4, borderRadius: radii.md, borderWidth: 1 },
+  subtitle: {
+    fontSize: fontSizes.sm,
+    fontFamily: fonts.body,
+    lineHeight: fontSizes.sm * lineHeights.normal,
+  },
+  photoRow: { flexDirection: "row", gap: 12 },
+  photoLabel: { fontSize: fontSizes["2xs"], fontFamily: fonts.bodySemiBold },
+  photo: {
+    width: "100%",
+    aspectRatio: 1.4,
+    borderRadius: radii.md,
+    borderWidth: 1,
+  },
   sectionTitle: { fontSize: fontSizes.md, fontFamily: fonts.bodyBold },
   candidate: { gap: 10 },
-  candidateRow: { flexDirection: 'row', gap: 13, alignItems: 'center' },
+  candidateRow: { flexDirection: "row", gap: 13, alignItems: "center" },
   candidatePhoto: { width: 66, height: 66, borderRadius: radii.sm },
-  candidateNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  candidateName: { fontSize: fontSizes.md, fontFamily: fonts.displayBold, flexShrink: 1 },
-  reasoning: { fontSize: fontSizes['2xs'], fontFamily: fonts.body },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 },
+  candidateNameRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  candidateName: {
+    fontSize: fontSizes.md,
+    fontFamily: fonts.displayBold,
+    flexShrink: 1,
+  },
+  reasoning: { fontSize: fontSizes["2xs"], fontFamily: fonts.body },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 2,
+  },
   dividerLine: { flex: 1, height: 1.5 },
-  dividerText: { fontSize: fontSizes['2xs'], fontFamily: fonts.body },
+  dividerText: { fontSize: fontSizes["2xs"], fontFamily: fonts.body },
   newCatCard: {
     borderRadius: radii.lg,
     padding: spacing[4],
-    alignItems: 'center',
+    alignItems: "center",
     gap: 2,
   },
-  newCatCardTitle: { fontSize: fontSizes.md, fontFamily: fonts.displayBold, marginTop: 4 },
-  newCatCardSubtitle: { fontSize: fontSizes.xs, fontFamily: fonts.body, opacity: 0.85, textAlign: 'center' },
+  newCatCardTitle: {
+    fontSize: fontSizes.md,
+    fontFamily: fonts.displayBold,
+    marginTop: 4,
+  },
+  newCatCardSubtitle: {
+    fontSize: fontSizes.xs,
+    fontFamily: fonts.body,
+    opacity: 0.85,
+    textAlign: "center",
+  },
 
   celebrateHero: {
     paddingBottom: 26,
@@ -516,33 +619,33 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radii.xl,
   },
   celebrateHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 12,
   },
-  celebrateBody: { alignItems: 'center', paddingHorizontal: 30, paddingTop: 8 },
+  celebrateBody: { alignItems: "center", paddingHorizontal: 30, paddingTop: 8 },
   celebrateAvatar: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
   },
   celebrateTitle: {
     fontSize: fontSizes.xl,
     fontFamily: fonts.displayBold,
-    color: '#fff',
-    textAlign: 'center',
+    color: "#fff",
+    textAlign: "center",
   },
   celebrateSubtitle: {
     fontSize: fontSizes.sm,
     fontFamily: fonts.body,
-    color: 'rgba(255,255,255,0.9)',
+    color: "rgba(255,255,255,0.9)",
     marginTop: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   nameSheet: {
     flex: 1,
@@ -550,11 +653,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
   },
-  suggestRow: { flexDirection: 'row' },
+  suggestRow: { flexDirection: "row" },
   suggestBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -563,42 +666,51 @@ const styles = StyleSheet.create({
   },
   suggestBtnText: { fontSize: fontSizes.xs, fontFamily: fonts.bodySemiBold },
   errorText: { fontSize: fontSizes.xs, fontFamily: fonts.body },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  tryLabel: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold, alignSelf: 'center' },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "center",
+  },
+  tryLabel: {
+    fontSize: fontSizes["2xs"],
+    fontFamily: fonts.bodyBold,
+    alignSelf: "center",
+  },
   monoId: {
-    fontSize: fontSizes['2xs'],
+    fontSize: fontSizes["2xs"],
     fontFamily: fonts.mono,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radii.xs,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   primaryBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
     minWidth: 180,
   },
-  primaryBtnText: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
+  primaryBtnText: { fontSize: 15, fontFamily: "Nunito_700Bold" },
   successIcon: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  successTitle: { fontSize: 20, fontFamily: 'Poppins_700Bold' },
-  successCat: { fontSize: 17, fontFamily: 'Nunito_700Bold' },
-  points: { fontSize: 15, fontFamily: 'Nunito_600SemiBold' },
+  successTitle: { fontSize: 20, fontFamily: "Poppins_700Bold" },
+  successCat: { fontSize: 17, fontFamily: "Nunito_700Bold" },
+  points: { fontSize: 15, fontFamily: "Nunito_600SemiBold" },
   badgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  badgePillText: { fontSize: 13, fontFamily: 'Nunito_600SemiBold' },
+  badgePillText: { fontSize: 13, fontFamily: "Nunito_600SemiBold" },
 });
