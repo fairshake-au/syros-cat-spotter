@@ -280,7 +280,7 @@ Every feeding site on the island, on a map, **visible only to Syros Cats by defa
 
 This is a safety feature, not a preference: a public list of where cats reliably gather is a public list of where to find cats.
 
-**The record itself is `cat-record-data-spine.md` §9.4** — that spec owns the `feeding_sites` table, the privacy model and, importantly, **the precision at which a public site is shown** (its §6.6 recommends that a site made public shows its exact position, on the grounds that a 300 m circle around a food bowl serves nobody). This spec does not restate any of it and does not define the table a second time, as v1.0 did.
+**The record itself is `cat-record-data-spine.md` §10.5** — that spec owns the `feeding_sites` table, the privacy model and, importantly, **the precision at which a public site is shown** (its §6.7 recommends that a site made public shows its exact position, on the grounds that a 300 m circle around a food bowl serves nobody). This spec does not restate any of it and does not define the table a second time, as v1.0 did.
 
 **Cross-spec note, now resolved:** v1.0 introduced its own `colonies` table. The data spine has since defined one — `cat-record-data-spine.md` §10.5, with the name, the guardian's name, a team-only centre and a `colony` observation that puts a cat in it. **That is the definition; this spec uses it and does not carry a second one.** It is what `person_scopes.colony_id` (§7.3) points at.
 
@@ -292,12 +292,13 @@ Small corrections, done in seconds, by people who actually know:
 
 - **Hide a photo** — one tap, reversible, no confirmation theatre. A bad photo comes down first and gets discussed afterwards.
 - **Rename a cat** — the AI-suggested or tourist-supplied name is sometimes simply wrong, and the charity's name for a cat is the real one.
-- **Correct a life status** — street, homed, in care, deceased.
-- **Correct a sterilisation record** — a team entry is *Confirmed*; a **clipped tip** seen by a spotter is *Likely*; **the absence of a visible clipped tip is never evidence of anything**, because photographs are taken from the wrong side all the time.
+- **Say what a cat's life status is** — street, homed, in care, deceased — with a short reason. This adds the team's statement to the cat's record; it does not overwrite anybody else's, and the earlier statement stays visible underneath.
+- **Say whether a cat has been sterilised.** A team entry is *Confirmed*; a **clipped tip** seen by a spotter is *Likely*; **the absence of a visible clipped tip is never evidence of anything**, because photographs are taken from the wrong side all the time. Sterilisation costs Syros Cats **€50–60 per cat**, so a wrong *Likely* is a real trapping trip wasted.
+- **Mark a specific observation wrong** — the correction path for a misread photo, from the cat page, with a reason.
 
-**How a correction is stored is not this spec's decision.** A correction is an **observation** — appended, carrying `roleAtTime: "staff"`, the person's id, and `supersedesId` pointing at what it replaces — exactly as `cat-record-data-spine.md` §9.1 defines. Status is derived on read by that spec's resolver. v1.0's editable status columns and separate `record_changes` log are struck: they would have produced a dashboard writing to one model while the cat page read another, with no rule for which wins.
+**Nothing on this screen edits a field, and the wording above is deliberate.** There is no status column to change. Every one of these actions **appends an observation** carrying `roleAtTime: "staff"`, the person's id, `observedAt`, and — where it is correcting something — `supersedesId` pointing at the statement it replaces, exactly as `cat-record-data-spine.md` §10.1 defines and its §10.2 resolver reads. The mistake and the correction both stay in the record. **A correction is never an undo:** the way back from a wrong correction is another observation, not a delete.
 
-The attribution the dashboard needs — who changed what, when — comes from the observation rows themselves. Who may **read** that history, and whether a correction can be undone or only re-corrected, is a question for the data spine; the dashboard shows what that spec permits.
+v1.0's editable status columns and separate `record_changes` log are struck, and so is any prose describing them: they would have produced a dashboard writing to one model while the cat page read another, with no rule for which wins. The attribution the dashboard needs — who said what, when — is a property of the observation rows themselves, not of a log kept beside them. Who may **read** that history is the data spine's call; the dashboard shows what that spec permits.
 
 ### 3.4 Colony names
 
@@ -606,7 +607,7 @@ The same access model later carries invited **cat guardians** (who look after sp
 - **Roles and scopes are a join table from day one — not columns.** `person_scopes` (person id, role, colony id nullable). v1.0 put `role` and `scope` on the person as scalar columns, which is exactly the retrofit it claimed to be avoiding: a cat guardian looks after **several** colonies, and real people hold two roles at once — a staff member who is also the guardian of her own alley. A single column forces either a delimited string or the migration we said we would not do. The cost today is one small table.
 - **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. From the first commit the dashboard calls them by name: `view_exact_location` · `hide_photo` · `restore_photo` · `rename_cat` · `set_life_status` · `set_sterilisation` · `set_site_public` · `change_report_state` · `add_team_note` · `manage_people` · `action_deletion_request`. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
 - **Invitation is the only way in, at every tier.** A guardian will use the same email-link flow. No second sign-in mechanism gets built for the second role.
-- **Every change is attributed from the first record**, as an observation carrying the person's id and `roleAtTime` (`cat-record-data-spine.md` §9.1). Attribution added later cannot describe the past — which is precisely why `roleAtTime` is recorded at write time and never looked up afterwards.
+- **Every change is attributed from the first record**, as an observation carrying the person's id and `roleAtTime` (`cat-record-data-spine.md` §10.1). Attribution added later cannot describe the past — which is precisely why `roleAtTime` is recorded at write time and never looked up afterwards.
 - **Colony membership already exists** (§3.4), so "which colonies is this person a guardian of?" is a join, not a new concept.
 
 Explicitly **not** built now: an invitation interface, per-field permissions, approval workflows, or an offline volunteer view. Those belong with the roles they serve.

@@ -128,7 +128,7 @@ That last clause is what stops a cat registered by a resident this afternoon —
 
 A spotter sees a small, plain line on the cat page: *"Lives on the street"*, *"Has a home"*, *"In Syros Cats' care"*, *"No longer with us"*, or *"Not seen since June 2024"*. No status pickers, no forms, nothing to fill in. The spot flow is untouched.
 
-A team member on the dashboard sees the status as an editable field with a short reason box, and a list underneath of every previous statement about this cat, who made it and when. The dashboard itself is specified in `team-access-and-welfare-queue.md`; what it writes is §10.6's life-status endpoint.
+A team member on the dashboard sees the current derived status, a control for **stating what it is now** with a short reason box, and a list underneath of every previous statement about this cat, who made it and when. The control looks like a field and is not one: it appends an observation. The dashboard itself is specified in `team-access-and-welfare-queue.md` §3.3; what it writes is §10.7's `POST /observations`.
 
 ---
 
