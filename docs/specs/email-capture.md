@@ -422,7 +422,7 @@ The **mechanism** — how a row is redacted in an append-only store, and the gua
 > The sightings themselves, with your name off them. Which cat was seen, roughly where, and when — that belongs to the island's record of its cats, and taking it out would put holes in the history of cats that have nothing to do with you.
 > Names you gave cats stay too. Other people call Agatha "Agatha" now.
 >
-> **[ Delete everything ]**  ·  **[ Keep my data ]**
+> **[ Delete my data ]**  ·  **[ Keep my data ]**
 
 And afterwards:
 

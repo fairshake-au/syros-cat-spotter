@@ -506,7 +506,16 @@ Skipping is normal and costs nothing.
 
 ## 8. Deleting a person from the record
 
-This section owns the deletion mechanism (F3). `email-capture.md` owns the privacy policy wording, the controller question and the email-only deletion route; what happens *in the data* is here.
+This section owns the deletion mechanism (F3). `email-capture.md` owns the privacy policy wording, the controller question, the email-only deletion route **and all of the user-facing copy**; what happens *in the data* is here.
+
+**There are exactly two destructive actions in the app, they have exactly these two names, and both specs use them** (`email-capture.md` §3.5):
+
+| Action | What it does in the data |
+|---|---|
+| **Delete my data** | The full severing specified below — §8.3's table, in one transaction. |
+| **Stop emailing me** | Mail only. The address is removed and its suppression hash kept (§8.5). Nothing else in this section runs: the device row, the profile, the points and every link between the person and their sightings are untouched. |
+
+There is **no third action** — in particular no separate "delete everything from this device", which would be a second name for the first button.
 
 ### 8.1 The principle, in one sentence
 
@@ -520,17 +529,7 @@ That is the sentence for the privacy policy and it is also literally what the co
 
 **The device is the identity, so holding the phone is the proof.** There is no account, no password and no email round trip to authenticate against — the device id plus its secret *is* who you are in this app. That has two consequences and both are stated on the confirmation screen: anyone holding the unlocked phone can trigger it, and there is no undo.
 
-The confirmation screen is clear and not alarming. It says exactly what goes and exactly what stays:
-
-> **Delete your data?**
->
-> This removes: your points and badges, your streak, the list of spots you've made, your nickname and username, your email address if you gave us one, and the link between you and everything you've spotted.
->
-> This keeps: the cats you photographed and the sightings themselves, now with nobody's name on them, and any names you gave cats — other people use those names now.
->
-> This can't be undone, and we can't get it back for you.
->
-> `Delete my data` &nbsp; `Keep my data`
+A confirmation screen states exactly what goes and exactly what stays, and says that it cannot be undone. **`email-capture.md` §6.3 is the copy of record** — the words there and the rows in §8.3 below must always describe the same operation, and an earlier draft of this section carried a second, differently-worded screen. That draft is struck; there is one screen and one wording.
 
 **A delete link in every email.** Anyone who gave us an address gets a working delete link in every message we send — for the person who no longer has the app but does have the email. The link deletes the same things the in-app action does. (`email-capture.md` owns the email plumbing; the link resolves to this mechanism.)
 
