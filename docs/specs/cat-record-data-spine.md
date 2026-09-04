@@ -252,7 +252,7 @@ The pipeline below is built for the file we will actually receive, not the file 
 Four stages, each of which can be stopped and inspected.
 
 1. **Land the file, untouched.** Every row is stored verbatim in a staging table alongside a hash of its content, its position in the file, and a hash of the whole file. Nothing is interpreted yet. This is what makes the import re-runnable and re-derivable — if we discover in six months that the matching was too eager, we re-run it against the original rows rather than reconstructing them.
-2. **Normalise.** Dates parsed (Greek and English formats), names normalised as §5.2 describes, colonies mapped onto the app's colony names. Anything that will not parse is flagged, not guessed.
+2. **Normalise.** Dates parsed (Greek and English formats), names normalised as §5.2 describes, colonies mapped onto rows in the `colonies` table (§10.5) by normalised name — never created silently, because a typo would otherwise mint a colony. Anything that will not parse is flagged, not guessed.
 3. **Match to a cat in the app.** Scored, never automatic beyond a high bar. See §5.4.
 4. **Apply.** Matched rows become observations with provenance `import` and source `Syros Cats records`, which resolve to *Confirmed*. Unmatched rows wait in a pool. See §5.5.
 
@@ -621,7 +621,8 @@ export const observationsTable = pgTable("observations", {
   catId: integer("cat_id").notNull(),
 
   // Open vocabulary. Phase 1 emits: life_status, sterilised, ear_tip,
-  // food_and_water, note, name. Later phases add kinds without a migration.
+  // food_and_water, note, name, colony, welfare_report, welfare_outcome.
+  // Later phases add kinds without a migration.
   kind: text("kind").notNull(),
 
   // Structured, kind-specific. e.g.
@@ -797,13 +798,46 @@ Linking an import record writes an `observations` row with `provenance: "import"
 
 **`roleAtTime` values outrun what exists.** `guardian`, `volunteer` and `vet` are recorded from day one and are **unreachable in phase 1** — the team-access spec builds one role. Nobody should build a UI expecting them.
 
-### 10.5 Feeding sites
+### 10.5 Colonies and feeding sites
+
+**Colonies are a table, not a string.** Until this revision a colony was free text (`colonyName`) in three separate places, which meant "Vaporia — Eleni's" and "Vaporia (Eleni)" were two colonies, the import in §5.4 could not score a colony match reliably, and the guardian join that `team-access-and-welfare-queue.md` §7.3 needs (`person_scopes.colony_id`) had nothing to point at.
+
+**Colony names are fixed, and are usually the location plus the name of the person caring for the colony** — "Vaporia — Eleni's". That is the charity's own operational vocabulary and the app adopts it rather than inventing one; the naming convention and the dashboard that maintains it are `team-access-and-welfare-queue.md` §3.4's, and the person named there is a **cat guardian**.
+
+```ts
+export const coloniesTable = pgTable("colonies", {
+  id: serial("id").primaryKey(),
+  // "Vaporia — Eleni's". Fixed once set: place + the person caring for it.
+  name: text("name").notNull(),
+  normalisedName: text("normalised_name").notNull(),  // NFC, accent- and case-folded (§10.3)
+  // Free text, and deliberately not a link to `people`: most guardians have no
+  // account, and the name is part of how the colony is *spoken about*.
+  guardianName: text("guardian_name"),
+  // Optional approximate centre, team-only. Never published — §6.2's colony
+  // averaging is the reason a colony centre is not a public coordinate.
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  notes: text("notes"),                  // team-only
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("colonies_normalised_name_unique").on(t.normalisedName),
+]);
+
+// Cats belong to colonies through an append-only observation, not a column, so
+// a cat moving colony is a dated claim like everything else in §10.1:
+//   colony  { colonyId: 12 }
+```
+
+`colony` joins `life_status`, `sterilised`, `ear_tip`, `food_and_water`, `note` and `name` in the phase-1 observation vocabulary. **A colony observation is not evidence of life** and does not feed §3.4's derivation — it says where a cat lives, not that it was seen.
+
+**A colony centre is team-only.** §6.2's accepted limitation is that averaging published cat positions recovers a colony centre to about 45 m; publishing the centre outright would hand over for free the one thing that limitation is about.
 
 ```ts
 export const feedingSitesTable = pgTable("feeding_sites", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),          // location + carer, matching colony convention
-  colonyName: text("colony_name"),
+  colonyId: integer("colony_id"),        // → colonies.id; replaces the old free-text colonyName
   lat: doublePrecision("lat").notNull(),
   lng: doublePrecision("lng").notNull(),
   isPublic: boolean("is_public").notNull().default(false),
@@ -926,7 +960,7 @@ So before any table below is created: switch to `drizzle-kit generate`, check in
 | Step | What happens | Risk handling |
 |---|---|---|
 | 0. Migration history | Baseline the current schema, switch to generated migrations, prove a rollback. | Nothing else in this table is safe without it. |
-| 1. Create the tables | `observations`, `cat_identity`, `import_batches`, `import_records`, `feeding_sites`, plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). |
+| 1. Create the tables | `observations`, `cat_identity`, `import_batches`, `import_records`, `colonies`, `feeding_sites`, plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). |
 | 2. Backfill life status | Nothing is written. Every cat with no `life_status` observation resolves to **street**, which is correct for essentially every cat in the catalogue. | The default is the truth here, so an empty table is an accurate table. |
 | 3. Backfill from the care timeline | Existing `desexed` care updates become `sterilised` observations with `provenance: "legacy"`, `roleAtTime: "staff"` (they were written through the admin endpoint), and `observedAt` set to the update's date. Existing `adopted` updates become `life_status: homed`. | `legacy` provenance means these can be re-derived or discounted later. Runs as a bulk write, so it seeds the notification baseline rather than notifying (§9.2). |
 | 4. Claimed cats are **not** made "homed" | A resident claiming a cat means "this is my cat, I feed it" — usually a street cat with a person. Cats registered through `POST /cats` (owner registration, no sighting) become **homed**, because that flow only exists for cats living with someone, and from now on that endpoint writes the observation at creation rather than relying on a backfill. | Guardians are asked once, in the app, to confirm — one tap, dismissible, never nagged. |

@@ -282,7 +282,7 @@ This is a safety feature, not a preference: a public list of where cats reliably
 
 **The record itself is `cat-record-data-spine.md` §9.4** — that spec owns the `feeding_sites` table, the privacy model and, importantly, **the precision at which a public site is shown** (its §6.6 recommends that a site made public shows its exact position, on the grounds that a 300 m circle around a food bowl serves nobody). This spec does not restate any of it and does not define the table a second time, as v1.0 did.
 
-**Cross-spec note:** v1.0 introduced a `colonies` table with a guardian name, which the data spine does not have — it carries `colonyName` as text. Colony naming matters operationally (§3.4) and the join will be wanted the moment guardians arrive (§7). **That table is the data spine's to add, not ours**, and it is raised there rather than defined here.
+**Cross-spec note, now resolved:** v1.0 introduced its own `colonies` table. The data spine has since defined one — `cat-record-data-spine.md` §10.5, with the name, the guardian's name, a team-only centre and a `colony` observation that puts a cat in it. **That is the definition; this spec uses it and does not carry a second one.** It is what `person_scopes.colony_id` (§7.3) points at.
 
 **Dependency:** the list of sites that may be public comes from Syros Cats. It is requested early and **never blocks** — every site stays private until they say otherwise, which is the correct default anyway. The list is configuration, not code.
 
@@ -301,7 +301,7 @@ The attribution the dashboard needs — who changed what, when — comes from th
 
 ### 3.4 Colony names
 
-Colonies get the names Syros Cats already use — a place plus the person who looks after it ("Vaporia — Eleni's"). The dashboard lets the team name a colony that way and attach feeding sites and cats to it.
+Colonies get the names Syros Cats already use — a place plus the person who looks after it ("Vaporia — Eleni's"). **Colony names are fixed once set.** The dashboard lets the team name a colony that way and attach feeding sites and cats to it; the record behind that screen is the data spine's `colonies` table (`cat-record-data-spine.md` §10.5), and attaching a cat writes a `colony` observation like every other statement about a cat.
 
 This sounds small and is not. The charity's operational vocabulary *is* colony names; a system that invents its own quietly stops matching the conversations people have on the phone, and then nobody trusts it. The person named is a **cat guardian** — the charity's term — and naming a colony after her is the first, lightest step towards the guardian role in §7.
 
@@ -647,7 +647,7 @@ New tables owned by this spec, alongside the existing schema:
 - **`mail_deliveries`** (Postgres) — message id, purpose, recipient hash, state (queued/accepted/delivered/bounced/complained/suppressed), updated_at. Fed by the Resend webhook; read by the queue's delivery column.
 - **`signin_tokens`** and **`admins`** stay in **D1**, on the Worker side. `admins` holds at most the one documented break-glass row (§2.7).
 
-**Explicitly not created:** `record_changes` and `colonies` and a second `feeding_sites` — see the ownership table at the top and §3.2/§3.3.
+**Explicitly not created:** `record_changes`, and a second `colonies` or `feeding_sites` — both of those are the data spine's (`cat-record-data-spine.md` §10.5). `person_scopes.colony_id` references `colonies.id` there. See the ownership table at the top and §3.2/§3.3.
 
 **A welfare report should also become an observation.** A report is the strongest single statement anybody ever makes about a cat's condition, and as things stand the record the data spine exists to build would not contain it. A `welfare_report` observation on filing (and a `welfare_outcome` observation when the team closes it) is cheap now and a backfill later — but the observation vocabulary is the data spine's, so it is **raised there, not defined here**.
 
