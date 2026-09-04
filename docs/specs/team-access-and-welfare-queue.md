@@ -353,11 +353,24 @@ Short. Somebody using this is worried, possibly upset, and possibly standing in 
 Then, in the background:
 
 - **A row in the queue** (§3.1). **The queue row is the source of truth.** It is written first and it is written even when every email fails, is rate-limited, or is suppressed. Nothing that happens to mail can lose a report.
-- **The photo attaches after the row**, and the row shows *photo pending* until it does. A queue row with no photo is a report the team cannot triage, so the state is visible rather than mysterious. Photos on reports are handled exactly as sighting photos are — magic-byte detection, full decode, EXIF rotation, bounded and re-encoded, size caps — and are stored the same way they are, which per DECISIONS D1 means **in Postgres for now**; `hosting-and-photo-storage.md` owns that and owns the later move.
-- **An alert email to `admin@syroscats.com`**, queued with retry, never sent inline: the photo, the location, a map link, the severity, the litter flag and the reporter's note. Urgent reports carry a distinct subject line. **It does not carry the reporter's address** — it says "the reporter left contact details; reply from the dashboard."
+- **The photo attaches after the row**, and the row shows *photo pending* until it does. A queue row with no photo is a report the team cannot triage, so the state is visible rather than mysterious.
+
+- **An alert email to `admin@syroscats.com`**, queued with retry, never sent inline: the photo, the location, a map link, the severity, the litter flag and the reporter's note. Urgent reports carry a distinct subject line. **It does not carry the reporter's address** — it says "the reporter left contact details; reply from the dashboard." **The photo travels as an attachment, not a link**, because a link into the team-gated route would simply fail in a mailbox and a public link would put the one restricted photo we have outside the gate. Stated so nobody closes that gap by "just making the URL public".
 - **If the reporter gave an address**, `email-capture.md`'s verification message goes to it — **from the news identity, because the reporter is a member of the public (§2.10)** — and **nothing else is sent to that address until they confirm** (F7b). The acknowledgement and the outcome that follow confirmation are transactional. This is what stops the report form being a machine for sending mail from a charity's domain to a stranger's inbox.
 
 **If the phone has no signal**, the report queues locally alongside offline sightings and sends when signal returns. Be precise with users: the report is **saved on the device** and reaches Syros Cats when the phone next has a connection. It is not delivered while offline, and the confirmation screen says so rather than implying anybody has been told. If an unsent report is still sitting there after 24 hours, the phone reminds its owner once: *"You have a cat report that hasn't sent yet."*
+
+#### Report photos are team-only, and the restriction is structural
+
+A report photo is not a catalogue photo. It may show a bleeding animal, a doorway, a house number, a vehicle, a bystander, or the inside of somebody's yard, and none of that belongs in a public catalogue a tourist browses. Three things make that real, and **not one of them is a flag anybody has to remember to set**:
+
+1. **`POST /api/reports` is the report photo's upload path**, and it runs the bytes through the same `validatePhotoBase64` helper as `POST /api/sightings` — magic-byte detection, full decode, EXIF rotation and **metadata strip**, bounded re-encode, size caps. Verified in the code: that helper is called today from `routes/sightings.ts` and nowhere else, so this is a second call site to build, not a behaviour to assume. `hosting-and-photo-storage.md` §6.4 owns the helper and the EXIF test; this spec owns the requirement that the report path goes through it.
+2. **The bytes go to a separate `welfare_report_photos` table, not to `photos`.** The public photo route reads `photos`, so it cannot serve a report photo — not because a column told it not to, but because the row is not in the table it reads. One team-session-gated route, `GET /api/team/report-photos/:publicId`, serves them, behind the `__Host-cs_team` cookie of §8.2 and a capability check (§7.3).
+3. **There is no `visibility` column, and there should not be.** `hosting-and-photo-storage.md` §7.2 cut it on the grounds that a column nothing writes and nothing enforces is a plausible way to break photo loading mid-Play-window, and a wrong default would have published exactly these photos. Enforcement by table needs no default to be correct, which is why it is the answer rather than a column.
+
+**Promoting a report photo into the catalogue is a deliberate team action**, never a side effect of tying the report to a cat: the team taps *use this photo on the cat*, and the bytes are re-validated through the same helper and copied into `photos`. Until somebody chooses that, the photo stays team-only.
+
+Both tables live in Postgres per DECISIONS D1, and they move together if that is ever revisited. The same rule covers the "Report an issue" flow in §6, whose photos are already public catalogue photos and stay in `photos`.
 
 ### 4.4 Keeping the flow from being abused
 
@@ -642,8 +655,9 @@ New tables owned by this spec, alongside the existing schema:
 
 - **`people`** (Postgres) — id, email (unique, lower-cased, role-address deny-list enforced), name, session_version, added_at, added_by.
 - **`person_scopes`** (Postgres) — person_id, role, colony_id (nullable). One row per role-and-scope pair (§7.3).
-- **`welfare_reports`** (Postgres) — id, kind (`welfare` | `content`), severity (`attention` | `urgent`), is_litter, photo_id, lat/lng, note, reporter_language, reporter_contact_id (nullable — the address itself is held by `email-capture.md`'s verified-contact model, not on this row), reporter_device, cat_id (nullable), state, state_changed_at, state_changed_by, team_note, is_draft, created_at.
+- **`welfare_reports`** (Postgres) — id, kind (`welfare` | `content`), severity (`attention` | `urgent`), is_litter, report_photo_id (→ `welfare_report_photos`, **never** `photos` — §4.3), lat/lng, note, reporter_language, reporter_contact_id (nullable — the address itself is held by `email-capture.md`'s verified-contact model, not on this row), reporter_device, cat_id (nullable), state, state_changed_at, state_changed_by, team_note, is_draft, created_at.
 - **`report_state_events`** (Postgres) — report_id, from_state, to_state, person_id, at, plus which reporter message was sent, so duplicate suppression (§5.3h) is a query and not a guess.
+- **`welfare_report_photos`** (Postgres) — id, public_id (unguessable, §4.3), bytes, mime, created_at. Deliberately **not** rows in `photos`: that is what keeps the public photo route unable to serve them, with no column and no default involved. Owned jointly with `hosting-and-photo-storage.md` §6.6, which owns the storage question for both tables.
 - **`mail_deliveries`** (Postgres) — message id, purpose, recipient hash, state (queued/accepted/delivered/bounced/complained/suppressed), updated_at. Fed by the Resend webhook; read by the queue's delivery column.
 - **`signin_tokens`** and **`admins`** stay in **D1**, on the Worker side. `admins` holds at most the one documented break-glass row (§2.7).
 
@@ -678,6 +692,8 @@ Named here so they appear in the implementation plan rather than being remembere
 9. No reporter-facing message contains an internal state name.
 10. A role address is refused by `people` insert.
 11. `session_version` bump invalidates an existing dashboard cookie at the next request.
+12. A welfare-report photo is **not** served by the public photo route, and the team route refuses it without a valid dashboard session.
+13. `POST /api/reports` puts its photo through `validatePhotoBase64`: a JPEG uploaded with a GPS block comes back with none (the assertion `hosting-and-photo-storage.md` §6.4 owns, applied to this second entrance).
 
 ---
 

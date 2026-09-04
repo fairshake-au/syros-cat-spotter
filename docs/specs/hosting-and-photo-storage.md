@@ -285,7 +285,12 @@ A single scraper walking the id range pulls the entire photo corpus through bill
 - `cat-record-data-spine.md` may rely on stored photo bytes carrying no location data. It is true, and after this test it stays true.
 - **This document relies on the data spine to blur locations in API responses.** Stripping EXIF only closes the image-file route. If a public API response returns exact coordinates, the photo change has done nothing.
 
-**One gap to hand over rather than absorb.** The records import in `PRODUCT-SPEC.md` §2.4 may carry photos, and a bulk import that writes rows directly bypasses `validatePhotoBase64` entirely — and therefore bypasses the EXIF strip. **Every path that creates a `photos` row must go through the same validation helper.** The import is owned by `cat-record-data-spine.md`; the rule is stated here because the consequence lands on this document's promise. A test asserting that no code path inserts into `photosTable` outside the shared helper should ship with the import.
+**Two further writers, and the rule that covers both.** `validatePhotoBase64` is imported today in `src/routes/sightings.ts` and nowhere else in `src/routes` — verified. Two more paths are arriving in this same window and each bypasses the EXIF strip if it writes rows directly:
+
+- **the records import** (`PRODUCT-SPEC.md` §2.4, owned by `cat-record-data-spine.md` §5.3), whose images are phone pictures taken at a clinic or a feeding spot — the most sensitive coordinates in the system;
+- **the welfare report** (`POST /api/reports`, owned by `team-access-and-welfare-queue.md` §4.3), which writes to `welfare_report_photos` (§6.6).
+
+**Every path that creates photo bytes in either table must go through the same validation helper.** The rule is stated here because the consequence lands on this document's promise. A test asserting that no code path inserts into `photosTable` or `welfareReportPhotosTable` outside the shared helper ships with whichever of the two lands first.
 
 ### 6.5 Deleting a photo
 
@@ -301,6 +306,29 @@ The contract, while photos are in Postgres:
 - **Anything referencing the removed photo degrades gracefully**, not into a 500: a cat whose primary photo is removed shows the placeholder, exactly as the `primaryPhotoId: 0` sentinel already does.
 - **Removal is recorded** — who, when, why — because a takedown may need to be explained later.
 - **After any future migration this becomes a two-system operation**: delete the object, then the row, in that order, idempotent, with a reconciliation script listing bucket keys that no row points at. Written into §7 so it is not rediscovered.
+
+---
+
+### 6.6 Restricted photos — where the restriction is actually enforced
+
+Two of the four specs need photos that the public must never see: **welfare-report photos** (an injured animal, a doorway, a bystander, somebody's yard) and any photo attached to a **private feeding site**. §7.2 cut the `visibility` column that was standing in for this, correctly, and referred the requirement to `team-access-and-welfare-queue.md`. Left there it was a gap: that spec had a staff session and no storage rule, this one had storage and no session. It is settled here and in that spec's §4.3, in the same words.
+
+**The restriction is enforced by which table the bytes are in, not by a column on a shared one.**
+
+- `photos` is the **public** table. `GET /api/photos/:publicId` reads it and only it, and serves anonymously — which it must, because the app has no login (F7a).
+- `welfare_report_photos` is the **team-only** table, served by one route, `GET /api/team/report-photos/:publicId`, behind the dashboard session on `team.catspotters.com`. A row there is unreachable from the public route because the public route does not read that table.
+
+**Why this and not a column.** A column has a default, and a default can be wrong; a wrong default here publishes the most sensitive images in the system, and nothing in the test suite would notice. It also has to be written on every insert path and checked on every read path, which is exactly the "nothing writes it, nothing enforces it" failure §7.2 refused. A separate table has no default to get wrong, and the enforcement is the absence of a `FROM` clause — the cheapest thing in software to keep true.
+
+**Consequences this document owns:**
+
+- **The upload path.** §6.2 and the rest of this document are written for `POST /api/sightings`, which is the only path that exists today. Welfare-report photos arrive on **`POST /api/reports`**, which is a second writer of photo bytes and must therefore call **`validatePhotoBase64`** exactly as the sightings route does. Verified in the code: `validatePhotoBase64` is imported in `src/routes/sightings.ts` and nowhere else in `src/routes`. The EXIF strip in §6.4 is a property of that helper, so a report photo carrying GPS is stripped **only if this call is made** — and the structural test in §6.4 ("no code path inserts photo bytes outside the shared helper") now covers two tables, not one.
+- **Unguessable public ids apply to both tables** (§6.2), so the team route is not enumerable either. The gate is the session; unguessability is the belt.
+- **The alert mail carries the photo as an attachment**, not a link, since a link into the gated route fails in a mailbox and a public link would defeat the gate. Owned by `team-access-and-welfare-queue.md` §4.3; noted here because it is the one place a restricted photo legitimately leaves the system.
+- **Deletion (§6.5) applies to both tables**, and so does the two-system ordering in §7.9 if the deferred migration ever happens.
+- **Feeding-site photos** follow the same rule: while a site is private, any photo of it is a `welfare_report_photos`-class row. Whether a site is public at all is the data spine's (`cat-record-data-spine.md` §6.7), and this document does not set a second rule.
+
+**One thing this does not claim.** A photo the team promotes onto a cat's page — a deliberate action in the dashboard, re-validated and copied into `photos` — is public from that moment, like any catalogue photo. That is a person choosing, which is the only way a restricted photo should ever become an unrestricted one.
 
 ---
 
@@ -335,7 +363,7 @@ After launch: every photo is a volunteer's irreplaceable contribution, and this 
 
 A row is authoritative on `storage_key` when non-null; `data` is read only as a fallback. That single rule is what makes the migration reversible.
 
-**`visibility` is deliberately not added here.** The previous draft invented a `visibility` column to gate feeding-site and welfare-report photos to a staff session. Restricted photos are a real requirement, but they belong to `team-access-and-welfare-queue.md`, which owns the staff session that would enforce them. A column nothing writes and nothing enforces is worse than no column — and mis-setting its default is a plausible way to make photos stop loading for testers.
+**`visibility` is deliberately not added here, and the question it was standing in for is now answered — see §6.6.** The previous draft invented a `visibility` column to gate feeding-site and welfare-report photos to a staff session. Restricted photos are a real requirement, but a column nothing writes and nothing enforces is worse than no column, and mis-setting its default is a plausible way to make photos stop loading for testers. The resolution is structural rather than a flag: restricted photos are not rows in `photos` at all.
 
 ### 7.3 Writing
 
@@ -432,6 +460,7 @@ This is also why **signed expiring photo URLs were rejected** (F7a): a URL that 
 | **Photo endpoint: unguessable public ids, rate limiter, CORS allowlist** (§6.2) | Currently an open, enumerable, unbilled-abuse surface on usage-billed compute |
 | **EXIF-stripping tests** (§6.4) | The location-privacy promise depends on behaviour nothing tests |
 | **Photo removal path for the takedown flow** (§6.5) | The "Report an issue" flow ships in this window and has nowhere to go |
+| **`welfare_report_photos` and its team-gated route** (§6.6), with `POST /api/reports` calling `validatePhotoBase64` | The welfare report ships in this window, and its photos must not be reachable from the public photo route on day one |
 | **Replit billing alert set** | The charity should never learn about a scraper from an invoice |
 
 ### Before launch
@@ -464,7 +493,8 @@ This is also why **signed expiring photo URLs were rejected** (F7a): a URL that 
 | R4 | A scraper walks the photo corpus on usage-billed compute | A charity gets a surprise invoice | Build | §6.2: unguessable ids, per-IP limiter, CORS allowlist, plus a billing alert before launch |
 | R5 | Supplier prices here are stale | A decision built on bad numbers — which is exactly what happened last time | Samuel | Re-check all three suppliers at the moment of committing. §2.3's sensitivity band means the conclusion does not hinge on one price. Note that Replit's own cut of 77% arrived a month before the previous draft and was missed |
 | R6 | Storage cost grows faster than plan | The deferral's accepted cost gets larger than assumed | Samuel | §2.3 names the threshold: roughly 2× plan volume flips the ordering and pulls the decision forward regardless of the 15 Nov date |
-| R7 | An imported record's photo carries GPS EXIF | Defeats location blurring by the back door | Build | Every path that writes a `photos` row goes through the shared validation helper, with a test asserting no other insert path exists. Import owned by `cat-record-data-spine.md`; the rule is stated in §6.4 |
+| R7 | **An imported record's or a welfare report's photo carries GPS EXIF** | Defeats location blurring by the back door, on the two paths carrying the most sensitive coordinates in the system | Build | Every path that writes photo bytes to either table goes through the shared validation helper, with a test asserting no other insert path exists. Import owned by `cat-record-data-spine.md`, the report path by `team-access-and-welfare-queue.md`; the rule is stated in §6.4 |
+| R9 | **A welfare-report photo becomes publicly reachable** — a bleeding animal, a doorway, a bystander, on an anonymous endpoint | The worst image failure available to this product, and it would be found by a member of the public rather than by us | Build | §6.6: the bytes are in a separate table the public route does not read, so there is no default to set wrongly. A test fetches a report photo's id on the public route and asserts 404 |
 | R8 | Postgres storage does not shrink even after a future migration | The work is done and the bill is unchanged | Build | §7.6: confirm Replit's metering first, `VACUUM FULL` as an explicit step in a maintenance window, before/after size **and** the next invoice recorded |
 | **Q1** | **Do charity or startup credits exist that change this?** Cloudflare's nonprofit programme, Google for Nonprofits, AWS and Supabase credits are all worth an hour's asking | Samuel | **Open — due 31 October 2026**, because the 15 November decision depends on it |
 | **Q2** | **Who owns the accounts and the bill at handover — Fair Shake or Syros Cats?** This shapes the hosting choice more than price does: a charity that will one day self-administer wants fewer suppliers and simpler bills | Samuel | **Open — needed for the 15 November decision**, not before launch |
