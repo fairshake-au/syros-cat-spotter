@@ -227,13 +227,15 @@ Three operational truths the charity should be told plainly, because they change
 
 | Identity | Sends | From | Key held by |
 |---|---|---|---|
-| **Transactional** — `mail.catspotters.com` | Staff sign-in links; email verification; report acknowledgements; report status updates; the welfare alert to `admin@syroscats.com`; issue reports | `Cat Spotters <signin@mail.catspotters.com>` / `Syros Cats via Cat Spotters <reports@mail.catspotters.com>`, **`Reply-To: admin@syroscats.com`** on anything a reporter might answer | The Worker (Cloudflare secret) for sign-in; the API (Replit deployment secret) for everything else — two keys on the same domain, so either can be rotated without touching the other |
-| **News** — `news.catspotters.com` | "The cat you named was sterilised" and other loop-closing mail (owned by `email-capture.md`) | `Cat Spotters <news@news.catspotters.com>` | The API, a third key |
+| **Transactional** — `mail.catspotters.com` | Staff sign-in links **and staff sign-in verification**; report acknowledgements; report status updates; the welfare alert to `admin@syroscats.com`; issue reports | `Cat Spotters <signin@mail.catspotters.com>` / `Syros Cats via Cat Spotters <reports@mail.catspotters.com>`, **`Reply-To: admin@syroscats.com`** on anything a reporter might answer | The Worker (Cloudflare secret) for sign-in; the API (Replit deployment secret) for everything else — two keys on the same domain, so either can be rotated without touching the other |
+| **News** — `news.catspotters.com` | "The cat you named was sterilised" and other loop-closing mail, **plus every verification message sent to a member of the public — including the address typed on a welfare report** (all owned by `email-capture.md`) | `Cat Spotters <news@news.catspotters.com>` | The API, a third key |
+
+**Which identity verifies an address is decided by *who is verifying*, not by which screen they were on.** Staff sign-in verification is transactional; any address a member of the public types anywhere — spot card, visit summary, welfare report, Settings — verifies from the news identity. That is the amendment to D2 recorded in `DECISIONS.md` and specified in `email-capture.md` §7.3; this spec follows it and does not restate the reasoning.
 
 **Be precise about what the split does and does not buy.** It buys separate sending reputation, separate DKIM keys, separate revocation and separate delivery logs. It does **not** by itself buy a separate volume allowance — Resend's send caps are account-level, so a flood on one identity can still eat the account's headroom. Two things close that gap, and both are ours to build:
 
 1. **The rate limits in §2.6**, which are what actually stop a login form or a report form generating mail without bound.
-2. **A priority budget inside the one send function.** Every send declares a purpose. When the daily budget is being approached, the function sheds load in a fixed order: news first, then verification, then acknowledgements. **Sign-in links and welfare alerts are never shed.** If it ever has to shed, it raises a dashboard banner saying so.
+2. **A priority budget inside the one send function.** Every send declares a purpose. When the daily budget is being approached, the function sheds load in a fixed order: news first, then public verification, then acknowledgements. **Sign-in links, staff sign-in verification and welfare alerts are never shed.** Note the consequence of the D2 amendment: public verification now sits inside the *news* identity's allowance, so shedding news load can delay the message a member of the public is waiting on — accepted in `email-capture.md` §7.3. If it ever has to shed, it raises a dashboard banner saying so.
 
 Re-check Resend's current published limits before committing — they change — and budget for the paid tier rather than assuming a free allowance covers a launch.
 
@@ -353,7 +355,7 @@ Then, in the background:
 - **A row in the queue** (§3.1). **The queue row is the source of truth.** It is written first and it is written even when every email fails, is rate-limited, or is suppressed. Nothing that happens to mail can lose a report.
 - **The photo attaches after the row**, and the row shows *photo pending* until it does. A queue row with no photo is a report the team cannot triage, so the state is visible rather than mysterious. Photos on reports are handled exactly as sighting photos are — magic-byte detection, full decode, EXIF rotation, bounded and re-encoded, size caps — and are stored the same way they are, which per DECISIONS D1 means **in Postgres for now**; `hosting-and-photo-storage.md` owns that and owns the later move.
 - **An alert email to `admin@syroscats.com`**, queued with retry, never sent inline: the photo, the location, a map link, the severity, the litter flag and the reporter's note. Urgent reports carry a distinct subject line. **It does not carry the reporter's address** — it says "the reporter left contact details; reply from the dashboard."
-- **If the reporter gave an address**, `email-capture.md`'s verification message goes to it and **nothing else is sent to that address until they confirm** (F7b). This is what stops the report form being a machine for sending mail from a charity's domain to a stranger's inbox.
+- **If the reporter gave an address**, `email-capture.md`'s verification message goes to it — **from the news identity, because the reporter is a member of the public (§2.10)** — and **nothing else is sent to that address until they confirm** (F7b). The acknowledgement and the outcome that follow confirmation are transactional. This is what stops the report form being a machine for sending mail from a charity's domain to a stranger's inbox.
 
 **If the phone has no signal**, the report queues locally alongside offline sightings and sends when signal returns. Be precise with users: the report is **saved on the device** and reaches Syros Cats when the phone next has a connection. It is not delivered while offline, and the confirmation screen says so rather than implying anybody has been told. If an unsent report is still sitting there after 24 hours, the phone reminds its owner once: *"You have a cat report that hasn't sent yet."*
 
@@ -480,17 +482,11 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > *[If offline]* This report is saved on your phone and sends itself the moment you have a signal. Nobody has been told yet.
 
-#### (f) The verification email
+#### (f) The verification email — **not this spec's copy**
 
-> Subject: **Is this your email address?**
->
-> Somebody gave this address to the Cat Spotters app while reporting a cat on Syros.
->
-> **[ Yes, this is my address ]**
->
-> Your report has already reached Syros Cats — this only decides whether we can write to you about it.
->
-> If this wasn't you, just ignore this message. We won't send you anything else, and we delete the address within seven days.
+The verification message is **one fixed message for every address typed anywhere in the app**, and `email-capture.md` §4.1 owns every word of it. It is deliberately identical whatever screen produced the address: it carries no cat name, no note text and nothing a sender chooses, precisely because it is the only thing an unverified address can ever receive. A report-specific variant is exactly what that rule forbids, so v1.0's version is struck and this spec does not carry one.
+
+It sends from the **news** identity (§2.10). Only what follows confirmation — the acknowledgement in (g) and the outcome in (h) — is transactional.
 
 #### (g) The acknowledgement email — sent only after the address is verified
 

@@ -341,12 +341,12 @@ Two further guards on the same principle, for import rows that arrive later (a r
 
 ### 5.4 The report loop — one number, in both specs
 
-The two specs previously promised the reporter a different number of emails, in copy the reporter reads: `team-access-and-welfare-queue.md` §5.5 said *"twice and no more"*, this spec allowed up to three. Settled here, and cited there.
+The two specs previously promised the reporter a different number of emails, in copy the reporter reads: `team-access-and-welfare-queue.md` v1.0 said *"twice and no more"*, this spec allowed up to three. Settled here, and cited in that spec's §5.3h.
 
 **Two messages, after verification, and no more:**
 
 1. **We've got it** — the acknowledgement, as soon as the address is confirmed.
-2. **What happened** — one message, when the report reaches a **closing state** (*Done* or *Not for us*).
+2. **What happened** — one message, when the report reaches a **closing state** (*Done* or *Nothing needed*, the two closing states in `team-access-and-welfare-queue.md` §3.1).
 
 A move to *Looking at it* sends nothing. It is a queue state, not an outcome, and per F1 nothing about the queue implies a response time — a message saying "we're looking at it" would imply exactly the service level the whole capacity design is careful not to promise. The ask copy in §3.4 says "we'll confirm we've got it, and write once more when there's an outcome", which is two, and matches.
 
