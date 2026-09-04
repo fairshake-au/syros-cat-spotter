@@ -436,7 +436,7 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 #### (b) The severity step — "Urgent"
 
-**One version, and it is final.** The two-variant structure that stood here — a night-and-weekend variant against a version naming out-of-hours cover — is gone. There is one urgent block, below, edited line by line by Samuel on 4 September 2026.
+**One version, and it is final.** The two-variant structure that stood here — a night-and-weekend variant shown against a daytime one — is gone. There is one urgent block, below, edited line by line by Samuel on 4 September 2026. It carries a single short out-of-hours paragraph that is shown to everybody at every hour, rather than a variant that has to guess what time it is on the reader's phone.
 
 > **Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**
 >
@@ -445,6 +445,8 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 > **The vets on Syros will lend you a carrying cage.** Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a "trap" or a carrying cage. Then take the cat straight to them.
 >
 > **Vets on Syros** *[the list from §5.7]*
+>
+> **At night or at the weekend.** Symviosis and Cyclades Vets both publish an after-hours number. We haven't rung them to check, so we can't promise anyone will answer — but they are the numbers to try.
 >
 > ---
 >
@@ -466,9 +468,9 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > **You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive.
 >
-> **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 2281 361000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
+> **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 22813 61000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 
-**Out-of-hours: an accepted product decision, recorded plainly.** SYC-68 asked who somebody calls at nine in the evening in February. The answer is that there is no out-of-hours cover: no night or weekend vet service on Syros that this app can point to, and nobody at Syros Cats to ring either. Samuel's decision is that the app says nothing about it. Somebody who finds a badly injured cat at night is therefore given three daytime clinic numbers and no further guidance. That is known, it is deliberate, and it is to be confirmed with Syros Cats during testing.
+**Out-of-hours: what the app says, and why it stops short of a promise.** SYC-68 asked who somebody calls at nine in the evening in February. The earlier answer — that there is no cover and the app should say nothing — was wrong on both halves, and the verification pass in `docs/specs/source/syros-vets-verified.md` is what corrected it. Two of the three clinics publish an out-of-hours contact: Symviosis lists **+30 697 005 5012** on its own site as the number to call outside clinic hours, and Cyclades Vets advertises 24-hour operation, 365 days a year, on **+30 6937 252802**. Those are published claims, not tested realities — nobody has rung either number at 2am to find out what happens. So the app names them and vouches for nothing, in one short paragraph placed directly under the vet list. Confirming whether they actually answer is a testing task (§5.4), not a blocker: naming a number the clinic itself publishes is better than a silence that implies there is nobody at all. Syros Cats told us there is no night cover; the clinics' own material says otherwise; the app reports the published position and leaves the reader to judge.
 
 #### (c) The severity step — "Needs attention"
 
@@ -529,7 +531,7 @@ It sends from the **news** identity (§2.10). Only what follows confirmation —
 >
 > **Phone the nearest clinic and ask to borrow a carrying cage** — a "trap". Put sardines or wet food at the back of it, stand back, and let the cat walk in; then cover the cage and take it straight in. The vet will check the injuries and scan for a microchip, in case somebody is looking for this cat. Only if the cat will not go into the cage, and only if you feel safe: a towel over it, including its head, and into a box you can close.
 >
-> They are likely to charge for the visit. If the cat turns out to need weeks of care rather than a single visit, the **Municipality of Syros-Ermoupoli (+30 2281 361000)** is legally responsible for street animals and can sometimes help with the cost.
+> They are likely to charge for the visit. If the cat turns out to need weeks of care rather than a single visit, the **Municipality of Syros-Ermoupoli (+30 22813 61000)** is legally responsible for street animals and can sometimes help with the cost.
 >
 > *[Litter variant]* Please don't move the kittens or bring them anywhere — talk to Syros Cats first. Their mother is almost certainly nearby and is far better at this than any of us.
 >
@@ -579,9 +581,9 @@ The injured-cat block (§5.3b) is **advice a member of the public may act on, in
 |---|---|---|
 | **Susan's standard reply** | Syros Cats (Susan) | **Closed.** Supplied 3 September 2026, verbatim at `docs/specs/source/syros-cats-standard-reply.md`. §5.3b, §5.3e and §5.3g were rewritten against it and then line-edited by Samuel on 4 September. Syros Cats confirm the wording during testing (§5.4); nothing is blocked on it. |
 | **The vet list itself — which clinics** | Syros Cats | **Supplied.** Three clinics, verbatim in `docs/specs/source/syros-cats-standard-reply.md`. This dependency is closed; verifying and completing each entry is the row below. |
-| **Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)** | Syros Cats | **Closed. The answer is that there is none.** Samuel's decision is that the app says nothing about nights or weekends, so the out-of-hours copy is deleted entirely (§5.3b). To be confirmed with Syros Cats during testing. |
-| **Verified vet entries — full street addresses, phone numbers, Google Maps and Apple Maps links, coordinates** | Samuel | **Blocks the urgent block shipping.** See §5.7. The verified data lands in `docs/specs/source/syros-vets-verified.md`; §5.7 holds the shape and waits for it. A dead map link or a wrong number in front of somebody holding an injured cat is a real failure, and worse than no number. |
-| **The Municipality's animal welfare contact** | Syros Cats | **Never blocks.** The switchboard number (+30 2281 361000) is in Susan's reply and is enough. A direct line to the welfare office would be better and is worth asking for. |
+| **Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)** | Syros Cats · Samuel | **Closed, and reversed.** The earlier answer — no cover, app says nothing — did not survive verification. Symviosis and Cyclades Vets both publish after-hours numbers, so §5.3b names them and promises nothing. What remains open is whether either is answered in practice; that is a phone call during testing (§5.4), not a blocker. |
+| **Verified vet entries — addresses, phone numbers, Google Maps and Apple Maps links, coordinates** | Samuel | **Closed enough to ship.** §5.7 is populated from `docs/specs/source/syros-vets-verified.md`. All six phone numbers verified. **Coordinates are landmark-anchored to petrol stations, good to 50–100 m** — accurate enough to drive to, and stated as such. Real door pins, and Dermitzaki's Lazareta/Kato Manna conflict, are ten-minute jobs for somebody on the island (§5.7). |
+| **The Municipality's animal welfare contact** | Syros Cats | **Never blocks, and now answered in the negative.** The switchboard **+30 22813 61000** is confirmed against the municipality's own directory. There is **no dedicated animal-welfare number published** — verified absence, not merely not found. A direct line would be better and is worth asking for. |
 | **A phone or WhatsApp number for litters** | Syros Cats | **Blocks nothing, weakens §5.3d badly.** A person crouched over a box will not email and wait. If there is no number, the copy must not ask them to make contact it cannot support — it leans harder on "leave them where they are, she is nearby". |
 | **Translation into Greek and French** | Fair Shake to translate · a local to confirm | **Blocks launch of this copy, and §5.3b most of all** — it is the one block people act on rather than read. We produce the Greek and French ourselves; a local speaker then checks them before launch. It is no longer "find somebody to translate this", it is "translate, then have a local confirm". The reporter's language is stored on the report row so the acknowledgement and the update go out in the language they used. Every "it's just a copy swap" in this document is a copy swap **×3**. |
 | **The public feeding-site list** | Syros Cats | **Never blocks.** Everything is private until they say otherwise (§3.2). Configuration, not code. |
@@ -593,7 +595,7 @@ The copy is the mitigation for the largest accepted risk in the product, so it g
 - Does anybody come away believing somebody is coming? (If yes, the copy has failed.)
 - Does anybody come away not knowing a vet is the fast route? (Same.)
 - **Does anybody come away not knowing they can borrow a cage?** That is the single most useful sentence in §5.3b, and if testers miss it the block is laid out wrong.
-- **Ask the testers about nights and weekends directly.** The block deliberately says nothing about them (§5.3b). If a tester who found a cat at night reports being left with nowhere to go, that is the finding to take back to Syros Cats.
+- **Ask the testers about nights and weekends directly.** The block now names two published after-hours numbers and explicitly says we have not rung them (§5.3b). Two things to learn: does that honesty read as helpful or as a shrug, and — the bigger one — **does anybody actually answer?** A tester who rings +30 6937 252802 or +30 697 005 5012 out of hours and reports what happened is worth more than any amount of further desk research.
 - **What is the abandonment rate at the severity step?** An abandoned report is the outcome the charity least wants, and the drafts above put the encouragement first specifically to protect against it. The draft-on-severity rule in §4.2 means we can measure this rather than guess.
 
 ### 5.7 The vet list and the Municipality — configuration, not copy
@@ -607,25 +609,75 @@ The vet list is the third clause of the urgent block, and without it that block 
 | Field | Notes |
 |---|---|
 | **Name** | The clinic and the vet, as people ask for them. |
-| **Full street address** | Street, number, town, postcode. Susan's reply gave areas only; an address is what a taxi driver and a maps app can both use. |
-| **Area and landmark** | Kept alongside the address, not instead of it — people here navigate by the petrol station, not the postcode. |
-| **Phone numbers** | Both numbers per clinic, verified. Rendered as tap-to-call links, because the person reading this has one hand free. |
-| **Google Maps link** | Verified to resolve to the right clinic. |
-| **Apple Maps link** | Same, and separately verified. Most of the tourists this block is written for are on an iPhone. |
+| **Address, as far as it is published** | Area, landmark and postcode. **No clinic on Syros publishes a street name and number** — see below. This field carries whatever the clinic itself gives out, which is what a taxi driver will recognise. |
+| **Area and landmark** | The load-bearing field, not a decoration. People here navigate by the petrol station, not the postcode. |
+| **Phone numbers** | Every verified number for the clinic, each labelled — main line, mobile, and **after-hours where the clinic publishes one**. Rendered as tap-to-call links, because the person reading this has one hand free. |
+| **Google Maps link** | A plain coordinate URL you can read and check by eye. No shorteners. |
+| **Apple Maps link** | Same, built from the same coordinates. Most of the tourists this block is written for are on an iPhone. |
 | **Coordinates** | Latitude and longitude, so a link that rots can be regenerated and so the entry survives either maps provider changing its URL format. |
 
-**The data itself is pending.** The three clinics named in Susan's reply — **Symviosis (Vorrisis Manolis)** in Talanta, **Dermitzaki Irini** in Lazareta, and **George Maragkos** in Mana — are being independently verified, with full addresses, checked numbers and both sets of map links, into `docs/specs/source/syros-vets-verified.md`. That file is the source this configuration block is populated from. The unverified short links that stood in this section have been removed rather than reproduced: a link nobody has opened is not data, and this is the one table in the spec where a plausible-looking wrong value does harm.
+**The data, from `docs/specs/source/syros-vets-verified.md`.** All three clinics exist, and every phone number in Susan's original reply checks out. Two things changed in the writing-up: the third clinic no longer trades under Maragkos's name, and two of the three publish after-hours contacts.
 
-There is no hours field and no out-of-hours flag. There is no out-of-hours cover to record (§5.3b).
+**1. Symviosis — Κτηνιατρικό Κέντρο Σύρου** *(vet: Emmanouil "Manolis" Vorrisis)*
 
-**The Municipality of Syros-Ermoupoli — +30 2281 361000.** Under Greek law the Municipality is ultimately responsible for the care of street animals, and it may help with the cost of a cat that needs long-term care, case by case, depending on the money it has. It appears in two places: in the urgent block for a cat that needs weeks rather than hours (§5.3b), and in the acknowledgement email (§5.3g). It is also the honest answer to "why is a small charity carrying this?", which is worth having ready for the media one-pager. It sits in the same configuration block as the clinics.
+| | |
+|---|---|
+| Area and landmark | Talanta / Τάλαντα — **opposite the Shell petrol station**, on the Pagos–Ermoupoli road |
+| Address as published | Stavros Talanton, Talanta, Syros 841 00, Cyclades. No street name or number published. |
+| Phone | **+30 22810 77929** (clinic hours) |
+| Phone | **+30 697 005 5012** — **after-hours line**, published on the clinic's own site as the number to call outside opening hours |
+| Coordinates | **37.4234996, 24.9202989** — landmark-anchored (see below) |
+| Google Maps | `https://www.google.com/maps/search/?api=1&query=37.4234996,24.9202989` |
+| Apple Maps | `https://maps.apple.com/?ll=37.4234996,24.9202989&q=Symviosis%20Vet%20Talanta` |
 
-**Verification is blocking, and it has not changed:**
+**2. Dr Irini Dermitzaki — Κτηνιατρείο Δρ. Δερμιτζάκη Ειρήνη**
 
-1. **Open every map link — Google and Apple, six in total — and confirm each resolves to the right clinic.** The short links in Susan's reply do not match a typical Google Maps short-link format and may well be placeholders; none of them ships unopened. An entry with a name, a full address, a landmark and two working numbers is still useful. A link that goes nowhere at the moment somebody needs it is not.
-2. **Check all six phone numbers against a second source**, and if possible by ringing them. Same reasoning.
+| | |
+|---|---|
+| Area and landmark | Lazareta / Λαζαρέτα — **but see the address conflict below** |
+| Address as published | Lazareta, Syros 841 00, Cyclades. No street name or number published. |
+| Phone | **+30 22813 06720** (landline) |
+| Phone | **+30 6986 705837** (mobile) |
+| After-hours | **Nothing published, either way.** The entry says nothing about nights — it does not claim cover and it does not deny it. |
+| Coordinates | **37.4303699, 24.9439526** — the Lazareta neighbourhood centre, the weakest pin of the three |
+| Google Maps | `https://www.google.com/maps/search/?api=1&query=37.4303699,24.9439526` |
+| Apple Maps | `https://maps.apple.com/?ll=37.4303699,24.9439526&q=Dermitzaki%20Vet%20Lazareta` |
 
-Both are Samuel's, both are quick, and neither can be skipped on the grounds that the list came from the charity — Susan typed these into an email, and email is where transcription errors live.
+**3. Cyclades Vets (George Maragkos) — Κτηνιατρική Κλινική Κυκλάδων**
+
+| | |
+|---|---|
+| Display name | **"Cyclades Vets (George Maragkos)"**, in that bracketed form, everywhere. |
+| Area and landmark | Livadia, on the main road, **opposite the AVIN petrol station** — Kato Manna / Κάτω Μάννα |
+| Address as published | Λιβάδια, επί της κεντρικής οδού, έναντι AVIN — Kato Manna, Syros 841 00. No street name or number published. |
+| Phone | **+30 22810 79439** (main) |
+| Phone | **+30 6937 252802** — **emergency line**; the clinic advertises 24-hour operation, 365 days a year, on this number |
+| Coordinates | **37.4281630, 24.9400130** — landmark-anchored to the AVIN station |
+| Google Maps | `https://www.google.com/maps/search/?api=1&query=37.4281630,24.9400130` |
+| Apple Maps | `https://maps.apple.com/?ll=37.4281630,24.9400130&q=Cyclades%20Vets%20Syros` |
+
+**Why the name is written "Cyclades Vets (George Maragkos)".** Susan's reply calls this clinic "George Maragkos", and that is how Syros Cats and half the island still refer to it. It does not trade under that name. Maragkos founded it in June 2012, and it now operates as **Κτηνιατρική Κλινική Κυκλάδων / Cyclades Vets** as part of the mainland Plakentia group — `cycladesvets.gr` redirects to a Plakentia page. Somebody driving out to Kato Manna looking for a sign saying "Maragkos" will not find one; somebody phoning ahead and asking for Maragkos will be understood. The bracketed form is the only version that works for both, so it is the one that ships, and it is not to be tidied down to either half.
+
+**The coordinates are landmark-anchored, and the spec says so out loud.** None of the three clinics is mapped as a named point in OpenStreetMap, and no Google Places pin was available. Every coordinate above is the **verified position of the petrol station the clinic sits opposite** — the same landmark the clinics use in their own published addresses — which puts the pin within roughly **50–100 metres of the door**. That is good enough to drive to and honest about what it is. It is not good enough to be left alone: **somebody physically on Syros fixes all three to real door positions in about ten minutes**, standing outside each clinic with a phone. That task stays open below until it is done, and it is the single cheapest improvement available to this section.
+
+**One unresolved address conflict — Dermitzaki.** Most sources, and Susan's reply, put this clinic in **Lazareta**. One directory (`syrostoday.gr`) lists it at **"Livadia, Kato Manna"** — which is the address Cyclades Vets uses, so it looks like a copy-paste error in the directory rather than a second location. The two areas are about **500 m apart on the same Ermoupoli–Manna road**, so a wrong pin here is a short walk rather than a disaster. It is recorded rather than silently resolved, and one phone call settles it.
+
+**There is no hours field.** Opening hours are published inconsistently, sources disagree, and hours in configuration go stale silently — which is the worst way for this table to be wrong. **There is an after-hours phone field**, because two of the three clinics publish one and §5.3b names them.
+
+**The original `maps.app.goo.gl` short links are not reused.** They were never testable — nobody could open them, and their format did not match a genuine Google short link. Every link above is a plain coordinate URL that can be checked by reading it.
+
+**The Municipality of Syros-Ermoupoli — +30 22813 61000.** The number is confirmed against the municipality's own service telephone directory. It is the same digits as the `+30 22813 61000` that was in the copy; the grouping is standardised to **+30 22813 61000** everywhere in this spec and in the translations. There is **no dedicated animal-welfare number** — the municipality's own directory has no entry for strays, animals or veterinary services, so a caller reaches a general switchboard, in office hours, in Greek. The copy should not oversell it.
+
+Under Greek law the Municipality is ultimately responsible for the care of street animals, and it may help with the cost of a cat that needs long-term care, case by case, depending on the money it has. It appears in two places: in the urgent block for a cat that needs weeks rather than hours (§5.3b), and in the acknowledgement email (§5.3g). It is also the honest answer to "why is a small charity carrying this?", which is worth having ready for the media one-pager. It sits in the same configuration block as the clinics.
+
+**What is still open on this data:**
+
+1. **Fix the three map pins to real door positions.** Everything above is landmark-anchored to a petrol station. Somebody standing outside each clinic with a phone closes this permanently, in about ten minutes. This is the top item.
+2. **Settle Dermitzaki's address** — Lazareta or Kato Manna. One phone call.
+3. **Ring the two after-hours numbers and find out what actually happens.** Does Cyclades Vets answer +30 6937 252802 at 2am, and does Symviosis's +30 697 005 5012 reach a person or a voicemail? §5.3b promises nothing precisely because nobody has done this yet — doing it lets the copy get warmer.
+4. **Ask Dermitzaki whether there is any emergency contact.** Complete blank at present, in both directions.
+
+None of these blocks the block shipping. The numbers themselves are verified — every one of the six from Susan's reply checks out against the clinics' own material or two independent sources — and a landmark pin plus a working number is genuinely useful. What would not be acceptable is shipping any of it as more certain than it is, which is what the wording above is for.
 
 ---
 
@@ -772,9 +824,9 @@ Named here so they appear in the implementation plan rather than being remembere
 
 | Question | Owner | Notes |
 |---|---|---|
-| ~~A named list of Syros vets~~ | **Syros Cats** | **Answered.** Three clinics with names, areas, landmarks and two numbers each — §5.7. |
-| ~~Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)~~ | **Samuel** | **Answered: there is none.** No night or weekend vet cover on Syros, and nobody at Syros Cats to ring. The app deliberately says nothing about it — all out-of-hours copy is deleted (§5.3b). To be confirmed with Syros Cats during testing. |
-| **Verified vet entries: addresses, numbers, Google and Apple Maps links, coordinates** (§5.7) | **Samuel** | **Blocks the urgent block shipping.** Landing in `docs/specs/source/syros-vets-verified.md`. The original short-link format is unusual and they may be placeholders; every link is opened before it ships. |
+| ~~A named list of Syros vets~~ | **Syros Cats** | **Answered.** Three clinics with names, areas, landmarks and verified numbers — §5.7. Note the third is now **Cyclades Vets (George Maragkos)**; it no longer trades under his name alone. |
+| ~~Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)~~ | **Samuel** | **Answered, and the first answer was wrong.** Symviosis and Cyclades Vets both publish after-hours numbers. §5.3b names them and promises nothing, because nobody has rung them. Whether they are answered is a testing question (§5.4). |
+| ~~Verified vet entries: addresses, numbers, Google and Apple Maps links, coordinates~~ (§5.7) | **Samuel** | **Populated.** All six numbers verified; plain coordinate map links, no shorteners. **Pins are landmark-anchored to 50–100 m and labelled as such** — fixing them to real doors is a ten-minute job on the island, and does not block. |
 | ~~Susan's standard reply~~ | **Syros Cats (Susan)** | **Supplied, and §5.3b line-edited by Samuel on 4 September 2026.** Syros Cats confirm the wording during testing (§5.4). Nothing outstanding. |
 | A phone or WhatsApp number for litter reports | **Syros Cats** | Weakens §5.3d badly if absent. Ships without one. |
 | Which feeding sites may be public | **Syros Cats** | Never blocks — everything is private until they say otherwise. |

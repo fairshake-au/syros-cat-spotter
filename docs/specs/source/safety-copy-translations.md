@@ -2,11 +2,11 @@
 
 **Status:** draft, awaiting a native-speaker check on the Greek.
 **Scope:** the injured-cat action block, the healthy-cat onboarding note, and the post-report confirmation screen.
-**Rule:** vet names, addresses, map links and phone numbers are NOT translated. They come from the vet list file and are inserted verbatim in all three languages.
+**Rule:** vet names, addresses, map links and phone numbers are NOT translated. They come from the vet list file and are inserted verbatim in all three languages. **Clinic names too** — "Symviosis" and "Cyclades Vets" stay in Latin script in the Greek, because that is what is written on the sign and what a caller will be understood saying.
 
 This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.send`, `onboarding.healthy`, `confirm.sent`) are for reference only — use whatever key naming the codebase already uses.
 
-**Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged.
+**Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged. `injured.afterhours` was added on 4 September 2026 after the vet verification pass found that two clinics publish out-of-hours numbers; see item 17 for the checker.
 
 ---
 
@@ -25,6 +25,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 **`injured.vetlist.heading`**
 > **Vets on Syros** *[list inserted here]*
+
+**`injured.afterhours`**
+> **At night or at the weekend.** Symviosis and Cyclades Vets both publish an after-hours number. We haven't rung them to check, so we can't promise anyone will answer — but they are the numbers to try.
 
 **`injured.disclosure`**
 > **▾ How to get a hurt cat to a vet**
@@ -51,7 +54,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 > **You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive.
 
 **`injured.municipality`**
-> **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — +30 2281 361000 — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
+> **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — +30 22813 61000 — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 
 ### `onboarding.healthy` — Onboarding, healthy cats
 
@@ -89,6 +92,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 **`injured.vetlist.heading`**
 > **Κτηνίατροι στη Σύρο** *[εδώ μπαίνει η λίστα]*
 
+**`injured.afterhours`**
+> **Τη νύχτα ή το σαββατοκύριακο.** Η Symviosis και η Cyclades Vets δημοσιεύουν και οι δύο ένα τηλέφωνο για εκτός ωραρίου. Δεν τα έχουμε πάρει εμείς για να το επιβεβαιώσουμε, οπότε δεν μπορούμε να σου υποσχεθούμε ότι θα απαντήσει κάποιος — αλλά αυτά είναι τα τηλέφωνα που αξίζει να δοκιμάσεις.
+
 **`injured.disclosure`**
 > **▾ Πώς να πας μια τραυματισμένη γάτα στον κτηνίατρο**
 
@@ -114,7 +120,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 > **Μπορεί να σου ζητηθεί να αποφασίσεις.** Όποιος φέρνει ένα ζώο μπορεί να κληθεί να εγκρίνει τη θεραπεία, ή να συναινέσει στην ευθανασία του. Αν δεν θέλεις να είσαι εσύ αυτός που θα πάρει αυτή την απόφαση, πες το στη ρεσεψιόν μόλις φτάσεις.
 
 **`injured.municipality`**
-> **Αν η γάτα χρειάζεται φροντίδα για εβδομάδες, όχι για ώρες.** Σύμφωνα με την ελληνική νομοθεσία, η φροντίδα των αδέσποτων ζώων είναι ευθύνη του Δήμου. Ενημέρωσε τον Δήμο Σύρου-Ερμούπολης — +30 2281 361000 — και ζήτησε το γραφείο προστασίας ζώων. Μερικές φορές μπορούν να βοηθήσουν με το κόστος. Εξαρτάται από το τι χρήματα έχουν εκείνη τη στιγμή.
+> **Αν η γάτα χρειάζεται φροντίδα για εβδομάδες, όχι για ώρες.** Σύμφωνα με την ελληνική νομοθεσία, η φροντίδα των αδέσποτων ζώων είναι ευθύνη του Δήμου. Ενημέρωσε τον Δήμο Σύρου-Ερμούπολης — +30 22813 61000 — και ζήτησε το γραφείο προστασίας ζώων. Μερικές φορές μπορούν να βοηθήσουν με το κόστος. Εξαρτάται από το τι χρήματα έχουν εκείνη τη στιγμή.
 
 ### `onboarding.healthy` — Υγιείς γάτες
 
@@ -152,6 +158,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 **`injured.vetlist.heading`**
 > **Vétérinaires à Syros** *[liste insérée ici]*
 
+**`injured.afterhours`**
+> **La nuit ou le week-end.** Symviosis et Cyclades Vets publient chacune un numéro en dehors des heures d'ouverture. Nous ne les avons pas appelés pour vérifier, donc nous ne pouvons pas vous promettre que quelqu'un répondra — mais ce sont les numéros à essayer.
+
 **`injured.disclosure`**
 > **▾ Comment emmener un chat blessé chez le vétérinaire**
 
@@ -177,7 +186,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 > **On peut vous demander de décider.** La personne qui amène un animal peut être appelée à autoriser un traitement, ou à accepter qu'il soit euthanasié. Si vous ne voulez pas être celui ou celle qui prend cette décision, dites-le à l'accueil en arrivant.
 
 **`injured.municipality`**
-> **Si le chat a besoin d'être pris en charge pendant des semaines, pas des heures.** Selon la loi grecque, la prise en charge des animaux des rues incombe à la Municipalité. Prévenez la Municipalité de Syros-Ermoúpoli — +30 2281 361000 — et demandez le bureau de la protection animale. Ils peuvent parfois aider pour les frais. Cela dépend des fonds dont ils disposent à ce moment-là.
+> **Si le chat a besoin d'être pris en charge pendant des semaines, pas des heures.** Selon la loi grecque, la prise en charge des animaux des rues incombe à la Municipalité. Prévenez la Municipalité de Syros-Ermoúpoli — +30 22813 61000 — et demandez le bureau de la protection animale. Ils peuvent parfois aider pour les frais. Cela dépend des fonds dont ils disposent à ce moment-là.
 
 ### `onboarding.healthy` — Chats en bonne santé
 
@@ -248,3 +257,17 @@ Both languages also lose a little force in the opening *Κοίτα, μην αγ�
 
 **16. Not translated, as instructed.**
 Vet names, clinic addresses, map links and phone numbers are untouched in all three languages and come from the separate vet list. The organisation name "Syros Cats" is also left in English throughout, on the assumption it is the brand name. If there is a Greek form of the name that people actually use, tell us and we will swap it in the Greek version.
+
+**17. The out-of-hours paragraph — does "we haven't rung them to check" land right in Greek? (New, and the one I am least sure of.)**
+This paragraph is new. It exists because two of the clinics publish after-hours numbers on their own websites, but nobody has actually rung those numbers to see whether a person answers at three in the morning. So the app names them and openly admits it has not checked. In English that reads as straightforward honesty and it makes the app more trustworthy, not less.
+
+The worry is that Greek may not receive it that way. *Δεν τα έχουμε πάρει εμείς για να το επιβεβαιώσουμε* is a plain admission of not having done something, and an admission like that can read as carelessness — "why didn't you just call?" — rather than as care. Please say which of these it sounds like when read aloud:
+- honest and warm, the way it is meant;
+- bureaucratic and defensive, like small print;
+- or worse, incompetent.
+
+If it is either of the last two, the fix is probably to shift the emphasis from what we failed to do onto what the clinics themselves say — something closer to "these are the numbers the clinics themselves give for out of hours; we can't promise anyone will pick up." **The one thing that must not happen is the promise creeping back in.** The app cannot imply that anybody is on duty, that Syros Cats has arranged anything, or that a call will be answered. It reports what the clinics publish, and nothing more. If a shorter or warmer Greek sentence does that job better, use it.
+
+Two smaller points inside the same paragraph:
+- **"After-hours" / *εκτός ωραρίου*.** Is that how a Greek speaker would describe it, or is there a more everyday phrase for the number you ring at night?
+- **The clinic names.** I left "Symviosis" and "Cyclades Vets" in Latin script in the Greek. Both have Greek names on their own material — *Κτηνιατρικό Κέντρο Σύρου* and *Κτηνιατρική Κλινική Κυκλάδων*. If a Greek reader would find the Greek names easier to recognise, tell us and we will swap them; the phone numbers do not change either way.
