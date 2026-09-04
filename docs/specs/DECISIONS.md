@@ -130,9 +130,15 @@ Unguessable ids, rate limiting, tighter CORS. Photos still load for anonymous us
 The two rules are not in conflict once separated:
 
 - **Onboarding (healthy street cats):** keep your distance, and why — they are not pets, and it is better for them.
-- **Injured-cat flow:** an injured cat will bite and scratch even when you are helping it. **Borrow a carrying cage from one of the island's vets and lure the cat into it with strong-smelling food.** If that fails and only if it is safe: a towel and a closed box, never bare hands. **If you cannot do it safely, report it and phone a vet for advice instead.**
+- **Injured-cat flow:** a hurt cat might bite and scratch even when you are helping it. **Borrow a carrying cage from one of the island's vets and lure the cat into it with strong-smelling food.** Only if that fails, and only if it feels safe: a towel over the cat, including its head, and into the cage or a box that closes. Then straight to the vet.
 
-**Amended 4 September 2026.** F8 originally led with the towel. Susan's standard reply (`docs/specs/source/syros-cats-standard-reply.md`, canonical) leads with borrowing a cage from a vet, and that is both safer and the charity's own practice, so it wins. The decision itself — that safety copy splits by situation — is unchanged. The rewritten copy is in `team-access-and-welfare-queue.md` §5.3b and awaits the §5.4 sign-off.
+**Amended 4 September 2026.** F8 originally led with the towel. Susan's standard reply (`docs/specs/source/syros-cats-standard-reply.md`, canonical) leads with borrowing a cage from a vet, and that is both safer and the charity's own practice, so it wins. The decision itself — that safety copy splits by situation — is unchanged.
+
+**Line edits, 4 September 2026.** Samuel reviewed the rewritten injured-cat copy and edited it line by line. Those edits are definitive. The follow-through bullet above now matches the copy as it stands in `team-access-and-welfare-queue.md` §5.3b. What he cut, and it is recorded rather than re-argued: the "stop if you cannot do it safely" paragraph, "never bare hands", the line about a bite needing a doctor, "most cats walk in on their own", the Greek word *metaforas* (the vets speak English), and the note that Syros Cats cannot reimburse the vet's bill. "A hurt cat **will** bite" became "**might** bite"; "the vet **will** charge you" became "**is likely to** charge you".
+
+**No out-of-hours cover, 4 September 2026.** SYC-68 is answered: there is no night or weekend vet cover on Syros, and the app deliberately says nothing about it. All out-of-hours copy and the two-variant structure in §5.3b are deleted. Somebody who finds a badly injured cat at night gets three daytime numbers and no further guidance. Samuel's decision, to be confirmed with Syros Cats during testing.
+
+The copy is no longer "awaiting sign-off" — Syros Cats confirm it during testing (`team-access-and-welfare-queue.md` §5.4).
 
 Wording needs care given it is advice a tourist may act on, but saying nothing is worse — people help anyway, and then do it without guidance.
 

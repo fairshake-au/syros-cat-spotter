@@ -420,7 +420,7 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > **Susan's standard reply has since arrived, and it is the authority.** It is held verbatim at `docs/specs/source/syros-cats-standard-reply.md`. The injured-cat copy below has been rewritten to say what Susan says: **borrow a carrying cage from a vet, lure the cat in with strong food, and handle the cat only if that fails.** The version this replaces led with "drop a towel over it, never bare hands" — that was invented during spec-writing and it is now struck. Where this document and the source document differ on substance, the source document wins.
 >
-> **This rewrite is a proposal for Syros Cats to approve, not a decided thing** (§5.4). It should be an easy approval: it is much closer to their own words than what it replaces, and every clause in it traces to a line of Susan's reply.
+> **Samuel line-edited the injured-cat copy on 4 September 2026 and those edits are final.** The urgent block in (b) now reads as he left it. It is not "awaiting approval" in the sense the rest of this section is: Syros Cats will confirm it during testing rather than before it is written (§5.4).
 
 #### (a) Onboarding — healthy street cats
 
@@ -436,19 +436,15 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 #### (b) The severity step — "Urgent"
 
-**Two variants, both written and both ready to ship.** They differ only in what they say about nights and weekends, because that is the one thing Susan's reply does not answer (SYC-68, still open). **Variant B is the default and ships until SYC-68 is answered.** If Syros Cats confirm real out-of-hours cover, Variant A ships instead and names it. An honest "there is nobody tonight" is usable copy; a silent gap is not.
+**One version, and it is final.** The two-variant structure that stood here — a night-and-weekend variant against a version naming out-of-hours cover — is gone. There is one urgent block, below, edited line by line by Samuel on 4 September 2026.
 
-##### Variant A — ships **only** once SYC-68 confirms out-of-hours cover exists
-
-> ### Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.
+> **Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**
 >
-> **If this cat is badly hurt, the fastest help is a vet — and it is worth going without waiting for us.** Syros Cats is a handful of people. Nobody is on duty, nothing alerts anybody, and this report may not be read today.
+> If this cat is badly hurt, please take it to a local vet if you can.
 >
-> **The vets on Syros will lend you a carrying cage.** That is how this is normally done here, and it is safer than picking the cat up. Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a "trap" or a carrying cage — in Greek, *metaforas*. Then take the cat straight to them.
+> **The vets on Syros will lend you a carrying cage.** Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a "trap" or a carrying cage. Then take the cat straight to them.
 >
-> **Vets on Syros** *[the list from §5.7, with the out-of-hours clinic or number marked]*
->
-> **Out of hours:** *[the clinic or number Syros Cats have confirmed, and the hours it covers]*
+> **Vets on Syros** *[the list from §5.7]*
 >
 > ---
 >
@@ -456,43 +452,23 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > **1. Phone a vet and ask for a cage.** Any of the clinics above. Say where you are and what you have found.
 >
-> **2. Let food do the work.** Put something strong-smelling at the back of the cage — sardines, or wet cat food. Open the door, step well back, and wait. Most cats walk in on their own. This is the whole trick, and it keeps your hands away from a frightened animal.
+> **2. Let food do the work.** Put something strong-smelling at the back of the cage — sardines, or wet cat food. Open the door, step well back, and wait.
 >
 > **3. Close it, cover it, go.** Once the door is shut, put a towel or a jacket over the cage. Dark and quiet keeps the cat calm. Drive straight to the clinic. Don't give it food or water on the way, and don't try to treat the injury yourself.
 >
-> **If the cat will not go in.** Only then, and only if you feel safe doing it: **never use bare hands.** Drop a towel, a jumper or a jacket right over the cat, including its head. Lift it wrapped and put it straight into the cage, or a box you can close. A hurt cat will bite and scratch, hard, while you are helping it — it is frightened and in pain and it does not know you are on its side. Even a cat that knows you will do this.
->
-> **If you can't do that safely, stop.** If you are on your own, if it is fighting you, if it is under a car or somewhere you would have to climb, or if you simply aren't sure — don't. **Send the report and phone a vet for advice instead.** Nobody expects you to get hurt for this, and a bite or a scratch from a street cat needs a doctor, not a plaster.
+> **If the cat will not go in.** Only then, and only if you feel safe doing it: drop a towel, a jumper or a jacket right over the cat, including its head. Lift it wrapped and put it straight into the cage, or a box you can close. A hurt cat might bite and scratch, hard, while you are helping it — it is frightened and in pain and it does not know you are on its side.
 >
 > ---
 >
 > **What the vet does.** They look the cat over and treat what needs treating. They can also scan for a microchip — some of these cats have an owner who is looking for them, and that is the fastest good ending there is.
 >
-> **What it costs.** The vet will charge you for the visit. Syros Cats cannot pay you back unless you agree it with them beforehand.
+> **What it costs.** The vet is likely to charge you for the visit.
 >
-> **You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive, and tell us in your report.
+> **You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive.
 >
-> **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is ultimately the Municipality's job, not the charity's. Tell the Municipality of Syros-Ermoupoli — **+30 2281 361000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time, so ask rather than assume.
->
-> Either way, please send this report. It tells the team where this cat is, and it is how the cats of Syros get looked after at all.
+> **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 2281 361000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 
-##### Variant B — **the default.** Ships while SYC-68 is unanswered
-
-Identical to Variant A, with two changes. The "Out of hours" line is replaced by the block below, and the same block is repeated at the foot of the expander so somebody who scrolled past the top still meets it.
-
-> **If it is night, or a weekend, or out of season, be ready for nobody to answer.** The clinics above are daytime clinics and we would rather tell you that now than let you ring three numbers in the dark. There is no out-of-hours vet service on the island that we can point you to, and there is nobody at Syros Cats to call either.
->
-> **What you can do tonight, which is more than it sounds:**
->
-> - Get the cat somewhere safe, warm and quiet — a box, a shed, a bathroom, a stairwell. Out of the road and away from dogs.
-> - Keep it dark and leave it alone. Being looked at is stressful for a cat in pain.
-> - **Water within reach, but no food.** If it needs an operation in the morning, an empty stomach is safer, and a vet may otherwise have to wait hours before they can start.
-> - Don't try to treat the injury, and don't give it any human medicine. A lot of ordinary painkillers are poisonous to cats.
-> - **Phone a vet first thing in the morning** and take the cat in. Send this report tonight so the team have it either way.
-
-**Why B is written as an offer and not an apology.** Somebody standing over a hurt cat at eleven at night needs instructions, not regret. Everything in that list is genuinely useful and none of it implies anyone is coming.
-
-**When SYC-68 is answered.** If the answer is that cover exists, the out-of-hours line in Variant A is filled in from configuration (§5.7) and A becomes the live block. If the answer is that it does not, B is already correct and nothing changes. Either way this is a configuration change plus a translation pass, not a release — subject to the §5.4 sign-off, which this block carries.
+**Out-of-hours: an accepted product decision, recorded plainly.** SYC-68 asked who somebody calls at nine in the evening in February. The answer is that there is no out-of-hours cover: no night or weekend vet service on Syros that this app can point to, and nobody at Syros Cats to ring either. Samuel's decision is that the app says nothing about it. Somebody who finds a badly injured cat at night is therefore given three daytime clinic numbers and no further guidance. That is known, it is deliberate, and it is to be confirmed with Syros Cats during testing.
 
 #### (c) The severity step — "Needs attention"
 
@@ -551,9 +527,9 @@ It sends from the **news** identity (§2.10). Only what follows confirmation —
 >
 > That is exactly why, **if this cat is badly hurt, the fastest help is a vet, and it is worth doing without waiting for us.** *[Vets on Syros — §5.7]*
 >
-> **Phone the nearest clinic and ask to borrow a carrying cage** — a "trap", or *metaforas*. That is how it is done here. Put sardines or wet food at the back of it, stand back, and let the cat walk in; then cover the cage and take it straight in. The vet will check the injuries and scan for a microchip, in case somebody is looking for this cat. Only if the cat will not go into the cage, and only if you feel safe: never bare hands — a towel over it, including its head, and into a box you can close. If you are alone or unsure, don't. Phone a vet for advice instead.
+> **Phone the nearest clinic and ask to borrow a carrying cage** — a "trap". Put sardines or wet food at the back of it, stand back, and let the cat walk in; then cover the cage and take it straight in. The vet will check the injuries and scan for a microchip, in case somebody is looking for this cat. Only if the cat will not go into the cage, and only if you feel safe: a towel over it, including its head, and into a box you can close.
 >
-> They will charge for the visit, and the charity cannot pay it back unless it was agreed with them beforehand. If the cat turns out to need weeks of care rather than a single visit, the **Municipality of Syros-Ermoupoli (+30 2281 361000)** is legally responsible for street animals and can sometimes help with the cost.
+> They are likely to charge for the visit. If the cat turns out to need weeks of care rather than a single visit, the **Municipality of Syros-Ermoupoli (+30 2281 361000)** is legally responsible for street animals and can sometimes help with the cost.
 >
 > *[Litter variant]* Please don't move the kittens or bring them anywhere — talk to Syros Cats first. Their mother is almost certainly nearby and is far better at this than any of us.
 >
@@ -587,27 +563,27 @@ The **optional team sentence** is exactly that: optional, added to the *Done* me
 
 The injured-cat block (§5.3b) is **advice a member of the public may act on, in a foreign country, alone**, given by an app built by Fair Shake and carrying Syros Cats' name. That deserves to be named rather than assumed:
 
-- The advice is deliberately **two-sided**. It tells somebody how to do it safely *and* tells them plainly not to, and what to do instead, if they cannot. It never asks anybody to take a risk, and it says in as many words that nobody expects them to get hurt.
-- It carries the **medical line** — a bite or a scratch from a street cat needs a doctor — because the injury that follows from taking our advice is the foreseeable one.
+- The route it gives keeps **hands off the animal**: a borrowed cage and strong food, with handling named only as a fallback and conditioned on "only if you feel safe doing it". It warns, in the copy itself, that a hurt cat might bite and scratch hard.
 - It carries the **money line** and the **decision-at-the-vet line**, because being landed with an unexpected bill or asked to consent to euthanasia are both real, and both would damage Syros Cats more than the unreported cat would have.
+- **Samuel cut the longer safety scaffolding on 4 September 2026** — the "if you can't do that safely, stop" paragraph, the "never bare hands" instruction, and the medical line about a bite needing a doctor. That is a deliberate editorial decision and it is recorded here rather than argued with. The residual exposure is named plainly: the block no longer tells anybody when to stop, and no longer tells them to see a doctor if they are bitten.
 - **Saying nothing is worse.** People help anyway. Without guidance they do it bare-handed.
 - **The advice is now the charity's own, not ours.** The cage-first route in §5.3b is Susan's, taken from `docs/specs/source/syros-cats-standard-reply.md`. That matters for this section specifically: the version it replaces was invented during spec-writing, and asking a tourist to put their hands on a frightened animal was our idea rather than Syros Cats'. Cage first, food, and hands only as a fallback is both safer and defensible, because it is what the charity actually tells people.
 
-**Status of the rewritten block: a proposal, awaiting sign-off.** §5.3b as it now stands has not been approved by Syros Cats and must not ship until it is. It should be a short conversation — it says what their own standard reply says, in the app's voice — but the gate is the gate.
+**Status of the block: settled copy, to be confirmed in testing.** §5.3b reads as Samuel left it on 4 September 2026, and those edits are definitive. Syros Cats confirm it during the closed test rather than gate it beforehand.
 
-**Before launch this block must be signed off by Syros Cats *and* checked against whatever liability and insurance position Fair Shake is taking.** Unlike everything else in §5.3, it is **not** a copy swap that can be changed from configuration afterwards without that same sign-off — the configuration mechanism carries a marker on this block saying so. That is a workflow rule, not a technical lock.
+**It still gets checked against whatever liability and insurance position Fair Shake is taking, before launch.** And unlike everything else in §5.3 it is **not** a free copy swap: changing it from configuration afterwards goes back through Samuel. The configuration mechanism carries a marker on this block saying so. That is a workflow rule, not a technical lock.
 
 ### 5.5 Dependencies in this section
 
 | Dependency | Owner | Blocking? |
 |---|---|---|
-| **Susan's standard reply** | Syros Cats (Susan) | **Supplied, 3 September 2026**, verbatim at `docs/specs/source/syros-cats-standard-reply.md`. §5.3b, §5.3e and §5.3g have been rewritten against it. What remains is Syros Cats' **sign-off on the rewrite** (§5.4), which blocks §5.3b shipping. |
-| **The vet list itself — names, areas, landmarks, phone numbers** | Syros Cats | **Supplied.** Three clinics, verbatim in `docs/specs/source/syros-cats-standard-reply.md` and reproduced in §5.7. This dependency is closed. |
-| **Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)** | Syros Cats | **Blocks nothing any more.** Variant B in §5.3b is written for the case where the answer is "nobody", and it is the default until SYC-68 is answered. If cover exists, Variant A ships and names it. |
-| **Verifying the three map links and the six phone numbers** | Samuel | **Blocks the urgent block shipping.** See §5.7. A dead map link or a wrong number in front of somebody holding an injured cat is a real failure, and worse than no number. |
+| **Susan's standard reply** | Syros Cats (Susan) | **Closed.** Supplied 3 September 2026, verbatim at `docs/specs/source/syros-cats-standard-reply.md`. §5.3b, §5.3e and §5.3g were rewritten against it and then line-edited by Samuel on 4 September. Syros Cats confirm the wording during testing (§5.4); nothing is blocked on it. |
+| **The vet list itself — which clinics** | Syros Cats | **Supplied.** Three clinics, verbatim in `docs/specs/source/syros-cats-standard-reply.md`. This dependency is closed; verifying and completing each entry is the row below. |
+| **Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)** | Syros Cats | **Closed. The answer is that there is none.** Samuel's decision is that the app says nothing about nights or weekends, so the out-of-hours copy is deleted entirely (§5.3b). To be confirmed with Syros Cats during testing. |
+| **Verified vet entries — full street addresses, phone numbers, Google Maps and Apple Maps links, coordinates** | Samuel | **Blocks the urgent block shipping.** See §5.7. The verified data lands in `docs/specs/source/syros-vets-verified.md`; §5.7 holds the shape and waits for it. A dead map link or a wrong number in front of somebody holding an injured cat is a real failure, and worse than no number. |
 | **The Municipality's animal welfare contact** | Syros Cats | **Never blocks.** The switchboard number (+30 2281 361000) is in Susan's reply and is enough. A direct line to the welfare office would be better and is worth asking for. |
 | **A phone or WhatsApp number for litters** | Syros Cats | **Blocks nothing, weakens §5.3d badly.** A person crouched over a box will not email and wait. If there is no number, the copy must not ask them to make contact it cannot support — it leans harder on "leave them where they are, she is nearby". |
-| **Translation into Greek and French** | Syros Cats / SYC-4 | **Blocks launch of this copy, and §5.3b most of all** — it is the one block people act on rather than read. The app ships in three languages; every word above is English. The reporter's language is stored on the report row so the acknowledgement and the update go out in the language they used. Every "it's just a copy swap" in this document is a copy swap **×3**. |
+| **Translation into Greek and French** | Fair Shake to translate · a local to confirm | **Blocks launch of this copy, and §5.3b most of all** — it is the one block people act on rather than read. We produce the Greek and French ourselves; a local speaker then checks them before launch. It is no longer "find somebody to translate this", it is "translate, then have a local confirm". The reporter's language is stored on the report row so the acknowledgement and the update go out in the language they used. Every "it's just a copy swap" in this document is a copy swap **×3**. |
 | **The public feeding-site list** | Syros Cats | **Never blocks.** Everything is private until they say otherwise (§3.2). Configuration, not code. |
 
 ### 5.6 Testing the copy
@@ -617,30 +593,36 @@ The copy is the mitigation for the largest accepted risk in the product, so it g
 - Does anybody come away believing somebody is coming? (If yes, the copy has failed.)
 - Does anybody come away not knowing a vet is the fast route? (Same.)
 - **Does anybody come away not knowing they can borrow a cage?** That is the single most useful sentence in §5.3b, and if testers miss it the block is laid out wrong.
-- Does anybody read Variant B and come away thinking there is nothing they can do tonight? If so, the "somewhere safe, water not food, phone in the morning" list is not landing.
+- **Ask the testers about nights and weekends directly.** The block deliberately says nothing about them (§5.3b). If a tester who found a cat at night reports being left with nowhere to go, that is the finding to take back to Syros Cats.
 - **What is the abandonment rate at the severity step?** An abandoned report is the outcome the charity least wants, and the drafts above put the encouragement first specifically to protect against it. The draft-on-severity rule in §4.2 means we can measure this rather than guess.
 
 ### 5.7 The vet list and the Municipality — configuration, not copy
 
-The list below is the third clause of the urgent block, and without it that block is "nobody is coming" with a placeholder underneath. It comes verbatim from Susan's standard reply (`docs/specs/source/syros-cats-standard-reply.md`).
+The vet list is the third clause of the urgent block, and without it that block is "phone a vet" with a placeholder underneath. The three clinics come from Susan's standard reply (`docs/specs/source/syros-cats-standard-reply.md`); the addresses, verified numbers and map links come from `docs/specs/source/syros-vets-verified.md`.
 
 **It lives in configuration, in the same file as the rest of the capacity copy, and never in the app's code or in a translated copy string.** Clinics change, vets move, numbers get reassigned. A wrong number in front of somebody holding an injured cat is worse than no number at all, so correcting one has to be a data edit that takes a minute — not a release, a store review and a week. The names and phone numbers are the same in all three languages; only the surrounding sentences are translated.
 
-**Vets on Syros**
+**Each entry carries, and all of it is required:**
 
-| Clinic | Area | Phone | Map |
-|---|---|---|---|
-| **Symviosis (Vorrisis Manolis)** | Talanta — opposite the Shell petrol station | +30 22810 77929 · +30 6970 055012 | `https://maps.app.goo.gl/kX7H8Y8Z8P6u5j7z9` |
-| **Dermitzaki Irini** | Lazareta | +30 22813 06720 · +30 6986 705837 | `https://maps.app.goo.gl/U6W9b1wN7Bv3Lp9Z7` |
-| **George Maragkos** | Mana — opposite the AVIN petrol station | +30 22810 79439 · +30 6937 252802 | `https://maps.app.goo.gl/S4m7T8u7L7v4R9K7A` |
+| Field | Notes |
+|---|---|
+| **Name** | The clinic and the vet, as people ask for them. |
+| **Full street address** | Street, number, town, postcode. Susan's reply gave areas only; an address is what a taxi driver and a maps app can both use. |
+| **Area and landmark** | Kept alongside the address, not instead of it — people here navigate by the petrol station, not the postcode. |
+| **Phone numbers** | Both numbers per clinic, verified. Rendered as tap-to-call links, because the person reading this has one hand free. |
+| **Google Maps link** | Verified to resolve to the right clinic. |
+| **Apple Maps link** | Same, and separately verified. Most of the tourists this block is written for are on an iPhone. |
+| **Coordinates** | Latitude and longitude, so a link that rots can be regenerated and so the entry survives either maps provider changing its URL format. |
 
-Each entry carries: name, area, the landmark (people navigate by the petrol station, not the postcode), two numbers, a map link, and — once SYC-68 is answered — an optional hours field and an optional out-of-hours flag. Every phone number is a tap-to-call link on a phone, because the person reading this has one hand free.
+**The data itself is pending.** The three clinics named in Susan's reply — **Symviosis (Vorrisis Manolis)** in Talanta, **Dermitzaki Irini** in Lazareta, and **George Maragkos** in Mana — are being independently verified, with full addresses, checked numbers and both sets of map links, into `docs/specs/source/syros-vets-verified.md`. That file is the source this configuration block is populated from. The unverified short links that stood in this section have been removed rather than reproduced: a link nobody has opened is not data, and this is the one table in the spec where a plausible-looking wrong value does harm.
+
+There is no hours field and no out-of-hours flag. There is no out-of-hours cover to record (§5.3b).
 
 **The Municipality of Syros-Ermoupoli — +30 2281 361000.** Under Greek law the Municipality is ultimately responsible for the care of street animals, and it may help with the cost of a cat that needs long-term care, case by case, depending on the money it has. It appears in two places: in the urgent block for a cat that needs weeks rather than hours (§5.3b), and in the acknowledgement email (§5.3g). It is also the honest answer to "why is a small charity carrying this?", which is worth having ready for the media one-pager. It sits in the same configuration block as the clinics.
 
-**Two verification jobs, both before this copy ships:**
+**Verification is blocking, and it has not changed:**
 
-1. **Open all three map links and confirm each one resolves to the right clinic.** Their format does not match a typical Google Maps short link and they may well be placeholders. Any that does not resolve is replaced with a link that does, or dropped — an entry with a name, an area, a landmark and two phone numbers is still useful; a link that goes nowhere at the moment somebody needs it is not.
+1. **Open every map link — Google and Apple, six in total — and confirm each resolves to the right clinic.** The short links in Susan's reply do not match a typical Google Maps short-link format and may well be placeholders; none of them ships unopened. An entry with a name, a full address, a landmark and two working numbers is still useful. A link that goes nowhere at the moment somebody needs it is not.
 2. **Check all six phone numbers against a second source**, and if possible by ringing them. Same reasoning.
 
 Both are Samuel's, both are quick, and neither can be skipped on the grounds that the list came from the charity — Susan typed these into an email, and email is where transcription errors live.
@@ -779,7 +761,7 @@ Named here so they appear in the implementation plan rather than being remembere
 |---|---|---|---|
 | **1** | **A report about a genuinely dying cat sits unseen for two days.** | It is the accepted cost of F1, not a bug. The outcome that would damage trust in both directions. | **Accepted deliberately.** The mitigation is the copy, and only the copy: urgent cases are sent to a vet before the report is submitted, on screen and again in the acknowledgement. The copy is therefore a launch blocker and gets tested on real tourists (§5.6). We do **not** add an alarm to feel better about it. Owner: **Samuel** (copy), **Syros Cats** (final wording). |
 | **2** | **The capacity messaging lands wrong.** Too soft and people expect a rescue service; too hard and a worried tourist feels told off and never reports again. | This is the whole design. Getting it wrong creates either an unmeetable expectation or a silent island. | Syros Cats review every word. Test on the WhatsApp testers. Serve from configuration so it can be corrected without an app release — with the §5.4 exception. Watch the abandonment rate at the severity step. |
-| **3** | **Somebody is hurt following our injured-cat advice.** | Foreseeable, and it falls on a person the app encouraged. | §5.3b now leads with **a cage borrowed from a vet and food to lure the cat in**, which keeps hands off the animal altogether — the charity's own method, not one we invented. Handling is the fallback and is labelled as one. Plus the two-sided wording, the explicit "if you can't do it safely, don't", the medical line, and the §5.4 sign-off gate before launch. |
+| **3** | **Somebody is hurt following our injured-cat advice.** | Foreseeable, and it falls on a person the app encouraged. | §5.3b leads with **a cage borrowed from a vet and food to lure the cat in**, which keeps hands off the animal altogether — the charity's own method, not one we invented. Handling is the fallback, is labelled as one, is conditioned on "only if you feel safe doing it", and carries the warning that a hurt cat might bite and scratch hard. **Residual, and accepted:** Samuel's 4 September edits removed the "stop if you can't do it safely" paragraph and the line about a bite needing a doctor (§5.4). The liability and insurance check before launch stands. |
 | **4** | **Mail transport slips and blocks everything.** Sign-in, welfare reports, issue reports, verification and acknowledgements all sit on it. | A dashboard nobody can sign in to, and reports nobody receives, is a feature that does not exist. | Settle mail before dashboard work starts. Verify with a real send to a real Syros Cats inbox, not a test address. The two-identity split, the priority budget, the suppression list and a written cutover procedure (§2.10). Owner: **Samuel**. |
 | **5** | **A sign-in surface is abused into silencing welfare mail.** | The failure chain is: no rate limit → unlimited sends → allowance exhausted → injured-cat mail stops. A security bug that becomes a welfare failure. | §2.6's limits, the identity split, and the priority budget that never sheds welfare or sign-in mail. |
 | **6** | **The dashboard is written for one runtime and deployed on another.** | v1.0's technical section assumed Cloudflare Workers throughout; an implementer would hit wildcard CORS, a `__Host-` cookie with no stated origin, and per-process rate limits on day one. | §8 is written against the two real runtimes, and §2.6 names the dashboard's origin — which was a blocking unknown, not a detail. |
@@ -791,13 +773,13 @@ Named here so they appear in the implementation plan rather than being remembere
 | Question | Owner | Notes |
 |---|---|---|
 | ~~A named list of Syros vets~~ | **Syros Cats** | **Answered.** Three clinics with names, areas, landmarks and two numbers each — §5.7. |
-| **Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)** | **Syros Cats** | **No longer blocking.** §5.3b Variant B ships the honest "there is nobody until morning, here is what to do tonight" answer by default; Variant A replaces it if cover exists. Still worth answering. |
-| **Verify the three map links and the six phone numbers** (§5.7) | **Samuel** | **Blocks the urgent block shipping.** The link format is unusual and they may be placeholders. |
-| ~~Susan's standard reply~~ | **Syros Cats (Susan)** | **Supplied.** What is outstanding is sign-off on the rewritten §5.3b (§5.4). |
+| ~~Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)~~ | **Samuel** | **Answered: there is none.** No night or weekend vet cover on Syros, and nobody at Syros Cats to ring. The app deliberately says nothing about it — all out-of-hours copy is deleted (§5.3b). To be confirmed with Syros Cats during testing. |
+| **Verified vet entries: addresses, numbers, Google and Apple Maps links, coordinates** (§5.7) | **Samuel** | **Blocks the urgent block shipping.** Landing in `docs/specs/source/syros-vets-verified.md`. The original short-link format is unusual and they may be placeholders; every link is opened before it ships. |
+| ~~Susan's standard reply~~ | **Syros Cats (Susan)** | **Supplied, and §5.3b line-edited by Samuel on 4 September 2026.** Syros Cats confirm the wording during testing (§5.4). Nothing outstanding. |
 | A phone or WhatsApp number for litter reports | **Syros Cats** | Weakens §5.3d badly if absent. Ships without one. |
 | Which feeding sites may be public | **Syros Cats** | Never blocks — everything is private until they say otherwise. |
 | Who else goes on the access list, with what name (SYC-29) | **Syros Cats** | One row each; no role addresses (§2.8). |
-| Greek and French translation of every word in §5 | **Syros Cats / SYC-4** | Blocks the copy's launch. Needs a date and a named reviewer. |
+| Greek and French translation of every word in §5 | **Fair Shake to translate · a local to confirm** | Blocks the copy's launch. We produce both translations; a local speaker confirms them. Needs a named local reviewer and a date. |
 | Should `hello@catspotters.com` also reach the charity (SYC-30) | **Samuel** | No longer on this feature's critical path. Worth asking whether a distribution list beats a forward to one person's mailbox. |
 | Do reporters get a status update by push as well as email? | **Samuel** | Would close the loop for the majority who give no address — and, unlike mail, it costs no sending allowance. |
 | Separating `SIGNING_KEY` between the workspace and the public site | **Samuel** | Not blocking this feature, since the hand-off uses its own key pair. Still worth closing. |
