@@ -208,5 +208,8 @@ This English phrase is quietly emotional and there is no clean French equivalent
 **11. French: "carton" for a box.**
 I used *un carton que vous pouvez fermer* for "a box you can close". A French tourist will read this as a cardboard box, which is the right image. Flagging only in case anyone prefers *une caisse*.
 
-**12. Not translated, as instructed.**
+**13. The onboarding block is only partly translated — check before shipping.**
+The canonical onboarding copy in `team-access-and-welfare-queue.md` §5.3(a) is longer than what was translated here. The full English block also contains "Most of them are fed, watched over and known by somebody", "Keep a step or two back and let them come to you if they want to. ... Picking one up, or feeding it, does it no favours", "So: photograph them, admire them, leave them be", and "If you find a cat that is hurt or sick, that is different, and the app will tell you what to do." Only the "Look, don't touch" paragraph was in scope for this pass. **Do not ship the Greek or French onboarding screen until those remaining sentences are translated too** — otherwise the non-English reader gets a shorter, blunter version of the one screen whose whole job is to explain why not touching is kindness rather than indifference. The injured-cat block and the confirmation screen were checked against the spec and are complete.
+
+**14. Not translated, as instructed.**
 Vet names, clinic addresses, map links and phone numbers are untouched in all three languages and come from the separate vet list. The organisation name "Syros Cats" is also left in English throughout, on the assumption it is the brand name. If there is a Greek form of the name that people actually use, tell us and we will swap it in the Greek version.
