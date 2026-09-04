@@ -4,7 +4,9 @@
 **Scope:** the injured-cat action block, the healthy-cat onboarding note, and the post-report confirmation screen.
 **Rule:** vet names, addresses, map links and phone numbers are NOT translated. They come from the vet list file and are inserted verbatim in all three languages.
 
-This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.1`, `onboarding.1`, `confirm.1`) are for reference only — use whatever key naming the codebase already uses.
+This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.send`, `onboarding.healthy`, `confirm.sent`) are for reference only — use whatever key naming the codebase already uses.
+
+**Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged.
 
 ---
 
@@ -53,7 +55,15 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 ### `onboarding.healthy` — Onboarding, healthy cats
 
-> **Look, don't touch.** The cats of Syros are not pets, and they are not strays. They live here. A cat that stays a bit wary of people is a cat that stays out of the road, away from dogs, and out of trouble — being careful around strangers is one of the things keeping it alive.
+> **Look, don't touch.**
+>
+> The cats of Syros are not pets, and they are not strays. They live here. Most of them are fed, watched over and known by somebody.
+>
+> Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road, away from dogs, and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.
+>
+> So: photograph them, admire them, leave them be.
+>
+> **If you find a cat that is hurt or sick, that is different, and the app will tell you what to do.**
 
 ### `confirm.sent` — Confirmation screen after a report is sent
 
@@ -108,7 +118,15 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 ### `onboarding.healthy` — Υγιείς γάτες
 
-> **Κοίτα, μην αγγίζεις.** Οι γάτες της Σύρου δεν είναι κατοικίδια, ούτε είναι αδέσποτες. Εδώ ζουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο, μακριά από τα σκυλιά και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή.
+> **Κοίτα, μην αγγίζεις.**
+>
+> Οι γάτες της Σύρου δεν είναι κατοικίδια, ούτε είναι αδέσποτες. Εδώ ζουν. Οι περισσότερες έχουν τον άνθρωπό τους — κάποιον που τις ταΐζει, τις προσέχει και τις ξέρει.
+>
+> Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ' εσένα, αν το θέλουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο, μακριά από τα σκυλιά και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή. Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό.
+>
+> Λοιπόν: φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες.
+>
+> **Αν βρεις μια γάτα τραυματισμένη ή άρρωστη, αυτό είναι διαφορετικό, και η εφαρμογή θα σου πει τι να κάνεις.**
 
 ### `confirm.sent` — Οθόνη επιβεβαίωσης
 
@@ -163,7 +181,15 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 ### `onboarding.healthy` — Chats en bonne santé
 
-> **Regardez, ne touchez pas.** Les chats de Syros ne sont pas des animaux de compagnie, et ce ne sont pas des chats abandonnés. Ils vivent ici. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route, loin des chiens et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie.
+> **Regardez, ne touchez pas.**
+>
+> Les chats de Syros ne sont pas des animaux de compagnie, et ce ne sont pas des chats abandonnés. Ils vivent ici. La plupart d'entre eux ont quelqu'un — quelqu'un qui les nourrit, veille sur eux et les connaît.
+>
+> Restez à un pas ou deux et laissez-les venir à vous s'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route, loin des chiens et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.
+>
+> Alors : photographiez-les, admirez-les, laissez-les tranquilles.
+>
+> **Si vous trouvez un chat blessé ou malade, c'est différent, et l'application vous dira quoi faire.**
 
 ### `confirm.sent` — Écran de confirmation
 
@@ -208,8 +234,17 @@ This English phrase is quietly emotional and there is no clean French equivalent
 **11. French: "carton" for a box.**
 I used *un carton que vous pouvez fermer* for "a box you can close". A French tourist will read this as a cardboard box, which is the right image. Flagging only in case anyone prefers *une caisse*.
 
-**13. The onboarding block is only partly translated — check before shipping.**
-The canonical onboarding copy in `team-access-and-welfare-queue.md` §5.3(a) is longer than what was translated here. The full English block also contains "Most of them are fed, watched over and known by somebody", "Keep a step or two back and let them come to you if they want to. ... Picking one up, or feeding it, does it no favours", "So: photograph them, admire them, leave them be", and "If you find a cat that is hurt or sick, that is different, and the app will tell you what to do." Only the "Look, don't touch" paragraph was in scope for this pass. **Do not ship the Greek or French onboarding screen until those remaining sentences are translated too** — otherwise the non-English reader gets a shorter, blunter version of the one screen whose whole job is to explain why not touching is kindness rather than indifference. The injured-cat block and the confirmation screen were checked against the spec and are complete.
+**13. "Most of them are fed, watched over and known by somebody" — I translated the meaning, not the words.**
+This is the line that does the real work in the whole onboarding screen: it is what makes these cats different from strays. A literal Greek rendering came out flat and administrative, so I wrote *Οι περισσότερες έχουν τον άνθρωπό τους — κάποιον που τις ταΐζει, τις προσέχει και τις ξέρει*, which is closer to "most of them have their person — somebody who feeds them, keeps an eye on them and knows them." I think that carries the charity's framing better than the literal version, but it is a real departure and you should say if it overclaims. Specifically: is it true enough of Syros to print? If a meaningful number of these cats have nobody, "most of them have their person" may be warmer than the facts justify, and the English "somebody" is vaguer on purpose. The French does the same thing more modestly: *La plupart d'entre eux ont quelqu'un — quelqu'un qui les nourrit, veille sur eux et les connaît.*
 
-**14. Not translated, as instructed.**
+**14. "Picking one up, or feeding it, does it no favours" — please check this has not landed softer.**
+This sentence now carries more weight than it looks, because the explicit don't-touch guardrail was cut from the injured-cat block, leaving this as the main place the app discourages handling. The English is gentle and idiomatic, and gentle idioms are exactly what goes limp in translation.
+- **Greek:** *Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό* — "picking it up or feeding it does it no good at all." This is slightly firmer than the English, which I think is the right direction to err, but confirm it does not tip into scolding. If it reads soft rather than firm, harden it.
+- **French:** *Le prendre dans les bras, ou le nourrir, ne lui rend pas service* — this is the natural French idiom and it matches the English register closely, but French *ne pas rendre service* is quite mild. If you want it firmer, *ne lui fait aucun bien* is the stronger option.
+Both languages also lose a little force in the opening *Κοίτα, μην αγγίζεις* / *Regardez, ne touchez pas*. They are correct and they are the right length for a heading, but neither has quite the snap of the English pairing. Worth reading aloud.
+
+**15. Whether the Greek should keep "Λοιπόν:" for "So:".**
+*Λοιπόν* is the natural spoken word and it gives the three-verb line (*φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες*) the conversational turn the English has. It is informal. If the informal/formal decision in item 1 goes the formal way, this word should probably go too.
+
+**16. Not translated, as instructed.**
 Vet names, clinic addresses, map links and phone numbers are untouched in all three languages and come from the separate vet list. The organisation name "Syros Cats" is also left in English throughout, on the assumption it is the brand name. If there is a Greek form of the name that people actually use, tell us and we will swap it in the Greek version.
