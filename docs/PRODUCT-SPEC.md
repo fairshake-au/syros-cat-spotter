@@ -72,8 +72,8 @@ The MVP is the **app as already built** (spotting with AI matching, catalogue, m
 - Optional email at loop-closing moments (e.g. "follow this cat", trip summary). Exact placement and audience: design question owned by Samuel. GDPR: consent-based, purpose-stated, deletable.
 
 ### 2.8 Infrastructure (during testing, before launch)
-- Photos out of Postgres into object storage (removes the only compounding cost).
-- Hosting decision resolved: Supabase vs Replit (recommendation stands: Supabase).
+- Hosting decision resolved: **Replit through launch, photos stay in Postgres** (DECISIONS.md D1). Re-opened 15 November 2026 per SYC-47; SYC-46 (photos out of Postgres) is deferred and re-scoped as a data migration. See `docs/specs/hosting-and-photo-storage.md`.
+- September infrastructure is therefore migrations and photo-endpoint hardening, not storage.
 - Costs remain pass-through at supplier prices; explore charity startup credits (Samuel).
 
 ## 3. MLP — the product it becomes

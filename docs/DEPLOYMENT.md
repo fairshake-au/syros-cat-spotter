@@ -40,7 +40,7 @@ The build work fits the window. The things that can sink October are all **lead 
 ## C. Backend to production
 
 - [ ] **Hosting call (resolves the open item): compute stays on Replit through launch.** The AI matching uses Replit's OpenAI integration; migrating compute now means replacing that with a direct API key mid-sprint for no launch benefit. Revisit in Phase 3 (Oct–Dec, low season).
-- [ ] Photos out of Postgres into object storage now (migration script for existing rows + new upload path) — the one infrastructure change worth making before launch
+- [x] **Photos stay in Postgres for launch (DECISIONS.md D1).** No object-storage migration before launch. SYC-46 is deferred, not closed, and re-scoped as a data migration; it is decided together with SYC-47 on **15 November 2026**, with the default being that both stand through the 2027 season. The accepted cost — the migration is free only until the first production photo exists — is recorded in `docs/specs/hosting-and-photo-storage.md` §1 and §4.2. That spec also owns the September infrastructure work that replaces this line: generated migrations with checked-in history (§5) and photo-endpoint hardening (§6)
 - [ ] Deploy the API as a Replit deployment on the custom domain (`api.` subdomain), TLS on
 - [ ] Production Postgres with **backups enabled and a restore actually tested once**
 - [ ] Environment: `OWNER_SECRET` set, `CAMPAIGN_*` set with corrected €50–60 copy (SYC-14), log level
