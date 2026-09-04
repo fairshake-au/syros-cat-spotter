@@ -858,7 +858,7 @@ export const coloniesTable = pgTable("colonies", {
 ```ts
 export const feedingSitesTable = pgTable("feeding_sites", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),          // location + carer, matching colony convention
+  name: text("name").notNull(),          // location + cat guardian, matching colony convention
   colonyId: integer("colony_id"),        // → colonies.id; replaces the old free-text colonyName
   lat: doublePrecision("lat").notNull(),
   lng: doublePrecision("lng").notNull(),
