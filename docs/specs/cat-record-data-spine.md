@@ -114,7 +114,7 @@ Three consequences that need deciding rather than discovering:
 **Computed from what, exactly.** The previous rule keyed off sightings alone, and that broke in four places the review found. The rule is now: presumed deceased when **the newest evidence that this cat was alive is more than 36 months old**, where evidence of life is the newest of:
 
 - a resolved sighting,
-- any observation whose kind implies the cat was alive at `observedAt` — a `life_status` of street, homed or in care; a `sterilised` record (a cat on a clinic table is alive); an `ear_tip` observation,
+- any observation whose kind implies the cat was alive at `observedAt` — a `life_status` of street, homed or in care; a `sterilised` record (a cat on a clinic table is alive); an `ear_tip` observation; a `welfare_report` (somebody stood in front of this cat and was worried about it),
 - a linked import record's operation date,
 - failing all of those, the date the cat record was created.
 
@@ -601,6 +601,7 @@ The equivalent applies to a brand-new cat: a cat's first status is not a change,
 - **Death, in any form.** Neither an explicit `deceased` status nor presumed-deceased is ever emitted as a notifiable change (F4). Presumed-deceased is reversible by one sighting, and an email you may have to retract is worse than no email.
 - **A status going backwards to *Unknown*** — a correction under §4.5 — is a correction, not news. The notified record is updated silently so the *next* genuine change is still detected.
 - **Anything about a cat whose record is being corrected in bulk**, per §9.2.
+- **A welfare report or its outcome.** Neither kind is a derived-status change, so neither can produce one; stated here as well because "a cat you named has been reported injured" is precisely the message this product must never send automatically.
 
 ### 9.4 Timing
 
@@ -681,6 +682,27 @@ export const observationsTable = pgTable("observations", {
 ```
 
 Rows are inserted and never updated or deleted, with one exception: the redaction stamp and the clearing of identifying columns in §8. A database trigger or repository-level guard enforces exactly that, and the API layer exposes no other update or delete path.
+
+#### Welfare reports are observations too
+
+**A welfare report is the strongest single statement anybody ever makes about a cat's condition**, and until this revision it never entered the record at all — it lived only in `welfare_reports`, a queue row, and the cat whose page a funder or a guardian actually reads knew nothing about it. The queue is the team's workflow; the observation is the cat's history. Both exist, and the observation is written from the queue row rather than instead of it.
+
+`team-access-and-welfare-queue.md` owns the report flow, the queue, its four states and every word of the copy. **This document owns the observation vocabulary**, so the two kinds are defined here:
+
+```ts
+//   welfare_report   { severity: "attention" | "urgent",
+//                      isLitter: boolean,
+//                      reportId: 412 }        // → welfare_reports.id
+//   welfare_outcome  { state: "done" | "nothing_needed",
+//                      reportId: 412 }
+```
+
+- **Written when the report is filed** (`welfare_report`) and **when the team closes it** (`welfare_outcome`), by the same transaction that writes and closes the queue row. A report with no cat attached writes no observation — there is nothing to attach it to — and the observation is written later if the report is tied to a cat (§3.1 of that spec).
+- **`observedAt` is when the reporter saw the cat**, not when the queue moved. For the outcome it is when the team closed it.
+- **`roleAtTime` is `public`** for the report (a member of the public wrote it) and `staff` for the outcome. The reporter's identity is a device id like any other observation's, and it is severed by §8 exactly like any other.
+- **The free text is not copied in.** The reporter's note stays on the queue row, under `team-access-and-welfare-queue.md` §8.5's retention rule; the observation carries the structured facts. Copying free text into an append-only table would put a second, differently-retained copy of the same personal data in the record.
+- **Neither kind moves a derived status.** A welfare report is not a `life_status` claim and never becomes one: "thin and limping" is not "in care", and only the team saying so makes it so. What both kinds do is appear in the cat's history, feed the team's view of the cat, and — for `welfare_report` — count as **evidence of life** under §3.4, because somebody saw the cat.
+- **Neither is ever notifiable** (§9.3). A cat somebody reported as injured is not news we send to a stranger who once named it.
 
 **`observedAt` validation.** Team, vet and import writes may carry any past date — staff entering "sterilised on 3 March 2019" must work. Public writes are clamped by the existing capture-time rule (30 days back), which is the app's only precedent for a client-supplied date and would silently corrupt a historical import if applied to one. Future dates are rejected everywhere.
 
@@ -939,6 +961,7 @@ The resolver carries the design risk, so it carries the tests.
 14. **Deletion:** after `DELETE /me`, no query returns the device id, email, nickname or username; sighting counts, derived statuses and cat names are unchanged; a second call is safe.
 15. **Notification baseline:** applying an import batch of historical records produces zero notifiable status changes.
 16. **Greek names:** the migration-level normalisation test in §10.3.
+17. **Welfare observations:** filing a report against a known cat writes a `welfare_report` observation and moves no derived status; closing it writes a `welfare_outcome`; neither produces a notifiable change; and a `welfare_report` counts as evidence of life for §3.4.
 
 ---
 

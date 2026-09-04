@@ -267,7 +267,7 @@ The landing view. A list, ordered urgent-first and then newest-first.
 - **The reporter's email address is not shown.** Agreed with `email-capture.md`: the address stays inside the app's own system, the queue shows a yes/no, and replies are sent from the dashboard using fixed copy (§5.3). The alert email to the shared mailbox does not carry it either (§4.3) — hiding it from one screen while emailing it to a mailbox several people read would achieve nothing.
 - Four states: **New · Looking at it · Done · Nothing needed**. One tap to change. Moving a report to a **closing** state (*Done* or *Nothing needed*) is what sends the reporter their one update; *Looking at it* is for the team's own use and sends nothing (§5.3h).
 - A free-text **team note** on each report, visible to the team only — "Maria went, cat had already moved on."
-- If the report can be tied to a cat already in the catalogue, the row links to that cat's record.
+- If the report can be tied to a cat already in the catalogue, the row links to that cat's record — and that link is what writes the `welfare_report` observation onto the cat (§8.4), so the cat's own history carries it.
 - A **delivery state** per report: whether the reporter's mail was accepted, delivered, bounced or suppressed, so "did they get it?" has an answer.
 
 The queue is deliberately not a ticketing system. Four states, one note, no assignment, no due dates. A charity of this size will use a simple thing and abandon a complicated one.
@@ -649,7 +649,9 @@ New tables owned by this spec, alongside the existing schema:
 
 **Explicitly not created:** `record_changes`, and a second `colonies` or `feeding_sites` — both of those are the data spine's (`cat-record-data-spine.md` §10.5). `person_scopes.colony_id` references `colonies.id` there. See the ownership table at the top and §3.2/§3.3.
 
-**A welfare report should also become an observation.** A report is the strongest single statement anybody ever makes about a cat's condition, and as things stand the record the data spine exists to build would not contain it. A `welfare_report` observation on filing (and a `welfare_outcome` observation when the team closes it) is cheap now and a backfill later — but the observation vocabulary is the data spine's, so it is **raised there, not defined here**.
+**A welfare report also becomes an observation, and the kinds now exist.** A report is the strongest single statement anybody ever makes about a cat's condition, and without this the record the data spine exists to build would not contain it. `cat-record-data-spine.md` §10.1 defines **`welfare_report`** (written when a report against a known cat is filed) and **`welfare_outcome`** (written when the team moves it to a closing state); both are written by the same transaction that writes and closes the queue row, so the queue stays the team's workflow and the observation becomes the cat's history. A report not tied to a cat writes no observation until it is.
+
+Two consequences that belong on this side of the boundary: **the reporter's free text stays on the queue row** and is not copied into the observation, so it keeps the 90-day/3-year retention in §8.5 rather than acquiring a second lifetime; and **neither kind moves a derived status** — "thin and limping" is a report, not a life status, and only a team member setting one changes it (§3.3).
 
 ### 8.5 Privacy
 
