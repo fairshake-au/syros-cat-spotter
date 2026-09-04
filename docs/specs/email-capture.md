@@ -198,17 +198,28 @@ Separate purpose, separate consent. Without the tick, this address is used for t
 And once on:
 
 > **News about your cats** — on, sent to s•••@gmail.com
-> **[ Change ]** · **[ Turn off and delete my email ]**
+> **[ Change ]** · **[ Stop emailing me ]**
 
 Directly below, always present whether or not an address was ever given:
 
-> **[ Delete my data ]** — *Remove everything that identifies you from this phone.* (§6)
+> **[ Delete my data ]** — *Remove everything that identifies you.* (§6)
+
+**There are exactly two destructive actions in this app, they have exactly these two names, and both specs use them.** They are deliberately different sizes and must never be presented as variants of each other:
+
+| Action | What it does | Where it appears |
+|---|---|---|
+| **Delete my data** | The full severing. Email address, points, streak, badges, spot history, notes, and the link between the person and everything they have spotted. The sightings survive, unlinked. Irreversible. The mechanism is `cat-record-data-spine.md` §8; this spec owns the copy (§6.3). | Settings · the delete link in every email · `hello@catspotters.com` as the fallback |
+| **Stop emailing me** | Only the mail stops. The address is removed and a suppression hash is kept so it is never mailed again. Points, streak, spots and everything else stay exactly as they are, and the app carries on working normally. | Settings (once an address is given) · the unsubscribe page's second button (§5.8) · the report-outcome and news emails |
+
+There is **no third action**, and in particular no separate "delete everything from this device" — an earlier draft offered one, which read as a smaller thing than "Delete my data" while doing the same job, and gave the app two names for one button.
 
 ---
 
 ## 4. The verification rule — every address, every time
 
 **The general rule, and it is broader than any one moment:** *any* email address a person types anywhere in this app — at any of the four moments, on a welfare report, in Settings, at the visit summary — receives **one** message asking whether the address is theirs, and **nothing else is ever sent to it until they confirm**. Not an acknowledgement. Not a summary. Not news. Not a receipt for anything.
+
+**It sends from the news identity, not the transactional one** — see §7.3, and `DECISIONS.md`'s amendment to D2. Verification mail goes to strangers who have just typed an address, so it is kept off the reputation that staff sign-in links depend on. Staff sign-in verification is a different message on a different identity, and is `team-access-and-welfare-queue.md`'s.
 
 This replaces the double opt-in the previous version described. Double opt-in was a *subscription* control: it stopped anyone being signed up to an address they did not own. It did nothing about the actual problem, which is that the capture endpoint would happily send mail from a charity's domain to any string a stranger typed. The verification rule is the same click doing a bigger job: it is the gate on **all** outbound mail to an unverified address, and it is enforced in one place rather than per feature.
 
@@ -274,8 +285,8 @@ The suppression list checked at (1) is the **same** list used for unsubscribes a
 
 | Message | Trigger | Sending identity (§7) | Cap |
 |---|---|---|---|
-| **Is this you?** | Any address typed anywhere | Transactional | §4.4 |
-| **Your cat's news** | The nightly job finds a genuine, good-news status change on a cat you follow (§5.3) | News | Max one per fortnight; max eight per year |
+| **Is this you?** | Any address typed anywhere in the app | **News** *(D2 amendment — see §7)* | §4.4 |
+| **Your cat's news** | The nightly job finds a genuine, good-news status change on a cat you follow (§5.3). **Never a death, a presumed death, or any life-status change other than *homed*** (F4, §5.3) | News | Max one per fortnight; max eight per year |
 | **Your visit summary** | You asked for it, and the address is confirmed | News | Once per visit |
 | **Your report: we've got it** | You filed a welfare report, left an address, and confirmed it | Transactional | Once per report |
 | **Your report: what happened** | The report reaches a closing state | Transactional | Once per report (§5.4) |
@@ -477,8 +488,8 @@ Resend, with **two sending identities, two subdomains, two API keys, two quotas*
 
 | Identity | Subdomain | Carries |
 |---|---|---|
-| **Transactional** | `mail.catspotters.com` | Staff sign-in links, welfare-report acknowledgements and outcomes, verification messages, receipts |
-| **News** | `news.catspotters.com` | "Your cat was sterilised", visit summaries, anything else with an unsubscribe link |
+| **Transactional** | `mail.catspotters.com` | Staff sign-in links **and staff sign-in verification**, welfare-report acknowledgements and outcomes, the welfare alert to the shared mailbox, receipts |
+| **News** | `news.catspotters.com` | "Your cat was sterilised", visit summaries, **every verification message sent to a public app user (§7.3)**, anything else with an unsubscribe link |
 
 **Why this exists, in one sentence:** cat news is batched, consumer-inbox, marketing-shaped mail that some people will mark as spam, and staff sign-in is a security-critical fifteen-minute link — sharing one reputation means a tourist's spam click can silently lock Susan out of the dashboard at the moment an injured cat is in the queue. Separate keys mean separate reputations and separate quotas, so news volume can never exhaust the allowance injured-cat reports depend on.
 
@@ -494,17 +505,25 @@ Resend, with **two sending identities, two subdomains, two API keys, two quotas*
 - **Keep the news identity sending.** Long gaps hurt. If a quarter passes with no news, a small "here's what happened on Syros this season" send to confirmed subscribers is better for deliverability than silence — but only if it is genuinely worth sending, and it needs its own row in §5.1 and its own consent before it exists.
 - **Launch-day check, written into the runbook:** *sign-in link deliverability is unaffected by news complaints* — verified by sending both and checking the headers, not assumed from the DNS records.
 
-### 7.3 One thing D2 leaves sharp, and a recommendation
+### 7.3 Where verification sends from — decided
 
-D2 places **verification messages on the transactional identity**. That is implemented as decided. But it is worth naming what it means, because D2's own rationale points slightly the other way: verification messages are, by definition, mail to addresses that a member of the public typed and that nobody has vouched for. They are the highest-complaint-risk mail in the system. Putting them on the identity that carries staff sign-in links puts the abuse vector and the door key on the same reputation.
+**Decision, recorded as an amendment to D2 on 3 September 2026: public-user verification sends from the NEWS identity. Staff sign-in verification stays transactional.**
+
+Verification messages are, by definition, mail to addresses that a member of the public typed and that nobody has vouched for. They are the highest-complaint-risk mail in the system. Putting them on the identity that carries staff sign-in links would put the abuse vector and the door key on the same reputation — the exact outcome the split exists to prevent. So they move.
+
+The options as they were weighed:
 
 | Option | Benefit | Risk |
 |---|---|---|
-| **A. As decided — verification on the transactional identity** | Verification is transactional in character (a person just asked for it, they expect it immediately, it must not be delayed by a news batch); one fewer thing to configure | A mailbomb aimed at the capture endpoint generates complaints against the same subdomain that delivers sign-in links — the exact outcome the split was designed to prevent |
-| **B. Verification for public app users moves to the news identity; staff sign-in and welfare mail stay transactional** | Restores D2's intent completely: the door key is on a reputation nothing untrusted can touch. No new DNS, no new provider — a different key on an existing send | Verification then rides a reputation shaped by news complaints, so a badly-behaved news list could delay the message a person is waiting on |
+| **A. Verification on the transactional identity** (D2 as originally written) | Verification is transactional in character (a person just asked for it, they expect it immediately, it must not be delayed by a news batch); one fewer thing to configure | A mailbomb aimed at the capture endpoint generates complaints against the same subdomain that delivers sign-in links — the exact outcome the split was designed to prevent |
+| **B. ✅ Verification for public app users moves to the news identity; staff sign-in verification, sign-in links and welfare mail stay transactional** | Restores D2's intent completely: the door key is on a reputation nothing untrusted can touch. No new DNS, no new provider — a different key on an existing send | Verification then rides a reputation shaped by news complaints, so a badly-behaved news list could delay the message a person is waiting on |
 | **C. A third identity for verification alone** | Cleanest isolation of the riskiest mail | More DNS, more warm-up, a third reputation to keep alive on very low volume — probably worse deliverability than either of the above |
 
-**Recommendation: B**, on the grounds that a delayed verification message costs one person a small wait, and a degraded sign-in reputation costs the charity its dashboard on a bad day. It is a config change, not a design change, so it can be taken either way cheaply. **D2 stands unless Samuel says otherwise** — this is flagged, not decided.
+**Decided: B.** A delayed verification message costs one person a small wait; a degraded sign-in reputation costs the charity its dashboard on a bad day. Three consequences to build against:
+
+- The verification sender is chosen by **who is verifying**, not by which screen they were on: every address typed in the mobile app — spot card, visit summary, welfare report, Settings — verifies from `news.catspotters.com`. Staff sign-in, owned by `team-access-and-welfare-queue.md`, verifies from `mail.catspotters.com`.
+- **The priority budget in `team-access-and-welfare-queue.md` §2.10 shifts accordingly:** public verification now sits inside the news identity's allowance, so shedding news load can delay a verification message. It is shed *after* news and *before* acknowledgements, and never alongside sign-in or welfare mail, which are on the other identity entirely.
+- §7.2's warm-up matters more for `news.` than it did, because a sign-in-critical message no longer rides transactional reputation but a person-waiting message now rides news reputation.
 
 ---
 
@@ -581,7 +600,7 @@ What we do instead is the narrow version only: a **send-suppression check on `(a
 
 ### 10.2 Open questions
 
-1. **§7.3 — does verification send from the transactional identity (D2 as written) or the news identity (recommended)?** *(Samuel; small, reversible.)*
+1. ~~**§7.3 — does verification send from the transactional identity or the news identity?**~~ **Closed 3 September 2026:** public-user verification sends from the news identity; staff sign-in verification stays transactional. Recorded as an amendment to D2 in `DECISIONS.md`.
 2. **Susan's standard reply text**, which replaces the drafted report copy. Outstanding from the 1 September meeting. *(Syros Cats.)*
 3. **Does the donation path return an address at all**, or does the payment provider keep it? Determines whether §1.2(E) is ever ours to hold. *(Samuel + James.)*
 

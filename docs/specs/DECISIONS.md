@@ -21,6 +21,17 @@ Stay with Resend. Two subdomains, two API keys, two quotas:
 
 Separate quotas mean login-form abuse cannot exhaust the allowance that injured-cat reports depend on. Postmark remains the upgrade path if transactional deliverability proves weak on a new domain. Google Workspace SMTP is rejected (would require holding an app password to the charity's whole mailbox). Cloudflare Email Sending is not available on the API's runtime.
 
+#### Amendment, 3 September 2026 — public-user verification moves to the news identity
+
+The list above originally placed **all** email verification on the transactional identity. Samuel has amended that:
+
+- **Verification messages to public app users — every address typed anywhere in the mobile app, including on a welfare report — send from the NEWS identity (`news.catspotters.com`).**
+- **Staff sign-in verification stays transactional** (`mail.catspotters.com`), along with sign-in links, welfare reports, report acknowledgements and report outcomes.
+
+Rationale: a verification message goes to a stranger who just typed an address, so it carries the highest complaint and bounce risk of anything this app sends. Keeping it off the transactional identity protects the reputation that staff sign-in links depend on — which is the entire purpose of the split. A verification message delayed by news-list reputation costs one person a small wait; a degraded sign-in reputation costs the charity its dashboard on a bad day.
+
+This closes the open question `email-capture.md` §7.3 raised. That section is now a record of a decision, not a recommendation.
+
 ### D3 · The staff dashboard lives on the app's own backend
 The welfare queue sits next to the cat data it is about. See F5 for how sign-in reaches it.
 
