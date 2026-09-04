@@ -130,7 +130,9 @@ Unguessable ids, rate limiting, tighter CORS. Photos still load for anonymous us
 The two rules are not in conflict once separated:
 
 - **Onboarding (healthy street cats):** keep your distance, and why — they are not pets, and it is better for them.
-- **Injured-cat flow:** an injured cat will bite and scratch even when you are helping it. Use a towel and a box, never bare hands. **If you cannot do it safely, report it and phone a vet for advice instead.**
+- **Injured-cat flow:** an injured cat will bite and scratch even when you are helping it. **Borrow a carrying cage from one of the island's vets and lure the cat into it with strong-smelling food.** If that fails and only if it is safe: a towel and a closed box, never bare hands. **If you cannot do it safely, report it and phone a vet for advice instead.**
+
+**Amended 4 September 2026.** F8 originally led with the towel. Susan's standard reply (`docs/specs/source/syros-cats-standard-reply.md`, canonical) leads with borrowing a cage from a vet, and that is both safer and the charity's own practice, so it wins. The decision itself — that safety copy splits by situation — is unchanged. The rewritten copy is in `team-access-and-welfare-queue.md` §5.3b and awaits the §5.4 sign-off.
 
 Wording needs care given it is advice a tourist may act on, but saying nothing is worse — people help anyway, and then do it without guidance.
 
