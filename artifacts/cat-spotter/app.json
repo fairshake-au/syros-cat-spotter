@@ -31,6 +31,12 @@
         }
       ],
       "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Syros Cat Spotter uses the camera to photograph cats you spot."
+        }
+      ],
       "expo-notifications",
       "expo-web-browser",
       [

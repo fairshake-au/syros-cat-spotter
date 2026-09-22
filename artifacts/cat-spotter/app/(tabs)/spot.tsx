@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -14,7 +16,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { useRouter } from 'expo-router';
+import {
+  CameraView,
+  useCameraPermissions,
+  type CameraCapturedPicture,
+} from 'expo-camera';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createSighting } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
@@ -35,6 +42,10 @@ import { IconButton } from '@/components/purropolis/IconButton';
 import { Card } from '@/components/purropolis/Card';
 import { Badge } from '@/components/purropolis/Badge';
 import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
+import {
+  cameraCaptureToPhoto,
+  getAndroidCameraState,
+} from '@/lib/androidCamera';
 
 interface PickedPhoto {
   uri: string;
@@ -93,6 +104,31 @@ export default function SpotScreen() {
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [optimizingUpload, setOptimizingUpload] = useState(false);
+  const cameraRef = React.useRef<CameraView>(null);
+  const [
+    cameraPermission,
+    requestCameraPermission,
+    refreshCameraPermission,
+  ] = useCameraPermissions();
+  const [capturing, setCapturing] = useState(false);
+  const [cameraFailed, setCameraFailed] = useState(false);
+  const [cameraActive, setCameraActive] = useState(true);
+  const cameraState = getAndroidCameraState(Platform.OS, cameraPermission);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setCameraActive(true);
+      return () => setCameraActive(false);
+    }, []),
+  );
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshCameraPermission();
+    });
+    return () => subscription.remove();
+  }, [refreshCameraPermission]);
   // The location the user confirms on the map (initialized from GPS).
   const [pickedCoords, setPickedCoords] = useState<{
     latitude: number;
@@ -145,6 +181,51 @@ export default function SpotScreen() {
     if (picked) {
       setPhoto(picked);
       setCapturedAt(new Date().toISOString());
+    }
+  };
+
+  const captureLivePhoto = async () => {
+    if (!cameraRef.current || capturing) return;
+    setCapturing(true);
+    try {
+      const capture: CameraCapturedPicture | undefined =
+        await cameraRef.current.takePictureAsync({
+          quality: 1,
+          base64: true,
+        });
+      if (!capture) throw new Error('Camera returned no photo');
+      const directPhoto = cameraCaptureToPhoto(capture);
+      const picked =
+        directPhoto &&
+        directPhoto.base64.length * 0.75 <= MAX_UPLOAD_BYTES
+          ? directPhoto
+          : await shrink(capture.uri);
+      setPhoto(picked);
+      setCapturedAt(new Date().toISOString());
+    } catch {
+      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const requestLiveCamera = async () => {
+    try {
+      await requestCameraPermission();
+    } catch {
+      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+    }
+  };
+
+  const openCameraSettings = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(t('cameraUnavailable'), t('browserCameraSettings'));
+      return;
+    }
+    try {
+      await Linking.openSettings();
+    } catch {
+      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
   };
 
@@ -542,15 +623,80 @@ export default function SpotScreen() {
         ) : (
           // ── Capture state: dark viewfinder treatment ──
           <View style={[styles.viewfinder, shadows.md]}>
-            <LinearGradient
-              colors={['#3a5266', '#1b2a38']}
-              style={StyleSheet.absoluteFillObject}
-            />
+            {cameraState === 'ready' && !cameraFailed && cameraActive ? (
+              <CameraView
+                ref={cameraRef}
+                facing="back"
+                mode="picture"
+                style={StyleSheet.absoluteFillObject}
+                testID="live-camera-view"
+                onCameraReady={() => setCameraFailed(false)}
+                onMountError={() => setCameraFailed(true)}
+              />
+            ) : (
+              <LinearGradient
+                colors={['#3a5266', '#1b2a38']}
+                style={StyleSheet.absoluteFillObject}
+              />
+            )}
             {/* textAlignVertical is Android-only, so centre with flexbox or the
                 stand-in rides the top edge on iOS and web. */}
-            <View style={styles.viewfinderEmojiWrap} pointerEvents="none">
-              <Text style={styles.viewfinderEmoji}>🐈‍⬛</Text>
-            </View>
+            {(cameraState !== 'ready' || cameraFailed) && (
+              <View style={styles.viewfinderEmojiWrap}>
+                {cameraState === 'loading' ? (
+                  <ActivityIndicator color="#fff" size="large" />
+                ) : (
+                  <>
+                    <Text style={styles.viewfinderEmoji} pointerEvents="none">
+                      🐈‍⬛
+                    </Text>
+                    {cameraFailed ? (
+                      <View style={styles.cameraPermissionPanel}>
+                        <Text style={styles.cameraPermissionText}>
+                          {t('cameraUnavailableHint')}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => setCameraFailed(false)}
+                          style={styles.cameraPermissionButton}
+                          testID="retry-live-camera"
+                        >
+                          <Text style={styles.cameraPermissionButtonText}>
+                            {t('tryAgain')}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : (cameraState === 'request' || cameraState === 'settings') && (
+                      <View style={styles.cameraPermissionPanel}>
+                        <Text style={styles.cameraPermissionText}>
+                          {t('cameraPermissionHint')}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={
+                            cameraState === 'settings'
+                              ? openCameraSettings
+                              : requestLiveCamera
+                          }
+                          style={styles.cameraPermissionButton}
+                          testID={
+                            cameraState === 'settings'
+                              ? 'open-camera-settings'
+                              : 'request-camera-permission'
+                          }
+                        >
+                          <Text style={styles.cameraPermissionButtonText}>
+                            {cameraState === 'settings'
+                              ? t('openSettings')
+                              : t('allowCamera')}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
             <View style={styles.viewfinderTopRow}>
               <View style={styles.viewfinderSpacer} />
               {locationChipText ? (
@@ -572,7 +718,20 @@ export default function SpotScreen() {
               >
                 <Feather name="image" size={20} color="#fff" />
               </IconButton>
-              {Platform.OS !== 'web' && (
+              {cameraState === 'ready' && !cameraFailed && cameraActive && (
+                <Pressable
+                  onPress={captureLivePhoto}
+                  disabled={capturing}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('takePhoto')}
+                  testID="live-camera-shutter"
+                  style={({ pressed }) => [
+                    styles.shutter,
+                    { opacity: pressed || capturing ? 0.65 : 1 },
+                  ]}
+                />
+              )}
+              {cameraState === 'picker' && (
                 <Pressable
                   onPress={() => pickPhoto(true)}
                   accessibilityRole="button"
@@ -628,6 +787,28 @@ const styles = StyleSheet.create({
   viewfinderEmoji: {
     textAlign: 'center',
     fontSize: 130,
+  },
+  cameraPermissionPanel: {
+    alignItems: 'center',
+    gap: spacing[3],
+    paddingHorizontal: spacing[6],
+  },
+  cameraPermissionText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontFamily: fonts.bodyBold,
+    fontSize: fontSizes.sm,
+  },
+  cameraPermissionButton: {
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+  },
+  cameraPermissionButtonText: {
+    color: '#1b2a38',
+    fontFamily: fonts.displayBold,
+    fontSize: fontSizes.xs,
   },
   viewfinderTopRow: {
     flexDirection: 'row',
