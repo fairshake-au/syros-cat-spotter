@@ -68,13 +68,6 @@ catalog:
 
 autoInstallPeers: false
 
-auditConfig:
-  # Metro's build-time image probe has no patched image-size release yet.
-  # Keep these explicit until Expo/Metro replaces the dependency.
-  ignoreGhsas:
-    - GHSA-5p2g-fcmc-qvqq
-    - GHSA-w3rx-r6r6-pgpr
-
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
@@ -82,6 +75,8 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # Metro's 1.x range is vulnerable; safe 2.x receives file bytes via patches below.
+  image-size: "2.0.4"
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"
@@ -186,3 +181,7 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.28.1"
+
+patchedDependencies:
+  metro@0.83.3: patches/metro@0.83.3.patch
+  metro@0.83.7: patches/metro@0.83.7.patch

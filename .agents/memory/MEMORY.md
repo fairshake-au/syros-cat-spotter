@@ -10,3 +10,4 @@
 - [Adaptive native photo uploads](native-heic-upload.md) — keep picker originals; upload raw on good Wi‑Fi and make a temporary smaller JPEG only on constrained connections.
 - [Orval codegen pitfalls](orval-codegen.md) — name request bodies as components (zod name collisions); expo typed routes need the dev workflow running; avoid pkill -f self-kills.
 - [pnpm security overrides](pnpm-security-overrides.md) — extend the workspace override map; a package.json override block can displace platform-pruning overrides and bloat the lockfile.
+- [Metro image-size compatibility](metro-image-size-compatibility.md) — safe image-size 2.x needs Metro asset paths converted to bytes before dimension detection.

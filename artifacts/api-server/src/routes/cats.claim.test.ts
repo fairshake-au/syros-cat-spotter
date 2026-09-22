@@ -1,14 +1,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { db, pool, catsTable, sightingsTable } from "@workspace/db";
+import {
+  db,
+  pool,
+  catsTable,
+  pushTokensTable,
+  sightingsTable,
+} from "@workspace/db";
 import { like } from "drizzle-orm";
 
-// Wrap the notifications module so tests can observe fan-out:
-// notifyCatSpotters keeps its real implementation (spotter lookup + actor
-// exclusion) but is spied on so we can assert it was invoked correctly.
-// The actual delivery goes through the notifyDevices console-log stub, which
-// we observe via a console.log spy (the internal call can't be mocked because
-// it's a module-local binding).
+vi.mock("../lib/push", () => ({
+  sendPushNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
   return {
@@ -17,24 +21,12 @@ vi.mock("../lib/notifications", async (importOriginal) => {
   };
 });
 
+import { sendPushNotification } from "../lib/push";
 import { notifyCatSpotters } from "../lib/notifications";
 import app from "../app";
 
+const sendPushNotificationMock = vi.mocked(sendPushNotification);
 const notifyCatSpottersMock = vi.mocked(notifyCatSpotters);
-const consoleSpy = vi.spyOn(console, "log");
-
-/** Device-id lists logged by the notifyDevices stub since the last mockClear. */
-function dispatchedDeviceLists(): string[][] {
-  return consoleSpy.mock.calls
-    .filter(
-      (args) =>
-        typeof args[0] === "string" &&
-        args[0].startsWith("[notifications] dispatch") &&
-        args[1] &&
-        Array.isArray((args[1] as { deviceIds?: unknown }).deviceIds),
-    )
-    .map((args) => (args[1] as { deviceIds: string[] }).deviceIds);
-}
 
 // All fixtures share these prefixes so cleanup can never touch real data.
 const PREFIX = "vitest-claim-";
@@ -45,6 +37,7 @@ const catName = (suffix: string) => `${NAME_PREFIX}${suffix}`;
 
 async function cleanup() {
   await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
+  await db.delete(pushTokensTable).where(like(pushTokensTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
 }
 
@@ -56,7 +49,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   notifyCatSpottersMock.mockClear();
-  consoleSpy.mockClear();
+  sendPushNotificationMock.mockClear();
 });
 
 async function insertCat(nameSuffix: string, overrides: Partial<typeof catsTable.$inferInsert> = {}) {
@@ -76,22 +69,27 @@ async function insertCat(nameSuffix: string, overrides: Partial<typeof catsTable
 }
 
 async function insertResolvedSighting(catId: number, deviceSuffix: string) {
+  const deviceId = device(deviceSuffix);
   await db.insert(sightingsTable).values({
     catId,
-    deviceId: device(deviceSuffix),
+    deviceId,
     photoId: 0,
     lat: 37.44,
     lng: 24.9,
     status: "resolved",
   });
+  await db
+    .insert(pushTokensTable)
+    .values({ deviceId, token: deviceId })
+    .onConflictDoNothing();
 }
 
 /** Wait for the fire-and-forget notification fan-out to finish. */
 async function waitForFanOut(): Promise<string[]> {
   await vi.waitFor(() => {
-    expect(dispatchedDeviceLists().length).toBeGreaterThan(0);
+    expect(sendPushNotificationMock).toHaveBeenCalled();
   });
-  return dispatchedDeviceLists()[0]!;
+  return sendPushNotificationMock.mock.calls.map(([token]) => token);
 }
 
 describe("POST /api/cats/:catId/claim", () => {
