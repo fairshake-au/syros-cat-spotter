@@ -121,6 +121,7 @@ export default function SpotScreen() {
   const [capturing, setCapturing] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
+  const [cameraAttempt, setCameraAttempt] = useState(0);
   const cameraState = getCameraMode(
     Platform.OS,
     cameraPermission,
@@ -258,6 +259,11 @@ export default function SpotScreen() {
     } catch {
       Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
+  };
+
+  const retryLiveCamera = () => {
+    setCameraFailed(false);
+    setCameraAttempt((n) => n + 1);
   };
 
   const replaceRejectedPhoto = async (
@@ -656,6 +662,7 @@ export default function SpotScreen() {
           <View style={[styles.viewfinder, shadows.md]}>
             {liveCameraReady ? (
               <CameraView
+                key={cameraAttempt}
                 ref={cameraRef}
                 facing="back"
                 mode="picture"
@@ -688,7 +695,7 @@ export default function SpotScreen() {
                         </Text>
                         <Pressable
                           accessibilityRole="button"
-                          onPress={() => setCameraFailed(false)}
+                          onPress={retryLiveCamera}
                           style={styles.cameraPermissionButton}
                           testID="retry-live-camera"
                         >
