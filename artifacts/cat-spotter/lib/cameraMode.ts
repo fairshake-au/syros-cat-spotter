@@ -38,11 +38,13 @@ export function getCameraMode(
  * when it is genuinely up; every other situation falls back to the system
  * camera app, which needs no in-page permission and always works.
  */
+export type ShutterKind = 'live' | 'picker';
+
 export function shutterKindFor(
   state: CameraMode,
   cameraFailed: boolean,
   cameraActive: boolean,
-): 'live' | 'picker' {
+): ShutterKind {
   return state === 'ready' && !cameraFailed && cameraActive
     ? 'live'
     : 'picker';

@@ -37,8 +37,8 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
+import { CaptureControls } from '@/components/CaptureControls';
 import { Button } from '@/components/purropolis/Button';
-import { IconButton } from '@/components/purropolis/IconButton';
 import { Card } from '@/components/purropolis/Card';
 import { Badge } from '@/components/purropolis/Badge';
 import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
@@ -121,7 +121,6 @@ export default function SpotScreen() {
   const [capturing, setCapturing] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
-  const [cameraAttempt, setCameraAttempt] = useState(0);
   const cameraState = getCameraMode(
     Platform.OS,
     cameraPermission,
@@ -137,27 +136,29 @@ export default function SpotScreen() {
     }, []),
   );
 
+  // Self-healing: a lookup that succeeds CLEARS the flag. A one-way latch would
+  // mean a single transient rejection on resume (module not ready, activity
+  // recreated) permanently downgrades the screen to the picker — including for
+  // the user who just granted the permission in Settings and came back.
+  const syncCameraPermission = React.useCallback(
+    () =>
+      refreshCameraPermission()
+        .then(() => setPermissionLookupFailed(false))
+        .catch(() => setPermissionLookupFailed(true)),
+    [refreshCameraPermission],
+  );
+
   React.useEffect(() => {
-    let cancelled = false;
-    refreshCameraPermission().catch(() => {
-      if (!cancelled) setPermissionLookupFailed(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshCameraPermission]);
+    void syncCameraPermission();
+  }, [syncCameraPermission]);
 
   React.useEffect(() => {
     if (Platform.OS !== 'android') return;
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        refreshCameraPermission().catch(() =>
-          setPermissionLookupFailed(true),
-        );
-      }
+      if (state === 'active') void syncCameraPermission();
     });
     return () => subscription.remove();
-  }, [refreshCameraPermission]);
+  }, [syncCameraPermission]);
   // The location the user confirms on the map (initialized from GPS).
   const [pickedCoords, setPickedCoords] = useState<{
     latitude: number;
@@ -183,10 +184,32 @@ export default function SpotScreen() {
     try {
       if (fromCamera && Platform.OS !== 'web') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return null;
+        if (!perm.granted) {
+          // Returning null here used to make the shutter a dead tap: nothing
+          // happened and nothing explained why. Once canAskAgain is false the
+          // OS shows no prompt, so the only way out is Settings — say so.
+          Alert.alert(
+            t('cameraUnavailable'),
+            perm.canAskAgain ? t('cameraPermissionHint') : t('cameraDeniedHint'),
+            perm.canAskAgain
+              ? [{ text: t('cancel'), style: 'cancel' }]
+              : [
+                  { text: t('cancel'), style: 'cancel' },
+                  { text: t('openSettings'), onPress: () => void openCameraSettings() },
+                ],
+          );
+          return null;
+        }
       }
       const result = fromCamera
-        ? await ImagePicker.launchCameraAsync({ quality: 1, base64: true })
+        ? await ImagePicker.launchCameraAsync({
+            quality: 1,
+            base64: true,
+            // Without this the web picker sets capture="camera", a value that
+            // is not in the HTML Media Capture spec; browsers fall back to an
+            // implementation default that is commonly the selfie camera.
+            cameraType: ImagePicker.CameraType.back,
+          })
         : await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             quality: 1,
@@ -242,9 +265,8 @@ export default function SpotScreen() {
     try {
       await requestCameraPermission();
     } catch {
-      // Requesting is unsupported in this browser — drop to the picker shutter
-      // rather than leaving the user stuck on a permission panel.
-      setPermissionLookupFailed(true);
+      // The picker shutter is already on screen in this state, so the user is
+      // not stranded; just say the live preview is not available.
       Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
   };
@@ -261,9 +283,12 @@ export default function SpotScreen() {
     }
   };
 
+  // Re-reads the permission as well as clearing the failure: re-rendering an
+  // identical CameraView is what the previous version did, and it told a user
+  // with a persistent problem nothing new.
   const retryLiveCamera = () => {
     setCameraFailed(false);
-    setCameraAttempt((n) => n + 1);
+    void syncCameraPermission();
   };
 
   const replaceRejectedPhoto = async (
@@ -662,7 +687,6 @@ export default function SpotScreen() {
           <View style={[styles.viewfinder, shadows.md]}>
             {liveCameraReady ? (
               <CameraView
-                key={cameraAttempt}
                 ref={cameraRef}
                 facing="back"
                 mode="picture"
@@ -747,46 +771,18 @@ export default function SpotScreen() {
               <View style={styles.viewfinderSpacer} />
             </View>
             <View style={styles.framingRect} pointerEvents="none" />
-            {liveCameraReady && (<Text style={styles.captureHint}>{t('captureHint')}</Text>)}
-            <View style={styles.controlRow}>
-              <IconButton
-                label={t('chooseFromLibrary')}
-                onPress={() => pickPhoto(false)}
-                style={styles.translucentIconBtn}
-              >
-                <Feather name="image" size={20} color="#fff" />
-              </IconButton>
-              {/* A shutter ALWAYS renders. When the live preview is up it
-                  captures from it; otherwise it falls back to the system
-                  camera app via launchCameraAsync, which sets `capture` on the
-                  file input. Leaving the user with no camera button at all —
-                  while permission is pending, refused, or the preview failed —
-                  is the original Android bug (SYC-72). */}
-              {shutterKind === 'live' ? (
-                <Pressable
-                  onPress={captureLivePhoto}
-                  disabled={capturing}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('takePhoto')}
-                  testID="live-camera-shutter"
-                  style={({ pressed }) => [
-                    styles.shutter,
-                    { opacity: pressed || capturing ? 0.65 : 1 },
-                  ]}
-                />
-              ) : (
-                <Pressable
-                  onPress={() => pickPhoto(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('takePhoto')}
-                  testID="picker-camera-shutter"
-                  style={({ pressed }) => [
-                    styles.shutter,
-                    { opacity: pressed ? 0.85 : 1 },
-                  ]}
-                />
-              )}
-            </View>
+            <Text style={styles.captureHint}>
+              {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
+            </Text>
+            <CaptureControls
+              shutterKind={shutterKind}
+              capturing={capturing}
+              onChooseFromLibrary={() => pickPhoto(false)}
+              onCaptureLive={captureLivePhoto}
+              onCaptureWithPicker={() => pickPhoto(true)}
+              libraryLabel={t('chooseFromLibrary')}
+              shutterLabel={t('takePhoto')}
+            />
           </View>
         )}
 
@@ -882,22 +878,6 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: 'rgba(255,255,255,0.92)',
     marginBottom: spacing[3],
-  },
-  controlRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[7],
-    paddingBottom: spacing[6],
-  },
-  translucentIconBtn: { backgroundColor: 'rgba(255,255,255,0.2)' },
-  shutter: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: '#fff',
-    borderWidth: 5,
-    borderColor: 'rgba(255,255,255,0.4)',
   },
 
   // Details state

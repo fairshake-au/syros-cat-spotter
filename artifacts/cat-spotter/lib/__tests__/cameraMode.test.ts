@@ -4,7 +4,6 @@ import {
   cameraCaptureToPhoto,
   getCameraMode,
   shutterKindFor,
-  type CameraMode,
 } from '../cameraMode';
 
 describe('getCameraMode', () => {
@@ -23,8 +22,11 @@ describe('getCameraMode', () => {
   // configuration the first tester said was working, so it must stay covered
   // explicitly — the 'ios' case above does not cover it.
   it('puts iPhone Safari (web) on the live camera path, not the iOS native path', () => {
-    expect(getCameraMode('web', { granted: true, canAskAgain: true })).toBe('ready');
-    expect(getCameraMode('web', null, true)).toBe('picker');
+    const iphoneSafari = getCameraMode('web', { granted: true, canAskAgain: true });
+    const iosNative = getCameraMode('ios', { granted: true, canAskAgain: true });
+    expect(iphoneSafari).not.toBe(iosNative);
+    expect(iosNative).toBe('picker');
+    expect(iphoneSafari).toBe('ready');
   });
 
   it('offers retry while permission can be requested and settings otherwise', () => {
@@ -86,23 +88,9 @@ describe('shutterKindFor', () => {
     },
   );
 
-  it('resolves every state to a shutter, never to nothing', () => {
-    const states: CameraMode[] = [
-      'picker',
-      'loading',
-      'request',
-      'settings',
-      'ready',
-    ];
-    for (const state of states) {
-      for (const cameraFailed of [true, false]) {
-        for (const cameraActive of [true, false]) {
-          expect(['live', 'picker']).toContain(
-            shutterKindFor(state, cameraFailed, cameraActive),
-          );
-        }
-      }
-    }
+  // A 'picker'-always implementation must fail here, not just the live case.
+  it('does not fall back to the picker while the preview is usable', () => {
+    expect(shutterKindFor('ready', false, true)).not.toBe('picker');
   });
 });
 
