@@ -22,13 +22,25 @@ afterAll(async () => {
 });
 
 describe("POST /api/profiles/:deviceId/username", () => {
-  it("claims a valid username and returns the profile", async () => {
+  it("claims a valid username on first authenticated use without constructing a full profile", async () => {
+    const started = performance.now();
     const res = await request(app)
       .post(`/api/profiles/${device("a")}/username`)
       .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`)
       .send({ username: name("Alpha") });
     expect(res.status).toBe(200);
-    expect(res.body.username).toBe(name("Alpha"));
+    expect(res.body).toEqual({ username: name("Alpha") });
+    const claimMs = Math.round(performance.now() - started);
+    const fullStarted = performance.now();
+    const full = await request(app).get(`/api/profiles/${device("a")}`)
+      .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`);
+    expect(full.status).toBe(200);
+    expect(full.body.username).toBe(name("Alpha"));
+    expect(full.body.ownedCatIds).toEqual([]);
+    console.info("Username local DB timing (ms)", {
+      claim: claimMs, fullProfileAfterClaim: Math.round(performance.now() - fullStarted),
+    });
+    expect(claimMs).toBeLessThan(5000);
   });
 
   it("allows the same device to re-claim its own name", async () => {
@@ -38,6 +50,42 @@ describe("POST /api/profiles/:deviceId/username", () => {
       .send({ username: name("Alpha") });
     expect(res.status).toBe(200);
     expect(res.body.username).toBe(name("Alpha"));
+  });
+
+  it("still updates profile and leaderboard after an authenticated rename", async () => {
+    const id = device("editor");
+    const secret = "vitest-editor-secret-0123456789";
+    const first = await request(app).post(`/api/profiles/${id}/username`)
+      .set("X-Device-Secret", secret).send({ username: name("EditOld") });
+    expect(first.body).toEqual({ username: name("EditOld") });
+    const renamed = await request(app).post(`/api/profiles/${id}/username`)
+      .set("X-Device-Secret", secret).send({ username: name("EditNew") });
+    expect(renamed.body).toEqual({ username: name("EditNew") });
+    const profile = await request(app).get(`/api/profiles/${id}`)
+      .set("X-Device-Secret", secret);
+    expect(profile.body.username).toBe(name("EditNew"));
+    const leaderboard = await request(app).get("/api/leaderboard");
+    expect(leaderboard.body.some((entry: { username: string }) => entry.username === name("EditNew"))).toBe(true);
+  });
+
+  it("reads the current name cheaply for reconciliation without creating a profile", async () => {
+    const res = await request(app).get(`/api/profiles/${device("a")}/username`)
+      .set("X-Device-Secret", `secret-for-${"x".repeat(20)}`);
+    expect(res.body).toEqual({ username: name("Alpha") });
+    const firstUse = await request(app).get(`/api/profiles/${device("unclaimed")}/username`)
+      .set("X-Device-Secret", "vitest-unclaimed-secret-0123456789");
+    expect(firstUse.body).toEqual({ username: null });
+  });
+
+  it("does not allow another credential to claim or reconcile the device's name", async () => {
+    const wrongSecret = "vitest-wrong-secret-0123456789";
+    expect((await request(app).get(`/api/profiles/${device("a")}/username`)
+      .set("X-Device-Secret", wrongSecret)).status).toBe(403);
+    expect((await request(app).post(`/api/profiles/${device("a")}/username`)
+      .set("X-Device-Secret", wrongSecret)
+      .send({ username: name("Hijack") })).status).toBe(403);
+    expect((await request(app).post(`/api/profiles/${device("no-secret")}/username`)
+      .send({ username: name("Hijack") })).status).toBe(401);
   });
 
   it("rejects an exact duplicate from another device with 409", async () => {

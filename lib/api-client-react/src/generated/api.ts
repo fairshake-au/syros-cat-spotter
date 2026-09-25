@@ -31,6 +31,7 @@ import type {
   CatUpdate,
   CheckUsernameAvailabilityParams,
   ClaimUsernameRequest,
+  ClaimedUsername,
   CreateCatUpdateRequest,
   CreateSightingRequest,
   HealthStatus,
@@ -1127,6 +1128,83 @@ export function useGetUsernameSuggestions<TData = Awaited<ReturnType<typeof getU
 
 
 
+export const getGetClaimedUsernameUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/profiles/${deviceId}/username`
+}
+
+/**
+ * @summary Read the authenticated device's claimed username without loading profile statistics
+ */
+export const getClaimedUsername = async (deviceId: string, options?: RequestInit): Promise<ClaimedUsername> => {
+
+  return customFetch<ClaimedUsername>(getGetClaimedUsernameUrl(deviceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClaimedUsernameQueryKey = (deviceId: string,) => {
+    return [
+    `/api/profiles/${deviceId}/username`
+    ] as const;
+    }
+
+
+export const getGetClaimedUsernameQueryOptions = <TData = Awaited<ReturnType<typeof getClaimedUsername>>, TError = ErrorType<unknown>>(deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClaimedUsername>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClaimedUsernameQueryKey(deviceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClaimedUsername>>> = ({ signal }) => getClaimedUsername(deviceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: deviceId !== null && deviceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClaimedUsername>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClaimedUsernameQueryResult = NonNullable<Awaited<ReturnType<typeof getClaimedUsername>>>
+export type GetClaimedUsernameQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the authenticated device's claimed username without loading profile statistics
+ */
+
+export function useGetClaimedUsername<TData = Awaited<ReturnType<typeof getClaimedUsername>>, TError = ErrorType<unknown>>(
+ deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClaimedUsername>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClaimedUsernameQueryOptions(deviceId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getClaimUsernameUrl = (deviceId: string,) => {
 
 
@@ -1139,9 +1217,9 @@ export const getClaimUsernameUrl = (deviceId: string,) => {
  * @summary Claim a unique username for a device profile
  */
 export const claimUsername = async (deviceId: string,
-    claimUsernameRequest: ClaimUsernameRequest, options?: RequestInit): Promise<Profile> => {
+    claimUsernameRequest: ClaimUsernameRequest, options?: RequestInit): Promise<ClaimedUsername> => {
 
-  return customFetch<Profile>(getClaimUsernameUrl(deviceId),
+  return customFetch<ClaimedUsername>(getClaimUsernameUrl(deviceId),
   {
     ...options,
     method: 'POST',

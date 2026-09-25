@@ -316,6 +316,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/UsernameSuggestions"
   /profiles/{deviceId}/username:
+    get:
+      operationId: getClaimedUsername
+      tags: [profiles]
+      summary: Read the authenticated device's claimed username without loading profile statistics
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "200":
+          description: Current username, or null before a claim
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClaimedUsername"
     post:
       operationId: claimUsername
       tags: [profiles]
@@ -325,6 +342,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+        - $ref: "#/components/parameters/DeviceSecretHeader"
       requestBody:
         required: true
         content:
@@ -337,7 +355,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Profile"
+                $ref: "#/components/schemas/ClaimedUsername"
+        "400":
+          description: Invalid or offensive username
         "409":
           description: Username already taken
   /notifications/{deviceId}:
@@ -803,6 +823,11 @@ components:
           type: string
           minLength: 3
           maxLength: 24
+      required: [username]
+    ClaimedUsername:
+      type: object
+      properties:
+        username: { type: ["string", "null"] }
       required: [username]
     Profile:
       type: object

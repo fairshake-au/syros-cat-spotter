@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,7 +14,8 @@ import {
   getCheckUsernameAvailabilityQueryKey,
   useGetUsernameSuggestions,
   getGetUsernameSuggestionsQueryKey,
-  useClaimUsername,
+  checkUsernameAvailability,
+  getClaimedUsername,
 } from '@workspace/api-client-react';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { useColors } from '@/hooks/useColors';
@@ -32,6 +33,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { LANGUAGES } from '@/lib/i18n';
 import { Button, Tag } from '@/components/purropolis';
 import { StepDots } from './StepDots';
+import { AVAILABILITY_WAIT_MS, RECONCILE_WAIT_MS, claimAndReconcile, withDeadline } from '@/lib/usernameClaim';
 
 const MIN_LEN = 3;
 
@@ -45,8 +47,7 @@ const GLOSS_KEY: Record<string, string> = {
 
 /**
  * Final onboarding step: choose a language and claim a unique username.
- * The availability/suggestion/claim behaviour is carried over verbatim from the
- * previous single-screen LandingScreen — only the presentation changed.
+ * Claim completion opens the app; full profile statistics load independently.
  */
 export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
   const colors = useColors();
@@ -58,6 +59,22 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
   const [draft, setDraft] = useState('');
   const [debounced, setDebounced] = useState('');
   const [claimError, setClaimError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [uncertainName, setUncertainName] = useState<string | null>(null);
+  const outstanding = useRef(0);
+  const finished = useRef(false);
+
+  // Recover a claim committed before the app closed or its response was lost.
+  useEffect(() => {
+    if (!deviceId || !isOnline) return;
+    let active = true;
+    withDeadline(getClaimedUsername(deviceId), RECONCILE_WAIT_MS)
+      .then((result) => {
+        if (active && result.username) setUsername(result.username);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [deviceId, isOnline, setUsername]);
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(draft.trim()), 400);
@@ -75,6 +92,15 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
         enabled: checkEnabled,
         queryKey: getCheckUsernameAvailabilityQueryKey({ name: debounced }),
         staleTime: 30_000,
+        retry: false,
+        queryFn: ({ signal }) => {
+          const startedCheck = Date.now();
+          return withDeadline(checkUsernameAvailability({ name: debounced }, { signal }), AVAILABILITY_WAIT_MS)
+            .then((result) => {
+              if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('Username availability timing', { ms: Date.now() - startedCheck });
+              return result;
+            });
+        },
       },
     },
   );
@@ -84,22 +110,6 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
       enabled: isOnline,
       queryKey: getGetUsernameSuggestionsQueryKey(),
       staleTime: Infinity,
-    },
-  });
-
-  const claim = useClaimUsername({
-    mutation: {
-      onSuccess: (profile) => {
-        if (profile.username) setUsername(profile.username);
-      },
-      onError: (err: unknown) => {
-        const e = err as { status?: number; data?: { code?: string } | null };
-        if (e?.data?.code === 'offensive_username') {
-          setClaimError(t('usernameRejected'));
-        } else {
-          setClaimError(e?.status === 409 ? t('landingTaken') : t('error'));
-        }
-      },
     },
   });
 
@@ -124,6 +134,8 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
       return { text: t('landingOffline'), color: colors.mutedForeground };
     if (checking)
       return { text: t('landingChecking'), color: colors.mutedForeground };
+    if (availability.isError)
+      return { text: t('usernameCheckFailed'), color: colors.destructive ?? '#c0392b' };
     if (available)
       return { text: `✓ ${t('landingAvailable')}`, color: colors.success ?? palette.olive600 };
     if (taken)
@@ -142,6 +154,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
     longEnough,
     isOnline,
     checking,
+    availability.isError,
     available,
     taken,
     availability.data,
@@ -149,12 +162,40 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
     colors,
   ]);
 
-  const canSubmit = available && isOnline && !!deviceId && !claim.isPending;
+  const canSubmit = (available || uncertainName === trimmed) && isOnline && !!deviceId && !pending;
 
-  const submit = () => {
-    if (!canSubmit || !deviceId) return;
+  const submit = async () => {
+    if (!canSubmit || !deviceId || finished.current) return;
     setClaimError(null);
-    claim.mutate({ deviceId, data: { username: trimmed } });
+    setPending(true);
+    outstanding.current++;
+    const started = Date.now();
+    const outcome = await claimAndReconcile(
+      deviceId, uncertainName ?? trimmed,
+      (name) => {
+        if (finished.current) return;
+        finished.current = true;
+        if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('Username claim-to-navigation timing', { ms: Date.now() - started });
+        setUsername(name);
+      },
+      () => {
+        outstanding.current--;
+        if (outstanding.current === 0 && !finished.current) setUncertainName(null);
+      },
+    );
+    if (finished.current) return;
+    setPending(false);
+    if (outcome.kind === 'uncertain') {
+      // A timed-out POST can still commit. Do not submit a different name.
+      if (outstanding.current > 0) setUncertainName(trimmed);
+      setClaimError(t('usernameClaimUncertain'));
+    } else if (outcome.kind === 'rejected') {
+      const e = outcome.error as { status?: number; data?: { code?: string } | null };
+      if (outstanding.current === 0) setUncertainName(null);
+      setClaimError(e?.data?.code === 'offensive_username'
+        ? t('usernameRejected')
+        : e?.status === 409 ? t('landingTaken') : e?.status === 400 ? t('landingInvalid') : t('error'));
+    }
   };
 
   const suggestions = suggestionsQuery.data?.suggestions ?? [];
@@ -168,6 +209,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
           accessibilityRole="button"
           accessibilityLabel={t('back')}
           hitSlop={10}
+          disabled={pending || !!uncertainName}
         >
           <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
         </Pressable>
@@ -275,6 +317,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
             <TextInput
               value={draft}
               onChangeText={(v) => {
+                if (uncertainName || pending) return;
                 setDraft(v);
                 setClaimError(null);
               }}
@@ -285,6 +328,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
               autoCorrect={false}
               returnKeyType="done"
               onSubmitEditing={submit}
+              editable={!pending && !uncertainName}
               style={[styles.input, { color: colors.foreground }]}
             />
           </View>
@@ -293,7 +337,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
             <View style={styles.suggestions}>
               <Pressable
                 onPress={() => suggestionsQuery.refetch()}
-                disabled={suggestionsQuery.isFetching}
+                disabled={suggestionsQuery.isFetching || pending || !!uncertainName}
                 style={[styles.shuffle, { backgroundColor: palette.bougain500 }]}
                 accessibilityRole="button"
               >
@@ -306,6 +350,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
                   <Pressable
                     key={name}
                     onPress={() => {
+                      if (pending || uncertainName) return;
                       setDraft(name);
                       setClaimError(null);
                     }}
@@ -339,7 +384,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
           disabled={!canSubmit}
           onPress={submit}
         >
-          {claim.isPending ? t('landingChecking') : t('continue')}
+          {pending ? t('usernameClaiming') : uncertainName ? t('usernameRetryClaim') : t('continue')}
         </Button>
       </KeyboardAwareScrollViewCompat>
     </View>

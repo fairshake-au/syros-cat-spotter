@@ -112,7 +112,9 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   // Hydrate the owned-cat list from the server so edit rights survive
   // reinstalls / storage clears (the local cache is just a fast start).
   useEffect(() => {
-    if (!deviceId) return;
+    // The initial username claim must not compete with the full multi-query
+    // profile hydration. Home and Profile fetch it independently after entry.
+    if (!deviceId || !username) return;
     let cancelled = false;
     getProfile(deviceId)
       .then((profile) => {
@@ -126,7 +128,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {
         // Offline or server unreachable: keep the locally cached list.
       });
-  }, [deviceId]);
+  }, [deviceId, username]);
 
   const addOwnedCat = useCallback((catId: number) => {
     setOwnedCatIds((prev) => {

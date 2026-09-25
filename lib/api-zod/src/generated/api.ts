@@ -395,10 +395,30 @@ export const GetUsernameSuggestionsResponse = zod.object({
 
 
 /**
+ * @summary Read the authenticated device's claimed username without loading profile statistics
+ */
+export const GetClaimedUsernameParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const GetClaimedUsernameHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const GetClaimedUsernameResponse = zod.object({
+  "username": zod.string().nullable()
+})
+
+
+/**
  * @summary Claim a unique username for a device profile
  */
 export const ClaimUsernameParams = zod.object({
   "deviceId": zod.coerce.string()
+})
+
+export const ClaimUsernameHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
 })
 
 export const claimUsernameBodyUsernameMin = 3;
@@ -411,19 +431,7 @@ export const ClaimUsernameBody = zod.object({
 })
 
 export const ClaimUsernameResponse = zod.object({
-  "deviceId": zod.string(),
-  "spotterCode": zod.string(),
-  "username": zod.string().nullish(),
-  "nickname": zod.string().nullish(),
-  "points": zod.number(),
-  "totalSightings": zod.number(),
-  "uniqueCatsDiscovered": zod.number(),
-  "catsSpotted": zod.number(),
-  "badges": zod.array(zod.string()),
-  "ownedCatIds": zod.array(zod.number()).describe('Ids of cats this device owns. Only returned on the device\'s own profile route (the deviceId path param is the credential); never exposed in public payloads.'),
-  "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
-  "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
-  "totalCats": zod.number().describe('Size of the whole cat-alog — the denominator in \"12 of 142\".')
+  "username": zod.string().nullable()
 })
 
 

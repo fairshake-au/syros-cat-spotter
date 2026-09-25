@@ -21,6 +21,7 @@ export * from './catRegistration';
 export * from './catUpdate';
 export * from './catUpdateUpdateType';
 export * from './checkUsernameAvailabilityParams';
+export * from './claimedUsername';
 export * from './claimUsernameRequest';
 export * from './createCatUpdateRequest';
 export * from './createCatUpdateRequestUpdateType';

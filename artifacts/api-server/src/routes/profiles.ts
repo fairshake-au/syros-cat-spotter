@@ -40,13 +40,23 @@ router.get("/profiles/username-suggestions", async (_req, res) => {
   res.json({ suggestions: await suggestUsernames(6) });
 });
 
-// Claiming a username writes to the device's profile and responds with the
-// full private payload, so it needs the same credential as reading it. Without
-// this, knowing a device id was enough to both squat its username and read back
-// its streak and spotted-cat list from the success response.
-router.post("/profiles/:deviceId/username", async (req, res) => {
+// Both the lightweight read and the write require the device's credential.
+// The read is also used to reconcile a claim whose response was lost.
+router.get("/profiles/:deviceId/username", async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
+  const [profile] = await db
+    .select({ username: profilesTable.username })
+    .from(profilesTable)
+    .where(eq(profilesTable.deviceId, deviceId));
+  res.json({ username: profile?.username ?? null });
+});
+
+router.post("/profiles/:deviceId/username", async (req, res) => {
+  const started = performance.now();
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
+  const authMs = Math.round(performance.now() - started);
   const username = normalizeUsername(req.body?.username);
   if (!username) {
     res.status(400).json({ error: "Username must be 3-24 letters, numbers or spaces" });
@@ -59,6 +69,7 @@ router.post("/profiles/:deviceId/username", async (req, res) => {
     });
     return;
   }
+  const dbStarted = performance.now();
   // Taken by someone else? (unique index still guards against races)
   const [existing] = await db
     .select({ deviceId: profilesTable.deviceId })
@@ -70,15 +81,21 @@ router.post("/profiles/:deviceId/username", async (req, res) => {
       ),
     );
   if (existing) {
+    req.log.info({ authMs, dbMs: Math.round(performance.now() - dbStarted), result: "taken" }, "Username claim timing");
     res.status(409).json({ error: "Username already taken" });
     return;
   }
   await db.insert(profilesTable).values({ deviceId }).onConflictDoNothing();
   try {
-    await db
+    const [updated] = await db
       .update(profilesTable)
       .set({ username })
-      .where(eq(profilesTable.deviceId, deviceId));
+      .where(eq(profilesTable.deviceId, deviceId))
+      .returning({ username: profilesTable.username });
+    const dbMs = Math.round(performance.now() - dbStarted);
+    const responseStarted = performance.now();
+    res.json({ username: updated.username });
+    req.log.info({ authMs, dbMs, responseMs: Math.round(performance.now() - responseStarted), totalMs: Math.round(performance.now() - started), result: "claimed" }, "Username claim timing");
   } catch (err: unknown) {
     // Unique-index race: someone claimed the same name concurrently.
     // Drizzle may wrap the pg error, so check the cause chain for code 23505.
@@ -88,7 +105,6 @@ router.post("/profiles/:deviceId/username", async (req, res) => {
     }
     throw err;
   }
-  res.json(await profilePayload(deviceId));
 });
 
 // The profile payload is a private view of one device: points, streak, owned

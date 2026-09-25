@@ -24,7 +24,12 @@ app.use(
         return {
           id: req.id,
           method: req.method,
-          url: req.url?.split("?")[0],
+          // The URL contains a private device id on profile routes. Strip
+          // query strings (including availability names) and path identifiers.
+          url: req.url?.split("?")[0].replace(
+            /\/profiles\/(?!username-availability(?:\/|$)|username-suggestions(?:\/|$))[^/]+/,
+            "/profiles/:deviceId",
+          ),
         };
       },
       res(res) {

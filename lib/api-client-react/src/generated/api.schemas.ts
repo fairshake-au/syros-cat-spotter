@@ -333,6 +333,11 @@ export interface ClaimUsernameRequest {
   username: string;
 }
 
+export interface ClaimedUsername {
+  /** @nullable */
+  username: string | null;
+}
+
 export interface LeaderboardEntry {
   /** Opaque public spotter identifier (never the raw device id) */
   spotterCode: string;
