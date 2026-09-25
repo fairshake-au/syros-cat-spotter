@@ -747,7 +747,7 @@ export default function SpotScreen() {
               <View style={styles.viewfinderSpacer} />
             </View>
             <View style={styles.framingRect} pointerEvents="none" />
-            <Text style={styles.captureHint}>{t('captureHint')}</Text>
+            {liveCameraReady && (<Text style={styles.captureHint}>{t('captureHint')}</Text>)}
             <View style={styles.controlRow}>
               <IconButton
                 label={t('chooseFromLibrary')}
