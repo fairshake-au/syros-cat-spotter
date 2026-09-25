@@ -20,10 +20,12 @@ import {
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
+import { useDevice } from '@/context/DeviceContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
+import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { absoluteUrl } from '@/lib/urls';
-import { Badge, Tag, StatTile, IconButton } from '@/components/purropolis';
+import { Badge, Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
 
@@ -49,7 +51,9 @@ export default function CatDetailScreen() {
   const params = useLocalSearchParams<{ id: string; updateId?: string }>();
   const catId = Number(params.id);
   const updateId = Number(params.updateId);
+  const { ownedCatIds } = useDevice();
   const { notifications, markRead } = useNotifications();
+  const [sheet, setSheet] = React.useState<'claim' | 'edit' | null>(null);
 
   // The inbox row matching the tapped push notification, if any.
   const highlighted = React.useMemo(
@@ -112,6 +116,7 @@ export default function CatDetailScreen() {
   const fansCount = data.fansCount;
   const careTimeline = data.careTimeline;
   const isClaimed = !!cat.ownerName;
+  const isOwner = isClaimed && ownedCatIds.includes(cat.id);
   const isDesexed = (careTimeline ?? []).some((e) => e.type === 'desexed');
   const dash = '—';
   const locationLabel = cat.description?.trim();
@@ -147,6 +152,22 @@ export default function CatDetailScreen() {
         </View>
         <View style={{ padding: 16, gap: 16 }}>
           <View style={{ gap: 10 }}>
+            {isOwner && (
+              <Pressable
+                onPress={() => setSheet('edit')}
+                hitSlop={8}
+                style={[
+                  styles.editBtn,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                <Feather name="edit-2" size={13} color={colors.primary} />
+                <Text style={[styles.editText, { color: colors.primary }]}>
+                  {t('editCat')}
+                </Text>
+              </Pressable>
+            )}
+
             {isDesexed && (
               <View style={styles.badgeRow}>
                 <Badge tone="success">{t('desexedBadge')}</Badge>
@@ -211,11 +232,23 @@ export default function CatDetailScreen() {
             </View>
           )}
 
-          {isClaimed && (
+          {isClaimed ? (
             <OwnershipBanner
               ownerName={cat.ownerName!}
               homeDescription={cat.homeDescription}
             />
+          ) : (
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              iconLeft={
+                <Feather name="home" size={16} color={colors.primaryForeground} />
+              }
+              onPress={() => setSheet('claim')}
+            >
+              {t('claimCat')}
+            </Button>
           )}
 
           <View style={styles.statsRow}>
@@ -329,6 +362,14 @@ export default function CatDetailScreen() {
           </View>
         </View>
       </ScrollView>
+      {sheet !== null && (
+        <ClaimCatSheet
+          visible
+          mode={sheet}
+          cat={cat}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </View>
   );
 }
@@ -367,6 +408,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  editText: { fontSize: 12, fontFamily: 'Nunito_700Bold' },
   updateBanner: {
     flexDirection: 'row',
     alignItems: 'center',
