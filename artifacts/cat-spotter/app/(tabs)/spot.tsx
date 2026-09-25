@@ -761,7 +761,7 @@ export default function SpotScreen() {
                   camera app via launchCameraAsync, which sets `capture` on the
                   file input. Leaving the user with no camera button at all —
                   while permission is pending, refused, or the preview failed —
-                  is the original Android bug (SYC-71). */}
+                  is the original Android bug (SYC-72). */}
               {shutterKind === 'live' ? (
                 <Pressable
                   onPress={captureLivePhoto}

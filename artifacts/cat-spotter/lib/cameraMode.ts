@@ -34,7 +34,7 @@ export function getCameraMode(
 /**
  * Which shutter the capture screen shows. Deliberately total: there is no
  * "no shutter" result, because leaving the user with no way to photograph a cat
- * is the bug this whole flow exists to fix (SYC-71). The live preview is used
+ * is the bug this whole flow exists to fix (SYC-72). The live preview is used
  * when it is genuinely up; every other situation falls back to the system
  * camera app, which needs no in-page permission and always works.
  */
