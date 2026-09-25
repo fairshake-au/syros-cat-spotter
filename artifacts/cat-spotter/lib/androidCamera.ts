@@ -18,11 +18,34 @@ export interface CameraCaptureLike {
 export function getAndroidCameraState(
   platform: string,
   permission: CameraPermissionLike | null,
+  permissionLookupFailed = false,
 ): AndroidCameraState {
   if (platform !== 'android' && platform !== 'web') return 'picker';
+  // The browser could not tell us the permission state at all (no
+  // navigator.permissions, or the query rejected). Fall back to the system
+  // picker, which opens the phone's own camera app and needs no permission
+  // lookup — never strand the screen on 'loading'.
+  if (permissionLookupFailed) return 'picker';
   if (!permission) return 'loading';
   if (permission.granted) return 'ready';
   return permission.canAskAgain ? 'request' : 'settings';
+}
+
+/**
+ * Which shutter the capture screen shows. Deliberately total: there is no
+ * "no shutter" result, because leaving the user with no way to photograph a cat
+ * is the bug this whole flow exists to fix (SYC-71). The live preview is used
+ * when it is genuinely up; every other situation falls back to the system
+ * camera app, which needs no in-page permission and always works.
+ */
+export function shutterKindFor(
+  state: AndroidCameraState,
+  cameraFailed: boolean,
+  cameraActive: boolean,
+): 'live' | 'picker' {
+  return state === 'ready' && !cameraFailed && cameraActive
+    ? 'live'
+    : 'picker';
 }
 
 export function cameraCaptureToPhoto(

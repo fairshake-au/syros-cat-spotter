@@ -45,6 +45,7 @@ import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
 import {
   cameraCaptureToPhoto,
   getAndroidCameraState,
+  shutterKindFor,
 } from '@/lib/androidCamera';
 
 interface PickedPhoto {
@@ -105,15 +106,28 @@ export default function SpotScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [optimizingUpload, setOptimizingUpload] = useState(false);
   const cameraRef = React.useRef<CameraView>(null);
+  // `get: false` because we run the initial lookup ourselves: the hook's own
+  // effect calls getPermissionsAsync() with no catch, and expo-camera's web
+  // implementation *throws* when navigator.permissions.query is missing (older
+  // Safari, and Android in-app WebViews — which is how testers arriving from an
+  // email link get here). Unguarded, that leaves the permission null forever and
+  // pins the screen to a spinner with no way to take a photo.
   const [
     cameraPermission,
     requestCameraPermission,
     refreshCameraPermission,
-  ] = useCameraPermissions();
+  ] = useCameraPermissions({ get: false });
+  const [permissionLookupFailed, setPermissionLookupFailed] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
-  const cameraState = getAndroidCameraState(Platform.OS, cameraPermission);
+  const cameraState = getAndroidCameraState(
+    Platform.OS,
+    cameraPermission,
+    permissionLookupFailed,
+  );
+  const shutterKind = shutterKindFor(cameraState, cameraFailed, cameraActive);
+  const liveCameraReady = shutterKind === 'live';
 
   useFocusEffect(
     React.useCallback(() => {
@@ -123,9 +137,23 @@ export default function SpotScreen() {
   );
 
   React.useEffect(() => {
+    let cancelled = false;
+    refreshCameraPermission().catch(() => {
+      if (!cancelled) setPermissionLookupFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshCameraPermission]);
+
+  React.useEffect(() => {
     if (Platform.OS !== 'android') return;
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refreshCameraPermission();
+      if (state === 'active') {
+        refreshCameraPermission().catch(() =>
+          setPermissionLookupFailed(true),
+        );
+      }
     });
     return () => subscription.remove();
   }, [refreshCameraPermission]);
@@ -213,6 +241,9 @@ export default function SpotScreen() {
     try {
       await requestCameraPermission();
     } catch {
+      // Requesting is unsupported in this browser — drop to the picker shutter
+      // rather than leaving the user stuck on a permission panel.
+      setPermissionLookupFailed(true);
       Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
   };
@@ -623,7 +654,7 @@ export default function SpotScreen() {
         ) : (
           // ── Capture state: dark viewfinder treatment ──
           <View style={[styles.viewfinder, shadows.md]}>
-            {cameraState === 'ready' && !cameraFailed && cameraActive ? (
+            {liveCameraReady ? (
               <CameraView
                 ref={cameraRef}
                 facing="back"
@@ -718,7 +749,13 @@ export default function SpotScreen() {
               >
                 <Feather name="image" size={20} color="#fff" />
               </IconButton>
-              {cameraState === 'ready' && !cameraFailed && cameraActive && (
+              {/* A shutter ALWAYS renders. When the live preview is up it
+                  captures from it; otherwise it falls back to the system
+                  camera app via launchCameraAsync, which sets `capture` on the
+                  file input. Leaving the user with no camera button at all —
+                  while permission is pending, refused, or the preview failed —
+                  is the original Android bug (SYC-71). */}
+              {shutterKind === 'live' ? (
                 <Pressable
                   onPress={captureLivePhoto}
                   disabled={capturing}
@@ -730,12 +767,12 @@ export default function SpotScreen() {
                     { opacity: pressed || capturing ? 0.65 : 1 },
                   ]}
                 />
-              )}
-              {cameraState === 'picker' && (
+              ) : (
                 <Pressable
                   onPress={() => pickPhoto(true)}
                   accessibilityRole="button"
                   accessibilityLabel={t('takePhoto')}
+                  testID="picker-camera-shutter"
                   style={({ pressed }) => [
                     styles.shutter,
                     { opacity: pressed ? 0.85 : 1 },
