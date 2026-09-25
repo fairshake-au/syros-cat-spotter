@@ -2,32 +2,40 @@ import { describe, expect, it } from 'vitest';
 
 import {
   cameraCaptureToPhoto,
-  getAndroidCameraState,
+  getCameraMode,
   shutterKindFor,
-  type AndroidCameraState,
-} from '../androidCamera';
+  type CameraMode,
+} from '../cameraMode';
 
-describe('getAndroidCameraState', () => {
+describe('getCameraMode', () => {
   it('uses the live camera on native Android and web', () => {
-    expect(getAndroidCameraState('android', null)).toBe('loading');
-    expect(getAndroidCameraState('web', { granted: true, canAskAgain: true })).toBe(
+    expect(getCameraMode('android', null)).toBe('loading');
+    expect(getCameraMode('web', { granted: true, canAskAgain: true })).toBe(
       'ready',
     );
   });
 
-  it('keeps the existing picker camera flow on iOS', () => {
-    expect(getAndroidCameraState('ios', null)).toBe('picker');
+  it('keeps the picker flow on iOS native', () => {
+    expect(getCameraMode('ios', null)).toBe('picker');
+  });
+
+  // Safari on an iPhone reports Platform.OS === 'web', not 'ios'. That is the
+  // configuration the first tester said was working, so it must stay covered
+  // explicitly — the 'ios' case above does not cover it.
+  it('puts iPhone Safari (web) on the live camera path, not the iOS native path', () => {
+    expect(getCameraMode('web', { granted: true, canAskAgain: true })).toBe('ready');
+    expect(getCameraMode('web', null, true)).toBe('picker');
   });
 
   it('offers retry while permission can be requested and settings otherwise', () => {
     expect(
-      getAndroidCameraState('android', {
+      getCameraMode('android', {
         granted: false,
         canAskAgain: true,
       }),
     ).toBe('request');
     expect(
-      getAndroidCameraState('android', {
+      getCameraMode('android', {
         granted: false,
         canAskAgain: false,
       }),
@@ -35,23 +43,23 @@ describe('getAndroidCameraState', () => {
   });
 });
 
-describe('getAndroidCameraState — permission lookup failure', () => {
+describe('getCameraMode — permission lookup failure', () => {
   // expo-camera's web implementation THROWS when navigator.permissions.query is
   // missing (older Safari, Android in-app WebViews). Without this fallback the
   // permission stays null forever and the screen pins to 'loading' — a spinner
   // with no way to photograph a cat, which is the bug the live camera was
   // meant to fix.
   it('falls back to the system picker when the browser cannot report permission', () => {
-    expect(getAndroidCameraState('web', null, true)).toBe('picker');
-    expect(getAndroidCameraState('android', null, true)).toBe('picker');
+    expect(getCameraMode('web', null, true)).toBe('picker');
+    expect(getCameraMode('android', null, true)).toBe('picker');
   });
 
   it('never reports loading once the lookup has failed', () => {
-    expect(getAndroidCameraState('web', null, true)).not.toBe('loading');
+    expect(getCameraMode('web', null, true)).not.toBe('loading');
   });
 
   it('defaults to the pre-existing behaviour when the flag is omitted', () => {
-    expect(getAndroidCameraState('web', null)).toBe('loading');
+    expect(getCameraMode('web', null)).toBe('loading');
   });
 });
 
@@ -79,7 +87,7 @@ describe('shutterKindFor', () => {
   );
 
   it('resolves every state to a shutter, never to nothing', () => {
-    const states: AndroidCameraState[] = [
+    const states: CameraMode[] = [
       'picker',
       'loading',
       'request',

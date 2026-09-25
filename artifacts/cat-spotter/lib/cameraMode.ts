@@ -1,4 +1,4 @@
-export type AndroidCameraState =
+export type CameraMode =
   | 'picker'
   | 'loading'
   | 'request'
@@ -15,11 +15,11 @@ export interface CameraCaptureLike {
   base64?: string | null;
 }
 
-export function getAndroidCameraState(
+export function getCameraMode(
   platform: string,
   permission: CameraPermissionLike | null,
   permissionLookupFailed = false,
-): AndroidCameraState {
+): CameraMode {
   if (platform !== 'android' && platform !== 'web') return 'picker';
   // The browser could not tell us the permission state at all (no
   // navigator.permissions, or the query rejected). Fall back to the system
@@ -39,7 +39,7 @@ export function getAndroidCameraState(
  * camera app, which needs no in-page permission and always works.
  */
 export function shutterKindFor(
-  state: AndroidCameraState,
+  state: CameraMode,
   cameraFailed: boolean,
   cameraActive: boolean,
 ): 'live' | 'picker' {

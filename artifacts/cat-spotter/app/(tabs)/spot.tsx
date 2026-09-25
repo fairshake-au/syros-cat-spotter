@@ -44,9 +44,9 @@ import { Badge } from '@/components/purropolis/Badge';
 import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
 import {
   cameraCaptureToPhoto,
-  getAndroidCameraState,
+  getCameraMode,
   shutterKindFor,
-} from '@/lib/androidCamera';
+} from '@/lib/cameraMode';
 
 interface PickedPhoto {
   uri: string;
@@ -121,7 +121,7 @@ export default function SpotScreen() {
   const [capturing, setCapturing] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
-  const cameraState = getAndroidCameraState(
+  const cameraState = getCameraMode(
     Platform.OS,
     cameraPermission,
     permissionLookupFailed,
