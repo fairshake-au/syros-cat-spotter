@@ -50,7 +50,6 @@
   }
   .wrap{max-width:44rem;margin:0 auto;padding-inline:20px;padding-block:0 72px;}
 
-  /* ---- header ---- */
   header.bar{
     position:sticky;
     top:env(safe-area-inset-top, 0px);
@@ -77,7 +76,6 @@
   .toggle button[aria-pressed="true"]{background:var(--teal);color:var(--card);}
   .toggle button:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}
 
-  /* ---- masthead ---- */
   .masthead{padding-block:40px 8px;}
   h1{
     font-family:Alegreya,Georgia,serif;
@@ -85,9 +83,7 @@
     margin:0 0 14px;text-wrap:balance;letter-spacing:-.01em;
   }
   .standfirst{font-size:17.5px;color:var(--muted);max-width:38rem;margin:0;}
-  .facts{
-    display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 0;padding:0;list-style:none;
-  }
+  .facts{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 0;padding:0;list-style:none;}
   .facts li{
     font-family:"IBM Plex Mono",ui-monospace,monospace;
     font-size:11px;letter-spacing:.06em;text-transform:uppercase;
@@ -102,7 +98,6 @@
   h2 + .lede{margin:0 0 20px;color:var(--muted);font-size:16px;}
   hr.rule{border:0;border-top:1px solid var(--hair);margin:44px 0 0;}
 
-  /* ---- questions ---- */
   .q{
     background:var(--card);
     border:1px solid var(--hair);
@@ -116,42 +111,45 @@
     font-family:Alegreya,Georgia,serif;font-weight:700;font-size:30px;line-height:1;
     color:var(--teal);min-width:1.2em;font-variant-numeric:tabular-nums;
   }
-  .kind{
+  .measures{
     font-family:"IBM Plex Mono",ui-monospace,monospace;
     font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
     color:var(--teal);background:var(--teal-soft);
-    border-radius:3px;padding:3px 7px;white-space:nowrap;
+    border-radius:3px;padding:3px 7px;margin-left:auto;white-space:nowrap;
   }
-  .kind.opt{color:var(--ochre);background:var(--ochre-soft);}
-  .q-head .kinds{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;}
   .qtext{
     font-family:Alegreya,Georgia,serif;
     font-size:21px;font-weight:500;line-height:1.3;margin:12px 0 0;text-wrap:balance;
   }
   .qhint{font-size:15px;color:var(--muted);margin:5px 0 0;}
-  ul.opts{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;}
-  ul.opts li{
-    display:flex;align-items:flex-start;gap:10px;
-    padding:6px 0;border-top:1px solid var(--hair);font-size:16px;
-  }
-  ul.opts li:first-child{border-top:0;}
-  .box,.dot{
-    flex:0 0 auto;width:15px;height:15px;margin-top:4px;
-    border:1.5px solid var(--muted);opacity:.65;
-  }
-  .box{border-radius:3px;}
-  .dot{border-radius:50%;}
-  .scale{
-    display:flex;gap:8px;margin:14px 0 0;flex-wrap:wrap;
-  }
+
+  .scale{display:flex;gap:7px;margin:16px 0 0;}
   .scale span{
-    flex:1 1 4.2rem;text-align:center;font-size:14px;
-    border:1px solid var(--hair);border-radius:6px;padding:8px 4px;color:var(--ink);
+    flex:1 1 0;min-width:0;text-align:center;font-size:13.5px;line-height:1.25;
+    border:1px solid var(--hair);border-radius:6px;padding:8px 3px;color:var(--muted);
+    display:flex;flex-direction:column;gap:3px;align-items:center;
   }
-  .scale span b{display:block;font-family:Alegreya,Georgia,serif;font-size:19px;color:var(--teal);}
-  .field{
-    margin:14px 0 0;border:1px dashed var(--hair);border-radius:6px;
-    padding:12px;color:var(--muted);font-style:italic;font-size:15px;background:var(--paper);
+  .scale span b{
+    font-family:Alegreya,Georgia,serif;font-size:20px;color:var(--teal);
+    font-weight:700;font-variant-numeric:tabular-nums;
+  }
+  .escape{
+    display:flex;align-items:center;gap:9px;margin:9px 0 0;
+    font-size:14.5px;color:var(--muted);
+  }
+  .escape i{
+    flex:0 0 auto;width:13px;height:13px;border:1.5px solid var(--muted);
+    border-radius:50%;opacity:.6;
+  }
+  .reason{
+    margin:14px 0 0;padding:12px 14px;
+    border:1px dashed var(--hair);border-radius:6px;background:var(--paper);
+  }
+  .reason em{display:block;font-size:15.5px;color:var(--ink);font-style:italic;}
+  .reason small{
+    display:block;margin-top:6px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
   }
   .why{
     margin:18px 0 0;padding:12px 14px;border-left:2px solid var(--ochre);
@@ -164,7 +162,6 @@
     display:block;margin-bottom:4px;font-weight:500;
   }
 
-  /* ---- message block ---- */
   .msg{
     background:var(--card);border:1px solid var(--hair);border-radius:10px;
     box-shadow:var(--shadow);padding:20px;margin-top:16px;
@@ -179,7 +176,6 @@
   }
   .copy:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
 
-  /* ---- build sheet ---- */
   .sheet{margin-top:18px;overflow-x:auto;}
   table{border-collapse:collapse;width:100%;font-size:15.5px;min-width:30rem;}
   th,td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--hair);vertical-align:top;}
@@ -195,9 +191,13 @@
   footer{margin-top:44px;font-size:14.5px;color:var(--muted);}
   [hidden]{display:none!important;}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+  @media (max-width:520px){
+    .scale{flex-wrap:wrap;}
+    .scale span{flex:1 1 5.2rem;}
+  }
   @media (max-width:440px){
     .q{padding:18px 16px 16px;}
-    .q-head .kinds{margin-left:0;width:100%;}
+    .measures{margin-left:0;}
   }
 </style>
 
@@ -215,9 +215,9 @@
 
   <div class="masthead">
     <h1>Five questions for the Syros testers</h1>
-    <p class="standfirst">The survey to send to the people who have been testing the app: what they managed to do, how hard it was, what broke, and the one thing to fix before October. Two minutes to answer, anonymous by default.</p>
+    <p class="standfirst">Every question is a score out of five and a box to say why. Five numbers you can track from one round of testing to the next, and five reasons that tell you what to do about them. Two minutes to answer, anonymous.</p>
     <ul class="facts">
-      <li>5 questions</li>
+      <li>5 scores + 5 reasons</li>
       <li>~2 minutes</li>
       <li>English + Greek</li>
       <li>Anonymous</li>
@@ -228,57 +228,17 @@
   <hr class="rule">
 
   <h2>The survey</h2>
-  <p class="lede">Questions 1–3 measure what actually happened; 4 and 5 ask them to prioritise. The orange notes are for you, not for them.</p>
+  <p class="lede">Same shape five times over: rate it 1–5, then tell us why. The orange notes are for you, not for them.</p>
 
   <!-- Q1 -->
   <section class="q">
     <div class="q-head">
       <span class="num">1</span>
-      <span class="kinds"><span class="kind">Multi-select</span><span class="kind">Required</span></span>
+      <span class="measures">Ease of the core loop</span>
     </div>
     <div class="lang-en">
-      <p class="qtext">Which of these did you manage to do?</p>
-      <p class="qhint">Tick everything you got as far as. It is fine if that is only one thing.</p>
-      <ul class="opts">
-        <li><span class="box"></span>Took a photo of a cat and recorded the sighting</li>
-        <li><span class="box"></span>Confirmed a cat the app already knew</li>
-        <li><span class="box"></span>Registered a brand new cat and named it</li>
-        <li><span class="box"></span>Looked through the cat catalogue</li>
-        <li><span class="box"></span>Looked at the map</li>
-        <li><span class="box"></span>Checked my points, badges or the leaderboard</li>
-        <li><span class="box"></span>Used it somewhere with no signal or bad signal</li>
-        <li><span class="box"></span>Used it in Greek</li>
-        <li><span class="box"></span>I opened it but never recorded a cat</li>
-        <li><span class="box"></span>I could not get it to open or install at all</li>
-      </ul>
-    </div>
-    <div class="lang-el" hidden>
-      <p class="qtext">Τι καταφέρατε να κάνετε;</p>
-      <p class="qhint">Σημειώστε όλα όσα προλάβατε. Δεν πειράζει αν είναι μόνο ένα.</p>
-      <ul class="opts">
-        <li><span class="box"></span>Φωτογράφισα μια γάτα και κατέγραψα την παρατήρηση</li>
-        <li><span class="box"></span>Επιβεβαίωσα μια γάτα που η εφαρμογή γνώριζε ήδη</li>
-        <li><span class="box"></span>Κατέγραψα μια καινούργια γάτα και της έδωσα όνομα</li>
-        <li><span class="box"></span>Περιηγήθηκα στον κατάλογο με τις γάτες</li>
-        <li><span class="box"></span>Είδα τον χάρτη</li>
-        <li><span class="box"></span>Είδα τους πόντους, τα βραβεία ή την κατάταξη</li>
-        <li><span class="box"></span>Τη χρησιμοποίησα σε σημείο χωρίς σήμα ή με κακό σήμα</li>
-        <li><span class="box"></span>Τη χρησιμοποίησα στα ελληνικά</li>
-        <li><span class="box"></span>Την άνοιξα αλλά δεν κατέγραψα ποτέ γάτα</li>
-        <li><span class="box"></span>Δεν κατάφερα καθόλου να την ανοίξω ή να την εγκαταστήσω</li>
-      </ul>
-    </div>
-    <p class="why"><b>Why this one</b>How far down the loop each tester actually got. Someone who never recorded a cat is telling you something completely different from someone who registered five — and their answers to 2–5 have to be read differently. The last two options are the ones you most need to count.</p>
-  </section>
-
-  <!-- Q2 -->
-  <section class="q">
-    <div class="q-head">
-      <span class="num">2</span>
-      <span class="kinds"><span class="kind">Single choice, 1–5</span><span class="kind">Required</span></span>
-    </div>
-    <div class="lang-en">
-      <p class="qtext">How easy was it to record one cat, from opening the app to finishing?</p>
+      <p class="qtext">How easy was it to record a cat?</p>
+      <p class="qhint">From opening the app to finishing — photo, where you saw it, done.</p>
       <div class="scale">
         <span><b>1</b>Very hard</span>
         <span><b>2</b>Hard</span>
@@ -286,9 +246,14 @@
         <span><b>4</b>Easy</span>
         <span><b>5</b>Very easy</span>
       </div>
+      <div class="reason">
+        <em>What made it that easy, or that hard?</em>
+        <small>Long text · optional</small>
+      </div>
     </div>
     <div class="lang-el" hidden>
-      <p class="qtext">Πόσο εύκολο ήταν να καταγράψετε μια γάτα, από το άνοιγμα της εφαρμογής μέχρι το τέλος;</p>
+      <p class="qtext">Πόσο εύκολο ήταν να καταγράψετε μια γάτα;</p>
+      <p class="qhint">Από το άνοιγμα της εφαρμογής μέχρι το τέλος — φωτογραφία, πού την είδατε, τέλος.</p>
       <div class="scale">
         <span><b>1</b>Πολύ δύσκολο</span>
         <span><b>2</b>Δύσκολο</span>
@@ -296,99 +261,172 @@
         <span><b>4</b>Εύκολο</span>
         <span><b>5</b>Πολύ εύκολο</span>
       </div>
+      <div class="reason">
+        <em>Τι το έκανε τόσο εύκολο, ή τόσο δύσκολο;</em>
+        <small>Ελεύθερο κείμενο · προαιρετικό</small>
+      </div>
     </div>
-    <p class="why"><b>Why this one</b>The single number you can track. Ask it again a month after launch and the difference tells you whether the October fixes worked. Words on every point, not just the ends, so a 3 means the same thing to every tester.</p>
+    <p class="why"><b>Why this one</b>The whole product is this one loop repeated. If it scores below 4, nothing else on the list matters yet. No "didn't get this far" option here on purpose — someone who could not complete it scores it a 1, and that is exactly the answer you need.</p>
+  </section>
+
+  <!-- Q2 -->
+  <section class="q">
+    <div class="q-head">
+      <span class="num">2</span>
+      <span class="measures">Matching accuracy</span>
+    </div>
+    <div class="lang-en">
+      <p class="qtext">How well did the app recognise the cats?</p>
+      <p class="qhint">When it decided whether it had met that cat before, how often did it get it right?</p>
+      <div class="scale">
+        <span><b>1</b>Wrong most times</span>
+        <span><b>2</b>Often wrong</span>
+        <span><b>3</b>About half</span>
+        <span><b>4</b>Usually right</span>
+        <span><b>5</b>Right every time</span>
+      </div>
+      <p class="escape"><i></i>I did not get as far as this</p>
+      <div class="reason">
+        <em>When it got a cat wrong, what happened?</em>
+        <small>Long text · optional</small>
+      </div>
+    </div>
+    <div class="lang-el" hidden>
+      <p class="qtext">Πόσο καλά αναγνώριζε η εφαρμογή τις γάτες;</p>
+      <p class="qhint">Όταν αποφάσιζε αν είχε συναντήσει ξανά αυτή τη γάτα, πόσο συχνά είχε δίκιο;</p>
+      <div class="scale">
+        <span><b>1</b>Λάθος συνήθως</span>
+        <span><b>2</b>Συχνά λάθος</span>
+        <span><b>3</b>Περίπου στη μισή</span>
+        <span><b>4</b>Συνήθως σωστό</span>
+        <span><b>5</b>Σωστό κάθε φορά</span>
+      </div>
+      <p class="escape"><i></i>Δεν έφτασα ως εκεί</p>
+      <div class="reason">
+        <em>Όταν έκανε λάθος, τι έγινε;</em>
+        <small>Ελεύθερο κείμενο · προαιρετικό</small>
+      </div>
+    </div>
+    <p class="why"><b>Why this one</b>Recognition is the thing nobody else can check for you, and it is the one number worth a baseline before launch. The reason box is where you learn which way it fails — treating a known cat as new, or offering a cat that is plainly a different animal. Those need different fixes.</p>
   </section>
 
   <!-- Q3 -->
   <section class="q">
     <div class="q-head">
       <span class="num">3</span>
-      <span class="kinds"><span class="kind">Multi-select</span><span class="kind opt">+ long text, optional</span></span>
+      <span class="measures">Clarity and language</span>
     </div>
     <div class="lang-en">
-      <p class="qtext">Did any of these happen to you?</p>
-      <p class="qhint">Tick anything you hit, even once.</p>
-      <ul class="opts">
-        <li><span class="box"></span>It said there was no cat in the photo when there clearly was</li>
-        <li><span class="box"></span>It treated a cat I know is already in the app as a new cat</li>
-        <li><span class="box"></span>It suggested a cat that was obviously a different cat</li>
-        <li><span class="box"></span>The location was wrong, or it would not pick up my location</li>
-        <li><span class="box"></span>The camera or the photo would not work</li>
-        <li><span class="box"></span>It was slow, froze, or closed itself</li>
-        <li><span class="box"></span>I lost a sighting I thought I had saved</li>
-        <li><span class="box"></span>I was not sure what to do next</li>
-        <li><span class="box"></span>The wording was confusing, or the Greek was wrong</li>
-        <li><span class="box"></span>Nothing went wrong</li>
-      </ul>
-      <p class="field">Tell us what happened, in as much or as little detail as you like. Long text, optional.</p>
+      <p class="qtext">How clear was it what you were meant to do?</p>
+      <p class="qhint">Including whether the words made sense in your language.</p>
+      <div class="scale">
+        <span><b>1</b>Lost throughout</span>
+        <span><b>2</b>Often unsure</span>
+        <span><b>3</b>All right</span>
+        <span><b>4</b>Mostly clear</span>
+        <span><b>5</b>Completely clear</span>
+      </div>
+      <p class="escape"><i></i>I did not get as far as this</p>
+      <div class="reason">
+        <em>Which part lost you? Tell us about anything oddly worded or badly translated.</em>
+        <small>Long text · optional</small>
+      </div>
     </div>
     <div class="lang-el" hidden>
-      <p class="qtext">Σας συνέβη κάποιο από τα παρακάτω;</p>
-      <p class="qhint">Σημειώστε ό,τι συνέβη, ακόμα και μία φορά.</p>
-      <ul class="opts">
-        <li><span class="box"></span>Είπε ότι δεν υπάρχει γάτα στη φωτογραφία, ενώ υπήρχε</li>
-        <li><span class="box"></span>Είπε «καινούργια γάτα» για γάτα που ξέρω ότι είναι ήδη καταγεγραμμένη</li>
-        <li><span class="box"></span>Μου πρότεινε μια γάτα που ήταν προφανώς άλλη γάτα</li>
-        <li><span class="box"></span>Η τοποθεσία ήταν λάθος, ή δεν έβρισκε πού ήμουν</li>
-        <li><span class="box"></span>Η κάμερα ή η φωτογραφία δεν δούλεψε</li>
-        <li><span class="box"></span>Ήταν αργή, κόλλησε, ή έκλεισε μόνη της</li>
-        <li><span class="box"></span>Έχασα μια καταγραφή που νόμιζα ότι είχε αποθηκευτεί</li>
-        <li><span class="box"></span>Δεν ήμουν σίγουρος/η τι πρέπει να κάνω μετά</li>
-        <li><span class="box"></span>Τα κείμενα ήταν μπερδεμένα, ή τα ελληνικά λάθος</li>
-        <li><span class="box"></span>Δεν πήγε κάτι στραβά</li>
-      </ul>
-      <p class="field">Πείτε μας τι έγινε, με όσες λεπτομέρειες θέλετε. Ελεύθερο κείμενο, προαιρετικό.</p>
+      <p class="qtext">Πόσο ξεκάθαρο ήταν τι πρέπει να κάνετε;</p>
+      <p class="qhint">Μαζί με το αν τα κείμενα έβγαζαν νόημα στη γλώσσα σας.</p>
+      <div class="scale">
+        <span><b>1</b>Χαμένος/η παντού</span>
+        <span><b>2</b>Συχνά ανασφαλής</span>
+        <span><b>3</b>Εντάξει</span>
+        <span><b>4</b>Αρκετά ξεκάθαρο</span>
+        <span><b>5</b>Απόλυτα ξεκάθαρο</span>
+      </div>
+      <p class="escape"><i></i>Δεν έφτασα ως εκεί</p>
+      <div class="reason">
+        <em>Ποιο σημείο σας μπέρδεψε; Πείτε μας αν κάποιο κείμενο ήταν παράξενο ή κακομεταφρασμένο.</em>
+        <small>Ελεύθερο κείμενο · προαιρετικό</small>
+      </div>
     </div>
-    <p class="why"><b>Why this one</b>Pain points, made countable. The list prompts memory — people forget failures they worked around — and the first three options separate the two matching errors that need different fixes: missing a known cat, and offering a wrong one. The free text is where the reproducible bug reports come from.</p>
+    <p class="why"><b>Why this one</b>Two things at once, deliberately: the steps and the words. On an island where most testers are reading Greek and some are reading English, a low score here is usually translation rather than design — and the native-speaker review is already outstanding, so this tells you how urgent it is.</p>
   </section>
 
   <!-- Q4 -->
   <section class="q">
     <div class="q-head">
       <span class="num">4</span>
-      <span class="kinds"><span class="kind">Short text</span><span class="kind">Required</span></span>
+      <span class="measures">Reliability in the field</span>
     </div>
     <div class="lang-en">
-      <p class="qtext">If we could only fix or add one thing before the app goes live in October, what should it be?</p>
-      <p class="qhint">One thing. The one that would make the biggest difference to you.</p>
-      <p class="field">Short text, required.</p>
+      <p class="qtext">How well did it hold up while you were out?</p>
+      <p class="qhint">Speed, finding where you are, weak signal, and keeping the sightings you took.</p>
+      <div class="scale">
+        <span><b>1</b>Constant trouble</span>
+        <span><b>2</b>Frequent trouble</span>
+        <span><b>3</b>Some trouble</span>
+        <span><b>4</b>Nearly always fine</span>
+        <span><b>5</b>No trouble at all</span>
+      </div>
+      <p class="escape"><i></i>I did not get as far as this</p>
+      <div class="reason">
+        <em>What happened when it gave you trouble? Where were you when it did?</em>
+        <small>Long text · optional</small>
+      </div>
     </div>
     <div class="lang-el" hidden>
-      <p class="qtext">Αν μπορούσαμε να διορθώσουμε ή να προσθέσουμε μόνο ένα πράγμα πριν βγει η εφαρμογή τον Οκτώβριο, τι θα ήταν;</p>
-      <p class="qhint">Ένα πράγμα. Αυτό που θα έκανε τη μεγαλύτερη διαφορά για εσάς.</p>
-      <p class="field">Σύντομο κείμενο, υποχρεωτικό.</p>
+      <p class="qtext">Πόσο καλά άντεξε όσο ήσασταν έξω;</p>
+      <p class="qhint">Ταχύτητα, εύρεση της τοποθεσίας σας, αδύναμο σήμα, και διατήρηση των καταγραφών σας.</p>
+      <div class="scale">
+        <span><b>1</b>Συνεχώς πρόβλημα</span>
+        <span><b>2</b>Συχνά πρόβλημα</span>
+        <span><b>3</b>Κάποια προβλήματα</span>
+        <span><b>4</b>Σχεδόν πάντα καλά</span>
+        <span><b>5</b>Καθόλου πρόβλημα</span>
+      </div>
+      <p class="escape"><i></i>Δεν έφτασα ως εκεί</p>
+      <div class="reason">
+        <em>Τι συνέβη όταν είχε πρόβλημα; Πού βρισκόσασταν τότε;</em>
+        <small>Ελεύθερο κείμενο · προαιρετικό</small>
+      </div>
     </div>
-    <p class="why"><b>Why this one</b>Desired improvements, already prioritised. A "what would you like to see?" question returns a wishlist you cannot act on; forcing one answer makes the testers do the ranking, and whatever three or four people name independently is your October list.</p>
+    <p class="why"><b>Why this one</b>Everything that only shows up outdoors, in one score: speed, location, thin signal, and whether a sighting survived being taken with no connection. Asking where they were turns a complaint into something you can go and reproduce.</p>
   </section>
 
   <!-- Q5 -->
   <section class="q">
     <div class="q-head">
       <span class="num">5</span>
-      <span class="kinds"><span class="kind">Single choice</span><span class="kind opt">+ short text, optional</span></span>
+      <span class="measures">Worth and the one fix</span>
     </div>
     <div class="lang-en">
-      <p class="qtext">Would you recommend it to someone else on Syros who cares about the cats?</p>
-      <ul class="opts">
-        <li><span class="dot"></span>Yes — I already have</li>
-        <li><span class="dot"></span>Yes</li>
-        <li><span class="dot"></span>Not yet, but I would once it is finished</li>
-        <li><span class="dot"></span>No</li>
-      </ul>
-      <p class="field">What would have to change for that to be a clear yes? Short text, optional.</p>
+      <p class="qtext">How likely are you to recommend it to someone else on Syros who cares about the cats?</p>
+      <div class="scale">
+        <span><b>1</b>Not at all likely</span>
+        <span><b>2</b>Unlikely</span>
+        <span><b>3</b>Possibly</span>
+        <span><b>4</b>Likely</span>
+        <span><b>5</b>Very likely</span>
+      </div>
+      <div class="reason">
+        <em>What is the one thing that would move your score closer to 5?</em>
+        <small>Short text · required</small>
+      </div>
     </div>
     <div class="lang-el" hidden>
-      <p class="qtext">Θα την προτείνατε σε κάποιον άλλον στη Σύρο που νοιάζεται για τις γάτες;</p>
-      <ul class="opts">
-        <li><span class="dot"></span>Ναι — το έχω κάνει ήδη</li>
-        <li><span class="dot"></span>Ναι</li>
-        <li><span class="dot"></span>Όχι ακόμα, αλλά θα το έκανα όταν ολοκληρωθεί</li>
-        <li><span class="dot"></span>Όχι</li>
-      </ul>
-      <p class="field">Τι θα έπρεπε να αλλάξει για να γίνει ένα καθαρό «ναι»; Σύντομο κείμενο, προαιρετικό.</p>
+      <p class="qtext">Πόσο πιθανό είναι να την προτείνετε σε κάποιον άλλον στη Σύρο που νοιάζεται για τις γάτες;</p>
+      <div class="scale">
+        <span><b>1</b>Καθόλου πιθανό</span>
+        <span><b>2</b>Μάλλον όχι</span>
+        <span><b>3</b>Ίσως</span>
+        <span><b>4</b>Μάλλον ναι</span>
+        <span><b>5</b>Πολύ πιθανό</span>
+      </div>
+      <div class="reason">
+        <em>Ποιο είναι το ένα πράγμα που θα ανέβαζε τον βαθμό σας πιο κοντά στο 5;</em>
+        <small>Σύντομο κείμενο · υποχρεωτικό</small>
+      </div>
     </div>
-    <p class="why"><b>Why this one</b>The only question that asks whether the app is worth anything to them. "Already have" is the strongest signal in the survey — it is a thing they did, not a thing they predict. And the follow-up text catches the blocker people will not volunteer anywhere else.</p>
+    <p class="why"><b>Why this one</b>The only question that asks whether the app is worth anything to them, and the only reason box that is required. "One thing" rather than "what would you like" makes the testers do the ranking for you — whatever three or four of them name independently is your October list.</p>
   </section>
 
   <hr class="rule">
@@ -398,16 +436,16 @@
 
   <div class="msg" id="msg-en">
     <p>Hello everyone — thank you for testing the cat app these past weeks.</p>
-    <p>Five quick questions about how it went, around two minutes, and it is anonymous: <span class="link">[SURVEY LINK]</span></p>
-    <p>If something did not work, that is the most useful thing you can tell us — we are fixing things before it goes live in October. Please answer even if you only opened it once.</p>
+    <p>Five questions about how it went: a score out of five each, and room to say why. Around two minutes, and it is anonymous: <span class="link">[SURVEY LINK]</span></p>
+    <p>Low scores are more useful to us than kind ones — we are fixing things before it goes live in October. Please answer even if you only opened it once.</p>
     <p>Thank you, Samuel</p>
     <button class="copy" type="button" data-copy="msg-en">Copy message</button>
   </div>
 
   <div class="msg" id="msg-el" hidden>
     <p>Γεια σας — ευχαριστούμε πολύ που δοκιμάσατε την εφαρμογή για τις γάτες αυτές τις εβδομάδες.</p>
-    <p>Πέντε γρήγορες ερωτήσεις για το πώς σας φάνηκε, περίπου δύο λεπτά, και είναι ανώνυμες: <span class="link">[ΣΥΝΔΕΣΜΟΣ]</span></p>
-    <p>Αν κάτι δεν δούλεψε, αυτό είναι το πιο χρήσιμο που μπορείτε να μας πείτε — διορθώνουμε πράγματα πριν βγει επίσημα τον Οκτώβριο. Απαντήστε ακόμα κι αν την ανοίξατε μόνο μία φορά.</p>
+    <p>Πέντε ερωτήσεις για το πώς σας φάνηκε: μια βαθμολογία από το 1 έως το 5 σε κάθε μία, και χώρος να μας πείτε γιατί. Περίπου δύο λεπτά, και είναι ανώνυμο: <span class="link">[ΣΥΝΔΕΣΜΟΣ]</span></p>
+    <p>Οι χαμηλοί βαθμοί μας είναι πιο χρήσιμοι από τους ευγενικούς — διορθώνουμε πράγματα πριν βγει επίσημα τον Οκτώβριο. Απαντήστε ακόμα κι αν την ανοίξατε μόνο μία φορά.</p>
     <p>Ευχαριστούμε, Σαμουήλ</p>
     <button class="copy" type="button" data-copy="msg-el">Αντιγραφή μηνύματος</button>
   </div>
@@ -415,41 +453,46 @@
   <hr class="rule">
 
   <h2>Build sheet</h2>
-  <p class="lede">Field types, in order, for whichever form tool you use.</p>
+  <p class="lede">Ten fields, five pairs, in this order.</p>
   <div class="sheet">
     <table>
       <thead>
-        <tr><th>Q</th><th>Field type</th><th>Rules</th></tr>
+        <tr><th>Field</th><th>Type</th><th>Rules</th></tr>
       </thead>
       <tbody>
-        <tr><td class="qn">1</td><td>Checkboxes, 10 options</td><td>Required · do not shuffle · no "other"</td></tr>
-        <tr><td class="qn">2</td><td>Linear scale 1–5, labelled ends</td><td>Required · label every point in the question text</td></tr>
-        <tr><td class="qn">3</td><td>Checkboxes, 10 options</td><td>Required · "Nothing went wrong" clears the rest</td></tr>
+        <tr><td class="qn">1</td><td>Multiple choice, 5 rows</td><td>Required · label every row, not just the ends</td></tr>
+        <tr><td class="qn">1b</td><td>Paragraph text</td><td>Optional</td></tr>
+        <tr><td class="qn">2</td><td>Multiple choice, 5 rows + "did not get this far"</td><td>Required</td></tr>
+        <tr><td class="qn">2b</td><td>Paragraph text</td><td>Optional</td></tr>
+        <tr><td class="qn">3</td><td>Multiple choice, 5 rows + "did not get this far"</td><td>Required</td></tr>
         <tr><td class="qn">3b</td><td>Paragraph text</td><td>Optional</td></tr>
-        <tr><td class="qn">4</td><td>Short answer</td><td>Required</td></tr>
-        <tr><td class="qn">5</td><td>Multiple choice, 4 options</td><td>Required</td></tr>
-        <tr><td class="qn">5b</td><td>Short answer</td><td>Optional</td></tr>
+        <tr><td class="qn">4</td><td>Multiple choice, 5 rows + "did not get this far"</td><td>Required</td></tr>
+        <tr><td class="qn">4b</td><td>Paragraph text</td><td>Optional</td></tr>
+        <tr><td class="qn">5</td><td>Multiple choice, 5 rows</td><td>Required</td></tr>
+        <tr><td class="qn">5b</td><td>Short answer</td><td><b>Required</b> — the only compulsory text box</td></tr>
       </tbody>
     </table>
   </div>
   <ol class="notes">
-    <li><b>Two forms, not one bilingual form.</b> A language question at the top costs a question you do not have spare, and mixed-language option lists get mis-ticked. Send both links in the same WhatsApp message and merge the responses afterwards.</li>
-    <li><b>No email field, no name field.</b> Email capture is a designed, purposeful moment inside the app — bolting it onto a feedback form is how you teach people the app collects things quietly. If you want to follow up, add one optional line at the end saying so, and say what for.</li>
+    <li><b>Multiple choice, not a linear scale.</b> A Google Forms linear scale only labels the two ends and will not take the "did not get this far" option. Five labelled rows cost nothing extra to tap and mean a 3 means the same thing to every tester.</li>
+    <li><b>Two forms, English and Greek, both links in one message.</b> A language question at the top costs a question you do not have spare, and mixed-language answer rows get mis-tapped. Merge the responses afterwards.</li>
+    <li><b>No email or name field.</b> Email capture is a designed, purposeful moment inside the app — bolting it onto a feedback form is how you teach people the app collects things quietly.</li>
     <li><b>The Greek needs a native read before you send it.</b> It is faithful, but a tester survey is the wrong place to discover a clumsy phrase, and the Greek and French review is already an open item.</li>
-    <li><b>Leave it open a week, then chase once.</b> A group like this answers in the first day or not at all; one reminder roughly doubles the count, a second one annoys people you need.</li>
+    <li><b>Open for a week, one reminder.</b> A group like this answers on the first day or not at all; one nudge roughly doubles the count, a second annoys people you need.</li>
   </ol>
 
   <hr class="rule">
 
   <h2>Reading the answers</h2>
   <ol class="notes">
-    <li><b>Count question 1 first.</b> Everyone who ticked only "opened it but never recorded a cat" or "could not get it to open" is the number that matters most — that is the share of willing, motivated people the app lost at the door.</li>
-    <li><b>Question 3's first three options are a matching score.</b> Read them against the number of people who actually recorded cats, not against the total, or you will flatter the matching.</li>
-    <li><b>Question 4 answers cluster or they do not.</b> Three or more testers naming the same thing is a launch blocker; a scatter of singletons means the basics are sound and those go to the backlog.</li>
-    <li><b>A low score in question 2 from someone who ticked plenty in question 1 is the most valuable respondent you have.</b> They pushed through difficulty rather than giving up — go and talk to them directly.</li>
+    <li><b>Count the "did not get this far" answers first.</b> They are your drop-off: motivated people who never reached matching, never got outdoors with it, or never understood it. A high count on question 2 means the problem is upstream in question 1's loop, whatever question 1 scored.</li>
+    <li><b>Average questions 2 and 4 only over the people who actually got there.</b> Counting a "did not get this far" as a zero, or leaving it out of the denominator by accident, will flatter or wreck the number either way.</li>
+    <li><b>Question 1 below 4 outranks everything.</b> The whole product is that loop repeated, so a weak score there makes the other four academic until it is fixed.</li>
+    <li><b>Question 5's text clusters or it does not.</b> Three or more testers naming the same thing is a launch blocker; a scatter of singletons means the basics hold and those go to the backlog.</li>
+    <li><b>Hunt for the split scores.</b> Someone who scored question 1 low and question 5 high pushed through real difficulty because they want this to exist — go and talk to them directly. They are worth more than the averages.</li>
   </ol>
 
-  <footer>Prepared 25 September 2026 · covers the pre-MVP build being tested on Syros: photograph a cat, match or register it, catalogue, map, points and badges, offline queue, English / Greek / French.</footer>
+  <footer>Prepared 25 September 2026 · covers the pre-MVP build being tested on Syros: photograph a cat, match it or register it, name it, catalogue, map, points and badges, offline queue, English / Greek / French.</footer>
 </div>
 
 <script>
@@ -487,11 +530,6 @@
           btn.textContent = msg;
           setTimeout(function () { btn.textContent = original; }, 2200);
         }
-        try {
-          navigator.clipboard.writeText(text).then(function () {
-            done(btn.getAttribute('data-copy') === 'msg-el' ? 'Αντιγράφηκε' : 'Copied');
-          }, function () { select(); });
-        } catch (e) { select(); }
         function select() {
           try {
             var r = document.createRange();
@@ -502,6 +540,11 @@
             done('Selected — copy it');
           } catch (err) { done('Select the text above'); }
         }
+        try {
+          navigator.clipboard.writeText(text).then(function () {
+            done(btn.getAttribute('data-copy') === 'msg-el' ? 'Αντιγράφηκε' : 'Copied');
+          }, select);
+        } catch (e) { select(); }
       });
     });
   })();
