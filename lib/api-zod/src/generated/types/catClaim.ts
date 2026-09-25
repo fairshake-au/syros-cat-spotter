@@ -9,11 +9,6 @@
 export interface CatClaim {
   /** @minLength 1 */
   deviceId: string;
-  /**
-     * @minLength 1
-     * @maxLength 60
-     */
-  ownerName: string;
   /** @maxLength 200 */
   homeDescription: string;
 }

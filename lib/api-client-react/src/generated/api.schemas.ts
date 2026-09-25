@@ -90,6 +90,8 @@ export interface Cat {
      * @nullable
      */
   homeDescription?: string | null;
+  /** Whether a resident has claimed this cat as having a home */
+  hasHome: boolean;
 }
 
 export interface CatRegistration {
@@ -114,11 +116,6 @@ export interface CatRegistration {
 export interface CatClaim {
   /** @minLength 1 */
   deviceId: string;
-  /**
-     * @minLength 1
-     * @maxLength 60
-     */
-  ownerName: string;
   /** @maxLength 200 */
   homeDescription: string;
 }

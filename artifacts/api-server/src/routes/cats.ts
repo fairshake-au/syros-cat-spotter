@@ -69,6 +69,7 @@ async function catPayload(
     discovererUsername: profile?.username ?? null,
     ownerName: cat.ownerName,
     homeDescription: cat.homeDescription,
+    hasHome: cat.ownerDeviceId !== null,
   };
 }
 
@@ -254,7 +255,6 @@ router.post("/cats/:catId/claim", async (req, res) => {
       .update(catsTable)
       .set({
         ownerDeviceId: body.deviceId,
-        ownerName: body.ownerName.trim().slice(0, 60),
         homeDescription: body.homeDescription.trim().slice(0, 200),
       })
       .where(and(eq(catsTable.id, catId), isNull(catsTable.ownerDeviceId)))
@@ -270,7 +270,7 @@ router.post("/cats/:catId/claim", async (req, res) => {
     // Fire-and-forget: never blocks or fails the response.
     void notifyCatSpotters(catId, body.deviceId, {
       title: `${updated.name} has a home!`,
-      body: `${updated.ownerName} claimed ${updated.name}. ${updated.homeDescription ?? ""}`.trim(),
+      body: `${updated.name} has been claimed by a resident. ${updated.homeDescription ?? ""}`.trim(),
       data: { type: "cat_claimed", catId },
     });
   }
@@ -331,8 +331,8 @@ router.patch("/cats/:catId", async (req, res) => {
         ? `${cat.name} is now ${updated.name}!`
         : `${updated.name} has an update`,
       body: renamed
-        ? `${updated.ownerName} renamed their cat.`
-        : `${updated.ownerName} updated ${updated.name}'s home details.`,
+        ? `${updated.name}'s owner renamed their cat.`
+        : `${updated.name}'s home details were updated by their owner.`,
       data: { type: "cat_updated", catId },
     });
   }

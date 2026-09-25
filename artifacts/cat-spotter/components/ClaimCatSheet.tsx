@@ -27,8 +27,9 @@ import { useDevice } from '@/context/DeviceContext';
 type Mode = 'claim' | 'edit';
 
 /**
- * Bottom sheet for claiming a cat (owner name + home description) or, for the
- * cat's owner, renaming it and updating the home description.
+ * Bottom sheet for claiming a cat (home description only — the app never asks
+ * who the owner is) or, for the cat's owner, renaming it and updating the
+ * home description.
  */
 export function ClaimCatSheet({
   visible,
@@ -44,10 +45,9 @@ export function ClaimCatSheet({
   const colors = useColors();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { deviceId, username, addOwnedCat } = useDevice();
+  const { deviceId, addOwnedCat } = useDevice();
   const queryClient = useQueryClient();
 
-  const [ownerName, setOwnerName] = useState('');
   const [homeDescription, setHomeDescription] = useState('');
   const [catName, setCatName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +55,11 @@ export function ClaimCatSheet({
   // Re-seed fields each time the sheet opens.
   useEffect(() => {
     if (visible) {
-      setOwnerName(cat.ownerName ?? username ?? '');
       setHomeDescription(cat.homeDescription ?? '');
       setCatName(cat.name);
       setError(null);
     }
-  }, [visible, cat, username]);
+  }, [visible, cat]);
 
   const onSuccess = (updated: Cat) => {
     if (mode === 'claim') addOwnedCat(updated.id);
@@ -85,14 +84,13 @@ export function ClaimCatSheet({
   const update = useUpdateCat({ mutation: { onSuccess, onError } });
   const isPending = claim.isPending || update.isPending;
 
-  const trimmedOwner = ownerName.trim();
   const trimmedHome = homeDescription.trim();
   const trimmedCatName = catName.trim();
   const canSubmit =
     !!deviceId &&
     !isPending &&
     (mode === 'claim'
-      ? trimmedOwner.length > 0 && trimmedHome.length > 0
+      ? trimmedHome.length > 0
       : trimmedCatName.length > 0 && trimmedHome.length > 0);
 
   const submit = () => {
@@ -101,7 +99,7 @@ export function ClaimCatSheet({
     if (mode === 'claim') {
       claim.mutate({
         catId: cat.id,
-        data: { deviceId, ownerName: trimmedOwner, homeDescription: trimmedHome },
+        data: { deviceId, homeDescription: trimmedHome },
       });
     } else {
       update.mutate({
@@ -145,28 +143,7 @@ export function ClaimCatSheet({
               </Text>
             ) : null}
 
-            {mode === 'claim' ? (
-              <View style={styles.field}>
-                <Text style={[styles.label, { color: colors.foreground }]}>
-                  {t('ownerNameLabel')}
-                </Text>
-                <TextInput
-                  value={ownerName}
-                  onChangeText={setOwnerName}
-                  placeholder={t('ownerNamePlaceholder')}
-                  placeholderTextColor={colors.mutedForeground}
-                  maxLength={60}
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                      color: colors.foreground,
-                    },
-                  ]}
-                />
-              </View>
-            ) : (
+            {mode === 'edit' && (
               <View style={styles.field}>
                 <Text style={[styles.label, { color: colors.foreground }]}>
                   {t('catNameLabel')}

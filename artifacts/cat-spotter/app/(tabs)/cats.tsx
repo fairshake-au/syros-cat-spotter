@@ -91,7 +91,7 @@ export default function CatalogScreen() {
         // distanceKm is only present when the list was fetched with coords.
         return c.distanceKm != null && c.distanceKm <= NEARBY_KM;
       }
-      if (filter === 'homed') return !!c.ownerName;
+      if (filter === 'homed') return c.hasHome;
       return true;
     });
   }, [cats, search, filter]);

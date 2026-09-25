@@ -18,7 +18,7 @@ const SNAPSHOT_KEY = 'cat-spotter/ownership-snapshot';
 
 interface OwnershipSnapshotEntry {
   name: string;
-  ownerName: string | null;
+  hasHome: boolean;
 }
 
 type Snapshot = Record<string, OwnershipSnapshotEntry>;
@@ -73,7 +73,7 @@ export function OwnershipNoticeBanner() {
       for (const cat of cats) {
         next[String(cat.id)] = {
           name: cat.name,
-          ownerName: cat.ownerName ?? null,
+          hasHome: cat.hasHome,
         };
       }
       await AsyncStorage.setItem(SNAPSHOT_KEY, JSON.stringify(next));
@@ -85,8 +85,14 @@ export function OwnershipNoticeBanner() {
         if (ownedCatIds.includes(cat.id)) continue; // own claims
         const before = prev[String(cat.id)];
         if (!before) continue; // never seen this cat before
-        const newlyClaimed = !before.ownerName && !!cat.ownerName;
-        const renamedWhileOwned = !!cat.ownerName && before.name !== cat.name;
+        // Snapshots written before the owner-name removal stored `ownerName`
+        // instead of `hasHome`; treat those as homed to avoid a false
+        // "now has a home!" banner right after the app update.
+        const beforeHasHome =
+          before.hasHome ??
+          !!(before as { ownerName?: string | null }).ownerName;
+        const newlyClaimed = !beforeHasHome && cat.hasHome;
+        const renamedWhileOwned = cat.hasHome && before.name !== cat.name;
         if (newlyClaimed || renamedWhileOwned) {
           setNotice({ catId: cat.id, name: cat.name });
           return; // one banner at a time is enough

@@ -52,6 +52,7 @@ export interface CatWithStats {
   discovererNickname: string | null;
   ownerName: string | null;
   homeDescription: string | null;
+  hasHome: boolean;
   discovererUsername: string | null;
 }
 
@@ -97,6 +98,7 @@ export async function listCatsWithStats(
       discovererNickname: r.discovererNickname ?? null,
       ownerName: r.cat.ownerName,
       homeDescription: r.cat.homeDescription,
+      hasHome: r.cat.ownerDeviceId !== null,
       discovererUsername: r.discovererUsername ?? null,
     };
     if (lat !== undefined && lng !== undefined) {
