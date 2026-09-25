@@ -115,7 +115,7 @@ export default function CatDetailScreen() {
   const { cat, sightings } = data;
   const fansCount = data.fansCount;
   const careTimeline = data.careTimeline;
-  const isClaimed = !!cat.ownerName;
+  const isClaimed = cat.hasHome;
   const isOwner = isClaimed && ownedCatIds.includes(cat.id);
   const isDesexed = (careTimeline ?? []).some((e) => e.type === 'desexed');
   const dash = '—';
@@ -234,7 +234,7 @@ export default function CatDetailScreen() {
 
           {isClaimed ? (
             <OwnershipBanner
-              ownerName={cat.ownerName!}
+              ownerName={cat.ownerName}
               homeDescription={cat.homeDescription}
             />
           ) : (

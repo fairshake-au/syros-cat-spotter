@@ -29,4 +29,6 @@ export interface Cat {
      * @nullable
      */
   homeDescription?: string | null;
+  /** Whether a resident has claimed this cat as having a home */
+  hasHome: boolean;
 }

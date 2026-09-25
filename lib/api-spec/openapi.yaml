@@ -546,8 +546,11 @@ components:
         homeDescription:
           type: ["string", "null"]
           description: Where the cat lives, as described by its owner
+        hasHome:
+          type: boolean
+          description: Whether a resident has claimed this cat as having a home
       required:
-        [id, name, description, photoUrl, lat, lng, sightingsCount, lastSeenAt]
+        [id, name, description, photoUrl, lat, lng, sightingsCount, lastSeenAt, hasHome]
     CatRegistration:
       type: object
       properties:
@@ -562,9 +565,8 @@ components:
       type: object
       properties:
         deviceId: { type: string, minLength: 1 }
-        ownerName: { type: string, minLength: 1, maxLength: 60 }
         homeDescription: { type: string, maxLength: 200 }
-      required: [deviceId, ownerName, homeDescription]
+      required: [deviceId, homeDescription]
     CatOwnerUpdate:
       type: object
       properties:

@@ -51,7 +51,8 @@ export const RegisterCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
 })
 
 
@@ -77,7 +78,8 @@ export const ListCatsResponseItem = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
 })
 export const ListCatsResponse = zod.array(ListCatsResponseItem)
 
@@ -104,7 +106,8 @@ export const GetCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
 }),
   "sightings": zod.array(zod.object({
   "id": zod.number(),
@@ -160,7 +163,8 @@ export const UpdateCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
 })
 
 
@@ -172,15 +176,12 @@ export const ClaimCatParams = zod.object({
 })
 
 
-export const claimCatBodyOwnerNameMax = 60;
-
 export const claimCatBodyHomeDescriptionMax = 200;
 
 
 
 export const ClaimCatBody = zod.object({
   "deviceId": zod.string().min(1),
-  "ownerName": zod.string().min(1).max(claimCatBodyOwnerNameMax),
   "homeDescription": zod.string().max(claimCatBodyHomeDescriptionMax)
 })
 
@@ -198,7 +199,8 @@ export const ClaimCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
 })
 
 
@@ -275,7 +277,8 @@ export const ResolveSightingResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner')
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
 }),
   "pointsAwarded": zod.number(),
   "isNewCat": zod.boolean(),

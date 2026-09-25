@@ -101,11 +101,12 @@ describe("POST /api/cats/:catId/claim", () => {
       .post(`/api/cats/${cat.id}/claim`)
       .send({
         deviceId: device("owner1"),
-        ownerName: "Maria",
         homeDescription: "Blue door near the port",
       });
     expect(res.status).toBe(200);
-    expect(res.body.ownerName).toBe("Maria");
+    // Claiming never records who the owner is — only that the cat has a home.
+    expect(res.body.ownerName).toBeNull();
+    expect(res.body.hasHome).toBe(true);
     expect(res.body.homeDescription).toBe("Blue door near the port");
     expect(notifyCatSpottersMock).toHaveBeenCalledWith(
       cat.id,
@@ -126,7 +127,6 @@ describe("POST /api/cats/:catId/claim", () => {
       .post(`/api/cats/${cat.id}/claim`)
       .send({
         deviceId: device("owner2"),
-        ownerName: "Nikos Again",
         homeDescription: "Different text",
       });
     expect(res.status).toBe(200);
@@ -146,7 +146,6 @@ describe("POST /api/cats/:catId/claim", () => {
       .post(`/api/cats/${cat.id}/claim`)
       .send({
         deviceId: device("intruder"),
-        ownerName: "Not The Owner",
         homeDescription: "",
       });
     expect(res.status).toBe(409);
@@ -159,7 +158,7 @@ describe("POST /api/cats/:catId/claim", () => {
     const claim = (suffix: string) =>
       request(app)
         .post(`/api/cats/${cat.id}/claim`)
-        .send({ deviceId: device(suffix), ownerName: suffix, homeDescription: "" });
+        .send({ deviceId: device(suffix), homeDescription: "" });
     const [r1, r2] = await Promise.all([claim("race1"), claim("race2")]);
     expect([r1.status, r2.status].sort()).toEqual([200, 409]);
   });
@@ -168,7 +167,7 @@ describe("POST /api/cats/:catId/claim", () => {
     for (const id of ["999999999", "not-a-number"]) {
       const res = await request(app)
         .post(`/api/cats/${id}/claim`)
-        .send({ deviceId: device("x"), ownerName: "X", homeDescription: "" });
+        .send({ deviceId: device("x"), homeDescription: "" });
       expect(res.status).toBe(404);
     }
   });

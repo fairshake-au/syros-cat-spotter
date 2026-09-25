@@ -38,7 +38,7 @@ export function CatCard({ cat }: { cat: Cat }) {
           contentFit="cover"
           transition={200}
         />
-        {!!cat.ownerName && (
+        {cat.hasHome && (
           <View style={[styles.homeBadge, { backgroundColor: colors.primary }]}>
             <Feather name="home" size={12} color={colors.primaryForeground} />
           </View>
