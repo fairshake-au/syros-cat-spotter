@@ -251,7 +251,9 @@ export default function SpotScreen() {
         directPhoto &&
         directPhoto.base64.length * 0.75 <= MAX_UPLOAD_BYTES
           ? directPhoto
-          : await shrink(capture.uri);
+          : // Shrink from the normalised uri, not the raw capture: on web the
+            // raw one is the whole image inlined as a data URL.
+            await shrink(directPhoto?.uri ?? capture.uri);
       setPhoto(picked);
       setCapturedAt(new Date().toISOString());
     } catch {

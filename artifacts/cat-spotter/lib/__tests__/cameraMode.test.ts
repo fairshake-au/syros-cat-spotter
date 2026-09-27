@@ -4,6 +4,7 @@ import {
   cameraCaptureToPhoto,
   getCameraMode,
   shutterKindFor,
+  splitDataUrl,
 } from '../cameraMode';
 
 describe('getCameraMode', () => {
@@ -91,6 +92,92 @@ describe('shutterKindFor', () => {
   // A 'picker'-always implementation must fail here, not just the live case.
   it('does not fall back to the picker while the preview is usable', () => {
     expect(shutterKindFor('ready', false, true)).not.toBe('picker');
+  });
+});
+
+describe('splitDataUrl', () => {
+  it('splits a data URL into media type and bare payload', () => {
+    expect(splitDataUrl('data:image/png;base64,AAAA')).toEqual({
+      mediaType: 'image/png',
+      base64: 'AAAA',
+    });
+  });
+
+  it('leaves a bare payload alone', () => {
+    expect(splitDataUrl('AAAA')).toEqual({ mediaType: null, base64: 'AAAA' });
+  });
+
+  it('does not mistake a file path for a data URL', () => {
+    expect(splitDataUrl('file:///camera/cat.jpg')).toEqual({
+      mediaType: null,
+      base64: 'file:///camera/cat.jpg',
+    });
+  });
+});
+
+// This is the crash guard. expo-camera on web returns the ENTIRE image as a
+// data URL in both `uri` and `base64`. `submit()` puts the uri in a router
+// param, and expo-router carries params in the browser URL — so an unnormalised
+// capture put a multi-megabyte photograph into the address bar and killed the
+// tab the moment a tester pressed "check for matches".
+describe('cameraCaptureToPhoto — web data URLs (SYC-73)', () => {
+  const webCapture = {
+    uri: 'data:image/png;base64,QUJDRA==',
+    base64: 'data:image/png;base64,QUJDRA==',
+  };
+  const stubObjectUrl = () => 'blob:http://localhost/abc-123';
+
+  it('never returns a data URL as the uri', () => {
+    const photo = cameraCaptureToPhoto(webCapture, stubObjectUrl);
+    expect(photo?.uri.startsWith('data:')).toBe(false);
+    expect(photo?.uri).toBe('blob:http://localhost/abc-123');
+  });
+
+  it('strips the data-URL prefix off the base64 payload', () => {
+    const photo = cameraCaptureToPhoto(webCapture, stubObjectUrl);
+    expect(photo?.base64).toBe('QUJDRA==');
+    expect(photo?.base64.startsWith('data:')).toBe(false);
+  });
+
+  it('keeps the uri small enough to survive a router param', () => {
+    // A real capture is hundreds of KB to megabytes. Whatever the payload size,
+    // the uri handed onward must not scale with it.
+    const big = 'A'.repeat(200_000);
+    const photo = cameraCaptureToPhoto(
+      { uri: `data:image/png;base64,${big}`, base64: `data:image/png;base64,${big}` },
+      stubObjectUrl,
+    );
+    expect(photo?.uri.length).toBeLessThan(200);
+  });
+
+  it('passes the real media type through to the object URL', () => {
+    const seen: string[] = [];
+    cameraCaptureToPhoto(webCapture, (_b64, mediaType) => {
+      seen.push(mediaType);
+      return 'blob:x';
+    });
+    expect(seen).toEqual(['image/png']);
+  });
+
+  it('falls back to the original uri when object URLs are unavailable', () => {
+    const photo = cameraCaptureToPhoto(webCapture, () => null);
+    expect(photo?.uri).toBe(webCapture.uri);
+    // The base64 is still normalised even on the fallback path.
+    expect(photo?.base64).toBe('QUJDRA==');
+  });
+
+  it('leaves a native capture untouched', () => {
+    const photo = cameraCaptureToPhoto(
+      { uri: 'file:///camera/cat.jpg', base64: 'QUJDRA==' },
+      stubObjectUrl,
+    );
+    expect(photo).toEqual({ uri: 'file:///camera/cat.jpg', base64: 'QUJDRA==' });
+  });
+
+  it('rejects a capture whose payload is only a prefix', () => {
+    expect(
+      cameraCaptureToPhoto({ uri: 'x', base64: 'data:image/png;base64,' }, stubObjectUrl),
+    ).toBeNull();
   });
 });
 

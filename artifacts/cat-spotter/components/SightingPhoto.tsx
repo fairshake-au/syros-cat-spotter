@@ -20,7 +20,15 @@ export function SightingPhoto({ uri, base64, ...rest }: Props) {
     setFailed(false);
   }, [uri]);
 
-  const dataUri = base64 ? `data:image/jpeg;base64,${base64}` : undefined;
+  // Defensive: a stored base64 value that already carries its own data-URL
+  // prefix must not be prefixed again. Doubling it yields an unrenderable
+  // source and a blank thumbnail, which is what queued camera photos hit
+  // before the capture output was normalised (SYC-73).
+  const dataUri = base64
+    ? base64.startsWith('data:')
+      ? base64
+      : `data:image/jpeg;base64,${base64}`
+    : undefined;
   const source = !uri || failed ? dataUri : uri;
 
   return (
