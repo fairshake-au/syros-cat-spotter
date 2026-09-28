@@ -1,175 +1,218 @@
 # Offline queue on the web build — spec
 
 **Tickets:** SYC-76 (crash at "check for matches") · SYC-72 (camera hardening) · PR #9
-**Owns:** where the **web build** keeps queued sightings and their photos; how a photo reaches the review screen on every build; the one-off move of sightings already queued on testers' phones.
-**Supersedes:** [hosting-and-photo-storage.md](./hosting-and-photo-storage.md) §8 **for the web build only**. Native behaviour in §8 stands.
-**Relates to:** [DECISIONS.md](./DECISIONS.md) · SYC-71 (web capture resolution, accepted) · [the PR #9 review](https://github.com/fairshake-au/syros-cat-spotter/pull/9#issuecomment-5862678118)
-**Status:** Draft for Samuel's approval, 28 September 2026.
+**Owns:** how queued sightings are saved on every build; where the **web build** keeps their photos; how a photo reaches the review screen; the one-off move of sightings already queued on testers' phones; duplicate-upload protection on `POST /api/sightings`.
+**Supersedes:** [hosting-and-photo-storage.md](./hosting-and-photo-storage.md) §8 **for the web build only**. Native storage in §8 stands.
+**Relates to:** [DECISIONS.md](./DECISIONS.md) · SYC-71 (web capture resolution, accepted) · [PR #9 review](https://github.com/fairshake-au/syros-cat-spotter/pull/9#issuecomment-5862678118)
+**Status:** Draft v2 for Samuel's approval, 28 September 2026. v1 was broken by [the adversarial review](./reviews/offline-queue-on-web-review.md): its central promise, that nothing could be lost, was false as designed. This version is rebuilt around the review's findings.
 
 ---
 
 ## 1. The short version
 
-**The problem.** On the web version, which is what every tester uses, the app keeps queued sightings — photos included — in a small corner of browser storage that holds about 5 MB. One full-size phone photo fills it. When it is full the app does not say so: it shows the sighting as queued, keeps the photo on screen, and every save after that fails too. Sightings can be lost, or sent twice. The design assumed the web version was only a preview, which was true when it was written and is not true now.
+**The problem.** On the web version, which is what every tester uses, queued sightings and their photos are kept in a corner of browser storage that holds about 5 MB. One full-size phone photo fills it. When it is full, the app does not say so: it shows the sighting as queued, keeps the photo on screen, and every save after that fails too. Sightings can be lost, or sent twice.
 
-Separately, the app hands each photo to the results screen by writing it into the page address. That is the likely cause of the Chrome crash two testers hit.
+Underneath that is a problem on **every** version, the phone apps included. Several parts of the app save the queue independently, each from its own copy of the list, so they overwrite one another. If you finish reviewing a sighting while another is still uploading, the finished one comes back. If you discard one during an upload, it comes back.
 
-**The fix, in four parts.**
+Separately, the app hands each photo to the results screen by writing it into the page address — in three places, not the two PR #9 fixed. That is the likely cause of the Chrome crash.
 
-1. **Photos move to the browser's large storage** (called IndexedDB), which holds hundreds of megabytes rather than five. The list of queued sightings stays where it is, and becomes tiny.
-2. **Sightings already queued on testers' phones are moved across by code the app already has.** It copies each photo to the new place first, and removes the old copy only once the new one is confirmed. If the phone dies half way, it carries on next time the app opens. Nothing is thrown away before it is safely stored.
-3. **Saving becomes honest.** If a sighting cannot be saved, the app says so and keeps your photo on screen. It never again pretends.
-4. **The results screen gets the photo from the phone's own store**, by a short name, never through the page address.
+**The fix.**
 
-**What does not change.** The phone apps (which already work this way), the upload to the server, and what works without signal. Offline support stays partial: you can capture and queue sightings with no signal, but matching and everything else that needs the server waits for a connection.
+1. **One orderly way to save.** Every change to the queue goes through a single path, one change at a time, starting from the latest saved list rather than a stale copy. On the web it also stops two open tabs overwriting each other. This alone fixes the "sightings come back" bugs, on every version.
+2. **Photos move to the browser's large storage** (IndexedDB), which holds hundreds of megabytes. The list itself stays where it is and becomes tiny.
+3. **Before anything moves, the app keeps a complete backup** of every tester's queued sightings, photos included, for 30 days. Then it moves each photo, reads it back to check it arrived intact, and only then removes the old copy. A photo that fails to move stays exactly where it was. If the backup itself cannot be written, nothing moves.
+4. **Saving becomes honest.** If a sighting cannot be saved, the app says so and keeps your photo on screen.
+5. **The results screen gets the photo from the phone's own store,** by a short name — never through the page address, in any of the three places.
+6. **The server ignores a sighting it has already received.** Today, if the browser is closed mid-upload, the same sighting is sent again on reopening. That is likely, not rare: opening the phone's camera on a low-memory Android phone can close the browser behind it.
 
-**What we cannot promise.** Browsers are allowed to clear a website's storage — Chrome when a phone is nearly full, Safari on an iPhone if the site has not been opened for seven days. That is equally true today. We ask the browser to keep our data, and the app keeps showing how many sightings are waiting to send.
+**What does not change.** The server's upload and matching, the phone apps' photo storage, and what works without signal.
 
-**What is already gone.** A sighting that only ever existed in memory under the old bug never reached storage, so it cannot be recovered.
+**Be precise about offline.** On the web, the app queues a sighting only when the phone reports it has *no* connection. With one bar of signal it tries to send, fails, and today shows an error without saving. §5 R5 asks whether to add "Save and send later" for that case.
+
+**What we cannot promise.** Browsers may clear a website's storage — Chrome when a phone is nearly full, Safari on an iPhone if the site has not been opened for seven days. If a browser clears a photo but keeps the list, the app now says so plainly instead of calling the sighting "too old". A sighting that under the old bug only ever existed in memory never reached storage and cannot be recovered.
 
 ---
 
 ## 2. What is wrong today
 
-Every claim here was checked against the code on `origin/main` at `a577e70`.
+Checked against the code at `09de47f` (this branch, which carries `main` at `a577e70` plus PR #9).
 
-- **The storage is tiny.** On web, AsyncStorage is `window.localStorage` (async-storage 2.2.0, `src/AsyncStorage.ts`). Chromium accepted at most **5,242,240 characters** before throwing `QuotaExceededError` (measured).
-- **Photos live inside it.** `supportsPhotoFiles` is `Platform.OS !== 'web'` (`lib/pendingPhotos.ts:19`), so on web `savePendingPhoto` returns `null` and `enqueue` keeps the photo inline as base64 in the single queue record (`context/OfflineContext.tsx:251-271`). A 12 MP phone JPEG is roughly **4–6.7 million characters** as base64: one photo is at or over the cap.
-- **Failures corrupt state silently.** `persist()` updates memory *before* writing (`OfflineContext.tsx:143-147`), and the offline branch of `submit()` awaits `enqueue` outside any `try` (`app/(tabs)/spot.tsx:331-343`). A failed write leaves a queued item that exists only in memory, leaves the photo on screen (a second tap duplicates it), and makes every later write fail. A sighting that syncs but cannot be re-saved as "review" uploads again after a reload.
-- **Nobody is told.** `Alert.alert` is an empty function on react-native-web, so even the existing "queued offline" and error messages never appear.
-- **The move-to-files step skips web.** `migratePhotosToFiles` returns early when `supportsPhotoFiles` is false (`OfflineContext.tsx:80`).
-- **Photos travel through the route.** `submit()` and `reviewPending()` pass `photoUri` into `router.push` (`spot.tsx:364-375`, `389-401`), and expo-router carries params in the browser URL. Camera captures from before PR #9 carry the whole image there (SYC-76).
-- **The design says web is a preview.** `lib/pendingPhotos.ts:13-14` and `hosting-and-photo-storage.md` §8 both describe inline base64 as a web-preview fallback. For the test round, web is the primary channel.
+- **The web storage is tiny.** AsyncStorage on web is `window.localStorage` (async-storage 2.2.0, `src/AsyncStorage.ts`); Chromium accepted at most **5,242,240 characters** (measured). `supportsPhotoFiles` is `Platform.OS !== 'web'` (`lib/pendingPhotos.ts:19`), so on web every photo sits inline as base64 in the one queue record (`context/OfflineContext.tsx:251-271`). A 12 MP JPEG is about 4–6.7 million characters: one photo is at or over the cap.
+- **Several writers, each with its own copy.** `persist()` rewrites the whole list from whatever it was given and updates memory first (`OfflineContext.tsx:143-147`). `syncNow` copies the list once (`:157`) and saves that copy after every item (`:170, 200, 212, 220`), reverting anything done meanwhile. Writers read `pendingRef`, which is `[]` until the load finishes (`:114`). Every open tab does the same. **This is on every platform, today.**
+- **The load drops the queue on any error.** Its catch is `// corrupted queue — drop it` (`:137-139`); memory stays empty while storage stays full, and the next save overwrites storage.
+- **Failures are silent.** The offline branch of `submit()` awaits `enqueue` outside any `try` (`app/(tabs)/spot.tsx:331-343`), and `Alert.alert` is an empty function on react-native-web.
+- **Photos travel through the route, in three places:** `submit()` (`spot.tsx:364-375`), `reviewPending()` (`:389-401`) and `ReviewReadyBanner` (`components/ReviewReadyBanner.tsx:32-43`). Items queued by the pre-PR-#9 camera carry the whole image there (SYC-76).
+- **The server stores a sighting before matching it** (`artifacts/api-server/src/routes/sightings.ts:48` inserts, `:101` matches), and the client keeps the item "queued" until the response arrives. A page closed in that window re-uploads it.
+- **"Offline" on web means `navigator.onLine`** (`netinfo/src/internal/nativeModule.web.ts:111`), true on a weak connection.
+- **The design calls web a preview** (`lib/pendingPhotos.ts:13-14`; `hosting-and-photo-storage.md` §8). For the test round it is the primary channel.
 
 ---
 
 ## 3. Design
 
-### 3.1 A web photo store, behind the seam that already exists
+### 3.1 One write path — the foundation, on every platform
 
-`lib/pendingPhotos.ts` already abstracts photo storage: native writes files, web does nothing. This spec gives it a **web implementation backed by IndexedDB** and changes nothing about its callers' contract.
+All queue changes go through one function, **`mutate(change)`**, which:
 
-- **Database** `cat-spotter`, version 1, object store `photos`. Key: the photo id (the queue item's `localId`, or `review-<sightingId>`, see §3.4). Value: `{ type, bytes, savedAt }`, where `bytes` is an `ArrayBuffer`.
-- **Why `ArrayBuffer` rather than `Blob` or base64.** Base64 is a third larger. Blobs in IndexedDB have a history of quirks in Safari and in-app browsers; an `ArrayBuffer` is a plain structured-clone type that every engine stores reliably, at the same size as a Blob.
-- **Reference format** `idb:<id>`, stored in `photoUri` exactly where a native file path goes today.
-- `supportsPhotoFiles` is renamed `supportsDurablePhotos` and becomes true on web when an IndexedDB database can actually be opened (probed once, cached). In-app browsers that block IndexedDB keep today's inline behaviour (§3.3 makes its failures honest).
-- `savePendingPhoto` strips any data-URL prefix (`splitDataUrl`, already in `lib/cameraMode.ts`), decodes, and writes **in one transaction, resolving only on `complete`** — not on the request's `success`, which fires before the data is durable.
-- `readPendingPhotoBase64`, `deletePendingPhoto` and `cleanupOrphanPhotos` get web implementations.
-- New hook **`useStoredPhotoUri(ref)`**: returns `ref` unchanged on native, and on web creates an object URL from the stored bytes and **revokes it on unmount or when `ref` changes**. `SightingPhoto` and the review screen use it; nothing else creates object URLs from the store.
-- `navigator.storage.persist()` is requested once, on the first save. The browser may say no; nothing relies on it.
-- **No new dependency.** The raw IndexedDB API behind a small adapter interface, about a hundred lines. The lockfile is not touched.
+1. runs on a **single promise chain**, so changes happen one at a time in this tab;
+2. on web, runs inside **`navigator.locks.request('cat-spotter-queue', …)`** so two tabs take turns (Chrome 69+, Safari 15.4+, Firefox 96+; elsewhere the in-tab chain alone);
+3. **re-reads the latest saved list** from storage, applies `change` to it, writes it, and **only then** updates memory.
 
-IndexedDB was chosen over the Origin Private File System and the Cache Storage API because it has the widest support, including in the in-app browsers testers arrive through from email.
+`enqueue`, `remove`, `retry`, `replacePhoto` and every step of `syncNow` go through it. Nothing else writes the queue.
 
-### 3.2 Moving sightings already queued on testers' phones
+- **A load gate.** Loading the queue is the first job on the chain and resolves a `ready` promise. Every writer and `syncNow` wait for it, and the app calls `syncNow()` itself once loading finishes if it is online. While not ready, the Spot screen says "Loading your saved sightings" instead of showing none.
+- **Loading never empties the queue.** If anything fails after the list has been parsed, the parsed list still goes into memory. If the list cannot be parsed, the raw text is copied into the backup store (§3.3) and the queue becomes read-only for the session: saves fail with a clear message rather than overwriting it.
+- **`syncNow` changes only the item it just finished,** via `mutate(list => list.map(…))`, and skips any item no longer in the list. Each item has its own `try`, so one failure does not stop the others.
+- **After a successful upload, the new state always reaches memory.** If saving it fails, the queue is marked "unsaved" and the write is retried on the next change — so the sighting is never uploaded twice in one session.
+- **On web, only one tab uploads at a time,** via a second lock taken with `ifAvailable: true`. Each tab refreshes its list on the `storage` event.
+- **User-initiated changes fail honestly.** If `enqueue`, `remove` or `replacePhoto` cannot save, memory is left as it was and a `QueueWriteError` is thrown for the screen to report (§3.5).
 
-This reuses **`migratePhotosToFiles`, unchanged in shape**. It already runs on every app load and does nothing when no item carries an inline photo. Once §3.1 makes durable storage available on web, it starts working there.
+This fixes the pre-existing lost-update bugs on the phone apps as well as the web, and it is the first commit, before any storage change.
 
-**Order of operations, per load:**
+### 3.2 A web photo store, behind the seam that already exists
 
-1. For each item carrying inline base64, write the photo to the store and **wait for the transaction to commit**.
-2. Replace that item in the new list with its `idb:` reference, and drop its inline copy **from the new list only**.
-3. When every item has been attempted, write the new list to storage in one call.
+`lib/pendingPhotos.ts` already abstracts photo storage: native writes files, web does nothing. It gets a web implementation over IndexedDB.
 
-**Why nothing can be lost.** The old list — the one with every inline photo — stays in storage untouched until step 3 replaces it, and step 3 only runs after every photo write has committed. An interruption at any earlier point leaves the old list exactly as it was, and the next load starts again. Photo writes are keyed by `localId`, so a re-run overwrites rather than duplicates.
+- **Database** `cat-spotter`, version 1. Store `photos`, keyed by photo id, value `{ type, bytes: ArrayBuffer, savedAt }`. Store `backups` (§3.3).
+- **Why `ArrayBuffer`.** Base64 is a third larger, and stored Blobs have a history of failures in Safari and in-app browsers; an `ArrayBuffer` round-tripped intact at 5 MiB in Chromium (measured).
+- **Reference format** `idb:<id>`, kept in `photoUri` exactly where a native file path goes today.
+- **Save reports why it failed.** `savePendingPhoto` returns `{ ok: true, ref }` or `{ ok: false, reason: 'unavailable' | 'failed' }` on every platform. Callers decide what a failure means.
+- **Durable, then verified.** Writes use `{ durability: 'strict' }` and resolve on the transaction's `complete`, then the photo is **read back and its length checked**. Only a verified write counts as saved.
+- **Availability is tested, not assumed.** `durablePhotos(): Promise<boolean>` opens the database, writes, reads and deletes a probe record, and also checks that `localStorage` works. A browser that fails either keeps today's inline behaviour (R3).
+- **Replacements get a new key** (`<localId>-r<n>`), and the old photo is deleted only after the list has been saved, so a failed replace never loses the original.
+- **Photos for review** are stored as `review-<sightingId>` (§3.4).
+- **Display.** A hook, `useStoredPhotoUri(ref)`, returns native file paths unchanged and on web creates an object URL from the stored bytes, revoking it on unmount or when the reference changes. `SightingPhoto` and the review screen use it; `SightingPhoto` keeps its base64 fallback for inline items.
+- **Upload.** On mobile data `syncNow` shrinks photos first. For an `idb:` item it makes an object URL from the stored bytes, passes that to `optimizePhotoForUpload`, and revokes it afterwards — otherwise the shrink silently fails and the full photo is sent.
+- **A photo the browser has cleared** gets its own status and wording — "Your browser cleared this photo" — never "too old to send".
+- **Persistent storage** is requested once, from a tap on the queue screen, never in the middle of a save. Chrome refuses it for a new site (measured), so it helps only regular users; nothing relies on it.
+- **No new dependency.** The raw IndexedDB API behind a small adapter. The lockfile is not touched.
 
-**Partial failure.** An item whose photo write fails keeps its inline copy and carries on working exactly as it does today. It is retried on the next load.
+### 3.3 Moving sightings already queued on testers' phones
 
-**Legacy camera captures.** Items queued by the pre-PR-#9 camera carry a data URL in both `photoBase64` and `photoUri`. The prefix is stripped before storing, and `photoUri` becomes the reference, which **closes the route crash for old queued items** (review finding 10).
+Runs inside the load (§3.1), before `ready` resolves, and only when some item still has its photo inline.
 
-**Orphan clean-up is the only step that deletes anything, so it gets two guards on web.** The keep-set is the union of the list just re-read from storage, the in-memory list, and any live review reference; and **no photo saved in the last 24 hours is ever deleted**. Both guard against a second browser tab holding a newer queue than this one.
+1. **Backup first.** The raw saved list, exactly as stored, is written to the `backups` store with strict durability and kept for **30 days** (the queue's own stale limit). If the backup cannot be written, **nothing is moved on this load**; the queue stays as it is and works as it does today.
+2. **Each photo in turn.** Strip any data-URL prefix, save, read back. A photo that cannot be decoded or saved — including a `data:,` left by the old camera — **stays inline** and is retried next load; it is never allowed to throw out of the move.
+3. **Strip only what was verified,** through `mutate`: the change re-reads the latest list and swaps inline photos for references **only for the items verified in step 2**, so anything added meanwhile survives.
+4. **Where strict durability is not supported,** a photo is stripped only on the *next* load, after a second read-back succeeds.
 
-**Not recoverable:** a sighting that under the old bug only ever existed in memory never reached storage. There is nothing to move.
+**Legacy camera captures** (a data URL in both fields) are normalised in step 2, and their `photoUri` becomes the reference — which closes the route crash for old queued items.
 
-### 3.3 Honest saves
-
-- **`persist(items)` writes first and updates memory second.** If the write throws, memory is left as it was and a `QueueWriteError` is thrown.
-- **`enqueue`** saves the photo, then persists the list. If persisting fails, it deletes the photo it just saved (best effort) and re-throws. If the photo save itself fails **while IndexedDB is available** — a full device — it throws; it does **not** fall back to inline storage, which would only hit the 5 MB cap instead. Inline storage remains solely for browsers with no IndexedDB at all.
-- **`submit()`'s offline branch** catches the failure, shows "Couldn't save this sighting on your phone" through the new notify helper, and **leaves the photo on screen**. There is no "queued" message and no `clearPhoto()`.
-- **`syncNow`**, when an upload succeeds but saving the "review" state fails, keeps the review state in memory for this session and retries the save on the next change. If the page reloads before that retry, the item uploads again and a duplicate sighting is created. That now needs a write of a few kilobytes to fail rather than a multi-megabyte one. The proper fix is for the server to ignore a repeat of the same `localId`, which is an API change and is **ticketed, not in this PR**.
+**Recovery.** Backups older than 30 days are deleted. Restoring from a backup is a developer action, not a screen: if a tester reports lost sightings, their backup can be read from the browser's storage.
 
 ### 3.4 Photos never travel through the route
 
-- **Online submit.** After `createSighting` succeeds, the photo is saved to the store as `review-<sightingId>`, and the route carries only `{ sightingId, isCatPhoto, candidates, photoRef }`. If that save fails, the route carries no `photoRef` and the review screen shows a placeholder. **The photo itself never goes in.**
-- **Reviewing a queued item.** The route carries `{ …, localId, photoRef: item.photoUri }`, the stored reference.
-- **Review screen.** It shows `useStoredPhotoUri(photoRef)` and drops its current fallback to inline base64. Because the photo is on the phone, it survives a reload or an Android tab being restored — something the current design cannot do.
-- **Clean-up.** A `review-*` photo is deleted when its review is resolved; the orphan clean-up removes any older than seven days.
-- **A guard that fails loudly.** Every review route is built by one function, `buildReviewParams()`, which throws if any value starts with `data:` or the total exceeds 16 KB. It has its own unit test and a mutation probe.
-- **Consequence for the Spot screen.** The live camera's object URL is no longer read by any other screen, so it is revoked safely in `clearPhoto()` and whenever a new photo replaces it — which closes the leak the review found, without the trap it warned about.
+- **Every review route is built by `buildReviewParams()`,** in all three places: `submit()`, `reviewPending()` and `ReviewReadyBanner`. A unit test fails if any `router.push` to `/review` bypasses it.
+- **Queued items** carry only `localId`. The review screen finds the photo through the queue: an `idb:` reference through the hook, or, for an inline item, an object URL made from its base64.
+- **Online submissions** save the photo as `review-<sightingId>` and carry `photoRef`. If that save fails, no `photoRef` is sent and the review screen shows a placeholder.
+- **The builder never throws.** It runs after the sighting already exists, so a throw would leave a sighting that cannot be reviewed. Instead it trims each candidate's `reasoning` to 280 characters (model text, otherwise unbounded) and drops any value that is a data URL or photo-sized. Tests assert its output never contains `data:`; a mutation probe removes that check.
+- **Retention.** On web, a `review-*` photo is deleted when its review is resolved, or after seven days. On native, the orphan sweep is changed to keep `review-*` files for seven days too. Queued photos follow the queue. The sweep checks `savedAt` in the same transaction as the delete, and never deletes anything saved in the last 24 hours.
+- **Spot screen.** Nothing downstream reads the live camera's object URL any more, so it is revoked in `clearPhoto()` and when a new photo replaces it.
 
-### 3.5 The rest of the ratified scope — no design needed
+### 3.5 Honest saves, on screen
 
-These were decided on 27 September and are implementation only:
+- **Offline submit.** A busy flag covers both the online and offline branches, so a double tap cannot queue twice. A `QueueWriteError` shows "Couldn't save this sighting on your phone" through the notify helper; the photo stays on screen and nothing says "queued".
+- **Replacing a rejected photo** catches failures and reports them the same way.
+- **Read-only queue** (a list that could not be parsed): "Your saved sightings couldn't be loaded, so new ones can't be saved offline right now." Sending online still works.
 
-- A cross-platform **notify helper** replacing every `Alert.alert` (the pattern in `app/(tabs)/help.tsx:30`). The replace-photo menu, which needs three choices, becomes **buttons on the rejected sighting's card**, because a browser alert cannot offer choices.
-- **Camera:** a known permission grant always wins over a failed lookup, and overlapping lookups are sequenced so a stale result is ignored (Bugbot). A failed or not-ready live capture falls back to the system camera. On web, once "Show live view" is declined the session stays on the system camera and the pill is hidden. `data:,` is rejected. The native "permanently denied" panel uses `cameraDeniedHint`.
-- **Copy:** the pill reads **"Show live view"** in all three languages; French camera copy uses **"tu"** throughout; when the camera has failed, only the centre message shows.
+### 3.6 The server ignores a repeat of the same sighting
+
+Before inserting, `POST /api/sightings` looks up **this device's sighting with the same capture time**. If one exists it returns that sighting, re-running the match, instead of creating a second. The client already sends the capture time, stored with millisecond precision. **No schema change; the request and response shapes are unchanged.** One known gap: capture times the server clamps (backdated items) are not stable, so those are not covered. A dedicated client reference column would close it but is a schema change, which `hosting-and-photo-storage.md` §5.1 requires before the Play clock starts. Subject to R2.
+
+### 3.7 The rest of the ratified scope
+
+Decided on 27 September; implementation only:
+
+- **A notify helper** replaces every `Alert.alert`, following the pattern in `app/(tabs)/help.tsx:30`. The three-choice replace-photo menu becomes **buttons on the rejected sighting's card**, because a browser alert cannot offer choices.
+- **Camera:** a known permission grant always wins over a failed lookup, and overlapping lookups are sequenced (Bugbot). A failed or not-ready live capture falls back to the system camera. On web, once "Show live view" is declined, the session stays on the system camera and the pill is hidden. `data:,` is rejected. The native "permanently denied" panel uses `cameraDeniedHint`.
+- **Copy:** "Show live view" in all three languages; French camera copy uses "tu" throughout; when the camera fails, only the centre message shows.
 - **Text:** correct the comments, test comments, PR body and SYC-76 that overstate the crash mechanism and the quota fix.
 
 ---
 
 ## 4. What does not change
 
-- **The phone apps.** Native builds already store photos as files. Only §3.4, the route change, applies to them.
-- **The server.** The upload contract, validation, EXIF stripping and matching are untouched.
-- **The offline boundary.** Capture and queueing work without signal; matching, the catalogue beyond what is cached, the leaderboard and notifications wait for a connection.
+- **The phone apps' photo storage.** Native keeps its files. The phone apps do get §3.1 (the single write path, which fixes their lost updates), §3.4 (no photos in the route) and §3.6 (server dedupe).
+- **The server's upload contract,** validation, EXIF stripping and matching. §3.6 changes only whether a repeat creates a second row.
+- **The offline boundary.** Capture and queueing work when the phone reports no connection; matching, the catalogue beyond what is cached, the leaderboard and notifications wait for a connection.
 - **The 30-day stale rule** in `offlineQueue.ts`.
 
 ---
 
-## 5. Risks, with a recommendation on each
+## 5. Decisions for Samuel
 
-| | Risk | What a tester would see | Recommendation |
+| | Question | What a tester would see | Recommendation |
 |---|---|---|---|
-| **R1** | The browser clears the site's storage: Chrome when the phone is nearly full, Safari after seven days without the site being opened | Queued sightings disappear | **Accept for the test round.** It is equally true today. Ask for persistent storage, keep the "waiting to send" count visible, and tell testers to open the app once they have signal |
-| **R2** | An upload succeeds but saving its "review" state fails, then the page reloads | One sighting appears twice | **Accept, and ticket server-side dedupe by `localId`.** Now needs a tiny write to fail |
-| **R3** | An in-app browser blocks IndexedDB | Offline saving holds about one photo, and says so when it cannot | **Accept.** The failure message suggests opening the link in Chrome |
-| **R4** | Review photos stay on the phone for up to seven days | Nothing — on-device only, never uploaded twice | **Accept** |
+| **R1** | Accept that browsers may clear a site's storage (Chrome when nearly full, Safari after seven unused days)? | Queued sightings, or just their photos, disappear. Now reported honestly | **Accept for the test round.** Tell testers to open the app once they have signal |
+| **R2** | Stop duplicate sightings on the server now (§3.6), rather than ticketing it? | Without it, a sighting can appear twice after the browser closes mid-upload — likely on low-memory Android | **Yes, in this PR.** Small, no schema change |
+| **R3** | Accept that some in-app browsers can't save photos offline? | "Couldn't save — open this link in Chrome" | **Accept** |
+| **R4** | Keep review photos on the phone for up to seven days? | Nothing visible; photos never leave the phone twice | **Accept** |
+| **R5** | Add "Save and send later" when sending fails on a weak signal? | Today: an error and the sighting is not saved. With it: one tap queues it | **Yes.** It makes offline match what testers expect, and R2 covers a send that half-arrived |
 
 ---
 
 ## 6. Verification
 
-- **Unit tests against an in-repo fake** of the store adapter — no new dependency:
-  - migration: an inline item becomes a reference; a legacy data-URL item is normalised; a second run changes nothing; a failure on item 2 leaves item 2 inline and item 1 moved, with nothing lost;
-  - honest saves: a failed write leaves memory unchanged, `enqueue` throws, and the orphaned photo is removed;
-  - the route guard.
-- **Mutation probes** — each must turn a named test red and then be restored:
-  - drop the inline copy *before* the photo write commits;
-  - remove the route guard;
-  - move `persist()`'s memory update back before the write.
-- **Real browser.** Playwright Chromium against the web export: seed a legacy queue in `localStorage`, load, and confirm the photos are in IndexedDB and the list is stripped; reload and confirm they are still there; take an offline sighting, reload, and confirm the review screen shows the photo.
-- **A real Android phone.** Jacky or Susan retests "check for matches" and one offline sighting. The crash mechanism is inferred, not observed, and only a real handset settles it.
+**Unit tests**, against an in-repo fake of the store adapter (no new dependency). Each of the review's reproduced sequences becomes a test:
+
+- a bad photo during the move leaves the queue intact and the next save loses nothing (F1);
+- a save during the move survives (F2);
+- resolving, discarding or queueing during a sync survives (F3);
+- a failed write after a successful upload does not re-upload in the same session (F6);
+- every `/review` push goes through the builder, and its output never contains `data:` (F7);
+- a constrained-network `idb:` item is shrunk through a `blob:` URL (F9).
+
+**Mutation probes**, each turning a named test red, then restored:
+
+- remove the per-item catch in the move;
+- remove the load gate;
+- make `syncNow` save its snapshot again;
+- strip an inline photo before its read-back;
+- let a `/review` push bypass the builder.
+
+**Real browser.** Playwright Chromium against the web export:
+
+- seed a legacy queue in `localStorage`, load it, and confirm the backup exists, the photos are in IndexedDB and the list is stripped;
+- reload and confirm they are still there;
+- take an offline sighting, reload, and confirm the review screen shows its photo;
+- open two pages on one origin and confirm neither overwrites the other.
+
+**Server.** A route test: the same device posting the same capture time twice gets one sighting.
+
+**A real Android phone.** Jacky or Susan retests "check for matches" and one offline sighting. The crash mechanism is inferred, not observed.
 
 ---
 
 ## 7. Delivery
 
-Eight commits on PR #9, in order, each one green and committed before the next:
+Ten commits on PR #9, each green and committed before the next:
 
-1. Web photo store and adapter, not yet switched on.
-2. Switch it on — the migration starts running on web.
-3. Honest saves.
-4. Photos off the route, plus the guard, the review screen, and revoking object URLs.
-5. Notify helper, and buttons for replacing a photo.
-6. Camera fixes.
-7. Copy.
-8. Documents: correct the overclaims, point `hosting-and-photo-storage.md` §8 here, and add a `DECISIONS.md` entry.
+1. The single write path and load gate (§3.1), on every platform, with no storage change.
+2. The web photo store (§3.2), not yet switched on.
+3. The backup and the move (§3.3), which switches the store on.
+4. Honest saves on screen (§3.5).
+5. Photos off the route, in all three places (§3.4).
+6. Server dedupe (§3.6), if R2 is approved.
+7. The notify helper and replace-photo buttons.
+8. Camera fixes.
+9. Copy.
+10. Documents: correct the overclaims, point §8 here, and record the decisions.
 
-Then an adversarial review in its own worktree, the Android retest, merge, and republish from `main`. **About two working days to a reviewed PR.**
+Then an adversarial review in its own worktree, the Android retest, merge, and republish from `main`. **About four working days to a reviewed PR** — twice the v1 estimate, because v1 skipped the part that makes it safe.
 
 ## 8. Model delegation
 
 | Work | Model | Why | Assurance |
 |---|---|---|---|
-| Photo store, migration, honest saves, route change (commits 1–4) | Opus | Data-loss risk and subtle ordering; this is where a mistake loses a tester's sightings | Unit tests, all three mutation probes, the real-browser probe |
-| Notify helper, replace-photo buttons, camera fixes (5–6) | Sonnet | Clear spec, contained changes | Tests, typecheck, diff review by the session model |
-| Copy in three languages, doc corrections (7–8) | Haiku | Mechanical, fully specified | i18n parity test, diff review |
-| Adversarial review of the finished PR | Opus | The critic must be at least the tier that wrote commits 1–4 | Separate worktree, told to refute |
-| Real-browser probe | Sonnet | Scripted, observable | Numbers re-run by the session model before being reported |
+| Commits 1–5: write path, store, move, route | Opus | Data-loss risk, ordering and concurrency; where a mistake loses a tester's sightings | Every reproduced sequence as a test, all five mutation probes, the real-browser probe |
+| Commit 6: server dedupe | Sonnet | Contained query change with a clear spec | Route test, diff review by the session model |
+| Commits 7–8: notify helper, camera fixes | Sonnet | Clear spec, contained | Tests, typecheck, diff review |
+| Commits 9–10: copy, documents | Haiku | Mechanical and fully specified | i18n parity test, diff review |
+| Adversarial review of the finished PR | Opus | Must be at least the tier that wrote commits 1–5 | Separate worktree, told to refute |
+| Real-browser probe | Sonnet | Scripted and observable | Results re-run by the session model before they are reported |
 
 ## 9. On approval
 
 - `hosting-and-photo-storage.md` §8 gains one line: *superseded for the web build by `offline-queue-on-web.md`*.
 - The "web is a dev-preview surface only" comment in `lib/pendingPhotos.ts` is removed.
-- `DECISIONS.md` records the approval and the answers to R1–R4.
+- `DECISIONS.md` records the approval and the answers to R1–R5.
