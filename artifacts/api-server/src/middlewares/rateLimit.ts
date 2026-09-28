@@ -23,3 +23,15 @@ export const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
 });
+
+// GET /api/photos/:photoId (hosting-and-photo-storage.md §6.2 item 2): the
+// route serves usage-billed compute with no auth and, until unguessable ids
+// land (SYC-46/#13), an enumerable integer id. This budget is generous
+// enough that a tourist browsing the whole catalogue in one sitting never
+// notices — a few hundred photos in fifteen minutes — while making a loop
+// that walks the id range unattractive.
+export const photoLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+});

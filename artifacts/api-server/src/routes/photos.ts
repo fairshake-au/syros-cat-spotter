@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, photosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { photoLimiter } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
-router.get("/photos/:photoId", async (req, res) => {
+router.get("/photos/:photoId", photoLimiter, async (req, res) => {
   const photoId = Number(req.params.photoId);
   if (!Number.isInteger(photoId)) {
     res.status(404).json({ error: "Not found" });
