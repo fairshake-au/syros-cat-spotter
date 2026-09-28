@@ -1,6 +1,6 @@
 # The cat record data spine
 
-**Status:** Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`)
+**Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`)
 **Owner:** Samuel
 **Covers:** SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
 **Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) · [`docs/specs/team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) · [`docs/specs/email-capture.md`](./email-capture.md) · [`docs/specs/hosting-and-photo-storage.md`](./hosting-and-photo-storage.md)
@@ -93,7 +93,7 @@ The rule, stated so the resolver can actually perform it: **a resolved sighting 
 
 ### 3.3 What the cat page says when a cat has died
 
-A cat with a live `deceased` status shows one quiet line: *"No longer with us."* Nothing more — no date headline, no cause, no photograph treatment. The cat keeps its page, its photos, its history, and it keeps counting toward the collection of everyone who ever spotted it. Nobody loses a cat they found.
+A cat with a live `deceased` status shows one quiet line: *"No longer with us."* Nothing more — no date headline, no cause, no photograph treatment. The cat keeps its page and its history (which photos are kept is the photo retention rule in `hosting-and-photo-storage.md`, the same for every cat, living or not), and it keeps counting toward the collection of everyone who ever spotted it. Nobody loses a cat they found.
 
 Three consequences that need deciding rather than discovering:
 
@@ -265,6 +265,7 @@ Colonies exist because cats gather where they are fed. So the number recovered i
 
 What acceptance requires, and none of it is optional:
 
+- **Accepted by Samuel, 28 September 2026.** Still to be put to Syros Cats (SYC-67), whose acceptance F2 requires.
 - **Syros Cats hear it in plain language, before launch, together with D4.** The sentence is: *someone patient enough to average the map can work out roughly where a colony is fed, to about the width of a street. We can stop them finding one cat; we cannot stop them finding the colony.* They accept it or they ask us to change it — it is their island and their neighbours.
 - **The acceptance is recorded**, with a date, alongside D4's public unsterilised status. (Agenda item and ticket, per `DECISIONS.md` Part 4.)
 - **§6.6's private-feeding-site toggle is never oversold.** It is honest about the site row itself and it does not hide the cats clustered on it. Anyone describing that toggle to the charity says so.
@@ -351,7 +352,7 @@ Three consequences, in increasing order of importance:
 - **The published cell is a quantisation of where the discovering spotter was standing.** That is a disclosure about a person, not a cat.
 - A cat first photographed by a tourist at the ferry terminal is pinned at the ferry terminal forever. "Cats near me" — the experience Option E was rejected to preserve — degrades as the catalogue ages, and no amount of blurring fixes a wrong point.
 
-**Recommendation: build the derived position.** A cat's position is the centre of its recent resolved sightings — the most recent cluster, recomputed on write, snapped for publication. It is a small addition and it is what makes the map true. If it is deferred, this document must say plainly that the published position is the *discovery* position, and the map label must not imply otherwise.
+**Decision: deferred (Samuel, 28 September 2026).** The published position is the **discovery position**: where the cat was first spotted, blurred for publication. The map and the cat page must not imply it is where the cat lives now, so the label reads along the lines of *"first spotted around here"*, never *"lives here"*. The consequences above are accepted for now. The derived position (the centre of a cat's recent resolved sightings, recomputed on write and snapped for publication) is SYC-80.
 
 ### 6.7 Feeding sites
 
@@ -884,4 +885,4 @@ None of these steps depends on a records import. If one goes ahead, it follows s
 | 3 | **Should a public feeding site show its exact position, or be blurred too?** Recommendation: exact, because making a site public is a deliberate act with a purpose. | Syros Cats | It is their exposure and their neighbours. |
 | 5 | **Should a cat guardian be able to mark their own cat deceased without team confirmation?** | Syros Cats | Recommendation: yes — they are the person most likely to know, and it is reversible by any later sighting (§3.2). |
 | 6 | **How long do we keep sighting notes?** They may contain personal information. | Samuel, with Syros Cats | Recommendation: indefinitely for notes attached to a welfare outcome, three years otherwise, removed immediately on deletion (§8.3). |
-| 7 | **Is the derived cat position (§6.6) in this phase or the next?** | Samuel | It is a small addition that makes the map true; deferring it means the published position is the discovery position and the spec must say so out loud. |
+| 7 | ~~Is the derived cat position (§6.6) in this phase or the next?~~ | Samuel | **Answered 28 Sep: deferred.** The map shows the discovery position, labelled as such. Later work is SYC-80. |

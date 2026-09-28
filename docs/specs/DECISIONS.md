@@ -159,6 +159,18 @@ Samuel reviewed the team-access spec line by line and **approved it on 28 Septem
 - **Dr Dermitzaki's clinic is in Livadia, Manna**, not Lazareta. The old Lazareta pin is withdrawn pending a real one.
 - **"Report an issue" hides on one report** (supersedes the two-devices-and-two-IPs gate in the spec's earlier draft). An "upsetting or inappropriate" report first asks "Are you sure? Reporting this will hide it from everyone until Syros Cats have reviewed it", then hides the item from public view pending review. The vandalism risk is accepted, with Turnstile, a volume alert and one-tap restore as mitigations.
 
+## Part 2c — approval of `cat-record-data-spine.md`, 28 September 2026
+
+Samuel reviewed the data spine and **approved it on 28 September 2026**, on the basis that these edits are incorporated. Where anything earlier in this document says otherwise, these win.
+
+- **An owner claiming a cat is evidence it is homed.** Existing claims are backfilled as `homed`; future claims write it at once. The team can set a wrongly homed cat back to Street. Securing the claim endpoint therefore matters more.
+- **A vet can mark a cat in care** when it is in their care. Until vets have accounts (SYC-24) the team records it on the vet's word.
+- **The records import is optional and after MVP**, split into its own spec (`records-import.md`). What exists is month-by-month WhatsApp groups with scant detail. It is built only if Syros Cats confirm it is worth doing. Without it, *Confirmed* comes from team (and later vet) entries. If it happens, names arrive in English and no Greek–Latin transliteration is needed.
+- **The map shows the discovery position**, labelled as where the cat was first spotted and never as where it lives. The derived position is deferred (SYC-80).
+- **Colony averaging (F2) accepted by Samuel**, 28 September 2026. Syros Cats' own acceptance is still required (SYC-67).
+- **Photos are not kept forever by default.** Samuel rejected the keep-everything outcome; the retention rule is decided in the `hosting-and-photo-storage.md` review, and it applies equally to living and deceased cats.
+- **Presumed deceased stays separate from Deceased.** A cat unseen for three years shows "Not seen since…", never "No longer with us". (Samuel's comment proposing otherwise was withdrawn.)
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
