@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   Linking,
   Platform,
@@ -229,16 +228,17 @@ export default function SpotScreen() {
           // Returning null here used to make the shutter a dead tap: nothing
           // happened and nothing explained why. Once canAskAgain is false the
           // OS shows no prompt, so the only way out is Settings — say so.
-          Alert.alert(
-            t('cameraUnavailable'),
-            perm.canAskAgain ? t('cameraPermissionHint') : t('cameraDeniedHint'),
-            perm.canAskAgain
-              ? [{ text: t('cancel'), style: 'cancel' }]
-              : [
-                  { text: t('cancel'), style: 'cancel' },
-                  { text: t('openSettings'), onPress: () => void openCameraSettings() },
-                ],
-          );
+          if (perm.canAskAgain) {
+            notify(t('cameraUnavailable'), t('cameraPermissionHint'));
+          } else {
+            const openSettings = await confirmChoice({
+              title: t('cameraUnavailable'),
+              message: t('cameraDeniedHint'),
+              confirmLabel: t('openSettings'),
+              cancelLabel: t('cancel'),
+            });
+            if (openSettings) void openCameraSettings();
+          }
           return null;
         }
       }
@@ -264,7 +264,7 @@ export default function SpotScreen() {
         return await toPickedPhoto(result.assets[0]);
       }
     } catch {
-      Alert.alert(t('error'));
+      notify(t('error'));
     }
     return null;
   };
@@ -299,7 +299,7 @@ export default function SpotScreen() {
       setPhoto(picked);
       setCapturedAt(new Date().toISOString());
     } catch {
-      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
     } finally {
       setCapturing(false);
     }
@@ -311,19 +311,19 @@ export default function SpotScreen() {
     } catch {
       // The picker shutter is already on screen in this state, so the user is
       // not stranded; just say the live preview is not available.
-      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
   };
 
   const openCameraSettings = async () => {
     if (Platform.OS === 'web') {
-      Alert.alert(t('cameraUnavailable'), t('browserCameraSettings'));
+      notify(t('cameraUnavailable'), t('browserCameraSettings'));
       return;
     }
     try {
       await Linking.openSettings();
     } catch {
-      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
   };
 
@@ -366,24 +366,6 @@ export default function SpotScreen() {
   /** Discard / retry on a queued card: a failed save is said, not swallowed. */
   const changeQueue = (change: () => Promise<void>) => {
     change().catch(() => notify(t('error')));
-  };
-
-  const offerPhotoReplacement = (localId: string) => {
-    Alert.alert(t('replacePhoto'), t('replacePhotoHint'), [
-      ...(Platform.OS === 'web'
-        ? []
-        : [
-            {
-              text: t('takePhoto'),
-              onPress: () => void replaceRejectedPhoto(localId, true),
-            },
-          ]),
-      {
-        text: t('chooseFromLibrary'),
-        onPress: () => void replaceRejectedPhoto(localId, false),
-      },
-      { text: t('cancel'), style: 'cancel' },
-    ]);
   };
 
   const submit = () =>
@@ -558,12 +540,7 @@ export default function SpotScreen() {
                   requestPersistentStorage();
                   reviewPending(item);
                 }
-              : item.status === 'rejected'
-                ? () => {
-                    requestPersistentStorage();
-                    offerPhotoReplacement(item.localId);
-                  }
-                : undefined
+              : undefined
           }
           style={styles.pendingItem}
         >
@@ -594,27 +571,62 @@ export default function SpotScreen() {
                 >
                   {t(item.rejectionKey ?? 'photoRejectedQueued')}
                 </Text>
-                <Pressable
-                  onPress={() => offerPhotoReplacement(item.localId)}
-                  style={[styles.errorBtn, styles.replaceBtn, { backgroundColor: colors.secondary }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('replacePhoto')}
-                  testID={`replace-photo-${item.localId}`}
-                >
-                  <Feather
-                    name="camera"
-                    size={13}
-                    color={colors.secondaryForeground}
-                  />
-                  <Text
-                    style={[
-                      styles.errorBtnText,
-                      { color: colors.secondaryForeground },
-                    ]}
+                <Text style={[styles.replaceLabel, { color: colors.foreground }]}>
+                  {t('replacePhoto')}
+                </Text>
+                <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
+                  {t('replacePhotoHint')}
+                </Text>
+                <View style={[styles.errorActions, styles.replaceBtn]}>
+                  <Pressable
+                    onPress={() => {
+                      requestPersistentStorage();
+                      void replaceRejectedPhoto(item.localId, true);
+                    }}
+                    style={[styles.errorBtn, { backgroundColor: colors.secondary }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('takePhoto')}
+                    testID={`replace-photo-camera-${item.localId}`}
                   >
-                    {t('replacePhoto')}
-                  </Text>
-                </Pressable>
+                    <Feather
+                      name="camera"
+                      size={13}
+                      color={colors.secondaryForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.errorBtnText,
+                        { color: colors.secondaryForeground },
+                      ]}
+                    >
+                      {t('takePhoto')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      requestPersistentStorage();
+                      void replaceRejectedPhoto(item.localId, false);
+                    }}
+                    style={[styles.errorBtn, { backgroundColor: colors.secondary }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chooseFromLibrary')}
+                    testID={`replace-photo-library-${item.localId}`}
+                  >
+                    <Feather
+                      name="image"
+                      size={13}
+                      color={colors.secondaryForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.errorBtnText,
+                        { color: colors.secondaryForeground },
+                      ]}
+                    >
+                      {t('chooseFromLibrary')}
+                    </Text>
+                  </Pressable>
+                </View>
               </>
             )}
             <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
@@ -1059,5 +1071,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.xs,
   },
   errorBtnText: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold },
+  replaceLabel: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold, marginTop: spacing[1] },
   replaceBtn: { alignSelf: 'flex-start', marginTop: spacing[1] },
 });
