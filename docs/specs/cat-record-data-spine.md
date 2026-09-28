@@ -229,7 +229,7 @@ We ask for whatever they already have, in whatever form they already have it —
 |---|---|---|
 | **Date of the operation** | Orders the evidence; drives impact reporting by date range | Import as "date unknown"; the record still confirms sterilisation, it just cannot be counted in a period |
 | **The cat's name or their reference** | The strongest matching signal we have | Falls back to colony plus description |
-| **Colony or location** | Second-strongest matching signal; colonies have fixed names, usually the place plus the name of the person caring for the colony | Matching relies on name alone |
+| **Colony or location** | Second-strongest matching signal; colonies have established names, usually the place plus the name of the person caring for the colony. Names can change, so a match checks the current name **and** every earlier one (§10.5) | Matching relies on name alone |
 | **Sex** | Fills an attribute we otherwise rarely learn, and is the strongest way to *rule out* a wrong match | Left unknown |
 | **Vet or clinic** | Provenance; supports funder reporting | Recorded as "Syros Cats record" |
 | **Ear tip clipped, and which side** | Lets us cross-check crowd observations | Assumed nothing |
@@ -824,12 +824,13 @@ Linking an import record writes an `observations` row with `provenance: "import"
 
 **Colonies are a table, not a string.** Until this revision a colony was free text (`colonyName`) in three separate places, which meant "Vaporia — Eleni's" and "Vaporia (Eleni)" were two colonies, the import in §5.4 could not score a colony match reliably, and the guardian join that `team-access-and-welfare-queue.md` §7.3 needs (`person_scopes.colony_id`) had nothing to point at.
 
-**Colony names are fixed, and are usually the location plus the name of the person caring for the colony** — "Vaporia — Eleni's". That is the charity's own operational vocabulary and the app adopts it rather than inventing one; the naming convention and the dashboard that maintains it are `team-access-and-welfare-queue.md` §3.4's, and the person named there is a **cat guardian**.
+**Colonies use the names Syros Cats already use, usually the location plus the name of the person caring for the colony** — "Vaporia — Eleni's". **Syros Cats can rename a colony at any time** (Samuel, 28 September 2026: guardians change). Every reference is by id, so a rename moves nothing; earlier names are kept in `colony_name_history` so an old name still finds the colony and still matches on import. That is the charity's own operational vocabulary and the app adopts it rather than inventing one; the naming convention and the dashboard that maintains it are `team-access-and-welfare-queue.md` §3.4's, and the person named there is a **cat guardian**.
 
 ```ts
 export const coloniesTable = pgTable("colonies", {
   id: serial("id").primaryKey(),
-  // "Vaporia — Eleni's". Fixed once set: place + the person caring for it.
+  // "Vaporia — Eleni's". Place + the person caring for it. Editable by the
+  // team; each earlier name is kept in colony_name_history.
   name: text("name").notNull(),
   normalisedName: text("normalised_name").notNull(),  // NFC, accent- and case-folded (§10.3)
   // Free text, and deliberately not a link to `people`: most guardians have no
@@ -845,6 +846,17 @@ export const coloniesTable = pgTable("colonies", {
 }, (t) => [
   uniqueIndex("colonies_normalised_name_unique").on(t.normalisedName),
 ]);
+
+// One row per name a colony has had before its current one. Search and the
+// records import (§5.4) match against these as well as colonies.name.
+export const colonyNameHistoryTable = pgTable("colony_name_history", {
+  id: serial("id").primaryKey(),
+  colonyId: integer("colony_id").notNull().references(() => coloniesTable.id),
+  name: text("name").notNull(),
+  normalisedName: text("normalised_name").notNull(),
+  replacedAt: timestamp("replaced_at", { withTimezone: true }).notNull().defaultNow(),
+  replacedBy: text("replaced_by"),
+});
 
 // Cats belong to colonies through an append-only observation, not a column, so
 // a cat moving colony is a dated claim like everything else in §10.1:

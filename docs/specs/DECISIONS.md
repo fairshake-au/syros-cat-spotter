@@ -148,6 +148,17 @@ Wording needs care given it is advice a tourist may act on, but saying nothing i
 
 ---
 
+## Part 2b — approval of `team-access-and-welfare-queue.md`, 27–28 September 2026
+
+Samuel reviewed the team-access spec line by line and **approved it on 28 September 2026**, on the basis that these edits are incorporated. Where anything earlier in this document says otherwise, these win.
+
+- **Colony names are editable** by Syros Cats at any time. Everything references a colony by id; earlier names are kept for search and records-import matching. Corrects "colonies have fixed names" in `cat-record-data-spine.md`, which misread the 1 September note "Fixed names exist" (the charity already *has* names; it did not mean they never change).
+- **Out-of-hours (supersedes F8's "Out-of-hours: reversed by research" as far as the copy goes).** The urgent block no longer mentions out-of-hours at all. The two published after-hours numbers stay in the vet list (§5.7) as labelled phone numbers unless Samuel says otherwise. **Whether they answer is untested, and Samuel accepts that risk.** No tester or on-island check is required.
+- **Safety copy cuts.** Onboarding loses "most of them are fed, watched over and known by somebody" (not necessarily true) and "away from dogs". The litter block loses both "move them if they are in real danger" and "talk to Syros Cats first". The confirmation screen and the acknowledgement email lose the "nobody is on duty, it may be days" framing and the "we will write to you once more" line. User-facing copy says **Syros Cats**, not "the charity".
+- **Closing emails.** Both closing states send: "Syros Cats has looked into this and taken appropriate action in response to your report. Thank you for taking action to help the cats of Syros to thrive." (Done may carry the optional team sentence.)
+- **Dr Dermitzaki's clinic is in Livadia, Manna**, not Lazareta. The old Lazareta pin is withdrawn pending a real one.
+- **"Report an issue" hides on one report** (supersedes the two-devices-and-two-IPs gate in the spec's earlier draft). An "upsetting or inappropriate" report first asks "Are you sure? Reporting this will hide it from everyone until Syros Cats have reviewed it", then hides the item from public view pending review. The vandalism risk is accepted, with Turnstile, a volume alert and one-tap restore as mitigations.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
