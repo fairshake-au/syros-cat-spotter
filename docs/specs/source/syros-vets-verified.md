@@ -75,7 +75,7 @@ Small-animal clinic plus a farm-animal practice.
 | Trading name | Κτηνιατρείο Δρ. Δερμιτζάκη Ειρήνη / Dermitzaki Irini Veterinary Clinic | **CONFIRMED** — multiple directories agree |
 | Vet | Δρ. Ειρήνη Δερμιτζάκη / Dr Irini Dermitzaki | **CONFIRMED** |
 | Area (Greek) | Λαζαρέτα, Σύρος, 841 00 | **PARTIAL** — matches the Syros Cats reply and appears in directory listings; **but see conflict below** |
-| Area (English) | Lazareta, Syros 841 00, Cyclades | **PARTIAL** |
+| Area (English) | Livadia, Manna, Syros 841 00 — Google Maps: "λιβάδια 0, Manna 841 00, Greece" | **CONFIRMED by Samuel, 28 Sep 2026** |
 | Street name / number | None published | **UNVERIFIED** |
 | Phone (landline) | **+30 22813 06720** | **CONFIRMED** — multiple independent directory listings agree, and it matches the Syros Cats reply |
 | Phone (mobile) | **+30 6986 705837** | **CONFIRMED** — as above |
@@ -85,12 +85,12 @@ Small-animal clinic plus a farm-animal practice.
 | Website | None found | **UNVERIFIED** |
 | Facebook | Not located | **UNVERIFIED** |
 | Reputation signal | 9.9/10 across ~90 reviews; "Eagles of Veterinarians" award listee 2022, 2023, 2024 | **PARTIAL** — single source, `aetoitonktiniatron.eu`, which is the award's own site |
-| Latitude / longitude | **37.4303699, 24.9439526** — the Lazareta locality node in OSM, i.e. the neighbourhood centre, not the clinic door | **PARTIAL** |
+| Latitude / longitude | **Needs a new pin.** The old value (37.4303699, 24.9439526) was the Lazareta locality node and is wrong now the clinic is known to be in Livadia, Manna. | **OPEN** |
 
-> **⚠ Address conflict — needs a phone call to settle.** The Syros Cats reply and most listings put this clinic in **Lazareta**. One directory (`syrostoday.gr`) instead lists it at **"Λιβάδια, Κάτω Μάννα"** — which is the address Cyclades Vets uses. That looks like a directory copy-paste error rather than a genuine second location, but it is unresolved, and Lazareta is the weaker-sourced of the two clinic addresses in this document. The two areas are only about 500m apart on the same road, so a wrong pin here is a short walk rather than a disaster — but confirm before shipping.
+> **Settled 28 Sep 2026: Livadia, Manna (Samuel).** The directory below was right. Kept as the record of the earlier conflict: **⚠ Address conflict — needs a phone call to settle.** The Syros Cats reply and most listings put this clinic in **Lazareta**. One directory (`syrostoday.gr`) instead lists it at **"Λιβάδια, Κάτω Μάννα"** — which is the address Cyclades Vets uses. That looks like a directory copy-paste error rather than a genuine second location, but it is unresolved, and Lazareta is the weaker-sourced of the two clinic addresses in this document. The two areas are only about 500m apart on the same road, so a wrong pin here is a short walk rather than a disaster — but confirm before shipping.
 
-**Google Maps:** https://www.google.com/maps/search/?api=1&query=37.4303699,24.9439526
-**Apple Maps:** https://maps.apple.com/?ll=37.4303699,24.9439526&q=Dermitzaki%20Vet%20Lazareta
+**Google Maps (interim, until re-pinned):** https://www.google.com/maps/search/?api=1&query=Dermitzaki%20vet%20Livadia%20Manna%20Syros
+**Apple Maps (interim, until re-pinned):** https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros
 
 ---
 
@@ -142,7 +142,7 @@ These are the things a five-minute call from someone who speaks Greek would sett
 
 1. **Does Cyclades Vets actually answer 6937 252802 at night?** They publish a 24/365 claim. Syros Cats say there is no night cover. Both cannot be right in the way the app needs. This is the single most consequential unknown in this document — it decides whether the app can tell a tourist there is anyone to call at 2am.
 2. **Does Symviosis's after-hours number (6970 055012) reach a person overnight, or a voicemail?** Their own framing — appointments required "except emergencies" — suggests a real emergency route, but does not say how far it extends.
-3. **Is Dermitzaki in Lazareta or Kato Manna?** One directory disagrees with everything else.
+3. ~~**Is Dermitzaki in Lazareta or Kato Manna?**~~ **Settled 28 Sep 2026: Livadia, Manna.** The pin still needs replacing.
 4. **Does Dermitzaki offer any emergency contact?** Complete blank at present.
 5. **Exact map pins for all three.** Everything here is landmark-anchored. Someone standing outside each clinic with a phone fixes this permanently in ten minutes.
 6. **Confirm Symviosis's opening hours** against the clinic directly — the only source is a third-party directory.

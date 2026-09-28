@@ -26,9 +26,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 **`injured.vetlist.heading`**
 > **Vets on Syros** *[list inserted here]*
 
-**`injured.afterhours`**
-> **At night or at the weekend.** Symviosis and Cyclades Vets both publish an after-hours number. We haven't rung them to check, so we can't promise anyone will answer — but they are the numbers to try.
-
 **`injured.disclosure`**
 > **▾ How to get a hurt cat to a vet**
 
@@ -60,9 +57,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 > **Look, don't touch.**
 >
-> The cats of Syros are not pets, and they are not strays. They live here. Most of them are fed, watched over and known by somebody.
+> The cats of Syros are not pets, and they are not strays. They live here.
 >
-> Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road, away from dogs, and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.
+> Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.
 >
 > So: photograph them, admire them, leave them be.
 >
@@ -70,7 +67,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 ### `confirm.sent` — Confirmation screen after a report is sent
 
-> **What happens next, honestly:** somebody at Syros Cats will read it when they can. Nobody is on duty and nothing alerts anybody. It may be a few days. Urgent reports are read before the others — but read first is not the same as read fast, and we would rather tell you that than let you assume otherwise.
+> **What happens next, honestly:** somebody at Syros Cats will read it when they can.
 
 ---
 
@@ -91,9 +88,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 **`injured.vetlist.heading`**
 > **Κτηνίατροι στη Σύρο** *[εδώ μπαίνει η λίστα]*
-
-**`injured.afterhours`**
-> **Τη νύχτα ή το σαββατοκύριακο.** Η Symviosis και η Cyclades Vets δημοσιεύουν και οι δύο ένα τηλέφωνο για εκτός ωραρίου. Δεν τα έχουμε πάρει εμείς για να το επιβεβαιώσουμε, οπότε δεν μπορούμε να σου υποσχεθούμε ότι θα απαντήσει κάποιος — αλλά αυτά είναι τα τηλέφωνα που αξίζει να δοκιμάσεις.
 
 **`injured.disclosure`**
 > **▾ Πώς να πας μια τραυματισμένη γάτα στον κτηνίατρο**
@@ -126,9 +120,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 > **Κοίτα, μην αγγίζεις.**
 >
-> Οι γάτες της Σύρου δεν είναι κατοικίδια, ούτε είναι αδέσποτες. Εδώ ζουν. Οι περισσότερες έχουν τον άνθρωπό τους — κάποιον που τις ταΐζει, τις προσέχει και τις ξέρει.
+> Οι γάτες της Σύρου δεν είναι κατοικίδια, ούτε είναι αδέσποτες. Εδώ ζουν.
 >
-> Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ' εσένα, αν το θέλουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο, μακριά από τα σκυλιά και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή. Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό.
+> Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ' εσένα, αν το θέλουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή. Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό.
 >
 > Λοιπόν: φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες.
 >
@@ -136,7 +130,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 ### `confirm.sent` — Οθόνη επιβεβαίωσης
 
-> **Τι γίνεται μετά, ειλικρινά:** κάποιος από τη Syros Cats θα το διαβάσει όταν μπορέσει. Δεν υπάρχει κάποιος σε βάρδια και δεν ειδοποιείται κανείς αυτόματα. Μπορεί να πάρει μερικές μέρες. Οι επείγουσες αναφορές διαβάζονται πριν από τις υπόλοιπες — αλλά «διαβάζεται πρώτο» δεν σημαίνει «διαβάζεται γρήγορα», και προτιμάμε να στο πούμε παρά να σε αφήσουμε να νομίζεις το αντίθετο.
+> **Τι γίνεται μετά, ειλικρινά:** κάποιος από τη Syros Cats θα το διαβάσει όταν μπορέσει.
 
 ---
 
@@ -157,9 +151,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 **`injured.vetlist.heading`**
 > **Vétérinaires à Syros** *[liste insérée ici]*
-
-**`injured.afterhours`**
-> **La nuit ou le week-end.** Symviosis et Cyclades Vets publient chacune un numéro en dehors des heures d'ouverture. Nous ne les avons pas appelés pour vérifier, donc nous ne pouvons pas vous promettre que quelqu'un répondra — mais ce sont les numéros à essayer.
 
 **`injured.disclosure`**
 > **▾ Comment emmener un chat blessé chez le vétérinaire**
@@ -192,9 +183,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 > **Regardez, ne touchez pas.**
 >
-> Les chats de Syros ne sont pas des animaux de compagnie, et ce ne sont pas des chats abandonnés. Ils vivent ici. La plupart d'entre eux ont quelqu'un — quelqu'un qui les nourrit, veille sur eux et les connaît.
+> Les chats de Syros ne sont pas des animaux de compagnie, et ce ne sont pas des chats abandonnés. Ils vivent ici.
 >
-> Restez à un pas ou deux et laissez-les venir à vous s'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route, loin des chiens et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.
+> Restez à un pas ou deux et laissez-les venir à vous s'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.
 >
 > Alors : photographiez-les, admirez-les, laissez-les tranquilles.
 >
@@ -202,7 +193,7 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 ### `confirm.sent` — Écran de confirmation
 
-> **Ce qui se passe ensuite, honnêtement :** quelqu'un chez Syros Cats le lira quand il le pourra. Personne n'est de garde et rien n'alerte personne. Cela peut prendre quelques jours. Les signalements urgents sont lus avant les autres — mais lu en premier ne veut pas dire lu vite, et nous préférons vous le dire plutôt que vous laisser croire le contraire.
+> **Ce qui se passe ensuite, honnêtement :** quelqu'un chez Syros Cats le lira quand il le pourra.
 
 ---
 
@@ -225,7 +216,7 @@ Greek makes the reader's gender visible in a way English does not. In step 3 I w
 **5. The euthanasia sentence.**
 English uses the soft phrase "put to sleep". I used *ευθανασία*, which is the plain clinical word. Greek does have a gentler everyday phrasing (roughly "to let it go peacefully"), but on a screen where somebody may genuinely be asked to consent to this, I chose clarity over gentleness. If you think the clinical word is too blunt for the moment, say so — but please don't let it become vague. The reader must understand exactly what they might be asked to agree to.
 
-**6. "Read first is not the same as read fast."**
+**6. [Withdrawn 28 Sep 2026: the line this note is about was cut.] "Read first is not the same as read fast."**
 This is a play on words in English and it does not exist in Greek or French. I rendered it in Greek with the two phrases in quote marks — *«διαβάζεται πρώτο» δεν σημαίνει «διαβάζεται γρήγορα»* — which keeps the meaning but loses the neatness. If it sounds stilted out loud, a plainer sentence such as "we read them first, but that doesn't mean we read them quickly" would be better. Read it aloud and see.
 
 **7. "Step well back" in step 2.**
@@ -243,7 +234,7 @@ This English phrase is quietly emotional and there is no clean French equivalent
 **11. French: "carton" for a box.**
 I used *un carton que vous pouvez fermer* for "a box you can close". A French tourist will read this as a cardboard box, which is the right image. Flagging only in case anyone prefers *une caisse*.
 
-**13. "Most of them are fed, watched over and known by somebody" — I translated the meaning, not the words.**
+**13. [Withdrawn 28 Sep 2026: the line this note is about was cut.] "Most of them are fed, watched over and known by somebody" — I translated the meaning, not the words.**
 This is the line that does the real work in the whole onboarding screen: it is what makes these cats different from strays. A literal Greek rendering came out flat and administrative, so I wrote *Οι περισσότερες έχουν τον άνθρωπό τους — κάποιον που τις ταΐζει, τις προσέχει και τις ξέρει*, which is closer to "most of them have their person — somebody who feeds them, keeps an eye on them and knows them." I think that carries the charity's framing better than the literal version, but it is a real departure and you should say if it overclaims. Specifically: is it true enough of Syros to print? If a meaningful number of these cats have nobody, "most of them have their person" may be warmer than the facts justify, and the English "somebody" is vaguer on purpose. The French does the same thing more modestly: *La plupart d'entre eux ont quelqu'un — quelqu'un qui les nourrit, veille sur eux et les connaît.*
 
 **14. "Picking one up, or feeding it, does it no favours" — please check this has not landed softer.**
@@ -258,7 +249,7 @@ Both languages also lose a little force in the opening *Κοίτα, μην αγ�
 **16. Not translated, as instructed.**
 Vet names, clinic addresses, map links and phone numbers are untouched in all three languages and come from the separate vet list. The organisation name "Syros Cats" is also left in English throughout, on the assumption it is the brand name. If there is a Greek form of the name that people actually use, tell us and we will swap it in the Greek version.
 
-**17. The out-of-hours paragraph — does "we haven't rung them to check" land right in Greek? (New, and the one I am least sure of.)**
+**17. [Withdrawn 28 Sep 2026: the line this note is about was cut.] The out-of-hours paragraph — does "we haven't rung them to check" land right in Greek? (New, and the one I am least sure of.)**
 This paragraph is new. It exists because two of the clinics publish after-hours numbers on their own websites, but nobody has actually rung those numbers to see whether a person answers at three in the morning. So the app names them and openly admits it has not checked. In English that reads as straightforward honesty and it makes the app more trustworthy, not less.
 
 The worry is that Greek may not receive it that way. *Δεν τα έχουμε πάρει εμείς για να το επιβεβαιώσουμε* is a plain admission of not having done something, and an admission like that can read as carelessness — "why didn't you just call?" — rather than as care. Please say which of these it sounds like when read aloud:
