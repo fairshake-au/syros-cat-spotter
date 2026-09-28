@@ -6,4 +6,4 @@ Rule: if API routes 500 with drizzle "Failed query" errors mentioning a column t
 
 **Why:** The username feature shipped with schema code but the column was never pushed; every username endpoint returned Express HTML 500s that looked like app bugs.
 
-**How to apply:** On any "column does not exist"-style failure, compare `\d <table>` against the Drizzle schema first, then `pnpm run push` in the db package.
+**How to apply:** On any "column does not exist"-style failure, compare `\d <table>` against the Drizzle schema first, then `pnpm --filter @workspace/db run migrate`. `push` no longer exists (SYC-64): schema changes are `pnpm --filter @workspace/db run generate`, plus a hand-written `-- rollback-begin`/`-- rollback-end` block, committed under `lib/db/migrations/`.
