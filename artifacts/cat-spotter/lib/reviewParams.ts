@@ -46,10 +46,12 @@ const MAX_VALUE_LENGTH = 2048;
  * A value that IS a data URL — one that starts with `data:`. Anything photo-
  * sized is already caught by the length limit, so this only needs to catch
  * short data URLs (`data:,` from an empty canvas). Matching `data:` anywhere
- * used to blank match reasoning that merely mentioned the word.
+ * used to blank match reasoning that merely mentioned the word. Anything that
+ * is not a letter or digit may come first — spaces, quotes, zero-width marks —
+ * so an invisible character cannot slip a data URL past.
  */
 function isDataUrl(value: string): boolean {
-  return /^\s*data:/i.test(value);
+  return /^[^\p{L}\p{N}]*data:/iu.test(value);
 }
 
 /** A short, non-photo string, or undefined. */

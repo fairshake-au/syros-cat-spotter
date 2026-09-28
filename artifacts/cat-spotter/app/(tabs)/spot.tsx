@@ -367,7 +367,10 @@ export default function SpotScreen() {
     try {
       await Linking.openSettings();
     } catch {
-      notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      // Only reached when camera access is switched off for good. The phone's
+      // camera button needs the same permission, so pointing at it would send
+      // the user round in a loop; say how to turn access on, or use a photo.
+      notify(t('cameraUnavailable'), t('cameraDeniedHint'));
     }
   };
 

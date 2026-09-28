@@ -44,6 +44,14 @@ describe('deletePendingPhoto on native', () => {
     ['a parent-directory escape', `${PHOTOS_DIR}/../SQLite/db.sqlite`],
     ['a nested path', `${PHOTOS_DIR}/sub/photo.jpg`],
     ['a picker cache file', 'file:///data/user/0/app/cache/ImagePicker/x.jpg'],
+    // The native file layer decodes the ref as a URI before deleting, so these
+    // pass a plain text check and then point outside the folder.
+    ['an encoded parent step', `${PHOTOS_DIR}/%2E%2E`],
+    ['an encoded slash escape', `${PHOTOS_DIR}/..%2FSQLite`],
+    ['a parent step hidden by a fragment', `${PHOTOS_DIR}/..#x.jpg`],
+    ['a parent step hidden by a query', `${PHOTOS_DIR}/..?x.jpg`],
+    ['a parent step with trailing space', `${PHOTOS_DIR}/.. `],
+    ['a file that is not a photo', `${PHOTOS_DIR}/notes.txt`],
   ])('refuses %s', async (_label, ref) => {
     await deletePendingPhoto(ref);
     expect(deleted).toEqual([]);

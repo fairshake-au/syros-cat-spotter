@@ -55,6 +55,24 @@ describe('buildReviewParams', () => {
     expect(params.data.length).toBeLessThan(1_000);
   });
 
+  it.each([
+    ['a zero-width space', '​data:,'],
+    ['a word joiner', '⁠data:,'],
+    ['a quote mark', '"data:,'],
+    ['a byte-order mark', '﻿data:,'],
+    ['upper case after spaces', '  DATA:,'],
+  ])('F7: drops a short data URL behind %s', (_label, value) => {
+    const params = buildReviewParams({
+      sightingId: 1,
+      isCatPhoto: true,
+      photoRef: value,
+      candidates: [candidate({ name: value, photoUrl: value, reasoning: value })],
+    });
+    const parsed = parseReviewParams(params.data)!;
+    expect(parsed.photoRef).toBeUndefined();
+    expect(parsed.candidates[0]).toMatchObject({ name: '', photoUrl: '', reasoning: '' });
+  });
+
   it('keeps ordinary text that merely mentions data:, since only data URLs are dropped', () => {
     const reasoning = 'Same markings as the data: torn left ear, white socks.';
     const params = buildReviewParams({

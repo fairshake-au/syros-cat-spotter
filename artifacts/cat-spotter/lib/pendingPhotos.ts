@@ -407,12 +407,20 @@ export async function deletePendingPhoto(ref: string): Promise<void> {
   await FileSystem.deleteAsync(ref, { idempotent: true }).catch(() => {});
 }
 
+/**
+ * Every photo this module saves is named `<key>.jpg`, and every key is made of
+ * letters, digits and dashes (`<ms>-<random>`, `<localId>-r<n>`,
+ * `review-<id>`). Allow only that shape. Checking for `/` and `..` was not
+ * enough: the native file layer decodes the ref as a URI before deleting, so
+ * `%2E%2E`, `..%2F…` or a trailing `?`/`#` would pass a text check and then
+ * point outside the folder.
+ */
+const PHOTO_FILE_NAME = /^[A-Za-z0-9-]+\.jpg$/;
+
 function isInsidePhotosDir(ref: string): boolean {
   const prefix = `${PHOTOS_DIR}/`;
   if (!ref.startsWith(prefix)) return false;
-  const name = ref.slice(prefix.length);
-  // A single file name: no further folders, no parent-directory steps.
-  return name.length > 0 && !name.includes('/') && name !== '..' && name !== '.';
+  return PHOTO_FILE_NAME.test(ref.slice(prefix.length));
 }
 
 /**

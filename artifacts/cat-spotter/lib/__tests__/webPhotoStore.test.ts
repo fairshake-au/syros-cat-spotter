@@ -13,6 +13,7 @@ vi.mock('expo-file-system/legacy', () => ({
 
 import {
   deletePendingPhoto,
+  deleteReviewPhoto,
   durablePhotos,
   isStoredPhotoRef,
   openPhotoForUpload,
@@ -20,6 +21,7 @@ import {
   readPendingPhoto,
   replacementPhotoKey,
   requestPersistentStorage,
+  reviewPhotoKey,
   savePendingPhoto,
   saveWebPhoto,
   setPhotoStoreAdapterForTests,
@@ -184,6 +186,16 @@ describe('reading and deleting', () => {
     fake.seed('A', 'photo-A');
     await deletePendingPhoto('idb:A');
     expect(fake.photos.has('A')).toBe(false);
+  });
+
+  it('deletes exactly the review photo a submission saved, by sighting id', async () => {
+    const saved = await savePendingPhoto(reviewPhotoKey(42), 'blob:x', b64('review'));
+    fake.seed(reviewPhotoKey(43), 'other review');
+    fake.seed('A', 'queued photo');
+    await deleteReviewPhoto(42);
+    expect(saved).toEqual({ ok: true, ref: `idb:${reviewPhotoKey(42)}` });
+    expect(fake.photos.has(reviewPhotoKey(42))).toBe(false);
+    expect([...fake.photos.keys()].sort()).toEqual(['A', reviewPhotoKey(43)]);
   });
 
   it('recognises idb: references', () => {
