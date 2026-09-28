@@ -55,6 +55,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Migrations match the schema code, and each has a rollback
+        run: pnpm --filter @workspace/db run migrate:check
+
+      - name: Test migrations (runner, and up/down/up of the real history)
+        run: pnpm --filter @workspace/db test
+
       - name: Typecheck libs
         run: pnpm run typecheck:libs
 
