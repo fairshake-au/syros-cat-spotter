@@ -6,7 +6,7 @@
 
 This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.send`, `onboarding.healthy`, `confirm.sent`) are for reference only — use whatever key naming the codebase already uses.
 
-**Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged. `injured.afterhours` was added on 4 September 2026 after the vet verification pass found that two clinics publish out-of-hours numbers; see item 17 for the checker.
+**Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged. `injured.afterhours` was added on 4 September 2026 after the vet verification pass found that two clinics publish out-of-hours numbers; see item 17 for the checker. **Withdrawn 28 September 2026:** Samuel cut the out-of-hours paragraph, and `injured.afterhours` is removed in all three languages.
 
 ---
 

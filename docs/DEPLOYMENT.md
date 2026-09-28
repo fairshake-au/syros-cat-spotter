@@ -50,7 +50,7 @@ The build work fits the window. The things that can sink October are all **lead 
 
 ## D. Product changes (spec §2)
 
-Tracked in PRODUCT-SPEC.md §2 — rename, safety screen, feeding nudge, clipped-tip question with photo, 500m, points 25/15, notes + food/water, thin-slice sterilised status, records import, blurred public locations, welfare flow with capacity messaging, minimal staff dashboard, email capture v1. Riskiest for the window: staff dashboard, records import, email capture — all three can slip to the hardening phase without moving launch.
+Tracked in PRODUCT-SPEC.md §2 — rename, safety screen, feeding nudge, clipped-tip question with photo, 500m, points 25/15, notes + food/water, thin-slice sterilised status, blurred public locations, welfare flow with capacity messaging, minimal staff dashboard, email capture v1. Riskiest for the window: staff dashboard and email capture — both can slip to the hardening phase without moving launch. (The records import moved after MVP on 28 September 2026. It is optional: `docs/specs/records-import.md`.)
 
 ## E. Testing (1–14 Sep)
 
