@@ -15,18 +15,26 @@ export const MAX_QUEUE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 export interface PendingSighting {
   localId: string;
   /**
-   * Inline base64 photo. Only kept on web (no persistent file system) and
-   * for legacy items queued before photos moved to document storage.
+   * Inline base64 photo. Only kept where photos cannot be stored outside the
+   * list (browsers without a working photo store), and for items queued
+   * before photos moved out of it.
    */
   photoBase64?: string;
-  /** Display URI — points at the persisted photo file once enqueued. */
+  /**
+   * The photo's reference once stored: a document-directory file path on
+   * native, `idb:<id>` on web. For an inline item, whatever display URI the
+   * capture had (which may no longer resolve).
+   */
   photoUri: string;
   lat: number;
   lng: number;
   createdAt: string;
   status: 'queued' | 'review' | 'error' | 'rejected';
-  /** Why the item is in the error state. */
-  errorKind?: 'server' | 'stale';
+  /**
+   * Why the item is in the error state. `cleared`: the browser cleared the
+   * stored photo (web only) — said plainly, never as "too old".
+   */
+  errorKind?: 'server' | 'stale' | 'cleared';
   /** Consecutive server-error sync failures. */
   failCount?: number;
   /** Translation key explaining a permanent server rejection. */

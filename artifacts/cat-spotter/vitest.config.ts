@@ -16,6 +16,7 @@ export default defineConfig({
       'lib/**/*.test.ts',
       'context/**/*.test.tsx',
       'components/**/*.test.tsx',
+      'hooks/**/*.test.tsx',
     ],
     environment: 'node',
   },

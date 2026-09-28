@@ -37,6 +37,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
+import { requestPersistentStorage } from '@/lib/pendingPhotos';
 import { CaptureControls } from '@/components/CaptureControls';
 import { Button } from '@/components/purropolis/Button';
 import { Card } from '@/components/purropolis/Card';
@@ -433,7 +434,14 @@ export default function SpotScreen() {
           {t('pendingSightings')}
         </Text>
         {isOnline && (
-          <Pressable onPress={syncNow} disabled={syncing}>
+          <Pressable
+            onPress={() => {
+              // Only ever from a tap here, never mid-save (spec §3.2).
+              requestPersistentStorage();
+              void syncNow();
+            }}
+            disabled={syncing}
+          >
             <Text style={[styles.syncText, { color: colors.primary }]}>
               {syncing ? '…' : t('syncNow')}
             </Text>
@@ -446,9 +454,15 @@ export default function SpotScreen() {
           padding={spacing[3]}
           onPress={
             item.status === 'review'
-              ? () => reviewPending(item)
+              ? () => {
+                  requestPersistentStorage();
+                  reviewPending(item);
+                }
               : item.status === 'rejected'
-                ? () => offerPhotoReplacement(item.localId)
+                ? () => {
+                    requestPersistentStorage();
+                    offerPhotoReplacement(item.localId);
+                  }
                 : undefined
           }
           style={styles.pendingItem}
@@ -466,7 +480,9 @@ export default function SpotScreen() {
                 : item.status === 'error'
                   ? item.errorKind === 'stale'
                     ? t('syncFailedStale')
-                    : t('syncFailedServer')
+                    : item.errorKind === 'cleared'
+                      ? t('syncFailedCleared')
+                      : t('syncFailedServer')
                   : item.status === 'rejected'
                     ? t('photoRejectedTitle')
                     : t('queued')}
@@ -506,7 +522,7 @@ export default function SpotScreen() {
             </Text>
             {item.status === 'error' && (
               <View style={styles.errorActions}>
-                {item.errorKind !== 'stale' && (
+                {item.errorKind !== 'stale' && item.errorKind !== 'cleared' && (
                   <Pressable
                     onPress={() => retry(item.localId)}
                     disabled={syncing || !isOnline}

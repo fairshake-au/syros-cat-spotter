@@ -162,7 +162,7 @@ describe('offline queue photo-file lifecycle', () => {
     expect(result.current.pending).toHaveLength(0);
   });
 
-  it('replacePhoto overwrites the persisted photo and preserves sighting metadata', async () => {
+  it('replacePhoto saves the new photo under a new key, deletes the old one after, and preserves sighting metadata', async () => {
     const oldFile = `${PHOTOS_DIR}/replace-1.jpg`;
     const createdAt = '2026-08-30T08:00:00.000Z';
     files.set(oldFile, 'OLD_PHOTO');
@@ -188,9 +188,12 @@ describe('offline queue photo-file lifecycle', () => {
       });
     });
 
-    expect(files.get(oldFile)).toBe('NEW_PHOTO');
+    // Never the original's key: a failed replacement cannot touch it (F11).
+    const newFile = `${PHOTOS_DIR}/replace-1-r1.jpg`;
+    expect(files.get(newFile)).toBe('NEW_PHOTO');
+    await waitFor(() => expect(files.has(oldFile)).toBe(false));
     expect(result.current.pending[0]).toMatchObject({
-      photoUri: oldFile,
+      photoUri: newFile,
       createdAt,
       lat: 37.4,
       lng: 24.9,

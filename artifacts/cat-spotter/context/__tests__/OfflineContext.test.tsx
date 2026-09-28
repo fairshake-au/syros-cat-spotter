@@ -627,7 +627,7 @@ describe('replacePhoto', () => {
     expect(ctx.current.pending[0]).toMatchObject({
       status: 'review',
       sightingId: 22,
-      photoUri: 'file:///documents/pending-photos/local-1.jpg',
+      photoUri: 'file:///documents/pending-photos/local-1-r1.jpg',
       createdAt,
       lat: 37.441,
       lng: 24.942,
