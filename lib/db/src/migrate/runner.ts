@@ -67,8 +67,19 @@ export function parseRollback(sql: string): string | null {
   if (end === -1) {
     throw new MigrationError("rollback-begin has no matching rollback-end");
   }
-  const body = lines
-    .slice(start + 1, end)
+  if (lines.slice(end + 1).some((l) => l.trim() === "-- rollback-begin")) {
+    throw new MigrationError("more than one rollback block");
+  }
+  const block = lines.slice(start + 1, end);
+  // Every line must be commented. An uncommented line inside the block would
+  // run on the way up, which is exactly what a rollback must never do.
+  const live = block.findIndex((l) => l.trim().length > 0 && !/^\s*--/.test(l));
+  if (live !== -1) {
+    throw new MigrationError(
+      `rollback line ${start + live + 2} is not commented, so it would run on the way up: ${block[live]!.trim()}`,
+    );
+  }
+  const body = block
     .map((l) => l.replace(/^\s*--\s?/, ""))
     .join("\n")
     .trim();
@@ -100,6 +111,18 @@ export function readMigrations(folder: string): Migration[] {
       rollback,
     };
   });
+}
+
+/**
+ * Serialise concurrent runs, then bound how long any DDL waits for a table
+ * lock. Without a bound, an ALTER queued behind a long query on the live app
+ * blocks every request that arrives after it: a migration becomes an outage.
+ * Failing after the timeout rolls the whole run back; retry when quieter.
+ */
+async function lockAndLimit(client: ClientBase): Promise<void> {
+  await client.query("select pg_advisory_xact_lock($1)", [LOCK_KEY]);
+  const timeout = process.env.MIGRATE_LOCK_TIMEOUT ?? "5s";
+  await client.query("select set_config('lock_timeout', $1, true)", [timeout]);
 }
 
 interface AppliedRow {
@@ -208,7 +231,7 @@ export async function migrateUp(
   );
   await client.query("begin");
   try {
-    await client.query("select pg_advisory_xact_lock($1)", [LOCK_KEY]);
+    await lockAndLimit(client);
     await ensureTable(client);
     let applied = await appliedRows(client);
     let adoptedBaseline = false;
@@ -275,7 +298,7 @@ export async function rollbackLast(
 ): Promise<string> {
   await client.query("begin");
   try {
-    await client.query("select pg_advisory_xact_lock($1)", [LOCK_KEY]);
+    await lockAndLimit(client);
     await ensureTable(client);
     const applied = await appliedRows(client);
     if (!applied.length) throw new MigrationError("Nothing has been applied.");

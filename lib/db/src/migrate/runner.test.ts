@@ -151,6 +151,27 @@ describe("parseRollback", () => {
       MigrationError,
     );
   });
+  it("rejects an uncommented line, which would run on the way up", () => {
+    expect(() =>
+      parseRollback(
+        'CREATE TABLE "x" ();\n-- rollback-begin\nDROP TABLE "x";\n-- rollback-end\n',
+      ),
+    ).toThrow(/rollback line 3 is not commented/);
+  });
+  it("rejects a second rollback block", () => {
+    expect(() =>
+      parseRollback(
+        "-- rollback-begin\n-- DROP TABLE x;\n-- rollback-end\n-- rollback-begin\n-- DROP TABLE y;\n-- rollback-end\n",
+      ),
+    ).toThrow(/more than one rollback block/);
+  });
+  it("tolerates CRLF line endings", () => {
+    expect(
+      parseRollback(
+        "-- rollback-begin\r\n-- DROP TABLE x;\r\n-- rollback-end\r\n",
+      ),
+    ).toBe("DROP TABLE x;");
+  });
 });
 
 describe("migrateUp", () => {
@@ -262,6 +283,56 @@ describe("migrateUp", () => {
       migrateUp(c, readMigrations(fixture([BASELINE]))),
     ).rejects.toThrow(/database is ahead of this code/);
   });
+  it("detects drift in length, collation and identity", async () => {
+    const c = await freshDb();
+    const base = {
+      tag: "0000_base",
+      when: 1000,
+      sql: `CREATE TABLE "cats" ("id" integer PRIMARY KEY NOT NULL, "name" varchar(50) NOT NULL);`,
+    };
+    await buildWithoutHistory(c, base.sql);
+    await c.query(`alter table cats alter column name type varchar(200)`);
+    await c.query(
+      `alter table cats alter column name type varchar(200) collate "C"`,
+    );
+    await c.query(
+      `alter table cats alter column id add generated always as identity`,
+    );
+    const err = await migrateUp(c, readMigrations(fixture([base]))).catch(
+      (e: unknown) => e,
+    );
+    const message = (err as Error).message;
+    expect(message).toMatch(
+      /only in database: column cats\.name .*len=200 .*collation=C/,
+    );
+    expect(message).toMatch(
+      /only in database: column cats\.id .*identity=YES\/ALWAYS/,
+    );
+    expect(message).toMatch(/only in 0000_base: column cats\.name .*len=50/);
+  });
+
+  it("gives up on a table lock rather than queueing the live app behind it", async () => {
+    const c = await freshDb();
+    const m = readMigrations(fixture([BASELINE, ADD_COLOUR]));
+    await migrateUp(c, m, { throughIdx: 0 });
+    const holder = new pg.Client({
+      connectionString: withDb(baseUrl!, c.database!),
+    });
+    await holder.connect();
+    open.push(holder);
+    await holder.query("begin");
+    await holder.query("lock table cats in access share mode");
+    const previous = process.env.MIGRATE_LOCK_TIMEOUT;
+    process.env.MIGRATE_LOCK_TIMEOUT = "200ms";
+    try {
+      await expect(migrateUp(c, m)).rejects.toThrow(/lock timeout/);
+    } finally {
+      if (previous === undefined) delete process.env.MIGRATE_LOCK_TIMEOUT;
+      else process.env.MIGRATE_LOCK_TIMEOUT = previous;
+      await holder.query("rollback");
+    }
+    expect(await recorded(c)).toBe(1);
+  });
 });
 
 describe("rollbackLast", () => {
@@ -325,6 +396,52 @@ describe("cycle", () => {
     ).rejects.toThrow(
       /Rolling back 0001_notes did not restore the schema[\s\S]*only in after rollback: column notes\.id/,
     );
+  });
+});
+
+describe("cycle catches incomplete rollbacks", () => {
+  it("of a type change", async () => {
+    const c = await freshDb();
+    const base = {
+      tag: "0000_base",
+      when: 1000,
+      sql: `CREATE TABLE "cats" ("id" integer, "name" varchar(50));`,
+    };
+    const widen = {
+      tag: "0001_widen",
+      when: 2000,
+      sql: [
+        `ALTER TABLE "cats" ALTER COLUMN "name" TYPE varchar(200);`,
+        `-- rollback-begin`,
+        `-- SELECT 1;`,
+        `-- rollback-end`,
+      ].join("\n"),
+    };
+    await expect(
+      cycle(c, readMigrations(fixture([base, widen]))),
+    ).rejects.toThrow(/Rolling back 0001_widen did not restore the schema/);
+  });
+
+  it("that leaves a trigger function behind", async () => {
+    const c = await freshDb();
+    const withFunction = {
+      tag: "0001_guard",
+      when: 2000,
+      sql:
+        [
+          `CREATE FUNCTION "guard"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;`,
+          `CREATE TRIGGER "cats_guard" BEFORE UPDATE ON "cats" FOR EACH ROW EXECUTE FUNCTION "guard"();`,
+        ].join("--> statement-breakpoint\n") +
+        [
+          "",
+          `-- rollback-begin`,
+          `-- DROP TRIGGER "cats_guard" ON "cats";`,
+          `-- rollback-end`,
+        ].join("\n"),
+    };
+    await expect(
+      cycle(c, readMigrations(fixture([BASELINE, withFunction]))),
+    ).rejects.toThrow(/only in after rollback: function guard/);
   });
 });
 
