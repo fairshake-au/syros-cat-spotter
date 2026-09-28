@@ -72,3 +72,17 @@ Tracked in PRODUCT-SPEC.md §2 — rename, safety screen, feeding nudge, clipped
 - OSM tile policy: ~350 pre-downloaded tiles per install is tolerable at launch scale; budget a paid tile provider (€10–50/mo) if installs take off
 - The stale docs/syros-cats-proposal.md mirror and the Purropolis-branded proposal artifact still need the rename pass (SYC-17)
 - Play's 14-day rule assumes testers stay opted in continuously — brief the WhatsApp group not to leave the test
+
+## H. Sign-in mail is down
+
+Staff sign in at `admin.catspotters.com` with an emailed link, sent through Resend from `signin@mail.catspotters.com` (SYC-25). If the links stop arriving, work through this in order.
+
+**Who is affected.** Only people who need a *new* link. Anyone already signed in stays signed in for up to 30 days on that device, so a short outage usually goes unnoticed.
+
+1. **Check it's really mail.** Request a link for your own address. The page should say "If that address is on the list, a link is on its way". If it says "Email sign-in isn't switched on yet", the `RESEND_API_KEY` secret is missing from the `catspotters-admin` Worker. Put it back with `wrangler secret put RESEND_API_KEY` from `catspotters-website/admin`.
+2. **Check Resend.** Look at status.resend.com, then open the Resend dashboard, go to Emails, and find the link you just requested. If it shows *bounced* or *complained*, the problem is the recipient's mailbox, not us. If there's no entry at all, look at the Worker's logs in the Cloudflare dashboard (Workers, then `catspotters-admin`, then Logs) for `signin mail send failed` and its status code. A 401 or 403 means the key was revoked or rotated. A 422 means the domain has lost its verification: check the DNS records under `mail.catspotters.com`.
+3. **Check it isn't the rate limit.** Each address gets at most three links in 15 minutes and ten in a day; each network gets at most 20 requests an hour. Past that, the page looks normal but nothing is sent. Asking again doesn't make the wait longer: the limit counts links actually sent, not attempts. Look for `signin_limit_crossed` in the Worker logs. Waiting it out is the fix.
+4. **Getting somebody in during an outage.** The one break-glass address in the D1 `admins` table (Samuel's) is for opening the workspace documents, not for sharing. The dashboard (SYC-43) is never reachable through it. Do not hand-insert rows into `signin_tokens`. That is the process this setup replaced.
+5. **If Resend is down for a long time**, the upgrade path is Postmark (DECISIONS D2). Only one function in `admin/src/index.js` sends mail (`sendLink`), so switching means changing that function, verifying `mail.catspotters.com` with Postmark, and storing its send-only key as a Worker secret. It is a small code change plus DNS work, not a rethink.
+
+Keys are never pasted into chat, tickets, routines or this file (spec §2.11).
