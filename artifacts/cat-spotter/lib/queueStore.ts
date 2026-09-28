@@ -231,9 +231,15 @@ export function createQueueStore(options: QueueStoreOptions): QueueStore {
       try {
         raw = await options.read();
       } catch {
-        // Storage could not be read at all. Memory stays empty, but nothing is
-        // lost: every write re-reads storage first.
-        raw = null;
+        // Storage could not be read at all. That is NOT the same as nothing
+        // saved: the list may be full, we just cannot see it. So memory stays
+        // empty and every load step is skipped — above all the orphan sweep,
+        // which would otherwise delete every queued photo on the strength of
+        // an empty list (final review of PR #9, finding 1). Writes stay safe
+        // regardless, because each one re-reads storage first; once reads
+        // work again, the next save starts from what is really saved, and the
+        // next launch runs the load steps normally.
+        return;
       }
       const parsed = parseQueue(raw);
       if (!parsed.ok) {

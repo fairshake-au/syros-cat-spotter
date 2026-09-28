@@ -211,6 +211,27 @@ describe('queue store', () => {
       expect(store.isReadOnly()).toBe(false);
     });
 
+    // Final review of PR #9, finding 1 — a data-loss regression. A read that
+    // throws at load used to be treated as "nothing saved", so the load steps
+    // ran on an empty list and the orphan sweep deleted every queued photo.
+    // The sweep lives in `afterParse`; it must not run at all.
+    it('a storage read failure at load skips every load step, so nothing is swept on an empty list', async () => {
+      const storage = makeStorage([item('a'), item('b')]);
+      storage.state.failReads = true;
+      const { store } = makeStore(storage);
+      let loadStepsRan = false;
+      await store.load({
+        afterParse: async () => {
+          loadStepsRan = true;
+        },
+      });
+      expect(loadStepsRan).toBe(false);
+      expect(store.isReady()).toBe(true);
+      // Not read-only: writes re-read storage, so they stay safe and recover.
+      expect(store.isReadOnly()).toBe(false);
+      expect(ids(storage.list())).toEqual(['a', 'b']);
+    });
+
     it('a storage read failure at load does not let a later write erase the saved list', async () => {
       const storage = makeStorage([item('a')]);
       storage.state.failReads = true;
