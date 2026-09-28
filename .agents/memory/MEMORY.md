@@ -11,3 +11,4 @@
 - [Orval codegen pitfalls](orval-codegen.md) — name request bodies as components (zod name collisions); expo typed routes need the dev workflow running; avoid pkill -f self-kills.
 - [pnpm security overrides](pnpm-security-overrides.md) — extend the workspace override map; a package.json override block can displace platform-pruning overrides and bloat the lockfile.
 - [Metro image-size compatibility](metro-image-size-compatibility.md) — safe image-size 2.x needs Metro asset paths converted to bytes before dimension detection.
+- [Replit ↔ GitHub sync](replit-github-sync.md) — the Git pane and the agent's shell git use separate auth; fixing the pane doesn't fix the agent. Reconnect GitHub at the account-level Connectors page, not the Git pane's own button.
