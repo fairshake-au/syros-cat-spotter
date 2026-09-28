@@ -2,7 +2,7 @@
 
 **Status:** Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`)
 **Owner:** Samuel
-**Covers:** SYC-40 (life status and presumed-deceased), SYC-49 (records import), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
+**Covers:** SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
 **Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) · [`docs/specs/team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) · [`docs/specs/email-capture.md`](./email-capture.md) · [`docs/specs/hosting-and-photo-storage.md`](./hosting-and-photo-storage.md)
 
 **What this document owns**, per the ownership table in `DECISIONS.md`: the cat record model, observations and how status is worked out; presumed-deceased; location blurring, the nearest-cat oracle and feeding-site privacy; records import and matching; and the deletion mechanism. Other specs reference this behaviour rather than restating it. In particular, `team-access-and-welfare-queue.md` independently described a status-column-plus-audit-log record model — the exact design §2 rejects by name. **That description is struck; this document owns the record.** Sign-in, roles, the dashboard, the welfare queue and the safety copy are that document's, and are referenced here, never redefined.
@@ -67,8 +67,8 @@ Separately, and outside this spec's scope but worth naming because it will hurt 
 | Status | What it means to a person | Typical evidence |
 |---|---|---|
 | **Street** | The cat lives outdoors. This is where nearly every cat in the catalogue starts. | The default. No claim needed. |
-| **Homed** | Someone has taken this cat in. It lives in a house now. | A cat guardian or a Syros Cats team member says so. |
-| **In care** | The cat is temporarily with Syros Cats, a foster, or a vet — recovering, being treated, or waiting for a home. | A team member says so. |
+| **Homed** | Someone has taken this cat in. It lives in a house now. | A cat guardian or a Syros Cats team member says so, or an owner claims the cat. |
+| **In care** | The cat is temporarily with Syros Cats, a foster, or a vet — recovering, being treated, or waiting for a home. | A team member says so, or a vet does if the cat is in their care. |
 | **Deceased** | The cat has died and someone knows it. | A team member or the cat's guardian says so. |
 
 Plus one derived state that is **not** a status anyone sets:
@@ -83,6 +83,7 @@ Plus one derived state that is **not** a status anyone sets:
 |---|---|
 | **Syros Cats team** (staff, admin) | Any status, on any cat |
 | **Cat guardian** | Homed, in care, deceased — on cats they look after |
+| **Vet** | In care, on a cat in their care. Vet accounts come later (SYC-24); until then the team records it on the vet's word. |
 | **Resident who has claimed a cat** | Homed, on their own claimed cat |
 | **Any spotter** | Nothing directly. A spotter's *sighting* is itself evidence the cat is alive, which is the strongest and most common life-status signal we get. A spotter who notices something worrying uses the note field or the trouble report. |
 
@@ -213,126 +214,17 @@ This is the rule the old spec got wrong, and it is worth stating plainly because
 
 Only when there is no authoritative statement at all does the clipped-tip evidence get consulted, and it can only ever produce *Likely*.
 
-The reason this matters: §5.5 promises that a later team entry corrects a mis-matched import row. That is the highest-consequence correction in the system — it is how a cat wrongly labelled from someone else's record gets its own record back — and under the old "any positive ever, wins" rule it could not happen.
+The reason this matters: `records-import.md` §2.5 promises that a later team entry corrects a mis-matched import row. That is the highest-consequence correction in the system — it is how a cat wrongly labelled from someone else's record gets its own record back — and under the old "any positive ever, wins" rule it could not happen.
 
 ---
 
 ## 5. Importing Syros Cats' existing records
 
-Syros Cats keeps sterilisation and TNR records today and will hand them over. Jo sets up TNR records; cat guardians are authorised to arrange sterilisation with Syros Cats paying. Those records are the single biggest injection of *Confirmed* data the app will ever receive, and they arrive once. This section is about not wasting them.
+**Moved to its own spec, `records-import.md` (Samuel, 28 September 2026).** Importing Syros Cats' existing records is an **optional, post-MVP** feature, built only if Syros Cats confirm it is operationally sensible and helpful. What exists today is a set of month-by-month WhatsApp groups with scant details about each cat.
 
-### 5.1 What we ask them for
+Nothing in this spec depends on it. Without an import, *Confirmed* sterilisations come from the team (and vets, once they have access) recording them as cats are seen.
 
-We ask for whatever they already have, in whatever form they already have it — a spreadsheet export is ideal, a photograph of a notebook page is acceptable and gets typed up. We do not ask them to restructure their records to suit us; that is a request a small charity should never receive from software.
-
-| Field | Why it matters | If missing |
-|---|---|---|
-| **Date of the operation** | Orders the evidence; drives impact reporting by date range | Import as "date unknown"; the record still confirms sterilisation, it just cannot be counted in a period |
-| **The cat's name or their reference** | The strongest matching signal we have | Falls back to colony plus description |
-| **Colony or location** | Second-strongest matching signal; colonies have established names, usually the place plus the name of the person caring for the colony. Names can change, so a match checks the current name **and** every earlier one (§10.5) | Matching relies on name alone |
-| **Sex** | Fills an attribute we otherwise rarely learn, and is the strongest way to *rule out* a wrong match | Left unknown |
-| **Vet or clinic** | Provenance; supports funder reporting | Recorded as "Syros Cats record" |
-| **Ear tip clipped, and which side** | Lets us cross-check crowd observations | Assumed nothing |
-| **Cat guardian's name** | Matching signal, and the route to a guardian account later | Ignored |
-| **Cost** | Funder reporting against the €50–60 per cat figure | Ignored |
-| **Free-text notes** | Kept verbatim; often the only thing that identifies a cat | — |
-
-### 5.2 What a real charity's records actually look like
-
-The pipeline below is built for the file we will actually receive, not the file we would like. Four things are near-certain and each needs an answer before the first upload, not after:
-
-- **The same cat appears more than once.** A cat done in 2019 and treated again in 2023 is two rows and one cat. Two volunteers recording the same operation is two rows and one operation. The import cannot tell these apart by content alone, so it does not try: both rows are kept, both are matched, and the *pool count* in §5.4 is de-duplicated before publication rather than at import.
-- **Spelling is inconsistent.** "Mimi", "Mimí", "MIMI", "Mimi (bakery)". Normalisation folds case and trims, but it does not invent a canonical spelling; near-matches go to review.
-- **Greek and Latin script for the same cat.** "Ρούλα" in the charity's book and "Roula" in the app are the same animal. A transliteration table (the standard ELOT 743 mappings plus the handful of local habits — ου/ou, γκ/gk, and both directions) is applied when scoring near-matches. It never auto-links on its own.
-- **Greek text is harder than "case-fold" suggests.** Final sigma (ς versus σ), accents (Μιμή versus ΜΙΜΗ — Greek drops the accent when capitalised), and Unicode normalisation (the same name typed on an iPhone and pasted from a Word document can be different byte sequences). All names are normalised to **NFC on write** — in the app as well as the importer — and matching compares an accent-stripped, final-sigma-folded, case-folded form. This also means the catalogue's "names are unique, case-insensitively" guarantee needs a migration-level test asserting what it actually does with `Μιμή` (NFC), `Μιμή` (NFD) and `ΜΙΜΗ`. See §10.7.
-- **Cats known by two names.** The charity's "Μιμή, the one-eyed one by the bakery" and the app's "Mimi" must be able to be one cat with two recorded names — see §5.6.
-
-### 5.3 The pipeline
-
-Four stages, each of which can be stopped and inspected.
-
-1. **Land the file, untouched.** Every row is stored verbatim in a staging table alongside a hash of its content, its position in the file, and a hash of the whole file. Nothing is interpreted yet. This is what makes the import re-runnable and re-derivable — if we discover in six months that the matching was too eager, we re-run it against the original rows rather than reconstructing them.
-2. **Normalise.** Dates parsed (Greek and English formats), names normalised as §5.2 describes, colonies mapped onto rows in the `colonies` table (§10.5) by normalised name — never created silently, because a typo would otherwise mint a colony. Anything that will not parse is flagged, not guessed.
-3. **Match to a cat in the app.** Scored, never automatic beyond a high bar. See §5.4.
-4. **Apply.** Matched rows become observations with provenance `import` and source `Syros Cats records`, which resolve to *Confirmed*. Unmatched rows wait in a pool. See §5.5.
-
-**Any photograph arriving with the records goes through the same pipeline as a photo taken in the app.** The charity's records may come with pictures — a photo of a cat on the clinic table, a snapshot attached to a spreadsheet row, a phone picture of a notebook page. Those are photographs taken on somebody's phone, which means they carry the GPS tag of where they were taken, which is a vet's premises or a colony's exact feeding spot.
-
-The upload path strips that metadata (§6.4.5). **The import must not have a direct-insert path into the photos table.** Every imported image is validated and re-encoded through the same `validatePhotoBase64` pipeline as a spotter's photo — same format checks, same size limits, same strip — with no shortcut for "it came from the charity so it must be fine". An import that writes photo rows directly would silently publish exact coordinates on a public, permanently-cached endpoint, defeating every control in §6 for exactly the cats the charity cares most about.
-
-This is a dependency in both directions. `hosting-and-photo-storage.md` owns the test that a JPEG uploaded with a GPS block comes back without one; today the image-validation suite has eleven tests and **not one of them asserts that GPS metadata is gone** — the only EXIF-adjacent test asserts that orientation is honoured. That test covers the upload path only. This document requires the same assertion against the import path (§10.8 test 13), because a stripping guarantee that holds on one of two entrances is not a guarantee.
-
-**Re-running the import is genuinely safe — which it was not, as previously specified.** The old design made the row identity unique on *(batch id, row hash)*, and a re-upload creates a new batch with a new id. Every row would have inserted again, matched again, and written a second observation. Re-uploading the spreadsheet because you were not sure the first one worked — the single most likely operational event in the whole feature — would have doubled the confirmed-sterilisation count that goes to funders.
-
-The identity is now **(file content hash, row hash, row position)**, unique across the whole table:
-
-- **The same file uploaded twice** is recognised as the same file. The second upload reports "this file is already imported, 214 rows, nothing to do" and writes nothing.
-- **Genuinely identical rows within one file** — the charity recorded the same cat twice, identically — both survive, because the row's position in the file is part of its identity. Discarding one would throw away a real record.
-- **A corrected file** is a different file. The rows that are unchanged are recognised as already imported and skipped. The rows that changed are new rows, and here the old design left two contradictory live observations from one real-world record with nothing linking them. Instead: a corrected row **supersedes** the observation written by the row it replaces, matched on the charity's own reference where the file has one, and on (file lineage, row position) where it does not. The superseded observation stays in the trail with the reason *"replaced by a corrected import"*. Where neither key is available the row lands in review rather than guessing.
-
-### 5.4 Matching imported records to cats in the app
-
-Candidates are scored, and the score decides what happens — it never decides silently.
-
-| Signal | Weight |
-|---|---|
-| Cat name matches, case-insensitive and accent-insensitive, exactly | Very strong |
-| Cat name is a near-match (one or two characters, or a known Greek↔Latin transliteration) | Strong |
-| Colony matches | Moderate |
-| Record location within 500 m of the cat's sightings | Moderate |
-| Cat guardian's name matches the claimed owner | Moderate |
-| Sex contradicts a recorded sex | **Strong negative — vetoes an auto-link outright** |
-
-| Outcome | Rule | What happens |
-|---|---|---|
-| **Auto-linked** | Exact name match, **and** exactly one cat in the catalogue has that name, **and** at least one corroborating signal (colony match, a record location within 500 m of the cat's sightings, or a guardian-name match), **and** no negative signal | Applied immediately, and recorded as auto-linked so the whole set can be reviewed or reversed as a group. |
-| **Needs review** | Any other scoring cat, including a name-only match with nothing corroborating | Lands in the team dashboard's import queue: the record on one side, up to three candidate cats with photos on the other, and buttons for *this one* / *none of these*. |
-| **Unmatched** | Nothing scores | Goes to the waiting pool. See §5.5. |
-
-**Why name alone is no longer enough.** The previous rule auto-linked on an exact unique name, reasoning that names are unique across the catalogue "so this is unambiguous by construction". Uniqueness is real — the database enforces it — but it guarantees *at most one candidate*, not *the right one*. App cat names come from an AI suggester asked for names in the user's language, drawing on the same small pool of common Greek cat names the charity's own records use. "Ρούλα" in the charity's Ano Syros records and "Roula" the tabby a French tourist named in Kini are one exact-name auto-link that no human ever sees — and the result is a *Confirmed* sterilisation, or now under D4 a *public confirmed negative*, on the wrong cat. A few hundred rows in a review queue is one afternoon for Jo. It is the cheapest insurance in the document.
-
-**Nothing is auto-linked on location or colony alone.** In a thirty-cat colony, "a sterilised cat near the bakery" identifies no individual.
-
-### 5.5 Records with no cat yet
-
-Most of Syros Cats' records will describe cats the app has never photographed.
-
-| Option | Benefits | Risks |
-|---|---|---|
-| **A. Create a photo-less cat entry for every unmatched record** | Every sterilisation is immediately visible and countable. The island count jumps to something closer to reality. | The catalogue fills with cats nobody can spot, collect, or see a photo of. The collection grid — the reason tourists come back — becomes mostly locked grey squares for cats that may not exist any more. Duplicates become near-certain when the real cat is later photographed and named something else. |
-| **B. Hold them in a waiting pool, attach on first sighting (recommended)** | The public catalogue stays honest: everything in it is a cat somebody has seen. Impact reporting still counts these records, from the pool, because the pool is part of the data. When a matching cat is later spotted, the team gets a suggestion and one tap links the record — turning a first sighting into a *Confirmed* sterilisation. | Two places to look when answering "is this cat done?" — handled by the resolver consulting both, so only the code sees the seam. And the two places can double-count; see below. |
-
-**Recommendation: Option B.** The catalogue is a record of cats that have been seen; the pool is a record of operations that have been performed.
-
-**The counting is honest about its own overlap.** A pool record is "a cat not yet photographed" only if the matching was right, and unmatched-because-hard is the common case rather than the rare one. A record that failed to match a cat already in the catalogue is counted twice. Two rows for one cat under two spellings both sit in the pool and both count. So:
-
-- The pool figure is **de-duplicated before publication** — rows that match each other on the charity's reference, or on normalised name plus colony, count once.
-- The reporting sentence names the overlap rather than implying precision it does not have: *"142 cats in the catalogue: 89 confirmed sterilised, 23 likely, 12 confirmed not sterilised, 18 not known. We hold records of a further 46 sterilisations for cats not yet photographed — some of these may be cats already listed above."*
-- **The "further 46" will go down over time, and that is success, not a mistake.** Every time a pool record links to a newly-photographed cat, the pool drops by one and the confirmed count rises by one. A funder-facing number that moves downward needs its explanation written before it moves, not after.
-
-### 5.6 A cat's names, over time
-
-The cat's name is the strongest matching signal we have, and today nothing preserves it: renaming a cat overwrites the name in place, with no history, so an owner renaming their cat destroys the only strong key every future import run would have used. There is also no way to say that a cat is known by two names, which §5.2 says is the normal case.
-
-**A cat's names are recorded append-only, like everything else** — every name it has been known by, with who gave it, when, and where the name came from (spotter, owner rename, charity record, transliteration). The current name is the newest non-superseded one; the rest are matching keys. Imports match against all of them. This is also the natural home for the Greek/Latin pairs in §5.2.
-
-**Names given by a deleted user are kept.** A name becomes shared community property the moment other people use it; see §8.4.
-
-### 5.7 When the import contradicts what the app derived
-
-| Situation | What happens | Why |
-|---|---|---|
-| App says *Likely* (clipped tip seen), import confirms sterilised | Becomes *Confirmed*. Both observations stay. | The crowd was right, and the record now says so with authority. |
-| App says *Unknown*, import confirms sterilised | Becomes *Confirmed*. | The whole point of the import. |
-| App says *Likely*, import record says the cat was **not** sterilised (e.g. a trapping that did not proceed) | The import is authoritative and it wins, because clipped-tip evidence can never outrank an authoritative statement (§4.6). Publicly the cat reads *"Not sterilised"* per D4. Flagged for the team. | A clipped tip photographed after that date is genuinely interesting — but *interesting* is a flag for a human, not a reason for the resolver to override the record. |
-| Import confirms sterilised, a later team entry says not sterilised | The later team entry wins, and the conflict is flagged prominently. | Almost always means the record was matched to the wrong cat. This is the signal that the matching needs correcting — and under §4.6 it now actually executes. |
-| Two import rows disagree with each other about the same cat | Both applied; the newer operation date wins; flagged. | Their records, their conflict — we surface it rather than silently picking. |
-
-**No import row ever overwrites or deletes anything.** Every one of these outcomes is an addition to the trail, and every one is reversible by adding a further observation.
-
-**Unlinking is supported.** A record linked to the wrong cat can be unlinked from the team dashboard; the unlink supersedes the observation the link wrote, the record returns to the review queue (`needs_review`), and the derived status recomputes immediately. There is one state for this transition, not two.
-
----
+**What this spec keeps so an import can arrive later without rewriting history:** the `import` provenance on observations and the precedence rule in §4.6; a cat's names are recorded append-only (§10.3), so an owner renaming a cat does not destroy the name a future import would match on; colony name history (§10.5); and the notification baseline for bulk writes (§9.2).
 
 ## 6. Location privacy
 
@@ -427,7 +319,7 @@ Grid snapping handles the obvious attack. These close the rest.
    Until both are closed, the coarse-timestamp claim is a partial protection and this spec says so rather than implying otherwise.
 5. **Photos carry location in two ways, and only one of them is fixable.**
    - **EXIF GPS.** Every upload is currently re-encoded through sharp, which drops metadata unless it is explicitly asked to keep it. That is a default, not a decision — and a perfectly reasonable future change to preserve colour profiles or orientation would silently republish exact capture coordinates on a public, permanently-cached endpoint, defeating everything else in this section. **It becomes a stated requirement with a test**: upload a JPEG carrying GPS EXIF, fetch it back, assert there is no GPS block. The image-validation suite has eleven tests today and none of them makes that assertion.
-   - **The second entrance.** The strip only helps if every photo goes through it. **The records import must have no direct-insert path into the photos table** — imported images are validated and re-encoded exactly like a spotter's, per §5.3. A photo attached to a charity record is a phone picture taken at a clinic or a feeding spot, which is the most sensitive coordinate in the system.
+   - **The second entrance.** The strip only helps if every photo goes through it. **The records import must have no direct-insert path into the photos table** — imported images are validated and re-encoded exactly like a spotter's, per `records-import.md` §2.3. A photo attached to a charity record is a phone picture taken at a clinic or a feeding spot, which is the most sensitive coordinate in the system.
    - **The picture itself.** A doorway, a house number, a shop sign, a recognisable balcony. No blurring scheme touches this and none ever will. Syros Cats should hear it from this document rather than discover it: the photographs are the least blurred thing we publish.
 
 ### 6.5 Who sees exact locations, and where the blurring lives
@@ -562,7 +454,7 @@ The observation and sighting tables are append-only: rows are inserted and never
 
 The immutability guard is written so that redaction is the only permitted update, and it is written that way from the first migration rather than relaxed later.
 
-**Deletion is one transaction and it is synchronous.** No nightly sweep, no queue. The person taps the button and by the time the screen changes it has happened. Propagation to the mail provider happens in the same operation (`email-capture.md` §5.3).
+**Deletion is one transaction and it is synchronous.** No nightly sweep, no queue. The person taps the button and by the time the screen changes it has happened. Propagation to the mail provider happens in the same operation (`email-capture.md` `records-import.md` §2.3).
 
 **A suppression hash of the email address survives**, one-way and irreversible, so that an address that asked to be forgotten is not re-mailed if somebody types it again. It cannot be turned back into an address.
 
@@ -658,7 +550,7 @@ export const observationsTable = pgTable("observations", {
 
   sightingId: integer("sighting_id"),   // when it came from a spot
   photoId: integer("photo_id"),         // the evidence
-  importRecordId: integer("import_record_id"), // when it came from §5
+  importRecordId: integer("import_record_id"), // when it came from records-import.md
 
   // When the thing was true, not when the row was written.
   observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
@@ -722,7 +614,7 @@ export interface Resolved<T> {
 
 export function resolveSterilised(
   observations: Observation[],
-  importRecords: ImportRecord[],   // §5.5 waiting pool, when linked
+  importRecords: ImportRecord[],   // records-import.md §2.5, once built
 ): Resolved<boolean>;
 
 export function resolveLifeStatus(
@@ -772,57 +664,17 @@ export const catIdentityTable = pgTable("cat_identity", {
 
 The resolver reads through this table, so a merge is a row and an unmerge is another row. Duplicate merge itself is still deferred, but the table lands now: it is the only version of merge that is reversible, and merge was pulled forward as a user-facing workflow precisely because it must be.
 
-**NFC normalisation on write**, in the app and the importer alike, plus a migration-level test asserting what `cats_name_lower_unique` actually does with `Μιμή` (NFC), `Μιμή` (NFD) and `ΜΙΜΗ` under this database's collation. Whatever the answer, it is written down — the "unique by construction" argument in §5.4 is only as strong as the collation underneath it, and nobody has checked.
+**NFC normalisation on write**, in the app and the importer alike, plus a migration-level test asserting what `cats_name_lower_unique` actually does with `Μιμή` (NFC), `Μιμή` (NFD) and `ΜΙΜΗ` under this database's collation. Whatever the answer, it is written down — the "unique by construction" argument in `records-import.md` §2.4 is only as strong as the collation underneath it, and nobody has checked.
 
 ### 10.4 Import tables
 
-```ts
-export const importBatchesTable = pgTable("import_batches", {
-  id: serial("id").primaryKey(),
-  filename: text("filename").notNull(),
-  fileHash: text("file_hash").notNull(),    // sha256 of the whole file
-  supersedesBatchId: integer("supersedes_batch_id"),  // a corrected re-upload
-  uploadedBy: text("uploaded_by").notNull(),          // staff identity, see below
-  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
-  rowCount: integer("row_count").notNull(),
-  notes: text("notes"),
-});
-
-export const importRecordsTable = pgTable("import_records", {
-  id: serial("id").primaryKey(),
-  batchId: integer("batch_id").notNull(),
-  fileHash: text("file_hash").notNull(),    // denormalised for the unique index
-  rowHash: text("row_hash").notNull(),      // sha256 of the raw row
-  rowOrdinal: integer("row_ordinal").notNull(),  // position in the file
-  sourceKey: text("source_key"),            // the charity's own reference, if any
-  raw: jsonb("raw").notNull(),              // the row, verbatim, forever
-  parsed: jsonb("parsed"),                  // normalised fields, null if unparseable
-  parseErrors: jsonb("parse_errors"),
-  catId: integer("cat_id"),                 // null while unmatched
-  matchState: text("match_state").notNull().default("unmatched"),
-  // unmatched | needs_review | auto_linked | linked | rejected
-  matchScore: doublePrecision("match_score"),
-  matchCandidates: jsonb("match_candidates"),
-  reviewedBy: text("reviewed_by"),
-  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-}, (t) => [
-  // Globally unique, NOT batch-scoped. Re-uploading the same file is a no-op;
-  // identical rows within one file both survive on rowOrdinal.
-  uniqueIndex("import_records_identity_unique").on(t.fileHash, t.rowHash, t.rowOrdinal),
-  index("import_records_state_idx").on(t.matchState),
-  index("import_records_source_key_idx").on(t.sourceKey),
-]);
-```
-
-Linking an import record writes an `observations` row with `provenance: "import"` and `importRecordId` set. Unlinking supersedes that observation and returns the record to `needs_review` — one state for that transition; `unlinked` is not a separate state.
-
-**`uploadedBy` and `reviewedBy` depend on staff identity**, which comes from `team-access-and-welfare-queue.md` and is unshipped. The import step is therefore blocked on staff sign-in existing, which the migration plan in §11 states explicitly rather than leaving to be discovered.
+Moved to `records-import.md` §3. Created only if the import goes ahead.
 
 **`roleAtTime` values outrun what exists.** `guardian`, `volunteer` and `vet` are recorded from day one and are **unreachable in phase 1** — the team-access spec builds one role. Nobody should build a UI expecting them.
 
 ### 10.5 Colonies and feeding sites
 
-**Colonies are a table, not a string.** Until this revision a colony was free text (`colonyName`) in three separate places, which meant "Vaporia — Eleni's" and "Vaporia (Eleni)" were two colonies, the import in §5.4 could not score a colony match reliably, and the guardian join that `team-access-and-welfare-queue.md` §7.3 needs (`person_scopes.colony_id`) had nothing to point at.
+**Colonies are a table, not a string.** Until this revision a colony was free text (`colonyName`) in three separate places, which meant "Vaporia — Eleni's" and "Vaporia (Eleni)" were two colonies, the import in `records-import.md` §2.4 could not score a colony match reliably, and the guardian join that `team-access-and-welfare-queue.md` §7.3 needs (`person_scopes.colony_id`) had nothing to point at.
 
 **Colonies use the names Syros Cats already use, usually the location plus the name of the person caring for the colony** — "Vaporia — Eleni's". **Syros Cats can rename a colony at any time** (Samuel, 28 September 2026: guardians change). Every reference is by id, so a rename moves nothing; earlier names are kept in `colony_name_history` so an old name still finds the colony and still matches on import. That is the charity's own operational vocabulary and the app adopts it rather than inventing one; the naming convention and the dashboard that maintains it are `team-access-and-welfare-queue.md` §3.4's, and the person named there is a **cat guardian**.
 
@@ -848,7 +700,7 @@ export const coloniesTable = pgTable("colonies", {
 ]);
 
 // One row per name a colony has had before its current one. Search and the
-// records import (§5.4) match against these as well as colonies.name.
+// records import (records-import.md §2.4) would match against these as well as colonies.name.
 export const colonyNameHistoryTable = pgTable("colony_name_history", {
   id: serial("id").primaryKey(),
   colonyId: integer("colony_id").notNull().references(() => coloniesTable.id),
@@ -959,19 +811,19 @@ The resolver carries the design risk, so it carries the tests.
 
 1. **The ear-tip asymmetry.** No quantity, authority or recency of *spotter* "no clip visible" observations moves sterilised away from its current level or toward a negative. Dedicated, named, and commented with why it exists.
 2. A clipped-tip observation reaches *likely* and never *confirmed*, whoever wrote it.
-3. **Precedence between two authoritative assertions**, both directions: an import `true` dated 2024 followed by a staff `false` dated 2026 resolves to a confirmed negative; the same two in the opposite date order resolve positive. (Nothing in the previous test list covered this, which is how §5.7's correction path came to be unimplementable.)
+3. **Precedence between two authoritative assertions**, both directions: an import `true` dated 2024 followed by a staff `false` dated 2026 resolves to a confirmed negative; the same two in the opposite date order resolve positive. (Nothing in the previous test list covered this, which is how `records-import.md` §2.7's correction path came to be unimplementable.)
 4. An authoritative `ear_tip { clipped: false }` superseding a spotter's `clipped: true` returns sterilised to *unknown* and never to a negative.
 5. Presumed-deceased reverts on a sighting dated after a `deceased` observation, in the same read, with no job run.
-6. A cat created today with no sightings is not presumed deceased, and a cat whose only recent evidence is a linked import record is not presumed deceased.
+6. A cat created today with no sightings is not presumed deceased.
 7. Presumed-deceased is computed from `observedAt`, so an offline sighting synced four days late still counts from when it was taken.
 8. **Every public payload** — asserted against all four emitters in §10.6 by name — contains no exact coordinate, no sighting coordinate, no note, no private feeding site and no raw device id.
 9. The same public request repeated a hundred times with varied viewer positions returns byte-identical geography.
 10. **The nearest-cat oracle.** Probing `POST /sightings` from a grid of coordinates returns a candidate set that does not vary with sub-cell movement of the probe and does not reveal ordering by true distance.
-11. **Import idempotency, done properly:** the same file uploaded as two separate batches produces one set of observations. A corrected file supersedes rather than duplicating. Two identical rows within one file both survive.
+11. *(Import idempotency moved to `records-import.md` §5.)*
 12. **Auto-link safety:** a name-only match with no corroborating signal does not auto-link; a name match with a contradicting sex does not auto-link.
 13. **EXIF, on both entrances:** a JPEG uploaded with a GPS block comes back from the photo endpoint with no GPS block — asserted for a spotter's upload (owned by `hosting-and-photo-storage.md`) **and** for a photo arriving with an imported record. Plus a structural assertion that the import writes photos only through `validatePhotoBase64`.
 14. **Deletion:** after `DELETE /me`, no query returns the device id, email, nickname or username; sighting counts, derived statuses and cat names are unchanged; a second call is safe.
-15. **Notification baseline:** applying an import batch of historical records produces zero notifiable status changes.
+15. **Notification baseline:** any bulk write of historical data (a backfill, or a future import) produces zero notifiable status changes.
 16. **Greek names:** the migration-level normalisation test in §10.3.
 17. **Welfare observations:** filing a report against a known cat writes a `welfare_report` observation and moves no derived status; closing it writes a `welfare_outcome`; neither produces a notifiable change; and a `welfare_report` counts as evidence of life for §3.4.
 
@@ -995,17 +847,16 @@ So before any table below is created: switch to `drizzle-kit generate`, check in
 | Step | What happens | Risk handling |
 |---|---|---|
 | 0. Migration history | Baseline the current schema, switch to generated migrations, prove a rollback. | Nothing else in this table is safe without it. |
-| 1. Create the tables | `observations`, `cat_identity`, `import_batches`, `import_records`, `colonies`, `feeding_sites`, plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). |
+| 1. Create the tables | `observations`, `cat_identity`, `colonies`, `feeding_sites` (plus `import_batches` and `import_records` only if the import goes ahead, `records-import.md`), plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). |
 | 2. Backfill life status | Nothing is written. Every cat with no `life_status` observation resolves to **street**, which is correct for essentially every cat in the catalogue. | The default is the truth here, so an empty table is an accurate table. |
 | 3. Backfill from the care timeline | Existing `desexed` care updates become `sterilised` observations with `provenance: "legacy"`, `roleAtTime: "staff"` (they were written through the admin endpoint), and `observedAt` set to the update's date. Existing `adopted` updates become `life_status: homed`. | `legacy` provenance means these can be re-derived or discounted later. Runs as a bulk write, so it seeds the notification baseline rather than notifying (§9.2). |
-| 4. Claimed cats are **not** made "homed" | A resident claiming a cat means "this is my cat, I feed it" — usually a street cat with a person. Cats registered through `POST /cats` (owner registration, no sighting) become **homed**, because that flow only exists for cats living with someone, and from now on that endpoint writes the observation at creation rather than relying on a backfill. | Guardians are asked once, in the app, to confirm — one tap, dismissible, never nagged. |
+| 4. Claimed cats **are** made "homed" (Samuel, 28 September 2026) | An owner claiming a cat is evidence it is homed (§3.1), so every existing claim is backfilled as a `homed` observation from the claiming device, and from now on a claim writes one at the moment it is made. Cats registered through `POST /cats` (owner registration, no sighting) become **homed**, because that flow only exists for cats living with someone, and from now on that endpoint writes the observation at creation rather than relying on a backfill. | Some claimed cats are really street cats a resident feeds; the team can set any of them back to Street (§3.2). Because a claim now changes what a cat's page says, securing the claim (row 5) matters more. |
 | 5. Close the oracle and secure the claim | `POST /sightings` moves to blurred candidate selection with per-device rate limiting; `POST /cats/{catId}/claim` gains device-secret verification. | Ships before blurring, not after — blurring a payload while the oracle answers questions about the true value is a privacy promise that is already false. |
 | 6. Turn on blurring | All four emitters route through `serialiseCat`; public sighting coordinates disappear; the resolve response stops returning the cat's exact position. | Deployed with the client change that draws cells instead of pins, and with a cache-key version bump (`cats-cache/public/v2`) so no phone keeps serving an exact payload. |
 | 7. Add the two sighting questions | Reward screen gains one tap question and one optional box, with the real example photo. | No change to the spot, match or resolve paths. |
 | 8. Self-service deletion | Settings action, confirmation screen, `DELETE /me`. | Depends only on step 1's redaction column. |
-| 9. Import the Syros Cats records | Staged, reviewed in the dashboard, applied — seeding the notification baseline as it goes. | **Depends on staff sign-in existing** (`team-access-and-welfare-queue.md`) for `uploadedBy` and the review queue. Reversible per row; raw rows kept permanently. |
 
-Steps 0–8 are independent of the records handover. Step 9 is not, and it is also not independent of staff sign-in.
+None of these steps depends on a records import. If one goes ahead, it follows step 8 (`records-import.md` §4).
 
 ---
 
@@ -1014,12 +865,10 @@ Steps 0–8 are independent of the records handover. Step 9 is not, and it is al
 | # | Risk | Consequence | Mitigation |
 |---|---|---|---|
 | 1 | **The ear-tip rule gets inverted by a well-meaning later change** — someone reasonably concludes that ten "no clip visible" answers should mean something | Volunteers driving out to trap cats sterilised years ago, wasting the charity's scarcest resource and distressing the cat | The rule is stated in the product spec, this spec, a named test, and a comment on the resolver branch. The test's failure message says what breaks in the real world. §4.5's authoritative `clipped: false` is deliberately scoped to team and vet so it cannot be mistaken for a general relaxation. |
-| 2 | **The records import matches rows to the wrong cats** — a wrong link makes a *Confirmed* sterilisation, or under D4 a **public** *not sterilised*, on a cat it does not describe | Worse than no import: a cat drops off the trapping list with a confident label, or is publicly labelled from someone else's record | Auto-link now requires a corroborating signal and no negative signal (§5.4). Everything else is human-reviewed with photos. §4.6 makes the correction actually execute. Raw rows kept forever; unlinking is one action and recomputes immediately. |
 | 3 | **Location blurring leaks through a side channel** — a new endpoint, a sort order, a distance figure, or the offline cache carrying an exact payload | The privacy promise made to Syros Cats is quietly false, and nobody finds out until someone shows them | Blurring lives in one serialiser that all four emitters call; tests assert no public payload holds an exact or per-sighting coordinate; the cache key carries tier and version. The one endpoint that previously defeated all of it is §6.3, now closed. |
 | 4 | **Colony averaging recovers feeding sites** | The targeting concern Syros Cats raised is not fully answered by anything we build | **Knowingly accepted** (F2), at its real magnitude of ~45 m for a thirty-cat colony, disclosed to Syros Cats in plain language alongside D4 and recorded as accepted. Owner: Samuel. |
 | 5 | **D4's public negative becomes a target list** | Someone hostile filters the map for unsterilised cats in one neighbourhood | Accepted with D4, disclosed with risk 4, and mitigated only by the blurring that also protects everything else. Reviewable after the first season: the display rule is one branch in the serialiser. |
 | 6 | Notes arrive containing urgent welfare information and sit unread | A cat that needed help did not get it, and the app collected the evidence | Notes matching injury/illness/litter keywords in all three languages are highlighted in the dashboard. The trouble-report flow stays the primary route and is signposted from the note box. **Per F1, nothing pages a human, by design** — `team-access-and-welfare-queue.md` owns that copy and it is load-bearing. |
-| 7 | The records handover slips past the import window | The season's *Confirmed* baseline never arrives | The import is built and tested against a synthetic file so it is ready the day the records arrive. Also blocked on staff sign-in (§11.2 step 9), which is the dependency the old plan did not name. Owner: Syros Cats, chased by Samuel. |
 | 8 | Deriving status on every read becomes slow | Catalogue and map feel sluggish | Pagination and batched observation loading in the first cut (§2.3); the cached-status column is a pure function of the log and addable without a data model change. **Trigger: any catalogue query above 200 ms — with the request-duration logging that makes that trigger observable shipping in the same change.** |
 | 9 | Notes, names and guardian details make this an app that processes personal data properly for the first time | Obligations a "we hold almost nothing" threat model does not cover | §8's self-service deletion, purpose stated at the point of entry, team-scoped access, a written retention position. Sequenced as one deliberate change. Privacy policy owned by `email-capture.md`. Owner: Samuel. |
 | 10 | **Someone deletes their data by accident, or a phone is handed to a friend** | Irreversible loss of one person's points and history | The confirmation screen states exactly what goes and that it cannot be undone (§8.2). Accepted: the device is the identity, and requiring an email round trip would exclude the anonymous majority the app is built for. |
@@ -1033,7 +882,6 @@ Steps 0–8 are independent of the records handover. Step 9 is not, and it is al
 | 1 | **Is 250 m the right blur cell for Syros?** A cell is about a block of Ermoupoli. Too coarse and the map stops being useful in dense town; too fine and it points at a doorway. | Syros Cats, with Samuel | Local knowledge beats any number we pick. One config value; changeable after they see the first real map. |
 | 2 | **Do Syros Cats accept the colony-averaging limitation and D4's public "not sterilised", together?** §6.2 states the magnitude honestly; §4.2 states what the map will now say. | **Syros Cats — needs a recorded answer, not an assumption** | It is their island, their neighbours and their reputation. F2 requires the acceptance be recorded with a date. |
 | 3 | **Should a public feeding site show its exact position, or be blurred too?** Recommendation: exact, because making a site public is a deliberate act with a purpose. | Syros Cats | It is their exposure and their neighbours. |
-| 4 | **What shape are the existing sterilisation records actually in?** §5.1 is our best guess at the columns; §5.2 is our best guess at the mess. | Syros Cats (Jo, Susan) | Blocks nothing, but the sooner it is known the less rework in the matching — and the transliteration table needs their real spellings. |
 | 5 | **Should a cat guardian be able to mark their own cat deceased without team confirmation?** | Syros Cats | Recommendation: yes — they are the person most likely to know, and it is reversible by any later sighting (§3.2). |
 | 6 | **How long do we keep sighting notes?** They may contain personal information. | Samuel, with Syros Cats | Recommendation: indefinitely for notes attached to a welfare outcome, three years otherwise, removed immediately on deletion (§8.3). |
 | 7 | **Is the derived cat position (§6.6) in this phase or the next?** | Samuel | It is a small addition that makes the map true; deferring it means the published position is the discovery position and the spec must say so out loud. |
