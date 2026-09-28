@@ -84,6 +84,8 @@ export interface QueueStoreOptions {
 export interface LoadContext {
   /** The list as memory has it now. */
   items(): PendingSighting[];
+  /** The saved text exactly as stored right now (for a backup). */
+  readRaw(): Promise<string | null>;
   /** `mutate` for use INSIDE the load (the load already holds the chain). */
   mutate(change: QueueChange): Promise<PendingSighting[]>;
 }
@@ -248,6 +250,7 @@ export function createQueueStore(options: QueueStoreOptions): QueueStore {
           .afterParse(
             {
               items: () => memory,
+              readRaw: () => options.read(),
               mutate: (change) => mutateNow(change, 'system'),
             },
             raw,

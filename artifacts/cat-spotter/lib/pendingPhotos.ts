@@ -20,22 +20,16 @@ import {
  *  - native: a file in the app's document directory (purge-safe, unlike the
  *    image-picker cache) — the reference is the file path;
  *  - web: a record in IndexedDB (lib/webPhotoStore.ts) — the reference is
- *    `idb:<id>`.
+ *    `idb:<id>`. The web build is what every tester uses, so this is a
+ *    primary channel, not a preview.
  *
- * On web there is no persistent file system, so callers fall back to
- * keeping base64 in the queue (web is a dev-preview surface only).
+ * A browser that cannot keep photos durably (durablePhotos() is false: some
+ * in-app browsers) keeps the photo inline in the list, as before.
  */
 
 const PHOTOS_DIR = `${FileSystem.documentDirectory ?? ''}pending-photos`;
 
 export const supportsPhotoFiles = Platform.OS !== 'web';
-
-/**
- * The web store is built but not switched on yet: saves on web report
- * `unavailable` and callers keep today's inline behaviour. The move of
- * existing queues (spec §3.3) switches it on.
- */
-const WEB_PHOTO_STORE_ON = false;
 
 const IDB_PREFIX = 'idb:';
 
@@ -133,14 +127,50 @@ export function durablePhotos(): Promise<boolean> {
   return probe;
 }
 
-/** Whether the web photo store is in use (switched on AND the probe passed). */
+/** Whether the web photo store is in use here (the probe passed). */
 async function webStoreInUse(): Promise<boolean> {
-  return WEB_PHOTO_STORE_ON && (await durablePhotos());
+  return durablePhotos();
+}
+
+/**
+ * Decode a photo held as base64, with or without a data-URL prefix. Throws on
+ * anything that is not base64 — including "data:,", which the old camera
+ * produced from an empty canvas.
+ */
+function decodePhoto(value: string): { bytes: Uint8Array; type: string } {
+  const split = splitDataUrl(value);
+  return {
+    bytes: base64ToBytes(split.base64),
+    type: split.mediaType ?? 'image/jpeg',
+  };
+}
+
+/** Store bytes under `id`, then READ THEM BACK and check the length. */
+async function saveWebPhotoBytes(
+  store: PhotoStoreAdapter,
+  id: string,
+  bytes: Uint8Array,
+  type: string,
+): Promise<SavePhotoResult> {
+  if (bytes.byteLength === 0) return FAILED;
+  try {
+    const buffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer;
+    await store.putPhoto(id, { type, bytes: buffer, savedAt: Date.now() });
+    const back = await store.getPhoto(id);
+    // Only a verified write counts as saved.
+    if (!back || back.bytes.byteLength !== bytes.byteLength) return FAILED;
+    return { ok: true, ref: `${IDB_PREFIX}${id}` };
+  } catch {
+    return FAILED;
+  }
 }
 
 /**
  * Save base64 photo bytes to the web store under `id`. Strips any data-URL
- * prefix, stores an ArrayBuffer with strict durability, then READS IT BACK
+ * prefix, stores an ArrayBuffer with strict durability, then reads it back
  * and checks the length — only a verified write counts as saved.
  */
 export async function saveWebPhoto(
@@ -150,30 +180,88 @@ export async function saveWebPhoto(
   const store = photoStore();
   if (!store) return UNAVAILABLE;
   if (!base64) return FAILED;
-  let bytes: Uint8Array;
-  let type: string;
+  let decoded: { bytes: Uint8Array; type: string };
   try {
-    const split = splitDataUrl(base64);
-    type = split.mediaType ?? 'image/jpeg';
-    // "data:," (an empty canvas from the old camera) and anything else that
-    // is not base64 throws here.
-    bytes = base64ToBytes(split.base64);
+    decoded = decodePhoto(base64);
   } catch {
     return FAILED;
   }
-  if (bytes.byteLength === 0) return FAILED;
-  try {
-    const buffer = bytes.buffer.slice(
-      bytes.byteOffset,
-      bytes.byteOffset + bytes.byteLength,
-    ) as ArrayBuffer;
-    await store.putPhoto(id, { type, bytes: buffer, savedAt: Date.now() });
-    const back = await store.getPhoto(id);
-    if (!back || back.bytes.byteLength !== bytes.byteLength) return FAILED;
-    return { ok: true, ref: `${IDB_PREFIX}${id}` };
-  } catch {
-    return FAILED;
+  return saveWebPhotoBytes(store, id, decoded.bytes, decoded.type);
+}
+
+// ---- The one-off move of photos already queued inline (spec §3.3) -------------
+
+const BACKUP_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** FNV-1a, so an unchanged list is backed up once, not on every load. */
+function fingerprint(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
   }
+  return (hash >>> 0).toString(16);
+}
+
+/**
+ * Keep the saved queue text, exactly as stored, in the backups store (strict
+ * durability, read back to check). True only once it is verifiably there.
+ * Restoring from it is a developer action: the backup is readable from the
+ * browser's storage.
+ */
+export async function backupQueueText(
+  raw: string,
+  reason: 'move' | 'unparseable',
+): Promise<boolean> {
+  const store = photoStore();
+  if (!store) return false;
+  try {
+    const id = `queue-${raw.length}-${fingerprint(raw)}`;
+    const existing = await store.getBackup(id);
+    if (existing && existing.raw === raw) return true;
+    await store.putBackup(id, { raw, savedAt: Date.now(), reason });
+    const back = await store.getBackup(id);
+    return !!back && back.raw === raw;
+  } catch {
+    return false;
+  }
+}
+
+/** Backups are kept for 30 days — the queue's own stale limit. */
+export async function pruneQueueBackups(): Promise<void> {
+  await photoStore()
+    ?.deleteBackupsSavedBefore(Date.now() - BACKUP_KEEP_MS)
+    .catch(() => {});
+}
+
+/**
+ * Move one inline photo into the web store, for the one-off move. Returns the
+ * reference the list may now point at, or null if the item must stay inline
+ * this load. THROWS if the inline value cannot be decoded — the move contains
+ * that per item, so one bad photo never stops the others.
+ *
+ * Where strict durability is not supported, a committed write may not be on
+ * disk yet: the photo is written and read back now, but the list points at it
+ * only on a later load, after a second read-back finds it intact.
+ */
+export async function moveInlinePhotoToStore(
+  localId: string,
+  inlineBase64: string,
+): Promise<string | null> {
+  const store = photoStore();
+  if (!store) return null;
+  const { bytes, type } = decodePhoto(inlineBase64);
+  if (bytes.byteLength === 0) return null;
+  if (!store.strictDurability) {
+    const earlier = await store.getPhoto(localId);
+    if (earlier && earlier.bytes.byteLength === bytes.byteLength) {
+      return `${IDB_PREFIX}${localId}`;
+    }
+    await saveWebPhotoBytes(store, localId, bytes, type);
+    return null;
+  }
+  const saved = await saveWebPhotoBytes(store, localId, bytes, type);
+  return saved.ok ? saved.ref : null;
 }
 
 // ---- Native files -------------------------------------------------------------

@@ -18,11 +18,15 @@ import {
   type UploadNetworkState,
 } from '@/lib/photoUpload';
 import {
+  backupQueueText,
   cleanupOrphanPhotos,
   deletePendingPhoto,
+  durablePhotos,
   isStoredPhotoRef,
+  moveInlinePhotoToStore,
   openPhotoForUpload,
   readPendingPhoto,
+  pruneQueueBackups,
   replacementPhotoKey,
   savePendingPhoto,
   supportsPhotoFiles,
@@ -31,6 +35,7 @@ import {
 import {
   QueueWriteError,
   createQueueStore,
+  parseQueue,
   type LoadContext,
   type QueueStore,
 } from '@/lib/queueStore';
@@ -101,6 +106,67 @@ const OfflineContext = createContext<OfflineContextValue | undefined>(
 );
 
 /**
+ * The one-off move of photos already queued inline on testers' phones into
+ * the web photo store (spec §3.3). Runs inside the load, before `ready`.
+ *
+ *  1. Backup first: the saved text, exactly as stored, goes to the backups
+ *     store. If that cannot be written, NOTHING moves on this load.
+ *  2. Each photo in turn: decode, save, read back. A photo that cannot be
+ *     decoded or saved — including "data:," from the old camera — stays
+ *     inline and is retried next load. It never throws out of the move.
+ *  3. Strip only what was verified, through the write path, which re-reads
+ *     the list: anything added meanwhile survives.
+ *
+ * Legacy camera captures (a data URL in both fields) are normalised here:
+ * their photoUri becomes the reference, which closes the route crash for
+ * old queued items.
+ */
+async function moveInlinePhotosOnWeb(ctx: LoadContext): Promise<void> {
+  // A browser that cannot keep photos durably keeps them inline (R3).
+  if (!(await durablePhotos())) return;
+  await pruneQueueBackups();
+
+  const raw = await ctx.readRaw();
+  const parsed = parseQueue(raw);
+  if (raw === null || !parsed.ok) return;
+  const inline = parsed.items.filter((p) => p.photoBase64);
+  if (inline.length === 0) return;
+
+  if (!(await backupQueueText(raw, 'move'))) return;
+
+  const verified = new Map<string, { ref: string; inline: string }>();
+  for (const item of inline) {
+    const photo = item.photoBase64 as string;
+    try {
+      const ref = await moveInlinePhotoToStore(item.localId, photo);
+      if (ref) verified.set(item.localId, { ref, inline: photo });
+    } catch {
+      // Stays inline; retried next load.
+    }
+  }
+  if (verified.size === 0) return;
+
+  await ctx.mutate((list) => {
+    let changed = false;
+    const next = list.map((p) => {
+      const moved = verified.get(p.localId);
+      // Only the exact photo that was verified — never one changed since.
+      if (!moved || p.photoBase64 !== moved.inline) return p;
+      changed = true;
+      return { ...p, photoBase64: undefined, photoUri: moved.ref };
+    });
+    return changed ? next : list;
+  });
+}
+
+/** A list that cannot be parsed is kept, untouched, in the backups store too. */
+async function backUpUnparseableQueue(raw: string): Promise<void> {
+  if (supportsPhotoFiles) return;
+  if (!(await durablePhotos())) return;
+  await backupQueueText(raw, 'unparseable');
+}
+
+/**
  * Runs inside the load, after the parsed list is in memory and before any
  * writer is let in. Each step is contained: a failure in one never stops the
  * others, and never takes the parsed list out of memory.
@@ -113,6 +179,10 @@ async function prepareLoadedQueue(ctx: LoadContext): Promise<void> {
       return stale.changed ? stale.items : list;
     })
     .catch(() => undefined);
+
+  if (!supportsPhotoFiles) {
+    await moveInlinePhotosOnWeb(ctx).catch(() => undefined);
+  }
 
   // Move any legacy inline base64 photos into document storage. Each photo is
   // saved on its own; only the ones that saved are stripped, and the strip
@@ -148,11 +218,16 @@ async function prepareLoadedQueue(ctx: LoadContext): Promise<void> {
     }
   }
 
-  // Drop photo files that no queue item references anymore. This runs before
-  // `ready`, so no writer can have saved a photo it has not yet listed.
-  await cleanupOrphanPhotos(ctx.items().map((p) => p.photoUri)).catch(
-    () => undefined,
-  );
+  // Drop photos that no queue item references anymore. This runs before
+  // `ready`, so no writer in this tab can have saved a photo it has not yet
+  // listed. An item still inline keeps the copy the move may have written
+  // for it (it is stripped only after a later read-back).
+  const keep = ctx
+    .items()
+    .flatMap((p) =>
+      p.photoBase64 ? [p.photoUri, `idb:${p.localId}`] : [p.photoUri],
+    );
+  await cleanupOrphanPhotos(keep).catch(() => undefined);
 }
 
 function markReview(
@@ -360,7 +435,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     store
-      .load({ afterParse: prepareLoadedQueue })
+      .load({
+        afterParse: prepareLoadedQueue,
+        onUnparseable: backUpUnparseableQueue,
+      })
       .then(() => {
         setReady(true);
         setReadOnly(store.isReadOnly());

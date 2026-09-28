@@ -109,12 +109,29 @@ describe('saveWebPhoto', () => {
 });
 
 describe('savePendingPhoto on web', () => {
-  it('reports unavailable while the store is not switched on', async () => {
+  it('stores the photo and returns its idb: reference', async () => {
+    expect(await savePendingPhoto('A', 'blob:x', b64('photo-A'))).toEqual({
+      ok: true,
+      ref: 'idb:A',
+    });
+    expect(fake.text('A')).toBe('photo-A');
+  });
+
+  it('reports unavailable where the browser cannot keep photos (R3)', async () => {
+    vi.stubGlobal('localStorage', memoryLocalStorage({ broken: true }));
     expect(await savePendingPhoto('A', 'blob:x', b64('photo-A'))).toEqual({
       ok: false,
       reason: 'unavailable',
     });
-    expect(fake.photos.size).toBe(0);
+    expect(fake.photos.has('A')).toBe(false);
+  });
+
+  it('reports failed where it can, but this save did not work', async () => {
+    fake.faults.failPut = (id) => id === 'A';
+    expect(await savePendingPhoto('A', 'blob:x', b64('photo-A'))).toEqual({
+      ok: false,
+      reason: 'failed',
+    });
   });
 });
 
