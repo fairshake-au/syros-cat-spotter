@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { db, pool, photosTable, sightingsTable } from "@workspace/db";
+import { db, pool, photosTable, sightingsTable, deviceCredentialsTable } from "@workspace/db";
 import { eq, like, sql } from "drizzle-orm";
 
 // §3.6 of offline-queue-on-web.md / review finding F5: the server must not
@@ -29,6 +29,9 @@ async function cleanup() {
   for (const r of rows) {
     await db.delete(photosTable).where(eq(photosTable.id, r.photoId));
   }
+  await db
+    .delete(deviceCredentialsTable)
+    .where(like(deviceCredentialsTable.deviceId, `${DEVICE}%`));
 }
 
 beforeAll(cleanup);
@@ -37,9 +40,18 @@ afterAll(async () => {
   await pool.end();
 });
 
+// SYC-92: POST /api/sightings now requires the device secret. TOFU binds
+// the secret to whatever device id first presents it, so a fixed secret per
+// device id (derived from the id, so different devices don't collide) is
+// enough here — these tests aren't about auth, they're about dedupe.
+function secretFor(deviceId: string): string {
+  return `vitest-secret-${deviceId}-0123456789`;
+}
+
 function submit(deviceId: string, capturedAt?: string) {
   return request(app)
     .post("/api/sightings")
+    .set("X-Device-Secret", secretFor(deviceId))
     .send({
       deviceId,
       lat: 37.44,

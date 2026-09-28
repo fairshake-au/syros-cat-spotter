@@ -108,6 +108,17 @@ async function computeMatchCandidates(
 router.post("/sightings", aiLimiter, async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
 
+  // SYC-92: the upload route was the one place a device id was taken on
+  // trust — verified() below proves the caller holds this device's secret
+  // before either the dedupe-hit response (which carries an existing
+  // sighting's id, location and match candidates) or a fresh upload is
+  // returned. Every client build already sends X-Device-Secret on every
+  // request (DeviceContext.tsx registers the getter unconditionally at
+  // startup, and the api client attaches it globally), and the API has
+  // never been deployed to production (DEPLOYMENT.md §C), so there is no
+  // production corpus and no build in the wild that would start failing.
+  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+
   // When the client queued this offline, the spot happened before the sync.
   // Store the capture time (clamped) so streak day buckets reflect when the
   // cat was actually seen rather than when the network came back.
