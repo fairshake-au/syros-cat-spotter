@@ -929,7 +929,7 @@ export default function SpotScreen() {
                           <Text style={styles.cameraPermissionButtonText}>
                             {cameraState === 'settings'
                               ? t('openSettings')
-                              : t('allowCamera')}
+                              : t('showLiveView')}
                           </Text>
                         </Pressable>
                       </View>
@@ -950,9 +950,14 @@ export default function SpotScreen() {
               <View style={styles.viewfinderSpacer} />
             </View>
             <View style={styles.framingRect} pointerEvents="none" />
-            <Text style={styles.captureHint}>
-              {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
-            </Text>
+            {/* When the camera has failed, the centre panel carries the one
+                message; a second hint here would give three suggestions in two
+                places (Samuel's decision, 27 Sep). */}
+            {!cameraFailed && (
+              <Text style={styles.captureHint}>
+                {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
+              </Text>
+            )}
             <CaptureControls
               shutterKind={shutterKind}
               capturing={capturing}
