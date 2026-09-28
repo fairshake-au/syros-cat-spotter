@@ -55,8 +55,8 @@ The MVP is the **app as already built** (spotting with AI matching, catalogue, m
 
 ### 2.4 Cat record (thin slice)
 - Life status: street / homed / in care / deceased, with presumed-deceased at 3 years and "not seen since…" display.
-- Sterilised status derived simply: **Confirmed** from imported Syros Cats records or team entry; **Likely** from clipped-tip sightings; absence of a visible clip is never negative evidence. The full per-attribute confidence engine is MLP.
-- Import of Syros Cats' existing sterilisation/TNR records before launch.
+- Sterilised status derived simply: **Confirmed** from team entry (or imported Syros Cats records, if an import happens after MVP); **Likely** from clipped-tip sightings; absence of a visible clip is never negative evidence. The full per-attribute confidence engine is MLP.
+- ~~Import of Syros Cats' existing sterilisation/TNR records before launch.~~ **Moved after MVP (28 September 2026).** What exists is month-by-month WhatsApp groups with scant detail. The import is optional and happens only if Syros Cats confirm it is worth doing. See `docs/specs/records-import.md`.
 - Public cat locations shown approximately; exact locations visible to the team.
 
 ### 2.5 Cat in trouble
@@ -72,8 +72,8 @@ The MVP is the **app as already built** (spotting with AI matching, catalogue, m
 - Optional email at loop-closing moments (e.g. "follow this cat", trip summary). Exact placement and audience: design question owned by Samuel. GDPR: consent-based, purpose-stated, deletable.
 
 ### 2.8 Infrastructure (during testing, before launch)
-- Photos out of Postgres into object storage (removes the only compounding cost).
-- Hosting decision resolved: Supabase vs Replit (recommendation stands: Supabase).
+- Hosting decision resolved: **Replit through launch, photos stay in Postgres** (DECISIONS.md D1). Re-opened 15 November 2026 per SYC-47; SYC-46 (photos out of Postgres) is deferred and re-scoped as a data migration. See `docs/specs/hosting-and-photo-storage.md`.
+- September infrastructure is therefore migrations and photo-endpoint hardening, not storage.
 - Costs remain pass-through at supplier prices; explore charity startup credits (Samuel).
 
 ## 3. MLP — the product it becomes
@@ -98,7 +98,7 @@ MLP ("most lovable product") is the version that makes the 2027 season sing, com
 | Phase | When | What ships | Gate |
 |---|---|---|---|
 | **0 · Testing** | 1–14 Sep | Everything in §2; testers via Syros Cats WhatsApp group | Fixes from testing |
-| **1 · Launch hardening** | 15 Sep – early Oct | Store listings under the new name, records import, native-speaker review of Greek/French (SYC-4), QR materials for cafés and Kini | Apple/Google review time |
+| **1 · Launch hardening** | 15 Sep – early Oct | Store listings under the new name, native-speaker review of Greek/French (SYC-4), QR materials for cafés and Kini | Apple/Google review time |
 | **2 · Launch** | October | MVP live; QR rollout with Syros Cats | — |
 | **3 · Data spine** | Oct – Dec | Confidence engine, roles/invites, confirmation queue, email loop | Launch data accumulating |
 | **4 · Intelligence and income** | Jan – Mar 2027 | ML retrieval, litters and duplicates, donations (post-James), groups, teaching in full, impact reporting | Payment path settled; matching baseline measured |
@@ -111,7 +111,7 @@ Sequencing principles: the data model lands **before** the season so the summer'
 | Owner | Item |
 |---|---|
 | **Samuel** | Buy the Cat Spotters domain (now). Email-collection design (when/whom). Talk to James re payment path. One-pager for the shared song sheet. Explore charity startup credits. Hosting decision. |
-| **Syros Cats** | Susan: standard sick-cat reply text. Records handover for import. List of feeder sites that may be public. Add Samuel to the WhatsApp group. Testers for the two-week window. Final view on the store name. |
+| **Syros Cats** | Susan: standard sick-cat reply text. Decide whether importing their WhatsApp records is worth doing (optional, after MVP). List of feeder sites that may be public. Add Samuel to the WhatsApp group. Testers for the two-week window. Final view on the store name. |
 | **Jacky** | Baseball caps for Boundless cohorts (her call). Social posting automation (their call). |
 | **Build** | Everything in §2 within the testing window. |
 
