@@ -4,7 +4,7 @@
 **Version:** 2.0 · 3 September 2026 · supersedes v1.0 of the same date
 **Covers:** PRODUCT-SPEC §2.5 (cat in trouble), §2.6 (team access), and the sign-in that makes both usable.
 **Linear:** SYC-42 (report flow, urgent) · SYC-43 (staff dashboard) · SYC-44 (report an issue) · SYC-25 (mail transport, urgent) · SYC-26 (Google sign-in) · SYC-29 (adding people) · SYC-30 (admin@syroscats.com as a recipient).
-**Status:** rewritten against `docs/specs/DECISIONS.md`, which wins over this document wherever they differ.
+**Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Rewritten against `docs/specs/DECISIONS.md`, which wins over this document wherever they differ.
 
 ### What this document owns, and what it borrows
 
@@ -302,7 +302,7 @@ v1.0's editable status columns and separate `record_changes` log are struck, and
 
 ### 3.4 Colony names
 
-Colonies get the names Syros Cats already use — a place plus the person who looks after it ("Vaporia — Eleni's"). **Colony names are fixed once set.** The dashboard lets the team name a colony that way and attach feeding sites and cats to it; the record behind that screen is the data spine's `colonies` table (`cat-record-data-spine.md` §10.5), and attaching a cat writes a `colony` observation like every other statement about a cat.
+Colonies get the names Syros Cats already use — a place plus the person who looks after it ("Vaporia — Eleni's"). **The team can rename a colony at any time.** Guardians change, and a colony still named after somebody who has moved on is a name nobody on the phone recognises. Everything points at a colony by its id, never by its name, so a rename breaks nothing: its cats, its feeding sites and any printed QR code (SYC-22) stay attached. Earlier names are kept with the colony, so searching an old name still finds it and records imported under an old name still match. The dashboard lets the team name a colony that way and attach feeding sites and cats to it; the record behind that screen is the data spine's `colonies` table (`cat-record-data-spine.md` §10.5), and attaching a cat writes a `colony` observation like every other statement about a cat.
 
 This sounds small and is not. The charity's operational vocabulary *is* colony names; a system that invents its own quietly stops matching the conversations people have on the phone, and then nobody trusts it. The person named is a **cat guardian** — the charity's term — and naming a colony after her is the first, lightest step towards the guardian role in §7.
 
@@ -426,9 +426,9 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 > **Look, don't touch.**
 >
-> The cats of Syros are not pets, and they are not strays. They live here. Most of them are fed, watched over and known by somebody.
+> The cats of Syros are not pets, and they are not strays. They live here.
 >
-> Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road, away from dogs, and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.
+> Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.
 >
 > So: photograph them, admire them, leave them be.
 >
@@ -436,7 +436,7 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 #### (b) The severity step — "Urgent"
 
-**One version, and it is final.** The two-variant structure that stood here — a night-and-weekend variant shown against a daytime one — is gone. There is one urgent block, below, edited line by line by Samuel on 4 September 2026. It carries a single short out-of-hours paragraph that is shown to everybody at every hour, rather than a variant that has to guess what time it is on the reader's phone.
+**One version, and it is final.** The two-variant structure that stood here — a night-and-weekend variant shown against a daytime one — is gone. There is one urgent block, below, edited line by line by Samuel on 4 September 2026. It has no out-of-hours paragraph: the one that stood here was removed by Samuel on 27 September 2026.
 
 > **Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**
 >
@@ -445,8 +445,6 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 > **The vets on Syros will lend you a carrying cage.** Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a "trap" or a carrying cage. Then take the cat straight to them.
 >
 > **Vets on Syros** *[the list from §5.7]*
->
-> **At night or at the weekend.** Symviosis and Cyclades Vets both publish an after-hours number. We haven't rung them to check, so we can't promise anyone will answer — but they are the numbers to try.
 >
 > ---
 >
@@ -470,7 +468,7 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 22813 61000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 
-**Out-of-hours: what the app says, and why it stops short of a promise.** SYC-68 asked who somebody calls at nine in the evening in February. The earlier answer — that there is no cover and the app should say nothing — was wrong on both halves, and the verification pass in `docs/specs/source/syros-vets-verified.md` is what corrected it. Two of the three clinics publish an out-of-hours contact: Symviosis lists **+30 697 005 5012** on its own site as the number to call outside clinic hours, and Cyclades Vets advertises 24-hour operation, 365 days a year, on **+30 6937 252802**. Those are published claims, not tested realities — nobody has rung either number at 2am to find out what happens. So the app names them and vouches for nothing, in one short paragraph placed directly under the vet list. Confirming whether they actually answer is a testing task (§5.4), not a blocker: naming a number the clinic itself publishes is better than a silence that implies there is nobody at all. Syros Cats told us there is no night cover; the clinics' own material says otherwise; the app reports the published position and leaves the reader to judge.
+**Out-of-hours: the paragraph that named these numbers in the urgent block was removed by Samuel on 27 September 2026.** What follows is kept as the record of why it was there. SYC-68 asked who somebody calls at nine in the evening in February. The earlier answer — that there is no cover and the app should say nothing — was wrong on both halves, and the verification pass in `docs/specs/source/syros-vets-verified.md` is what corrected it. Two of the three clinics publish an out-of-hours contact: Symviosis lists **+30 697 005 5012** on its own site as the number to call outside clinic hours, and Cyclades Vets advertises 24-hour operation, 365 days a year, on **+30 6937 252802**. Those are published claims, not tested realities — nobody has rung either number at 2am to find out what happens. So the app names them and vouches for nothing, in one short paragraph placed directly under the vet list. Confirming whether they actually answer is a testing task (§5.4), not a blocker: naming a number the clinic itself publishes is better than a silence that implies there is nobody at all. Syros Cats told us there is no night cover; the clinics' own material says otherwise; the app reports the published position and leaves the reader to judge.
 
 #### (c) The severity step — "Needs attention"
 
@@ -488,10 +486,6 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > Kittens are almost always better off exactly where they are, with their mother. She is usually close by even when you cannot see her, and she is far better at this than any of us. If they look round and quiet, she is doing her job.
 >
-> If they are in real danger — in the road, in water, in the sun with no shade — move them the shortest distance to somewhere safe **nearby**, where she can still find them. Not away.
->
-> Syros Cats has limited space and limited money, and kittens arriving unannounced are the hardest thing of all for them to help. **Talk to them before you bring anyone anything:** admin@syroscats.com *[· phone or WhatsApp, once Syros Cats confirm one]*. There may be nobody able to answer today.
->
 > Sending this report is exactly the right thing to do. It tells the team where the mother is, and getting her sterilised — around **€50–60** — is what stops the next litter.
 
 *The donation ask does not appear here.* Somebody crouched over a cardboard box is not being asked for money. The ask moves to the acknowledgement email, where it reads as gratitude rather than as a toll.
@@ -500,15 +494,15 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 > ### Sent. Syros Cats have this.
 >
-> Your photo and the location are saved, and this report is in the charity's list.
+> Your photo and the location are saved, and this report is in Syros Cats' list.
 >
-> **What happens next, honestly:** somebody at Syros Cats will read it when they can. Nobody is on duty and nothing alerts anybody. It may be a few days. Urgent reports are read before the others — but read first is not the same as read fast, and we would rather tell you that than let you assume otherwise.
+> **What happens next, honestly:** somebody at Syros Cats will read it when they can.
 >
 > **If this cat is badly hurt, please don't wait for us.** A vet is the fastest help there is, and **the vets here will lend you a carrying cage** — phone the nearest one and ask for a "trap" or carrying cage, then lure the cat in with sardines or wet food. *[Vets on Syros — §5.7]*
 >
 > *[If an email was given]* We've sent one message to that address to check it's right. Tap the link in it and we'll write to you when someone has looked at this report. Until you do, we won't send you anything at all.
 >
-> *[If offline]* This report is saved on your phone and sends itself the moment you have a signal. Nobody has been told yet.
+> *[If offline]* This report is saved on your phone and sends itself the moment you have a signal.
 
 #### (f) The verification email — **not this spec's copy**
 
@@ -525,9 +519,7 @@ It sends from the **news** identity (§2.10). Only what follows confirmation —
 >
 > Thank you for telling us about this cat. Your report and your photo reached Syros Cats on *[date]*, and it is in their list.
 >
-> We should be straight with you about what happens now. Syros Cats is a few people on an island with a great many cats. **Nobody is on duty and nothing alerts anybody** — somebody reads the list when they can. Urgent reports are read before the others, but that changes the order, not the speed. It can be days.
->
-> That is exactly why, **if this cat is badly hurt, the fastest help is a vet, and it is worth doing without waiting for us.** *[Vets on Syros — §5.7]*
+> **If this cat is badly hurt, the fastest help is a vet, and it is worth doing without waiting for us.** *[Vets on Syros — §5.7]*
 >
 > **Phone the nearest clinic and ask to borrow a carrying cage** — a "trap". Put sardines or wet food at the back of it, stand back, and let the cat walk in; then cover the cage and take it straight in. The vet will check the injuries and scan for a microchip, in case somebody is looking for this cat. Only if the cat will not go into the cage, and only if you feel safe: a towel over it, including its head, and into a box you can close.
 >
@@ -535,9 +527,7 @@ It sends from the **news** identity (§2.10). Only what follows confirmation —
 >
 > *[Litter variant]* Please don't move the kittens or bring them anywhere — talk to Syros Cats first. Their mother is almost certainly nearby and is far better at this than any of us.
 >
-> **We will write to you once more, and only once: when somebody has finished looking at your report.** You won't hear from us in between — there is nothing honest we could say. Nothing else, ever, unless you asked for it.
->
-> Every report goes into the record, and the record is what lets the charity plan sterilisation where it does the most good — around €50–60 a cat, and the single most useful thing anybody can pay for on this island. *[If you'd like to help with that]*
+> Every report goes into the record, and the record is what lets Syros Cats plan sterilisation where it does the most good — around €50–60 a cat, and the single most useful thing anybody can pay for on this island. *[If you'd like to help with that]*
 >
 > *[Delete my details]* — removes your address and takes your name off this report. The report itself stays, so the cat keeps its history.
 >
@@ -554,8 +544,8 @@ It sends from the **news** identity (§2.10). Only what follows confirmation —
 | Internal state | Reporter is emailed? | Subject | Body |
 |---|---|---|---|
 | **Looking at it** | **No** — see above | — | — |
-| **Done** | Yes | About the cat you reported | "Somebody at Syros Cats has looked into this and the report is closed. *[optional team sentence]* Thank you for telling them — the record is better for it." |
-| **Nothing needed** | Yes | About the cat you reported | "Somebody at Syros Cats has looked at this one, and there is nothing they need to do. Usually that means the cat has moved on, or it is a healthy community cat that somebody is already feeding and keeping an eye on. That isn't a brush-off — the report is in the record either way, and the record is what tells them where sterilisation will do the most good. If something changes, please send another one." |
+| **Done** | Yes | About the cat you reported | "Syros Cats has looked into this and taken appropriate action in response to your report. *[optional team sentence]* Thank you for taking action to help the cats of Syros to thrive." |
+| **Nothing needed** | Yes | About the cat you reported | "Syros Cats has looked into this and taken appropriate action in response to your report. Thank you for taking action to help the cats of Syros to thrive." |
 
 If a report is moved straight from *New* to a closing state, that is still one message. If it goes *New → Looking at it → Done*, it is still one message, sent at *Done*. Duplicates are suppressed on the closing transition, so re-opening and re-closing a report does not mail somebody twice.
 
@@ -581,10 +571,10 @@ The injured-cat block (§5.3b) is **advice a member of the public may act on, in
 |---|---|---|
 | **Susan's standard reply** | Syros Cats (Susan) | **Closed.** Supplied 3 September 2026, verbatim at `docs/specs/source/syros-cats-standard-reply.md`. §5.3b, §5.3e and §5.3g were rewritten against it and then line-edited by Samuel on 4 September. Syros Cats confirm the wording during testing (§5.4); nothing is blocked on it. |
 | **The vet list itself — which clinics** | Syros Cats | **Supplied.** Three clinics, verbatim in `docs/specs/source/syros-cats-standard-reply.md`. This dependency is closed; verifying and completing each entry is the row below. |
-| **Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)** | Syros Cats · Samuel | **Closed, and reversed.** The earlier answer — no cover, app says nothing — did not survive verification. Symviosis and Cyclades Vets both publish after-hours numbers, so §5.3b names them and promises nothing. What remains open is whether either is answered in practice; that is a phone call during testing (§5.4), not a blocker. |
-| **Verified vet entries — addresses, phone numbers, Google Maps and Apple Maps links, coordinates** | Samuel | **Closed enough to ship.** §5.7 is populated from `docs/specs/source/syros-vets-verified.md`. All six phone numbers verified. **Coordinates are landmark-anchored to petrol stations, good to 50–100 m** — accurate enough to drive to, and stated as such. Real door pins, and Dermitzaki's Lazareta/Kato Manna conflict, are ten-minute jobs for somebody on the island (§5.7). |
+| **Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)** | Syros Cats · Samuel | **Closed, and reversed.** The earlier answer — no cover, app says nothing — did not survive verification. Symviosis and Cyclades Vets both publish after-hours numbers, so they sit in the vet list (§5.7); the urgent block no longer mentions them (removed 27 Sep). Whether either is answered in practice is untested, and Samuel accepted that risk on 28 Sep 2026: no testing needed. |
+| **Verified vet entries — addresses, phone numbers, Google Maps and Apple Maps links, coordinates** | Samuel | **Closed enough to ship.** §5.7 is populated from `docs/specs/source/syros-vets-verified.md`. All six phone numbers verified. **Coordinates are landmark-anchored to petrol stations, good to 50–100 m** — accurate enough to drive to, and stated as such. Real door pins are ten-minute jobs for somebody on the island (§5.7). Dermitzaki's address is settled (Livadia, Manna); its pin needs replacing. |
 | **The Municipality's animal welfare contact** | Syros Cats | **Never blocks, and now answered in the negative.** The switchboard **+30 22813 61000** is confirmed against the municipality's own directory. There is **no dedicated animal-welfare number published** — verified absence, not merely not found. A direct line would be better and is worth asking for. |
-| **A phone or WhatsApp number for litters** | Syros Cats | **Blocks nothing, weakens §5.3d badly.** A person crouched over a box will not email and wait. If there is no number, the copy must not ask them to make contact it cannot support — it leans harder on "leave them where they are, she is nearby". |
+| **A phone or WhatsApp number for litters** | Syros Cats | **Blocks nothing.** The in-app litter copy (§5.3d) no longer asks anybody to make contact (removed 27 Sep), so a number would only appear in the acknowledgement email (§5.3g). |
 | **Translation into Greek and French** | Fair Shake to translate · a local to confirm | **Blocks launch of this copy, and §5.3b most of all** — it is the one block people act on rather than read. We produce the Greek and French ourselves; a local speaker then checks them before launch. It is no longer "find somebody to translate this", it is "translate, then have a local confirm". The reporter's language is stored on the report row so the acknowledgement and the update go out in the language they used. Every "it's just a copy swap" in this document is a copy swap **×3**. |
 | **The public feeding-site list** | Syros Cats | **Never blocks.** Everything is private until they say otherwise (§3.2). Configuration, not code. |
 
@@ -595,7 +585,6 @@ The copy is the mitigation for the largest accepted risk in the product, so it g
 - Does anybody come away believing somebody is coming? (If yes, the copy has failed.)
 - Does anybody come away not knowing a vet is the fast route? (Same.)
 - **Does anybody come away not knowing they can borrow a cage?** That is the single most useful sentence in §5.3b, and if testers miss it the block is laid out wrong.
-- **Ask the testers about nights and weekends directly.** The block now names two published after-hours numbers and explicitly says we have not rung them (§5.3b). Two things to learn: does that honesty read as helpful or as a shrug, and — the bigger one — **does anybody actually answer?** A tester who rings +30 6937 252802 or +30 697 005 5012 out of hours and reports what happened is worth more than any amount of further desk research.
 - **What is the abandonment rate at the severity step?** An abandoned report is the outcome the charity least wants, and the drafts above put the encouragement first specifically to protect against it. The draft-on-severity rule in §4.2 means we can measure this rather than guess.
 
 ### 5.7 The vet list and the Municipality — configuration, not copy
@@ -634,14 +623,14 @@ The vet list is the third clause of the urgent block, and without it that block 
 
 | | |
 |---|---|
-| Area and landmark | Lazareta / Λαζαρέτα — **but see the address conflict below** |
-| Address as published | Lazareta, Syros 841 00, Cyclades. No street name or number published. |
+| Area and landmark | Livadia / Λιβάδια, Manna — **settled by Samuel, 28 Sep 2026** (not Lazareta) |
+| Address as published | λιβάδια 0, Manna 841 00, Greece (as Google Maps lists it; the "0" means no street number). |
 | Phone | **+30 22813 06720** (landline) |
 | Phone | **+30 6986 705837** (mobile) |
 | After-hours | **Nothing published, either way.** The entry says nothing about nights — it does not claim cover and it does not deny it. |
-| Coordinates | **37.4303699, 24.9439526** — the Lazareta neighbourhood centre, the weakest pin of the three |
-| Google Maps | `https://www.google.com/maps/search/?api=1&query=37.4303699,24.9439526` |
-| Apple Maps | `https://maps.apple.com/?ll=37.4303699,24.9439526&q=Dermitzaki%20Vet%20Lazareta` |
+| Coordinates | **Needs a new pin.** The old one (37.4303699, 24.9439526) was the Lazareta neighbourhood centre and is now known to be wrong. |
+| Google Maps | Interim, until re-pinned: `https://www.google.com/maps/search/?api=1&query=Dermitzaki%20vet%20Livadia%20Manna%20Syros` |
+| Apple Maps | Interim, until re-pinned: `https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros` |
 
 **3. Cyclades Vets (George Maragkos) — Κτηνιατρική Κλινική Κυκλάδων**
 
@@ -660,9 +649,9 @@ The vet list is the third clause of the urgent block, and without it that block 
 
 **The coordinates are landmark-anchored, and the spec says so out loud.** None of the three clinics is mapped as a named point in OpenStreetMap, and no Google Places pin was available. Every coordinate above is the **verified position of the petrol station the clinic sits opposite** — the same landmark the clinics use in their own published addresses — which puts the pin within roughly **50–100 metres of the door**. That is good enough to drive to and honest about what it is. It is not good enough to be left alone: **somebody physically on Syros fixes all three to real door positions in about ten minutes**, standing outside each clinic with a phone. That task stays open below until it is done, and it is the single cheapest improvement available to this section.
 
-**One unresolved address conflict — Dermitzaki.** Most sources, and Susan's reply, put this clinic in **Lazareta**. One directory (`syrostoday.gr`) lists it at **"Livadia, Kato Manna"** — which is the address Cyclades Vets uses, so it looks like a copy-paste error in the directory rather than a second location. The two areas are about **500 m apart on the same Ermoupoli–Manna road**, so a wrong pin here is a short walk rather than a disaster. It is recorded rather than silently resolved, and one phone call settles it.
+**Dermitzaki's address — settled 28 Sep 2026: Livadia, Manna.** Samuel confirmed it; what follows is the record of the earlier conflict. Most sources, and Susan's reply, put this clinic in **Lazareta**. One directory (`syrostoday.gr`) lists it at **"Livadia, Kato Manna"** — which is the address Cyclades Vets uses, so it looks like a copy-paste error in the directory rather than a second location. The two areas are about **500 m apart on the same Ermoupoli–Manna road**, so a wrong pin here is a short walk rather than a disaster. It is recorded rather than silently resolved, and one phone call settles it.
 
-**There is no hours field.** Opening hours are published inconsistently, sources disagree, and hours in configuration go stale silently — which is the worst way for this table to be wrong. **There is an after-hours phone field**, because two of the three clinics publish one and §5.3b names them.
+**There is no hours field.** Opening hours are published inconsistently, sources disagree, and hours in configuration go stale silently — which is the worst way for this table to be wrong. **There is an after-hours phone field**, because two of the three clinics publish one.
 
 **The original `maps.app.goo.gl` short links are not reused.** They were never testable — nobody could open them, and their format did not match a genuine Google short link. Every link above is a plain coordinate URL that can be checked by reading it.
 
@@ -673,9 +662,8 @@ Under Greek law the Municipality is ultimately responsible for the care of stree
 **What is still open on this data:**
 
 1. **Fix the three map pins to real door positions.** Everything above is landmark-anchored to a petrol station. Somebody standing outside each clinic with a phone closes this permanently, in about ten minutes. This is the top item.
-2. **Settle Dermitzaki's address** — Lazareta or Kato Manna. One phone call.
-3. **Ring the two after-hours numbers and find out what actually happens.** Does Cyclades Vets answer +30 6937 252802 at 2am, and does Symviosis's +30 697 005 5012 reach a person or a voicemail? §5.3b promises nothing precisely because nobody has done this yet — doing it lets the copy get warmer.
-4. **Ask Dermitzaki whether there is any emergency contact.** Complete blank at present, in both directions.
+2. **Pin Dermitzaki's door.** The address is settled (Livadia, Manna); the map pin still points at Lazareta and needs replacing.
+3. **Ask Dermitzaki whether there is any emergency contact.** Complete blank at present, in both directions.
 
 None of these blocks the block shipping. The numbers themselves are verified — every one of the six from Susan's reply checks out against the clinics' own material or two independent sources — and a landmark pin plus a working number is genuinely useful. What would not be acceptable is shipping any of it as more certain than it is, which is what the wording above is for.
 
@@ -687,14 +675,17 @@ Every cat record and every photo carries a quiet "Report an issue" action. The r
 
 It reaches the same two places, arriving in the queue but **visually distinct and never above a welfare report**. A wrong name is not an emergency.
 
-**Objectionable content is treated differently in one specific way, and v1.0 got the safeguard wrong.** A photo reported as upsetting or inappropriate is hidden quickly, because the cost of briefly hiding a good photo of a cat is nothing and the cost of leaving genuinely objectionable content up is real. But v1.0 hid it on a **single unauthenticated report**, and claimed the safeguard was that "repeated reports from the same device that are all overturned are a signal the team can see." Device identity does not support that claim: `deviceAuth.ts` is trust-on-first-use, so an attacker mints a new device per report and one short script hides the entire catalogue, one photo at a time.
+**Objectionable content is treated differently in one specific way.** Something reported as upsetting or inappropriate is hidden straight away, because the cost of briefly hiding a good photo of a cat is nothing and the cost of leaving genuinely objectionable content up is real.
 
-**So the auto-hide is gated:**
+**One report is enough (Samuel, 28 September 2026).**
 
-- Reports from **two or more distinct devices *and* distinct IPs** trigger the automatic hide, and Turnstile sits on the report action.
-- A **single** report hides the photo from **public views only** while leaving it visible to staff and to the person who uploaded it — so a real problem still goes dark within seconds, without one anonymous request being enough to erase a photo entirely.
+- **The reporter confirms first.** Before an "upsetting or inappropriate" report is sent, the app asks: *"Are you sure? Reporting this will hide it from everyone until Syros Cats have reviewed it."* with **Report and hide** and **Cancel**. Nothing is hidden until they confirm.
+- **A single confirmed report hides it pending review.** It disappears from every public view at once and stays visible to staff (and to whoever uploaded it) until the team restores it or removes it for good.
+- Turnstile sits on the report action.
 - Hide volume above a daily threshold raises a dashboard banner.
 - Restoring is one tap, and it is attributed.
+
+**The risk this accepts.** Device identity is trust-on-first-use (`deviceAuth.ts`), so somebody determined could mint a new device per report and hide photos one at a time. The confirmation step, Turnstile, the volume banner and one-tap restore are the mitigations. The earlier design required reports from two separate devices and networks before a full hide; Samuel chose single-report hiding instead, so a real problem goes dark on the first report.
 
 ---
 
@@ -712,7 +703,7 @@ The same access model later carries invited **cat guardians** (who look after sp
 
 - **People, not admins.** The access table is a table of *people* (§2.9), and it is the only one (§2.7).
 - **Roles and scopes are a join table from day one — not columns.** `person_scopes` (person id, role, colony id nullable). v1.0 put `role` and `scope` on the person as scalar columns, which is exactly the retrofit it claimed to be avoiding: a cat guardian looks after **several** colonies, and real people hold two roles at once — a staff member who is also the guardian of her own alley. A single column forces either a delimited string or the migration we said we would not do. The cost today is one small table.
-- **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. From the first commit the dashboard calls them by name: `view_exact_location` · `hide_photo` · `restore_photo` · `rename_cat` · `set_life_status` · `set_sterilisation` · `set_site_public` · `change_report_state` · `add_team_note` · `manage_people` · `action_deletion_request`. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
+- **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. From the first commit the dashboard calls them by name: `view_exact_location` · `hide_photo` · `restore_photo` · `rename_cat` · `rename_colony` · `set_life_status` · `set_sterilisation` · `set_site_public` · `change_report_state` · `add_team_note` · `manage_people` · `action_deletion_request`. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
 - **Invitation is the only way in, at every tier.** A guardian will use the same email-link flow. No second sign-in mechanism gets built for the second role.
 - **Every change is attributed from the first record**, as an observation carrying the person's id and `roleAtTime` (`cat-record-data-spine.md` §10.1). Attribution added later cannot describe the past — which is precisely why `roleAtTime` is recorded at write time and never looked up afterwards.
 - **Colony membership already exists** (§3.4), so "which colonies is this person a guardian of?" is a join, not a new concept.
@@ -818,17 +809,17 @@ Named here so they appear in the implementation plan rather than being remembere
 | **5** | **A sign-in surface is abused into silencing welfare mail.** | The failure chain is: no rate limit → unlimited sends → allowance exhausted → injured-cat mail stops. A security bug that becomes a welfare failure. | §2.6's limits, the identity split, and the priority budget that never sheds welfare or sign-in mail. |
 | **6** | **The dashboard is written for one runtime and deployed on another.** | v1.0's technical section assumed Cloudflare Workers throughout; an implementer would hit wildcard CORS, a `__Host-` cookie with no stated origin, and per-process rate limits on day one. | §8 is written against the two real runtimes, and §2.6 names the dashboard's origin — which was a blocking unknown, not a detail. |
 | **7** | **A feeding site becomes public by accident.** | It is a list of where to find cats. | Private by default, per-site toggles, no bulk action, attributed. Precision owned by the data spine. |
-| **8** | **The photo auto-hide is used to vandalise the catalogue.** | One script, one hidden photo at a time, and volunteers restoring by hand. | §6's gating: two devices and two IPs for a full hide, public-only hide on a single report, Turnstile, and a volume alert. |
+| **8** | **The photo auto-hide is used to vandalise the catalogue.** | One script, one hidden photo at a time, and volunteers restoring by hand. | **Accepted by Samuel, 28 Sep 2026:** one confirmed report hides pending review. Mitigations in §6: the are-you-sure step, Turnstile, a volume alert and one-tap restore. |
 
 ### 9.2 Open questions
 
 | Question | Owner | Notes |
 |---|---|---|
 | ~~A named list of Syros vets~~ | **Syros Cats** | **Answered.** Three clinics with names, areas, landmarks and verified numbers — §5.7. Note the third is now **Cyclades Vets (George Maragkos)**; it no longer trades under his name alone. |
-| ~~Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)~~ | **Samuel** | **Answered, and the first answer was wrong.** Symviosis and Cyclades Vets both publish after-hours numbers. §5.3b names them and promises nothing, because nobody has rung them. Whether they are answered is a testing question (§5.4). |
+| ~~Out-of-hours cover: who does somebody call at 9pm in February? (SYC-68)~~ | **Samuel** | **Answered, and the first answer was wrong.** Symviosis and Cyclades Vets both publish after-hours numbers. They sit in the vet list (§5.7); the urgent block no longer mentions them (removed 27 Sep). Whether they are answered is untested; risk accepted by Samuel, 28 Sep 2026. |
 | ~~Verified vet entries: addresses, numbers, Google and Apple Maps links, coordinates~~ (§5.7) | **Samuel** | **Populated.** All six numbers verified; plain coordinate map links, no shorteners. **Pins are landmark-anchored to 50–100 m and labelled as such** — fixing them to real doors is a ten-minute job on the island, and does not block. |
 | ~~Susan's standard reply~~ | **Syros Cats (Susan)** | **Supplied, and §5.3b line-edited by Samuel on 4 September 2026.** Syros Cats confirm the wording during testing (§5.4). Nothing outstanding. |
-| A phone or WhatsApp number for litter reports | **Syros Cats** | Weakens §5.3d badly if absent. Ships without one. |
+| A phone or WhatsApp number for litter reports | **Syros Cats** | No longer affects the in-app copy (§5.3d contact paragraph removed 27 Sep). Would only appear in the acknowledgement email. Ships without one. |
 | Which feeding sites may be public | **Syros Cats** | Never blocks — everything is private until they say otherwise. |
 | Who else goes on the access list, with what name (SYC-29) | **Syros Cats** | One row each; no role addresses (§2.8). |
 | Greek and French translation of every word in §5 | **Fair Shake to translate · a local to confirm** | Blocks the copy's launch. We produce both translations; a local speaker confirms them. Needs a named local reviewer and a date. |
@@ -853,7 +844,7 @@ Named here so they appear in the implementation plan rather than being remembere
 - A worried tourist can report an injured cat in under a minute, and comes away knowing four things: the report is in, **a vet is the fast route because nothing else is fast**, **the vet will lend them a cage and food will get the cat into it**, and nobody is coming.
 - **Nobody is told to pick up a frightened, injured cat as the first thing to try.** The cage comes first, every time; hands are the fallback and are marked as one.
 - **Nobody comes away believing somebody is standing by**, because nobody is.
-- A litter report always says "talk to us first, don't just turn up" — in the app and in the email.
+- A litter report always says don't move the kittens or bring them anywhere, in the app and in the email; the email also says "talk to Syros Cats first".
 - Every report is in two places: the charity's inbox and a queue that remembers — **and the queue row exists even when every email failed.**
 - No address ever receives mail from us that has not been confirmed by the person holding it.
 - Every feeding site is private until Syros Cats decide otherwise, one at a time.
