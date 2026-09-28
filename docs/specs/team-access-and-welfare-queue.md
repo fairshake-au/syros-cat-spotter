@@ -18,7 +18,8 @@ It borrows, and does not restate:
 | Location blurring, feeding-site privacy and precision, the `feeding_sites` table | `cat-record-data-spine.md` |
 | The deletion mechanism itself (F3) | `cat-record-data-spine.md` |
 | Email consent copy, verification, the four email moments, the nightly notify job | `email-capture.md` |
-| Privacy policy content, the controller, the withdrawal route | `email-capture.md` |
+| Privacy policy text | `privacy-policy.md` |
+| The controller, the withdrawal route | `email-capture.md` |
 | Hosting, photo storage, the photo endpoint, migrations | `hosting-and-photo-storage.md` |
 
 **Struck from v1.0:** this spec previously invented its own cat-record model — editable status columns plus a `record_changes` audit log — which is precisely the design the data spine rejects by name. It is gone. A team correction is an observation, written by the resolver's own rules. This spec also defined `feeding_sites` a second, different way; that definition is gone too.

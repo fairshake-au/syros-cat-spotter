@@ -1,7 +1,7 @@
 # Email capture — design spec
 
 **Date:** 3 September 2026 · rewritten against `docs/specs/DECISIONS.md`
-**Status:** Reconciled with Samuel's decisions (D2, D4, D5, D6, F3, F4, F7b) and the adversarial review
+**Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Reconciled with Samuel's decisions (D2, D4, D5, D6, F3, F4, F7b) and the adversarial review
 **Owner:** Samuel
 **Linear:** SYC-21 (this design question) · SYC-45 (build) · SYC-55 (the sterilisation loop) · SYC-3 (restore spots on a new device) · SYC-25 (mail transport)
 
@@ -56,7 +56,7 @@ Both are asking the app to **remember them to a cat**. Email is the only mechani
 
 **G. The "your cat was sterilised" email itself.** Not a capture moment — it is the payoff for A/B, and the thing that makes the ask honest. Designed in §5.
 
-**H. Onboarding / first launch.** **Adopted as an optional last step (Samuel, 28 September 2026; amends D5).** The earlier objection still describes the risk: an email field on the way in can read as a sign-up wall, and the person has no reason yet to care. So the step is built to answer it. It says plainly that it's optional and what they get, **Skip** is as prominent as **Add email**, and anonymous use stays the default. The benefit is catching tourists who make only one spot, or who skip the reward-screen card, at the moment they're paying most attention. Copy in §3.0; its guardrails in §2.4.
+**H. Onboarding / first launch.** **Adopted as an optional last step, led by keeping your spots safe (Samuel, 28 September 2026; amends D5).** The step's main offer is protecting the spotter's collection (§8); news is a separate, unticked box on the same screen. The earlier objection still describes the risk: an email field on the way in can read as a sign-up wall, and the person has no reason yet to care. So the step is built to answer it. It says plainly that it's optional and what they get, **Skip** is as prominent as **Add email**, and anonymous use stays the default. The benefit is catching tourists who make only one spot, or who skip the reward-screen card, at the moment they're paying most attention. Copy in §3.0; its guardrails in §2.4.
 
 **I. Team and staff sign-in.** A genuine account for a handful of named people, owned by `team-access-and-welfare-queue.md`. Mentioned only so the two are never conflated.
 
@@ -106,7 +106,7 @@ The old version of this rule contradicted itself: it promised that declining cos
 - The two asks are consumed in the order they arise: the spot card first, the visit summary second. Declining the spot card does **not** remove the visit summary — the visit summary is ask number two, and it is the whole point of having two.
 - After two declines the app stops asking anywhere except Settings, **for as long as this install lives**.
 - Never twice on the same screen. If they have given an address, no moment ever asks again.
-- **The onboarding offer sits outside this budget.** Skipping it does not use up either news ask, so the spot card and visit summary are still offered, and the spot card is the stronger moment. Adding an email at onboarding counts as having given one: no moment ever asks again.
+- **The onboarding offer sits outside this budget.** Skipping it does not use up either news ask, so the spot card and visit summary are still offered, and the spot card is the stronger moment. Ticking news at onboarding counts as having given a news address, so no moment ever asks again. Saving spots without ticking news leaves both news asks in place, with the address filled in.
 - The fourteen-day window is gone. It was undefined after day fourteen, which made it meaningless. The steady state is simple: two asks, then silence, then Settings forever.
 
 **And the honest limitation, written down rather than implied:** the decline counter lives **on the device**, alongside the device identity. Reinstalling the app resets it, because a reinstall creates a new device and the app genuinely does not know it is the same person. That is acceptable — reinstalls are rare, the ask is one tap to dismiss, and the alternative is worse: a server-side record of the fact that a specific person refused to be contacted, which is a behavioural record kept about somebody who explicitly asked us not to keep one. We prefer the leaky cap to the creepy one, and we say "on this phone" rather than "permanently" in anything a user reads.
@@ -132,20 +132,27 @@ Every ask shows, before you type: what we'll send, how often, how to stop, and w
 
 **Pronouns:** copy uses the cat's name, and "they" when we do not know the cat's sex — which is most of the time, because sex is usually blank in the records and is never asked of a spotter. No template says "her" unless the record says so. This matters most in Greek and French, where the article gives it away in every sentence.
 
-### 3.0 At the end of onboarding — optional
+### 3.0 At the end of onboarding — keep your spots safe (optional)
 
-The last onboarding step, after language and username. It never blocks anything: **Skip** is as prominent as **Add email**, and either one goes straight into the app.
+The last onboarding step, after language and username. It leads with what the person stands to lose: their spots, points and badges. It never blocks anything: **Skip** is as prominent as **Save my spots**, and either one goes straight into the app.
 
-> **Want news about the cats you find?**
+> **Don't lose your spots**
 >
-> Add your email and we'll tell you when a cat you've spotted is sterilised or finds a home.
+> Add your email so you can get your spots, points and badges back if you lose or change your phone.
+>
+> Anyone who can open this inbox can open your collection, so use an address only you (or a parent) can read. **Under 15? Ask a parent to add theirs.**
+>
+> `[ your@email.com ]`
+>
+> ☐ *Also send me news about cats I spot: when one is sterilised or finds a home.*
 >
 > **This is optional.** You can use the app without it, and add it later in Settings.
 >
-> `[ your@email.com ]`
-> **[ Add email ]**  ·  **[ Skip ]**
+> **[ Save my spots ]**  ·  **[ Skip ]**
 
-The two fixed lines above appear under it like every other ask, and the address gets the same single "is this you?" message (§4). Someone who adds an email here is never asked again (§2.4).
+**One address, two separate choices** (§8.1). Pressing **Save my spots** makes it the "keep my spots safe" address. The news box is **unticked by default** and is a separate consent: ticking it also makes the address a news address. Each gets its own "is this you?" confirmation and is recorded separately, so either can be withdrawn without the other.
+
+If they save their spots but leave news unticked, the later news asks (§2.4) still appear, with the address already filled in. If they tick news, no news moment ever asks again.
 
 ### 3.1 After naming a new cat — the strongest moment
 
@@ -528,7 +535,7 @@ A "keep my spots safe" address is a key: whoever can receive mail at it can take
 
 **2. "Keep my spots safe" (opt-in).**
 
-- **Where it's offered:** always in Settings, and once, unprompted, when a spotter first has something worth losing (their first badge). Declining is one tap and it isn't asked again.
+- **Where it's offered:** first and mainly at the end of onboarding (§3.0), where the screen leads with not losing your spots. It's always in Settings too. If someone skipped it at onboarding, it's offered once more, unprompted, when they first have something to lose (their first badge). Declining is one tap and it isn't asked again.
 - **The screen says:** *"Add an email so you can get your spots back if you lose or change your phone. Anyone who can open this inbox can open your collection, so use an address only you (or a parent) can read. Under 15? Ask a parent to add theirs."*
 - **Restoring:** on a new phone, onboarding offers *"Already a spotter? Get your spots back"*. You type the address and we send a link. Tapping it opens a page with one button, and pressing it moves the collection (points, badges, named cats, username) to the new phone.
 - **The old phone is told** it has been signed out: *"Your spots moved to a new phone."* It stops acting as that spotter at its next request.
@@ -584,7 +591,7 @@ What we do instead is the narrow version only: a **send-suppression check on `(a
 
 1. ~~**§7.3 — does verification send from the transactional identity or the news identity?**~~ **Closed 3 September 2026:** public-user verification sends from the news identity; staff sign-in verification stays transactional. Recorded as an amendment to D2 in `DECISIONS.md`.
 2. ~~**Susan's standard reply text**~~ **Arrived 3 September 2026** and is in `docs/specs/source/syros-cats-standard-reply.md`; the report copy in `team-access-and-welfare-queue.md` §5.3 was rewritten against it and approved on 28 September.
-3. **Does the donation path return an address at all**, or does the payment provider keep it? Determines whether §1.2(E) is ever ours to hold. *(Samuel + James.)*
+3. **Does the donation path return an address at all**, or does the payment provider keep it? Determines whether §1.2(E) is ever ours to hold. *(Samuel + James.)* **Deferred until donations are built (Samuel, 28 September 2026)**, tracked on SYC-1. The working assumption is that the payment company keeps donor emails unless Syros Cats have a concrete need for them.
 
 ### 10.3 The one thing that genuinely needs Samuel's call
 
@@ -593,4 +600,4 @@ What we do instead is the narrow version only: a **send-suppression check on `(a
 - **First spot:** maximum capture, because a tourist may only ever make one or two spots, and the naming moment is strongest the first time. Risk: it reads as a sign-up prompt from a stranger, landing on someone who has used the app for ninety seconds.
 - **Second spot:** asks someone who has demonstrably enjoyed it; higher yes-rate per ask; feels earned. Risk: we lose every one-spot tourist, who may be a large share of the audience.
 
-**Recommendation: ask on the first spot, but only when that spot was a new cat they named** — the strongest possible version of the promise — and otherwise wait until the second. That splits the difference in the direction of the moment's actual strength rather than an arbitrary count.
+**Decided (Samuel, 28 September 2026): ask on the first spot**, whether or not it was a new cat they named. The spot card appears on the reward screen of a person's very first resolved spot. The copy is stronger when they named the cat (§3.1) and otherwise uses §3.2. The earlier recommendation (first spot only for a named cat, otherwise wait until the second) is superseded. If they saved their spots and ticked news at onboarding (§3.0), the card doesn't appear at all.

@@ -425,7 +425,7 @@ As §6.5: object delete, then row delete, in that order, idempotent, plus a reco
 If and when a bucket is created:
 
 - **Create it with EU jurisdiction.** R2 buckets are placed where Cloudflare chooses unless a jurisdiction is set at creation, and that choice cannot be changed afterwards without re-uploading everything. The photos are taken in the EU by EU data subjects.
-- **Cloudflare becomes a sub-processor** and must be named in the privacy policy (owned by `email-capture.md`, per D6, with Syros Cats as controller) and in the Syros Cats ↔ Fair Shake data agreement, before store submission.
+- **Cloudflare becomes a sub-processor** and must be named in the privacy policy (`privacy-policy.md`, per D6, with Syros Cats as controller) and in the Syros Cats ↔ Fair Shake data agreement, before store submission.
 - The Play data-safety form and Apple privacy labels must match wherever the photos actually live.
 
 **A benefit of the deferral worth stating:** because photos stay in Postgres for launch, the privacy policy and the store forms being written this month name **one** storage location, and they will still be accurate on launch day.
@@ -469,7 +469,7 @@ This is also why **signed expiring photo URLs were rejected** (F7a): a URL that 
 |---|---|
 | Deploy the API on the custom domain; production Postgres with **backups on and one restore performed and dated** | Already in the runbook; the migration work makes it more urgent, not less |
 | `PRODUCT-SPEC.md` §2.8 and `DEPLOYMENT.md` §C corrected (§4.3) | Two live documents currently say the opposite of this decision |
-| Privacy policy and store data-safety forms name Postgres-on-Replit as the photo location | Owned by `email-capture.md`; accurate only because of this deferral |
+| Privacy policy and store data-safety forms name Postgres-on-Replit as the photo location | Owned by `privacy-policy.md`; accurate only because of this deferral |
 
 ### Deferred, with dates
 

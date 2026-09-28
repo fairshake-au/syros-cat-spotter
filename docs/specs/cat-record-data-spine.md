@@ -399,7 +399,7 @@ Skipping is normal and costs nothing.
 
 ## 8. Deleting a person from the record
 
-This section owns the deletion mechanism (F3). `email-capture.md` owns the privacy policy wording, the controller question, the email-only deletion route **and all of the user-facing copy**; what happens *in the data* is here.
+This section owns the deletion mechanism (F3). `privacy-policy.md` holds the privacy policy wording; `email-capture.md` owns the controller question, the email-only deletion route **and all of the user-facing copy**; what happens *in the data* is here.
 
 **There are exactly two destructive actions in the app, they have exactly these two names, and both specs use them** (`email-capture.md` §3.5):
 

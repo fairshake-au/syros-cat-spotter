@@ -171,6 +171,18 @@ Samuel reviewed the data spine and **approved it on 28 September 2026**, on the 
 - **Photos are not kept forever by default.** Samuel rejected the keep-everything outcome; the retention rule is decided in the `hosting-and-photo-storage.md` review, and it applies equally to living and deceased cats.
 - **Presumed deceased stays separate from Deceased.** A cat unseen for three years shows "Not seen since…", never "No longer with us". (Samuel's comment proposing otherwise was withdrawn.)
 
+## Part 2d — approval of `email-capture.md`, 28 September 2026
+
+Samuel reviewed the email-capture spec and **approved it on 28 September 2026**, on the basis that these edits are incorporated. Where anything earlier in this document says otherwise, these win.
+
+- **D5 amended: onboarding ends with an optional email step.** It leads with not losing your spots ("Save my spots" and "Skip", equally prominent), with news as a separate, unticked box. Skipping doesn't use up a later ask; ticking news means no news moment asks again.
+- **SYC-3 decided: "keep my spots safe".** An opt-in, separately consented restore email that brings a spotter's collection back on a new phone, using the staff sign-in safeguards and telling the old phone. Under-15s are told to use a parent's email. The device key also moves into the phone's secure storage. **The news email still restores nothing.**
+- **The "follow this cat" ask appears on the first spot**, named or not.
+- **The ask screens no longer promise a frequency.** The fortnight and annual caps are unchanged; the privacy policy still states "a handful of times a year at most".
+- **D2 reaffirmed:** two sending subdomains, `mail.` and `news.`.
+- **The privacy policy text moves to `privacy-policy.md`**, approved separately.
+- **Donor emails are deferred until donations are built** (SYC-1). Working assumption: the payment company keeps them.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
@@ -186,7 +198,8 @@ The four specs were written independently and contradicted each other in fourtee
 | Capacity and safety copy (F1, F8) | `team-access-and-welfare-queue.md` |
 | The four email moments, consent, verification (F7b) | `email-capture.md` |
 | The nightly notify job (F4) | `email-capture.md` |
-| Privacy policy content, controller, withdrawal route | `email-capture.md` |
+| Privacy policy text (split out 28 Sep 2026, approved separately) | `privacy-policy.md` |
+| Controller, withdrawal route, the email facts the policy states | `email-capture.md` |
 | Hosting, photo storage, photo endpoint, migrations | `hosting-and-photo-storage.md` |
 
 **Editorial correction, not a decision:** `team-access-and-welfare-queue.md` independently specified a status-column-plus-audit-log cat record — the exact model the data spine rejects by name. It is struck; the data spine owns the record.
