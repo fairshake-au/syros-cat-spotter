@@ -43,7 +43,13 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
-import { durablePhotos, requestPersistentStorage } from '@/lib/pendingPhotos';
+import {
+  durablePhotos,
+  requestPersistentStorage,
+  reviewPhotoKey,
+  savePendingPhoto,
+} from '@/lib/pendingPhotos';
+import { buildReviewParams } from '@/lib/reviewParams';
 import { CaptureControls } from '@/components/CaptureControls';
 import { Button } from '@/components/purropolis/Button';
 import { Card } from '@/components/purropolis/Card';
@@ -74,6 +80,20 @@ async function shrink(uri: string): Promise<PickedPhoto> {
     { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
   );
   return { uri: result.uri, base64: result.base64 ?? '' };
+}
+
+/**
+ * Let go of a photo's short-lived object URL (the live camera's, or the web
+ * picker's). Nothing downstream reads it any more: the review screen gets the
+ * photo from the phone's own store, never through the route.
+ */
+function releasePhotoUri(uri: string | undefined | null) {
+  if (!uri || !uri.startsWith('blob:')) return;
+  try {
+    URL.revokeObjectURL(uri);
+  } catch {
+    // nothing to release
+  }
 }
 
 async function toPickedPhoto(
@@ -107,7 +127,16 @@ export default function SpotScreen() {
   } =
     useOffline();
   const { coords, denied, loading: locating, refresh } = useLocation();
-  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
+  const [photo, setPhotoState] = useState<PickedPhoto | null>(null);
+  // The on-screen photo's object URL, revoked when it is replaced or cleared.
+  const photoUriRef = React.useRef<string | null>(null);
+  const setPhoto = React.useCallback((next: PickedPhoto | null) => {
+    const previous = photoUriRef.current;
+    if (previous && previous !== next?.uri) releasePhotoUri(previous);
+    photoUriRef.current = next?.uri ?? null;
+    setPhotoState(next);
+  }, []);
+  React.useEffect(() => () => releasePhotoUri(photoUriRef.current), []);
   // Stamped when the photo is picked. Submitting can happen minutes later —
   // and across local midnight — so using submit time would put the sighting on
   // the wrong day for streak purposes.
@@ -266,6 +295,7 @@ export default function SpotScreen() {
           : // Shrink from the normalised uri, not the raw capture: on web the
             // raw one is the whole image inlined as a data URL.
             await shrink(directPhoto?.uri ?? capture.uri);
+      if (directPhoto && picked !== directPhoto) releasePhotoUri(directPhoto.uri);
       setPhoto(picked);
       setCapturedAt(new Date().toISOString());
     } catch {
@@ -413,17 +443,23 @@ export default function SpotScreen() {
         switch (outcome.kind) {
           case 'sent': {
             const result = outcome.result;
+            // The review screen gets the photo from the phone's own store, by
+            // a short name — never through the route. If it cannot be kept,
+            // the review screen shows a placeholder.
+            const kept = await savePendingPhoto(
+              reviewPhotoKey(result.sightingId),
+              photo.uri,
+              photo.base64,
+            );
             clearPhoto();
             router.push({
               pathname: '/review',
-              params: {
-                data: JSON.stringify({
-                  sightingId: result.sightingId,
-                  isCatPhoto: result.isCatPhoto,
-                  candidates: result.candidates,
-                  photoUri: photo.uri,
-                }),
-              },
+              params: buildReviewParams({
+                sightingId: result.sightingId,
+                isCatPhoto: result.isCatPhoto,
+                candidates: result.candidates,
+                photoRef: kept.ok ? kept.ref : undefined,
+              }),
             });
             break;
           }
@@ -454,17 +490,16 @@ export default function SpotScreen() {
     });
 
   const reviewPending = (item: (typeof pending)[number]) => {
+    // Only the queued item's id: the review screen finds its photo through
+    // the queue.
     router.push({
       pathname: '/review',
-      params: {
-        data: JSON.stringify({
-          sightingId: item.sightingId,
-          isCatPhoto: item.isCatPhoto,
-          candidates: item.candidates ?? [],
-          photoUri: item.photoUri,
-          localId: item.localId,
-        }),
-      },
+      params: buildReviewParams({
+        sightingId: item.sightingId,
+        isCatPhoto: item.isCatPhoto,
+        candidates: item.candidates,
+        localId: item.localId,
+      }),
     });
   };
 

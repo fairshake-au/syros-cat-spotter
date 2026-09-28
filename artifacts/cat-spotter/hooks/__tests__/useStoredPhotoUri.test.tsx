@@ -15,7 +15,7 @@ vi.mock('expo-file-system/legacy', () => ({
 
 import { setPhotoStoreAdapterForTests } from '@/lib/pendingPhotos';
 import { createFakePhotoStore, type FakePhotoStore } from '@/lib/__tests__/fakePhotoStore';
-import { useStoredPhotoUri } from '../useStoredPhotoUri';
+import { useInlinePhotoUri, useStoredPhotoUri } from '../useStoredPhotoUri';
 
 let fake: FakePhotoStore;
 let created: string[];
@@ -66,6 +66,21 @@ describe('useStoredPhotoUri', () => {
     expect(result.current).toBeUndefined();
     await waitFor(() => expect(result.current).toBe('blob:test/2'));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test/1');
+  });
+
+  it('shows an inline photo on web through an object URL made from its bytes, never a data URL', async () => {
+    const { result, unmount } = renderHook(() =>
+      useInlinePhotoUri(`data:image/jpeg;base64,${btoa('inline-photo')}`),
+    );
+    await waitFor(() => expect(result.current).toBe('blob:test/1'));
+    expect(result.current).not.toMatch(/^data:/);
+    unmount();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test/1');
+  });
+
+  it('gives nothing when there is no inline photo', () => {
+    const { result } = renderHook(() => useInlinePhotoUri(undefined));
+    expect(result.current).toBeUndefined();
   });
 
   it('gives nothing for a photo the browser cleared', async () => {

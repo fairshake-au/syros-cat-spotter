@@ -87,6 +87,14 @@ vi.mock('expo-file-system/legacy', () => ({
   deleteAsync: vi.fn(async (uri: string) => {
     photoFiles.delete(uri);
   }),
+  // Every file reports an age well past the sweep's 24-hour guard. The guard
+  // is a second line of defence with its own tests; pinning it open here
+  // means these tests exercise the load gate alone.
+  getInfoAsync: vi.fn(async (uri: string) =>
+    photoFiles.has(uri)
+      ? { exists: true, modificationTime: 0 }
+      : { exists: false },
+  ),
   readDirectoryAsync,
 }));
 

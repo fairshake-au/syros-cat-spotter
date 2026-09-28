@@ -400,24 +400,46 @@ export async function deletePendingPhoto(ref: string): Promise<void> {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Nothing unreferenced is deleted until it is at least this old. */
+const ORPHAN_GRACE_MS = DAY_MS;
+/** How long a review photo (`review-<sightingId>`) is kept if never resolved. */
+const REVIEW_PHOTO_KEEP_MS = 7 * DAY_MS;
+
+/** Photos kept for the review screen of an online submission (spec §3.4). */
+export function reviewPhotoKey(sightingId: number): string {
+  return `review-${sightingId}`;
+}
+
+function isReviewPhoto(name: string): boolean {
+  return name.startsWith('review-');
+}
+
+/** Before this, an unreferenced photo may be deleted. */
+function deleteCutoff(name: string, now: number): number {
+  return now - (isReviewPhoto(name) ? REVIEW_PHOTO_KEEP_MS : ORPHAN_GRACE_MS);
+}
 
 /**
  * Remove photos that no longer belong to any queue item.
  *
- * On web, never deletes anything saved in the last 24 hours, and reads
- * `savedAt` in the same transaction as the delete: another tab may have saved
- * a photo it has not listed yet.
+ * Never deletes anything saved in the last 24 hours — another tab, or a save
+ * in flight, may have written a photo it has not listed yet — and keeps a
+ * review photo (`review-*`) for seven days, unless its review is resolved
+ * first. On web the age is read in the same transaction as the delete; on
+ * native it is the file's modification time, read just before the delete.
  */
 export async function cleanupOrphanPhotos(keepRefs: string[]): Promise<void> {
+  const now = Date.now();
   if (!supportsPhotoFiles) {
     if (!(await webStoreInUse())) return;
     const store = photoStore();
     if (!store) return;
     const keep = new Set(keepRefs.filter(isStoredPhotoRef).map(idbId));
-    const cutoff = Date.now() - DAY_MS;
     for (const id of await store.photoIds()) {
       if (keep.has(id)) continue;
-      await store.deletePhotoIfSavedBefore(id, cutoff).catch(() => false);
+      await store
+        .deletePhotoIfSavedBefore(id, deleteCutoff(id, now))
+        .catch(() => false);
     }
     return;
   }
@@ -426,15 +448,19 @@ export async function cleanupOrphanPhotos(keepRefs: string[]): Promise<void> {
     const keep = new Set(
       keepRefs.map((u) => u.slice(u.lastIndexOf('/') + 1)),
     );
-    await Promise.all(
-      names
-        .filter((n) => !keep.has(n))
-        .map((n) =>
-          FileSystem.deleteAsync(`${PHOTOS_DIR}/${n}`, { idempotent: true }).catch(
-            () => {},
-          ),
-        ),
-    );
+    for (const name of names) {
+      if (keep.has(name)) continue;
+      const uri = `${PHOTOS_DIR}/${name}`;
+      try {
+        const info = await FileSystem.getInfoAsync(uri);
+        // An age that cannot be read is never old enough to delete.
+        if (!info.exists || typeof info.modificationTime !== 'number') continue;
+        if (info.modificationTime * 1000 >= deleteCutoff(name, now)) continue;
+        await FileSystem.deleteAsync(uri, { idempotent: true });
+      } catch {
+        // keep it
+      }
+    }
   } catch {
     // directory may not exist yet
   }

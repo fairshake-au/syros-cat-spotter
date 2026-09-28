@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
+import { buildReviewParams } from '@/lib/reviewParams';
 
 /**
  * Lightweight in-app prompt shown after queued offline sightings finish
@@ -29,17 +30,16 @@ export function ReviewReadyBanner() {
 
   const openReview = () => {
     dismissReviewPrompt();
+    // Only the queued item's id — never its photo, which for an item still
+    // held inline would be the whole image in the address (SYC-76).
     router.push({
       pathname: '/review',
-      params: {
-        data: JSON.stringify({
-          sightingId: first.sightingId,
-          isCatPhoto: first.isCatPhoto,
-          candidates: first.candidates ?? [],
-          photoUri: first.photoUri,
-          localId: first.localId,
-        }),
-      },
+      params: buildReviewParams({
+        sightingId: first.sightingId,
+        isCatPhoto: first.isCatPhoto,
+        candidates: first.candidates,
+        localId: first.localId,
+      }),
     });
   };
 

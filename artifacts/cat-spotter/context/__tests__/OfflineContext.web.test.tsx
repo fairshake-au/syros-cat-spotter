@@ -346,6 +346,13 @@ describe('moving photos already queued inline (spec §3.3)', () => {
     await renderLoaded();
     expect([...fake.photos.keys()].sort()).toEqual(['A', 'orphan-recent']);
   });
+
+  it('the sweep keeps a review photo for seven days, then lets it go', async () => {
+    fake.seed('review-41', 'photo', Date.now() - 6 * DAY);
+    fake.seed('review-7', 'photo', Date.now() - 8 * DAY);
+    await renderLoaded();
+    expect([...fake.photos.keys()]).toEqual(['review-41']);
+  });
 });
 
 describe('queueing on the web build', () => {

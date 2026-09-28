@@ -15,8 +15,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ---- In-memory fakes -------------------------------------------------------
 
 /** Fake document-directory file system keyed by full URI. */
-const { files, DOC_DIR } = vi.hoisted(() => ({
+const { files, mtimes, DOC_DIR } = vi.hoisted(() => ({
   files: new Map<string, string>(),
+  /** Modification time in seconds, as expo-file-system reports it. */
+  mtimes: new Map<string, number>(),
   DOC_DIR: 'file:///doc/',
 }));
 const PHOTOS_DIR = `${DOC_DIR}pending-photos`;
@@ -45,6 +47,11 @@ vi.mock('expo-file-system/legacy', () => ({
   deleteAsync: vi.fn(async (uri: string) => {
     files.delete(uri);
   }),
+  getInfoAsync: vi.fn(async (uri: string) =>
+    files.has(uri)
+      ? { exists: true, modificationTime: mtimes.get(uri) ?? Date.now() / 1000 }
+      : { exists: false },
+  ),
   readDirectoryAsync: vi.fn(async (dir: string) =>
     [...files.keys()]
       .filter((u) => u.startsWith(`${dir}/`))
@@ -110,8 +117,12 @@ function baseItem(localId: string) {
 
 beforeEach(() => {
   files.clear();
+  mtimes.clear();
   storage.clear();
 });
+
+const DAY_S = 24 * 60 * 60;
+const daysAgo = (days: number) => Date.now() / 1000 - days * DAY_S;
 
 describe('offline queue photo-file lifecycle', () => {
   it('enqueue persists the photo as a file and strips base64 from the queue JSON', async () => {
@@ -210,6 +221,9 @@ describe('offline queue photo-file lifecycle', () => {
     files.set(kept, 'KEEP');
     files.set(orphan1, 'ORPHAN');
     files.set(orphan2, 'ORPHAN');
+    mtimes.set(kept, daysAgo(3));
+    mtimes.set(orphan1, daysAgo(2));
+    mtimes.set(orphan2, daysAgo(2));
     storage.set(
       QUEUE_KEY,
       JSON.stringify([
@@ -251,5 +265,27 @@ describe('offline queue photo-file lifecycle', () => {
       expect(stored.photoUri).toBe(file);
     });
     expect(result.current.pending[0].photoUri).toBe(file);
+  });
+
+  it('the sweep never deletes a photo saved in the last 24 hours', async () => {
+    const fresh = `${PHOTOS_DIR}/fresh-orphan.jpg`;
+    files.set(fresh, 'FRESH');
+    mtimes.set(fresh, daysAgo(0.5));
+    const { result } = renderHook(() => useOffline(), { wrapper });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(files.has(fresh)).toBe(true);
+  });
+
+  it('the sweep keeps review photos for seven days, then lets them go', async () => {
+    const recent = `${PHOTOS_DIR}/review-41.jpg`;
+    const old = `${PHOTOS_DIR}/review-7.jpg`;
+    files.set(recent, 'REVIEW');
+    files.set(old, 'REVIEW');
+    mtimes.set(recent, daysAgo(6));
+    mtimes.set(old, daysAgo(8));
+    const { result } = renderHook(() => useOffline(), { wrapper });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(files.has(recent)).toBe(true);
+    expect(files.has(old)).toBe(false);
   });
 });

@@ -17,7 +17,6 @@ import {
   resolveSighting,
   suggestCatNames,
   ApiError,
-  type MatchCandidate,
   type ResolveResult,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -26,6 +25,8 @@ import { useOffline } from "@/context/OfflineContext";
 import { useDevice } from "@/context/DeviceContext";
 import { SightingPhoto } from "@/components/SightingPhoto";
 import { absoluteUrl } from "@/lib/urls";
+import { deletePendingPhoto } from "@/lib/pendingPhotos";
+import { parseReviewParams } from "@/lib/reviewParams";
 import {
   Button,
   Badge,
@@ -42,14 +43,6 @@ import {
   spacing,
   lineHeights,
 } from "@/constants/theme";
-
-interface ReviewData {
-  sightingId: number;
-  isCatPhoto: boolean;
-  candidates: MatchCandidate[];
-  photoUri: string;
-  localId?: string;
-}
 
 function catCode(id: number): string {
   return `SYR-${String(id).padStart(4, "0")}`;
@@ -71,13 +64,12 @@ export default function ReviewScreen() {
   const { deviceId } = useDevice();
   const params = useLocalSearchParams<{ data?: string }>();
 
-  const data = useMemo<ReviewData | null>(() => {
-    try {
-      return params.data ? (JSON.parse(params.data) as ReviewData) : null;
-    } catch {
-      return null;
-    }
-  }, [params.data]);
+  // The route carries short names only (spec §3.4): a queued item's localId,
+  // or photoRef for an online submission. Never the photo itself.
+  const data = useMemo(() => parseReviewParams(params.data), [params.data]);
+  const queuedItem = data?.localId
+    ? pending.find((p) => p.localId === data.localId)
+    : undefined;
 
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -101,7 +93,11 @@ export default function ReviewScreen() {
 
   const finishAndInvalidate = async (res: ResolveResult) => {
     setResult(res);
+    // A resolved review's photo has done its job: a queued item's goes with
+    // the item; an online submission's review-<id> photo is deleted now
+    // (the sweep would otherwise keep it for seven days).
     if (data.localId) await remove(data.localId);
+    if (data.photoRef) deletePendingPhoto(data.photoRef).catch(() => {});
     queryClient.invalidateQueries();
   };
 
@@ -423,12 +419,8 @@ export default function ReviewScreen() {
               {t("yourPhoto")}
             </Text>
             <SightingPhoto
-              uri={data.photoUri}
-              base64={
-                data.localId
-                  ? pending.find((p) => p.localId === data.localId)?.photoBase64
-                  : undefined
-              }
+              uri={queuedItem ? queuedItem.photoUri : data.photoRef}
+              base64={queuedItem?.photoBase64}
               style={[styles.photo, { borderColor: colors.border }]}
               contentFit="cover"
             />
