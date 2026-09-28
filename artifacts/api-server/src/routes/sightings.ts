@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import {
   CreateSightingBody,
   ResolveSightingBody,
@@ -10,7 +10,7 @@ import {
   sightingsTable,
   profilesTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   haversineKm,
   photoUrl,
@@ -31,10 +31,130 @@ const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
 const MAX_CANDIDATES = 10;
 
+type Candidate = {
+  catId: number;
+  name: string;
+  photoUrl: string;
+  confidence: number;
+  reasoning: string;
+};
+
 const router: IRouter = Router();
+
+// Compare a submitted photo against the nearest known cats and return ranked
+// candidates. Shared between a fresh submission and a deduped repeat (§3.6 of
+// offline-queue-on-web.md) so both paths produce an equivalent response from
+// the same logic, rather than two hand-maintained copies of it.
+async function computeMatchCandidates(
+  req: Request,
+  photoBase64: string,
+  lat: number,
+  lng: number,
+): Promise<{ isCatPhoto: boolean; candidates: Candidate[] }> {
+  // Nearest cats first — matching a street cat against ones seen nearby is
+  // both cheaper and more accurate than comparing against the whole island.
+  const cats = await db.select().from(catsTable);
+  const nearest = cats
+    .map((c) => ({
+      cat: c,
+      dist: haversineKm(lat, lng, c.lat, c.lng),
+    }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, MAX_CANDIDATES);
+
+  let isCatPhoto = true;
+  let candidates: Candidate[] = [];
+
+  try {
+    const candidateInputs = [];
+    for (const { cat } of nearest) {
+      const [p] = await db
+        .select()
+        .from(photosTable)
+        .where(eq(photosTable.id, cat.primaryPhotoId));
+      if (p) {
+        candidateInputs.push({
+          catId: cat.id,
+          name: cat.name,
+          photoBase64: p.data,
+          mime: p.mime,
+        });
+      }
+    }
+    const result = await matchCatPhoto(photoBase64, candidateInputs);
+    isCatPhoto = result.isCatPhoto;
+    const byId = new Map(nearest.map((n) => [n.cat.id, n.cat]));
+    candidates = result.matches
+      .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 3)
+      .map((m) => {
+        const cat = byId.get(m.catId)!;
+        return {
+          catId: cat.id,
+          name: cat.name,
+          photoUrl: photoUrl(cat.primaryPhotoId),
+          confidence: m.confidence,
+          reasoning: m.reasoning,
+        };
+      });
+  } catch (err) {
+    req.log.error({ err }, "AI matching failed; returning no candidates");
+  }
+
+  return { isCatPhoto, candidates };
+}
 
 router.post("/sightings", aiLimiter, async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
+
+  // When the client queued this offline, the spot happened before the sync.
+  // Store the capture time (clamped) so streak day buckets reflect when the
+  // cat was actually seen rather than when the network came back.
+  const capturedAt = clampCaptureTime(body.capturedAt);
+
+  // Dedupe (§3.6 of offline-queue-on-web.md, review finding F5): the page can
+  // die after the upload reached the server but before the response arrived
+  // (matching runs for seconds in between), so the client's retry is not
+  // preceded by any failed write. Look up this device's sighting already
+  // stored at this exact capture instant BEFORE inserting anything. A hit
+  // means this is a repeat: return the existing sighting, re-running the
+  // match against its own stored photo, instead of creating a second row.
+  //
+  // Residual race (accepted, no schema change per the spec): two requests
+  // for the same device+capturedAt arriving concurrently can both miss this
+  // SELECT before either INSERT commits, producing two rows. Closing that
+  // fully needs a unique index on (device_id, created_at), which is a schema
+  // change out of scope here (hosting-and-photo-storage.md §5.1).
+  const [existing] = await db
+    .select()
+    .from(sightingsTable)
+    .where(
+      and(
+        eq(sightingsTable.deviceId, body.deviceId),
+        eq(sightingsTable.createdAt, capturedAt),
+      ),
+    );
+  if (existing) {
+    const [existingPhoto] = await db
+      .select()
+      .from(photosTable)
+      .where(eq(photosTable.id, existing.photoId));
+    // `sightings.photo_id` has no foreign key, and the approved deletion work
+    // (DECISIONS.md F3) will remove photo bytes. A repeat for a sighting whose
+    // photo has gone still returns that sighting rather than a 500 — just
+    // without fresh matches, since there is nothing left to match against.
+    const { isCatPhoto, candidates } = existingPhoto
+      ? await computeMatchCandidates(
+          req,
+          existingPhoto.data,
+          existing.lat,
+          existing.lng,
+        )
+      : { isCatPhoto: true, candidates: [] };
+    res.status(201).json({ sightingId: existing.id, isCatPhoto, candidates });
+    return;
+  }
 
   const validated = await validatePhotoBase64(body.photoBase64);
   if ("error" in validated) {
@@ -55,69 +175,16 @@ router.post("/sightings", aiLimiter, async (req, res) => {
       lat: body.lat,
       lng: body.lng,
       status: "pending",
-      // When the client queued this offline, the spot happened before the sync.
-      // Store the capture time (clamped) so streak day buckets reflect when the
-      // cat was actually seen rather than when the network came back.
-      createdAt: clampCaptureTime(body.capturedAt),
+      createdAt: capturedAt,
     })
     .returning();
 
-  // Nearest cats first — matching a street cat against ones seen nearby is
-  // both cheaper and more accurate than comparing against the whole island.
-  const cats = await db.select().from(catsTable);
-  const nearest = cats
-    .map((c) => ({
-      cat: c,
-      dist: haversineKm(body.lat, body.lng, c.lat, c.lng),
-    }))
-    .sort((a, b) => a.dist - b.dist)
-    .slice(0, MAX_CANDIDATES);
-
-  let isCatPhoto = true;
-  let candidates: {
-    catId: number;
-    name: string;
-    photoUrl: string;
-    confidence: number;
-    reasoning: string;
-  }[] = [];
-
-  try {
-    const candidateInputs = [];
-    for (const { cat } of nearest) {
-      const [p] = await db
-        .select()
-        .from(photosTable)
-        .where(eq(photosTable.id, cat.primaryPhotoId));
-      if (p) {
-        candidateInputs.push({
-          catId: cat.id,
-          name: cat.name,
-          photoBase64: p.data,
-          mime: p.mime,
-        });
-      }
-    }
-    const result = await matchCatPhoto(normalizedBase64, candidateInputs);
-    isCatPhoto = result.isCatPhoto;
-    const byId = new Map(nearest.map((n) => [n.cat.id, n.cat]));
-    candidates = result.matches
-      .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 3)
-      .map((m) => {
-        const cat = byId.get(m.catId)!;
-        return {
-          catId: cat.id,
-          name: cat.name,
-          photoUrl: photoUrl(cat.primaryPhotoId),
-          confidence: m.confidence,
-          reasoning: m.reasoning,
-        };
-      });
-  } catch (err) {
-    req.log.error({ err }, "AI matching failed; returning no candidates");
-  }
+  const { isCatPhoto, candidates } = await computeMatchCandidates(
+    req,
+    normalizedBase64,
+    body.lat,
+    body.lng,
+  );
 
   res.status(201).json({ sightingId: sighting!.id, isCatPhoto, candidates });
 });

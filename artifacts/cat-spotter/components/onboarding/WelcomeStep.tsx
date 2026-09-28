@@ -1,9 +1,10 @@
 import React from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
+import { notify } from '@/lib/notify';
 import { Button } from '@/components/purropolis';
 import { FairShakeMark } from '@/components/FairShakeMark';
 
@@ -19,15 +20,7 @@ export function WelcomeStep({ onNext }: { onNext: () => void }) {
   // The design asked for this entry point, so it is present and honest about
   // its status rather than dead-ending. Restore across reinstall is ticketed.
   const explainRestore = () => {
-    const title = t('welcomeRestoreTitle');
-    const body = t('welcomeRestoreBody');
-    if (Platform.OS === 'web') {
-      // Alert.alert is a no-op on RN web.
-      // eslint-disable-next-line no-alert
-      window.alert(`${title}\n\n${body}`);
-    } else {
-      Alert.alert(title, body);
-    }
+    notify(t('welcomeRestoreTitle'), t('welcomeRestoreBody'));
   };
 
   return (

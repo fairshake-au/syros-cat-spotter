@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   Linking,
   Platform,
@@ -28,24 +27,40 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import { notify, confirmChoice } from '@/lib/notify';
+import {
+  createSingleFlight,
+  describeSaveFailure,
+  submitSighting,
+  type SaveFailure,
+} from '@/lib/submitFlow';
 import {
   optimizePhotoForUpload,
 } from '@/lib/photoUpload';
 import { useLocation } from '@/hooks/useLocation';
-import { photoRejectionKey } from '@/lib/photoRejection';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
+import {
+  durablePhotos,
+  requestPersistentStorage,
+  reviewPhotoKey,
+  savePendingPhoto,
+} from '@/lib/pendingPhotos';
+import { buildReviewParams } from '@/lib/reviewParams';
+import { CaptureControls } from '@/components/CaptureControls';
 import { Button } from '@/components/purropolis/Button';
-import { IconButton } from '@/components/purropolis/IconButton';
 import { Card } from '@/components/purropolis/Card';
 import { Badge } from '@/components/purropolis/Badge';
 import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
 import {
   cameraCaptureToPhoto,
-  getAndroidCameraState,
-} from '@/lib/androidCamera';
+  captureLiveWithRetry,
+  getCameraMode,
+  shutterKindFor,
+} from '@/lib/cameraMode';
+import { createSequencedRunner } from '@/lib/sequencedCall';
 
 interface PickedPhoto {
   uri: string;
@@ -68,6 +83,20 @@ async function shrink(uri: string): Promise<PickedPhoto> {
   return { uri: result.uri, base64: result.base64 ?? '' };
 }
 
+/**
+ * Let go of a photo's short-lived object URL (the live camera's, or the web
+ * picker's). Nothing downstream reads it any more: the review screen gets the
+ * photo from the phone's own store, never through the route.
+ */
+function releasePhotoUri(uri: string | undefined | null) {
+  if (!uri || !uri.startsWith('blob:')) return;
+  try {
+    URL.revokeObjectURL(uri);
+  } catch {
+    // nothing to release
+  }
+}
+
 async function toPickedPhoto(
   asset: ImagePicker.ImagePickerAsset,
 ): Promise<PickedPhoto> {
@@ -87,6 +116,8 @@ export default function SpotScreen() {
   const {
     isOnline,
     isConstrainedNetwork,
+    ready: queueReady,
+    readOnly: queueReadOnly,
     pending,
     enqueue,
     remove,
@@ -97,23 +128,53 @@ export default function SpotScreen() {
   } =
     useOffline();
   const { coords, denied, loading: locating, refresh } = useLocation();
-  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
+  const [photo, setPhotoState] = useState<PickedPhoto | null>(null);
+  // The on-screen photo's object URL, revoked when it is replaced or cleared.
+  const photoUriRef = React.useRef<string | null>(null);
+  const setPhoto = React.useCallback((next: PickedPhoto | null) => {
+    const previous = photoUriRef.current;
+    if (previous && previous !== next?.uri) releasePhotoUri(previous);
+    photoUriRef.current = next?.uri ?? null;
+    setPhotoState(next);
+  }, []);
+  React.useEffect(() => () => releasePhotoUri(photoUriRef.current), []);
   // Stamped when the photo is picked. Submitting can happen minutes later —
   // and across local midnight — so using submit time would put the sighting on
   // the wrong day for streak purposes.
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [optimizingUpload, setOptimizingUpload] = useState(false);
+  // One submit at a time, checked before any re-render could disable the
+  // button: a double tap must not queue a sighting twice.
+  const submitOnce = React.useRef(createSingleFlight()).current;
   const cameraRef = React.useRef<CameraView>(null);
+  // `get: false` because we run the initial lookup ourselves: the hook's own
+  // effect calls getPermissionsAsync() with no catch, and expo-camera's web
+  // implementation *throws* when navigator.permissions.query is missing (older
+  // Safari, and Android in-app WebViews — which is how testers arriving from an
+  // email link get here). Unguarded, that leaves the permission null forever and
+  // pins the screen to a spinner with no way to take a photo.
   const [
     cameraPermission,
     requestCameraPermission,
     refreshCameraPermission,
-  ] = useCameraPermissions();
+  ] = useCameraPermissions({ get: false });
+  const [permissionLookupFailed, setPermissionLookupFailed] = useState(false);
+  // expo-camera's web permission request always reports canAskAgain: true (an
+  // upstream bug), so once a web user has explicitly declined, asking again
+  // would just show the same dead-end pill forever. Sticky for the session.
+  const [webCameraDeclined, setWebCameraDeclined] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
-  const cameraState = getAndroidCameraState(Platform.OS, cameraPermission);
+  const cameraState = getCameraMode(
+    Platform.OS,
+    cameraPermission,
+    permissionLookupFailed,
+    webCameraDeclined,
+  );
+  const shutterKind = shutterKindFor(cameraState, cameraFailed, cameraActive);
+  const liveCameraReady = shutterKind === 'live';
 
   useFocusEffect(
     React.useCallback(() => {
@@ -122,13 +183,39 @@ export default function SpotScreen() {
     }, []),
   );
 
+  // Self-healing: a lookup that succeeds CLEARS the flag. A one-way latch would
+  // mean a single transient rejection on resume (module not ready, activity
+  // recreated) permanently downgrades the screen to the picker — including for
+  // the user who just granted the permission in Settings and came back.
+  //
+  // Called from three places — mount, Android AppState resume, and retry —
+  // so overlapping calls are common; runPermissionLookup makes sure a stale
+  // completion can never overwrite a newer one (Cursor Bugbot finding: a
+  // slow failing lookup used to unmount a working live preview after a
+  // faster, more recent lookup had already succeeded).
+  const runPermissionLookup = React.useRef(createSequencedRunner<void>()).current;
+  const syncCameraPermission = React.useCallback(
+    () =>
+      runPermissionLookup(() => refreshCameraPermission().then(() => undefined)).then(
+        (result) => {
+          if (!result.applied) return;
+          setPermissionLookupFailed(Boolean(result.error));
+        },
+      ),
+    [refreshCameraPermission, runPermissionLookup],
+  );
+
+  React.useEffect(() => {
+    void syncCameraPermission();
+  }, [syncCameraPermission]);
+
   React.useEffect(() => {
     if (Platform.OS !== 'android') return;
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refreshCameraPermission();
+      if (state === 'active') void syncCameraPermission();
     });
     return () => subscription.remove();
-  }, [refreshCameraPermission]);
+  }, [syncCameraPermission]);
   // The location the user confirms on the map (initialized from GPS).
   const [pickedCoords, setPickedCoords] = useState<{
     latitude: number;
@@ -154,10 +241,33 @@ export default function SpotScreen() {
     try {
       if (fromCamera && Platform.OS !== 'web') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) return null;
+        if (!perm.granted) {
+          // Returning null here used to make the shutter a dead tap: nothing
+          // happened and nothing explained why. Once canAskAgain is false the
+          // OS shows no prompt, so the only way out is Settings — say so.
+          if (perm.canAskAgain) {
+            notify(t('cameraUnavailable'), t('cameraPermissionHint'));
+          } else {
+            const openSettings = await confirmChoice({
+              title: t('cameraUnavailable'),
+              message: t('cameraDeniedHint'),
+              confirmLabel: t('openSettings'),
+              cancelLabel: t('cancel'),
+            });
+            if (openSettings) void openCameraSettings();
+          }
+          return null;
+        }
       }
       const result = fromCamera
-        ? await ImagePicker.launchCameraAsync({ quality: 1, base64: true })
+        ? await ImagePicker.launchCameraAsync({
+            quality: 1,
+            base64: true,
+            // Without this the web picker sets capture="camera", a value that
+            // is not in the HTML Media Capture spec; browsers fall back to an
+            // implementation default that is commonly the selfie camera.
+            cameraType: ImagePicker.CameraType.back,
+          })
         : await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             quality: 1,
@@ -171,7 +281,7 @@ export default function SpotScreen() {
         return await toPickedPhoto(result.assets[0]);
       }
     } catch {
-      Alert.alert(t('error'));
+      notify(t('error'));
     }
     return null;
   };
@@ -188,22 +298,45 @@ export default function SpotScreen() {
     if (!cameraRef.current || capturing) return;
     setCapturing(true);
     try {
-      const capture: CameraCapturedPicture | undefined =
-        await cameraRef.current.takePictureAsync({
-          quality: 1,
-          base64: true,
-        });
-      if (!capture) throw new Error('Camera returned no photo');
+      // expo-camera's web takePicture throws ERR_CAMERA_NOT_READY until the
+      // <video> element has produced its first frame — a common race right
+      // after the preview mounts. That specific failure gets one retry;
+      // anything else, or a second failure, falls back to the system camera
+      // (the existing 'picker' shutter) instead of leaving a dead shutter.
+      const outcome = await captureLiveWithRetry<CameraCapturedPicture>(
+        () =>
+          cameraRef.current!.takePictureAsync({
+            quality: 1,
+            base64: true,
+          }),
+        (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      );
+      if (outcome.kind === 'fallback') {
+        // Do NOT call launchCameraAsync here: browsers only open a file
+        // picker from a direct tap, and a programmatic open after an
+        // awaited failure may be silently blocked. Switch the shutter and
+        // let the user tap it themselves. The failed state's centre panel
+        // carries the one message; an alert on top of it gave two messages
+        // with different advice (Samuel's decision E, 27 Sep).
+        setCameraFailed(true);
+        return;
+      }
+      const capture = outcome.capture;
       const directPhoto = cameraCaptureToPhoto(capture);
       const picked =
         directPhoto &&
         directPhoto.base64.length * 0.75 <= MAX_UPLOAD_BYTES
           ? directPhoto
-          : await shrink(capture.uri);
+          : // Shrink from the normalised uri, not the raw capture: on web the
+            // raw one is the whole image inlined as a data URL.
+            await shrink(directPhoto?.uri ?? capture.uri);
+      if (directPhoto && picked !== directPhoto) releasePhotoUri(directPhoto.uri);
       setPhoto(picked);
       setCapturedAt(new Date().toISOString());
     } catch {
-      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      // Same as a failed capture: fall back to the system camera and let the
+      // centre panel say so, rather than an alert over a still-live shutter.
+      setCameraFailed(true);
     } finally {
       setCapturing(false);
     }
@@ -211,22 +344,54 @@ export default function SpotScreen() {
 
   const requestLiveCamera = async () => {
     try {
-      await requestCameraPermission();
+      const result = await requestCameraPermission();
+      if (Platform.OS === 'web' && !result.granted) {
+        // The upstream canAskAgain: true bug means asking again would just
+        // show the same dead-end pill forever — stop showing it.
+        setWebCameraDeclined(true);
+      }
     } catch {
-      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      // Native only in practice: expo-camera's web request never throws — a
+      // refusal resolves not-granted and is handled above. The picker shutter
+      // is already on screen in this state, so the user is not stranded; just
+      // say the live preview is not available.
+      notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
   };
 
   const openCameraSettings = async () => {
     if (Platform.OS === 'web') {
-      Alert.alert(t('cameraUnavailable'), t('browserCameraSettings'));
+      notify(t('cameraUnavailable'), t('browserCameraSettings'));
       return;
     }
     try {
       await Linking.openSettings();
     } catch {
-      Alert.alert(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      // Only reached when camera access is switched off for good. The phone's
+      // camera button needs the same permission, so pointing at it would send
+      // the user round in a loop; say how to turn access on, or use a photo.
+      notify(t('cameraUnavailable'), t('cameraDeniedHint'));
     }
+  };
+
+  // Re-reads the permission as well as clearing the failure: re-rendering an
+  // identical CameraView is what the previous version did, and it told a user
+  // with a persistent problem nothing new.
+  const retryLiveCamera = () => {
+    setCameraFailed(false);
+    void syncCameraPermission();
+  };
+
+  /** Say plainly that a save did not happen. The photo stays where it is. */
+  const reportSaveFailure = (failure: SaveFailure) => {
+    notify(
+      t('saveFailedTitle'),
+      failure === 'read-only'
+        ? t('queueReadOnly')
+        : failure === 'open-in-browser'
+          ? t('saveFailedOpenInBrowser')
+          : t('saveFailedHint'),
+    );
   };
 
   const replaceRejectedPhoto = async (
@@ -234,106 +399,136 @@ export default function SpotScreen() {
     fromCamera: boolean,
   ) => {
     const picked = await choosePhoto(fromCamera);
-    if (picked) {
+    if (!picked) return;
+    try {
       await replacePhoto(localId, {
         photoBase64: picked.base64,
         photoUri: picked.uri,
       });
-    }
-  };
-
-  const offerPhotoReplacement = (localId: string) => {
-    Alert.alert(t('replacePhoto'), t('replacePhotoHint'), [
-      ...(Platform.OS === 'web'
-        ? []
-        : [
-            {
-              text: t('takePhoto'),
-              onPress: () => void replaceRejectedPhoto(localId, true),
-            },
-          ]),
-      {
-        text: t('chooseFromLibrary'),
-        onPress: () => void replaceRejectedPhoto(localId, false),
-      },
-      { text: t('cancel'), style: 'cancel' },
-    ]);
-  };
-
-  const submit = async () => {
-    // Require the explicitly confirmed location — never raw GPS.
-    const finalCoords = pickedCoords;
-    if (!photo || !finalCoords || !deviceId) return;
-    if (!isOnline) {
-      await enqueue({
-        localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        photoBase64: photo.base64,
-        photoUri: photo.uri,
-        lat: finalCoords.latitude,
-        lng: finalCoords.longitude,
-        createdAt: capturedAt ?? new Date().toISOString(),
-      });
-      clearPhoto();
-      Alert.alert(t('queuedOffline'));
-      return;
-    }
-    setSubmitting(true);
-    try {
-      let uploadPhoto = photo;
-      if (isConstrainedNetwork) {
-        setOptimizingUpload(true);
-        const optimizedBase64 = await optimizePhotoForUpload(photo.uri);
-        if (optimizedBase64) {
-          uploadPhoto = { ...photo, base64: optimizedBase64 };
-        }
-        setOptimizingUpload(false);
-      }
-      const result = await createSighting({
-        deviceId,
-        photoBase64: uploadPhoto.base64,
-        lat: finalCoords.latitude,
-        lng: finalCoords.longitude,
-        // Capture time, not submit time, and sent on the online path too so a
-        // sighting's day is decided the same way however it reached the server.
-        capturedAt: capturedAt ?? new Date().toISOString(),
-      });
-      clearPhoto();
-      router.push({
-        pathname: '/review',
-        params: {
-          data: JSON.stringify({
-            sightingId: result.sightingId,
-            isCatPhoto: result.isCatPhoto,
-            candidates: result.candidates,
-            photoUri: photo.uri,
-          }),
-        },
-      });
     } catch (err) {
-      const rejectionKey = photoRejectionKey(err);
-      if (rejectionKey) {
-        Alert.alert(t('photoRejectedTitle'), t(rejectionKey));
-      } else {
-        Alert.alert(t('error'));
-      }
-    } finally {
-      setOptimizingUpload(false);
-      setSubmitting(false);
+      reportSaveFailure(await describeSaveFailure(err, durablePhotos));
     }
   };
+
+  /** Discard / retry on a queued card: a failed save is said, not swallowed. */
+  const changeQueue = (change: () => Promise<void>) => {
+    change().catch(() => notify(t('error')));
+  };
+
+  const submit = () =>
+    submitOnce(async () => {
+      // Require the explicitly confirmed location — never raw GPS.
+      const finalCoords = pickedCoords;
+      if (!photo || !finalCoords || !deviceId) return;
+      const sightingTime = capturedAt ?? new Date().toISOString();
+      // The busy flag covers the offline branch too.
+      setSubmitting(true);
+      try {
+        const outcome = await submitSighting({
+          isOnline,
+          canSaveForLater: !queueReadOnly,
+          send: async () => {
+            let uploadPhoto = photo;
+            if (isConstrainedNetwork) {
+              setOptimizingUpload(true);
+              const optimizedBase64 = await optimizePhotoForUpload(photo.uri);
+              if (optimizedBase64) {
+                uploadPhoto = { ...photo, base64: optimizedBase64 };
+              }
+              setOptimizingUpload(false);
+            }
+            return createSighting({
+              deviceId,
+              photoBase64: uploadPhoto.base64,
+              lat: finalCoords.latitude,
+              lng: finalCoords.longitude,
+              // Capture time, not submit time, and sent on the online path too
+              // so a sighting's day is decided the same way however it reached
+              // the server.
+              capturedAt: sightingTime,
+            });
+          },
+          save: () =>
+            enqueue({
+              localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              photoBase64: photo.base64,
+              photoUri: photo.uri,
+              lat: finalCoords.latitude,
+              lng: finalCoords.longitude,
+              createdAt: sightingTime,
+            }),
+          // R5: one bar of signal — the send failed though the phone says
+          // it is connected.
+          offerSaveForLater: () =>
+            confirmChoice({
+              title: t('sendFailedTitle'),
+              message: t('saveAndSendLaterPrompt'),
+              confirmLabel: t('saveAndSendLater'),
+              cancelLabel: t('cancel'),
+            }),
+          photosKeepable: durablePhotos,
+        });
+
+        switch (outcome.kind) {
+          case 'sent': {
+            const result = outcome.result;
+            // The review screen gets the photo from the phone's own store, by
+            // a short name — never through the route. If it cannot be kept,
+            // the review screen shows a placeholder.
+            const kept = await savePendingPhoto(
+              reviewPhotoKey(result.sightingId),
+              photo.uri,
+              photo.base64,
+            );
+            clearPhoto();
+            router.push({
+              pathname: '/review',
+              params: buildReviewParams({
+                sightingId: result.sightingId,
+                isCatPhoto: result.isCatPhoto,
+                candidates: result.candidates,
+                photoRef: kept.ok ? kept.ref : undefined,
+              }),
+            });
+            break;
+          }
+          case 'saved':
+            clearPhoto();
+            notify(
+              outcome.reason === 'offline' ? t('queuedOffline') : t('savedForLater'),
+            );
+            break;
+          case 'save-failed':
+            // Nothing says "queued", and the photo stays on screen.
+            reportSaveFailure(outcome.failure);
+            break;
+          case 'rejected':
+            notify(t('photoRejectedTitle'), t(outcome.rejectionKey));
+            break;
+          case 'send-failed':
+            notify(t('error'));
+            break;
+          case 'not-saved':
+            // The user chose to keep the photo on screen and try again.
+            break;
+        }
+      } finally {
+        setOptimizingUpload(false);
+        setSubmitting(false);
+      }
+    });
 
   const reviewPending = (item: (typeof pending)[number]) => {
+    // Only the queued item's id: the review screen finds its photo through
+    // the queue.
     router.push({
       pathname: '/review',
-      params: {
-        data: JSON.stringify({
-          sightingId: item.sightingId,
-          isCatPhoto: item.isCatPhoto,
-          candidates: item.candidates ?? [],
-          photoUri: item.photoUri,
-          localId: item.localId,
-        }),
-      },
+      params: buildReviewParams({
+        sightingId: item.sightingId,
+        isCatPhoto: item.isCatPhoto,
+        candidates: item.candidates,
+        localId: item.localId,
+      }),
     });
   };
 
@@ -368,7 +563,14 @@ export default function SpotScreen() {
           {t('pendingSightings')}
         </Text>
         {isOnline && (
-          <Pressable onPress={syncNow} disabled={syncing}>
+          <Pressable
+            onPress={() => {
+              // Only ever from a tap here, never mid-save (spec §3.2).
+              requestPersistentStorage();
+              void syncNow();
+            }}
+            disabled={syncing}
+          >
             <Text style={[styles.syncText, { color: colors.primary }]}>
               {syncing ? '…' : t('syncNow')}
             </Text>
@@ -381,10 +583,11 @@ export default function SpotScreen() {
           padding={spacing[3]}
           onPress={
             item.status === 'review'
-              ? () => reviewPending(item)
-              : item.status === 'rejected'
-                ? () => offerPhotoReplacement(item.localId)
-                : undefined
+              ? () => {
+                  requestPersistentStorage();
+                  reviewPending(item);
+                }
+              : undefined
           }
           style={styles.pendingItem}
         >
@@ -401,7 +604,9 @@ export default function SpotScreen() {
                 : item.status === 'error'
                   ? item.errorKind === 'stale'
                     ? t('syncFailedStale')
-                    : t('syncFailedServer')
+                    : item.errorKind === 'cleared'
+                      ? t('syncFailedCleared')
+                      : t('syncFailedServer')
                   : item.status === 'rejected'
                     ? t('photoRejectedTitle')
                     : t('queued')}
@@ -413,27 +618,62 @@ export default function SpotScreen() {
                 >
                   {t(item.rejectionKey ?? 'photoRejectedQueued')}
                 </Text>
-                <Pressable
-                  onPress={() => offerPhotoReplacement(item.localId)}
-                  style={[styles.errorBtn, styles.replaceBtn, { backgroundColor: colors.secondary }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('replacePhoto')}
-                  testID={`replace-photo-${item.localId}`}
-                >
-                  <Feather
-                    name="camera"
-                    size={13}
-                    color={colors.secondaryForeground}
-                  />
-                  <Text
-                    style={[
-                      styles.errorBtnText,
-                      { color: colors.secondaryForeground },
-                    ]}
+                <Text style={[styles.replaceLabel, { color: colors.foreground }]}>
+                  {t('replacePhoto')}
+                </Text>
+                <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
+                  {t('replacePhotoHint')}
+                </Text>
+                <View style={[styles.errorActions, styles.replaceBtn]}>
+                  <Pressable
+                    onPress={() => {
+                      requestPersistentStorage();
+                      void replaceRejectedPhoto(item.localId, true);
+                    }}
+                    style={[styles.errorBtn, { backgroundColor: colors.secondary }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('takePhoto')}
+                    testID={`replace-photo-camera-${item.localId}`}
                   >
-                    {t('replacePhoto')}
-                  </Text>
-                </Pressable>
+                    <Feather
+                      name="camera"
+                      size={13}
+                      color={colors.secondaryForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.errorBtnText,
+                        { color: colors.secondaryForeground },
+                      ]}
+                    >
+                      {t('takePhoto')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      requestPersistentStorage();
+                      void replaceRejectedPhoto(item.localId, false);
+                    }}
+                    style={[styles.errorBtn, { backgroundColor: colors.secondary }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chooseFromLibrary')}
+                    testID={`replace-photo-library-${item.localId}`}
+                  >
+                    <Feather
+                      name="image"
+                      size={13}
+                      color={colors.secondaryForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.errorBtnText,
+                        { color: colors.secondaryForeground },
+                      ]}
+                    >
+                      {t('chooseFromLibrary')}
+                    </Text>
+                  </Pressable>
+                </View>
               </>
             )}
             <Text style={[styles.pendingDate, { color: colors.mutedForeground }]}>
@@ -441,9 +681,9 @@ export default function SpotScreen() {
             </Text>
             {item.status === 'error' && (
               <View style={styles.errorActions}>
-                {item.errorKind !== 'stale' && (
+                {item.errorKind !== 'stale' && item.errorKind !== 'cleared' && (
                   <Pressable
-                    onPress={() => retry(item.localId)}
+                    onPress={() => changeQueue(() => retry(item.localId))}
                     disabled={syncing || !isOnline}
                     style={[
                       styles.errorBtn,
@@ -469,7 +709,7 @@ export default function SpotScreen() {
                   </Pressable>
                 )}
                 <Pressable
-                  onPress={() => remove(item.localId)}
+                  onPress={() => changeQueue(() => remove(item.localId))}
                   style={[styles.errorBtn, { backgroundColor: colors.destructive }]}
                 >
                   <Feather
@@ -492,7 +732,10 @@ export default function SpotScreen() {
           {item.status === 'review' ? (
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
           ) : item.status === 'queued' ? (
-            <Pressable onPress={() => remove(item.localId)} hitSlop={8}>
+            <Pressable
+              onPress={() => changeQueue(() => remove(item.localId))}
+              hitSlop={8}
+            >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
           ) : null}
@@ -616,14 +859,16 @@ export default function SpotScreen() {
               {submitting
                 ? optimizingUpload
                   ? t('optimizingPhoto')
-                  : t('submitting')
+                  : isOnline
+                    ? t('submitting')
+                    : t('savingSighting')
                 : t('checkForMatches')}
             </Button>
           </>
         ) : (
           // ── Capture state: dark viewfinder treatment ──
           <View style={[styles.viewfinder, shadows.md]}>
-            {cameraState === 'ready' && !cameraFailed && cameraActive ? (
+            {liveCameraReady ? (
               <CameraView
                 ref={cameraRef}
                 facing="back"
@@ -657,7 +902,7 @@ export default function SpotScreen() {
                         </Text>
                         <Pressable
                           accessibilityRole="button"
-                          onPress={() => setCameraFailed(false)}
+                          onPress={retryLiveCamera}
                           style={styles.cameraPermissionButton}
                           testID="retry-live-camera"
                         >
@@ -669,7 +914,9 @@ export default function SpotScreen() {
                     ) : (cameraState === 'request' || cameraState === 'settings') && (
                       <View style={styles.cameraPermissionPanel}>
                         <Text style={styles.cameraPermissionText}>
-                          {t('cameraPermissionHint')}
+                          {cameraState === 'settings'
+                            ? t('cameraDeniedHint')
+                            : t('cameraPermissionHint')}
                         </Text>
                         <Pressable
                           accessibilityRole="button"
@@ -688,7 +935,7 @@ export default function SpotScreen() {
                           <Text style={styles.cameraPermissionButtonText}>
                             {cameraState === 'settings'
                               ? t('openSettings')
-                              : t('allowCamera')}
+                              : t('showLiveView')}
                           </Text>
                         </Pressable>
                       </View>
@@ -709,40 +956,23 @@ export default function SpotScreen() {
               <View style={styles.viewfinderSpacer} />
             </View>
             <View style={styles.framingRect} pointerEvents="none" />
-            <Text style={styles.captureHint}>{t('captureHint')}</Text>
-            <View style={styles.controlRow}>
-              <IconButton
-                label={t('chooseFromLibrary')}
-                onPress={() => pickPhoto(false)}
-                style={styles.translucentIconBtn}
-              >
-                <Feather name="image" size={20} color="#fff" />
-              </IconButton>
-              {cameraState === 'ready' && !cameraFailed && cameraActive && (
-                <Pressable
-                  onPress={captureLivePhoto}
-                  disabled={capturing}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('takePhoto')}
-                  testID="live-camera-shutter"
-                  style={({ pressed }) => [
-                    styles.shutter,
-                    { opacity: pressed || capturing ? 0.65 : 1 },
-                  ]}
-                />
-              )}
-              {cameraState === 'picker' && (
-                <Pressable
-                  onPress={() => pickPhoto(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('takePhoto')}
-                  style={({ pressed }) => [
-                    styles.shutter,
-                    { opacity: pressed ? 0.85 : 1 },
-                  ]}
-                />
-              )}
-            </View>
+            {/* When the camera has failed, the centre panel carries the one
+                message; a second hint here would give three suggestions in two
+                places (Samuel's decision, 27 Sep). */}
+            {!cameraFailed && (
+              <Text style={styles.captureHint}>
+                {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
+              </Text>
+            )}
+            <CaptureControls
+              shutterKind={shutterKind}
+              capturing={capturing}
+              onChooseFromLibrary={() => pickPhoto(false)}
+              onCaptureLive={captureLivePhoto}
+              onCaptureWithPicker={() => pickPhoto(true)}
+              libraryLabel={t('chooseFromLibrary')}
+              shutterLabel={t('takePhoto')}
+            />
           </View>
         )}
 
@@ -759,7 +989,25 @@ export default function SpotScreen() {
           </Text>
         )}
 
-        {pendingSection}
+        {queueReady && queueReadOnly && (
+          <Text
+            style={[styles.subtitle, { color: colors.destructive }]}
+            testID="queue-read-only"
+          >
+            {t('queueReadOnly')}
+          </Text>
+        )}
+        {queueReady ? (
+          pendingSection
+        ) : (
+          // Until the saved queue has loaded, "nothing queued" would be a lie.
+          <Text
+            style={[styles.subtitle, { color: colors.mutedForeground }]}
+            testID="loading-saved-sightings"
+          >
+            {t('loadingSavedSightings')}
+          </Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -839,22 +1087,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.92)',
     marginBottom: spacing[3],
   },
-  controlRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[7],
-    paddingBottom: spacing[6],
-  },
-  translucentIconBtn: { backgroundColor: 'rgba(255,255,255,0.2)' },
-  shutter: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: '#fff',
-    borderWidth: 5,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
 
   // Details state
   detailsIntroRow: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
@@ -893,5 +1125,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.xs,
   },
   errorBtnText: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold },
+  replaceLabel: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold, marginTop: spacing[1] },
   replaceBtn: { alignSelf: 'flex-start', marginTop: spacing[1] },
 });
