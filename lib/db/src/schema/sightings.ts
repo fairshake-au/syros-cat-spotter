@@ -18,6 +18,12 @@ export const sightingsTable = pgTable("sightings", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // Deletion unlinks a sighting from its spotter rather than removing it, so
+  // the cat keeps its history (cat-record-data-spine.md §8.5). How deviceId is
+  // cleared is the deletion work's (SYC-63); this column exists now so that
+  // work needs no migration across a season of sightings.
+  redactedAt: timestamp("redacted_at", { withTimezone: true }),
+  redactionReason: text("redaction_reason"),
 });
 
 export type Sighting = typeof sightingsTable.$inferSelect;
