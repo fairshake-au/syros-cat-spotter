@@ -167,7 +167,7 @@ The four specs were written independently and contradicted each other in fourtee
 |---|---|
 | Cat record model, observations, status derivation, presumed-deceased | `cat-record-data-spine.md` |
 | Location blurring, the nearest-cat oracle, feeding-site privacy | `cat-record-data-spine.md` |
-| Records import and matching | `cat-record-data-spine.md` |
+| Records import and matching (optional, post-MVP; split out 28 Sep 2026) | `records-import.md` |
 | Deletion mechanism (F3) | `cat-record-data-spine.md` |
 | Sign-in, trust boundary, roles | `team-access-and-welfare-queue.md` |
 | Staff dashboard, welfare queue, report flow | `team-access-and-welfare-queue.md` |
