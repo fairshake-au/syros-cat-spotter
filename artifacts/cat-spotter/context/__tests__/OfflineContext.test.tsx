@@ -581,9 +581,10 @@ describe('retry', () => {
 
     expect(ctx.current.pending[0]).toMatchObject({
       status: 'queued',
-      errorKind: undefined,
       failCount: 0,
     });
+    // Memory is what was saved, re-read: an unset field is absent, not undefined.
+    expect(ctx.current.pending[0].errorKind).toBeUndefined();
     // The requeue itself was persisted so the retry survives an app restart.
     expect(persistedQueue()[0]).toMatchObject({ status: 'queued' });
   });

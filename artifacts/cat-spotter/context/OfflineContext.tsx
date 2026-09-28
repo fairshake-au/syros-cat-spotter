@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { createSighting } from '@workspace/api-client-react';
@@ -23,6 +24,17 @@ import {
   savePendingPhoto,
   supportsPhotoFiles,
 } from '@/lib/pendingPhotos';
+import {
+  createQueueStore,
+  type LoadContext,
+  type QueueStore,
+} from '@/lib/queueStore';
+import {
+  QUEUE_LOCK,
+  UPLOAD_LOCK,
+  ifLockFree,
+  withLock,
+} from '@/lib/webLocks';
 import { useDevice } from './DeviceContext';
 import {
   applyServerFailure,
@@ -33,6 +45,7 @@ import {
 } from '../lib/offlineQueue';
 
 export type { PendingSighting };
+export { QueueWriteError, isQueueWriteError } from '@/lib/queueStore';
 
 const QUEUE_KEY = 'cat-spotter/pending-sightings';
 
@@ -50,12 +63,24 @@ interface OfflineContextValue {
   isOnline: boolean;
   /** True when uploads should use a smaller temporary photo representation. */
   isConstrainedNetwork: boolean;
+  /** False until the saved queue has been loaded. */
+  ready: boolean;
+  /**
+   * The saved queue could not be read, so nothing can be queued this session
+   * (rather than overwrite it). Sending online still works.
+   */
+  readOnly: boolean;
   pending: PendingSighting[];
+  /** Throws QueueWriteError if the sighting could not be saved. */
   enqueue: (item: EnqueueInput) => Promise<void>;
+  /** Throws QueueWriteError if the change could not be saved. */
   remove: (localId: string) => Promise<void>;
   /** Put a failed item back in the queue and try syncing again. */
   retry: (localId: string) => Promise<void>;
-  /** Replace a rejected item's photo while preserving its capture metadata. */
+  /**
+   * Replace a rejected item's photo while preserving its capture metadata.
+   * Throws QueueWriteError if the change could not be saved.
+   */
   replacePhoto: (localId: string, photo: ReplacementPhoto) => Promise<void>;
   syncNow: () => Promise<void>;
   syncing: boolean;
@@ -71,34 +96,86 @@ const OfflineContext = createContext<OfflineContextValue | undefined>(
 );
 
 /**
- * Migrate legacy items that still carry inline base64: write the photo to a
- * document-directory file and strip the base64 so the queue JSON stays small.
+ * Runs inside the load, after the parsed list is in memory and before any
+ * writer is let in. Each step is contained: a failure in one never stops the
+ * others, and never takes the parsed list out of memory.
  */
-async function migratePhotosToFiles(
-  items: PendingSighting[],
-): Promise<{ items: PendingSighting[]; changed: boolean }> {
-  if (!supportsPhotoFiles) return { items, changed: false };
-  let changed = false;
-  const next: PendingSighting[] = [];
-  for (const item of items) {
-    if (!item.photoBase64) {
-      next.push(item);
-      continue;
+async function prepareLoadedQueue(ctx: LoadContext): Promise<void> {
+  // Flag very old queued items as stale — they can never sync.
+  await ctx
+    .mutate((list) => {
+      const stale = markStaleItems(list, Date.now());
+      return stale.changed ? stale.items : list;
+    })
+    .catch(() => undefined);
+
+  // Move any legacy inline base64 photos into document storage. Each photo is
+  // saved on its own; only the ones that saved are stripped, and the strip
+  // re-reads the list, so nothing added meanwhile can be lost.
+  if (supportsPhotoFiles) {
+    const moved = new Map<string, string>();
+    for (const item of ctx.items()) {
+      if (!item.photoBase64) continue;
+      try {
+        const fileUri = await savePendingPhoto(
+          item.localId,
+          item.photoUri,
+          item.photoBase64,
+        );
+        if (fileUri) moved.set(item.localId, fileUri);
+      } catch {
+        // Stays inline; retried next load.
+      }
     }
-    const fileUri = await savePendingPhoto(
-      item.localId,
-      item.photoUri,
-      item.photoBase64,
-    );
-    if (fileUri) {
-      changed = true;
-      next.push({ ...item, photoBase64: undefined, photoUri: fileUri });
-    } else {
-      next.push(item);
+    if (moved.size > 0) {
+      await ctx
+        .mutate((list) => {
+          let changed = false;
+          const next = list.map((p) => {
+            const fileUri = moved.get(p.localId);
+            if (!fileUri || !p.photoBase64) return p;
+            changed = true;
+            return { ...p, photoBase64: undefined, photoUri: fileUri };
+          });
+          return changed ? next : list;
+        })
+        .catch(() => undefined);
     }
   }
-  return { items: next, changed };
+
+  // Drop photo files that no queue item references anymore. This runs before
+  // `ready`, so no writer can have saved a photo it has not yet listed.
+  await cleanupOrphanPhotos(ctx.items().map((p) => p.photoUri)).catch(
+    () => undefined,
+  );
 }
+
+function markReview(
+  localId: string,
+  result: Pick<PendingSighting, 'sightingId' | 'isCatPhoto' | 'candidates'>,
+) {
+  return (list: PendingSighting[]) =>
+    list.map((p) =>
+      p.localId === localId && p.status === 'queued'
+        ? {
+            ...p,
+            status: 'review' as const,
+            sightingId: result.sightingId,
+            isCatPhoto: result.isCatPhoto,
+            candidates: result.candidates,
+          }
+        : p,
+    );
+}
+
+function markStatus(localId: string, patch: Partial<PendingSighting>) {
+  return (list: PendingSighting[]) =>
+    list.map((p) =>
+      p.localId === localId && p.status === 'queued' ? { ...p, ...patch } : p,
+    );
+}
+
+type SyncOutcome = 'synced' | 'network' | 'done';
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const { deviceId } = useDevice();
@@ -107,132 +184,165 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     null,
   );
   const [pending, setPending] = useState<PendingSighting[]>([]);
+  const [ready, setReady] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
   const syncingRef = useRef(false);
   const networkStateRef = useRef<UploadNetworkState | null>(null);
-  const pendingRef = useRef<PendingSighting[]>([]);
-  pendingRef.current = pending;
 
-  useEffect(() => {
-    AsyncStorage.getItem(QUEUE_KEY).then(async (raw) => {
-      if (!raw) return;
-      try {
-        const items = JSON.parse(raw) as PendingSighting[];
-        // Flag very old queued items as stale — they can never sync.
-        const stale = markStaleItems(items, Date.now());
-        let next = stale.items;
-        let changed = stale.changed;
-        // Move any legacy inline base64 photos into document storage.
-        const migrated = await migratePhotosToFiles(next);
-        next = migrated.items;
-        changed = changed || migrated.changed;
-        setPending(next);
-        pendingRef.current = next;
-        if (changed) {
-          AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(next)).catch(() => {});
-        }
-        // Drop photo files that no queue item references anymore.
-        cleanupOrphanPhotos(next.map((p) => p.photoUri)).catch(() => {});
-      } catch {
-        // corrupted queue — drop it
-      }
+  const storeRef = useRef<QueueStore | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createQueueStore({
+      read: () => AsyncStorage.getItem(QUEUE_KEY),
+      write: (raw) => AsyncStorage.setItem(QUEUE_KEY, raw),
+      withLock: (fn) => withLock(QUEUE_LOCK, fn),
+      publish: setPending,
     });
-  }, []);
+  }
+  const store = storeRef.current;
 
-  const persist = useCallback(async (items: PendingSighting[]) => {
-    pendingRef.current = items;
-    setPending(items);
-    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(items));
-  }, []);
+  /** Upload one queued item and record the outcome through the write path. */
+  const syncOne = useCallback(
+    async (localId: string, device: string): Promise<SyncOutcome> => {
+      // Changed or gone since the sync started (resolved, discarded, or
+      // handled by another tab): leave it alone.
+      const item = store.items().find((p) => p.localId === localId);
+      if (!item || item.status !== 'queued') return 'done';
+
+      // Load the photo — from the persisted file, or inline base64 on
+      // web/legacy items.
+      const photoBase64 =
+        item.photoBase64 ?? (await readPendingPhotoBase64(item.photoUri));
+      if (!photoBase64) {
+        // Photo file is gone — this item can never upload.
+        await store.mutate(
+          markStatus(localId, { status: 'error', errorKind: 'stale' }),
+          'system',
+        );
+        return 'done';
+      }
+
+      let uploadPhotoBase64 = photoBase64;
+      if (shouldOptimizePhoto(networkStateRef.current)) {
+        const optimized = await optimizePhotoForUpload(item.photoUri);
+        if (optimized) uploadPhotoBase64 = optimized;
+      }
+
+      let result;
+      try {
+        result = await createSighting({
+          deviceId: device,
+          photoBase64: uploadPhotoBase64,
+          lat: item.lat,
+          lng: item.lng,
+          // This item may have sat in the queue for days. Send the time the
+          // photo was actually taken, or the streak credits the day the
+          // network came back instead of the day the cat was spotted.
+          capturedAt: item.createdAt,
+        });
+      } catch (err) {
+        const rejectionKey = photoRejectionKey(err);
+        if (rejectionKey) {
+          // Permanent rejection (bad format / too large) — retrying will
+          // never succeed, so mark it rejected and move on.
+          await store.mutate(
+            markStatus(localId, { status: 'rejected', rejectionKey }),
+            'system',
+          );
+          return 'done';
+        }
+        const decision = classifySyncFailure(err, item.failCount);
+        if (decision.kind === 'server') {
+          // The server responded but rejected the sighting — count the
+          // failure and flag the item once it keeps failing.
+          await store.mutate(
+            (list) => applyServerFailure(list, localId, decision),
+            'system',
+          );
+          return 'done';
+        }
+        // Network failure — still offline, keep everything queued.
+        return 'network';
+      }
+
+      // The sighting now exists on the server. This change always reaches
+      // memory, even if it cannot be saved, so it is never sent twice.
+      await store.mutate(markReview(localId, result), 'system');
+      return 'synced';
+    },
+    [store],
+  );
 
   const syncNow = useCallback(async () => {
-    if (syncingRef.current || !deviceId) return;
-    const queued = pendingRef.current.filter((p) => p.status === 'queued');
-    if (queued.length === 0) return;
-    syncingRef.current = true;
-    setSyncing(true);
-    let syncedAny = false;
     try {
-      let items = [...pendingRef.current];
-      for (const item of queued) {
-        // Load the photo — from the persisted file, or inline base64 on
-        // web/legacy items.
-        const photoBase64 =
-          item.photoBase64 ?? (await readPendingPhotoBase64(item.photoUri));
-        if (!photoBase64) {
-          // Photo file is gone — this item can never upload.
-          items = items.map((p) =>
-            p.localId === item.localId
-              ? { ...p, status: 'error' as const, errorKind: 'stale' as const }
-              : p,
-          );
-          await persist(items);
-          continue;
-        }
-        try {
-          let uploadPhotoBase64 = photoBase64;
-          if (shouldOptimizePhoto(networkStateRef.current)) {
-            const optimized = await optimizePhotoForUpload(item.photoUri);
-            if (optimized) uploadPhotoBase64 = optimized;
+      // Nothing is known about the queue until it has loaded.
+      await store.ready;
+      if (syncingRef.current || !deviceId) return;
+      syncingRef.current = true;
+      let syncedAny = false;
+      try {
+        // Only one open tab uploads at a time.
+        await ifLockFree(UPLOAD_LOCK, async () => {
+          await store.refresh();
+          const queued = store
+            .items()
+            .filter((p) => p.status === 'queued')
+            .map((p) => p.localId);
+          if (queued.length === 0) return;
+          setSyncing(true);
+          for (const localId of queued) {
+            let outcome: SyncOutcome;
+            try {
+              outcome = await syncOne(localId, deviceId);
+            } catch {
+              // One item's failure never stops the others.
+              outcome = 'done';
+            }
+            if (outcome === 'synced') syncedAny = true;
+            if (outcome === 'network') break;
           }
-          const result = await createSighting({
-            deviceId,
-            photoBase64: uploadPhotoBase64,
-            lat: item.lat,
-            lng: item.lng,
-            // This item may have sat in the queue for days. Send the time the
-            // photo was actually taken, or the streak credits the day the
-            // network came back instead of the day the cat was spotted.
-            capturedAt: item.createdAt,
-          });
-          items = items.map((p) =>
-            p.localId === item.localId
-              ? {
-                  ...p,
-                  status: 'review' as const,
-                  sightingId: result.sightingId,
-                  isCatPhoto: result.isCatPhoto,
-                  candidates: result.candidates,
-                }
-              : p,
-          );
-          await persist(items);
-          syncedAny = true;
-        } catch (err) {
-          const rejectionKey = photoRejectionKey(err);
-          if (rejectionKey) {
-            // Permanent rejection (bad format / too large) — retrying will
-            // never succeed, so mark it rejected and move on.
-            items = items.map((p) =>
-              p.localId === item.localId
-                ? { ...p, status: 'rejected' as const, rejectionKey }
-                : p,
-            );
-            await persist(items);
-            continue;
-          }
-          const decision = classifySyncFailure(err, item.failCount);
-          if (decision.kind === 'server') {
-            // The server responded but rejected the sighting — count the
-            // failure and flag the item once it keeps failing.
-            items = applyServerFailure(items, item.localId, decision);
-            await persist(items);
-            // Move on — other queued items may still succeed.
-            continue;
-          }
-          // Network failure — still offline, keep everything queued.
-          break;
+        });
+      } finally {
+        syncingRef.current = false;
+        setSyncing(false);
+        if (syncedAny) {
+          setReviewPromptVisible(true);
         }
       }
-    } finally {
-      syncingRef.current = false;
-      setSyncing(false);
-      if (syncedAny) {
-        setReviewPromptVisible(true);
-      }
+    } catch {
+      // Callers (NetInfo) do not await this; never leave a rejection behind.
     }
-  }, [deviceId, persist]);
+  }, [deviceId, store, syncOne]);
+
+  const syncNowRef = useRef(syncNow);
+  syncNowRef.current = syncNow;
+
+  useEffect(() => {
+    store
+      .load({ afterParse: prepareLoadedQueue })
+      .then(() => {
+        setReady(true);
+        setReadOnly(store.isReadOnly());
+        // Anything moved or marked during the load can go now.
+        if (networkStateRef.current?.isConnected) {
+          void syncNowRef.current();
+        }
+      });
+  }, [store]);
+
+  // Another tab changed the saved list: pick it up.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (typeof window.addEventListener !== 'function') return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === QUEUE_KEY) {
+        void store.refresh();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [store]);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -242,7 +352,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       const online = !!state.isConnected;
       setIsOnline(online);
       if (online) {
-        syncNow();
+        void syncNow();
       }
     });
     return unsubscribe;
@@ -250,6 +360,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
   const enqueue = useCallback(
     async (item: EnqueueInput) => {
+      await store.ready;
       // Persist the photo as a file so the queue JSON stays small. On web
       // (or if writing fails) keep the base64 inline as before.
       const fileUri = await savePendingPhoto(
@@ -265,61 +376,85 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             status: 'queued' as const,
           }
         : { ...item, status: 'queued' as const };
-      await persist([...pendingRef.current, stored]);
+      await store.mutate(
+        (list) => [...list.filter((p) => p.localId !== stored.localId), stored],
+        'user',
+      );
     },
-    [persist],
+    [store],
   );
 
   const remove = useCallback(
     async (localId: string) => {
-      const item = pendingRef.current.find((p) => p.localId === localId);
-      await persist(pendingRef.current.filter((p) => p.localId !== localId));
-      if (item && !item.photoBase64) {
-        deletePendingPhoto(item.photoUri).catch(() => {});
+      let removed: PendingSighting | undefined;
+      await store.mutate((list) => {
+        removed = list.find((p) => p.localId === localId);
+        return removed ? list.filter((p) => p.localId !== localId) : list;
+      }, 'user');
+      // Only once the list no longer refers to it.
+      const gone = removed as PendingSighting | undefined;
+      if (gone && !gone.photoBase64) {
+        deletePendingPhoto(gone.photoUri).catch(() => {});
       }
     },
-    [persist],
+    [store],
   );
 
   const retry = useCallback(
     async (localId: string) => {
-      await persist(resetForRetry(pendingRef.current, localId));
-      await syncNow();
+      await store.mutate((list) => resetForRetry(list, localId), 'user');
+      await syncNowRef.current();
     },
-    [persist, syncNow],
+    [store],
   );
 
   const replacePhoto = useCallback(
     async (localId: string, photo: ReplacementPhoto) => {
-      const item = pendingRef.current.find((p) => p.localId === localId);
-      if (!item || item.status !== 'rejected') return;
+      await store.ready;
+      const current = store.items().find((p) => p.localId === localId);
+      if (!current || current.status !== 'rejected') return;
 
       const fileUri = await savePendingPhoto(
         localId,
         photo.photoUri,
         photo.photoBase64,
       );
-      const replacement: PendingSighting = {
-        ...item,
-        photoUri: fileUri ?? photo.photoUri,
-        photoBase64: fileUri ? undefined : photo.photoBase64,
-        status: 'queued',
-        rejectionKey: undefined,
-        errorKind: undefined,
-        failCount: 0,
-        sightingId: undefined,
-        isCatPhoto: undefined,
-        candidates: undefined,
-      };
-      await persist(
-        pendingRef.current.map((p) => (p.localId === localId ? replacement : p)),
+      let replaced: PendingSighting | undefined;
+      let replacement: PendingSighting | undefined;
+      await store.mutate(
+        (list) =>
+          list.map((p) => {
+            if (p.localId !== localId || p.status !== 'rejected') return p;
+            replaced = p;
+            replacement = {
+              ...p,
+              photoUri: fileUri ?? photo.photoUri,
+              photoBase64: fileUri ? undefined : photo.photoBase64,
+              status: 'queued',
+              rejectionKey: undefined,
+              errorKind: undefined,
+              failCount: 0,
+              sightingId: undefined,
+              isCatPhoto: undefined,
+              candidates: undefined,
+            };
+            return replacement;
+          }),
+        'user',
       );
-      if (!item.photoBase64 && item.photoUri !== replacement.photoUri) {
-        deletePendingPhoto(item.photoUri).catch(() => {});
+      const before = replaced as PendingSighting | undefined;
+      const after = replacement as PendingSighting | undefined;
+      if (
+        before &&
+        after &&
+        !before.photoBase64 &&
+        before.photoUri !== after.photoUri
+      ) {
+        deletePendingPhoto(before.photoUri).catch(() => {});
       }
-      await syncNow();
+      await syncNowRef.current();
     },
-    [persist, syncNow],
+    [store],
   );
 
   const dismissReviewPrompt = useCallback(() => {
@@ -342,6 +477,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     () => ({
       isOnline,
       isConstrainedNetwork: shouldOptimizePhoto(networkState),
+      ready,
+      readOnly,
       pending,
       enqueue,
       remove,
@@ -356,6 +493,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     [
       isOnline,
       networkState,
+      ready,
+      readOnly,
       pending,
       enqueue,
       remove,

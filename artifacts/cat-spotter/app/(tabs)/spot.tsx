@@ -88,6 +88,7 @@ export default function SpotScreen() {
   const {
     isOnline,
     isConstrainedNetwork,
+    ready: queueReady,
     pending,
     enqueue,
     remove,
@@ -801,7 +802,17 @@ export default function SpotScreen() {
           </Text>
         )}
 
-        {pendingSection}
+        {queueReady ? (
+          pendingSection
+        ) : (
+          // Until the saved queue has loaded, "nothing queued" would be a lie.
+          <Text
+            style={[styles.subtitle, { color: colors.mutedForeground }]}
+            testID="loading-saved-sightings"
+          >
+            {t('loadingSavedSightings')}
+          </Text>
+        )}
       </ScrollView>
     </View>
   );
