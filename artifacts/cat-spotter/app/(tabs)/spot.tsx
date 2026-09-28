@@ -315,9 +315,10 @@ export default function SpotScreen() {
         // Do NOT call launchCameraAsync here: browsers only open a file
         // picker from a direct tap, and a programmatic open after an
         // awaited failure may be silently blocked. Switch the shutter and
-        // let the user tap it themselves.
+        // let the user tap it themselves. The failed state's centre panel
+        // carries the one message; an alert on top of it gave two messages
+        // with different advice (Samuel's decision E, 27 Sep).
         setCameraFailed(true);
-        notify(t('cameraUnavailable'), t('liveCaptureFailedHint'));
         return;
       }
       const capture = outcome.capture;
@@ -333,7 +334,9 @@ export default function SpotScreen() {
       setPhoto(picked);
       setCapturedAt(new Date().toISOString());
     } catch {
-      notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
+      // Same as a failed capture: fall back to the system camera and let the
+      // centre panel say so, rather than an alert over a still-live shutter.
+      setCameraFailed(true);
     } finally {
       setCapturing(false);
     }
