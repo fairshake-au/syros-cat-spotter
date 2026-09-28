@@ -93,7 +93,7 @@ The rule, stated so the resolver can actually perform it: **a resolved sighting 
 
 ### 3.3 What the cat page says when a cat has died
 
-A cat with a live `deceased` status shows one quiet line: *"No longer with us."* Nothing more — no date headline, no cause, no photograph treatment. The cat keeps its page and its history (which photos are kept is the photo retention rule in `hosting-and-photo-storage.md`, the same for every cat, living or not), and it keeps counting toward the collection of everyone who ever spotted it. Nobody loses a cat they found.
+A cat with a live `deceased` status shows one quiet line: *"No longer with us."* Nothing more — no date headline, no cause, no photograph treatment. The cat keeps its page and its history (photos are kept, and shrunk after a year, under the photo retention rule in `hosting-and-photo-storage.md` §6.7, the same for every cat, living or not), and it keeps counting toward the collection of everyone who ever spotted it. Nobody loses a cat they found.
 
 Three consequences that need deciding rather than discovering:
 

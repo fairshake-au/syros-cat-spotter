@@ -3,7 +3,7 @@
 **Tickets:** SYC-47 (hosting: Supabase vs Replit) · SYC-46 (photos out of Postgres) · plus new work in §4 and §6
 **Owns:** hosting, photo storage, `GET /api/photos/:id`, database migrations. Everything else is referenced, not restated — see `DECISIONS.md` Part 3.
 **Relates to:** [PRODUCT-SPEC.md](../PRODUCT-SPEC.md) §2.8 and §4 · [DEPLOYMENT.md](../DEPLOYMENT.md) §C · [cat-record-data-spine.md](./cat-record-data-spine.md) · [team-access-and-welfare-queue.md](./team-access-and-welfare-queue.md) · [email-capture.md](./email-capture.md)
-**Status:** Rewritten 3 September 2026 to record the decisions in [DECISIONS.md](./DECISIONS.md) and the findings in [the adversarial review](./reviews/hosting-and-photo-storage-review.md).
+**Status:** **Approved by Samuel, 28 September 2026**, with the photo retention rule added (§6.7). Rewritten 3 September 2026 to record the decisions in [DECISIONS.md](./DECISIONS.md) and the findings in [the adversarial review](./reviews/hosting-and-photo-storage-review.md).
 **Window:** September schema work, then the Google Play 14-day closed test · launch October 2026 · MLP by end March 2027.
 
 ---
@@ -331,6 +331,19 @@ Two of the four specs need photos that the public must never see: **welfare-repo
 **One thing this does not claim.** A photo the team promotes onto a cat's page — a deliberate action in the dashboard, re-validated and copied into `photos` — is public from that moment, like any catalogue photo. That is a person choosing, which is the only way a restricted photo should ever become an unrestricted one.
 
 ---
+
+### 6.7 Photo retention: old photos are shrunk, not deleted
+
+**Decided by Samuel, 28 September 2026.** Keeping every photo at full size forever was rejected. Deleting old photos was considered and not chosen. The rule is:
+
+- **After 12 months, a sighting photo is replaced by a small version**: long edge 480 px, JPEG, roughly a tenth of the original size. The sighting itself (when, where, by whom) is untouched, and the photo still shows on the cat's page. It's just smaller.
+- **These stay at full size, always:**
+  - **each cat's main photo**, because AI matching compares new spots against it;
+  - **any photo that backs up a sterilisation or ear-tip observation** (`cat-record-data-spine.md` §4), because a small version is too blurry to check an ear tip, and that evidence must stay checkable;
+  - **welfare-report photos**, which follow their own three-year rule (`team-access-and-welfare-queue.md` §8.5), not this one.
+- **The same rule applies to every cat**, living or deceased (`cat-record-data-spine.md` §3.3).
+- **How it runs:** a nightly job re-encodes eligible photos through the same validation helper as uploads (§6.4), so the small versions carry no location data either. It writes the new bytes in place and records that the photo was shrunk and when. It never touches a photo twice. The space is only given back after `VACUUM FULL` in a maintenance window (§7.6).
+- **What this accepts:** storage still grows forever, but about ten times more slowly for older photos. Spotters see their older snapshots at a smaller size. If the deferred move to object storage (§7) happens, the rule moves with it unchanged.
 
 ## 7. The deferred migration — the plan for when it happens
 

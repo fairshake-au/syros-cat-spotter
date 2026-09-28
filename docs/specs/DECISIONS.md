@@ -183,6 +183,14 @@ Samuel reviewed the email-capture spec and **approved it on 28 September 2026**,
 - **The privacy policy text moves to `privacy-policy.md`**, approved separately.
 - **Donor emails are deferred until donations are built** (SYC-1). Working assumption: the payment company keeps them.
 
+## Part 2e — approval of `hosting-and-photo-storage.md`, 28 September 2026
+
+Samuel **approved the hosting spec on 28 September 2026**, with one addition:
+
+- **Photo retention (§6.7): shrink, don't delete.** After 12 months a sighting photo is replaced by a small version (long edge 480 px, about a tenth of the size). Each cat's main photo, any photo backing a sterilisation or ear-tip observation, and welfare-report photos (their own three-year rule) stay at full size. The rule applies equally to living and deceased cats. Chosen over deleting old photos (option 1) and keeping everything at full size (option 3).
+- D1 stands: everything stays on Replit, photos stay in Postgres for now, and the move is decided by the dated trigger in §4.2.
+- The spec's September/October timeline is stale. Samuel deferred the dates question (SYC-73) on 27 September, so it is left as written, not rewritten.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
