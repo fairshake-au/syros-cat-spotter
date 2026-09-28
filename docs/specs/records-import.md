@@ -1,6 +1,6 @@
 # Importing Syros Cats' existing records
 
-**Status:** Split out of `cat-record-data-spine.md` §5 on 28 September 2026 (Samuel). **Optional, post-MVP.** Built only if Syros Cats confirm an import is operationally sensible and helpful.
+**Status:** Split out of `cat-record-data-spine.md` §5 on 28 September 2026 (Samuel). **Optional, post-MVP.** Built only if Syros Cats confirm an import is operationally sensible and helpful. **Not yet reviewed for approval:** Samuel deferred its review on 28 September 2026.
 **Owner:** Samuel
 **Covers:** SYC-49 (records import).
 **Depends on:** `cat-record-data-spine.md` (the observation model, colonies, the notification baseline) and `team-access-and-welfare-queue.md` (staff sign-in, for who uploaded and reviewed each batch).
@@ -77,7 +77,7 @@ Candidates are scored, and the score decides what happens — it never decides s
 | Cat name is a near-match (one or two characters) | Strong |
 | Colony matches | Moderate |
 | Record location within 500 m of the cat's sightings | Moderate |
-| Cat guardian's name matches the claimed owner | Moderate |
+| Cat guardian's name matches the owner name on a cat registered from scratch in the app (claims have not asked for a name since 25 September 2026, so claimed cats never match on this) | Moderate |
 | Sex contradicts a recorded sex | **Strong negative — vetoes an auto-link outright** |
 
 | Outcome | Rule | What happens |
