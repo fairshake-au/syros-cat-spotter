@@ -74,7 +74,7 @@ export function useInlinePhotoUri(base64: string | undefined): string | undefine
   if (useObjectUrl) return made?.source === base64 ? made.uri : undefined;
   // Defensive: a stored value that already carries its own data-URL prefix
   // must not be prefixed again — a doubled prefix is a blank thumbnail
-  // (SYC-73).
+  // (SYC-76).
   return base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
 }
 

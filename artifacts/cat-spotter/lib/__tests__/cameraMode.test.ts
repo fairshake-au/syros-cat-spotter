@@ -166,12 +166,13 @@ describe('splitDataUrl', () => {
   });
 });
 
-// This is the crash guard. expo-camera on web returns the ENTIRE image as a
-// data URL in both `uri` and `base64`. `submit()` puts the uri in a router
-// param, and expo-router carries params in the browser URL — so an unnormalised
-// capture put a multi-megabyte photograph into the address bar and killed the
-// tab the moment a tester pressed "check for matches".
-describe('cameraCaptureToPhoto — web data URLs (SYC-73)', () => {
+// expo-camera on web returns the ENTIRE image as a data URL in both `uri` and
+// `base64`. Before PR #9 that uri went into the review route — the likely cause
+// of the Chrome crash at "check for matches" (SYC-76). The route no longer
+// carries photos at all (see reviewParams tests); these assert the capture is
+// still normalised, as a second line of defence, so a photo-sized string never
+// becomes a `uri` anywhere else either.
+describe('cameraCaptureToPhoto — web data URLs (SYC-76)', () => {
   const webCapture = {
     uri: 'data:image/png;base64,QUJDRA==',
     base64: 'data:image/png;base64,QUJDRA==',

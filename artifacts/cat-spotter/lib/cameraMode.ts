@@ -111,16 +111,23 @@ export function objectUrlFromBase64(
  * SHORT `uri` for display, and BARE base64 (no data-URL prefix) for upload.
  *
  * On web, expo-camera returns the entire image as a data URL in *both* fields.
- * Passing that through unchanged broke three things at once (SYC-73):
+ * Passing that through unchanged caused three problems (SYC-76):
  *
- *  - `submit()` puts `photo.uri` in a router param, and expo-router carries
- *    params in the browser URL — so the whole photograph went into the address.
- *    On a real Android phone that exceeds Chrome's URL limit and kills the tab,
- *    which is what two testers hit the moment they pressed "check for matches".
- *  - `SightingPhoto` builds `data:image/jpeg;base64,{base64}`, producing a
- *    doubled prefix and a blank thumbnail for every queued sighting.
- *  - Queued photos go to web storage, capped around 5 MB per site — a couple of
- *    data URLs and the offline queue stops accepting sightings.
+ *  - The review route carried `photo.uri`, and expo-router keeps params in the
+ *    browser URL and history — so the whole photograph went into the address.
+ *    Two testers' Chrome tabs crashed at exactly that step. This is the likely
+ *    cause, established by elimination rather than observed on a device: a
+ *    library photo (a short `blob:` uri, and larger base64) went through
+ *    matching fine; a camera photo (a data-URL uri) crashed. At the default
+ *    640×480 a capture is about half a million characters — under Chrome's
+ *    2 MiB URL cap — so the precise mechanism (URL, history state, or tab-state
+ *    persistence) is not known. The route no longer carries photos at all
+ *    (`lib/reviewParams.ts`); this normalisation is the second line of defence.
+ *  - `SightingPhoto` built `data:image/jpeg;base64,{base64}`, producing a
+ *    doubled prefix and a blank thumbnail for a queued camera sighting.
+ *  - The queued photo was stored twice in the queue record. Stripping the prefix
+ *    removes the duplicate; it does not by itself make room for full-size photos
+ *    in web storage — moving them to IndexedDB does (offline-queue-on-web.md).
  *
  * The photo library path already returned a short uri and bare base64, so this
  * restores the contract the app was written against rather than inventing one.

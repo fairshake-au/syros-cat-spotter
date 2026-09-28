@@ -348,8 +348,10 @@ export default function SpotScreen() {
         setWebCameraDeclined(true);
       }
     } catch {
-      // The picker shutter is already on screen in this state, so the user is
-      // not stranded; just say the live preview is not available.
+      // Native only in practice: expo-camera's web request never throws — a
+      // refusal resolves not-granted and is handled above. The picker shutter
+      // is already on screen in this state, so the user is not stranded; just
+      // say the live preview is not available.
       notify(t('cameraUnavailable'), t('cameraUnavailableHint'));
     }
   };
