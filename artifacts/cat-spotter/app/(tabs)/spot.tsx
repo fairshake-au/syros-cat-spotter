@@ -28,16 +28,22 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import { notify, confirmChoice } from '@/lib/notify';
+import {
+  createSingleFlight,
+  describeSaveFailure,
+  submitSighting,
+  type SaveFailure,
+} from '@/lib/submitFlow';
 import {
   optimizePhotoForUpload,
 } from '@/lib/photoUpload';
 import { useLocation } from '@/hooks/useLocation';
-import { photoRejectionKey } from '@/lib/photoRejection';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
-import { requestPersistentStorage } from '@/lib/pendingPhotos';
+import { durablePhotos, requestPersistentStorage } from '@/lib/pendingPhotos';
 import { CaptureControls } from '@/components/CaptureControls';
 import { Button } from '@/components/purropolis/Button';
 import { Card } from '@/components/purropolis/Card';
@@ -90,6 +96,7 @@ export default function SpotScreen() {
     isOnline,
     isConstrainedNetwork,
     ready: queueReady,
+    readOnly: queueReadOnly,
     pending,
     enqueue,
     remove,
@@ -107,6 +114,9 @@ export default function SpotScreen() {
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [optimizingUpload, setOptimizingUpload] = useState(false);
+  // One submit at a time, checked before any re-render could disable the
+  // button: a double tap must not queue a sighting twice.
+  const submitOnce = React.useRef(createSingleFlight()).current;
   const cameraRef = React.useRef<CameraView>(null);
   // `get: false` because we run the initial lookup ourselves: the hook's own
   // effect calls getPermissionsAsync() with no catch, and expo-camera's web
@@ -295,17 +305,37 @@ export default function SpotScreen() {
     void syncCameraPermission();
   };
 
+  /** Say plainly that a save did not happen. The photo stays where it is. */
+  const reportSaveFailure = (failure: SaveFailure) => {
+    notify(
+      t('saveFailedTitle'),
+      failure === 'read-only'
+        ? t('queueReadOnly')
+        : failure === 'open-in-browser'
+          ? t('saveFailedOpenInBrowser')
+          : t('saveFailedHint'),
+    );
+  };
+
   const replaceRejectedPhoto = async (
     localId: string,
     fromCamera: boolean,
   ) => {
     const picked = await choosePhoto(fromCamera);
-    if (picked) {
+    if (!picked) return;
+    try {
       await replacePhoto(localId, {
         photoBase64: picked.base64,
         photoUri: picked.uri,
       });
+    } catch (err) {
+      reportSaveFailure(await describeSaveFailure(err, durablePhotos));
     }
+  };
+
+  /** Discard / retry on a queued card: a failed save is said, not swallowed. */
+  const changeQueue = (change: () => Promise<void>) => {
+    change().catch(() => notify(t('error')));
   };
 
   const offerPhotoReplacement = (localId: string) => {
@@ -326,67 +356,102 @@ export default function SpotScreen() {
     ]);
   };
 
-  const submit = async () => {
-    // Require the explicitly confirmed location — never raw GPS.
-    const finalCoords = pickedCoords;
-    if (!photo || !finalCoords || !deviceId) return;
-    if (!isOnline) {
-      await enqueue({
-        localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        photoBase64: photo.base64,
-        photoUri: photo.uri,
-        lat: finalCoords.latitude,
-        lng: finalCoords.longitude,
-        createdAt: capturedAt ?? new Date().toISOString(),
-      });
-      clearPhoto();
-      Alert.alert(t('queuedOffline'));
-      return;
-    }
-    setSubmitting(true);
-    try {
-      let uploadPhoto = photo;
-      if (isConstrainedNetwork) {
-        setOptimizingUpload(true);
-        const optimizedBase64 = await optimizePhotoForUpload(photo.uri);
-        if (optimizedBase64) {
-          uploadPhoto = { ...photo, base64: optimizedBase64 };
+  const submit = () =>
+    submitOnce(async () => {
+      // Require the explicitly confirmed location — never raw GPS.
+      const finalCoords = pickedCoords;
+      if (!photo || !finalCoords || !deviceId) return;
+      const sightingTime = capturedAt ?? new Date().toISOString();
+      // The busy flag covers the offline branch too.
+      setSubmitting(true);
+      try {
+        const outcome = await submitSighting({
+          isOnline,
+          canSaveForLater: !queueReadOnly,
+          send: async () => {
+            let uploadPhoto = photo;
+            if (isConstrainedNetwork) {
+              setOptimizingUpload(true);
+              const optimizedBase64 = await optimizePhotoForUpload(photo.uri);
+              if (optimizedBase64) {
+                uploadPhoto = { ...photo, base64: optimizedBase64 };
+              }
+              setOptimizingUpload(false);
+            }
+            return createSighting({
+              deviceId,
+              photoBase64: uploadPhoto.base64,
+              lat: finalCoords.latitude,
+              lng: finalCoords.longitude,
+              // Capture time, not submit time, and sent on the online path too
+              // so a sighting's day is decided the same way however it reached
+              // the server.
+              capturedAt: sightingTime,
+            });
+          },
+          save: () =>
+            enqueue({
+              localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              photoBase64: photo.base64,
+              photoUri: photo.uri,
+              lat: finalCoords.latitude,
+              lng: finalCoords.longitude,
+              createdAt: sightingTime,
+            }),
+          // R5: one bar of signal — the send failed though the phone says
+          // it is connected.
+          offerSaveForLater: () =>
+            confirmChoice({
+              title: t('sendFailedTitle'),
+              message: t('saveAndSendLaterPrompt'),
+              confirmLabel: t('saveAndSendLater'),
+              cancelLabel: t('cancel'),
+            }),
+          photosKeepable: durablePhotos,
+        });
+
+        switch (outcome.kind) {
+          case 'sent': {
+            const result = outcome.result;
+            clearPhoto();
+            router.push({
+              pathname: '/review',
+              params: {
+                data: JSON.stringify({
+                  sightingId: result.sightingId,
+                  isCatPhoto: result.isCatPhoto,
+                  candidates: result.candidates,
+                  photoUri: photo.uri,
+                }),
+              },
+            });
+            break;
+          }
+          case 'saved':
+            clearPhoto();
+            notify(
+              outcome.reason === 'offline' ? t('queuedOffline') : t('savedForLater'),
+            );
+            break;
+          case 'save-failed':
+            // Nothing says "queued", and the photo stays on screen.
+            reportSaveFailure(outcome.failure);
+            break;
+          case 'rejected':
+            notify(t('photoRejectedTitle'), t(outcome.rejectionKey));
+            break;
+          case 'send-failed':
+            notify(t('error'));
+            break;
+          case 'not-saved':
+            // The user chose to keep the photo on screen and try again.
+            break;
         }
+      } finally {
         setOptimizingUpload(false);
+        setSubmitting(false);
       }
-      const result = await createSighting({
-        deviceId,
-        photoBase64: uploadPhoto.base64,
-        lat: finalCoords.latitude,
-        lng: finalCoords.longitude,
-        // Capture time, not submit time, and sent on the online path too so a
-        // sighting's day is decided the same way however it reached the server.
-        capturedAt: capturedAt ?? new Date().toISOString(),
-      });
-      clearPhoto();
-      router.push({
-        pathname: '/review',
-        params: {
-          data: JSON.stringify({
-            sightingId: result.sightingId,
-            isCatPhoto: result.isCatPhoto,
-            candidates: result.candidates,
-            photoUri: photo.uri,
-          }),
-        },
-      });
-    } catch (err) {
-      const rejectionKey = photoRejectionKey(err);
-      if (rejectionKey) {
-        Alert.alert(t('photoRejectedTitle'), t(rejectionKey));
-      } else {
-        Alert.alert(t('error'));
-      }
-    } finally {
-      setOptimizingUpload(false);
-      setSubmitting(false);
-    }
-  };
+    });
 
   const reviewPending = (item: (typeof pending)[number]) => {
     router.push({
@@ -524,7 +589,7 @@ export default function SpotScreen() {
               <View style={styles.errorActions}>
                 {item.errorKind !== 'stale' && item.errorKind !== 'cleared' && (
                   <Pressable
-                    onPress={() => retry(item.localId)}
+                    onPress={() => changeQueue(() => retry(item.localId))}
                     disabled={syncing || !isOnline}
                     style={[
                       styles.errorBtn,
@@ -550,7 +615,7 @@ export default function SpotScreen() {
                   </Pressable>
                 )}
                 <Pressable
-                  onPress={() => remove(item.localId)}
+                  onPress={() => changeQueue(() => remove(item.localId))}
                   style={[styles.errorBtn, { backgroundColor: colors.destructive }]}
                 >
                   <Feather
@@ -573,7 +638,10 @@ export default function SpotScreen() {
           {item.status === 'review' ? (
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
           ) : item.status === 'queued' ? (
-            <Pressable onPress={() => remove(item.localId)} hitSlop={8}>
+            <Pressable
+              onPress={() => changeQueue(() => remove(item.localId))}
+              hitSlop={8}
+            >
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </Pressable>
           ) : null}
@@ -697,7 +765,9 @@ export default function SpotScreen() {
               {submitting
                 ? optimizingUpload
                   ? t('optimizingPhoto')
-                  : t('submitting')
+                  : isOnline
+                    ? t('submitting')
+                    : t('savingSighting')
                 : t('checkForMatches')}
             </Button>
           </>
@@ -818,6 +888,14 @@ export default function SpotScreen() {
           </Text>
         )}
 
+        {queueReady && queueReadOnly && (
+          <Text
+            style={[styles.subtitle, { color: colors.destructive }]}
+            testID="queue-read-only"
+          >
+            {t('queueReadOnly')}
+          </Text>
+        )}
         {queueReady ? (
           pendingSection
         ) : (
