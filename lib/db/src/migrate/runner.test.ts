@@ -165,6 +165,18 @@ describe("parseRollback", () => {
       ),
     ).toThrow(/more than one rollback block/);
   });
+  it("rejects a nested begin or a statement breakpoint inside the block", () => {
+    expect(() =>
+      parseRollback(
+        "-- rollback-begin\n-- rollback-begin\n-- DROP TABLE x;\n-- rollback-end\n",
+      ),
+    ).toThrow(/is a marker/);
+    expect(() =>
+      parseRollback(
+        "-- rollback-begin\n-- DROP TABLE x;\n--> statement-breakpoint\n-- rollback-end\n",
+      ),
+    ).toThrow(/is a marker/);
+  });
   it("tolerates CRLF line endings", () => {
     expect(
       parseRollback(

@@ -123,13 +123,33 @@ async function migrationsBuildTheSchema(problems: string[]): Promise<void> {
       await migrated.end();
     }
 
-    drizzleKit([
+    // push has no schema of its own for extensions, so give it the ones the
+    // migrations create; otherwise an index needing one fails only here.
+    const pushed0 = new pg.Client({ connectionString: url(pushedDb) });
+    await pushed0.connect();
+    try {
+      for (const ext of extensionsCreatedByMigrations()) {
+        await pushed0.query(`create extension if not exists "${ext}"`);
+      }
+    } finally {
+      await pushed0.end();
+    }
+
+    // push exits 0 even when a statement fails part-way (it is not one
+    // transaction), so require its success line and no error in its output.
+    const pushOutput = drizzleKit([
       "push",
       "--dialect=postgresql",
       `--schema=${rel(schemaPath)}`,
       `--url=${url(pushedDb)}`,
       "--force",
     ]);
+    if (!/Changes applied/.test(pushOutput) || /\berror\b/i.test(pushOutput)) {
+      throw new MigrationError(
+        "drizzle-kit push did not build the schema cleanly, so the comparison cannot be trusted:",
+        [pushOutput],
+      );
+    }
     const pushed = new pg.Client({ connectionString: url(pushedDb) });
     await pushed.connect();
     let fromSchema: string[];
@@ -154,6 +174,18 @@ async function migrationsBuildTheSchema(problems: string[]): Promise<void> {
     await admin.query(`drop database if exists "${pushedDb}"`);
     await admin.end();
   }
+}
+
+function extensionsCreatedByMigrations(): string[] {
+  const found = new Set<string>();
+  for (const m of readMigrations(folder)) {
+    for (const stmt of m.statements) {
+      const re =
+        /create\s+extension\s+(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?/gi;
+      for (const match of stmt.matchAll(re)) found.add(match[1]!.toLowerCase());
+    }
+  }
+  return [...found];
 }
 
 async function check(): Promise<void> {

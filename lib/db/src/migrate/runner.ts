@@ -71,6 +71,14 @@ export function parseRollback(sql: string): string | null {
     throw new MigrationError("more than one rollback block");
   }
   const block = lines.slice(start + 1, end);
+  const marker = block.findIndex((l) =>
+    /^\s*--\s*(rollback-begin|> statement-breakpoint)/.test(l),
+  );
+  if (marker !== -1) {
+    throw new MigrationError(
+      `rollback line ${start + marker + 2} is a marker, not rollback SQL: ${block[marker]!.trim()}`,
+    );
+  }
   // Every line must be commented. An uncommented line inside the block would
   // run on the way up, which is exactly what a rollback must never do.
   const live = block.findIndex((l) => l.trim().length > 0 && !/^\s*--/.test(l));

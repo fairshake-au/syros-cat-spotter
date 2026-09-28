@@ -18,7 +18,7 @@ Every schema change reaches a database through a file in this folder (SYC-64, `d
 4. `pnpm --filter @workspace/db run migrate` to apply it locally. `pnpm --filter @workspace/db test` proves each rollback restores the previous schema.
 5. Commit the `.sql` file and `meta/`. `migrate:check` (CI, and locally with `DATABASE_URL` set) fails on any of these:
    - the schema code has changes no migration captures;
-   - running the SQL builds something different from what the schema code describes (it builds one scratch database from the migrations, one with `drizzle-kit push`, and compares them);
+   - running the SQL builds something different from what the schema code describes (it builds one scratch database from the migrations, one with `drizzle-kit push`, and compares them). So tables, columns, indexes and constraints must be declared in the schema code, not only written into a migration. Triggers, functions and views are the exception: the schema code can't express them, so they live only in migration SQL;
    - a rollback is missing or has an uncommented line;
    - a `.sql` file isn't in the journal.
 
