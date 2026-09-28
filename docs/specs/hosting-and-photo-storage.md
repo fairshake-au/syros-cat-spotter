@@ -447,6 +447,8 @@ If and when a bucket is created:
 
 ## 8. The offline queue — unchanged, and worth stating why
 
+> **Superseded for the web build** by [offline-queue-on-web.md](./offline-queue-on-web.md), approved 28 September 2026. The web build is now the testers' primary channel, not a preview, so its photos move to IndexedDB and every queue write goes through one serialised path. Native storage as described below stands.
+
 Nothing in this document changes offline behaviour, in either direction.
 
 The queue keeps photos as **files in the app's document directory** and stores only the file path (`pendingPhotos.ts`); base64 inside the queue is a web-preview fallback and a legacy path. When a connection returns, the queue reads the file and posts it through the same endpoint. Since nothing about the upload contract changes, this is untouched.

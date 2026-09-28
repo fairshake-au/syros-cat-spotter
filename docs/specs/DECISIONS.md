@@ -191,6 +191,20 @@ Samuel **approved the hosting spec on 28 September 2026**, with one addition:
 - D1 stands: everything stays on Replit, photos stay in Postgres for now, and the move is decided by the dated trigger in §4.2.
 - The spec's September/October timeline is stale. Samuel deferred the dates question (SYC-73) on 27 September, so it is left as written, not rewritten.
 
+## Part 2f — approval of `offline-queue-on-web.md`, 28 September 2026
+
+Approved by Samuel after an adversarial review broke v1 (its promise that nothing already queued could be lost was false as designed; the review reproduced three loss paths). v2 was rebuilt on that review and is what was approved.
+
+- **Every queue change goes through one serialised write path** that re-reads storage under a Web Lock, on every platform. This also fixes the pre-existing lost-update bugs on the phone apps (a sync reverting a resolved review, a discard, a replacement or a new sighting).
+- **Web photos move to IndexedDB**; the list stays in AsyncStorage. Supersedes `hosting-and-photo-storage.md` §8 **for the web build only**.
+- **Before moving anything, the raw queue is backed up** to IndexedDB for 30 days; photos are stripped only after a verified read-back; if the backup fails, nothing moves.
+- **Photos never travel through the review route**, in all three places including `ReviewReadyBanner`.
+- **R1 accepted:** browsers may clear site storage (Chrome near-full, Safari after seven unused days); the app reports a cleared photo honestly. Testers are told to open the app once they have signal.
+- **R2 approved, in this PR:** `POST /api/sightings` returns the existing sighting when the same device sends the same capture time again. No schema change; the gap for server-clamped capture times is accepted and ticketed.
+- **R3 accepted:** in-app browsers without usable IndexedDB keep today's inline behaviour, and a failed save says to open the link in Chrome.
+- **R4 accepted:** review photos stay on the phone up to seven days.
+- **R5 approved:** when sending fails for a network reason while the phone reports a connection, the app offers "Save and send later" and queues the sighting.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
@@ -209,6 +223,7 @@ The four specs were written independently and contradicted each other in fourtee
 | Privacy policy text (split out 28 Sep 2026, approved separately) | `privacy-policy.md` |
 | Controller, withdrawal route, the email facts the policy states | `email-capture.md` |
 | Hosting, photo storage, photo endpoint, migrations | `hosting-and-photo-storage.md` |
+| Offline queue writes on every build; web photo storage; review-route photo handoff; sighting dedupe (approved 28 Sep 2026) | `offline-queue-on-web.md` |
 
 **Editorial correction, not a decision:** `team-access-and-welfare-queue.md` independently specified a status-column-plus-audit-log cat record — the exact model the data spine rejects by name. It is struck; the data spine owns the record.
 
@@ -222,3 +237,4 @@ The four specs were written independently and contradicted each other in fourtee
 - Specify the Cloudflare↔API trust boundary; fix the two auth bugs (F5).
 - Verification flow for every email entry point (F7b).
 - Migration history before the Play clock starts (F6).
+- Offline queue on web: single write path, IndexedDB photo store with backup-first migration, route handoff, sighting dedupe, "Save and send later" (`offline-queue-on-web.md`, PR #9).

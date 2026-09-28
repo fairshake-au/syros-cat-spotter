@@ -4,7 +4,7 @@
 **Owns:** how queued sightings are saved on every build; where the **web build** keeps their photos; how a photo reaches the review screen; the one-off move of sightings already queued on testers' phones; duplicate-upload protection on `POST /api/sightings`.
 **Supersedes:** [hosting-and-photo-storage.md](./hosting-and-photo-storage.md) §8 **for the web build only**. Native storage in §8 stands.
 **Relates to:** [DECISIONS.md](./DECISIONS.md) · SYC-71 (web capture resolution, accepted) · [PR #9 review](https://github.com/fairshake-au/syros-cat-spotter/pull/9#issuecomment-5862678118)
-**Status:** Draft v2 for Samuel's approval, 28 September 2026. v1 was broken by [the adversarial review](./reviews/offline-queue-on-web-review.md): its central promise, that nothing could be lost, was false as designed. This version is rebuilt around the review's findings.
+**Status:** **Approved by Samuel, 28 September 2026** (v2), with R1, R3 and R4 accepted and R2 and R5 approved for this PR — recorded in `DECISIONS.md` Part 2f. v1 was broken by [the adversarial review](./reviews/offline-queue-on-web-review.md): its central promise, that nothing could be lost, was false as designed. v2 is rebuilt around the review's findings.
 
 ---
 
@@ -139,7 +139,9 @@ Decided on 27 September; implementation only:
 
 ---
 
-## 5. Decisions for Samuel
+## 5. Decisions for Samuel — answered 28 September 2026
+
+R1 accepted · **R2 approved, in this PR** · R3 accepted · R4 accepted · **R5 approved**.
 
 | | Question | What a tester would see | Recommendation |
 |---|---|---|---|
