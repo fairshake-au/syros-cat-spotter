@@ -55,6 +55,16 @@ describe('buildReviewParams', () => {
     expect(params.data.length).toBeLessThan(1_000);
   });
 
+  it('keeps ordinary text that merely mentions data:, since only data URLs are dropped', () => {
+    const reasoning = 'Same markings as the data: torn left ear, white socks.';
+    const params = buildReviewParams({
+      sightingId: 1,
+      isCatPhoto: true,
+      candidates: [candidate({ reasoning })],
+    });
+    expect(parseReviewParams(params.data)!.candidates[0].reasoning).toBe(reasoning);
+  });
+
   it('drops photo-sized values even without a data-URL prefix', () => {
     const params = buildReviewParams({
       sightingId: 1,

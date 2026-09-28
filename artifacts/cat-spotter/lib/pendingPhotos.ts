@@ -387,7 +387,14 @@ export async function readPendingPhotoBase64(ref: string): Promise<string | null
   return read.status === 'ok' ? read.base64 : null;
 }
 
-/** Delete a persisted photo; safe to call for missing ones. */
+/**
+ * Delete a persisted photo; safe to call for missing ones.
+ *
+ * On native, only a file inside the app's own photos folder is ever deleted.
+ * `FileSystem.deleteAsync` accepts any path — a folder is removed with its
+ * contents — so a ref that arrived from anywhere else (a crafted link, a stale
+ * picker-cache path) must never reach it (final review of PR #9, finding 5).
+ */
 export async function deletePendingPhoto(ref: string): Promise<void> {
   if (isStoredPhotoRef(ref)) {
     await photoStore()
@@ -396,7 +403,29 @@ export async function deletePendingPhoto(ref: string): Promise<void> {
     return;
   }
   if (!supportsPhotoFiles) return;
+  if (!isInsidePhotosDir(ref)) return;
   await FileSystem.deleteAsync(ref, { idempotent: true }).catch(() => {});
+}
+
+function isInsidePhotosDir(ref: string): boolean {
+  const prefix = `${PHOTOS_DIR}/`;
+  if (!ref.startsWith(prefix)) return false;
+  const name = ref.slice(prefix.length);
+  // A single file name: no further folders, no parent-directory steps.
+  return name.length > 0 && !name.includes('/') && name !== '..' && name !== '.';
+}
+
+/**
+ * Delete the review photo kept for an online submission. The target is derived
+ * from the sighting's own id — never taken from a route, which anyone can
+ * craft — so resolving a review can only ever delete that review's photo.
+ */
+export async function deleteReviewPhoto(sightingId: number): Promise<void> {
+  if (!Number.isInteger(sightingId) || sightingId <= 0) return;
+  const key = reviewPhotoKey(sightingId);
+  await deletePendingPhoto(
+    supportsPhotoFiles ? photoPath(key) : `${IDB_PREFIX}${key}`,
+  );
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

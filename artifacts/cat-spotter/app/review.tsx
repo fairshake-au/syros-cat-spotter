@@ -25,7 +25,7 @@ import { useOffline } from "@/context/OfflineContext";
 import { useDevice } from "@/context/DeviceContext";
 import { SightingPhoto } from "@/components/SightingPhoto";
 import { absoluteUrl } from "@/lib/urls";
-import { deletePendingPhoto } from "@/lib/pendingPhotos";
+import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { parseReviewParams } from "@/lib/reviewParams";
 import {
   Button,
@@ -97,7 +97,9 @@ export default function ReviewScreen() {
     // the item; an online submission's review-<id> photo is deleted now
     // (the sweep would otherwise keep it for seven days).
     if (data.localId) await remove(data.localId);
-    if (data.photoRef) deletePendingPhoto(data.photoRef).catch(() => {});
+    // Deleted by the sighting's own id, never by the route's photoRef: the
+    // route can be crafted, and it must not choose what gets deleted.
+    if (data.photoRef) deleteReviewPhoto(data.sightingId).catch(() => {});
     queryClient.invalidateQueries();
   };
 

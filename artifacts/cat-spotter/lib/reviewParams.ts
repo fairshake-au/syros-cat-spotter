@@ -1,12 +1,15 @@
 /**
  * The ONLY way to build the review screen's route (spec §3.4).
  *
- * expo-router carries params in the browser address, and the app used to put
- * the photograph there — in three places. A whole photo in the address is past
- * Chrome's limit and kills the tab (SYC-76). Now the route carries only short
- * names: a queued item's `localId` (the review screen finds its photo through
- * the queue), or an online submission's `photoRef` (`review-<sightingId>` in
- * the phone's own photo store).
+ * expo-router carries params in the browser address and history, and the app
+ * used to put the photograph there — in three places. That is the likely cause
+ * of the Chrome crash at "check for matches" (SYC-76), established by
+ * elimination rather than observed: at 640×480 a capture is about half a
+ * million characters, under Chrome's 2 MiB URL cap, so the precise mechanism is
+ * not known. Whatever it is, the route now carries only short names: a queued
+ * item's `localId` (the review screen finds its photo through the queue), or an
+ * online submission's `photoRef` (`review-<sightingId>` in the phone's own
+ * photo store).
  *
  * The builder never throws: it runs after the sighting already exists on the
  * server, so a throw would leave a sighting that can never be reviewed. It
@@ -39,8 +42,14 @@ export const REASONING_MAX_LENGTH = 280;
 /** Anything longer than this is not a name or a path — it is photo-sized. */
 const MAX_VALUE_LENGTH = 2048;
 
+/**
+ * A value that IS a data URL — one that starts with `data:`. Anything photo-
+ * sized is already caught by the length limit, so this only needs to catch
+ * short data URLs (`data:,` from an empty canvas). Matching `data:` anywhere
+ * used to blank match reasoning that merely mentioned the word.
+ */
 function isDataUrl(value: string): boolean {
-  return /data:/i.test(value);
+  return /^\s*data:/i.test(value);
 }
 
 /** A short, non-photo string, or undefined. */
