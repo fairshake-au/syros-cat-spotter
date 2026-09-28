@@ -28,7 +28,9 @@ The policy is written to be read, not to be defended. The draft:
 >
 > Once you've confirmed it, we use your address for exactly what you asked for: news about cats you've met (a handful of times a year at most), the summary of your visit if you asked for one, and what happened to a cat you reported. Every message has a one-tap way to stop, and a one-tap way to delete your address entirely.
 >
-> **What your email address is not.** It is not a login. There is no login. It won't get your cats back on a new phone, and knowing it gives nobody any access to anything.
+> **What your news email is not.** It is not a login. Knowing it gives nobody any access to anything, and it won't get your spots back on a new phone.
+>
+> **"Keep my spots safe", if you choose it.** This is a separate email, and it's optional. It lets you get your spots back if you lose or change your phone. It works like a key: anyone who can open that inbox can open your collection, so use an address only you (or a parent) can read. When it's used on a new phone, your old phone is signed out and told. You can remove it in Settings, and deleting your data removes it too.
 >
 > **Who else sees it.** Nobody, apart from the service that delivers the mail (Resend, which is our *processor* — it sends on our instructions and holds nothing on its own account). We don't sell your address. We don't give it to advertisers. We don't use it to build a picture of you. And we don't show it in the app: not on a leaderboard, not on a cat's page, not to anyone at Syros Cats reading a report you sent.
 >

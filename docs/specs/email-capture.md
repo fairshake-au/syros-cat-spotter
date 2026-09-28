@@ -22,7 +22,7 @@
 
 ## 0. The one-paragraph version
 
-Cat Spotters is an app you can use without telling anyone who you are. That does not change. Onboarding ends with one clearly optional offer to add an email, which is as easy to skip as to accept. But the most valuable thing the app can ever say to someone is *"Agatha, the cat you named in June, was sterilised last week"* — and there is no way to say that to a person who went home three months ago and deleted the app. So the app asks for an email address at four moments where the reason for asking is obvious and the thing you get back is worth having. Every address anyone types gets one message asking "is this you?", and nothing else is ever sent until they say yes. You can say no at every moment, and saying no costs you nothing at all. An email address is a **forwarding address for news about your cats** — never an account, never a login, never a way to get your stuff back on a new phone.
+Cat Spotters is an app you can use without telling anyone who you are. That does not change. Onboarding ends with one clearly optional offer to add an email, which is as easy to skip as to accept. But the most valuable thing the app can ever say to someone is *"Agatha, the cat you named in June, was sterilised last week"* — and there is no way to say that to a person who went home three months ago and deleted the app. So the app asks for an email address at four moments where the reason for asking is obvious and the thing you get back is worth having. Every address anyone types gets one message asking "is this you?", and nothing else is ever sent until they say yes. You can say no at every moment, and saying no costs you nothing at all. A news email is a **forwarding address for news about your cats**, never an account or a login. Getting your spots back on a new phone uses a separate, opt-in "keep my spots safe" email (§8), and the phone keeps its key safe where it can.
 
 ---
 
@@ -79,7 +79,7 @@ Settings is not a moment in the marketing sense, but leaving it out is what make
 
 | Left out | Why |
 |---|---|
-| Email as device recovery or login | Turns anonymity into accounts and creates a real account-takeover surface (§8). SYC-3 is a separate decision. |
+| The news email as device recovery or login | It would turn every news subscriber into an account holder by accident. Recovery uses the separate, opt-in "keep my spots safe" email instead (§8, SYC-3). |
 | Donation receipts joining the news list | Different legal basis; silent list-building. Receipt yes, list only on a separate tick. |
 | Name, country, age, or any other field | We ask for exactly one thing. Anything else is a form, and forms get abandoned. |
 | Marketing or newsletter sends | We promised news about *your cats*. A general newsletter is a different promise and needs a separate opt-in. |
@@ -128,7 +128,7 @@ All copy is UK English here and gets native-authored Greek and French, not trans
 Every ask shows, before you type: what we'll send, how often, how to stop, and who holds the address. Two lines are fixed and appear under every ask, including the onboarding offer:
 
 > *We'll send one message first, to check the address is yours. Nothing else goes out until you say it's you.*
-> *Your email is a forwarding address, not an account — it won't restore your cats on a new phone. Syros Cats holds it. [What we do with it](https://catspotters.com/privacy) · delete it any time.*
+> *This email is only for news. To get your spots back if you change phones, use Keep my spots safe in Settings. Syros Cats holds it. [What we do with it](https://catspotters.com/privacy) · delete it any time.*
 
 **Pronouns:** copy uses the cat's name, and "they" when we do not know the cat's sex — which is most of the time, because sex is usually blank in the records and is never asked of a spotter. No template says "her" unless the record says so. This matters most in Greek and French, where the article gives it away in every sentence.
 
@@ -309,6 +309,8 @@ The suppression list checked at (1) is the **same** list used for unsubscribes a
 | **Your report: what happened** | The report reaches a closing state | Transactional | Once per report (§5.4) |
 | **We can't keep our promise** | A capture moment is withdrawn (§10, Risk 1) | News | Once, ever |
 | **Donation receipt** | Payment completes, outside the app, later | Transactional | Once per donation |
+| **Keep my spots safe: is this you?** | Someone adds a "keep my spots safe" address (§8) | Transactional | §4.4 |
+| **Your restore link** | Someone asks to get their spots back on a new phone (§8.3) | Transactional | Rate-limited as staff sign-in; once per request |
 
 That is the whole list. Anything not on it needs a new consent and a new row here, and that is a code-level constraint — the sender takes a message type from this enum and there is no free-text send path.
 
@@ -505,40 +507,42 @@ The options as they were weighed:
 
 ---
 
-## 8. Where the line is: email is not an account
+## 8. Keeping your spots safe: the one email that can restore them
 
-The single most important boundary in this spec, and the easiest to erode by accident.
+**Decided by Samuel, 28 September 2026 (SYC-3).** A spotter's points, badges, named cats and collection must not vanish because a phone was reset, the app was reinstalled, or a browser was cleared. That matters most for children who have built up a collection. Two things together fix it.
 
-### 8.1 The line
+### 8.1 Two separate emails, never merged
 
-**Identity stays the device.** The device id plus the device secret is what proves you are you. An email address is a **contact channel attached to a device** — outbound only.
+- **The news email** (everything in §§2–5) is a forwarding address for news about your cats. It is **not** a credential. Knowing it, or receiving mail at it, grants no access to anything, and it restores nothing.
+- **The "keep my spots safe" email** is separate and opt-in. It exists only to restore a spotter's collection on another phone. It has its own consent, its own screen and its own warning, and it is never quietly promoted from the news address. A person may type the same address for both, but they are two separate choices, recorded separately.
 
-- You cannot log in with an email address. There is no login.
-- Knowing or receiving mail at an address grants **no** access to any spot, cat, point, badge or profile.
-- The address migrates nothing to a new phone.
-- Two devices that give the same address are still two separate spotters. We do not merge them, and we never tell either device anything about the other — that would leak one person's activity to whoever else typed that address.
-- **No email appears in any authentication path.** The device secret remains the only credential. Any pull request that puts an address in an auth path is a spec violation.
+Two devices that give the same *news* address are still two separate spotters: we never merge them and never tell either device about the other. Only the "keep my spots safe" email links a new device to an existing spotter, and only when the person holding that inbox asks for it.
 
-Every ask screen and every email says this in one line, in words, so it is a promise a user has read rather than an architecture note: *"Your email is a forwarding address, not an account — it won't restore your cats on a new phone."*
+### 8.2 Why the separation matters
 
-### 8.2 Why the temptation is dangerous
+A "keep my spots safe" address is a key: whoever can receive mail at it can take over that spotter. That means their points, their named cats, and their list of every cat they have visited, which roughly shows where they have been. Keeping it separate from the news address means nobody turns their news subscription into a key by accident, and the warning on the screen says so plainly.
 
-Making the address a recovery key would mean anyone who can receive mail at that address becomes that spotter — their points, their named cats, and their private list of every cat they have visited, which is closer to a location history than to a score. Magic links are a perfectly normal way to build accounts. They are not a small addition to an app whose entire security model is "the device holds an unguessable secret and nothing else authorises anything".
+### 8.3 How restoring works
 
-### 8.3 So how does restoring spots on a new device work?
+**1. The key stays on the phone wherever the phone allows it (automatic).** The device's hidden key moves from ordinary app storage into the phone's secure storage. On iPhone it then survives deleting and reinstalling the app, with nothing for the user to do. It does not help on web, on Android reinstalls, or when switching between iPhone and Android. That's what the email is for.
 
-**Not with the email address.** SYC-3 stays a separate decision.
+**2. "Keep my spots safe" (opt-in).**
 
-| Option | Benefit | Risk |
-|---|---|---|
-| **One-time recovery code**, shown once, saved by the user | No new personal data, no third party, works even if the old phone is destroyed | People lose codes; needs a very good "save this" moment; still a secret people can be talked out of |
-| **Device-to-device transfer** (QR from the old phone) | Cryptographically clean; nothing stored, nothing to steal | Useless when the old phone is gone or broken, which is the common case |
-| **Passkey** | Genuinely strong and phishing-resistant, backed up by the platform | Platform complexity, a real account concept, an onboarding step in an app that has none |
-| **Email magic link** | Familiar; free once mail transport exists | Everything in §8.2. **Not recommended.** |
+- **Where it's offered:** always in Settings, and once, unprompted, when a spotter first has something worth losing (their first badge). Declining is one tap and it isn't asked again.
+- **The screen says:** *"Add an email so you can get your spots back if you lose or change your phone. Anyone who can open this inbox can open your collection, so use an address only you (or a parent) can read. Under 15? Ask a parent to add theirs."*
+- **Restoring:** on a new phone, onboarding offers *"Already a spotter? Get your spots back"*. You type the address and we send a link. Tapping it opens a page with one button, and pressing it moves the collection (points, badges, named cats, username) to the new phone.
+- **The old phone is told** it has been signed out: *"Your spots moved to a new phone."* It stops acting as that spotter at its next request.
+- **Safeguards,** the same as staff sign-in (`team-access-and-welfare-queue.md` §2.5–2.6): the link works once and expires in 15 minutes; it is used up only when the button is pressed, never just by opening the link, so email scanners can't burn it; requests are rate-limited; and the reply is identical whether or not the address is known.
+- **It sends from the transactional identity** (`mail.catspotters.com`), because it is a sign-in, not news.
+- **Deleting your data** (§6) removes the "keep my spots safe" address along with everything else.
 
-**Recommendation:** keep email capture and device recovery entirely separate, ship email capture first (it has no security dependency), and decide SYC-3 on its own merits — with a preference for the recovery code, the only option that costs the anonymous model nothing. If SYC-3 ever chooses email, it must be a separately-consented address with its own warning, not the news address quietly promoted into a credential.
+### 8.4 What this changes elsewhere
 
-### 8.4 The one honest interaction — and the profile we will not build
+- The fixed line under every news ask (§3) now says the news email is only for news, and points to "Keep my spots safe" for getting spots back.
+- The privacy policy (`privacy-policy.md`) must describe the second email: what it is for, that it works as a key, and how to remove it.
+- The message list (§5.1) gains the restore link and its confirmation.
+
+### 8.5 The one honest interaction — and the profile we will not build
 
 If someone reinstalls, their device id changes and the app no longer knows the new install is the same person. They will be asked again, and if they type the same address they will get another verification message. Mildly annoying, completely safe.
 
