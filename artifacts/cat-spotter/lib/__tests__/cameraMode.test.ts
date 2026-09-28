@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   cameraCaptureToPhoto,
+  captureLiveWithRetry,
   getCameraMode,
+  isCameraNotReadyError,
   shutterKindFor,
   splitDataUrl,
 } from '../cameraMode';
@@ -63,6 +65,55 @@ describe('getCameraMode — permission lookup failure', () => {
 
   it('defaults to the pre-existing behaviour when the flag is omitted', () => {
     expect(getCameraMode('web', null)).toBe('loading');
+  });
+
+  // Cursor Bugbot finding: getCameraMode used to check permissionLookupFailed
+  // before permission.granted, so one failed refresh (e.g. a transient
+  // rejection on Android resume) unmounted an already-working live preview.
+  // A known grant must always win.
+  it('a known grant wins over a failed permission lookup', () => {
+    expect(
+      getCameraMode('android', { granted: true, canAskAgain: true }, true),
+    ).toBe('ready');
+    expect(
+      getCameraMode('web', { granted: true, canAskAgain: true }, true),
+    ).toBe('ready');
+  });
+
+  // The failure flag is consulted ONLY when there is no permission reading
+  // at all — not as a way to second-guess an explicit not-granted result.
+  it('does not let the failure flag override an explicit not-granted result', () => {
+    expect(
+      getCameraMode('android', { granted: false, canAskAgain: true }, true),
+    ).toBe('request');
+    expect(
+      getCameraMode('android', { granted: false, canAskAgain: false }, true),
+    ).toBe('settings');
+  });
+});
+
+describe('getCameraMode — web decline stays on the picker for the session', () => {
+  it('goes straight to the picker once the session has declined, regardless of permission state', () => {
+    expect(
+      getCameraMode('web', { granted: false, canAskAgain: true }, false, true),
+    ).toBe('picker');
+    // Sticky for the rest of the session, even if permission then looks
+    // granted (a stale reading, or the pill briefly flashing correct data).
+    expect(
+      getCameraMode('web', { granted: true, canAskAgain: true }, false, true),
+    ).toBe('picker');
+  });
+
+  it('leaves android alone — the decline flag is web-only', () => {
+    expect(
+      getCameraMode('android', { granted: false, canAskAgain: true }, false, true),
+    ).toBe('request');
+  });
+
+  it('defaults to the pre-existing behaviour when the flag is omitted', () => {
+    expect(
+      getCameraMode('web', { granted: false, canAskAgain: true }),
+    ).toBe('request');
   });
 });
 
@@ -179,6 +230,16 @@ describe('cameraCaptureToPhoto — web data URLs (SYC-73)', () => {
       cameraCaptureToPhoto({ uri: 'x', base64: 'data:image/png;base64,' }, stubObjectUrl),
     ).toBeNull();
   });
+
+  // `canvas.toDataURL()` returns exactly this for a zero-size (not-yet-ready)
+  // canvas. It starts with `data:` but never matches the base64 data-URL
+  // pattern, so without this check it fell through to the native branch and
+  // got uploaded as the literal four-character string "data:,".
+  it('rejects a malformed data URL that is not base64 (e.g. a 0×0 canvas)', () => {
+    expect(
+      cameraCaptureToPhoto({ uri: 'x', base64: 'data:,' }, stubObjectUrl),
+    ).toBeNull();
+  });
 });
 
 describe('cameraCaptureToPhoto', () => {
@@ -196,5 +257,82 @@ describe('cameraCaptureToPhoto', () => {
 
   it('requests the existing resize fallback when base64 is unavailable', () => {
     expect(cameraCaptureToPhoto({ uri: 'file:///camera/cat.jpg' })).toBeNull();
+  });
+});
+
+describe('isCameraNotReadyError', () => {
+  it('recognises expo-camera web\'s CodedError for a not-yet-ready video element', () => {
+    expect(isCameraNotReadyError({ code: 'ERR_CAMERA_NOT_READY' })).toBe(true);
+  });
+
+  it('is false for any other error shape', () => {
+    expect(isCameraNotReadyError(new Error('boom'))).toBe(false);
+    expect(isCameraNotReadyError({ code: 'ERR_SOMETHING_ELSE' })).toBe(false);
+    expect(isCameraNotReadyError(null)).toBe(false);
+    expect(isCameraNotReadyError(undefined)).toBe(false);
+    expect(isCameraNotReadyError('nope')).toBe(false);
+  });
+});
+
+describe('captureLiveWithRetry', () => {
+  const noWait = vi.fn(() => Promise.resolve());
+
+  it('returns the capture on the first try when it succeeds', async () => {
+    noWait.mockClear();
+    const takePicture = vi.fn(() => Promise.resolve({ uri: 'blob:1' }));
+    const outcome = await captureLiveWithRetry(takePicture, noWait);
+    expect(outcome).toEqual({ kind: 'captured', capture: { uri: 'blob:1' } });
+    expect(takePicture).toHaveBeenCalledTimes(1);
+    expect(noWait).not.toHaveBeenCalled();
+  });
+
+  it('retries once after ERR_CAMERA_NOT_READY, and succeeds on the retry', async () => {
+    const notReady = { code: 'ERR_CAMERA_NOT_READY' };
+    const takePicture = vi
+      .fn()
+      .mockRejectedValueOnce(notReady)
+      .mockResolvedValueOnce({ uri: 'blob:2' });
+    const wait = vi.fn(() => Promise.resolve());
+
+    const outcome = await captureLiveWithRetry(takePicture, wait, 300);
+
+    expect(outcome).toEqual({ kind: 'captured', capture: { uri: 'blob:2' } });
+    expect(takePicture).toHaveBeenCalledTimes(2);
+    expect(wait).toHaveBeenCalledTimes(1);
+    expect(wait).toHaveBeenCalledWith(300);
+  });
+
+  it('falls back after a second ERR_CAMERA_NOT_READY — it does not retry forever', async () => {
+    const notReady = { code: 'ERR_CAMERA_NOT_READY' };
+    const takePicture = vi.fn().mockRejectedValue(notReady);
+    const wait = vi.fn(() => Promise.resolve());
+
+    const outcome = await captureLiveWithRetry(takePicture, wait);
+
+    expect(outcome).toEqual({ kind: 'fallback' });
+    expect(takePicture).toHaveBeenCalledTimes(2);
+    expect(wait).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back immediately on any other error, without retrying', async () => {
+    const takePicture = vi.fn().mockRejectedValue(new Error('camera exploded'));
+    const wait = vi.fn(() => Promise.resolve());
+
+    const outcome = await captureLiveWithRetry(takePicture, wait);
+
+    expect(outcome).toEqual({ kind: 'fallback' });
+    expect(takePicture).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
+  it('falls back immediately when the camera returns no photo at all', async () => {
+    const takePicture = vi.fn(() => Promise.resolve(undefined));
+    const wait = vi.fn(() => Promise.resolve());
+
+    const outcome = await captureLiveWithRetry(takePicture, wait);
+
+    expect(outcome).toEqual({ kind: 'fallback' });
+    expect(takePicture).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
   });
 });

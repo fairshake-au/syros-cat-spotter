@@ -56,9 +56,11 @@ import { Badge } from '@/components/purropolis/Badge';
 import { fonts, fontSizes, radii, spacing, shadows } from '@/constants/theme';
 import {
   cameraCaptureToPhoto,
+  captureLiveWithRetry,
   getCameraMode,
   shutterKindFor,
 } from '@/lib/cameraMode';
+import { createSequencedRunner } from '@/lib/sequencedCall';
 
 interface PickedPhoto {
   uri: string;
@@ -158,6 +160,10 @@ export default function SpotScreen() {
     refreshCameraPermission,
   ] = useCameraPermissions({ get: false });
   const [permissionLookupFailed, setPermissionLookupFailed] = useState(false);
+  // expo-camera's web permission request always reports canAskAgain: true (an
+  // upstream bug), so once a web user has explicitly declined, asking again
+  // would just show the same dead-end pill forever. Sticky for the session.
+  const [webCameraDeclined, setWebCameraDeclined] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
@@ -165,6 +171,7 @@ export default function SpotScreen() {
     Platform.OS,
     cameraPermission,
     permissionLookupFailed,
+    webCameraDeclined,
   );
   const shutterKind = shutterKindFor(cameraState, cameraFailed, cameraActive);
   const liveCameraReady = shutterKind === 'live';
@@ -180,12 +187,22 @@ export default function SpotScreen() {
   // mean a single transient rejection on resume (module not ready, activity
   // recreated) permanently downgrades the screen to the picker — including for
   // the user who just granted the permission in Settings and came back.
+  //
+  // Called from three places — mount, Android AppState resume, and retry —
+  // so overlapping calls are common; runPermissionLookup makes sure a stale
+  // completion can never overwrite a newer one (Cursor Bugbot finding: a
+  // slow failing lookup used to unmount a working live preview after a
+  // faster, more recent lookup had already succeeded).
+  const runPermissionLookup = React.useRef(createSequencedRunner<void>()).current;
   const syncCameraPermission = React.useCallback(
     () =>
-      refreshCameraPermission()
-        .then(() => setPermissionLookupFailed(false))
-        .catch(() => setPermissionLookupFailed(true)),
-    [refreshCameraPermission],
+      runPermissionLookup(() => refreshCameraPermission().then(() => undefined)).then(
+        (result) => {
+          if (!result.applied) return;
+          setPermissionLookupFailed(Boolean(result.error));
+        },
+      ),
+    [refreshCameraPermission, runPermissionLookup],
   );
 
   React.useEffect(() => {
@@ -281,12 +298,29 @@ export default function SpotScreen() {
     if (!cameraRef.current || capturing) return;
     setCapturing(true);
     try {
-      const capture: CameraCapturedPicture | undefined =
-        await cameraRef.current.takePictureAsync({
-          quality: 1,
-          base64: true,
-        });
-      if (!capture) throw new Error('Camera returned no photo');
+      // expo-camera's web takePicture throws ERR_CAMERA_NOT_READY until the
+      // <video> element has produced its first frame — a common race right
+      // after the preview mounts. That specific failure gets one retry;
+      // anything else, or a second failure, falls back to the system camera
+      // (the existing 'picker' shutter) instead of leaving a dead shutter.
+      const outcome = await captureLiveWithRetry<CameraCapturedPicture>(
+        () =>
+          cameraRef.current!.takePictureAsync({
+            quality: 1,
+            base64: true,
+          }),
+        (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      );
+      if (outcome.kind === 'fallback') {
+        // Do NOT call launchCameraAsync here: browsers only open a file
+        // picker from a direct tap, and a programmatic open after an
+        // awaited failure may be silently blocked. Switch the shutter and
+        // let the user tap it themselves.
+        setCameraFailed(true);
+        notify(t('cameraUnavailable'), t('liveCaptureFailedHint'));
+        return;
+      }
+      const capture = outcome.capture;
       const directPhoto = cameraCaptureToPhoto(capture);
       const picked =
         directPhoto &&
@@ -307,7 +341,12 @@ export default function SpotScreen() {
 
   const requestLiveCamera = async () => {
     try {
-      await requestCameraPermission();
+      const result = await requestCameraPermission();
+      if (Platform.OS === 'web' && !result.granted) {
+        // The upstream canAskAgain: true bug means asking again would just
+        // show the same dead-end pill forever — stop showing it.
+        setWebCameraDeclined(true);
+      }
     } catch {
       // The picker shutter is already on screen in this state, so the user is
       // not stranded; just say the live preview is not available.
@@ -867,7 +906,9 @@ export default function SpotScreen() {
                     ) : (cameraState === 'request' || cameraState === 'settings') && (
                       <View style={styles.cameraPermissionPanel}>
                         <Text style={styles.cameraPermissionText}>
-                          {t('cameraPermissionHint')}
+                          {cameraState === 'settings'
+                            ? t('cameraDeniedHint')
+                            : t('cameraPermissionHint')}
                         </Text>
                         <Pressable
                           accessibilityRole="button"

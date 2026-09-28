@@ -19,15 +19,27 @@ export function getCameraMode(
   platform: string,
   permission: CameraPermissionLike | null,
   permissionLookupFailed = false,
+  // expo-camera's web permission request always reports canAskAgain: true —
+  // an upstream bug — so once a web user has explicitly declined, the
+  // "Allow camera" pill would otherwise ask forever and do nothing. The
+  // caller sets this after a request() resolves not-granted on web, and it
+  // stays set for the rest of the session.
+  webDeclined = false,
 ): CameraMode {
   if (platform !== 'android' && platform !== 'web') return 'picker';
-  // The browser could not tell us the permission state at all (no
-  // navigator.permissions, or the query rejected). Fall back to the system
-  // picker, which opens the phone's own camera app and needs no permission
-  // lookup — never strand the screen on 'loading'.
-  if (permissionLookupFailed) return 'picker';
-  if (!permission) return 'loading';
-  if (permission.granted) return 'ready';
+  if (platform === 'web' && webDeclined) return 'picker';
+  // A known grant always wins, even if a later permission lookup on some
+  // other call failed — a stale failure must never unmount a working live
+  // preview (Cursor Bugbot finding). Only consult the failure flag once we
+  // have no permission reading to go on at all.
+  if (permission?.granted) return 'ready';
+  if (!permission) {
+    // The browser could not tell us the permission state at all (no
+    // navigator.permissions, or the query rejected). Fall back to the system
+    // picker, which opens the phone's own camera app and needs no permission
+    // lookup — never strand the screen on 'loading'.
+    return permissionLookupFailed ? 'picker' : 'loading';
+  }
   return permission.canAskAgain ? 'request' : 'settings';
 }
 
@@ -121,14 +133,77 @@ export function cameraCaptureToPhoto(
   ) => string | null = objectUrlFromBase64,
 ): { uri: string; base64: string } | null {
   if (!capture.uri || !capture.base64) return null;
-  const { mediaType, base64 } = splitDataUrl(capture.base64);
-  if (!base64) return null;
-  if (mediaType === null) {
+  if (!capture.base64.startsWith('data:')) {
     // Native: uri is already a file path and base64 is already bare.
-    return { uri: capture.uri, base64 };
+    return { uri: capture.uri, base64: capture.base64 };
   }
+  const { mediaType, base64 } = splitDataUrl(capture.base64);
+  // A `data:` string that DATA_URL_HEAD does not match is not a usable data
+  // URL — e.g. `data:,`, which `canvas.toDataURL` returns for a zero-size
+  // (not-yet-ready) canvas. Treating it as bare native base64 would upload
+  // that literal string as image bytes.
+  if (mediaType === null || !base64) return null;
   // Fall back to the data URL only if the runtime cannot make an object URL;
   // that is no worse than before, and never happens in a browser.
   const uri = toObjectUrl(base64, mediaType) ?? capture.uri;
   return { uri, base64 };
+}
+
+const CAMERA_NOT_READY = 'ERR_CAMERA_NOT_READY';
+
+/**
+ * True for expo-camera's web `takePicture` failure while the `<video>`
+ * element has not yet produced a frame — a `CodedError` (`expo-modules-core`)
+ * whose `.code` is `ERR_CAMERA_NOT_READY`. Worth one retry; every other
+ * failure is not.
+ */
+export function isCameraNotReadyError(err: unknown): boolean {
+  return Boolean(
+    err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code?: unknown }).code === CAMERA_NOT_READY,
+  );
+}
+
+export type LiveCaptureOutcome<T> =
+  | { kind: 'captured'; capture: T }
+  | { kind: 'fallback' };
+
+/**
+ * Takes a live-preview photo, retrying once on the specific "video has no
+ * frames yet" failure before giving up. Deliberately narrow: this is worth
+ * retrying because it is a known, common race on page load — every other
+ * failure (including a second `ERR_CAMERA_NOT_READY`) falls back immediately
+ * rather than retrying forever.
+ *
+ * Pure orchestration — `takePicture` and `wait` are injected so this is
+ * testable without a real camera or real timers, and so it can live in
+ * `lib/` (spot.tsx, where the real camera ref lives, is outside vitest's
+ * component test coverage).
+ */
+export async function captureLiveWithRetry<T>(
+  takePicture: () => Promise<T | null | undefined>,
+  wait: (ms: number) => Promise<void>,
+  retryDelayMs = 300,
+): Promise<LiveCaptureOutcome<T>> {
+  const attempt = async (): Promise<
+    { ok: true; capture: T } | { ok: false; notReady: boolean }
+  > => {
+    try {
+      const capture = await takePicture();
+      if (!capture) return { ok: false, notReady: false };
+      return { ok: true, capture };
+    } catch (err) {
+      return { ok: false, notReady: isCameraNotReadyError(err) };
+    }
+  };
+
+  const first = await attempt();
+  if (first.ok) return { kind: 'captured', capture: first.capture };
+  if (!first.notReady) return { kind: 'fallback' };
+
+  await wait(retryDelayMs);
+  const second = await attempt();
+  return second.ok ? { kind: 'captured', capture: second.capture } : { kind: 'fallback' };
 }
