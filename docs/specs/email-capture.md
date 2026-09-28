@@ -5,7 +5,7 @@
 **Owner:** Samuel
 **Linear:** SYC-21 (this design question) · SYC-45 (build) · SYC-55 (the sterilisation loop) · SYC-3 (restore spots on a new device) · SYC-25 (mail transport)
 
-**This spec owns:** the four email moments · consent · the verification rule (F7b) · the nightly notify job (F4) · the privacy-policy content, the data controller, and the withdrawal route (D6).
+**This spec owns:** the four email moments · consent · the verification rule (F7b) · the nightly notify job (F4) · the data controller and the withdrawal route (D6). The privacy-policy text itself is `privacy-policy.md`.
 
 **This spec does not own, and only references:**
 
@@ -13,7 +13,7 @@
 |---|---|
 | How a cat's status is derived, and presumed-deceased | [`cat-record-data-spine.md`](cat-record-data-spine.md) |
 | Location blurring and the public precision rule | [`cat-record-data-spine.md`](cat-record-data-spine.md) |
-| The records import and its matching | [`cat-record-data-spine.md`](cat-record-data-spine.md) |
+| The records import and its matching (optional, after MVP) | [`records-import.md`](records-import.md) |
 | The deletion **mechanism** (redaction over an append-only store) | [`cat-record-data-spine.md`](cat-record-data-spine.md) |
 | Staff sign-in, the trust boundary, the welfare queue and its states | [`team-access-and-welfare-queue.md`](team-access-and-welfare-queue.md) |
 | Mail provider, secrets, photo storage, migrations | [`team-access-and-welfare-queue.md`](team-access-and-welfare-queue.md) and [`hosting-and-photo-storage.md`](hosting-and-photo-storage.md) |
@@ -22,7 +22,7 @@
 
 ## 0. The one-paragraph version
 
-Cat Spotters is an app you can use without telling anyone who you are. That does not change, and there is no email field on the way in. But the most valuable thing the app can ever say to someone is *"Agatha, the cat you named in June, was sterilised last week"* — and there is no way to say that to a person who went home three months ago and deleted the app. So the app asks for an email address at four moments where the reason for asking is obvious and the thing you get back is worth having. Every address anyone types gets one message asking "is this you?", and nothing else is ever sent until they say yes. You can say no at every moment, and saying no costs you nothing at all. An email address is a **forwarding address for news about your cats** — never an account, never a login, never a way to get your stuff back on a new phone.
+Cat Spotters is an app you can use without telling anyone who you are. That does not change. Onboarding ends with one clearly optional offer to add an email, which is as easy to skip as to accept. But the most valuable thing the app can ever say to someone is *"Agatha, the cat you named in June, was sterilised last week"* — and there is no way to say that to a person who went home three months ago and deleted the app. So the app asks for an email address at four moments where the reason for asking is obvious and the thing you get back is worth having. Every address anyone types gets one message asking "is this you?", and nothing else is ever sent until they say yes. You can say no at every moment, and saying no costs you nothing at all. An email address is a **forwarding address for news about your cats** — never an account, never a login, never a way to get your stuff back on a new phone.
 
 ---
 
@@ -56,7 +56,7 @@ Both are asking the app to **remember them to a cat**. Email is the only mechani
 
 **G. The "your cat was sterilised" email itself.** Not a capture moment — it is the payoff for A/B, and the thing that makes the ask honest. Designed in §5.
 
-**H. Onboarding / first launch.** **Considered and rejected.** The app's promise is "start spotting in seconds, tell us nothing". An email field on the way in reads as a sign-up wall, converts badly, and takes the address of someone who has no reason yet to care. Anonymous use stays the default. There is no email field on first run, in onboarding, or anywhere before a person has actually done something. *(D5.)*
+**H. Onboarding / first launch.** **Adopted as an optional last step (Samuel, 28 September 2026; amends D5).** The earlier objection still describes the risk: an email field on the way in can read as a sign-up wall, and the person has no reason yet to care. So the step is built to answer it. It says plainly that it's optional and what they get, **Skip** is as prominent as **Add email**, and anonymous use stays the default. The benefit is catching tourists who make only one spot, or who skip the reward-screen card, at the moment they're paying most attention. Copy in §3.0; its guardrails in §2.4.
 
 **I. Team and staff sign-in.** A genuine account for a handful of named people, owned by `team-access-and-welfare-queue.md`. Mentioned only so the two are never conflated.
 
@@ -73,11 +73,12 @@ Both are asking the app to **remember them to a cat**. Email is the only mechani
 
 Settings is not a moment in the marketing sense, but leaving it out is what makes an earlier "no" feel like a trap.
 
+**Plus one offer at the end of onboarding** (§1.2 H, §3.0). It is optional and skippable, and it sits outside the news-ask budget (§2.4).
+
 ### 2.2 Deliberately left out
 
 | Left out | Why |
 |---|---|
-| Onboarding / first launch | Contradicts the core promise; converts badly; makes the app harder to recommend. *(D5.)* |
 | Email as device recovery or login | Turns anonymity into accounts and creates a real account-takeover surface (§8). SYC-3 is a separate decision. |
 | Donation receipts joining the news list | Different legal basis; silent list-building. Receipt yes, list only on a separate tick. |
 | Name, country, age, or any other field | We ask for exactly one thing. Anything else is a form, and forms get abandoned. |
@@ -105,6 +106,7 @@ The old version of this rule contradicted itself: it promised that declining cos
 - The two asks are consumed in the order they arise: the spot card first, the visit summary second. Declining the spot card does **not** remove the visit summary — the visit summary is ask number two, and it is the whole point of having two.
 - After two declines the app stops asking anywhere except Settings, **for as long as this install lives**.
 - Never twice on the same screen. If they have given an address, no moment ever asks again.
+- **The onboarding offer sits outside this budget.** Skipping it does not use up either news ask, so the spot card and visit summary are still offered, and the spot card is the stronger moment. Adding an email at onboarding counts as having given one: no moment ever asks again.
 - The fourteen-day window is gone. It was undefined after day fourteen, which made it meaningless. The steady state is simple: two asks, then silence, then Settings forever.
 
 **And the honest limitation, written down rather than implied:** the decline counter lives **on the device**, alongside the device identity. Reinstalling the app resets it, because a reinstall creates a new device and the app genuinely does not know it is the same person. That is acceptable — reinstalls are rare, the ask is one tap to dismiss, and the alternative is worse: a server-side record of the fact that a specific person refused to be contacted, which is a behavioural record kept about somebody who explicitly asked us not to keep one. We prefer the leaky cap to the creepy one, and we say "on this phone" rather than "permanently" in anything a user reads.
@@ -123,18 +125,33 @@ Bias early on purpose. Worst case the summary appears on day four of a nine-day 
 
 All copy is UK English here and gets native-authored Greek and French, not translation.
 
-Every ask shows, before you type: what we'll send, how often, how to stop, and who holds the address. Two lines are fixed and appear under every one of the four asks:
+Every ask shows, before you type: what we'll send, how often, how to stop, and who holds the address. Two lines are fixed and appear under every ask, including the onboarding offer:
 
 > *We'll send one message first, to check the address is yours. Nothing else goes out until you say it's you.*
 > *Your email is a forwarding address, not an account — it won't restore your cats on a new phone. Syros Cats holds it. [What we do with it](https://catspotters.com/privacy) · delete it any time.*
 
 **Pronouns:** copy uses the cat's name, and "they" when we do not know the cat's sex — which is most of the time, because sex is usually blank in the records and is never asked of a spotter. No template says "her" unless the record says so. This matters most in Greek and French, where the article gives it away in every sentence.
 
+### 3.0 At the end of onboarding — optional
+
+The last onboarding step, after language and username. It never blocks anything: **Skip** is as prominent as **Add email**, and either one goes straight into the app.
+
+> **Want news about the cats you find?**
+>
+> Add your email and we'll tell you when a cat you've spotted is sterilised or finds a home.
+>
+> **This is optional.** You can use the app without it, and add it later in Settings.
+>
+> `[ your@email.com ]`
+> **[ Add email ]**  ·  **[ Skip ]**
+
+The two fixed lines above appear under it like every other ask, and the address gets the same single "is this you?" message (§4). Someone who adds an email here is never asked again (§2.4).
+
 ### 3.1 After naming a new cat — the strongest moment
 
 > **You named Agatha. Want to know how they get on?**
 >
-> Leave an email and we'll write when there's real news about Agatha — sterilised, found a home, or turning up again after a long quiet spell. A handful of times a year at most, and nothing else.
+> Leave an email and we'll write when there's real news about Agatha — sterilised, found a home, or turning up again after a long quiet spell.
 >
 > `[ your@email.com ]`
 > **[ Keep me posted ]**  ·  *No thanks*
@@ -147,7 +164,7 @@ Every ask shows, before you type: what we'll send, how often, how to stop, and w
 
 > **Want news about Loukoumi?**
 >
-> We'll email you if there's something worth telling — sterilised, found a home, spotted again after a long gap. Rarely, and never anything else.
+> We'll email you if there's something worth telling — sterilised, found a home, spotted again after a long gap.
 >
 > `[ your@email.com ]`
 > **[ Keep me posted ]**  ·  *No thanks*
@@ -217,7 +234,7 @@ There is **no third action**, and in particular no separate "delete everything f
 
 ## 4. The verification rule — every address, every time
 
-**The general rule, and it is broader than any one moment:** *any* email address a person types anywhere in this app — at any of the four moments, on a welfare report, in Settings, at the visit summary — receives **one** message asking whether the address is theirs, and **nothing else is ever sent to it until they confirm**. Not an acknowledgement. Not a summary. Not news. Not a receipt for anything.
+**The general rule, and it is broader than any one moment:** *any* email address a person types anywhere in this app — at onboarding, at any of the four moments, on a welfare report, in Settings, at the visit summary — receives **one** message asking whether the address is theirs, and **nothing else is ever sent to it until they confirm**. Not an acknowledgement. Not a summary. Not news. Not a receipt for anything.
 
 **It sends from the news identity, not the transactional one** — see §7.3, and `DECISIONS.md`'s amendment to D2. Verification mail goes to strangers who have just typed an address, so it is kept off the reputation that staff sign-in links depend on. Staff sign-in verification is a different message on a different identity, and is `team-access-and-welfare-queue.md`'s.
 
@@ -252,7 +269,7 @@ What we do **not** get, and should not claim: an endpoint that cannot be used to
 
 ### 4.3 The flow, end to end
 
-1. Someone types an address at one of the four moments. The on-screen thing they were doing — resolving a spot, filing a report — **completes immediately and unconditionally**.
+1. Someone types an address at onboarding or at one of the four moments. The on-screen thing they were doing — resolving a spot, filing a report — **completes immediately and unconditionally**.
 2. The address is stored as `pending`, with the consent record (§5.6).
 3. One verification message goes out, subject to §4.4's limits.
 4. Nothing else is queued, generated or sent to that address. Anything that would have been sent — a report acknowledgement, a visit summary, cat news — is held **as an intent, not as a rendered message**, so nothing containing personal data sits in a queue for an address that may never confirm.
@@ -298,7 +315,7 @@ That is the whole list. Anything not on it needs a new consent and a new row her
 ### 5.2 Frequency caps, so we never feel spammy
 
 - **A hard ceiling of one cat-news email per fortnight per person.** Three cats with news in the same week is one email about three cats.
-- **An annual ceiling of eight.** The copy promises "a handful of times a year at most", and the fortnight cap alone would have permitted twenty-six — so the copy and the system disagreed. They now agree, and the annual ceiling is the binding one for almost everybody.
+- **An annual ceiling of eight.** The ask screens no longer state a number (Samuel, 28 September 2026), but the privacy policy (`privacy-policy.md`) still promises "a handful of times a year at most", and the fortnight cap alone would have permitted twenty-six — so the copy and the system disagreed. They now agree, and the annual ceiling is the binding one for almost everybody.
 - **A soft floor:** no email for a single low-value event. "Spotted again" alone is not news; "spotted again after four months" is.
 - **Quiet period:** nothing in the first 48 hours after confirmation except the thing they actually asked for.
 - **Absolute ceiling:** no person gets more than one email a week across all types, except transactional ones (verification, report acknowledgement, receipt), which are never delayed.
@@ -317,7 +334,7 @@ This is the mechanism behind the product's best message, and the previous versio
 - **The contract we depend on** is the data spine's status derivation (`cat-record-data-spine.md` §2 and its resolver in §10.2): given a cat, return the current derived sterilisation status and life status, with the provenance and `observedAt` of the observations that produced it. We call it and we do not reimplement it. If that contract changes, this job is a named consumer.
 - **Up to a day's delay is fine** for this message. Nobody is waiting by an inbox for it.
 
-**Seeding, so the import never sends "sterilised last week" about a 2019 operation.** The baseline is seeded **as the historical records import lands** — as each import batch applies, the job records the post-import status for every affected cat as the baseline, without sending anything. The import is the single biggest injection of confirmed data the app will ever receive; it produces exactly zero emails, by construction rather than by a filter someone might forget.
+**Seeding, so the import never sends "sterilised last week" about a 2019 operation.** If a records import ever happens (optional, after MVP: `records-import.md`), the baseline is seeded **as it lands** — as each import batch applies, the job records the post-import status for every affected cat as the baseline, without sending anything. The import is the single biggest injection of confirmed data the app will ever receive; it produces exactly zero emails, by construction rather than by a filter someone might forget.
 
 Two further guards on the same principle, for import rows that arrive later (a record matched by a human in the review queue in March, about an operation in 2019):
 
@@ -434,49 +451,10 @@ And afterwards:
 
 Anyone can ask what we hold for their address and get it back. Because we hold one field plus a consent record, this is a short honest export rather than a project.
 
-### 6.5 The privacy policy — the content, in plain English
+### 6.5 The privacy policy
 
-Published at **catspotters.com/privacy**, linked from every ask screen, every email, and the store listing. **Syros Cats is the data controller** *(D6)* — they decide what is collected and why, and the policy names them. There is a store-listing deadline **this month**: Google Play requires a live privacy-policy URL at submission, and the closed test is inside the launch window, so this is a dated blocker rather than an open question. Owner: Samuel, with Syros Cats.
+**Moved to its own document, `privacy-policy.md`** (Samuel, 28 September 2026), to be approved separately. It is published at **catspotters.com/privacy** and linked from every ask screen, every email and the store listing. This spec still owns the facts it states about email: what we ask for and when, the single "is this you?" message, what we send, how long we keep addresses, and how to withdraw. If this spec changes, the policy changes with it.
 
-The policy is written to be read, not to be defended. The draft:
-
-> ## What Cat Spotters knows about you
->
-> **Short version.** You can use this app without telling us who you are, and most people do. If you choose to give us an email address, we use it to tell you what happened to the cats you met, and for nothing else. You can delete everything about yourself from inside the app, in two taps, whenever you like.
->
-> **Who we are.** Cat Spotters is made for **Syros Cats**, a cat charity on the island of Syros in Greece. Syros Cats decide what this app collects and why, which in data-protection language makes them the *data controller*. If you want to ask us anything here, or ask us to delete something: **hello@catspotters.com**.
->
-> **What we collect if you say nothing.** Your phone gets a random identifier the first time you open the app. It is not your name, your account, or anything we can trace to a person — it exists so that your spots are yours and your points add up. Alongside it we keep the cats you've spotted, the photographs you took of them, and roughly where and when you saw them.
->
-> **What we do with photographs and places.** Photographs of cats go into the island's record of its cats, and may be shown publicly in the app. We strip the hidden location tag out of every photo before we store it. Cat locations are shown to the public rounded to a wide area rather than an exact spot, because an exact spot is a map to a cat that some people would rather not have one.
->
-> **Email, if you give us one.** We ask at four moments — after you've spotted a cat, at the end of a visit, after you've reported a cat in trouble, and in Settings. It is always optional, and saying no costs you nothing.
->
-> Whatever address you type, we send **one** message asking whether it is really yours. Until you tap the button in that message, we send nothing else — no news, no summary, no acknowledgement. If it wasn't you, ignore it, and we forget the address in a week.
->
-> Once you've confirmed it, we use your address for exactly what you asked for: news about cats you've met (a handful of times a year at most), the summary of your visit if you asked for one, and what happened to a cat you reported. Every message has a one-tap way to stop, and a one-tap way to delete your address entirely.
->
-> **What your email address is not.** It is not a login. There is no login. It won't get your cats back on a new phone, and knowing it gives nobody any access to anything.
->
-> **Who else sees it.** Nobody, apart from the service that delivers the mail (Resend, which is our *processor* — it sends on our instructions and holds nothing on its own account). We don't sell your address. We don't give it to advertisers. We don't use it to build a picture of you. And we don't show it in the app: not on a leaderboard, not on a cat's page, not to anyone at Syros Cats reading a report you sent.
->
-> **Children.** This app is for everybody, but in Greece you need to be 15 to agree to something like an email list on your own. If you're younger than that, ask a parent before you type an address in. If you tell us we're holding a child's address, we'll delete it.
->
-> **Deleting yourself.** In the app: **Settings → Delete my data**. There's a link in every email we send. Or write to **hello@catspotters.com** and we'll do it for you.
->
-> Here's exactly what happens, because this is the bit people ask about most: **we delete everything that identifies you — the cat sightings stay, with your name off them.** Your address, your points, your streak, your spot history and anything you typed all go. The record of which cat was seen where stays, without you attached to it, because it belongs to the island's cats rather than to us — and pulling it out would put holes in the history of cats that have nothing to do with you. Names you gave cats stay too, because other people use them now. It cannot be undone.
->
-> **How long we keep things.** An unconfirmed address: seven days. A confirmed one: while you want the emails. A report address: until the report is finished, plus three months. If you haven't opened anything or used the app in two years we'll ask once, and then delete it.
->
-> **Where it is.** Our database is in the EU. Resend, our mail service, is in the United States, and mail we send you goes through them under the standard EU contract terms for that.
->
-> **Complaining.** If you think we've handled your data badly, tell us at hello@catspotters.com — and you can complain to the Hellenic Data Protection Authority, who regulate us.
->
-> **Changes.** If we change how any of this works, we'll change this page and date it. We won't start using your address for something new without asking you first.
-
-**Two supporting pieces of work this creates, both build requirements rather than prose:** a signed data-processing agreement with Resend, with the transfer terms recorded; and a verified-by-test check that deleting an address at the provider actually removes it — a provider that keeps a copy we cannot delete would make §6.1 a lie.
-
-**Also, and it belongs in one place:** the threat model's asset list needs one combined revision covering all four specs' new personal data — email addresses and consent records here, free-text sighting notes and cat-guardian names in the data spine, reporter addresses and the staff list in team access. Email addresses are not "the first genuinely personal data in the system"; that was true when this spec was written alone and is false read against its siblings. The privacy policy above must be checked against the finished asset list before submission, not before it.
 
 ---
 
@@ -601,7 +579,7 @@ What we do instead is the narrow version only: a **send-suppression check on `(a
 ### 10.2 Open questions
 
 1. ~~**§7.3 — does verification send from the transactional identity or the news identity?**~~ **Closed 3 September 2026:** public-user verification sends from the news identity; staff sign-in verification stays transactional. Recorded as an amendment to D2 in `DECISIONS.md`.
-2. **Susan's standard reply text**, which replaces the drafted report copy. Outstanding from the 1 September meeting. *(Syros Cats.)*
+2. ~~**Susan's standard reply text**~~ **Arrived 3 September 2026** and is in `docs/specs/source/syros-cats-standard-reply.md`; the report copy in `team-access-and-welfare-queue.md` §5.3 was rewritten against it and approved on 28 September.
 3. **Does the donation path return an address at all**, or does the payment provider keep it? Determines whether §1.2(E) is ever ours to hold. *(Samuel + James.)*
 
 ### 10.3 The one thing that genuinely needs Samuel's call
