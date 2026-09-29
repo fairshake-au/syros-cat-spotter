@@ -38,6 +38,18 @@ If `migrate` refuses the Neon `development` branch ("cannot be adopted", or "the
 
 Neon's restore window on `production` is **7 days** (the paid "Launch" plan; the plan's Part C.3 sets this when the project is created). In the Neon console: **Branches** → `production` → **Restore**, pick a timestamp, and Neon creates a new branch at that point rather than mutating `production` in place — so a restore is reviewable before anything is pointed at it. For anything bigger than a point-in-time restore (the old database intact, testers' new Neon rows carried back), that's the rollback procedure in the plan's Part F, run through `db-ops`'s `carry-back-dry-run`/`carry-back-apply` commands, never by hand.
 
+### What carry-back does, and when it refuses
+
+Carry-back makes the nine original tables in the old database match Neon `production`, table by table and row by row. It adds the rows testers created, updates the rows they changed, and removes the rows they deleted. Columns and tables the old database doesn't have stay on Neon, and the dry run lists them. All of this happens in one transaction, which commits only if the old database then matches Neon exactly, with its id counters moved past every id either side has used. The dry run prints ids only. Device ids appear as a short one-way hash (`#1a2b...`), and it never prints row contents, secret hashes or connection strings.
+
+It refuses, without writing anything, when:
+- **the old database changed since the copy** in a table it would write to. Every copy stores the old database's fingerprint with its marker on Neon. If the old app wrote rows after the copy, those rows could share ids with testers' rows (an id collision), and mirroring would overwrite or delete them. Recover those by hand (plan F.3).
+- the old database has a column Neon lacks, so it isn't at the baseline schema (R0);
+- the target carries `switchover.cutover_done` (it's a cut-over Neon branch, not the old database), or the source has no switchover marker, or source and target are the same database;
+- `carry-back-apply` is run without `confirm=APPLY`.
+
+Re-running it is safe. A failed apply changes nothing, and a second apply after a successful one finds nothing to do.
+
 ## Read-only checks without a connection string
 
 The Neon MCP's `run_sql` (SELECT only), `describe_table_schema` and `list_branches` work without a connection string, so Claude uses them as an independent second look after any `db-ops` write. Writes to Neon never go through the MCP — always through `db-ops`, so every change is in the workflow's history.
