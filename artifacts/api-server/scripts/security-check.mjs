@@ -11,8 +11,23 @@
  *  3. Nickname moderation: length cap and sanitization enforced server-side.
  *
  * Usage: node scripts/security-check.mjs [baseUrl]  (default http://localhost:80/api)
+ *
+ * Pre-launch (SYC-113): to point this at the test deployment while the
+ * pre-launch gate is on, set PRELAUNCH_KEY to a tester key in the terminal's
+ * environment; every request then carries it as X-Prelaunch-Key. Never pass
+ * the key on the command line or in the URL.
  */
 const base = process.argv[2] ?? "http://localhost:80/api";
+
+const prelaunchKey = process.env.PRELAUNCH_KEY;
+if (prelaunchKey) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (input, init = {}) => {
+    const headers = new Headers(init.headers);
+    if (!headers.has("x-prelaunch-key")) headers.set("x-prelaunch-key", prelaunchKey);
+    return realFetch(input, { ...init, headers });
+  };
+}
 const rnd = () => `sec-test-${Math.random().toString(36).slice(2)}-${Date.now()}`;
 
 let failures = 0;
