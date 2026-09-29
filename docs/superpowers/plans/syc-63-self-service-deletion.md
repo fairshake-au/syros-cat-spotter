@@ -31,10 +31,11 @@ The row uses the screen's existing text and row styles. **No new fonts, sizes or
 
 This is a new full screen, `app/delete-my-data.tsx`. **Its words are email-capture §6.3, exactly as written.** That section is the copy of record, and the data spine says the two must never drift apart. The words are: the heading, "It can't be undone", **What goes**, **What stays**, and the two buttons **[ Delete my data ]** and **[ Keep my data ]**. "Keep my data" is the safe default: it gets the visual weight, and "Delete my data" does not.
 
-Two situations the spec's copy doesn't cover need one extra line each. Both are **decisions for Samuel** (§9, B and E):
+Samuel approved three additions to the §6.3 copy on 29 September (§9 A, B and E). Email-capture §6.3 should be updated to match, so the copy of record and the screen stay the same:
 
-- **No connection.** The delete button is disabled and one line says the phone needs to be online. Nothing is deleted offline, and the app never pretends it was.
-- **Spots that haven't been sent yet.** One line says how many there are and that they will be deleted too (recommended in §9 B).
+- **No connection (E).** The delete button is disabled, with the line *"You need a connection to delete your data."* Nothing is deleted offline, and the app never pretends it was.
+- **Spots that haven't been sent yet (B).** When there are any, the screen adds: *"You have 3 spots that haven't been sent yet. They'll be deleted too."* The number is the real count.
+- **Cats they said live with them (A).** Under **What stays**, the screen adds a line saying such a cat keeps its home and the note about where it lives, but loses their name. Draft wording: *"If you told us a cat lives with you, it still shows as having a home, and the note about where it lives stays. Your name comes off it."* The exact words go to Samuel with the §10 flag, because the owner link is still unresolved.
 
 ### 1.3 What happens when they tap
 
@@ -70,7 +71,8 @@ The "Done" screen uses email-capture §6.3's words exactly: *"Nothing on this ph
 | `sightings` | **Unlinked**: `device_id` cleared (needs §5), stamped. Photo, date, position and cat are kept, and so is `status`. | §8.3: "every sighting" is kept |
 | `observations` | **Unlinked**: `device_id` cleared, stamped. **Notes** also have their text emptied (`value = '{}'`), done in SQL as Samuel directed, not read and rewritten from JavaScript. Every other kind keeps its value, **including `name`**. | §8.3, §8.4, and the existing trigger in migration 0001 |
 | `cats.discoverer_device_id` | **Cleared** (needs §5), and the cat is stamped. The cat shows its discoverer as *"a spotter"*. | §8.3 and Part 2g |
-| `cats.owner_device_id`, `owner_name`, `home_description` | **Decision A** (§9). Recommended: all three cleared. | The spec is silent (§9 A) |
+| `cats.owner_name` | **Cleared** | Decision A, Samuel, 29 Sep |
+| `cats.owner_device_id`, `home_description` | **Kept**, as Samuel decided. See §10 flag 5: keeping `owner_device_id` means keeping the raw device id | Decision A, Samuel, 29 Sep |
 | `cats.name`, `description` | **Kept** | Names are community property (§8.4) |
 | `photos` | **Kept.** Photos carry no link to a person. | §8.3 "every sighting: photo…" |
 | `cat_updates` | **Kept.** Its messages hold only cat names ("Mimi was spotted again!"), never a person. | Checked in `routes/sightings.ts` |
@@ -89,7 +91,8 @@ Once someone has been deleted, other spotters see:
 - **The care timeline's "discovered" entry:** *"a spotter"*.
 - **The leaderboard:** the person is simply gone, because their profile row is.
 - **Sighting counts:** unchanged.
-- **The "Fans" tile:** decision C.
+- **The "Fans" tile:** a deleted person stops counting, so the number can drop by one (decision C).
+- **A cat they said lives with them:** it still shows as having a home, and its home note stays. The owner's name is gone (decision A).
 - **Notifications:** a deleted person never receives anything again. Nothing is ever sent to "nobody".
 
 ---
@@ -115,13 +118,13 @@ Inside one transaction, in this order:
 1. Lock the credential row (`SELECT … FOR UPDATE`), so two deletes of the same device queue up rather than interleave.
 2. Redact the observations, in SQL: `update observations set device_id = null, redacted_at = now(), redaction_reason = $reason, value = case when kind = 'note' then '{}'::jsonb else value end where device_id = $id`. The trigger from migration 0001 already permits exactly this.
 3. Unlink the sightings: `set device_id = null, redacted_at = now(), redaction_reason = $reason where device_id = $id`.
-4. Unlink the cats they discovered: `set discoverer_device_id = null, redacted_at = coalesce(redacted_at, now()), redaction_reason = coalesce(redaction_reason, $reason)`. Then apply decision A to the cats they own.
+4. Unlink the cats they discovered: `set discoverer_device_id = null, redacted_at = coalesce(redacted_at, now()), redaction_reason = coalesce(redaction_reason, $reason)`. Then, for the cats they own (decision A): `update cats set owner_name = null where owner_device_id = $id`. The owner link and the home description are left alone.
 5. Delete from `cat_subscriptions`, `notifications`, `push_tokens` and `profiles` where the device matches, then delete from `device_credentials`.
 6. Insert the "deleted device" marker (§4.3).
 
 The whole thing is **synchronous**: no queue and no nightly sweep (§8.5). Observations and sightings are looked up by device. Observations already have partial indexes from 0001. `sightings.device_id` has **no index today**, so the §5 migration adds one. Without it, deletion scans the whole sightings table while the person waits.
 
-### 4.3 The "deleted device" marker (decision D, recommended)
+### 4.3 The "deleted device" marker (decision D, decided by Samuel 29 Sep)
 
 **The problem it solves.** If an old copy of the app still has the old id and secret, the server's trust-on-first-use rule would happily recreate the deleted identity from the very next request. That old copy could be a second browser tab, an upload that was mid-flight, or an app killed between "server said done" and "phone wiped itself". The person would come back as a ghost with a fresh profile, and any sightings it sent would be linked to them again.
 
@@ -273,8 +276,11 @@ Seed person Q with a sighting of the same cat. Record the cat's public payload, 
 
 **Then** call `DELETE /api/me` as P and assert:
 
-1. **No trace of P anywhere.** Scan every `text`, `varchar` and `jsonb` column of every table in the `public` schema, found through `information_schema` so that **tables added later are covered automatically**. None contains P's device id, username or nickname. This is spec §10.8 test 14 in its strongest form, and it is the guard for "where *else* must this hold?".
+1. **No trace of P anywhere.** Scan every `text`, `varchar` and `jsonb` column of every table in the `public` schema, found through `information_schema` so that **tables added later are covered automatically**. None contains P's device id, username, nickname or owner name. This is spec §10.8 test 14 in its strongest form, and it is the guard for "where *else* must this hold?".
+   - **The one listed exception, while §10 flag 5 is open:** `cats.owner_device_id` for the cat P claimed, which decision A keeps.
+   - **The exception is a named allow-list entry, never a loosened scan,** so the test still fails for any *other* column holding the id. If flag 5 is resolved by clearing the link, delete the exception.
 2. **The cat is unchanged:** same sighting count, same name, the same ear-tip and name observation values, and the same derived sterilised and life status.
+   - **The claimed cat:** `owner_name` is now null. `owner_device_id` and `home_description` are unchanged, and `hasHome` is still true (decision A).
 3. **The note is emptied** and the observation row is still there. The total number of observations is unchanged.
 4. **Q is untouched:** Q's sighting, profile and credit are unchanged.
 5. **Public output** shows *"a spotter"* (a null code) for P's sightings and discovery.
@@ -292,6 +298,7 @@ Seed person Q with a sighting of the same cat. Record the cat's public payload, 
 - the sightings update;
 - the note-emptying `case`;
 - the notification null filter;
+- the owner-name clearing;
 - the marker check, including moving it *after* the insert in `verifyDeviceSecret`;
 - the secret check on each of the three cat routes.
 
@@ -299,6 +306,7 @@ A green suite alone doesn't prove the test would notice.
 
 ### 8.2 App (vitest)
 
+- The confirmation screen: with the phone offline, the button is disabled and shows the E line. With unsent spots, it shows the B line with the right count. It always shows the A line under What stays.
 - `deleteMyData`: on a failed server call, nothing is wiped. On `204`, every key in the "wiped" column of §6.2 is gone and every "kept" key survives. On `410`, the same wipe happens.
 - The queue: `pauseAndClear` waits for an upload in progress **with no lock manager present** (the phone case), and an item added during the wipe does not survive. An unreadable ("read-only") queue is still wiped.
 - Photo stores: native files, IndexedDB photos and queue backups are all empty afterwards.
@@ -312,7 +320,9 @@ In the browser pane on the web build, at about 390 px and at desktop width:
 
 ---
 
-## 9. Decisions for Samuel (each with a recommendation)
+## 9. Decisions: decided by Samuel, 29 Sep 2026
+
+The options and recommendations are kept below for the record. Each one ends with Samuel's answer.
 
 **A. A cat the person *claimed* as its owner.** The spec lists what goes but is silent on owner claims.
 - *Options:*
@@ -322,8 +332,12 @@ In the browser pane on the web build, at about 390 px and at desktop width:
 - *Benefits and risks:*
   - Option 1 removes everything they typed. The privacy policy promises "anything you typed" goes, and "the blue house by the church" can point at a home. The cost is that the cat loses its owner and its home note, and nobody can edit it any more.
   - Option 3 breaks the promise.
-- **Related ticket:** SYC-69 is already open, asking whether old owner names should eventually be redacted. Option 1 answers that for deleted people.
-- **Recommendation: 1.** Whether the cat still reads as *homed* then depends on data spine step 4, which records a claim as a "homed" observation that survives deletion. **So step 4 should land before this**, which the spec's own ordering already implies. Until it does, the old `hasHome` flag would flip to false for that cat.
+- **Related ticket:** SYC-69 is already open, asking whether old owner names should eventually be redacted.
+- *Recommendation was:* 1.
+- **Decided: option 2, clear ONLY the owner's name.** The owner link (`owner_device_id`) and the home description stay.
+  - **What this means for the cat:** it keeps showing as having a home, because `hasHome` reads the owner link and the link stays. So the earlier dependency on data spine step 4 for "homed" **no longer applies to deletion**; step 4 is still needed for other reasons, which the data spine plan sequences. Nobody can edit the cat after deletion: the owner's credential is gone and the marker refuses the old identity.
+  - **What stays behind:** the home description. The privacy policy's promise that "anything you typed" goes doesn't cover it as worded (flag 6 in §10).
+  - **Keeping the owner link** keeps the person's raw device id in the database (flag 5 in §10).
 
 **B. Spots on the phone that haven't been sent yet.**
 - *Options:*
@@ -333,26 +347,26 @@ In the browser pane on the web build, at about 390 px and at desktop width:
 - *Benefits and risks:*
   - Option 2 sounds kinder to the cats, but each spot arrives needing its owner to pick the cat, and after deletion there is no owner. They would sit forever as a photo and an exact position attached to no cat.
   - Option 3 carries the old person into the new identity, which undoes "start from zero".
-- **Recommendation: 1.** The added line is new copy. Email-capture owns the copy, so it needs your yes.
+- **Decided: option 1, as recommended. The copy is approved.**
 
 **C. The "Fans" tile on a cat page** counts distinct people who have spotted the cat.
 - *Options:*
   1. A deleted person stops counting, so the number can go down by one.
   2. Every unlinked sighting counts as one fan, so the number can go up.
-- **Recommendation: 1.** They are no longer a fan. The spec protects the sighting count, which doesn't change.
+- **Decided: option 1, as recommended.**
 
 **D. The "deleted device" marker (§4.3).**
 - *Options:*
   1. Keep a one-way hash of the deleted device id, so the identity cannot come back.
   2. Keep nothing.
 - *Risk of 2:* a second browser tab or an interrupted delete silently recreates the person, and their next sightings are linked again.
-- **Recommendation: 1.** It is the same kind of hash the spec already keeps for email addresses, and it needs no new table.
+- **Decided: option 1, as recommended.**
 
 **E. Offline.**
 - *Options:*
-  1. Disable the button with one line, *"You need a connection to delete your data."*
+  1. Disable the button with the line *"You need a connection to delete your data."*
   2. Let them tap, then show an error.
-- **Recommendation: 1.** Again, this is new copy, so it needs your yes.
+- **Decided: option 1, as recommended. The copy is approved.**
 
 ---
 
@@ -366,18 +380,31 @@ In the browser pane on the web build, at about 390 px and at desktop width:
    - state how long database backups keep deleted data, in the privacy policy;
    - settle the delete-token expiry contradiction (email-capture §5.8 vs team-access §8.5), within SYC-45;
    - api-server tests on a throwaway database, needed by the sightings guard.
+5. **Decision A keeps the person's raw device id, in `cats.owner_device_id`.** Samuel decided to keep the owner link. On `main` that link *is* the device id, so after deletion one row still holds it. This conflicts with three things:
+   - data spine §8.5's test that "no query anywhere returns the device id";
+   - §10.8 test 14;
+   - §8.3, where "the device row" goes and everything else is unlinked.
+
+   The id no longer unlocks anything, because the credential is gone and the marker refuses it. But it is still the person's identifier, and it could be matched against anything that recorded it elsewhere, such as old logs or an old phone.
+
+   *Samuel to confirm one of two things:*
+   - **(a)** keep it as decided, and accept the one named test exception in §8.1;
+   - **(b)** "keep the link" meant "keep the cat showing as homed". In that case the link is cleared, and the homed status comes from data spine step 4's observation instead. That brings the step-4 dependency back.
+
+   The plan follows (a) until he says otherwise.
+6. **Decision A keeps the home description, so the privacy policy needs reconciling.** `privacy-policy.md` says *"Your address, your points, your streak, your spot history and anything you typed all go."* A cat's home description is something the person typed, and it now stays. The wording to reconcile is that sentence. It would need to add something like *"…except a note about where a cat you said lives with you is kept"*, alongside the existing exception for names. **For Samuel. This plan doesn't edit `privacy-policy.md`.** Email-capture §6.3 also needs the approved A, B and E lines added (§1.2).
 
 ---
 
 ## 11. Rollout order
 
-0. **Samuel approves this plan** and decisions A to E. Part 2g lands in `DECISIONS.md` through its own PR.
+0. **Samuel approves this plan.** Decisions A to E were decided on 29 Sep; flag 5 in §10 is still open. Part 2g lands in `DECISIONS.md` through its own PR.
 0a. **SYC-102 must be resolved before any of this reaches production. This is a blocking dependency.** Replit copies only structural changes, such as tables and columns, from the dev database to production when you publish. Triggers and functions may not make the trip.
    - **The deletion itself doesn't rely on a trigger.** Its updates work with or without one.
    - **The guarantees around it do.** Migration 0001's `observations_append_only` trigger is what stops anything *other* than a redaction rewriting history. §5's new sightings guard is a trigger too.
    - **The risk:** if either is missing in production, deletion still works, but the "only redaction may change history" promise is silently false there.
    - **Before rollout,** probe production to confirm both triggers exist. For example, list the triggers on `observations` and `sightings` from `pg_trigger` by name. Don't assume they arrived.
-1. **Data spine step 4** (claims recorded as homed) and **step 5's claim check**, both before this: step 4 for decision A, and step 5 for §4.3. If step 5 hasn't landed, this build adds the secret check to the three cat routes itself.
+1. **Data spine step 5's claim check** (with SYC-107) comes before this, for §4.3. Step 4 is no longer a prerequisite for deletion, because decision A keeps the owner link. It becomes one again if flag 5 in §10 is resolved as (b). If step 5 hasn't landed, this build adds the secret check to the three cat routes itself.
    - **Steps 2 to 7 are sequenced in the data spine plan,** `docs/superpowers/plans/data-spine.md` (branch `claude/data-spine-plan`, SYC-40 and SYC-52). This plan doesn't reorder them; it only says which of them must come first.
 2. **The §5 migration**, in its slot, before the Play closed test. It is additive apart from the relaxed `NOT NULL`, so nobody notices anything.
 3. **Server, read side:** nullable spotter codes, the fans rule and the notification filter. This is harmless on its own, because no row is redacted yet.
