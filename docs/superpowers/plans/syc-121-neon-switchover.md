@@ -153,3 +153,293 @@ The app and the database are both in Europe from the new project's first publish
 **If the new project were accidentally published outside Europe** (the choice is permanent), every database query would add about 100 ms. That's about 1 to 1.5 seconds on a sighting upload, which runs 10 to 15 queries one after another. It's usable for a short window but not as a standing state. C.6 therefore has a check before the first publish, and D.4 has one after it: the startup log's round-trip time to the database. If that time is above 20 ms, Samuel deletes that remix and makes a new one. No tester data is involved at that point.
 
 **If Samuel prefers to move the database without moving the app** (for example, if C.1 shows the app is already in Europe), see decision Q1, option B.
+
+---
+
+## Part B · The code change (one PR: "SYC-121 build")
+
+It's small and mechanical, apart from the carry-back tool. It's built in its own worktree off fresh `origin/main`, one commit per task, with the usual `/ship` review. **Merging it changes nothing live.** The old project is never pulled, and the new one doesn't exist yet.
+
+### Global constraints
+
+- Postgres 16 everywhere. `pg` stays at 8.22. No new runtime dependencies.
+- Production (`NODE_ENV=production`) **fails closed**: no `APP_DATABASE_URL`, no start. It never falls back to `DATABASE_URL`.
+- Nothing prints a connection string or a password, whether in logs, errors or test output. It prints the host name at most.
+- Every connection a switchover tool opens to a Replit database is read-only at the session level, except the carry-back's `--apply` (R1).
+- Existing tests keep passing unchanged. CI's `DATABASE_URL` path is untouched.
+
+### Task B.1: one place decides which database to use
+
+**Files:**
+- Create: `lib/db/src/url.ts`, `lib/db/src/url.test.ts`
+- Modify: `lib/db/src/index.ts`, `lib/db/src/migrate/cli.ts` (`withClient`, `migrationsBuildTheSchema`)
+
+**Produces:** `resolveDatabaseUrl(env: NodeJS.ProcessEnv): { url: string; source: "APP_DATABASE_URL" | "DEV_DATABASE_URL" | "DATABASE_URL" }` and `describeHost(url: string): string` (the host only), both exported from `@workspace/db`, along with `databaseTarget: { source, host }`.
+
+- [ ] **Step 1: write the failing tests** (`url.test.ts`, pure, no database):
+
+```ts
+import { describe, expect, it } from "vitest";
+import { describeHost, resolveDatabaseUrl } from "./url";
+
+const neonProd = "postgresql://u:p@ep-prod-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=verify-full";
+const neonDev = "postgresql://u:p@ep-dev.eu-central-1.aws.neon.tech/neondb?sslmode=verify-full";
+const replit = "postgresql://u:p@helium/heliumdb";
+
+describe("resolveDatabaseUrl", () => {
+  it("production uses APP_DATABASE_URL", () => {
+    expect(resolveDatabaseUrl({ NODE_ENV: "production", APP_DATABASE_URL: neonProd, DATABASE_URL: replit }))
+      .toEqual({ url: neonProd, source: "APP_DATABASE_URL" });
+  });
+  it("production refuses to fall back to DATABASE_URL", () => {
+    expect(() => resolveDatabaseUrl({ NODE_ENV: "production", DATABASE_URL: replit }))
+      .toThrow(/APP_DATABASE_URL must be set in production/);
+  });
+  it("production refuses a URL without sslmode", () => {
+    expect(() => resolveDatabaseUrl({ NODE_ENV: "production", APP_DATABASE_URL: "postgresql://u:p@h/db" }))
+      .toThrow(/sslmode/);
+  });
+  it("a Replit workspace uses DEV_DATABASE_URL", () => {
+    expect(resolveDatabaseUrl({ REPL_ID: "x", DEV_DATABASE_URL: neonDev, DATABASE_URL: replit }).source)
+      .toBe("DEV_DATABASE_URL");
+  });
+  it("a Replit workspace refuses Replit's own database", () => {
+    expect(() => resolveDatabaseUrl({ REPL_ID: "x", DATABASE_URL: replit })).toThrow(/DEV_DATABASE_URL/);
+  });
+  it("CI and local use DATABASE_URL", () => {
+    expect(resolveDatabaseUrl({ DATABASE_URL: "postgres://postgres:postgres@localhost:5432/t" }).source)
+      .toBe("DATABASE_URL");
+  });
+  it("errors never contain the password", () => {
+    expect(() => resolveDatabaseUrl({ NODE_ENV: "production", APP_DATABASE_URL: "postgresql://u:secretpw@h/db" }))
+      .toThrow(expect.objectContaining({ message: expect.not.stringContaining("secretpw") }));
+  });
+  it("describeHost shows the host only", () => {
+    expect(describeHost(neonProd)).toBe("ep-prod-pooler.eu-central-1.aws.neon.tech");
+  });
+});
+```
+
+- [ ] **Step 2:** `pnpm --filter @workspace/db exec vitest run src/url.test.ts`. Expected: FAIL, because `./url` doesn't exist.
+- [ ] **Step 3: implement `url.ts`:**
+
+```ts
+export type DatabaseUrlSource = "APP_DATABASE_URL" | "DEV_DATABASE_URL" | "DATABASE_URL";
+
+// SYC-121. Production reads APP_DATABASE_URL (Neon production, pooled) and never
+// falls back. A Replit workspace reads DEV_DATABASE_URL (Neon development) and
+// refuses Replit's own managed database, which is frozen. CI and local
+// development keep DATABASE_URL.
+export function resolveDatabaseUrl(env: NodeJS.ProcessEnv): { url: string; source: DatabaseUrlSource } {
+  if (env.NODE_ENV === "production") {
+    const url = env.APP_DATABASE_URL;
+    if (!url) throw new Error("APP_DATABASE_URL must be set in production (SYC-121). Refusing to start.");
+    if (!/[?&]sslmode=(require|verify-full)\b/.test(url)) {
+      throw new Error(`APP_DATABASE_URL for ${describeHost(url)} has no sslmode=verify-full. Refusing to start.`);
+    }
+    return { url, source: "APP_DATABASE_URL" };
+  }
+  if (env.DEV_DATABASE_URL) return { url: env.DEV_DATABASE_URL, source: "DEV_DATABASE_URL" };
+  if (env.REPL_ID) {
+    throw new Error(
+      "DEV_DATABASE_URL is not set. In a Replit workspace the app uses the Neon development branch; " +
+        "Replit's own database is frozen (SYC-121). Add DEV_DATABASE_URL to the workspace secrets.",
+    );
+  }
+  if (!env.DATABASE_URL) throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
+  return { url: env.DATABASE_URL, source: "DATABASE_URL" };
+}
+
+export function describeHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "(unparseable database URL)";
+  }
+}
+```
+
+- [ ] **Step 4: wire it in.** `lib/db/src/index.ts`:
+
+```ts
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+import * as schema from "./schema";
+import { describeHost, resolveDatabaseUrl } from "./url";
+
+const { url, source } = resolveDatabaseUrl(process.env);
+export const databaseTarget = { source, host: describeHost(url) };
+export const pool = new pg.Pool({ connectionString: url });
+// Neon closes idle connections when its compute suspends. Without a listener,
+// an idle client's 'error' event would crash the process.
+pool.on("error", (err) =>
+  console.error(`database pool: idle client error on ${databaseTarget.host}: ${err.message}`),
+);
+export const db = drizzle(pool, { schema });
+export * from "./schema";
+export { describeHost, resolveDatabaseUrl } from "./url";
+```
+
+In `cli.ts`, `withClient` and `migrationsBuildTheSchema` use `resolveDatabaseUrl(process.env).url` instead of reading `DATABASE_URL` directly. `drizzle.config.ts` is unchanged, because `generate` never connects.
+
+- [ ] **Step 5:** run `pnpm --filter @workspace/db test` and `pnpm --filter @workspace/api-server test` with only `DATABASE_URL` set (the CI path). Expected: PASS, with no other test changed.
+- [ ] **Step 6: mutation probes** (each must turn the named test red, then be restored):
+  - Remove the production `throw`, and "production refuses to fall back" fails.
+  - Delete the `REPL_ID` branch, and "a Replit workspace refuses" fails.
+  - Put `url` into the sslmode error message, and "errors never contain the password" fails.
+- [ ] **Step 7: commit** with the message `SYC-121: one resolver picks the database; production requires APP_DATABASE_URL`.
+
+### Task B.2: the API says which database it's on, and how far away it is
+
+**Files:**
+- Create: `artifacts/api-server/src/lib/databaseStartup.ts`, `artifacts/api-server/src/lib/databaseStartup.test.ts`
+- Modify: `artifacts/api-server/src/index.ts`
+
+**Produces:** `logDatabaseTarget(pool: { query(sql: string): Promise<unknown> }, target: { source: string; host: string }, logger): Promise<void>`. It runs `select 1` twice after `listen`, and logs `{ source, host, roundTripMs }` from the second run (the first may include a Neon wake-up). It never blocks start-up. If the database is unreachable it logs a warning and resolves, rather than throwing. **This log line is what C.6, D.4 and E.8 read** to confirm the deployment is on the Neon production host, with a round trip under 20 ms.
+
+- [ ] **Step 1:** write the tests with a stub pool. One checks that it logs `source`, `host` and a numeric `roundTripMs`, and that nothing logged contains `postgres`. The other uses a pool that rejects, and checks it logs a warning and resolves.
+- [ ] **Step 2:** run them and see them fail. **Step 3:** implement, and call it from `index.ts` inside the `listen` callback, without awaiting it. **Step 4:** they pass.
+- [ ] **Step 5: commit** with the message `SYC-121: log the database host and round trip at start-up`.
+
+### Task B.3: the switchover tools (fingerprint, target guard, carry-back)
+
+**Files:**
+- Create: `lib/db/src/switchover/fingerprint.ts`, `guard.ts`, `carryBack.ts`, `cli.ts`, all in `lib/db/src/switchover/`
+- Create: `lib/db/src/switchover/switchover.test.ts`, which uses throwaway databases on `DATABASE_URL`, the same pattern as `runner.test.ts`
+- Modify: `lib/db/package.json`, adding the script `"switchover": "tsx ./src/switchover/cli.ts"`
+
+**Produces (CLI):** `pnpm --filter @workspace/db run switchover <command>`. The source and target come from `SOURCE_DATABASE_URL` and `TARGET_DATABASE_URL`.
+
+| Command | What it does | Writes? |
+|---|---|---|
+| `fingerprint` (on `SOURCE`) | For each of the **nine baseline tables**, prints the row count and an md5 over every row in primary-key order, plus `last_value` and `max(id)` for each `serial` sequence. Also prints `server_version`, `datcollate`, `datctype`, the encoding, and the md5 of the `public` schema signature (reusing `schemaSignature`). It prints hashes and counts, **never row contents** | No. The session is read-only |
+| `guard-target --mode rehearsal\|cutover` (on `TARGET`) | **Refuses** if `switchover.cutover_done` exists, meaning production has already been cut over (R5). In `cutover` mode, it also refuses if `public` has any table and there's no `switchover.rehearsal_marker`. Otherwise it drops `public` and `drizzle`, recreates an empty `public`, and drops `switchover` in rehearsal mode | Yes, and only on Neon |
+| `mark --mode rehearsal\|cutover --fingerprint <md5>` (on `TARGET`) | Creates the `switchover` schema and one row in `rehearsal_marker` or `cutover_done` (timestamp, source fingerprint) | Yes, and only on Neon |
+| `compare [--projected]` (on `SOURCE` and `TARGET`) | Fingerprints both and exits non-zero on **any** difference in counts, row hashes, sequences, signature, encoding or collation. `--projected` compares only the source's columns, and skips the signature (for comparisons after migrations) | No. Both sessions are read-only |
+| `carry-back [--apply]` (`SOURCE` = Neon production, `TARGET` = old Replit production) | See below | Only with `--apply` |
+
+The `switchover` schema sits outside `public`, so it never affects the runner's exact-match adoption, which compares `public` only.
+
+**Fingerprint SQL, per table.** The same query runs on both sides, so any difference shows:
+
+```sql
+select count(*)::bigint as rows,
+       md5(coalesce(string_agg(md5(t::text), '' order by <primary key columns>), '')) as hash
+  from "<table>" t;
+```
+
+`t::text` includes the `bytea` photo data as hex, so the photo bytes are part of the checksum. At 38 photos this is cheap. The nine tables and their keys, from `0000_baseline.sql`, are: `photos(id)`, `cats(id)`, `sightings(id)`, `profiles(device_id)`, `cat_subscriptions(device_id, cat_id)`, `cat_updates(id)`, `notifications(id)`, `push_tokens(device_id)` and `device_credentials(device_id)`.
+
+**Carry-back: copying testers' Neon writes back in a rollback (F.3).** The old database has the baseline schema. Neon has the baseline plus everything after it (`0001`'s new tables, `0002`'s `photos.public_id`, and so on). The carry-back makes each of the nine baseline tables in the old database **equal to Neon's rows, projected onto the old database's columns**. It runs in one transaction, by primary key:
+
+1. For each table, read the old database's column list, and select those columns from both sides.
+2. Rows only on Neon are **inserted**. Rows on both with different values are **updated**. Rows only in the old database are **deleted**. Only the app's own deletes cause those, for example a moderation removal. Inserts and updates go parents first, and deletes go children first, following the foreign keys.
+3. Each `serial` sequence is set to `greatest(last_value, max(id))`.
+4. `compare --projected` runs inside the same transaction. The transaction commits only if the old database now matches Neon's projection exactly. Otherwise it rolls back, and nothing changes.
+5. **Without `--apply`** (a dry run, and the default), it prints, per table, the counts it *would* insert, update and delete, and the affected ids. It prints ids only, never contents. That output is what Samuel approves in F.3.
+
+Rows in tables the old database doesn't have (`0001`'s and later) **aren't lost**. They stay on Neon, which is kept, and the dry run names them as "no home in the old database".
+
+- [ ] **Step 1: write the failing tests** in `switchover.test.ts`, each building its own throwaway databases:
+  1. `fingerprint` gives the same result for two databases holding the same rows **inserted in a different order**. Changing one byte of one photo changes the `photos` hash and nothing else.
+  2. `compare` fails on a sequence behind `max(id)`, on a missing index, and on a different `datcollate` (compared at the fingerprint level).
+  3. `guard-target --mode cutover` refuses a database with `switchover.cutover_done`. It also refuses one with tables but no marker. It accepts one with a marker and leaves it empty.
+  4. **Carry-back, end to end.** Build the "old" database at `0000` with rows, and the "new" one at `0000`+`0001`+`0002` with the same rows. On "new", insert a sighting and a photo, rename a cat, delete a subscription, and add an `observations` row. The dry run reports 2 inserts, 1 update and 1 delete, with `observations` reported as having no home. After `--apply`, `compare --projected` passes, and `nextval` on "old" returns `max(id)+1`.
+  5. The carry-back refuses to `--apply` when the old database has a column Neon lacks. That would mean the old schema isn't the baseline, so it stops (R0).
+  6. `fingerprint` opens its source read-only: an `insert` through its client is refused with SQLSTATE `25006`.
+- [ ] **Step 2:** run them and watch them fail. **Step 3:** implement. **Step 4:** they pass.
+- [ ] **Step 5: mutation probes** (each must turn the named test red, then be restored):
+  - Skip the update pass, and test 4 fails.
+  - Skip `setval`, and test 4's `nextval` check fails.
+  - Drop the `order by` from the fingerprint's aggregate, and test 1 fails (the rows were inserted in a different order).
+  - Remove the read-only session option, and test 6 fails.
+  - Remove the `cutover_done` check, and test 3 fails.
+- [ ] **Step 6: commit** three times: fingerprint and compare; the guard and the marker; carry-back.
+
+### Task B.4: the `db-ops` workflow
+
+**Files:** Create `.github/workflows/db-ops.yml` and `scripts/db-ops.sh`.
+
+```yaml
+name: db-ops
+on:
+  workflow_dispatch:
+    inputs:
+      target: { type: choice, options: [development, rehearsal, production], required: true }
+      command:
+        type: choice
+        required: true
+        options: [fingerprint-source, copy, verify, migrate, migrate-rollback, smoke, carry-back-dry-run, carry-back-apply]
+      base_url: { type: string, required: false, description: "For smoke: defaults to https://apptest.catspotters.com" }
+      confirm: { type: string, required: false, description: "Type APPLY for carry-back-apply" }
+permissions: { contents: read }
+concurrency: { group: "db-ops-${{ inputs.target }}", cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.target == 'development' && 'development' || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Postgres 16 client
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-16
+          /usr/lib/postgresql/16/bin/pg_dump --version
+      - name: Run
+        env:
+          TARGET: ${{ inputs.target }}
+          COMMAND: ${{ inputs.command }}
+          BASE_URL: ${{ inputs.base_url }}
+          CONFIRM: ${{ inputs.confirm }}
+          NEON_URL: ${{ inputs.target == 'production' && secrets.NEON_PROD_DIRECT_URL || inputs.target == 'rehearsal' && secrets.NEON_REHEARSAL_DIRECT_URL || secrets.NEON_DEV_DIRECT_URL }}
+          REPLIT_URL: ${{ secrets.REPLIT_PROD_DATABASE_URL }}
+          PRELAUNCH_KEY: ${{ secrets.PRELAUNCH_TESTER_KEY }}
+        run: bash scripts/db-ops.sh
+```
+
+`scripts/db-ops.sh` maps each command to exactly one action. It runs with `set -euo pipefail`, never uses `set -x`, and never echoes a variable that holds a URL:
+
+| Command | Runs |
+|---|---|
+| `fingerprint-source` | `switchover fingerprint`, with the source set to `$REPLIT_URL` (read-only) |
+| `copy` (refused for `development`) | `guard-target` (the mode follows the target), then a `fingerprint` of the source, then `pg_dump -Fc -n public --no-owner --no-privileges --no-publications --no-subscriptions` from Replit in a read-only session, then `pg_restore --no-owner --no-privileges --single-transaction --exit-on-error -L <the table of contents without its "SCHEMA - public" line>` into Neon, then `compare`, then a **second** `fingerprint` of the source, which must equal the first (proving nothing was written to Replit during the copy), then `mark` (the rehearsal marker, or `cutover_done`). The dump lives only in the runner's temporary folder, apart from the encrypted copy in decision Q6 |
+| `verify` | `compare --projected` (Replit against Neon, on the baseline tables), plus the migration history in `drizzle.__drizzle_migrations` checked against the journal's hashes |
+| `migrate` / `migrate-rollback` | `pnpm --filter @workspace/db run migrate` (or `migrate:rollback`), with `DATABASE_URL=$NEON_URL` for that one command |
+| `smoke` | `pnpm --filter @workspace/db run smoke "${BASE_URL:-https://apptest.catspotters.com}"`, with `PRELAUNCH_KEY` set |
+| `carry-back-dry-run` / `carry-back-apply` | Production target only. `apply` also requires `CONFIRM == APPLY` |
+
+The restore leaves out `CREATE SCHEMA public` because Neon's empty database already has one. Dumping with `-n public` leaves out Replit's own schemas. Neither the old database nor our baseline uses an extension. D.2 confirms all of this against the real dump's table of contents.
+
+- [ ] **Step 1:** `actionlint` and `bash -n scripts/db-ops.sh` pass.
+- [ ] **Step 2: a local dry run.** Run `scripts/db-ops.sh` with `NEON_URL` and `REPLIT_URL` pointing at two local databases, with the source built at `0000` and holding rows. `copy`, `verify` and `migrate` all succeed. A second `copy` into the same target with the `production` mode is refused.
+- [ ] **Step 3:** search the dry run's whole output for `postgres://` and `postgresql://`. Nothing should be found.
+- [ ] **Step 4: commit** with the message `SYC-121: db-ops workflow for copy, migrate, verify, smoke, carry-back`.
+
+### Task B.5: `smoke` gets through the pre-launch gate
+
+**Files:** Modify `lib/db/src/migrate/cli.ts` (`smoke`). Test: `lib/db/src/migrate/smoke.test.ts`.
+
+With the SYC-113 gate on, `GET /api/cats` with no pass gets a 401, so today's smoke test would fail. `smoke` sends `X-Prelaunch-Key: $PRELAUNCH_KEY` on every request when that variable is set.
+
+- [ ] **Steps:** write a test with a stub HTTP server that answers 401 without the header and 200 with it, and see it fail. Implement. Run it again and see it pass. Commit with the message `SYC-121: smoke passes the pre-launch key when set`.
+
+### Task B.6: documentation
+
+**Files:** `docs/DEPLOYMENT.md` §C, `lib/db/migrations/README.md`, `docs/runbooks/replit-github-sync.md`, and a new `docs/runbooks/neon-database.md`. The new file is short: where things live, running `db-ops`, resetting the development branch, and restoring to a point in time.
+
+- `DEPLOYMENT.md` §C: replace "Production Postgres with backups enabled…" with Neon, the 7-day restore, and the rehearsal as the tested restore (with its date). Replace "Schema changes go through migrations only…" with A.4's order. Replace "Check Replit's publish step…" with R3. Add the one-instance setting (SYC-105) and the new project's name.
+- `lib/db/migrations/README.md`: the paragraph "If `migrate` refuses the Replit dev database" becomes "reset the Neon `development` branch from `production`" (Neon console → Branches → development → Reset from parent). The advice to drop schemas by hand goes.
+- `replit-github-sync.md`: the Git-pane pull now happens in the **new** project, and `post-merge.sh` migrates the Neon development branch. **Never pull in the old project** (R2).
+- The DECISIONS.md amendment (G.3) goes into this PR **only after Samuel approves its wording**.
+- [ ] **Commit** with the message `SYC-121: deployment docs for Neon`.
+
+### Task B.7: prove the whole PR
+
+- [ ] `pnpm --filter @workspace/db run migrate:check`, `pnpm --filter @workspace/db test`, the api-server tests and all the typechecks pass, both locally and in CI.
+- [ ] The PR body records the mutation probes from B.1 and B.3, each with the test that went red.
+- [ ] Ship it with `/ship`: an independent adversarial review (see Model delegation) and `/security-review`, since the PR handles secrets and adds a write path to live data.
