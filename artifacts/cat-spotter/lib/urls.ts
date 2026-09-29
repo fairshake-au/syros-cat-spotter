@@ -27,6 +27,16 @@ export function absoluteUrl(path: string): string {
 }
 
 /**
+ * The website's sign-in page, carrying `?next=` so a successful sign-in
+ * lands back where the user was (SYC-121 review fix). `next` is the app's
+ * current in-app path, not a full URL — the server's `safeNext` only
+ * accepts a same-site path.
+ */
+export function signInUrl(next: string): string {
+  return absoluteUrl(`/_gate/login?next=${encodeURIComponent(next)}`);
+}
+
+/**
  * The image source for a photo from our API (SYC-113 item 5).
  *
  * Image loads don't go through customFetch, so on iOS and Android the tester

@@ -1,11 +1,12 @@
 import React from 'react';
 import { Linking, Pressable, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
-import { absoluteUrl } from '@/lib/urls';
+import { signInUrl } from '@/lib/urls';
 
 /**
  * SYC-121: shown when a sync hit the pre-launch gate's own 401 — e.g. a
@@ -23,12 +24,13 @@ export function SignInRequiredBanner() {
   const colors = useColors();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const { needsSignIn } = useOffline();
 
   if (!needsSignIn) return null;
 
   const openSignIn = () => {
-    Linking.openURL(absoluteUrl('/_gate/login')).catch(() => {});
+    Linking.openURL(signInUrl(pathname)).catch(() => {});
   };
 
   return (

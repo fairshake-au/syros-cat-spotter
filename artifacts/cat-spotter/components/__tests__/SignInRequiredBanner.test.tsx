@@ -5,8 +5,8 @@
  * and retry logic are unit-tested against OfflineContext directly.
  */
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, fireEvent, cleanup } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@expo/vector-icons', () => ({
   Feather: () => null,
@@ -19,6 +19,11 @@ vi.mock('@/hooks/useColors', () => ({
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+
+const { usePathname } = vi.hoisted(() => ({
+  usePathname: vi.fn().mockReturnValue('/'),
+}));
+vi.mock('expo-router', () => ({ usePathname }));
 
 vi.mock('@/context/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key }),
@@ -37,6 +42,11 @@ vi.mock('react-native', async () => {
 
 import { SignInRequiredBanner } from '../SignInRequiredBanner';
 
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
 describe('SignInRequiredBanner', () => {
   it('renders nothing when needsSignIn is false', () => {
     useOffline.mockReturnValue({ needsSignIn: false });
@@ -52,6 +62,19 @@ describe('SignInRequiredBanner', () => {
     fireEvent.click(getByText('signInRequiredTitle'));
 
     expect(openURL).toHaveBeenCalledTimes(1);
-    expect(openURL.mock.calls[0][0]).toMatch(/\/_gate\/login$/);
+    expect(openURL.mock.calls[0][0]).toMatch(/\/_gate\/login\?next=%2F$/);
+  });
+
+  it('carries the current path as ?next= so sign-in returns where the user was', () => {
+    usePathname.mockReturnValue('/cat/42');
+    useOffline.mockReturnValue({ needsSignIn: true });
+    const { getByText } = render(<SignInRequiredBanner />);
+
+    fireEvent.click(getByText('signInRequiredTitle'));
+
+    expect(openURL).toHaveBeenCalledTimes(1);
+    expect(openURL.mock.calls[0][0]).toMatch(
+      /\/_gate\/login\?next=%2Fcat%2F42$/,
+    );
   });
 });
