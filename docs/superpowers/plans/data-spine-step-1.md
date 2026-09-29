@@ -42,7 +42,7 @@ It found no blockers. These findings are fixed:
 
 ## Deferred on purpose, and owned elsewhere
 
-- **Deletion (SYC-63) still needs its own migration.** `sightings.device_id` and `cats.discoverer_device_id` are NOT NULL, so unlinking them means dropping NOT NULL or agreeing a sentinel. §11.2 step 8's "depends only on step 1's redaction column" is wrong on that point.
+- **Deletion (SYC-63) still needs its own migration.** `sightings.device_id` and `cats.discoverer_device_id` are NOT NULL, so unlinking them means dropping NOT NULL or agreeing a sentinel. §11.2 step 8's "depends only on step 1's redaction column" is wrong on that point. Decided 29 Sep 2026 (Part 2g): nullable columns with a redaction check.
 - **Sightings have no append-only guard yet.** The app updates `status` and `cat_id` today, so a guard needs designing with that work.
-- **Author for machine-written rows.** The attribution check needs a device or an account on every observation. Step 3's legacy backfill, and `system` writes from SYC-42/43, need an agreed author id (for example `account_id = 'system:legacy-import'`). Decide it before step 3.
+- **Author for machine-written rows.** The attribution check needs a device or an account on every observation. Step 3's legacy backfill, and `system` writes from SYC-42/43, use `account_id = 'system:<source>'`, decided 29 Sep 2026 (`DECISIONS.md` Part 2g).
 - **`redacted_at` accepts any timestamp.** The guard doesn't force it to the current time, because an app clock that's slightly off would then refuse real deletions.

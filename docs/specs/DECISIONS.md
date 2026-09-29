@@ -205,6 +205,14 @@ Approved by Samuel after an adversarial review broke v1 (its promise that nothin
 - **R4 accepted:** review photos stay on the phone up to seven days.
 - **R5 approved:** when sending fails for a network reason while the phone reports a connection, the app offers "Save and send later" and queues the sighting.
 
+## Part 2g — data spine follow-ups from the step 1 review, 29 September 2026
+
+Samuel decided these after the adversarial review of data spine step 1 (#17). All three amend `cat-record-data-spine.md`, and win where it says otherwise.
+
+- **Cat names are unique by a folded form, not by `lower(name)`.** `cats` gains a normalised name column: NFC, case-folded, accents stripped, `ς` folded to `σ`, the same folding as `colonies.normalised_name` (§10.3). The unique index moves onto it. The name as typed is still what everyone sees. The migration lists existing near-duplicates for the team to resolve rather than guessing, and lands before launch while there are few. **Why:** the step 1 tests proved `lower(name)` accepts `ΜΙΜΗ` beside `Μιμή`, and `ΣΟΦΊΑΣ` beside `Σοφίας`, as different cats, so `records-import.md` §2.4's "unique by construction" was false.
+- **Deletion unlinks by clearing the column (SYC-63).** `sightings.device_id` and `cats.discoverer_device_id` become nullable. A check allows NULL only on a redacted row, and `cats` gains `redacted_at`/`redaction_reason` like sightings. A cat with no discoverer shows as *"a spotter"* (§8.3). **Rejected:** a fixed "redacted" value, which would create one phantom spotter holding every deleted person's sightings and points. **Also rejected:** a random stand-in id per person, which would keep each deleted person's walk trail grouped together, the thing §8.3 removes. **Corrects §11.2 step 8:** deletion needs this migration; it does not "depend only on step 1's redaction column".
+- **System-written observations are authored `account_id = 'system:<source>'`.** Examples: `system:legacy-backfill` (§11.2 step 3), `system:records-import`. The attribution check stays strict: every row has exactly one author. Real account ids are generated and never start with `system:`, and deletion never matches these rows. A welfare report is still authored by the reporter's device, and a report outcome by the staff member's account. **Rejected:** allowing authorless rows, which reopens the gap the review closed. **Also rejected:** a separate author-type column, a migration and a concept for three sources.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
@@ -238,3 +246,5 @@ The four specs were written independently and contradicted each other in fourtee
 - Verification flow for every email entry point (F7b).
 - Migration history before the Play clock starts (F6).
 - Offline queue on web: single write path, IndexedDB photo store with backup-first migration, route handoff, sighting dedupe, "Save and send later" (`offline-queue-on-web.md`, PR #9).
+- Cat names unique by a folded form, with a migration that surfaces existing near-duplicates, before launch (Part 2g).
+- The deletion migration: nullable device columns with a redaction check, plus `cats` redaction columns (Part 2g, SYC-63).
