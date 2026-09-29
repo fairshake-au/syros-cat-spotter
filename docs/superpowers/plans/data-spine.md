@@ -67,17 +67,18 @@ Every PR's requirements include these.
 
 ## The sequence
 
-Twelve PRs: one for test infrastructure, one schema migration and one data migration of this plan's own, SYC-101's migration (its own ticket, sequenced here), and eight code PRs. Each is independently mergeable and leaves main working. The order puts every schema change first (F6), then the rules, then the writes, then the reads, then what the public sees.
+Fourteen PRs, counting SYC-101's: one for test infrastructure, one for getting database changes into production, one schema migration and one data migration of this plan's own, SYC-101's migration (its own ticket, sequenced here), and nine code PRs. Each is independently mergeable and leaves main working. The order puts delivery and every schema change first (F6), then the rules, then the writes, then the reads, then what the public sees.
 
 | # | PR | Spec step | Migration | Blocked by |
 |---|---|---|---|---|
 | 0 | API tests run on a throwaway database | — | none | — |
+| P | Database changes reach production (per Q5) | §11.1 | none | decision Q5 |
 | 1 | The resolver and the name-folding function (pure) | §10.2, §10.3 | none | — |
-| A | Deletion-ready schema and the sightings guard | step 8 (schema half) | `0003` | SYC-98's `0002` merged; PR 0 |
+| A | Deletion-ready schema and the sightings guard | step 8 (schema half) | `0003` | SYC-98's `0002` merged; PR 0; PR P |
 | — | SYC-101: fold cat names for uniqueness (own ticket) | §10.3 amended | `0004` | PR A merged; PR 1 (folding function) |
-| 2 | One way to write an observation, and the go-forward writes | steps 2, 4 | none | PR 0, PR 1 |
-| 3 | Backfill what already exists | steps 3, 4 | `0005` (data only) | PR 2 **deployed**; SYC-101 merged; decision Q1 |
-| 4 | The cat page shows derived status | §3.5, §4.2, §10.7 | none | PR 2 |
+| 2 | One way to write an observation, and the go-forward writes | steps 2, 4 | none | PR 0, PR 1; PR P live and step 1's guards confirmed in production |
+| 3 | Backfill what already exists | steps 3, 4 | `0005` (data only) | PR 2 **live in production**; SYC-101 merged; decision Q1 |
+| 4 | The cat page shows derived status | §3.5, §4.2, §10.7 | none | PR 2; **merged only after PR 3 has run in production** |
 | 5 | Close the oracle | step 5 | none | PR 2 |
 | 6 | Turn on blurring | step 6 | none | PR 4, PR 5, SYC-98 |
 | 7 | The sighting questions and the note | step 7 | none | PR 5; SYC-79 photos; decisions Q2, Q3 |
@@ -99,6 +100,18 @@ Step 2 ("backfill life status") writes nothing, by design: a cat with no `life_s
 - **Produces:** `resetTables(tables: string[])` for later PRs' tests.
 - **Tests:** the existing API suite passes unchanged against the throwaway database; one new test asserts the suite is not connected to the database named in `DATABASE_URL`.
 - **Rollback:** revert the PR. No data involved.
+
+### PR P — Database changes reach production
+
+Shape depends on Q5 (see "How each step reaches production"). Under the recommended answer:
+
+- **What changes:** the API, on start-up in production, takes a Postgres advisory lock (so two instances never race), then runs an idempotent "finish" step: every trigger, function, constraint and relaxed NOT NULL the migrations define, applied if missing; every data step not yet recorded, run and recorded in a small `app_data_steps` table (itself a plain table, which Replit's diff carries). Then it compares production's schema signature with the migrations' and logs each difference. In production, if the `observations` or `cat_identity` guards are missing after that, writes to them are refused with a 503 and a clear log line.
+- **Files:** `lib/db/src/migrate/` (a `finish` entry point reusing `signature.ts`), `artifacts/api-server/src/index.ts` (call it before listening), `docs/DEPLOYMENT.md` §C (replace "run `migrate` against production first" with what really happens), `lib/db/migrations/README.md` (the "safe to run twice" rule).
+- **Tests:** on a throwaway database built by the diff route (tables only, as `drizzle-kit push` makes them), the finish step adds step 1's triggers and check, and a second run changes nothing; a data step runs once only; with a guard deliberately missing, an observation write is refused.
+- **Assurance:** mutation probe (skip one trigger in the finish step; the startup check must report it); after the first publish, the read-only query tool confirms step 1's guards exist in production.
+- **Rollback:** revert. What it added (triggers, checks) is what the migrations always intended, so it stays.
+
+Under Q5 option B, this PR instead makes the API run the ordinary migration runner at start-up (with the same lock and the same check), after SYC-64's baseline adoption, and Replit's copying is switched off.
 
 ### PR 1 — The resolver and the name-folding function
 
@@ -135,7 +148,7 @@ All the schema deletion needs, landed early so F6 holds, while the deletion feat
 
 - **Columns.**
   - `sightings.device_id` drops NOT NULL, with a CHECK that it is null only when `redacted_at` is set.
-  - `cats.discoverer_device_id` drops NOT NULL, and `cats` gains `redacted_at` and `redaction_reason`, with the same CHECK. A redacted discoverer shows as *"a spotter"* (§8.3). `cats.owner_device_id` and `owner_name` are already nullable.
+  - `cats.discoverer_device_id` drops NOT NULL, and `cats` gains `discoverer_redacted_at` and `discoverer_redaction_reason` (named for what was redacted, since the cat itself isn't), with the same CHECK. A redacted discoverer shows as *"a spotter"* (§8.3). `cats.owner_device_id` and `owner_name` are already nullable.
 - **The sightings guard** (step 1: "sightings have no append-only guard yet"). A trigger that allows exactly what the app does today and what deletion needs, and refuses everything else:
   - insert, arriving unredacted;
   - resolve: `status` pending → resolved, setting `cat_id` from null, once;
@@ -166,8 +179,9 @@ The single write path every later writer uses (this plan's PRs, SYC-42's welfare
   - **A claim** writes `life_status: homed` from the claiming device, `roleAtTime: public`, `authorityScope: owner_of_this_cat` (Part 2c).
   - **Owner registration** (`POST /cats`) writes the same at creation (§11.2 step 4).
   - **Naming** a new cat on resolve, **registering** one, and an owner's **rename** each write a `name` observation with the folded form, so no rename destroys an earlier name (§5, §10.3).
-  - **The old admin care route** (`POST /cats/:catId/updates`, `OWNER_SECRET`): `desexed` also writes `sterilised: true`, and `adopted` writes `life_status: homed`, `roleAtTime: staff`, author per Q1. Without this, anything recorded through it before the dashboard exists would be missing from the record.
+  - **The old admin care route** (`POST /cats/:catId/updates`, `OWNER_SECRET`): `desexed` also writes `sterilised: true`, and `adopted` writes `life_status: homed`, `roleAtTime: staff`, author per Q1, with `observedAt` = the new `cat_updates` row's `created_at`, so PR 3's backfill can recognise it and not copy it twice. Without this, anything recorded through it before the dashboard exists would be missing from the record.
   - **The claim checks the device secret** (§10.6: "before the owner tier means anything at all"). The spec puts this in step 5, but from this PR on a claim changes what a cat's page says, so it moves here (Part 2c: "securing the claim endpoint therefore matters more").
+  - **So do owner registration and rename** (`POST /cats`, `PATCH /cats/:catId`). Neither checks the secret today; the rename compares a device id taken from the request body with the owner's, which anyone who learns the id can pass. The spec doesn't name them, but from this PR both write statements attributed to a device, and an attribution anyone can forge defeats §2's "how do you know". Ticketed separately (see the Review) so it's tracked even if it ships here. The app already sends the secret on every request (`custom-fetch.ts`, noted in `routes/sightings.ts`), so no tester is locked out.
 - **Tests:** each go-forward write appears once with the right role, scope and provenance, and not at all when the request fails; a claim without the secret is refused and writes nothing; `writeObservation` refuses an unknown kind, a malformed value, a future date, a public date more than 30 days old and an unreachable role; `loadCatRecords` for 50 cats issues a fixed number of queries (asserted with a query counter).
 - **Rollback:** revert. Observations already written stay (append-only), are true statements, and nothing reads them until PR 4.
 
@@ -178,18 +192,18 @@ Steps 3 and 4. Everything the app knows today becomes a statement in the record,
 - **What's written.**
   - Each `cat_updates` row of type `desexed` → `sterilised: true`; each `adopted` → `life_status: homed`. `provenance: legacy`, `roleAtTime: staff` (they came through the admin route), `observedAt` = the update's `created_at`, author per Q1.
   - Each cat with `owner_device_id` set → `life_status: homed` from that device, `authorityScope: owner_of_this_cat`, `provenance: legacy`. **`observedAt` = the cat's `created_at`**, because the claim date was never stored. That is the earliest the claim could have been, so the backfill never claims evidence of life later than we actually know it.
-  - Each cat → one `name` observation with its current name and folded form, `provenance: legacy`, author per Q1, `observedAt` = the cat's `created_at`.
+  - Each cat → one `name` observation with its current name and folded form, `provenance: legacy`, author per Q1, `observedAt` = the cat's `created_at`. The folded form is copied from the column SYC-101 adds to `cats`, because a SQL migration can't call PR 1's TypeScript `foldName`. (SYC-101 has the same problem filling that column; its PR needs either a SQL folding that a test proves matches `foldName` on the Greek and Latin cases, or a data step run from TypeScript. Flagged on the ticket.)
   - Every row carries `suggestion_source = 'backfill:0005'`, so the rollback finds exactly these rows. PR 2's validation refuses that value from any other writer.
 - **Idempotent against the go-forward writes.** Each insert is guarded by "no equivalent observation exists yet", so a claim PR 2 already recorded isn't recorded twice. That is why PR 2 must be **deployed** before this migration runs: it closes the window in which a claim could happen after the backfill read the table and before the new code was live.
 - **Self-checking.** The migration ends with a block that compares what it expected to write with what it wrote and raises if they differ, so a partial or wrong backfill rolls back the whole transaction instead of landing.
 - **Notifications.** Nothing is sent: the SQL writes only to `observations`. The notify job's baseline doesn't exist yet, and when SYC-55 builds it, it seeds from current derived status on its first run (`email-capture.md` §5.3: "the job would simply re-seed and send nothing"), so this history is never news (§9.2, test §10.8.15). See Conflicts, C4.
-- **How it's made:** `drizzle-kit generate --custom --name data_spine_backfill`, so it enters the journal and `migrate:check` accepts it.
+- **How it's made:** `drizzle-kit generate --custom --name data_spine_backfill`, so it enters the journal and `migrate:check` accepts it. In production it runs through PR P's mechanism (under Q5 option A, as a recorded data step using the same SQL), which is why it must be safe to run twice.
 - **Tests** (`lib/db/src/migrate/backfill.test.ts`, throwaway database): seeded cats, claims, registrations and care updates produce exactly the expected observations; running it where PR 2 already wrote a claim's `homed` produces no duplicate; up–down–up leaves the same rows; every seeded cat's resolved status matches what its old flags said (homed ↔ `hasHome`, sterilised ↔ the `Desexed` badge).
 - **Rollback block:** in one transaction, the table owner disables the observations append-only trigger, deletes the rows marked `backfill:0005`, and re-enables it. The block says this is the one sanctioned bypass and that it removes only this migration's rows.
 
 ### PR 4 — The cat page shows derived status
 
-- **API:** `Cat` and `CatDetail` gain `lifeStatus`, `notSeenSince` and `sterilised { value, confidence, clippedTipSightings }` (§10.7). `hasHome` becomes `lifeStatus === 'homed'`, derived, instead of `owner_device_id is not null`, so a team correction to Street is honoured and deleting an owner (PR 9) doesn't quietly unhome a cat. `GET /cats` and `GET /cats/:id` use `loadCatRecords` and `resolveCat` in one batch. **Request-duration logging** on both ships with the resolver, as §2.3 requires, so §12 risk 8's 200 ms trigger is observable.
+- **API:** `Cat` and `CatDetail` gain `lifeStatus`, `notSeenSince` and `sterilised { value, confidence, clippedTipSightings }` (§10.7). `hasHome` becomes `lifeStatus === 'homed'`, derived, instead of `owner_device_id is not null`, so a team correction to Street is honoured and deleting an owner (PR 9) doesn't quietly unhome a cat. `GET /cats` and `GET /cats/:id` use `loadCatRecords` and `resolveCat` in one batch. **Merged only after PR 3 has run in production**: before the backfill, a claimed cat has no `homed` statement, and deriving `hasHome` would briefly strip every claimed cat of its home badge. One visible change is intended: a cat marked "adopted" through the old admin route, with no owner in the app, now shows "Has a home", which is what the team meant. **Request-duration logging** on both ships with the resolver, as §2.3 requires, so §12 risk 8's 200 ms trigger is observable.
 - **Fan-out:** `createUpdateAndFanOut` and `notifyCatSpotters` skip a cat whose resolved life status is deceased (§3.3). Follows are kept, so a sighting that clears the status resumes them.
 - **App:** the cat page shows the life line and the sterilised line, in the copy above, where "Last seen" sits today. The `Desexed` badge, which reads `careTimeline` today (`app/cat/[id].tsx`), is replaced by the sterilised line. The "Has a home" filter keeps working through `hasHome`. `lastSeenAt` stays.
 - **Files:** `lib/catHelpers.ts`, `routes/cats.ts`, `routes/sightings.ts` (the resolve response's `hasHome`), `lib/notificationFanout.ts`, `lib/notifications.ts`, `lib/api-spec/openapi.yaml` and the regenerated client and zod packages, `artifacts/cat-spotter/app/cat/[id].tsx`, `components/CatCard.tsx`, `lib/i18n.ts`.
@@ -216,7 +230,7 @@ Step 5. Ships before blurring, because blurring while this endpoint answers ques
 Step 6. Server and app ship together with the cache version bump, so no phone keeps an exact payload.
 
 - **Server:** one `serialiseCat(cat, viewer)` in `lib/catHelpers.ts`, and all four emitters go through it (§10.6): `listCatsWithStats`, `catPayload` in `routes/cats.ts`, the inline cat in the resolve response, and the sightings array in `GET /cats/:id`. The public payload has the cell centre, `locationPrecision: approximate`, `locationCellM: 250`, `distanceKm` from the cell centre rounded to 0.1, a stable sort with ties on id, last-seen as a date, and no sighting coordinates, notes, private feeding sites or device ids. The detail page gives an **authenticated owner** exact coordinates for their own cat (Option B, §10.6); the list is always public.
-- **Pagination** of `GET /cats` (§2.3), loading each page's observations in one batch. It changes the list contract, so it ships here with the app and the cache bump, not in PR 4.
+- **Pagination** of `GET /cats` (§2.3), loading each page's observations in one batch. It changes the list contract, so it ships here with the app and the cache bump, not in PR 4. The app walks every page in the background when it refreshes the offline cache (a few pages at today's size), so the catalogue still works without signal exactly as it does now.
 - **App:** the catalogue cache key becomes `cats-cache/public/v2` (`hooks/useCatsWithCache.ts`). The map draws the 250 m cell with softened corners, labelled *"Somewhere in here"*, instead of a pin, and the cat page labels the position *"first spotted around here"* (§6.6, SYC-80). The list pages. `BLUR_DISPLAY_RADIUS_METRES` is never introduced (retired, §6.2).
 - **Depends on SYC-98**, for two reasons: photo ids in public payloads must be opaque before the coarse-timestamp claim is true (§6.4.4), and both change `photoUrl()` in `catHelpers.ts`.
 - **Files:** `lib/catHelpers.ts`, `routes/cats.ts`, `routes/sightings.ts`, `openapi.yaml` and the generated packages, `hooks/useCatsWithCache.ts`, `components/AppMap.tsx`, `components/AppMap.web.tsx`, `app/(tabs)/cats.tsx`, `app/(tabs)/index.tsx`, `app/cat/[id].tsx`, `lib/i18n.ts`.
@@ -271,16 +285,41 @@ Step 8, on PR A's schema. `email-capture.md` §6.3 is the copy of record for the
 - **Tests:** a non-owner gets no push inside the window Q4 sets; an owner still does; no text contains a time.
 - **Rollback:** revert to live pushes.
 
+## How each step reaches production
+
+**What we now know (SYC-102, verified read-only on 29 Sep).** The apptest production database is Replit-managed, separate from dev, and can't be reached from the workspace shell (there is only a read-only query tool). **When the app is published, Replit applies the structural difference between the dev and production databases itself.** Replit documents that as "adding and deleting columns or tables". Production has **no `drizzle` schema and no migration history**, and the same nine tables as dev. So `docs/DEPLOYMENT.md`'s "run `migrate` against production first" can't be done as written, and SYC-64's one-off "adopt the baseline on production" never happened.
+
+That changes what this plan can assume. Replit's publish step is documented to carry only some of what our migrations contain:
+
+| What a step needs in production | Carried by Replit's publish diff? | Steps that need it |
+|---|---|---|
+| New tables and new columns | Yes (documented) | Step 1's tables, if dev had them at publish; PR A's `cats` columns |
+| Relaxing NOT NULL | Not documented | PR A |
+| CHECK constraints | Not documented | Step 1's attribution check; PR A's CHECKs |
+| Triggers and functions | Not documented | **Step 1's append-only guards**; PR A's sightings guard and `now()` rule |
+| The migration history (`drizzle` schema) | No (verified absent) | Every step: the runner's "never twice, never out of order" guarantee |
+| Data backfills | No: a diff compares structure, not rows | PR 3; SYC-101's backfill of folded names |
+| The notify job's baseline seeding (F4) | No | SYC-55. This plan needs none (C4) |
+
+**The consequence to take seriously now:** if step 1's tables reached production through the diff, they may have arrived **without their append-only triggers and without the attribution check**. Nothing writes observations yet, so nothing is wrong today. It becomes wrong the day PR 2 deploys. **PR 2 is therefore blocked on Q5**, as are PR A and PR 3.
+
+**How the plan compensates**, whichever answer Q5 gets:
+
+1. **Every step is written so it is safe to run more than once**: `CREATE OR REPLACE FUNCTION`, triggers created only if missing, constraints added only if missing, NOT NULL dropped (a no-op the second time), backfills guarded by "not already there". PR A and PR 3 are specified that way above, and the same rule applies to SYC-101.
+2. **The app checks production's shape when it starts.** The runner already computes a schema signature (`lib/db/src/migrate/signature.ts`, used for baseline adoption). A startup check compares production's live signature, including triggers, functions and constraints, with what the migrations produce, and logs every difference loudly. In production it **refuses to serve writes to `observations`** if the append-only guard is missing. This is the check that would have caught the 500 incident, and it's cheap.
+3. **Verification after each publish is a probe, not an assumption**: the implementer uses the read-only query tool to confirm the triggers, constraints and backfilled rows exist, and records it in the PR.
+
+Which mechanism actually delivers the non-structural parts is Samuel's decision (**Q5**, below).
+
 ## Data safety on the live test database
 
 Testers are using apptest.catspotters.com now. Only two PRs touch its data: PR A (schema) and PR 3 (backfill). SYC-101's migration is the third, under its own ticket. Everything else is code.
 
-**Before the first of them, check the ground** (the implementer does this, not Samuel, using the deployment's database credentials):
+**Before the first of them, check the ground** (the implementer does this, not Samuel, with the read-only query tool):
 
-1. Confirm which database apptest reads, and that `drizzle.__drizzle_migrations` on it holds the baseline and `0001`. SYC-64 left "run `migrate` once against production to adopt the baseline" as a manual step and `docs/DEPLOYMENT.md` still shows the up–down–up check as *not yet run*. If either is missing, that is fixed first, under SYC-64's instructions, not worked around here.
-2. Confirm Replit's publish step doesn't sync the schema by itself (`docs/DEPLOYMENT.md` §C open item). If it does, the migration history can be bypassed on the very deploy this plan relies on.
-3. Take a dump of the database (or confirm a restorable backup point) and record the time in the PR.
-4. Run read-only counts the backfill will reproduce: cats, claimed cats, owner-registered cats, `cat_updates` by type. They go in PR 3's description, and PR 3's self-check block must match them.
+1. What production actually has from step 1: the five tables, the attribution check, the three triggers, the three functions. Record the answer in PR A's description; it decides how much Q5's mechanism has to backfill.
+2. Confirm a restorable backup point exists (Replit's point-in-time restore or a dump) and record its time in the PR.
+3. Run read-only counts the backfill will reproduce: cats, claimed cats, owner-registered cats, `cat_updates` by type. They go in PR 3's description, and PR 3's self-check must match them on production.
 
 **How each one runs without downtime or loss.**
 
@@ -291,9 +330,9 @@ Testers are using apptest.catspotters.com now. Only two PRs touch its data: PR A
 | PR A: sightings trigger | Brief lock to create it | Allows exactly today's app writes; the grep in PR A lists them | A refused write shows up as a 500 in `smoke`; roll back in the same hour (fine before any deletion) |
 | PR 3: backfill | Row inserts into `observations` only; reads the rest | Append-only, idempotent, self-checking; nothing existing is changed | The transaction raises and nothing lands, or `migrate:rollback` removes exactly the `backfill:0005` rows |
 
-**Order on each deploy** (`docs/DEPLOYMENT.md` §C): migrate production, deploy code, run `smoke`. PR 3 is special: its code prerequisite (PR 2) is deployed first, *then* its migration runs, and it needs no code deploy of its own.
+**Order on each deploy.** `docs/DEPLOYMENT.md` §C says migrate production, deploy code, run `smoke`; Q5 decides how "migrate production" happens on Replit. PR 3 is special either way: its code prerequisite (PR 2) must be **live in production** first, *then* its backfill runs.
 
-**The Play clock (F6).** PR A and SYC-101's migration are the only schema changes left in this plan. Both are early in the chain on purpose, so the closed test can start once they're in, even while the code PRs carry on. The up–down–up against a copy of production (`docs/DEPLOYMENT.md` §C, "before the Play window") should be run on PR A, since it is the first migration after `0001` with a meaningful rollback.
+**The Play clock (F6).** PR A and SYC-101's migration are the only schema changes left in this plan. Both are early in the chain on purpose, so the closed test can start once they're in, even while the code PRs carry on. The up–down–up against a copy of production (`docs/DEPLOYMENT.md` §C, "before the Play window") should be run on PR A, since it is the first migration after `0001` with a meaningful rollback. How that copy is made also depends on Q5.
 
 ## Parallelism
 
@@ -302,17 +341,20 @@ Migrations are serial by nature: one chain, in merge order, each regenerated if 
 ```
 Migration chain (serial):  0002 SYC-98 (Chip E) → 0003 PR A → 0004 SYC-101 → 0005 PR 3
 
-Wave 1 (start now, in parallel):     PR 0 · PR 1 · PR A (once 0002 merges)
-Wave 2:                              PR 2 (needs PR 0, PR 1) · SYC-101 (needs PR A, PR 1)
-Wave 3 (in parallel):                PR 3 (needs PR 2 deployed, SYC-101) · PR 4 · PR 5
-Wave 4 (in parallel):                PR 6 (needs PR 4, PR 5, SYC-98) · PR 7 (needs PR 5) · PR 9 (needs PR A, PR 4)
+Wave 1 (start now, in parallel):     PR 0 · PR 1 · PR P (once Q5 is answered)
+Wave 2:                              PR A (needs 0002, PR 0, PR P) · PR 2 (needs PR 0, PR 1, PR P live)
+Wave 3:                              SYC-101 (needs PR A, PR 1; after PR 2, see below) · PR 5 (needs PR 2)
+                                     · PR 4 built now, merged after PR 3 has run
+Wave 4:                              PR 3 (needs PR 2 live, SYC-101, Q1) → then PR 4 merges
+Wave 5 (in parallel):                PR 6 (needs PR 4, PR 5, SYC-98) · PR 7 (needs PR 5) · PR 9 (needs PR A, PR 4)
 Whenever SYC-43's sign-in lands:     PR 8 (needs PR 2)
-Wave 5:                              PR 10 (needs PR 4, decision Q4)
+Wave 6:                              PR 10 (needs PR 4, decision Q4)
 ```
 
 | Pair | Together? | Why |
 |---|---|---|
-| PR 0, PR 1, PR A | Yes | Test setup, a new pure file, and `lib/db` schema; no shared files |
+| PR 0, PR 1, PR P | Yes | Test setup, a new pure file, and the migrate folder plus the server's start-up; no shared files |
+| PR P and PR A | **No, serial** | Both in `lib/db/src/migrate/`, and PR A's triggers must be deliverable by PR P's mechanism |
 | PR 2 and SYC-101 | **No, serial** | Both change the naming code in `routes/cats.ts` and `routes/sightings.ts`. PR 2 first; SYC-101 rebases and swaps its lookups to the folded column |
 | PR 4 and PR 5 | Yes | PR 4 is `catHelpers.ts`, `routes/cats.ts`, the app's cat page; PR 5 is `computeMatchCandidates`, the new `blur.ts`, the rate limiter. Both touch `routes/sightings.ts` in different functions (resolve's response vs matching): expect a trivial rebase |
 | PR 4 and PR 3 | Yes | PR 3 is a migration file only |
@@ -330,6 +372,7 @@ Planning ran on Opus (justified in the brief: the sequencing compounds). Buildin
 | Work package | Builds on | Why this tier | Assurance |
 |---|---|---|---|
 | PR 0 test database | **Sonnet** | Standard test plumbing with a working example to copy (`dataSpine.test.ts`) | Full API suite green on the throwaway database; the new "not the dev database" test; spot review by the session model |
+| PR P production delivery | **Opus** | Escalated: it decides whether production's safety rules exist at all, and its failures are silent (a missing trigger breaks nothing until someone rewrites history) | Tests on a diff-built throwaway database; **mutation probe** (drop one trigger; the start-up check must report it); read-only probe of production after the first publish; Sonnet adversarial review |
 | PR 1 resolver and `foldName` | **Sonnet** | The rules are fully written down (§10.2, and this plan's 14 named tests); the risk is in the tests, which are specified | Named tests; **mutation probe** on rules 1, 3 and 6; **adversarial review on Opus** (escalation: a wrong confidence level looks exactly like a right one, and this is the logic every later PR trusts) |
 | PR A schema and triggers | **Opus** | Escalated: PL/pgSQL guards whose failure is silent (a trigger that allows too much passes every happy-path test); step 1's triggers needed two review rounds | Migration tests; `migrate:check` and `migrate:cycle` in CI; **mutation probe** on the resolve branch; Sonnet adversarial review |
 | PR 2 write service and go-forward writes | **Sonnet** | Clear interfaces, routine route changes | Tests including the query counter; review on Sonnet against §10.1's rules |
@@ -383,7 +426,7 @@ Where the approved spec disagrees with the code, with a ticket, or with another 
 
 ## Decisions for Samuel
 
-Plain English, one at a time, each with a recommendation. Q1 is needed before PR 3; Q2 and Q3 before PR 7; Q4 before PR 10.
+Plain English, one at a time, each with a recommendation. Q5 is needed first (before PR A, PR 2 and PR 3); Q1 before PR 3; Q2 and Q3 before PR 7; Q4 before PR 10.
 
 **Q1 · Whose name goes on statements the app writes by itself?** Every statement in a cat's record says who made it. Some are made by the app itself: copying in the old "desexed" and "adopted" updates, and anything recorded through the old admin password before the team dashboard exists. They need an author, and the database insists on one.
 - **Option A — a fixed label per source**, such as "system: legacy backfill" and "system: admin password". *Benefits:* honest about where each statement came from; nothing else changes. *Risks:* the old admin password can't say which person used it, so those statements read "someone with the admin password". That is true, and it is why the password retires (D7).
@@ -408,3 +451,10 @@ Plain English, one at a time, each with a recommendation. Q1 is needed before PR
 - **Option B — keep it live, but only the first sighting of each cat each day.** *Benefits:* keeps some immediacy. *Risks:* still tells a watcher the moment the cat was first seen each day, which is the feeding-time pattern the spec worries about.
 - **Option C — a random delay of a few hours.** *Benefits:* feels close to live. *Risks:* delays average out over many days, so a patient watcher still learns the pattern.
 - **Recommendation: A.** Owners still get instant pushes about their own cat.
+
+**Q5 · How do database changes reach the live app on Replit?** (Blocks PR A, PR 2 and PR 3.) When the app is published, Replit copies new tables and columns from the development database to the live one by itself. It doesn't promise to copy the safety rules built into the database (the rules that stop anyone quietly rewriting a cat's history), and it can't copy one-off data changes, like turning last season's "desexed" updates into records. Today the live database has no record of which changes it has had. If we do nothing, the first time the app writes a cat's history, the live copy may not have the rules that protect it.
+- **Option A — the app finishes its own database changes when it starts.** Replit's publish copies tables and columns; then, every time the app starts on the live server, it adds any missing safety rules, runs any one-off data changes it hasn't run yet, keeps its own record of what it has done, and refuses to write cat history if a safety rule is missing. *Benefits:* works with what Replit does today; no manual step; nobody needs access to the live database. *Risks:* two mechanisms (Replit's copy and the app's own) share the job, so each change has to be written to cope with either having happened first; a slow start while a data change runs (seconds at our size).
+- **Option B — switch off Replit's copying, and let the app apply every change itself on start-up** (the same history-keeping migrations dev already uses). *Benefits:* one mechanism, the one we built and tested in SYC-64, with the same guarantees in dev and live. *Risks:* only possible if Replit lets us turn its copying off, which isn't documented; it needs confirming first, and if it can't be done, this option doesn't exist.
+- **Option C — someone pastes each change into Replit's live database console by hand.** *Benefits:* no new code. *Risks:* relies on Samuel doing it correctly and at the right moment on every release, which is the thing the working rules exist to avoid; easy to forget, no record kept.
+- **Option D — move the live database off Replit's managed service** (for example to a hosted Postgres we can reach). *Benefits:* the standard tooling works as designed. *Risks:* reopens the "everything stays on Replit" decision (D1) and the hosting question (SYC-47) in the middle of testing.
+- **Recommendation: A now, and B if Replit confirms its copying can be switched off.** A works with what Replit is documented to do, and the start-up check means a missing safety rule is caught loudly rather than discovered later. It is a small, well-contained addition to the migration runner (built on Opus: it decides whether the live database is trustworthy). If Replit confirms B is possible, move to it, because one mechanism is simpler than two.
