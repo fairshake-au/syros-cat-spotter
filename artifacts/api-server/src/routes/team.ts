@@ -6,11 +6,18 @@ import {
   handoffPublicKeys,
   sessionKeys,
   SIGN_IN_ORIGIN,
+  SIGN_IN_PAGE,
   TEAM_HOME,
+  TEAM_ORIGIN,
 } from "../lib/teamAuth/config";
 import { checkHandoffToken } from "../lib/teamAuth/handoff";
-import { issueSession } from "../lib/teamAuth/session";
-import { refuseNotSignedIn, setTeamHeaders } from "../lib/teamAuth/refuse";
+import { clearSession, issueSession } from "../lib/teamAuth/session";
+import {
+  isBrowserNavigation,
+  refuseNotSignedIn,
+  setTeamHeaders,
+} from "../lib/teamAuth/refuse";
+import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 
 // The staff dashboard on team.catspotters.com (team-access spec §2.4, §2.6,
 // §8.2; SYC-43 part 1 plan §5, §6). No CORS headers: app.ts skips /api/team/.
@@ -82,5 +89,61 @@ router.post(
     res.redirect(303, TEAM_HOME);
   },
 );
+
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ]!,
+  );
+
+/**
+ * GET /api/team/: the one-line signed-in page, until the welfare queue
+ * replaces it. Plain server-rendered HTML with no scripts.
+ */
+router.get("/team", requireTeam(), (_req: Request, res: Response) => {
+  const person = teamPerson(res);
+  setTeamHeaders(res);
+  res
+    .type("html")
+    .send(
+      "<!doctype html>" +
+        '<html lang="en"><head><meta charset="utf-8">' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+        "<title>Cat Spotters dashboard</title></head><body>" +
+        `<p>You're signed in as ${escapeHtml(person.name)}. The welfare queue is coming soon.</p>` +
+        '<form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form>' +
+        "</body></html>",
+    );
+});
+
+/** GET /api/team/me: who is signed in, for the future screens. */
+router.get("/team/me", requireTeam(), (_req: Request, res: Response) => {
+  const person = teamPerson(res);
+  setTeamHeaders(res);
+  res.json({ name: person.name, email: person.email });
+});
+
+/**
+ * POST /api/team/signout: clears the cookie on this device (§2.1). Like every
+ * dashboard POST, it must come from the dashboard's own origin; a missing
+ * Origin is refused too.
+ */
+router.post("/team/signout", (req: Request, res: Response) => {
+  setTeamHeaders(res);
+  if (req.headers.origin !== TEAM_ORIGIN) {
+    req.log.warn({ reason: "bad_origin" }, "team sign-out refused");
+    res.status(403).json({ error: "bad_origin" });
+    return;
+  }
+  clearSession(res);
+  if (isBrowserNavigation(req)) {
+    res.redirect(303, SIGN_IN_PAGE);
+    return;
+  }
+  res.status(204).end();
+});
 
 export default router;
