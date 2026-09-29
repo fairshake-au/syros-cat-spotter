@@ -70,6 +70,7 @@ Each numbered item is its own commit, in this order.
 - **New file `server/prelaunch.js`** (Node built-ins only, like `serve-web.js`): `gateEnabled(env)`, `signSession(keys, now)`, `verifySession(keys, cookieHeader, now)`, `checkPassword(env, supplied)`.
   - Cookie `__Host-cs_prelaunch`: `HttpOnly; Secure; SameSite=Lax; Path=/`, no `Domain`, `Max-Age` 28 days (Decision 2, decided by Samuel). Value `v1.<expiry>.<HMAC-SHA256(expiry)>`, base64url. No expiry means refused. Every cookie with that name is tried (the PR #20 rule). Comparisons are constant-time.
   - Password check: SHA-256 both sides, `timingSafeEqual`.
+- **When the website gate is on:** it is on unless `PRELAUNCH_GATE` is exactly `off`. There is **no `NODE_ENV` rule here**: the website service's `artifact.toml` never sets `NODE_ENV` in production, so copying the API's rule into `server/prelaunch.js` would leave the website open. `serve-web.js` is only ever the production server (development uses Expo's own server), so "on by default" is safe.
 - **Order of checks in the handler**, when the gate is on:
   1. Bad percent-encoding → 400 (unchanged).
   2. `/status` → 200 (unchanged; Replit's dev preview uses it).
@@ -91,7 +92,7 @@ Each numbered item is its own commit, in this order.
 - **The middleware, in order:**
   1. Gate off → `next()`.
   2. `GET` or `HEAD` on exactly `/api/healthz` → `next()`. Nothing else is open.
-  3. The path is classified **after** percent-decoding, lower-casing (Express matches routes case-insensitively) and collapsing repeated slashes, so `/API/Internal/…`, `/api/%69nternal/…` and `/api//internal/…` are all treated as internal. If decoding fails → 400. Path (so normalised) starts with `/api/internal/` or is `/api/internal` → only `Authorization: Bearer <INTERNAL_PEOPLE_TOKEN>` counts. The website cookie and the tester key do **not**. If `INTERNAL_PEOPLE_TOKEN` isn't set → 503 `{"error":"not_configured"}`, matching PR #20's own behaviour so its probes (200 / 401 / 503) still read the same. PR #20's route checks the token again itself; the two checks share one helper, `lib/internalAuth.ts`, created by whichever of the two PRs lands first.
+  3. (A comment in the code points back here: Express matches `/API/internal` to the internal route, so the gate must not compare case-sensitively.) The path is classified **after** percent-decoding, lower-casing (Express matches routes case-insensitively) and collapsing repeated slashes, so `/API/Internal/…`, `/api/%69nternal/…` and `/api//internal/…` are all treated as internal. If decoding fails → 400. Path (so normalised) starts with `/api/internal/` or is `/api/internal` → only `Authorization: Bearer <INTERNAL_PEOPLE_TOKEN>` counts. The website cookie and the tester key do **not**. If `INTERNAL_PEOPLE_TOKEN` isn't set → 503 `{"error":"not_configured"}`, matching PR #20's own behaviour so its probes (200 / 401 / 503) still read the same. PR #20's route checks the token again itself; the two checks share one helper, `lib/internalAuth.ts`, created by whichever of the two PRs lands first.
   4. Path (so normalised) starts with `/api/team/` or is `/api/team` → `next()`. **Decided by Samuel, 29 Sep 2026 (Decision 1).** Every `/api/team/*` route already refuses anyone without a staff hand-off pass or staff session (PR #20 §5), which is a stronger check than the pre-launch pass.
   5. Anything else → a valid `__Host-cs_prelaunch` cookie **or** an `X-Prelaunch-Key` header matching one of `PRELAUNCH_TESTER_KEYS`.
   6. No pass → **401** `{"error":"prelaunch_pass_required","message":"Cat Spotters isn't open yet."}`. Missing and wrong look identical. The response carries `Cache-Control: no-store`.
@@ -226,7 +227,7 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 5. `next` values `//evil.example`, `/\evil.example`, `https://evil.example`, `javascript:x` → all redirect to `/`.
 6. Cookie refused when: tampered, signed with an unknown key, expired, no expiry, wrong version prefix. With two keys, a cookie signed by the second is accepted. Two cookies with the name, bad one first → the good one wins.
 7. Gate on with `PRELAUNCH_WEB_PASSWORD` or `PRELAUNCH_SESSION_KEYS` missing → 503 for pages, and a right-looking password still gets no cookie.
-8. `PRELAUNCH_GATE` unset → on. `PRELAUNCH_GATE=banana` → on.
+8. `PRELAUNCH_GATE` unset → on, with `NODE_ENV` unset, `development` and `production` alike. `PRELAUNCH_GATE=banana` → on.
 
 **Shared cookie format (`lib/__fixtures__/prelaunch-cookie-vectors.json`)**: fixed key, expiry and expected cookie value. Both the website test and the API test check against the same file, so the two copies of the cookie code can't drift apart.
 
@@ -237,7 +238,7 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 11. Valid website cookie → passes to the route. Valid tester key → passes. Second tester key during a change → passes. Wrong key, empty key, key in the query string → 401.
 12. `/api/internal/people/allowed`: right bearer → passes; website cookie → 401; tester key → 401; no token configured → 503.
 12a. `/api/team/*`: once PR #20's routes exist, the test walks every registered `/api/team/*` route with the gate on and no staff session and expects PR #20's 401 `not_signed_in` from each (never a 200). `/API/TEAM/me` is also exempt and also refused by the route. Whichever of this and PR #20 lands second adds the test.
-13. `OPTIONS` preflight with no pass → answered by CORS (204) with the allow headers, not 401. A 401 still carries `Access-Control-Allow-Origin`.
+13. `OPTIONS` preflight with no pass on an ordinary route → answered by CORS (204) with the allow headers, not 401. A 401 still carries `Access-Control-Allow-Origin`. PR #20 takes `/api/internal/` and `/api/team/` out of CORS entirely, so there: `OPTIONS /api/internal/…` → 401 from the gate (no browser should ever call it), and `OPTIONS /api/team/…` → whatever PR #20's routes answer, since `/api/team` skips the pass. Whichever lands second adds these two cases.
 14. A 25 MB body with no pass → 401 without the JSON parser running (the parser is spied on).
 15. `NODE_ENV=production`, `NODE_ENV` unset, and `NODE_ENV=staging` with `PRELAUNCH_GATE` unset → all on. `PRELAUNCH_GATE=off` with `NODE_ENV=production` → off, and `/api/cats` answers without a pass. `PRELAUNCH_GATE=off` but `PRELAUNCH_SESSION_KEYS` missing → off (a deliberate launch needs no secrets). `PRELAUNCH_GATE` unset and any secret missing → 503, never open.
 16. With the gate on, a photo response says `Cache-Control: private` and `Vary` includes both pass headers; with it off, `public` as today.
@@ -270,6 +271,7 @@ The implementer makes each break on a scratch commit, runs the suite, records wh
 | Compare paths case-sensitively | 9 |
 | Classify the path before percent-decoding | 9 |
 | Treat an unset `NODE_ENV` as development | 15 |
+| Copy the API's `NODE_ENV` rule into the website's `gateEnabled` | 8 |
 | Check only `process.env`, not `.env` files, in `check-web-env.js` | 22 |
 | Drop the after-export scan of `dist/` | 22 |
 | Mount the gate before CORS | 13 |
@@ -367,7 +369,7 @@ The build happens in its own worktree off fresh `origin/main`, one commit per it
 
 ## Review
 
-**What was done:** a Sonnet critic was started in its own worktree but had not reported by hand-over time, so the session model ran the adversarial pass itself against the code on `main`, PR #20's plan, PR #23's plan and expo-image 3.0.11's types. If the Sonnet critic reports later, its findings are added here before Samuel approves.
+**What was done: both.** The Sonnet critic, in its own worktree, reviewed the first draft (4c17a2d). It reported late, so the session model also ran its own adversarial pass against the code on `main`, PR #20's plan, PR #23's plan and expo-image 3.0.11's types. Findings 1–7 are the session model's; S1–S4 are the Sonnet critic's.
 
 | # | Severity | Finding | How it's handled |
 |---|---|---|---|
@@ -381,4 +383,11 @@ The build happens in its own worktree off fresh `origin/main`, one commit per it
 
 Checked and found fine: every generated API call goes through `customFetch` (67 of 67); nothing else in the app fetches from our API; the native photo sites are exactly the five listed; `expo-image` sends `source.headers` on iOS and Android; the web build's `fetch` and image loads are same-origin, so the cookie goes with them; CORS preflights are answered before the gate; rate limits and the device secret are unaffected.
 
-**The three decisions for Samuel are unchanged.**
+| S1 | Major | PR #20 takes `/api/internal/` and `/api/team/` out of CORS, so the claim "preflights are answered by CORS before the gate" isn't true there. | Test 13 now states what those two families answer to `OPTIONS` (internal: 401; team: its own routes). No browser calls `/api/internal`, and `/api/team` skips the pass. |
+| S2 | Minor | The website service's `artifact.toml` never sets `NODE_ENV`, so copying the API's on/off rule into `serve-web.js` would leave the website open. | Item 1 now says the website's rule has no `NODE_ENV` branch. Test 8 pins "on" with `NODE_ENV` unset, and a matching break was added. |
+| S3 | Minor | Nothing proved a tester key can't reach a staff-only `/api/team/*` route through the exemption. | Test 12a: every `/api/team/*` route with the gate on and no staff session → 401. |
+| S4 | Nit | Why the gate lower-cases paths is subtle. | A code comment points back to this plan. |
+
+The Sonnet critic confirmed every caller inventory line number and found no missed caller. It also reports that Express matches on the undecoded path, which would make an encoded-path bypass fail closed anyway. The plan still normalises (finding 2) as the safer choice.
+
+The three decisions have since been made by Samuel on 29 Sep 2026: Decision 1 as recommended; Decision 2 at 28 days; Decision 3 with no code interlock.
