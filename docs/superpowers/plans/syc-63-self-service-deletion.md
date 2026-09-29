@@ -408,6 +408,7 @@ The options and recommendations are kept below for the record. Each one ends wit
    - **The deletion itself doesn't rely on a trigger.** Its updates work with or without one.
    - **The guarantees around it do.** Migration 0001's `observations_append_only` trigger is what stops anything *other* than a redaction rewriting history. §5's new sightings guard is a trigger too.
    - **The risk:** if either is missing in production, deletion still works, but the "only redaction may change history" promise is silently false there.
+   - **Spine PR P must be live before this migration ships.** PR P is how database changes reach Replit production (`data-spine.md`, SYC-102). Its shape depends on **Q1**, Samuel's not-yet-made decision on how production migrations work (PR #23). **PR P and Q1 are both rollout dependencies** for this plan. Relaxing `NOT NULL`, the check constraints and the sightings trigger in §5 are exactly the kinds of change that Replit's publishing may not copy.
    - **Before rollout,** probe production to confirm both triggers exist. For example, list the triggers on `observations` and `sightings` from `pg_trigger` by name. Don't assume they arrived.
 1. **Data spine PRs 2, 3 and 4 are merged before this build starts** (`docs/superpowers/plans/data-spine.md`, PR #23).
    - **PR 2** delivers SYC-107: the claim, registration and rename secret checks that §4.3 depends on. It also makes a claim write a `homed` observation.
