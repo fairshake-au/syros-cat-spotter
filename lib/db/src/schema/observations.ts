@@ -63,6 +63,13 @@ export const observationsTable = pgTable(
   (t) => [
     index("observations_cat_kind_idx").on(t.catId, t.kind, t.observedAt),
     index("observations_kind_idx").on(t.kind),
+    // Deletion (§8.5) finds a person's rows synchronously, while they wait.
+    index("observations_device_idx")
+      .on(t.deviceId)
+      .where(sql`${t.deviceId} is not null`),
+    index("observations_account_idx")
+      .on(t.accountId)
+      .where(sql`${t.accountId} is not null`),
     check(
       "observations_attribution_ck",
       sql`${t.redactedAt} is not null or (${t.deviceId} is null) <> (${t.accountId} is null)`,

@@ -33,10 +33,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // TRUNCATE is not a row-level UPDATE or DELETE, so the guards allow it.
+  // The guards refuse TRUNCATE. Tests reset with triggers switched off for
+  // this session only (superuser), which no app connection can do.
+  await c.query(`set session_replication_role = replica`);
   await c.query(
     `truncate observations, cat_identity, colony_name_history, colonies, feeding_sites restart identity cascade`,
   );
+  await c.query(`set session_replication_role = default`);
 });
 
 async function observe(
@@ -166,11 +169,72 @@ describe("observations: append-only, with redaction the one exception", () => {
     );
   });
 
-  it("refuses any change to a row already redacted", async () => {
+  it("refuses restamping a row already redacted", async () => {
     const id = await observe();
     await redact(id);
     await expect(redact(id)).rejects.toThrow(
       /only permitted update is redaction/,
+    );
+  });
+
+  it("lets deletion run again on a redacted row, and still empty a note it missed", async () => {
+    const note = await observe({
+      kind: "note",
+      value: { text: "by the bakery" },
+    });
+    await redact(note);
+    // A no-op rewrite of the same values is fine (deletion is re-runnable).
+    await c.query(`update observations set value = value where id = $1`, [
+      note,
+    ]);
+    await c.query(`update observations set value = '{}'::jsonb where id = $1`, [
+      note,
+    ]);
+    const r = await c.query(`select value from observations where id = $1`, [
+      note,
+    ]);
+    expect(r.rows[0].value).toEqual({});
+    await expect(
+      c.query(
+        `update observations set redaction_reason = 'changed' where id = $1`,
+        [note],
+      ),
+    ).rejects.toThrow(/only permitted update is redaction/);
+  });
+
+  it("refuses an empty redaction reason", async () => {
+    const id = await observe();
+    await expect(
+      c.query(
+        `update observations set redacted_at = now(), redaction_reason = '', device_id = null where id = $1`,
+        [id],
+      ),
+    ).rejects.toThrow(/only permitted update is redaction/);
+  });
+
+  it("refuses a redaction that rewrites a value's representation", async () => {
+    const id = await observe({ value: { n: 1 } });
+    await expect(redact(id, `, value = '{"n": 1.0}'::jsonb`)).rejects.toThrow(
+      /only permitted update is redaction/,
+    );
+  });
+
+  it("refuses a row that arrives already redacted", async () => {
+    await expect(
+      c.query(
+        `insert into observations (cat_id, kind, value, observed_at, redacted_at, redaction_reason)
+         values (1, 'sterilised', '{"sterilised": true}', now(), now(), 'x')`,
+      ),
+    ).rejects.toThrow(/cannot arrive already redacted/);
+  });
+
+  it("refuses TRUNCATE", async () => {
+    await observe();
+    await expect(c.query(`truncate observations`)).rejects.toThrow(
+      /observations is append-only: TRUNCATE is not allowed/,
+    );
+    await expect(c.query(`truncate cat_identity`)).rejects.toThrow(
+      /cat_identity is append-only: TRUNCATE is not allowed/,
     );
   });
 });
@@ -223,11 +287,17 @@ describe("colonies and feeding sites", () => {
 
 // §10.3 asks for what cats_name_lower_unique actually does with Greek names
 // under this database's collation to be written down. The answer:
-//  - Case folds, under a UTF-8 ctype (C.UTF-8 locally, en_US.utf8 in CI's
-//    postgres image): ΜΙΜΉ collides with Μιμή.
-//  - Unicode normalisation does NOT happen: the NFD spelling of Μιμή is a
-//    different string and is accepted as a second cat. Uniqueness therefore
-//    holds only if every writer normalises to NFC first, as §10.3 requires.
+//  - lower() folds case under a UTF-8 ctype (C.UTF-8 locally and on Neon,
+//    en_US.utf8 in CI's postgres image), but only letter for letter: ΜΙΜΉ
+//    collides with Μιμή.
+//  - It does NOT fold accents. Greek capitals are normally written without
+//    them, so ΜΙΜΗ lowers to μιμη and is accepted beside Μιμή.
+//  - It does NOT produce final sigma: ΣΟΦΊΑΣ lowers to σοφίασ and is accepted
+//    beside Σοφίας.
+//  - It does NOT normalise: the NFD spelling of Μιμή is a second cat.
+// So the index is not the uniqueness guarantee records-import.md §2.4 leans
+// on. That needs an accent-, case- and sigma-folded normalised name, as
+// colonies already have (§10.3); these tests pin today's behaviour until then.
 describe("cats_name_lower_unique with Greek names", () => {
   beforeEach(async () => {
     await c.query(`truncate cats restart identity`);
@@ -238,7 +308,7 @@ describe("cats_name_lower_unique with Greek names", () => {
       [n],
     );
 
-  it("folds case under this database's ctype", async () => {
+  it("folds case letter for letter under this database's ctype", async () => {
     const ctype = await c.query<{ datctype: string }>(
       `select datctype from pg_database where datname = current_database()`,
     );
@@ -247,6 +317,16 @@ describe("cats_name_lower_unique with Greek names", () => {
     await expect(addCat("ΜΙΜΉ".normalize("NFC"))).rejects.toThrow(
       /cats_name_lower_unique/,
     );
+  });
+
+  it("does not fold accents: unaccented capitals are a second name", async () => {
+    await addCat("Μιμή".normalize("NFC"));
+    await expect(addCat("ΜΙΜΗ")).resolves.toBeDefined();
+  });
+
+  it("does not produce final sigma", async () => {
+    await addCat("Σοφίας".normalize("NFC"));
+    await expect(addCat("ΣΟΦΊΑΣ".normalize("NFC"))).resolves.toBeDefined();
   });
 
   it("does not normalise: NFC and NFD spellings are two different names", async () => {

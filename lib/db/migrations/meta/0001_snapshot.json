@@ -1,5 +1,5 @@
 {
-  "id": "5d894ffe-943c-4c29-b5bc-001257d2004f",
+  "id": "499feeeb-a26a-48a3-9cbc-de15e126a375",
   "prevId": "d25e2cac-bbc8-4297-aeaa-11b93bef12ef",
   "version": "7",
   "dialect": "postgresql",
@@ -703,6 +703,38 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "observations_device_idx": {
+          "name": "observations_device_idx",
+          "columns": [
+            {
+              "expression": "device_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"observations\".\"device_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "observations_account_idx": {
+          "name": "observations_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"observations\".\"account_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -933,7 +965,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "feeding_sites_colony_id_colonies_id_fk": {
+          "name": "feeding_sites_colony_id_colonies_id_fk",
+          "tableFrom": "feeding_sites",
+          "tableTo": "colonies",
+          "columnsFrom": [
+            "colony_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

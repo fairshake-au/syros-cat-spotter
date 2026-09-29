@@ -22,4 +22,27 @@ The resolver (§10.2), backfills (§11.2 steps 2–4), closing the location orac
 
 ## A finding for §10.3, now written down
 
-The unique index on cat names folds Greek case under a UTF-8 ctype, so `ΜΙΜΉ` collides with `Μιμή`. It does **not** apply Unicode normalisation, so the NFD spelling of `Μιμή` is accepted as a different cat. The "unique by construction" argument in `records-import.md` §2.4 therefore holds only if every writer normalises to NFC first. Tests pin both behaviours.
+`cats_name_lower_unique` is **not** the uniqueness guarantee that `records-import.md` §2.4 relies on. `lower()` under a UTF-8 ctype folds case letter by letter, so `ΜΙΜΉ` collides with `Μιμή`. But it doesn't:
+
+- **fold accents**: Greek capitals are normally written without them, so `ΜΙΜΗ` is accepted beside `Μιμή`;
+- **produce final sigma**: `ΣΟΦΊΑΣ` is accepted beside `Σοφίας`;
+- **normalise Unicode**: the NFD spelling of `Μιμή` is a second cat.
+
+Real uniqueness needs an accent-, case- and sigma-folded normalised name, as `colonies` already has. That change belongs with §10.3's name work and the import, not this step. The tests pin today's behaviour, so the change will show up when it lands.
+
+## Adversarial review
+
+It found no blockers. These findings are fixed:
+
+- A row could be inserted already redacted, with no author, so the attribution rule never applied. **Inserts now arrive attributed.**
+- Once a note was redacted without emptying its text, the text could never be removed. **Deletion can now re-run on a redacted row** and still empty a note, but never restamp it or change the reason.
+- **`TRUNCATE` is refused** on both append-only tables. Redaction also rejects an empty reason and compares values exactly, including their numeric representation.
+- Added **indexes on `device_id` / `account_id`** so deletion's lookup doesn't scan the table, and **`feeding_sites.colony_id` references `colonies`**.
+- **The rollback block warns** that it drops data.
+
+## Deferred on purpose, and owned elsewhere
+
+- **Deletion (SYC-63) still needs its own migration.** `sightings.device_id` and `cats.discoverer_device_id` are NOT NULL, so unlinking them means dropping NOT NULL or agreeing a sentinel. §11.2 step 8's "depends only on step 1's redaction column" is wrong on that point.
+- **Sightings have no append-only guard yet.** The app updates `status` and `cat_id` today, so a guard needs designing with that work.
+- **Author for machine-written rows.** The attribution check needs a device or an account on every observation. Step 3's legacy backfill, and `system` writes from SYC-42/43, need an agreed author id (for example `account_id = 'system:legacy-import'`). Decide it before step 3.
+- **`redacted_at` accepts any timestamp.** The guard doesn't force it to the current time, because an app clock that's slightly off would then refuse real deletions.

@@ -60,7 +60,7 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
 export const feedingSitesTable = pgTable("feeding_sites", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  colonyId: integer("colony_id"),
+  colonyId: integer("colony_id").references(() => coloniesTable.id),
   lat: doublePrecision("lat").notNull(),
   lng: doublePrecision("lng").notNull(),
   isPublic: boolean("is_public").notNull().default(false),
