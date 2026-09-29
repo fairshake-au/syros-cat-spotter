@@ -449,6 +449,7 @@ An adversarial second pass over this plan, run deliberately after the first draf
 | R13 | **PR P's record of data steps would itself need a migration**, which production can't run. | Low | The record lives in the `drizzle` schema, created by the finish step. |
 | R14 | **Deletion would miss a note written by PR 7** if notes were stored anywhere but `observations.value`. | Medium | PR 7 writes notes only as `note` observations; the interface section states it, and SYC-63's information-schema test would catch a second copy. |
 | R15 | *External review, blocker.* **Running PR P's finish step before `listen()` turned "refuse cat-history writes" into "the app won't start"**, a total outage. And `runner.ts::lockAndLimit` takes `pg_advisory_xact_lock` before it sets `lock_timeout`, so a second instance waits forever. | High | PR P now serves at once, runs the finish step in the background with retry, and gates only the guarded tables' writes. The lock is a bounded try-lock, and the runner's order is fixed. New tests race two `finish()` calls and check that the app serves while `finish()` fails. |
+| R16 | *External review.* **PR 3's name backfill backdated renames** made between PR 2 going live and PR 3 running: the current name dated at `created_at`, with the original lost (§10.3). The claim guard was also a vague "no equivalent observation". | Medium | Names are skipped for any cat that already has a `name` observation. Every kind now has an explicit match key (R3's discipline), and there's a test for a rename in the window. |
 
 **Checked, and holding:**
 
