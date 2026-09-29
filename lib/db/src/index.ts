@@ -16,3 +16,25 @@ pool.on("error", (err) =>
 export const db = drizzle(pool, { schema });
 export * from "./schema";
 export { describeHost, resolveDatabaseUrl } from "./url";
+
+export {
+  normaliseEmail,
+  checkPersonEmail,
+  isPersonId,
+  peopleStore,
+  PeopleError,
+  type AllowedPerson,
+  type PersonWithScopes,
+  type PeopleStore,
+} from "./people";
+import { peopleStore } from "./people";
+
+// The people operations on the app's database (team-access spec §2.9). The
+// future manage_people screen calls these same functions.
+const people = peopleStore(db);
+export const addPerson = people.addPerson;
+export const removePerson = people.removePerson;
+export const signOutEverywhere = people.signOutEverywhere;
+export const findAllowedPerson = people.findAllowedPerson;
+export const findPersonById = people.findPersonById;
+export const listPeople = people.listPeople;

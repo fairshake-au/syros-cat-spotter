@@ -58,7 +58,10 @@ export const peopleTable = pgTable(
     addedBy: text("added_by"),
   },
   (t) => [
-    check("people_email_lowercase_ck", sql`${t.email} = lower(btrim(${t.email}))`),
+    check(
+      "people_email_lowercase_ck",
+      sql`${t.email} = lower(btrim(${t.email}))`,
+    ),
     check("people_email_shape_ck", sql`${t.email} ~ '^[^@]+@[^@]+$'`),
     check(
       "people_email_not_role_ck",
@@ -83,7 +86,10 @@ export const personScopesTable = pgTable(
     colonyId: integer("colony_id").references(() => coloniesTable.id),
   },
   (t) => [
-    check("person_scopes_role_ck", sql`${t.role} IN (${sqlList(PERSON_ROLES)})`),
+    check(
+      "person_scopes_role_ck",
+      sql`${t.role} IN (${sqlList(PERSON_ROLES)})`,
+    ),
     // A constraint, not uniqueIndex(): only the constraint builder has
     // nullsNotDistinct() in drizzle-orm 0.45.2. Without it every staff row's
     // empty colony_id counts as different, and one person could get `staff`
