@@ -150,7 +150,7 @@ The new project is published **Public with the gates on from its very first publ
 
 The app and the database are both in Europe from the new project's first publish. There's no in-between state where an app in North America talks to Frankfurt: the old project never talks to Neon.
 
-**If the new project were accidentally published outside Europe** (the choice is permanent), every database query would add about 100 ms. That's about 1 to 1.5 seconds on a sighting upload, which runs 10 to 15 queries one after another. It's usable for a short window but not as a standing state. C.6 therefore has a check before the first publish, and D.4 has one after it: the startup log's round-trip time to the database. If that time is above 20 ms, Samuel deletes that remix and makes a new one. No tester data is involved at that point.
+**If the new project were accidentally published outside Europe** (the choice is permanent), every database query would add about 100 ms. That's about 1 to 1.5 seconds on a sighting upload, which runs 10 to 15 queries one after another. It's usable for a short window but not as a standing state. So C.6 step 3 has a read-back before the first publish, and C.7 has a check after it: the start-up log's round-trip time to the database. If that time is above 20 ms, Samuel deletes that remix and makes a new one. No tester data is involved at that point.
 
 **If Samuel prefers to move the database without moving the app** (for example, if C.1 shows the app is already in Europe), see decision Q1, option B.
 
@@ -295,7 +295,7 @@ In `cli.ts`, `withClient` and `migrationsBuildTheSchema` use `resolveDatabaseUrl
 - Create: `artifacts/api-server/src/lib/databaseStartup.ts`, `artifacts/api-server/src/lib/databaseStartup.test.ts`
 - Modify: `artifacts/api-server/src/index.ts`
 
-**Produces:** `logDatabaseTarget(pool: { query(sql: string): Promise<unknown> }, target: { source: string; host: string }, logger): Promise<void>`. It runs `select 1` twice after `listen`, and logs `{ source, host, roundTripMs }` from the second run (the first may include a Neon wake-up). It never blocks start-up. If the database is unreachable it logs a warning and resolves, rather than throwing. **This log line is what C.6, D.4 and E.8 read** to confirm the deployment is on the Neon production host, with a round trip under 20 ms.
+**Produces:** `logDatabaseTarget(pool: { query(sql: string): Promise<unknown> }, target: { source: string; host: string }, logger): Promise<void>`. It runs `select 1` twice after `listen`, and logs `{ source, host, roundTripMs }` from the second run (the first may include a Neon wake-up). It never blocks start-up. If the database is unreachable it logs a warning and resolves, rather than throwing. **This log line is what C.7, D.4 and E.9 read** to confirm the deployment is on the Neon production host, with a round trip under 20 ms.
 
 - [ ] **Step 1:** write the tests with a stub pool. One checks that it logs `source`, `host` and a numeric `roundTripMs`, and that nothing logged contains `postgres`. The other uses a pool that rejects, and checks it logs a warning and resolves.
 - [ ] **Step 2:** run them and see them fail. **Step 3:** implement, and call it from `index.ts` inside the `listen` callback, without awaiting it. **Step 4:** they pass.
@@ -407,7 +407,7 @@ jobs:
 | Command | Runs |
 |---|---|
 | `fingerprint-source` | `switchover fingerprint`, with the source set to `$REPLIT_URL` (read-only) |
-| `copy-rehearsal` (target `production` or `rehearsal`) and `copy-cutover` (target `production` only; refused anywhere else) | `guard-target` (in the command's mode), then a `fingerprint` of the source, then `pg_dump -Fc -n public --no-owner --no-privileges --no-publications --no-subscriptions` from Replit in a read-only session, then `pg_restore --no-owner --no-privileges --single-transaction --exit-on-error -L <the table of contents without its "SCHEMA - public" line>` into Neon, then `compare`, then a **second** `fingerprint` of the source, which must equal the first (proving nothing was written to Replit during the copy), then `mark` (the rehearsal marker, or `cutover_done`). The dump lives only in the runner's temporary folder, apart from the encrypted copy in decision Q6 |
+| `copy-rehearsal` (target `production` or `rehearsal`) and `copy-cutover` (target `production` only; refused anywhere else) | `guard-target` (in the command's mode), then a `fingerprint` of the source, then `pg_dump -Fc -n public --no-owner --no-privileges --no-publications --no-subscriptions` from Replit in a read-only session, then `pg_restore --no-owner --no-privileges --single-transaction --exit-on-error -L <the table of contents without its "SCHEMA - public" line>` into Neon, then `compare`, then a **second** `fingerprint` of the source, which must equal the first (proving nothing was written to Replit during the copy), then `mark` (the rehearsal marker, or `cutover_done`). **`copy-rehearsal` into `production` also restores the same dump into the `rehearsal` branch**, so the stand-in for the old database in D.5 starts from exactly the same rows. The dump lives only in the runner's temporary folder, apart from the encrypted copy in decision Q6 |
 | `verify` | `compare --projected` (Replit against Neon, on the baseline tables), plus the migration history in `drizzle.__drizzle_migrations` checked against the journal's hashes |
 | `migrate` / `migrate-rollback` | `pnpm --filter @workspace/db run migrate` (or `migrate:rollback`), with `DATABASE_URL=$NEON_URL` for that one command |
 | `smoke` | `pnpm --filter @workspace/db run smoke "${BASE_URL:-https://apptest.catspotters.com}"`, with `PRELAUNCH_KEY` set |
@@ -518,7 +518,7 @@ It runs against a live copy of tester data, with the old app still serving teste
 | **D.3** Migrations | `db-ops -f target=production -f command=migrate`, then `-f command=verify` | The runner prints **"adopted baseline: live schema matches it"**, then `applied: 0001_data_spine_tables, 0002_…` (whatever is on `main`). `verify` passes. Through the Neon MCP (read-only `run_sql`): `drizzle.__drizzle_migrations` has one row per journal entry; the triggers `observations_append_only`, `cat_identity_append_only`, `observations_no_truncate` and `cat_identity_no_truncate` exist; for every `serial` sequence, `last_value >= max(id)`; and `datcollate` matches Replit's (from D.1) |
 | **D.4** The app on the copy | `db-ops -f command=smoke -f base_url=<new replit.app address>`, then the remaining SYC-113 checklist items (5, 6, 10a and 10b). A real browser at **390 px and desktop**: type the tester password, see cats with photos on the map, open a cat, check its sightings. One sighting is posted through the website with the tester key, to exercise AI matching on the new project's OpenAI integration | All pass. Cat and sighting counts shown in the app match D.1. The start-up log shows the production host and a round trip under 20 ms |
 | **D.4b** Samuel, real devices (optional in the rehearsal, required at cutover if store builds exist) | A TestFlight or Play build pointed at the new address, if one exists | The SYC-113 items 8 and 9 pass |
-| **D.5** Rollback rehearsal, data | 1. `db-ops -f target=rehearsal -f command=copy-rehearsal`, which makes the `rehearsal` branch a baseline copy **standing in for the old Replit database**. 2. Through the new app (tester key): post two sightings with photos, rename a cat, and remove a subscription. That makes production "Neon after testers used it". 3. `db-ops -f target=rehearsal -f command=carry-back-dry-run`. 4. `db-ops -f target=rehearsal -f command=carry-back-apply -f confirm=APPLY` | The dry run lists exactly those changes by id (2 sightings, 2 photos, 1 cat updated, 1 subscription deleted, plus any `0001` rows under "no home"). After apply, `compare --projected` passes and `nextval` is correct. **The real old database was never touched:** a final `fingerprint-source` equals D.1's, apart from rows testers added through the old app during the rehearsal (the rehearsal doesn't freeze it). Any difference must be explained by the old app's own traffic |
+| **D.5** Rollback rehearsal, data | 1. The `rehearsal` branch already holds the same dump as production (D.2 loaded both), at the baseline schema, **standing in for the old Replit database**. 2. Through the new app (tester key): post two sightings with photos, rename a cat, and remove a subscription. That makes production "Neon after testers used it". 3. `db-ops -f target=rehearsal -f command=carry-back-dry-run`. 4. `db-ops -f target=rehearsal -f command=carry-back-apply -f confirm=APPLY` | The dry run lists exactly those changes by id (2 sightings, 2 photos, 1 cat updated, 1 subscription deleted, plus any `0001` rows under "no home"). After apply, `compare --projected` passes and `nextval` is correct. **The real old database was never written by our tools:** every connection to it was read-only (R1), and carry-back's target in a rehearsal is the Neon `rehearsal` branch. (A final `fingerprint-source` can differ from D.1's only by testers' own new rows through the old app, which isn't frozen during a rehearsal) |
 | **D.6** Rollback rehearsal, the address | Samuel: attach `rehearsal.catspotters.com` to the **new** project (Publishing → Domains → Connect), and add the DNS records Replit shows in Cloudflare. Claude times it until `https://rehearsal.catspotters.com/api/healthz` answers 200. Then Samuel attaches it to the **old** project (Replit offers "move to this project"), and Claude times it until the address answers with the old project's `307` to `replit.com/__replshield`. Then Samuel removes it from both | Both moves complete. The times are recorded, and so are **both projects' DNS values** (A and TXT), which F.2 uses. If the old and new values differ, the rollback needs a DNS change as well as the Replit click, and F.2 says so |
 | **D.7** Close | Claude posts the timings and results on SYC-121, and a go/no-go for a cutover date | Every row above passed |
 
@@ -732,3 +732,137 @@ These are proposed for the session that owns #23, and **not made here**:
 
 **Message 3, only if we have to roll back:**
 > Small change of plan: we've moved Cat Spotters back to where it was while we sort something out. Anything you added today is safe. On the website you'll see the old login page again, the same one as before. Sorry for the bother.
+
+---
+
+## Part J · Decisions for Samuel
+
+Each decision has a recommendation. Q1 and Q2 shape the plan. The rest are settings.
+
+**Q1 · How do we get to Europe? (This shapes the whole plan.)**
+Replit can't change a published app's region. So "the EU republish" means publishing a new copy of the project.
+- **A. A new EU project on Neon, with the old one kept untouched as the way back** *(recommended)*. *Benefits:* the cleanest rollback there is: move the web address back, and the old app, database and region are exactly as they were. The new project is tested in public (behind the gates) for days before any tester touches it. There's never a moment where the app is in America and the database in Frankfurt. *Risks:* more setup (secrets, the OpenAI integration and the GitHub link are all checked in C.5), and a web-address move on the day, which the rehearsal times. *For testers:* one pause of about an hour.
+- **B. Stay in the current project and region, and switch only the database.** *Benefits:* less setup. *Risks:* if the app is in North America (C.1 tells us), every page gets slower. A sighting upload would take 1 to 1.5 seconds longer, for good. It also needs a publish of the old project, which is the Replit database-review risk this ticket exists to remove, and it leaves no untouched way back. *If C.1 shows the app is already in Europe,* B's latency cost disappears, but the rollback and review risks remain, so A is still recommended.
+- **C. Database first in the current project, then Europe later.** *Risks:* two pauses for testers, and the interim is slow. It has B's publish risk too.
+- **Recommendation: A.**
+
+**Q2 · Where do Claude's database commands run?**
+- **A. A GitHub Actions workflow (`db-ops`) that Claude starts, with the database addresses kept in GitHub's secret store** *(recommended)*. *Benefits:* Claude does it end to end, every run is logged, the secrets are never visible, and it's the same route for the copy, migrations, checks and staff seeding. *Risks:* the old database's address is stored in GitHub for the retention period (removed afterwards), and the tester data passes through a GitHub runner during the copy (it's deleted when the job ends).
+- **B. The Repl shell.** *Benefits:* the data never leaves Replit or Neon. *Risks:* Samuel has to type every command, and there's no log of what ran.
+- **C. Claude's Mac**, with the addresses in a local file. *Risks:* the connection strings sit on disk, where Claude's tools can read them, which breaks the secrets rule.
+- **Recommendation: A.**
+
+**Q3 · How long is the old Replit database kept after the switch?**
+- **30 days** *(recommended)*: long enough to spot anything wrong through a full cycle of tester use, and short enough that the old copy doesn't drift into being a second source of truth. **14 days** is the minimum sensible. **Until launch** is the most cautious, but it keeps a stale copy of personal data around longer than it's needed.
+- **Recommendation: 30 days**, and never before a clean week-one check (E.13).
+
+**Q4 · Should Neon's database sleep when idle?**
+- **A. Sleep after 5 minutes idle** *(recommended for now)*: about $5–10 a month (SYC-121's estimate). The first request after a quiet spell waits about half a second while it wakes.
+- **B. Always on (the smallest size):** about $19 a month (0.25 compute units × 730 hours × $0.106). No wake-up wait.
+- **C. Sleep after an hour:** a middle ground in both cost and wake-ups.
+- **Recommendation: A** during testing. Revisit at launch, when a slow first page matters more.
+
+**Q5 · What goes in the development database?**
+- **A. A copy of the real data, refreshed from production when wanted** *(recommended)*. *Benefits:* changes are tested against real shapes and real Greek names before production. *Risks:* testers' data sits in the development copy too. The people who can see it are the same as for production (Samuel, Claude, and Replit's agent in the workspace).
+- **B. Structure only, with no real rows.** *Benefits:* no personal data in development. *Risks:* bugs that only show with real data reach production first.
+- **Recommendation: A.**
+
+**Q6 · Keep a third, offline copy of the old database?**
+- **Yes** *(recommended)*: at cutover, the dump is encrypted with a key only Samuel holds. Samuel runs one command on his Mac once, to make the key, and downloads one file on the day. *Benefit:* a copy outside both Replit and Neon.
+- **No:** we rely on the untouched Replit database plus Neon's archive branch.
+- **Recommendation: yes.** It's 18 MB, and a few minutes of Samuel's time.
+
+**Q7 · Who changes DNS records on the day?**
+- **A. Give Claude's Cloudflare token permission to edit DNS for `catspotters.com`** *(recommended)*. *Benefits:* Claude lowers the TTL the day before, makes any change the move needs, and checks it straight away. In a rollback, that's one fewer thing for Samuel under pressure. *Risks:* a broader token (limited to this one domain).
+- **B. Samuel makes the DNS changes.**
+- **Recommendation: A.**
+
+**Q8 · Should Samuel approve each production database run in GitHub?**
+- **A. No approval click, but runs only from `main`, and one at a time** *(recommended)*. Every run is logged and announced in chat.
+- **B. Samuel clicks "Approve" in GitHub for every production run.** *Benefit:* a human gate. *Risk:* Samuel becomes the executor for every migration.
+- **Recommendation: A.**
+
+**Q9 · Approve the DECISIONS.md wording in G.3?** *Recommendation: approve as written*, with the retention date filled in from Q3.
+
+**Q10 · SYC-98 (#24): in the cutover, or after it?**
+- **A. Merge it before the rehearsal, so its `0002` is applied on Neon at cutover** *(recommended)*. It never meets Replit's database, and photo links become unguessable from day one.
+- **B. After cutover**, through the normal route. That's one more migration to schedule.
+- **Recommendation: A**, if it's merged before the rehearsal. Otherwise B, with no delay to the move.
+
+---
+
+## Model delegation
+
+This plan was written on Opus (the chip's stated tier). The build and the runbook are delegated as follows:
+
+| Work package | Model | Why this tier | Assurance |
+|---|---|---|---|
+| B.1 resolver and wiring | Sonnet | Clear spec, and the tests are written in this plan | The given tests. **Mutation probes** (three, listed in B.1), because a wrong fallback is a silent failure (the app writing to the wrong database). Opus spot review of the diff |
+| B.2 start-up log | Haiku | Small, mechanical | Its tests, plus typecheck |
+| B.3 fingerprint, guard, compare | Sonnet | Standard database code against a precise spec | Tests 1 to 3 and 6, plus **mutation probes** (order by, read-only session, cutover guard) |
+| **B.3 carry-back** | **Opus** | Escalated: it's the only code that writes to the old database, and its failure modes are silent (a missed update or a wrong sequence looks fine until a tester's row is gone) | Test 4 end to end, test 5, **mutation probes** (skip update, skip setval), and the D.5 rehearsal against a real copy |
+| B.4 `db-ops` workflow and script | Sonnet | Configuration and shell work to a spec | `actionlint`, the local dry run, the output grep for connection strings, and Opus review (it handles secrets) |
+| B.5 smoke key, B.6 docs | Haiku | Mechanical | Test for B.5; spot review of the docs against this plan |
+| Build PR review | Opus, independent critic in its own worktree | Adversarial review of a live-data write path, per `/ship` | Plus `/security-review` |
+| **Adversarial review of this plan** (before Samuel approves) | Opus | Samuel's pipeline requires it, and the chip was told not to spawn agents | **Not yet run.** The coordinating session runs it and folds the findings into the Review section below |
+| Parts C to F (the rehearsal, cutover and rollback) | Session model (Opus) | Live data and secrets, with judgement at every check. Not delegated | The checks in each step, R0, and the E.13 aftercare probes |
+| Linear updates and progress notes | Haiku, if delegated at all | Mechanical | Spot read |
+
+**Where else must the invariants hold?** (Enumerated, because a mutation probe only protects sites already thought of.)
+
+- **"Nothing uses Replit's database":** `lib/db/src/index.ts` (the app), `cli.ts` `withClient` (migrate and rollback), `cli.ts` `migrationsBuildTheSchema` (check), `drizzle.config.ts` (generate, which doesn't connect), `lib/db` tests (CI and local only, never run in the Replit workspace's workflows), `scripts/post-merge.sh` (via the CLI), and the api-server `pretest` (via the CLI). `artifacts/api-server/scripts/security-check.mjs` doesn't connect to the database. The build checks this list again with `grep -rn "DATABASE_URL"` over the repo.
+- **"No connection string is printed":** the resolver's errors, the pool's error handler, the B.2 log, the CLI's error output, `db-ops.sh`, the `pg_dump` and `pg_restore` stderr (they print host names, not passwords, and the grep in B.4 checks it), and GitHub's own secret masking as a last line.
+
+---
+
+## Review
+
+### Self-review against the brief (Chip H, 29 Sep 2026)
+
+| Requirement | Where it's met |
+|---|---|
+| Live tester data survives; nothing dropped from Replit | R1 (read-only sessions enforced by Postgres), R2, A.5, E.5 and E.13 (fingerprints prove the old database is unchanged), G.1 |
+| Samuel upgrades Neon before any live data is copied; Claude never pays | C.2 before C.3; C.4h copies nothing |
+| Secrets never in chat, files, commits or Linear | R4, A.2, C.4 (console → secret box), B.1 and B.4 (tests and a grep prove nothing prints one), and no `get_connection_string` |
+| Don't publish the real Repl; one combined publish | The real (old) Repl is never published again (R2). The new project's first publish (C.6) combines Neon, Europe and Public with the gates. F.4 explains why cutover day then needs no access change |
+| SYC-113 gates merged before publish; secrets set; tester key in EAS only; 12-item checklist | A.6, C.0, C.4g, C.6 step 2, C.7, D.4, E.11 |
+| Replit's publish diff and the dev database | A.5; B.1 refuses `DATABASE_URL` in a workspace and in production; R3 |
+| Migrations: where they run, baseline adoption, `0001`/`0002`, before or after the copy | A.4, D.3 and E.8: the copy is taken **before** `0001` and `0002` exist anywhere near production, because they never reach Replit's database. Neon adopts `0000` by exact match, then applies the rest. The pitfalls: the restore leaves out `CREATE SCHEMA public`, dumps `public` only (so `drizzle` is absent and adoption runs as designed), and the `switchover` marker schema sits outside `public` so adoption isn't disturbed. Collation is compared, since the signature doesn't cover it |
+| Region and latency | A.7 and the C.7 round-trip check. The "app in America, database in Frankfurt" state can't arise in option A |
+| Downtime and write freeze, with no maintenance mode | E.4 (disconnect the domain from the old project; its database is untouched) and E.5 (proved quiet). Tester messages in Part I |
+| Verification: row counts, photo checksums, sequences, constraints and indexes, smoke, SYC-100 | B.3 fingerprint (the row hash covers photo bytes, and the signature covers constraints and indexes), D.2 to D.4, E.6 to E.11 |
+| Rollback: exact steps, and writes made on Neon | Part F |
+| Retention | G.1 |
+| Knock-on for #23, #20 and #21 | Part H |
+| D1 superseded, with the amendment text | G.3 |
+
+### Samuel's rollback requirements (added 29 Sep)
+
+| # | Requirement | How it's met |
+|---|---|---|
+| 1 | A trigger and a rollback for every step, and the point of no return | F.1's table, step by step. There's no point of no return inside the retention window. The real one is the retention date (G.1), and G.1 also explains how rollback narrows as later features write to new tables |
+| 2 | The old path stays intact, proved, with a copy Samuel controls, recorded before anything else | R1 and R2. E.3 records the counts and hashes before the freeze, and E.5 and E.13 prove no change. The copies: the untouched old database, Neon's archive branch (E.7, in Samuel's Neon account), and the encrypted dump (Q6) |
+| 3 | A one-action revert: which action, how long, and who | Moving `apptest.catspotters.com` back to the old project (F.2 step 5, Samuel's clicks, 3 to 10 minutes, timed in D.6). With tester writes, it's preceded by Claude's two `db-ops` runs (about 5 minutes) |
+| 4 | Writes on Neon after the switch | F.3 and the carry-back (B.3), with tests (B.3 test 4, mutation probes) and a rehearsal (D.5). "Accept the loss" needs Samuel's written sign-off (F.2 step 3) |
+| 5 | A rehearsal first, including the rollback, with timings | Part D (D.5 is the data half of the rollback, D.6 the address half). The cutover is scheduled only after it passes |
+| 6 | Can Europe and Public roll back separately from the database? | F.4: Public can (and is tested days early); Europe and the database can't, and the reason is given. The single cutover is justified there |
+| 7 | Stop and don't improvise | R0 and F.5 |
+
+### Checks run on this plan
+
+- **Placeholders:** the only `<...>` values are ones only known on the day (a date, a time, the tester password, a PR number). No step says "TBD".
+- **Names are consistent throughout:** `APP_DATABASE_URL`, `DEV_DATABASE_URL`, `NEON_PROD_DIRECT_URL`, `NEON_REHEARSAL_DIRECT_URL`, `NEON_DEV_DIRECT_URL`, `REPLIT_PROD_DATABASE_URL` and `PRELAUNCH_TESTER_KEY`. The `db-ops` commands `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run` and `carry-back-apply`. The branches `production`, `development`, `rehearsal` and `replit-final-<date>`.
+- **Found and fixed while writing:**
+  1. The first draft rolled back by pointing the new app at the old database. That can't work, because the new code expects `0001` and `0002`, so F.4 now says a database rollback is a full rollback.
+  2. The first draft froze writes by unpublishing the old project, which removes its domain and would make a rollback a republish of the old project, with the review risk. It now disconnects the domain only.
+  3. Keeping production empty until cutover would have forced a secret change and a republish on the day. Production now holds a marked rehearsal copy that only the cutover can replace.
+  4. `smoke` would have failed against the gate (B.5).
+  5. An idle Neon connection would have crashed the API through an unhandled pool error (B.1).
+
+### Open risks, stated
+
+- **Unverified until C.4h:** that Replit's production database accepts connections from outside Replit. The Replit agent cited the docs but hadn't tested it. If it doesn't, R0 applies: we stop and re-plan the copy step (for example, running `pg_dump` from the old project's shell with Samuel at the keyboard). Nothing live changes.
+- **Unverified until C.5:** what a remix actually carries over (secrets, the OpenAI integration, the Git link). Each is checked before the first publish.
+- **Unverified until D.3:** that Replit's production schema exactly matches `0000_baseline`. SYC-102 compared tables but not every column. If adoption refuses, the runner prints the differences. The fix is a reviewed change made on the Neon rehearsal copy only, and then the rehearsal runs again. Replit's database is never changed.
+- **Replit's domain-move behaviour** (whether DNS values change between regions) is measured in D.6, not assumed.
+- **The adversarial review of this plan hasn't run yet** (see Model delegation). Its findings go here before Samuel approves.
