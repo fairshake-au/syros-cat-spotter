@@ -1,0 +1,17 @@
+{
+  "_comment": "SYC-113 shared cookie vectors. Read by artifacts/cat-spotter/server/serve-web.test.ts and artifacts/api-server/src/middlewares/prelaunchGate.test.ts, so the website's and the API's copies of the cookie code can't drift apart. Keys are fixed test values, not secrets. Signature = base64url(HMAC-SHA256(key, String(expiry))), independently checked with Python's hmac module.",
+  "cookieName": "__Host-cs_prelaunch",
+  "sessionSeconds": 2419200,
+  "vectors": [
+    {
+      "key": "c3ljMTEzLXRlc3QtdmVjdG9yLWtleS1ub3QtYS1zZWM",
+      "nowSeconds": 1790000000,
+      "expectedValue": "v1.1792419200.q1y5jQxh5NJ8lQNcjIp8p5f7f9Xe_BmzO5UynlrrIQI"
+    },
+    {
+      "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+      "nowSeconds": 1790000000,
+      "expectedValue": "v1.1792419200.wokWrZe5U9EoxGQ6W5820oQoer9x_oW4cjqqEkFZjYk"
+    }
+  ]
+}
