@@ -197,14 +197,7 @@ What the migration contains. The agreed queue is set in the data spine plan (`do
    - **Knock-on:** the api-server tests currently clean up with `delete from sightings` (in seven test files). The guard would refuse that. Those tests have to move to a throwaway database per run, with no bypass switch in the trigger, because a switch anyone can flip is not a guard. This is real work, and it is in the model-delegation table.
 5. **Rollback:** putting `NOT NULL` back fails once any row has been redacted. The rollback has to say so and refuse, rather than pretend. That follows the rule in `lib/db/migrations/README.md` that destructive rollbacks are written and reviewed first.
 
-**Checked against the SYC-102 publish test (29 Sep).** Replit's publish compares dev's structure with production's. For a `NOT NULL` column with no default on a table that has rows, its plan was `TRUNCATE … CASCADE`. It also missed changes to function bodies and to data rows entirely. Against that, item by item:
-
-- **Relaxing `NOT NULL`** on `sightings.device_id` and `cats.discoverer_device_id`: safe. It loosens a rule, and no row has to change.
-- **New columns:** only `cats.redacted_at` and `cats.redaction_reason`. Both are **nullable, with no default**, so no plan should need to empty the table to add them. No new column is added to `sightings`; its redaction columns came in `0001`.
-- **The index:** additive, safe.
-- **The two CHECK constraints, and the sightings append-only guard (a trigger plus its function):** these must reach production **only through spine PR P** (our own migration run by the app, the recommended answer to Q1), never through Replit's diff. The diff missed a changed function body in the test, so it can't be trusted to deliver or update a guard.
-- **Flag (a dependency, not a design change):** the test didn't show whether Replit's diff would *also* try to add a new CHECK or trigger it finds on dev. The guarantee holds only if PR P applies the migration to production *before* publishing. Then production already matches dev, and the diff has nothing left to do. That ordering belongs to PR P and Q1, both still undecided. Until then, this migration must not ship.
-- **The deleted-device marker** is ordinary data, written by the API at runtime. It never goes through a migration or the diff.
+**How this reaches production (SYC-121).** The database is on Neon, and Replit's publish no longer touches its structure. This migration, including the two CHECK constraints and the sightings append-only guard (a trigger and its function), reaches production only through the #13 runner, run by `db-ops` (`gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`) **before** the code that uses it is published. The runner applies every statement exactly as written, in one transaction, so there's no partial delivery. Relaxing `NOT NULL`, the nullable columns and the index are applied the same way.
 
 **Timing, per F6:** all September schema work must land before the Google Play closed test starts. This migration is schema work, so **it has to be scheduled before that clock starts**, whichever slot it gets.
 
@@ -400,13 +393,11 @@ The options and recommendations are kept below for the record. Each one ends wit
 ## 11. Rollout order
 
 0. **Samuel approves this plan.** Decisions A to E and flag 5 were settled on 29 Sep. Flag 6 was also settled; the privacy-policy line is in this PR. Part 2g lands in `DECISIONS.md` through its own PR.
-0a. **SYC-102 must be resolved before any of this reaches production. This is a blocking dependency.** Replit copies only structural changes, such as tables and columns, from the dev database to production when you publish. Triggers and functions may not make the trip.
-   - **The deletion itself doesn't rely on a trigger.** Its updates work with or without one.
-   - **The guarantees around it do.** Migration 0001's `observations_append_only` trigger is what stops anything *other* than a redaction rewriting history. §5's new sightings guard is a trigger too.
-   - **The risk:** if either is missing in production, deletion still works, but the "only redaction may change history" promise is silently false there.
-   - **Spine PR P must be live before this migration ships.** PR P is how database changes reach Replit production (`data-spine.md`, SYC-102). Its shape depends on **Q1**, Samuel's not-yet-made decision on how production migrations work (PR #23). **PR P and Q1 are both rollout dependencies** for this plan. Relaxing `NOT NULL`, the check constraints and the sightings trigger in §5 are exactly the kinds of change that Replit's publishing may not copy.
-   - **Never approve a Replit database review that shows TRUNCATE or DROP on a table with rows.**
-   - **Before rollout,** probe production to confirm both triggers exist. For example, list the triggers on `observations` and `sightings` from `pg_trigger` by name. Don't assume they arrived.
+0a. **SYC-121's cutover must be complete and verified before this migration reaches production.** Until then it goes to the Neon `development` branch only. Its place in the queue is after #24 (SYC-98) and #28 (SYC-43 part 1), so it's regenerated on top of them when it's built. Then:
+   - Run `db-ops` `migrate` against production **before** publishing the server code (the migrate-then-publish order in `docs/DEPLOYMENT.md` §C).
+   - **Probe, don't assume:** Claude confirms, through the Neon MCP's read-only `run_sql`, that `pg_trigger` lists the `observations` and `sightings` guards by name, and that `pg_constraint` lists both checks.
+   - Take a note of the time before running it. Neon's 7-day restore is the backstop, and the rollback block's warning (restoring `NOT NULL` fails once any row is redacted) still applies.
+   - If Replit's Publish ever shows a database review, cancel it (SYC-121 R3).
 1. **Data spine PRs 2, 3 and 4 are merged before this build starts** (`docs/superpowers/plans/data-spine.md`, PR #23).
    - **PR 2** delivers SYC-107: the claim, registration and rename secret checks that §4.3 depends on. It also makes a claim write a `homed` observation.
    - **PR 3** is the data backfill.
