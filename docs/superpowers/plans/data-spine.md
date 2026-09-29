@@ -280,47 +280,50 @@ Step 7: SYC-37 and SYC-74.
 
 ## How each step reaches production
 
-**What we now know (SYC-102, verified read-only on 29 Sep).** The apptest production database is Replit-managed, separate from dev, and can't be reached from the workspace shell (there is only a read-only query tool). **When the app is published, Replit applies the structural difference between the dev and production databases itself.** Replit documents that as "adding and deleting columns or tables". Production has **no `drizzle` schema and no migration history**, and the same nine tables as dev. So `docs/DEPLOYMENT.md`'s "run `migrate` against production first" can't be done as written, and SYC-64's one-off "adopt the baseline on production" never happened.
+**What SYC-102 found (29 Sep; the full table is in its latest Linear comment).**
 
-Replit's publish step is documented to carry only some of what our migrations contain:
+- Production is Replit-managed, separate from dev, and has **no `drizzle` schema and no migration history**. It has the same nine tables as dev.
+- **The first publish to an *empty* production copies everything**: rows, triggers, functions, the `drizzle` schema and its rows. Our production isn't empty, so that doesn't help us.
+- **Every later publish diffs the structure, and puts "risky" changes behind a manual review on the Replit website.** For adding a NOT NULL column without a default to a populated table, the diff's own plan was **`TRUNCATE ... CASCADE`**: every row in that table and everything referencing it, gone.
+- **A changed function body, and new rows in `drizzle.__drizzle_migrations`, don't appear in the diff at all.** So a guard updated by a migration would silently stay old in production.
+- **The deployed app has full DDL and write rights on production at runtime** (confirmed live).
+- `DATABASE_URL` is set at build time. It isn't yet confirmed whether it points at production then, or whether the diff runs before or after the build (PR P's first check).
 
-| What a step needs in production | Carried by Replit's publish diff? | Who needs it |
+**So Replit's diff can't be the way our changes reach production.** It misses guards and history, and it can destroy data. The plan therefore treats Publish as **code delivery only**, and **our own runner applies our migrations to production** (PR P, Q1). If the runner has already brought production level with dev when Publish runs, the diff is empty.
+
+| What a step needs in production | Replit's diff | Our runner (PR P) |
 |---|---|---|
-| New tables and new columns | Yes (documented) | Step 1's tables, if dev had them at publish; SYC-43 part 1's `people`; SYC-63's `cats` redaction columns |
-| Relaxing NOT NULL | Not documented | SYC-63 §5 |
-| CHECK constraints | Not documented | Step 1's attribution check; SYC-63 §5; SYC-43 part 1's email checks |
-| Triggers and functions | Not documented | **Step 1's append-only guards**; SYC-63 §5's sightings guard |
-| The migration history (`drizzle` schema) | No (verified absent) | Every step: the runner's "never twice, never out of order" guarantee |
-| Data backfills | No: a diff compares structure, not rows | PR 3; SYC-101's folded names |
-| The notify job's baseline seeding (F4) | No | SYC-55. This plan needs none (C4) |
+| New tables and columns | Yes, but "risky" ones go to a manual review, and a NOT NULL column may be planned as a truncate | Yes, as written and reviewed in the PR |
+| Relaxed NOT NULL, CHECK constraints | Uncertain | Yes |
+| Triggers and functions, including a changed function body | New ones uncertain; **changed bodies not in the diff** | Yes |
+| The migration history | **Not in the diff** | Yes: it is the runner's own record |
+| Data backfills (PR 3, SYC-101) | No | Yes, as custom migrations |
 
-**The consequence to take seriously now:** if step 1's tables reached production through the diff, they may have arrived **without their append-only triggers and without the attribution check**. Nothing writes observations yet, so nothing is wrong today. It becomes wrong the day PR 2 deploys. **So PR 2 and PR 3 are blocked on Q1 and PR P.**
+**The rule for every rollout, stated here and in `docs/DEPLOYMENT.md` §C by PR P:** **never approve a Replit publish database review that contains `TRUNCATE` or `DROP` on a populated table. Cancel the publish and raise it.** If our runner has done its job, the review should be empty. A review that isn't empty means production and dev have drifted, and that is a problem to understand, not to click through.
 
-**How the plan compensates**, whichever answer Q1 gets:
+**The consequence to take seriously now:** if step 1's tables ever reached production through a diff, they arrived **without their append-only triggers and without the attribution check**. Nothing writes observations yet, so nothing is wrong today. It becomes wrong the day PR 2 deploys. **So PR 2 and PR 3 are blocked on PR P**, whose adoption step either finds production clean or names the drift.
 
-1. **Every step is written so it is safe to run more than once**: `CREATE OR REPLACE FUNCTION`, triggers created only if missing, constraints added only if missing, NOT NULL dropped (a no-op the second time), backfills guarded by "not already there". PR 3 is specified that way above; the same rule is passed to SYC-63 §5 and SYC-101.
-2. **The app checks production's shape when it starts** (PR P), and refuses to write cat history if the guard that protects it is missing. That's the check that would have caught the 500 incident, and it's cheap.
-3. **Verification after each publish is a probe, not an assumption**: the implementer uses the read-only query tool to confirm the triggers, constraints and backfilled rows exist, and records it in the PR.
+**Verification after each publish is a probe, not an assumption**: the implementer uses the read-only query tool to confirm the runner's history, the triggers, the constraints and any backfilled rows, and records it in the PR.
 
 ## Data safety on the live test database
 
-Testers are using apptest.catspotters.com now. In this plan only PR 3 touches live data (inserts into `observations`); PR P adds missing guards. Everything else is code.
+Testers are using apptest.catspotters.com now. In this plan only PR 3 touches live data (inserts into `observations`); PR P adopts the history and applies the migrations already merged. Everything else is code.
 
 **Before either, check the ground** (the implementer does this, not Samuel, with the read-only query tool):
 
-0. **Precondition for PR P: can the production app's database role change the database's structure?** That means `CREATE FUNCTION`, `CREATE TRIGGER` and `ALTER TABLE` on the tables it uses. SYC-102's throwaway-app experiment is testing this now. **If the role can't, PR P can't work as designed**, and Q1 moves to whichever option fits: B if Replit's own step can carry them, otherwise C or D. PR P doesn't start until this is answered.
-1. What production actually has from step 1: the five tables, the attribution check, the three triggers, the three functions. Record the answer in PR P's description; it decides how much PR P has to add.
+0. **PR P's first check:** where the build-time `DATABASE_URL` points, and whether the build runs before or after Replit's diff (see PR P). The production app's DDL rights, the earlier precondition, are **confirmed** by SYC-102.
+1. What production actually has from step 1: the five tables, the attribution check, the three triggers, the three functions. Also compare production's schema with `0000_baseline`, so the adoption result is known before PR P runs. Record both in PR P's description.
 2. Confirm a restorable backup point exists (Replit's point-in-time restore or a dump) and record its time in the PR.
 3. Run read-only counts the backfill will reproduce: cats, claimed cats, owner-registered cats, `cat_updates` by type. They go in PR 3's description, and PR 3's self-check must match them on production.
 
 | Change | What it locks, and for how long | Why nothing is lost | If it goes wrong |
 |---|---|---|---|
-| PR P: add missing triggers and the attribution check | A brief lock per table to create each; the check validates existing rows (none in `observations` today) | Adds rules only; changes no row | Start-up logs the failure and refuses history writes; nothing else is affected. Revert and republish |
+| PR P: adopt the baseline, then apply the merged migrations | Adoption only reads (its comparison runs in a rolled-back transaction); each migration takes brief locks, bounded by the 5 s `lock_timeout` | One transaction per run, so either everything lands or nothing does; drift stops it before any write | Build variant: the build fails and nothing changes. Start-up variant: the runner logs and retries, and only history writes are refused |
 | PR 3: backfill | Row inserts into `observations` only; reads the rest | Append-only, idempotent, self-checking; nothing existing changes | The transaction raises and nothing lands, or the rollback removes exactly the `backfill:data-spine` rows |
 
-**Order.** PR 3's code prerequisite (PR 2) must be **live in production** first, *then* its backfill runs, *then* PR 4 merges. `docs/DEPLOYMENT.md` §C's "migrate, deploy, smoke" is rewritten by PR P to match whatever Q1 decides.
+**Order.** PR 3's code prerequisite (PR 2) must be **live in production** first, *then* its backfill runs, *then* PR 4 merges. `docs/DEPLOYMENT.md` §C's "migrate, deploy, smoke" is rewritten by PR P to match the variant chosen, and it carries the review-gate rule above.
 
-**The Play clock (F6).** This plan adds **no schema change of its own**: PR 3 is data only, and PR P adds only what earlier migrations already defined. The remaining schema changes in the chain are SYC-43 part 1's, SYC-63 §5 and SYC-101's; all three should land before the closed test starts. The up–down–up against a copy of production (`docs/DEPLOYMENT.md` §C) is best run on SYC-63 §5, the first migration after `0001` with a meaningful rollback; how the copy is made depends on Q1.
+**The Play clock (F6).** This plan adds **no schema change of its own**: PR 3 is data only, and PR P adds only what earlier migrations already defined. The remaining schema changes in the chain are SYC-43 part 1's, SYC-63 §5 and SYC-101's; all three should land before the closed test starts. The up–down–up against a copy of production (`docs/DEPLOYMENT.md` §C) is best run on SYC-63 §5, the first migration after `0001` with a meaningful rollback; the copy is made by restoring production into a throwaway Replit database, as SYC-102's experiment did.
 
 ## Parallelism
 
