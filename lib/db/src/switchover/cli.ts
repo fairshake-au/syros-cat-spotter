@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import pg from "pg";
-import { carryBack } from "./carryBack";
+import { carryBack, formatCarryBackReport } from "./carryBack";
 import { compare as doCompare, fingerprint as doFingerprint } from "./fingerprint";
 import { cutoverDone, guardTarget, mark, rehearsalMarked, type GuardMode } from "./guard";
 
@@ -10,9 +11,11 @@ import { cutoverDone, guardTarget, mark, rehearsalMarked, type GuardMode } from 
 //
 //   fingerprint                        fingerprints SOURCE (read-only)
 //   guard-target --mode rehearsal|cutover   wipes/checks TARGET
-//   mark --mode rehearsal|cutover [--fingerprint <md5>]   marks TARGET
+//   mark --mode rehearsal|cutover [--fingerprint <md5>] [--fingerprint-file <json>]
+//                                       marks TARGET, storing the copy source's fingerprint
 //   compare [--projected]               fingerprints SOURCE and TARGET (both read-only)
-//   carry-back [--apply]                NOT IMPLEMENTED — see carryBack.ts
+//   carry-back [--apply]                SOURCE = Neon production, TARGET = the old
+//                                       database; a dry run unless --apply (carryBack.ts)
 
 class SwitchoverCliError extends Error {}
 
@@ -83,9 +86,21 @@ async function cmdGuardTarget(args: string[]): Promise<void> {
 async function cmdMark(args: string[]): Promise<void> {
   const mode = parseMode(args);
   const sourceFingerprint = option(args, "--fingerprint") ?? "";
+  // The copy source's full fingerprint (counts and hashes only), kept with
+  // the marker so a later carry-back can prove the old database is
+  // unchanged since this copy.
+  const fingerprintFile = option(args, "--fingerprint-file");
+  let fingerprintJson: unknown;
+  if (fingerprintFile) {
+    try {
+      fingerprintJson = JSON.parse(readFileSync(fingerprintFile, "utf8"));
+    } catch {
+      throw new SwitchoverCliError("--fingerprint-file is not a readable JSON fingerprint.");
+    }
+  }
   const client = await connect(requiredEnv("TARGET_DATABASE_URL"));
   try {
-    await mark(client, mode, sourceFingerprint);
+    await mark(client, mode, sourceFingerprint, fingerprintJson);
     const done = await cutoverDone(client);
     const rehearsed = await rehearsalMarked(client);
     console.log(
@@ -123,7 +138,8 @@ async function cmdCarryBack(args: string[]): Promise<void> {
     : await connectReadOnly(requiredEnv("TARGET_DATABASE_URL"));
   try {
     const report = await carryBack(source, target, { apply });
-    console.log(JSON.stringify(report, null, 2));
+    // The formatted report only: ids, never contents, device ids hashed.
+    console.log(formatCarryBackReport(report));
   } finally {
     await source.end();
     await target.end();

@@ -1,46 +1,100 @@
+import { createHash } from "node:crypto";
 import type { ClientBase } from "pg";
+import {
+  BASELINE_TABLES,
+  compare,
+  fingerprint,
+  quoteIdent,
+  rowTextExpr,
+  tableColumns,
+  type ColumnInfo,
+  type CompareDiff,
+} from "./fingerprint";
+import { readMarkers } from "./guard";
 
 /**
- * SYC-121, task B.3 carry-back — STUB, NOT IMPLEMENTED HERE.
+ * SYC-121, task B.3: carry-back. Copies testers' writes on Neon back into
+ * the old database during a rollback (plan Part F.2/F.3). See
+ * docs/superpowers/plans/syc-121-neon-switchover.md, §B.3 "Carry-back".
  *
- * Escalated to Opus in the plan's Model delegation table (docs/superpowers/
- * plans/syc-121-neon-switchover.md, Part B.3): "it's the only code that
- * writes to the old database, and its failure modes are silent (a missed
- * update or a wrong sequence looks fine until a tester's row is gone)".
+ * `source` is Neon production (read only, always). `target` is the old
+ * database (the old Replit production in a real rollback, or Neon's
+ * `rehearsal` branch standing in for it in D.5).
  *
- * This chip (Sonnet, Chip I) built fingerprint.ts, guard.ts and cli.ts's
- * `fingerprint`, `guard-target`, `mark` and `compare` commands, but was told
- * explicitly NOT to implement carry-back. A follow-on Opus chip builds it on
- * this same branch (`claude/syc-121-build`), following the plan's §B.3
- * "Carry-back" section (rows 1–5) and its own tests (test 4 end to end,
- * test 5, and the "skip update" / "skip setval" mutation probes), plus the
- * D.5 rehearsal against a real copy.
+ * It makes each of the nine baseline tables in the target equal to the
+ * source's rows, projected onto the target's columns, by primary key:
+ * rows only on the source are inserted, rows on both with different values
+ * are updated, rows only on the target are deleted. Inserts and updates go
+ * parents first, deletes children first, following the target's foreign
+ * keys. Each serial sequence is then moved past every id either side has
+ * used. A projected compare runs inside the same transaction, and the
+ * transaction commits only if the target now matches exactly.
  *
- * The interface below is the contract `cli.ts`'s `carry-back` command binds
- * to, so the CLI, the db-ops workflow (B.4) and its tests can all be written
- * against a stable shape before carry-back itself exists. Calling it today
- * throws "not implemented".
+ * Without `apply` (the default) it's a dry run: both sessions are read-only
+ * transactions, and it only reports what it would do.
+ *
+ * Safety checks, all before anything is written:
+ *  - The source must carry a switchover marker (it's a Neon copy); the
+ *    target must not carry `cutover_done` (that's a live Neon production,
+ *    never a carry-back target); and they must not be the same database.
+ *  - Every column the target has must exist on the source. Otherwise the
+ *    old schema isn't the baseline, so it stops (R0, plan test 5).
+ *  - **The old database must be unchanged since the copy.** The source's
+ *    marker stores the copy source's fingerprint (per-table row hashes of
+ *    the old database at copy time). Any table that has changed on the
+ *    target since then, and that the carry-back would write to, is refused:
+ *    its new rows could share ids with testers' rows on Neon (an id
+ *    collision), and mirroring would overwrite or delete them. Those need
+ *    recovering by hand (F.3). A table that already equals the source is
+ *    fine, which is what makes a re-run after a successful apply a no-op.
+ *
+ * It reports primary keys only, never row contents.
  */
 
 export interface CarryBackTableReport {
   table: string;
   /** Primary-key values (never row contents) of rows that would be/were inserted. */
-  toInsert: unknown[];
+  toInsert: PkValue[];
   /** Primary-key values of rows that would be/were updated. */
-  toUpdate: unknown[];
+  toUpdate: PkValue[];
   /** Primary-key values of rows that would be/were deleted. */
-  toDelete: unknown[];
+  toDelete: PkValue[];
 }
+
+/** A primary key: a number (integer keys), a string, or an object (composite keys). */
+export type PkValue = number | string | Record<string, number | string>;
+
+export interface CarryBackSequenceReport {
+  sequence: string;
+  /** The target's last_value before (null when the sequence was never used). */
+  from: number | null;
+  /** What it is (or would be) set to, so nextval returns to + 1. */
+  to: number;
+}
+
+export type BaselineStatus =
+  /** The target is unchanged since the copy, wherever the carry-back writes. */
+  | "ok"
+  /** Some tables changed on the target since the copy: apply is refused. */
+  | "changed"
+  /** The source's marker has no stored copy fingerprint: apply is refused. */
+  | "missing";
 
 export interface CarryBackReport {
   /** Per baseline table, what changed (or would change without --apply). */
   tables: CarryBackTableReport[];
   /**
-   * Rows that exist only in tables the old (target) database doesn't have at
-   * all — added by a migration after the baseline. Reported by table name
-   * only ("no home in the old database"), never by content.
+   * Tables the old (target) database doesn't have at all, added by a
+   * migration after the baseline, that hold rows on the source. They stay on
+   * Neon ("no home in the old database"). Names only, never contents.
    */
   noHomeInTarget: string[];
+  /** Row counts for `noHomeInTarget`. */
+  noHomeRows: Record<string, number>;
+  /** Source columns the target lacks (their values stay on Neon only). */
+  droppedColumns: { table: string; columns: string[] }[];
+  sequences: CarryBackSequenceReport[];
+  baseline: { status: BaselineStatus; changedTables: string[] };
   applied: boolean;
 }
 
@@ -49,25 +103,674 @@ export interface CarryBackOptions {
   apply?: boolean;
 }
 
-/**
- * Makes each of the nine baseline tables in `target` (the old database)
- * equal to `source`'s rows (Neon production), projected onto the target's
- * columns. See the plan's §B.3 "Carry-back" for the full algorithm (insert/
- * update/delete by primary key, parents-first / children-first by foreign
- * key, sequence catch-up, and a `compare --projected` check inside the same
- * transaction that only commits if it passes).
- *
- * NOT IMPLEMENTED in this chip's scope. Built by the Opus follow-on chip on
- * this branch.
- */
-export async function carryBack(
-  _source: ClientBase,
-  _target: ClientBase,
-  _opts: CarryBackOptions = {},
-): Promise<CarryBackReport> {
-  throw new Error(
-    "carryBack is not implemented yet (SYC-121, task B.3 carry-back). " +
-      "It is deliberately left as a stub for a follow-on Opus chip on this " +
-      "branch — see the comment at the top of lib/db/src/switchover/carryBack.ts.",
+/** Refused before writing anything: the report says why. */
+export class CarryBackRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CarryBackRefusedError";
+  }
+}
+
+/** The target didn't match the source after the writes: rolled back. */
+export class CarryBackVerifyError extends Error {
+  constructor(
+    message: string,
+    readonly diffs: CompareDiff[],
+  ) {
+    super(message);
+    this.name = "CarryBackVerifyError";
+  }
+}
+
+interface TablePlan {
+  table: string;
+  primaryKey: readonly string[];
+  /** The target's columns (the projection), with the target's types. */
+  columns: ColumnInfo[];
+  inserts: string[];
+  updates: string[];
+  deletes: string[];
+  /** key -> primary-key texts, for every key in inserts/updates/deletes. */
+  pkTexts: Map<string, string[]>;
+}
+
+const INTEGER_TYPES = new Set(["integer", "bigint", "smallint"]);
+
+async function databaseIdentity(client: ClientBase): Promise<string> {
+  const r = await client.query<{ id: string }>(
+    `select concat_ws('|', current_database(), pg_postmaster_start_time()::text,
+                      coalesce(inet_server_addr()::text, 'local'),
+                      coalesce(inet_server_port()::text, '')) as id`,
   );
+  return r.rows[0]!.id;
+}
+
+async function publicTables(client: ClientBase): Promise<string[]> {
+  const r = await client.query<{ relname: string }>(
+    `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'r' order by c.relname`,
+  );
+  return r.rows.map((row) => row.relname);
+}
+
+/**
+ * The nine tables, parents before children, following the target's foreign
+ * keys among them. Ties keep BASELINE_TABLES' order. Self-references are
+ * ignored (the baseline has none).
+ */
+async function parentsFirst(target: ClientBase): Promise<string[]> {
+  const names = BASELINE_TABLES.map((t) => t.table);
+  const r = await target.query<{ child: string; parent: string }>(
+    `select c.relname as child, p.relname as parent
+       from pg_constraint k
+       join pg_class c on c.oid = k.conrelid
+       join pg_class p on p.oid = k.confrelid
+       join pg_namespace n on n.oid = c.relnamespace
+      where k.contype = 'f' and n.nspname = 'public'`,
+  );
+  const parents = new Map<string, Set<string>>(names.map((n) => [n, new Set()]));
+  for (const { child, parent } of r.rows) {
+    if (child === parent) continue;
+    if (parents.has(child) && parents.has(parent)) parents.get(child)!.add(parent);
+  }
+  const order: string[] = [];
+  const done = new Set<string>();
+  while (order.length < names.length) {
+    const next = names.find(
+      (n) => !done.has(n) && [...parents.get(n)!].every((p) => done.has(p)),
+    );
+    if (!next) {
+      throw new CarryBackRefusedError(
+        "The baseline tables' foreign keys form a cycle on the target; carry-back can't order its writes.",
+      );
+    }
+    order.push(next);
+    done.add(next);
+  }
+  return order;
+}
+
+async function rowKeys(
+  client: ClientBase,
+  table: string,
+  primaryKey: readonly string[],
+  columns: readonly string[],
+): Promise<Map<string, { pk: string[]; hash: string }>> {
+  const pkSelect = primaryKey
+    .map((c, i) => `t.${quoteIdent(c)}::text as "k${i}"`)
+    .join(", ");
+  const r = await client.query<Record<string, string>>(
+    `select ${pkSelect}, md5(${rowTextExpr(columns)}) as "h" from ${quoteIdent(table)} t`,
+  );
+  const out = new Map<string, { pk: string[]; hash: string }>();
+  for (const row of r.rows) {
+    const pk = primaryKey.map((_, i) => row[`k${i}`]!);
+    out.set(JSON.stringify(pk), { pk, hash: row.h! });
+  }
+  return out;
+}
+
+function pkValue(plan: TablePlan, key: string): PkValue {
+  const texts = plan.pkTexts.get(key)!;
+  const typed = plan.primaryKey.map((name, i) => {
+    const type = plan.columns.find((c) => c.name === name)?.type ?? "text";
+    return INTEGER_TYPES.has(type) ? Number(texts[i]) : texts[i]!;
+  });
+  if (typed.length === 1) return typed[0]!;
+  return Object.fromEntries(plan.primaryKey.map((name, i) => [name, typed[i]!]));
+}
+
+function sortKeys(keys: string[]): string[] {
+  return keys.sort((a, b) => {
+    const pa = JSON.parse(a) as string[];
+    const pb = JSON.parse(b) as string[];
+    for (let i = 0; i < pa.length; i++) {
+      const na = Number(pa[i]);
+      const nb = Number(pb[i]);
+      const c =
+        Number.isFinite(na) && Number.isFinite(nb)
+          ? na - nb
+          : pa[i]!.localeCompare(pb[i]!);
+      if (c !== 0) return c;
+    }
+    return 0;
+  });
+}
+
+interface SequenceInfo {
+  sequence: string;
+  table: string;
+  column: string;
+}
+
+async function ownedSequences(
+  client: ClientBase,
+  tables: readonly string[],
+): Promise<SequenceInfo[]> {
+  const r = await client.query<SequenceInfo>(
+    `select s.relname as sequence, t.relname as table, a.attname as column
+       from pg_class s
+       join pg_depend d on d.objid = s.oid and d.deptype = 'a'
+       join pg_class t on t.oid = d.refobjid
+       join pg_attribute a on a.attrelid = t.oid and a.attnum = d.refobjsubid
+       join pg_namespace n on n.oid = s.relnamespace
+      where s.relkind = 'S' and n.nspname = 'public' and t.relname = any($1)
+      order by s.relname`,
+    [tables as string[]],
+  );
+  return r.rows;
+}
+
+/** The highest value a sequence has handed out, or null if it never has. */
+async function sequenceUsed(
+  client: ClientBase,
+  sequence: string,
+): Promise<{ lastValue: number; isCalled: boolean } | null> {
+  const exists = await client.query<{ t: string | null }>(
+    `select to_regclass($1)::text as t`,
+    [`public.${quoteIdent(sequence)}`],
+  );
+  if (!exists.rows[0]?.t) return null;
+  const r = await client.query<{ last_value: string; is_called: boolean }>(
+    `select last_value, is_called from public.${quoteIdent(sequence)}`,
+  );
+  const row = r.rows[0]!;
+  return { lastValue: Number(row.last_value), isCalled: row.is_called };
+}
+
+async function maxOf(
+  client: ClientBase,
+  table: string,
+  column: string,
+): Promise<number | null> {
+  const r = await client.query<{ max: string | null }>(
+    `select max(${quoteIdent(column)})::text as max from ${quoteIdent(table)}`,
+  );
+  return r.rows[0]?.max == null ? null : Number(r.rows[0].max);
+}
+
+/**
+ * The value each sequence must hold (with is_called = true) so nextval
+ * never hands out an id either side has already used: the greatest of the
+ * target's last value, the source's last value and max(id).
+ */
+async function planSequences(
+  source: ClientBase,
+  target: ClientBase,
+  maxFrom: ClientBase,
+): Promise<CarryBackSequenceReport[]> {
+  const out: CarryBackSequenceReport[] = [];
+  for (const seq of await ownedSequences(
+    target,
+    BASELINE_TABLES.map((t) => t.table),
+  )) {
+    const t = await sequenceUsed(target, seq.sequence);
+    const s = await sequenceUsed(source, seq.sequence);
+    const max = await maxOf(maxFrom, seq.table, seq.column);
+    const candidates: number[] = [];
+    if (t?.isCalled) candidates.push(t.lastValue);
+    if (s?.isCalled) candidates.push(s.lastValue);
+    if (max !== null) candidates.push(max);
+    if (candidates.length === 0) continue;
+    const to = Math.max(...candidates);
+    const from = t?.isCalled ? t.lastValue : null;
+    if (from === to) continue;
+    out.push({ sequence: seq.sequence, from, to });
+  }
+  return out;
+}
+
+interface BaselineFingerprint {
+  tables: { table: string; rows: number; hash: string }[];
+}
+
+function parseBaseline(json: unknown): BaselineFingerprint | null {
+  if (!json || typeof json !== "object") return null;
+  const tables = (json as { tables?: unknown }).tables;
+  if (!Array.isArray(tables)) return null;
+  for (const t of tables) {
+    if (
+      !t ||
+      typeof t.table !== "string" ||
+      typeof t.hash !== "string" ||
+      typeof t.rows !== "number"
+    ) {
+      return null;
+    }
+  }
+  return { tables: tables as BaselineFingerprint["tables"] };
+}
+
+async function rollbackQuietly(client: ClientBase): Promise<void> {
+  try {
+    await client.query("rollback");
+  } catch {
+    // The connection may already be broken; the transaction dies with it.
+  }
+}
+
+export async function carryBack(
+  source: ClientBase,
+  target: ClientBase,
+  opts: CarryBackOptions = {},
+): Promise<CarryBackReport> {
+  const apply = opts.apply === true;
+  // One consistent snapshot of Neon for the whole run, read-only whatever
+  // the connection allows.
+  await source.query("begin isolation level repeatable read read only");
+  try {
+    await target.query(
+      apply ? "begin" : "begin isolation level repeatable read read only",
+    );
+    try {
+      const report = await carryBackInTransaction(source, target, apply);
+      if (apply) await target.query("commit");
+      else await rollbackQuietly(target);
+      return report;
+    } catch (err) {
+      await rollbackQuietly(target);
+      throw err;
+    }
+  } finally {
+    await rollbackQuietly(source);
+  }
+}
+
+async function carryBackInTransaction(
+  source: ClientBase,
+  target: ClientBase,
+  apply: boolean,
+): Promise<CarryBackReport> {
+  if (apply) await target.query("set local lock_timeout = '30s'");
+
+  // 1. The right two databases.
+  if ((await databaseIdentity(source)) === (await databaseIdentity(target))) {
+    throw new CarryBackRefusedError(
+      "The source and target are the same database. Refusing.",
+    );
+  }
+  const sourceMarkers = await readMarkers(source);
+  if (!sourceMarkers.cutoverDone && !sourceMarkers.rehearsalMarked) {
+    throw new CarryBackRefusedError(
+      "The source has no switchover marker, so it isn't a Neon copy of the old database. Refusing.",
+    );
+  }
+  const targetMarkers = await readMarkers(target);
+  if (targetMarkers.cutoverDone) {
+    throw new CarryBackRefusedError(
+      "The target has switchover.cutover_done: it's a cut-over Neon branch, not the old database. Refusing.",
+    );
+  }
+
+  // 2. The target's schema must be the baseline: every column it has must
+  // exist on the source (R0, test 5). Source columns it lacks are dropped.
+  const plans: TablePlan[] = [];
+  const droppedColumns: CarryBackReport["droppedColumns"] = [];
+  for (const t of BASELINE_TABLES) {
+    const tgt = await tableColumns(target, t.table);
+    const src = await tableColumns(source, t.table);
+    if (!tgt) {
+      throw new CarryBackRefusedError(
+        `The target has no table "${t.table}", so it isn't at the baseline schema. Refusing (R0).`,
+      );
+    }
+    if (!src) {
+      throw new CarryBackRefusedError(
+        `The source has no table "${t.table}". Refusing (R0).`,
+      );
+    }
+    const srcNames = new Set(src.map((c) => c.name));
+    const extra = tgt.filter((c) => !srcNames.has(c.name)).map((c) => c.name);
+    if (extra.length) {
+      throw new CarryBackRefusedError(
+        `The target has column(s) the source lacks (${t.table}: ${extra.join(", ")}), so the old schema isn't the baseline. Refusing (R0).`,
+      );
+    }
+    const tgtNames = new Set(tgt.map((c) => c.name));
+    const dropped = src.filter((c) => !tgtNames.has(c.name)).map((c) => c.name);
+    if (dropped.length) droppedColumns.push({ table: t.table, columns: dropped });
+    plans.push({
+      table: t.table,
+      primaryKey: t.primaryKey,
+      columns: tgt,
+      inserts: [],
+      updates: [],
+      deletes: [],
+      pkTexts: new Map(),
+    });
+  }
+
+  // 3. Hold off the old app's writes for the rest of the transaction.
+  if (apply) {
+    await target.query(
+      `lock table ${BASELINE_TABLES.map((t) => quoteIdent(t.table)).join(", ")} in exclusive mode`,
+    );
+  }
+
+  // 4. What the target looks like now, against the copy's fingerprint. Run
+  // before the session settings below change, so the row text matches the
+  // copy's fingerprint session.
+  const baseline = parseBaseline(sourceMarkers.sourceFingerprintJson);
+  const changedSinceCopy = new Set<string>();
+  if (baseline) {
+    const now = await fingerprint(target);
+    const then = new Map(baseline.tables.map((t) => [t.table, t]));
+    for (const t of now.tables) {
+      const b = then.get(t.table);
+      if (!b || b.hash !== t.hash || b.rows !== t.rows) changedSinceCopy.add(t.table);
+    }
+  }
+
+  // Same text form for timestamps on both sides, so equal values hash equal
+  // and are written back exactly.
+  for (const c of [source, target]) {
+    await c.query("set local timezone = 'UTC'");
+    await c.query("set local datestyle = 'ISO, YMD'");
+    await c.query("set local extra_float_digits = 1");
+  }
+
+  // 5. The differences, by primary key.
+  for (const plan of plans) {
+    const names = plan.columns.map((c) => c.name);
+    const src = await rowKeys(source, plan.table, plan.primaryKey, names);
+    const tgt = await rowKeys(target, plan.table, plan.primaryKey, names);
+    for (const [key, s] of src) {
+      const t = tgt.get(key);
+      if (!t) plan.inserts.push(key);
+      else if (t.hash !== s.hash) plan.updates.push(key);
+      else continue;
+      plan.pkTexts.set(key, s.pk);
+    }
+    for (const [key, t] of tgt) {
+      if (!src.has(key)) {
+        plan.deletes.push(key);
+        plan.pkTexts.set(key, t.pk);
+      }
+    }
+    sortKeys(plan.inserts);
+    sortKeys(plan.updates);
+    sortKeys(plan.deletes);
+  }
+
+  const touched = plans.filter(
+    (p) => p.inserts.length + p.updates.length + p.deletes.length > 0,
+  );
+  const changedTables = touched
+    .map((p) => p.table)
+    .filter((t) => changedSinceCopy.has(t));
+  const baselineStatus: BaselineStatus = !baseline
+    ? "missing"
+    : changedTables.length
+      ? "changed"
+      : "ok";
+
+  // 6. Tables with no home in the old database.
+  const targetTables = new Set(await publicTables(target));
+  const noHomeRows: Record<string, number> = {};
+  for (const table of await publicTables(source)) {
+    if (targetTables.has(table)) continue;
+    const r = await source.query<{ n: string }>(
+      `select count(*)::bigint as n from ${quoteIdent(table)}`,
+    );
+    const n = Number(r.rows[0]!.n);
+    if (n > 0) noHomeRows[table] = n;
+  }
+
+  const report: CarryBackReport = {
+    tables: plans.map((p) => ({
+      table: p.table,
+      toInsert: p.inserts.map((k) => pkValue(p, k)),
+      toUpdate: p.updates.map((k) => pkValue(p, k)),
+      toDelete: p.deletes.map((k) => pkValue(p, k)),
+    })),
+    noHomeInTarget: Object.keys(noHomeRows),
+    noHomeRows,
+    droppedColumns,
+    sequences: [],
+    baseline: { status: baselineStatus, changedTables },
+    applied: false,
+  };
+
+  if (!apply) {
+    report.sequences = await planSequences(source, target, source);
+    return report;
+  }
+
+  if (baselineStatus === "missing") {
+    throw new CarryBackRefusedError(
+      "The source's switchover marker has no stored copy fingerprint, so there's no proof the old database is unchanged since the copy. Refusing to apply.",
+    );
+  }
+  if (baselineStatus === "changed") {
+    throw new CarryBackRefusedError(
+      `The old database has changed since the copy in: ${changedTables.join(", ")}. ` +
+        "Its new rows could share ids with testers' rows on Neon, and mirroring would overwrite or delete them. " +
+        "Refusing to apply: recover these by hand (plan F.3).",
+    );
+  }
+
+  // 7. Write: inserts and updates parents first, deletes children first.
+  await target.query("set constraints all deferred");
+  const order = await parentsFirst(target);
+  const byTable = new Map(plans.map((p) => [p.table, p]));
+  for (const table of order) {
+    const plan = byTable.get(table)!;
+    if (plan.inserts.length + plan.updates.length === 0) continue;
+    await writeRows(source, target, plan);
+  }
+  for (const table of [...order].reverse()) {
+    const plan = byTable.get(table)!;
+    for (const key of plan.deletes) {
+      const pk = plan.pkTexts.get(key)!;
+      const where = pkWhere(plan, 1);
+      await target.query(`delete from ${quoteIdent(plan.table)} where ${where}`, pk);
+    }
+  }
+
+  // 8. Sequences past every id either side has used.
+  report.sequences = await planSequences(source, target, target);
+  for (const s of report.sequences) {
+    await target.query(`select setval($1::regclass, $2, true)`, [
+      `public.${quoteIdent(s.sequence)}`,
+      s.to,
+    ]);
+  }
+
+  // 9. Commit only if the target now matches Neon's projection exactly.
+  const diffs = (
+    await compare(source, target, { projected: true, onto: "target" })
+  ).filter((d) => d.kind !== "sequence");
+  diffs.push(...(await sequencesBehind(source, target)));
+  if (diffs.length) {
+    throw new CarryBackVerifyError(
+      `After the writes, the target still differs from the source (${diffs
+        .map((d) => `${d.kind}: ${d.detail}`)
+        .join("; ")}). Rolled back; nothing changed.`,
+      diffs,
+    );
+  }
+
+  report.applied = true;
+  return report;
+}
+
+/**
+ * The sequence half of the final check. The target's sequences must be
+ * past max(id) and at least where the source's are, so the old app's next
+ * insert can't reuse an id. (compare's own sequence check wants the two
+ * last values equal, which would refuse a harmless case: the old database's
+ * sequence having moved on, with no row to show for it, since the copy.)
+ */
+async function sequencesBehind(
+  source: ClientBase,
+  target: ClientBase,
+): Promise<CompareDiff[]> {
+  const out: CompareDiff[] = [];
+  for (const seq of await ownedSequences(
+    target,
+    BASELINE_TABLES.map((t) => t.table),
+  )) {
+    const t = await sequenceUsed(target, seq.sequence);
+    const s = await sequenceUsed(source, seq.sequence);
+    const max = await maxOf(target, seq.table, seq.column);
+    const used = t?.isCalled ? t.lastValue : null;
+    const needs = Math.max(
+      max ?? -Infinity,
+      s?.isCalled ? s.lastValue : -Infinity,
+    );
+    if (needs === -Infinity) continue;
+    if (used === null || used < needs) {
+      out.push({
+        kind: "sequence",
+        detail: `${seq.sequence}: target last_value=${used} but ids up to ${needs} are used`,
+      });
+    }
+  }
+  return out;
+}
+
+function pkWhere(plan: TablePlan, firstParam: number): string {
+  return plan.primaryKey
+    .map((name, i) => {
+      const type = plan.columns.find((c) => c.name === name)!.type;
+      return `${quoteIdent(name)} = $${firstParam + i}::${type}`;
+    })
+    .join(" and ");
+}
+
+/**
+ * Inserts and updates one table's rows, reading the source's values as text
+ * and casting each back through the target column's own type, so every
+ * value (timestamps to the microsecond, floats, enums, photo data) arrives
+ * exactly.
+ */
+async function writeRows(
+  source: ClientBase,
+  target: ClientBase,
+  plan: TablePlan,
+): Promise<void> {
+  const cols = plan.columns;
+  const select = cols
+    .map((c, i) => `t.${quoteIdent(c.name)}::text as "c${i}"`)
+    .join(", ");
+  const pkSelect = plan.primaryKey
+    .map((c, i) => `t.${quoteIdent(c)}::text as "k${i}"`)
+    .join(", ");
+  const r = await source.query<Record<string, string | null>>(
+    `select ${pkSelect}, ${select} from ${quoteIdent(plan.table)} t`,
+  );
+  const rows = new Map<string, (string | null)[]>();
+  for (const row of r.rows) {
+    const key = JSON.stringify(plan.primaryKey.map((_, i) => row[`k${i}`]));
+    rows.set(
+      key,
+      cols.map((_, i) => row[`c${i}`] ?? null),
+    );
+  }
+
+  const insertSql = `insert into ${quoteIdent(plan.table)} (${cols
+    .map((c) => quoteIdent(c.name))
+    .join(", ")}) values (${cols.map((c, i) => `$${i + 1}::${c.type}`).join(", ")})`;
+  for (const key of plan.inserts) {
+    await target.query(insertSql, rows.get(key)!);
+  }
+
+  const pkSet = new Set(plan.primaryKey);
+  const setCols = cols.filter((c) => !pkSet.has(c.name));
+  if (setCols.length === 0) return;
+  const updateSql = `update ${quoteIdent(plan.table)} set ${setCols
+    .map((c, i) => `${quoteIdent(c.name)} = $${i + 1}::${c.type}`)
+    .join(", ")} where ${pkWhere(plan, setCols.length + 1)}`;
+  for (const key of plan.updates) {
+    const values = rows.get(key)!;
+    const setValues = setCols.map((c) => values[cols.indexOf(c)]!);
+    const res = await target.query(updateSql, [
+      ...setValues,
+      ...plan.pkTexts.get(key)!,
+    ]);
+    if (res.rowCount !== 1) {
+      throw new Error(
+        `carry-back: updating ${plan.table} ${key} touched ${res.rowCount} rows, expected 1.`,
+      );
+    }
+  }
+}
+
+/** A text key never printed as is: device ids appear as a short hash. */
+function printablePk(value: PkValue): string {
+  const one = (v: number | string) =>
+    typeof v === "number"
+      ? String(v)
+      : `#${createHash("sha256").update(v).digest("hex").slice(0, 12)}`;
+  if (typeof value === "object") {
+    return `(${Object.entries(value)
+      .map(([k, v]) => `${k}=${one(v)}`)
+      .join(", ")})`;
+  }
+  return one(value);
+}
+
+/**
+ * The human-readable report Samuel reads before saying "apply" (F.2 step
+ * 3). Ids only: never row contents, never a connection string, and text
+ * keys (device ids) only as a short one-way hash.
+ */
+export function formatCarryBackReport(report: CarryBackReport): string {
+  const lines: string[] = [];
+  lines.push(
+    report.applied
+      ? "carry-back: APPLIED. The old database now matches Neon (projected)."
+      : "carry-back: DRY RUN. Nothing was written.",
+  );
+  const b = report.baseline;
+  lines.push(
+    b.status === "ok"
+      ? "Old database unchanged since the copy (where carry-back writes): ok."
+      : b.status === "missing"
+        ? "WARNING: no copy fingerprint stored on Neon, so apply will refuse."
+        : `WARNING: the old database changed since the copy in ${b.changedTables.join(", ")}. Apply will refuse; recover by hand (F.3).`,
+  );
+  lines.push("Text keys (device ids) are shown as a short one-way hash (#...).");
+  lines.push("");
+  let total = 0;
+  for (const t of report.tables) {
+    const n = t.toInsert.length + t.toUpdate.length + t.toDelete.length;
+    total += n;
+    lines.push(
+      `${t.table}: ${t.toInsert.length} insert, ${t.toUpdate.length} update, ${t.toDelete.length} delete`,
+    );
+    const list = (label: string, ids: PkValue[]) => {
+      if (ids.length) lines.push(`  ${label}: ${ids.map(printablePk).join(", ")}`);
+    };
+    list("insert", t.toInsert);
+    list("update", t.toUpdate);
+    list("delete", t.toDelete);
+  }
+  lines.push(`Total rows: ${total}`);
+  lines.push("");
+  if (report.sequences.length) {
+    lines.push("Sequences:");
+    for (const s of report.sequences) {
+      lines.push(`  ${s.sequence}: ${s.from ?? "unused"} -> ${s.to} (next id ${s.to + 1})`);
+    }
+  } else {
+    lines.push("Sequences: no change needed.");
+  }
+  if (report.droppedColumns.length) {
+    lines.push(
+      "Columns Neon has and the old database lacks (their values stay on Neon only):",
+    );
+    for (const d of report.droppedColumns) {
+      lines.push(`  ${d.table}: ${d.columns.join(", ")}`);
+    }
+  }
+  if (report.noHomeInTarget.length) {
+    lines.push("No home in the old database (these rows stay on Neon, which is kept):");
+    for (const t of report.noHomeInTarget) {
+      lines.push(`  ${t}: ${report.noHomeRows[t]} row(s)`);
+    }
+  } else {
+    lines.push("No home in the old database: none.");
+  }
+  return lines.join("\n");
 }

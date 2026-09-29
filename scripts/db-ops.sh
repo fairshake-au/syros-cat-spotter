@@ -47,7 +47,10 @@ require() {
 switchover_cli() {
   # SOURCE_DATABASE_URL / TARGET_DATABASE_URL are set by the caller before
   # invoking this.
-  (cd "$ROOT" && pnpm --filter @workspace/db run switchover "$@")
+  # --silent drops pnpm's "> @workspace/db switchover ..." banner, so a
+  # fingerprint written to a file is pure JSON (mark --fingerprint-file
+  # parses it). The CLI's own stdout and stderr are unchanged.
+  (cd "$ROOT" && pnpm --silent --filter @workspace/db run switchover "$@")
 }
 
 migrate_cli() {
@@ -139,7 +142,10 @@ run_copy() {
   local source_fp
   source_fp="$(sha256sum "$WORKDIR/fp-after.json" | cut -d' ' -f1)"
   log "mark --mode $mode"
-  switchover_cli mark --mode "$mode" --fingerprint "$source_fp"
+  # The full fingerprint goes with the marker, so a rollback's carry-back
+  # can prove the old database is unchanged since this copy.
+  switchover_cli mark --mode "$mode" --fingerprint "$source_fp" \
+    --fingerprint-file "$WORKDIR/fp-after.json"
 
   # copy-rehearsal into production also restores the same dump into the
   # rehearsal branch, so D.5's stand-in for the old database starts from
@@ -154,7 +160,8 @@ run_copy() {
       -L "$toc" \
       --dbname="$NEON_REHEARSAL_URL" \
       "$dump"
-    switchover_cli mark --mode rehearsal --fingerprint "$source_fp"
+    switchover_cli mark --mode rehearsal --fingerprint "$source_fp" \
+      --fingerprint-file "$WORKDIR/fp-after.json"
   fi
 
   # Q6: copy-cutover only, and only when a recipient is configured.
