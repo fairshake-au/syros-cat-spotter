@@ -270,3 +270,141 @@ Step 8, on PR A's schema. `email-capture.md` §6.3 is the copy of record for the
 - **Files:** `lib/notificationFanout.ts`, plus a small scheduled sender if Q4 picks a daily round-up.
 - **Tests:** a non-owner gets no push inside the window Q4 sets; an owner still does; no text contains a time.
 - **Rollback:** revert to live pushes.
+
+## Data safety on the live test database
+
+Testers are using apptest.catspotters.com now. Only two PRs touch its data: PR A (schema) and PR 3 (backfill). SYC-101's migration is the third, under its own ticket. Everything else is code.
+
+**Before the first of them, check the ground** (the implementer does this, not Samuel, using the deployment's database credentials):
+
+1. Confirm which database apptest reads, and that `drizzle.__drizzle_migrations` on it holds the baseline and `0001`. SYC-64 left "run `migrate` once against production to adopt the baseline" as a manual step and `docs/DEPLOYMENT.md` still shows the up–down–up check as *not yet run*. If either is missing, that is fixed first, under SYC-64's instructions, not worked around here.
+2. Confirm Replit's publish step doesn't sync the schema by itself (`docs/DEPLOYMENT.md` §C open item). If it does, the migration history can be bypassed on the very deploy this plan relies on.
+3. Take a dump of the database (or confirm a restorable backup point) and record the time in the PR.
+4. Run read-only counts the backfill will reproduce: cats, claimed cats, owner-registered cats, `cat_updates` by type. They go in PR 3's description, and PR 3's self-check block must match them.
+
+**How each one runs without downtime or loss.**
+
+| Change | What it locks, and for how long | Why nothing is lost | If it goes wrong |
+|---|---|---|---|
+| PR A: drop NOT NULL on two columns | A brief exclusive lock on `sightings` and `cats`; metadata only, no rewrite | No row changes | The whole migration rolls back; the 5 s lock timeout stops it queueing behind live requests. Re-run when quieter. |
+| PR A: add the CHECKs | Validates existing rows; hundreds of rows, milliseconds | Every existing row already has a device, so it passes | As above |
+| PR A: sightings trigger | Brief lock to create it | Allows exactly today's app writes; the grep in PR A lists them | A refused write shows up as a 500 in `smoke`; roll back in the same hour (fine before any deletion) |
+| PR 3: backfill | Row inserts into `observations` only; reads the rest | Append-only, idempotent, self-checking; nothing existing is changed | The transaction raises and nothing lands, or `migrate:rollback` removes exactly the `backfill:0005` rows |
+
+**Order on each deploy** (`docs/DEPLOYMENT.md` §C): migrate production, deploy code, run `smoke`. PR 3 is special: its code prerequisite (PR 2) is deployed first, *then* its migration runs, and it needs no code deploy of its own.
+
+**The Play clock (F6).** PR A and SYC-101's migration are the only schema changes left in this plan. Both are early in the chain on purpose, so the closed test can start once they're in, even while the code PRs carry on. The up–down–up against a copy of production (`docs/DEPLOYMENT.md` §C, "before the Play window") should be run on PR A, since it is the first migration after `0001` with a meaningful rollback.
+
+## Parallelism
+
+Migrations are serial by nature: one chain, in merge order, each regenerated if it lands behind another. Code PRs run in parallel where their files don't collide.
+
+```
+Migration chain (serial):  0002 SYC-98 (Chip E) → 0003 PR A → 0004 SYC-101 → 0005 PR 3
+
+Wave 1 (start now, in parallel):     PR 0 · PR 1 · PR A (once 0002 merges)
+Wave 2:                              PR 2 (needs PR 0, PR 1) · SYC-101 (needs PR A, PR 1)
+Wave 3 (in parallel):                PR 3 (needs PR 2 deployed, SYC-101) · PR 4 · PR 5
+Wave 4 (in parallel):                PR 6 (needs PR 4, PR 5, SYC-98) · PR 7 (needs PR 5) · PR 9 (needs PR A, PR 4)
+Whenever SYC-43's sign-in lands:     PR 8 (needs PR 2)
+Wave 5:                              PR 10 (needs PR 4, decision Q4)
+```
+
+| Pair | Together? | Why |
+|---|---|---|
+| PR 0, PR 1, PR A | Yes | Test setup, a new pure file, and `lib/db` schema; no shared files |
+| PR 2 and SYC-101 | **No, serial** | Both change the naming code in `routes/cats.ts` and `routes/sightings.ts`. PR 2 first; SYC-101 rebases and swaps its lookups to the folded column |
+| PR 4 and PR 5 | Yes | PR 4 is `catHelpers.ts`, `routes/cats.ts`, the app's cat page; PR 5 is `computeMatchCandidates`, the new `blur.ts`, the rate limiter. Both touch `routes/sightings.ts` in different functions (resolve's response vs matching): expect a trivial rebase |
+| PR 4 and PR 3 | Yes | PR 3 is a migration file only |
+| PR 6 and PR 7 | Yes, with a rebase | Both touch `routes/sightings.ts` and `openapi.yaml`; PR 7 adds a route and a field, PR 6 changes the resolve response's cat |
+| PR 6 and PR 9 | Yes | Different routes and screens; both touch `openapi.yaml` and `lib/i18n.ts` (additive) |
+| PR 6 and SYC-98 | **No, serial** | Both change `photoUrl()` in `catHelpers.ts`; SYC-98 first |
+| Anything and Chip E | Only PR A waits | Chip E owns `0002`; none of this plan's code PRs edit `photos` |
+
+Each parallel builder gets **its own worktree**, never a shared one.
+
+## Model delegation
+
+Planning ran on Opus (justified in the brief: the sequencing compounds). Building runs on the cheapest tier that can do each PR well. "Review" below means a reviewer in its own worktree, on the tier named.
+
+| Work package | Builds on | Why this tier | Assurance |
+|---|---|---|---|
+| PR 0 test database | **Sonnet** | Standard test plumbing with a working example to copy (`dataSpine.test.ts`) | Full API suite green on the throwaway database; the new "not the dev database" test; spot review by the session model |
+| PR 1 resolver and `foldName` | **Sonnet** | The rules are fully written down (§10.2, and this plan's 14 named tests); the risk is in the tests, which are specified | Named tests; **mutation probe** on rules 1, 3 and 6; **adversarial review on Opus** (escalation: a wrong confidence level looks exactly like a right one, and this is the logic every later PR trusts) |
+| PR A schema and triggers | **Opus** | Escalated: PL/pgSQL guards whose failure is silent (a trigger that allows too much passes every happy-path test); step 1's triggers needed two review rounds | Migration tests; `migrate:check` and `migrate:cycle` in CI; **mutation probe** on the resolve branch; Sonnet adversarial review |
+| PR 2 write service and go-forward writes | **Sonnet** | Clear interfaces, routine route changes | Tests including the query counter; review on Sonnet against §10.1's rules |
+| PR 3 backfill | **Sonnet** | A short, well-specified SQL file | Its own self-check block; migration tests; up–down–up on a scratch copy of the live database (probe); **Opus review** of the idempotency guard (escalation: a duplicate or missing statement is silent and permanent) |
+| PR 4 status on the cat page | **Sonnet**; the translation strings on **Haiku** | Standard API and screen work; the strings are mechanical given the English | Tests; screenshots at ~390 px and desktop with seeded data; strings then go to SYC-4 for a native check |
+| PR 5 oracle | **Opus** | Escalated: privacy-critical and adversarial by nature; the grid offset and candidate rules are easy to get subtly wrong | The probe test (§10.8.10), **mutation-checked**; an adversarial pass that actually runs the bisection attack |
+| PR 6 blurring | **Sonnet** for the server and the app | Clear spec, but several files | §10.8.8 and §10.8.9; **mutation probe** (bypass the serialiser once); **Opus adversarial review** hunting a fifth emitter (escalation: one missed emitter voids the whole promise); screenshots at both widths, native and web |
+| PR 7 sighting questions | **Sonnet**; strings on **Haiku** | Standard endpoint and screen | Tests; a real resolve walked through in the browser pane at both widths |
+| PR 8 correction endpoints | **Sonnet** | Straightforward once SYC-43's capability function exists | Tests; Sonnet review |
+| PR 9 deletion | **Sonnet** | The schema is done in PR A; this is one transaction and a screen | The information-schema test, **mutation-probed**; **Opus adversarial review** against §8.3 (escalation: a privacy promise that is wrong fails at the worst possible moment); a real deletion probed end to end in the browser pane |
+| PR 10 push coarsening | **Sonnet** | Small, once Q4 is answered | Tests; Sonnet review |
+| Each PR's final adversarial review before merge (`/ship`) | **Opus** | The standing rule for PRs Claude built | As `/ship` defines |
+
+**Every silent-failure guard in this plan and where else it must hold**, so a reviewer can check the list rather than only the guard:
+
+- *Never cross attributes / the ear-tip asymmetry:* the resolver (PR 1), and every reader, which is why there is one `resolveCat` that the cat page, the fan-out (PR 4), the notify job (SYC-55) and the dashboard (SYC-43) all call. No other code derives a status.
+- *No exact coordinate in a public payload:* the four emitters (PR 6), the matching response (PR 5), notes and feeding sites (PR 7, SYC-43), and any future endpoint, which must go through `serialiseCat`.
+- *Deletion reaches everything:* every table holding a device id, enforced by the information-schema test (PR 9), including SYC-45's future email tables and SYC-42's `welfare_reports.reporter_device`.
+- *Append-only:* `observations` and `cat_identity` (step 1), `sightings` (PR A). Only PR 3's rollback bypasses it, and says so.
+
+## Conflicts to resolve
+
+Where the approved spec disagrees with the code, with a ticket, or with another spec. None is resolved silently; each has a recommendation.
+
+**C1 · SYC-75 asks for a sterilised status column on `cats`.** The spec (approved a day later) rejects status columns by name (§2) and derives sterilised from observations.
+- *Options:* (a) follow the spec and update SYC-75 to point at this plan; (b) add the column as SYC-75 says.
+- *Recommendation:* (a). The spec and DECISIONS.md win. PR 1 and PR 4 deliver everything SYC-75 wants people to see. SYC-75 gets a comment, not a rewrite.
+
+**C2 · SYC-74 asks for the note and food-and-water to be columns on `sightings`, sent with the upload and carried through the offline queue.** The spec makes them observations written after resolve (§7, §10.7).
+- *Options:* (a) follow the spec; (b) follow the ticket.
+- *What a spotter notices:* with (a), the questions come after the points, as the spec designs it, and need signal at that moment; with (b), they would come before matching, which puts a questionnaire in front of the points (§7: "the fastest way to kill this project").
+- *Recommendation:* (a), with a comment on SYC-74. The small cost: answers typed with no signal on the reward screen aren't queued. Resolve already needs signal, so the spotter almost always has it seconds later.
+
+**C3 · SYC-39 caps matching at 500 m. The spec widens the candidate radius to 750 m on the blurred grid** (§6.3), to make up for positions being snapped.
+- *What a spotter notices:* nothing different in practice. The vision model decides the match either way; 750 m on snapped cells covers roughly what 500 m did on exact positions.
+- *Recommendation:* 750 m on the grid (PR 5), and close SYC-39 as superseded by the spec, with a comment.
+
+**C4 · Who owns "what we last told people" about a cat.** The spine (§9.1) says it exposes a notified-status record; `email-capture.md` §5.3 says that table is the email job's own, written only by the job. DECISIONS.md Part 3 gives the job to `email-capture.md`.
+- *Recommendation:* the email spec owns the table (SYC-55); this plan exposes only `resolveCat`, the snapshot the job compares against. PR 3's backfill seeds nothing, because the job seeds itself on first run and so never treats history as news.
+
+**C5 · The spec sends the ear-tip answer with resolve, but the question appears on the screen that shows the result of resolve.** Resolve's response is what carries the points.
+- *Options:* (a) a separate "answers" call after the points (PR 7); (b) hold back resolve until the questions are answered, showing points the phone works out itself.
+- *What a spotter notices:* (a) nothing; (b) a spot that isn't saved until they finish or skip the questions, and is lost if they close the app first.
+- *Recommendation:* (a).
+
+**C6 · A wrong *Likely* must be correctable from the day it can appear** (§4.3: the correction path "ships in the same change, not later"), **but the correction path needs team sign-in (SYC-43), which isn't built.** See Q2.
+
+**C7 · Step 1 found §11.2 step 8 wrong**: deletion needs its own schema change, not only step 1's column. PR A is that change.
+
+**C8 · SYC-101 cites "DECISIONS.md Part 2g" (29 Sep), which isn't on main or any pushed branch.** The decision is recorded in the ticket itself, so nothing here is blocked, but the record should land. Recommendation: add Part 2g to DECISIONS.md in SYC-101's PR.
+
+## Decisions for Samuel
+
+Plain English, one at a time, each with a recommendation. Q1 is needed before PR 3; Q2 and Q3 before PR 7; Q4 before PR 10.
+
+**Q1 · Whose name goes on statements the app writes by itself?** Every statement in a cat's record says who made it. Some are made by the app itself: copying in the old "desexed" and "adopted" updates, and anything recorded through the old admin password before the team dashboard exists. They need an author, and the database insists on one.
+- **Option A — a fixed label per source**, such as "system: legacy backfill" and "system: admin password". *Benefits:* honest about where each statement came from; nothing else changes. *Risks:* the old admin password can't say which person used it, so those statements read "someone with the admin password". That is true, and it is why the password retires (D7).
+- **Option B — attribute them to Samuel.** *Benefits:* a real person. *Risks:* untrue for the backfill, and it makes Samuel look like the source of every old record when Syros Cats see the history.
+- **Option C — change the rule so app-written statements need no author.** *Benefits:* simplest. *Risks:* weakens the one guarantee step 1 built into the database (every statement is attributed), for the least important rows.
+- **Recommendation: A.**
+
+**Q2 · Should "Probably sterilised" show publicly before Syros Cats can correct it?** The ear-tip question can ship before the team dashboard does. When a tourist mistakes a torn ear for a clipped one, the cat would show "Probably sterilised" to everyone, and until the dashboard exists nobody at Syros Cats could fix it. A cat wrongly shown as probably done can be skipped for trapping and have a litter.
+- **Option A — collect the answers now, show "Probably sterilised" only once the team can correct it.** Until then the public sees "Not known yet"; nothing is lost, because the answers are already stored and the cats light up the day the correction screen arrives. *Benefits:* every answer from the testing season is captured; no uncorrectable wrong label. *Risks:* for a while the app knows more than it shows.
+- **Option B — hold the whole question until the dashboard ships.** *Benefits:* simplest. *Risks:* loses the testing season's ear-tip answers, which can't be recovered later (the spotter has walked away).
+- **Option C — show it now, and Claude corrects mistakes on request** (a team member messages a cat and a photo; Claude records the correction). *Benefits:* the label is live now. *Risks:* puts Claude in the loop for every correction, which the working rules try to avoid, and relies on someone noticing.
+- **Recommendation: A.**
+
+**Q3 · Should a spotter be asked the ear-tip question every time they spot the same cat?** The spec says "Can't tell" stops the app asking that spotter about that cat again. It doesn't say what happens after "Yes, clipped" or "No, looks whole".
+- **Option A — ask every time unless they said "Can't tell"** (the spec as written). *Benefits:* more independent looks at the ear, which strengthens the evidence. *Risks:* a regular who spots the same cat daily sees the same question daily.
+- **Option B — ask once per spotter per cat, whatever they answered.** *Benefits:* never repetitive. *Risks:* fewer answers; a spotter who saw the right side first never gets asked again when they see the left.
+- **Option C — ask again only after 30 days.** *Benefits:* fresh looks without nagging. *Risks:* one more rule to explain.
+- **Recommendation: C.** It keeps the spec's "Can't tell" rule and adds a quiet period after any other answer.
+
+**Q4 · How quickly should "Agatha was spotted again!" reach people who don't own the cat?** Today it arrives within seconds. That lets anyone who once spotted a cat follow, to the minute, when and roughly where it is seen, and so when its feeder visits. The spec says these must be "batched or coarsened".
+- **Option A — one round-up a day** ("Agatha and 2 other cats you follow were spotted today"), sent at a fixed evening hour. *Benefits:* closes the leak properly; fewer pushes is kinder anyway. *Risks:* loses the instant "someone just saw her!" delight.
+- **Option B — keep it live, but only the first sighting of each cat each day.** *Benefits:* keeps some immediacy. *Risks:* still tells a watcher the moment the cat was first seen each day, which is the feeding-time pattern the spec worries about.
+- **Option C — a random delay of a few hours.** *Benefits:* feels close to live. *Risks:* delays average out over many days, so a patient watcher still learns the pattern.
+- **Recommendation: A.** Owners still get instant pushes about their own cat.
