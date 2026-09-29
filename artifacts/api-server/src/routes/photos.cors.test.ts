@@ -35,6 +35,22 @@ describe("GET /api/photos/:photoId CORS", () => {
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
+  it("omits ACAO for a look-alike origin with no dot before catspotters (evilcatspotters.com)", async () => {
+    const res = await request(app)
+      .get(`/api/photos/${photoId}`)
+      .set("Origin", "https://evilcatspotters.com");
+    expect(res.status).toBe(200);
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("omits ACAO for a look-alike origin with catspotters.com as a subdomain of another domain", async () => {
+    const res = await request(app)
+      .get(`/api/photos/${photoId}`)
+      .set("Origin", "https://catspotters.com.evil.io");
+    expect(res.status).toBe(200);
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
   it("sets ACAO for the app's own origin", async () => {
     const res = await request(app)
       .get(`/api/photos/${photoId}`)
