@@ -137,7 +137,7 @@ The whole thing is **synchronous**: no queue and no nightly sweep (§8.5). Obser
 - `POST /cats/:catId/claim`, `routes/cats.ts:229`;
 - `PATCH /cats/:catId`, `routes/cats.ts:283`.
 
-On any of them, someone who knows a deleted person's device id could write it straight back onto a cat, with no secret and no 410. That would undo the "nobody can bring the identity back" promise. Data spine step 5 already requires the claim route to check the secret (§10.7, §11.2 row 5), so the fix is to finish that job:
+On any of them, someone who knows a deleted person's device id could write it straight back onto a cat, with no secret and no 410. That would undo the "nobody can bring the identity back" promise. Data spine step 5 already requires the claim route to check the secret (§10.7, §11.2 row 5), and **SYC-107** already tracks the other two routes. It is planned inside data spine PR 2, and SYC-63 is now marked as blocked by it. The fix is to finish that job:
 - all three routes go through `verifyDeviceSecret`, and with it the marker check;
 - this is a **precondition of this build**, done in the same PR if step 5 hasn't landed;
 - a test in §8.1 checks that each of the three routes returns 410 for a deleted id.
@@ -322,6 +322,7 @@ In the browser pane on the web build, at about 390 px and at desktop width:
 - *Benefits and risks:*
   - Option 1 removes everything they typed. The privacy policy promises "anything you typed" goes, and "the blue house by the church" can point at a home. The cost is that the cat loses its owner and its home note, and nobody can edit it any more.
   - Option 3 breaks the promise.
+- **Related ticket:** SYC-69 is already open, asking whether old owner names should eventually be redacted. Option 1 answers that for deleted people.
 - **Recommendation: 1.** Whether the cat still reads as *homed* then depends on data spine step 4, which records a claim as a "homed" observation that survives deletion. **So step 4 should land before this**, which the spec's own ordering already implies. Until it does, the old `hasHome` flag would flip to false for that cat.
 
 **B. Spots on the phone that haven't been sent yet.**
@@ -371,7 +372,13 @@ In the browser pane on the web build, at about 390 px and at desktop width:
 ## 11. Rollout order
 
 0. **Samuel approves this plan** and decisions A to E. Part 2g lands in `DECISIONS.md` through its own PR.
+0a. **SYC-102 must be resolved before any of this reaches production. This is a blocking dependency.** Replit copies only structural changes, such as tables and columns, from the dev database to production when you publish. Triggers and functions may not make the trip.
+   - **The deletion itself doesn't rely on a trigger.** Its updates work with or without one.
+   - **The guarantees around it do.** Migration 0001's `observations_append_only` trigger is what stops anything *other* than a redaction rewriting history. §5's new sightings guard is a trigger too.
+   - **The risk:** if either is missing in production, deletion still works, but the "only redaction may change history" promise is silently false there.
+   - **Before rollout,** probe production to confirm both triggers exist. For example, list the triggers on `observations` and `sightings` from `pg_trigger` by name. Don't assume they arrived.
 1. **Data spine step 4** (claims recorded as homed) and **step 5's claim check**, both before this: step 4 for decision A, and step 5 for §4.3. If step 5 hasn't landed, this build adds the secret check to the three cat routes itself.
+   - **Steps 2 to 7 are sequenced in the data spine plan,** `docs/superpowers/plans/data-spine.md` (branch `claude/data-spine-plan`, SYC-40 and SYC-52). This plan doesn't reorder them; it only says which of them must come first.
 2. **The §5 migration**, in its slot, before the Play closed test. It is additive apart from the relaxed `NOT NULL`, so nobody notices anything.
 3. **Server, read side:** nullable spotter codes, the fans rule and the notification filter. This is harmless on its own, because no row is redacted yet.
 4. **Server, `DELETE /api/me`:** `severPerson`, the marker, the 410 handling and all the §8.1 tests. Deploy it, then probe it with curl against the deployed API. It is not reachable from any shipped app yet.
