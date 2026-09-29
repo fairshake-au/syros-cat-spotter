@@ -175,6 +175,13 @@ The twelve names from §7.3, as a fixed list: `view_exact_location`, `hide_photo
 
 One function, `can(person, capability, target?)`, is the **only** place a permission is decided. In this part, a `staff` scope grants all twelve (§7.1), and `guardian`, `volunteer` and `vet` grant none. When those roles arrive, only this function changes. `requireTeam` calls it by name, so no screen ever asks "is this person staff?".
 
+## Where this meets the data spine plan
+
+A separate plan, `docs/superpowers/plans/data-spine.md` (branch `claude/data-spine-plan`, SYC-40 / SYC-52), sets the order of data spine steps 2–8 and leaves SYC-43 to this plan. The two plans meet in three places:
+- **Migration order.** That plan also queues migrations `0003`–`0005`. Whichever merges second regenerates its number (see §1).
+- **Staff attribution.** When the dashboard writes observations, `observations.account_id` holds the person's `people.id` (a uuid, stored as text) and `roleAtTime` is `staff`. This matches that plan's correction endpoints (its PR 8). It will settle the author for machine-written rows (its "Q1") in a separate namespace, such as `system:…`, which can't collide with a uuid.
+- **The gate on its correction endpoints.** Its PR 8 sits behind this part's `requireTeam` and `can()` (`set_life_status`, `set_sterilisation`), so it can't ship before this part does. Its staff deletion action also uses `action_deletion_request` from here. This part adds no endpoints of that kind.
+
 ## What this part does not do
 
 Each item is ticketed. Existing tickets were checked first, and SYC-103 to SYC-106 are new:
