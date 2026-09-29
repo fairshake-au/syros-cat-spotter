@@ -1,5 +1,5 @@
 {
-  "id": "5ec6b5d2-03aa-4db8-bcc2-21c941874052",
+  "id": "52b35015-8214-4d2c-88e1-93ea8d88f4fe",
   "prevId": "499feeeb-a26a-48a3-9cbc-de15e126a375",
   "version": "7",
   "dialect": "postgresql",
@@ -18,7 +18,8 @@
           "name": "public_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()::text"
         },
         "data": {
           "name": "data",
