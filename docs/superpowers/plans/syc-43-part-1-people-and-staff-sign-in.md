@@ -175,15 +175,15 @@ One function, `can(person, capability, target?)`, is the **only** place a permis
 
 ## What this part does not do
 
-Each item is ticketed (existing tickets are checked first; new ones are listed in the PR):
+Each item is ticketed. Existing tickets were checked first, and SYC-103 to SYC-106 are new:
 
 | Not here | Where it goes |
 |---|---|
 | The sign-in page checks this list instead of the D1 `admins` table, and `admins` shrinks to the one break-glass row | **SYC-83** (Worker) |
-| The Worker creates the hand-off pass and shows the "Cat Spotters dashboard" button | **New ticket** (Decision 3), shipping with SYC-83 |
-| A screen for managing people | **New ticket**, a later part of SYC-43 |
-| Rate limits counted in Postgres so they hold across servers, with the deployment pinned to one server until then (§2.6 option C) | **New ticket** |
-| Replacing the wildcard `cors()` on the rest of the API with an allow-list (§2.6, §8.2) | **New ticket** |
+| The Worker creates the hand-off pass and shows the "Cat Spotters dashboard" button | **SYC-103** (Decision 3), shipping with SYC-83 |
+| A screen for managing people | **SYC-104**, a later part of SYC-43 |
+| Rate limits counted in Postgres so they hold across servers, with the deployment pinned to one server until then (§2.6 option C) | **SYC-105** |
+| Replacing the wildcard `cors()` on the rest of the API with an allow-list (§2.6, §8.2) | **SYC-106** |
 | The welfare queue, feeding-site map, corrections and colony naming screens | SYC-43, later parts |
 | A dashboard banner for sign-in limits and mail failures | SYC-43, later part (already noted there) |
 | Anything to do with deleting a spotter's data | SYC-63 (another session is planning it now). This part doesn't touch that path. |
