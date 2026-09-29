@@ -71,8 +71,8 @@ The "Done" screen uses email-capture §6.3's words exactly: *"Nothing on this ph
 | `sightings` | **Unlinked**: `device_id` cleared (needs §5), stamped. Photo, date, position and cat are kept, and so is `status`. | §8.3: "every sighting" is kept |
 | `observations` | **Unlinked**: `device_id` cleared, stamped. **Notes** also have their text emptied (`value = '{}'`), done in SQL as Samuel directed, not read and rewritten from JavaScript. Every other kind keeps its value, **including `name`**. | §8.3, §8.4, and the existing trigger in migration 0001 |
 | `cats.discoverer_device_id` | **Cleared** (needs §5), and the cat is stamped. The cat shows its discoverer as *"a spotter"*. | §8.3 and Part 2g |
-| `cats.owner_name` | **Cleared** | Decision A, Samuel, 29 Sep |
-| `cats.owner_device_id`, `home_description` | **Kept**, as Samuel decided. See §10 flag 5: keeping `owner_device_id` means keeping the raw device id | Decision A, Samuel, 29 Sep |
+| `cats.owner_name`, `owner_device_id` | **Cleared.** The cat stays homed through its derived life status (spine PR 4) | Decision A and flag 5 (b), Samuel, 29 Sep |
+| `cats.home_description` | **Kept** (§10 flag 6) | Decision A, Samuel, 29 Sep |
 | `cats.name`, `description` | **Kept** | Names are community property (§8.4) |
 | `photos` | **Kept.** Photos carry no link to a person. | §8.3 "every sighting: photo…" |
 | `cat_updates` | **Kept.** Its messages hold only cat names ("Mimi was spotted again!"), never a person. | Checked in `routes/sightings.ts` |
@@ -118,7 +118,7 @@ Inside one transaction, in this order:
 1. Lock the credential row (`SELECT … FOR UPDATE`), so two deletes of the same device queue up rather than interleave.
 2. Redact the observations, in SQL: `update observations set device_id = null, redacted_at = now(), redaction_reason = $reason, value = case when kind = 'note' then '{}'::jsonb else value end where device_id = $id`. The trigger from migration 0001 already permits exactly this.
 3. Unlink the sightings: `set device_id = null, redacted_at = now(), redaction_reason = $reason where device_id = $id`.
-4. Unlink the cats they discovered: `set discoverer_device_id = null, redacted_at = coalesce(redacted_at, now()), redaction_reason = coalesce(redaction_reason, $reason)`. Then, for the cats they own (decision A): `update cats set owner_name = null where owner_device_id = $id`. The owner link and the home description are left alone.
+4. Unlink the cats they discovered: `set discoverer_device_id = null, redacted_at = coalesce(redacted_at, now()), redaction_reason = coalesce(redaction_reason, $reason)`. Then, for the cats they own (decision A): `update cats set owner_name = null, owner_device_id = null where owner_device_id = $id`. `owner_device_id` is already nullable, so this needs no migration. The home description is left alone.
 5. Delete from `cat_subscriptions`, `notifications`, `push_tokens` and `profiles` where the device matches, then delete from `device_credentials`.
 6. Insert the "deleted device" marker (§4.3).
 
