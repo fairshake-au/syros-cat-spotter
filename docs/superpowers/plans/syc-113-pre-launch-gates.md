@@ -21,7 +21,7 @@ His condition: "so long as it definitely works." This plan is built around provi
 - **Staff signing in** through `admin.catspotters.com` notice nothing. The sign-in page's private question to the app carries its own secret, which counts as a pass.
 - **Anyone else** who finds the address, a search engine, or a script gets the password page for the website and a plain "not open yet" refusal from the API. Exact cat locations, photos and sighting data stay private until launch, as they are behind Replit's wall today.
 - **Replit's health check** still gets through, so the deployment starts.
-- **On launch day** one setting, `PRELAUNCH_GATE=off`, turns both gates off in one publish. The API refuses to honour it until location blurring has shipped, so it can't be switched off too early by mistake.
+- **On launch day** one setting, `PRELAUNCH_GATE=off`, turns both gates off in one publish. Nothing in the code stops it being switched off early, so the launch-day steps start with a checkable item: confirm location blurring is live first.
 - **"Definitely works"** is proved three ways: tests that fail if any gate is loosened (we break each gate on purpose and watch the tests catch it); a test that fails if any app screen talks to the API without going through the one place that adds the pass; and a live checklist, including a real TestFlight and Play build, run after the publish.
 
 ## What this protects against, and what it doesn't
@@ -87,7 +87,7 @@ Each numbered item is its own commit, in this order.
 
 ### 2. The API pass — `artifacts/api-server/src/middlewares/prelaunchGate.ts`
 
-- **New `lib/prelaunch.ts`**: `gateEnabled()` (**on unless `NODE_ENV` is exactly `development` or `test`**, so an unset or unexpected `NODE_ENV` in production can't open the API while the website stays shut; in development or test it's off unless `PRELAUNCH_GATE=on`; `PRELAUNCH_GATE=off` is honoured only as item 3 allows), `verifySession()` (the same cookie format as item 1), `matchTesterKey()`, `matchInternalToken()`. **Settings are read on every request**, following the `OWNER_SECRET` and PR #20 precedent, so tests can flip them and a removed secret takes effect at once.
+- **New `lib/prelaunch.ts`**: `gateEnabled()` (**on unless `NODE_ENV` is exactly `development` or `test`**, so an unset or unexpected `NODE_ENV` in production can't open the API while the website stays shut; in development or test it's off unless `PRELAUNCH_GATE=on`; in production, `PRELAUNCH_GATE=off` turns it off), `verifySession()` (the same cookie format as item 1), `matchTesterKey()`, `matchInternalToken()`. **Settings are read on every request**, following the `OWNER_SECRET` and PR #20 precedent, so tests can flip them and a removed secret takes effect at once.
 - **The middleware, in order:**
   1. Gate off → `next()`.
   2. `GET` or `HEAD` on exactly `/api/healthz` → `next()`. Nothing else is open.
@@ -102,11 +102,9 @@ Each numbered item is its own commit, in this order.
 - **The key is only ever read from a header**, never a query string, so it never lands in logs or browser history. The `pino-http` serialiser already logs only method, id and a cleaned URL; a test pins that the key and cookie never appear in a log line.
 - **Start-up line:** `prelaunch gate: on (session keys: 1, tester keys: 1, internal token: yes)`.
 
-### 3. The launch interlock — `artifacts/api-server/src/lib/launchReadiness.ts`
+### 3. (Removed) No code interlock
 
-- `export const LOCATION_BLURRING_LIVE = false;` with a comment pointing at data spine PR 6, which flips it to `true` in the same commit that turns blurring on.
-- `gateEnabled()` honours `PRELAUNCH_GATE=off` in production **only if** `LOCATION_BLURRING_LIVE` is true. Otherwise the gate stays on and logs `prelaunch gate: "off" requested but location blurring is not live; gate stays ON`. This turns "blurring first" from a checklist line into something the code enforces.
-- The website gate (item 1) doesn't know about blurring. If the switch is flipped too early, the website opens but every API call still gets 401, so the site visibly doesn't work and nothing leaks. The launch probes catch it straight away.
+**Decided by Samuel, 29 Sep 2026 (Decision 3): no code interlock.** There is no `LOCATION_BLURRING_LIVE` flag, and the API honours `PRELAUNCH_GATE=off` as soon as it is set. "Blurring first" is enforced by the first launch-day step instead, which has to be checked and recorded before the switch is touched. Failing closed is unchanged and separate: an unset `NODE_ENV` or a missing secret still keeps the gates shut.
 
 ### 4. Photos aren't stored by shared caches while the gate is on — `routes/photos.ts`
 
@@ -241,7 +239,7 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 12a. `/api/team/*`: once PR #20's routes exist, the test walks every registered `/api/team/*` route with the gate on and no staff session and expects PR #20's 401 `not_signed_in` from each (never a 200). `/API/TEAM/me` is also exempt and also refused by the route. Whichever of this and PR #20 lands second adds the test.
 13. `OPTIONS` preflight with no pass → answered by CORS (204) with the allow headers, not 401. A 401 still carries `Access-Control-Allow-Origin`.
 14. A 25 MB body with no pass → 401 without the JSON parser running (the parser is spied on).
-15. `NODE_ENV=production`, `NODE_ENV` unset, and `NODE_ENV=staging` with `PRELAUNCH_GATE` unset → all on. `PRELAUNCH_GATE=off` with `LOCATION_BLURRING_LIVE=false` → **still on**, with the log line. `PRELAUNCH_GATE=off` with it `true` → off, and `/api/cats` answers without a pass.
+15. `NODE_ENV=production`, `NODE_ENV` unset, and `NODE_ENV=staging` with `PRELAUNCH_GATE` unset → all on. `PRELAUNCH_GATE=off` with `NODE_ENV=production` → off, and `/api/cats` answers without a pass. `PRELAUNCH_GATE=off` but `PRELAUNCH_SESSION_KEYS` missing → off (a deliberate launch needs no secrets). `PRELAUNCH_GATE` unset and any secret missing → 503, never open.
 16. With the gate on, a photo response says `Cache-Control: private` and `Vary` includes both pass headers; with it off, `public` as today.
 17. Log lines captured during tests 11–12 never contain the key, the cookie value or the bearer token.
 
@@ -276,7 +274,6 @@ The implementer makes each break on a scratch commit, runs the suite, records wh
 | Drop the after-export scan of `dist/` | 22 |
 | Mount the gate before CORS | 13 |
 | Mount the gate after `express.json` | 14 |
-| Drop the `LOCATION_BLURRING_LIVE` check | 15 |
 | Leave photos `public` while gated | 16 |
 | Remove the header from `photoSource` | 19 |
 | Add `fetch('/api/cats')` to a screen | 20 |
@@ -315,19 +312,19 @@ Run by Claude with `curl` unless marked; the tester key and password are read fr
 
 ## Launch day: taking it off
 
-Preconditions, checked from live sources (merged PR file lists and the live API), not from plans:
+Steps, in order. Each is checked from live sources (merged PR file lists and the live API), not from plans, and recorded on SYC-114 before the next one starts.
 
-- Data spine PR 5 (closing the location oracle) and PR 6 (blurring) are **live in production**, and PR 6 has set `LOCATION_BLURRING_LIVE = true`.
-- The launch build of the app is in the stores.
-
-Steps:
-
+0. **Confirm location blurring is live (data spine PR 6 merged and verified with a live probe that the public cat list returns no exact coordinates) BEFORE setting PRELAUNCH_GATE=off.** (Decided by Samuel, 29 Sep 2026.) How to check it:
+   - `gh pr view <PR 6> --json state,mergedAt,files` shows it merged, with the serialiser files in its file list. Data spine PR 5 (closing the location oracle) is merged too.
+   - Live probe, with the tester key while the gate is still on: send a test sighting at a known exact point, then `GET /api/cats` and `GET /api/cats/<id>`. The cat's position is the 250 m cell position, not the exact point. No latitude or longitude anywhere in either response matches an exact sighting coordinate from a read-only database query.
+   - If any check fails, stop. The gate stays on.
+0a. The launch build of the app is in the stores.
 1. Set `PRELAUNCH_GATE=off` in the Replit deployment settings and publish (Samuel, since publishing is his; Claude prepares it).
-2. Probe: `/api/cats` with no pass → 200; a photo with no pass → 200 with `Cache-Control: public`; `/` → the real site; `/robots.txt` → the normal file; the log says `prelaunch gate: off`. If `/api/cats` still answers 401, the interlock held: blurring isn't marked live, so check PR 6 before anything else.
+2. Probe: `/api/cats` with no pass → 200; a photo with no pass → 200 with `Cache-Control: public`; `/` → the real site; `/robots.txt` → the normal file; the log says `prelaunch gate: off`.
 3. Leave the tester key in old test builds; it's simply ignored.
-4. Later, in an ordinary PR (filed as a follow-up now): delete the gate code, `/_gate/*`, the four settings, `LOCATION_BLURRING_LIVE`, and the EAS variable, and remove the settings from Replit.
+4. Later, in an ordinary PR (filed as a follow-up now): delete the gate code, `/_gate/*`, the four settings and the EAS variable, and remove the settings from Replit.
 
-**Rolling back** at any point before launch: set the deployment back to Password protected (a publish), which puts Replit's wall in front again. Turning the gate off early is prevented by the interlock.
+**Rolling back** at any point before launch: set the deployment back to Password protected (a publish), which puts Replit's wall in front again.
 
 ## Decisions for Samuel
 
@@ -341,7 +338,7 @@ Steps:
 
 **Decision 2 — How long the website remembers the password. Decided by Samuel, 29 Sep 2026: 28 days** (the plan had recommended 14). Testers type the password about once a month. If the password or a cookie leaks, changing `PRELAUNCH_SESSION_KEYS` still logs everyone out at once.
 
-**Decision 3 — The launch interlock (item 3).** Recommended **yes**: it makes "blurring first" impossible to skip by accident. *Risk:* on launch day, if PR 6 forgot to flip the flag, the switch appears not to work until someone reads the log line; the launch steps say exactly that.
+**Decision 3 — A code interlock on blurring. Decided by Samuel, 29 Sep 2026: no interlock** (the plan had recommended one). "Blurring first" is step 0 of the launch-day removal, which has to be checked and recorded, and the same line is on SYC-114 and SYC-32's launch checklist.
 
 ## Model delegation
 
@@ -351,7 +348,6 @@ Per `~/.claude/skills/plan-model-delegation/SKILL.md`: cheapest adequate tier, e
 |---|---|---|---|
 | Item 1 `serve-web.js` refactor and the website gate | **Sonnet** | Clear spec, one file plus one helper, Node built-ins only | Tests 1–8, the shared vectors, and the website rows of the deliberate-break table |
 | Item 2 API gate middleware and `app.ts` ordering | **Opus** | This is the security boundary; ordering against CORS and body parsing, case-insensitive routing and the internal exemption are easy to get subtly wrong | Tests 9–17 and every API row of the deliberate-break table |
-| Item 3 interlock | **Haiku** | A constant and one condition | Test 15 and its break |
 | Item 4 photo cache header | **Haiku** | One header behind one condition | Test 16 and its break |
 | Item 5 client key, `photoSource`, five call sites, map marker type | **Sonnet** | Mechanical across several files, but must not miss a site | Tests 18–21, the guard test, typecheck, and screenshots at 390 px and desktop on web |
 | Item 6 web-build guard | **Haiku** | A ten-line script | Test 22 and live probe 10 |
