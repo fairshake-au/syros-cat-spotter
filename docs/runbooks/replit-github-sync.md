@@ -4,7 +4,9 @@
 - `remote: Invalid username or token. Password authentication is not supported for Git operations.` (the pre-28-Sep state), or
 - `fatal: 'origin' does not appear to be a git repository` (after a Git-pane-only reconnect — see below).
 
-**Companion to:** [DEPLOYMENT.md](../DEPLOYMENT.md). This file is separate (not a DEPLOYMENT.md edit) because PR #13 (SYC-64) currently owns DEPLOYMENT.md; link the two once #13 lands.
+**Companion to:** [DEPLOYMENT.md](../DEPLOYMENT.md), which links here.
+
+**Status: diagnosis confirmed, fix NOT yet verified.** The two-auth-paths diagnosis was confirmed live; the account-level reconnect is the fix we expect to work, but the verification check hasn't run yet. Don't treat SYC-96 as closed until the SHA check in "How to verify afterward" has passed and is recorded on the ticket.
 
 ## Root cause (diagnosed 28 Sep 2026)
 
@@ -23,7 +25,7 @@ Confirmed via the Replit MCP `ask_question` tool (read-only — no changes made 
 
 1. **Read-only deploy key, generated inside the workspace.** This was the preferred fix (least access, single repo, doesn't expire). It was attempted via `update_app_using_prompt`, asking the Replit agent to generate an ed25519 keypair itself and store the private half as a Replit Secret, so the private key would never transit any of Claude's tool calls or logs. **Blocked:** the Replit agent confirmed it has no tool/CLI/API to write into the workspace's Secrets store — only a UI form that requires a human to type the value in. Per SYC-96's explicit instruction ("if you can't [install the private half into Replit Secrets safely], STOP and report instead"), this path was abandoned rather than falling back to storing the key as a bare unmanaged file.
 2. **Rebuild the deploy flow to pull straight from GitHub, no Replit git sync at all.** Real option, but it's a bigger change to the deploy pipeline (touches the area PR #13/SYC-64 owns, plus CI) and needs its own spec under the standard pipeline gate. Not needed to satisfy this ticket's narrower "done when" (the agent can fetch), so left for a separate ticket if Samuel wants to pursue it later.
-3. **A fresh GitHub reconnect, but at the account-level Connectors page, not the Git pane.** This is the fix. Replit's own docs point at `https://replit.com/integrations` (or the workspace's own Connectors/Secrets sidebar → GitHub) as the durable, token-backed connector — distinct from the Git pane's own "Connect" button, which only appears to refresh Git-pane-local auth. This is an OAuth authorize screen; nothing in the Replit or GitHub API can click through it on Samuel's behalf.
+3. **A fresh GitHub reconnect, but at the account-level Connectors page, not the Git pane.** This is the fix we expect to work (unverified until the check below passes). Replit's own docs point at `https://replit.com/integrations` (or the workspace's own Connectors/Secrets sidebar → GitHub) as the durable, token-backed connector — distinct from the Git pane's own "Connect" button, which only appears to refresh Git-pane-local auth. This is an OAuth authorize screen; nothing in the Replit or GitHub API can click through it on Samuel's behalf. Trade-off: least effort of the three options, but broadest access — it's a personal OAuth link with org-wide scope, not scoped to this one repo, and it can go stale again the same way it did this time.
 
 ## What Samuel needs to do (one-time, ~2 minutes)
 
@@ -35,6 +37,16 @@ Confirmed via the Replit MCP `ask_question` tool (read-only — no changes made 
 
 Ask the Replit agent (via `ask_question`) to run `git fetch subrepl-<id>` (or `origin`, if a remote by that name has since been added) and report the exact output, then compare the resulting `subrepl-<id>/main` SHA against `git rev-parse origin/main` from a normal clone. No publish/redeploy is needed for this check — `get_publish_status` alone confirms the site is still serving the last published build while the workspace catches up.
 
-## Standing rule once this is fixed
+## If the reconnect doesn't fix it
 
-If this connector goes stale again, the fix is always the same **account-level Connectors page** reconnect — not the Git pane's own button, which only fixes the browser-session Git pane and leaves the agent's shell broken. Don't spend time re-diagnosing; jump straight to Connectors.
+Fallback: a read-only deploy key scoped to just this repo.
+
+- Claude generates the keypair, adds the public half to GitHub with `gh repo deploy-key add --read-only`, and points the shell's git remote at the SSH URL.
+- Samuel pastes the **private half straight into the Repl's Secrets pane** once — never into chat, a file, or a prompt. Claude never sees or handles the private key.
+- It's narrower than the account-level reconnect (this repo only, not org-wide) and doesn't expire the way a personal OAuth link does.
+
+**Not recommended:** a `GIT_URL`-with-token-in-the-URL secret (e.g. `https://<token>@github.com/...` stored as one secret). It looks simpler but a token embedded in a URL routinely leaks into shell history, process listings, and `git remote -v` output/logs — a deploy key achieves the same access with narrower scope and without that leak surface.
+
+## Standing rule once this is verified
+
+If this connector goes stale again, start with the same **account-level Connectors page** reconnect — not the Git pane's own button, which only fixes the browser-session Git pane and leaves the agent's shell broken. Don't spend time re-diagnosing; jump straight to Connectors. Update this section if verification shows otherwise.
