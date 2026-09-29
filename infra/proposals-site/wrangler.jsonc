@@ -1,0 +1,11 @@
+{
+  // Static host for Fair Shake proposal documents.
+  // Each proposal lives under its own path in public/ (e.g. /catspotters).
+  // Deploy with: npx wrangler deploy  (from this directory)
+  "name": "fairshake-proposals",
+  "compatibility_date": "2026-07-01",
+  "assets": { "directory": "./public" },
+  "routes": [
+    { "pattern": "proposals.fairshake.au", "custom_domain": true }
+  ]
+}
