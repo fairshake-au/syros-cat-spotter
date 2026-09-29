@@ -98,6 +98,8 @@ Every value is copied by Samuel from the console and pasted straight into the bo
 
 **SSL:** every Neon string uses `sslmode=verify-full`, which `pg` 8.22 treats as full certificate checking anyway, and Neon's certificates are public. If `pg` rejects the `channel_binding=require` parameter Neon adds, it's removed from the string. The rehearsal proves the exact form (D.4).
 
+**`DATABASE_TARGET`** is set in each place alongside the URL. It isn't a secret, so it's an Environment **variable** in GitHub and a plain setting in Replit: `production` in the deployment and in GitHub's `production` environment, `development` in the workspace and in GitHub's `development` environment. The `db-ops` job sets `rehearsal` itself when `target=rehearsal`, since that shares the `production` environment. Tools that write data by name, starting with #20's `people` CLI (PR #28), refuse to run unless `DATABASE_TARGET` matches the target they were asked for. So a seed can't land on the wrong branch because a URL was pasted into the wrong box.
+
 The **GitHub Environments** are restricted to the `main` branch ("Deployment branches: main only"), so a pull request's workflow can't read them.
 
 ### A.3 Where database commands run: the `db-ops` workflow (recommended; decision Q2)
@@ -144,6 +146,7 @@ The new project publishes whatever `main` is at the time. That must include:
 - **Part B's code** (the SYC-121 build PR), which is required.
 - **The SYC-113 gates build PR**, which is required: switching to Public without the gates would expose exact cat locations and AI-matched uploads. Its deployment secrets (`PRELAUNCH_WEB_PASSWORD`, `PRELAUNCH_SESSION_KEYS`, `PRELAUNCH_TESTER_KEYS`) are set before the first publish of the new project. The tester key goes **only in EAS and in the GitHub `production` environment, never in Replit** (the website build refuses to run if it's set there). The Worker secret isn't needed yet (it's for SYC-83).
 - **SYC-98 (#24)**, which is optional. If it's on `main`, the cutover's `migrate` applies its `0002` on Neon, which is the safe route. It isn't held back for this.
+- **The migration queue as of 29 Sep:** `0000` and `0001` are on `main`, SYC-98's `0002` is in #24, and SYC-43 part 1's migration is in **PR #28** (CI green, not merged). It's numbered `0002` for now and will be regenerated after #24 merges. #20's plan puts it **after** the cutover, so it isn't part of the rehearsed set unless D.2 to D.4 are rerun with it (the migration freeze below).
 - Any other migration on `main` is applied by the cutover's `migrate`. **Nothing that needs a migration merges during the rehearsal-to-cutover window** unless it has been rehearsed (D.7).
 
 The new project is published **Public with the gates on from its very first publish**, days before cutover, on its own `*.replit.app` address (C.6). The SYC-113 checklist is run there before any tester data is loaded into it. So on cutover day nothing about access changes: only the database copy and the web address move.
@@ -408,6 +411,9 @@ jobs:
           NEON_URL: ${{ inputs.target == 'production' && secrets.NEON_PROD_DIRECT_URL || inputs.target == 'rehearsal' && secrets.NEON_REHEARSAL_DIRECT_URL || secrets.NEON_DEV_DIRECT_URL }}
           REPLIT_URL: ${{ secrets.REPLIT_PROD_DATABASE_URL }}
           PRELAUNCH_KEY: ${{ secrets.PRELAUNCH_TESTER_KEY }}
+          # From the Environment's variables (A.2); rehearsal shares the production Environment.
+          DATABASE_TARGET: ${{ inputs.target == 'rehearsal' && 'rehearsal' || vars.DATABASE_TARGET }}
+          FAIL_AFTER: ${{ inputs.fail_after }}
         run: bash scripts/db-ops.sh
 ```
 
@@ -485,7 +491,7 @@ With the SYC-113 gate on, `GET /api/cats` with no pass gets a 401, so today's sm
 
 Order matters. Each step says who does it. **Claude never enters a payment detail or a connection string.**
 
-**C.0 · Preconditions.** Samuel has approved this plan and answered the decisions in Part J. The SYC-121 build PR (Part B) and the SYC-113 gates build PR are both merged to `main`, with CI green. Claude checks this with `gh pr view <n> --json state,mergedAt,files`.
+**C.0 · Preconditions.** Samuel has approved this plan and answered the decisions in Part J. The SYC-121 build PR (Part B) and **the SYC-113 gates build PR (#30)** are both merged to `main`, with CI green. #30 must be merged before C.6. It works in the remix unchanged: it has no hostname dependency, takes `NODE_ENV` from `artifact.toml`, and keeps the gates shut (503) until their secrets are set. The B.8 PR can merge any time before E.0. Claude checks this with `gh pr view <n> --json state,mergedAt,files`.
 
 **C.1 · Samuel: read the live deployment's region and size (2 minutes).**
 1. Open replit.com/@fairshake-au/Syros-Cat-Spotter.
@@ -517,6 +523,8 @@ Claude confirms read-only that the organisation's plan changed (`list_organizati
 | c | `development` | off | GitHub → **New environment** `development` (branches: `main`) → secret `NEON_DEV_DIRECT_URL` |
 | d | `development` | off | Replit **new** project's workspace Secrets as `DEV_DATABASE_URL` (done in C.5, step 5) |
 | e | `production` | **on** | Replit **new** project's **deployment** secrets as `APP_DATABASE_URL` (done in C.6, step 2) |
+
+**Also in C.4 (not secrets, so Claude sets them):** the GitHub Environment variables `DATABASE_TARGET=production` (in `production`) and `DATABASE_TARGET=development` (in `development`), with `gh variable set DATABASE_TARGET --env <name> --body <value>`. Samuel adds `DATABASE_TARGET=development` to the new project's workspace secrets in C.5, and `DATABASE_TARGET=production` to its deployment secrets in C.6 (A.2).
 
 **C.4f · Samuel: the old Replit production string, read-only use (3 minutes).** In the **old** project, open the **Database** tool (left toolbar), select **Production**, then **Settings**, and copy the connection string. Paste it into GitHub's `production` environment as `REPLIT_PROD_DATABASE_URL`. **Don't change anything in the Database tool.** (If Replit shows no connection string for production, stop: Claude diagnoses the alternative before anything else happens, per R0.)
 
@@ -736,7 +744,11 @@ Dev and production hold separate data. After cutover, `development` is reset fro
   ```
 
   Inside the job, that runs `pnpm --filter @workspace/db run migrate` with `DATABASE_URL` set to the production branch's **direct** URL for that one step. For development, swap `target=development`. Order: migrate production **before** publishing code that needs the change, then publish, then `-f command=smoke`.
-- **For the `people` command (#20):** the SYC-43 build adds `people-add` and `people-list` to `db-ops`'s command list, with the email and role as workflow inputs and the target always explicit. That satisfies #20's own flag that the command must never default to whatever `DATABASE_URL` points at. **Note for #20:** workflow inputs are visible in the run's details to anyone with access to the private repository. That's acceptable for two staff work addresses. If it isn't wanted, the build can read the email from a one-off environment secret instead.
+- **For the `people` command (#20, built in PR #28):** the SYC-43 build adds `people-add` and `people-list` to `db-ops`'s command list, with the target always explicit. The `people` CLI requires `--target`, and accepts `DATABASE_URL` only when `DATABASE_TARGET` names the same target. So `db-ops` passes both: `DATABASE_TARGET` comes from the GitHub Environment (A.2) and `--target` from the workflow input. A mismatch refuses to run.
+- **A staff email is never a plain workflow input** (agreed with the other session, external review X8). A `workflow_dispatch` input is stored in the run's details and can be echoed into the log. Instead:
+  - **Preferred:** Claude sets a short-lived Environment secret, `PEOPLE_EMAIL`, with `gh secret set PEOPLE_EMAIL --env production` from a terminal tab, reading the address from that tab's environment (never typed into chat). `people-add` reads it, and Claude deletes the secret after the run (`gh secret delete PEOPLE_EMAIL --env production`). GitHub masks secrets in logs.
+  - **Or,** if an input is ever used: the script's **first** action is `echo "::add-mask::$EMAIL"`, before any other use of the value. The value is never echoed. The `people` CLI prints the person's id and role, never the address.
+  - The workflow's `set -x` ban (§B.4) applies. The B.4 output check for connection strings is extended to check that the email doesn't appear in the log.
 - **Timing:** none of this reaches production until cutover (Part E) is done. Until then, migrations that merge go to the Neon `development` branch only, and the migration freeze in Part D applies.
 
 ### H.2 Proposed edits to the data spine plan (#23, `docs/superpowers/plans/data-spine.md`)
@@ -940,3 +952,4 @@ This plan was written on Opus (the chip's stated tier). The build and the runboo
 | X5 | `gh workflow run db-ops.yml` examples didn't pin `--ref main` | Nit | All seven examples now pin `--ref main`. A.3 explains why (the Environment's branch rule checks the dispatch ref, not the checkout ref) and that the `db-ops -f …` shorthand in the tables means the pinned command |
 | X6 | The merged SYC-113 plan (#27) still describes "unpublish, then republish Public in one go", which SYC-121 makes obsolete | Should-fix | **H.5**: replacement wording for #27's rollout step 3 (Public on the new project's first publish, with no unpublish) and an addition to step 4, for the owning session to apply |
 | X7 | SYC-113 checklist item 7 expects a 200, but `INTERNAL_PEOPLE_TOKEN` isn't set until SYC-83, so the endpoint answers 503 | Should-fix | C.7 and E.11 run only item 7's refusal halves (a JSON 401, or 503 `not_configured`; never 200, HTML or 307). The 200 case moves to SYC-83's probes |
+| X8 | (From the SYC-43 session, agreed.) `people-add` mustn't take a staff email as a plain `workflow_dispatch` input, which is stored in the run's details and can reach the log | Should-fix | H.1(b): a short-lived Environment secret `PEOPLE_EMAIL`, set and deleted by Claude from a terminal tab, is preferred. If an input is ever used, `::add-mask::` is the first action and the value is never echoed. The log check also covers the email. Also added from the same session: `DATABASE_TARGET` beside every URL (A.2, C.4, and the workflow environment), which the `people` CLI (PR #28) requires to match `--target` |
