@@ -182,14 +182,16 @@ beforeAll(async () => {
   await admin.connect();
 });
 
+// Each test drops its own databases, so no one hook has to drop all ~20 of
+// them (that exceeded vitest's 10 s hook limit on CI's runner).
 afterEach(async () => {
   for (const c of open.splice(0)) await c.end();
-});
-
-afterAll(async () => {
-  for (const name of created) {
+  for (const name of created.splice(0)) {
     await admin.query(`drop database if exists "${name}" with (force)`);
   }
+}, 60_000);
+
+afterAll(async () => {
   await admin.end();
 });
 
