@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   statTile: { flex: 1, minWidth: 0 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
+  sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold' },
   eyebrow: {
     fontFamily: fonts.bodyBold,
     fontSize: fontSizes['2xs'],
@@ -462,9 +462,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  rank: { fontSize: 13, fontFamily: 'Nunito_700Bold', width: 32 },
-  leaderName: { flex: 1, fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
-  leaderPoints: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
+  rank: { fontSize: 13, fontFamily: 'Inter_700Bold', width: 32 },
+  leaderName: { flex: 1, fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  leaderPoints: { fontSize: 13, fontFamily: 'Inter_700Bold' },
   langRow: { flexDirection: 'row', gap: 10 },
   langBtn: {
     flex: 1,
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  langText: { fontSize: 14, fontFamily: 'Nunito_700Bold' },
+  langText: { fontSize: 14, fontFamily: 'Inter_700Bold' },
   appearanceRow: {
     flexDirection: 'row',
     gap: spacing[1],

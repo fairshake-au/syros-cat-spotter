@@ -118,7 +118,7 @@ function ClassicTabLayout() {
             backgroundColor: colors.accent,
             color: colors.accentForeground,
             fontSize: 11,
-            fontFamily: 'Nunito_700Bold',
+            fontFamily: 'Inter_700Bold',
           },
           tabBarIcon: ({ color }) =>
             isIOS ? (

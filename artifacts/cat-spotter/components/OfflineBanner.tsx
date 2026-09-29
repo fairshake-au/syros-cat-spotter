@@ -33,6 +33,6 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     fontSize: 12,
-    fontFamily: 'Nunito_600SemiBold',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     left: 8,
     bottom: 8,
     fontSize: 11,
-    fontFamily: 'Nunito_600SemiBold',
+    fontFamily: 'Inter_600SemiBold',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,

@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 180,
   },
-  primaryBtnText: { fontSize: 15, fontFamily: "Nunito_700Bold" },
+  primaryBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
   successIcon: {
     width: 72,
     height: 72,
@@ -695,9 +695,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  successTitle: { fontSize: 20, fontFamily: "Poppins_700Bold" },
-  successCat: { fontSize: 17, fontFamily: "Nunito_700Bold" },
-  points: { fontSize: 15, fontFamily: "Nunito_600SemiBold" },
+  successTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  successCat: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  points: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   badgePill: {
     flexDirection: "row",
     alignItems: "center",
@@ -706,5 +706,5 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
-  badgePillText: { fontSize: 13, fontFamily: "Nunito_600SemiBold" },
+  badgePillText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });

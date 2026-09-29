@@ -111,5 +111,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   markerImage: { width: '100%', height: '100%' },
-  chipText: { fontSize: 11, fontFamily: 'Nunito_600SemiBold' },
+  chipText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 });

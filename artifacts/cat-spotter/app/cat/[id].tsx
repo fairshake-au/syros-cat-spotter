@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  editText: { fontSize: 12, fontFamily: 'Nunito_700Bold' },
+  editText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
   updateBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -427,10 +427,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
   },
-  updateLabel: { fontSize: 11, fontFamily: 'Nunito_700Bold', textTransform: 'uppercase' },
-  updateMessage: { fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
+  updateLabel: { fontSize: 11, fontFamily: 'Inter_700Bold', textTransform: 'uppercase' },
+  updateMessage: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  meta: { fontSize: 13, fontFamily: 'Nunito_400Regular' },
+  meta: { fontSize: 13, fontFamily: 'Inter_400Regular' },
   statsRow: { flexDirection: 'row', gap: 10 },
   eyebrow: {
     fontSize: fontSizes['2xs'],
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     height: 180,
   },
   map: { flex: 1 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold' },
+  sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold' },
   sightingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   sightingItem: { width: '30.5%', gap: 4 },
   sightingPhoto: {
@@ -474,6 +474,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  sightingDate: { fontSize: 11, fontFamily: 'Nunito_400Regular' },
-  sightingSpotter: { fontSize: 11, fontFamily: 'Nunito_600SemiBold' },
+  sightingDate: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  sightingSpotter: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 });
