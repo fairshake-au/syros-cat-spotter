@@ -33,13 +33,28 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // The guards refuse TRUNCATE. Tests reset with triggers switched off for
-  // this session only (superuser), which no app connection can do.
-  await c.query(`set session_replication_role = replica`);
+  // The guards refuse TRUNCATE. The table owner can switch that one trigger
+  // off, so tests reset that way; it needs no superuser. (The same owner
+  // could disable any guard: they protect against mistakes and app code, not
+  // against the database owner.)
   await c.query(
-    `truncate observations, cat_identity, colony_name_history, colonies, feeding_sites restart identity cascade`,
+    `alter table observations disable trigger observations_no_truncate`,
   );
-  await c.query(`set session_replication_role = default`);
+  await c.query(
+    `alter table cat_identity disable trigger cat_identity_no_truncate`,
+  );
+  try {
+    await c.query(
+      `truncate observations, cat_identity, colony_name_history, colonies, feeding_sites restart identity cascade`,
+    );
+  } finally {
+    await c.query(
+      `alter table observations enable trigger observations_no_truncate`,
+    );
+    await c.query(
+      `alter table cat_identity enable trigger cat_identity_no_truncate`,
+    );
+  }
 });
 
 async function observe(
