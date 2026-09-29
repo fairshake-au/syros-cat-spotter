@@ -2,6 +2,7 @@
 
 **Goal:** Cat Spotters (Syros) live in both app stores in October 2026, testing 1–14 September.
 **Companion to:** [PRODUCT-SPEC.md](PRODUCT-SPEC.md) §2 (what we ship) — this is *how it gets to users*.
+**If the Replit agent can't pull from GitHub:** see [runbooks/replit-github-sync.md](runbooks/replit-github-sync.md) (SYC-96).
 **State as verified 2 Sep:** API never deployed (`.replit` has an autoscale config, nothing live). No bundle identifiers, no `eas.json`, no Android Maps key. Push delivery code exists but is unverified end to end. AI matching runs through Replit's OpenAI integration.
 
 ---
