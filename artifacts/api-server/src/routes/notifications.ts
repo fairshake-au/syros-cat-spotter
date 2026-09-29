@@ -79,17 +79,19 @@ router.get("/notifications/:deviceId", async (req, res) => {
     .orderBy(desc(notificationsTable.createdAt), desc(notificationsTable.id));
 
   res.json(
-    rows.map((r) => ({
-      id: r.id,
-      catId: r.catId,
-      catUpdateId: r.catUpdateId,
-      catName: r.catName,
-      catPhotoUrl: photoUrl(r.catPrimaryPhotoId),
-      updateType: r.updateType,
-      message: r.message,
-      read: r.read,
-      createdAt: r.createdAt.toISOString(),
-    })),
+    await Promise.all(
+      rows.map(async (r) => ({
+        id: r.id,
+        catId: r.catId,
+        catUpdateId: r.catUpdateId,
+        catName: r.catName,
+        catPhotoUrl: await photoUrl(r.catPrimaryPhotoId),
+        updateType: r.updateType,
+        message: r.message,
+        read: r.read,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    ),
   );
 });
 

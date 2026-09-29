@@ -33,7 +33,7 @@ const POINTS_NEW_CAT = 50;
 type Candidate = {
   catId: number;
   name: string;
-  photoUrl: string;
+  photoUrl: string | null;
   confidence: number;
   reasoning: string;
 };
@@ -77,20 +77,22 @@ async function computeMatchCandidates(
     const result = await matchCatPhoto(photoBase64, candidateInputs);
     isCatPhoto = result.isCatPhoto;
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
-    candidates = result.matches
-      .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
-      .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
-      .slice(0, 3)
-      .map((m) => {
-        const cat = byId.get(m.catId)!;
-        return {
-          catId: cat.id,
-          name: cat.name,
-          photoUrl: photoUrl(cat.primaryPhotoId),
-          confidence: m.confidence,
-          reasoning: m.reasoning,
-        };
-      });
+    candidates = await Promise.all(
+      result.matches
+        .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
+        .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
+        .slice(0, 3)
+        .map(async (m) => {
+          const cat = byId.get(m.catId)!;
+          return {
+            catId: cat.id,
+            name: cat.name,
+            photoUrl: await photoUrl(cat.primaryPhotoId),
+            confidence: m.confidence,
+            reasoning: m.reasoning,
+          };
+        }),
+    );
   } catch (err) {
     req.log.error({ err }, "AI matching failed; returning no candidates");
   }
@@ -352,7 +354,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       id: cat.id,
       name: cat.name,
       description: cat.description,
-      photoUrl: photoUrl(cat.primaryPhotoId),
+      photoUrl: await photoUrl(cat.primaryPhotoId),
       lat: cat.lat,
       lng: cat.lng,
       sightingsCount: countRow?.n ?? 1,

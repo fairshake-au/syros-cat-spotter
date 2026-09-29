@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { db, catsTable, sightingsTable, profilesTable } from "@workspace/db";
+import {
+  db,
+  catsTable,
+  sightingsTable,
+  profilesTable,
+  photosTable,
+} from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { badgesFor, type ProfileStats } from "./badges";
 import {
@@ -34,15 +40,27 @@ export function spotterCode(deviceId: string): string {
   return createHash("sha256").update(deviceId).digest("hex").slice(0, 4).toUpperCase();
 }
 
-export function photoUrl(photoId: number): string {
-  return `/api/photos/${photoId}`;
+/**
+ * The single place in the codebase that builds a photo URL
+ * (hosting-and-photo-storage.md §6.2 item 1 / SYC-98). Looks up the
+ * unguessable public_id for a photo row and returns null rather than
+ * minting a link for `routes/cats.ts`'s `primaryPhotoId: 0` sentinel —
+ * zero is not a real row, so there's nothing to look up.
+ */
+export async function photoUrl(photoId: number): Promise<string | null> {
+  if (photoId === 0) return null;
+  const [photo] = await db
+    .select({ publicId: photosTable.publicId })
+    .from(photosTable)
+    .where(eq(photosTable.id, photoId));
+  return photo ? `/api/photos/${photo.publicId}` : null;
 }
 
 export interface CatWithStats {
   id: number;
   name: string;
   description: string;
-  photoUrl: string;
+  photoUrl: string | null;
   lat: number;
   lng: number;
   sightingsCount: number;
@@ -84,28 +102,30 @@ export async function listCatsWithStats(
     )
     .groupBy(catsTable.id);
 
-  const cats = rows.map((r) => {
-    const c: CatWithStats = {
-      id: r.cat.id,
-      name: r.cat.name,
-      description: r.cat.description,
-      photoUrl: photoUrl(r.cat.primaryPhotoId),
-      lat: r.cat.lat,
-      lng: r.cat.lng,
-      sightingsCount: r.sightingsCount,
-      lastSeenAt: r.lastSeenAt ?? r.cat.createdAt.toISOString(),
-      discovererSpotterCode: spotterCode(r.cat.discovererDeviceId),
-      discovererNickname: r.discovererNickname ?? null,
-      ownerName: r.cat.ownerName,
-      homeDescription: r.cat.homeDescription,
-      hasHome: r.cat.ownerDeviceId !== null,
-      discovererUsername: r.discovererUsername ?? null,
-    };
-    if (lat !== undefined && lng !== undefined) {
-      c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);
-    }
-    return c;
-  });
+  const cats = await Promise.all(
+    rows.map(async (r) => {
+      const c: CatWithStats = {
+        id: r.cat.id,
+        name: r.cat.name,
+        description: r.cat.description,
+        photoUrl: await photoUrl(r.cat.primaryPhotoId),
+        lat: r.cat.lat,
+        lng: r.cat.lng,
+        sightingsCount: r.sightingsCount,
+        lastSeenAt: r.lastSeenAt ?? r.cat.createdAt.toISOString(),
+        discovererSpotterCode: spotterCode(r.cat.discovererDeviceId),
+        discovererNickname: r.discovererNickname ?? null,
+        ownerName: r.cat.ownerName,
+        homeDescription: r.cat.homeDescription,
+        hasHome: r.cat.ownerDeviceId !== null,
+        discovererUsername: r.discovererUsername ?? null,
+      };
+      if (lat !== undefined && lng !== undefined) {
+        c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);
+      }
+      return c;
+    }),
+  );
 
   if (lat !== undefined && lng !== undefined) {
     cats.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));

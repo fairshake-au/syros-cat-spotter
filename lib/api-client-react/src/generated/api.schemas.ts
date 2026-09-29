@@ -71,7 +71,7 @@ export interface Cat {
   id: number;
   name: string;
   description: string;
-  photoUrl: string;
+  photoUrl: string | null;
   lat: number;
   lng: number;
   sightingsCount: number;
@@ -138,7 +138,7 @@ export interface Sighting {
   spotterCode: string;
   spotterUsername?: string | null;
   spotterNickname?: string | null;
-  photoUrl: string;
+  photoUrl: string | null;
   lat: number;
   lng: number;
   createdAt: string;
@@ -220,7 +220,7 @@ export interface CreateSightingRequest {
 export interface MatchCandidate {
   catId: number;
   name: string;
-  photoUrl: string;
+  photoUrl: string | null;
   /** Match likelihood 0-1 */
   confidence: number;
   reasoning: string;

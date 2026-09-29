@@ -21,7 +21,12 @@ export function apiOrigin(): string {
   return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 }
 
-export function absoluteUrl(path: string): string {
+// SYC-98: photoUrl is null for a cat/sighting with no real photo yet (the
+// primaryPhotoId: 0 sentinel routes/cats.ts uses for a resident-registered
+// cat) — undefined here so an <Image source={{ uri }}> just renders nothing
+// rather than requesting a URL that can't exist.
+export function absoluteUrl(path: string | null): string | undefined {
+  if (path === null) return undefined;
   if (path.startsWith('http')) return path;
   return `${apiOrigin()}${path}`;
 }

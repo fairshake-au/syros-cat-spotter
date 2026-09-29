@@ -60,7 +60,7 @@ async function catPayload(
     id: cat.id,
     name: cat.name,
     description: cat.description,
-    photoUrl: photoUrl(cat.primaryPhotoId),
+    photoUrl: await photoUrl(cat.primaryPhotoId),
     lat: cat.lat,
     lng: cat.lng,
     sightingsCount,
@@ -214,18 +214,18 @@ router.get("/cats/:catId", async (req, res) => {
         at: cat.createdAt.toISOString(),
       },
     ],
-    sightings: sightings.map(
-      ({ sighting: s, spotterUsername, spotterNickname }) => ({
+    sightings: await Promise.all(
+      sightings.map(async ({ sighting: s, spotterUsername, spotterNickname }) => ({
         id: s.id,
         catId: s.catId,
         spotterCode: spotterCode(s.deviceId),
         spotterUsername: spotterUsername ?? null,
         spotterNickname: spotterNickname ?? null,
-        photoUrl: photoUrl(s.photoId),
+        photoUrl: await photoUrl(s.photoId),
         lat: s.lat,
         lng: s.lng,
         createdAt: s.createdAt.toISOString(),
-      }),
+      })),
     ),
   });
 });
