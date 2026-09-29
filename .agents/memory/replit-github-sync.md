@@ -1,0 +1,1 @@
+If the Replit agent can't `git fetch` from GitHub, don't re-diagnose it: read docs/runbooks/replit-github-sync.md (SYC-96). Short version: the Git pane and the agent's shell use separate GitHub auth, and the Replit agent can't write to Secrets itself.
