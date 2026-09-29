@@ -60,3 +60,96 @@ So "republish in the EU region" in SYC-121 and SYC-113 means **publish a new pro
 - **R3 · Never approve a Replit database review.** If Publish in either project ever shows a database review, especially one with `TRUNCATE` or `DROP` on a table with rows, **cancel it** and tell Claude. After this plan, a review can only mean something is wrongly using Replit's database.
 - **R4 · Secrets never pass through chat, files, commits, Linear, or Claude's tools.** Samuel copies each connection string from the Neon or Replit console straight into a GitHub or Replit secrets box. Claude doesn't call the Neon MCP's `get_connection_string`. Claude runs database commands only through the `db-ops` workflow (Part B), whose logs never print a connection string (§B.4).
 - **R5 · Production is empty until cutover, and written only once by the copy.** The copy tool refuses a production branch that already holds cutover data (§B.3).
+
+---
+
+## Part A · The shape of the switchover
+
+### A.1 Neon layout
+
+One Neon project, created by Claude through the Neon MCP **after this plan is approved and Samuel has upgraded the plan** (C.2):
+
+| Thing | Name | Notes |
+|---|---|---|
+| Project | `syros-cat-spotter` | Region `aws-eu-central-1` (Frankfurt), **Postgres 16**, organisation `org-gentle-king-11293783` |
+| Database | `neondb` | Neon's default. Owner role `neondb_owner` |
+| **Production** | branch **`production`** (the root branch, renamed from Neon's default `main`) | **Empty until cutover** (R5). Protected branch if the plan offers it. Compute 0.25 to 1 CU, suspends after 5 idle minutes (decision Q4). Restore history set to **7 days** |
+| **Development** | branch **`development`**, a child of `production` | The Replit workspace's database. Starts empty, gets its schema from `migrate`, and after cutover is **reset from `production`** (same address, now holding a copy of the real data). Reset again whenever it's wanted |
+| **Rehearsal** | branch **`rehearsal`**, a child of `production` | Where every dress rehearsal is restored. Emptied between rehearsals by "reset from parent", which keeps its address the same, so its secret is pasted once |
+| **Archive** | branch **`replit-final-<yyyymmdd>`**, made from `production` at cutover, **before** the app goes live | A frozen copy of exactly what came from Replit, never connected to the app. Kept until the retention date (Part G) |
+
+CI keeps its own throwaway `postgres:16` service container and never touches Neon. Local development keeps using a local `DATABASE_URL`.
+
+### A.2 Where each connection string lives
+
+Every value is copied by Samuel from the console and pasted straight into the box named here (R4). Nothing else holds them.
+
+| Secret | Where it's set | What it points at | Used by |
+|---|---|---|---|
+| `APP_DATABASE_URL` | New Replit project → **deployment** secrets | Neon `production`, **pooled** (`-pooler` host) | The live app |
+| `DEV_DATABASE_URL` | New Replit project → **workspace** secrets | Neon `development`, **direct** | The workspace app, post-merge `migrate`, the api tests run in the workspace |
+| `NEON_PROD_DIRECT_URL` | GitHub → Environment **`production`** | Neon `production`, direct | `db-ops`: copy, migrate, verify, carry-back |
+| `NEON_REHEARSAL_DIRECT_URL` | GitHub → Environment **`production`** | Neon `rehearsal`, direct | `db-ops` rehearsals |
+| `REPLIT_PROD_DATABASE_URL` | GitHub → Environment **`production`** | The **old** project's Replit production database | `db-ops`: fingerprint and dump (read-only sessions, R1), and carry-back only in a rollback |
+| `NEON_DEV_DIRECT_URL` | GitHub → Environment **`development`** | Neon `development`, direct | `db-ops` against dev |
+| `PRELAUNCH_TESTER_KEY` | GitHub → Environment **`production`** | The SYC-113 tester key (same value as in EAS) | `db-ops smoke` through the gate |
+
+**Pooled for the app, direct for everything else** (Neon's guidance): migrations, `pg_dump`, `pg_restore` and the carry-back use session features, and the pooler runs in transaction mode. The app itself holds no session state (it uses plain queries and `db.transaction`), so the pooler suits it.
+
+**SSL:** every Neon string uses `sslmode=verify-full`, which `pg` 8.22 treats as full certificate checking anyway, and Neon's certificates are public. If `pg` rejects the `channel_binding=require` parameter Neon adds, it's removed from the string. The rehearsal proves the exact form (D.4).
+
+The **GitHub Environments** are restricted to the `main` branch ("Deployment branches: main only"), so a pull request's workflow can't read them.
+
+### A.3 Where database commands run: the `db-ops` workflow (recommended; decision Q2)
+
+Claude triggers a manual GitHub Actions workflow and reads its log:
+
+```bash
+gh workflow run db-ops.yml -f target=production -f command=migrate
+gh run watch
+gh run view --log
+```
+
+It's one workflow, `.github/workflows/db-ops.yml`, with a fixed list of commands (§B.4) and a `target` of `development`, `rehearsal` or `production`. The job checks out `main`, installs `postgresql-client-16`, and runs the command with the target's secret mapped to `DATABASE_URL` for that one step. Runs on the same target queue one behind another (a `concurrency` group), because the runner's lock waits indefinitely if two `migrate` runs overlap (data spine review R15).
+
+Why here, not the Repl shell: Claude can run it end to end without Samuel acting as the executor. It's recorded (every run has a log and a commit). The secrets are write-only and masked in logs. And it's the same route for the copy, migrations, checks and the #20 `people` command. The Repl shell would need Samuel to type every command, and Replit's agent can't set secrets.
+
+**Read-only checks can also go through the Neon MCP** (`run_sql` with `SELECT` only, `describe_table_schema`, `list_branches`). They don't need a connection string, so Claude uses them as an independent second look after each step. **Writes to Neon never go through the MCP.** They go through `db-ops`, so every change is in the runner's history or a workflow log.
+
+### A.4 How migrations reach production after the move
+
+**The #13 runner is the production route. Replit's publish carries code only.**
+
+1. A PR with a migration merges to `main`. CI has already run `migrate:check` and the up/down/up tests.
+2. **Development:** Samuel's next Git-pane pull in the new project runs `scripts/post-merge.sh`, which runs `pnpm --filter @workspace/db run migrate` against `DEV_DATABASE_URL`. Or Claude runs `gh workflow run db-ops.yml -f target=development -f command=migrate` without waiting for a pull.
+3. **Production, before the code that needs it is published:** Claude runs `gh workflow run db-ops.yml -f target=production -f command=migrate`, which runs `pnpm --filter @workspace/db run migrate` over the direct connection, then `-f command=verify`.
+4. Samuel pulls in the new project's Git pane and publishes. R3 applies: a database review means stop.
+5. Claude runs `-f command=smoke` (health check, cats and a photo, sent with the tester key).
+6. Rollback of a migration: `-f command=migrate-rollback` (the runner's `migrate:rollback`), taking a Neon snapshot first when real data is affected. Neon's 7-day restore is the backstop.
+
+`docs/DEPLOYMENT.md` §C is rewritten to this by Part B. It replaces "run `migrate` against production first", which couldn't be done from Replit.
+
+### A.5 What happens to Replit's databases
+
+- **Old project, production database:** untouched until the retention date (Part G). It's read by `db-ops` (fingerprint and dump, read-only sessions) and written only by a rollback's carry-back.
+- **Old project, dev database:** untouched. The old workspace is never pulled again (R2), so `post-merge.sh` never runs there.
+- **New project's managed database** (the remix gets a fresh one): unused. The code refuses to use `DATABASE_URL` inside a Replit workspace or in production (§B.1), so nothing can fall back to it by accident, and its structure never changes. That leaves Replit's publish diff nothing to compare. Samuel declines "Copy data from original App" if the remix offers it, so tester data isn't copied into a database nobody looks after.
+
+### A.6 What goes live at cutover
+
+The new project publishes whatever `main` is at the time. That must include:
+
+- **Part B's code** (the SYC-121 build PR), which is required.
+- **The SYC-113 gates build PR**, which is required: switching to Public without the gates would expose exact cat locations and AI-matched uploads. Its deployment secrets (`PRELAUNCH_WEB_PASSWORD`, `PRELAUNCH_SESSION_KEYS`, `PRELAUNCH_TESTER_KEYS`) are set before the first publish of the new project. The tester key goes **only in EAS and in the GitHub `production` environment, never in Replit** (the website build refuses to run if it's set there). The Worker secret isn't needed yet (it's for SYC-83).
+- **SYC-98 (#24)**, which is optional. If it's on `main`, the cutover's `migrate` applies its `0002` on Neon, which is the safe route. It isn't held back for this.
+- Any other migration on `main` is applied by the cutover's `migrate`. **Nothing that needs a migration merges during the rehearsal-to-cutover window** unless it has been rehearsed (D.7).
+
+The new project is published **Public with the gates on from its very first publish**, days before cutover, on its own `*.replit.app` address (C.6). The SYC-113 checklist is run there before any tester data is loaded into it. So on cutover day nothing about access changes: only the database copy and the web address move.
+
+### A.7 Region and latency
+
+The app and the database are both in Europe from the new project's first publish. There's no in-between state where an app in North America talks to Frankfurt: the old project never talks to Neon.
+
+**If the new project were accidentally published outside Europe** (the choice is permanent), every database query would add about 100 ms. That's about 1 to 1.5 seconds on a sighting upload, which runs 10 to 15 queries one after another. It's usable for a short window but not as a standing state. C.6 therefore has a check before the first publish, and D.4 has one after it: the startup log's round-trip time to the database. If that time is above 20 ms, Samuel deletes that remix and makes a new one. No tester data is involved at that point.
+
+**If Samuel prefers to move the database without moving the app** (for example, if C.1 shows the app is already in Europe), see decision Q1, option B.
