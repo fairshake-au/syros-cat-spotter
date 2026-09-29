@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
@@ -11,13 +10,14 @@ import { buildReviewParams } from '@/lib/reviewParams';
 /**
  * Lightweight in-app prompt shown after queued offline sightings finish
  * syncing. Tapping it opens the review screen for the first ready item.
+ * Mounted via BannerStack in app/_layout.tsx, which owns positioning
+ * (safe-area offset, stacking with the other banners).
  */
 export function ReviewReadyBanner() {
   const colors = useColors();
   const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
   const { pending, reviewReadyCount, reviewPromptVisible, dismissReviewPrompt } =
     useOffline();
 
@@ -54,7 +54,6 @@ export function ReviewReadyBanner() {
       style={[
         styles.banner,
         {
-          top: insets.top + 8,
           backgroundColor: colors.accent,
           shadowColor: '#000',
         },
@@ -73,9 +72,6 @@ export function ReviewReadyBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,

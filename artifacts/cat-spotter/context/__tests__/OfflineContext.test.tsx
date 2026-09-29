@@ -635,3 +635,45 @@ describe('replacePhoto', () => {
     expect(ctx.current.pending[0].rejectionKey).toBeUndefined();
   });
 });
+
+describe("the pre-launch gate's 401 on a native store build (SYC-121)", () => {
+  it('logs and keeps the item queued, with no sign-in prompt loop', async () => {
+    const photoUri = 'file:///documents/pending-photos/native-gate.jpg';
+    photoFiles.set(photoUri, 'native-photo');
+    seedQueue([
+      makeItem({ localId: 'native-gate', photoBase64: undefined, photoUri }),
+    ]);
+    createSighting.mockRejectedValue(
+      new ApiError(401, 'no pass', {
+        error: 'prelaunch_pass_required',
+        message: "Cat Spotters isn't open yet.",
+      }),
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const ctx = renderProvider();
+    await waitFor(() => expect(ctx.current.pending).toHaveLength(1));
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+
+    // Native store builds carry a baked-in tester key, not a session
+    // cookie — there is no sign-in flow, so this is misconfiguration, not
+    // something the app can prompt the tester to fix.
+    expect(ctx.current.needsSignIn).toBe(false);
+    expect(ctx.current.pending[0]).toMatchObject({ status: 'queued' });
+    expect(ctx.current.pending[0].errorKind).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalled();
+
+    // A second sync attempt doesn't hammer the gate either — it isn't
+    // paused by a needsSignIn flag (there's nothing to sign in to), but
+    // syncNow is only ever called from a real trigger (load, reconnect,
+    // explicit retry), never a timer, so this stays a single extra call.
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+    expect(createSighting).toHaveBeenCalledTimes(2);
+
+    errorSpy.mockRestore();
+  });
+});

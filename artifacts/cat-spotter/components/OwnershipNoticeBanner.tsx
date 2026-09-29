@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useListCats,
   getListCatsQueryKey,
@@ -31,12 +30,14 @@ type Snapshot = Record<string, OwnershipSnapshotEntry>;
  * that gained an owner (or was renamed while owned) since then triggers a
  * tappable banner that opens the cat's detail screen. The device's own
  * claims are excluded.
+ *
+ * Mounted via BannerStack in app/_layout.tsx, which owns positioning
+ * (safe-area offset, stacking with the other banners).
  */
 export function OwnershipNoticeBanner() {
   const colors = useColors();
   const { t } = useLanguage();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { isOnline } = useOffline();
   const { ownedCatIds, isReady } = useDevice();
 
@@ -115,7 +116,6 @@ export function OwnershipNoticeBanner() {
       style={[
         styles.banner,
         {
-          top: insets.top + 8,
           backgroundColor: colors.primary,
           shadowColor: '#000',
         },
@@ -134,9 +134,6 @@ export function OwnershipNoticeBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -147,7 +144,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
-    zIndex: 20,
   },
   text: {
     flex: 1,

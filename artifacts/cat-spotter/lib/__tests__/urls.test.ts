@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { absoluteUrl, apiOrigin } from '../urls';
+import { absoluteUrl, apiOrigin, signInUrl } from '../urls';
 
 describe('absoluteUrl', () => {
   const original = process.env.EXPO_PUBLIC_DOMAIN;
@@ -53,5 +53,28 @@ describe('apiOrigin', () => {
   it('strips a trailing slash so paths never double up', () => {
     process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3001/';
     expect(absoluteUrl('/api/cats')).toBe('http://localhost:3001/api/cats');
+  });
+});
+
+describe('signInUrl', () => {
+  const original = process.env.EXPO_PUBLIC_DOMAIN;
+
+  beforeEach(() => {
+    // A prior describe's afterEach can leave EXPO_PUBLIC_API_URL set to the
+    // literal string "undefined" (process.env coerces `undefined` to that
+    // string) rather than unset — delete it explicitly so apiOrigin() falls
+    // through to EXPO_PUBLIC_DOMAIN as this test expects.
+    delete process.env.EXPO_PUBLIC_API_URL;
+    process.env.EXPO_PUBLIC_DOMAIN = 'example.replit.dev';
+  });
+
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_DOMAIN = original;
+  });
+
+  it('carries the given path as an encoded ?next= (SYC-121 review fix)', () => {
+    expect(signInUrl('/cat/42')).toBe(
+      'https://example.replit.dev/_gate/login?next=%2Fcat%2F42',
+    );
   });
 });
