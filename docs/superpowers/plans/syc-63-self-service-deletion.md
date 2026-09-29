@@ -140,9 +140,9 @@ The whole thing is **synchronous**: no queue and no nightly sweep (§8.5). Obser
 - `POST /cats/:catId/claim`, `routes/cats.ts:229`;
 - `PATCH /cats/:catId`, `routes/cats.ts:283`.
 
-On any of them, someone who knows a deleted person's device id could write it straight back onto a cat, with no secret and no 410. That would undo the "nobody can bring the identity back" promise. Data spine step 5 already requires the claim route to check the secret (§10.7, §11.2 row 5), and **SYC-107** already tracks the other two routes. It is planned inside data spine PR 2, and SYC-63 is now marked as blocked by it. The fix is to finish that job:
+On any of them, someone who knows a deleted person's device id could write it straight back onto a cat, with no secret and no 410. That would undo the "nobody can bring the identity back" promise. Data spine step 5 already requires the claim route to check the secret (§10.7, §11.2 row 5), and **SYC-107** already tracks the other two routes. **SYC-107 is delivered inside data spine PR 2**, not as separate work, and SYC-63 stays marked as blocked by it. The fix is to finish that job:
 - all three routes go through `verifyDeviceSecret`, and with it the marker check;
-- this is a **precondition of this build**, done in the same PR if step 5 hasn't landed;
+- this is a **precondition of this build**, delivered by spine PR 2. That PR must be merged before this build starts;
 - a test in §8.1 checks that each of the three routes returns 410 for a deleted id.
 
 This is not a redesign. The repo's own rule (`.agents/memory/device-secret-auth.md`) is that any endpoint acting for a device must verify it. These three routes simply pre-date that rule.
@@ -340,7 +340,7 @@ The options and recommendations are kept below for the record. Each one ends wit
 - **Related ticket:** SYC-69 is already open, asking whether old owner names should eventually be redacted.
 - *Recommendation was:* 1.
 - **Decided: option 2, clear ONLY the owner's name.** The owner link (`owner_device_id`) and the home description stay.
-  - **What this means for the cat:** it keeps showing as having a home, because `hasHome` reads the owner link and the link stays. So the earlier dependency on data spine step 4 for "homed" **no longer applies to deletion**; step 4 is still needed for other reasons, which the data spine plan sequences. Nobody can edit the cat after deletion: the owner's credential is gone and the marker refuses the old identity.
+  - **What this means for the cat:** it keeps showing as having a home. Today `hasHome` reads the owner link, and the link stays. After spine PR 4, `hasHome` comes from the cat's derived life status, which the redacted `homed` observation keeps, so the cat stays homed whatever happens to the link. Spine PRs 2 to 4 are prerequisites of this build anyway (§11). Nobody can edit the cat after deletion: the owner's credential is gone and the marker refuses the old identity.
   - **What stays behind:** the home description. The privacy policy's promise that "anything you typed" goes doesn't cover it as worded (flag 6 in §10).
   - **Keeping the owner link** keeps the person's raw device id in the database (flag 5 in §10).
 
@@ -409,7 +409,11 @@ The options and recommendations are kept below for the record. Each one ends wit
    - **The guarantees around it do.** Migration 0001's `observations_append_only` trigger is what stops anything *other* than a redaction rewriting history. §5's new sightings guard is a trigger too.
    - **The risk:** if either is missing in production, deletion still works, but the "only redaction may change history" promise is silently false there.
    - **Before rollout,** probe production to confirm both triggers exist. For example, list the triggers on `observations` and `sightings` from `pg_trigger` by name. Don't assume they arrived.
-1. **Data spine step 5's claim check** (with SYC-107) comes before this, for §4.3. Step 4 is no longer a prerequisite for deletion, because decision A keeps the owner link. It becomes one again if flag 5 in §10 is resolved as (b). If step 5 hasn't landed, this build adds the secret check to the three cat routes itself.
+1. **Data spine PRs 2, 3 and 4 are merged before this build starts** (`docs/superpowers/plans/data-spine.md`, PR #23).
+   - **PR 2** delivers SYC-107: the claim, registration and rename secret checks that §4.3 depends on. It also makes a claim write a `homed` observation.
+   - **PR 3** is the data backfill.
+   - **PR 4** makes `hasHome` come from the cat's derived life status.
+   - **Spine PR 5** (the location oracle) is **not** a prerequisite.
    - **Steps 2 to 7 are sequenced in the data spine plan,** `docs/superpowers/plans/data-spine.md` (branch `claude/data-spine-plan`, SYC-40 and SYC-52). This plan doesn't reorder them; it only says which of them must come first.
 2. **The §5 migration**, in its slot, before the Play closed test. It is additive apart from the relaxed `NOT NULL`, so nobody notices anything.
 3. **Server, read side:** nullable spotter codes, the fans rule and the notification filter. This is harmless on its own, because no row is redacted yet.
