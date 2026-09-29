@@ -463,9 +463,14 @@ Order matters. Each step says who does it. **Claude never enters a payment detai
 1. Open replit.com/@fairshake-au/Syros-Cat-Spotter.
 2. Click **Publishing** (the rocket icon in the left toolbar), then **Adjust settings**.
 3. Under **Advanced**, read **Geography**. Under **Machine configuration**, read **Max instances**. **Don't change or save anything.** Close the panel.
-4. Tell Claude the two values in chat. (Neither is a secret.)
+4. Read the account's **Replit plan**: your avatar (top left), then **Account**, then **Plan**, or replit.com/account. It will say Starter, Core, Teams or similar.
+5. Tell Claude the three values in chat. (None of them is a secret.)
 
 Claude records them on SYC-121. If the region is already Europe, Samuel sees decision Q1 again before C.5.
+
+**Gate before C.5: the old deployment must still exist at the end of the retention period.** Replit documents that published apps on the **Starter** plan expire after 30 days. If the old deployment expired inside the retention window, with its domain disconnected and no traffic, the rollback target would be gone. The new live app would expire the same way. So, before C.5, Claude checks the plan Samuel reported against Replit's current publishing docs, and records on SYC-121 that published apps on this plan don't expire before the retention date (Q3).
+- **If the plan is Starter**, or the docs show any expiry that ends before the retention date: stop (R0). The fallback is Samuel upgrading the Replit plan (for example to Core) before C.5, which is billing, so Samuel does it. If he doesn't want to upgrade, the retention period can't be guaranteed, and this plan goes back to him for a decision before anything is built on it.
+- **This check is repeated at E.0**, in case the plan changed in between.
 
 **C.2 · Samuel: upgrade Neon to the Launch plan (3 minutes).**
 1. Go to console.neon.tech, then your organisation (`org-gentle-king-11293783`), then **Billing**, then **Change plan**, then **Launch**. Confirm with your card.
@@ -538,7 +543,7 @@ It runs against a live copy of tester data, with the old app still serving teste
 
 ## Part E · Cutover day (about an hour of paused saving; testers are told in advance)
 
-**Go/no-go, checked by Claude from live sources and posted on SYC-121 before E.3:** a rehearsal passed (Part D) with no migration merged since. The new project is running `main` (compared through the Replit agent). `fingerprint-source` works. Samuel is available for the whole window. It isn't a busy time on the island: early morning Greek time is best, when Replit's logs show the fewest requests.
+**Go/no-go (E.0), checked by Claude from live sources and posted on SYC-121 before E.3:** the Replit plan gate from C.1 still holds (no expiry before the retention date). A rehearsal passed (Part D) with no migration merged since. The new project is running `main` (compared through the Replit agent). `fingerprint-source` works. Samuel is available for the whole window. It isn't a busy time on the island: early morning Greek time is best, when Replit's logs show the fewest requests.
 
 | Step | Who | What | Check before moving on |
 |---|---|---|---|
@@ -892,3 +897,4 @@ This plan was written on Opus (the chip's stated tier). The build and the runboo
 | # | Finding | Severity | Fix |
 |---|---|---|---|
 | X1 | F.1's E.7 row said "retry at a later cutover", but by E.7 `copy-cutover` has already written `cutover_done`, so the guard would refuse the retry. The same bug hid in E.8 to E.10, and E.5 pointed at the wrong F.2 step | Blocker | Four named Neon states, with a **"Neon state at the failure"** and a **"why the retry passes the guards"** column for every F.1 row. The guard now keeps `rehearsal_marker` until `mark --mode cutover` swaps it for `cutover_done` atomically, so a failed copy stays retryable. **E.5a** takes a Neon snapshot before the copy, and every recovery from E.7 onward restores it. Archive branches are numbered per attempt. B.3 test 3 covers every state, with two new mutation probes. **D.8** drills rolling back from each state on the `rehearsal` branch. C.3 checks that snapshots work, with a fallback to point-in-time restore |
+| X2 | Replit's docs say published apps on the Starter plan expire after 30 days. The old deployment, with no domain and no traffic, could expire inside the retention window and take the rollback target with it | Should-fix, treated as blocking | C.1 step 4: Samuel reports the plan. A **gate before C.5** (Claude confirms against Replit's docs that there's no expiry before the retention date; if it's Starter, stop, and the fallback is Samuel upgrading), repeated at E.0. F.1's C row lists it as a failure |
