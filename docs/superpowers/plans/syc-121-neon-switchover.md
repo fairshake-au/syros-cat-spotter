@@ -56,10 +56,10 @@ So "republish in the EU region" in SYC-121 and SYC-113 means **publish a new pro
 
 - **R0 · Stop, don't improvise.** If any check fails, or anything happens that this plan doesn't describe, **roll back to the last safe point first (the table in Part F), then investigate.** No hand fixes to live data mid-run, no retries with changed flags, no "it's probably fine". A step is retried only if the plan says it can be.
 - **R1 · Replit's databases are never written to.** Not the old project's production or dev database, and not the new project's managed one. Every connection our tooling makes to Replit production is opened **read-only at the session level** (`PGOPTIONS='-c default_transaction_read_only=on'`), so Postgres itself refuses a write. The one exception is the carry-back in a rollback (F.3), which needs Samuel's explicit go-ahead in chat and writes only what the dry run listed.
-- **R2 · The old project is never pulled, published or reconfigured**, apart from its custom domain being moved away and, in a rollback, back. Its workspace isn't opened for work.
+- **R2 · The old project is never pulled, published or reconfigured.** There are two exceptions. Its custom domain is moved away at cutover, and back in a rollback. And in the rehearsal only, the spare address `rehearsal.catspotters.com` is attached to it and removed again, to time a domain move (D.6). Neither is a publish or touches its database. Its workspace isn't opened for work.
 - **R3 · Never approve a Replit database review.** If Publish in either project ever shows a database review, especially one with `TRUNCATE` or `DROP` on a table with rows, **cancel it** and tell Claude. After this plan, a review can only mean something is wrongly using Replit's database.
 - **R4 · Secrets never pass through chat, files, commits, Linear, or Claude's tools.** Samuel copies each connection string from the Neon or Replit console straight into a GitHub or Replit secrets box. Claude doesn't call the Neon MCP's `get_connection_string`. Claude runs database commands only through the `db-ops` workflow (Part B), whose logs never print a connection string (§B.4).
-- **R5 · Production is empty until cutover, and written only once by the copy.** The copy tool refuses a production branch that already holds cutover data (§B.3).
+- **R5 · Before cutover, Neon production holds nothing, or only a marked rehearsal copy. The cutover copy is written once.** Only an empty branch or one carrying the rehearsal marker can be wiped. After cutover, the copy tool refuses production outright (§B.3).
 
 ---
 
@@ -73,9 +73,9 @@ One Neon project, created by Claude through the Neon MCP **after this plan is ap
 |---|---|---|
 | Project | `syros-cat-spotter` | Region `aws-eu-central-1` (Frankfurt), **Postgres 16**, organisation `org-gentle-king-11293783` |
 | Database | `neondb` | Neon's default. Owner role `neondb_owner` |
-| **Production** | branch **`production`** (the root branch, renamed from Neon's default `main`) | **Empty until cutover** (R5). Protected branch if the plan offers it. Compute 0.25 to 1 CU, suspends after 5 idle minutes (decision Q4). Restore history set to **7 days** |
+| **Production** | branch **`production`** (the root branch, renamed from Neon's default `main`) | Until cutover it holds nothing, or a **marked rehearsal copy** (R5). The new deployment points here from its first publish, so cutover day needs no secret change. Protected branch if the plan offers it. Compute 0.25 to 1 CU, suspends after 5 idle minutes (decision Q4). Restore history set to **7 days** |
 | **Development** | branch **`development`**, a child of `production` | The Replit workspace's database. Starts empty, gets its schema from `migrate`, and after cutover is **reset from `production`** (same address, now holding a copy of the real data). Reset again whenever it's wanted |
-| **Rehearsal** | branch **`rehearsal`**, a child of `production` | Where every dress rehearsal is restored. Emptied between rehearsals by "reset from parent", which keeps its address the same, so its secret is pasted once |
+| **Rehearsal** | branch **`rehearsal`**, a child of `production` | Stands in for the **old Replit database** when the rollback's carry-back is rehearsed (D.5), so the real one is never written in a rehearsal. Emptied between rehearsals by the copy tool, and its address never changes, so its secret is pasted once |
 | **Archive** | branch **`replit-final-<yyyymmdd>`**, made from `production` at cutover, **before** the app goes live | A frozen copy of exactly what came from Replit, never connected to the app. Kept until the retention date (Part G) |
 
 CI keeps its own throwaway `postgres:16` service container and never touches Neon. Local development keeps using a local `DATABASE_URL`.
@@ -369,7 +369,7 @@ on:
       command:
         type: choice
         required: true
-        options: [fingerprint-source, copy, verify, migrate, migrate-rollback, smoke, carry-back-dry-run, carry-back-apply]
+        options: [fingerprint-source, copy-rehearsal, copy-cutover, verify, migrate, migrate-rollback, smoke, carry-back-dry-run, carry-back-apply]
       base_url: { type: string, required: false, description: "For smoke: defaults to https://apptest.catspotters.com" }
       confirm: { type: string, required: false, description: "Type APPLY for carry-back-apply" }
 permissions: { contents: read }
@@ -407,16 +407,16 @@ jobs:
 | Command | Runs |
 |---|---|
 | `fingerprint-source` | `switchover fingerprint`, with the source set to `$REPLIT_URL` (read-only) |
-| `copy` (refused for `development`) | `guard-target` (the mode follows the target), then a `fingerprint` of the source, then `pg_dump -Fc -n public --no-owner --no-privileges --no-publications --no-subscriptions` from Replit in a read-only session, then `pg_restore --no-owner --no-privileges --single-transaction --exit-on-error -L <the table of contents without its "SCHEMA - public" line>` into Neon, then `compare`, then a **second** `fingerprint` of the source, which must equal the first (proving nothing was written to Replit during the copy), then `mark` (the rehearsal marker, or `cutover_done`). The dump lives only in the runner's temporary folder, apart from the encrypted copy in decision Q6 |
+| `copy-rehearsal` (target `production` or `rehearsal`) and `copy-cutover` (target `production` only; refused anywhere else) | `guard-target` (in the command's mode), then a `fingerprint` of the source, then `pg_dump -Fc -n public --no-owner --no-privileges --no-publications --no-subscriptions` from Replit in a read-only session, then `pg_restore --no-owner --no-privileges --single-transaction --exit-on-error -L <the table of contents without its "SCHEMA - public" line>` into Neon, then `compare`, then a **second** `fingerprint` of the source, which must equal the first (proving nothing was written to Replit during the copy), then `mark` (the rehearsal marker, or `cutover_done`). The dump lives only in the runner's temporary folder, apart from the encrypted copy in decision Q6 |
 | `verify` | `compare --projected` (Replit against Neon, on the baseline tables), plus the migration history in `drizzle.__drizzle_migrations` checked against the journal's hashes |
 | `migrate` / `migrate-rollback` | `pnpm --filter @workspace/db run migrate` (or `migrate:rollback`), with `DATABASE_URL=$NEON_URL` for that one command |
 | `smoke` | `pnpm --filter @workspace/db run smoke "${BASE_URL:-https://apptest.catspotters.com}"`, with `PRELAUNCH_KEY` set |
-| `carry-back-dry-run` / `carry-back-apply` | Production target only. `apply` also requires `CONFIRM == APPLY` |
+| `carry-back-dry-run` / `carry-back-apply` | The source is always Neon `production`. With target `production`, the target is the **old Replit production database** (a real rollback). With target `rehearsal`, the target is the Neon `rehearsal` branch standing in for it (D.5). `apply` also requires `CONFIRM == APPLY` |
 
 The restore leaves out `CREATE SCHEMA public` because Neon's empty database already has one. Dumping with `-n public` leaves out Replit's own schemas. Neither the old database nor our baseline uses an extension. D.2 confirms all of this against the real dump's table of contents.
 
 - [ ] **Step 1:** `actionlint` and `bash -n scripts/db-ops.sh` pass.
-- [ ] **Step 2: a local dry run.** Run `scripts/db-ops.sh` with `NEON_URL` and `REPLIT_URL` pointing at two local databases, with the source built at `0000` and holding rows. `copy`, `verify` and `migrate` all succeed. A second `copy` into the same target with the `production` mode is refused.
+- [ ] **Step 2: a local dry run.** Run `scripts/db-ops.sh` with `NEON_URL` and `REPLIT_URL` pointing at two local databases, with the source built at `0000` and holding rows. `copy-rehearsal`, `verify` and `migrate` all succeed. Then `copy-cutover` succeeds once, and a second `copy-cutover` or `copy-rehearsal` into the same target is refused.
 - [ ] **Step 3:** search the dry run's whole output for `postgres://` and `postgresql://`. Nothing should be found.
 - [ ] **Step 4: commit** with the message `SYC-121: db-ops workflow for copy, migrate, verify, smoke, carry-back`.
 
@@ -443,3 +443,85 @@ With the SYC-113 gate on, `GET /api/cats` with no pass gets a 401, so today's sm
 - [ ] `pnpm --filter @workspace/db run migrate:check`, `pnpm --filter @workspace/db test`, the api-server tests and all the typechecks pass, both locally and in CI.
 - [ ] The PR body records the mutation probes from B.1 and B.3, each with the test that went red.
 - [ ] Ship it with `/ship`: an independent adversarial review (see Model delegation) and `/security-review`, since the PR handles secrets and adds a write path to live data.
+
+---
+
+## Part C · Setting up (days before cutover; testers notice nothing)
+
+Order matters. Each step says who does it. **Claude never enters a payment detail or a connection string.**
+
+**C.0 · Preconditions.** Samuel has approved this plan and answered the decisions in Part J. The SYC-121 build PR (Part B) and the SYC-113 gates build PR are both merged to `main`, with CI green. Claude checks this with `gh pr view <n> --json state,mergedAt,files`.
+
+**C.1 · Samuel: read the live deployment's region and size (2 minutes).**
+1. Open replit.com/@fairshake-au/Syros-Cat-Spotter.
+2. Click **Publishing** (the rocket icon in the left toolbar), then **Adjust settings**.
+3. Under **Advanced**, read **Geography**. Under **Machine configuration**, read **Max instances**. **Don't change or save anything.** Close the panel.
+4. Tell Claude the two values in chat. (Neither is a secret.)
+
+Claude records them on SYC-121. If the region is already Europe, Samuel sees decision Q1 again before C.5.
+
+**C.2 · Samuel: upgrade Neon to the Launch plan (3 minutes).**
+1. Go to console.neon.tech, then your organisation (`org-gentle-king-11293783`), then **Billing**, then **Change plan**, then **Launch**. Confirm with your card.
+2. Tell Claude "Neon upgraded".
+
+Claude confirms read-only that the organisation's plan changed (`list_organizations`), and doesn't continue until it has.
+
+**C.3 · Claude: create the Neon project (Neon MCP, about 5 minutes).** `create_project` (name `syros-cat-spotter`, region `aws-eu-central-1`, Postgres 16, organisation `org-gentle-king-11293783`). Rename the default branch to `production` (`update_branch`). Create `development` and `rehearsal` as children of `production` (`create_branch`). Set the restore window to 7 days (`update_project`, `history_retention_seconds: 604800`). Set compute to 0.25 to 1 CU, suspending after 5 minutes (per Q4). Mark `production` protected if the plan allows it. Then Claude checks the result with `describe_project` and `list_branches`, and records the project id, branch ids and region on SYC-121 (none of those is a secret). **It doesn't call `get_connection_string`.**
+
+**C.4 · Samuel: put five Neon connection strings where they belong (about 10 minutes).** In Neon's console, open project **syros-cat-spotter** and click **Connect** (top right of the Dashboard). In the dialog, choose Branch, Database `neondb` and Role `neondb_owner`, set **Connection pooling** on or off as shown below, and click **Copy snippet** for the connection string. Paste each one straight into its destination. If the string ends in `sslmode=require`, change that one word to `verify-full` after pasting.
+
+| # | Branch | Pooling | Paste into |
+|---|---|---|---|
+| a | `production` | **off** | GitHub → repo **Settings** → **Environments** → **New environment** `production` → (**Deployment branches and tags**: *Selected branches* → add `main`) → **Add environment secret** `NEON_PROD_DIRECT_URL` |
+| b | `rehearsal` | off | Same environment → secret `NEON_REHEARSAL_DIRECT_URL` |
+| c | `development` | off | GitHub → **New environment** `development` (branches: `main`) → secret `NEON_DEV_DIRECT_URL` |
+| d | `development` | off | Replit **new** project's workspace Secrets as `DEV_DATABASE_URL` (done in C.5, step 5) |
+| e | `production` | **on** | Replit **new** project's **deployment** secrets as `APP_DATABASE_URL` (done in C.6, step 2) |
+
+**C.4f · Samuel: the old Replit production string, read-only use (3 minutes).** In the **old** project, open the **Database** tool (left toolbar), select **Production**, then **Settings**, and copy the connection string. Paste it into GitHub's `production` environment as `REPLIT_PROD_DATABASE_URL`. **Don't change anything in the Database tool.** (If Replit shows no connection string for production, stop: Claude diagnoses the alternative before anything else happens, per R0.)
+
+**C.4g · Claude: the tester key into GitHub.** When the SYC-113 rollout generates the tester key in a terminal tab (its plan, "Rollout order" step 2), the same command also runs `gh secret set PRELAUNCH_TESTER_KEY --env production` from that tab's environment, so the value is never printed.
+
+**C.4h · Claude: prove the secrets work, without showing them.** Claude runs `gh workflow run db-ops.yml -f target=production -f command=fingerprint-source` and reads the log. The expected result: nine tables with row counts that match SYC-121's figures (19 cats, 38 sightings, 38 photos, 18 profiles, or more), Postgres 16.15, and no connection string anywhere in the log. This also proves the old production database can be reached from outside Replit, which the Replit agent couldn't confirm. The fingerprint is recorded on SYC-121 as the first reference point. **Nothing has been written anywhere yet.**
+
+**C.5 · Samuel: make the new EU project (about 15 minutes).**
+1. In the **old** project, open the **⋯** menu, then **Remix** (or **Fork**). Name it `Syros-Cat-Spotter-EU`. If it offers **"Copy data from original App"**, **leave it unticked**.
+2. Open the new project. Check the **Secrets** pane: the old project's secrets are there (for example `OWNER_SECRET` and the `CAMPAIGN_*` values). Tell Claude which names are present. Don't send the values.
+3. Check **Integrations** (or **Connectors**) for **OpenAI**. If it isn't enabled, enable it. Claude then checks, read-only through the Replit agent, that `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY` exist in the new workspace.
+4. Open **Git** in the new project. If it shows the `fairshake-au/syros-cat-spotter` repository, pull `main`. If it shows no repository, **connect GitHub from the new project's Git pane** (this adds a link and doesn't disconnect anything in the old project; the "never disconnect GitHub" rule is about the old project) and pull `main`.
+5. **Before that pull**, add the workspace secret `DEV_DATABASE_URL` (C.4d). The pull runs `post-merge.sh`, which now migrates the Neon `development` branch. Without the secret, it stops with "DEV_DATABASE_URL is not set" (B.1), which is the safe failure: pull again after adding it.
+6. Tell Claude "EU project pulled". Claude checks through the Replit agent (read-only) that `git log -1` in the new project matches `origin/main`, and uses the Neon MCP to check that `development` now has the full migration history.
+
+**C.6 · Samuel: the new project's first publish, in Europe, Public, with the gates on (about 20 minutes).** This is permanent for the region, so check it twice.
+1. In the new project, click **Publishing**. Choose **Autoscale**.
+2. **Deployment secrets:** add `APP_DATABASE_URL` (C.4e, the `production` branch with pooling on), plus the SYC-113 settings `PRELAUNCH_WEB_PASSWORD`, `PRELAUNCH_SESSION_KEYS` and `PRELAUNCH_TESTER_KEYS` (pasted from the terminal tab the SYC-113 rollout opens). **Don't add `EXPO_PUBLIC_PRELAUNCH_KEY` here.** Leave `PRELAUNCH_GATE` unset, which means on.
+3. **Advanced → Geography: Europe.** Before clicking on, read it back to Claude in chat.
+4. **Machine configuration → Max instances: 1** (SYC-105, until the Postgres rate-limit store exists).
+5. **Access: Public.** Don't connect `apptest.catspotters.com` yet.
+6. Click **Publish**. If Replit shows **any database review, cancel it** (R3) and tell Claude.
+7. Tell Claude the new `*.replit.app` address. It's a public address, not a secret.
+
+**C.7 · Claude: check the new project before any real data is in it.** At this point Neon `production` is empty, so the app runs with no schema. `/api/cats` returns a server error, and that's expected. Claude runs:
+- The deployment log line from B.2: `source: APP_DATABASE_URL`, the host is the `production` branch's pooled endpoint (checked against the endpoint id from C.3), and the round trip is **under 20 ms**. **If it's over 20 ms, the project isn't in Europe:** unpublish it, delete the remix, and redo C.5 and C.6. No tester data is involved yet.
+- The SYC-113 "Done" checklist items **1, 2, 3, 4, 7, 10, 11 and 12** against the `*.replit.app` address. Items that need data (5, 6, 10a and 10b) and real builds (8 and 9) run in D.4. **If any "must be refused" probe answers 200, Samuel sets the project back to Password protected before anything else.** That's SYC-113's rule, unchanged.
+
+---
+
+## Part D · The dress rehearsal (the whole run on copies, including the rollback)
+
+It runs against a live copy of tester data, with the old app still serving testers, so testers notice nothing. Claude runs it end to end. Samuel's part is two short checks, D.4's real devices and D.6's domain move. **Everything is timed**, and the times are recorded on SYC-121. **The real cutover is scheduled only after a rehearsal passes every check.** If a rehearsal fails, the fix goes through a normal PR, and the rehearsal is run again in full.
+
+| Step | Claude runs | Passes when |
+|---|---|---|
+| **D.1** Reference point | `db-ops -f target=production -f command=fingerprint-source` | Recorded. Counts are at least those in C.4h |
+| **D.2** Copy | `db-ops -f target=production -f command=copy-rehearsal` | `compare` reports zero differences: counts, **photo bytes** (the row hash covers them), sequences, schema signature, encoding and collation. The source fingerprint is the same before and after the dump (nothing was written to Replit). The dump's table of contents holds only `public` objects and no extensions (the log lists them) |
+| **D.3** Migrations | `db-ops -f target=production -f command=migrate`, then `-f command=verify` | The runner prints **"adopted baseline: live schema matches it"**, then `applied: 0001_data_spine_tables, 0002_…` (whatever is on `main`). `verify` passes. Through the Neon MCP (read-only `run_sql`): `drizzle.__drizzle_migrations` has one row per journal entry; the triggers `observations_append_only`, `cat_identity_append_only`, `observations_no_truncate` and `cat_identity_no_truncate` exist; for every `serial` sequence, `last_value >= max(id)`; and `datcollate` matches Replit's (from D.1) |
+| **D.4** The app on the copy | `db-ops -f command=smoke -f base_url=<new replit.app address>`, then the remaining SYC-113 checklist items (5, 6, 10a and 10b). A real browser at **390 px and desktop**: type the tester password, see cats with photos on the map, open a cat, check its sightings. One sighting is posted through the website with the tester key, to exercise AI matching on the new project's OpenAI integration | All pass. Cat and sighting counts shown in the app match D.1. The start-up log shows the production host and a round trip under 20 ms |
+| **D.4b** Samuel, real devices (optional in the rehearsal, required at cutover if store builds exist) | A TestFlight or Play build pointed at the new address, if one exists | The SYC-113 items 8 and 9 pass |
+| **D.5** Rollback rehearsal, data | 1. `db-ops -f target=rehearsal -f command=copy-rehearsal`, which makes the `rehearsal` branch a baseline copy **standing in for the old Replit database**. 2. Through the new app (tester key): post two sightings with photos, rename a cat, and remove a subscription. That makes production "Neon after testers used it". 3. `db-ops -f target=rehearsal -f command=carry-back-dry-run`. 4. `db-ops -f target=rehearsal -f command=carry-back-apply -f confirm=APPLY` | The dry run lists exactly those changes by id (2 sightings, 2 photos, 1 cat updated, 1 subscription deleted, plus any `0001` rows under "no home"). After apply, `compare --projected` passes and `nextval` is correct. **The real old database was never touched:** a final `fingerprint-source` equals D.1's, apart from rows testers added through the old app during the rehearsal (the rehearsal doesn't freeze it). Any difference must be explained by the old app's own traffic |
+| **D.6** Rollback rehearsal, the address | Samuel: attach `rehearsal.catspotters.com` to the **new** project (Publishing → Domains → Connect), and add the DNS records Replit shows in Cloudflare. Claude times it until `https://rehearsal.catspotters.com/api/healthz` answers 200. Then Samuel attaches it to the **old** project (Replit offers "move to this project"), and Claude times it until the address answers with the old project's `307` to `replit.com/__replshield`. Then Samuel removes it from both | Both moves complete. The times are recorded, and so are **both projects' DNS values** (A and TXT), which F.2 uses. If the old and new values differ, the rollback needs a DNS change as well as the Replit click, and F.2 says so |
+| **D.7** Close | Claude posts the timings and results on SYC-121, and a go/no-go for a cutover date | Every row above passed |
+
+**The migration freeze after a passing rehearsal:** until cutover, no PR that adds a migration merges, unless D.2 to D.4 are run again with it. Code-only PRs can merge, because the cutover publishes nothing new (the new project is already running `main` from C.6). If code does change, Samuel pulls and republishes the new project before cutover, and Claude reruns D.4.
+
+**Expected timings (to be replaced by the measured ones):** D.2 copy under 2 minutes (18 MB), D.3 under 1 minute, D.4 about 15 minutes, D.5 about 10 minutes, and a domain move a few minutes plus DNS, which Cloudflare serves at a 60-second TTL (E.1).
