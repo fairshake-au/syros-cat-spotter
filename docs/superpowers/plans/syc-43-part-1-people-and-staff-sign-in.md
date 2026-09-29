@@ -264,7 +264,9 @@ The migration is designed to be **plain tables and columns wherever possible: no
 | Unique email, unique role-and-scope constraint, foreign keys (`person_scopes` → `people` with cascade, → `colonies`) | No, but the runner applies them exactly as written | The #13 runner against Neon, with the same `pg_constraint` check afterwards | The cascade matters most: without it, removing a person would fail on their roles. So `removePerson()` deletes the roles explicitly in the same transaction, and doesn't rely on the cascade. A missing unique email or role constraint is caught by `addPerson()` looking first, inside the transaction |
 | Migration history row in the `drizzle` schema | No | Written by the #13 runner itself on Neon | n/a |
 | **Seed rows (Samuel and Jacky)** | Data, not structure | **Claude runs the `people` command against Neon production**, with the connection string read from stored credentials at run time (the Neon connector, or the secret store SYC-121's plan names). It is never pasted into chat, printed, or written to a file in the repo. No startup seed is built. | Nobody can sign in to the dashboard. That fails closed, which is the safe direction |
-| Break-glass row | Not in Postgres at all: it stays in the Worker's D1 `admins` table (§2.7), which SYC-83 handles through `wrangler` | Unaffected by SYC-102 | n/a |
+| Break-glass row | Not in Postgres at all: it stays in the Worker's D1 `admins` table (§2.7), which SYC-83 handles through `wrangler` | Unaffected by the Neon move | n/a |
+
+**Dev and production hold separate lists.** On Neon, the development branch and production are separate databases, and nothing copies rows between them after the one-off cutover copy (SYC-121). Adding someone to dev's `people` grants nothing in production, and the reverse. Dev may hold test people. Real staff are added to production explicitly. Tests keep using their own throwaway databases.
 
 ## Getting past Replit's login wall: blocked on SYC-113
 
