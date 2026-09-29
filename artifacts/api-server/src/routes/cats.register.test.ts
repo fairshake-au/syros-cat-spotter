@@ -58,18 +58,17 @@ describe("POST /api/cats", () => {
     expect(res.body.discovererSpotterCode).not.toBe(validBody.deviceId);
   });
 
-  it("returns a sentinel photo URL that cleanly 404s", async () => {
+  it("returns null (not a minted token) for the primaryPhotoId: 0 sentinel", async () => {
+    // hosting-and-photo-storage.md §6.2 item 1 / SYC-98 "mind the sentinel":
+    // zero is not a real photos row, so photoUrl() must not look one up or
+    // mint a link for it.
     const registration = await request(app)
       .post("/api/cats")
       .set("X-Device-Secret", DEVICE_SECRET)
       .send({ ...validBody, name: `${NAME_PREFIX}NoPhoto` });
 
     expect(registration.status).toBe(201);
-    expect(registration.body.photoUrl).toBe("/api/photos/0");
-
-    const photo = await request(app).get(registration.body.photoUrl);
-    expect(photo.status).toBe(404);
-    expect(photo.body).toEqual({ error: "Not found" });
+    expect(registration.body.photoUrl).toBeNull();
   });
 
   it.each(["name", "ownerName"] as const)(
