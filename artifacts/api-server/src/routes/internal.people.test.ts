@@ -71,7 +71,7 @@ describe("POST /api/internal/people/allowed", () => {
       "",
       "Bearer ",
       `Bearer ${TOKEN}x`,
-      `bearer ${TOKEN}`,
+      `Bearer ${TOKEN.slice(0, -1)}`,
       TOKEN,
       `Basic ${TOKEN}`,
     ]) {
