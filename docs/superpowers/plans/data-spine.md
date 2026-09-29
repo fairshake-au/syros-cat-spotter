@@ -388,7 +388,7 @@ Where the approved spec disagrees with the code, a ticket, another spec or anoth
 
 **C7 · The plans disagree about migration slots.** SYC-63's plan says "SYC-43 holds `0002`"; SYC-98 (Chip E) actually holds `0002`, and SYC-43 part 1 takes the next free number. *Recommendation:* nobody hardcodes a number (as this plan now does); SYC-63's plan should drop "`0003` once SYC-43 takes `0002`" when it's next edited.
 
-**C8 · SYC-63's plan says its §5 migration is written by "whoever holds the next slot"**, which leaves it without an owner. *Recommendation:* SYC-63's build owns it (it's step 8's schema), scheduled before the Play closed test; this plan's PR P delivers it to production. Samuel confirms when approving PR #21.
+**C8 · Who writes the deletion migration.** An earlier draft of SYC-63's plan left it to "whoever holds the next slot". The other session has since confirmed PR #21 owns it, including the sightings guard. *Resolved:* SYC-63 owns it, before the Play closed test; this plan's PR P delivers its triggers and checks to production. Worth checking that PR #21's text says so when Samuel approves it.
 
 ## Decisions for Samuel
 
