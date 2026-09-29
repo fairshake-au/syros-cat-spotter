@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import sharp from "sharp";
-import { db, pool, photosTable, sightingsTable } from "@workspace/db";
+import { db, pool, photosTable, sightingsTable, deviceCredentialsTable } from "@workspace/db";
 import { eq, like } from "drizzle-orm";
 
 // Keep the AI matcher out of upload tests: it is network-bound, and this suite
@@ -24,7 +24,13 @@ async function cleanup() {
   for (const r of rows) {
     await db.delete(photosTable).where(eq(photosTable.id, r.photoId));
   }
+  await db
+    .delete(deviceCredentialsTable)
+    .where(like(deviceCredentialsTable.deviceId, `${DEVICE}%`));
 }
+
+// SYC-92: POST /api/sightings now requires the device secret.
+const SECRET = "vitest-upload-secret-0123456789ab";
 
 beforeAll(cleanup);
 afterAll(async () => {
@@ -51,7 +57,7 @@ describe("POST /api/sightings photo handling", () => {
       .toBuffer();
     expect(png.length).toBeGreaterThan(MAX_STORED_BYTES);
 
-    const res = await request(app).post("/api/sightings").send({
+    const res = await request(app).post("/api/sightings").set("X-Device-Secret", SECRET).send({
       deviceId: DEVICE,
       lat: 37.44,
       lng: 24.9,
@@ -80,7 +86,7 @@ describe("POST /api/sightings photo handling", () => {
       Buffer.from([0xff, 0xd8, 0xff]),
       Buffer.from("garbage".repeat(50)),
     ]);
-    const res = await request(app).post("/api/sightings").send({
+    const res = await request(app).post("/api/sightings").set("X-Device-Secret", SECRET).send({
       deviceId: DEVICE,
       lat: 37.44,
       lng: 24.9,
@@ -91,7 +97,7 @@ describe("POST /api/sightings photo handling", () => {
   });
 
   it("rejects invalid base64 with 400", async () => {
-    const res = await request(app).post("/api/sightings").send({
+    const res = await request(app).post("/api/sightings").set("X-Device-Secret", SECRET).send({
       deviceId: DEVICE,
       lat: 37.44,
       lng: 24.9,
@@ -108,7 +114,7 @@ describe("POST /api/sightings photo handling", () => {
       .where(eq(sightingsTable.deviceId, `${DEVICE}-rejected`));
     expect(before).toHaveLength(0);
 
-    await request(app).post("/api/sightings").send({
+    await request(app).post("/api/sightings").set("X-Device-Secret", SECRET).send({
       deviceId: `${DEVICE}-rejected`,
       lat: 37.44,
       lng: 24.9,

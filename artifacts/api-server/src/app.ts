@@ -8,6 +8,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { photoCors } from "./middlewares/photoCors";
 
 const app: Express = express();
 
@@ -40,7 +41,17 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// hosting-and-photo-storage.md §6.2 item 3: the photo route gets an
+// explicit origin allowlist instead of the bare, wide-open cors() every
+// other route still uses. Scoped narrowly (not a blanket app-wide change)
+// so nothing else's CORS behaviour shifts in this PR.
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/photos/")) {
+    photoCors(req, res, next);
+    return;
+  }
+  cors()(req, res, next);
+});
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 
