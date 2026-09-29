@@ -878,7 +878,7 @@ This plan was written on Opus (the chip's stated tier). The build and the runboo
 | B.8 queued sightings and the gate (separate PR) | Sonnet | Small, well-specified client change, with tests written in the plan | The step 1 and 2 tests; **mutation probes** (status-only matching, the `failCount` exemption, the loop stopping), because the failure being fixed is silent (a sighting quietly marked as failed); the browser check at 390 px and desktop; Opus spot review; the E.11 live replay probe |
 | B.5 smoke key, B.6 docs | Haiku | Mechanical | Test for B.5; spot review of the docs against this plan |
 | Build PR review | Opus, independent critic in its own worktree | Adversarial review of a live-data write path, per `/ship` | Plus `/security-review` |
-| **Adversarial review of this plan** (before Samuel approves) | Opus | Samuel's pipeline requires it, and the chip was told not to spawn agents | **Not yet run.** The coordinating session runs it and folds the findings into the Review section below |
+| **Adversarial review of this plan** (before Samuel approves) | Opus | Samuel's pipeline requires it, and the chip was told not to spawn agents | **Done 29 Sep** by the coordinating session. Findings X1 to X8 are folded in (Review, "External review") |
 | Parts C to F (the rehearsal, cutover and rollback) | Session model (Opus) | Live data and secrets, with judgement at every check. Not delegated | The checks in each step, R0, and the E.13 aftercare probes |
 | Linear updates and progress notes | Haiku, if delegated at all | Mechanical | Spot read |
 
@@ -918,7 +918,7 @@ This plan was written on Opus (the chip's stated tier). The build and the runboo
 | 2 | The old path stays intact, proved, with a copy Samuel controls, recorded before anything else | R1 and R2. E.3 records the counts and hashes before the freeze, and E.5 and E.13 prove no change. The copies: the untouched old database, Neon's archive branch (E.7, in Samuel's Neon account), and the encrypted dump (Q6) |
 | 3 | A one-action revert: which action, how long, and who | Moving `apptest.catspotters.com` back to the old project (F.2 step 5, Samuel's clicks, 3 to 10 minutes, timed in D.6). With tester writes, it's preceded by Claude's two `db-ops` runs (about 5 minutes) |
 | 4 | Writes on Neon after the switch | F.3 and the carry-back (B.3), with tests (B.3 test 4, mutation probes) and a rehearsal (D.5). "Accept the loss" needs Samuel's written sign-off (F.2 step 3) |
-| 5 | A rehearsal first, including the rollback, with timings | Part D (D.5 is the data half of the rollback, D.6 the address half). The cutover is scheduled only after it passes |
+| 5 | A rehearsal first, including the rollback, with timings | Part D (D.5 is the data half of the rollback, D.6 the address half, and D.8 drills rolling back from every Neon state). The cutover is scheduled only after it passes |
 | 6 | Can Europe and Public roll back separately from the database? | F.4: Public can (and is tested days early); Europe and the database can't, and the reason is given. The single cutover is justified there |
 | 7 | Stop and don't improvise | R0 and F.5 |
 
@@ -939,7 +939,7 @@ This plan was written on Opus (the chip's stated tier). The build and the runboo
 - **Unverified until C.5:** what a remix actually carries over (secrets, the OpenAI integration, the Git link). Each is checked before the first publish.
 - **Unverified until D.3:** that Replit's production schema exactly matches `0000_baseline`. SYC-102 compared tables but not every column. If adoption refuses, the runner prints the differences. The fix is a reviewed change made on the Neon rehearsal copy only, and then the rehearsal runs again. Replit's database is never changed.
 - **Replit's domain-move behaviour** (whether DNS values change between regions) is measured in D.6, not assumed.
-- **The adversarial review of this plan hasn't run yet** (see Model delegation). Its findings go here before Samuel approves.
+- **The independent adversarial review has run** (29 Sep). Its eight findings are folded in, and recorded as X1 to X8 below.
 
 ### External review (independent adversarial review of PR #29, 29 Sep 2026), and what changed
 
