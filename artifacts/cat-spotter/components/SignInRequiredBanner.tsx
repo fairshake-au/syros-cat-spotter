@@ -2,7 +2,6 @@ import React from 'react';
 import { Linking, Pressable, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
@@ -15,15 +14,16 @@ import { signInUrl } from '@/lib/urls';
  * OfflineContext), so this never renders on a native store build, which
  * has no sign-in flow to point at.
  *
- * Mounted once in app/_layout.tsx, like ReviewReadyBanner and
- * OwnershipNoticeBanner, so it shows on every screen. Tapping it opens the
- * website's sign-in page in a new tab; the app itself retries automatically
- * once the tab regains focus (OfflineContext's retryAfterSignIn).
+ * Mounted via BannerStack in app/_layout.tsx, alongside ReviewReadyBanner
+ * and OwnershipNoticeBanner, so it shows on every screen. Tapping it opens
+ * the website's sign-in page in a new tab; the app itself retries
+ * automatically once the tab regains focus (OfflineContext's
+ * retryAfterSignIn). Positioning (safe-area offset, stacking with the other
+ * banners) belongs to BannerStack, not this component.
  */
 export function SignInRequiredBanner() {
   const colors = useColors();
   const { t } = useLanguage();
-  const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const { needsSignIn } = useOffline();
 
@@ -39,7 +39,6 @@ export function SignInRequiredBanner() {
       style={[
         styles.banner,
         {
-          top: insets.top + 8,
           backgroundColor: colors.accent,
           shadowColor: '#000',
         },
@@ -58,9 +57,6 @@ export function SignInRequiredBanner() {
 
 const styles = StyleSheet.create({
   banner: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -71,7 +67,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
-    zIndex: 20,
   },
   text: {
     flex: 1,

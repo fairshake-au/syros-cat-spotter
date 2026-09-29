@@ -58,8 +58,10 @@ vi.mock('@/context/OfflineContext', () => ({
 }));
 vi.mock('@/context/NotificationContext', () => ({ NotificationProvider: stubComponent('NotificationProvider') }));
 vi.mock('@/components/onboarding/OnboardingFlow', () => ({ OnboardingFlow: stubComponent('OnboardingFlow') }));
-vi.mock('@/components/ReviewReadyBanner', () => ({ ReviewReadyBanner: stubComponent('ReviewReadyBanner') }));
-vi.mock('@/components/OwnershipNoticeBanner', () => ({ OwnershipNoticeBanner: stubComponent('OwnershipNoticeBanner') }));
+// SYC-121 review fix: _layout.tsx now mounts one BannerStack instead of the
+// three banners individually (see components/BannerStack.tsx) — stub the
+// stack itself rather than each banner.
+vi.mock('@/components/BannerStack', () => ({ BannerStack: stubComponent('BannerStack') }));
 
 describe('app/_layout.tsx', () => {
   it('sets the tester key when the file loads, before any provider mounts', async () => {

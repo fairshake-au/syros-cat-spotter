@@ -22,9 +22,7 @@ import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
-import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
-import { OwnershipNoticeBanner } from '@/components/OwnershipNoticeBanner';
-import { SignInRequiredBanner } from '@/components/SignInRequiredBanner';
+import { BannerStack } from '@/components/BannerStack';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
@@ -71,9 +69,7 @@ function OnboardingGate() {
     <>
       <OfflineTilesLoader />
       <RootLayoutNav />
-      <ReviewReadyBanner />
-      <OwnershipNoticeBanner />
-      <SignInRequiredBanner />
+      <BannerStack />
     </>
   );
 }
