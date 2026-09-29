@@ -19,9 +19,11 @@ This part builds that list and the app's half of signing in:
 
 **What staff notice after this part ships: nothing yet.** It is the foundation. Staff see a change when the Worker work lands (the sign-in page reads this list, and gets the "Cat Spotters dashboard" link). Until the queue screen exists (a later part of SYC-43), the dashboard link lands on a one-line page: "You're signed in as Susan. The welfare queue is coming soon", with a Sign out button.
 
-## Four decisions for Samuel, each with a recommendation
+## Four decisions for Samuel, each with a recommendation (1 and 2 decided; 3 and 4 open)
 
 ### Decision 1: The private question's address must start with `/api/` (a clash between the spec and the code)
+
+**Decided by Samuel, 29 Sep 2026: A (`/api/internal/people/allowed`).**
 
 The spec names the endpoint `GET /internal/people/allowed`. But the app is hosted on Replit, and Replit only sends paths starting with `/api` to the API server (`artifacts/api-server/.replit-artifact/artifact.toml`: `paths = ["/api"]`). A request to `/internal/...` would never reach it.
 
@@ -29,6 +31,8 @@ The spec names the endpoint `GET /internal/people/allowed`. But the app is hoste
 - B. Add `/internal` to the Replit routing. *Risk:* it changes hosting configuration for everything else deployed, to save six characters.
 
 ### Decision 2: Send the address in the request body, not in the web address
+
+**Decided by Samuel, 29 Sep 2026: A (`POST`, with the address in the body).**
 
 The spec says `GET`. With a `GET`, the email address has to go in the web address itself, and web addresses are written into hosting and proxy logs we don't control. Our own logs already remove the query string, but Replit's might not.
 
