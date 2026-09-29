@@ -19,7 +19,7 @@ This part builds that list and the app's half of signing in:
 
 **What staff notice after this part ships: nothing yet.** It is the foundation. Staff see a change when the Worker work lands (the sign-in page reads this list, and gets the "Cat Spotters dashboard" link). Until the queue screen exists (a later part of SYC-43), the dashboard link lands on a one-line page: "You're signed in as Susan. The welfare queue is coming soon", with a Sign out button.
 
-## Four decisions for Samuel, each with a recommendation (1 and 2 decided; 3 and 4 open)
+## Four decisions for Samuel (all four decided 29 Sep 2026; the plan itself is not yet approved)
 
 ### Decision 1: The private question's address must start with `/api/` (a clash between the spec and the code)
 
@@ -41,12 +41,16 @@ The spec says `GET`. With a `GET`, the email address has to go in the web addres
 
 ### Decision 3: Who builds the "Cat Spotters dashboard" link on the sign-in page
 
+**Decided by Samuel, 29 Sep 2026: A.** The dashboard button and the hand-off pass ship in the same Worker change as SYC-83, tracked as SYC-103.
+
 The app can check a pass, but something has to create it. That is the Worker, which lives in the other repository. SYC-83 already changes the same Worker file to ask the app's list.
 
 - **A. Recommended: a new ticket that ships in the same Worker change as SYC-83.** Both use the same new secret setup and the same deploy, and both can be tested end to end together. *Risk:* that Worker change gets bigger. It stays reviewable because each half has its own tests.
 - B. Two separate Worker changes. *Risk:* two deploys and two rounds of secret setup for work that has to go live together anyway.
 
 ### Decision 4: How the first people get onto the list, before there's a screen for it
+
+**Decided by Samuel, 29 Sep 2026: A.** A `people` command run by Claude until the SYC-104 screen exists. Samuel and Jacky are added first, and the production seed waits on SYC-102.
 
 The spec's screen for managing people (`manage_people`) belongs with the rest of the dashboard, later in SYC-43. SYC-29 needs people added before then.
 
