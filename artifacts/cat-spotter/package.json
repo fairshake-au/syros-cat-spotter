@@ -10,7 +10,7 @@
     "typecheck": "pnpm run typecheck:form-controls && tsc -p tsconfig.json --noEmit",
     "typecheck:form-controls": "tsc -p tsconfig.form-controls.json --noEmit",
     "test": "vitest run",
-    "build:web": "expo export --platform web --output-dir dist",
+    "build:web": "node scripts/check-web-env.js before && expo export --platform web --output-dir dist && node scripts/check-web-env.js after",
     "serve:web": "node server/serve-web.js"
   },
   "devDependencies": {
