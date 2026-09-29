@@ -135,7 +135,7 @@ These are exported from `@workspace/db`. The dashboard's future `manage_people` 
 New file `artifacts/api-server/src/routes/internal.ts`.
 
 - **Who may ask:** only a caller presenting `Authorization: Bearer <INTERNAL_PEOPLE_TOKEN>`. Both sides are hashed with SHA-256 and compared in constant time, following the pattern in `lib/deviceAuth.ts`. The token lives in a Replit deployment secret (API) and a wrangler secret (Worker), per §2.11.
-- **If the token isn't configured on the server: `503`**, every time, whatever was sent. It fails closed, never open. Wrong or missing token: `401`.
+- **If the token isn't configured on the server: `503 {"error":"not_configured"}`**, every time, whatever was sent (the same body PR #27's gate returns). It fails closed, never open. Wrong or missing token: `401`.
 - **Body:** `{ "email": "..." }`, normalised the same way as on insert.
 - **Answer:** `200 { "allowed": true, "personId", "name", "sessionVersion" }` or `200 { "allowed": false }`. The Worker needs the id and session version to create the hand-off pass (`sub`, `sv`). The two answers take the same database work (one indexed lookup). Hiding timing from the public is the Worker's padded deadline (§2.5), which this call sits inside (§2.7).
 - **No CORS headers at all** on `/api/internal/*`. It is server-to-server, and a browser has no business reading it.
@@ -268,7 +268,15 @@ The migration is designed to be **plain tables and columns wherever possible: no
 
 **Dev and production hold separate lists.** On Neon, the development branch and production are separate databases, and nothing copies rows between them after the one-off cutover copy (SYC-121). Adding someone to dev's `people` grants nothing in production, and the reverse. Dev may hold test people. Real staff are added to production explicitly. Tests keep using their own throwaway databases.
 
-## Getting past Replit's login wall: blocked on SYC-113
+## Fit with PR #27's pre-launch gates (SYC-113)
+
+Samuel's SYC-113 decision (PR #27, `docs/superpowers/plans/syc-113-pre-launch-gates.md`) makes the deployment **Public** behind two pre-launch gates. That resolves the login-wall problem below. This plan matches #27 on every point where they touch:
+- **`/api/team/*` skips the tester pass** (#27 Decision 1, decided by Samuel). Its own staff hand-off and `requireTeam` session are the door. Every dashboard route must use `requireTeam`; #27's test 12a walks every `/api/team/*` route with no staff session and expects this plan's `401 not_signed_in`. Whichever PR lands second adds that test.
+- **`/api/internal/*` accepts only the Worker secret** (`Authorization: Bearer INTERNAL_PEOPLE_TOKEN`), never the website cookie or tester key. The gate checks it on the normalised path (decoded, lower-cased, slashes collapsed), and this plan's route checks it again. Both use one helper, `lib/internalAuth.ts`, created by whichever PR lands first. **The unconfigured answer is `503 {"error":"not_configured"}`** in both places, so the probes read the same (200 / 401 / 503).
+- **No CORS on `/api/internal/*` or `/api/team/*`** (this plan). So under #27, `OPTIONS /api/internal/…` gets the gate's 401, and `OPTIONS /api/team/…` gets whatever these routes answer. Whichever lands second adds those cases to #27's test 13.
+- `INTERNAL_PEOPLE_TOKEN` is one secret serving both purposes; #27 adds no new one.
+
+## Getting past Replit's login wall: resolved by SYC-113 / PR #27
 
 **Found by live probe, 29 Sep 2026.** Every path on `https://apptest.catspotters.com` answers `307` to `https://replit.com/__replshield?redirect=…`. That includes `/api/healthz` and a `POST` to an unknown `/api/` path. The test deployment sits behind Replit's login wall (a private or password-protected deployment). While it does, the Worker's server-to-server call to `POST /api/internal/people/allowed` **can never reach the API**, whatever the path. It gets a redirect to a Replit login page, so sign-in fails closed for everyone, staff included. The dashboard hand-off to `team.` has the same problem if that host sits behind the same wall.
 
