@@ -15,9 +15,12 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 //   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> --email <e>
 //
 // The target is always named. Its connection string comes from
-// DATABASE_URL_<TARGET> (for example DATABASE_URL_PRODUCTION). It never falls
-// back to DATABASE_URL, so a seed can't land on whatever that happens to point
-// at. The command prints what it did, never a connection string or secret.
+// DATABASE_URL_<TARGET> (for example DATABASE_URL_PRODUCTION), or from
+// DATABASE_URL when DATABASE_TARGET names the same target (how a workflow
+// environment that holds one database's DATABASE_URL would call it). It never
+// uses DATABASE_URL on its own, so a seed can't land on whatever that happens
+// to point at. The command prints what it did and the target's name, never a
+// connection string, host or secret, even in an error.
 
 export interface CliIo {
   env: Record<string, string | undefined>;
@@ -32,7 +35,8 @@ const USAGE = [
   "  people list --target <name>",
   "  people remove --target <name> --email <address>",
   "  people sign-out-everywhere --target <name> --email <address>",
-  "The connection string is read from DATABASE_URL_<TARGET>, e.g. DATABASE_URL_PRODUCTION.",
+  "The connection string is read from DATABASE_URL_<TARGET> (e.g. DATABASE_URL_PRODUCTION),",
+  "or from DATABASE_URL when DATABASE_TARGET=<target>.",
 ].join("\n");
 
 class UsageError extends Error {}
@@ -68,14 +72,47 @@ function one(flags: Map<string, string[]>, name: string): string {
   return values[0];
 }
 
-/** Where the target points, without credentials. */
-function describeTarget(target: string, connectionString: string): string {
+/**
+ * The connection string for a named target, or an explanation of why there
+ * isn't one. DATABASE_URL_<TARGET> is used when set. Otherwise DATABASE_URL
+ * is used only when DATABASE_TARGET names the same target, so the database a
+ * process happens to point at is never used by default.
+ */
+function resolveTarget(
+  target: string,
+  env: CliIo["env"],
+): { url: string } | { problem: string } {
+  const specific = env[`DATABASE_URL_${target.toUpperCase()}`];
+  if (specific) return { url: specific };
+  if (env["DATABASE_URL"] && env["DATABASE_TARGET"] === target) {
+    return { url: env["DATABASE_URL"] };
+  }
+  return {
+    problem: `No database is configured for target "${target}". Set DATABASE_URL_${target.toUpperCase()}, or DATABASE_URL with DATABASE_TARGET=${target}.`,
+  };
+}
+
+/** Removes the connection string, and every part of it, from a message. */
+function redact(message: string, connectionString: string | undefined): string {
+  if (!connectionString) return message;
+  const secrets = [connectionString];
   try {
     const u = new URL(connectionString);
-    return `${target} (${u.hostname}${u.pathname})`;
+    secrets.push(
+      u.password,
+      decodeURIComponent(u.password),
+      u.username,
+      u.hostname,
+      u.host,
+    );
   } catch {
-    return target;
+    // Not a URL: the whole string is already listed.
   }
+  let out = message;
+  for (const s of secrets.filter((s) => s.length >= 3)) {
+    out = out.split(s).join("[redacted]");
+  }
+  return out;
 }
 
 /** Runs one command. Returns the process exit code. */
@@ -84,6 +121,7 @@ export async function runPeopleCommand(
   io: CliIo,
 ): Promise<number> {
   let client: pg.Client | undefined;
+  let connectionString: string | undefined;
   try {
     const { command, flags } = parseArgs(argv);
     const known = ["add", "list", "remove", "sign-out-everywhere"];
@@ -94,15 +132,14 @@ export async function runPeopleCommand(
     if (!/^[a-z0-9_]+$/.test(target)) {
       throw new UsageError("--target may only hold letters, digits and _.");
     }
-    const envName = `DATABASE_URL_${target.toUpperCase()}`;
-    const connectionString = io.env[envName];
-    if (!connectionString) {
-      io.out(
-        `${envName} is not set, so there is no "${target}" database to use.`,
-      );
+    const resolved = resolveTarget(target, io.env);
+    if ("problem" in resolved) {
+      io.out(resolved.problem);
       return 2;
     }
-    io.out(`Target: ${describeTarget(target, connectionString)}`);
+    connectionString = resolved.url;
+    // The target's name only: never the connection string or its host.
+    io.out(`Target: ${target}`);
 
     client = new pg.Client({ connectionString });
     await client.connect();
@@ -116,7 +153,7 @@ export async function runPeopleCommand(
         addedBy: `cli:${flags.get("by")?.[0] ?? os.userInfo().username}`,
       });
       io.out(
-        `Added ${person.email} (${person.name}) as ${(flags.get("role") ?? ["staff"]).join(", ")}.`,
+        `Added ${person.email} as ${(flags.get("role") ?? ["staff"]).join(", ")}.`,
       );
       return 0;
     }
@@ -166,12 +203,14 @@ export async function runPeopleCommand(
       io.out(err.message);
       return 1;
     }
-    // A database error message can quote the connection string's host but
-    // never its password; print only the message, not the object.
-    io.out(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    // A database error can quote the host or user from the connection
+    // string. Print only the message, with every part of it redacted.
+    io.out(
+      `Failed: ${redact(err instanceof Error ? err.message : String(err), connectionString)}`,
+    );
     return 1;
   } finally {
-    await client?.end();
+    await client?.end().catch(() => {});
   }
 }
 

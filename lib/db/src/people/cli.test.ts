@@ -41,20 +41,26 @@ beforeEach(async () => {
   await c.query(`truncate person_scopes, people cascade`);
 });
 
-function io(answer = ""): CliIo & { lines: string[] } {
+function io(
+  answer = "",
+  env: CliIo["env"] = {
+    // DATABASE_URL points at the shared test database; with no matching
+    // DATABASE_TARGET the command must ignore it and use the named target.
+    DATABASE_URL: baseUrl,
+    DATABASE_URL_SCRATCH: url(name),
+  },
+): CliIo & { lines: string[] } {
   const lines: string[] = [];
   return {
     lines,
-    // DATABASE_URL points at the shared test database; the command must
-    // ignore it and use only the named target.
-    env: { DATABASE_URL: baseUrl, DATABASE_URL_SCRATCH: url(name) },
+    env,
     out: (line) => lines.push(line),
     ask: async () => answer,
   };
 }
 
-const run = (args: string[], answer?: string) => {
-  const i = io(answer);
+const run = (args: string[], answer?: string, env?: CliIo["env"]) => {
+  const i = io(answer, env);
   return runPeopleCommand(args, i).then((code) => ({ code, out: i.lines }));
 };
 
@@ -65,7 +71,43 @@ describe("people command", () => {
     expect(a.out.join("\n")).toMatch(/Give --target exactly once/);
     const b = await run(["list", "--target", "production"]);
     expect(b.code).toBe(2);
-    expect(b.out.join("\n")).toMatch(/DATABASE_URL_PRODUCTION is not set/);
+    expect(b.out.join("\n")).toMatch(
+      /No database is configured for target "production"/,
+    );
+    // DATABASE_URL alone is never enough, even with a target named.
+    const c2 = await run(["list", "--target", "production"], "", {
+      DATABASE_URL: url(name),
+      DATABASE_TARGET: "development",
+    });
+    expect(c2.code).toBe(2);
+  });
+
+  it("uses DATABASE_URL when DATABASE_TARGET names the same target", async () => {
+    const r = await run(["list", "--target", "production"], "", {
+      DATABASE_URL: url(name),
+      DATABASE_TARGET: "production",
+    });
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual(["Target: production", "Nobody is on the list."]);
+  });
+
+  it("never prints the connection string or any part of it, even when connecting fails", async () => {
+    const secretUrl =
+      "postgres://neon_owner:s3cret-Pa55word@ep-secret-host-123456.invalid:5432/neondb";
+    const r = await run(["list", "--target", "production"], "", {
+      DATABASE_URL_PRODUCTION: secretUrl,
+    });
+    expect(r.code).toBe(1);
+    const all = r.out.join("\n");
+    expect(all).toMatch(/^Target: production\nFailed: /);
+    for (const part of [
+      secretUrl,
+      "s3cret-Pa55word",
+      "neon_owner",
+      "ep-secret-host-123456",
+    ]) {
+      expect(all).not.toContain(part);
+    }
   });
 
   it("adds, lists, signs out everywhere and removes", async () => {
@@ -81,12 +123,11 @@ describe("people command", () => {
       "claude",
     ]);
     expect(add.code).toBe(0);
-    expect(add.out).toContain("Added susan@example.com (Susan) as staff.");
-    // It names the target but never prints credentials.
-    expect(add.out[0]).toMatch(/^Target: scratch \(/);
-    for (const line of add.out) {
-      expect(line).not.toContain(baseUrl);
-    }
+    // It names the target and confirms the action, nothing more.
+    expect(add.out).toEqual([
+      "Target: scratch",
+      "Added susan@example.com as staff.",
+    ]);
     const row = await c.query(`select added_by from people`);
     expect(row.rows[0].added_by).toBe("cli:claude");
 
