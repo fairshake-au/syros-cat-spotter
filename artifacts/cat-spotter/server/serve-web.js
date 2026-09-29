@@ -247,6 +247,11 @@ function createHandler(env = process.env, options = {}) {
     );
   }
 
+  // No CSRF token on /_gate/login or /_gate/logout, on purpose. There is one
+  // shared password, so a forged login can only log a visitor into the same
+  // tester view everyone with the password sees, and a forged logout only
+  // shows them the password page again. Neither gains an attacker anything,
+  // and SameSite=Lax already keeps the cookie off cross-site POSTs.
   function handleLogin(req, res, keys, configured) {
     const home = `${basePath}/`;
     const address = clientAddress(req);
@@ -286,7 +291,13 @@ function createHandler(env = process.env, options = {}) {
 
   return function handler(req, res) {
     const gateOn = prelaunch.gateEnabled(env);
-    if (gateOn) res.setHeader('x-robots-tag', 'noindex, nofollow');
+    if (gateOn) {
+      res.setHeader('x-robots-tag', 'noindex, nofollow');
+      // No other site may frame the password page or the gated site
+      // (clickjacking). Both headers, for old and new browsers.
+      res.setHeader('x-frame-options', 'DENY');
+      res.setHeader('content-security-policy', "frame-ancestors 'none'");
+    }
 
     let pathname;
     try {

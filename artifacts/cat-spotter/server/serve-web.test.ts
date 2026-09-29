@@ -425,6 +425,33 @@ describe('8. when the gate is on', () => {
   });
 });
 
+describe('clickjacking: nothing gated can be framed', () => {
+  it('password page, gated asset, /_gate/* and the logged-in site all carry both headers', async () => {
+    const now = 1_800_000_000;
+    const req = await start(gatedEnv(), { now });
+    const cookie = `${COOKIE}=${signedWith(KEY_A, now)}`;
+    const responses = [
+      await req('GET', '/'),
+      await req('GET', '/_expo/static/js/web/x.js'),
+      await req('GET', '/_gate/login'),
+      await req('POST', '/_gate/login', form({ password: 'wrong' })),
+      await req('POST', '/_gate/logout'),
+      await req('GET', '/cat/12', { headers: { cookie } }),
+    ];
+    for (const res of responses) {
+      expect(res.headers['x-frame-options']).toBe('DENY');
+      expect(res.headers['content-security-policy']).toBe("frame-ancestors 'none'");
+    }
+  });
+
+  it('gate off: unchanged (no new headers)', async () => {
+    const req = await start({ PRELAUNCH_GATE: 'off' });
+    const res = await req('GET', '/');
+    expect(res.headers['x-frame-options']).toBeUndefined();
+    expect(res.headers['content-security-policy']).toBeUndefined();
+  });
+});
+
 describe('23. login body size', () => {
   it('a login body over 4 KB → 413', async () => {
     const req = await start(gatedEnv());
