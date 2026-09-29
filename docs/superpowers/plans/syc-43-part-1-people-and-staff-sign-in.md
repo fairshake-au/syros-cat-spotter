@@ -1,6 +1,12 @@
 # SYC-43 part 1: the list of people, and staff sign-in on the app's side
 
-**For approval by Samuel. Nothing is built until he approves it.**
+**Approved by Samuel, 29 Sep 2026, conditional on reflecting the Neon decision (SYC-121); updated accordingly.** What changed:
+- Migrations reach production **directly, via the #13 runner against Neon** (SYC-121). This replaces Replit's publish diff, "PR P" and the Replit-review warning.
+- Claude seeds Samuel and Jacky, and runs the `people` command, **directly against Neon** using stored credentials. There's no startup seed, and it no longer waits on SYC-102.
+- Dev and production are separate Neon databases with separate lists. The stale "dev may only hold real staff" rule is gone.
+- This part's migration lands **after** the combined Public + Neon publish, against Neon only, still queued behind SYC-98's `0002`.
+- `/api/team/*` and `/api/internal/*` checked against PR #27's gates; the unconfigured answer is aligned to `503 {"error":"not_configured"}`.
+- **Open:** SYC-121's switchover plan isn't pushed yet, so the Neon dev and production branch names aren't defined. The `people` command must name its target explicitly.
 **Spec:** `docs/specs/team-access-and-welfare-queue.md` §2.4, §2.7, §2.8, §2.9, §2.11, §7.3, §8.2, §8.4, §8.6. Approved 28 Sep 2026 with the edits in `DECISIONS.md` Part 2b. None of those edits touch sign-in, roles or `people`, so the spec text applies as written.
 **Linear:** SYC-43 (staff dashboard). This part unblocks SYC-83 (the Worker checks this list), SYC-29 (adding the Syros Cats people) and, through those, SYC-85 (retiring the shared password).
 **Code lives in** this repo: `lib/db` and `artifacts/api-server`. The Worker changes that use it are in `fairshake-au/catspotters-website` and are separate tickets (see "What this part does not do").
@@ -19,7 +25,7 @@ This part builds that list and the app's half of signing in:
 
 **What staff notice after this part ships: nothing yet.** It is the foundation. Staff see a change when the Worker work lands (the sign-in page reads this list, and gets the "Cat Spotters dashboard" link). Until the queue screen exists (a later part of SYC-43), the dashboard link lands on a one-line page: "You're signed in as Susan. The welfare queue is coming soon", with a Sign out button.
 
-## Four decisions for Samuel (all four decided 29 Sep 2026; the plan itself is not yet approved)
+## Four decisions for Samuel (all four decided 29 Sep 2026)
 
 ### Decision 1: The private question's address must start with `/api/` (a clash between the spec and the code)
 
