@@ -51,7 +51,9 @@ The spec's screen for managing people (`manage_people`) belongs with the rest of
 
 ## What this part builds
 
-### 1. Database: migration `0002_people_and_staff_sign_in`
+### 1. Database: one new migration, `<NNNN>_people_and_staff_sign_in`
+
+**Its number is the next free one at merge time, expected `0003`.** `0002` is taken by SYC-98 (`photos.public_id`, branch `claude/syc-98-photo-public-ids`). The data spine plan (`docs/superpowers/plans/data-spine.md`) also queues `0003`–`0005`. The migration is **generated only after rebasing onto the latest `main`**, never numbered by hand. Migrations merge **one at a time**, so `lib/db/migrations/meta/_journal.json` and the snapshots never have two branches claiming the same slot. If another migration merges first, delete this one and its `meta/` entries and run `generate` again on top, as `lib/db/migrations/README.md` says.
 
 Three new tables. No existing table or column changes, so nothing a spotter sees can change.
 
@@ -197,7 +199,7 @@ Each item is ticketed. Existing tickets were checked first, and SYC-103 to SYC-1
 2. Mixed-case or padded email is refused by the database. `addPerson` normalises it and succeeds.
 3. The TypeScript deny-list and the database check agree: every entry in the TS list is refused by the database, and an address the TS check allows (`susan@…`) is accepted.
 4. Removing a person removes their scopes (cascade). A duplicate `(person, role, no colony)` is refused.
-5. The `0002` rollback restores the `0001` schema exactly, and up/down/up works (the runner's existing harness).
+5. This migration's rollback restores the schema from before it exactly, and up/down/up works (the runner's existing harness).
 
 **The private question (`routes/internal.people.test.ts`)**
 6. No token configured on the server → `503`, even with a token sent. Wrong or missing token → `401`. A right token and an unknown address → `{allowed:false}`. A listed address in capitals → `allowed:true` with the id and session version.
@@ -235,7 +237,7 @@ Each item is ticketed. Existing tickets were checked first, and SYC-103 to SYC-1
 
 ## Rollout order
 
-1. **Merge.** CI runs `migrate:check`, the migration tests and the API tests. The Replit dev database picks up `0002` from the post-merge hook.
+1. **Merge.** CI runs `migrate:check`, the migration tests and the API tests. (Rollout continues below only once SYC-102 is resolved.)
 2. **Production database and API.** The API **isn't deployed yet** (`docs/DEPLOYMENT.md` §C, SYC-32), so this waits for that. Once it is: `migrate` against production, deploy, then run the `smoke` check, as the runbook says. The migration only adds tables, so running it early is harmless.
 3. **Keys and secrets (Claude, with one paste each from Samuel).** Claude creates the Ed25519 key pair and the `INTERNAL_PEOPLE_TOKEN` in a terminal tab. The private key goes **straight** into `wrangler secret put TEAM_HANDOFF_PRIVATE_KEY` and is never printed, saved to a file, or put in chat. The same applies to `INTERNAL_PEOPLE_TOKEN` on the Worker. Samuel pastes `INTERNAL_PEOPLE_TOKEN` and a fresh `TEAM_SESSION_KEYS` into Replit's deployment secrets, from a terminal tab Claude opens, since Replit secrets can't be set from here. `TEAM_HANDOFF_PUBLIC_KEYS` is not secret and goes in as a plain setting.
 4. **Seed the list (Claude, using the command):** Samuel and Jacky (`jackystorey@hotmail.com`), both `staff`, matching today's `admins`. Check with `people list`.
