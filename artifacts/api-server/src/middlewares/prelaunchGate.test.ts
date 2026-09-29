@@ -51,7 +51,8 @@ vi.mock("../lib/logger", async (importOriginal) => {
   return { ...actual, logger };
 });
 
-import { pool } from "@workspace/db";
+import { db, pool, photosTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import app from "../app";
 import router from "../routes";
 import {
@@ -547,6 +548,40 @@ describe("15. when the gate is on", () => {
     for (const secret of [SESSION_KEY, TESTER_KEY, INTERNAL_TOKEN]) expect(all).not.toContain(secret);
     process.env["PRELAUNCH_GATE"] = "off";
     expect(describeGate()).toEqual(["prelaunch gate: off"]);
+  });
+});
+
+describe("16. photos aren't stored by shared caches while the gate is on", () => {
+  const TINY_JPEG_B64 =
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
+  let photoId: number;
+
+  beforeEach(async () => {
+    const [photo] = await db
+      .insert(photosTable)
+      .values({ data: TINY_JPEG_B64, mime: "image/jpeg" })
+      .returning();
+    photoId = photo!.id;
+  });
+
+  afterEach(async () => {
+    await db.delete(photosTable).where(eq(photosTable.id, photoId));
+  });
+
+  it("gate on: Cache-Control private (a year, immutable) and Vary on both pass headers", async () => {
+    const res = await request(app).get(`/api/photos/${photoId}`).set("X-Prelaunch-Key", TESTER_KEY);
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe("private, max-age=31536000, immutable");
+    const vary = String(res.headers["vary"]).toLowerCase();
+    expect(vary).toContain("cookie");
+    expect(vary).toContain("x-prelaunch-key");
+  });
+
+  it("gate off: public, as today", async () => {
+    process.env["PRELAUNCH_GATE"] = "off";
+    const res = await request(app).get(`/api/photos/${photoId}`);
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
   });
 });
 
