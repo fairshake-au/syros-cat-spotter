@@ -105,10 +105,12 @@ The **GitHub Environments** are restricted to the `main` branch ("Deployment bra
 Claude triggers a manual GitHub Actions workflow and reads its log:
 
 ```bash
-gh workflow run db-ops.yml -f target=production -f command=migrate
+gh workflow run db-ops.yml --ref main -f target=production -f command=migrate
 gh run watch
 gh run view --log
 ```
+
+**`--ref main` is always given**, and the tables below write `db-ops -f …` as shorthand for exactly this command. The reason: the Environments' "main only" rule (A.2) is checked against the **ref the run is dispatched from**, not the `ref: main` the job checks out. Without `--ref`, `gh` dispatches from the repository's default branch, which happens to be `main` today. Pinning it means the secrets guard never depends on that setting, and a run dispatched from any other branch is refused by the Environment before it starts.
 
 It's one workflow, `.github/workflows/db-ops.yml`, with a fixed list of commands (§B.4) and a `target` of `development`, `rehearsal` or `production`. The job checks out `main`, installs `postgresql-client-16`, and runs the command with the target's secret mapped to `DATABASE_URL` for that one step. Runs on the same target queue one behind another (a `concurrency` group), because the runner's lock waits indefinitely if two `migrate` runs overlap (data spine review R15).
 
@@ -121,8 +123,8 @@ Why here, not the Repl shell: Claude can run it end to end without Samuel acting
 **The #13 runner is the production route. Replit's publish carries code only.**
 
 1. A PR with a migration merges to `main`. CI has already run `migrate:check` and the up/down/up tests.
-2. **Development:** Samuel's next Git-pane pull in the new project runs `scripts/post-merge.sh`, which runs `pnpm --filter @workspace/db run migrate` against `DEV_DATABASE_URL`. Or Claude runs `gh workflow run db-ops.yml -f target=development -f command=migrate` without waiting for a pull.
-3. **Production, before the code that needs it is published:** Claude runs `gh workflow run db-ops.yml -f target=production -f command=migrate`, which runs `pnpm --filter @workspace/db run migrate` over the direct connection, then `-f command=verify`.
+2. **Development:** Samuel's next Git-pane pull in the new project runs `scripts/post-merge.sh`, which runs `pnpm --filter @workspace/db run migrate` against `DEV_DATABASE_URL`. Or Claude runs `gh workflow run db-ops.yml --ref main -f target=development -f command=migrate` without waiting for a pull.
+3. **Production, before the code that needs it is published:** Claude runs `gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`, which runs `pnpm --filter @workspace/db run migrate` over the direct connection, then `-f command=verify`.
 4. Samuel pulls in the new project's Git pane and publishes. R3 applies: a database review means stop.
 5. Claude runs `-f command=smoke` (health check, cats and a photo, sent with the tester key).
 6. Rollback of a migration: `-f command=migrate-rollback` (the runner's `migrate:rollback`), taking a Neon snapshot first when real data is affected. Neon's 7-day restore is the backstop.
@@ -520,7 +522,7 @@ Claude confirms read-only that the organisation's plan changed (`list_organizati
 
 **C.4g · Claude: the tester key into GitHub.** When the SYC-113 rollout generates the tester key in a terminal tab (its plan, "Rollout order" step 2), the same command also runs `gh secret set PRELAUNCH_TESTER_KEY --env production` from that tab's environment, so the value is never printed.
 
-**C.4h · Claude: prove the secrets work, without showing them.** Claude runs `gh workflow run db-ops.yml -f target=production -f command=fingerprint-source` and reads the log. The expected result: nine tables with row counts that match SYC-121's figures (19 cats, 38 sightings, 38 photos, 18 profiles, or more), Postgres 16.15, and no connection string anywhere in the log. This also proves the old production database can be reached from outside Replit, which the Replit agent couldn't confirm. The fingerprint is recorded on SYC-121 as the first reference point. **Nothing has been written anywhere yet.**
+**C.4h · Claude: prove the secrets work, without showing them.** Claude runs `gh workflow run db-ops.yml --ref main -f target=production -f command=fingerprint-source` and reads the log. The expected result: nine tables with row counts that match SYC-121's figures (19 cats, 38 sightings, 38 photos, 18 profiles, or more), Postgres 16.15, and no connection string anywhere in the log. This also proves the old production database can be reached from outside Replit, which the Replit agent couldn't confirm. The fingerprint is recorded on SYC-121 as the first reference point. **Nothing has been written anywhere yet.**
 
 **C.5 · Samuel: make the new EU project (about 15 minutes).**
 1. In the **old** project, open the **⋯** menu, then **Remix** (or **Fork**). Name it `Syros-Cat-Spotter-EU`. If it offers **"Copy data from original App"**, **leave it unticked**.
@@ -728,9 +730,9 @@ Dev and production hold separate data. After cutover, `development` is reset fro
 - **Yes, the #13 runner is the production migration route.** The exact command:
 
   ```bash
-  gh workflow run db-ops.yml -f target=production -f command=migrate
+  gh workflow run db-ops.yml --ref main -f target=production -f command=migrate
   gh run watch && gh run view --log
-  gh workflow run db-ops.yml -f target=production -f command=verify
+  gh workflow run db-ops.yml --ref main -f target=production -f command=verify
   ```
 
   Inside the job, that runs `pnpm --filter @workspace/db run migrate` with `DATABASE_URL` set to the production branch's **direct** URL for that one step. For development, swap `target=development`. Order: migrate production **before** publishing code that needs the change, then publish, then `-f command=smoke`.
@@ -756,7 +758,7 @@ These are proposed for the session that owns #23, and **not made here**:
 **For the other session to apply. Suggested replacement text:**
 
 > **§5, replace the "Checked against the SYC-102 publish test" block with:**
-> **How this reaches production (SYC-121).** The database is on Neon, and Replit's publish no longer touches its structure. This migration, including the two CHECK constraints and the sightings append-only guard (a trigger and its function), reaches production only through the #13 runner, run by `db-ops` (`gh workflow run db-ops.yml -f target=production -f command=migrate`) **before** the code that uses it is published. The runner applies every statement exactly as written, in one transaction, so there's no partial delivery. Relaxing `NOT NULL`, the nullable columns and the index are applied the same way.
+> **How this reaches production (SYC-121).** The database is on Neon, and Replit's publish no longer touches its structure. This migration, including the two CHECK constraints and the sightings append-only guard (a trigger and its function), reaches production only through the #13 runner, run by `db-ops` (`gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`) **before** the code that uses it is published. The runner applies every statement exactly as written, in one transaction, so there's no partial delivery. Relaxing `NOT NULL`, the nullable columns and the index are applied the same way.
 >
 > **§11, replace step 0a with:**
 > 0a. **SYC-121's cutover must be complete and verified before this migration reaches production.** Until then it goes to the Neon `development` branch only. Then:
@@ -927,3 +929,4 @@ This plan was written on Opus (the chip's stated tier). The build and the runboo
 | X2 | Replit's docs say published apps on the Starter plan expire after 30 days. The old deployment, with no domain and no traffic, could expire inside the retention window and take the rollback target with it | Should-fix, treated as blocking | C.1 step 4: Samuel reports the plan. A **gate before C.5** (Claude confirms against Replit's docs that there's no expiry before the retention date; if it's Starter, stop, and the fallback is Samuel upgrading), repeated at E.0. F.1's C row lists it as a failure |
 | X3 | D.6's timed domain move uses a different, fresh hostname, so it's an estimate for E.10, not a measurement of it | Judgement call, accepted | D.6 now says so. E.10 and F.2 step 5 are **watched live** (healthz 200 from the right app, and a valid certificate checked without `-k`), with a **20-minute maximum wait** after which the rollback starts (E.10), or the stop-gap address is used (F.2) |
 | X4 | A web sighting queued before the freeze and replayed after cutover, with no new-gate cookie, gets the gate's 401. `classifySyncFailure` treats any 4xx as permanent, so it silently becomes an error | Judgement call. **Samuel decided:** a separate small PR carried by this plan, merged before cutover | **Task B.8** (its own PR): the gate's 401 with `error: "prelaunch_pass_required"` (the exact body in PR #30) means "needs sign-in". The item stays queued, the tester is prompted, and it retries after sign-in. Other 4xx responses are unchanged. It's an E.0 hard precondition, has an E.11 live replay probe, and a Model delegation row (Sonnet, with mutation probes) |
+| X5 | `gh workflow run db-ops.yml` examples didn't pin `--ref main` | Nit | All seven examples now pin `--ref main`. A.3 explains why (the Environment's branch rule checks the dispatch ref, not the checkout ref) and that the `db-ops -f …` shorthand in the tables means the pinned command |
