@@ -265,6 +265,8 @@ const en: Dict = {
   campaignOpensAt: 'Opens {host} in your browser',
   statsUnavailable: 'Couldn\'t load your stats just now.',
   homeToCollectEyebrow: 'To collect',
+  signInRequiredTitle: 'Sign in again to send your saved sightings',
+  signInRequiredAction: 'Sign in',
 };
 
 const el: Dict = {
@@ -524,6 +526,8 @@ const el: Dict = {
   campaignOpensAt: 'Ανοίγει το {host} στο πρόγραμμα περιήγησης',
   statsUnavailable: 'Δεν φορτώθηκαν τα στατιστικά σου αυτή τη στιγμή.',
   homeToCollectEyebrow: 'Για συλλογή',
+  signInRequiredTitle: 'Συνδέσου ξανά για να στείλεις τις αποθηκευμένες παρατηρήσεις σου',
+  signInRequiredAction: 'Σύνδεση',
 };
 
 const fr: Dict = {
@@ -783,6 +787,8 @@ const fr: Dict = {
   campaignOpensAt: 'Ouvre {host} dans votre navigateur',
   statsUnavailable: 'Impossible de charger vos statistiques pour le moment.',
   homeToCollectEyebrow: 'À découvrir',
+  signInRequiredTitle: 'Reconnecte-toi pour envoyer tes observations enregistrées',
+  signInRequiredAction: 'Se connecter',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

@@ -24,6 +24,7 @@ import { NotificationProvider } from '@/context/NotificationContext';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 import { OwnershipNoticeBanner } from '@/components/OwnershipNoticeBanner';
+import { SignInRequiredBanner } from '@/components/SignInRequiredBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
@@ -72,6 +73,7 @@ function OnboardingGate() {
       <RootLayoutNav />
       <ReviewReadyBanner />
       <OwnershipNoticeBanner />
+      <SignInRequiredBanner />
     </>
   );
 }
