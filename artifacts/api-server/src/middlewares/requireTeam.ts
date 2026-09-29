@@ -2,6 +2,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { findPersonById, type PersonWithScopes } from "@workspace/db";
 import { readSession } from "../lib/teamAuth/session";
 import { refuseNotSignedIn } from "../lib/teamAuth/refuse";
+import { can, type Capability } from "../lib/capabilities";
 
 // Runs on every dashboard request (team-access spec §8.2). It checks the
 // session cookie, looks the person up in `people` again, and compares
@@ -19,7 +20,11 @@ export function teamPerson(res: Response): PersonWithScopes {
   return person;
 }
 
-export function requireTeam(): RequestHandler {
+/**
+ * With a capability, the person must also hold it, decided only by can().
+ * Without one (the signed-in page and /me), being signed in is enough.
+ */
+export function requireTeam(capability?: Capability): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const session = readSession(req, Math.floor(Date.now() / 1000));
@@ -37,6 +42,14 @@ export function requireTeam(): RequestHandler {
       if (person.sessionVersion !== session.sv) {
         req.log.info(
           { reason: "stale_session_version" },
+          "team request refused",
+        );
+        refuseNotSignedIn(req, res);
+        return;
+      }
+      if (capability && !can(person, capability)) {
+        req.log.info(
+          { reason: "missing_capability", capability },
           "team request refused",
         );
         refuseNotSignedIn(req, res);
