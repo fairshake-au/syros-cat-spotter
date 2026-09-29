@@ -79,6 +79,7 @@ Each numbered item is its own commit, in this order.
   6. Valid cookie → serve the site exactly as today.
   7. No valid cookie → **a page request** (no file extension) gets the password page with **status 200** (see "Replit's own health check" below) and `Cache-Control: no-store`; **a file request** (`/_expo/…`, `/assets/…`, `.js`, `.png`) gets 401 plain text. The site's own code and images are not served to people without the password.
 - **`next` is checked**: only a path starting with a single `/` and not `//` or `/\` is followed; anything else goes to `/`. This stops the login page being used to bounce people to another site.
+- **The login form's body is capped at 4 KB**; anything bigger gets 413 without being read further.
 - **Password guessing is slowed**: 10 wrong attempts per address per 15 minutes, then 429 with "Too many tries. Please wait 15 minutes." Counted in memory per instance (autoscale may run several, which only makes the limit a little looser). The address is the right-most `X-Forwarded-For` entry, matching the API's "one proxy" assumption.
 - **Every response while the gate is on** carries `X-Robots-Tag: noindex, nofollow`.
 - **The password page** is one self-contained HTML string (inline CSS, no scripts, no external files), in English and Greek, with the Cat Spotters name, one password field, and one line: "Cat Spotters is being tested before launch. If you're a tester, the password is in your invite." It works at 390 px and desktop widths.
@@ -86,11 +87,11 @@ Each numbered item is its own commit, in this order.
 
 ### 2. The API pass — `artifacts/api-server/src/middlewares/prelaunchGate.ts`
 
-- **New `lib/prelaunch.ts`**: `gateEnabled()` (on in production unless `PRELAUNCH_GATE=off`; off elsewhere unless `PRELAUNCH_GATE=on`), `verifySession()` (the same cookie format as item 1), `matchTesterKey()`, `matchInternalToken()`. **Settings are read on every request**, following the `OWNER_SECRET` and PR #20 precedent, so tests can flip them and a removed secret takes effect at once.
+- **New `lib/prelaunch.ts`**: `gateEnabled()` (**on unless `NODE_ENV` is exactly `development` or `test`**, so an unset or unexpected `NODE_ENV` in production can't open the API while the website stays shut; in development or test it's off unless `PRELAUNCH_GATE=on`; `PRELAUNCH_GATE=off` is honoured only as item 3 allows), `verifySession()` (the same cookie format as item 1), `matchTesterKey()`, `matchInternalToken()`. **Settings are read on every request**, following the `OWNER_SECRET` and PR #20 precedent, so tests can flip them and a removed secret takes effect at once.
 - **The middleware, in order:**
   1. Gate off → `next()`.
   2. `GET` or `HEAD` on exactly `/api/healthz` → `next()`. Nothing else is open.
-  3. Path (lower-cased, because Express matches routes case-insensitively) starts with `/api/internal/` or is `/api/internal` → only `Authorization: Bearer <INTERNAL_PEOPLE_TOKEN>` counts. The website cookie and the tester key do **not**. If `INTERNAL_PEOPLE_TOKEN` isn't set → 503 `{"error":"not_configured"}`, matching PR #20's own behaviour so its probes (200 / 401 / 503) still read the same. PR #20's route checks the token again itself; the two checks share one helper, `lib/internalAuth.ts`, created by whichever of the two PRs lands first.
+  3. The path is classified **after** percent-decoding, lower-casing (Express matches routes case-insensitively) and collapsing repeated slashes, so `/API/Internal/…`, `/api/%69nternal/…` and `/api//internal/…` are all treated as internal. If decoding fails → 400. Path (so normalised) starts with `/api/internal/` or is `/api/internal` → only `Authorization: Bearer <INTERNAL_PEOPLE_TOKEN>` counts. The website cookie and the tester key do **not**. If `INTERNAL_PEOPLE_TOKEN` isn't set → 503 `{"error":"not_configured"}`, matching PR #20's own behaviour so its probes (200 / 401 / 503) still read the same. PR #20's route checks the token again itself; the two checks share one helper, `lib/internalAuth.ts`, created by whichever of the two PRs lands first.
   4. Anything else → a valid `__Host-cs_prelaunch` cookie **or** an `X-Prelaunch-Key` header matching one of `PRELAUNCH_TESTER_KEYS`.
   5. No pass → **401** `{"error":"prelaunch_pass_required","message":"Cat Spotters isn't open yet."}`. Missing and wrong look identical. The response carries `Cache-Control: no-store`.
 - **Where it goes in `app.ts`:** after `pino-http` and the CORS switch, **before** `express.json`. So:
@@ -122,7 +123,10 @@ Photos are served with `Cache-Control: public, max-age=31536000, immutable`. Wit
 
 `EXPO_PUBLIC_*` values are written into the JavaScript at build time. If `EXPO_PUBLIC_PRELAUNCH_KEY` were set on Replit, the web build would publish the key inside the website's own code.
 
-- **`artifacts/cat-spotter/scripts/check-web-env.js`** (new), run first by `build:web`: if `EXPO_PUBLIC_PRELAUNCH_KEY` is set, it stops the build with "The tester key must only be set in EAS store builds, never for the website." The publish fails loudly instead of leaking.
+- **`artifacts/cat-spotter/scripts/check-web-env.js`** (new), run by `build:web` **before and after** the export:
+  - Before: if `EXPO_PUBLIC_PRELAUNCH_KEY` is set in the environment **or in any `.env*` file** in `artifacts/cat-spotter` (Expo reads those files itself, so checking only the environment would miss them), it stops the build with "The tester key must only be set in EAS store builds, never for the website."
+  - After: it searches every file in `dist/` for each value in `PRELAUNCH_TESTER_KEYS` (present on Replit as a deployment secret) and fails the build if any is found. This catches the key arriving by a route nobody thought of.
+  - Either way the publish fails loudly instead of leaking.
 - The key is set only in EAS (`eas env` for the `preview` and `production` profiles SYC-32 creates). If SYC-32 uses Replit's "Expo Launch" wizard for iOS instead, the key would have to be a Replit secret, which this check refuses. That is deliberate: SYC-32 must use EAS for the key, or a separate Repl. Flagged to SYC-32.
 - Live probe (checklist item 9) searches the served website bundle for the key.
 
@@ -183,6 +187,7 @@ Not callers: `components/SightingPhoto.tsx:41` and `app/(tabs)/spot.tsx:783` sho
 ### Risky paths, and how each is closed
 
 - **Photos on native (19–23).** Image loads don't go through `customFetch`. Without item 5, every photo in the store builds would be blank. Closed by `photoSource` and by a guard test (below) that fails if any file builds an image source from `absoluteUrl` directly.
+- **Photo redirects on native.** SYC-98 (PR #24) redirects old photo ids to new ones for one release. iOS and Android keep custom headers when following a redirect to the same host, but that is the phone's HTTP library's behaviour, not ours, so it is checked on a real build (checklist 10b), not assumed.
 - **A new screen that calls the API some other way.** Closed by a guard test that fails if app code contains `fetch(`, `XMLHttpRequest`, `axios` or `FileSystem.uploadAsync` outside an allow-list (`lib/offlineTiles.ts`, `scripts/`).
 - **The offline queue flushing before the key is set.** Closed by setting the key when `_layout.tsx` loads, not inside a provider. A test imports the layout module and checks the key is set before any provider mounts.
 - **A store build made without the key.** Every call fails with "Cat Spotters isn't open yet." Closed by the end-to-end check on a real build (checklist items 7–8) before testers are invited.
@@ -205,7 +210,7 @@ The API's start-up health check is declared (`/api/healthz`). The website servic
 
 - **Replit workspace (dev).** The API runs with `NODE_ENV=development`, so the gate is off. The website in dev is served by Expo's own dev server, not `serve-web.js`, so it's never gated. Replit's dev address is private to the workspace already.
 - **Expo Go on a phone** (the `scripts/build.js` / `server/serve.js` demo pipeline) bundles against the dev domain, where the gate is off.
-- **Local development** (`EXPO_PUBLIC_API_URL=http://localhost:3001`): the gate is off unless someone sets `PRELAUNCH_GATE=on` to try it. `serve-web.js` run by hand is gated by default (it's the production server); set `PRELAUNCH_GATE=off` locally to skip it.
+- **Local development** (`EXPO_PUBLIC_API_URL=http://localhost:3001`): the gate is off unless someone sets `PRELAUNCH_GATE=on` to try it. `serve-web.js` run by hand is gated by default (it's the production server); set `PRELAUNCH_GATE=off` locally to skip it. To try the website gate on `http://localhost`, use Chrome or Firefox: Safari refuses `Secure` cookies over plain http, so the login would appear to loop there. That only affects local testing; apptest is https.
 - **Tests.** Vitest runs with `NODE_ENV=test`: gate off unless a test turns it on. Existing tests are unaffected.
 - **A native build pointed at the test deployment** (a dev client, or a local build with `EXPO_PUBLIC_API_URL=https://apptest.catspotters.com`) needs `EXPO_PUBLIC_PRELAUNCH_KEY` in its local environment.
 
@@ -228,13 +233,13 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 
 **API (`artifacts/api-server/src/middlewares/prelaunchGate.test.ts`)**, through `supertest` on the real `app`:
 
-9. Gate on, no pass: `GET /api/cats`, `GET /api/photos/1`, `POST /api/sightings`, `POST /api/notifications/…`, `GET /api/campaign`, and `/API/CATS` (upper case) → 401 with the exact body. The test walks **every route registered on the router** (read from Express's route stack), so a route added later is covered automatically.
+9. Gate on, no pass: `GET /api/cats`, `GET /api/photos/1`, `POST /api/sightings`, `POST /api/notifications/…`, `GET /api/campaign`, `/API/CATS` (upper case) → 401 with the exact body. `/API/Internal/people/allowed`, `/api/%69nternal/people/allowed` and `/api//internal/people/allowed` with a valid tester key → refused (treated as internal). The test walks **every route registered on the router** (read from Express's route stack), so a route added later is covered automatically.
 10. `GET` and `HEAD /api/healthz` → 200 with no pass. `POST /api/healthz` and `/api/healthz-extra` → 401.
 11. Valid website cookie → passes to the route. Valid tester key → passes. Second tester key during a change → passes. Wrong key, empty key, key in the query string → 401.
 12. `/api/internal/people/allowed`: right bearer → passes; website cookie → 401; tester key → 401; no token configured → 503.
 13. `OPTIONS` preflight with no pass → answered by CORS (204) with the allow headers, not 401. A 401 still carries `Access-Control-Allow-Origin`.
 14. A 25 MB body with no pass → 401 without the JSON parser running (the parser is spied on).
-15. `NODE_ENV=production` and `PRELAUNCH_GATE` unset → on. `PRELAUNCH_GATE=off` with `LOCATION_BLURRING_LIVE=false` → **still on**, with the log line. `PRELAUNCH_GATE=off` with it `true` → off, and `/api/cats` answers without a pass.
+15. `NODE_ENV=production`, `NODE_ENV` unset, and `NODE_ENV=staging` with `PRELAUNCH_GATE` unset → all on. `PRELAUNCH_GATE=off` with `LOCATION_BLURRING_LIVE=false` → **still on**, with the log line. `PRELAUNCH_GATE=off` with it `true` → off, and `/api/cats` answers without a pass.
 16. With the gate on, a photo response says `Cache-Control: private` and `Vary` includes both pass headers; with it off, `public` as today.
 17. Log lines captured during tests 11–12 never contain the key, the cookie value or the bearer token.
 
@@ -244,7 +249,8 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 19. `photoSource`: native with a key → headers; web → no headers; no key → no headers.
 20. **Guard: no stray callers.** Scans `app/`, `components/`, `context/`, `hooks/`, `lib/` for `fetch(`, `XMLHttpRequest`, `axios`, `uploadAsync` outside the allow-list, and for `uri: absoluteUrl(`. Any match fails with the file and line.
 21. Importing `app/_layout.tsx` sets the key before any provider mounts.
-22. `check-web-env.js` exits non-zero when `EXPO_PUBLIC_PRELAUNCH_KEY` is set.
+22. `check-web-env.js` exits non-zero when `EXPO_PUBLIC_PRELAUNCH_KEY` is set in the environment, when it's only in a `.env.production` file, and (after-export mode) when a `PRELAUNCH_TESTER_KEYS` value appears anywhere in a `dist/` file.
+23. A login body over 4 KB → 413.
 
 ### Deliberate-break checks (each must turn a test red)
 
@@ -261,6 +267,10 @@ The implementer makes each break on a scratch commit, runs the suite, records wh
 | Exempt `/api/healthz` by prefix (`startsWith`) | 10 |
 | Accept the tester key on `/api/internal/*` | 12 |
 | Compare paths case-sensitively | 9 |
+| Classify the path before percent-decoding | 9 |
+| Treat an unset `NODE_ENV` as development | 15 |
+| Check only `process.env`, not `.env` files, in `check-web-env.js` | 22 |
+| Drop the after-export scan of `dist/` | 22 |
 | Mount the gate before CORS | 13 |
 | Mount the gate after `express.json` | 14 |
 | Drop the `LOCATION_BLURRING_LIVE` check | 15 |
@@ -295,6 +305,8 @@ Run by Claude with `curl` unless marked; the tester key and password are read fr
 | 8 | **Real TestFlight build** (Samuel, on his iPhone, about five minutes) | Cats list and map load with photos; spot a cat end to end; turn on airplane mode, spot one, turn it off, and watch the queue send it; a push notification arrives |
 | 9 | **Real Play closed-test build** (Samuel or a tester on Android) | Same as 8 |
 | 10 | Search the served website JavaScript for the tester key | Not found |
+| 10a | In Safari and Chrome on a phone, after logging in: the browser's cookie list shows `__Host-cs_prelaunch` for apptest.catspotters.com (proves Replit's proxy passes `Set-Cookie` through untouched and the browser accepted the `__Host-` rules over HTTPS) | Present |
+| 10b | In the TestFlight build, open a cat whose photo link uses an **old** photo id (SYC-98 redirects those for one release) | Photo shows: the key survives the redirect |
 | 11 | `GET /robots.txt` | `Disallow: /` |
 | 12 | Deployment logs | `prelaunch gate: on (session keys: 1, tester keys: 1, internal token: yes)` |
 
