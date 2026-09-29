@@ -282,10 +282,9 @@ Seed person Q with a sighting of the same cat. Record the cat's public payload, 
 **Then** call `DELETE /api/me` as P and assert:
 
 1. **No trace of P anywhere.** Scan every `text`, `varchar` and `jsonb` column of every table in the `public` schema, found through `information_schema` so that **tables added later are covered automatically**. None contains P's device id, username, nickname or owner name. This is spec §10.8 test 14 in its strongest form, and it is the guard for "where *else* must this hold?".
-   - **The one listed exception, while §10 flag 5 is open:** `cats.owner_device_id` for the cat P claimed, which decision A keeps.
-   - **The exception is a named allow-list entry, never a loosened scan,** so the test still fails for any *other* column holding the id. If flag 5 is resolved by clearing the link, delete the exception.
+   - **No exceptions.** Samuel chose (b) for flag 5, so `cats.owner_device_id` is cleared too.
 2. **The cat is unchanged:** same sighting count, same name, the same ear-tip and name observation values, and the same derived sterilised and life status.
-   - **The claimed cat:** `owner_name` is now null. `owner_device_id` and `home_description` are unchanged, and `hasHome` is still true (decision A).
+   - **The claimed cat:** `owner_name` and `owner_device_id` are now null. `home_description` is unchanged. `hasHome` and its derived life status are still `homed`, through the redacted `homed` observation (spine PR 4).
 3. **The note is emptied** and the observation row is still there. The total number of observations is unchanged.
 4. **Q is untouched:** Q's sighting, profile and credit are unchanged.
 5. **Public output** shows *"a spotter"* (a null code) for P's sightings and discovery.
@@ -303,7 +302,7 @@ Seed person Q with a sighting of the same cat. Record the cat's public payload, 
 - the sightings update;
 - the note-emptying `case`;
 - the notification null filter;
-- the owner-name clearing;
+- the owner-name and owner-link clearing;
 - the marker check, including moving it *after* the insert in `verifyDeviceSecret`;
 - the secret check on each of the three cat routes.
 
