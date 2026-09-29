@@ -13,6 +13,7 @@ import {
   rollbackLast,
 } from "./runner";
 import { modelledOnly, schemaSignature, signatureDiff } from "./signature";
+import { resolveDatabaseUrl } from "../url";
 
 // pnpm --filter @workspace/db run migrate            apply pending migrations
 // pnpm --filter @workspace/db run migrate:rollback   undo the newest one
@@ -22,11 +23,16 @@ import { modelledOnly, schemaSignature, signatureDiff } from "./signature";
 
 const folder = defaultMigrationsFolder();
 
-async function withClient<T>(fn: (c: pg.Client) => Promise<T>): Promise<T> {
-  if (!process.env.DATABASE_URL) {
-    throw new MigrationError("DATABASE_URL is not set.");
+function resolveCliUrl(): string {
+  try {
+    return resolveDatabaseUrl(process.env).url;
+  } catch (err) {
+    throw new MigrationError((err as Error).message);
   }
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+}
+
+async function withClient<T>(fn: (c: pg.Client) => Promise<T>): Promise<T> {
+  const client = new pg.Client({ connectionString: resolveCliUrl() });
   await client.connect();
   try {
     return await fn(client);
@@ -93,8 +99,10 @@ function uncapturedChanges(problems: string[]): void {
  * hand-written SQL and are left out of the comparison.
  */
 async function migrationsBuildTheSchema(problems: string[]): Promise<void> {
-  const base = process.env.DATABASE_URL;
-  if (!base) {
+  let base: string;
+  try {
+    base = resolveDatabaseUrl(process.env).url;
+  } catch {
     throw new MigrationError(
       "migrate:check needs DATABASE_URL: it builds two scratch databases on that server.",
     );
