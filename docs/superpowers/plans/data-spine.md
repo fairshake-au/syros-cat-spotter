@@ -297,6 +297,7 @@ Testers are using apptest.catspotters.com now. In this plan only PR 3 touches li
 
 **Before either, check the ground** (the implementer does this, not Samuel, with the read-only query tool):
 
+0. **Precondition for PR P: can the production app's database role change the database's structure?** That means `CREATE FUNCTION`, `CREATE TRIGGER` and `ALTER TABLE` on the tables it uses. SYC-102's throwaway-app experiment is testing this now. **If the role can't, PR P can't work as designed**, and Q1 moves to whichever option fits: B if Replit's own step can carry them, otherwise C or D. PR P doesn't start until this is answered.
 1. What production actually has from step 1: the five tables, the attribution check, the three triggers, the three functions. Record the answer in PR P's description; it decides how much PR P has to add.
 2. Confirm a restorable backup point exists (Replit's point-in-time restore or a dump) and record its time in the PR.
 3. Run read-only counts the backfill will reproduce: cats, claimed cats, owner-registered cats, `cat_updates` by type. They go in PR 3's description, and PR 3's self-check must match them on production.
@@ -409,6 +410,7 @@ Plain English, one at a time, each with a recommendation. Q1 is needed first; Q2
 - **Option C — someone pastes each change into Replit's live database console by hand.** *Benefits:* no new code. *Risks:* relies on Samuel doing it correctly at the right moment on every release, which the working rules exist to avoid; easy to forget, and nothing records it.
 - **Option D — move the live database off Replit's managed service** (for example to a hosted Postgres we can reach). *Benefits:* the standard tooling works as designed. *Risks:* reopens "everything stays on Replit" (D1) and the hosting question (SYC-47) in the middle of testing.
 - **Recommendation: A now, and B if Replit confirms its copying can be switched off.** A works with what Replit is documented to do, and the start-up check means a missing safety rule is caught loudly rather than discovered later. If B turns out to be possible, move to it: one mechanism is simpler than two.
+- **Pending, and it can change this recommendation:** options A and B both need the live app to be allowed to add database rules itself. SYC-102's experiment is checking that now. If it isn't allowed, A and B are off the table, and the choice is between C and D.
 
 **Q2 · Should "Probably sterilised" show publicly before Syros Cats can correct it?** The ear-tip question can ship before the team dashboard does. When a tourist mistakes a torn ear for a clipped one, the cat would show "Probably sterilised" to everyone, and until the dashboard exists nobody at Syros Cats could fix it. A cat wrongly shown as probably done can be skipped for trapping and have a litter.
 - **Option A — collect the answers now, show "Probably sterilised" only once the team can correct it.** Until then the public sees "Not known yet". Nothing is lost: the answers are stored, and those cats update the day the correction screen arrives. *Benefits:* every answer from the testing season is captured, with no uncorrectable wrong label. *Risks:* for a while the app knows more than it shows.
@@ -452,6 +454,7 @@ An adversarial second pass over this plan, run deliberately after the first draf
 | R16 | *External review.* **PR 3's name backfill backdated renames** made between PR 2 going live and PR 3 running: the current name dated at `created_at`, with the original lost (§10.3). The claim guard was also a vague "no equivalent observation". | Medium | Names are skipped for any cat that already has a `name` observation. Every kind now has an explicit match key (R3's discipline), and there's a test for a rename in the window. |
 | R17 | *External review.* **"PR 4 after PR 3" was only a remembered merge order.** | Medium | PR 4 checks PR P's tracking table for PR 3's completion, and falls back to the legacy `hasHome` and `desexed` signals until then. There's a test for both states. |
 | R18 | *External review, nit.* **The evidence-of-life query silently lacked §3.4's import source.** | Low | PR 2 now says so explicitly and names SYC-49 / SYC-82 as where it's added. |
+| R19 | *External review, pending.* **PR P assumes the production role may run DDL** (create triggers and functions, alter tables). Nobody has verified that. | High until answered | Now an explicit precondition in "check the ground", with a fallback: without DDL rights PR P can't work, and Q1 moves to C or D. It waits on SYC-102's experiment. |
 
 **Checked, and holding:**
 
