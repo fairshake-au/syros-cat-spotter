@@ -109,14 +109,29 @@ router.post("/sightings", aiLimiter, async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
 
   // SYC-92: the upload route was the one place a device id was taken on
-  // trust — verified() below proves the caller holds this device's secret
-  // before either the dedupe-hit response (which carries an existing
-  // sighting's id, location and match candidates) or a fresh upload is
-  // returned. Every client build already sends X-Device-Secret on every
-  // request (DeviceContext.tsx registers the getter unconditionally at
-  // startup, and the api client attaches it globally), and the API has
-  // never been deployed to production (DEPLOYMENT.md §C), so there is no
-  // production corpus and no build in the wild that would start failing.
+  // trust — verifyDeviceSecret() below proves the caller holds this
+  // device's secret before either the dedupe-hit response (which carries
+  // an existing sighting's id, location and match candidates) or a fresh
+  // upload is returned.
+  //
+  // Testers ARE live on this route today (apptest.catspotters.com, running
+  // commit 6f9dccf at time of writing) — gating it is safe for a reason
+  // more specific than "nobody's deployed yet":
+  //   - Every build on that domain already sends X-Device-Secret on every
+  //     request. custom-fetch.ts has attached it globally since ff25a9a
+  //     (22 Jul); 6f9dccf includes that commit.
+  //   - A device from before ff25a9a has no stored secret, but isn't
+  //     locked out: DeviceContext.tsx mints one on next launch and the
+  //     server binds it on first use (TOFU in deviceAuth.ts).
+  //   - A queued offline upload can't race ahead of the secret either:
+  //     DeviceContext.tsx registers the secret getter before it sets
+  //     deviceId (same synchronous callback, getter first — see
+  //     DeviceContext.test.tsx), and OfflineContext.syncNow() refuses to
+  //     fire until deviceId is set. So by the time a queued item is
+  //     eligible to sync, the getter it calls already returns a real
+  //     secret.
+  //   - There's no store build to worry about going stale (no eas.json in
+  //     this repo) — web and Expo clients always load the current bundle.
   if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
 
   // When the client queued this offline, the spot happened before the sync.
