@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { Image } from 'expo-image';
+import { Image, type ImageSource } from 'expo-image';
 import { OsmTiles } from './OsmTiles';
 import { useColors } from '@/hooks/useColors';
 
@@ -10,7 +10,7 @@ export interface AppMapMarker {
   latitude: number;
   longitude: number;
   title?: string;
-  imageUrl?: string;
+  image?: ImageSource;
   pinColor?: string;
   onPress?: () => void;
 }
@@ -58,7 +58,7 @@ export function AppMap({
           pinColor={m.pinColor ?? colors.primary}
           onCalloutPress={m.onPress}
         >
-          {m.imageUrl ? (
+          {m.image ? (
             <View
               style={[
                 styles.markerWrap,
@@ -66,7 +66,7 @@ export function AppMap({
               ]}
             >
               <Image
-                source={{ uri: m.imageUrl }}
+                source={m.image}
                 style={styles.markerImage}
                 contentFit="cover"
               />

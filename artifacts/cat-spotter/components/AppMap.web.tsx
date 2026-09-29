@@ -48,7 +48,7 @@ export function AppMap({
               onPress={m.onPress}
               style={[styles.chip, { backgroundColor: colors.card }]}
             >
-              {m.imageUrl ? (
+              {m.image ? (
                 <View
                   style={[
                     styles.markerWrap,
@@ -59,7 +59,7 @@ export function AppMap({
                   ]}
                 >
                   <Image
-                    source={{ uri: m.imageUrl }}
+                    source={m.image}
                     style={styles.markerImage}
                     contentFit="cover"
                   />

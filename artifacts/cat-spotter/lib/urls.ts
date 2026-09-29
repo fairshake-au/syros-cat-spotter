@@ -1,3 +1,6 @@
+import type { ImageSource } from 'expo-image';
+import { prelaunchKey } from './prelaunch';
+
 /**
  * Origin the app talks to.
  *
@@ -21,6 +24,26 @@ export function apiOrigin(): string {
 export function absoluteUrl(path: string): string {
   if (path.startsWith('http')) return path;
   return `${apiOrigin()}${path}`;
+}
+
+/**
+ * The image source for a photo from our API (SYC-113 item 5).
+ *
+ * Image loads don't go through customFetch, so on iOS and Android the tester
+ * key is sent as an image header (expo-image sends `source.headers` there).
+ * On web the headers are left off on purpose: expo-image on web would switch
+ * to a script fetch that needs CORS, and the browser already sends the
+ * website cookie with a plain same-origin image load.
+ *
+ * The key only goes to our own API origin, never to another host.
+ */
+export function photoSource(path: string): ImageSource {
+  const uri = absoluteUrl(path);
+  const key = prelaunchKey();
+  if (key && uri.startsWith(`${apiOrigin()}/`)) {
+    return { uri, headers: { 'X-Prelaunch-Key': key } };
+  }
+  return { uri };
 }
 
 // Ermoupoli, Syros — default map center

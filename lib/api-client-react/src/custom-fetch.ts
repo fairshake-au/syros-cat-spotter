@@ -58,6 +58,20 @@ export function setDeviceSecretGetter(getter: AuthTokenGetter | null): void {
   _deviceSecretGetter = getter;
 }
 
+let _prelaunchKey: string | null = null;
+
+/**
+ * SYC-113: set the pre-launch tester key built into TestFlight and Play test
+ * builds. When set, every request carries `X-Prelaunch-Key` unless that
+ * header was explicitly provided. The web build never sets it (the website
+ * uses its password cookie instead).
+ *
+ * Pass `null` to clear it.
+ */
+export function setPrelaunchKey(key: string | null): void {
+  _prelaunchKey = key ? key : null;
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -379,6 +393,11 @@ export async function customFetch<T = unknown>(
     if (secret) {
       headers.set("x-device-secret", secret);
     }
+  }
+
+  // SYC-113: the tester key, unless the header was explicitly provided.
+  if (_prelaunchKey && !headers.has("x-prelaunch-key")) {
+    headers.set("x-prelaunch-key", _prelaunchKey);
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
