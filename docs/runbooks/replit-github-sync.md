@@ -6,6 +6,8 @@
 
 **Companion to:** [DEPLOYMENT.md](../DEPLOYMENT.md), which links here.
 
+**After the SYC-121 move: this is about the new EU project, never the old one.** The Git-pane pull described below happens in the **new** Replit project (`Syros-Cat-Spotter-EU`); its `post-merge.sh` migrates the Neon `development` branch. **Never pull in the old project** — the SYC-121 plan's rule R2 keeps it frozen (no edits, no publishes, no pulls) so it stays intact as the way back until the retention date. See `docs/runbooks/neon-database.md` and the SYC-121 plan (`docs/superpowers/plans/syc-121-neon-switchover.md`, Part A.5).
+
 **Status: diagnosis confirmed, fix NOT yet verified.** The two-auth-paths diagnosis was confirmed live; the account-level reconnect is the fix we expect to work, but the verification check hasn't run yet. Don't treat SYC-96 as closed until the SHA check in "How to verify afterward" has passed and is recorded on the ticket.
 
 ## Root cause (diagnosed 28 Sep 2026)
