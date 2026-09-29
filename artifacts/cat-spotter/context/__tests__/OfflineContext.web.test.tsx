@@ -4,7 +4,7 @@
  * in-memory fake of its adapter (spec §6: no new dependency).
  */
 import React from 'react';
-import { act, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -58,9 +58,22 @@ vi.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
 }));
 
+const { ApiError } = vi.hoisted(() => {
+  class ApiError extends Error {
+    status: number;
+    data: unknown;
+    constructor(status: number, message = `HTTP ${status}`, data: unknown = null) {
+      super(message);
+      this.name = 'ApiError';
+      this.status = status;
+      this.data = data;
+    }
+  }
+  return { ApiError };
+});
 vi.mock('@workspace/api-client-react', () => ({
   createSighting: (...args: unknown[]) => createSighting(...args),
-  ApiError: class ApiError extends Error {},
+  ApiError,
 }));
 
 vi.mock('../DeviceContext', () => ({
@@ -153,6 +166,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Unmount every provider rendered by the test that just ran. Without
+  // this, a provider left mounted (renderProvider() discards `unmount`)
+  // keeps its `window` "focus" listener registered — and the pre-launch
+  // gate tests below rely on that listener being scoped to one test.
+  cleanup();
   setPhotoStoreAdapterForTests(undefined);
   vi.unstubAllGlobals();
 });
@@ -449,5 +467,107 @@ describe('a photo the browser cleared', () => {
     });
     expect(createSighting).not.toHaveBeenCalled();
     expect(ctx.current.pending[0].status).toBe('queued');
+  });
+});
+
+describe("the pre-launch gate's 401 (SYC-121)", () => {
+  const GATE_BODY = {
+    error: 'prelaunch_pass_required',
+    message: "Cat Spotters isn't open yet.",
+  };
+
+  it('leaves the item queued (no error flagged), sets needsSignIn, and pauses further sync', async () => {
+    fake.seed('A', 'full-photo');
+    seedQueue([item('A')]);
+    createSighting.mockRejectedValue(new ApiError(401, 'no pass', GATE_BODY));
+
+    const ctx = await renderLoaded();
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+
+    expect(createSighting).toHaveBeenCalledTimes(1);
+    expect(ctx.current.pending[0]).toMatchObject({ status: 'queued' });
+    expect(ctx.current.pending[0].errorKind).toBeUndefined();
+    expect(ctx.current.needsSignIn).toBe(true);
+
+    // A second automatic trigger (e.g. NetInfo reporting back online) must
+    // not hammer the gate again while signed out.
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+    expect(createSighting).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries automatically and uploads once after retryAfterSignIn', async () => {
+    fake.seed('A', 'full-photo');
+    seedQueue([item('A')]);
+    createSighting.mockRejectedValueOnce(new ApiError(401, 'no pass', GATE_BODY));
+
+    const ctx = await renderLoaded();
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+    expect(ctx.current.needsSignIn).toBe(true);
+
+    // Sign-in succeeded (e.g. the tester completed the website's sign-in
+    // page); the next request carries a valid cookie and succeeds.
+    createSighting.mockResolvedValueOnce({
+      sightingId: 21,
+      isCatPhoto: true,
+      candidates: [],
+    });
+    await act(async () => {
+      await ctx.current.retryAfterSignIn();
+    });
+
+    expect(createSighting).toHaveBeenCalledTimes(2);
+    expect(ctx.current.needsSignIn).toBe(false);
+    expect(ctx.current.pending[0]).toMatchObject({ status: 'review', sightingId: 21 });
+    expect(saved()[0]).toMatchObject({ status: 'review', sightingId: 21 });
+  });
+
+  it('retries automatically when the tab regains focus (returning from sign-in)', async () => {
+    fake.seed('A', 'full-photo');
+    seedQueue([item('A')]);
+    createSighting.mockRejectedValueOnce(new ApiError(401, 'no pass', GATE_BODY));
+
+    const ctx = await renderLoaded();
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+    expect(ctx.current.needsSignIn).toBe(true);
+
+    createSighting.mockResolvedValueOnce({
+      sightingId: 22,
+      isCatPhoto: true,
+      candidates: [],
+    });
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      // The focus handler's retry is async; let it settle.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(ctx.current.pending[0]?.status).toBe('review'));
+
+    expect(createSighting).toHaveBeenCalledTimes(2);
+    expect(ctx.current.needsSignIn).toBe(false);
+  });
+
+  it('a device-secret 401 on the same route is not mistaken for the gate and stays permanent', async () => {
+    fake.seed('A', 'full-photo');
+    seedQueue([item('A')]);
+    createSighting.mockRejectedValueOnce(
+      new ApiError(401, 'device secret required', { error: 'Device secret required' }),
+    );
+
+    const ctx = await renderLoaded();
+    await act(async () => {
+      await ctx.current.syncNow();
+    });
+
+    expect(ctx.current.needsSignIn).toBe(false);
+    expect(ctx.current.pending[0]).toMatchObject({ status: 'error', errorKind: 'server' });
   });
 });

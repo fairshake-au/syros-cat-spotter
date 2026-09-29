@@ -99,6 +99,17 @@ interface OfflineContextValue {
   /** True right after queued sightings finish syncing, until dismissed. */
   reviewPromptVisible: boolean;
   dismissReviewPrompt: () => void;
+  /**
+   * A sync hit the pre-launch gate's own 401 (SYC-113): the website session
+   * cookie is missing or stale (e.g. after the Neon cutover rotated the
+   * session keys). Web only — on native store builds this can only mean the
+   * tester key is misconfigured, which is logged instead (see syncNow).
+   * Queued items are untouched and syncing is paused until
+   * `retryAfterSignIn` is called, so the queue does not hammer the gate.
+   */
+  needsSignIn: boolean;
+  /** Clears `needsSignIn` and syncs again — call after the user signs in. */
+  retryAfterSignIn: () => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextValue | undefined>(
@@ -255,7 +266,7 @@ function markStatus(localId: string, patch: Partial<PendingSighting>) {
     );
 }
 
-type SyncOutcome = 'synced' | 'network' | 'done';
+type SyncOutcome = 'synced' | 'network' | 'needs_sign_in' | 'done';
 
 /**
  * What a failed photo save means for a sighting the user is saving now.
@@ -283,8 +294,15 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [readOnly, setReadOnly] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
+  const [needsSignIn, setNeedsSignInState] = useState(false);
   const syncingRef = useRef(false);
   const networkStateRef = useRef<UploadNetworkState | null>(null);
+  const needsSignInRef = useRef(false);
+
+  const setNeedsSignIn = useCallback((value: boolean) => {
+    needsSignInRef.current = value;
+    setNeedsSignInState(value);
+  }, []);
 
   const storeRef = useRef<QueueStore | null>(null);
   if (!storeRef.current) {
@@ -368,6 +386,12 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           return 'done';
         }
         const decision = classifySyncFailure(err, item.failCount);
+        if (decision.kind === 'needs_sign_in') {
+          // The pre-launch gate's own 401, not the device-secret check's.
+          // The item is left exactly as it was — queued, no error flagged —
+          // since this says nothing about the sighting itself.
+          return 'needs_sign_in';
+        }
         if (decision.kind === 'server') {
           // The server responded but rejected the sighting — count the
           // failure and flag the item once it keeps failing.
@@ -394,6 +418,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       // Nothing is known about the queue until it has loaded.
       await store.ready;
       if (syncingRef.current || !deviceId) return;
+      // Paused after a gate 401 (needs_sign_in) until retryAfterSignIn
+      // clears it — otherwise every reconnect/foreground event would hammer
+      // the gate with the same doomed request.
+      if (needsSignInRef.current) return;
       syncingRef.current = true;
       let syncedAny = false;
       try {
@@ -416,6 +444,23 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             }
             if (outcome === 'synced') syncedAny = true;
             if (outcome === 'network') break;
+            if (outcome === 'needs_sign_in') {
+              if (Platform.OS === 'web') {
+                // Web has a sign-in flow (the website's session cookie) —
+                // show the prompt and pause until the user returns.
+                setNeedsSignIn(true);
+              } else {
+                // Store builds carry a baked-in tester key, not a session
+                // cookie: a gate 401 here can only mean that key is missing
+                // or wrong. There is nothing for the user to sign in to, so
+                // just log it and keep the item queued — no prompt loop.
+                console.error(
+                  '[prelaunch] the pre-launch gate rejected a request from a ' +
+                    'native build — check EXPO_PUBLIC_PRELAUNCH_KEY',
+                );
+              }
+              break;
+            }
           }
         });
       } finally {
@@ -428,10 +473,33 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Callers (NetInfo) do not await this; never leave a rejection behind.
     }
-  }, [deviceId, store, syncOne]);
+  }, [deviceId, setNeedsSignIn, store, syncOne]);
 
   const syncNowRef = useRef(syncNow);
   syncNowRef.current = syncNow;
+
+  /** Call after the user signs in again: clears the pause and retries. */
+  const retryAfterSignIn = useCallback(async () => {
+    if (!needsSignInRef.current) return;
+    setNeedsSignIn(false);
+    await syncNowRef.current();
+  }, [setNeedsSignIn]);
+
+  const retryAfterSignInRef = useRef(retryAfterSignIn);
+  retryAfterSignInRef.current = retryAfterSignIn;
+
+  // On web, returning to the tab after visiting the sign-in page is the
+  // natural moment to retry automatically — without polling or a timer,
+  // which would hammer the gate while signed out.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (typeof window.addEventListener !== 'function') return;
+    const onFocus = () => {
+      void retryAfterSignInRef.current();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   useEffect(() => {
     store
@@ -609,6 +677,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       reviewReadyCount,
       reviewPromptVisible,
       dismissReviewPrompt,
+      needsSignIn,
+      retryAfterSignIn,
     }),
     [
       isOnline,
@@ -625,6 +695,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       reviewReadyCount,
       reviewPromptVisible,
       dismissReviewPrompt,
+      needsSignIn,
+      retryAfterSignIn,
     ],
   );
 
