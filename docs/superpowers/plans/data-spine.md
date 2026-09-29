@@ -76,12 +76,12 @@ This plan's own PRs are **P and 1–9**. The others in the table are owned elsew
 | — | SYC-98: opaque photo ids (Chip E) | hosting §6.2 | `0002` | — |
 | — | SYC-43 part 1: `people` and staff sign-in | team-access §2, §7.3 | next free | its own approval (PR #20) |
 | — | SYC-111: API tests on a throwaway database | — | none | — |
-| — | SYC-63 §5: the deletion schema migration (nullable device columns, checks, index, sightings guard) | step 8, schema half | next free | SYC-111; PR P; its own approval (PR #21) |
+| — | SYC-63 §5: the deletion schema migration (nullable device columns, checks, index, sightings guard) | step 8, schema half | next free, **after PR 3's** in the agreed queue | SYC-111; PR P; its own approval (PR #21) |
 | — | SYC-101: fold cat names | §10.3, Part 2g | next free | PR 1 (`foldName`); after PR 2 (shared files) |
 | **P** | Database changes reach production | §11.1 | none | decision Q1 |
 | **1** | The resolver and the name-folding function (pure) | §10.2, §10.3 | none | — |
 | **2** | One way to write an observation, and the go-forward writes | steps 2, 4 | none | SYC-111, PR 1; **PR P live, and step 1's guards confirmed in production** |
-| **3** | Backfill what already exists | steps 3, 4 | next free (data only) | PR 2 **live in production**; SYC-101 merged |
+| **3** | Backfill what already exists | steps 3, 4 | next free (data only) | PR 2 **live in production**; SYC-43 part 1's and SYC-101's migrations merged |
 | **4** | The cat page shows derived status | §3.5, §4.2, §10.7 | none | PR 2; **merged only after PR 3 has run in production** |
 | **5** | Close the oracle | step 5 | none | PR 2 |
 | **6** | Turn on blurring | step 6 | none | PR 4, PR 5, SYC-98 |
@@ -309,8 +309,9 @@ Migrations are serial by nature: one chain, in merge order, each regenerated if 
 
 ```
 Migration chain (serial, numbers taken at merge):
-  0002 SYC-98 (Chip E) → SYC-43 part 1 (PR #20, expected 0003) → SYC-63 deletion (PR #21) → SYC-101 → PR 3 (data)
-  (the expected queue; whichever merges out of order regenerates its number)
+  0002 SYC-98 (Chip E) → SYC-43 part 1 (PR #20) → SYC-101 → PR 3 (data) → SYC-63 deletion (PR #21)
+  (agreed across sessions: no plan hardcodes a number; migrations merge strictly one at a time,
+   and whoever merges second rebases and regenerates at the next free number)
 
 Wave 1 (start now, in parallel):   PR 1 · SYC-111 · PR P (once Q1 is answered)
 Wave 2:                            PR 2 (needs SYC-111, PR 1; deploys only after PR P is live)
@@ -322,6 +323,7 @@ Wave 6:                            PR 9 (needs PR 4, Q4)
 
 | Pair | Together? | Why |
 |---|---|---|
+| SYC-43 part 1 and this plan | **Default: SYC-43 part 1's migration first** | Agreed order. PR 8 (the team endpoints) must come after it regardless, because it needs `requireTeam`. **Option, with its risk:** PR P, PR 1 and PR 2 add no migration and no staff endpoint, so they can be built and merged before SYC-43 part 1 without touching the queue. PR 3 is the only one that takes a migration number; if it merged before SYC-43 part 1, #20 would have to regenerate, which is cheap but churns a PR under review. So PR 3 waits for SYC-43 part 1 unless Samuel says otherwise |
 | PR 1, SYC-111, PR P | Yes | A new pure file, the API test setup, and the migrate folder plus the server's start-up |
 | PR P and SYC-63 §5 | **Serial**: PR P first | SYC-63 §5's trigger is delivered to production by PR P's mechanism, and both touch `lib/db/src/migrate/` |
 | PR 2 and SYC-101 | **Serial**: PR 2 first | Both change the naming code in `routes/cats.ts` and `routes/sightings.ts`; SYC-101 rebases and swaps its lookups to the folded column |
