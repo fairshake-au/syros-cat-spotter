@@ -232,14 +232,24 @@ async function check(): Promise<void> {
   );
 }
 
-async function smoke(baseUrl: string | undefined): Promise<void> {
+// SYC-121, task B.5. With the SYC-113 pre-launch gate on, an unauthenticated
+// GET gets a 401 (artifacts/api-server/src/middlewares/prelaunchGate.ts), so
+// smoke needs a pass too. Sends X-Prelaunch-Key on every request when
+// PRELAUNCH_KEY is set in the environment; when it isn't (CI, or a
+// deployment with the gate off), behaviour is unchanged.
+export async function smoke(
+  baseUrl: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
   if (!baseUrl)
     throw new MigrationError(
       "usage: smoke <base-url>, e.g. https://api.catspotters.com",
     );
   const base = baseUrl.replace(/\/$/, "");
+  const headers: Record<string, string> = {};
+  if (env.PRELAUNCH_KEY) headers["X-Prelaunch-Key"] = env.PRELAUNCH_KEY;
   const get = async (p: string) => {
-    const res = await fetch(`${base}${p}`);
+    const res = await fetch(`${base}${p}`, { headers });
     if (!res.ok)
       throw new MigrationError(
         `smoke: GET ${p} returned ${res.status}. Roll back now.`,
