@@ -92,8 +92,9 @@ Each numbered item is its own commit, in this order.
   1. Gate off → `next()`.
   2. `GET` or `HEAD` on exactly `/api/healthz` → `next()`. Nothing else is open.
   3. The path is classified **after** percent-decoding, lower-casing (Express matches routes case-insensitively) and collapsing repeated slashes, so `/API/Internal/…`, `/api/%69nternal/…` and `/api//internal/…` are all treated as internal. If decoding fails → 400. Path (so normalised) starts with `/api/internal/` or is `/api/internal` → only `Authorization: Bearer <INTERNAL_PEOPLE_TOKEN>` counts. The website cookie and the tester key do **not**. If `INTERNAL_PEOPLE_TOKEN` isn't set → 503 `{"error":"not_configured"}`, matching PR #20's own behaviour so its probes (200 / 401 / 503) still read the same. PR #20's route checks the token again itself; the two checks share one helper, `lib/internalAuth.ts`, created by whichever of the two PRs lands first.
-  4. Anything else → a valid `__Host-cs_prelaunch` cookie **or** an `X-Prelaunch-Key` header matching one of `PRELAUNCH_TESTER_KEYS`.
-  5. No pass → **401** `{"error":"prelaunch_pass_required","message":"Cat Spotters isn't open yet."}`. Missing and wrong look identical. The response carries `Cache-Control: no-store`.
+  4. Path (so normalised) starts with `/api/team/` or is `/api/team` → `next()`. **Decided by Samuel, 29 Sep 2026 (Decision 1).** Every `/api/team/*` route already refuses anyone without a staff hand-off pass or staff session (PR #20 §5), which is a stronger check than the pre-launch pass.
+  5. Anything else → a valid `__Host-cs_prelaunch` cookie **or** an `X-Prelaunch-Key` header matching one of `PRELAUNCH_TESTER_KEYS`.
+  6. No pass → **401** `{"error":"prelaunch_pass_required","message":"Cat Spotters isn't open yet."}`. Missing and wrong look identical. The response carries `Cache-Control: no-store`.
 - **Where it goes in `app.ts`:** after `pino-http` and the CORS switch, **before** `express.json`. So:
   - A browser's CORS preflight (`OPTIONS`) is answered by `cors` before the gate. Preflights never carry cookies or custom headers, so gating them would break any cross-origin caller; answering them reveals nothing.
   - The 401 still carries CORS headers, so a caller's code can read the refusal instead of seeing a network error.
@@ -179,7 +180,7 @@ Not callers: `components/SightingPhoto.tsx:41` and `app/(tabs)/spot.tsx:783` sho
 |---|---|---|---|
 | 24 | Replit's start-up health check (`artifacts/api-server/.replit-artifact/artifact.toml`, `[services.production.health.startup]`) | `GET /api/healthz` | None needed: exempt |
 | 25 | The sign-in Worker (SYC-83, PR #20 plan §4) | `POST /api/internal/people/allowed` | `Authorization: Bearer INTERNAL_PEOPLE_TOKEN` |
-| 26 | **The staff dashboard hand-off and session (PR #20 plan §5, `team.catspotters.com/api/team/*`)** | `POST /api/team/handoff` from a form on `admin.catspotters.com`, then dashboard pages under `/api/team/` | **None of the three.** See Decision 1. |
+| 26 | **The staff dashboard hand-off and session (PR #20 plan §5, `team.catspotters.com/api/team/*`)** | `POST /api/team/handoff` from a form on `admin.catspotters.com`, then dashboard pages under `/api/team/` | None of the three is needed: `/api/team/*` skips the pass (Decision 1, decided by Samuel). Its own staff sign-in protects it. |
 | 27 | Owner updates by hand (`OWNER_SECRET`, `routes/notifications.ts`) | `POST /api/cats/:id/updates` | The operator adds the tester key header (item 7) |
 | 28 | `artifacts/api-server/scripts/security-check.mjs` | Various | `PRELAUNCH_KEY` variable (item 7) |
 | 29 | Push notifications | None: our server calls Expo's push service outward (`lib/push.ts`) | Not affected |
@@ -191,7 +192,7 @@ Not callers: `components/SightingPhoto.tsx:41` and `app/(tabs)/spot.tsx:783` sho
 - **A new screen that calls the API some other way.** Closed by a guard test that fails if app code contains `fetch(`, `XMLHttpRequest`, `axios` or `FileSystem.uploadAsync` outside an allow-list (`lib/offlineTiles.ts`, `scripts/`).
 - **The offline queue flushing before the key is set.** Closed by setting the key when `_layout.tsx` loads, not inside a provider. A test imports the layout module and checks the key is set before any provider mounts.
 - **A store build made without the key.** Every call fails with "Cat Spotters isn't open yet." Closed by the end-to-end check on a real build (checklist items 7–8) before testers are invited.
-- **The dashboard (26).** Needs a decision (below).
+- **The dashboard (26).** Skips the pass by Samuel's decision; test 12a proves every `/api/team/*` route still refuses anyone without a staff session.
 
 ## Replit's own health check on the website
 
@@ -236,6 +237,7 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 9. Gate on, no pass: `GET /api/cats`, `GET /api/photos/1`, `POST /api/sightings`, `POST /api/notifications/…`, `GET /api/campaign`, `/API/CATS` (upper case) → 401 with the exact body. `/API/Internal/people/allowed`, `/api/%69nternal/people/allowed` and `/api//internal/people/allowed` with a valid tester key → refused (treated as internal). The test walks **every route registered on the router** (read from Express's route stack), so a route added later is covered automatically.
 10. `GET` and `HEAD /api/healthz` → 200 with no pass. `POST /api/healthz` and `/api/healthz-extra` → 401.
 11. Valid website cookie → passes to the route. Valid tester key → passes. Second tester key during a change → passes. Wrong key, empty key, key in the query string → 401.
+12a. `/api/team/*`: once PR #20's routes exist, the test walks every registered `/api/team/*` route with the gate on and no staff session and expects PR #20's 401 `not_signed_in` from each (never a 200). `/API/TEAM/me` is also exempt and also refused by the route. Whichever of this and PR #20 lands second adds the test.
 12. `/api/internal/people/allowed`: right bearer → passes; website cookie → 401; tester key → 401; no token configured → 503.
 13. `OPTIONS` preflight with no pass → answered by CORS (204) with the allow headers, not 401. A 401 still carries `Access-Control-Allow-Origin`.
 14. A 25 MB body with no pass → 401 without the JSON parser running (the parser is spied on).
@@ -266,6 +268,7 @@ The implementer makes each break on a scratch commit, runs the suite, records wh
 | Make the API gate `next()` on any request that has *some* `X-Prelaunch-Key` | 11 |
 | Exempt `/api/healthz` by prefix (`startsWith`) | 10 |
 | Accept the tester key on `/api/internal/*` | 12 |
+| Exempt `/api/team` by a looser prefix (e.g. `/api/t`) | 9 |
 | Compare paths case-sensitively | 9 |
 | Classify the path before percent-decoding | 9 |
 | Treat an unset `NODE_ENV` as development | 15 |
@@ -328,7 +331,7 @@ Steps:
 
 ## Decisions for Samuel
 
-**Decision 1 — The staff dashboard on `team.catspotters.com`.** PR #20's plan serves the dashboard from `/api/team/*`, reached by a form post from the sign-in page. Staff browsers there won't have the website password cookie, because that cookie belongs to `apptest.catspotters.com` only.
+**Decision 1 — The staff dashboard on `team.catspotters.com`. Decided by Samuel, 29 Sep 2026: A (`/api/team/*` skips the pre-launch pass).** PR #20's plan serves the dashboard from `/api/team/*`, reached by a form post from the sign-in page. Staff browsers there won't have the website password cookie, because that cookie belongs to `apptest.catspotters.com` only.
 
 - **A. Recommended: let `/api/team/*` through the pre-launch pass, because it has its own, stronger door.** Every `/api/team/*` route already refuses anyone without a one-minute pass from the sign-in page or a staff session, checked against the people list on every request (PR #20 §5). *Benefit:* staff tap "Cat Spotters dashboard" and land in it. *Risk:* one more exemption in the gate. It is narrow, it is pinned by a test that walks every `/api/team/*` route with no staff session and expects 401, and PR #20 already calls a dashboard route without `requireTeam` a review failure.
 - B. Staff also type the website password on `team.catspotters.com` first. *Risk:* an extra, confusing password step for staff, and the hand-off post from the sign-in page would bounce to a password page and lose the pass.
