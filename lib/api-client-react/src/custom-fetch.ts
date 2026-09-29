@@ -72,6 +72,15 @@ export function setPrelaunchKey(key: string | null): void {
   _prelaunchKey = key ? key : null;
 }
 
+/**
+ * True for a relative path (same origin; "//host" is another site, so no) or
+ * a URL under the configured base URL (the app sets it to apiOrigin()).
+ */
+function isOurApi(url: string): boolean {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  return _baseUrl !== null && url.startsWith(`${_baseUrl}/`);
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -395,8 +404,9 @@ export async function customFetch<T = unknown>(
     }
   }
 
-  // SYC-113: the tester key, unless the header was explicitly provided.
-  if (_prelaunchKey && !headers.has("x-prelaunch-key")) {
+  // SYC-113: the tester key, unless the header was explicitly provided, and
+  // only to our own API (the same rule as photoSource in the app).
+  if (_prelaunchKey && !headers.has("x-prelaunch-key") && isOurApi(resolveUrl(input))) {
     headers.set("x-prelaunch-key", _prelaunchKey);
   }
 

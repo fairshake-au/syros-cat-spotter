@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '@workspace/api-client-react';
 import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
+// customFetch isn't exported from the package index; read it from source.
+import { customFetch } from '../../../../lib/api-client-react/src/custom-fetch';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const generatedSource = readFileSync(
@@ -84,6 +86,30 @@ describe('customFetch and the tester key', () => {
     setPrelaunchKey('');
     await api.listCats();
     expect(seen[0]!.has('x-prelaunch-key')).toBe(false);
+  });
+
+  it('only our own API gets the key: never an absolute external URL', async () => {
+    setPrelaunchKey('k');
+    for (const url of [
+      'https://evil.example/api/cats',
+      'https://apptest.example.evil.io/api/cats',
+      'https://apptest.example@evil.example/api/cats',
+    ]) {
+      await customFetch(url);
+    }
+    for (const headers of seen) expect(headers.has('x-prelaunch-key')).toBe(false);
+    seen = [];
+    await customFetch('https://apptest.example/api/cats');
+    await customFetch('/api/cats');
+    expect(seen.map((h) => h.get('x-prelaunch-key'))).toEqual(['k', 'k']);
+    // With no base URL, a relative path still counts as ours.
+    seen = [];
+    setBaseUrl(null);
+    await customFetch('/api/cats');
+    expect(seen[0]!.get('x-prelaunch-key')).toBe('k');
+    // ...but a protocol-relative "//host" is another site, not a path.
+    await customFetch('//evil.example/api/cats');
+    expect(seen[1]!.has('x-prelaunch-key')).toBe(false);
   });
 
   it("a refusal reads \"Cat Spotters isn't open yet.\"", async () => {
