@@ -478,7 +478,10 @@ describe("the pre-launch gate's 401 (SYC-121)", () => {
 
   it('leaves the item queued (no error flagged), sets needsSignIn, and pauses further sync', async () => {
     fake.seed('A', 'full-photo');
-    seedQueue([item('A')]);
+    // A non-zero failCount from earlier server failures must survive a gate
+    // 401 untouched — the gate says nothing about the sighting itself, so it
+    // must not be counted as another failed attempt.
+    seedQueue([item('A', { failCount: 2 })]);
     createSighting.mockRejectedValue(new ApiError(401, 'no pass', GATE_BODY));
 
     const ctx = await renderLoaded();
@@ -489,6 +492,7 @@ describe("the pre-launch gate's 401 (SYC-121)", () => {
     expect(createSighting).toHaveBeenCalledTimes(1);
     expect(ctx.current.pending[0]).toMatchObject({ status: 'queued' });
     expect(ctx.current.pending[0].errorKind).toBeUndefined();
+    expect(ctx.current.pending[0].failCount).toBe(2);
     expect(ctx.current.needsSignIn).toBe(true);
 
     // A second automatic trigger (e.g. NetInfo reporting back online) must
