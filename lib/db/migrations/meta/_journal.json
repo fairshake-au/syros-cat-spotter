@@ -8,6 +8,13 @@
       "when": 1790614023121,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790685457504,
+      "tag": "0001_data_spine_tables",
+      "breakpoints": true
     }
   ]
 }
