@@ -43,16 +43,15 @@ Following the redirect lands on `replit.com/deployment-login?goto=...`, the same
 
 ## 2. Can the API be public while the website stays gated?
 
-Yes, but not on this deployment — as a **second, separate deployment**. DEPLOYMENT.md §C already plans exactly this: "Deploy the API as a Replit deployment on the custom domain (`api.` subdomain)." Each Replit deployment carries its own independent access setting, so:
+**Not on this Repl, as originally drafted.** The first version of this doc proposed publishing `api-server` as its own deployment on `api.catspotters.com` while `cat-spotter` stayed a separate, gated deployment of the same Repl. That's not how Replit works. Checked against Replit's docs on artifacts ("Multiple Artifacts vs. Separate Projects", "What's an Artifact?") and "Who can access your app", and confirmed read-only with the Replit agent against our own Repl: **a Repl's artifacts always publish together as one deployment**, on one domain, under one access setting. `artifacts/api-server/.replit-artifact/artifact.toml` declaring its own `paths = ["/api"]` controls *routing within* that one deployment (which artifact answers which path) — it does not mean the artifact can be deployed, or gated, separately. `serve-web.js`'s own comment confirms the same thing from the other side: "In production the platform routes `/api` to the API service before this server ever sees it" — one deployment, internally routed, one gate in front of all of it.
 
-- Deployment A: the `cat-spotter` artifact, on `apptest.catspotters.com` (or the final web domain) → keep **Password protected** for as long as we want a private preview.
-- Deployment B: the `api-server` artifact, on `api.catspotters.com` → set to **Public**.
+That leaves two real ways to get a public API without a public website:
 
-`artifacts/api-server/.replit-artifact/artifact.toml` already declares the api-server as its own artifact with its own service (`paths = ["/api"]`, its own production build/run), so splitting it into its own deployment is a packaging change Replit already supports, not a rebuild.
+**Option A — a genuinely separate Replit project for the API**, its own Repl, its own deployment, on `api.catspotters.com`, set to **Public**, independent of whatever `cat-spotter`'s deployment is set to. This is real infrastructure, not a setting flip — costs below.
 
-`api.catspotters.com` does not currently resolve (`curl: (6) Could not resolve host`) — confirming it hasn't been created yet, consistent with DEPLOYMENT.md's "API never deployed" note.
+**Option B — keep one Repl, one deployment, set it Public, and put a password in front of the website's pages only**, in code we already own. `artifacts/cat-spotter/server/serve-web.js` is the Node server that answers every non-`/api` request in production; it already special-cases `/status` and rejects `/api/*` explicitly. Adding a check there (e.g. cookie set after a shared-password form, checked before serving any HTML) gates the site without touching Replit's own access control at all — and because Replit's access setting is now **Public**, `/api` routes (which this server never even handles) are reachable and rely on their own authentication, exactly as SYC-83 needs.
 
-**Cost:** unverified. Replit's autoscale deployments bill on usage (compute + requests), and I found no documented flat "per deployment" surcharge, but I could not check Replit's current pricing page or our account's billing dashboard from here — the pricing details aren't part of the docs pages I could read, and pricing tools weren't in the read-only tool set I was given. **Recommend Samuel or the Replit agent confirm the actual autoscale pricing for a second small deployment before committing**, though the shape of the change (one more small always-idle-capable autoscale service) suggests it's modest.
+Full cost/benefit for both is in the Options section below.
 
 ## 3. Any supported bypass for server-to-server or native clients?
 
