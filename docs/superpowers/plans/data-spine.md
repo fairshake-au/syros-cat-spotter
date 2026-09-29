@@ -66,6 +66,7 @@ Every PR's requirements include these.
 - **App-written statements are authored `account_id = 'system:<source>'`** (Part 2g): `system:legacy-backfill` for PR 3, `system:admin-route` for the old `OWNER_SECRET` route in PR 2. Every row keeps exactly one author, and deletion never matches these.
 - **Migrations:** generated, reviewed, with a commented rollback block; all pending migrations run in one transaction with a 5 s lock timeout; no `CREATE INDEX CONCURRENTLY` (`lib/db/migrations/README.md`). **Every step must be safe to run twice**, because of how production receives changes (see "How each step reaches production").
 - **F6:** every schema change lands before the Google Play fourteen-day closed test starts.
+- **Launch gate (SYC-113, Samuel's decision recorded on PR #25):** until launch, every `/api` route except `/api/healthz` sits behind a pre-launch pass: the website session, a tester key built into store builds, or the Worker secret. That pass comes off at launch, and from then on **anyone can read what `/api` returns**. So **PR 5 (closing the location oracle) and PR 6 (turning on blurring) must be live in production before the `/api` pre-launch pass is removed.** This gates the launch, not the merge. Until then the pass is the only thing keeping exact cat and sighting coordinates private.
 - **Never approve a Replit publish database review that contains `TRUNCATE` or `DROP` on a populated table.** Cancel the publish and raise it (SYC-102's evidence, "How each step reaches production").
 
 ## The sequence
@@ -304,6 +305,8 @@ Step 7: SYC-37 and SYC-74.
 
 **The consequence to take seriously now:** if step 1's tables ever reached production through a diff, they arrived **without their append-only triggers and without the attribution check**. Nothing writes observations yet, so nothing is wrong today. It becomes wrong the day PR 2 deploys. **So PR 2 and PR 3 are blocked on PR P**, whose adoption step either finds production clean or names the drift.
 
+**Launch gate (SYC-113, Samuel's decision recorded on PR #25):** until launch, every `/api` route except `/api/healthz` sits behind a pre-launch pass: the website session, a tester key built into store builds, or the Worker secret. That pass comes off at launch, and from then on **anyone can read what `/api` returns**. So **PR 5 (closing the location oracle) and PR 6 (turning on blurring) must be live in production before the `/api` pre-launch pass is removed.** This gates the launch, not the merge. Until then the pass is the only thing keeping exact cat and sighting coordinates private. Removing the pass is itself a deployment step, and `docs/DEPLOYMENT.md` §C (rewritten by PR P) lists this check before it.
+
 **Verification after each publish is a probe, not an assumption**: the implementer uses the read-only query tool to confirm the runner's history, the triggers, the constraints and any backfilled rows, and records it in the PR.
 
 ## Data safety on the live test database
@@ -342,7 +345,12 @@ Wave 3 (in parallel):              SYC-101 (after PR 2) · PR 5 · PR 4 built no
 Wave 4:                            PR 3 (needs PR 2 live, SYC-101) → then PR 4 merges
 Wave 5 (in parallel):              PR 6 (needs PR 4, PR 5, SYC-98) · PR 7 (needs PR 5, SYC-79, Q2, Q3) · SYC-63 build (needs PR 4)
 Wave 6:                            PR 9 (needs PR 4, Q4)
+
+LAUNCH GATE (not a merge gate): PR 5 and PR 6 live in production
+  → only then may SYC-113's /api pre-launch pass be removed
 ```
+
+The launch gate means PR 5 and PR 6 are on the critical path to launch, even though nothing else here waits for them. Whoever removes the `/api` pass checks in production, with the read-only query tool and a public request, that `GET /api/cats` returns cell centres and that `POST /api/sightings` selects candidates on the grid.
 
 | Pair | Together? | Why |
 |---|---|---|
@@ -476,6 +484,7 @@ An adversarial second pass over this plan, run deliberately after the first draf
 | R17 | *External review.* **"PR 4 after PR 3" was only a remembered merge order.** | Medium | PR 4 checks the runner's history for PR 3's migration, and falls back to the legacy `hasHome` and `desexed` signals until then. There's a test for both states. |
 | R18 | *External review, nit.* **The evidence-of-life query silently lacked §3.4's import source.** | Low | PR 2 now says so explicitly and names SYC-49 / SYC-82 as where it's added. |
 | R19 | *External review.* **PR P assumed the production role may run DDL.** | Resolved | SYC-102 confirmed full DDL and write rights at runtime. |
+| R21 | *SYC-113 input.* **Once the `/api` pre-launch pass is removed at launch, exact coordinates are public** unless PR 5 and PR 6 are already live. | High | A hard launch gate in the global constraints, the parallelism map and "How each step reaches production". |
 | R20 | *External review, with SYC-102's evidence.* **Patching after Replit's diff (the first draft's recommended option) is unsafe**: the diff runs inside Publish before any of our code, planned `TRUNCATE ... CASCADE` for a NOT NULL column on a populated table, and omits changed function bodies and history rows. | High | Q1 now recommends our own runner applying migrations to production (the build step if possible, otherwise non-blocking start-up); PR P is rebuilt around it, keeping R15's non-blocking start-up, bounded lock and race tests; it adds exact-match adoption of the baseline and per-migration adoption; and there is a standing rule never to approve a TRUNCATE/DROP review. |
 
 **Checked, and holding:**
