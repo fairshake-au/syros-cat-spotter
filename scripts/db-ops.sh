@@ -303,7 +303,9 @@ case "$COMMAND" in
       fi
       args+=(--apply)
     fi
-    switchover_cli carry-back "${args[@]}"
+    # ${args[@]+...}: an empty array under `set -u` aborts on bash < 4.4
+    # (e.g. macOS's bash 3.2, for a local dry run).
+    switchover_cli carry-back ${args[@]+"${args[@]}"}
     ;;
 
   *)
