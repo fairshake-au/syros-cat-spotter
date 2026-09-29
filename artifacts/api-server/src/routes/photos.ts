@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, photosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { photoLimiter } from "../middlewares/rateLimit";
+import { gateEnabled } from "../lib/prelaunch";
 
 const router: IRouter = Router();
 
@@ -21,7 +22,16 @@ router.get("/photos/:photoId", photoLimiter, async (req, res) => {
   }
   const buffer = Buffer.from(photo.data, "base64");
   res.setHeader("Content-Type", photo.mime);
-  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  // SYC-113 item 4: while the pre-launch gate is on, a shared cache between
+  // us and the phone must not keep a photo fetched with a pass and hand it to
+  // someone without one. `private` (still a year, still immutable) plus a
+  // Vary on both pass headers; back to `public` automatically at launch.
+  if (gateEnabled()) {
+    res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+    res.setHeader("Vary", "Cookie, X-Prelaunch-Key");
+  } else {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  }
   res.send(buffer);
 });
 

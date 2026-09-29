@@ -15,7 +15,7 @@ import {
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { setBaseUrl } from '@workspace/api-client-react';
+import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
 import { AppearanceProvider } from '@/context/AppearanceContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
@@ -26,8 +26,13 @@ import { ReviewReadyBanner } from '@/components/ReviewReadyBanner';
 import { OwnershipNoticeBanner } from '@/components/OwnershipNoticeBanner';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
+import { prelaunchKey } from '@/lib/prelaunch';
 
 setBaseUrl(apiOrigin());
+// SYC-113: the tester key is set when this file loads, before any provider
+// mounts, so the offline queue's first flush and the first push-token
+// registration already carry it. It must not wait for DeviceProvider.
+setPrelaunchKey(prelaunchKey());
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();

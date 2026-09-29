@@ -52,6 +52,14 @@ The build work fits the window. The things that can sink October are all **lead 
 - [ ] Outbound email for welfare/report notifications to admin@syroscats via Resend on the new domain (SPF/DKIM so Google Workspace doesn't junk it)
 - [ ] Uptime monitor on `/api/healthz` + error alerting to Samuel
 
+### Pre-launch gate (SYC-113)
+
+Until launch, the test deployment is kept private by two gates we own, instead of Replit's "Password protected" wall: a password page on the website, and a pass that every `/api` request must carry. The full design is `docs/superpowers/plans/syc-113-pre-launch-gates.md`; the everyday operations are in [runbooks/pre-launch-gate.md](runbooks/pre-launch-gate.md) (settings, rotating the password and the tester key, turning it off).
+
+- `/api/healthz` stays open for Replit's health check. Everything else in `/api` needs the website cookie, the tester key (`X-Prelaunch-Key`), or, on `/api/internal/*`, the sign-in Worker's bearer.
+- **Anyone calling the API by hand while the gate is on adds the tester key header.** That includes owner updates (`POST /api/cats/:id/updates` with `OWNER_SECRET`) and `scripts/security-check.mjs`, which sends it when `PRELAUNCH_KEY` is set in the terminal's environment.
+- **Launch day starts with a check, not the switch:** confirm location blurring is live (data spine PR 6) before `PRELAUNCH_GATE=off`. See the runbook.
+
 ## D. Product changes (spec §2)
 
 Tracked in PRODUCT-SPEC.md §2 — rename, safety screen, feeding nudge, clipped-tip question with photo, 500m, points 25/15, notes + food/water, thin-slice sterilised status, blurred public locations, welfare flow with capacity messaging, minimal staff dashboard, email capture v1. Riskiest for the window: staff dashboard and email capture — both can slip to the hardening phase without moving launch. (The records import moved after MVP on 28 September 2026. It is optional: `docs/specs/records-import.md`.)

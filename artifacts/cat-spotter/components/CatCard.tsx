@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 import type { Cat } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
-import { absoluteUrl } from '@/lib/urls';
+import { photoSource } from '@/lib/urls';
 import colorsConst from '@/constants/colors';
 
 export function CatCard({ cat }: { cat: Cat }) {
@@ -33,7 +33,7 @@ export function CatCard({ cat }: { cat: Cat }) {
     >
       <View>
         <Image
-          source={{ uri: absoluteUrl(cat.photoUrl) }}
+          source={photoSource(cat.photoUrl)}
           style={styles.photo}
           contentFit="cover"
           transition={200}

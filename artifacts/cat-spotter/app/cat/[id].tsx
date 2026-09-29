@@ -24,7 +24,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
-import { absoluteUrl } from '@/lib/urls';
+import { photoSource } from '@/lib/urls';
 import { Badge, Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
@@ -126,7 +126,7 @@ export default function CatDetailScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         <View>
           <Image
-            source={{ uri: absoluteUrl(cat.photoUrl) }}
+            source={photoSource(cat.photoUrl)}
             style={styles.hero}
             contentFit="cover"
           />
@@ -342,7 +342,7 @@ export default function CatDetailScreen() {
             {sightings.map((s) => (
               <View key={s.id} style={styles.sightingItem}>
                 <Image
-                  source={{ uri: absoluteUrl(s.photoUrl) }}
+                  source={photoSource(s.photoUrl)}
                   style={[styles.sightingPhoto, { borderColor: colors.border }]}
                   contentFit="cover"
                 />

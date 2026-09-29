@@ -9,6 +9,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { photoCors } from "./middlewares/photoCors";
+import { prelaunchGate } from "./middlewares/prelaunchGate";
 
 const app: Express = express();
 
@@ -52,6 +53,14 @@ app.use((req, res, next) => {
   }
   cors()(req, res, next);
 });
+// SYC-113 pre-launch pass (docs/superpowers/plans/syc-113-pre-launch-gates.md,
+// item 2). Its place is load-bearing:
+// - AFTER the CORS switch, so a browser's preflight is answered by cors()
+//   before the gate (preflights never carry cookies or custom headers), and
+//   the gate's 401 still carries CORS headers a caller's code can read;
+// - BEFORE express.json, so a request without a pass is refused before a
+//   25 MB body is parsed.
+app.use(prelaunchGate);
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 

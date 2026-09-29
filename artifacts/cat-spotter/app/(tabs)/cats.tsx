@@ -26,7 +26,7 @@ import { CatCard } from '@/components/CatCard';
 import { AppMap } from '@/components/AppMap';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Chip } from '@/components/purropolis';
-import { absoluteUrl, SYROS_CENTER } from '@/lib/urls';
+import { photoSource, SYROS_CENTER } from '@/lib/urls';
 import {
   useGetProfile,
   getGetProfileQueryKey,
@@ -217,7 +217,7 @@ export default function CatalogScreen() {
               latitude: cat.lat,
               longitude: cat.lng,
               title: cat.name,
-              imageUrl: absoluteUrl(cat.photoUrl),
+              image: photoSource(cat.photoUrl),
               onPress: () =>
                 router.push({
                   pathname: '/cat/[id]',

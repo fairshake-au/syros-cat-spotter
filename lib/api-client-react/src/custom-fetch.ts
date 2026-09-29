@@ -58,6 +58,29 @@ export function setDeviceSecretGetter(getter: AuthTokenGetter | null): void {
   _deviceSecretGetter = getter;
 }
 
+let _prelaunchKey: string | null = null;
+
+/**
+ * SYC-113: set the pre-launch tester key built into TestFlight and Play test
+ * builds. When set, every request carries `X-Prelaunch-Key` unless that
+ * header was explicitly provided. The web build never sets it (the website
+ * uses its password cookie instead).
+ *
+ * Pass `null` to clear it.
+ */
+export function setPrelaunchKey(key: string | null): void {
+  _prelaunchKey = key ? key : null;
+}
+
+/**
+ * True for a relative path (same origin; "//host" is another site, so no) or
+ * a URL under the configured base URL (the app sets it to apiOrigin()).
+ */
+function isOurApi(url: string): boolean {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  return _baseUrl !== null && url.startsWith(`${_baseUrl}/`);
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -379,6 +402,12 @@ export async function customFetch<T = unknown>(
     if (secret) {
       headers.set("x-device-secret", secret);
     }
+  }
+
+  // SYC-113: the tester key, unless the header was explicitly provided, and
+  // only to our own API (the same rule as photoSource in the app).
+  if (_prelaunchKey && !headers.has("x-prelaunch-key") && isOurApi(resolveUrl(input))) {
+    headers.set("x-prelaunch-key", _prelaunchKey);
   }
 
   const requestInfo = { method, url: resolveUrl(input) };

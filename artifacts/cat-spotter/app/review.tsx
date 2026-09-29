@@ -24,7 +24,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useOffline } from "@/context/OfflineContext";
 import { useDevice } from "@/context/DeviceContext";
 import { SightingPhoto } from "@/components/SightingPhoto";
-import { absoluteUrl } from "@/lib/urls";
+import { photoSource } from "@/lib/urls";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { parseReviewParams } from "@/lib/reviewParams";
 import {
@@ -445,7 +445,7 @@ export default function ReviewScreen() {
             <Card key={c.catId} padding={12} style={styles.candidate}>
               <View style={styles.candidateRow}>
                 <Image
-                  source={{ uri: absoluteUrl(c.photoUrl) }}
+                  source={photoSource(c.photoUrl)}
                   style={styles.candidatePhoto}
                   contentFit="cover"
                 />
