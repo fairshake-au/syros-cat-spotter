@@ -60,6 +60,18 @@ In order, each step checked from live sources and recorded on SYC-114 before the
 
 **Rolling back** before launch: set the deployment back to "Password protected" (a publish), which puts Replit's wall in front again.
 
+## Moving to a new Replit project (the EU remix, SYC-121)
+
+Nothing in the gates depends on which Repl they run in:
+
+- **No hostname anywhere.** The website cookie has no `Domain` (the `__Host-` rules forbid one), so it belongs to whichever https host set it: `apptest.catspotters.com` and the new project's `*.replit.app` address each get their own cookie. A tester logs in once per address. `__Host-` works on any https host, including `*.replit.app`.
+- **No Replit settings are read.** The gates read only `PRELAUNCH_*`, `INTERNAL_PEOPLE_TOKEN`, `NODE_ENV`, `BASE_PATH` and `PORT`. The API's `NODE_ENV=production` comes from `artifacts/api-server/.replit-artifact/artifact.toml`, which is in the repo and so travels with the remix. The website gate doesn't look at `NODE_ENV` at all.
+- **The tester key isn't tied to a host.** A store build sends it to whatever address it was built for.
+- **One shared assumption:** the wrong-password limit, like the API's rate limits, trusts the right-most `X-Forwarded-For` entry (one proxy hop). Still unverified for Replit, as DEPLOYMENT.md §C already notes.
+- **The secrets must be set again in the new project.** A remix doesn't copy deployment secrets. Until they're set the gates fail closed (503), never open.
+
+After the new project's first publish, run the done-checklist probes (plan §"Done" items 1–7, 10 and 11, plus the start-up log line) **against both** `https://apptest.catspotters.com` **and** the new project's default `https://<name>.replit.app` address, and record both sets on SYC-113. Also check that the browser keeps `__Host-cs_prelaunch` on each address after logging in (plan item 10a).
+
 ## When something looks wrong
 
 - **The API answers `prelaunch_not_configured`.** A secret is missing from the deployment. Check the start-up log line, then the deployment secrets.
