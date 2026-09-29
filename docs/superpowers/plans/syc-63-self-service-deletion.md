@@ -178,7 +178,12 @@ Once §5 lands, these device ids can be empty, and TypeScript will flag every pl
 
 Samuel's 29 September decision (Part 2g) says deletion unlinks by **clearing** the column, and rejects the alternatives. A fixed stand-in value would create one phantom spotter holding everyone's points. A random stand-in per person would keep that person's walk trail grouped. Clearing a column that is `NOT NULL` today needs a migration. **So step 8 does not "depend only on step 1", and Part 2g says so itself.**
 
-What the migration contains. Whoever holds the slot writes it; the next free number is `0003` once SYC-43 takes `0002`.
+What the migration contains. The agreed queue is set in the data spine plan (`docs/superpowers/plans/data-spine.md`, PR #23):
+
+**`0002` SYC-98 → SYC-43 part 1 → SYC-101 → spine PR 3 (data only) → SYC-63 deletion (this).**
+
+- **No migration number is hardcoded.** Migrations merge one at a time, and whoever merges second rebases and regenerates, because the runner refuses one that lands behind another.
+- **Every step is written so it can safely run twice,** as that plan requires: drop `NOT NULL`, add each check only if it is missing, create the trigger only if it is missing, and create each function with `CREATE OR REPLACE`.
 
 1. `sightings.device_id`: drop `NOT NULL`, and add the check `device_id is not null or redacted_at is not null`.
 2. `cats.discoverer_device_id`: drop `NOT NULL`. Add `cats.redacted_at` and `cats.redaction_reason`. Add the check `discoverer_device_id is not null or redacted_at is not null`.
@@ -253,7 +258,7 @@ If the app is killed after the server has deleted the person but before the phon
 
 - **The delete link in every email (SYC-45).** It maps the address to its device ids and calls `severPerson`, then does email-capture's own part: remove the address, keep the suppression hash, and redact the consent events' identifying parts. **Contradiction to flag:** email-capture §5.8 says delete tokens never expire, while team-access §8.5 says "a signed, expiring token". SYC-45 has to settle this; it doesn't affect this build.
 - **The staff action (SYC-43, team-access §3.5).** "Delete this person's details" calls the same `severPerson`. It is recorded with who, when, and which request.
-- **Staff accounts and `people` (SYC-43 part 1, migration 0002).** `DELETE /me` acts on a **device** identity only. It never touches rows attributed by `account_id`, and it never touches `people`. So it doesn't depend on `people` existing and won't break when it does. A staff member who also spots cats on their own phone has two separate identities; deleting the spotter leaves the staff account alone. **Removing a staff member** is SYC-43's "one deletion, in one place" and is a different operation. Whether it also unlinks their name from team observations (who confirmed a sterilisation) is SYC-43's call, and the charity may well want that attribution kept as evidence. System-written observations (`account_id = 'system:…'`, Part 2g) are never touched.
+- **Staff accounts and `people` (SYC-43 part 1, whose migration is ahead of this one in the queue).** `DELETE /me` acts on a **device** identity only. It never touches rows attributed by `account_id`, and it never touches `people`. So it doesn't depend on `people` existing and won't break when it does. A staff member who also spots cats on their own phone has two separate identities; deleting the spotter leaves the staff account alone. **Removing a staff member** is SYC-43's "one deletion, in one place" and is a different operation. Whether it also unlinks their name from team observations (who confirmed a sterilisation) is SYC-43's call, and the charity may well want that attribution kept as evidence. System-written observations (`account_id = 'system:…'`, Part 2g) are never touched.
 - **Welfare reports (not built).** The reporter's device id is unlinked by the same function when that table exists, and so is the reporter's address, via the email side. §8's scan test will fail if a new table holds a device id that `severPerson` forgets.
 
 ---
@@ -373,7 +378,7 @@ The options and recommendations are kept below for the record. Each one ends wit
 ## 10. Things to flag, and follow-ups to file
 
 1. **Spec vs. decision: a migration is needed.** Data spine §11.2 step 8 says deletion "depends only on step 1's redaction column". Samuel's 29 September decision (Part 2g) corrects that. **Part 2g is not on `main`:** PR #18 was closed unmerged, so it exists only as a Linear comment. It needs a home in `DECISIONS.md`. This chip must not edit that file.
-2. **The migration slot.** §5 needs one, and SYC-43 holds `0002`. The name-folding migration (Part 2g's other item, SYC-101) also needs one. Samuel to sequence both, and both must land before the Play closed test (F6).
+2. **The migration slot.** §5 needs one. `0002` belongs to SYC-98. The agreed queue is: `0002` SYC-98 → SYC-43 part 1 → SYC-101 → spine PR 3 (data only) → SYC-63 deletion. Numbers are not hardcoded; whoever merges second rebases and regenerates. All the schema changes in the queue must land before the Play closed test (F6).
 3. **"Two taps".** The privacy policy says you can delete yourself "in two taps". The real path from the Profile tab is the row, then the confirm button: two taps, three counting the tab. Close enough, or reword the policy to *"from Settings"*.
 4. **Follow-ups for Linear** (deduplicated before filing):
    - scrub device ids from request-log URLs on the notifications and push-token routes;
