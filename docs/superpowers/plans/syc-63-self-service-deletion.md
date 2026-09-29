@@ -100,7 +100,7 @@ Once someone has been deleted, other spotters see:
 
 - **Who is asking:** the device id comes in an `X-Device-Id` header and the secret in the existing `X-Device-Secret` header. They go in headers rather than the URL so the device id never lands in request logs. They aren't in a body either, because some proxies drop the body of a DELETE. The default `cors()` in `app.ts` already reflects requested headers, so the web build works.
 - **Checks, in order:**
-  1. Is there a "deleted device" marker for this id? If so, return `204`. It is already done.
+  1. Is there a "deleted device" marker for this id? If so, return `204`, because it is already done. This check must come **before** the trust-on-first-use insert in `verifyDeviceSecret` (see §4.3).
   2. Otherwise run the existing `verifyDeviceSecret`. A wrong secret gets `403`, as everywhere else. As with every owner route, a device that has never presented a secret binds on first use. That is the existing trust model, unchanged.
   3. Run `severPerson` (§4.2) in one transaction, then return `204`.
 - **Rate limit:** use the existing per-device limiter in `middlewares/rateLimit.ts`, with a small allowance.
@@ -130,6 +130,19 @@ The whole thing is **synchronous**: no queue and no nightly sweep (§8.5). Obser
 - The marker is a one-way hash of a random id. It cannot be turned back into the id, and nothing else in the database links to it. This is the same idea as the email suppression hash the spec already keeps (§8.5).
 - Real device ids start `dev-`, so a real id can never collide with a `deleted:` key. `verifyDeviceSecret` also refuses any incoming id starting `deleted:`.
 - It does **not** break the promise that "no query returns the device id": the id itself is gone and only its hash remains.
+- **Order inside `verifyDeviceSecret` (from review):** today it inserts the credential first and checks afterwards (`lib/deviceAuth.ts`). The marker lookup has to run **first**, before that insert. Otherwise the insert quietly re-creates the deleted identity and the marker never gets a say. This site gets its own mutation probe (§8.1).
+
+**Routes that write a device id without checking its secret (from review, confirmed).** Three routes trust a `deviceId` sent in the request body and never call `verifyDeviceSecret`:
+- `POST /cats` (register a cat you own), `routes/cats.ts:100`;
+- `POST /cats/:catId/claim`, `routes/cats.ts:229`;
+- `PATCH /cats/:catId`, `routes/cats.ts:283`.
+
+On any of them, someone who knows a deleted person's device id could write it straight back onto a cat, with no secret and no 410. That would undo the "nobody can bring the identity back" promise. Data spine step 5 already requires the claim route to check the secret (§10.7, §11.2 row 5), so the fix is to finish that job:
+- all three routes go through `verifyDeviceSecret`, and with it the marker check;
+- this is a **precondition of this build**, done in the same PR if step 5 hasn't landed;
+- a test in §8.1 checks that each of the three routes returns 410 for a deleted id.
+
+This is not a redesign. The repo's own rule (`.agents/memory/device-secret-auth.md`) is that any endpoint acting for a device must verify it. These three routes simply pre-date that rule.
 
 ### 4.4 Running it twice
 
@@ -173,7 +186,7 @@ What the migration contains. Whoever holds the slot writes it; the next free num
      - **Resolve:** `status` goes `pending → resolved` and `cat_id` goes from null to a value, once, with nothing else changing. This is the only update the app makes today (`routes/sightings.ts:307`).
      - **Redaction:** stamped with a reason, the author cleared, nothing else changed. It may re-run.
    - **Deletes and `TRUNCATE`:** refused.
-   - **Knock-on:** the api-server tests currently clean up with `delete from sightings` (in six test files). The guard would refuse that. Those tests have to move to a throwaway database per run, with no bypass switch in the trigger, because a switch anyone can flip is not a guard. This is real work, and it is in the model-delegation table.
+   - **Knock-on:** the api-server tests currently clean up with `delete from sightings` (in seven test files). The guard would refuse that. Those tests have to move to a throwaway database per run, with no bypass switch in the trigger, because a switch anyone can flip is not a guard. This is real work, and it is in the model-delegation table.
 5. **Rollback:** putting `NOT NULL` back fails once any row has been redacted. The rollback has to say so and refuse, rather than pretend. That follows the rule in `lib/db/migrations/README.md` that destructive rollbacks are written and reviewed first.
 
 **Timing, per F6:** all September schema work must land before the Google Play closed test starts. This migration is schema work, so **it has to be scheduled before that clock starts**, whichever slot it gets.
@@ -196,7 +209,11 @@ What the migration contains. Whoever holds the slot writes it; the next free num
 
 ### 6.2 The order on the phone, and why
 
-1. **Pause the queue and wait for uploads.** On web, the existing Web Locks keep other tabs out. On native, the in-process chain does the same job. This stops a sighting from being uploaded under the old identity *after* the server has deleted it.
+1. **Pause the queue and wait for uploads.** This stops a sighting from being uploaded under the old identity *after* the server has deleted it, and it needs different handling on web and on phones.
+   - **On web,** taking `UPLOAD_LOCK` makes this tab wait until any other tab has finished uploading.
+   - **On phones, that lock does nothing (from review, confirmed).** Phones have no lock manager, so `withLock` runs straight away (`lib/webLocks.ts`). The storage chain in `queueStore.ts` only puts *storage* changes in order, and the `createSighting` network call in `syncOne` sits outside it.
+   - **So `OfflineContext` has to keep hold of its in-progress sync.** It stores the promise, and `pauseAndClear` then does two things. First, it sets a "paused" flag that `syncNow` and the reconnect trigger both respect. Second, it **awaits that stored promise** before going on.
+   - **Server backstop:** the marker means a straggling upload that still lands after the delete gets 410, never a new identity. A §8.2 test starts an upload, starts deletion, and asserts the upload finishes (or is refused) before `DELETE /api/me` is sent.
 2. **Call `DELETE /api/me`** with the old id and secret.
 3. **Only on `204` (or `410`),** wipe the phone:
 
@@ -210,6 +227,12 @@ What the migration contains. Whoever holds the slot writes it; the next free num
 5. **Show "Done".**
 
 If step 2 fails, steps 3 to 5 don't run and the queue resumes. The person is exactly where they started.
+
+**If the saved queue can't be read (from review).** The app already has a "read-only" state for a queue it cannot parse (`OfflineContext.readOnly`), and in that state normal queue changes throw `QueueWriteError`. Deletion must never get stuck on it, and must never skip the wipe to get past it. So on `204`, the wipe:
+- removes the raw `cat-spotter/pending-sightings` key directly, rather than editing the list through the write path. The whole list is going, so there is nothing to merge;
+- empties the photo stores wholesale.
+
+A §8.2 test starts from an unreadable queue and checks that both are gone afterwards.
 
 ### 6.3 Being precise about offline
 
@@ -256,7 +279,7 @@ Seed person Q with a sighting of the same cat. Record the cat's public payload, 
 4. **Q is untouched:** Q's sighting, profile and credit are unchanged.
 5. **Public output** shows *"a spotter"* (a null code) for P's sightings and discovery.
 6. **A second call returns `204`** and changes nothing.
-7. **The old id and secret now get `410`** on every device-authenticated route, including `POST /sightings`, and no profile or credential is recreated.
+7. **The old id and secret now get `410`** on every device-authenticated route, including `POST /sightings`, and no profile or credential is recreated. This applies equally to `POST /cats`, `POST /cats/:catId/claim` and `PATCH /cats/:catId`, sent with the old id **and no secret**.
 8. **A wrong secret gets `403`** and deletes nothing.
 9. **Notifications:** a later sighting of the cat by Q sends nothing to P and writes no notification row for a null device.
 10. **One transaction:** force a failure part-way (for example, make the profiles delete throw). Nothing is redacted.
@@ -269,14 +292,15 @@ Seed person Q with a sighting of the same cat. Record the cat's public payload, 
 - the sightings update;
 - the note-emptying `case`;
 - the notification null filter;
-- the marker check.
+- the marker check, including moving it *after* the insert in `verifyDeviceSecret`;
+- the secret check on each of the three cat routes.
 
 A green suite alone doesn't prove the test would notice.
 
 ### 8.2 App (vitest)
 
 - `deleteMyData`: on a failed server call, nothing is wiped. On `204`, every key in the "wiped" column of §6.2 is gone and every "kept" key survives. On `410`, the same wipe happens.
-- The queue: `pauseAndClear` waits for an upload in progress, and an item added during the wipe does not survive.
+- The queue: `pauseAndClear` waits for an upload in progress **with no lock manager present** (the phone case), and an item added during the wipe does not survive. An unreadable ("read-only") queue is still wiped.
 - Photo stores: native files, IndexedDB photos and queue backups are all empty afterwards.
 
 ### 8.3 By hand, before the PR opens (Samuel's standing rules)
@@ -347,7 +371,7 @@ In the browser pane on the web build, at about 390 px and at desktop width:
 ## 11. Rollout order
 
 0. **Samuel approves this plan** and decisions A to E. Part 2g lands in `DECISIONS.md` through its own PR.
-1. **Data spine step 4** (claims recorded as homed), before this, for decision A.
+1. **Data spine step 4** (claims recorded as homed) and **step 5's claim check**, both before this: step 4 for decision A, and step 5 for §4.3. If step 5 hasn't landed, this build adds the secret check to the three cat routes itself.
 2. **The §5 migration**, in its slot, before the Play closed test. It is additive apart from the relaxed `NOT NULL`, so nobody notices anything.
 3. **Server, read side:** nullable spotter codes, the fans rule and the notification filter. This is harmless on its own, because no row is redacted yet.
 4. **Server, `DELETE /api/me`:** `severPerson`, the marker, the 410 handling and all the §8.1 tests. Deploy it, then probe it with curl against the deployed API. It is not reachable from any shipped app yet.
@@ -359,7 +383,26 @@ In the browser pane on the web build, at about 390 px and at desktop width:
 
 ---
 
-## 12. Model delegation
+## 12. Adversarial review, and what changed
+
+One Sonnet critic reviewed this plan in its own worktree, checking it against the code on `main`. The full report is in `syc-63-self-service-deletion-review.md`, next to this plan.
+
+| Finding | Severity | What we did |
+|---|---|---|
+| `POST /cats`, the claim route and `PATCH /cats/:catId` write a device id without checking the secret, so the "cannot come back" promise had a hole | Blocker | **Accepted.** §4.3 now makes the secret check on all three routes a precondition, with 410 tests and mutation probes |
+| On phones, "wait for the upload" was a no-op, because the lock only exists on web | High | **Accepted.** §6.2 now keeps and awaits the in-progress sync promise, with a no-lock-manager test |
+| The marker check has to come before the trust-on-first-use insert | Medium | **Accepted.** It is spelled out in §4.1 and §4.3, with its own mutation probe |
+| No answer for an unreadable queue | Medium | **Accepted.** The raw key and the photo stores are wiped directly, with a test |
+| "Six test files" should be seven | Low | **Fixed** |
+| Token-expiry contradiction cited as email-capture §5.8 instead of §8.5 | Low | **Rejected.** "Delete tokens do not expire" appears in §5.8 (line 412) *and* in §9 (line 566), so the §5.8 citation is right. The reviewer's "§8.5" is also wrong: line 566 is in §9 |
+
+The review confirmed several things:
+- the plan's exact observations update passes the 0001 trigger;
+- the proposed sightings "resolve" rule matches the app's only real update;
+- `sightings.device_id` has no index today;
+- the table-by-table claims in §2 are right.
+
+## 13. Model delegation
 
 This session runs on Opus. The design and the adversarial review are done. The build splits like this:
 
@@ -367,7 +410,7 @@ This session runs on Opus. The design and the adversarial review are done. The b
 |---|---|---|---|
 | §5 migration: columns, checks, index, **sightings append-only trigger** and its rollback | **Opus** | Silent-failure territory: a wrong trigger either blocks the app's only legitimate update or lets history be rewritten, and the rollback is destructive | Trigger tests mirroring `dataSpine.test.ts`; `migrate:check` in CI; **mutation probe** on each trigger branch; adversarial review by a separate Sonnet critic in its own worktree |
 | Move api-server tests to a throwaway database (needed by the guard) | Sonnet | Standard test-infrastructure work with a clear target | Whole suite green in CI; one deliberate `delete from sightings` in a test proves the guard fires |
-| `severPerson`, `DELETE /api/me`, the marker, 410 in `verifyDeviceSecret` | **Opus** | Deletes people's data. The transaction order, idempotency and the resurrection race are subtle | §8.1 tests, including the whole-database scan; mutation probes listed in §8.1; curl probe against the deployed API |
+| `severPerson`, `DELETE /api/me`, the marker, 410 in `verifyDeviceSecret`, and the secret check on the three cat routes | **Opus** | Deletes people's data. The transaction order, idempotency and the resurrection race are subtle | §8.1 tests, including the whole-database scan; mutation probes listed in §8.1; curl probe against the deployed API |
 | Read-path changes (§4.5 table) | Sonnet | Mechanical once the column is nullable, since TypeScript lists every site | Typecheck; §8.1 tests 5 and 9; session-model spot review of the diff |
 | OpenAPI path and orval regeneration | Haiku | Mechanical, following `.agents/memory/orval-codegen.md` | Typecheck across the app and client; diff spot review |
 | App: `deleteMyData.ts`, `resetIdentity`, `pauseAndClear`, the photo-store wipe, 410 handling | **Opus** | The queue's lock ordering already broke once (offline-queue review); a wrong order uploads a sighting under a deleted identity | §8.2 tests; browser-pane click-through at 390 px and desktop |
