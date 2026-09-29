@@ -286,8 +286,8 @@ The implementer makes each break on a scratch commit, runs the suite, records wh
 
 1. **Build now** (this plan, once approved), in its own worktree, one commit per item, behind the switch. Merging changes nothing live: the Replit deployment is still "Password protected", and nothing is pulled into the Repl until step 3.
 2. **Prepare settings (Claude, with one paste each from Samuel).** Claude generates `PRELAUNCH_SESSION_KEYS`, one tester key and a passphrase in a terminal tab, never printed to chat or saved. Samuel pastes `PRELAUNCH_WEB_PASSWORD`, `PRELAUNCH_SESSION_KEYS` and `PRELAUNCH_TESTER_KEYS` into Replit's deployment secrets (they can't be set from here). The tester key also goes into EAS with `eas env:create` for the store build profiles (Claude can run this, since EAS is scriptable).
-3. **The switch to Public is a publish, so it waits on SYC-102**, and ideally goes out in **the same publish as the EU-region move** the other session is proposing: changing who can access the deployment means unpublishing first (PR #25), so doing both in one go means one short outage, not two. The publish contains this code, `PRELAUNCH_GATE` left unset (so on), and the access setting changed to Public. **The code and the access change must go out together**: Public without the gate code would expose everything.
-4. **Probe straight after the publish** (the checklist below). If any "must be refused" probe answers 200, set the deployment back to Password protected at once and investigate.
+3. **Public goes live on the new EU project's first publish (SYC-121 C.6), not by changing the existing deployment.** A Replit project's region can't be changed after it's first published, so SYC-121 publishes a new project in Europe. That project's **first** publish is already **Public**, with this code, `PRELAUNCH_GATE` left unset (so on), and the three `PRELAUNCH_*` deployment secrets set beforehand. There's no unpublish step and no outage for this. It happens on the new project's own `*.replit.app` address, days before testers move to it. **The code and the access setting still go out together**: the new project is never published without the gate code. The old project stays **Password protected**, untouched, as SYC-121's way back. `apptest.catspotters.com` moves to the new project at SYC-121's cutover (E.10).
+4. **Probe straight after the publish** (the checklist below). If any "must be refused" probe answers 200, set the new project back to Password protected at once and investigate. The checklist runs twice: on the new project's `*.replit.app` address at SYC-121 C.7 and D.4 (without tester data first, then with the rehearsal copy), and on `apptest.catspotters.com` at SYC-121 E.11. Item 7's 200 case waits for SYC-83 (see SYC-121 C.7).
 5. **Store builds.** SYC-32's first TestFlight and Play builds include `EXPO_PUBLIC_PRELAUNCH_KEY`. The end-to-end check (items 7–8) runs before testers are invited.
 6. **Worker.** SYC-83 can then reach `/api/internal/people/allowed`; its own plan's probes run as written.
 
@@ -326,7 +326,7 @@ Steps, in order. Each is checked from live sources (merged PR file lists and the
 3. Leave the tester key in old test builds; it's simply ignored.
 4. Later, in an ordinary PR (filed as a follow-up now): delete the gate code, `/_gate/*`, the four settings and the EAS variable, and remove the settings from Replit.
 
-**Rolling back** at any point before launch: set the deployment back to Password protected (a publish), which puts Replit's wall in front again.
+**Rolling back** at any point before launch: set the new EU project (SYC-121) back to Password protected (a publish), which puts Replit's wall in front again. Before SYC-121's cutover, the old project is still Password protected and untouched, and it's SYC-121's way back.
 
 ## Decisions for Samuel
 
