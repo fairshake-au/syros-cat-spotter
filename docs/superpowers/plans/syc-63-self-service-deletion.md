@@ -396,6 +396,8 @@ The options and recommendations are kept below for the record. Each one ends wit
    - **(a)** keep it as decided, and accept the one named test exception in §8.1;
    - **(b)** "keep the link" meant "keep the cat showing as homed". In that case the link is cleared, and the homed status comes from data spine step 4's observation instead. That brings the step-4 dependency back.
 
+   **Samuel hasn't answered yet (as of 29 Sep).** If he picks (b), the step-4 dependency comes back. But step 4 (spine PRs 2 to 4) is already a prerequisite of this build (§11), so **(b) now costs no extra sequencing**. It only changes `severPerson` to also clear `owner_device_id`, and removes the test exception.
+
    The plan follows (a) until he says otherwise.
 6. **Decision A keeps the home description, so the privacy policy needs reconciling.** `privacy-policy.md` says *"Your address, your points, your streak, your spot history and anything you typed all go."* A cat's home description is something the person typed, and it now stays. The wording to reconcile is that sentence. It would need to add something like *"…except a note about where a cat you said lives with you is kept"*, alongside the existing exception for names. **For Samuel. This plan doesn't edit `privacy-policy.md`.** Email-capture §6.3 also needs the approved A, B and E lines added (§1.2).
 
