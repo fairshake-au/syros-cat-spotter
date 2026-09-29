@@ -16,7 +16,7 @@ His condition: "so long as it definitely works." This plan is built around provi
 
 ## In plain English
 
-- **Testers on the website** see a simple Cat Spotters password page the first time they visit. They type the shared password once and then use the site normally for 14 days on that browser. Everyone else sees only the password page.
+- **Testers on the website** see a simple Cat Spotters password page the first time they visit. They type the shared password once and then use the site normally for 28 days on that browser. Everyone else sees only the password page.
 - **Testers on the phone** (TestFlight and the Play closed test) notice nothing at all. Their app build carries a tester key, and sends it with every request and every photo it loads.
 - **Staff signing in** through `admin.catspotters.com` notice nothing. The sign-in page's private question to the app carries its own secret, which counts as a pass.
 - **Anyone else** who finds the address, a search engine, or a script gets the password page for the website and a plain "not open yet" refusal from the API. Exact cat locations, photos and sighting data stay private until launch, as they are behind Replit's wall today.
@@ -68,7 +68,7 @@ Each numbered item is its own commit, in this order.
 
 - **Refactor for testing first** (no behaviour change): move the request handler into `createHandler(env)` and export it; only call `listen` and the "no dist" exit when the file is run directly (`require.main === module`). The existing behaviour is pinned by a short test before the gate goes in.
 - **New file `server/prelaunch.js`** (Node built-ins only, like `serve-web.js`): `gateEnabled(env)`, `signSession(keys, now)`, `verifySession(keys, cookieHeader, now)`, `checkPassword(env, supplied)`.
-  - Cookie `__Host-cs_prelaunch`: `HttpOnly; Secure; SameSite=Lax; Path=/`, no `Domain`, `Max-Age` 14 days. Value `v1.<expiry>.<HMAC-SHA256(expiry)>`, base64url. No expiry means refused. Every cookie with that name is tried (the PR #20 rule). Comparisons are constant-time.
+  - Cookie `__Host-cs_prelaunch`: `HttpOnly; Secure; SameSite=Lax; Path=/`, no `Domain`, `Max-Age` 28 days (Decision 2, decided by Samuel). Value `v1.<expiry>.<HMAC-SHA256(expiry)>`, base64url. No expiry means refused. Every cookie with that name is tried (the PR #20 rule). Comparisons are constant-time.
   - Password check: SHA-256 both sides, `timingSafeEqual`.
 - **Order of checks in the handler**, when the gate is on:
   1. Bad percent-encoding → 400 (unchanged).
@@ -223,7 +223,7 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 
 1. Gate off: `/`, `/cat/12`, a hashed bundle and `/status` answer exactly as today (pins the refactor).
 2. Gate on, no cookie: `/` and `/cat/12` → 200 password page with `no-store`; `/_expo/static/js/x.js` → 401; `/status` → 200; `/robots.txt` → `Disallow: /`; every response has `X-Robots-Tag`.
-3. Right password → 303 to `next`, and the cookie has `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain`, 14-day `Max-Age`. Then that cookie → the real page.
+3. Right password → 303 to `next`, and the cookie has `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain`, 28-day `Max-Age` (2,419,200 seconds), and the signed expiry inside the cookie is 28 days from now. A cookie whose signed expiry is 28 days and one second old is refused. Then that cookie → the real page.
 4. Wrong password → 401 page, no cookie. The eleventh wrong try from one address → 429.
 5. `next` values `//evil.example`, `/\evil.example`, `https://evil.example`, `javascript:x` → all redirect to `/`.
 6. Cookie refused when: tampered, signed with an unknown key, expired, no expiry, wrong version prefix. With two keys, a cookie signed by the second is accepted. Two cookies with the name, bad one first → the good one wins.
@@ -237,8 +237,8 @@ CI (Node 24, Linux) is the authority; SYC-31 means some suites can fail locally 
 9. Gate on, no pass: `GET /api/cats`, `GET /api/photos/1`, `POST /api/sightings`, `POST /api/notifications/…`, `GET /api/campaign`, `/API/CATS` (upper case) → 401 with the exact body. `/API/Internal/people/allowed`, `/api/%69nternal/people/allowed` and `/api//internal/people/allowed` with a valid tester key → refused (treated as internal). The test walks **every route registered on the router** (read from Express's route stack), so a route added later is covered automatically.
 10. `GET` and `HEAD /api/healthz` → 200 with no pass. `POST /api/healthz` and `/api/healthz-extra` → 401.
 11. Valid website cookie → passes to the route. Valid tester key → passes. Second tester key during a change → passes. Wrong key, empty key, key in the query string → 401.
-12a. `/api/team/*`: once PR #20's routes exist, the test walks every registered `/api/team/*` route with the gate on and no staff session and expects PR #20's 401 `not_signed_in` from each (never a 200). `/API/TEAM/me` is also exempt and also refused by the route. Whichever of this and PR #20 lands second adds the test.
 12. `/api/internal/people/allowed`: right bearer → passes; website cookie → 401; tester key → 401; no token configured → 503.
+12a. `/api/team/*`: once PR #20's routes exist, the test walks every registered `/api/team/*` route with the gate on and no staff session and expects PR #20's 401 `not_signed_in` from each (never a 200). `/API/TEAM/me` is also exempt and also refused by the route. Whichever of this and PR #20 lands second adds the test.
 13. `OPTIONS` preflight with no pass → answered by CORS (204) with the allow headers, not 401. A 401 still carries `Access-Control-Allow-Origin`.
 14. A 25 MB body with no pass → 401 without the JSON parser running (the parser is spied on).
 15. `NODE_ENV=production`, `NODE_ENV` unset, and `NODE_ENV=staging` with `PRELAUNCH_GATE` unset → all on. `PRELAUNCH_GATE=off` with `LOCATION_BLURRING_LIVE=false` → **still on**, with the log line. `PRELAUNCH_GATE=off` with it `true` → off, and `/api/cats` answers without a pass.
@@ -339,7 +339,7 @@ Steps:
 
 `/api/team/*` doesn't exist yet, so whichever lands second adds the exemption and its test.
 
-**Decision 2 — How long the website remembers the password.** Recommended **14 days**: testers type it about twice a month; changing the key logs everyone out at once if the password leaks. 30 days (matching the staff session) means fewer prompts but a leaked cookie works longer.
+**Decision 2 — How long the website remembers the password. Decided by Samuel, 29 Sep 2026: 28 days** (the plan had recommended 14). Testers type the password about once a month. If the password or a cookie leaks, changing `PRELAUNCH_SESSION_KEYS` still logs everyone out at once.
 
 **Decision 3 — The launch interlock (item 3).** Recommended **yes**: it makes "blurring first" impossible to skip by accident. *Risk:* on launch day, if PR 6 forgot to flip the flag, the switch appears not to work until someone reads the log line; the launch steps say exactly that.
 
