@@ -69,14 +69,43 @@ export function markStaleItems(
 
 export type SyncFailureDecision =
   | { kind: 'network' }
+  | { kind: 'needs_sign_in' }
   | { kind: 'server'; permanent: boolean; failCount: number };
+
+/**
+ * Is `err` specifically the pre-launch gate's own 401 (SYC-113's
+ * `prelaunchGate.ts`), told apart from every other 401/403 by its response
+ * body's `error` field — never by status code alone.
+ *
+ * This matters because `POST /api/sightings` and its device-secret check
+ * (`verifyDeviceSecret`) also answer 401 (`{ error: "Device secret
+ * required" }`) and 403 (`{ error: "Device secret does not match" }`), and
+ * those must keep today's "permanent rejection" handling, not this one.
+ */
+function isPrelaunchGateFailure(err: unknown): boolean {
+  if (!(err instanceof Error) || err.name !== 'ApiError') return false;
+  const status =
+    'status' in err && typeof (err as { status?: unknown }).status === 'number'
+      ? (err as { status: number }).status
+      : undefined;
+  if (status !== 401) return false;
+  const data = (err as { data?: unknown }).data;
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    (data as Record<string, unknown>).error === 'prelaunch_pass_required'
+  );
+}
 
 /**
  * Decide what to do with a queued item after a sync attempt threw `err`.
  *
  * - Non-API errors are network failures: keep the item queued unchanged.
+ * - The pre-launch gate's own 401 (post-cutover session keys, a queued
+ *   sighting replayed with no valid gate cookie) is NOT permanent: the item
+ *   stays queued untouched, and the caller pauses retrying until sign-in.
  * - API (server) errors increment the fail count; the item is flagged as a
- *   permanent error on any 4xx status, or once the fail count reaches
+ *   permanent error on any other 4xx status, or once the fail count reaches
  *   MAX_SYNC_ATTEMPTS.
  */
 export function classifySyncFailure(
@@ -85,6 +114,7 @@ export function classifySyncFailure(
 ): SyncFailureDecision {
   const isServerError = err instanceof Error && err.name === 'ApiError';
   if (!isServerError) return { kind: 'network' };
+  if (isPrelaunchGateFailure(err)) return { kind: 'needs_sign_in' };
   const failCount = (previousFailCount ?? 0) + 1;
   const status =
     err !== null &&

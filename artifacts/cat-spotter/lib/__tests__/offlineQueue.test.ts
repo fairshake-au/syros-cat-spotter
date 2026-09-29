@@ -22,14 +22,22 @@ function makeItem(overrides: Partial<PendingSighting> = {}): PendingSighting {
   };
 }
 
-function apiError(status?: number): Error {
+function apiError(status?: number, data?: unknown): Error {
   const err = new Error(`server said ${status ?? 'nothing'}`);
   err.name = 'ApiError';
   if (status !== undefined) {
     (err as unknown as { status: number }).status = status;
   }
+  if (data !== undefined) {
+    (err as unknown as { data: unknown }).data = data;
+  }
   return err;
 }
+
+const GATE_BODY = {
+  error: 'prelaunch_pass_required',
+  message: "Cat Spotters isn't open yet.",
+};
 
 describe('classifySyncFailure', () => {
   it('flags 4xx errors as permanent immediately (first attempt)', () => {
@@ -82,6 +90,56 @@ describe('classifySyncFailure', () => {
       kind: 'network',
     });
     expect(classifySyncFailure('weird throw', 0)).toEqual({ kind: 'network' });
+  });
+
+  it('recognises the pre-launch gate 401 by its body, not by status alone', () => {
+    expect(classifySyncFailure(apiError(401, GATE_BODY), 0)).toEqual({
+      kind: 'needs_sign_in',
+    });
+    // No previous fail count, and a fresh gate 401 later — always the same.
+    expect(classifySyncFailure(apiError(401, GATE_BODY), undefined)).toEqual({
+      kind: 'needs_sign_in',
+    });
+  });
+
+  it('does not confuse the device-secret 401/403 with the gate 401', () => {
+    // verifyDeviceSecret's shapes (artifacts/api-server/src/lib/deviceAuth.ts):
+    // missing header -> 401, wrong secret -> 403. Neither carries the gate's
+    // `error: "prelaunch_pass_required"` body, so both keep today's handling.
+    expect(
+      classifySyncFailure(apiError(401, { error: 'Device secret required' }), 0),
+    ).toEqual({ kind: 'server', permanent: true, failCount: 1 });
+    expect(
+      classifySyncFailure(
+        apiError(403, { error: 'Device secret does not match' }),
+        0,
+      ),
+    ).toEqual({ kind: 'server', permanent: true, failCount: 1 });
+  });
+
+  it('does not treat a 401 with no body, or a differently-shaped body, as the gate', () => {
+    expect(classifySyncFailure(apiError(401), 0)).toEqual({
+      kind: 'server',
+      permanent: true,
+      failCount: 1,
+    });
+    expect(
+      classifySyncFailure(apiError(401, { error: 'something_else' }), 0),
+    ).toEqual({ kind: 'server', permanent: true, failCount: 1 });
+    expect(classifySyncFailure(apiError(401, 'not json'), 0)).toEqual({
+      kind: 'server',
+      permanent: true,
+      failCount: 1,
+    });
+  });
+
+  it('every other 4xx keeps today\'s handling, even at 401 status codes from other routes', () => {
+    expect(classifySyncFailure(apiError(429, GATE_BODY), 0)).toEqual({
+      // Right-shaped body but wrong status: not the gate's 401.
+      kind: 'server',
+      permanent: true,
+      failCount: 1,
+    });
   });
 });
 
