@@ -338,10 +338,9 @@ The options and recommendations are kept below for the record. Each one ends wit
   - Option 3 breaks the promise.
 - **Related ticket:** SYC-69 is already open, asking whether old owner names should eventually be redacted.
 - *Recommendation was:* 1.
-- **Decided: option 2, clear ONLY the owner's name.** The owner link (`owner_device_id`) and the home description stay.
-  - **What this means for the cat:** it keeps showing as having a home. Today `hasHome` reads the owner link, and the link stays. After spine PR 4, `hasHome` comes from the cat's derived life status, which the redacted `homed` observation keeps, so the cat stays homed whatever happens to the link. Spine PRs 2 to 4 are prerequisites of this build anyway (§11). Nobody can edit the cat after deletion: the owner's credential is gone and the marker refuses the old identity.
-  - **What stays behind:** the home description. The privacy policy's promise that "anything you typed" goes doesn't cover it as worded (flag 6 in §10).
-  - **Keeping the owner link** keeps the person's raw device id in the database (flag 5 in §10).
+- **Decided: owner name and owner link cleared; home description kept.** Samuel first chose option 2 (name only). He then settled flag 5 as (b) on 29 Sep, which clears the owner link too.
+  - **What this means for the cat:** it stays homed through its derived life status. Spine PR 4 makes `hasHome` come from that status, and the redacted `homed` observation keeps it. PR 4 is already a prerequisite of this build (§11). Nobody can edit the cat after deletion.
+  - **What stays behind:** the home description. The privacy policy's promise that "anything you typed" goes doesn't cover it as worded (flag 6 in §10, still open).
 
 **B. Spots on the phone that haven't been sent yet.**
 - *Options:*
@@ -384,27 +383,14 @@ The options and recommendations are kept below for the record. Each one ends wit
    - state how long database backups keep deleted data, in the privacy policy;
    - settle the delete-token expiry contradiction (email-capture §5.8 vs team-access §8.5), within SYC-45;
    - api-server tests on a throwaway database, needed by the sightings guard.
-5. **Decision A keeps the person's raw device id, in `cats.owner_device_id`.** Samuel decided to keep the owner link. On `main` that link *is* the device id, so after deletion one row still holds it. This conflicts with three things:
-   - data spine §8.5's test that "no query anywhere returns the device id";
-   - §10.8 test 14;
-   - §8.3, where "the device row" goes and everything else is unlinked.
-
-   The id no longer unlocks anything, because the credential is gone and the marker refuses it. But it is still the person's identifier, and it could be matched against anything that recorded it elsewhere, such as old logs or an old phone.
-
-   *Samuel to confirm one of two things:*
-   - **(a)** keep it as decided, and accept the one named test exception in §8.1;
-   - **(b)** "keep the link" meant "keep the cat showing as homed". In that case the link is cleared, and the homed status comes from data spine step 4's observation instead. That brings the step-4 dependency back.
-
-   **Samuel hasn't answered yet (as of 29 Sep).** If he picks (b), the step-4 dependency comes back. But step 4 (spine PRs 2 to 4) is already a prerequisite of this build (§11), so **(b) now costs no extra sequencing**. It only changes `severPerson` to also clear `owner_device_id`, and removes the test exception.
-
-   The plan follows (a) until he says otherwise.
+5. **Resolved (Samuel, 29 Sep 2026): (b), remove the owner link.** Deletion clears `cats.owner_device_id` as well as the owner's name. The "no query returns the device id" test now applies with **no exceptions**. A claimed cat stays homed through its life status (spine PR 4, already a prerequisite).
 6. **Decision A keeps the home description, so the privacy policy needs reconciling.** `privacy-policy.md` says *"Your address, your points, your streak, your spot history and anything you typed all go."* A cat's home description is something the person typed, and it now stays. The wording to reconcile is that sentence. It would need to add something like *"…except a note about where a cat you said lives with you is kept"*, alongside the existing exception for names. **For Samuel. This plan doesn't edit `privacy-policy.md`.** Email-capture §6.3 also needs the approved A, B and E lines added (§1.2).
 
 ---
 
 ## 11. Rollout order
 
-0. **Samuel approves this plan.** Decisions A to E were decided on 29 Sep; flag 5 in §10 is still open. Part 2g lands in `DECISIONS.md` through its own PR.
+0. **Samuel approves this plan.** Decisions A to E and flag 5 were settled on 29 Sep. Flag 6 (the privacy-policy wording) is still open. Part 2g lands in `DECISIONS.md` through its own PR.
 0a. **SYC-102 must be resolved before any of this reaches production. This is a blocking dependency.** Replit copies only structural changes, such as tables and columns, from the dev database to production when you publish. Triggers and functions may not make the trip.
    - **The deletion itself doesn't rely on a trigger.** Its updates work with or without one.
    - **The guarantees around it do.** Migration 0001's `observations_append_only` trigger is what stops anything *other* than a redaction rewriting history. §5's new sightings guard is a trigger too.
