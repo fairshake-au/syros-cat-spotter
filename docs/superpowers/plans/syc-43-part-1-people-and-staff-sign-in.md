@@ -82,7 +82,7 @@ The same list lives in one TypeScript function, `checkPersonEmail()` in `lib/db/
 | `role` | `text`, not null | Check: one of `staff`, `guardian`, `volunteer`, `vet`. Only `staff` grants anything in this part (§7.1). The other three are accepted now so that §7.2 doesn't need a migration to store them. |
 | `colony_id` | `integer`, nullable, references `colonies(id)` | Null means "not tied to a colony". It points at the data spine's table, as §3.2 requires. |
 
-A unique index on `(person_id, role, colony_id)` **with nulls treated as equal** (Postgres 15+, and CI and Replit both run 16), so the same role can't be given twice.
+A unique **constraint** on `(person_id, role, colony_id)` **with nulls treated as equal** (Postgres 15+, and CI and Replit both run 16), so the same role can't be given twice. It must be written as `unique("person_scopes_role_scope_unique").on(t.personId, t.role, t.colonyId).nullsNotDistinct()`, not `uniqueIndex(...)`. In the pinned drizzle-orm (0.45.2), only the constraint builder has `nullsNotDistinct()`. A plain unique index would treat every staff row's empty `colony_id` as different, so one person could quietly get `staff` twice.
 
 **`team_handoff_spent`** (spec §2.4 step 5)
 
@@ -135,6 +135,8 @@ New file `artifacts/api-server/src/routes/internal.ts`.
 
 New files: `artifacts/api-server/src/lib/teamAuth/handoff.ts` (checks the pass), `lib/teamAuth/config.ts` (reads settings) and `routes/team.ts`.
 
+**Settings are read on every request, never cached when the file loads.** This follows the `OWNER_SECRET` precedent in `routes/notifications.ts`. It lets one test run check "not configured", "configured" and "mid key change" without reloading modules, and it means a removed secret takes effect straight away. Parsing a 32-byte key on each hand-off costs nothing at this volume.
+
 The Worker's "Cat Spotters dashboard" button is a small form that **POSTs** the pass to `https://team.catspotters.com/api/team/handoff`. A POST keeps the pass out of the address bar, browser history, logs and `Referer` headers. The spec says the link "carries it once" and doesn't specify how, so this follows it.
 
 Checks, **in the spec's order (§2.4), each one mandatory:**
@@ -148,7 +150,7 @@ Checks, **in the spec's order (§2.4), each one mandatory:**
 6. **Still on the list:** look `sub` up in `people`. If they're gone, refuse. If `sv` is lower than the row's `session_version`, refuse.
 7. **Only then** issue the session (below) and send `303` to `https://team.catspotters.com/api/team/`.
 
-**On any failure (§2.4), the same thing happens every time:** status `401`. A request expecting JSON gets exactly `{"error":"not_signed_in"}`. A browser page load gets a tiny fixed page with the same status that takes the person back to `https://admin.catspotters.com/`. Nothing says which check failed. The real reason goes into the server log with the `jti` and the request id. There is no fallback, no development bypass, and no reading of any identity header.
+**On any failure (§2.4), the same thing happens every time:** status `401`. A request expecting JSON gets exactly `{"error":"not_signed_in"}`. A browser page load (`Sec-Fetch-Mode: navigate`) gets the same `401` status with a tiny fixed page that **redirects straight back** to `https://admin.catspotters.com/` (`<meta http-equiv="refresh" content="0;url=…">`, plus a plain link in case refresh is blocked). This is the spec's "redirect for browsers". A `303` would lose the `401` status that every failure must share, so the redirect happens inside the page. Nothing says which check failed. The real reason goes into the server log with the `jti` and the request id. There is no fallback, no development bypass, and no reading of any identity header.
 
 A courtesy limit of 60 hand-offs per 15 minutes per IP uses the existing in-memory limiter. It exists to cap signature-checking work, not as a security control (see "Rate limits" below).
 
@@ -207,7 +209,7 @@ Each item is ticketed (existing tickets are checked first; new ones are listed i
 10. **[§8.6 #7]** A pass signed with HMAC-SHA256 using the public key's bytes as the secret, with header `alg: HS256`, is refused. So is `alg: none` with an empty signature.
 11. **Replay across two servers:** two separately imported app instances sharing the database. A pass spent on one is refused by the other.
 12. During a key change, with two public keys configured, a pass signed by either key is accepted. With one key, a pass signed by the other is refused.
-13. A browser load (`Sec-Fetch-Mode: navigate`) gets the same `401` status, with the fixed page linking back to `admin.catspotters.com`.
+13. A browser load (`Sec-Fetch-Mode: navigate`) gets the same `401` status, and the page's meta refresh points exactly at `https://admin.catspotters.com/`. The body is identical whichever check failed.
 
 **The session (`routes/team.session.test.ts`)**
 14. **[§8.6 #11]** Sign in, then `signOutEverywhere` → the same cookie gets `401` on the very next request.
@@ -219,6 +221,8 @@ Each item is ticketed (existing tickets are checked first; new ones are listed i
 
 **Mutation checks** (break it on purpose, confirm the named test goes red, put it back). These guards fail *silently*: a broken one still "works" for a real user, so a green suite alone proves nothing.
 - Choose the verifier from the token's `alg` → test 10 must fail.
+- Treat a missing `Origin` header as allowed on `/api/team/handoff` → the no-`Origin` case of test 9 must fail. (The live Worker carries the warning comment "a missing Origin is not a free pass", because `SameSite=Lax` treats every `*.catspotters.com` host as same-site.)
+- Accept any `Origin` ending in `catspotters.com` → the wrong-`Origin` case of test 9 (sent as `https://evil.catspotters.com`) must fail.
 - Skip the `aud` check → test 9 (wrong `aud`) must fail.
 - Spend `jti` in memory instead of in Postgres → test 11 must fail.
 - Drop the `session_version` comparison in `requireTeam` → test 14 must fail.
@@ -263,3 +267,16 @@ The session model is Opus 5.5.
 ## Crash-proofing for the build
 
 The build happens in its own worktree, branched from fresh `origin/main`. Each numbered section above is its own commit. A `CHECKPOINT.md` in the worktree root records what's done and what's next after each commit.
+
+## Adversarial review of this plan
+
+Reviewed by a Sonnet critic in its own worktree against the spec, `DECISIONS.md` Part 2b, the code on `main` and the live Worker source. It found no blockers. Every finding was checked by the session model and is folded in above:
+
+| # | Severity | Finding | What changed |
+|---|---|---|---|
+| 1 | Major | The "no duplicate role" rule couldn't be built as a unique *index*: the pinned drizzle-orm 0.45.2 only offers "treat empty colony as equal" (`nullsNotDistinct()`) on a unique *constraint*. A plain index would let one person get `staff` twice. Confirmed in `drizzle-orm/pg-core/unique-constraint.d.ts`. | The plan now names the exact constraint to write. Database test 4 already catches the silent version. |
+| 2 | Major | No mutation check proved the hand-off's `Origin` guard is watched by a test, which is the exact login-CSRF gap the Worker already had to close. | Two mutation checks added: a missing `Origin`, and a look-alike `*.catspotters.com` origin. |
+| 3 | Minor | The spec says failures *redirect* browsers back to the sign-in page. The plan said "a page linking back". | The page now redirects immediately inside a `401` (meta refresh, with a plain link as fallback). Test 13 checks the target. |
+| 4 | Minor | The plan didn't say when settings are read. Caching them at load would stop the tests from checking the "not configured" and "key change" cases. | Settings are read per request, following `OWNER_SECRET`. |
+
+Checked and confirmed fine by the reviewer: the constant-time token comparison, cross-server single use through Postgres, the algorithm fixed in code, CI's Postgres 16, the `check()` precedent, and the live Worker's current state. The Worker has no dashboard link yet and still reads `admins`, and both SYC-25 fixes are live.
