@@ -93,30 +93,43 @@ What making the deployment public would newly expose, once the Replit wall itsel
 
 ## Options — benefits, risks, cost, and what people would notice
 
-### Option A — Give the API its own public deployment on `api.catspotters.com`, leave the website deployment gated (matches DEPLOYMENT.md §C)
+### Option A (revised) — A separate Replit project for the API, on `api.catspotters.com`, set to Public
 
-- **Benefits:** Unblocks SYC-83 (Worker → API) and SYC-32 (native store builds) immediately; matches the plan already written and approved in DEPLOYMENT.md; keeps the staging website hidden from the public for as long as wanted; each deployment's access is independently controllable going forward (e.g. flip the website public on launch day without touching the API).
-- **Risks:** Two deployments to keep in sync (env vars, secrets, deploys) instead of one; `trust proxy`/CORS need re-checking once the API is on its own origin talking to a website on a different origin (native app already hits it directly by domain, so this is mostly a website-CORS question, not a new one for native).
-- **Cost:** A second small autoscale deployment — unverified exact euros (see §2); shape-wise, modest.
-- **What testers/staff notice:** Nothing changes for them — native builds and the Worker start working; the staging website keeps needing the Replit password exactly as it does now.
-- **Recommendation: do this.** It's the already-approved plan, it's the narrowest change (doesn't touch the website's gating at all), and it directly produces the "done when" condition in the ticket — a live `curl` to `/api/internal/people/allowed` returning the API's own 401/503 instead of a 307.
+This is a new Repl, not a second deployment of the existing one — real infrastructure, not a setting change.
 
-### Option B — Make the single `apptest` deployment fully public (retire the Replit password entirely, once SYC-85's in-app password is also retired)
+- **Benefits:** Matches the literal shape DEPLOYMENT.md §C describes ("its own deployment on `api.` subdomain"); the website's Repl and its access setting are completely untouched, so there's zero risk of accidentally exposing staging pages; each project's access is independently controllable forever after.
+- **Risks / verifiable costs:**
+  - **A new Repl gets its own Replit-managed database.** It would not see the current data (cats, sightings, people) unless the database moves off Replit first — this makes the choice entangled with the Neon-vs-AWS decision the other session is making for SYC-102/SYC-47, not independent of it.
+  - **The Replit OpenAI integration the AI matching uses is per-project.** A new Repl needs that integration configured again from scratch (DEPLOYMENT.md notes matching "runs through Replit's OpenAI integration" today).
+  - **Two Repls to keep in sync with GitHub** instead of one — doubles the surface for the sync problem SYC-96 already tracks ("if the Replit agent can't pull from GitHub").
+  - **The web app needs `EXPO_PUBLIC_API_URL` set and CORS opened** on the API for the website's origin, since native builds already call the API by absolute domain (`artifacts/cat-spotter/lib/urls.ts`) but the browser build currently relies on same-origin (`window.location.origin`, same file) — splitting origins changes that assumption for the web build specifically.
+- **What testers/staff notice:** Nothing directly — native builds and the Worker start working; the staging website keeps its own gate exactly as before.
+- **Recommendation:** viable, but carries real setup cost and a second database to reconcile with SYC-102 before it even helps. Not the first choice — see Option B.
 
-- **Benefits:** Simplest possible end state — one deployment, one origin, no split to maintain; matches what production will look like after launch anyway.
-- **Risks:** The pre-launch staging build becomes reachable by anyone with the URL, with no barrier of any kind (not even an accidental one) until real launch-day gating (store review, marketing) is in place; do this too early and a work-in-progress build with placeholder copy/test data is one guessed URL away from being seen by the public or, worse, by Syros Cats stakeholders before it's ready.
-- **Cost:** None beyond what's already paid for.
-- **What testers/staff notice:** Testers stop needing to "log past the wall by hand"; nothing else changes for them since store-level testing gates are separate.
-- **Recommendation:** good for the *production* deployment on launch day, not recommended now for `apptest` — do Option A first, and revisit making the website deployment itself public closer to the October launch date DEPLOYMENT.md targets.
+### Option B (revised) — One project, deployment set to Public, with a server-enforced password on the website pages only
+
+- **Benefits:** One Repl, one database, one OpenAI integration — nothing to duplicate or keep in sync, and it works **whatever SYC-102/SYC-47 decides** about database hosting, because it doesn't touch the database question at all. `/api` routes become reachable immediately (they're already routed away from `serve-web.js` in production, per that file's own comment) and keep whatever authentication they already have (SYC-83's own check, once it can reach the API at all). The password check is ordinary code we own (`artifacts/cat-spotter/server/serve-web.js`), reviewable and testable like anything else in the repo — not a Replit black box.
+- **Risks:** Flipping the deployment's access setting from Password protected to Public is itself a publish, and Replit's docs say "changing access requires unpublishing your app first" — a short outage during the switch, timed for a quiet moment. That publish should happen after SYC-102 lands (or is deliberately deferred), since a schema-sensitive deploy during a database migration is exactly the kind of overlap DEPLOYMENT.md §C's migration ordering rules warn about. Until the password check is written and tested, there's a window where "Public" but not-yet-gated would expose the raw website — so the code change and the access-setting flip should land together, not sequentially with a gap.
+- **Cost:** Engineering time only — a small, reviewable change to one file already in the repo. No new infrastructure, no new billing.
+- **What testers/staff notice:** Testers log in once with a shared password on the website (similar to what they do today, just enforced by us instead of Replit) and then use the app normally; nothing changes for native app users, who never saw the Replit wall's UI to begin with once the API is reachable.
+- **Recommendation: do this**, unless something in a closer look at `serve-web.js` or the deploy pipeline rules it out — I didn't find anything that does. It keeps everything in one place, doesn't wait on or complicate SYC-102, and directly produces the ticket's "done when" condition (a live `curl` to `/api/internal/people/allowed` gets the API's own 401/503, not a 307).
 
 ### Option C — External Access Token for the Worker's server-to-server call only, leave the single deployment password-protected
 
-- **Benefits:** No new deployment to stand up or maintain; smallest possible change if the *only* problem were the Worker call.
+- **Benefits:** No new deployment or project to stand up; smallest possible change if the *only* problem were the Worker call.
 - **Risks:** Doesn't solve the actual critical-path problem — native store builds (iOS/Android) still can't get past the wall, because a bearer token baked into a public app binary defeats the point of the token (anyone could extract it from the app package) and the docs are explicit that this token type isn't meant for that use anyway. Would leave SYC-32 blocked even after "fixing" SYC-83. Adds a secret (the token) that needs rotating within its 1-hour–5-year lifetime and re-issuing if the deployment is ever unpublished.
 - **Cost:** None beyond engineering time.
 - **What testers/staff notice:** Nothing — the underlying store-build blocker (the actual urgent half of this ticket) remains.
-- **Recommendation:** not sufficient on its own. Could be layered on top of Option A later if some other server-to-server caller needs to reach a deployment that's staying private, but it doesn't replace giving the API its own public deployment.
+- **Recommendation:** not sufficient on its own. Doesn't replace A or B; at most a stopgap for the Worker call alone.
+
+### Option D — Fully public, no gate of any kind on the deployment
+
+- **Benefits:** Simplest possible end state, and the one production will need eventually — DEPLOYMENT.md doesn't describe the launched app as gated.
+- **Risks — what this exposes before launch:** the pre-launch `apptest` build becomes reachable by anyone with the URL, with **no barrier of any kind**, not even the website-only password Option B adds. A work-in-progress build with placeholder copy, seeded test cats, and unfinished features (§2 of PRODUCT-SPEC.md's item list) becomes one guessed or leaked URL away from being seen by the public, journalists, or Syros Cats stakeholders before it's ready. The staff dashboard (SYC-43) and welfare-report flow stay safe regardless — they have their own email-link sign-in independent of the Replit wall — but the general public browsing experience, campaign copy, and map would all be open with nothing standing in front of them.
+- **Cost:** None beyond what's already paid for.
+- **What testers/staff notice:** Testers stop needing to log in at all; anyone else with the URL can too.
+- **Recommendation:** right for *production* on launch day, not for `apptest` now. Do Option B first (a website-only password we control), and revisit dropping that password entirely as a deliberate decision timed to the October launch DEPLOYMENT.md targets — same moment SYC-85's separate in-app document password is meant to retire.
 
 ## Bottom line
 
-Do Option A now — it's the plan already on the page, it's scoped narrowly to the API, and it's what closes out both SYC-83 and the native-build half of SYC-32. Revisit Option B (making the website itself public) as a separate, deliberate decision closer to launch, after SYC-85's in-app document password is also retired. Option C doesn't solve enough of the problem to be worth doing instead of A.
+Do Option B: one Replit project, deployment set to Public, with a password check we own added to `serve-web.js` in front of the website pages only. It fixes SYC-83 and the native-build half of SYC-32 without opening a second Repl, without a second database to reconcile against the SYC-102/SYC-47 hosting decision, and without duplicating the OpenAI integration. Option A (a genuine second Replit project) is the fallback if Option B turns out to be blocked by something not visible from here (e.g. a deploy-pipeline constraint), but it carries real, named setup costs that B avoids entirely. Option C doesn't solve enough of the problem alone. Option D is the right target for production at launch, not for `apptest` today.
