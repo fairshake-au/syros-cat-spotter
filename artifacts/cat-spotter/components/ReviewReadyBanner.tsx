@@ -90,6 +90,6 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     fontSize: 13,
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: 'Inter_700Bold',
   },
 });

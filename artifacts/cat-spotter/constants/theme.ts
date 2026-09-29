@@ -3,17 +3,29 @@
  * radii and shadows translated from the web CSS tokens.
  */
 
-/** Font families (loaded in app/_layout.tsx via @expo-google-fonts). */
+/**
+ * Font families (loaded in app/_layout.tsx via @expo-google-fonts).
+ *
+ * Display and body both use Inter. Poppins (previous display face) and
+ * Nunito (previous body face) only cover Latin script on Google Fonts —
+ * neither ships a Greek subset, so every Greek string in the app rendered
+ * in a fallback system serif (SYC-7). Inter has full Greek, Latin/Latin
+ * Extended (covers French accents) and Cyrillic coverage in one family,
+ * so headings and body text keep a single consistent look across all
+ * three app languages instead of needing a second brand face just for
+ * Greek. Space Mono is untouched: it's only ever used for catalog IDs,
+ * dates and numbers, never translated copy.
+ */
 export const fonts = {
-  /** Poppins — display / headings / big numbers */
-  displayMedium: 'Poppins_500Medium',
-  displaySemiBold: 'Poppins_600SemiBold',
-  displayBold: 'Poppins_700Bold',
-  /** Nunito — body / UI text */
-  body: 'Nunito_400Regular',
-  bodySemiBold: 'Nunito_600SemiBold',
-  bodyBold: 'Nunito_700Bold',
-  bodyExtraBold: 'Nunito_800ExtraBold',
+  /** Inter — display / headings / big numbers */
+  displayMedium: 'Inter_500Medium',
+  displaySemiBold: 'Inter_600SemiBold',
+  displayBold: 'Inter_700Bold',
+  /** Inter — body / UI text */
+  body: 'Inter_400Regular',
+  bodySemiBold: 'Inter_600SemiBold',
+  bodyBold: 'Inter_700Bold',
+  bodyExtraBold: 'Inter_800ExtraBold',
   /** Space Mono — catalog IDs & data */
   mono: 'SpaceMono_400Regular',
   monoBold: 'SpaceMono_700Bold',

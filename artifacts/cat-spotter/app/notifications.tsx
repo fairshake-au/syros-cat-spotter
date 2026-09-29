@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontSize: 14,
-    fontFamily: 'Nunito_400Regular',
+    fontFamily: 'Inter_400Regular',
     textAlign: 'center',
   },
   sectionHeader: {
