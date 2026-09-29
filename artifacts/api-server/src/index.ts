@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { describeGate } from "./lib/prelaunch";
 
 const rawPort = process.env["PORT"];
 
@@ -14,6 +15,10 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// SYC-113: say whether the pre-launch gate is on and which settings are
+// present (never their values).
+for (const line of describeGate()) logger.info(line);
 
 app.listen(port, (err) => {
   if (err) {
