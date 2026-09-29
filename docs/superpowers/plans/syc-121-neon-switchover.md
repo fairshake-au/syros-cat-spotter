@@ -612,3 +612,123 @@ It runs against a live copy of tester data, with the old app still serving teste
 ### F.5 The rule for surprises
 
 **Anything unexpected means rolling back first and investigating after.** That includes a count that's off by one, a warning nobody has seen before, a slow page, or a review screen. Rolling back loses nothing, because the carry-back is tested, and it costs 15 to 25 minutes. Improvising on live data can lose data, and there's no test for that.
+
+---
+
+## Part G · Retention, and the record of the decision
+
+### G.1 How long the old setup is kept (decision Q3)
+
+| What | Kept until | Then |
+|---|---|---|
+| **Old Replit project, its deployment, and its production and dev databases** | **Cutover + 30 days** (recommended), and never before Claude has posted a clean E.13 check from that week | Claude posts a final `fingerprint-source` and `verify`. Samuel then unpublishes the old project and deletes its database, from its Database tool. The old project itself can stay as an archive of code at no cost. `REPLIT_PROD_DATABASE_URL` is removed from GitHub the same day |
+| **Neon archive branch** `replit-final-<date>` | Launch + 30 days | Claude deletes it via the MCP, after Samuel's go-ahead in chat |
+| **Encrypted dump** (if Q6 is yes) | Samuel's own copy, kept as long as he likes | — |
+| **GitHub Actions dump artifact** (if Q6 is yes) | 7 days, the shortest artifact retention | It expires on its own |
+
+**The old deployment stays published** behind Replit's password wall during the retention period, with no custom domain, so that a rollback is only a domain move, not a republish. E.13 would catch anyone writing to it through its `*.replit.app` address.
+
+**When rollback stops being "no loss".** The carry-back puts back every row in the nine original tables. Once later features write to tables the old database doesn't have (for example SYC-43's staff list, or data spine PR 2's observations), a rollback leaves those rows on Neon, and the old app works without them. That's acceptable inside the retention window, and the dry run always lists them. The real point of no return is the retention date. After it, the way back is Neon's own restore (7 days) and the archive branch.
+
+### G.2 Follow-ups this creates (filed in Linear when the plan is approved)
+
+- The privacy policy and the Syros Cats ↔ Fair Shake data agreement name **Neon (Neon, Inc., a Databricks company, data held in Frankfurt)** as a processor alongside Replit, before store submission (`hosting-and-photo-storage.md` §7.10's rule, applied to the database).
+- On the retention date: delete the old database, unpublish the old project, and remove the GitHub secret (G.1).
+- Once SYC-105's Postgres rate-limit store lands, lift **Max instances: 1**.
+- Delete the throwaway app "JuicyUpbeatOutcome" (Samuel's to-do on SYC-102). It's unrelated, but still open.
+
+### G.3 Proposed DECISIONS.md amendment (applied in the build PR only once Samuel approves this wording)
+
+Added as a new part after Part 2g:
+
+> ## Part 2h · The database moves to Neon, 29 September 2026 (SYC-121)
+>
+> Samuel decided that the app's Postgres moves from Replit's managed database to **Neon, Frankfurt (`aws-eu-central-1`), on the paid Launch plan from day one**, with a 7-day restore window. The app itself stays on Replit, **republished as a new project in Replit's Europe region**, because a Replit project's region can't be changed after it's first published.
+>
+> - **This supersedes D1 for the database, not for photos.** Photos stay in Postgres (now Neon's), and SYC-46 is unchanged. Compute stays on Replit.
+> - **Why:** SYC-102 showed that Replit's publish rewrites the live database structure itself. It gates changes behind a review only available on its website, planned `TRUNCATE … CASCADE` for one change, and silently skipped changed safety rules and migration-history rows. With a database we control, our own migration runner (SYC-64) is the only thing that changes the schema. Replit's publish carries code only.
+> - **Migrations reach production through the `db-ops` workflow**, which runs the runner against Neon before the code that needs it is published (`docs/DEPLOYMENT.md` §C).
+> - **The old Replit database is kept untouched as the way back until <retention date>** (SYC-121 plan, Part G).
+> - `hosting-and-photo-storage.md` §4.2's 15 November trigger still stands for photos and compute. For the database, it has fired early. The spec's "Replit through launch" line is corrected for the database.
+
+And one line appended under **D1**: *"Superseded for the database by Part 2h (SYC-121, 29 Sep 2026): Postgres is on Neon, Frankfurt. Photos stay in Postgres, and compute stays on Replit."*
+
+---
+
+## Part H · Answers for dependent plans, and proposed edits to them
+
+### H.1 Answers for dependent plans
+
+**(a) Which Neon database is production, and which is development**
+
+| Role | Neon | Reached by |
+|---|---|---|
+| **Production** | Project **`syros-cat-spotter`**, branch **`production`**, database `neondb` | The live app, through `APP_DATABASE_URL` (pooled). Claude's commands go through `db-ops` with `target=production` (direct) |
+| **Development** | Same project, branch **`development`** | The Replit workspace of the **new** project (`DEV_DATABASE_URL`, direct), including `post-merge.sh`'s `migrate` and the api tests run there. Claude's commands go through `db-ops` with `target=development` |
+| Rehearsal | Same project, branch **`rehearsal`** | Switchover rehearsals only. Nothing else uses it |
+| **CI** | **Not Neon.** CI's own `postgres:16` service container, as today | `DATABASE_URL` in `.github/workflows/ci.yml` |
+| **Local tests** | **Not Neon.** A local Postgres on `DATABASE_URL`, as today. Tests build their own throwaway databases on it | — |
+
+Dev and production hold separate data. After cutover, `development` is reset from `production` (per Q5) and can be reset again at any time. Rows added to either never reach the other.
+
+**(b) Where connection strings live for Claude-run commands, and the production migration route**
+
+- **All of Claude's database commands (migrate, seed, verify, smoke, copy) run in GitHub Actions through `.github/workflows/db-ops.yml`.** The connection strings are **GitHub Environment secrets**: `NEON_PROD_DIRECT_URL` in environment `production`, and `NEON_DEV_DIRECT_URL` in environment `development`. Both environments are limited to `main`. Claude never sees them, and never calls the Neon MCP's `get_connection_string`. The Repl shell isn't used for production. **Read-only checks** (for example `pg_constraint`, `pg_trigger` and row counts) can also use the Neon MCP's `run_sql` with `SELECT` statements only, which needs no connection string.
+- **Yes, the #13 runner is the production migration route.** The exact command:
+
+  ```bash
+  gh workflow run db-ops.yml -f target=production -f command=migrate
+  gh run watch && gh run view --log
+  gh workflow run db-ops.yml -f target=production -f command=verify
+  ```
+
+  Inside the job, that runs `pnpm --filter @workspace/db run migrate` with `DATABASE_URL` set to the production branch's **direct** URL for that one step. For development, swap `target=development`. Order: migrate production **before** publishing code that needs the change, then publish, then `-f command=smoke`.
+- **For the `people` command (#20):** the SYC-43 build adds `people-add` and `people-list` to `db-ops`'s command list, with the email and role as workflow inputs and the target always explicit. That satisfies #20's own flag that the command must never default to whatever `DATABASE_URL` points at. **Note for #20:** workflow inputs are visible in the run's details to anyone with access to the private repository. That's acceptable for two staff work addresses. If it isn't wanted, the build can read the email from a one-off environment secret instead.
+- **Timing:** none of this reaches production until cutover (Part E) is done. Until then, migrations that merge go to the Neon `development` branch only, and the migration freeze in Part D applies.
+
+### H.2 Proposed edits to the data spine plan (#23, `docs/superpowers/plans/data-spine.md`)
+
+These are proposed for the session that owns #23, and **not made here**:
+
+1. **Remove "PR P" entirely** (the §"PR P — Our migrations reach production" block, and its rows in the sequence table, Parallelism, the Model delegation table and C8). Replace it with one line: *"Migrations reach production through the SYC-121 `db-ops` workflow (the #13 runner against Neon). Replit's publish carries code only."*
+2. **Q1 is answered by SYC-121.** Mark it decided ("the database moved off Replit; option D, taken on other grounds") and delete options A to C, the build-or-start-up variants, and the start-up write gate.
+3. **"PR 2 deploys only after PR P is live"** and "PR 2 and PR 3 are blocked on PR P" become **"blocked on SYC-121's cutover (Part E) being complete and verified"**.
+4. **"How each step reaches production"** is rewritten. The Replit-diff table, the "first publish copies everything" bullets and the `DATABASE_URL`-at-build question are removed. Keep the launch-gate paragraph (PR 5 and PR 6 before the `/api` pass comes off) unchanged. Replace the "step 1's tables may be missing their triggers" concern with: *"`0001` never reached Replit's production database. It is applied on Neon by the runner at cutover (SYC-121 E.8), and the triggers are checked there."*
+5. **Data safety:** "Confirm a restorable backup point (Replit's point-in-time restore or a dump)" becomes **"Neon's 7-day restore; note the timestamp before PR 3's backfill runs"**. The "up/down/up against a copy of production" becomes **a Neon branch made from `production`** (instant), not a throwaway Replit database.
+6. **Verification after each step** uses the Neon MCP's read-only `run_sql`, instead of Replit's read-only query tool.
+7. **PR 5's `BLUR_GRID_SECRET`** goes into the **new** project's deployment secrets (SYC-121 C.6), not the old one's.
+8. Review rows R5, R13, R15, R19 and R20 are marked **"superseded by SYC-121"**. R15's point about the runner's advisory lock waiting indefinitely still matters: `db-ops` serialises runs with a `concurrency` group, and fixing the lock itself is a small follow-up for the runner.
+9. The global constraint "never approve a Replit publish database review with TRUNCATE or DROP" **stays**, reworded as SYC-121's R3.
+
+### H.3 Proposed rollout wording for SYC-63 (#21, `docs/superpowers/plans/syc-63-self-service-deletion.md`)
+
+**For the other session to apply. Suggested replacement text:**
+
+> **§5, replace the "Checked against the SYC-102 publish test" block with:**
+> **How this reaches production (SYC-121).** The database is on Neon, and Replit's publish no longer touches its structure. This migration, including the two CHECK constraints and the sightings append-only guard (a trigger and its function), reaches production only through the #13 runner, run by `db-ops` (`gh workflow run db-ops.yml -f target=production -f command=migrate`) **before** the code that uses it is published. The runner applies every statement exactly as written, in one transaction, so there's no partial delivery. Relaxing `NOT NULL`, the nullable columns and the index are applied the same way.
+>
+> **§11, replace step 0a with:**
+> 0a. **SYC-121's cutover must be complete and verified before this migration reaches production.** Until then it goes to the Neon `development` branch only. Then:
+>    - Run `db-ops` `migrate` against production **before** publishing the server code (the migrate-then-publish order in `docs/DEPLOYMENT.md` §C).
+>    - **Probe, don't assume:** Claude confirms, through the Neon MCP's read-only `run_sql`, that `pg_trigger` lists the `observations` and `sightings` guards by name, and that `pg_constraint` lists both checks.
+>    - Take a note of the time before running it. Neon's 7-day restore is the backstop, and the rollback block's warning (restoring `NOT NULL` fails once any row is redacted) still applies.
+>    - If Replit's Publish ever shows a database review, cancel it (SYC-121 R3).
+>
+> **Remove** every reference to "spine PR P" and "Q1" as rollout dependencies (§5's flag and §11's 0a bullets). **Keep** step 1's dependency on data spine PRs 2, 3 and 4, unchanged.
+
+### H.4 Notes on SYC-43 part 1 (#20, merged)
+
+#20 already describes the Neon route. What it left open is answered in H.1: the branch names, and `db-ops` as the stored-credential route for the `people` command. Its rollout step 4 can now name `db-ops -f target=production -f command=people-add`. Its migration lands after the cutover, behind SYC-98's `0002`, as it says.
+
+---
+
+## Part I · Messages to testers (for Samuel to send; plain English)
+
+**Message 1, the day before:**
+> Hi all, a quick heads-up. Tomorrow at <time> Greek time, Cat Spotters will be offline for up to an hour while we move it to a new home in Europe. Your cats, sightings and photos all come with it. If you spot a cat during that hour, the phone app will keep it and send it once we're back. On the website, it may ask you to try again later. When it's back, the website will ask for a new tester password once: **<password, shared separately>**. Thank you for testing!
+
+**Message 2, when it's back:**
+> We're back! Cat Spotters is now running from Europe. Everything you've spotted is still there. The website will ask once for the tester password I sent yesterday. If anything looks wrong or missing, tell me which cat and roughly when you spotted it, and I'll check.
+
+**Message 3, only if we have to roll back:**
+> Small change of plan: we've moved Cat Spotters back to where it was while we sort something out. Anything you added today is safe. On the website you'll see the old login page again, the same one as before. Sorry for the bother.
