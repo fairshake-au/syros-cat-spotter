@@ -368,4 +368,18 @@ The build happens in its own worktree off fresh `origin/main`, one commit per it
 
 ## Review
 
-*To be filled in after the adversarial review.*
+**What was done:** a Sonnet critic was started in its own worktree but had not reported by hand-over time, so the session model ran the adversarial pass itself against the code on `main`, PR #20's plan, PR #23's plan and expo-image 3.0.11's types. If the Sonnet critic reports later, its findings are added here before Samuel approves.
+
+| # | Severity | Finding | How it's handled |
+|---|---|---|---|
+| 1 | Major | The API gate was only on when `NODE_ENV=production`. An unset or unexpected `NODE_ENV` would leave the API wide open while the website stayed shut, which is the worst mix. | The gate is now on unless `NODE_ENV` is exactly `development` or `test`. Test 15 and a matching break added. |
+| 2 | Major | Deciding whether a path is `/api/internal` before percent-decoding would let `/api/%69nternal/…` be judged by the tester-key rule. (PR #20's route still checks its own token, so this was defence in depth, not a leak.) | The gate decodes, lower-cases and collapses slashes before deciding. Test 9 and a matching break added. |
+| 3 | Major | The web-build guard only checked the environment. Expo also reads `.env` files, so the tester key could reach the public website's code without the guard noticing. | The guard also reads `.env*` files, and after the build it scans `dist/` for each configured tester key. Test 22 and two breaks added. |
+| 4 | Minor | SYC-98 redirects old photo ids. Whether the phone keeps the tester key when it follows that redirect depends on the phone's own HTTP library. | Checked on a real build (checklist 10b) instead of assumed. |
+| 5 | Minor | Nothing proved Replit's proxy lets the `__Host-` cookie through, or that browsers accept it on apptest. | Checklist 10a: the cookie must be present in Safari and Chrome on a phone after logging in. |
+| 6 | Minor | The login form had no size limit. | Capped at 4 KB (413). Test 23 added. |
+| 7 | Nit | Safari refuses `Secure` cookies on `http://localhost`, so local testing of the website gate would appear to loop. | Noted under "Development and Expo Go keep working". |
+
+Checked and found fine: every generated API call goes through `customFetch` (67 of 67); nothing else in the app fetches from our API; the native photo sites are exactly the five listed; `expo-image` sends `source.headers` on iOS and Android; the web build's `fetch` and image loads are same-origin, so the cookie goes with them; CORS preflights are answered before the gate; rate limits and the device secret are unaffected.
+
+**The three decisions for Samuel are unchanged.**
