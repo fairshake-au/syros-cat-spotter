@@ -17,7 +17,7 @@ Step 1 built the empty filing cabinet. This plan fills it and starts reading fro
 - **The cat page starts saying** what the rules work out.
 - **The location leak is closed before the blurring is switched on**, because blurring the map while the matching endpoint still answers questions about exact positions would be a promise that is already false.
 - **Spotters get the two quick questions** (ear tip, food and water) and the private note, after their points.
-- **Before any of that reaches testers**, the live database has to get the safety rules Replit's publishing may not copy (decision Q1).
+- **Before any of that reaches testers**, the app starts applying our own tested database changes to the live database itself, because Replit's publish step can miss safety rules and can even empty a table (decision Q1).
 
 Nobody's spot flow gets slower, and nothing a tester has already done is lost.
 
@@ -476,7 +476,7 @@ An adversarial second pass over this plan, run deliberately after the first draf
 | R17 | *External review.* **"PR 4 after PR 3" was only a remembered merge order.** | Medium | PR 4 checks the runner's history for PR 3's migration, and falls back to the legacy `hasHome` and `desexed` signals until then. There's a test for both states. |
 | R18 | *External review, nit.* **The evidence-of-life query silently lacked §3.4's import source.** | Low | PR 2 now says so explicitly and names SYC-49 / SYC-82 as where it's added. |
 | R19 | *External review.* **PR P assumed the production role may run DDL.** | Resolved | SYC-102 confirmed full DDL and write rights at runtime. |
-| R20 | *External review, with SYC-102's evidence.* **Patching after Replit's diff (the old option A) is unsafe**: the diff runs inside Publish before any of our code, planned `TRUNCATE ... CASCADE` for a NOT NULL column on a populated table, and omits changed function bodies and history rows. | High | Q1 now recommends our own runner applying migrations to production (the build step if possible, otherwise non-blocking start-up); PR P is rebuilt around it, keeping R15's non-blocking start-up, bounded lock and race tests; it adds exact-match adoption of the baseline and per-migration adoption; and there is a standing rule never to approve a TRUNCATE/DROP review. |
+| R20 | *External review, with SYC-102's evidence.* **Patching after Replit's diff (the first draft's recommended option) is unsafe**: the diff runs inside Publish before any of our code, planned `TRUNCATE ... CASCADE` for a NOT NULL column on a populated table, and omits changed function bodies and history rows. | High | Q1 now recommends our own runner applying migrations to production (the build step if possible, otherwise non-blocking start-up); PR P is rebuilt around it, keeping R15's non-blocking start-up, bounded lock and race tests; it adds exact-match adoption of the baseline and per-migration adoption; and there is a standing rule never to approve a TRUNCATE/DROP review. |
 
 **Checked, and holding:**
 
