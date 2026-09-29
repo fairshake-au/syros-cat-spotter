@@ -35,7 +35,7 @@ Samuel approved three additions to the §6.3 copy on 29 September (§9 A, B and 
 
 - **No connection (E).** The delete button is disabled, with the line *"You need a connection to delete your data."* Nothing is deleted offline, and the app never pretends it was.
 - **Spots that haven't been sent yet (B).** When there are any, the screen adds: *"You have 3 spots that haven't been sent yet. They'll be deleted too."* The number is the real count.
-- **Cats they said live with them (A).** Under **What stays**, the screen adds a line saying such a cat keeps its home and the note about where it lives, but loses their name. Draft wording: *"If you told us a cat lives with you, it still shows as having a home, and the note about where it lives stays. Your name and your link to it come off."* Flag 5 is now settled (the link is cleared). The draft still needs Samuel's sign-off, alongside flag 6.
+- **Cats they said live with them (A).** Under **What stays**, the screen adds a line saying such a cat keeps its home and the note about where it lives, but loses their name. Draft wording: *"If you told us a cat lives with you, it still shows as having a home, and the note about where it lives stays. Your name and your link to it come off."* Flag 5 is now settled (the link is cleared). The draft is approved along with the plan, like the privacy-policy line from flag 6.
 
 ### 1.3 What happens when they tap
 
@@ -340,7 +340,7 @@ The options and recommendations are kept below for the record. Each one ends wit
 - *Recommendation was:* 1.
 - **Decided: owner name and owner link cleared; home description kept.** Samuel first chose option 2 (name only). He then settled flag 5 as (b) on 29 Sep, which clears the owner link too.
   - **What this means for the cat:** it stays homed through its derived life status. Spine PR 4 makes `hasHome` come from that status, and the redacted `homed` observation keeps it. PR 4 is already a prerequisite of this build (§11). Nobody can edit the cat after deletion.
-  - **What stays behind:** the home description. The privacy policy's promise that "anything you typed" goes doesn't cover it as worded (flag 6 in §10, still open).
+  - **What stays behind:** the home description. The privacy policy's promise that "anything you typed" goes doesn't cover it as worded (flag 6 in §10, resolved by rewording the policy).
 
 **B. Spots on the phone that haven't been sent yet.**
 - *Options:*
@@ -384,13 +384,13 @@ The options and recommendations are kept below for the record. Each one ends wit
    - settle the delete-token expiry contradiction (email-capture §5.8 vs team-access §8.5), within SYC-45;
    - api-server tests on a throwaway database, needed by the sightings guard.
 5. **Resolved (Samuel, 29 Sep 2026): (b), remove the owner link.** Deletion clears `cats.owner_device_id` as well as the owner's name. The "no query returns the device id" test now applies with **no exceptions**. A claimed cat stays homed through its life status (spine PR 4, already a prerequisite).
-6. **Decision A keeps the home description, so the privacy policy needs reconciling.** `privacy-policy.md` says *"Your address, your points, your streak, your spot history and anything you typed all go."* A cat's home description is something the person typed, and it now stays. The wording to reconcile is that sentence. It would need to add something like *"…except a note about where a cat you said lives with you is kept"*, alongside the existing exception for names. **For Samuel. This plan doesn't edit `privacy-policy.md`.** Email-capture §6.3 also needs the approved A, B and E lines added (§1.2).
+6. **Resolved (Samuel, 29 Sep 2026): reword the privacy policy.** The home description stays with the cat. `privacy-policy.md` keeps "anything you typed all go" and adds one line after the names sentence: *"If you told us a cat lives with you, the note about where it lives stays with the cat, but your name and your link to it are taken off."* The copy is approved along with the plan. No Greek or French version of the policy exists in the repo, so none needs updating yet; when one is written, it needs this line. Email-capture §6.3 still needs the approved A, B and E lines added (§1.2).
 
 ---
 
 ## 11. Rollout order
 
-0. **Samuel approves this plan.** Decisions A to E and flag 5 were settled on 29 Sep. Flag 6 (the privacy-policy wording) is still open. Part 2g lands in `DECISIONS.md` through its own PR.
+0. **Samuel approves this plan.** Decisions A to E and flag 5 were settled on 29 Sep. Flag 6 was also settled; the privacy-policy line is in this PR. Part 2g lands in `DECISIONS.md` through its own PR.
 0a. **SYC-102 must be resolved before any of this reaches production. This is a blocking dependency.** Replit copies only structural changes, such as tables and columns, from the dev database to production when you publish. Triggers and functions may not make the trip.
    - **The deletion itself doesn't rely on a trigger.** Its updates work with or without one.
    - **The guarantees around it do.** Migration 0001's `observations_append_only` trigger is what stops anything *other* than a redaction rewriting history. §5's new sightings guard is a trigger too.
