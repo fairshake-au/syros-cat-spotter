@@ -525,3 +525,90 @@ It runs against a live copy of tester data, with the old app still serving teste
 **The migration freeze after a passing rehearsal:** until cutover, no PR that adds a migration merges, unless D.2 to D.4 are run again with it. Code-only PRs can merge, because the cutover publishes nothing new (the new project is already running `main` from C.6). If code does change, Samuel pulls and republishes the new project before cutover, and Claude reruns D.4.
 
 **Expected timings (to be replaced by the measured ones):** D.2 copy under 2 minutes (18 MB), D.3 under 1 minute, D.4 about 15 minutes, D.5 about 10 minutes, and a domain move a few minutes plus DNS, which Cloudflare serves at a 60-second TTL (E.1).
+
+---
+
+## Part E · Cutover day (about an hour of paused saving; testers are told in advance)
+
+**Go/no-go, checked by Claude from live sources and posted on SYC-121 before E.3:** a rehearsal passed (Part D) with no migration merged since. The new project is running `main` (compared through the Replit agent). `fingerprint-source` works. Samuel is available for the whole window. It isn't a busy time on the island: early morning Greek time is best, when Replit's logs show the fewest requests.
+
+| Step | Who | What | Check before moving on |
+|---|---|---|---|
+| **E.1** The day before | Samuel (or Claude, if the Cloudflare token can edit DNS, per Q7) | In Cloudflare, set the TTL of the `apptest` records to **1 minute**, so a domain move takes effect quickly | Claude checks with `dig` that the lower TTL is being served |
+| **E.2** The day before | Samuel | Sends the tester message (Part I, message 1) to the WhatsApp group | — |
+| **E.3** T-0 | Claude | **The record before anything changes:** `fingerprint-source`, plus the encrypted dump for Samuel (Q6). The counts and hashes are posted on SYC-121 | Recorded. The counts are plausible (no fewer than D.1's) |
+| **E.4** Freeze | Samuel | **Old** project → Publishing → Domains → `apptest.catspotters.com` → **Disconnect**. (It isn't an unpublish. The old deployment keeps running on its own address behind Replit's wall, and its database isn't touched) | Claude: `curl -sI https://apptest.catspotters.com/api/healthz` no longer returns the old app (it's no longer a `307` to `replit.com/__replshield`). The time is recorded as **T-freeze** |
+| **E.5** Quiet check | Claude | `fingerprint-source` twice, 2 minutes apart | Both equal. **Nothing is writing to the old database** |
+| **E.6** Copy | Claude | `db-ops -f target=production -f command=copy-cutover` | As D.2: zero differences, including photo bytes and sequences; the source fingerprint equals E.5's before and after the dump; `switchover.cutover_done` written |
+| **E.7** Archive | Claude (Neon MCP) | `create_branch` `replit-final-<yyyymmdd>` from `production`, **before** any migration | The branch exists. A read-only `run_sql` count on it matches E.5 |
+| **E.8** Migrations | Claude | `db-ops -f command=migrate`, then `-f command=verify`, then the MCP checks from D.3 | Exactly as in D.3: baseline adopted, the same migrations applied, triggers present, sequences correct |
+| **E.9** The app on real data | Claude | `smoke` against the `*.replit.app` address. The start-up log (production host, round trip under 20 ms). A browser check at 390 px and desktop | Counts in the app match E.5. The start-up log is right |
+| **E.10** Address | Samuel | **New** project → Publishing → Domains → **Connect** `apptest.catspotters.com`. Update the Cloudflare records to the new values if D.6 found them different | Claude: `/api/healthz` on `apptest` returns **200 with no `307`** (SYC-113 probe 1). The TLS certificate is valid. The time is recorded as **T-live** |
+| **E.11** Full checks on the real address | Claude, and Samuel for devices | All 12 SYC-113 "Done" checklist items against `apptest.catspotters.com`; `smoke`; **SYC-100's proxy check** (a request with a made-up `X-Forwarded-For` value, and confirming from the deployment log that `req.ip` is the real client address, not the made-up one and not a Replit-internal address); items 8 and 9 on a real TestFlight or Play build if they exist | All pass. SYC-100's result is recorded on SYC-100, with the `trust proxy` setting fixed in a follow-up PR if it's wrong |
+| **E.12** Open | Samuel | Sends Part I, message 2 | — |
+| **E.13** Aftercare | Claude | At T-live plus 1 hour, 1 day and 7 days: `fingerprint-source` (the old database must be **unchanged since E.5**, which proves the way back is intact) and `verify` (Neon still matches it on every row that existed at cutover). The Neon MCP's `list_slow_queries` and the deployment's error log are checked at the same points | Unchanged, and no new error class. Posted on SYC-121 each time |
+
+**The downtime window is E.4 to E.10.** From the rehearsal's figures, that's expected to be 20 to 40 minutes. Testers are told an hour.
+
+**What testers see during the window:** the website and the app can't reach apptest (a Replit "not found" page, or a connection error). The phone app's offline queue (partial offline support; see `offline-queue-on-web.md`) holds sightings taken in that window, and sends them once apptest answers again. They land on Neon. The website's queue does the same on browsers that keep IndexedDB.
+
+---
+
+## Part F · Rollback: a first-class procedure, rehearsed in D.5 and D.6
+
+### F.1 Every step's failure signal, and the way back from it
+
+"Roll back" always means R0: undo to the last safe point **first**, then investigate. There's **no point of no return inside the retention window** (Part G). The old project and its database stay exactly as they were at E.5, and they can be put back in front of testers at any time until Samuel's retention date.
+
+| Step | What "failed" looks like | Rollback from here | Data at risk |
+|---|---|---|---|
+| C.1 to C.7 | Any step errors; a check in C.4h or C.7 fails; the region isn't Europe; a database review appears | Stop. Nothing live has changed. Fix it through a PR or a corrected setting, and redo the step. A remix in the wrong region is deleted and remade | None. Testers are on the old project throughout |
+| D.1 to D.7 | Any "Passes when" isn't met | Stop. The rehearsal's failure becomes a fix PR plus a full rehearsal rerun. Neon `production` holds only the marked rehearsal copy | None |
+| E.3 | The fingerprint fails to run, or shows fewer rows than D.1 | Stop before the freeze. Testers are unaffected. Investigate | None |
+| E.4 | The address still reaches the old app after 5 minutes | Samuel reconnects the domain to the old project (if it had been disconnected at all). Investigate | None |
+| E.5 | The two fingerprints differ (something is still writing) | **Reconnect the domain to the old project (F.2, step 4 only).** Find the writer before trying again | None |
+| E.6 | `copy-cutover` fails, or `compare` shows any difference, or the source fingerprint changed | Reconnect the domain to the old project (**one action**). Neon holds a failed copy with no `cutover_done` marker, so the next attempt's guard can wipe it | None. Nothing has been written on Neon by testers |
+| E.7 | The archive branch can't be created | Reconnect the domain to the old project. Retry at a later cutover | None |
+| E.8 | The runner refuses to adopt the baseline, a migration fails, `verify` fails, or a trigger is missing | Reconnect the domain to the old project. **Don't fix production's schema by hand.** Because `cutover_done` is now set, the copy tool refuses production. The next attempt starts with Samuel restoring Neon `production` to the moment **T-freeze** (Neon console → Branches → production → Restore → by timestamp). That brings back the rehearsal copy and its marker, so a fresh `copy-cutover` is allowed. It's a Neon-only action, and the old database isn't involved | None |
+| E.9 | Smoke fails, counts differ, or the log shows the wrong host or a slow round trip | Reconnect the domain to the old project | None |
+| E.10 | The domain won't verify, or the certificate doesn't issue within 15 minutes | Reconnect the domain to the old project, and put the DNS back to the old values | None: no tester has reached Neon yet |
+| E.11 and afterwards | Any "must be refused" probe answers 200 | **First**, Samuel sets the new project back to **Password protected** (SYC-113's rule: that closes the leak in one publish, and the database is unaffected). Then decide between fixing forward and a full rollback (F.2) | Exposure, not loss. Nothing is lost |
+| E.11 and afterwards | Errors, a wrong count, a failed device test, or any unexplained problem | **Full rollback, F.2** | Writes made on Neon since T-live, which F.3 carries back |
+
+### F.2 The full rollback, after testers have used the new app
+
+**The one action that puts testers back on the old system is moving the address back to the old project.** Everything else here makes sure no tester's new data is left behind.
+
+| # | Who | Action | Time (rehearsed in D.5 and D.6) |
+|---|---|---|---|
+| 1 | Samuel | **New** project → Publishing → Domains → **Disconnect** `apptest.catspotters.com`. That stops new writes on Neon (freeze) | 1 minute |
+| 2 | Claude | `db-ops -f target=production -f command=carry-back-dry-run`, and posts in chat, per table, what would be inserted, updated and deleted, plus what has no home in the old database | 2 minutes |
+| 3 | Samuel | Replies in chat: **"apply"**, or **"accept the loss"** (only sensible if the dry run shows nothing, or only test rows). This is the one written sign-off R1 requires | — |
+| 4 | Claude | `db-ops -f target=production -f command=carry-back-apply -f confirm=APPLY`. It commits only if the old database then matches Neon exactly (projected). Then `fingerprint-source` is posted | 2 minutes |
+| 5 | Samuel | **Old** project → Publishing → Domains → **Connect** `apptest.catspotters.com` ("move to this project"). If D.6 found different DNS values, put the old ones back in Cloudflare | 3 to 10 minutes |
+| 6 | Claude | `curl` `apptest` returns the old app's `307` to `replit.com/__replshield` (Password protected, as before). Posts on SYC-121 and tells Samuel to send Part I, message 3 | 2 minutes |
+
+**About 15 to 25 minutes in total**, replaced by the rehearsal's measured times. Store builds that carry only the tester key can't get past Replit's wall on the old project. That's the situation before the switch, and it's why SYC-113 exists.
+
+**If the problem is before T-live** (E.4 to E.10), the rollback is **step 5 alone**. No tester has written to Neon, so there's nothing to carry back.
+
+### F.3 Testers' writes on Neon, if we roll back
+
+- **What's carried back:** every row in the nine tables the old database has, made identical to Neon's version (inserts, updates and deletes), in one transaction that commits only if the result matches exactly (§B.3). New columns the old database lacks, for example SYC-98's `public_id`, are dropped in the copy. The old app uses the numeric photo ids, which are kept.
+- **What isn't:** rows in tables the old database lacks (`0001` and later). Before any feature writes to them, there are none. Once one does, the dry run lists them, and they **stay on Neon**, which is kept, until the feature is back.
+- **Tested before it's ever needed:** B.3 test 4 in CI, and D.5 against a copy.
+- **If Neon itself is unreachable** (an outage), the carry-back can't read it. Samuel then chooses between waiting for Neon and rolling back with step 5 alone, accepting that writes made since T-live are held on Neon until it's back. They're recovered later by hand, and ticketed, because by then the old app will have its own new rows, and the carry-back mirrors rather than merges. Neon's 7-day restore protects those writes in the meantime.
+
+### F.4 Can the three changes be undone separately?
+
+| Change | Undone on its own? | How |
+|---|---|---|
+| Access: Public with the gates | **Yes** | New project → Publishing → Access: **Password protected** → publish. The database and region don't change. That's SYC-113's rollback |
+| Region: Europe | Only by going back to the old project | Region is permanent per project, and there's no reason to be in Europe on the old database |
+| Database: Neon | **Not on its own** | The new code expects the post-cutover schema (`0001`, and `0002` if SYC-98 is in), which the old database doesn't have. Pointing the new app at the old database would need migrating the old database, which R1 forbids. So a database rollback is the full rollback (F.2) |
+
+**Why one cutover rather than three.** Region and database move together because the new project is the only place Europe exists. Doing the database first in the old project would mean publishing the old project in place, which is the Replit database-diff risk this ticket removes, and would leave no untouched way back. Public is the one change that *could* be separated, and it effectively is: the new project runs Public with the gates from C.6, days before cutover, and passes the SYC-113 checklist before any real data is in it. On cutover day, access doesn't change at all.
+
+### F.5 The rule for surprises
+
+**Anything unexpected means rolling back first and investigating after.** That includes a count that's off by one, a warning nobody has seen before, a slow page, or a review screen. Rolling back loses nothing, because the carry-back is tested, and it costs 15 to 25 minutes. Improvising on live data can lose data, and there's no test for that.
