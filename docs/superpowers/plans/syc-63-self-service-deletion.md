@@ -35,7 +35,7 @@ Samuel approved three additions to the §6.3 copy on 29 September (§9 A, B and 
 
 - **No connection (E).** The delete button is disabled, with the line *"You need a connection to delete your data."* Nothing is deleted offline, and the app never pretends it was.
 - **Spots that haven't been sent yet (B).** When there are any, the screen adds: *"You have 3 spots that haven't been sent yet. They'll be deleted too."* The number is the real count.
-- **Cats they said live with them (A).** Under **What stays**, the screen adds a line saying such a cat keeps its home and the note about where it lives, but loses their name. Draft wording: *"If you told us a cat lives with you, it still shows as having a home, and the note about where it lives stays. Your name comes off it."* The exact words go to Samuel with the §10 flag, because the owner link is still unresolved.
+- **Cats they said live with them (A).** Under **What stays**, the screen adds a line saying such a cat keeps its home and the note about where it lives, but loses their name. Draft wording: *"If you told us a cat lives with you, it still shows as having a home, and the note about where it lives stays. Your name and your link to it come off."* Flag 5 is now settled (the link is cleared). The draft still needs Samuel's sign-off, alongside flag 6.
 
 ### 1.3 What happens when they tap
 
@@ -92,7 +92,7 @@ Once someone has been deleted, other spotters see:
 - **The leaderboard:** the person is simply gone, because their profile row is.
 - **Sighting counts:** unchanged.
 - **The "Fans" tile:** a deleted person stops counting, so the number can drop by one (decision C).
-- **A cat they said lives with them:** it still shows as having a home, and its home note stays. The owner's name is gone (decision A).
+- **A cat they said lives with them:** it still shows as having a home, through its life status, and its home note stays. The owner's name and the link to them are gone (decision A).
 - **Notifications:** a deleted person never receives anything again. Nothing is ever sent to "nobody".
 
 ---
