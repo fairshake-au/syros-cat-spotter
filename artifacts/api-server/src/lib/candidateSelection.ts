@@ -7,7 +7,7 @@ import { haversineKm } from "./catHelpers";
  *
  * Measured on EXACT positions, deliberately. This overrides
  * cat-record-data-spine.md §6.3 point 1 (grid-snapped candidates at 750 m);
- * see DECISIONS.md, 30 September 2026, before changing it.
+ * see DECISIONS.md Part 2h (30 September 2026) before changing it.
  *
  * The stored position is where the cat was first spotted, until SYC-80 adds
  * a derived "usual" position.

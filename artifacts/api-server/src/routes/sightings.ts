@@ -12,7 +12,6 @@ import {
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import {
-  haversineKm,
   photoUrl,
   getProfileStats,
   profilePayload,
@@ -26,10 +25,10 @@ import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { aiLimiter } from "../middlewares/rateLimit";
+import { selectCandidateCats } from "../lib/candidateSelection";
 
 const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
-const MAX_CANDIDATES = 10;
 
 type Candidate = {
   catId: number;
@@ -51,23 +50,17 @@ async function computeMatchCandidates(
   lat: number,
   lng: number,
 ): Promise<{ isCatPhoto: boolean; candidates: Candidate[] }> {
-  // Nearest cats first — matching a street cat against ones seen nearby is
-  // both cheaper and more accurate than comparing against the whole island.
+  // SYC-39: only cats within 500 m (exact positions), nearest first — see
+  // selectCandidateCats and DECISIONS.md Part 2h.
   const cats = await db.select().from(catsTable);
-  const nearest = cats
-    .map((c) => ({
-      cat: c,
-      dist: haversineKm(lat, lng, c.lat, c.lng),
-    }))
-    .sort((a, b) => a.dist - b.dist)
-    .slice(0, MAX_CANDIDATES);
+  const nearest = selectCandidateCats(cats, lat, lng);
 
   let isCatPhoto = true;
   let candidates: Candidate[] = [];
 
   try {
     const candidateInputs = [];
-    for (const { cat } of nearest) {
+    for (const cat of nearest) {
       const [p] = await db
         .select()
         .from(photosTable)
@@ -83,7 +76,7 @@ async function computeMatchCandidates(
     }
     const result = await matchCatPhoto(photoBase64, candidateInputs);
     isCatPhoto = result.isCatPhoto;
-    const byId = new Map(nearest.map((n) => [n.cat.id, n.cat]));
+    const byId = new Map(nearest.map((cat) => [cat.id, cat]));
     candidates = result.matches
       .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
       .sort((a, b) => b.confidence - a.confidence)
