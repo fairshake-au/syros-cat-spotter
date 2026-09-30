@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -206,5 +208,55 @@ describe("db-ops people-list", () => {
     });
     expect(r.code).not.toBe(0);
     expect(r.out).toMatch(/DATABASE_TARGET/);
+  });
+});
+
+// The CLI makes the same target check, so the tests above would stay green if
+// db-ops.sh's own check were deleted. Here the CLI is replaced by a `pnpm`
+// stub that would succeed and records that it ran, so only the shell layer
+// can refuse.
+describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
+  function stubbedRun(env: Record<string, string | undefined>) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dbops-pnpm-stub-"));
+    const marker = path.join(dir, "called");
+    fs.writeFileSync(
+      path.join(dir, "pnpm"),
+      `#!/bin/sh\ntouch "${marker}"\necho "stub: Added person 00000000-0000-4000-8000-000000000000 as staff."\nexit 0\n`,
+      { mode: 0o755 },
+    );
+    try {
+      const r = run({ PATH: `${dir}:${process.env.PATH ?? ""}`, ...env });
+      return { ...r, called: fs.existsSync(marker) };
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  const base = {
+    COMMAND: "people-add",
+    TARGET: "production",
+    NEON_PROD_URL: "postgres://stub@stub.invalid/neondb",
+    PEOPLE_EMAIL: EMAIL,
+    PEOPLE_NAME: PERSON_NAME,
+    PEOPLE_ROLE: "staff",
+  };
+
+  it("the stub stands in for the CLI when the target matches (control)", () => {
+    const r = stubbedRun({ ...base, DATABASE_TARGET: "production" });
+    expect(r.code).toBe(0);
+    expect(r.called).toBe(true);
+  });
+
+  it("refuses a missing or mismatched DATABASE_TARGET itself, before calling the CLI", () => {
+    for (const DATABASE_TARGET of [undefined, "development", "rehearsal"]) {
+      for (const COMMAND of ["people-add", "people-list"]) {
+        const r = stubbedRun({ ...base, COMMAND, DATABASE_TARGET });
+        expect(r.code).not.toBe(0);
+        expect(r.called).toBe(false);
+        expect(r.out).toMatch(
+          /^db-ops: DATABASE_TARGET \('[^']*'\) doesn't match target 'production'\. Refusing\.$/m,
+        );
+      }
+    }
   });
 });
