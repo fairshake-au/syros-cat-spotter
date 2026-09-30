@@ -44,7 +44,9 @@ Not doing (product/architecture choices; file as follow-ups):
 
 ## Progress
 - [x] Diagnosis recorded
-- [ ] A. compression (TDD)
-- [ ] B. loading screen (TDD)
-- [ ] After measurements + screenshots
-- [ ] Adversarial review, PR, Linear
+- [x] A. compression (TDD) - commit c57430b
+- [x] B. loading screen (TDD) - commit c57430b; noscript fix from self-review
+- [x] After measurements (390px): none 0.03s screen / 0.33s app; fast3g 1.2s / 9.4s; slow3g 4.1s / 23.3s;
+      gated login on slow3g: loading screen 4.2s after submit, app 25.4s. Screenshots in scratchpad perf/.
+- [x] Self-review done (noscript overlay bug fixed)
+- [ ] File follow-ups (code-splitting, fonts: woff2/subset + no serif fallback), PR, Linear In Review

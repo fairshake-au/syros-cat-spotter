@@ -102,6 +102,12 @@ describe('injectLoadingScreen', () => {
     expect(button.hidden).toBe(false);
   });
 
+  it('stays out of the way when JavaScript is off, so the "enable JavaScript" note shows', () => {
+    const html = injectLoadingScreen(EXPO_SHELL);
+    const head = html.slice(0, html.indexOf('</head>'));
+    expect(head).toMatch(/<noscript><style>#cs-loading\s*\{\s*display:\s*none;?\s*\}<\/style><\/noscript>/);
+  });
+
   it('leaves HTML without an empty app root unchanged', () => {
     expect(injectLoadingScreen('<html>home</html>')).toBe('<html>home</html>');
     expect(injectLoadingScreen('<html><body><div id="root"><p>x</p></div></body></html>')).toBe(

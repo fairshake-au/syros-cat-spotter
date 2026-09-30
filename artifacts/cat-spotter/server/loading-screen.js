@@ -84,7 +84,9 @@ const STYLE = `<style id="cs-loading-style">
   #${LOADING_SCREEN_ID} .cs-spin { border-color: #0f4a72; border-top-color: #66b2e8; }
   #${LOADING_SCREEN_ID} .cs-note { color: #b6c2cc; }
 }
-</style>`;
+</style><noscript><style>#${LOADING_SCREEN_ID} { display: none; }</style></noscript>`;
+// ^ With JavaScript off the app can never load, so hide the loading screen
+//   and let Expo's "You need to enable JavaScript" note show instead.
 
 // A simple paw print.
 const PAW = `<svg viewBox="0 0 64 64" aria-hidden="true" fill="currentColor"><ellipse cx="32" cy="42" rx="13" ry="11"/><ellipse cx="14" cy="28" rx="6" ry="7.5"/><ellipse cx="25" cy="17" rx="6" ry="8"/><ellipse cx="39" cy="17" rx="6" ry="8"/><ellipse cx="50" cy="28" rx="6" ry="7.5"/></svg>`;
