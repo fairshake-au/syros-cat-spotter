@@ -139,8 +139,10 @@ router.get("/team/me", requireTeam(), (_req: Request, res: Response) => {
 router.post("/team/signout", (req: Request, res: Response) => {
   setTeamHeaders(res);
   if (req.headers.origin !== TEAM_ORIGIN) {
+    // The same refusal as every other /api/team/* failure, so the SYC-113
+    // walk of every dashboard route sees one answer.
     req.log.warn({ reason: "bad_origin" }, "team sign-out refused");
-    res.status(403).json({ error: "bad_origin" });
+    refuseNotSignedIn(req, res);
     return;
   }
   clearSession(res);

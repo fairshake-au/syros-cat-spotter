@@ -189,7 +189,8 @@ describe("POST /api/team/signout", () => {
       const r = request(app).post("/api/team/signout");
       if (origin) r.set("Origin", origin);
       const res = await r;
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(401);
+      expect(res.text).toBe('{"error":"not_signed_in"}');
       expect(res.headers["set-cookie"]).toBeUndefined();
     }
   });
