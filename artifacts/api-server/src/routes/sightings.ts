@@ -27,7 +27,7 @@ import { containsOffensiveLanguage } from "../lib/moderation";
 import { aiLimiter } from "../middlewares/rateLimit";
 import { selectCandidateCats } from "../lib/candidateSelection";
 
-const POINTS_CONFIRM = 10;
+export const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
 
 type Candidate = {
