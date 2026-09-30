@@ -32,27 +32,29 @@ export function SafetyStep({ onNext }: { onNext: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={[styles.icon, { backgroundColor: palette.terra100 }]}>
-          <Text style={styles.iconEmoji} allowFontScaling={false}>
-            🐾
+        <View style={styles.column}>
+          <View style={[styles.icon, { backgroundColor: palette.terra100 }]}>
+            <Text style={styles.iconEmoji} allowFontScaling={false}>
+              🐾
+            </Text>
+          </View>
+          <Text role="heading" style={[styles.title, { color: colors.foreground }]}>
+            {t('howSafetyTitle')}
           </Text>
-        </View>
-        <Text role="heading" style={[styles.title, { color: colors.foreground }]}>
-          {t('howSafetyTitle')}
-        </Text>
-        <View style={styles.body}>
-          <Text style={[styles.para, { color: colors.foreground }]}>
-            {t('howSafetyLiveHere')}
-          </Text>
-          <Text style={[styles.para, { color: colors.foreground }]}>
-            {t('howSafetyDistance')}
-          </Text>
-          <Text style={[styles.para, { color: colors.foreground }]}>
-            {t('howSafetyLeaveBe')}
-          </Text>
-          <Text style={[styles.para, styles.strong, { color: colors.foreground }]}>
-            {t('howSafetyHurt')}
-          </Text>
+          <View style={styles.body}>
+            <Text style={[styles.para, { color: colors.foreground }]}>
+              {t('howSafetyLiveHere')}
+            </Text>
+            <Text style={[styles.para, { color: colors.foreground }]}>
+              {t('howSafetyDistance')}
+            </Text>
+            <Text style={[styles.para, { color: colors.foreground }]}>
+              {t('howSafetyLeaveBe')}
+            </Text>
+            <Text style={[styles.para, styles.strong, { color: colors.foreground }]}>
+              {t('howSafetyHurt')}
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -79,8 +81,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[4],
-    gap: spacing[3],
   },
+  // Keeps lines a readable length on a desktop browser; a no-op on phones.
+  column: { width: '100%', maxWidth: 560, alignSelf: 'center', gap: spacing[3] },
   icon: {
     width: 64,
     height: 64,
