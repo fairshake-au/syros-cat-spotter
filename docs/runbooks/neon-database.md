@@ -34,6 +34,8 @@ If `migrate` refuses the Neon `development` branch ("cannot be adopted", or "the
 
 **Never reset `production`.** There, fix drift by hand, guided by the differences `migrate` prints.
 
+**Resetting `rehearsal` before re-running the switchover plan's Part D (added 30 Sep):** the plan's D.8 recovery drill ends with `rehearsal` in a "cut over" state that both copy commands refuse, and `rehearsal` (a child branch) can't be restored from a snapshot the way `production` can (see "Snapshots and restores only work on a root branch" above). Before a re-run, reset it from `production` the same way as `development` above — Neon console → **Branches** → `rehearsal` → **Reset from parent**, or delete and recreate it. This discards `rehearsal`'s contents, so get Samuel's OK first, same as any other data-discarding step.
+
 ## Restoring to a point in time
 
 Neon's restore window on `production` is **7 days** (the paid "Launch" plan; the plan's Part C.3 sets this when the project is created). In the Neon console: **Branches** → `production` → **Restore**, pick a timestamp, and Neon creates a new branch at that point rather than mutating `production` in place — so a restore is reviewable before anything is pointed at it. For anything bigger than a point-in-time restore (the old database intact, testers' new Neon rows carried back), that's the rollback procedure in the plan's Part F, run through `db-ops`'s `carry-back-dry-run`/`carry-back-apply` commands, never by hand.
