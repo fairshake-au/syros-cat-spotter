@@ -12,18 +12,14 @@
  * offline support, which is separate and partial.
  */
 
-export type HomeScreenPlatform =
-  | 'ios-safari'
-  | 'ios-unsupported'
-  | 'android-chrome'
-  | 'other';
+export type HomeScreenPlatform = 'ios-safari' | 'ios-unsupported' | 'other';
 
 /**
  * Best-effort platform classification from the user-agent string (plus
  * maxTouchPoints, needed because iPadOS Safari's default UA claims to be a
- * Mac). Only distinguishes the platforms the banner has different copy for;
- * everything else — desktop browsers, Android Firefox/Samsung Internet,
- * etc. — falls back to 'other'.
+ * Mac). The banner only ever shows for `'ios-safari'` — see the scoping
+ * note below — everything else, including Android and desktop, is
+ * `'other'`.
  *
  * `ios-unsupported` (SYC-134 review, 30 Sep 2026): Samuel's on-device check
  * for SYC-134 confirmed a Home Screen icon added from iOS **Safari** opens
@@ -33,18 +29,15 @@ export type HomeScreenPlatform =
  * a Home Screen icon added from one of them may open with Safari's *empty*
  * storage instead — sending the tester straight back to onboarding, the
  * exact harm this banner exists to prevent. Until that's checked on a real
- * device (follow-up ticket filed), the banner stays hidden for every iOS
- * browser except Safari, rather than risk causing the very loss it's meant
- * to guard against.
+ * device (follow-up ticket filed, SYC-139), this stays hidden for every iOS
+ * browser except Safari.
  *
  * In-app browsers (SYC-134 review round 2, 30 Sep 2026): a spotter can
  * reach the site from inside Facebook, Instagram, Messenger, LINE, Snapchat
- * and similar apps' built-in webview, not just a real browser. These are
- * folded into the same `ios-unsupported` bucket on iOS (detected by their
- * UA tokens — `FBAN`/`FBAV` for Facebook and Messenger, `Instagram`,
- * `Line/`, `Snapchat`), and on Android by the generic in-app-webview marker
- * `; wv)` that Android's WebKit adds to any app embedding a WebView,
- * regardless of which app it is.
+ * and similar apps' built-in webview on iOS, not just a real browser.
+ * Folded into the same `ios-unsupported` bucket (detected by UA tokens —
+ * `FBAN`/`FBAV` for Facebook and Messenger, `Instagram`, `Line/`,
+ * `Snapchat`).
  *
  * **Deliberately not attempted: telling someone in one of these to "open in
  * Safari".** A tester who onboarded and claimed a username *inside*, say,
@@ -57,16 +50,29 @@ export type HomeScreenPlatform =
  * Screen" option in the first place, so at worst this shows instructions
  * that quietly don't do anything — never a UA it can misclassify into
  * moving someone's identity.
+ *
+ * **Scoped to iPhone/iPad Safari only (Samuel, 30 Sep 2026, PR #36 review
+ * round 3).** Safari's 7-day storage-clearing rule is what this banner
+ * protects against, and that rule is Safari's, not the platform's — so the
+ * card no longer shows on Android or desktop at all, regardless of
+ * browser. (It was previously also shown on Android Chrome, with its own
+ * `beforeinstallprompt` install flow; that path was removed entirely, not
+ * just hidden, since it no longer has anywhere to run.) Android's in-app
+ * webview detection (the generic `"; wv)"` marker) was removed for the same
+ * reason: Android is `'other'` unconditionally now, so there's nothing left
+ * to distinguish an Android in-app browser from any other Android browser.
  */
 const IOS_UNSUPPORTED_BROWSER_RE =
   /CriOS|FxiOS|EdgiOS|OPiOS|FBAN|FBAV|Instagram|Line\/|Snapchat/i;
-const ANDROID_IN_APP_WEBVIEW_RE = /;\s*wv\)/i;
 
 export function detectHomeScreenPlatform(
   userAgent: string,
   maxTouchPoints = 0,
 ): HomeScreenPlatform {
   const ua = userAgent || '';
+  // iPadOS Safari's default UA claims to be a Mac ("Macintosh"), so a touch
+  // point count above 1 is what tells a real iPad apart from a real desktop
+  // Mac (which reports 0). iPhone/iPod always carry their own UA token.
   const isIOSDevice =
     /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
 
@@ -80,20 +86,8 @@ export function detectHomeScreenPlatform(
     return 'ios-safari';
   }
 
-  // Android in-app webviews (any app's embedded WebView, tagged "; wv)" —
-  // see the doc comment above). Same reasoning as iOS: unverified storage
-  // behaviour, so reuse the same hidden bucket rather than invent a second
-  // one.
-  if (/Android/.test(ua) && ANDROID_IN_APP_WEBVIEW_RE.test(ua)) {
-    return 'ios-unsupported';
-  }
-
-  const isAndroidChrome =
-    /Android/.test(ua) &&
-    /Chrome\//.test(ua) &&
-    !/Edg\/|EdgA\/|OPR\/|SamsungBrowser|Firefox/.test(ua);
-  if (isAndroidChrome) return 'android-chrome';
-
+  // Android (any browser) and desktop (any browser, including Mac Safari):
+  // out of scope entirely — see the doc comment above.
   return 'other';
 }
 

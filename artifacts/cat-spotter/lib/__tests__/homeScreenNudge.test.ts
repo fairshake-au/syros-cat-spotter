@@ -66,17 +66,22 @@ describe('detectHomeScreenPlatform', () => {
     expect(detectHomeScreenPlatform(IPHONE_FIREFOX)).toBe('ios-unsupported');
   });
 
-  it('detects Chrome on Android', () => {
-    expect(detectHomeScreenPlatform(ANDROID_CHROME)).toBe('android-chrome');
-  });
-
-  it('falls back to generic for other Android browsers', () => {
+  // SYC-134 review round 3, 30 Sep 2026: scoped to iPhone/iPad Safari only
+  // — Safari's 7-day storage rule is what this banner protects against,
+  // and that's Safari's rule, not the platform's. Android is 'other'
+  // unconditionally now, Chrome included.
+  it('treats every Android browser as out of scope, Chrome included', () => {
+    expect(detectHomeScreenPlatform(ANDROID_CHROME)).toBe('other');
     expect(detectHomeScreenPlatform(ANDROID_FIREFOX)).toBe('other');
     expect(detectHomeScreenPlatform(ANDROID_SAMSUNG)).toBe('other');
   });
 
-  it('falls back to generic for desktop', () => {
+  it('falls back to generic for desktop, Mac Safari included', () => {
     expect(detectHomeScreenPlatform(DESKTOP_CHROME)).toBe('other');
+    // A real desktop Mac reports 0 touch points, unlike an iPad (see the
+    // "detects iPad Safari" test above) — so Mac Safari's own UA (which is
+    // textually identical to iPad Safari's) must NOT be treated as an iPad.
+    expect(detectHomeScreenPlatform(IPAD_SAFARI, 0)).toBe('other');
   });
 
   it('handles an empty user agent without throwing', () => {
@@ -108,10 +113,12 @@ describe('detectHomeScreenPlatform', () => {
       expect(detectHomeScreenPlatform(IOS_SNAPCHAT)).toBe('ios-unsupported');
     });
 
-    it('treats an Android in-app WebView ("; wv)") as unsupported', () => {
-      expect(detectHomeScreenPlatform(ANDROID_IN_APP_WEBVIEW)).toBe(
-        'ios-unsupported',
-      );
+    // SYC-134 review round 3: Android is out of scope entirely now (see
+    // the "treats every Android browser as out of scope" test above), so
+    // an Android in-app WebView has nothing special left to detect — it's
+    // just Android, i.e. 'other', same as any other Android browser.
+    it('treats an Android in-app WebView ("; wv)") as out of scope, same as any other Android browser', () => {
+      expect(detectHomeScreenPlatform(ANDROID_IN_APP_WEBVIEW)).toBe('other');
     });
 
     // WhatsApp's iOS in-app browser carries no distinguishing UA token, so

@@ -138,6 +138,14 @@ describe('BannerStack', () => {
       pending: [],
       dismissReviewPrompt: vi.fn(),
     });
+    // SYC-134 review round 3: the nudge is now scoped to iPhone/iPad
+    // Safari only — jsdom's default UA doesn't match, so it must be set
+    // explicitly for this structural check to see it render at all.
+    Object.defineProperty(window.navigator, 'userAgent', {
+      value:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+      configurable: true,
+    });
 
     const { findByText, container } = render(<BannerStack />);
     const nudgeText = await findByText('homeScreenNudgeText');

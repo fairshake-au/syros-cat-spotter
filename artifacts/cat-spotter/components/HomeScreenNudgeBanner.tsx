@@ -35,10 +35,16 @@ const TAB_BAR_CLEARANCE = 72;
  * to — the app already is the icon), and it hides itself once the site is
  * already running standalone, so it can never nag someone it already
  * helped. It only appears once a username has been claimed: before that,
- * onboarding hasn't produced anything worth losing yet. It also hides on
- * every iOS browser except Safari (see `detectHomeScreenPlatform`'s doc
- * comment) — the on-device check that justifies this banner only covers
- * Safari, and a third-party iOS browser may not share its storage.
+ * onboarding hasn't produced anything worth losing yet.
+ *
+ * SYC-134 review round 3, 30 Sep 2026 (Samuel): **scoped to iPhone/iPad
+ * Safari only.** Safari's 7-day storage-clearing rule is what this banner
+ * protects against, and that's specifically Safari's rule, not the
+ * platform's — so the card never shows on Android (Chrome included) or on
+ * desktop (any browser, Mac Safari included) at all, regardless of what's
+ * detected there. It also still hides on every *other* iOS browser (see
+ * `detectHomeScreenPlatform`'s doc comment) — the on-device check that
+ * justifies this banner only covers Safari specifically.
  *
  * SYC-134 review, 30 Sep 2026 (Samuel): renders as a floating card centred
  * on the screen, not a top banner — see the placement note below. Mounted
@@ -58,9 +64,7 @@ const TAB_BAR_CLEARANCE = 72;
  *
  * SYC-134 review round 2, 30 Sep 2026: also hides while any modal/bottom
  * sheet (e.g. ClaimCatSheet) is open, via the tiny shared flag in
- * `lib/modalVisibility.ts`, and for good once the browser reports the app
- * was actually installed (the `appinstalled` event) — belt and braces
- * alongside the live `standalone` check, which only reflects *this* tab.
+ * `lib/modalVisibility.ts`.
  */
 export function HomeScreenNudgeBanner() {
   const colors = useColors();
@@ -71,11 +75,7 @@ export function HomeScreenNudgeBanner() {
   const anyModalOpen = useAnyModalOpen();
 
   const [standalone, setStandalone] = useState(true); // default hidden until checked
-  const [installed, setInstalled] = useState(false);
   const [snoozed, setSnoozed] = useState<boolean | null>(null); // null = not loaded yet
-  const [installPrompt, setInstallPrompt] = useState<{
-    prompt: () => void;
-  } | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
@@ -85,28 +85,6 @@ export function HomeScreenNudgeBanner() {
         typeof window !== 'undefined' ? window : undefined,
       ),
     );
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const onBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as unknown as { prompt: () => void });
-    };
-    // Fires once the browser has actually installed the app — the
-    // authoritative signal, unlike `standalone`/`display-mode`, which only
-    // describe *this* tab and wouldn't catch "installed, still browsing
-    // the old tab". Once seen, never show the card in this tab again.
-    const onAppInstalled = () => {
-      setInstalled(true);
-      setInstallPrompt(null);
-    };
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-    window.addEventListener('appinstalled', onAppInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', onAppInstalled);
-    };
   }, []);
 
   useEffect(() => {
@@ -124,7 +102,7 @@ export function HomeScreenNudgeBanner() {
   }, []);
 
   if (Platform.OS !== 'web') return null;
-  if (standalone || installed) return null;
+  if (standalone) return null;
   if (!isReady || !username) return null;
   if (snoozed !== false) return null; // still loading, or dismissed within 7 days
   // The sign-in-required prompt matters more; don't compete with it.
@@ -137,44 +115,9 @@ export function HomeScreenNudgeBanner() {
     typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
   );
 
-  // SYC-134 review, 30 Sep 2026: Samuel's on-device check only covered iOS
-  // Safari. A third-party iOS browser (Chrome, Firefox, Edge, ...) may keep
-  // its own storage separate from Safari's, so a Home Screen icon added
-  // from one could open with Safari's *empty* storage — the exact loss this
-  // banner exists to prevent. Stay hidden there until that's checked on a
-  // real device (see detectHomeScreenPlatform's doc comment; follow-up
-  // ticket filed).
-  if (platform === 'ios-unsupported') return null;
-
-  let instructions: string;
-  let showShareIcon = false;
-  let showInstallButton = false;
-  switch (platform) {
-    case 'ios-safari':
-      instructions = t('homeScreenNudgeInstructionsIosSafari');
-      showShareIcon = true;
-      break;
-    case 'android-chrome':
-      if (installPrompt) {
-        instructions = '';
-        showInstallButton = true;
-      } else {
-        instructions = t('homeScreenNudgeInstructionsAndroidChromeMenu');
-      }
-      break;
-    default:
-      instructions = t('homeScreenNudgeInstructionsOther');
-  }
-
-  // Clear the saved event once used: a `beforeinstallprompt` event can only
-  // be prompted once, and the browser doesn't fire a fresh one just because
-  // the user tapped again — without this, a double tap (or the card
-  // lingering after the prompt is dismissed) would call `.prompt()` on an
-  // already-spent event.
-  const onInstallPress = () => {
-    installPrompt?.prompt();
-    setInstallPrompt(null);
-  };
+  // Scoped to iPhone/iPad Safari only (see the doc comment above) — Android,
+  // desktop, and every other iOS browser are out of scope entirely.
+  if (platform !== 'ios-safari') return null;
 
   return (
     <View
@@ -198,39 +141,21 @@ export function HomeScreenNudgeBanner() {
           },
         ]}
       >
-        {showShareIcon && (
-          <Feather
-            name="share"
-            size={16}
-            color={colors.accentForeground}
-            accessibilityLabel={t('homeScreenNudgeShareLabel')}
-          />
-        )}
+        <Feather
+          name="share"
+          size={16}
+          color={colors.accentForeground}
+          accessibilityLabel={t('homeScreenNudgeShareLabel')}
+        />
         <View style={styles.textColumn}>
           <Text style={[styles.text, { color: colors.accentForeground }]}>
             {t('homeScreenNudgeText')}
           </Text>
-          {!!instructions && (
-            <Text
-              style={[styles.instructions, { color: colors.accentForeground }]}
-            >
-              {instructions}
-            </Text>
-          )}
-          {showInstallButton && (
-            <Pressable
-              onPress={onInstallPress}
-              hitSlop={6}
-              accessibilityRole="button"
-              accessibilityLabel={t('homeScreenNudgeInstallLabel')}
-            >
-              <Text
-                style={[styles.action, { color: colors.accentForeground }]}
-              >
-                {t('homeScreenNudgeAddButton')}
-              </Text>
-            </Pressable>
-          )}
+          <Text
+            style={[styles.instructions, { color: colors.accentForeground }]}
+          >
+            {t('homeScreenNudgeInstructionsIosSafari')}
+          </Text>
         </View>
         <Pressable
           onPress={dismiss}
@@ -280,10 +205,5 @@ const styles = StyleSheet.create({
   instructions: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-  },
-  action: {
-    fontSize: 13,
-    fontFamily: 'Inter_800ExtraBold',
-    textDecorationLine: 'underline',
   },
 });

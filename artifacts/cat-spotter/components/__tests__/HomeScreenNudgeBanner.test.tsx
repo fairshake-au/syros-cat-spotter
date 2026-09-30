@@ -85,12 +85,17 @@ function setStandalone(standalone: boolean) {
 
 const IPHONE_SAFARI =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const IPAD_SAFARI =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
 const IPHONE_CHROME =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0.6478.54 Mobile/15E148 Safari/604.1';
 const ANDROID_CHROME =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
 const DESKTOP_CHROME =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+// Textually identical to IPAD_SAFARI — the only thing that tells a real
+// desktop Mac Safari apart from an iPad's Safari is maxTouchPoints.
+const MAC_SAFARI = IPAD_SAFARI;
 
 beforeEach(() => {
   storage.clear();
@@ -181,84 +186,52 @@ describe('HomeScreenNudgeBanner', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('shows Android Chrome menu instructions when no install prompt has fired', async () => {
+  // SYC-134 review round 3, 30 Sep 2026 (Samuel): scoped to iPhone/iPad
+  // Safari only — Safari's 7-day storage rule is what this banner protects
+  // against, and that's Safari's rule, not the platform's. Android is
+  // hidden entirely now, Chrome included (there's no more install-prompt
+  // path to fall back to).
+  it('hides on Android, Chrome included — out of scope entirely', async () => {
     setUserAgent(ANDROID_CHROME);
     useDevice.mockReturnValue({ username: 'lili', isReady: true });
-    const { getByText } = render(<HomeScreenNudgeBanner />);
-    await waitFor(() =>
-      expect(
-        getByText('homeScreenNudgeInstructionsAndroidChromeMenu'),
-      ).toBeTruthy(),
-    );
-  });
+    const { container } = render(<HomeScreenNudgeBanner />);
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
 
-  it('shows an install button and triggers the captured beforeinstallprompt event on Android Chrome', async () => {
-    setUserAgent(ANDROID_CHROME);
-    useDevice.mockReturnValue({ username: 'lili', isReady: true });
-    const { getByText, queryByText } = render(<HomeScreenNudgeBanner />);
-    await waitFor(() =>
-      expect(getByText('homeScreenNudgeText')).toBeTruthy(),
-    );
-
-    const promptFn = vi.fn();
+    // Even if the browser would have offered its own install prompt, it's
+    // irrelevant now — there's no install-button path left to trigger.
     const event = new Event('beforeinstallprompt', { cancelable: true });
-    (event as unknown as { prompt: () => void }).prompt = promptFn;
+    (event as unknown as { prompt: () => void }).prompt = vi.fn();
     window.dispatchEvent(event);
-
-    await waitFor(() =>
-      expect(getByText('homeScreenNudgeAddButton')).toBeTruthy(),
-    );
-    expect(
-      queryByText('homeScreenNudgeInstructionsAndroidChromeMenu'),
-    ).toBeNull();
-
-    fireEvent.click(getByText('homeScreenNudgeAddButton'));
-    expect(promptFn).toHaveBeenCalledTimes(1);
-  });
-
-  // SYC-134 review round 2, 30 Sep 2026: a `beforeinstallprompt` event can
-  // only be prompted once — double-tapping the button (or a stray second
-  // click) must not call `.prompt()` a second time on the same event.
-  it('does not call .prompt() twice on a double tap of the install button', async () => {
-    setUserAgent(ANDROID_CHROME);
-    useDevice.mockReturnValue({ username: 'lili', isReady: true });
-    const { getByText } = render(<HomeScreenNudgeBanner />);
-    await waitFor(() => expect(getByText('homeScreenNudgeText')).toBeTruthy());
-
-    const promptFn = vi.fn();
-    const event = new Event('beforeinstallprompt', { cancelable: true });
-    (event as unknown as { prompt: () => void }).prompt = promptFn;
-    window.dispatchEvent(event);
-    await waitFor(() =>
-      expect(getByText('homeScreenNudgeAddButton')).toBeTruthy(),
-    );
-
-    const button = getByText('homeScreenNudgeAddButton');
-    fireEvent.click(button);
-    fireEvent.click(button);
-    expect(promptFn).toHaveBeenCalledTimes(1);
-  });
-
-  // SYC-134 review round 2, 30 Sep 2026: `appinstalled` is the authoritative
-  // "actually installed" signal — unlike `standalone`/`display-mode`, which
-  // only describe the current tab and wouldn't catch someone installing
-  // from a still-open old tab.
-  it('hides for good once the browser reports appinstalled', async () => {
-    useDevice.mockReturnValue({ username: 'lili', isReady: true });
-    const { getByText, container } = render(<HomeScreenNudgeBanner />);
-    await waitFor(() => expect(getByText('homeScreenNudgeText')).toBeTruthy());
-
-    window.dispatchEvent(new Event('appinstalled'));
     await flushEffects();
     expect(container.innerHTML).toBe('');
   });
 
-  it('shows generic instructions on desktop / unrecognised browsers', async () => {
+  it('hides on desktop, including Mac Safari', async () => {
     setUserAgent(DESKTOP_CHROME);
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    const { container } = render(<HomeScreenNudgeBanner />);
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
+  });
+
+  // A real desktop Mac reports 0 touch points, unlike an iPad — Mac
+  // Safari's UA is textually identical to iPad Safari's, so maxTouchPoints
+  // is the only thing that must NOT be misread as "this is an iPad".
+  it('hides on Mac Safari specifically (maxTouchPoints = 0, not an iPad)', async () => {
+    setUserAgent(MAC_SAFARI, 0);
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    const { container } = render(<HomeScreenNudgeBanner />);
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('shows on iPad Safari (maxTouchPoints > 1 distinguishes it from a Mac)', async () => {
+    setUserAgent(IPAD_SAFARI, 5);
     useDevice.mockReturnValue({ username: 'lili', isReady: true });
     const { getByText } = render(<HomeScreenNudgeBanner />);
     await waitFor(() =>
-      expect(getByText('homeScreenNudgeInstructionsOther')).toBeTruthy(),
+      expect(getByText('homeScreenNudgeInstructionsIosSafari')).toBeTruthy(),
     );
   });
 
