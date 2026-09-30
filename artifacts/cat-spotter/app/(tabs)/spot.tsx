@@ -744,6 +744,40 @@ export default function SpotScreen() {
     </View>
   );
 
+  // The permission / camera-failed prompt shown in the viewfinder. Null when
+  // there is nothing to ask, which leaves the framing rectangle in place.
+  const cameraPanel = cameraFailed ? (
+    <View style={styles.cameraPermissionPanel}>
+      <Text style={styles.cameraPermissionText}>{t('cameraUnavailableHint')}</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={retryLiveCamera}
+        style={styles.cameraPermissionButton}
+        testID="retry-live-camera"
+      >
+        <Text style={styles.cameraPermissionButtonText}>{t('tryAgain')}</Text>
+      </Pressable>
+    </View>
+  ) : cameraState === 'request' || cameraState === 'settings' ? (
+    <View style={styles.cameraPermissionPanel}>
+      <Text style={styles.cameraPermissionText}>
+        {cameraState === 'settings' ? t('cameraDeniedHint') : t('cameraPermissionHint')}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={cameraState === 'settings' ? openCameraSettings : requestLiveCamera}
+        style={styles.cameraPermissionButton}
+        testID={
+          cameraState === 'settings' ? 'open-camera-settings' : 'request-camera-permission'
+        }
+      >
+        <Text style={styles.cameraPermissionButtonText}>
+          {cameraState === 'settings' ? t('openSettings') : t('showLiveView')}
+        </Text>
+      </Pressable>
+    </View>
+  ) : null;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -884,66 +918,6 @@ export default function SpotScreen() {
                 style={StyleSheet.absoluteFillObject}
               />
             )}
-            {/* textAlignVertical is Android-only, so centre with flexbox or the
-                stand-in rides the top edge on iOS and web. */}
-            {(cameraState !== 'ready' || cameraFailed) && (
-              <View style={styles.viewfinderEmojiWrap}>
-                {cameraState === 'loading' ? (
-                  <ActivityIndicator color="#fff" size="large" />
-                ) : (
-                  <>
-                    <Text style={styles.viewfinderEmoji} pointerEvents="none">
-                      🐈‍⬛
-                    </Text>
-                    {cameraFailed ? (
-                      <View style={styles.cameraPermissionPanel}>
-                        <Text style={styles.cameraPermissionText}>
-                          {t('cameraUnavailableHint')}
-                        </Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={retryLiveCamera}
-                          style={styles.cameraPermissionButton}
-                          testID="retry-live-camera"
-                        >
-                          <Text style={styles.cameraPermissionButtonText}>
-                            {t('tryAgain')}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    ) : (cameraState === 'request' || cameraState === 'settings') && (
-                      <View style={styles.cameraPermissionPanel}>
-                        <Text style={styles.cameraPermissionText}>
-                          {cameraState === 'settings'
-                            ? t('cameraDeniedHint')
-                            : t('cameraPermissionHint')}
-                        </Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={
-                            cameraState === 'settings'
-                              ? openCameraSettings
-                              : requestLiveCamera
-                          }
-                          style={styles.cameraPermissionButton}
-                          testID={
-                            cameraState === 'settings'
-                              ? 'open-camera-settings'
-                              : 'request-camera-permission'
-                          }
-                        >
-                          <Text style={styles.cameraPermissionButtonText}>
-                            {cameraState === 'settings'
-                              ? t('openSettings')
-                              : t('showLiveView')}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    )}
-                  </>
-                )}
-              </View>
-            )}
             <View style={styles.viewfinderTopRow}>
               <View style={styles.viewfinderSpacer} />
               {locationChipText ? (
@@ -955,11 +929,35 @@ export default function SpotScreen() {
               )}
               <View style={styles.viewfinderSpacer} />
             </View>
-            <View style={styles.framingRect} pointerEvents="none" />
-            {/* When the camera has failed, the centre panel carries the one
-                message; a second hint here would give three suggestions in two
-                places (Samuel's decision, 27 Sep). */}
-            {!cameraFailed && (
+            {cameraPanel ? (
+              // The panel takes the framing rectangle's slot in the column so it
+              // can never overlap the hint or the shutter row below it.
+              <View style={styles.viewfinderMiddle}>
+                <Text
+                  style={[styles.viewfinderEmoji, styles.viewfinderEmojiSmall]}
+                  pointerEvents="none"
+                >
+                  🐈‍⬛
+                </Text>
+                {cameraPanel}
+              </View>
+            ) : (
+              <View style={styles.framingRect} pointerEvents="none">
+                {/* textAlignVertical is Android-only, so centre with flexbox or
+                    the stand-in rides the top edge on iOS and web. */}
+                {cameraState === 'loading' ? (
+                  <ActivityIndicator color="#fff" size="large" />
+                ) : (
+                  cameraState !== 'ready' && (
+                    <Text style={styles.viewfinderEmoji}>🐈‍⬛</Text>
+                  )
+                )}
+              </View>
+            )}
+            {/* When the centre panel is showing, it carries the one message; a
+                second hint here would give competing suggestions in two places
+                (Samuel's decision, 27 Sep). */}
+            {!cameraPanel && (
               <Text style={styles.captureHint}>
                 {liveCameraReady ? t('captureHint') : t('captureHintPicker')}
               </Text>
@@ -1027,15 +1025,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'space-between',
   },
-  viewfinderEmojiWrap: {
-    ...StyleSheet.absoluteFillObject,
+  viewfinderMiddle: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing[3],
+    marginVertical: spacing[2],
   },
   viewfinderEmoji: {
     textAlign: 'center',
     fontSize: 130,
   },
+  viewfinderEmojiSmall: { fontSize: 64 },
   cameraPermissionPanel: {
     alignItems: 'center',
     gap: spacing[3],
@@ -1079,6 +1080,8 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
     borderColor: 'rgba(255,255,255,0.5)',
     borderRadius: radii.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   captureHint: {
     textAlign: 'center',
