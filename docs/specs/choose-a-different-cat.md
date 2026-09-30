@@ -407,7 +407,7 @@ For whoever builds it. Everything above is the product.
 
 Filed to Linear under SYC-119 (deduplicated against existing tickets):
 
-- **Coat colour read automatically from each cat's main photo, backfilled, and stored as a `coat` observation** (data spine, with SYC-2): the vocabulary, the machine reading, the backfill, and the rule that people outrank the machine (§4.7, §8.4). Filed in Linear and linked to SYC-2.
+- **Coat colour read automatically from each cat's main photo, backfilled, and stored as a `coat` observation** (data spine, with SYC-2): the vocabulary, the machine reading, the backfill, and the rule that people outrank the machine (§4.7, §8.4). Filed as SYC-161, linked to SYC-2.
 - **Moving a sighting to a different cat, or to a new cat** (data spine): the append-only reassignment in §8.2, including restating the sighting's observations on the right cat.
 - **The team-only match record** (data spine): what was compared, suggested and chosen, per sighting (§4.6). This is the data SYC-56 needs.
 - **SYC-56 note**: report hand picks and confirmed suggestions separately, and count distance misses as evidence for SYC-80 (§4.6). Added as a comment on SYC-56 rather than a new ticket.
