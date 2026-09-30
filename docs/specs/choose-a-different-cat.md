@@ -57,7 +57,9 @@ From top to bottom:
 
 - **The spotter's own photo**, small, so they can compare as they scroll.
 - **A search box**: *"Name or SYR number"*. Typing filters the whole island's cat-alogue, not just the nearby list.
-- **"Cats known around here"**: every cat whose public position is within 1.5 km of the photo, which is the same "Nearby" the Cats tab already uses. Each card shows the cat's main photo (large, since for a tourist the face is the decision), its name and its SYR number. Nearest first, measured the same coarse way as everywhere else in the app (§4.4).
+- **"Cats known around here"**: every cat whose public position is within 1.5 km of the photo, which is the same "Nearby" the Cats tab already uses. Each card shows the cat's main photo (large, since for a tourist the face is the decision), its name and its SYR number.
+
+> **The list is always nearest first.** "Nearest" means nearest by map square: the cat's published 250 m square, measured from where the photo was taken. Cats in the same square tie, and ties are broken by SYR number, lowest first. The order is never worked out from a cat's exact position, because an order based on exact distance would give that position away (§4.4). Search and the colour filter (§4.7) narrow the list. They never change its order.
 - Tapping a card opens a **side-by-side check**: the spotter's photo next to the cat's main photo and up to two more of its public photos, with the button **"Yes, this is the cat"**. There's no match percentage, because the app hasn't compared these photos and must not look as if it has. The check is a deliberate second step. It stops a hurried spotter tapping the first cat in the list just to be done, which would swap a duplicate for a wrong match.
 - At the bottom: **"Can't find it? Add it as a new cat."** The picker never traps anyone.
 
@@ -138,6 +140,8 @@ Each decision gives the question, every realistic option, and a recommendation.
 ### 4.4 Privacy: what the "nearby cats" list may show
 
 The rule in one sentence: **the list may show only what the public cat-alogue already shows, worked out only from public positions, and it must never depend on which cats the matcher checked.**
+
+**Nearest first, by map square, ties broken by SYR number.** Samuel asked for nearest first, and it is: the list is sorted by the distance from the photo to the centre of each cat's published 250 m square, the same coarse distance the Cats tab uses (`cat-record-data-spine.md` §6.4.2–3). Cats in the same square are listed by SYR number. Sorting by exact distance was ruled out, and not for tidiness: an order based on exact distance lets anyone standing in different places work out where a cat really is, one tap at a time. That is exactly the leak §6.4 closes for the rest of the app.
 
 **What each card may show:** the cat's main photo, its name, its SYR number, and on the side-by-side check up to two more of its *public* photos. It may also show the same short status lines the cat page shows (for example *"No longer with us"* on a card that can't be picked).
 
