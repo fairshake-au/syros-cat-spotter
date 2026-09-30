@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -43,6 +44,9 @@ export default function HomeScreen() {
   // SYC-128: room for any top banners showing, so they sit above the
   // greeting instead of on top of it (0 when there are none).
   const bannerReserve = useBannerAreaReserve();
+  // SYC-143: on the narrowest phones (320px) three tiles leave the label
+  // too little room, so tighten the tile padding and gaps there.
+  const compactTiles = useWindowDimensions().width < 360;
   const { deviceId, username } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useLocation();
@@ -182,13 +186,15 @@ export default function HomeScreen() {
         {/* Stat tiles — every figure is server-derived. SYC-143: the group
             gives all three labels one size, stepped down only as far as the
             longest word (Greek "ΑΝΑΚΑΛΥΨΕΙΣ") needs to fit without breaking. */}
-        <StatTileGroup style={styles.tiles}>
+        <StatTileGroup
+          style={[styles.tiles, compactTiles && styles.tilesCompact]}
+        >
           <View style={styles.tile}>
             <StatTile
               value={spotted ?? dash}
               label={t('statSpotted')}
               tone="aegean"
-              style={styles.tileInner}
+              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
             />
           </View>
           <View style={styles.tile}>
@@ -196,7 +202,7 @@ export default function HomeScreen() {
               value={profile?.uniqueCatsDiscovered ?? dash}
               label={t('statFirstFinds')}
               tone="sun"
-              style={styles.tileInner}
+              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
             />
           </View>
           <View style={styles.tile}>
@@ -204,7 +210,7 @@ export default function HomeScreen() {
               value={profile?.badges?.length ?? dash}
               label={t('statBadges')}
               tone="bougain"
-              style={styles.tileInner}
+              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
             />
           </View>
         </StatTileGroup>
@@ -352,6 +358,8 @@ const styles = StyleSheet.create({
   // SYC-143: 12px side padding (DS default 16) leaves the label ~8px more
   // room per tile, so Greek labels stay closer to the design size on a phone.
   tileInner: { minWidth: 0, paddingHorizontal: spacing[3] },
+  tilesCompact: { gap: spacing[2] },
+  tileInnerCompact: { paddingHorizontal: spacing[2] },
   section: { paddingHorizontal: spacing[4], paddingTop: spacing[5] },
   sectionHead: {
     flexDirection: 'row',
