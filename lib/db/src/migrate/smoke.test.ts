@@ -52,6 +52,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  // A hanging-endpoint test leaves a connection open on purpose; close it
+  // out from under the request so server.close()'s callback still fires.
+  server.closeAllConnections();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
@@ -96,4 +99,31 @@ describe("smoke through the pre-launch gate", () => {
     });
     await expect(smoke(baseUrl, {})).resolves.toBeUndefined();
   });
+});
+
+describe("smoke against a hanging endpoint", () => {
+  // SYC-141. Without a per-request timeout, an endpoint that never responds
+  // hangs the whole smoke job (and, on the real cutover, the CI step running
+  // it). SMOKE_TIMEOUT_MS lets the test use a short timeout instead of
+  // waiting out the real 30s default.
+  it("fails fast with a clear timeout message instead of hanging", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          // Never respond — simulates a stuck endpoint.
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(
+      smoke(baseUrl, { SMOKE_TIMEOUT_MS: "200" }),
+    ).rejects.toThrow(/smoke: GET \/api\/healthz timed out after 0\.2 s\. Roll back now\./);
+  }, 5000);
 });
