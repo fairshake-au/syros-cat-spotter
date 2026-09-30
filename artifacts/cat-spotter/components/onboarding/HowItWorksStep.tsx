@@ -8,6 +8,7 @@ import { fonts, fontSizes, radii, shadows, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/purropolis';
 import { StepDots } from './StepDots';
+import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
 
 export function HowItWorksStep({
   onNext,
@@ -62,7 +63,7 @@ export function HowItWorksStep({
             is more than twice the length of "Skip", so a fixed-width label and
             matching spacer would either wrap or shove the dots off-centre. */}
         <View style={styles.dots} pointerEvents="none">
-          <StepDots total={3} active={1} />
+          <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('how')} />
         </View>
       </View>
 
@@ -97,37 +98,6 @@ export function HowItWorksStep({
               </View>
             </View>
           ))}
-        </View>
-
-        {/* SYC-35: keep-your-distance guidance Syros Cats asked for (PRODUCT-SPEC
-            §2.2). Copy is `onboarding.healthy`, word for word. It sits inside
-            the scroll area so it can never push the location card or the
-            Continue button off a small screen. */}
-        <View
-          role="region"
-          aria-label={t('howSafetyTitle')}
-          style={[styles.safety, { backgroundColor: palette.terra100 }]}
-        >
-          <View style={styles.safetyHeader}>
-            <Text style={styles.safetyEmoji} allowFontScaling={false}>
-              🐾
-            </Text>
-            <Text role="heading" style={[styles.safetyTitle, { color: palette.terra700 }]}>
-              {t('howSafetyTitle')}
-            </Text>
-          </View>
-          <Text style={[styles.safetyBody, { color: palette.stone900 }]}>
-            {t('howSafetyLiveHere')}
-          </Text>
-          <Text style={[styles.safetyBody, { color: palette.stone900 }]}>
-            {t('howSafetyDistance')}
-          </Text>
-          <Text style={[styles.safetyBody, { color: palette.stone900 }]}>
-            {t('howSafetyLeaveBe')}
-          </Text>
-          <Text style={[styles.safetyBody, styles.safetyStrong, { color: palette.stone900 }]}>
-            {t('howSafetyHurt')}
-          </Text>
         </View>
       </ScrollView>
 
@@ -180,11 +150,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  scroll: {
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
-    paddingBottom: spacing[4],
-  },
+  scroll: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
   heading: { gap: 6 },
   title: {
     fontFamily: fonts.displayBold,
@@ -211,19 +177,6 @@ const styles = StyleSheet.create({
   cardText: { flex: 1, gap: 2 },
   cardTitle: { fontFamily: fonts.displayBold, fontSize: 15.5 },
   cardBody: { fontFamily: fonts.body, fontSize: fontSizes.xs, lineHeight: 19 },
-  safety: {
-    marginTop: spacing[4],
-    borderRadius: radii.lg,
-    padding: spacing[4],
-    gap: spacing[2],
-  },
-  safetyHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  safetyEmoji: { fontSize: 20 },
-  // 19px bold counts as large text under WCAG, so terra700 on terra100
-  // (4.0:1) passes; at 17px it would not.
-  safetyTitle: { flex: 1, fontFamily: fonts.displayBold, fontSize: 19 },
-  safetyBody: { fontFamily: fonts.body, fontSize: fontSizes.xs, lineHeight: 19 },
-  safetyStrong: { fontFamily: fonts.bodyBold },
   footer: { paddingHorizontal: spacing[5], gap: spacing[3] },
   permission: {
     flexDirection: 'row',
