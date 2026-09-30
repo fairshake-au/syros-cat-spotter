@@ -1,6 +1,6 @@
 # Choosing a different cat when matching misses
 
-**Status:** Draft for Samuel's approval, 30 September 2026. Two adversarial review passes done and folded in (§12).
+**Status:** Draft for Samuel's approval, 30 September 2026. Three adversarial review passes done and folded in (§12). Revised the same day to add the colour filter Samuel asked for (§4.7).
 **Owner:** Samuel
 **Covers:** SYC-119, from point 4 of the 29 September user-testing call (SYC-116), including the colour filter Samuel asked for on 30 September 2026 (§4.7).
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2, §6.3 (and its SYC-39 override), §6.4, §6.5, §10.1, §10.3 · [`DECISIONS.md`](./DECISIONS.md) Part 2h (500 m matching) and Part 3 (ownership) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3, §6, §7 · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 · SYC-38 (points), SYC-43 (staff dashboard), SYC-53 (roles and the confirmation queue), SYC-56 (matching accuracy), SYC-59 (duplicate merging), SYC-80 (a cat's position following its sightings), SYC-2 (coat and markings tags), SYC-52 (per-attribute authority) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) §4.2 and §5 (appearance vocabulary, machine suggestions)
@@ -189,7 +189,7 @@ Precisely, because "it all works offline" is never true of this app:
 
 - **suggested**, with its rank (1st, 2nd or 3rd);
 - **hand pick from the nearby list**, **hand pick from search**, or **hand pick from the name-taken prompt**. The phone says which screen it came from, which is harmless because it only describes the phone's own screen;
-- **new cat**, noting whether the spotter opened "Find the cat" first and still chose new. That is weak but useful evidence the cat really is new (§8.5).
+- **new cat**, noting whether the spotter opened "Find the cat" first and still chose new, and whether a colour filter was on at the time. A "new cat" chosen from a filtered list is weaker evidence than one chosen from the full list. That is weak but useful evidence the cat really is new (§8.5).
 
 For hand picks, the server also records for the team whether the chosen cat was among those compared but scored too low (a *matcher miss*), or outside the 500 m that were compared (a *distance miss*).
 
@@ -242,7 +242,8 @@ For hand picks, the server also records for the team whether the chosen cat was 
 - **"All" is selected by default.** Nothing is filtered until the spotter taps a colour.
 - **More than one colour can be chosen at once** ("Ginger" and "Tabby", say).
 - **Cats marked "Not sure" always stay in a filtered list**, in their own section under the matching cats, headed *"Colour not known"*. A filter never hides a cat whose colour the app doesn't know.
-- **Under the list, the spotter sees how many cats the filter is hiding**, with one tap to show them: *"8 more cats nearby in other colours. Show all colours."* This is the escape hatch for a mislabelled cat (§12, pass 3).
+- **Under the list, the spotter sees how many cats the filter is hiding**, with one tap to show them: *"8 more cats nearby in other colours. Show all colours."* This is the escape hatch for a mislabelled cat (§12, pass 3). **"Can't find it? Add it as a new cat" always sits below this line**, so nobody can reach "new cat" from a filtered list without passing the reminder that some cats are hidden.
+- **Chips carry the word, not just a swatch.** Each chip shows a small colour sample and the colour's name in the spotter's language, so the filter works for colour-blind spotters and in bright sun.
 - **It combines with search.** Typing a name searches the whole island, and the colour filter narrows that too. When a search finds nothing because of the filter, the app says so and offers to clear it.
 - **Order doesn't change.** A filtered list is still nearest first by map square, with ties by SYR number (§3.2).
 - **It never touches the matcher's suggestions.** The filter lives only on the "Find the cat" screen. The suggested matches on the screen before are never filtered, reordered or hidden by colour.
@@ -252,6 +253,9 @@ For hand picks, the server also records for the team whether the chosen cat was 
 - **Worked out once from the main photo**, by the same vision model matching already uses. It runs again whenever the main photo changes, including when the team hides a photo that was the main one. It is **backfilled** once for every existing cat.
 - **Stored as an observation** in the data spine's model (`cat-record-data-spine.md` §10.1): a new kind, `coat`, authored by `system:vision` (per `DECISIONS.md` Part 2g), with `provenance: "machine"`, the photo it was read from, and which model version read it. It is never an edit to the cat. A new reading after a photo change is a new observation.
 - **People outrank the machine.** A Syros Cats team member's correction always wins over the model. So does a cat guardian's, for cats they look after, once guardians have accounts (SYC-53) and SYC-2 gives them the chips to do it. A later machine reading never overrides a person's correction. It is recorded, and the person's answer still shows. This is per-attribute authority as the data spine and SYC-52 intend it: the machine's word counts for colour only, and only until a person says otherwise.
+- **One cat, or "not sure".** If the main photo shows more than one cat, or no clear cat, the reading is "Not sure" rather than the colour of whichever cat is biggest.
+- **Cats with no photo are "Not sure".** A resident can register a cat without a photo. The matcher can never suggest such a cat, because it has nothing to compare, so the picker's search is the only way a sighting ever reaches it. Its colour is read when it first gets a main photo from the team.
+- **Wrong colours are corrected through "Report an issue"** (*wrong information about this cat*, `team-access-and-welfare-queue.md` §6), and fixed by the team with one tap on the cat's dashboard page. Spotters don't edit colours directly.
 - **The model is never asked about anything but colour here.** It does not suggest sex, age, ear tip or health from this call. The health-record design is right that those are not colour-like (§5.1 there).
 
 **How accurate to expect it to be, honestly**
@@ -285,7 +289,7 @@ When the model is unsure, the answer is **"Not sure"**, never a guess. The cut-o
 
 ## 6. Words on screen
 
-English below. Every string also needs Greek and French, and a local check before launch, the same as all copy in `team-access-and-welfare-queue.md` §5.
+English below. Every string also needs Greek and French, and a local check before launch, the same as all copy in `team-access-and-welfare-queue.md` §5. The colour words most of all: *tabby* (τιγρέ, tigré) and *tortoiseshell or calico* are the ones people get wrong.
 
 | Where | Copy |
 |---|---|
@@ -345,6 +349,10 @@ The colour behind the filter is a `coat` observation (§4.7), written by `system
 
 Colour is **not evidence of life** (`cat-record-data-spine.md` §3.4). Reading a colour off a years-old photo says nothing about whether the cat is alive, so a backfill run never makes an old cat look recently seen. It is also **never notifiable** (§9): nobody gets news that a cat's colour changed.
 
+**The public payload carries the resolved colour only**: not when it was read, not which model read it, and not whether a person or the machine said it. Those stay in the observation, visible to the team.
+
+**A hand pick never becomes a cat's main photo automatically.** Otherwise a wrong hand pick on a photoless cat would give it the wrong face, and then the wrong colour. A main photo comes only from the sighting that created the cat, or from the team.
+
 ### 8.5 Duplicate merging (SYC-59)
 
 - **This feature stops duplicates being made. SYC-59 cleans up the ones that get through.** They share evidence: a spotter who opened "Find the cat", looked, and still chose "New cat" is weak evidence the cat really is new. A spotter who chose "New cat" without opening it is none. SYC-59's detection can use the difference.
@@ -389,6 +397,9 @@ For whoever builds it. Everything above is the product.
 16. A team correction of a cat's colour wins over any machine reading, including a newer one after a photo change.
 17. A backfilled colour reading doesn't change any cat's "last seen" or presumed-deceased status.
 18. The picker list for a given photo location, with any colour filter, is a subset of the unfiltered list and depends on nothing but public data (extends test 1).
+19. A main photo showing two cats reads as "Not sure".
+20. No public payload contains a colour reading's date, model version or author.
+21. A hand pick on a cat with no photo does not become that cat's main photo.
 
 ---
 
@@ -405,7 +416,26 @@ Filed to Linear under SYC-119 (deduplicated against existing tickets):
 
 ## 12. Review findings
 
-The review ran in two passes, and both assumed the spec was wrong. They looked for abuse paths, privacy leaks, conflicts with the approved specs and `DECISIONS.md`, and dead ends. **Pass 1** stress-tested the design while it was being written, so the first committed draft already handled those findings. **Pass 2** attacked that committed draft (commit `5523d70`) and changed it. Every finding is folded into the sections cited.
+The review ran in three passes, and all of them assumed the spec was wrong. They looked for abuse paths, privacy leaks, conflicts with the approved specs and `DECISIONS.md`, and dead ends. **Pass 1** stress-tested the design while it was being written, so the first committed draft already handled those findings. **Pass 2** attacked that committed draft (commit `5523d70`) and changed it. **Pass 3** attacked the colour filter and nearest-first wording added on 30 September. Every finding is folded into the sections cited.
+
+### Pass 3: review of the colour filter and the nearest-first wording (30 September 2026)
+
+These additions were attacked on their own: could colour plus nearest-first plus search narrow down where a cat is, what happens when the model gets a colour wrong, and what breaks elsewhere.
+
+| # | Finding | Severity | Resolution |
+|---|---|---|---|
+| C1 | **Does colour plus nearest-first plus search narrow down where a cat is?** Checked, and no. Every input is public: the published square, the SYR number, the name, and a colour read from a photo that is already public. Filtering a public list by a public value picks out public records. It adds nothing to what the cat-alogue already says about position, and the order is still by map square. The hidden-count line counts cats from the same public list. | Checked (privacy) | No new location channel. Locked in by tests 14 and 18. |
+| C2 | **A mislabelled cat vanishes from a filtered list**, and the spotter adds a duplicate. This is the main risk the filter brings, because the colours the model mixes up (tabby and tortoiseshell, black and dark tabby) are common on Syros. | High (duplicates) | "Not sure" cats always stay visible. The hidden-count line with "Show all colours" sits above "Add it as a new cat", so nobody reaches "new cat" without passing it. A filtered search that finds nothing says why (§4.7). |
+| C3 | **The model could read the wrong cat** when the main photo shows two. | Medium (data quality) | Two cats, or no clear cat, reads as "Not sure" (§4.7, test 19). |
+| C4 | **A wrong hand pick on a cat with no photo** could become its main photo, giving it the wrong face and then the wrong colour. This compounds the hand-pick risk in §4.3. | Medium (data quality) | A hand pick never becomes a main photo automatically (§8.4, test 21). |
+| C5 | **Colour metadata could leak when things happen.** A reading's date shows when a main photo changed, and so when the team acted on a cat. | Low (privacy) | The public payload carries the resolved colour only (§8.4, test 20). |
+| C6 | **A backfill could look like evidence the cat is alive.** Reading hundreds of old photos in one night must not refresh "last seen" or undo "presumed deceased". | Medium (conflicts with data spine §3.4) | Colour is not evidence of life and is never notifiable (§8.4, test 17). |
+| C7 | **A machine reading could overwrite a guardian's or the team's correction** after a photo change. | Medium (authority) | People always outrank the machine, even a newer reading (§4.7, test 16). The rule is filed with the data spine. |
+| C8 | **Could the public run up the model bill?** Only a main-photo change triggers a reading, and no public route changes a main photo: an owner can rename a cat, but not change its photo. | Checked (cost) | No new abuse path. The backfill is a one-off that can be re-run safely. |
+| C9 | **Could the filter touch the matcher's suggestions** and hide the right cat before the spotter ever reaches the picker? | High if it did | It can't. The filter lives only on the picker. Colour is never a matching pre-filter (§4.7, §9, test 15). |
+| C10 | **Colour-only chips fail colour-blind spotters, and sunlight on a phone screen.** | Low (accessibility) | Every chip carries the colour's name as well as a sample (§4.7). |
+| C11 | **Coat words are easy to mistranslate** (tabby is τιγρέ in Greek and tigré in French; tortoiseshell and calico have no everyday Greek word). | Low (copy) | Named for the local check (§6). |
+| C12 | **"Nearest first" could be read as "exactly nearest".** A reader who missed §4.4 might "fix" the order to use exact distance. | Medium (future regression) | Stated prominently in §3.2 and §4.4, with the reason, and locked in by tests 2 and 14. |
 
 ### Pass 2: review of the written draft
 
