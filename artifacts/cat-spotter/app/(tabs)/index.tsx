@@ -24,7 +24,7 @@ import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CatCard } from '@/components/CatCard';
-import { Avatar, StatTile } from '@/components/purropolis';
+import { Avatar, StatTile, StatTileGroup } from '@/components/purropolis';
 import { useBannerAreaReserve } from '@/lib/bannerArea';
 import { displayUpperCase } from '@/lib/displayUpperCase';
 import {
@@ -179,8 +179,10 @@ export default function HomeScreen() {
           </Text>
         )}
 
-        {/* Stat tiles — every figure is server-derived. */}
-        <View style={styles.tiles}>
+        {/* Stat tiles — every figure is server-derived. SYC-143: the group
+            gives all three labels one size, stepped down only as far as the
+            longest word (Greek "ΑΝΑΚΑΛΥΨΕΙΣ") needs to fit without breaking. */}
+        <StatTileGroup style={styles.tiles}>
           <View style={styles.tile}>
             <StatTile
               value={spotted ?? dash}
@@ -205,7 +207,7 @@ export default function HomeScreen() {
               style={styles.tileInner}
             />
           </View>
-        </View>
+        </StatTileGroup>
 
         {/* Nearby to collect */}
         <View style={styles.section}>
@@ -347,7 +349,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
   },
   tile: { flex: 1, minWidth: 0 },
-  tileInner: { minWidth: 0 },
+  // SYC-143: 12px side padding (DS default 16) leaves the label ~8px more
+  // room per tile, so Greek labels stay closer to the design size on a phone.
+  tileInner: { minWidth: 0, paddingHorizontal: spacing[3] },
   section: { paddingHorizontal: spacing[4], paddingTop: spacing[5] },
   sectionHead: {
     flexDirection: 'row',
