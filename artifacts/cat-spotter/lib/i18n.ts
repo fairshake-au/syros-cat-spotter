@@ -267,6 +267,8 @@ const en: Dict = {
   homeToCollectEyebrow: 'To collect',
   signInRequiredTitle: 'Sign in again to send your saved sightings',
   signInRequiredAction: 'Sign in',
+  startupErrorTitle: 'Cat Spotters can’t start on this browser',
+  startupErrorBody: 'This browser or app doesn’t support the secure setup Cat Spotters needs. Try updating your browser, or use a different one.',
 };
 
 const el: Dict = {
@@ -528,6 +530,8 @@ const el: Dict = {
   homeToCollectEyebrow: 'Για συλλογή',
   signInRequiredTitle: 'Συνδέσου ξανά για να στείλεις τις αποθηκευμένες παρατηρήσεις σου',
   signInRequiredAction: 'Σύνδεση',
+  startupErrorTitle: 'Το Cat Spotters δεν μπορεί να ξεκινήσει σε αυτό το πρόγραμμα περιήγησης',
+  startupErrorBody: 'Αυτό το πρόγραμμα περιήγησης ή η εφαρμογή δεν υποστηρίζει την ασφαλή ρύθμιση που χρειάζεται το Cat Spotters. Δοκίμασε να ενημερώσεις το πρόγραμμα περιήγησής σου ή χρησιμοποίησε ένα διαφορετικό.',
 };
 
 const fr: Dict = {
@@ -789,6 +793,8 @@ const fr: Dict = {
   homeToCollectEyebrow: 'À découvrir',
   signInRequiredTitle: 'Reconnecte-toi pour envoyer tes observations enregistrées',
   signInRequiredAction: 'Se connecter',
+  startupErrorTitle: 'Cat Spotters ne peut pas démarrer sur ce navigateur',
+  startupErrorBody: 'Ce navigateur ou cette application ne prend pas en charge la configuration sécurisée dont Cat Spotters a besoin. Essaie de mettre à jour ton navigateur, ou utilises-en un autre.',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };
