@@ -163,7 +163,11 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
+      // TEMP DELIBERATE BREAK — SYC-136 review verification, do not merge:
+      // try/catch removed to confirm DeviceContext.startupError.test.tsx
+      // (and the Math.random spy in DeviceContext.test.tsx) actually go
+      // red without it. Reverted in the very next commit.
+      {
         const [storedId, storedName, storedOwned, storedSecret] =
           await Promise.all([
             AsyncStorage.getItem(STORAGE_KEY),
@@ -196,23 +200,6 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         }
         if (storedName) setUsernameState(storedName);
         if (!cancelled) setIsReady(true);
-      } catch (error) {
-        // A rejection here (most likely from getSecureRandomBytes — no
-        // secure random source available, SYC-136) is NOT caught by the
-        // top-level ErrorBoundary: this runs inside a useEffect, not
-        // during render, and React error boundaries only catch
-        // synchronous render/lifecycle errors. Without this catch,
-        // isReady would simply never become true and OnboardingGate
-        // would render null forever — a silent, permanent blank screen.
-        console.error(
-          'DeviceProvider failed to set up a device id/secret:',
-          error,
-        );
-        if (!cancelled) {
-          setStartupError(
-            error instanceof Error ? error : new Error(String(error)),
-          );
-        }
       }
     })();
     return () => {
