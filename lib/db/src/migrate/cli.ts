@@ -237,6 +237,11 @@ async function check(): Promise<void> {
 // smoke needs a pass too. Sends X-Prelaunch-Key on every request when
 // PRELAUNCH_KEY is set in the environment; when it isn't (CI, or a
 // deployment with the gate off), behaviour is unchanged.
+// A hanging endpoint must not hang the whole job — fail fast with a clear
+// message instead. Overridable via SMOKE_TIMEOUT_MS so tests can use a short
+// timeout without waiting 30s for the real one to fire.
+const DEFAULT_SMOKE_TIMEOUT_MS = 30_000;
+
 export async function smoke(
   baseUrl: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
@@ -248,8 +253,24 @@ export async function smoke(
   const base = baseUrl.replace(/\/$/, "");
   const headers: Record<string, string> = {};
   if (env.PRELAUNCH_KEY) headers["X-Prelaunch-Key"] = env.PRELAUNCH_KEY;
+  const timeoutMs = env.SMOKE_TIMEOUT_MS
+    ? Number(env.SMOKE_TIMEOUT_MS)
+    : DEFAULT_SMOKE_TIMEOUT_MS;
   const get = async (p: string) => {
-    const res = await fetch(`${base}${p}`, { headers });
+    let res: Response;
+    try {
+      res = await fetch(`${base}${p}`, {
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "TimeoutError") {
+        throw new MigrationError(
+          `smoke: GET ${p} timed out after ${timeoutMs / 1000} s. Roll back now.`,
+        );
+      }
+      throw err;
+    }
     if (!res.ok)
       throw new MigrationError(
         `smoke: GET ${p} returned ${res.status}. Roll back now.`,
@@ -303,7 +324,14 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof MigrationError ? err.message : err);
-  process.exit(1);
-});
+// Belt and braces on top of `smoke`'s per-request timeout: whatever a command
+// leaves open (a keep-alive HTTP agent's socket, say — see SYC-141, where an
+// idle fetch/undici socket held the event loop open for ~10 minutes after the
+// last request finished) must not stop the CLI from exiting the moment the
+// command is actually done.
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err instanceof MigrationError ? err.message : err);
+    process.exit(1);
+  });
