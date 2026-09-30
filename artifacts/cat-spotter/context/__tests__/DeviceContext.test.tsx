@@ -98,3 +98,72 @@ describe('DeviceProvider — secret-before-deviceId ordering (SYC-92)', () => {
     expect(setItem).toHaveBeenCalledWith('cat-spotter/device-secret', secret);
   });
 });
+
+// SYC-136: makeDeviceSecret()/makeDeviceId() used to build randomness from
+// Math.random(), which is not a secure source — an attacker who could
+// predict or narrow it down could forge the X-Device-Secret header for a
+// device they don't own. Both now derive from a cryptographically secure
+// source (crypto.getRandomValues in these tests, since vitest resolves
+// 'react-native' to 'react-native-web' — Platform.OS is 'web').
+describe('DeviceProvider — cryptographically random secret and id (SYC-136)', () => {
+  const BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getItem.mockResolvedValue(null);
+  });
+
+  it('mints a new-install secret as 32 bytes of base64url, never touching Math.random', async () => {
+    const mathRandomSpy = vi.spyOn(Math, 'random');
+
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.deviceId).not.toBeNull());
+
+    const getter = lastRegisteredGetter();
+    const secret = getter();
+
+    expect(typeof secret).toBe('string');
+    expect(secret).toMatch(BASE64URL_RE);
+    // 32 random bytes as unpadded base64url is 43 characters
+    // (ceil(32/3) * 4 groups, minus the final group's padding).
+    expect(secret).toHaveLength(43);
+    expect(mathRandomSpy).not.toHaveBeenCalled();
+
+    mathRandomSpy.mockRestore();
+  });
+
+  it('mints a new-install device id in the existing dev-<random> shape, never touching Math.random', async () => {
+    const mathRandomSpy = vi.spyOn(Math, 'random');
+
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(result.current.deviceId).not.toBeNull());
+
+    expect(result.current.deviceId).toMatch(/^dev-[a-z0-9]+$/);
+    expect(mathRandomSpy).not.toHaveBeenCalled();
+
+    mathRandomSpy.mockRestore();
+  });
+
+  // Deliberate break, per SYC-136's test plan: if makeDeviceSecret ever
+  // regresses to Math.random(), the spy assertion above must go red. This
+  // test proves that by inverting the assertion against a Math.random-based
+  // stand-in generator — it should fail (call count > 0) exactly the way
+  // the real regression would.
+  it('would fail the Math.random spy assertion if the generator regressed to Math.random (self-check)', async () => {
+    const mathRandomSpy = vi.spyOn(Math, 'random');
+
+    function insecureDeviceSecret(): string {
+      let secret = '';
+      while (secret.length < 32) {
+        secret += Math.random().toString(36).slice(2);
+      }
+      return secret.slice(0, 32);
+    }
+    insecureDeviceSecret();
+
+    expect(mathRandomSpy).toHaveBeenCalled();
+    expect(() => expect(mathRandomSpy).not.toHaveBeenCalled()).toThrow();
+
+    mathRandomSpy.mockRestore();
+  });
+});
