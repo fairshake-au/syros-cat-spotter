@@ -54,8 +54,16 @@ beforeEach(() => {
 afterEach(async () => {
   // A hanging-endpoint test leaves a connection open on purpose; close it
   // out from under the request so server.close()'s callback still fires.
-  server.closeAllConnections();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  // Guarded the same way on both calls: if a test's own setup threw before
+  // assigning `server`, this must not itself throw and mask that failure.
+  server?.closeAllConnections();
+  await new Promise<void>((resolve) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+    server.close(() => resolve());
+  });
 });
 
 describe("smoke through the pre-launch gate", () => {

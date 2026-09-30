@@ -32,8 +32,18 @@ const cliPath = path.resolve(import.meta.dirname, "./cli.ts");
 let server: http.Server;
 
 afterEach(async () => {
+  // Guarded the same way as closeAllConnections(): if startStubApi() threw
+  // before assigning `server` (an unlikely but real path — server.listen()
+  // could fail), server.close() would otherwise TypeError on undefined and
+  // mask whatever actually failed.
   server?.closeAllConnections();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await new Promise<void>((resolve) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+    server.close(() => resolve());
+  });
 });
 
 function startStubApi(): Promise<string> {
