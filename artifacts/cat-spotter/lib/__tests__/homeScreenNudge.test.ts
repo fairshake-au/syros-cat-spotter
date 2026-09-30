@@ -41,6 +41,18 @@ const IOS_SNAPCHAT =
 const ANDROID_IN_APP_WEBVIEW =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP31.240517.022; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/126.0.6478.54 Mobile Safari/537.36';
 
+// SYC-134 (30 Sep 2026): version-gating fixtures. iPhone Safari older than
+// 16.4 (and iPadOS-as-Mac Safari at the same versions), plus a UA with no
+// readable version token at all.
+const IPHONE_SAFARI_16_3 =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1';
+const IPHONE_SAFARI_16_4 =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1';
+const IPAD_SAFARI_16_3 =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15';
+const IPHONE_SAFARI_NO_VERSION_TOKEN =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari/604.1';
+
 describe('detectHomeScreenPlatform', () => {
   it('detects iPhone Safari', () => {
     expect(detectHomeScreenPlatform(IPHONE_SAFARI)).toBe('ios-safari');
@@ -129,6 +141,41 @@ describe('detectHomeScreenPlatform', () => {
     it('cannot distinguish WhatsApp\'s iOS in-app browser from Safari (documented, not a bug)', () => {
       const whatsappLikeSafariUA = IPHONE_SAFARI; // no WhatsApp-specific token exists
       expect(detectHomeScreenPlatform(whatsappLikeSafariUA)).toBe('ios-safari');
+    });
+  });
+
+  // SYC-134 (30 Sep 2026): hide the card on Safari older than 16.4, until a
+  // tester on one of those devices confirms the Home Screen behaviour
+  // (follow-up: SYC-146). Fails safe (hidden) when the version can't be read.
+  describe('minimum Safari version (SYC-134)', () => {
+    it('hides iPhone Safari 16.3', () => {
+      expect(detectHomeScreenPlatform(IPHONE_SAFARI_16_3)).toBe(
+        'ios-unsupported',
+      );
+    });
+
+    it('shows iPhone Safari 16.4', () => {
+      expect(detectHomeScreenPlatform(IPHONE_SAFARI_16_4)).toBe('ios-safari');
+    });
+
+    it('shows iPhone Safari 17.x', () => {
+      expect(detectHomeScreenPlatform(IPHONE_SAFARI)).toBe('ios-safari');
+    });
+
+    it('hides iPadOS-as-Mac Safari at 16.3', () => {
+      expect(detectHomeScreenPlatform(IPAD_SAFARI_16_3, 5)).toBe(
+        'ios-unsupported',
+      );
+    });
+
+    it('shows iPadOS-as-Mac Safari at 17.5', () => {
+      expect(detectHomeScreenPlatform(IPAD_SAFARI, 5)).toBe('ios-safari');
+    });
+
+    it('hides when no version can be read at all (fails safe)', () => {
+      expect(detectHomeScreenPlatform(IPHONE_SAFARI_NO_VERSION_TOKEN)).toBe(
+        'ios-unsupported',
+      );
     });
   });
 });
