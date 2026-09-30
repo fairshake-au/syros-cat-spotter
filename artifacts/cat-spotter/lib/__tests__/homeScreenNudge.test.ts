@@ -189,4 +189,16 @@ describe('isWithinDismissalSnooze', () => {
     const wellPast = now - (HOME_SCREEN_SNOOZE_MS + 1);
     expect(isWithinDismissalSnooze(String(wellPast), now)).toBe(false);
   });
+
+  // SYC-134 review round 2, 30 Sep 2026: a device clock can be wrong. A
+  // `dismissedAt` in the future would otherwise make `now - dismissedAt`
+  // negative — always less than the snooze window — hiding the nudge
+  // forever rather than for 7 days.
+  it('is false when dismissedAt is in the future (clock skew), not snoozed forever', () => {
+    const future = now + 1000;
+    expect(isWithinDismissalSnooze(String(future), now)).toBe(false);
+
+    const farFuture = now + HOME_SCREEN_SNOOZE_MS * 10;
+    expect(isWithinDismissalSnooze(String(farFuture), now)).toBe(false);
+  });
 });

@@ -126,6 +126,14 @@ export const HOME_SCREEN_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
  * Whether the banner should stay hidden because it was dismissed inside the
  * last 7 days. `null`/missing storage means "never dismissed" — show it.
  * An unparsable value is treated the same way, rather than hiding forever.
+ *
+ * SYC-134 review round 2, 30 Sep 2026: a device clock can be wrong — set
+ * back, or a dismissal timestamp written just before the clock jumped
+ * forward and was then corrected. If `dismissedAt` is in the future
+ * relative to `now`, `now - dismissedAt` is negative, which is always
+ * `< HOME_SCREEN_SNOOZE_MS` — so a bad clock could make the snooze look
+ * "not yet expired" indefinitely. Treat a future `dismissedAt` as not
+ * snoozed at all, so a clock-skewed dismissal can't hide the nudge forever.
  */
 export function isWithinDismissalSnooze(
   storedValue: string | null,
@@ -134,5 +142,6 @@ export function isWithinDismissalSnooze(
   if (!storedValue) return false;
   const dismissedAt = Number(storedValue);
   if (!Number.isFinite(dismissedAt)) return false;
+  if (dismissedAt > now) return false;
   return now - dismissedAt < HOME_SCREEN_SNOOZE_MS;
 }
