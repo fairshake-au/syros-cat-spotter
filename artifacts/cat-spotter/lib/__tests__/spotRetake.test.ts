@@ -51,7 +51,7 @@ describe('Retake photo on the New spot screen', () => {
   });
 
   it('the back arrow, which also discards the photo, waits for a save too', () => {
-    const back = between('<Pressable onPress={clearPhoto}', '</Pressable>');
+    const back = between('onPress={clearPhoto}', 'name="chevron-left"');
     expect(back).toMatch(/disabled=\{submitting\}/);
   });
 
