@@ -50,6 +50,15 @@ It refuses, without writing anything, when:
 
 Re-running it is safe. A failed apply changes nothing, and a second apply after a successful one finds nothing to do.
 
+### Aftercare checks after cutover (plan E.13)
+
+At T-live plus 1 hour, 1 day and 7 days, and before the old database is deleted (G.1), run:
+
+- `db-ops -f target=production -f command=fingerprint-source`: the old database must be unchanged since the copy (compare it with E.5's).
+- `db-ops -f target=production -f command=carry-back-dry-run`: read-only on both sides. It prints exactly what testers have changed on Neon since cutover (what a rollback would carry back), and it confirms the old database is still unchanged since the copy.
+
+Don't use `verify` for this. It compares Neon with the old database row for row, so it fails as soon as testers have written anything on Neon.
+
 ## Read-only checks without a connection string
 
 The Neon MCP's `run_sql` (SELECT only), `describe_table_schema` and `list_branches` work without a connection string, so Claude uses them as an independent second look after any `db-ops` write. Writes to Neon never go through the MCP — always through `db-ops`, so every change is in the workflow's history.
