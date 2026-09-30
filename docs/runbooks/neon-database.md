@@ -54,10 +54,11 @@ Confirmed twice on 30 Sep, including a clean repeat with no password reset in be
 
 **After any restore onto `production`, before running `db-ops` or republishing Replit again:**
 
-1. **Claude, via the Neon MCP:** delete the leftover "`production (old)`" branch(es) (`list_branches`, then delete), so only one `production` exists.
-2. **Claude, via the Neon MCP:** re-set `production`'s compute to **0.25–1 CU, suspend after 300 s** — a restore resets the endpoint's autoscaling max to **8 CU**.
-3. **Samuel:** open Neon Connect for **Branch: production** twice — pooling **off** into GitHub `production` environment secret `NEON_PROD_DIRECT_URL`; pooling **on** into the live Replit project's **deployment** secret `APP_DATABASE_URL` (keep `sslmode=verify-full`) — then **republish** the Replit project.
-4. **Claude:** wait for a **new instance start-up** log line (the start-up log from `lib/db` §B.2 in the plan) before judging anything — Replit's autoscale can keep serving the previous instance for a minute or two after a republish — then run `smoke`.
+1. **Claude, via the Neon MCP:** verify the restored `production` **read-only** with `run_sql` first — row counts match the last-known-good fingerprint, `switchover.rehearsal_marker` present, `switchover.cutover_done` absent.
+2. **Claude, via the Neon MCP:** **rename** (never delete) the leftover "`production (old)`" branch to `pre-restore-<attempt>-<hhmm>` (`list_branches`, then rename). **Don't delete it here** — it can be the parent of a kept archive or recovery branch, and Neon refuses to delete a branch with children. It's deleted only at E.13/G.1, with Samuel's OK.
+3. **Claude, via the Neon MCP:** re-set `production`'s compute to **0.25–1 CU, suspend after 300 s** — a restore resets the endpoint's autoscaling max to **8 CU**.
+4. **Samuel:** open Neon Connect for **Branch: production** twice — pooling **off** into GitHub `production` environment secret `NEON_PROD_DIRECT_URL`; pooling **on** into **the EU (new) project's** deployment secret `APP_DATABASE_URL` (Neon Connect gives `sslmode=require`; change it to `verify-full` after pasting, as in the plan's C.4) — then **republish the EU project. Never the old project** (the domain may have just been reconnected to it, which makes "the live Replit project" ambiguous — it always means the EU one here).
+5. **Claude:** wait for a **new instance start-up** log line (the start-up log from `lib/db` §B.2 in the plan) before judging anything — Replit's autoscale can keep serving the previous instance for a minute or two after a republish — then run `smoke`. **If `apptest.catspotters.com` isn't currently pointed at the EU project** (true for most of a rollback recovery), pass `-f base_url=<the EU project's own *.replit.app address>` — otherwise `smoke` resolves against whichever project the domain is on right now and can fail misleadingly.
 
 Do steps 1–3 in that order: the dress rehearsal's first live run took **~26 minutes** because the first Replit paste came from a stale look-alike branch name and a republish happened before the paste landed. Done in order, it's **~5 minutes**.
 
