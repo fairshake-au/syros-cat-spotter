@@ -94,6 +94,23 @@ migrate_cli() {
   (cd "$ROOT" && pnpm --filter @workspace/db run "$1")
 }
 
+# libpq (pg_dump, pg_restore) verifies the server certificate against
+# ~/.postgresql/root.crt when sslmode=verify-full, and the runner has no such
+# file, so the first rehearsal copy failed there. Node's pg client uses the
+# system CA store instead. PGSSLROOTCERT=system (libpq 16+) makes libpq use the
+# system store too. Only for verify-full/verify-ca addresses: with a weaker
+# sslmode, libpq refuses sslrootcert=system, and local test databases have none.
+with_libpq_ssl() {
+  local url="$1"
+  shift
+  case "$url" in
+    *sslmode=verify-full*|*sslmode=verify-ca*)
+      PGSSLROOTCERT="${PGSSLROOTCERT:-system}" "$@" ;;
+    *)
+      "$@" ;;
+  esac
+}
+
 # --- fail_after: the D.8 recovery drill only ---------------------------
 FAIL_AFTER="${FAIL_AFTER:-}"
 case "$FAIL_AFTER" in
@@ -150,7 +167,7 @@ run_copy() {
   local dump="$WORKDIR/dump.pgcustom"
   log "pg_dump (public only, no owner/privileges, read-only session)"
   PGOPTIONS='-c default_transaction_read_only=on' \
-    "$PG_DUMP_BIN" \
+    with_libpq_ssl "$REPLIT_URL" "$PG_DUMP_BIN" \
       -Fc -n public --no-owner --no-privileges --no-publications --no-subscriptions \
       --dbname="$REPLIT_URL" \
       -f "$dump"
@@ -172,7 +189,7 @@ run_copy() {
 
   maybe_fail_after restore
   log "pg_restore into Neon $TARGET"
-  "$PG_RESTORE_BIN" \
+  with_libpq_ssl "$NEON_URL" "$PG_RESTORE_BIN" \
     --no-owner --no-privileges --single-transaction --exit-on-error \
     -L "$toc" \
     --dbname="$NEON_URL" \
@@ -211,7 +228,7 @@ run_copy() {
     log "also restoring into the rehearsal branch (copy-rehearsal into production)"
     export TARGET_DATABASE_URL="$NEON_REHEARSAL_URL"
     switchover_cli guard-target --mode rehearsal
-    "$PG_RESTORE_BIN" \
+    with_libpq_ssl "$NEON_REHEARSAL_URL" "$PG_RESTORE_BIN" \
       --no-owner --no-privileges --single-transaction --exit-on-error \
       -L "$toc" \
       --dbname="$NEON_REHEARSAL_URL" \
