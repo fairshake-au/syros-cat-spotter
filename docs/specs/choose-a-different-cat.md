@@ -1,0 +1,350 @@
+# Choosing a different cat when matching misses
+
+**Status:** Draft for Samuel's approval, 30 September 2026. Adversarial review done and folded in (§12).
+**Owner:** Samuel
+**Covers:** SYC-119, from point 4 of the 29 September user-testing call (SYC-116).
+**Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2, §6.3 (and its SYC-39 override), §6.4, §6.5, §10.1, §10.3 · [`DECISIONS.md`](./DECISIONS.md) Part 2h (500 m matching) and Part 3 (ownership) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3, §6, §7 · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 · SYC-38 (points), SYC-43 (staff dashboard), SYC-53 (roles and the confirmation queue), SYC-56 (matching accuracy), SYC-59 (duplicate merging), SYC-80 (a cat's position following its sightings)
+
+**What this document owns.** The spotter's experience of picking an existing cat by hand when the suggested matches are wrong, what that pick counts for, and what the team sees about it. It does **not** own the cat record, observations, location blurring or merging: those are `cat-record-data-spine.md`'s, and where this feature needs something from them it says so and points there (§8), in line with the ownership rule in `DECISIONS.md` Part 3.
+
+---
+
+## 1. The short version
+
+When the app's suggested matches don't include the right cat, the spotter can find it themselves: **a list of cats known around here, with big photos, plus a search box for a name or an SYR number.** Tourists pick by face; cat guardians type the name. The same way in appears when the app has no suggestions at all, and when someone types a name that another cat already has.
+
+A pick made by hand earns **the same 15 points** as confirming a suggestion, straight away. It is **recorded as a hand pick**, which is useful twice over: it tells the team to glance at it, and it is exactly the evidence SYC-56 needs about where the matcher goes wrong. Hand picks appear in a short, low-priority list on the staff dashboard, where the team can say *looks right* or move the sighting to the right cat. Nothing waits for the team, and nothing breaks if the team never looks.
+
+The list shows only what the public catalogue already shows. It is built from blurred positions, and it never depends on which cats the matcher looked at. Browsing and searching work without signal from the phone's saved copy of the catalogue. **Sending the choice needs signal**, just like "That's the one" does.
+
+---
+
+## 2. The problem, as a spotter meets it
+
+A spotter photographs a cat. The app shows up to three lookalikes, each with "That's the one", and a card saying "New cat". If the right cat isn't among the three, "New cat" is the only way forward, and the same cat ends up in the cat-alogue twice. When the app has no lookalikes at all, it goes straight to naming a new cat, with no way back.
+
+Three things make this happen more often than you'd expect:
+
+- **Matching only looks within 500 m** of where the photo was taken (`DECISIONS.md` Part 2h). That was the right call, but it means any cat more than 500 m from its recorded position is never suggested.
+- **A cat's recorded position is where it was first spotted** (`cat-record-data-spine.md` §6.6, until SYC-80). A cat first photographed at the ferry terminal stays pinned there. If it's spotted up the hill a month later, it can't be suggested.
+- **The photo check sometimes gets it wrong**, and when it fails outright the app shows no suggestions at all.
+
+Every duplicate costs something real. It inflates the island count Syros Cats reports, splits a cat's history in two, and hands the team a merge job later (SYC-59). Duplicates are the single biggest threat to the count.
+
+### 2.1 Two kinds of spotter, needs that fit together
+
+| | Tourists | Cat guardians and residents |
+|---|---|---|
+| **What they know** | What the cat looks like, and roughly where they are | The cat's name, often its SYR number, and where it usually hangs out |
+| **What they need** | To recognise the cat by its face, among cats around here, without typing anything | To type "Agatha" and be done in two seconds |
+| **What goes wrong without this** | They add a duplicate because it's the only button | They add a duplicate knowing it's wrong, or give up on the sighting |
+
+The two needs fit together. The guardian's search keeps the catalogue clean in the places guardians go every day. The tourist's photo list catches the cats guardians never see. One screen serves both: photos first, with a search box on top.
+
+---
+
+## 3. What the spotter experiences
+
+### 3.1 Three ways in
+
+1. **Below the suggestions.** Between the last suggestion and "New cat", a quiet card: **"Not one of these? Find the cat yourself."**
+2. **When there are no suggestions.** The "a new furriend" naming screen gets one line under the name box: **"Seen this cat in the app before? Find it instead."** Today that screen is a dead end for anyone who knows the cat is already in the cat-alogue.
+3. **When the name is already taken.** If the spotter types a name another cat already has, the app doesn't just say "taken". It shows that cat's photo: **"There's already a cat called Agatha. Is this her?"**, with **"Yes, that's her"** and **"No, a different cat"**. "Yes" makes a hand pick of that cat. "No" goes back to choosing a name, as it does now. Names are public, so this reveals nothing new, and it is the moment a guardian is most likely to be adding a duplicate by accident.
+
+### 3.2 The "Find the cat" screen
+
+From top to bottom:
+
+- **The spotter's own photo**, small, so they can compare as they scroll.
+- **A search box**: *"Name or SYR number"*. Typing filters the whole island's cat-alogue, not just the nearby list.
+- **"Cats known around here"**: every cat whose public position is within 1.5 km of the photo, which is the same "Nearby" the Cats tab already uses. Each card shows the cat's main photo (large, since for a tourist the face is the decision), its name and its SYR number. Nearest first, measured the same coarse way as everywhere else in the app (§4.4).
+- Tapping a card opens a **side-by-side check**: the spotter's photo next to the cat's main photo and up to two more of its public photos, with the button **"Yes, this is the cat"**. There's no match percentage, because the app hasn't compared these photos and must not look as if it has.
+- At the bottom: **"Can't find it? Add it as a new cat."** The picker never traps anyone.
+
+### 3.3 After a pick
+
+The spotter sees the same reward screen as for any match: **"Match confirmed"**, the cat's name, **+15 points**, badges, and then the usual optional questions about ear tip, food and water, and "anything you noticed?" (`cat-record-data-spine.md` §4.4 and §7). The spotter is not told their pick will be checked. It is a normal sighting, and treating it as suspect would punish the people doing the right thing.
+
+### 3.4 What the screen never does
+
+- Never shows an exact position, a map pin or a distance worked out from exact positions.
+- Never shows who spotted a cat, when to the minute, or where anyone was standing.
+- Never shows a match score for a cat the matcher didn't return.
+- Never lists a cat that has been merged into another. Search finds the surviving cat under either name (§8.4).
+
+---
+
+## 4. Decisions
+
+Each decision gives the question, every realistic option, and a recommendation.
+
+### 4.1 How does someone find the right cat?
+
+| Option | What the spotter does | Benefits | Risks | Tourists | Guardians |
+|---|---|---|---|---|---|
+| **A. Search only** (name or SYR number) | Types | Simplest to build. The Cats tab already searches names and numbers. | Useless to anyone who doesn't know the name, which is nearly every tourist. They'd still hit "New cat". | Doesn't help | Great |
+| **B. Nearby list only** (photos) | Scrolls and recognises | Works for everyone who can recognise a face. No typing. | Misses cats far from their recorded position, which is exactly the frozen-position case in §2. A long list in a dense bit of Ermoupoli is slow to scan. | Great | Slow when they already know the name |
+| **C. Map browse** | Pans a map and taps shapes | Feels natural. The map already exists. | The public map shows 250 m squares, not pins, so ten cats sit in one square and the map says nothing about which is which. More to build. On a small phone screen it's the worst way to compare faces. | Poor | Poor |
+| **D. Nearby photo list plus search (recommended)** | Scrolls or types, whichever fits | Serves both audiences on one screen. Search reaches the whole island, so the frozen-position case is covered. It reuses the catalogue, its search and its "Nearby" definition. | Two things on one screen. It needs to look calm and not like a form. | Scroll by face | Type the name |
+
+**Recommendation: D.** The photo list is the tourist's way in and the search box is the guardian's. No map inside the picker: the map is still one tap away in the Cats tab, and it can't tell apart cats in the same square.
+
+**Why 1.5 km for the list and not 500 m.** The list exists to catch the cats the 500 m check missed. A list bounded at 500 m would miss the same cats. 1.5 km is what the Cats tab already calls "Nearby", so one idea of "near" runs through the whole app.
+
+### 4.2 Does a hand pick earn the same points? (SYC-38)
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Same as confirming a suggestion, 15 points, straight away (recommended)** | Simple and fair. The spotter did more work than tapping a suggestion, not less. Keeps "New cat" (25) only a little more rewarding, which is the whole point of SYC-38's rebalance. | Someone could pick any cat to collect it. But they can already do that by tapping any suggestion, and §4.3 catches the pattern. |
+| **B. Fewer points than a confirmation** (say 10) | Discourages careless picks | **Backfires.** The gap to "New cat" (25) grows, so the rational move is to add a duplicate, which is the very thing this feature exists to stop. |
+| **C. A bonus for finding a cat the matcher missed** | Rewards genuinely useful evidence | Pays people to ignore good suggestions and search instead. It's also an incentive to game, and the charity gets nothing from it. |
+| **D. Points held until the team checks** | Nobody gains from a wrong pick | The team may take days, or not have a dashboard yet. The reward moment is the heart of the app, and "pending" feels like being accused. It also turns the review list into a to-do list the charity must clear, which `team-access-and-welfare-queue.md` §3.1 warns against. |
+
+**Recommendation: A.** The pick also counts toward streaks, badges and the spotter's collection, exactly like any sighting. If the team later moves the sighting to a different cat (§4.3), **the spotter keeps the points**. That follows the same principle as SYC-59, where nobody loses points over a merge. The collection follows the corrected cat automatically, because it is worked out from sightings.
+
+### 4.3 Guarding against the wrong cat, by mistake or mischief
+
+**What a wrong pick can actually do**, worst first:
+
+1. **Bring a dead cat back to life.** Under the data spine's rule (§3.2), a sighting dated after a *deceased* statement clears it. A tourist who picks Agatha because she looks similar would make her cat page say "Lives on the street" again, and restart "spotted again" notifications to her followers.
+2. **Make an unsterilised cat look sterilised.** If the spotter answers "Yes, clipped" to the ear-tip question, a single photo-backed answer puts the chosen cat at *Probably sterilised* (`cat-record-data-spine.md` §4.3). On the wrong cat, that could drop a cat that still needs the operation down the trapping list.
+3. **Muddle a cat's history.** A wrong photo on its page, a wrong "last seen", and a "spotted again" notification with somebody else's cat in it.
+4. **Farm the collection.** Pick cats island-wide to fill a collection or climb the leaderboard.
+
+**Options**
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Trust it and record nothing special** | No work for anyone | Harms 1 and 2 happen silently and nobody can find them afterwards. The matcher-miss evidence is lost. |
+| **B. Every hand pick waits for the team before it counts** | Nothing wrong ever lands | Punishes honest spotters, and needs a team that is reliably there. Syros Cats is small, and F1 decided the app never promises attention nobody has agreed to give. Until the dashboard exists, nothing would ever count. |
+| **C. Picks count at once, are marked as hand picks, and appear in a low-priority team list with warning flags. The two harmful effects have guards (recommended)** | Honest spotters get their reward. The team spends its minutes on the few picks that matter. It works with no dashboard at all, and gets better once there is one. | The team may never look. So the two serious harms need guards that work by themselves, not just a list. |
+| **D. A second spotter must pick the same cat** | Independent confirmation | Most cats are spotted by one person (`cat-record-data-spine.md` §4.3). Most picks would never be confirmed. |
+
+**Recommendation: C, with these guards.**
+
+- **Cats recorded as deceased are not offered in the picker.** The matcher can still suggest them, since a close photo match is real evidence a cat has walked back into frame, and a guardian who knows better tells the team. Search finds a deceased cat, but the card reads *"No longer with us"* and can't be chosen. This leaves the data spine's rule untouched and closes harm 1 for hand picks. (Cats that are *presumed* deceased, meaning not seen for three years, stay pickable. A new sighting is exactly how they're meant to come back.)
+- **A "Yes, clipped" answer on a hand pick goes to the top of the team's *Likely* review list**, marked *matched by hand* (`cat-record-data-spine.md` §4.5). It still counts, the same as any other answer, because a wrongly matched suggestion carries the same risk. But the one list the team already clears weekly will put it first.
+- **The team's list of hand picks** (§5) flags the ones worth a look: a pick far from the cat's recorded position, a cat already picked by hand several times recently, and a device with an unusually high share of hand picks.
+- **Anyone can still say "not this cat".** "Report an issue" already offers *this is not a cat, or not this cat* on every photo (`team-access-and-welfare-queue.md` §6).
+
+**Should hand picks go to the SYC-43/SYC-53 confirmation queue?** Not as the ticket imagines. The confirmation queue in SYC-53 is a different thing: a list of cats at *Likely* that a guardian or volunteer could settle by going to look. Hand picks need a person at a desk comparing two photos, which is the SYC-43 dashboard's "fixing what is wrong" area (`team-access-and-welfare-queue.md` §3.3). The hand-pick list belongs there. When guardian roles arrive (SYC-53), a guardian can check hand picks in their own colonies too.
+
+**Until the dashboard exists**, nothing waits on it. Picks are recorded as hand picks from day one, so the first time the list opens it shows every pick made so far. The deceased guard and the ear-tip marking work without anyone looking.
+
+### 4.4 Privacy: what the "nearby cats" list may show
+
+The rule in one sentence: **the list may show only what the public cat-alogue already shows, worked out only from public positions, and it must never depend on which cats the matcher checked.**
+
+**What each card may show:** the cat's main photo, its name, its SYR number, and on the side-by-side check up to two more of its *public* photos. It may also show the same short status lines the cat page shows (for example *"No longer with us"* on a card that can't be picked).
+
+**What it must not show or use:**
+
+| Must not | Why |
+|---|---|
+| An exact position, a pin, or any sighting's position | `cat-record-data-spine.md` §6.4.1 and §6.5. The phone is always a public reader. |
+| A distance, or a nearest-first order, worked out from the cat's exact position | Distances and sorting use the cat's **published** position, the centre of its 250 m square. Ties break on cat number, never on true distance (§6.4.2–3). The list needs no distance figure on the card at all; the order is enough. |
+| Anything about which cats the matcher compared | The matcher compares a photo with the cats within 500 m on **exact** positions (Part 2h). If the list hid the cats that had already been compared, or marked them, whatever is left over would show which cats are more than 500 m away on exact positions, handing back the probing channel §6.3 worries about, one tap at a time. **The list is built as if the matcher had never run.** Suggested cats can appear in it again; that is harmless, because they were already shown. |
+| A warning such as "this cat is usually far from here" worked out from exact positions | That is the same probe in a friendlier coat. Any such prompt could only use published positions, and this spec adds none. The "far from recorded position" flag in §4.3 is shown **only to the team**, and the response to the spotter is the same whether a pick is flagged or not. |
+| A match score for a cat the matcher didn't return | The app hasn't compared them. A made-up score would mislead. Offering an "ask the AI to compare" button would turn the picker into a free photo-comparison service. |
+| Colony names, guardians, feeding sites, notes, who spotted a cat, times | Colony names carry a guardian's name, and linking a cat to a colony in public says where it's fed (§6.2, §6.7). Notes are never public (§7.1). Public times are dates, never times (§6.4.4). |
+| The cat's exact position in the reply once the pick is sent | Already a data spine rule for every confirmation (§10.6, third row). It applies to hand picks unchanged. |
+
+**What this list does not make worse.** Everything on a card is already in the public cat-alogue, which every phone already downloads. The one new question a spotter can ask is "which cats are listed near this photo?", and the Cats tab's "Nearby" filter already answers it from blurred positions.
+
+### 4.5 What works without signal
+
+Precisely, because "it all works offline" is never true of this app:
+
+| Step | Without signal? |
+|---|---|
+| Taking the photo and queueing it | Yes, as now. |
+| Getting suggestions | **No.** The photo check runs on the server once the phone has signal. After that, the suggestions are saved on the phone with the sighting. |
+| Opening the review screen for a sighting that has already synced | Yes. The saved suggestions show. |
+| Opening "Find the cat yourself", scrolling "Cats known around here", searching by name or SYR number | **Yes, from the phone's saved copy of the cat-alogue**, the same copy the Cats tab uses offline. Cats added since that copy was last refreshed won't be there. |
+| Seeing the cats' photos in the list | **Only photos the phone has already loaded before.** The others show a placeholder with the name and SYR number. |
+| Sending the pick, "That's the one" or "New cat" | **No.** All three need signal. Without it, the app says so plainly: *"No signal. Your sighting is saved. Finish this when you're back online."* The sighting stays in the review list and nothing is lost. |
+
+**Options for that last row**
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Choosing needs signal, and the sighting waits safely (recommended)** | Matches how "That's the one" and "New cat" already behave. Nothing new to go wrong in the offline queue, which was hard-won (`offline-queue-on-web.md`). | A spotter in a dead spot has to come back to it. |
+| **B. Queue the choice and send it later** | Smoother in the moment | The only queued choice in the app. The points and the "Match confirmed" screen would be promises made before the server has agreed. If the cat was merged or marked deceased in the meantime, the queued choice fails later with nobody watching. If it's worth doing, it's worth doing for all three choices at once, as its own piece of work. |
+
+**Recommendation: A.** Queueing every kind of choice is filed as a separate follow-up (§11), not smuggled in here.
+
+### 4.6 How a hand pick is recorded, and how it fits the data spine
+
+**What gets recorded, and by whom.** The **server** decides whether a choice was a suggestion or a hand pick. The phone never gets to say. To do that, the server keeps, with each sighting and visible only to the team, the list of cats it compared and the ones it suggested, with their rank. When the choice arrives, the server labels it:
+
+- **suggested**, with its rank (1st, 2nd or 3rd);
+- **hand pick from the nearby list**, **hand pick from search**, or **hand pick from the name-taken prompt**. The phone says which screen it came from, which is harmless because it only describes the phone's own screen;
+- **new cat**, noting whether the spotter opened "Find the cat" first and still chose new. That is weak but useful evidence the cat really is new (§8.4).
+
+For hand picks, the server also records for the team whether the chosen cat was among those compared but scored too low (a *matcher miss*), or outside the 500 m that were compared (a *distance miss*).
+
+**Options for where that record lives**
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. On the sighting row itself**, written once when the sighting is resolved | One place to look. The sighting already changes from pending to resolved at exactly that moment. | Adds a few team-only columns to a public-facing table. Every public reader of sightings must leave them out. |
+| **B. As an observation on the cat** | Reuses the observation table | Wrong kind of thing. Observations are statements *about a cat* ("its ear tip is clipped"). "Which cat is this photo of" is a statement about the *sighting*, and it can change when the team moves it, which an observation fixed to one cat cannot follow. |
+| **C. A small team-only table of match records**, one row per sighting, written when the match runs and completed when the choice arrives (recommended) | Keeps the matcher's working, and what the spotter chose, out of every public payload by construction, the same principle as private feeding sites (§10.5: filtered in the query, not the serialiser). It is exactly the dataset SYC-56 needs, and can be read without touching public tables. | One more table. |
+
+**Recommendation: C.** It is owned by the data spine, since `DECISIONS.md` Part 3 gives it the record model and matching, so the table shape goes to it as a follow-up (§11). This spec states what it must hold, not its columns.
+
+**Matching accuracy (SYC-56).** SYC-56 builds its test set from confirmed sightings, treating each as a human-checked "same cat" label. Hand picks change that in two ways, and both are recommended:
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Treat a hand pick like any confirmation** | More labels | A wrong hand pick becomes a wrong answer in the test. |
+| **B. Leave hand picks out** | Clean labels | Throws away the most useful evidence there is: the cases where the matcher failed. |
+| **C. Count every hand pick as a miss, but only use it as a "same cat" label once the team has said *looks right* or nobody has flagged it within 30 days (recommended)** | Measures how often the matcher misses, which suggestions alone can't show, and keeps the labels honest | A few weeks' delay before a pick counts as a label |
+
+**Recommendation: C.** And one thing SYC-56 should know: **a confirmed suggestion is a weaker label than it looks.** People tend to agree with what they are shown, the prompted-versus-volunteered bias the data spine already records for ear tips (§10.1). A hand pick is volunteered. The evaluation should report the two kinds separately.
+
+**Matcher misses also test the 500 m decision.** How many hand picks are *distance misses* is the real-world evidence on whether 500 m, measured from a frozen first-spotted position, is too tight. It feeds SYC-80 (letting a cat's position follow its sightings) more directly than any argument could.
+
+---
+
+## 5. What the team sees
+
+**A "Matched by hand" list on the staff dashboard**, in the "fixing what is wrong" area (`team-access-and-welfare-queue.md` §3.3). It sits below the welfare queue and below "Report an issue", and is never above either. A wrongly matched photo is not an emergency.
+
+- Each row: the spotter's photo beside the chosen cat's main photo and two recent photos. How the pick was made (nearby, search or name prompt). For the team only, the distance between the photo and the cat's recorded position. And any flags: *far from recorded position*, *picked by hand often lately*, *this device picks by hand a lot*, *says ear tip clipped*.
+- Flagged rows first, then newest first.
+- Three buttons: **Looks right** · **Different cat…** (search, then move) · **It's a new cat** (move it to a new cat record).
+- The list is for glancing, not clearing. Unchecked picks simply age out of view after 30 days. They are not deleted, and SYC-56 can still use them as labels (§4.6).
+- The same checks appear on the cat's own dashboard page, so a team member looking at Agatha sees "3 photos matched by hand" without opening a separate list.
+
+**Moving a sighting to a different cat is not something the data spine can do yet** (§8.2). "Different cat…" and "It's a new cat" depend on it. Until it exists, the list offers **Looks right** plus **Hide this photo**, which already exists and is reversible, and the hand-pick record carries the team's verdict so the move can be done properly later.
+
+---
+
+## 6. Words on screen
+
+English below. Every string also needs Greek and French, and a local check before launch, the same as all copy in `team-access-and-welfare-queue.md` §5.
+
+| Where | Copy |
+|---|---|
+| Card under suggestions | **Not one of these?** Find the cat yourself |
+| Line on the new-cat screen | Seen this cat in the app before? **Find it instead** |
+| Picker title | Which cat is it? |
+| Search box | Name or SYR number |
+| List heading | Cats known around here |
+| Side-by-side button | Yes, this is the cat |
+| Bottom of picker | Can't find it? **Add it as a new cat** |
+| Deceased card (not pickable) | No longer with us |
+| Name taken | There's already a cat called {name}. Is this {them}? · **Yes, that's them** · No, a different cat |
+| No signal when sending | No signal. Your sighting is saved. Finish this when you're back online. |
+| Saved cat-alogue is old (shown offline only) | Showing the cats saved on your phone. New ones may be missing. |
+
+---
+
+## 7. Abuse, and what stops it
+
+| Someone tries to… | What happens |
+|---|---|
+| Fill their collection by picking famous cats from anywhere on the island | Each pick needs a real photo of a real cat (the no-cat check still runs) and counts against the per-device limits on sending photos (`cat-record-data-spine.md` §6.3 point 2). The team's list flags picks far from the cat and devices that pick by hand a lot. They keep their points if moved, but the collection follows the corrected cat. |
+| Mark a cat dead or alive | Deceased cats can't be picked by hand. A hand pick can't clear a death. |
+| Make an unsterilised cat look sterilised | The "clipped" answer counts, but goes to the top of the team's *Likely* review list, marked *matched by hand*. |
+| Find a cat's exact position by trying picks from different places | The picker uses published positions only, doesn't depend on what the matcher checked, and replies the same whether a pick is flagged or not (§4.4). |
+| Flood a cat's page with wrong photos | "Report an issue → not this cat", the *picked by hand often lately* flag, and one-tap photo hiding. |
+
+---
+
+## 8. Fit with the data spine and duplicate merging
+
+### 8.1 A hand pick is an ordinary sighting
+
+The sighting, its photo and the optional answers (ear tip, food and water, note) are written exactly as for any match, as `cat-record-data-spine.md` §10.7 defines. The only additions are the team-only match record (§4.6) and the two guards in §4.3. Nothing about how status is worked out changes, apart from the guard that keeps deceased cats out of the picker. That guard changes what the picker offers, not the data spine's rule.
+
+### 8.2 The gap this spec finds: moving a sighting to the right cat
+
+Nothing in the approved specs lets the team say *this sighting is of a different cat*, and it is harder than it sounds:
+
+- A sighting records the cat it belongs to, and the spine treats sightings as rows that are added, never rewritten, apart from redaction (§8.5).
+- The observations written from that sighting (ear tip, food and water, note) each carry the **cat's** id as well as the sighting's. If only the sighting moved, a "clipped" answer would stay on the wrong cat.
+- `cat_identity` (§10.3) merges whole cats. It can't move one photo.
+
+**What it needs to do, in plain terms:** moving a sighting is a new, attributed, dated statement, never an edit. The old link stays in the record. Every observation made from that sighting is marked as replaced on the old cat and restated on the new one, attributed to the team member who moved it. The old cat's derived status then works itself out again. That shape belongs to the data spine and is filed there (§11). Until it exists, §5's fallback applies.
+
+### 8.3 Deceased cats and the "walk back into frame" rule
+
+§3.2 of the data spine says any later sighting clears a deceased statement, and this spec keeps that rule exactly. It only stops a hand pick from being the sighting that does it (§4.3). A suggested match, where the photo check itself found the likeness, still clears it.
+
+### 8.4 Duplicate merging (SYC-59)
+
+- **This feature stops duplicates being made. SYC-59 cleans up the ones that get through.** They share evidence: a spotter who opened "Find the cat", looked, and still chose "New cat" is weak evidence the cat really is new. A spotter who chose "New cat" without opening it is none. SYC-59's detection can use the difference.
+- **Merged cats.** The picker lists only the surviving cat of a merge. Search matches a cat's earlier names too, so "Agatha" still finds her after she was merged into "Αγάθη". Names are compared in the folded form from `DECISIONS.md` Part 2g, so Greek accents and capitals don't matter.
+- **The name-taken prompt** (§3.1) is a lightweight version of SYC-59's third trigger ("this might be the same cat as…") at the moment of creation, and both should use the same words for it.
+
+---
+
+## 9. Technical notes
+
+For whoever builds it. Everything above is the product.
+
+- **The picker reads the same public cat-alogue as the Cats tab** (the saved copy offline, fresh when online), filtered and sorted on the phone by published position. There is no new "list cats near this sighting" endpoint. If the cat-alogue becomes paginated (`cat-record-data-spine.md` §2.3), the picker's search must fall back to a public, server-side name/number search built on the same public payload. Offline search then only covers what the phone has saved, and the "may be missing" line says so.
+- **Deceased cats** are marked in the public cat payload already (`lifeStatus`), so the phone can grey them out. **The server must also refuse** a hand-pick choice of a deceased cat, because the phone can't be trusted to enforce it.
+- **Resolve.** The choice request gains an optional "which screen" field (`nearby`, `search`, `name_prompt`). The server compares the chosen cat against its own stored list of suggestions to decide *suggested* versus *hand pick*. It never accepts the phone's word on that.
+- **Stored with each match**: the cats compared, the cats suggested with rank and score, and later the choice and how it was made. Team-only, never in any public response.
+- **Response shape** for a hand pick is identical to a suggested match, including timing. No field, message or status code differs when a pick is flagged.
+- **Name-taken**: when the name is taken, the server's existing refusal also returns that cat's id, name and main photo (all public), so the phone can ask "Is this them?".
+
+## 10. Tests that must exist
+
+1. The picker's list for a given photo location is identical whether the matcher compared 0, 3 or 10 cats. It depends only on published positions.
+2. A sighting whose exact position is 499 m and 501 m from a cat gets the same picker list and order (both come from blurred positions).
+3. A hand-pick response is byte-for-byte the same shape whether or not the pick is flagged far away.
+4. The server labels a choice *suggested* only if that cat was in its stored suggestions. A phone claiming otherwise changes nothing.
+5. A hand pick of a cat with a live deceased statement is refused by the server. A suggested match of the same cat is accepted and clears it (data spine §3.2 unchanged).
+6. A hand pick awards the same points as a suggested match (SYC-38 values).
+7. A "clipped" answer on a hand pick puts that cat at the top of the *Likely* review list, marked *matched by hand*.
+8. No public payload contains the match record, the compared list, the "which screen" field or any flag.
+9. A merged-away cat never appears in the picker. Searching its old name finds the surviving cat.
+10. Offline: the picker opens and searches from the saved cat-alogue. Sending without signal keeps the sighting in the review list and loses nothing.
+
+---
+
+## 11. Follow-ups this spec creates
+
+Filed to Linear under SYC-119 (deduplicated against existing tickets):
+
+- **Moving a sighting to a different cat, or to a new cat** (data spine): the append-only reassignment in §8.2, including restating the sighting's observations on the right cat.
+- **The team-only match record** (data spine): what was compared, suggested and chosen, per sighting (§4.6). This is the data SYC-56 needs.
+- **SYC-56 note**: report hand picks and confirmed suggestions separately, and count distance misses as evidence for SYC-80 (§4.6). Added as a comment on SYC-56 rather than a new ticket.
+- **Queue "That's the one", "New cat" and hand picks when there's no signal** (§4.5, option B): its own piece of work, if ever.
+- **The "Matched by hand" dashboard list** (§5): an addition to SYC-43's scope, filed as its own ticket linked to SYC-43.
+
+## 12. Review findings
+
+An adversarial review of the first draft assumed it was wrong and looked for abuse paths, privacy leaks, conflicts with the approved specs and `DECISIONS.md`, and dead ends. Each finding below has been folded into the sections above.
+
+| # | Finding | Severity | Resolution |
+|---|---|---|---|
+| R1 | **The nearby list could hand back the 500 m probe.** The first draft's list left out cats already suggested "to avoid repeats". The matcher compares cats within 500 m on exact positions, so the leftover set would reveal which cats are more than 500 m away, one tap at a time. | High (privacy) | The list is built as if the matcher had never run. Suggested cats may repeat (§4.4, test 1). |
+| R2 | **A friendly warning was an oracle.** The draft had "This cat is usually seen far from here. Are you sure?", worked out from exact positions. Moving around and watching when it appears locates the cat. | High (privacy) | Removed. The far-away flag is team-only, and the reply is identical either way (§4.4, §9, test 3). |
+| R3 | **A hand pick could bring a dead cat back to life.** The data spine's rule clears *deceased* on any later sighting. That is right for a photo match and wrong for a tourist's guess. | High (welfare, trust) | Deceased cats can't be picked by hand. The server refuses too. The spine's rule is unchanged for suggested matches (§4.3, §8.3, test 5). |
+| R4 | **A wrong hand pick plus "Yes, clipped" makes the wrong cat *Probably sterilised*.** The cat that really needs the operation drops down the trapping list. | High (welfare) | The answer counts but goes to the top of the *Likely* review list, marked (§4.3, test 7). |
+| R5 | **The server can't tell a hand pick from a suggestion.** Today the choice request accepts any cat, and nothing records what was suggested. A "hand pick" flag sent by the phone could be switched off. | High (integrity) | The server stores what it suggested and decides the label itself (§4.6, §9, test 4). |
+| R6 | **"Send picks to the SYC-43/SYC-53 confirmation queue" misreads SYC-53.** That queue is for cats at *Likely* that someone could settle by going to look, not for checking photos at a desk. | Medium (conflicts with approved scope) | The list lives in the dashboard's "fixing what is wrong" area. Guardians get it for their colonies when SYC-53 lands (§4.3, §5). |
+| R7 | **Moving a sighting isn't possible in the approved data model**, and observations from the sighting are tied to the old cat. The team's "Different cat…" button would have nothing behind it. | Medium (gap in approved specs) | Gap named, shape stated, ticket filed. Interim: *Looks right* plus *Hide this photo* (§5, §8.2). |
+| R8 | **Dead end when there are no suggestions.** No cats within 500 m, or a failed photo check, sends the spotter straight to naming a new cat with no way back. After Part 2h this is the case most likely to create duplicates, and the first draft only added the button under the suggestions. | Medium (UX) | Second way in on the new-cat screen (§3.1). |
+| R9 | **Fewer points for a hand pick would create more duplicates**, because "New cat" would then clearly pay more. | Medium (incentives) | Same 15 points (§4.2). |
+| R10 | **A 500 m nearby list would miss exactly the cats the matcher missed.** | Medium (UX) | 1.5 km list, matching the Cats tab, plus island-wide search (§4.1). |
+| R11 | **Offline was overstated.** The draft said the picker "works offline". Photos in the list only show if already loaded, the saved cat-alogue can be stale, and sending needs signal. | Medium (canonical fact: never overclaim offline) | Step-by-step table (§4.5) and honest on-screen lines (§6). |
+| R12 | **Colony-name search would publish which colony a cat belongs to**, with a guardian's name, and point at a feeding area. | Medium (privacy) | No colony search in the public picker (§4.4). |
+| R13 | **Showing a match percentage on cats the app never compared** would look authoritative and be invented. A "compare for me" button would be a free AI service. | Low | Neither is offered (§3.2, §4.4). |
+| R14 | **Confirmed suggestions are biased labels for SYC-56.** People agree with what they are shown. | Low (measurement) | Report the two kinds separately (§4.6). |
+| R15 | **Holding points until the team checks** would turn the review list into a backlog the charity must clear, against the principle in `team-access-and-welfare-queue.md` §3.1, and could never pay out before the dashboard exists. | Low | Rejected (§4.2, option D). |
+| R16 | **A merged-away cat in the picker** would spread hand picks across both halves of a merge. | Low | The picker lists only the surviving cat. Old names still find it (§8.4, test 9). |
+| R17 | **Telling the spotter their pick "will be checked"** would treat the people doing the right thing as suspects. | Low (tone) | Not said. It's an ordinary sighting on the spotter's side (§3.3). |
+
+## 13. Open questions
+
+| # | Question | Owner | Recommendation |
+|---|---|---|---|
+| 1 | Should Syros Cats see a hand pick's flags on the cat's dashboard page as well as in the list? | Samuel | Yes (§5). It costs nothing and is where they'll actually be looking. |
+| 2 | Is 30 days right, both for the list ageing out and for an unflagged hand pick to become a SYC-56 label? | Samuel | Yes for launch. Revisit once SYC-56 has a first baseline. |
+| 3 | Should guardians see hand picks in their own colonies once they have accounts (SYC-53)? | Syros Cats | Yes. They know their cats best, and it spreads the load off the core team. |
