@@ -38,7 +38,16 @@ describe('a failed live capture on the Spot screen', () => {
   });
 
   it('shows one message: the bottom hint is hidden while the camera has failed', () => {
-    expect(source).toMatch(/\{!cameraFailed && \(\s*<Text style=\{styles\.captureHint\}/);
+    // The failed state builds the centre panel, and the hint only renders
+    // when there is no panel.
+    expect(source).toMatch(/const cameraPanel = cameraFailed \? \(/);
+    expect(source).toMatch(/\{!cameraPanel && \(\s*<Text style=\{styles\.captureHint\}/);
+  });
+
+  it('hides the bottom hint while asking for camera access, too', () => {
+    // "Tap the button to open your camera" contradicted the "Show live view"
+    // prompt and the two stacked on top of each other (seen 30 Sep).
+    expect(source).toMatch(/cameraState === 'request' \|\| cameraState === 'settings' \? \(/);
   });
 });
 
