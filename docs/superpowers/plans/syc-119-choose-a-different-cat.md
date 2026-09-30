@@ -1,6 +1,6 @@
-# SYC-119: Choosing a different cat — implementation plan (awaiting Samuel's approval)
+# SYC-119: Choosing a different cat — implementation plan (approved by Samuel, 30 Sep 2026)
 
-**Linear:** SYC-119, with SYC-150, SYC-151, SYC-152, SYC-153 and SYC-161. **Status:** plan only. Nothing here is built, published or configured.
+**Linear:** SYC-119, with SYC-150, SYC-151, SYC-152, SYC-153 and SYC-161. **Status:** approved by Samuel, 30 Sep 2026. Nothing is built yet.
 **Design (approved 30 Sep 2026, not reopened here):** `docs/specs/choose-a-different-cat.md` · `docs/specs/DECISIONS.md` Part 2i (and Part 2h, the 500 m rule, in PR #39).
 **Checked against:** `origin/main` on 30 Sep 2026; open PRs #39 (SYC-39, 500 m), #41 (SYC-107), #23 (data spine plan), #24 and #28 (held for the post-move queue); the SYC-121 Neon plan's migration freeze. Every "exists today" claim below names the file it was read in.
 **Branch note:** the spec (PR #44) merged on 30 Sep 2026; this plan is rebased onto `main` (PR #49, reopened from #48).
@@ -23,7 +23,7 @@
 
 ## Decisions for Samuel
 
-All four were decided by Samuel on 30 Sep 2026, each as recommended. The plan as a whole is still awaiting his approval.
+All four were decided by Samuel on 30 Sep 2026, each as recommended. Samuel approved the plan as a whole the same day.
 
 ### Decision 1 — Ship the picker before the server can label hand picks?
 
