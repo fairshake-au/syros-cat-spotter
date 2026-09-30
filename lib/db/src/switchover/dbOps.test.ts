@@ -244,7 +244,7 @@ describe("pg_dump/pg_restore trust the system CA store for verify-full addresses
   // The function is pulled out of the real script, so the test fails if the
   // script's version changes behaviour. Local test databases have no TLS, so
   // this checks what the wrapped command sees rather than a live connection.
-  function libpqEnvFor(url: string, preset?: string): string {
+  function libpqEnvFor(url: string, preset?: string, pgsslmode?: string): string {
     const fn = spawnSync(
       "bash",
       ["-c", `sed -n '/^with_libpq_ssl() {/,/^}/p' "${SCRIPT}"`],
@@ -253,6 +253,7 @@ describe("pg_dump/pg_restore trust the system CA store for verify-full addresses
     expect(fn).toContain("with_libpq_ssl()");
     const env: Record<string, string> = { PATH: process.env.PATH ?? "" };
     if (preset !== undefined) env.PGSSLROOTCERT = preset;
+    if (pgsslmode !== undefined) env.PGSSLMODE = pgsslmode;
     const r = spawnSync(
       "bash",
       ["-c", `${fn}\nwith_libpq_ssl "$1" sh -c 'printf %s "\${PGSSLROOTCERT-unset}"'`, "_", url],
@@ -262,14 +263,17 @@ describe("pg_dump/pg_restore trust the system CA store for verify-full addresses
     return r.stdout;
   }
 
-  it("sets PGSSLROOTCERT=system for sslmode=verify-full and verify-ca", () => {
+  it("sets PGSSLROOTCERT=system for sslmode=verify-full, in the URL or in PGSSLMODE", () => {
     expect(libpqEnvFor("postgresql://u@h/db?sslmode=verify-full")).toBe("system");
-    expect(libpqEnvFor("postgresql://u@h/db?channel_binding=require&sslmode=verify-ca")).toBe("system");
+    expect(libpqEnvFor("postgresql://u@h/db?channel_binding=require&sslmode=verify-full")).toBe("system");
+    expect(libpqEnvFor("postgresql://u@h/db", undefined, "verify-full")).toBe("system");
   });
 
-  it("leaves it unset for weaker or absent sslmode (libpq refuses sslrootcert=system there)", () => {
+  it("leaves it unset for verify-ca, weaker or absent sslmode (libpq rejects sslrootcert=system there)", () => {
+    expect(libpqEnvFor("postgresql://u@h/db?sslmode=verify-ca")).toBe("unset");
     expect(libpqEnvFor("postgresql://u@h/db?sslmode=require")).toBe("unset");
     expect(libpqEnvFor("postgresql://u@localhost/db")).toBe("unset");
+    expect(libpqEnvFor("postgresql://u@h/db", undefined, "require")).toBe("unset");
   });
 
   it("keeps an explicitly configured PGSSLROOTCERT", () => {

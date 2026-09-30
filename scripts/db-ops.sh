@@ -98,16 +98,23 @@ migrate_cli() {
 # ~/.postgresql/root.crt when sslmode=verify-full, and the runner has no such
 # file, so the first rehearsal copy failed there. Node's pg client uses the
 # system CA store instead. PGSSLROOTCERT=system (libpq 16+) makes libpq use the
-# system store too. Only for verify-full/verify-ca addresses: with a weaker
-# sslmode, libpq refuses sslrootcert=system, and local test databases have none.
+# system store too. verify-full only: libpq rejects sslrootcert=system with
+# verify-ca or anything weaker ("weak sslmode … may not be used"), and local
+# test databases have no TLS. sslmode may come from the URL or PGSSLMODE.
 with_libpq_ssl() {
   local url="$1"
   shift
   case "$url" in
-    *sslmode=verify-full*|*sslmode=verify-ca*)
+    *sslmode=verify-full*)
       PGSSLROOTCERT="${PGSSLROOTCERT:-system}" "$@" ;;
-    *)
+    *sslmode=*)
       "$@" ;;
+    *)
+      if [ "${PGSSLMODE:-}" = "verify-full" ]; then
+        PGSSLROOTCERT="${PGSSLROOTCERT:-system}" "$@"
+      else
+        "$@"
+      fi ;;
   esac
 }
 
