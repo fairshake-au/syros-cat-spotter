@@ -65,11 +65,58 @@ export type HomeScreenPlatform = 'ios-safari' | 'ios-unsupported' | 'other';
 const IOS_UNSUPPORTED_BROWSER_RE =
   /CriOS|FxiOS|EdgiOS|OPiOS|FBAN|FBAV|Instagram|Line\/|Snapchat/i;
 
+// The `Version/X.Y` token is Safari's own version marker, present in both
+// iPhone Safari's UA and iPadOS Safari's desktop-mode UA (the one that
+// otherwise claims to be a Mac). `OS X_Y`-style is the underlying iOS
+// version token, carried only on iPhone/iPad UAs (never in iPadOS desktop
+// mode) — used as a secondary cross-check when the `Version/` token is
+// missing.
+const SAFARI_VERSION_RE = /Version\/(\d+)\.(\d+)/;
+const IOS_OS_VERSION_RE = /OS (\d+)_(\d+)/;
+
+const MIN_SAFARI_MAJOR = 16;
+const MIN_SAFARI_MINOR = 4;
+
+function meetsMinimumVersion(major: number, minor: number): boolean {
+  if (!Number.isFinite(major) || !Number.isFinite(minor)) return false;
+  if (major !== MIN_SAFARI_MAJOR) return major > MIN_SAFARI_MAJOR;
+  return minor >= MIN_SAFARI_MINOR;
+}
+
+/**
+ * SYC-134 (Samuel, 30 Sep 2026): whether to hide the card on older
+ * iPhones/iPads until a tester on one of them confirms a Home Screen icon
+ * keeps their identity — documented Safari behaviour, but only actually
+ * checked on a device running iOS 16.4+. SYC-146 is the follow-up to get
+ * that older-device check done and lift this once it's confirmed. Reads
+ * the Safari version from the `Version/X.Y` token, which is present for
+ * both iPhone Safari and iPadOS Safari in desktop mode; on iPhone, an
+ * `OS 16_4`-style token is also accepted as a cross-check if `Version/` is
+ * missing. If no version can be read at all, this fails safe and hides the
+ * card — an unverified device is treated the same as a known-old one, not
+ * the same as a known-new one.
+ */
+function isRecentEnoughSafari(ua: string, isIPhone: boolean): boolean {
+  const versionMatch = ua.match(SAFARI_VERSION_RE);
+  if (versionMatch) {
+    return meetsMinimumVersion(Number(versionMatch[1]), Number(versionMatch[2]));
+  }
+  if (isIPhone) {
+    const osMatch = ua.match(IOS_OS_VERSION_RE);
+    if (osMatch) {
+      return meetsMinimumVersion(Number(osMatch[1]), Number(osMatch[2]));
+    }
+  }
+  // Fail safe: can't tell the version, so don't claim iOS 16.4+ behaviour.
+  return false;
+}
+
 export function detectHomeScreenPlatform(
   userAgent: string,
   maxTouchPoints = 0,
 ): HomeScreenPlatform {
   const ua = userAgent || '';
+  const isIPhone = /iPhone|iPod/.test(ua);
   // iPadOS Safari's default UA claims to be a Mac ("Macintosh"), so a touch
   // point count above 1 is what tells a real iPad apart from a real desktop
   // Mac (which reports 0). iPhone/iPod always carry their own UA token.
@@ -83,6 +130,10 @@ export function detectHomeScreenPlatform(
     // relative to Safari's is unverified — see the doc comment above. Real
     // Safari's UA carries none of these tokens.
     if (IOS_UNSUPPORTED_BROWSER_RE.test(ua)) return 'ios-unsupported';
+    // SYC-134, 30 Sep 2026: below iOS/iPadOS 16.4, or unreadable, this is
+    // unverified — see `isRecentEnoughSafari` above and SYC-146 (follow-up:
+    // ask a tester on an older device to confirm, then lift this).
+    if (!isRecentEnoughSafari(ua, isIPhone)) return 'ios-unsupported';
     return 'ios-safari';
   }
 
