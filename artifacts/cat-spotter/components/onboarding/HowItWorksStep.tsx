@@ -219,7 +219,9 @@ const styles = StyleSheet.create({
   },
   safetyHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   safetyEmoji: { fontSize: 20 },
-  safetyTitle: { flex: 1, fontFamily: fonts.displayBold, fontSize: 17 },
+  // 19px bold counts as large text under WCAG, so terra700 on terra100
+  // (4.0:1) passes; at 17px it would not.
+  safetyTitle: { flex: 1, fontFamily: fonts.displayBold, fontSize: 19 },
   safetyBody: { fontFamily: fonts.body, fontSize: fontSizes.xs, lineHeight: 19 },
   safetyStrong: { fontFamily: fonts.bodyBold },
   footer: { paddingHorizontal: spacing[5], gap: spacing[3] },
