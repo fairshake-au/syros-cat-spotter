@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SignInRequiredBanner } from './SignInRequiredBanner';
 import { ReviewReadyBanner } from './ReviewReadyBanner';
 import { OwnershipNoticeBanner } from './OwnershipNoticeBanner';
+import { HomeScreenNudgeBanner } from './HomeScreenNudgeBanner';
 
 /**
  * SYC-121 review fix: SignInRequiredBanner, ReviewReadyBanner and
@@ -15,10 +16,12 @@ import { OwnershipNoticeBanner } from './OwnershipNoticeBanner';
  * hidden.
  *
  * Stack every visible banner in one column instead, in priority order
- * (sign-in, review-ready, ownership notice), so no banner is ever silently
- * hidden. Each banner still decides its own visibility by returning null;
- * this container only owns the shared position (below the safe area) and
- * the vertical gap between whichever banners are currently showing.
+ * (sign-in, review-ready, ownership notice, then the SYC-134 Home Screen
+ * nudge last — the sign-in gate and any urgent notice matter more than a
+ * reminder to add an icon), so no banner is ever silently hidden. Each
+ * banner still decides its own visibility by returning null; this
+ * container only owns the shared position (below the safe area) and the
+ * vertical gap between whichever banners are currently showing.
  */
 export function BannerStack() {
   const insets = useSafeAreaInsets();
@@ -30,6 +33,7 @@ export function BannerStack() {
       <SignInRequiredBanner />
       <ReviewReadyBanner />
       <OwnershipNoticeBanner />
+      <HomeScreenNudgeBanner />
     </View>
   );
 }

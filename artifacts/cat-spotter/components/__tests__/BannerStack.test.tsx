@@ -50,6 +50,17 @@ vi.mock('@/components/OwnershipNoticeBanner', () => ({
   OwnershipNoticeBanner: () => null,
 }));
 
+// SYC-134: HomeScreenNudgeBanner is exercised on its own in
+// HomeScreenNudgeBanner.test.tsx. Here it only needs to render null without
+// throwing — no claimed username means it hides itself — so DeviceContext
+// and AsyncStorage just need real-enough stubs to not blow up on mount.
+vi.mock('@/context/DeviceContext', () => ({
+  useDevice: () => ({ username: null, isReady: false }),
+}));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: { getItem: vi.fn().mockResolvedValue(null), setItem: vi.fn() },
+}));
+
 const { useOffline, openURL } = vi.hoisted(() => ({
   useOffline: vi.fn(),
   openURL: vi.fn().mockResolvedValue(undefined),
