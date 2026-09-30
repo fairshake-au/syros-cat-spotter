@@ -202,7 +202,7 @@ describe("the people operations", () => {
         name: "Susan again",
         addedBy: "cli:test",
       }),
-    ).rejects.toThrow("susan@example.com is already on the list.");
+    ).rejects.toThrow("That address is already on the list.");
   });
 
   it("finds, signs out everywhere and removes by address", async () => {

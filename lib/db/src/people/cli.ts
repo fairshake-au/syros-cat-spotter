@@ -9,18 +9,25 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 // The `people` command (SYC-43 part 1, Decision 4): the stopgap way to manage
 // the list until the manage_people screen (SYC-104) exists.
 //
-//   pnpm --filter @workspace/db run people -- add --target <t> --email <e> --name <n> [--role staff] [--by <operator>]
+//   pnpm --filter @workspace/db run people -- add --target <t> [--email <e>] [--name <n>] [--role staff] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- list --target <t>
-//   pnpm --filter @workspace/db run people -- remove --target <t> --email <e>
-//   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> --email <e>
+//   pnpm --filter @workspace/db run people -- remove --target <t> [--email <e>]
+//   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>]
 //
-// The target is always named. Its connection string comes from
-// DATABASE_URL_<TARGET> (for example DATABASE_URL_PRODUCTION), or from
-// DATABASE_URL when DATABASE_TARGET names the same target (how a workflow
-// environment that holds one database's DATABASE_URL would call it). It never
-// uses DATABASE_URL on its own, so a seed can't land on whatever that happens
-// to point at. The command prints what it did and the target's name, never a
-// connection string, host or secret, even in an error.
+// Claude runs it through db-ops (scripts/db-ops.sh, `people-add` and
+// `people-list`), the SYC-121 route for every database command. It picks its
+// database exactly the way db-ops.sh does for migrate:
+//  1. `--target` is mandatory, and DATABASE_TARGET (set by the GitHub
+//     Environment) must equal it. This is checked first; a mismatch refuses.
+//  2. The address comes only from the target's own variable: production →
+//     NEON_PROD_URL, rehearsal → NEON_REHEARSAL_URL, development →
+//     NEON_DEV_URL. There's no fallback, and never DATABASE_URL, so an empty
+//     secret can't resolve to another branch.
+// The address and name can come from PEOPLE_EMAIL and PEOPLE_NAME instead of
+// flags, so db-ops passes them from short-lived Environment secrets, never on
+// a command line. Output names the target and the person's id and role, never
+// their address, a connection string or a host, even in an error (SYC-121
+// plan H.1(b)).
 
 export interface CliIo {
   env: Record<string, string | undefined>;
@@ -31,15 +38,23 @@ export interface CliIo {
 
 const USAGE = [
   "Usage:",
-  "  people add --target <name> --email <address> --name <name> [--role <role>]... [--by <operator>]",
-  "  people list --target <name>",
-  "  people remove --target <name> --email <address>",
-  "  people sign-out-everywhere --target <name> --email <address>",
-  "The connection string is read from DATABASE_URL_<TARGET> (e.g. DATABASE_URL_PRODUCTION),",
-  "or from DATABASE_URL when DATABASE_TARGET=<target>.",
+  "  people add --target <target> [--email <address>] [--name <name>] [--role <role>]... [--by <operator>]",
+  "  people list --target <target>",
+  "  people remove --target <target> [--email <address>]",
+  "  people sign-out-everywhere --target <target> [--email <address>]",
+  "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
+  "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
+  "--email and --name may instead come from PEOPLE_EMAIL and PEOPLE_NAME.",
 ].join("\n");
 
 class UsageError extends Error {}
+
+/** Each target's address comes only from its own variable (db-ops.sh). */
+export const TARGET_URL_VARIABLES = {
+  production: "NEON_PROD_URL",
+  rehearsal: "NEON_REHEARSAL_URL",
+  development: "NEON_DEV_URL",
+} as const;
 
 function parseArgs(argv: string[]): {
   command: string;
@@ -72,24 +87,42 @@ function one(flags: Map<string, string[]>, name: string): string {
   return values[0];
 }
 
+/** --flag, or the environment variable db-ops passes it in. */
+function flagOrEnv(
+  flags: Map<string, string[]>,
+  name: string,
+  envName: string,
+  env: CliIo["env"],
+): string {
+  if (flags.has(name)) return one(flags, name);
+  const value = env[envName];
+  if (!value) throw new UsageError(`Give --${name}, or set ${envName}.`);
+  return value;
+}
+
 /**
- * The connection string for a named target, or an explanation of why there
- * isn't one. DATABASE_URL_<TARGET> is used when set. Otherwise DATABASE_URL
- * is used only when DATABASE_TARGET names the same target, so the database a
- * process happens to point at is never used by default.
+ * The connection string for a named target, or why there isn't one. The
+ * DATABASE_TARGET check comes first, as in db-ops.sh.
  */
 function resolveTarget(
   target: string,
   env: CliIo["env"],
 ): { url: string } | { problem: string } {
-  const specific = env[`DATABASE_URL_${target.toUpperCase()}`];
-  if (specific) return { url: specific };
-  if (env["DATABASE_URL"] && env["DATABASE_TARGET"] === target) {
-    return { url: env["DATABASE_URL"] };
+  if (env["DATABASE_TARGET"] !== target) {
+    return {
+      problem: `DATABASE_TARGET ('${env["DATABASE_TARGET"] ?? "unset"}') doesn't match target '${target}'. Refusing.`,
+    };
   }
-  return {
-    problem: `No database is configured for target "${target}". Set DATABASE_URL_${target.toUpperCase()}, or DATABASE_URL with DATABASE_TARGET=${target}.`,
-  };
+  if (!Object.hasOwn(TARGET_URL_VARIABLES, target)) {
+    return {
+      problem: "The target must be development, rehearsal or production.",
+    };
+  }
+  const name =
+    TARGET_URL_VARIABLES[target as keyof typeof TARGET_URL_VARIABLES];
+  const url = env[name];
+  if (!url) return { problem: `${name} must be set for target '${target}'.` };
+  return { url };
 }
 
 /** Removes the connection string, and every part of it, from a message. */
@@ -128,10 +161,7 @@ export async function runPeopleCommand(
     if (!known.includes(command)) {
       throw new UsageError(`Unknown command "${command}".`);
     }
-    const target = one(flags, "target").toLowerCase();
-    if (!/^[a-z0-9_]+$/.test(target)) {
-      throw new UsageError("--target may only hold letters, digits and _.");
-    }
+    const target = one(flags, "target");
     const resolved = resolveTarget(target, io.env);
     if ("problem" in resolved) {
       io.out(resolved.problem);
@@ -141,38 +171,50 @@ export async function runPeopleCommand(
     // The target's name only: never the connection string or its host.
     io.out(`Target: ${target}`);
 
+    // Read the person's details before connecting, so a missing one is a
+    // usage error rather than a half-done run.
+    const addInput =
+      command === "add"
+        ? {
+            email: flagOrEnv(flags, "email", "PEOPLE_EMAIL", io.env),
+            name: flagOrEnv(flags, "name", "PEOPLE_NAME", io.env),
+            roles: flags.get("role") ?? ["staff"],
+          }
+        : null;
+
     client = new pg.Client({ connectionString });
     await client.connect();
     const store = peopleStore(drizzle(client, { schema }));
 
-    if (command === "add") {
+    if (addInput) {
       const person = await store.addPerson({
-        email: one(flags, "email"),
-        name: one(flags, "name"),
-        roles: flags.get("role") ?? ["staff"],
+        ...addInput,
         addedBy: `cli:${flags.get("by")?.[0] ?? os.userInfo().username}`,
       });
-      io.out(
-        `Added ${person.email} as ${(flags.get("role") ?? ["staff"]).join(", ")}.`,
-      );
+      io.out(`Added person ${person.id} as ${addInput.roles.join(", ")}.`);
       return 0;
     }
 
     if (command === "list") {
       const people = await store.listPeople();
-      if (people.length === 0) io.out("Nobody is on the list.");
+      // Ids and roles only: never an address or a name (H.1(b)).
+      io.out(
+        `${people.length} ${people.length === 1 ? "person" : "people"} on the list.`,
+      );
       for (const p of people) {
         io.out(
-          `${p.email}\t${p.name}\t${p.roles.join(",") || "(no roles)"}\tsession ${p.sessionVersion}\tadded ${p.addedAt.toISOString()} by ${p.addedBy ?? "unknown"}`,
+          `${p.id}\t${p.roles.join(",") || "(no roles)"}\tsession ${p.sessionVersion}\tadded ${p.addedAt.toISOString()} by ${p.addedBy ?? "unknown"}`,
         );
       }
       return 0;
     }
 
     // remove and sign-out-everywhere: the address is typed a second time.
-    const email = normaliseEmail(one(flags, "email"));
+    const email = normaliseEmail(
+      flagOrEnv(flags, "email", "PEOPLE_EMAIL", io.env),
+    );
     const confirmation = normaliseEmail(
-      await io.ask(`Type ${email} again to confirm: `),
+      await io.ask("Type the address again to confirm: "),
     );
     if (confirmation !== email) {
       io.out("The addresses don't match. Nothing was changed.");
@@ -182,16 +224,16 @@ export async function runPeopleCommand(
       const removed = await store.removePerson(email);
       io.out(
         removed
-          ? `Removed ${email} and their roles.`
-          : `${email} isn't on the list. Nothing was changed.`,
+          ? "Removed that person and their roles."
+          : "That address isn't on the list. Nothing was changed.",
       );
       return removed ? 0 : 1;
     }
     const version = await store.signOutEverywhere(email);
     io.out(
       version === null
-        ? `${email} isn't on the list. Nothing was changed.`
-        : `Signed ${email} out everywhere (session version is now ${version}).`,
+        ? "That address isn't on the list. Nothing was changed."
+        : `Signed that person out everywhere (session version is now ${version}).`,
     );
     return version === null ? 1 : 0;
   } catch (err) {

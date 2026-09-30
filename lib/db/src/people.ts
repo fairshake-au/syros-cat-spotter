@@ -61,7 +61,7 @@ export function checkPersonEmail(email: string): EmailCheck {
   if (parts.length !== 2 || parts[0] === "" || parts[1] === "") {
     return {
       ok: false,
-      reason: `"${email}" isn't an email address.`,
+      reason: "That isn't an email address.",
     };
   }
   const local = parts[0]!.split("+")[0]!;
@@ -130,7 +130,8 @@ export function peopleStore(db: PeopleDb) {
           .select({ id: peopleTable.id })
           .from(peopleTable)
           .where(eq(peopleTable.email, email));
-        if (existing) throw new PeopleError(`${email} is already on the list.`);
+        if (existing)
+          throw new PeopleError("That address is already on the list.");
         const id = crypto.randomUUID();
         const [person] = await tx
           .insert(peopleTable)

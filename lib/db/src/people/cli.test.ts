@@ -9,7 +9,9 @@ import {
 import { runPeopleCommand, type CliIo } from "./cli";
 
 // The `people` command against a throwaway database (SYC-43 part 1,
-// Decision 4). It must name its target and never fall back to DATABASE_URL.
+// Decision 4; SYC-121 plan H.1(b)). The target is checked against
+// DATABASE_TARGET first, the address comes only from the target's own
+// variable, and nothing personal or secret is printed.
 
 const baseUrl = process.env.DATABASE_URL;
 if (!baseUrl) throw new Error("DATABASE_URL must be set to run these tests");
@@ -41,61 +43,83 @@ beforeEach(async () => {
   await c.query(`truncate person_scopes, people cascade`);
 });
 
-function io(
-  answer = "",
-  env: CliIo["env"] = {
-    // DATABASE_URL points at the shared test database; with no matching
-    // DATABASE_TARGET the command must ignore it and use the named target.
-    DATABASE_URL: baseUrl,
-    DATABASE_URL_SCRATCH: url(name),
-  },
-): CliIo & { lines: string[] } {
+/** A development run, as the db-ops development Environment sets it up. */
+const devEnv = (): CliIo["env"] => ({
+  DATABASE_TARGET: "development",
+  NEON_DEV_URL: url(name),
+  // Present but never used: the command must not fall back to it.
+  DATABASE_URL: baseUrl,
+});
+
+const run = (args: string[], env: CliIo["env"] = devEnv(), answer = "") => {
   const lines: string[] = [];
-  return {
-    lines,
+  return runPeopleCommand(args, {
     env,
     out: (line) => lines.push(line),
     ask: async () => answer,
-  };
-}
-
-const run = (args: string[], answer?: string, env?: CliIo["env"]) => {
-  const i = io(answer, env);
-  return runPeopleCommand(args, i).then((code) => ({ code, out: i.lines }));
+  }).then((code) => ({ code, out: lines }));
 };
 
-describe("people command", () => {
-  it("refuses to run without a named target, or with one that isn't configured", async () => {
-    const a = await run(["list"]);
-    expect(a.code).toBe(2);
-    expect(a.out.join("\n")).toMatch(/Give --target exactly once/);
-    const b = await run(["list", "--target", "production"]);
-    expect(b.code).toBe(2);
-    expect(b.out.join("\n")).toMatch(
-      /No database is configured for target "production"/,
-    );
-    // DATABASE_URL alone is never enough, even with a target named.
-    const c2 = await run(["list", "--target", "production"], "", {
-      DATABASE_URL: url(name),
-      DATABASE_TARGET: "development",
-    });
-    expect(c2.code).toBe(2);
+const countPeople = async () =>
+  (await c.query(`select count(*)::int as n from people`)).rows[0].n as number;
+
+describe("choosing the database", () => {
+  it("refuses without --target", async () => {
+    const r = await run(["list"]);
+    expect(r.code).toBe(2);
+    expect(r.out.join("\n")).toMatch(/Give --target exactly once/);
   });
 
-  it("uses DATABASE_URL when DATABASE_TARGET names the same target", async () => {
-    const r = await run(["list", "--target", "production"], "", {
-      DATABASE_URL: url(name),
+  it("refuses when DATABASE_TARGET is unset or names another target, before connecting", async () => {
+    for (const DATABASE_TARGET of [undefined, "production", "Development"]) {
+      const r = await run(
+        [
+          "add",
+          "--target",
+          "development",
+          "--email",
+          "susan@example.com",
+          "--name",
+          "Susan",
+        ],
+        { ...devEnv(), DATABASE_TARGET },
+      );
+      expect(r.code).toBe(2);
+      expect(r.out.join("\n")).toMatch(
+        /DATABASE_TARGET .* doesn't match target 'development'/,
+      );
+    }
+    expect(await countPeople()).toBe(0);
+  });
+
+  it("uses only the target's own variable: an empty NEON_PROD_URL never falls through", async () => {
+    const r = await run(["list", "--target", "production"], {
       DATABASE_TARGET: "production",
+      NEON_DEV_URL: url(name),
+      NEON_REHEARSAL_URL: url(name),
+      DATABASE_URL: url(name),
     });
-    expect(r.code).toBe(0);
-    expect(r.out).toEqual(["Target: production", "Nobody is on the list."]);
+    expect(r.code).toBe(2);
+    expect(r.out).toEqual([
+      "NEON_PROD_URL must be set for target 'production'.",
+    ]);
+  });
+
+  it("refuses a target that isn't development, rehearsal or production", async () => {
+    const r = await run(["list", "--target", "local"], {
+      DATABASE_TARGET: "local",
+      DATABASE_URL: url(name),
+    });
+    expect(r.code).toBe(2);
+    expect(r.out.join("\n")).toMatch(/development, rehearsal or production/);
   });
 
   it("never prints the connection string or any part of it, even when connecting fails", async () => {
     const secretUrl =
       "postgres://neon_owner:s3cret-Pa55word@ep-secret-host-123456.invalid:5432/neondb";
-    const r = await run(["list", "--target", "production"], "", {
-      DATABASE_URL_PRODUCTION: secretUrl,
+    const r = await run(["list", "--target", "production"], {
+      DATABASE_TARGET: "production",
+      NEON_PROD_URL: secretUrl,
     });
     expect(r.code).toBe(1);
     const all = r.out.join("\n");
@@ -109,54 +133,92 @@ describe("people command", () => {
       expect(all).not.toContain(part);
     }
   });
+});
 
-  it("adds, lists, signs out everywhere and removes", async () => {
-    const add = await run([
+describe("people command", () => {
+  it("adds from PEOPLE_EMAIL and PEOPLE_NAME, printing only the id and role", async () => {
+    const r = await run(
+      ["add", "--target", "development", "--role", "staff", "--by", "db-ops"],
+      {
+        ...devEnv(),
+        PEOPLE_EMAIL: "Susan@Example.com",
+        PEOPLE_NAME: "Susan Papadaki",
+      },
+    );
+    expect(r.code).toBe(0);
+    const row = await c.query(`select id, email, name, added_by from people`);
+    expect(row.rows[0]).toMatchObject({
+      email: "susan@example.com",
+      name: "Susan Papadaki",
+      added_by: "cli:db-ops",
+    });
+    expect(r.out).toEqual([
+      "Target: development",
+      `Added person ${row.rows[0].id} as staff.`,
+    ]);
+    const all = r.out.join("\n").toLowerCase();
+    expect(all).not.toContain("susan");
+    expect(all).not.toContain("example.com");
+  });
+
+  it("refuses add with no address or name given anywhere", async () => {
+    const r = await run(["add", "--target", "development"]);
+    expect(r.code).toBe(2);
+    expect(r.out.join("\n")).toMatch(/Give --email, or set PEOPLE_EMAIL/);
+    expect(await countPeople()).toBe(0);
+  });
+
+  it("lists ids, roles and versions, never an address or a name", async () => {
+    await run([
       "add",
       "--target",
-      "scratch",
+      "development",
       "--email",
-      "Susan@Example.com",
+      "susan@example.com",
       "--name",
       "Susan",
-      "--by",
-      "claude",
     ]);
-    expect(add.code).toBe(0);
-    // It names the target and confirms the action, nothing more.
-    expect(add.out).toEqual([
-      "Target: scratch",
-      "Added susan@example.com as staff.",
-    ]);
-    const row = await c.query(`select added_by from people`);
-    expect(row.rows[0].added_by).toBe("cli:claude");
-
-    const list = await run(["list", "--target", "scratch"]);
-    expect(list.out[1]).toMatch(
-      /^susan@example\.com\tSusan\tstaff\tsession 1\t/,
+    const list = await run(["list", "--target", "development"]);
+    expect(list.code).toBe(0);
+    expect(list.out[1]).toBe("1 person on the list.");
+    expect(list.out[2]).toMatch(
+      /^[0-9a-f-]{36}\tstaff\tsession 1\tadded \S+ by cli:\S+$/,
     );
+    expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
+  });
 
+  it("signs out everywhere and removes, after the address is typed again", async () => {
+    await run([
+      "add",
+      "--target",
+      "development",
+      "--email",
+      "susan@example.com",
+      "--name",
+      "Susan",
+    ]);
     const so = await run(
       [
         "sign-out-everywhere",
         "--target",
-        "scratch",
+        "development",
         "--email",
         "susan@example.com",
       ],
+      devEnv(),
       "susan@example.com",
     );
     expect(so.code).toBe(0);
     expect(so.out).toContain(
-      "Signed susan@example.com out everywhere (session version is now 2).",
+      "Signed that person out everywhere (session version is now 2).",
     );
-
     const rm = await run(
-      ["remove", "--target", "scratch", "--email", "susan@example.com"],
+      ["remove", "--target", "development", "--email", "susan@example.com"],
+      devEnv(),
       "SUSAN@example.com ",
     );
     expect(rm.code).toBe(0);
-    expect(rm.out).toContain("Removed susan@example.com and their roles.");
+    expect(rm.out).toContain("Removed that person and their roles.");
     const left = await c.query(`select count(*)::int as n from person_scopes`);
     expect(left.rows[0].n).toBe(0);
   });
@@ -165,38 +227,27 @@ describe("people command", () => {
     await run([
       "add",
       "--target",
-      "scratch",
+      "development",
       "--email",
       "maria@example.com",
       "--name",
       "Maria",
     ]);
     const rm = await run(
-      ["remove", "--target", "scratch", "--email", "maria@example.com"],
+      ["remove", "--target", "development", "--email", "maria@example.com"],
+      devEnv(),
       "maria@example.org",
     );
     expect(rm.code).toBe(1);
     expect(rm.out).toContain("The addresses don't match. Nothing was changed.");
-    const so = await run(
-      [
-        "sign-out-everywhere",
-        "--target",
-        "scratch",
-        "--email",
-        "maria@example.com",
-      ],
-      "",
-    );
-    expect(so.code).toBe(1);
-    const r = await c.query(`select session_version from people`);
-    expect(r.rows).toEqual([{ session_version: 1 }]);
+    expect(await countPeople()).toBe(1);
   });
 
   it("refuses a shared mailbox with the plain-English reason", async () => {
     const add = await run([
       "add",
       "--target",
-      "scratch",
+      "development",
       "--email",
       "admin@syroscats.com",
       "--name",
