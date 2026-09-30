@@ -16,25 +16,33 @@ import { HomeScreenNudgeBanner } from './HomeScreenNudgeBanner';
  * hidden.
  *
  * Stack every visible banner in one column instead, in priority order
- * (sign-in, review-ready, ownership notice, then the SYC-134 Home Screen
- * nudge last — the sign-in gate and any urgent notice matter more than a
- * reminder to add an icon), so no banner is ever silently hidden. Each
- * banner still decides its own visibility by returning null; this
- * container only owns the shared position (below the safe area) and the
- * vertical gap between whichever banners are currently showing.
+ * (sign-in, review-ready, ownership notice), so no banner is ever silently
+ * hidden. Each banner still decides its own visibility by returning null;
+ * this container only owns the shared position (below the safe area) and
+ * the vertical gap between whichever banners are currently showing.
+ *
+ * SYC-134 review, 30 Sep 2026 (Samuel): the Home Screen nudge is a floating
+ * card centred on the screen, not a top banner, so it's mounted as a
+ * sibling of the top stack rather than inside it — the sign-in and urgent
+ * banners keep the top of the screen to themselves, and the nudge owns its
+ * own full-screen positioning (see HomeScreenNudgeBanner). It still defers
+ * to the sign-in-required prompt itself (checked inside that component),
+ * so the two never show at once.
  */
 export function BannerStack() {
   const insets = useSafeAreaInsets();
   return (
-    <View
-      pointerEvents="box-none"
-      style={[styles.stack, { top: insets.top + 8 }]}
-    >
-      <SignInRequiredBanner />
-      <ReviewReadyBanner />
-      <OwnershipNoticeBanner />
+    <>
+      <View
+        pointerEvents="box-none"
+        style={[styles.stack, { top: insets.top + 8 }]}
+      >
+        <SignInRequiredBanner />
+        <ReviewReadyBanner />
+        <OwnershipNoticeBanner />
+      </View>
       <HomeScreenNudgeBanner />
-    </View>
+    </>
   );
 }
 

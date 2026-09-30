@@ -50,13 +50,13 @@ vi.mock('@/components/OwnershipNoticeBanner', () => ({
   OwnershipNoticeBanner: () => null,
 }));
 
-// SYC-134: HomeScreenNudgeBanner is exercised on its own in
-// HomeScreenNudgeBanner.test.tsx. Here it only needs to render null without
-// throwing — no claimed username means it hides itself — so DeviceContext
-// and AsyncStorage just need real-enough stubs to not blow up on mount.
-vi.mock('@/context/DeviceContext', () => ({
-  useDevice: () => ({ username: null, isReady: false }),
-}));
+// SYC-134: HomeScreenNudgeBanner is exercised in detail in
+// HomeScreenNudgeBanner.test.tsx. Here it's real (not stubbed away, unlike
+// OwnershipNoticeBanner above) so this file can prove it renders as a
+// sibling of the top stack, not inside it — DeviceContext is a vi.fn() so
+// individual tests can opt it into showing.
+const { useDevice } = vi.hoisted(() => ({ useDevice: vi.fn() }));
+vi.mock('@/context/DeviceContext', () => ({ useDevice }));
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem: vi.fn().mockResolvedValue(null), setItem: vi.fn() },
 }));
@@ -82,6 +82,7 @@ afterEach(() => {
 describe('BannerStack', () => {
   it('renders both the sign-in and review-ready banners when both are due at once', () => {
     const dismissReviewPrompt = vi.fn();
+    useDevice.mockReturnValue({ username: null, isReady: false });
     useOffline.mockReturnValue({
       needsSignIn: true,
       reviewPromptVisible: true,
@@ -121,5 +122,29 @@ describe('BannerStack', () => {
     expect(signInRoot!.className).not.toMatch(/r-position-/);
     expect(reviewReadyRoot!.className).not.toMatch(/r-position-/);
     expect(signInRoot!.parentElement!.className).toMatch(/r-position-/);
+  });
+
+  // SYC-134 review, 30 Sep 2026 (Samuel): the Home Screen nudge became a
+  // floating card centred on the screen, not a top banner, so it moved out
+  // of the top stack's column — this pins that it's a sibling, not a
+  // descendant, of that positioned container (position isn't itself
+  // unit-testable in jsdom, but "not inside the stack" is).
+  it('renders the Home Screen nudge outside the top stack, not inside it', async () => {
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    useOffline.mockReturnValue({
+      needsSignIn: false,
+      reviewPromptVisible: false,
+      reviewReadyCount: 0,
+      pending: [],
+      dismissReviewPrompt: vi.fn(),
+    });
+
+    const { findByText, container } = render(<BannerStack />);
+    const nudgeText = await findByText('homeScreenNudgeText');
+
+    // The top stack is the one positioned container from the test above.
+    const topStack = container.querySelector('[class*="r-position-"]');
+    expect(topStack).toBeTruthy();
+    expect(topStack!.contains(nudgeText)).toBe(false);
   });
 });
