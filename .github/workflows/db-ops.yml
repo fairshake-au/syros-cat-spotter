@@ -20,7 +20,19 @@ on:
             smoke,
             carry-back-dry-run,
             carry-back-apply,
+            people-add,
+            people-list,
           ]
+      people_role:
+        # SYC-43: a fixed list, validated again by scripts/db-ops.sh, the
+        # people CLI and the database. The person's email and name are never
+        # inputs: they come from the short-lived PEOPLE_EMAIL and PEOPLE_NAME
+        # Environment secrets (SYC-121 plan H.1(b)).
+        type: choice
+        options: [staff, guardian, volunteer, vet]
+        default: staff
+        required: false
+        description: "For people-add: the role to give"
       base_url:
         type: string
         required: false
@@ -84,6 +96,12 @@ jobs:
           FAIL_AFTER: ${{ inputs.fail_after }}
           # Q6: the public key only; copy-cutover encrypts the dump with age and uploads it (7-day artifact)
           DUMP_AGE_RECIPIENT: ${{ vars.DUMP_AGE_RECIPIENT }}
+          # SYC-43 people-add: short-lived Environment secrets, set just before
+          # the run and deleted straight after. Masked by GitHub and again by
+          # the script's first lines; never echoed.
+          PEOPLE_EMAIL: ${{ secrets.PEOPLE_EMAIL }}
+          PEOPLE_NAME: ${{ secrets.PEOPLE_NAME }}
+          PEOPLE_ROLE: ${{ inputs.people_role }}
         run: bash scripts/db-ops.sh
       - name: Upload encrypted dump (copy-cutover only, if produced)
         if: always()

@@ -12,6 +12,11 @@
 #    and that needs CONFIRM=APPLY from the workflow input.
 set -euo pipefail
 
+# SYC-43: the people secrets are masked before anything else runs, so no
+# later line (an error included) can print them. GitHub consumes these lines.
+if [ -n "${PEOPLE_EMAIL:-}" ]; then echo "::add-mask::${PEOPLE_EMAIL}"; fi
+if [ -n "${PEOPLE_NAME:-}" ]; then echo "::add-mask::${PEOPLE_NAME}"; fi
+
 COMMAND="${COMMAND:?COMMAND must be set}"
 TARGET="${TARGET:?TARGET must be set}"
 
@@ -318,6 +323,46 @@ NODE
   log "verify: done."
 }
 
+# --- people-add / people-list (SYC-43 part 1; SYC-121 plan H.1(b)) --------
+# The staff email and name arrive only as short-lived Environment secrets
+# (PEOPLE_EMAIL, PEOPLE_NAME), never as workflow inputs. They're masked at the
+# top of this script and never echoed. The people CLI checks DATABASE_TARGET
+# against --target itself and picks NEON_*_URL by target, the same way this
+# script does; it prints the person's id and role only.
+run_people() {
+  local sub="$1" # add | list
+  local out="$WORKDIR/people.log"
+  local status=0
+  local args=(--target "$TARGET")
+  if [ "$sub" = "add" ]; then
+    require PEOPLE_EMAIL
+    require PEOPLE_NAME
+    # A fixed list, validated here and again by the CLI and the database.
+    case "${PEOPLE_ROLE:-}" in
+      staff|guardian|volunteer|vet) ;;
+      *)
+        echo "db-ops: people_role must be staff, guardian, volunteer or vet." >&2
+        exit 1
+        ;;
+    esac
+    args+=(--role "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
+  fi
+  (cd "$ROOT" && pnpm --silent --filter @workspace/db run people -- "$sub" "${args[@]}") \
+    >"$out" 2>&1 || status=$?
+  # Check the output before showing it: no connection string, and neither
+  # secret (whatever GitHub's own masking does).
+  grep_no_urls "$out"
+  local secret
+  for secret in "${PEOPLE_EMAIL:-}" "${PEOPLE_NAME:-}"; do
+    if [ -n "$secret" ] && grep -Fqi -- "$secret" "$out"; then
+      echo "db-ops: a people secret appeared in output — refusing to show it." >&2
+      exit 1
+    fi
+  done
+  cat "$out"
+  return "$status"
+}
+
 # --- main -------------------------------------------------------------------
 case "$COMMAND" in
   fingerprint-source)
@@ -354,6 +399,15 @@ case "$COMMAND" in
     log "smoke against $BASE_URL"
     export PRELAUNCH_KEY="${PRELAUNCH_KEY:-}"
     (cd "$ROOT" && pnpm --filter @workspace/db run smoke "$BASE_URL")
+    ;;
+
+  people-add|people-list)
+    if [ "$TARGET" = "rehearsal" ]; then
+      echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
+      exit 1
+    fi
+    require_neon_url
+    run_people "${COMMAND#people-}"
     ;;
 
   carry-back-dry-run|carry-back-apply)

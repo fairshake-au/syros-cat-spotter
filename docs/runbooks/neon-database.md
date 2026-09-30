@@ -24,7 +24,41 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`.
+
+## Adding people to the staff list (`people-add`, `people-list`)
+
+The list of people who can sign in to the staff dashboard (SYC-43) is managed through `db-ops` until the people screen exists (SYC-104). `people-add` and `people-list` run against `development` or `production` only.
+
+**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in two short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`. They're set from a terminal tab just before the run and deleted straight after. The script masks both before doing anything else and refuses to show output that contains either. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions and who added each person, never an address or a name.
+
+**Seeding Samuel and Jacky after the cutover.** Don't run this until the cutover (Part E) is done and verified, and this PR's migration has been applied to production with `command=migrate`. Run each block in a terminal tab where `SEED_EMAIL` and `SEED_NAME` are already set in the tab's environment. Never type the values into chat. `printf` pipes each value to `gh` without echoing it.
+
+Samuel (set `SEED_EMAIL` and `SEED_NAME` for Samuel first):
+
+```bash
+cd /Users/samuelporter/Projects/syros-cat-spotter
+printf '%s' "$SEED_EMAIL" | gh secret set PEOPLE_EMAIL --env production
+printf '%s' "$SEED_NAME" | gh secret set PEOPLE_NAME --env production
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-add -f people_role=staff
+sleep 5
+gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh secret delete PEOPLE_EMAIL --env production
+gh secret delete PEOPLE_NAME --env production
+```
+
+Jacky: set `SEED_EMAIL` and `SEED_NAME` for Jacky in the tab, then run the same block again.
+
+Then check the list, which should show two ids, both `staff`:
+
+```bash
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-list
+sleep 5
+gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --log
+```
+
+To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Removing someone and "sign out everywhere" aren't `db-ops` commands yet. They need the address typed twice, so they wait for the people screen (SYC-104). For development, swap in `--env development` and `target=development`.
 
 The workflow never prints a connection string — only host names, counts and hashes. If a log ever shows one, that's a bug: stop and fix `scripts/db-ops.sh` before running it again.
 
