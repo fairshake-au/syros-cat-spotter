@@ -1,4 +1,6 @@
+import { databaseTarget, pool } from "@workspace/db";
 import app from "./app";
+import { logDatabaseTarget } from "./lib/databaseStartup";
 import { logger } from "./lib/logger";
 import { describeGate } from "./lib/prelaunch";
 
@@ -27,4 +29,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // SYC-121: never blocks start-up (see databaseStartup.ts).
+  void logDatabaseTarget(pool, databaseTarget, logger);
 });

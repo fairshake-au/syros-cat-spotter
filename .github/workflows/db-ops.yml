@@ -1,0 +1,95 @@
+name: db-ops
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        options: [development, rehearsal, production]
+        required: true
+      command:
+        type: choice
+        required: true
+        options:
+          [
+            fingerprint-source,
+            copy-rehearsal,
+            copy-cutover,
+            verify,
+            migrate,
+            migrate-rollback,
+            smoke,
+            carry-back-dry-run,
+            carry-back-apply,
+          ]
+      base_url:
+        type: string
+        required: false
+        description: "For smoke: defaults to https://apptest.catspotters.com"
+      confirm:
+        type: string
+        required: false
+        description: "Type APPLY for carry-back-apply"
+      fail_after:
+        # The plan sketches this as `type: choice` with `""` as one of the
+        # options, but actionlint refuses an empty choice option
+        # (syntax-check). Left as a free string, defaulting to empty (no
+        # simulated failure); scripts/db-ops.sh validates it's one of
+        # restore/compare/fingerprint (or empty) and refuses anything else.
+        type: string
+        required: false
+        description: "D.8 drill only: restore, compare or fingerprint. Refused unless target=rehearsal"
+permissions: { contents: read }
+# One group for every target: carry-back and copy-rehearsal touch two
+# branches at once, so runs on different targets mustn't overlap either.
+concurrency: { group: "db-ops", cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.target == 'development' && 'development' || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Postgres 16 client, age
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-16 age
+          /usr/lib/postgresql/16/bin/pg_dump --version
+      - name: Run
+        env:
+          TARGET: ${{ inputs.target }}
+          COMMAND: ${{ inputs.command }}
+          BASE_URL: ${{ inputs.base_url }}
+          CONFIRM: ${{ inputs.confirm }}
+          # One variable per branch, each read from its own secret only.
+          # scripts/db-ops.sh picks the target's address by name, so an
+          # empty secret can never fall through to another branch's address
+          # (an `a && x || b && y || z` chain would). The dev secret lives in
+          # the development Environment, the other two in production, so
+          # each job only ever sees its own Environment's secrets.
+          # (Beyond the plan's B.4 sketch: copy-rehearsal into production
+          # also restores the rehearsal branch, and carry-back's source is
+          # always Neon production, so both are needed with target=rehearsal
+          # or production.)
+          NEON_PROD_URL: ${{ secrets.NEON_PROD_DIRECT_URL }}
+          NEON_REHEARSAL_URL: ${{ secrets.NEON_REHEARSAL_DIRECT_URL }}
+          NEON_DEV_URL: ${{ secrets.NEON_DEV_DIRECT_URL }}
+          REPLIT_URL: ${{ secrets.REPLIT_PROD_DATABASE_URL }}
+          PRELAUNCH_KEY: ${{ secrets.PRELAUNCH_TESTER_KEY }}
+          # From the Environment's variables (A.2); rehearsal shares the production Environment.
+          DATABASE_TARGET: ${{ inputs.target == 'rehearsal' && 'rehearsal' || vars.DATABASE_TARGET }}
+          FAIL_AFTER: ${{ inputs.fail_after }}
+          # Q6: the public key only; copy-cutover encrypts the dump with age and uploads it (7-day artifact)
+          DUMP_AGE_RECIPIENT: ${{ vars.DUMP_AGE_RECIPIENT }}
+        run: bash scripts/db-ops.sh
+      - name: Upload encrypted dump (copy-cutover only, if produced)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-ops-encrypted-dump-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/db-ops-dump.age
+          if-no-files-found: ignore
+          retention-days: 7
