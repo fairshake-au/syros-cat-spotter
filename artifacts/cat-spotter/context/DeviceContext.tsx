@@ -6,6 +6,8 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { Platform } from 'react-native';
+import * as ExpoCrypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getProfile,
@@ -17,23 +19,83 @@ const SECRET_KEY = 'cat-spotter/device-secret';
 const USERNAME_KEY = 'cat-spotter/username';
 const OWNED_CATS_KEY = 'cat-spotter/owned-cat-ids';
 
-function makeDeviceId(): string {
-  return (
-    'dev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
-  );
+const BASE64URL_CHARS =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+/**
+ * Cryptographically random bytes: Web Crypto (`crypto.getRandomValues`) on
+ * web, `expo-crypto` on native. Throws rather than silently falling back to
+ * `Math.random()` if neither secure source is available at runtime — a
+ * device id/secret minted from a weak source is worse than one that fails
+ * loudly (SYC-136).
+ */
+async function getSecureRandomBytes(byteCount: number): Promise<Uint8Array> {
+  if (Platform.OS === 'web') {
+    const webCrypto =
+      typeof crypto !== 'undefined' ? crypto : (globalThis as any)?.crypto;
+    if (!webCrypto || typeof webCrypto.getRandomValues !== 'function') {
+      throw new Error(
+        'No cryptographically secure random source available: crypto.getRandomValues is missing',
+      );
+    }
+    return webCrypto.getRandomValues(new Uint8Array(byteCount));
+  }
+  if (!ExpoCrypto || typeof ExpoCrypto.getRandomBytesAsync !== 'function') {
+    throw new Error(
+      'No cryptographically secure random source available: expo-crypto is missing',
+    );
+  }
+  return ExpoCrypto.getRandomBytesAsync(byteCount);
+}
+
+/** Unpadded base64url, per RFC 4648 §5 — safe to send as a header value. */
+function base64UrlEncode(bytes: Uint8Array): string {
+  let result = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i]!;
+    const b1 = bytes[i + 1];
+    const b2 = bytes[i + 2];
+    result += BASE64URL_CHARS[b0 >> 2];
+    result += BASE64URL_CHARS[((b0 & 0x03) << 4) | (b1 === undefined ? 0 : b1 >> 4)];
+    if (b1 !== undefined) {
+      result += BASE64URL_CHARS[((b1 & 0x0f) << 2) | (b2 === undefined ? 0 : b2 >> 6)];
+    }
+    if (b2 !== undefined) {
+      result += BASE64URL_CHARS[b2 & 0x3f];
+    }
+  }
+  return result;
+}
+
+/** Random base36 digits derived from `byteCount` cryptographically random bytes. */
+function bytesToBase36(bytes: Uint8Array): string {
+  let value = 0n;
+  for (const byte of bytes) {
+    value = (value << 8n) | BigInt(byte);
+  }
+  return value.toString(36);
+}
+
+// Same `dev-<timestamp><random>` shape as before (the server doesn't
+// enforce a format, only a max length, but other client code and logs
+// assume this prefix) — only the random suffix's source changed.
+async function makeDeviceId(): Promise<string> {
+  const random = bytesToBase36(await getSecureRandomBytes(6))
+    .padStart(8, '0')
+    .slice(-8);
+  return 'dev-' + Date.now().toString(36) + random;
 }
 
 /**
  * Private per-device secret, sent as the `X-Device-Secret` header so the
  * server can verify this device owns its deviceId. Never shown in the UI
  * and never included in URLs or request bodies.
+ *
+ * 32 cryptographically random bytes, base64url-encoded (~43 chars) — well
+ * within the server's accepted length (`deviceAuth.ts`, 16–256 chars).
  */
-function makeDeviceSecret(): string {
-  let secret = '';
-  while (secret.length < 32) {
-    secret += Math.random().toString(36).slice(2);
-  }
-  return 'sec-' + Date.now().toString(36) + '-' + secret.slice(0, 32);
+async function makeDeviceSecret(): Promise<string> {
+  return base64UrlEncode(await getSecureRandomBytes(32));
 }
 
 interface DeviceContextValue {
@@ -78,7 +140,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     ]).then(async ([storedId, storedName, storedOwned, storedSecret]) => {
       let secret = storedSecret;
       if (!secret) {
-        secret = makeDeviceSecret();
+        secret = await makeDeviceSecret();
         await AsyncStorage.setItem(SECRET_KEY, secret);
       }
       setDeviceSecretGetter(() => secret);
@@ -95,7 +157,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       if (storedId) {
         setDeviceId(storedId);
       } else {
-        const id = makeDeviceId();
+        const id = await makeDeviceId();
         await AsyncStorage.setItem(STORAGE_KEY, id);
         setDeviceId(id);
       }
