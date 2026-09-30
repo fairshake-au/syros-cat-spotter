@@ -22,6 +22,7 @@ import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
+import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
@@ -62,7 +63,12 @@ function RootLayoutNav() {
 
 /** Shows the one-time landing screen until a username has been claimed. */
 function OnboardingGate() {
-  const { isReady, username } = useDevice();
+  const { isReady, username, startupError } = useDevice();
+  // SYC-136: a rejected promise inside DeviceProvider's setup effect isn't
+  // caught by the top-level ErrorBoundary (render-only), so DeviceProvider
+  // surfaces it here instead of leaving isReady false and this app stuck
+  // on a blank screen forever.
+  if (startupError) return <StartupErrorScreen />;
   if (!isReady) return null;
   if (!username) return <OnboardingFlow />;
   return (
