@@ -21,6 +21,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
@@ -62,6 +63,10 @@ export interface CatPickerProps {
   insetBottom?: number;
 }
 
+const CONTENT_MAX_WIDTH = 720;
+const CONTENT_PADDING = 16;
+const GRID_GAP = 12;
+
 function catCode(id: number): string {
   return `SYR-${String(id).padStart(4, '0')}`;
 }
@@ -83,6 +88,14 @@ export function CatPicker({
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Cat | null>(null);
+  // Equal-width columns: two on a phone, up to four on a wide screen, so the
+  // last row never stretches wider than the rows above it.
+  const { width } = useWindowDimensions();
+  const contentWidth = Math.min(width, CONTENT_MAX_WIDTH) - 2 * CONTENT_PADDING;
+  const columns = contentWidth >= 600 ? 4 : contentWidth >= 420 ? 3 : 2;
+  const cardWidth = Math.floor(
+    (contentWidth - GRID_GAP * (columns - 1)) / columns,
+  );
 
   const listed = useMemo(
     () => (from ? pickerList(from, cats, query) : []),
@@ -283,6 +296,7 @@ export function CatPicker({
                 style={({ pressed }) => [
                   styles.card,
                   {
+                    width: cardWidth,
                     backgroundColor: colors.card,
                     borderColor: colors.border,
                     opacity: pressed ? 0.85 : 1,
@@ -340,10 +354,10 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: fontSizes.lg, fontFamily: fonts.displayBold },
   content: {
-    padding: 16,
+    padding: CONTENT_PADDING,
     gap: 14,
     width: '100%',
-    maxWidth: 720,
+    maxWidth: CONTENT_MAX_WIDTH,
     alignSelf: 'center',
   },
   yourPhotoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -374,11 +388,8 @@ const styles = StyleSheet.create({
   },
   note: { fontSize: fontSizes.xs, fontFamily: fonts.body },
   heading: { fontSize: fontSizes.md, fontFamily: fonts.bodyBold },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
   card: {
-    flexGrow: 1,
-    flexBasis: 150,
-    maxWidth: 220,
     borderRadius: radii.md,
     borderWidth: borderWidths.thin,
     overflow: 'hidden',
