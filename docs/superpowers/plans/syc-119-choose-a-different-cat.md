@@ -3,7 +3,7 @@
 **Linear:** SYC-119, with SYC-150, SYC-151, SYC-152, SYC-153 and SYC-161. **Status:** plan only. Nothing here is built, published or configured.
 **Design (approved 30 Sep 2026, not reopened here):** `docs/specs/choose-a-different-cat.md` · `docs/specs/DECISIONS.md` Part 2i (and Part 2h, the 500 m rule, in PR #39).
 **Checked against:** `origin/main` on 30 Sep 2026; open PRs #39 (SYC-39, 500 m), #41 (SYC-107), #23 (data spine plan), #24 and #28 (held for the post-move queue); the SYC-121 Neon plan's migration freeze. Every "exists today" claim below names the file it was read in.
-**Branch note:** written on `claude/syc-119-plan`, **based on the spec branch (PR #44), because #44 hadn't merged yet.** Rebase onto `main` once #44 merges. The only overlap is the spec file itself.
+**Branch note:** the spec (PR #44) merged on 30 Sep 2026; this plan is rebased onto `main` (PR #49, reopened from #48).
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## Decisions for Samuel
 
-Four decisions, one at a time, each with a recommendation. None blocks writing the first slice's code. Decision 1 decides when it ships.
+All four were decided by Samuel on 30 Sep 2026, each as recommended. The plan as a whole is still awaiting his approval.
 
 ### Decision 1 — Ship the picker before the server can label hand picks?
 
@@ -35,7 +35,7 @@ Four decisions, one at a time, each with a recommendation. None blocks writing t
 | **B. Wait until the table can land** | Nothing new until then | Every hand pick is labelled from day one | Weeks more duplicates during testing, which SYC-59 then has to merge by hand |
 | **C. Ship now, and record picks in the server log as a stopgap** | Same as A | Some trace for debugging | Replit's logs aren't kept long, and a log is not a record anyone can rely on. It looks like evidence and isn't. |
 
-**Recommendation: A.** Say plainly in the release note that early picks aren't counted for matching accuracy. The server refuses picks that aren't nearby from the first release, so shipping early doesn't open an abuse path.
+**Recommendation: A. Decided by Samuel, 30 Sep 2026: A.** Say plainly in the release note that early picks aren't counted for matching accuracy. The server refuses picks that aren't nearby from the first release, so shipping early doesn't open an abuse path.
 
 ### Decision 2 — How existing cats get their colour
 
@@ -47,7 +47,7 @@ Four decisions, one at a time, each with a recommendation. None blocks writing t
 | **B. A one-off command run through `db-ops`** | Done in one go, with a clear log | `db-ops` belongs to the Neon session, and this needs the OpenAI key in GitHub as well as Replit, which is one more place a secret lives |
 | **C. No backfill: only new cats and photo changes** | Nothing to build | Every existing cat shows "Not sure" for ever, so the filter is useless where it matters most |
 
-**Recommendation: A.** It costs one model call per existing cat, a few dozen today, once.
+**Recommendation: A. Decided by Samuel, 30 Sep 2026: A.** It costs one model call per existing cat, a few dozen today, once.
 
 ### Decision 3 — When do the colour chips appear?
 
@@ -58,7 +58,7 @@ Four decisions, one at a time, each with a recommendation. None blocks writing t
 | **A. Chips appear only once the backfill has read every cat it can (recommended)** | The first time spotters see the filter, it works | A day's wait after release |
 | **B. Chips appear at once** | Visible sooner | A filter where most cats say "Not sure" looks broken on first sight |
 
-**Recommendation: A.** The server says when it's ready, and the app shows the chips from then.
+**Recommendation: A. Decided by Samuel, 30 Sep 2026: A.** The server says when it's ready, and the app shows the chips from then.
 
 ### Decision 4 — "Ask Syros Cats to match it" before the team can act on it
 
@@ -70,7 +70,7 @@ Four decisions, one at a time, each with a recommendation. None blocks writing t
 | **B. Show it now, and let requests pile up** | Spotters can say "I know this cat" | Requests sit unseen for weeks, and the spotter is told Syros Cats will get back to them |
 | **C. Show it now, and email the photo to admin@syroscats** | Something happens straight away | A new email flow nobody specified, sending tourist photos to a shared inbox |
 
-**Recommendation: A.**
+**Recommendation: A. Decided by Samuel, 30 Sep 2026: A. He also confirmed the button stays in the spec.**
 
 ---
 
