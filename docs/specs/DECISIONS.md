@@ -213,6 +213,19 @@ Samuel decided these after the adversarial review of data spine step 1 (#17). Al
 - **Deletion unlinks by clearing the column (SYC-63).** `sightings.device_id` and `cats.discoverer_device_id` become nullable. A check allows NULL only on a redacted row, and `cats` gains `redacted_at`/`redaction_reason` like sightings. A cat with no discoverer shows as *"a spotter"* (§8.3). **Rejected:** a fixed "redacted" value, which would create one phantom spotter holding every deleted person's sightings and points. **Also rejected:** a random stand-in id per person, which would keep each deleted person's walk trail grouped together, the thing §8.3 removes. **Corrects §11.2 step 8:** deletion needs this migration; it does not "depend only on step 1's redaction column".
 - **System-written observations are authored `account_id = 'system:<source>'`.** Examples: `system:legacy-backfill` (§11.2 step 3), `system:records-import`. The attribution check stays strict: every row has exactly one author. Real account ids are generated and never start with `system:`, and deletion never matches these rows. A welfare report is still authored by the reporter's device, and a report outcome by the staff member's account. **Rejected:** allowing authorless rows, which reopens the gap the review closed. **Also rejected:** a separate author-type column, a migration and a concept for three sources.
 
+## Part 2i — approval of `choose-a-different-cat.md` (SYC-119), 30 September 2026
+
+*Lettered 2i because Part 2h (the 500 m matching distance) sits in SYC-39's PR #39, which hadn't merged when this was written.*
+
+Samuel **approved the spec on 30 September 2026**. It covers what happens when the suggested matches miss and the spotter picks the right cat themselves. Where anything earlier in this document says otherwise, these win.
+
+- **The picker.** "Not one of these? Find the cat yourself" opens a list of *cats known around here* (within 1.5 km). The list is always **nearest first by map square** (each cat's published 250 m square), ties broken by SYR number, never by exact distance. Its search box (name or SYR number) and **colour filter** narrow that list. Each cat's colour is read automatically from its main photo by the matching model and stored as a `system:vision` observation. Colours the model isn't sure of are never hidden.
+- **Points.** A hand pick earns the same as confirming a suggestion (SYC-38's 15). Nothing is taken back if the team later moves the sighting.
+- **Hand picks count straight away** and are recorded, by the server, as hand picks. They go into a low-priority **"Matched by hand"** list on the staff dashboard. It is not the SYC-53 confirmation queue.
+- **Two guards that work with nobody looking.** A cat recorded as deceased can't be picked by hand, so a guess never clears a death. And a "clipped" ear-tip answer on a hand pick goes to the top of the *Likely* review list.
+- **Who can pick from where (Samuel, 30 September 2026).** Only the Syros Cats team, cat guardians and vets can pick a cat from anywhere on the island, and they do it in the staff dashboard. Every spotter in the app picks only from cats whose published square is within 1.5 km of the sighting's saved location. **The server enforces this** using published positions only, and refuses anything else with one identical message. A cat that isn't nearby goes to **"Ask Syros Cats to match it"**, and the points are paid when the team matches it. Until SYC-53 gives guardians accounts, picking from anywhere is team-only. Vets depend on a vet role that doesn't exist yet (SYC-24, parked).
+- **Samuel's answers to the spec's open questions, all 30 September 2026:** flags also show on the cat's dashboard page; 30 days for launch; guardians check hand picks in their own colonies once they have accounts; the nearby-only rule above; a cautious "not sure" cut-off for colour. Nothing is left to ask Syros Cats.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
@@ -232,6 +245,7 @@ The four specs were written independently and contradicted each other in fourtee
 | Controller, withdrawal route, the email facts the policy states | `email-capture.md` |
 | Hosting, photo storage, photo endpoint, migrations | `hosting-and-photo-storage.md` |
 | Offline queue writes on every build; web photo storage; review-route photo handoff; sighting dedupe (approved 28 Sep 2026) | `offline-queue-on-web.md` |
+| Picking a cat by hand when matching misses: the picker, its colour filter, hand-pick points, the "Matched by hand" review (approved 30 Sep 2026). The records it relies on (the match record, moving a sighting, the `coat` observation) stay with the data spine | `choose-a-different-cat.md` |
 
 **Editorial correction, not a decision:** `team-access-and-welfare-queue.md` independently specified a status-column-plus-audit-log cat record — the exact model the data spine rejects by name. It is struck; the data spine owns the record.
 
