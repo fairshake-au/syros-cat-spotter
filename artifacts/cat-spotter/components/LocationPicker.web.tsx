@@ -21,6 +21,9 @@ import {
 const START_ZOOM = 17;
 // Movement under this many pixels is a tap, not a drag.
 const TAP_SLOP = 6;
+// Tiles drawn beyond each edge, so a long drag doesn't show grey gaps before
+// the map recentres on release.
+const DRAG_MARGIN = 384;
 
 /**
  * Web pan-to-pick, matching the native picker: the pin stays in the middle
@@ -118,7 +121,7 @@ export function LocationPicker({
     setSize({ width, height });
   };
 
-  const tiles = visibleTiles(center, zoom, size.width, size.height);
+  const tiles = visibleTiles(center, zoom, size.width, size.height, DRAG_MARGIN);
 
   const zoomButton = (name: 'plus' | 'minus', delta: number, label: string) => (
     <Pressable
@@ -168,7 +171,7 @@ export function LocationPicker({
         {center.latitude.toFixed(5)}, {center.longitude.toFixed(5)}
       </Text>
       <Text pointerEvents="none" style={styles.attribution}>
-        © OpenStreetMap
+        © OpenStreetMap contributors
       </Text>
     </View>
   );

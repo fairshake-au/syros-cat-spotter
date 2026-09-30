@@ -77,22 +77,27 @@ export function latLngAtOffset(
   return fromWorld({ x: c.x + dx, y: c.y + dy }, zoom);
 }
 
-/** Every tile needed to cover a width x height view centred on `center`. */
+/**
+ * Every tile needed to cover a width x height view centred on `center`, plus
+ * `margin` pixels on each side. The picker only recentres when a drag ends,
+ * so the margin is what a drag reveals before then instead of grey gaps.
+ */
 export function visibleTiles(
   center: LatLng,
   zoom: number,
   width: number,
   height: number,
+  margin = 0,
 ): PlacedTile[] {
   if (width <= 0 || height <= 0) return [];
   const c = toWorld(center, zoom);
   const originX = c.x - width / 2;
   const originY = c.y - height / 2;
   const count = 2 ** zoom;
-  const firstX = Math.floor(originX / TILE_SIZE);
-  const lastX = Math.floor((originX + width) / TILE_SIZE);
-  const firstY = Math.max(0, Math.floor(originY / TILE_SIZE));
-  const lastY = Math.min(count - 1, Math.floor((originY + height) / TILE_SIZE));
+  const firstX = Math.floor((originX - margin) / TILE_SIZE);
+  const lastX = Math.floor((originX + width + margin) / TILE_SIZE);
+  const firstY = Math.max(0, Math.floor((originY - margin) / TILE_SIZE));
+  const lastY = Math.min(count - 1, Math.floor((originY + height + margin) / TILE_SIZE));
   const tiles: PlacedTile[] = [];
   for (let ty = firstY; ty <= lastY; ty++) {
     for (let tx = firstX; tx <= lastX; tx++) {

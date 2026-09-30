@@ -106,3 +106,25 @@ describe('clampZoom', () => {
     expect(clampZoom(16.6)).toBe(17);
   });
 });
+
+describe('visibleTiles margin', () => {
+  it('draws extra tiles so a drag of up to the margin still shows map, not gaps', () => {
+    const width = 343;
+    const height = 220;
+    const margin = 384;
+    const tiles = visibleTiles(ERMOUPOLI, 17, width, height, margin);
+    // A point the full margin beyond each corner is still covered.
+    for (const [x, y] of [
+      [-margin, -margin],
+      [width + margin - 1, -margin],
+      [-margin, height + margin - 1],
+      [width + margin - 1, height + margin - 1],
+    ]) {
+      const covering = tiles.filter(
+        (t) =>
+          x >= t.left && x < t.left + TILE_SIZE && y >= t.top && y < t.top + TILE_SIZE,
+      );
+      expect(covering, `point ${x},${y}`).toHaveLength(1);
+    }
+  });
+});
