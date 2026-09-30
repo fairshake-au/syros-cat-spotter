@@ -6,18 +6,25 @@ import { afterEach, describe, expect, it } from "vitest";
 
 // SYC-141. `db-ops -f command=smoke` made its requests and printed `ok` for
 // each within seconds, then the process didn't exit for about 10 minutes.
-// The root cause was simpler than an open socket: main() never called
-// process.exit() on success, so the CLI just waited for Node's event loop to
-// drain on its own — however long that happened to take against the real
-// endpoint. (A keep-alive fetch/undici socket was the suspected culprit, but
-// it did not reproduce here even with a server advertising a 20s Keep-Alive
-// timeout: this Node/undici version unrefs it. Whatever specifically held
-// the CI run's event loop open, forcing an explicit exit the moment the
-// command settles removes the dependency on it.)
+// cli.ts now calls process.exit(0) explicitly after main() resolves, instead
+// of letting the event loop drain on its own.
+//
+// Honesty note (Fable review of PR #40, item 4): THIS TEST IS A REGRESSION
+// FENCE, NOT PROOF THE FIX WORKS. It asserts the CLI runs its checks, prints
+// the `ok` lines, and exits promptly against a local stub server — real,
+// useful things to keep true — but a mutation test that deletes the
+// `process.exit(0)` call still leaves this test green here: against a local
+// stub, this Node/undici version's event loop already drains on its own in
+// well under 5s, with or without the explicit exit. The original ~10-minute
+// hang was never reproduced locally (see the PR body), so nothing run
+// locally can prove it's gone. That proof is a timed `db-ops
+// command=smoke` run on GitHub Actions after this merges — watch that its
+// "Run" step finishes in roughly the time the requests themselves take, not
+// ~10 minutes longer.
 //
 // This drives the real CLI as a subprocess (the in-process smoke() tests in
-// smoke.test.ts can't see a process-exit bug) and asserts it exits quickly
-// and cleanly on its own once its checks are done.
+// smoke.test.ts can't see a process-exit bug at all) and asserts it runs its
+// checks and exits promptly and cleanly on its own.
 
 const tsxBin = path.resolve(import.meta.dirname, "../../node_modules/.bin/tsx");
 const cliPath = path.resolve(import.meta.dirname, "./cli.ts");
@@ -54,8 +61,8 @@ function startStubApi(): Promise<string> {
   });
 }
 
-describe("smoke CLI process exit", () => {
-  it("exits within ~5s once its checks are done, against a stub server", async () => {
+describe("smoke CLI regression fence (not proof the CI hang is fixed — see header comment)", () => {
+  it("runs its checks, prints the ok lines, and exits within ~5s against a stub server", async () => {
     const baseUrl = await startStubApi();
     const start = Date.now();
     const child = spawn(tsxBin, [cliPath, "smoke", baseUrl], {
