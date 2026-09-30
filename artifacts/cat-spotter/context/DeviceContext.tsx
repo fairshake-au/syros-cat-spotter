@@ -7,7 +7,6 @@ import React, {
   useState,
 } from 'react';
 import { Platform } from 'react-native';
-import * as ExpoCrypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getProfile,
@@ -28,6 +27,12 @@ const BASE64URL_CHARS =
  * `Math.random()` if neither secure source is available at runtime — a
  * device id/secret minted from a weak source is worse than one that fails
  * loudly (SYC-136).
+ *
+ * `expo-crypto` is imported dynamically, only on the native branch: its
+ * module chain (expo-modules-core) assumes a React Native/Expo runtime
+ * (e.g. a global `__DEV__`) and blows up merely being imported anywhere
+ * else, including under Vitest, where Platform.OS is 'web'
+ * (react-native-web) and this branch never runs.
  */
 async function getSecureRandomBytes(byteCount: number): Promise<Uint8Array> {
   if (Platform.OS === 'web') {
@@ -40,6 +45,7 @@ async function getSecureRandomBytes(byteCount: number): Promise<Uint8Array> {
     }
     return webCrypto.getRandomValues(new Uint8Array(byteCount));
   }
+  const ExpoCrypto = await import('expo-crypto');
   if (!ExpoCrypto || typeof ExpoCrypto.getRandomBytesAsync !== 'function') {
     throw new Error(
       'No cryptographically secure random source available: expo-crypto is missing',
