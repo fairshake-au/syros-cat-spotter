@@ -213,7 +213,8 @@ export interface CompareDiff {
     | "encoding"
     | "collation"
     | "table-missing"
-    | "column-missing";
+    | "column-missing"
+    | "index";
   detail: string;
 }
 

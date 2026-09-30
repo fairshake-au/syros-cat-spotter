@@ -551,6 +551,18 @@ async function carryBackInTransaction(
 
   // 7. Write: inserts and updates parents first, deletes children first.
   await target.query("set constraints all deferred");
+  // Unique indexes (the baseline's lower(name) and lower(username)) would
+  // refuse any carry-back where a unique value moves between rows (a rename
+  // plus a new row taking the old name, a swap): row by row, two rows
+  // briefly share the value. So they're dropped for the writes and rebuilt
+  // from their exact definitions afterwards, all inside this transaction.
+  // A genuine violation in the end state fails the rebuild and rolls
+  // everything back, index included.
+  const indexesBefore = await indexDefinitions(target);
+  const uniqueIndexes = await droppableUniqueIndexes(target);
+  for (const ix of uniqueIndexes) {
+    await target.query(`drop index public.${quoteIdent(ix.name)}`);
+  }
   const order = await parentsFirst(target);
   const byTable = new Map(plans.map((p) => [p.table, p]));
   for (const table of order) {
@@ -567,6 +579,10 @@ async function carryBackInTransaction(
     }
   }
 
+  for (const ix of uniqueIndexes) {
+    await target.query(ix.definition);
+  }
+
   // 8. Sequences past every id either side has used.
   report.sequences = await planSequences(source, target, target);
   for (const s of report.sequences) {
@@ -581,6 +597,15 @@ async function carryBackInTransaction(
     await compare(source, target, { projected: true, onto: "target" })
   ).filter((d) => d.kind !== "sequence");
   diffs.push(...(await sequencesBehind(source, target)));
+  // The projected compare skips the schema signature, so check directly
+  // that every index on the nine tables is back exactly as it was.
+  const indexesAfter = await indexDefinitions(target);
+  if (JSON.stringify(indexesAfter) !== JSON.stringify(indexesBefore)) {
+    diffs.push({
+      kind: "index",
+      detail: `the target's indexes changed during the writes (before: ${indexesBefore.length}, after: ${indexesAfter.length})`,
+    });
+  }
   if (diffs.length) {
     throw new CarryBackVerifyError(
       `After the writes, the target still differs from the source (${diffs
@@ -592,6 +617,43 @@ async function carryBackInTransaction(
 
   report.applied = true;
   return report;
+}
+
+/** Every index definition on the nine tables, sorted. */
+async function indexDefinitions(client: ClientBase): Promise<string[]> {
+  const r = await client.query<{ d: string }>(
+    `select pg_get_indexdef(i.indexrelid) as d
+       from pg_index i
+       join pg_class c on c.oid = i.indrelid
+       join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = any($1)
+      order by 1`,
+    [BASELINE_TABLES.map((t) => t.table)],
+  );
+  return r.rows.map((row) => row.d);
+}
+
+/**
+ * The unique indexes on the nine tables that aren't a primary key and don't
+ * back a constraint (those can't be dropped with DROP INDEX; the baseline
+ * has none besides the primary keys), with their exact definitions.
+ */
+async function droppableUniqueIndexes(
+  client: ClientBase,
+): Promise<{ name: string; definition: string }[]> {
+  const r = await client.query<{ name: string; definition: string }>(
+    `select ic.relname as name, pg_get_indexdef(i.indexrelid) as definition
+       from pg_index i
+       join pg_class ic on ic.oid = i.indexrelid
+       join pg_class c on c.oid = i.indrelid
+       join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = any($1)
+        and i.indisunique and not i.indisprimary
+        and not exists (select 1 from pg_constraint k where k.conindid = i.indexrelid)
+      order by 1`,
+    [BASELINE_TABLES.map((t) => t.table)],
+  );
+  return r.rows;
 }
 
 /**

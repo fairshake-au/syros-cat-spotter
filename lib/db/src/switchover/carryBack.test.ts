@@ -113,9 +113,18 @@ async function seed(c: pg.Client): Promise<void> {
  * fingerprint, as db-ops' mark --fingerprint-file stores it).
  */
 async function scenario(
-  opts: { markWithFingerprint?: boolean } = {},
+  opts: {
+    markWithFingerprint?: boolean;
+    /**
+     * The session timezone the copy's fingerprint was taken under, standing
+     * in for the old Replit server's default when the carry-back target is a
+     * Neon branch with a different default (the D.5 rehearsal).
+     */
+    copySessionTimezone?: string;
+  } = {},
 ): Promise<{ old: pg.Client; neon: pg.Client; neonName: string }> {
-  const old = (await freshDb()).client;
+  const oldDb = await freshDb();
+  const old = oldDb.client;
   const neonDb = await freshDb();
   const neon = neonDb.client;
   await migrateUp(old, migrations, { throughIdx: 0 });
@@ -123,7 +132,14 @@ async function scenario(
   await neon.query(`alter table photos add column public_id text`);
   await seed(old);
   await seed(neon);
-  const fp = await fingerprint(old);
+  let fp;
+  if (opts.copySessionTimezone) {
+    const copySession = await connectTo(oldDb.name);
+    await copySession.query(`set timezone = '${opts.copySessionTimezone}'`);
+    fp = await fingerprint(copySession);
+  } else {
+    fp = await fingerprint(old);
+  }
   await mark(
     neon,
     "cutover",
@@ -425,5 +441,107 @@ describe("carry-back refuses the wrong target or source", () => {
     const { old, neon } = await scenario();
     await neon.query(`drop schema switchover cascade`);
     await expect(carryBack(neon, old)).rejects.toThrow(/no switchover marker/);
+  });
+});
+
+// Fable review, fix 1: the baseline's unique indexes on lower(name) and
+// lower(username) (0000_baseline.sql) must not block a carry-back when a
+// unique value moves between rows. Mirroring row by row in any fixed order
+// passes through a state where two rows share the value.
+describe("carry-back when a unique value moves between rows", () => {
+  it("A1: cat 1 renamed Tom -> Tommy and a new cat named Tom", async () => {
+    const { old, neon } = await scenario();
+    await neon.query(`update cats set name = 'Tommy' where id = 1`);
+    await neon.query(
+      `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
+       values ('Tom', 1, 37.2, 24.2, 'dev-b')`,
+    );
+    const applied = await carryBack(neon, old, { apply: true });
+    expect(applied.applied).toBe(true);
+    expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
+  });
+
+  it("A2: cat Tom deleted and cat 2 renamed Tom", async () => {
+    const { old, neon } = await scenario();
+    await neon.query(`delete from cats where id = 1`);
+    await neon.query(`update cats set name = 'Tom' where id = 2`);
+    const applied = await carryBack(neon, old, { apply: true });
+    expect(applied.applied).toBe(true);
+    expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
+  });
+
+  it("A3: two profiles swap usernames", async () => {
+    const { old, neon } = await scenario();
+    await neon.query(`update profiles set username = 'tmp' where device_id = 'dev-a'`);
+    await neon.query(`update profiles set username = 'alice' where device_id = 'dev-b'`);
+    await neon.query(`update profiles set username = 'bob' where device_id = 'dev-a'`);
+    const applied = await carryBack(neon, old, { apply: true });
+    expect(applied.applied).toBe(true);
+    expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
+  });
+
+  it("the unique indexes are back afterwards, exactly as they were", async () => {
+    const { old, neon } = await scenario();
+    await neon.query(`update cats set name = 'Tommy' where id = 1`);
+    const defs = async () =>
+      (
+        await old.query<{ d: string }>(
+          `select pg_get_indexdef(i.indexrelid) as d from pg_index i
+             join pg_class c on c.oid = i.indrelid
+             join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' order by 1`,
+        )
+      ).rows.map((r) => r.d);
+    const before = await defs();
+    await carryBack(neon, old, { apply: true });
+    expect(await defs()).toEqual(before);
+    await expect(
+      old.query(`insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
+                 values ('TOMMY', 1, 0, 0, 'x')`),
+    ).rejects.toMatchObject({ code: "23505" });
+  });
+
+  it("a genuinely violating end state still rolls back cleanly", async () => {
+    const { old, neon } = await scenario();
+    // Neon without the index lets two cats differ only by case; the old
+    // database's index can't hold both.
+    await neon.query(`drop index cats_name_lower_unique`);
+    await neon.query(
+      `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
+       values ('tom', 1, 37.2, 24.2, 'dev-b')`,
+    );
+    const before = await fingerprint(old);
+    await expect(carryBack(neon, old, { apply: true })).rejects.toThrow();
+    expect(await fingerprint(old)).toEqual(before);
+    const idx = await old.query(
+      `select 1 from pg_indexes where indexname = 'cats_name_lower_unique'`,
+    );
+    expect(idx.rowCount).toBe(1);
+  });
+});
+
+// Fable review, fix 3: fingerprints and diffs must not depend on each
+// server's session defaults (timezone, DateStyle, ...).
+describe("fingerprints don't depend on session defaults", () => {
+  it("compare finds no difference between identical databases with different default timezones", async () => {
+    const a = (await freshDb()).client;
+    const bDb = await freshDb();
+    await admin.query(`alter database "${bDb.name}" set timezone = 'Pacific/Auckland'`);
+    await admin.query(`alter database "${bDb.name}" set datestyle = 'SQL, DMY'`);
+    const b = await connectTo(bDb.name);
+    for (const c of [a, b]) {
+      await migrateUp(c, migrations, { throughIdx: 0 });
+      await seed(c);
+    }
+    expect(await compare(a, b)).toEqual([]);
+  });
+
+  it("a rehearsal target whose timezone differs from the copy's session still passes the unchanged-since-copy check", async () => {
+    const { old, neon } = await scenario({ copySessionTimezone: "Pacific/Auckland" });
+    await testersUseNeon(neon);
+    const dry = await carryBack(neon, old);
+    expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
+    const applied = await carryBack(neon, old, { apply: true });
+    expect(applied.applied).toBe(true);
   });
 });
