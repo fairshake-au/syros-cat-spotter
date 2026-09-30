@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -69,7 +70,7 @@ afterAll(() => {
   fs.rmSync(dist, { recursive: true, force: true });
 });
 
-type Res = { status: number; headers: http.IncomingHttpHeaders; body: string };
+type Res = { status: number; headers: http.IncomingHttpHeaders; body: string; raw: Buffer };
 
 const servers: http.Server[] = [];
 afterEach(async () => {
@@ -79,9 +80,10 @@ afterEach(async () => {
 async function start(
   env: Record<string, string | undefined>,
   clock?: { now: number },
+  root?: string,
 ): Promise<(method: string, url: string, opts?: { headers?: Record<string, string>; body?: string }) => Promise<Res>> {
   const handler = createHandler(env, {
-    distRoot: dist,
+    distRoot: root ?? dist,
     nowMs: clock ? () => clock.now * 1000 : undefined,
   });
   const server = http.createServer(handler);
@@ -96,7 +98,12 @@ async function start(
           const chunks: Buffer[] = [];
           res.on('data', (c) => chunks.push(c));
           res.on('end', () =>
-            resolve({ status: res.statusCode!, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }),
+            resolve({
+              status: res.statusCode!,
+              headers: res.headers,
+              body: Buffer.concat(chunks).toString('utf8'),
+              raw: Buffer.concat(chunks),
+            }),
           );
         },
       );
@@ -478,5 +485,117 @@ describe('shared cookie vectors (the API checks the same file)', () => {
     const keys = prelaunch.sessionKeys({ PRELAUNCH_SESSION_KEYS: v.key });
     expect(prelaunch.signSession(keys, v.nowSeconds)).toBe(v.expectedValue);
     expect(prelaunch.verifySession(keys, `${COOKIE}=${v.expectedValue}`, v.nowSeconds)).toBe(true);
+  });
+});
+
+describe('SYC-133: files are sent compressed', () => {
+  const BIG_JS = 'console.log("a cat on the harbour wall");\n'.repeat(400);
+  let root: string;
+  beforeAll(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'syc133-dist-'));
+    fs.writeFileSync(
+      path.join(root, 'index.html'),
+      '<!DOCTYPE html><html><head><title>x</title></head><body><div id="root"></div>' +
+        '<script src="/_expo/static/js/web/big.js" defer></script></body></html>',
+    );
+    const js = path.join(root, '_expo', 'static', 'js', 'web');
+    fs.mkdirSync(js, { recursive: true });
+    fs.writeFileSync(path.join(js, 'big.js'), BIG_JS);
+    fs.writeFileSync(path.join(js, 'small.js'), 'x()');
+    // A build-time precompressed pair: the .br holds different text so the
+    // test can tell it was the file served.
+    fs.writeFileSync(path.join(js, 'pre.js'), BIG_JS);
+    fs.writeFileSync(path.join(js, 'pre.js.br'), zlib.brotliCompressSync(Buffer.from('from the .br file')));
+    fs.writeFileSync(path.join(js, 'pre.js.gz'), zlib.gzipSync(Buffer.from('from the .gz file')));
+    fs.mkdirSync(path.join(root, 'assets'));
+    fs.writeFileSync(path.join(root, 'assets', 'cat.png'), Buffer.alloc(4000, 7));
+    fs.writeFileSync(path.join(root, 'assets', 'Inter.ttf'), Buffer.alloc(4000, 3));
+  });
+  afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const off = { PRELAUNCH_GATE: 'off' };
+
+  it('brotli when the browser accepts it, with Vary and the long cache kept', async () => {
+    const get = await start(off, undefined, root);
+    const res = await get('GET', '/_expo/static/js/web/big.js', {
+      headers: { 'accept-encoding': 'gzip, deflate, br' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers['content-encoding']).toBe('br');
+    expect(res.headers['vary']).toBe('Accept-Encoding');
+    expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(res.headers['content-type']).toBe('application/javascript; charset=utf-8');
+    expect(Number(res.headers['content-length'])).toBe(res.raw.length);
+    expect(res.raw.length).toBeLessThan(BIG_JS.length / 10);
+    expect(zlib.brotliDecompressSync(res.raw).toString('utf8')).toBe(BIG_JS);
+  });
+
+  it('gzip when brotli is not accepted (or refused with q=0)', async () => {
+    const get = await start(off, undefined, root);
+    for (const accept of ['gzip', 'br;q=0, gzip', 'GZIP;q=0.5']) {
+      const res = await get('GET', '/_expo/static/js/web/big.js', { headers: { 'accept-encoding': accept } });
+      expect(res.headers['content-encoding']).toBe('gzip');
+      expect(zlib.gunzipSync(res.raw).toString('utf8')).toBe(BIG_JS);
+    }
+  });
+
+  it('uncompressed when nothing is accepted', async () => {
+    const get = await start(off, undefined, root);
+    for (const accept of [undefined, 'identity', 'br;q=0, gzip;q=0']) {
+      const res = await get('GET', '/_expo/static/js/web/big.js', {
+        headers: accept ? { 'accept-encoding': accept } : {},
+      });
+      expect(res.headers['content-encoding']).toBeUndefined();
+      expect(res.body).toBe(BIG_JS);
+    }
+  });
+
+  it('uses the build’s precompressed .br / .gz files when present', async () => {
+    const get = await start(off, undefined, root);
+    const br = await get('GET', '/_expo/static/js/web/pre.js', { headers: { 'accept-encoding': 'br, gzip' } });
+    expect(br.headers['content-encoding']).toBe('br');
+    expect(zlib.brotliDecompressSync(br.raw).toString('utf8')).toBe('from the .br file');
+    const gz = await get('GET', '/_expo/static/js/web/pre.js', { headers: { 'accept-encoding': 'gzip' } });
+    expect(gz.headers['content-encoding']).toBe('gzip');
+    expect(zlib.gunzipSync(gz.raw).toString('utf8')).toBe('from the .gz file');
+  });
+
+  it('fonts are compressed; images and tiny files are not', async () => {
+    const get = await start(off, undefined, root);
+    const headers = { 'accept-encoding': 'br, gzip' };
+    const font = await get('GET', '/assets/Inter.ttf', { headers });
+    expect(font.headers['content-encoding']).toBe('br');
+    const png = await get('GET', '/assets/cat.png', { headers });
+    expect(png.headers['content-encoding']).toBeUndefined();
+    expect(png.raw.length).toBe(4000);
+    const small = await get('GET', '/_expo/static/js/web/small.js', { headers });
+    expect(small.headers['content-encoding']).toBeUndefined();
+    expect(small.body).toBe('x()');
+  });
+
+  it('the app page carries the loading screen, compressed, and still no-cache', async () => {
+    const get = await start(off, undefined, root);
+    const res = await get('GET', '/cat/12', { headers: { 'accept-encoding': 'gzip' } });
+    expect(res.status).toBe(200);
+    expect(res.headers['content-encoding']).toBe('gzip');
+    expect(res.headers['cache-control']).toBe('no-cache');
+    const html = zlib.gunzipSync(res.raw).toString('utf8');
+    expect(html).toContain('id="cs-loading"');
+    expect(html).toContain('Loading…');
+    expect(html).toContain('<div id="root"></div>');
+  });
+
+  it('gated: the password page and 401s are unchanged; a logged-in visitor gets compressed files', async () => {
+    const get = await start(gatedEnv(), undefined, root);
+    const locked = await get('GET', '/_expo/static/js/web/big.js', { headers: { 'accept-encoding': 'br' } });
+    expect(locked.status).toBe(401);
+    expect(locked.headers['content-encoding']).toBeUndefined();
+    const cookie = `${COOKIE}=${signedWith(KEY_A, Math.floor(Date.now() / 1000))}`;
+    const open = await get('GET', '/_expo/static/js/web/big.js', {
+      headers: { 'accept-encoding': 'br', cookie },
+    });
+    expect(open.status).toBe(200);
+    expect(open.headers['content-encoding']).toBe('br');
+    expect(zlib.brotliDecompressSync(open.raw).toString('utf8')).toBe(BIG_JS);
   });
 });

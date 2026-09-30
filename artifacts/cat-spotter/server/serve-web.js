@@ -13,6 +13,13 @@
  * needs the password cookie. The gate is on unless PRELAUNCH_GATE is exactly
  * "off"; with it off the handler behaves exactly as it did before the gate.
  *
+ * SYC-133 (weak connections): text files (the bundle, CSS, fonts, HTML) are
+ * sent brotli- or gzip-compressed when the browser accepts it, using the
+ * .br/.gz files scripts/precompress-web.js writes at build time, or
+ * compressing on the fly (once, then kept in memory) if they are missing.
+ * App pages carry an inline loading screen (./loading-screen.js) so visitors
+ * see the app's name and "Loading…" at once instead of a blank page.
+ *
  * This replaces server/serve.js in production. That server has a different
  * job: it serves the Expo GO bundles built by scripts/build.js, which open
  * the app inside Expo Go on a phone. This one serves the app to browsers.
@@ -23,8 +30,10 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const prelaunch = require('./prelaunch');
 const { passwordPage, unavailablePage } = require('./prelaunch-page');
+const { injectLoadingScreen } = require('./loading-screen');
 
 const DIST_ROOT = path.resolve(__dirname, '..', 'dist');
 
@@ -54,6 +63,51 @@ const LOGIN_MAX_FAILURES = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 // The login form carries a password and a path; 4 KB is plenty.
 const LOGIN_MAX_BODY_BYTES = 4096;
+
+// SYC-133: file types worth compressing. Images and woff/woff2 fonts are
+// already compressed; tiny files aren't worth the header.
+const COMPRESSIBLE_EXTENSIONS = new Set([
+  '.html', '.js', '.mjs', '.json', '.css', '.svg', '.ico', '.ttf', '.otf', '.map', '.txt',
+]);
+const MIN_COMPRESS_BYTES = 1024;
+
+/**
+ * Which compression to use for this request: 'br', 'gzip' or null. Brotli is
+ * preferred (smaller). An encoding counts only if listed (or covered by "*")
+ * with q above 0.
+ */
+function chooseEncoding(acceptEncoding) {
+  if (typeof acceptEncoding !== 'string' || !acceptEncoding) return null;
+  const q = new Map();
+  for (const part of acceptEncoding.split(',')) {
+    const [rawName, ...params] = part.trim().split(';');
+    const name = rawName.trim().toLowerCase();
+    if (!name) continue;
+    let weight = 1;
+    for (const param of params) {
+      const match = /^\s*q\s*=\s*([0-9.]+)\s*$/i.exec(param);
+      if (match) weight = Number(match[1]);
+    }
+    q.set(name, Number.isFinite(weight) ? weight : 0);
+  }
+  const accepts = (name) => (q.has(name) ? q.get(name) > 0 : (q.get('*') ?? 0) > 0);
+  if (accepts('br')) return 'br';
+  if (accepts('gzip')) return 'gzip';
+  return null;
+}
+
+/** On-the-fly compression (build-time .br files use the slower, smaller setting). */
+function compressBuffer(buffer, encoding) {
+  if (encoding === 'br') {
+    return zlib.brotliCompressSync(buffer, {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 5,
+        [zlib.constants.BROTLI_PARAM_SIZE_HINT]: buffer.length,
+      },
+    });
+  }
+  return zlib.gzipSync(buffer, { level: 6 });
+}
 
 function send(res, status, headers, body) {
   res.writeHead(status, headers);
@@ -156,6 +210,9 @@ function createHandler(env = process.env, options = {}) {
   const nowMs = options.nowMs || (() => Date.now());
   const basePath = (env.BASE_PATH || '/').replace(/\/+$/, '');
   const limiter = createLoginLimiter(nowMs);
+  // On-the-fly compressed files, keyed by encoding, path, mtime and size.
+  // Bounded by the size of dist/ (hashed files, one build per process).
+  const compressedCache = new Map();
 
   function resolveFile(pathname) {
     const safePath = path
@@ -193,7 +250,42 @@ function createHandler(env = process.env, options = {}) {
     return null;
   }
 
-  function serveSite(res, pathname) {
+  /**
+   * SYC-133: the compressed body for a file on disk, or null to send it as
+   * is. Prefers the build's precompressed sibling (file.br / file.gz); falls
+   * back to compressing once and keeping the result in memory.
+   */
+  function compressedFile(file, encoding) {
+    const sibling = `${file}.${encoding === 'br' ? 'br' : 'gz'}`;
+    if (fs.existsSync(sibling) && fs.statSync(sibling).isFile()) return fs.readFileSync(sibling);
+    const stat = fs.statSync(file);
+    if (stat.size < MIN_COMPRESS_BYTES) return null;
+    const key = `${encoding}\0${file}\0${stat.mtimeMs}\0${stat.size}`;
+    let body = compressedCache.get(key);
+    if (!body) {
+      body = compressBuffer(fs.readFileSync(file), encoding);
+      compressedCache.set(key, body);
+    }
+    return body;
+  }
+
+  /** Sends a body, compressed when the type allows and the browser accepts it. */
+  function sendMaybeCompressed(req, res, headers, ext, readBody, compressFile) {
+    if (!COMPRESSIBLE_EXTENSIONS.has(ext)) return send(res, 200, headers, readBody());
+    const out = { ...headers, vary: 'Accept-Encoding' };
+    const encoding = chooseEncoding(req.headers['accept-encoding']);
+    const compressed = encoding ? compressFile(encoding) : null;
+    if (compressed) {
+      out['content-encoding'] = encoding;
+      out['content-length'] = compressed.length;
+      return send(res, 200, out, compressed);
+    }
+    const body = readBody();
+    out['content-length'] = body.length;
+    return send(res, 200, out, body);
+  }
+
+  function serveSite(req, res, pathname) {
     const ext = path.extname(pathname).toLowerCase();
 
     if (ext) {
@@ -204,16 +296,28 @@ function createHandler(env = process.env, options = {}) {
       if (pathname.startsWith('/_expo/') || pathname.startsWith('/assets/')) {
         headers['cache-control'] = 'public, max-age=31536000, immutable';
       }
-      return send(res, 200, headers, fs.readFileSync(file));
+      return sendMaybeCompressed(
+        req,
+        res,
+        headers,
+        ext,
+        () => fs.readFileSync(file),
+        (encoding) => compressedFile(file, encoding),
+      );
     }
 
     const html = resolveHtmlFor(pathname);
     if (!html) return send(res, 404, { 'content-type': 'text/plain' }, 'Not Found');
-    return send(
+    // SYC-133: the page carries its own loading screen. Small, so it is
+    // compressed per request rather than cached.
+    const page = Buffer.from(injectLoadingScreen(fs.readFileSync(html, 'utf8')), 'utf8');
+    return sendMaybeCompressed(
+      req,
       res,
-      200,
       { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' },
-      fs.readFileSync(html),
+      '.html',
+      () => page,
+      (encoding) => (page.length < MIN_COMPRESS_BYTES ? null : compressBuffer(page, encoding)),
     );
   }
 
@@ -341,7 +445,7 @@ function createHandler(env = process.env, options = {}) {
       if (pathname === '/_gate' || pathname.startsWith('/_gate/')) {
         return send(res, 404, { 'content-type': 'text/plain' }, 'Not Found');
       }
-      return serveSite(res, pathname);
+      return serveSite(req, res, pathname);
     }
 
     // ---- The pre-launch gate is on from here. ----
@@ -392,7 +496,7 @@ function createHandler(env = process.env, options = {}) {
     if (!configured) return sendUnavailable(res, isPage);
 
     if (prelaunch.verifySession(keys, req.headers.cookie, Math.floor(nowMs() / 1000))) {
-      return serveSite(res, pathname);
+      return serveSite(req, res, pathname);
     }
 
     if (!isPage) {
@@ -428,7 +532,14 @@ function describeGate(env) {
   return lines;
 }
 
-module.exports = { createHandler, describeGate, safeNext };
+module.exports = {
+  createHandler,
+  describeGate,
+  safeNext,
+  chooseEncoding,
+  COMPRESSIBLE_EXTENSIONS,
+  MIN_COMPRESS_BYTES,
+};
 
 if (require.main === module) {
   if (!fs.existsSync(path.join(DIST_ROOT, 'index.html'))) {

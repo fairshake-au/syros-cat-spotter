@@ -72,6 +72,11 @@ const en: Dict = {
   notACat: 'No cat found',
   notACatMsg: 'We could not find a cat in this photo. Try another shot.',
   tryAgain: 'Try again',
+  // SYC-133: the loading screen the website shows while its code downloads.
+  // Copied into server/loading-screen.js; a test keeps the two in step.
+  webLoading: 'Loading…',
+  webLoadingSlow: 'Still loading. On a weak connection this can take a minute or two. Please keep this page open.',
+  webLoadingFailed: 'The app didn’t finish downloading. Check your connection and try again.',
   points: 'points',
   pointsAwarded: 'points earned',
   matchConfirmed: 'Sighting confirmed!',
@@ -339,6 +344,10 @@ const el: Dict = {
   notACat: 'Δεν βρέθηκε γάτα',
   notACatMsg: 'Δεν εντοπίσαμε γάτα στη φωτογραφία. Δοκιμάστε άλλη λήψη.',
   tryAgain: 'Δοκιμάστε ξανά',
+  // SYC-133: needs native review (SYC-4).
+  webLoading: 'Φόρτωση…',
+  webLoadingSlow: 'Φορτώνει ακόμα. Με αδύναμη σύνδεση μπορεί να πάρει ένα με δύο λεπτά. Κράτα αυτή τη σελίδα ανοιχτή.',
+  webLoadingFailed: 'Η εφαρμογή δεν κατέβηκε ολόκληρη. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.',
   points: 'πόντοι',
   pointsAwarded: 'πόντοι κερδήθηκαν',
   matchConfirmed: 'Η παρατήρηση επιβεβαιώθηκε!',
@@ -606,6 +615,10 @@ const fr: Dict = {
   notACat: 'Aucun chat trouvé',
   notACatMsg: 'Nous n\u2019avons pas trouvé de chat sur cette photo. Essayez une autre prise.',
   tryAgain: 'Réessayer',
+  // SYC-133: needs native review (SYC-4).
+  webLoading: 'Chargement…',
+  webLoadingSlow: 'Chargement en cours. Avec une connexion faible, cela peut prendre une minute ou deux. Garde cette page ouverte.',
+  webLoadingFailed: 'L’application n’a pas fini de se télécharger. Vérifie ta connexion et réessaie.',
   points: 'points',
   pointsAwarded: 'points gagnés',
   matchConfirmed: 'Observation confirmée !',
