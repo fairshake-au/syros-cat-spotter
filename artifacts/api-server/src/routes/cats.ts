@@ -24,6 +24,7 @@ import { notifyCatSpotters } from "../lib/notifications";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
+import { verifyDeviceSecret } from "../lib/deviceAuth";
 
 const router: IRouter = Router();
 
@@ -99,6 +100,10 @@ router.get("/cats", async (req, res) => {
 // Resident registers a brand-new owned cat (no sighting required).
 router.post("/cats", async (req, res) => {
   const body = RegisterCatBody.parse(req.body);
+  // SYC-107: every route that acts as a spotter proves the caller holds the
+  // device's secret before anything else, so an id seen in traffic can't be
+  // used to register, claim or rename cats as someone else.
+  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
   const name = body.name.trim().slice(0, 60);
   if (containsOffensiveLanguage(name)) {
     res.status(400).json({
@@ -233,6 +238,9 @@ router.post("/cats/:catId/claim", async (req, res) => {
     return;
   }
   const body = ClaimCatBody.parse(req.body);
+  // SYC-107: before the cat lookup, so the ownership answers (idempotent 200,
+  // 409) are only ever given to the device itself.
+  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
 
   const [cat] = await db
     .select()
@@ -287,6 +295,9 @@ router.patch("/cats/:catId", async (req, res) => {
     return;
   }
   const body = UpdateCatBody.parse(req.body);
+  // SYC-107: the owner check below compares a body value against the stored
+  // owner, which proves nothing on its own; the secret is what proves it.
+  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
 
   const [cat] = await db
     .select()
