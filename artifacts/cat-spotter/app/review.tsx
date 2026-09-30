@@ -130,15 +130,13 @@ export default function ReviewScreen() {
     queryClient.invalidateQueries();
   };
 
-  // Sending any choice needs signal (spec §4.5). Without it the sighting
-  // stays in the review list and nothing is lost.
+  // Sending any choice needs signal (spec §4.5). It is always attempted (the
+  // online flag can be wrong on a weak connection); if the request can't get
+  // through, the spotter is told plainly and the sighting stays in the
+  // review list, so nothing is lost.
   const confirm = async (catId: number, pickedFrom?: PickedFrom | "name_prompt") => {
     if (!deviceId) return;
     const say = pickedFrom ? setPickerMessage : setSendMessage;
-    if (!isOnline) {
-      say("pickerNoSignal");
-      return;
-    }
     setBusy(true);
     say(null);
     try {
@@ -165,10 +163,6 @@ export default function ReviewScreen() {
 
   const registerNew = async () => {
     if (!newName.trim() || !deviceId) return;
-    if (!isOnline) {
-      setSendMessage("pickerNoSignal");
-      return;
-    }
     setBusy(true);
     setNameError(null);
     setSendMessage(null);
