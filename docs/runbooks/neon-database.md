@@ -34,9 +34,46 @@ If `migrate` refuses the Neon `development` branch ("cannot be adopted", or "the
 
 **Never reset `production`.** There, fix drift by hand, guided by the differences `migrate` prints.
 
+**Resetting `rehearsal` before re-running the switchover plan's Part D (added 30 Sep):** the plan's D.8 recovery drill ends with `rehearsal` in a "cut over" state that both copy commands refuse, and `rehearsal` (a child branch) can't be restored from a snapshot the way `production` can (see "Snapshots and restores only work on a root branch" below, under "Restoring to a point in time"). Before a re-run, reset it from `production` the same way as `development` above — Neon console → **Branches** → `rehearsal` → **Reset from parent**, or delete and recreate it. This discards `rehearsal`'s contents, so get Samuel's OK first, same as any other data-discarding step.
+
 ## Restoring to a point in time
 
-Neon's restore window on `production` is **7 days** (the paid "Launch" plan; the plan's Part C.3 sets this when the project is created). In the Neon console: **Branches** → `production` → **Restore**, pick a timestamp, and Neon creates a new branch at that point rather than mutating `production` in place — so a restore is reviewable before anything is pointed at it. For anything bigger than a point-in-time restore (the old database intact, testers' new Neon rows carried back), that's the rollback procedure in the plan's Part F, run through `db-ops`'s `carry-back-dry-run`/`carry-back-apply` commands, never by hand.
+**Two different things are both called "restore" here — they behave differently, and this runbook used to blur them (corrected after the Fable review, 30 Sep):**
+
+- **A point-in-time restore to a new branch** (Neon console: **Branches** → `production` → **Restore**, pick a timestamp): Neon creates a **new, separate branch** at that point, leaving `production` untouched. Nothing is pointed at it until someone decides to — it's reviewable first, and nothing about `production`'s connection string or password changes, because `production` itself hasn't moved.
+- **`restore_snapshot` onto `production`** (the plan's Part D/E/F recovery route, via `db-ops`/the Neon MCP): this **swaps `production` in place** — a new branch id takes over the `production` name and the pooled endpoint, and the replaced branch is kept as "`production (old)`". **This changes the `neondb_owner` password** (see below), which a plain point-in-time restore to a new branch does not.
+
+Neon's restore window on `production` is **7 days** (the paid "Launch" plan; the plan's Part C.3 sets this when the project is created). For anything bigger than a restore (the old database intact, testers' new Neon rows carried back), that's the rollback procedure in the plan's Part F, run through `db-ops`'s `carry-back-dry-run`/`carry-back-apply` commands, never by hand.
+
+**Snapshots and restores only work on a root branch.** `production` is a root branch; `rehearsal` and `development` are children of it and can't take or restore a snapshot directly (found in the 30 Sep dress rehearsal, when the plan's D.8 drill had to move from `rehearsal` to `production` for this reason — see the plan's Part D.8 and A.1). Plan any snapshot-based recovery against `production` itself.
+
+---
+
+## Dress rehearsal findings (30 Sep 2026) — snapshot restores, secrets, and logs
+
+*Kept as its own section, separate from any concurrent edits to the sections above and to `db-ops.sh`/`db-ops.yml`, so it merges cleanly alongside other in-flight runbook changes (see this PR's description).*
+
+### A snapshot restore onto `production` changes the `neondb_owner` password
+
+Confirmed twice on 30 Sep, including a clean repeat with no password reset in between: restoring a Neon snapshot onto `production` swaps in a **new branch id** and leaves the saved connection string's **password no longer valid**, even though Neon's own docs say the connection string is kept. The pooled endpoint (`ep-fancy-union-b1al1ulz`) and its hostname are unaffected — only the branch id and the password change. The replaced branch is kept by Neon under the name "`production (old)`" (a second restore in the same session can leave "`production (old) (1)`" too).
+
+**After any restore onto `production`, before running `db-ops` or republishing Replit again:**
+
+1. **Claude, via the Neon MCP:** verify the restored `production` **read-only** with `run_sql` first — row counts match the last-known-good fingerprint, `switchover.rehearsal_marker` present, `switchover.cutover_done` absent.
+2. **Claude, via the Neon MCP:** **rename** (never delete) the leftover "`production (old)`" branch to `pre-restore-<attempt>-<hhmm>` (`list_branches`, then rename). **Don't delete it here** — it can be the parent of a kept archive or recovery branch, and Neon refuses to delete a branch with children. It's deleted only at E.13/G.1, with Samuel's OK.
+3. **Claude, via the Neon MCP:** re-set `production`'s compute to **0.25–1 CU, suspend after 300 s** — a restore resets the endpoint's autoscaling max to **8 CU**.
+4. **Samuel:** open Neon Connect for **Branch: production** twice — pooling **off** into GitHub `production` environment secret `NEON_PROD_DIRECT_URL`; pooling **on** into **the EU (new) project's** deployment secret `APP_DATABASE_URL` (Neon Connect gives `sslmode=require`; change it to `verify-full` after pasting, as in the plan's C.4) — then **republish the EU project. Never the old project** (the domain may have just been reconnected to it, which makes "the live Replit project" ambiguous — it always means the EU one here).
+5. **Claude:** wait for a **new instance start-up** log line (the start-up log from `lib/db` §B.2 in the plan) before judging anything — Replit's autoscale can keep serving the previous instance for a minute or two after a republish — then run `smoke`. **If `apptest.catspotters.com` isn't currently pointed at the EU project** (true for most of a rollback recovery), pass `-f base_url=<the EU project's own *.replit.app address>` — otherwise `smoke` resolves against whichever project the domain is on right now and can fail misleadingly.
+
+Do the steps above in order: the dress rehearsal's first live run took **~26 minutes** because the first Replit paste came from a stale look-alike branch name and a republish happened before the paste landed. Done in order, it's **estimated at ~5 minutes** — not yet measured end to end. This procedure is a **fallback**: see the plan's A.1 and F.1 for when it's needed versus when the cheaper path (fingerprint/verify with no re-paste, `production`'s protection switched off for the cutover window) is tried first.
+
+### SSL root certificate for `pg_dump`/`pg_restore` (PR #33)
+
+`pg_dump`/`pg_restore` running on the GitHub Actions runner need an explicit CA file for `sslmode=verify-full`/`verify-ca` — unlike Node's `pg`, libpq doesn't fall back to a system trust store automatically, and without one `pg_restore` fails with `root certificate file "/home/runner/.postgresql/root.crt" does not exist`. `db-ops.sh` now sets `PGSSLROOTCERT=system` for any verify-full/verify-ca connection before calling `pg_dump`/`pg_restore`, which tells libpq to use OpenSSL's own system trust store (Neon's certificates are publicly trusted, so this is sufficient).
+
+### Reading `db-ops` logs: redact connection strings, don't drop lines about "password"
+
+During the rehearsal, a log filter that dropped any line containing the word "password" hid the real Neon authentication error (`password authentication failed for user 'neondb_owner'`) — the line was dropped because it *mentioned* "password" in the error text, not because it contained a credential. **Redact by pattern-matching the connection-string shape itself** (the existing `postgres://`/`postgresql://` grep in `db-ops.sh`'s own output check does this correctly), never by dropping any line that merely contains a word like "password". A dropped diagnostic line can hide the actual cause of a failure.
 
 ### What carry-back does, and when it refuses
 
