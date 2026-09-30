@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
-import { JSDOM } from 'jsdom';
 import { TRANSLATIONS, type Language } from '@/lib/i18n';
 import { hideWebLoadingScreen, WEB_LOADING_SCREEN_ID } from '@/lib/webLoadingScreen';
 
@@ -15,6 +14,14 @@ const { injectLoadingScreen, LOADING_TEXT, LOADING_SCREEN_ID } = require('./load
   injectLoadingScreen: (html: string, options?: { slowAfterMs?: number }) => string;
   LOADING_TEXT: Record<Language, { title: string; loading: string; slow: string; failed: string; retry: string }>;
   LOADING_SCREEN_ID: string;
+};
+// jsdom has no type declarations installed here; this is the part used.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { JSDOM } = require('jsdom') as {
+  JSDOM: new (
+    html: string,
+    options: { runScripts: 'dangerously'; url: string; beforeParse: (win: Window) => void },
+  ) => { window: Window & typeof globalThis };
 };
 
 // The shape `expo export --platform web` writes today (Expo SDK 54).
