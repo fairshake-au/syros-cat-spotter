@@ -36,7 +36,32 @@ export type HomeScreenPlatform =
  * device (follow-up ticket filed), the banner stays hidden for every iOS
  * browser except Safari, rather than risk causing the very loss it's meant
  * to guard against.
+ *
+ * In-app browsers (SYC-134 review round 2, 30 Sep 2026): a spotter can
+ * reach the site from inside Facebook, Instagram, Messenger, LINE, Snapchat
+ * and similar apps' built-in webview, not just a real browser. These are
+ * folded into the same `ios-unsupported` bucket on iOS (detected by their
+ * UA tokens — `FBAN`/`FBAV` for Facebook and Messenger, `Instagram`,
+ * `Line/`, `Snapchat`), and on Android by the generic in-app-webview marker
+ * `; wv)` that Android's WebKit adds to any app embedding a WebView,
+ * regardless of which app it is.
+ *
+ * **Deliberately not attempted: telling someone in one of these to "open in
+ * Safari".** A tester who onboarded and claimed a username *inside*, say,
+ * WhatsApp's iOS in-app browser already has their identity in *that* view's
+ * storage — sending them to Safari instead would hand them a stranger's
+ * (empty) storage, which is worse than doing nothing. WhatsApp's iOS
+ * in-app browser also can't be told apart from real Safari by user agent at
+ * all (it carries no distinguishing token), so it isn't and can't be
+ * special-cased here. That's fine: an in-app webview has no "Add to Home
+ * Screen" option in the first place, so at worst this shows instructions
+ * that quietly don't do anything — never a UA it can misclassify into
+ * moving someone's identity.
  */
+const IOS_UNSUPPORTED_BROWSER_RE =
+  /CriOS|FxiOS|EdgiOS|OPiOS|FBAN|FBAV|Instagram|Line\/|Snapchat/i;
+const ANDROID_IN_APP_WEBVIEW_RE = /;\s*wv\)/i;
+
 export function detectHomeScreenPlatform(
   userAgent: string,
   maxTouchPoints = 0,
@@ -46,12 +71,21 @@ export function detectHomeScreenPlatform(
     /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
 
   if (isIOSDevice) {
-    // Known third-party iOS browser UA tokens (Chrome, Firefox, Edge,
-    // Opera). All of them are WebKit wrappers whose Home Screen storage
-    // behaviour relative to Safari's is unverified — see the doc comment
-    // above. Real Safari's UA carries none of these tokens.
-    if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return 'ios-unsupported';
+    // Third-party iOS browsers (Chrome, Firefox, Edge, Opera) and in-app
+    // webviews (Facebook, Messenger, Instagram, LINE, Snapchat). All of
+    // them are WebKit wrappers whose Home Screen storage behaviour
+    // relative to Safari's is unverified — see the doc comment above. Real
+    // Safari's UA carries none of these tokens.
+    if (IOS_UNSUPPORTED_BROWSER_RE.test(ua)) return 'ios-unsupported';
     return 'ios-safari';
+  }
+
+  // Android in-app webviews (any app's embedded WebView, tagged "; wv)" —
+  // see the doc comment above). Same reasoning as iOS: unverified storage
+  // behaviour, so reuse the same hidden bucket rather than invent a second
+  // one.
+  if (/Android/.test(ua) && ANDROID_IN_APP_WEBVIEW_RE.test(ua)) {
+    return 'ios-unsupported';
   }
 
   const isAndroidChrome =

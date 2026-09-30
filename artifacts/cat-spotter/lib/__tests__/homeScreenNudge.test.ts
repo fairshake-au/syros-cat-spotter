@@ -26,6 +26,21 @@ const ANDROID_SAMSUNG =
 const DESKTOP_CHROME =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
+// In-app browsers (SYC-134 review round 2): a spotter can reach the site
+// from inside another app's webview, not just a real browser.
+const IOS_FACEBOOK =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/450.0.0.0;FBBV/123456789;FBDV/iPhone14,2;FBMD/iPhone;FBSN/iOS;FBSV/17.5;FBSS/3;FBID/phone;FBLC/en_US]';
+const IOS_MESSENGER =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/470.0.0.0;FBBV/123456789;FBDV/iPhone14,2;FBSV/17.5]';
+const IOS_INSTAGRAM =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 302.0.0.23.114 (iPhone14,2; iOS 17_5; en_US; en-US; scale=3.00; 1170x2532; 498423722)';
+const IOS_LINE =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Line/13.15.0';
+const IOS_SNAPCHAT =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Snapchat/12.79.0.34';
+const ANDROID_IN_APP_WEBVIEW =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP31.240517.022; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/126.0.6478.54 Mobile Safari/537.36';
+
 describe('detectHomeScreenPlatform', () => {
   it('detects iPhone Safari', () => {
     expect(detectHomeScreenPlatform(IPHONE_SAFARI)).toBe('ios-safari');
@@ -66,6 +81,48 @@ describe('detectHomeScreenPlatform', () => {
 
   it('handles an empty user agent without throwing', () => {
     expect(detectHomeScreenPlatform('')).toBe('other');
+  });
+
+  // SYC-134 review round 2, 30 Sep 2026: in-app browsers (Facebook,
+  // Messenger, Instagram, LINE, Snapchat on iOS; any app's embedded
+  // WebView on Android) get the same treatment as third-party iOS
+  // browsers — unverified Home Screen storage behaviour, so hidden.
+  describe('in-app browsers', () => {
+    it('treats Facebook\'s iOS in-app browser as unsupported', () => {
+      expect(detectHomeScreenPlatform(IOS_FACEBOOK)).toBe('ios-unsupported');
+    });
+
+    it('treats Messenger\'s iOS in-app browser as unsupported', () => {
+      expect(detectHomeScreenPlatform(IOS_MESSENGER)).toBe('ios-unsupported');
+    });
+
+    it('treats Instagram\'s iOS in-app browser as unsupported', () => {
+      expect(detectHomeScreenPlatform(IOS_INSTAGRAM)).toBe('ios-unsupported');
+    });
+
+    it('treats LINE\'s iOS in-app browser as unsupported', () => {
+      expect(detectHomeScreenPlatform(IOS_LINE)).toBe('ios-unsupported');
+    });
+
+    it('treats Snapchat\'s iOS in-app browser as unsupported', () => {
+      expect(detectHomeScreenPlatform(IOS_SNAPCHAT)).toBe('ios-unsupported');
+    });
+
+    it('treats an Android in-app WebView ("; wv)") as unsupported', () => {
+      expect(detectHomeScreenPlatform(ANDROID_IN_APP_WEBVIEW)).toBe(
+        'ios-unsupported',
+      );
+    });
+
+    // WhatsApp's iOS in-app browser carries no distinguishing UA token, so
+    // it can't be — and deliberately isn't — special-cased: it's
+    // indistinguishable from real Safari here, which is fine, because an
+    // in-app webview has no Add to Home Screen option regardless (see the
+    // doc comment in homeScreenNudge.ts).
+    it('cannot distinguish WhatsApp\'s iOS in-app browser from Safari (documented, not a bug)', () => {
+      const whatsappLikeSafariUA = IPHONE_SAFARI; // no WhatsApp-specific token exists
+      expect(detectHomeScreenPlatform(whatsappLikeSafariUA)).toBe('ios-safari');
+    });
   });
 });
 
