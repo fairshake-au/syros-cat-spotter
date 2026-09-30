@@ -520,6 +520,78 @@ describe("carry-back when a unique value moves between rows", () => {
   });
 });
 
+// Fable re-check, N1: after one successful apply, the old database differs
+// from the copy's fingerprint only by carry-back's own writes. A second
+// rollback pass must still work; third-party writes must still be refused.
+describe("a second carry-back pass after a successful apply", () => {
+  it("E5: testers write again on Neon after an apply, and a second pass succeeds", async () => {
+    const { old, neon } = await scenario();
+    const signatureBefore = (await fingerprint(old)).schemaSignatureHash;
+    await neon.query(`update cats set name = 'Kitsos II' where id = 2`);
+    expect((await carryBack(neon, old, { apply: true })).applied).toBe(true);
+
+    await neon.query(`update cats set name = 'Kitsos III' where id = 2`);
+    await testersUseNeon(neon);
+    const dry = await carryBack(neon, old);
+    expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
+    const second = await carryBack(neon, old, { apply: true });
+    expect(second.applied).toBe(true);
+    expect(await compare(neon, old, { projected: true, onto: "target" })).toEqual([]);
+    // The anchor lives outside public: the old database's public schema
+    // signature is exactly what it was.
+    expect((await fingerprint(old)).schemaSignatureHash).toBe(signatureBefore);
+  });
+
+  it("an old-app write after the first apply is still refused", async () => {
+    const { old, neon } = await scenario();
+    await neon.query(`update cats set name = 'Kitsos II' where id = 2`);
+    await carryBack(neon, old, { apply: true });
+
+    await old.query(
+      `insert into photos (data, mime) values ('old-app-after-rollback', 'image/jpeg')`,
+    );
+    await neon.query(
+      `insert into photos (data, mime, public_id) values ('neon-again', 'image/jpeg', 'p')`,
+    );
+    const dry = await carryBack(neon, old);
+    expect(dry.baseline).toEqual({ status: "changed", changedTables: ["photos"] });
+    await expect(carryBack(neon, old, { apply: true })).rejects.toThrow(
+      /changed since the copy in: photos/,
+    );
+  });
+
+  it("the anchor only counts for the copy it came from", async () => {
+    const { old, neon } = await scenario();
+    await neon.query(`update cats set name = 'Kitsos II' where id = 2`);
+    await carryBack(neon, old, { apply: true }); // anchor: cat 2 = 'Kitsos II'
+    // The old app changes cat 2, then a new copy (a later cutover attempt)
+    // is taken from that state and marked on Neon...
+    await old.query(`update cats set name = 'Old app name' where id = 2`);
+    await neon.query(`update cats set name = 'Old app name' where id = 2`);
+    await mark(neon, "cutover", "sha-2", await fingerprint(old));
+    // ...then the old app puts cat 2 back, so the old database matches the
+    // first pass's anchor exactly but not the new copy, while a tester
+    // renames cat 1 on Neon.
+    await old.query(`update cats set name = 'Kitsos II' where id = 2`);
+    await neon.query(`update cats set name = 'Tester rename' where id = 1`);
+    // The stale anchor belongs to the earlier copy: it must not excuse the
+    // old app's write (mirroring would overwrite it).
+    await expect(carryBack(neon, old, { apply: true })).rejects.toThrow(
+      /changed since the copy in: cats/,
+    );
+  });
+
+  it("a dry run stays read-only: it never creates the anchor or its schema", async () => {
+    const { old, neon } = await scenario();
+    await testersUseNeon(neon);
+    await carryBack(neon, old);
+    const s = await old.query(
+      `select 1 from pg_namespace where nspname = 'switchover'`,
+    );
+    expect(s.rowCount).toBe(0);
+  });
+});
+
 // Fable review, fix 3: fingerprints and diffs must not depend on each
 // server's session defaults (timezone, DateStyle, ...).
 describe("fingerprints don't depend on session defaults", () => {

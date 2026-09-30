@@ -49,6 +49,20 @@ import { readMarkers } from "./guard";
  *    recovering by hand (F.3). A table that already equals the source is
  *    fine, which is what makes a re-run after a successful apply a no-op.
  *
+ *    After a successful apply, carry-back records the target's new
+ *    fingerprint in `switchover.carry_back_done` (created on the old
+ *    database at apply time only, as part of the approved write, and
+ *    outside `public`). A later pass accepts a table matching either the
+ *    copy's fingerprint or that anchor, but only an anchor recorded against
+ *    the same copy. So a second pass works after testers write again, and
+ *    anyone else's writes are still refused.
+ *
+ * Unique indexes (the baseline's lower(name) and lower(username)) are
+ * dropped for the writes and rebuilt exactly. Unique *constraints* aren't:
+ * the baseline has none, and R0 forbids changing the old database's schema.
+ * One added later would make a value moving between rows refuse, and roll
+ * back cleanly.
+ *
  * It reports primary keys only, never row contents.
  */
 
@@ -343,6 +357,53 @@ function parseBaseline(json: unknown): BaselineFingerprint | null {
   return { tables: tables as BaselineFingerprint["tables"] };
 }
 
+const ANCHOR_TABLE = `"switchover"."carry_back_done"`;
+
+/**
+ * The fingerprint the last successful carry-back recorded on the target,
+ * and the copy marker (by its timestamp) it was carried back from. Read
+ * without writing: safe in a dry run, and on a target that has never had
+ * a carry-back (no `switchover` schema at all).
+ */
+async function readCarryBackAnchor(
+  target: ClientBase,
+): Promise<{ copyMarkedAt: string; fingerprint: BaselineFingerprint } | null> {
+  const reg = await target.query<{ t: string | null }>(
+    `select to_regclass($1)::text as t`,
+    [ANCHOR_TABLE],
+  );
+  if (!reg.rows[0]?.t) return null;
+  const r = await target.query<{ copy_marked_at: string; fp: unknown }>(
+    `select copy_marked_at, target_fingerprint_json as fp from ${ANCHOR_TABLE} limit 1`,
+  );
+  const row = r.rows[0];
+  const fp = row ? parseBaseline(row.fp) : null;
+  return row && fp ? { copyMarkedAt: row.copy_marked_at, fingerprint: fp } : null;
+}
+
+async function writeCarryBackAnchor(
+  target: ClientBase,
+  copyMarkedAt: string,
+  fp: unknown,
+): Promise<void> {
+  await target.query(`create schema if not exists "switchover"`);
+  await target.query(
+    `create table if not exists ${ANCHOR_TABLE} (
+       id boolean primary key default true,
+       created_at timestamptz not null default now(),
+       copy_marked_at text not null,
+       target_fingerprint_json jsonb not null,
+       constraint carry_back_done_singleton check (id)
+     )`,
+  );
+  await target.query(`delete from ${ANCHOR_TABLE}`);
+  await target.query(
+    `insert into ${ANCHOR_TABLE} (id, copy_marked_at, target_fingerprint_json)
+     values (true, $1, $2::jsonb)`,
+    [copyMarkedAt, JSON.stringify(fp)],
+  );
+}
+
 async function rollbackQuietly(client: ClientBase): Promise<void> {
   try {
     await client.query("rollback");
@@ -456,14 +517,27 @@ async function carryBackInTransaction(
   await applyCanonicalSettings(target);
 
   // 4. What the target looks like now, against the copy's fingerprint.
+  // A table passes if it matches the copy's fingerprint, or the fingerprint
+  // the last successful carry-back recorded on the target (its own writes),
+  // but only an anchor recorded against this same copy.
   const baseline = parseBaseline(sourceMarkers.sourceFingerprintJson);
   const changedSinceCopy = new Set<string>();
   if (baseline) {
+    const anchor = await readCarryBackAnchor(target);
+    const anchorTables =
+      anchor && anchor.copyMarkedAt === sourceMarkers.markedAt
+        ? new Map(anchor.fingerprint.tables.map((t) => [t.table, t]))
+        : null;
     const now = await fingerprint(target, { inTransaction: true });
     const then = new Map(baseline.tables.map((t) => [t.table, t]));
+    const same = (
+      a: { hash: string; rows: number } | undefined,
+      b: { hash: string; rows: number },
+    ) => !!a && a.hash === b.hash && a.rows === b.rows;
     for (const t of now.tables) {
-      const b = then.get(t.table);
-      if (!b || b.hash !== t.hash || b.rows !== t.rows) changedSinceCopy.add(t.table);
+      if (same(then.get(t.table), t)) continue;
+      if (anchorTables && same(anchorTables.get(t.table), t)) continue;
+      changedSinceCopy.add(t.table);
     }
   }
 
@@ -529,8 +603,7 @@ async function carryBackInTransaction(
     applied: false,
   };
 
-  if (!apply) {
-    report.sequences = await planSequences(source, target, source);
+  if (!apply) {    report.sequences = await planSequences(source, target, source);
     return report;
   }
 
@@ -616,6 +689,18 @@ async function carryBackInTransaction(
       diffs,
     );
   }
+
+  // 10. Record what this carry-back left behind, as part of the approved
+  // write, so a later pass (testers wrote again on Neon before the
+  // rollback finished) can tell carry-back's own changes from anyone
+  // else's. It lives in the `switchover` schema, outside `public`, so the
+  // old app, its schema signature and later copies (pg_dump -n public)
+  // never see it.
+  await writeCarryBackAnchor(
+    target,
+    sourceMarkers.markedAt!,
+    await fingerprint(target, { inTransaction: true }),
+  );
 
   report.applied = true;
   return report;
