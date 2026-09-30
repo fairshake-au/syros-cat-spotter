@@ -15,6 +15,43 @@ set -euo pipefail
 COMMAND="${COMMAND:?COMMAND must be set}"
 TARGET="${TARGET:?TARGET must be set}"
 
+# The GitHub Environment's own DATABASE_TARGET must agree with the input,
+# so a run can never act on one target with another Environment's secrets.
+if [ "${DATABASE_TARGET:-}" != "$TARGET" ]; then
+  echo "db-ops: DATABASE_TARGET ('${DATABASE_TARGET:-unset}') doesn't match target '$TARGET'. Refusing." >&2
+  exit 1
+fi
+
+# Each branch's address comes only from its own variable. There's no
+# fallback, so an empty secret can never resolve to another branch.
+case "$TARGET" in
+  production) NEON_URL="${NEON_PROD_URL:-}"; NEON_URL_NAME=NEON_PROD_URL ;;
+  rehearsal) NEON_URL="${NEON_REHEARSAL_URL:-}"; NEON_URL_NAME=NEON_REHEARSAL_URL ;;
+  development) NEON_URL="${NEON_DEV_URL:-}"; NEON_URL_NAME=NEON_DEV_URL ;;
+  *)
+    echo "db-ops: target must be development, rehearsal or production." >&2
+    exit 1
+    ;;
+esac
+
+require_neon_url() {
+  if [ -z "$NEON_URL" ]; then
+    echo "db-ops: $NEON_URL_NAME must be set for command '$COMMAND' target '$TARGET'." >&2
+    exit 1
+  fi
+}
+
+AGE_BIN="${AGE_BIN:-age}"
+DUMP_AGE_OUT="${DUMP_AGE_OUT:-/tmp/db-ops-dump.age}"
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1 # macOS, for a local dry run
+  fi
+}
+
 # The workflow installs postgresql-client-16 at this fixed path (Ubuntu
 # doesn't put a versioned pg_dump on PATH). Overridable for a local dry run
 # (D.4's step 2) against a differently-installed client.
@@ -80,12 +117,24 @@ maybe_fail_after() {
 # --- copy-rehearsal / copy-cutover --------------------------------------
 run_copy() {
   local mode="$1" # rehearsal | cutover
-  if [ "$mode" = "cutover" ] && [ "$TARGET" = "development" ]; then
-    echo "db-ops: copy-cutover is refused for target=development." >&2
+  if [ "$TARGET" = "development" ]; then
+    echo "db-ops: copy-$mode is refused for target=development." >&2
     exit 1
   fi
   require REPLIT_URL
-  require NEON_URL
+  require_neon_url
+
+  # Q6: copy-cutover encrypts its dump for Samuel. Check age can do it
+  # before anything is wiped, so a missing or broken age fails the run
+  # here, not after the copy.
+  local encrypt=""
+  if [ "$COMMAND" = "copy-cutover" ] && [ -n "${DUMP_AGE_RECIPIENT:-}" ]; then
+    encrypt=yes
+    if ! "$AGE_BIN" -r "$DUMP_AGE_RECIPIENT" -o /dev/null </dev/null >/dev/null 2>&1; then
+      echo "db-ops: DUMP_AGE_RECIPIENT is set but age can't encrypt to it (is age installed, and the recipient valid?). Refusing before touching anything." >&2
+      exit 1
+    fi
+  fi
 
   export SOURCE_DATABASE_URL="$REPLIT_URL"
   export TARGET_DATABASE_URL="$NEON_URL"
@@ -105,6 +154,14 @@ run_copy() {
       -Fc -n public --no-owner --no-privileges --no-publications --no-subscriptions \
       --dbname="$REPLIT_URL" \
       -f "$dump"
+
+  # Encrypt straight after the dump, before the restore and long before
+  # mark: if it fails, Neon is left in S-failed-copy (plan F.1, E.6's row),
+  # never S-cut.
+  if [ -n "$encrypt" ]; then
+    log "encrypting the dump for Samuel (age, public key only)"
+    "$AGE_BIN" -r "$DUMP_AGE_RECIPIENT" -o "$DUMP_AGE_OUT" "$dump"
+  fi
 
   # The restore leaves out "CREATE SCHEMA public": Neon's empty database
   # already has one. Build the table of contents without that line.
@@ -140,13 +197,12 @@ run_copy() {
   fi
 
   local source_fp
-  source_fp="$(sha256sum "$WORKDIR/fp-after.json" | cut -d' ' -f1)"
+  source_fp="$(sha256_of "$WORKDIR/fp-after.json")"
   log "mark --mode $mode"
   # The full fingerprint goes with the marker, so a rollback's carry-back
   # can prove the old database is unchanged since this copy.
   switchover_cli mark --mode "$mode" --fingerprint "$source_fp" \
     --fingerprint-file "$WORKDIR/fp-after.json"
-
   # copy-rehearsal into production also restores the same dump into the
   # rehearsal branch, so D.5's stand-in for the old database starts from
   # exactly the same rows.
@@ -164,19 +220,13 @@ run_copy() {
       --fingerprint-file "$WORKDIR/fp-after.json"
   fi
 
-  # Q6: copy-cutover only, and only when a recipient is configured.
-  if [ "$COMMAND" = "copy-cutover" ] && [ -n "${DUMP_AGE_RECIPIENT:-}" ]; then
-    log "encrypting the dump for Samuel (age, public key only)"
-    age -r "$DUMP_AGE_RECIPIENT" -o /tmp/db-ops-dump.age "$dump"
-  fi
-
   log "$COMMAND ($TARGET): done."
 }
 
 # --- verify ---------------------------------------------------------------
 run_verify() {
   require REPLIT_URL
-  require NEON_URL
+  require_neon_url
   export SOURCE_DATABASE_URL="$REPLIT_URL"
   export TARGET_DATABASE_URL="$NEON_URL"
 
@@ -266,12 +316,12 @@ case "$COMMAND" in
     ;;
 
   migrate)
-    require NEON_URL
+    require_neon_url
     DATABASE_URL="$NEON_URL" migrate_cli migrate
     ;;
 
   migrate-rollback)
-    require NEON_URL
+    require_neon_url
     DATABASE_URL="$NEON_URL" migrate_cli migrate:rollback
     ;;
 

@@ -39,7 +39,9 @@ on:
         required: false
         description: "D.8 drill only: restore, compare or fingerprint. Refused unless target=rehearsal"
 permissions: { contents: read }
-concurrency: { group: "db-ops-${{ inputs.target }}", cancel-in-progress: false }
+# One group for every target: carry-back and copy-rehearsal touch two
+# branches at once, so runs on different targets mustn't overlap either.
+concurrency: { group: "db-ops", cancel-in-progress: false }
 jobs:
   run:
     runs-on: ubuntu-24.04
@@ -62,18 +64,19 @@ jobs:
           COMMAND: ${{ inputs.command }}
           BASE_URL: ${{ inputs.base_url }}
           CONFIRM: ${{ inputs.confirm }}
-          NEON_URL: ${{ inputs.target == 'production' && secrets.NEON_PROD_DIRECT_URL || inputs.target == 'rehearsal' && secrets.NEON_REHEARSAL_DIRECT_URL || secrets.NEON_DEV_DIRECT_URL }}
-          # Not in the plan's Part B.4 sketch verbatim, but needed for two
-          # behaviours the same section describes in prose: copy-rehearsal
-          # into production also restores into the rehearsal branch (needs
-          # the rehearsal URL even though target=production), and
-          # carry-back's source is always Neon production even when
-          # target=rehearsal. Both secrets live in the same "production"
-          # Environment as NEON_URL when target isn't development, so this
-          # adds no new secret exposure, just two more references to
-          # secrets already in scope for this job.
-          NEON_PROD_URL: ${{ inputs.target != 'development' && secrets.NEON_PROD_DIRECT_URL || '' }}
-          NEON_REHEARSAL_URL: ${{ inputs.target != 'development' && secrets.NEON_REHEARSAL_DIRECT_URL || '' }}
+          # One variable per branch, each read from its own secret only.
+          # scripts/db-ops.sh picks the target's address by name, so an
+          # empty secret can never fall through to another branch's address
+          # (an `a && x || b && y || z` chain would). The dev secret lives in
+          # the development Environment, the other two in production, so
+          # each job only ever sees its own Environment's secrets.
+          # (Beyond the plan's B.4 sketch: copy-rehearsal into production
+          # also restores the rehearsal branch, and carry-back's source is
+          # always Neon production, so both are needed with target=rehearsal
+          # or production.)
+          NEON_PROD_URL: ${{ secrets.NEON_PROD_DIRECT_URL }}
+          NEON_REHEARSAL_URL: ${{ secrets.NEON_REHEARSAL_DIRECT_URL }}
+          NEON_DEV_URL: ${{ secrets.NEON_DEV_DIRECT_URL }}
           REPLIT_URL: ${{ secrets.REPLIT_PROD_DATABASE_URL }}
           PRELAUNCH_KEY: ${{ secrets.PRELAUNCH_TESTER_KEY }}
           # From the Environment's variables (A.2); rehearsal shares the production Environment.
