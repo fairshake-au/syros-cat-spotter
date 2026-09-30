@@ -74,16 +74,20 @@ function upperGreekWord(word: string): string {
   return out.join('').toUpperCase().normalize('NFC');
 }
 
+/**
+ * Word separators: whitespace and common punctuation. Deliberately not a
+ * `\p{L}` Unicode property escape, which not every native engine supports.
+ */
+const SEPARATORS = /([\s.,;:!?()[\]{}«»"'‘’“”–—/-]+)/;
+
 export function displayUpperCase(text: string): string {
-  // Split into runs of letters/marks and everything else, so "ή" can be
-  // recognised as a whole word.
+  // Without String.prototype.normalize (some native engines), fall back to
+  // plain capitals rather than fail to render the label at all.
+  if (typeof text.normalize !== 'function') return text.toUpperCase();
+  // Split into words and separators, so "ή" can be recognised as a whole word.
   return text
-    .split(/([\p{L}\p{M}]+)/u)
-    .map((part) =>
-      /[\p{L}]/u.test(part) && [...part].some(isGreek)
-        ? upperGreekWord(part)
-        : part.toUpperCase(),
-    )
+    .split(SEPARATORS)
+    .map((part) => ([...part].some(isGreek) ? upperGreekWord(part) : part.toUpperCase()))
     .join('')
     .normalize('NFC');
 }
