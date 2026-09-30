@@ -590,6 +590,8 @@ Claude then reads it only into a command's environment, never printing it: `CF_D
 
 It runs against a live copy of tester data, with the old app still serving testers, so testers notice nothing. Claude runs it end to end. Samuel's part is two short checks, D.4's real devices and D.6's domain move. **Everything is timed**, and the times are recorded on SYC-121. **The real cutover is scheduled only after a rehearsal passes every check.** If a rehearsal fails, the fix goes through a normal PR, and the rehearsal is run again in full.
 
+**Before a re-run (added 30 Sep, from the dress rehearsal).** D.8 ends with the `rehearsal` branch in **S-cut** (`copy-cutover` was accepted onto it, per D.8's own steps). `copy-cutover` and `copy-rehearsal` both refuse a branch in S-cut (§B.3's guard), so re-running Part D from D.1 needs `rehearsal` back in a state that accepts a fresh copy first. Neon has no `restore_snapshot` route for `rehearsal` (only a root branch can, per A.1), so the fix is a **reset**, not a restore: Claude (Neon MCP) **resets `rehearsal` from its parent, `production`** (`reset_from_parent`), or deletes and recreates it as a child of `production`. Either way this **discards `rehearsal`'s current contents**, so it needs **Samuel's explicit OK in chat** before it happens, same as any other action that throws data away.
+
 | Step | Claude runs | Passes when |
 |---|---|---|
 | **D.1** Reference point | `db-ops -f target=production -f command=fingerprint-source` | Recorded. Counts are at least those in C.4h |
