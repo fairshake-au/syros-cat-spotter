@@ -13,6 +13,7 @@ import {
   rollbackLast,
 } from "./runner";
 import { modelledOnly, schemaSignature, signatureDiff } from "./signature";
+import { smoke } from "./smoke";
 import { resolveDatabaseUrl } from "../url";
 
 // pnpm --filter @workspace/db run migrate            apply pending migrations
@@ -232,44 +233,6 @@ async function check(): Promise<void> {
   );
 }
 
-// SYC-121, task B.5. With the SYC-113 pre-launch gate on, an unauthenticated
-// GET gets a 401 (artifacts/api-server/src/middlewares/prelaunchGate.ts), so
-// smoke needs a pass too. Sends X-Prelaunch-Key on every request when
-// PRELAUNCH_KEY is set in the environment; when it isn't (CI, or a
-// deployment with the gate off), behaviour is unchanged.
-export async function smoke(
-  baseUrl: string | undefined,
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<void> {
-  if (!baseUrl)
-    throw new MigrationError(
-      "usage: smoke <base-url>, e.g. https://api.catspotters.com",
-    );
-  const base = baseUrl.replace(/\/$/, "");
-  const headers: Record<string, string> = {};
-  if (env.PRELAUNCH_KEY) headers["X-Prelaunch-Key"] = env.PRELAUNCH_KEY;
-  const get = async (p: string) => {
-    const res = await fetch(`${base}${p}`, { headers });
-    if (!res.ok)
-      throw new MigrationError(
-        `smoke: GET ${p} returned ${res.status}. Roll back now.`,
-      );
-    console.log(`ok  GET ${p} ${res.status}`);
-    return res;
-  };
-  await get("/api/healthz");
-  const cats = (await (await get("/api/cats")).json()) as {
-    photoUrl: string;
-  }[];
-  // Owner-registered cats carry the photo id 0 sentinel, which 404s by design.
-  const withPhoto = cats.find((c) => !c.photoUrl.endsWith("/0"));
-  if (withPhoto) {
-    await get(withPhoto.photoUrl);
-  } else {
-    console.log("--  no cat has a photo yet; photo route not exercised");
-  }
-}
-
 async function main(): Promise<void> {
   const [command = "up", arg] = process.argv.slice(2);
   switch (command) {
@@ -303,7 +266,20 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof MigrationError ? err.message : err);
-  process.exit(1);
-});
+// SYC-141, Fable review item 2. cli.ts is entry-only: `smoke` (and its
+// helpers) live in smoke.ts, which tests import directly, so nothing but
+// running this file as the CLI (`tsx cli.ts ...`) reaches this code — no
+// heuristic needed here to tell an import apart from a direct run, and no
+// reason for main() to run except as the CLI entrypoint.
+//
+// Belt and braces on top of `smoke`'s per-request timeout: whatever a
+// command leaves open (a keep-alive HTTP agent's socket, say — see SYC-141,
+// where an idle fetch/undici socket held the event loop open for ~10
+// minutes after the last request finished) must not stop the CLI from
+// exiting the moment the command is actually done.
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err instanceof MigrationError ? err.message : err);
+    process.exit(1);
+  });

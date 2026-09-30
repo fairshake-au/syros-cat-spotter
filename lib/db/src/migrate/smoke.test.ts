@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { smoke } from "./cli";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { smoke } from "./smoke";
 
 // SYC-121, task B.5. A stub HTTP server that stands in for the pre-launch
 // gate: 401 without X-Prelaunch-Key, 200 (with the smoke routes' expected
@@ -52,7 +52,18 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  // A hanging-endpoint test leaves a connection open on purpose; close it
+  // out from under the request so server.close()'s callback still fires.
+  // Guarded the same way on both calls: if a test's own setup threw before
+  // assigning `server`, this must not itself throw and mask that failure.
+  server?.closeAllConnections();
+  await new Promise<void>((resolve) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+    server.close(() => resolve());
+  });
 });
 
 describe("smoke through the pre-launch gate", () => {
@@ -95,5 +106,118 @@ describe("smoke through the pre-launch gate", () => {
       });
     });
     await expect(smoke(baseUrl, {})).resolves.toBeUndefined();
+  });
+});
+
+describe("smoke against a hanging endpoint", () => {
+  // SYC-141. Without a per-request timeout, an endpoint that never responds
+  // hangs the whole smoke job (and, on the real cutover, the CI step running
+  // it). SMOKE_TIMEOUT_MS lets the test use a short timeout instead of
+  // waiting out the real 30s default.
+  it("fails fast with a clear timeout message instead of hanging", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          // Never respond — simulates a stuck endpoint.
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(
+      smoke(baseUrl, { SMOKE_TIMEOUT_MS: "200" }),
+    ).rejects.toThrow(/smoke: GET \/api\/healthz timed out after 0\.2 s\. Roll back now\./);
+  }, 5000);
+
+  // Fable review of PR #40: headers can arrive fine while the *body* stalls
+  // — the fetch() call itself succeeds, so a try/catch around only fetch()
+  // misses it. Without reading the body inside the same try/catch, this
+  // used to print "ok  GET /api/cats 200" and then throw a raw, uncaught
+  // DOMException instead of the "Roll back now" message.
+  it("a body that stalls after headers times out with the message, and never logs ok for that path", async () => {
+    const logs: string[] = [];
+    const logSpy = vi
+      .spyOn(console, "log")
+      .mockImplementation((msg: string) => {
+        logs.push(msg);
+      });
+    try {
+      await new Promise<void>((resolve) => {
+        server = http.createServer((req, res) => {
+          if (req.url === "/api/healthz") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+          if (req.url === "/api/cats") {
+            // Headers sent, then the body stalls forever.
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.write('[{"pho');
+            return;
+          }
+          res.writeHead(404);
+          res.end();
+        });
+        server.listen(0, "127.0.0.1", () => {
+          const { port } = server.address() as AddressInfo;
+          baseUrl = `http://127.0.0.1:${port}`;
+          resolve();
+        });
+      });
+      await expect(
+        smoke(baseUrl, { SMOKE_TIMEOUT_MS: "200" }),
+      ).rejects.toThrow(
+        /smoke: GET \/api\/cats timed out after 0\.2 s\. Roll back now\./,
+      );
+      expect(logs.some((l) => l.includes("ok  GET /api/cats"))).toBe(false);
+    } finally {
+      logSpy.mockRestore();
+    }
+  }, 5000);
+});
+
+describe("SMOKE_TIMEOUT_MS validation", () => {
+  // Fable review of PR #40, item 3. A typo in this env var must say plainly
+  // what's wrong, not read as a broken endpoint ("timed out"/"Roll back
+  // now") or silently do something unintended (0 meant "every request times
+  // out instantly" before this validation existed). And it must be checked
+  // before any request goes out — port 1 refuses the connection instantly,
+  // so if these ever reached fetch() the test would still finish fast, but
+  // it would fail with a connection error rather than this message.
+  it.each(["abc", "1.5", "-5", "0"])(
+    "SMOKE_TIMEOUT_MS=%s is refused up front, before any request",
+    async (value) => {
+      await expect(
+        smoke("http://127.0.0.1:1", { SMOKE_TIMEOUT_MS: value }),
+      ).rejects.toThrow(/SMOKE_TIMEOUT_MS must be a positive integer \(ms\)/);
+    },
+  );
+
+  it("an unset or empty SMOKE_TIMEOUT_MS falls back to the default instead of being refused", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz" || req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(req.url === "/api/cats" ? "[]" : JSON.stringify({ ok: true }));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(
+      smoke(baseUrl, { SMOKE_TIMEOUT_MS: "" }),
+    ).resolves.toBeUndefined();
   });
 });
