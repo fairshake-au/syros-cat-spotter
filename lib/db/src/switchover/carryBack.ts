@@ -225,12 +225,13 @@ function sortKeys(keys: string[]): string[] {
   return keys.sort((a, b) => {
     const pa = JSON.parse(a) as string[];
     const pb = JSON.parse(b) as string[];
+    // Numeric order only for keys that are whole integers (so "" or " "
+    // never becomes 0); everything else sorts as text.
+    const isInt = (s: string) => /^-?\d+$/.test(s);
     for (let i = 0; i < pa.length; i++) {
-      const na = Number(pa[i]);
-      const nb = Number(pb[i]);
       const c =
-        Number.isFinite(na) && Number.isFinite(nb)
-          ? na - nb
+        isInt(pa[i]!) && isInt(pb[i]!)
+          ? Number(pa[i]) - Number(pb[i])
           : pa[i]!.localeCompare(pb[i]!);
       if (c !== 0) return c;
     }
@@ -719,8 +720,19 @@ async function writeRows(
   const pkSelect = plan.primaryKey
     .map((c, i) => `t.${quoteIdent(c)}::text as "k${i}"`)
     .join(", ");
+  // Only the rows being inserted or updated, matched by their key text.
+  const wanted = [...plan.inserts, ...plan.updates].map(
+    (k) => plan.pkTexts.get(k)!,
+  );
+  if (wanted.length === 0) return;
+  const keyTuple = plan.primaryKey
+    .map((c) => `t.${quoteIdent(c)}::text`)
+    .join(", ");
+  const unnestArgs = plan.primaryKey.map((_, i) => `$${i + 1}::text[]`).join(", ");
   const r = await source.query<Record<string, string | null>>(
-    `select ${pkSelect}, ${select} from ${quoteIdent(plan.table)} t`,
+    `select ${pkSelect}, ${select} from ${quoteIdent(plan.table)} t
+      where (${keyTuple}) in (select * from unnest(${unnestArgs}))`,
+    plan.primaryKey.map((_, i) => wanted.map((pk) => pk[i]!)),
   );
   const rows = new Map<string, (string | null)[]>();
   for (const row of r.rows) {
@@ -753,7 +765,7 @@ async function writeRows(
     ]);
     if (res.rowCount !== 1) {
       throw new Error(
-        `carry-back: updating ${plan.table} ${key} touched ${res.rowCount} rows, expected 1.`,
+        `carry-back: updating ${plan.table} ${printablePk(pkValue(plan, key))} touched ${res.rowCount} rows, expected 1.`,
       );
     }
   }
