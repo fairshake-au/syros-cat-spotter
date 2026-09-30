@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import pg from "pg";
 import {
   cycle,
@@ -324,14 +325,25 @@ async function main(): Promise<void> {
   }
 }
 
-// Belt and braces on top of `smoke`'s per-request timeout: whatever a command
-// leaves open (a keep-alive HTTP agent's socket, say — see SYC-141, where an
-// idle fetch/undici socket held the event loop open for ~10 minutes after the
-// last request finished) must not stop the CLI from exiting the moment the
-// command is actually done.
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error(err instanceof MigrationError ? err.message : err);
-    process.exit(1);
-  });
+// Only run main() — and only ever call process.exit() — when this file is
+// executed directly as the CLI. `smoke` is also imported by tests
+// (smoke.test.ts, smoke-cli-exit.test.ts) to call it in-process; without this
+// guard, that import alone would run main() and exit the test runner's
+// worker process too.
+const isCliEntrypoint =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isCliEntrypoint) {
+  // Belt and braces on top of `smoke`'s per-request timeout: whatever a
+  // command leaves open (a keep-alive HTTP agent's socket, say — see
+  // SYC-141, where an idle fetch/undici socket held the event loop open for
+  // ~10 minutes after the last request finished) must not stop the CLI from
+  // exiting the moment the command is actually done.
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error(err instanceof MigrationError ? err.message : err);
+      process.exit(1);
+    });
+}
