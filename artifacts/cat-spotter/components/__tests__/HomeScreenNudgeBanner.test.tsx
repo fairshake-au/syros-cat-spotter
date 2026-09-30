@@ -38,6 +38,9 @@ vi.mock('@/context/DeviceContext', () => ({ useDevice }));
 const { useOffline } = vi.hoisted(() => ({ useOffline: vi.fn() }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline }));
 
+const { useAnyModalOpen } = vi.hoisted(() => ({ useAnyModalOpen: vi.fn() }));
+vi.mock('@/lib/modalVisibility', () => ({ useAnyModalOpen }));
+
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -94,6 +97,7 @@ beforeEach(() => {
   setUserAgent(IPHONE_SAFARI);
   setStandalone(false);
   useOffline.mockReturnValue({ needsSignIn: false });
+  useAnyModalOpen.mockReturnValue(false);
 });
 
 afterEach(() => {
@@ -140,6 +144,16 @@ describe('HomeScreenNudgeBanner', () => {
   it('stays hidden while the sign-in-required prompt is showing', async () => {
     useDevice.mockReturnValue({ username: 'lili', isReady: true });
     useOffline.mockReturnValue({ needsSignIn: true });
+    const { container } = render(<HomeScreenNudgeBanner />);
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
+  });
+
+  // SYC-134 review round 2, 30 Sep 2026: don't overlap a modal/bottom sheet
+  // (e.g. ClaimCatSheet), which sets this flag via lib/modalVisibility.ts.
+  it('stays hidden while a modal/bottom sheet is open', async () => {
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    useAnyModalOpen.mockReturnValue(true);
     const { container } = render(<HomeScreenNudgeBanner />);
     await flushEffects();
     expect(container.innerHTML).toBe('');
@@ -200,6 +214,43 @@ describe('HomeScreenNudgeBanner', () => {
 
     fireEvent.click(getByText('homeScreenNudgeAddButton'));
     expect(promptFn).toHaveBeenCalledTimes(1);
+  });
+
+  // SYC-134 review round 2, 30 Sep 2026: a `beforeinstallprompt` event can
+  // only be prompted once — double-tapping the button (or a stray second
+  // click) must not call `.prompt()` a second time on the same event.
+  it('does not call .prompt() twice on a double tap of the install button', async () => {
+    setUserAgent(ANDROID_CHROME);
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    const { getByText } = render(<HomeScreenNudgeBanner />);
+    await waitFor(() => expect(getByText('homeScreenNudgeText')).toBeTruthy());
+
+    const promptFn = vi.fn();
+    const event = new Event('beforeinstallprompt', { cancelable: true });
+    (event as unknown as { prompt: () => void }).prompt = promptFn;
+    window.dispatchEvent(event);
+    await waitFor(() =>
+      expect(getByText('homeScreenNudgeAddButton')).toBeTruthy(),
+    );
+
+    const button = getByText('homeScreenNudgeAddButton');
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(promptFn).toHaveBeenCalledTimes(1);
+  });
+
+  // SYC-134 review round 2, 30 Sep 2026: `appinstalled` is the authoritative
+  // "actually installed" signal — unlike `standalone`/`display-mode`, which
+  // only describe the current tab and wouldn't catch someone installing
+  // from a still-open old tab.
+  it('hides for good once the browser reports appinstalled', async () => {
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    const { getByText, container } = render(<HomeScreenNudgeBanner />);
+    await waitFor(() => expect(getByText('homeScreenNudgeText')).toBeTruthy());
+
+    window.dispatchEvent(new Event('appinstalled'));
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
   });
 
   it('shows generic instructions on desktop / unrecognised browsers', async () => {
@@ -272,6 +323,9 @@ describe('HomeScreenNudgeBanner on native', () => {
     }));
     vi.doMock('@/context/OfflineContext', () => ({
       useOffline: () => ({ needsSignIn: false }),
+    }));
+    vi.doMock('@/lib/modalVisibility', () => ({
+      useAnyModalOpen: () => false,
     }));
     vi.doMock('react-native-safe-area-context', () => ({
       useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),

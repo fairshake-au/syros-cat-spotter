@@ -7,6 +7,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import { useAnyModalOpen } from '@/lib/modalVisibility';
 import {
   HOME_SCREEN_DISMISSED_KEY,
   detectHomeScreenPlatform,
@@ -54,6 +55,12 @@ const TAB_BAR_CLEARANCE = 72;
  * — this never renders on native, and a web page's own keyboard doesn't
  * push RN's `Keyboard` events, so no separate keyboard-avoiding logic is
  * needed.
+ *
+ * SYC-134 review round 2, 30 Sep 2026: also hides while any modal/bottom
+ * sheet (e.g. ClaimCatSheet) is open, via the tiny shared flag in
+ * `lib/modalVisibility.ts`, and for good once the browser reports the app
+ * was actually installed (the `appinstalled` event) — belt and braces
+ * alongside the live `standalone` check, which only reflects *this* tab.
  */
 export function HomeScreenNudgeBanner() {
   const colors = useColors();
@@ -61,8 +68,10 @@ export function HomeScreenNudgeBanner() {
   const { username, isReady } = useDevice();
   const { needsSignIn } = useOffline();
   const insets = useSafeAreaInsets();
+  const anyModalOpen = useAnyModalOpen();
 
   const [standalone, setStandalone] = useState(true); // default hidden until checked
+  const [installed, setInstalled] = useState(false);
   const [snoozed, setSnoozed] = useState<boolean | null>(null); // null = not loaded yet
   const [installPrompt, setInstallPrompt] = useState<{
     prompt: () => void;
@@ -80,12 +89,24 @@ export function HomeScreenNudgeBanner() {
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const handler = (event: Event) => {
+    const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as unknown as { prompt: () => void });
     };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    // Fires once the browser has actually installed the app — the
+    // authoritative signal, unlike `standalone`/`display-mode`, which only
+    // describe *this* tab and wouldn't catch "installed, still browsing
+    // the old tab". Once seen, never show the card in this tab again.
+    const onAppInstalled = () => {
+      setInstalled(true);
+      setInstallPrompt(null);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    window.addEventListener('appinstalled', onAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', onAppInstalled);
+    };
   }, []);
 
   useEffect(() => {
@@ -103,11 +124,13 @@ export function HomeScreenNudgeBanner() {
   }, []);
 
   if (Platform.OS !== 'web') return null;
-  if (standalone) return null;
+  if (standalone || installed) return null;
   if (!isReady || !username) return null;
   if (snoozed !== false) return null; // still loading, or dismissed within 7 days
   // The sign-in-required prompt matters more; don't compete with it.
   if (needsSignIn) return null;
+  // Don't overlap a modal/bottom sheet (e.g. ClaimCatSheet).
+  if (anyModalOpen) return null;
 
   const platform = detectHomeScreenPlatform(
     typeof navigator !== 'undefined' ? navigator.userAgent : '',
@@ -143,8 +166,14 @@ export function HomeScreenNudgeBanner() {
       instructions = t('homeScreenNudgeInstructionsOther');
   }
 
+  // Clear the saved event once used: a `beforeinstallprompt` event can only
+  // be prompted once, and the browser doesn't fire a fresh one just because
+  // the user tapped again — without this, a double tap (or the card
+  // lingering after the prompt is dismissed) would call `.prompt()` on an
+  // already-spent event.
   const onInstallPress = () => {
     installPrompt?.prompt();
+    setInstallPrompt(null);
   };
 
   return (
@@ -170,7 +199,12 @@ export function HomeScreenNudgeBanner() {
         ]}
       >
         {showShareIcon && (
-          <Feather name="share" size={16} color={colors.accentForeground} />
+          <Feather
+            name="share"
+            size={16}
+            color={colors.accentForeground}
+            accessibilityLabel={t('homeScreenNudgeShareLabel')}
+          />
         )}
         <View style={styles.textColumn}>
           <Text style={[styles.text, { color: colors.accentForeground }]}>
@@ -184,7 +218,12 @@ export function HomeScreenNudgeBanner() {
             </Text>
           )}
           {showInstallButton && (
-            <Pressable onPress={onInstallPress} hitSlop={6}>
+            <Pressable
+              onPress={onInstallPress}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={t('homeScreenNudgeInstallLabel')}
+            >
               <Text
                 style={[styles.action, { color: colors.accentForeground }]}
               >
@@ -193,7 +232,12 @@ export function HomeScreenNudgeBanner() {
             </Pressable>
           )}
         </View>
-        <Pressable onPress={dismiss} hitSlop={10}>
+        <Pressable
+          onPress={dismiss}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={t('homeScreenNudgeDismissLabel')}
+        >
           <Feather name="x" size={16} color={colors.accentForeground} />
         </Pressable>
       </View>
