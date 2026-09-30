@@ -507,7 +507,7 @@ const el: Dict = {
   niceShot: 'Ωραία λήψη! 📸',
   // SYC-117/118: needs native review (SYC-4).
   spotLocationHint: 'Τώρα δείξε μας στον χάρτη πού είδες αυτή τη γάτα.',
-  retakePhoto: 'Νέα λήψη',
+  retakePhoto: 'Επανάληψη λήψης',
   whereDidYouSeeIt: 'Πού την είδες;',
   captureHint: 'Κεντράρισε τη γάτα και πάτα για λήψη 🐾',
   campaignEyebrow: 'Καμπάνια',
