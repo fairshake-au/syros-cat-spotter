@@ -28,6 +28,15 @@ const BASE64URL_CHARS =
  * device id/secret minted from a weak source is worse than one that fails
  * loudly (SYC-136).
  *
+ * This throw happens inside a `useEffect` in `DeviceProvider`, not during
+ * render, so the top-level `ErrorBoundary` (components/ErrorBoundary.tsx)
+ * does *not* catch it — React error boundaries only catch errors thrown
+ * synchronously while rendering/in lifecycle methods, never a rejected
+ * promise from an effect. `DeviceProvider` below catches this itself and
+ * exposes it as `startupError`, which `OnboardingGate` (app/_layout.tsx)
+ * renders explicitly; letting it go uncaught would leave `isReady` false
+ * forever and the app stuck on a blank screen.
+ *
  * `expo-crypto` is imported dynamically, only on the native branch: its
  * module chain (expo-modules-core) assumes a React Native/Expo runtime
  * (e.g. a global `__DEV__`) and blows up merely being imported anywhere
@@ -85,6 +94,11 @@ function bytesToBase36(bytes: Uint8Array): string {
 // Same `dev-<timestamp><random>` shape as before (the server doesn't
 // enforce a format, only a max length, but other client code and logs
 // assume this prefix) — only the random suffix's source changed.
+//
+// 6 random bytes (48 bits) in base36 is 1–10 characters depending on the
+// value (as few as 1 when the high-order bytes happen to be zero, as many
+// as 10 at the top of the range) — padStart guarantees at least 8 before
+// slice(-8) caps it at exactly 8, so neither call is redundant on its own.
 async function makeDeviceId(): Promise<string> {
   const random = bytesToBase36(await getSecureRandomBytes(6))
     .padStart(8, '0')
@@ -110,6 +124,13 @@ interface DeviceContextValue {
   username: string | null;
   /** True once local storage has been read (deviceId & username resolved). */
   isReady: boolean;
+  /**
+   * Set if the one-time device id/secret setup failed outright (e.g. no
+   * cryptographically secure random source at runtime — SYC-136). When
+   * set, `isReady` never becomes true; consumers should show a startup
+   * error instead of waiting.
+   */
+  startupError: Error | null;
   /** Persist the username locally after a successful server claim. */
   setUsername: (name: string) => void;
   /**
@@ -126,6 +147,7 @@ const DeviceContext = createContext<DeviceContextValue>({
   deviceId: null,
   username: null,
   isReady: false,
+  startupError: null,
   setUsername: () => {},
   ownedCatIds: [],
   addOwnedCat: () => {},
@@ -136,40 +158,66 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
   const [ownedCatIds, setOwnedCatIds] = useState<number[]>([]);
   const [isReady, setIsReady] = useState(false);
+  const [startupError, setStartupError] = useState<Error | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      AsyncStorage.getItem(STORAGE_KEY),
-      AsyncStorage.getItem(USERNAME_KEY),
-      AsyncStorage.getItem(OWNED_CATS_KEY),
-      AsyncStorage.getItem(SECRET_KEY),
-    ]).then(async ([storedId, storedName, storedOwned, storedSecret]) => {
-      let secret = storedSecret;
-      if (!secret) {
-        secret = await makeDeviceSecret();
-        await AsyncStorage.setItem(SECRET_KEY, secret);
-      }
-      setDeviceSecretGetter(() => secret);
-      if (storedOwned) {
-        try {
-          const parsed = JSON.parse(storedOwned);
-          if (Array.isArray(parsed)) {
-            setOwnedCatIds(parsed.filter((n) => typeof n === 'number'));
+    let cancelled = false;
+    (async () => {
+      try {
+        const [storedId, storedName, storedOwned, storedSecret] =
+          await Promise.all([
+            AsyncStorage.getItem(STORAGE_KEY),
+            AsyncStorage.getItem(USERNAME_KEY),
+            AsyncStorage.getItem(OWNED_CATS_KEY),
+            AsyncStorage.getItem(SECRET_KEY),
+          ]);
+        let secret = storedSecret;
+        if (!secret) {
+          secret = await makeDeviceSecret();
+          await AsyncStorage.setItem(SECRET_KEY, secret);
+        }
+        setDeviceSecretGetter(() => secret);
+        if (storedOwned) {
+          try {
+            const parsed = JSON.parse(storedOwned);
+            if (Array.isArray(parsed)) {
+              setOwnedCatIds(parsed.filter((n) => typeof n === 'number'));
+            }
+          } catch {
+            // ignore corrupt storage
           }
-        } catch {
-          // ignore corrupt storage
+        }
+        if (storedId) {
+          setDeviceId(storedId);
+        } else {
+          const id = await makeDeviceId();
+          await AsyncStorage.setItem(STORAGE_KEY, id);
+          setDeviceId(id);
+        }
+        if (storedName) setUsernameState(storedName);
+        if (!cancelled) setIsReady(true);
+      } catch (error) {
+        // A rejection here (most likely from getSecureRandomBytes — no
+        // secure random source available, SYC-136) is NOT caught by the
+        // top-level ErrorBoundary: this runs inside a useEffect, not
+        // during render, and React error boundaries only catch
+        // synchronous render/lifecycle errors. Without this catch,
+        // isReady would simply never become true and OnboardingGate
+        // would render null forever — a silent, permanent blank screen.
+        console.error(
+          'DeviceProvider failed to set up a device id/secret:',
+          error,
+        );
+        if (!cancelled) {
+          setStartupError(
+            error instanceof Error ? error : new Error(String(error)),
+          );
         }
       }
-      if (storedId) {
-        setDeviceId(storedId);
-      } else {
-        const id = await makeDeviceId();
-        await AsyncStorage.setItem(STORAGE_KEY, id);
-        setDeviceId(id);
-      }
-      if (storedName) setUsernameState(storedName);
-      setIsReady(true);
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const setUsername = useCallback((name: string) => {
@@ -208,8 +256,24 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ deviceId, username, isReady, setUsername, ownedCatIds, addOwnedCat }),
-    [deviceId, username, isReady, setUsername, ownedCatIds, addOwnedCat],
+    () => ({
+      deviceId,
+      username,
+      isReady,
+      startupError,
+      setUsername,
+      ownedCatIds,
+      addOwnedCat,
+    }),
+    [
+      deviceId,
+      username,
+      isReady,
+      startupError,
+      setUsername,
+      ownedCatIds,
+      addOwnedCat,
+    ],
   );
   return (
     <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>
