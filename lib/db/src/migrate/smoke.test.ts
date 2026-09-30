@@ -1,6 +1,6 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { smoke } from "./cli";
 
 // SYC-121, task B.5. A stub HTTP server that stands in for the pre-launch
@@ -125,5 +125,51 @@ describe("smoke against a hanging endpoint", () => {
     await expect(
       smoke(baseUrl, { SMOKE_TIMEOUT_MS: "200" }),
     ).rejects.toThrow(/smoke: GET \/api\/healthz timed out after 0\.2 s\. Roll back now\./);
+  }, 5000);
+
+  // Fable review of PR #40: headers can arrive fine while the *body* stalls
+  // — the fetch() call itself succeeds, so a try/catch around only fetch()
+  // misses it. Without reading the body inside the same try/catch, this
+  // used to print "ok  GET /api/cats 200" and then throw a raw, uncaught
+  // DOMException instead of the "Roll back now" message.
+  it("a body that stalls after headers times out with the message, and never logs ok for that path", async () => {
+    const logs: string[] = [];
+    const logSpy = vi
+      .spyOn(console, "log")
+      .mockImplementation((msg: string) => {
+        logs.push(msg);
+      });
+    try {
+      await new Promise<void>((resolve) => {
+        server = http.createServer((req, res) => {
+          if (req.url === "/api/healthz") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+          if (req.url === "/api/cats") {
+            // Headers sent, then the body stalls forever.
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.write('[{"pho');
+            return;
+          }
+          res.writeHead(404);
+          res.end();
+        });
+        server.listen(0, "127.0.0.1", () => {
+          const { port } = server.address() as AddressInfo;
+          baseUrl = `http://127.0.0.1:${port}`;
+          resolve();
+        });
+      });
+      await expect(
+        smoke(baseUrl, { SMOKE_TIMEOUT_MS: "200" }),
+      ).rejects.toThrow(
+        /smoke: GET \/api\/cats timed out after 0\.2 s\. Roll back now\./,
+      );
+      expect(logs.some((l) => l.includes("ok  GET /api/cats"))).toBe(false);
+    } finally {
+      logSpy.mockRestore();
+    }
   }, 5000);
 });
