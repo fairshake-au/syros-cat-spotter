@@ -3,6 +3,7 @@ import type { ClientBase } from "pg";
 import {
   BASELINE_TABLES,
   compare,
+  applyCanonicalSettings,
   fingerprint,
   quoteIdent,
   rowTextExpr,
@@ -447,26 +448,22 @@ async function carryBackInTransaction(
     );
   }
 
-  // 4. What the target looks like now, against the copy's fingerprint. Run
-  // before the session settings below change, so the row text matches the
-  // copy's fingerprint session.
+  // The same canonical session settings as every fingerprint, on both sides
+  // and for the rest of both transactions: equal values hash equal whatever
+  // each server's defaults, and are written back exactly.
+  await applyCanonicalSettings(source);
+  await applyCanonicalSettings(target);
+
+  // 4. What the target looks like now, against the copy's fingerprint.
   const baseline = parseBaseline(sourceMarkers.sourceFingerprintJson);
   const changedSinceCopy = new Set<string>();
   if (baseline) {
-    const now = await fingerprint(target);
+    const now = await fingerprint(target, { inTransaction: true });
     const then = new Map(baseline.tables.map((t) => [t.table, t]));
     for (const t of now.tables) {
       const b = then.get(t.table);
       if (!b || b.hash !== t.hash || b.rows !== t.rows) changedSinceCopy.add(t.table);
     }
-  }
-
-  // Same text form for timestamps on both sides, so equal values hash equal
-  // and are written back exactly.
-  for (const c of [source, target]) {
-    await c.query("set local timezone = 'UTC'");
-    await c.query("set local datestyle = 'ISO, YMD'");
-    await c.query("set local extra_float_digits = 1");
   }
 
   // 5. The differences, by primary key.
@@ -594,7 +591,11 @@ async function carryBackInTransaction(
 
   // 9. Commit only if the target now matches Neon's projection exactly.
   const diffs = (
-    await compare(source, target, { projected: true, onto: "target" })
+    await compare(source, target, {
+      projected: true,
+      onto: "target",
+      inTransaction: true,
+    })
   ).filter((d) => d.kind !== "sequence");
   diffs.push(...(await sequencesBehind(source, target)));
   // The projected compare skips the schema signature, so check directly

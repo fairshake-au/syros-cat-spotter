@@ -160,9 +160,57 @@ async function fingerprintSequences(
  * `PGOPTIONS='-c default_transaction_read_only=on'` (or set it per-session),
  * so any write attempt fails with SQLSTATE 25006.
  */
+/**
+ * The session settings that shape a row's `::text` form. Every fingerprint,
+ * compare and carry-back diff runs under exactly these, so the hashes don't
+ * depend on either server's defaults (a different default timezone would
+ * otherwise change every timestamptz's text, and so every row hash).
+ */
+export const CANONICAL_SETTINGS: readonly [string, string][] = [
+  ["timezone", "UTC"],
+  ["datestyle", "ISO, YMD"],
+  ["intervalstyle", "postgres"],
+  ["extra_float_digits", "1"],
+  ["bytea_output", "hex"],
+];
+
+/** Applies CANONICAL_SETTINGS for the rest of the current transaction. */
+export async function applyCanonicalSettings(client: ClientBase): Promise<void> {
+  for (const [name, value] of CANONICAL_SETTINGS) {
+    await client.query(`select set_config($1, $2, true)`, [name, value]);
+  }
+}
+
+export interface FingerprintOptions {
+  columns?: ReadonlyMap<string, readonly string[]>;
+  /**
+   * The caller already has a transaction open on this client (carry-back
+   * does): fingerprint applies the canonical settings inside it rather than
+   * opening its own read-only transaction.
+   */
+  inTransaction?: boolean;
+}
+
 export async function fingerprint(
   client: ClientBase,
-  opts: { columns?: ReadonlyMap<string, readonly string[]> } = {},
+  opts: FingerprintOptions = {},
+): Promise<Fingerprint> {
+  if (opts.inTransaction) {
+    await applyCanonicalSettings(client);
+    return fingerprintInSession(client, opts);
+  }
+  await client.query("begin isolation level repeatable read read only");
+  try {
+    await applyCanonicalSettings(client);
+    return await fingerprintInSession(client, opts);
+  } finally {
+    await client.query("rollback");
+  }
+}
+
+async function fingerprintInSession(
+  client: ClientBase,
+  opts: FingerprintOptions,
 ): Promise<Fingerprint> {
   const tables: TableFingerprint[] = [];
   for (const t of BASELINE_TABLES) {
@@ -232,6 +280,8 @@ export interface CompareOptions {
    * is itself a difference.
    */
   onto?: "source" | "target";
+  /** Both clients are already inside transactions (see FingerprintOptions). */
+  inTransaction?: boolean;
 }
 
 /**
@@ -284,9 +334,10 @@ export async function compare(
     columns = p.columns;
     diffs.push(...p.diffs);
   }
+  const inTransaction = opts.inTransaction === true;
   const [a, b] = await Promise.all([
-    fingerprint(source, { columns }),
-    fingerprint(target, { columns }),
+    fingerprint(source, { columns, inTransaction }),
+    fingerprint(target, { columns, inTransaction }),
   ]);
 
   const byTable = new Map(b.tables.map((t) => [t.table, t]));
