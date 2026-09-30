@@ -24,9 +24,11 @@
 
 ## Decisions for Samuel
 
-There are five, one at a time, each with a recommendation. Decision 1 is the one that matters this week.
+There are five, one at a time, each with a recommendation. **All five were decided by Samuel on 30 Sep 2026, each as recommended. The plan as a whole is still awaiting his approval.** Decision 1 is the one that matters this week.
 
 ### Decision 1 — What do we do for testers before this ships?
+
+**Decided by Samuel, 30 Sep 2026:** (a) now, after the SYC-134 iPhone check, plus (b′) after Slice 1; not (b). Every tester is told to use only apptest.catspotters.com.
 
 **The situation (checked 30 Sep, SYC-3 comment).** On the website, a tester's identity lives only in that browser's storage for that one web address. Safari clears it after 7 days without a visit. So do private browsing, clearing browsing data, switching browser and opening a different address. A tester whose storage goes is sent back to onboarding, and their old username is already taken. Their spots are still safe on the server, but nothing can link them to them again.
 
@@ -51,6 +53,8 @@ Draft WhatsApp message for now (if you pick (a); fill in the iPhone line once it
 
 ### Decision 2 — Only the phone that asked can use the link (a clarification)
 
+**Decided by Samuel, 30 Sep 2026:** only the phone that asked can use the link.
+
 The spec says the link "moves the collection … to the new phone". It doesn't say what happens when the link is opened somewhere else. The plan makes it precise: **the link only works on the phone or browser that asked for it.**
 
 | Option | Benefits | Risks |
@@ -63,11 +67,15 @@ The spec says the link "moves the collection … to the new phone". It doesn't s
 
 ### Decision 3 — One parent's email for two children
 
+**Decided by Samuel, 30 Sep 2026:** a picker when several spotters share one address.
+
 The spec tells under-15s to use a parent's email, so siblings will share one. The spec doesn't say what happens then.
 
 **Recommendation:** after the button page has proved the inbox, it lists the spotters kept safe with that address by username, with one button each (*"Move Lili's spots to this phone"*). Only someone who has opened the link sees the list. Two spotters sharing an address are never merged, and neither is told about the other. The alternative, allowing only one spotter per address, would silently stop the second child's parent from protecting them.
 
 ### Decision 4 — Store the restore address, or only a scrambled fingerprint of it?
+
+**Decided by Samuel, 30 Sep 2026:** store only a keyed fingerprint and a masked form.
 
 The spec's storage note (§9) says an address is stored. For this email the app never has to write to the address unprompted: the person types it again when restoring, and we send the link to what they typed.
 
@@ -79,6 +87,8 @@ The spec's storage note (§9) says an address is stored. For this email the app 
 **Recommendation: A.** Nothing in the approved design sends unprompted mail to this address, and it's the more protective choice for a list that will be mostly children's parents.
 
 ### Decision 5 — The "is this you?" and "forget this address" pages sit outside the tester password
+
+**Decided by Samuel, 30 Sep 2026:** the confirm and forget pages sit outside the tester password; the restore page stays behind it.
 
 See "The website password gate" below. **Recommendation:** these two small pages and their two API calls are reachable without the tester password, because a parent confirming an address won't have it. They're protected by their own one-time token, as the staff pages are. The restore button page stays behind the password.
 
