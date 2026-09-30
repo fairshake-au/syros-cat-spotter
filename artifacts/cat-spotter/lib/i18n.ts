@@ -269,6 +269,10 @@ const en: Dict = {
   signInRequiredAction: 'Sign in',
   startupErrorTitle: 'Cat Spotters can’t start on this browser',
   startupErrorBody: 'This browser or app doesn’t support the secure setup Cat Spotters needs. Try updating your browser, or use a different one.',
+  homeScreenNudgeText: 'Keep your spots safe: add Cat Spotters to your Home Screen. Otherwise Safari may clear them if you don\'t visit for a week.',
+  homeScreenNudgeInstructionsIosSafari: 'Tap Share, then Add to Home Screen.',
+  homeScreenNudgeDismissLabel: 'Dismiss',
+  homeScreenNudgeShareLabel: 'Share',
 };
 
 const el: Dict = {
@@ -532,6 +536,10 @@ const el: Dict = {
   signInRequiredAction: 'Σύνδεση',
   startupErrorTitle: 'Το Cat Spotters δεν μπορεί να ξεκινήσει σε αυτό το πρόγραμμα περιήγησης',
   startupErrorBody: 'Αυτό το πρόγραμμα περιήγησης ή η εφαρμογή δεν υποστηρίζει την ασφαλή ρύθμιση που χρειάζεται το Cat Spotters. Δοκίμασε να ενημερώσεις το πρόγραμμα περιήγησής σου ή χρησιμοποίησε ένα διαφορετικό.',
+  homeScreenNudgeText: 'Κράτα τις παρατηρήσεις σου ασφαλείς: πρόσθεσε το Cat Spotters στην Αρχική οθόνη. Διαφορετικά, το Safari μπορεί να τις διαγράψει αν δεν ανοίξεις την εφαρμογή για μια εβδομάδα.',
+  homeScreenNudgeInstructionsIosSafari: 'Πάτα «Κοινή χρήση», μετά «Προσθήκη στην Αρχική οθόνη».',
+  homeScreenNudgeDismissLabel: 'Απόρριψη',
+  homeScreenNudgeShareLabel: 'Κοινή χρήση',
 };
 
 const fr: Dict = {
@@ -795,6 +803,10 @@ const fr: Dict = {
   signInRequiredAction: 'Se connecter',
   startupErrorTitle: 'Cat Spotters ne peut pas démarrer sur ce navigateur',
   startupErrorBody: 'Ce navigateur ou cette application ne prend pas en charge la configuration sécurisée dont Cat Spotters a besoin. Essaie de mettre à jour ton navigateur, ou utilises-en un autre.',
+  homeScreenNudgeText: 'Protège tes observations : ajoute Cat Spotters à ton écran d\'accueil. Sinon, Safari pourrait les effacer si tu ne visites pas l\'appli pendant une semaine.',
+  homeScreenNudgeInstructionsIosSafari: 'Appuie sur Partager, puis Sur l\'écran d\'accueil.',
+  homeScreenNudgeDismissLabel: 'Fermer',
+  homeScreenNudgeShareLabel: 'Partager',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

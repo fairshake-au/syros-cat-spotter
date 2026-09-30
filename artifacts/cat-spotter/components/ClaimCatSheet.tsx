@@ -23,6 +23,7 @@ import {
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
+import { registerModalOpen } from '@/lib/modalVisibility';
 
 type Mode = 'claim' | 'edit';
 
@@ -60,6 +61,13 @@ export function ClaimCatSheet({
       setError(null);
     }
   }, [visible, cat]);
+
+  // SYC-134 review round 2, item 2: let the floating Home Screen nudge
+  // card know a sheet is covering the screen, so it doesn't overlap this.
+  useEffect(() => {
+    if (!visible) return;
+    return registerModalOpen();
+  }, [visible]);
 
   const onSuccess = (updated: Cat) => {
     if (mode === 'claim') addOwnedCat(updated.id);
