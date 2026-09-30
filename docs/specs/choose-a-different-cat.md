@@ -1,6 +1,6 @@
 # Choosing a different cat when matching misses
 
-**Status:** Draft for Samuel's approval, 30 September 2026. Three adversarial review passes done and folded in (§12). Revised the same day to add the colour filter Samuel asked for (§4.7).
+**Status:** **Approved by Samuel, 30 September 2026** (`DECISIONS.md` Part 2i). Three adversarial review passes done and folded in (§12). Revised the same day to add the colour filter Samuel asked for (§4.7).
 **Owner:** Samuel
 **Covers:** SYC-119, from point 4 of the 29 September user-testing call (SYC-116), including the colour filter Samuel asked for on 30 September 2026 (§4.7).
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2, §6.3 (and its SYC-39 override), §6.4, §6.5, §10.1, §10.3 · [`DECISIONS.md`](./DECISIONS.md) Part 2h (500 m matching) and Part 3 (ownership) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3, §6, §7 · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 · SYC-38 (points), SYC-43 (staff dashboard), SYC-53 (roles and the confirmation queue), SYC-56 (matching accuracy), SYC-59 (duplicate merging), SYC-80 (a cat's position following its sightings), SYC-2 (coat and markings tags), SYC-52 (per-attribute authority) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) §4.2 and §5 (appearance vocabulary, machine suggestions)
@@ -475,10 +475,12 @@ These additions were attacked on their own: could colour plus nearest-first plus
 
 ## 13. Open questions
 
+**Samuel's approval on 30 September 2026 accepted the recommendations on the questions he owns (1, 2 and 5).** Questions 3 and 4 stay open for Syros Cats.
+
 | # | Question | Owner | Recommendation |
 |---|---|---|---|
-| 1 | Should Syros Cats see a hand pick's flags on the cat's dashboard page as well as in the list? | Samuel | Yes (§5). It costs nothing and is where they'll actually be looking. |
-| 2 | Is 30 days right, both for the list ageing out and for an unflagged hand pick to become a SYC-56 label? | Samuel | Yes for launch. Revisit once SYC-56 has a first baseline. |
-| 3 | Should guardians see hand picks in their own colonies once they have accounts (SYC-53)? | Syros Cats | Yes. They know their cats best, and it spreads the load off the core team. |
-| 4 | Are Syros Cats comfortable that a person can choose a cat from anywhere on the island, while automatic suggestions stay within 500 m? | Syros Cats, via Samuel | Yes. One sentence at the next check-in: *"The app only suggests cats within 500 m, but if someone recognises a cat from further away they can pick it, and those picks are marked for you to check."* |
-| 5 | Where should the "not sure" cut-off sit for colour at launch, before SYC-56 has labels to tune it? | Samuel | Cautious. It's better to show a cat under "Not sure" than to hide it under the wrong colour. Re-tune once there are a few hundred checked cats. |
+| 1 | Should Syros Cats see a hand pick's flags on the cat's dashboard page as well as in the list? | Samuel | **Answered 30 Sep 2026: yes** (§5). It costs nothing and is where they'll actually be looking. |
+| 2 | Is 30 days right, both for the list ageing out and for an unflagged hand pick to become a SYC-56 label? | Samuel | **Answered 30 Sep 2026: yes, 30 days for launch.** Revisit once SYC-56 has a first baseline. |
+| 3 | Should guardians see hand picks in their own colonies once they have accounts (SYC-53)? | Syros Cats | **Still open, to ask at the next check-in.** Recommendation: yes. They know their cats best, and it spreads the load off the core team. The sentence: *"Once cat guardians have their own accounts, would you like them to check the photos people have matched by hand to cats in their own colonies?"* |
+| 4 | Are Syros Cats comfortable that a person can choose a cat from anywhere on the island, while automatic suggestions stay within 500 m? | Syros Cats, via Samuel | **Still open, to ask at the next check-in.** Recommendation: yes. One sentence at the next check-in: *"The app only suggests cats within 500 m, but if someone recognises a cat from further away they can pick it, and those picks are marked for you to check."* |
+| 5 | Where should the "not sure" cut-off sit for colour at launch, before SYC-56 has labels to tune it? | Samuel | **Answered 30 Sep 2026: cautious.** It's better to show a cat under "Not sure" than to hide it under the wrong colour. Re-tune once there are a few hundred checked cats. |
