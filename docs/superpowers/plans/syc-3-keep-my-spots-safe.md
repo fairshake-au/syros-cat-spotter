@@ -37,7 +37,7 @@ There are five, one at a time, each with a recommendation. Decision 1 is the one
 | **(b′) Staff adds a restore address, then the tester uses the normal restore** (only possible after Slice 1 ships) | "Message Samuel", he checks it's them, then the tester gets the normal email link and presses the button | Rescues testers who lost their spots. The risky part stays in the normal flow: the tester still has to open the link from their own inbox, on their own phone. Staff only record an address, they never move a spotter | Still relies on Samuel knowing it's really them. Only testers he knows personally. It has to be retired at launch (ticket to file) |
 | **(c) Nothing** | Testers who lose storage start again | No work | Testers lose collections they've built up, which is the exact complaint behind this ticket, and some will stop testing |
 
-**Recommendation: (a) now, once it's been checked on a real iPhone, and aimed at new testers; then (b′) after Slice 1 for anyone who has already lost spots. Not (b).**
+**Recommendation: (a) now, once it's been checked on a real iPhone, and aimed at new testers (SYC-134); then (b′) after Slice 1 for anyone who has already lost spots (SYC-135). Not (b).**
 - Check first whether the Home Screen icon on iPhone shares Safari's storage. If it does, send the nudge to everyone. If it doesn't, send it only to testers who haven't started yet, and tell existing iPhone testers to **open the site at least once a week** instead.
 - Meanwhile, keep a list of testers who lose their spots (one Linear ticket, with their old usernames) so (b′) can bring them back once Slice 1 is live.
 - **Tell every tester to use only `apptest.catspotters.com`**, never a `replit.app` address. This costs nothing and matters for the Neon move (see "How this fits the Neon move").
@@ -134,7 +134,7 @@ Instead, **the new phone takes over the old device id, and the server replaces t
 ### Slice 0 — prerequisites, no migration (can start now, in parallel)
 
 1. **SYC-107: every spotter route checks the device secret.** `POST /cats`, `POST /cats/:id/claim` and `PATCH /cats/:id` go through `verifyDeviceSecret`. The client already sends the header on every call through `customFetch`. This is a security fix in its own right, and restore depends on it.
-2. **Strong device secrets for new installs.** `makeDeviceSecret` switches to `crypto.getRandomValues` (32 bytes, base64url) on web and `expo-crypto` on native. Existing secrets are left alone.
+2. **Strong device secrets for new installs (SYC-136).** `makeDeviceSecret` switches to `crypto.getRandomValues` (32 bytes, base64url) on web and `expo-crypto` on native. Existing secrets are left alone.
 3. **Keep the link's token out of our logs.** This is already true: the API's log cleaner drops every query string (`artifacts/api-server/src/app.ts`, the `pino-http` `req` serialiser), and `serve-web.js` logs no requests. This step only adds a test that pins it for `/restore` and `/api/mail/*`. Replit's own access logs may record full addresses. That's outside our code, and a restore token from a log is useless to anyone else because it only works on the phone that asked (Decision 2).
 
 ### Slice 1 — "keep my spots safe" on the website (what testers need)
@@ -162,7 +162,7 @@ Instead, **the new phone takes over the old device id, and the server replaces t
    - **The one-time offer** (the spec's "first badge" offer, §8.3), for spotters who **already** have a badge when they first open this version, which means every current tester: the same screen, once, on first open. Declining is one tap and it's never offered again on this phone.
 9. **Emails** (drafts in the appendix; Greek and French from native speakers, SYC-4).
 
-### Slice 2 — the phone apps (ships with the store builds, SYC-32)
+### Slice 2 — the phone apps (SYC-137; ships with the store builds, SYC-32)
 
 1. **The key moves into secure storage** (`expo-secure-store`) on iPhone and Android: the id and the secret move across once, on first launch, and are then read from there. On iPhone they survive deleting and reinstalling the app. On Android and web nothing changes. That's what the email is for.
 2. **Links open the app.** The `/restore` page, loaded in a phone's browser, shows **"Open in Cat Spotters"**, which opens `syroscatspotters://restore?t=…` (the scheme in `app.json`), and the app does the same peek → button → redeem. Universal links and app links are a later nicety, not needed.
