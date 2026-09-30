@@ -26,9 +26,24 @@ import { validatePhotoBase64 } from "../lib/imageValidation";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { aiLimiter } from "../middlewares/rateLimit";
 import { selectCandidateCats } from "../lib/candidateSelection";
+import { isNearby, publishedPosition } from "@workspace/geo";
 
 export const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
+
+// SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
+// cat that isn't nearby. It is identical whatever the reason (too far, or no
+// such cat), so a refusal can't be used to learn anything about a cat's
+// position beyond what the public cat-alogue already says. The spec's copy
+// continues "Ask Syros Cats to match it instead"; that route is hidden until
+// the team can act on it (plan Decision 4), so the server doesn't offer it.
+const NOT_NEARBY = {
+  status: 422,
+  body: {
+    error: "That cat isn't listed near where you took this photo.",
+    code: "NOT_NEARBY",
+  },
+} as const;
 
 type Candidate = {
   catId: number;
@@ -39,6 +54,31 @@ type Candidate = {
 };
 
 const router: IRouter = Router();
+
+async function catNamed(name: string) {
+  const [cat] = await db
+    .select({
+      id: catsTable.id,
+      name: catsTable.name,
+      primaryPhotoId: catsTable.primaryPhotoId,
+    })
+    .from(catsTable)
+    .where(sql`lower(${catsTable.name}) = lower(${name})`);
+  return cat;
+}
+
+// SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
+// has the name, so the phone can ask "Is this them?". Public details only.
+function nameTakenBody(
+  cat: Awaited<ReturnType<typeof catNamed>>,
+): { error: string; code: "NAME_TAKEN"; cat?: { id: number; name: string; photoUrl: string } } {
+  const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
+  if (!cat) return body;
+  return {
+    ...body,
+    cat: { id: cat.id, name: cat.name, photoUrl: photoUrl(cat.primaryPhotoId) },
+  };
+}
 
 // Compare a submitted photo against the nearest known cats and return ranked
 // candidates. Shared between a fresh submission and a deduped repeat (§3.6 of
@@ -247,8 +287,23 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       .select()
       .from(catsTable)
       .where(eq(catsTable.id, body.catId));
-    if (!existing) {
-      res.status(404).json({ error: "Cat not found" });
+    // SYC-119: a spotter may only choose a cat whose PUBLISHED square is
+    // within 1.5 km of the sighting's stored location, the same shared rule
+    // the phone's list uses (lib/geo). Never measured on exact positions: a
+    // refusal worked out from them would answer "is this cat within 1.5 km
+    // of here?" about where it really is. Every suggestion passes, because
+    // suggestions are within 500 m exactly and snapping moves a cat at most
+    // ~177 m. `pickedFrom` plays no part in this; it is ignored until the
+    // match record (Slice B) stores it. Checked only after ownership and the
+    // device secret, so nobody can probe with someone else's sighting.
+    if (
+      !existing ||
+      !isNearby(
+        { lat: sighting.lat, lng: sighting.lng },
+        publishedPosition({ lat: existing.lat, lng: existing.lng }),
+      )
+    ) {
+      res.status(NOT_NEARBY.status).json(NOT_NEARBY.body);
       return;
     }
     existingCat = existing;
@@ -261,12 +316,9 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       });
       return;
     }
-    const [taken] = await db
-      .select({ id: catsTable.id })
-      .from(catsTable)
-      .where(sql`lower(${catsTable.name}) = lower(${name})`);
+    const taken = await catNamed(name);
     if (taken) {
-      res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
+      res.status(409).json(nameTakenBody(taken));
       return;
     }
     newCatName = name;
@@ -319,7 +371,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   } catch (err: any) {
     // Unique-index violation from a concurrent submission of the same name.
     if (err?.code === "23505" || err?.cause?.code === "23505") {
-      res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
+      res.status(409).json(nameTakenBody(await catNamed(newCatName!)));
       return;
     }
     throw err;

@@ -259,7 +259,8 @@ export const ResolveSightingParams = zod.object({
 export const ResolveSightingBody = zod.object({
   "deviceId": zod.string().describe('Device credential of the sighting owner; must match the sighting'),
   "catId": zod.number().nullish().describe('Existing cat to confirm as the match'),
-  "newCatName": zod.string().nullish().describe('Name for a new unique cat (when no match)')
+  "newCatName": zod.string().nullish().describe('Name for a new unique cat (when no match)'),
+  "pickedFrom": zod.enum(['nearby', 'search', 'name_prompt']).optional().describe('Which screen a hand pick came from. It only describes the phone\'s own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6).')
 })
 
 export const ResolveSightingResponse = zod.object({

@@ -233,6 +233,18 @@ export interface MatchResult {
   candidates: MatchCandidate[];
 }
 
+/**
+ * Which screen a hand pick came from. It only describes the phone's own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6).
+ */
+export type ResolveSightingRequestPickedFrom = typeof ResolveSightingRequestPickedFrom[keyof typeof ResolveSightingRequestPickedFrom];
+
+
+export const ResolveSightingRequestPickedFrom = {
+  nearby: 'nearby',
+  search: 'search',
+  name_prompt: 'name_prompt',
+} as const;
+
 export interface ResolveSightingRequest {
   /** Device credential of the sighting owner; must match the sighting */
   deviceId: string;
@@ -240,12 +252,30 @@ export interface ResolveSightingRequest {
   catId?: number | null;
   /** Name for a new unique cat (when no match) */
   newCatName?: string | null;
+  /** Which screen a hand pick came from. It only describes the phone's own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6). */
+  pickedFrom?: ResolveSightingRequestPickedFrom;
 }
 
 export interface ApiErrorBody {
   error: string;
   /** Machine-readable error code (e.g. NAME_TAKEN) */
   code?: string;
+}
+
+/**
+ * The cat that already has the name. Public details only.
+ */
+export interface NameTakenCat {
+  id: number;
+  name: string;
+  photoUrl: string;
+}
+
+export interface ResolveConflictBody {
+  error: string;
+  /** Machine-readable error code (e.g. NAME_TAKEN) */
+  code?: string;
+  cat?: NameTakenCat;
 }
 
 /**

@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { ResolveSightingRequestPickedFrom } from './resolveSightingRequestPickedFrom';
 
 export interface ResolveSightingRequest {
   /** Device credential of the sighting owner; must match the sighting */
@@ -13,4 +14,6 @@ export interface ResolveSightingRequest {
   catId?: number | null;
   /** Name for a new unique cat (when no match) */
   newCatName?: string | null;
+  /** Which screen a hand pick came from. It only describes the phone's own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6). */
+  pickedFrom?: ResolveSightingRequestPickedFrom;
 }

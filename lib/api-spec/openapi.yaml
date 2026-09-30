@@ -218,9 +218,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ResolveResult"
         "404":
-          description: Not found
+          description: Sighting not found
         "409":
-          description: Already resolved, or the new cat name is already taken (code NAME_TAKEN)
+          description: >-
+            Already resolved, or the new cat name is already taken (code
+            NAME_TAKEN, with the public details of the cat that has the name)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResolveConflictBody"
+        "422":
+          description: >-
+            Hand pick refused (code NOT_NEARBY): the cat's published square is
+            not within 1.5 km of the sighting's stored location, or the cat
+            does not exist. Every refusal has the same status, code and
+            message, whatever the reason (choose-a-different-cat.md §4.8).
           content:
             application/json:
               schema:
@@ -749,6 +761,13 @@ components:
           type: string
           nullable: true
           description: Name for a new unique cat (when no match)
+        pickedFrom:
+          type: string
+          enum: [nearby, search, name_prompt]
+          description: >-
+            Which screen a hand pick came from. It only describes the phone's
+            own screen: the server never uses it to decide whether a choice
+            was a suggestion (choose-a-different-cat.md §4.6).
       required: [deviceId]
     ApiErrorBody:
       type: object
@@ -757,6 +776,24 @@ components:
         code:
           type: string
           description: Machine-readable error code (e.g. NAME_TAKEN)
+      required: [error]
+    NameTakenCat:
+      type: object
+      description: The cat that already has the name. Public details only.
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        photoUrl: { type: string }
+      required: [id, name, photoUrl]
+    ResolveConflictBody:
+      type: object
+      properties:
+        error: { type: string }
+        code:
+          type: string
+          description: Machine-readable error code (e.g. NAME_TAKEN)
+        cat:
+          $ref: "#/components/schemas/NameTakenCat"
       required: [error]
     SuggestCatNamesRequest:
       type: object
