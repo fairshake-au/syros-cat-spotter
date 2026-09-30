@@ -38,12 +38,17 @@ describe('detectHomeScreenPlatform', () => {
     expect(detectHomeScreenPlatform(IPAD_SAFARI, 0)).toBe('other');
   });
 
-  it('detects Chrome on iOS', () => {
-    expect(detectHomeScreenPlatform(IPHONE_CHROME)).toBe('ios-chrome');
+  // SYC-134 review, 30 Sep 2026: Samuel's on-device check only covered iOS
+  // Safari — a third-party iOS browser may keep its own storage, separate
+  // from Safari's, so a Home Screen icon added from one of them could open
+  // with Safari's *empty* storage. Until that's checked for real,
+  // third-party iOS browsers are 'ios-unsupported', not given instructions.
+  it('treats Chrome on iOS as unsupported (unverified Home Screen storage sharing)', () => {
+    expect(detectHomeScreenPlatform(IPHONE_CHROME)).toBe('ios-unsupported');
   });
 
-  it('falls back to generic for other iOS browsers', () => {
-    expect(detectHomeScreenPlatform(IPHONE_FIREFOX)).toBe('other');
+  it('treats other third-party iOS browsers as unsupported too', () => {
+    expect(detectHomeScreenPlatform(IPHONE_FIREFOX)).toBe('ios-unsupported');
   });
 
   it('detects Chrome on Android', () => {

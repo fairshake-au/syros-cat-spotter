@@ -14,7 +14,7 @@
 
 export type HomeScreenPlatform =
   | 'ios-safari'
-  | 'ios-chrome'
+  | 'ios-unsupported'
   | 'android-chrome'
   | 'other';
 
@@ -22,8 +22,20 @@ export type HomeScreenPlatform =
  * Best-effort platform classification from the user-agent string (plus
  * maxTouchPoints, needed because iPadOS Safari's default UA claims to be a
  * Mac). Only distinguishes the platforms the banner has different copy for;
- * everything else — desktop browsers, iOS Firefox/Edge, Android
- * Firefox/Samsung Internet, etc. — falls back to 'other'.
+ * everything else — desktop browsers, Android Firefox/Samsung Internet,
+ * etc. — falls back to 'other'.
+ *
+ * `ios-unsupported` (SYC-134 review, 30 Sep 2026): Samuel's on-device check
+ * for SYC-134 confirmed a Home Screen icon added from iOS **Safari** opens
+ * straight into the signed-in app. It did not check any other iOS browser.
+ * On iOS, third-party browsers (Chrome, Firefox, Edge, Opera — all
+ * WebKit-based wrappers) keep their own storage, separate from Safari's, so
+ * a Home Screen icon added from one of them may open with Safari's *empty*
+ * storage instead — sending the tester straight back to onboarding, the
+ * exact harm this banner exists to prevent. Until that's checked on a real
+ * device (follow-up ticket filed), the banner stays hidden for every iOS
+ * browser except Safari, rather than risk causing the very loss it's meant
+ * to guard against.
  */
 export function detectHomeScreenPlatform(
   userAgent: string,
@@ -34,10 +46,11 @@ export function detectHomeScreenPlatform(
     /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
 
   if (isIOSDevice) {
-    if (/CriOS/.test(ua)) return 'ios-chrome';
-    // Other third-party iOS browsers (Firefox, Edge, Opera on iOS) don't
-    // get bespoke copy — the generic line is accurate for all of them.
-    if (/FxiOS|EdgiOS|OPiOS/.test(ua)) return 'other';
+    // Known third-party iOS browser UA tokens (Chrome, Firefox, Edge,
+    // Opera). All of them are WebKit wrappers whose Home Screen storage
+    // behaviour relative to Safari's is unverified — see the doc comment
+    // above. Real Safari's UA carries none of these tokens.
+    if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return 'ios-unsupported';
     return 'ios-safari';
   }
 

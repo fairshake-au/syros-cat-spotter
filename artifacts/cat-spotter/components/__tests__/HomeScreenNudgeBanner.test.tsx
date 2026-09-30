@@ -35,6 +35,13 @@ vi.mock('@/context/LanguageContext', () => ({
 const { useDevice } = vi.hoisted(() => ({ useDevice: vi.fn() }));
 vi.mock('@/context/DeviceContext', () => ({ useDevice }));
 
+const { useOffline } = vi.hoisted(() => ({ useOffline: vi.fn() }));
+vi.mock('@/context/OfflineContext', () => ({ useOffline }));
+
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 const storage = vi.hoisted(() => new Map<string, string>());
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
@@ -86,6 +93,7 @@ beforeEach(() => {
   storage.clear();
   setUserAgent(IPHONE_SAFARI);
   setStandalone(false);
+  useOffline.mockReturnValue({ needsSignIn: false });
 });
 
 afterEach(() => {
@@ -127,6 +135,16 @@ describe('HomeScreenNudgeBanner', () => {
     );
   });
 
+  // SYC-134 review, 30 Sep 2026: the sign-in-required prompt matters more
+  // than a reminder to add a Home Screen icon — don't compete with it.
+  it('stays hidden while the sign-in-required prompt is showing', async () => {
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    useOffline.mockReturnValue({ needsSignIn: true });
+    const { container } = render(<HomeScreenNudgeBanner />);
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
+  });
+
   it('shows iPhone Safari instructions with the share icon', async () => {
     setUserAgent(IPHONE_SAFARI);
     useDevice.mockReturnValue({ username: 'lili', isReady: true });
@@ -136,13 +154,17 @@ describe('HomeScreenNudgeBanner', () => {
     );
   });
 
-  it('shows iOS Chrome instructions', async () => {
+  // SYC-134 review, 30 Sep 2026: the on-device check only covered iOS
+  // Safari. Chrome (and other third-party browsers) on iOS may keep their
+  // own storage, separate from Safari's, so a Home Screen icon added from
+  // one of them could open as a stranger — the exact loss this banner
+  // exists to prevent. Stay hidden there until checked for real.
+  it('hides on iOS Chrome (unverified Home Screen storage sharing)', async () => {
     setUserAgent(IPHONE_CHROME);
     useDevice.mockReturnValue({ username: 'lili', isReady: true });
-    const { getByText } = render(<HomeScreenNudgeBanner />);
-    await waitFor(() =>
-      expect(getByText('homeScreenNudgeInstructionsIosChrome')).toBeTruthy(),
-    );
+    const { container } = render(<HomeScreenNudgeBanner />);
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
   });
 
   it('shows Android Chrome menu instructions when no install prompt has fired', async () => {
@@ -247,6 +269,12 @@ describe('HomeScreenNudgeBanner on native', () => {
     }));
     vi.doMock('@/context/DeviceContext', () => ({
       useDevice: () => ({ username: 'lili', isReady: true }),
+    }));
+    vi.doMock('@/context/OfflineContext', () => ({
+      useOffline: () => ({ needsSignIn: false }),
+    }));
+    vi.doMock('react-native-safe-area-context', () => ({
+      useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
     }));
     vi.doMock('@react-native-async-storage/async-storage', () => ({
       default: { getItem: vi.fn(), setItem: vi.fn() },
