@@ -20,7 +20,10 @@ vi.mock('@/context/LanguageContext', () => ({
 const { useGetCat } = vi.hoisted(() => ({
   useGetCat: vi.fn(() => ({ data: undefined })),
 }));
-vi.mock('@workspace/api-client-react', () => ({ useGetCat }));
+vi.mock('@workspace/api-client-react', () => ({
+  useGetCat,
+  getGetCatQueryKey: (id: number) => [`/api/cats/${id}`],
+}));
 
 import { CatPicker } from '../CatPicker';
 
@@ -74,7 +77,7 @@ function renderPicker(overrides: Partial<React.ComponentProps<typeof CatPicker>>
 }
 
 function listedNames(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('[data-testid^="picker-cat-"]')].map(
+  return Array.from(container.querySelectorAll('[data-testid^="picker-cat-"]')).map(
     (el) => el.getAttribute('data-testid')!.replace('picker-cat-', ''),
   );
 }

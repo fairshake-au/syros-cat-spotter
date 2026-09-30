@@ -1,13 +1,73 @@
-// Stub: the tests in lib/__tests__/catPicker.test.ts are written first (TDD).
-export const matchesSearch = (..._a: unknown[]): boolean => {
-  throw new Error('not implemented');
-};
-export const pickerList = <T>(..._a: unknown[]): T[] => {
-  throw new Error('not implemented');
-};
-export const pickedFromFor = (_q: string): string => {
-  throw new Error('not implemented');
-};
-export const classifyResolveError = (_e: unknown): unknown => {
-  throw new Error('not implemented');
-};
+/**
+ * The "Find the cat" list's pure logic (SYC-119,
+ * docs/specs/choose-a-different-cat.md §3.2, §4.4, §4.8, §9).
+ *
+ * The list is built as if the matcher had never run: it takes the public
+ * cat-alogue and the sighting's saved location, and nothing else. It is
+ * ordered and bounded by lib/geo, the same rule the server enforces, and
+ * search only ever narrows it.
+ */
+import { nearbyOrder, type LatLng } from '@workspace/geo';
+import { ApiError, type NameTakenCat } from '@workspace/api-client-react';
+
+type Searchable = LatLng & { id: number; name: string };
+
+export type PickedFrom = 'nearby' | 'search';
+
+/** Lower-case and strip accents, so "ΑΓΆΘΗ" finds "Αγάθη" and "zoe" finds "Zoé". */
+function fold(text: string): string {
+  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+}
+
+/** "SYR-0042", "syr 42", "0042" and "42" all mean cat 42 (spec §9, test 12). */
+function syrNumber(query: string): number | null {
+  const m = /^\s*(?:syr)?[\s-]*0*(\d+)\s*$/i.exec(query);
+  return m ? Number(m[1]) : null;
+}
+
+export function matchesSearch(cat: Searchable, query: string): boolean {
+  if (query.trim() === '') return true;
+  const number = syrNumber(query);
+  if (number !== null && cat.id === number) return true;
+  return fold(cat.name).includes(fold(query));
+}
+
+/** Cats known around here, nearest first, narrowed by the search box. */
+export function pickerList<T extends Searchable>(
+  from: LatLng,
+  cats: readonly T[],
+  query: string,
+): T[] {
+  return nearbyOrder(from, cats).filter((cat) => matchesSearch(cat, query));
+}
+
+export function pickedFromFor(query: string): PickedFrom {
+  return query.trim() === '' ? 'nearby' : 'search';
+}
+
+export type ResolveFailure =
+  | { kind: 'not-nearby' }
+  | { kind: 'name-taken'; cat: NameTakenCat | null }
+  | { kind: 'offensive' }
+  | { kind: 'offline' }
+  | { kind: 'error' };
+
+/** What went wrong when sending a choice, in the terms the review screen needs. */
+export function classifyResolveError(err: unknown): ResolveFailure {
+  if (!(err instanceof ApiError)) {
+    // The request never got an answer from the server: no signal. The
+    // sighting stays in the review list and nothing is lost (spec §4.5).
+    return err instanceof TypeError ? { kind: 'offline' } : { kind: 'error' };
+  }
+  const data = (err.data ?? null) as { code?: string; cat?: NameTakenCat } | null;
+  switch (data?.code) {
+    case 'NOT_NEARBY':
+      return { kind: 'not-nearby' };
+    case 'NAME_TAKEN':
+      return { kind: 'name-taken', cat: data.cat ?? null };
+    case 'OFFENSIVE_NAME':
+      return { kind: 'offensive' };
+    default:
+      return { kind: 'error' };
+  }
+}

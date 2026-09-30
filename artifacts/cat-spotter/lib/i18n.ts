@@ -273,6 +273,25 @@ const en: Dict = {
   homeScreenNudgeInstructionsIosSafari: 'Tap Share, then Add to Home Screen.',
   homeScreenNudgeDismissLabel: 'Dismiss',
   homeScreenNudgeShareLabel: 'Share',
+  // ---- SYC-119: choosing a different cat (spec choose-a-different-cat.md §6) ----
+  findCatCardTitle: 'Not one of these?',
+  findCatCardAction: 'Find the cat yourself',
+  findItInsteadLead: 'Seen this cat in the app before?',
+  findItInsteadAction: 'Find it instead',
+  pickerTitle: 'Which cat is it?',
+  pickerSearchPlaceholder: 'Name or SYR number',
+  pickerListHeading: 'Cats known around here',
+  pickerConfirm: 'Yes, this is the cat',
+  pickerAddNewLead: 'Can\'t find it?',
+  pickerAddNewAction: 'Add it as a new cat',
+  pickerNotNearby: 'That cat isn\'t listed near where you took this photo.',
+  pickerNoSignal: 'No signal. Your sighting is saved. Finish this when you\'re back online.',
+  pickerOfflineStale: 'Showing the cats saved on your phone. New ones may be missing.',
+  pickerNoResults: 'No cats around here match "{text}".',
+  pickerEmpty: 'No cats are known around here yet.',
+  nameTakenIsThis: 'There\'s already a cat called {name}. Is this them?',
+  nameTakenYes: 'Yes, that\'s them',
+  nameTakenNo: 'No, a different cat',
 };
 
 const el: Dict = {
@@ -540,6 +559,25 @@ const el: Dict = {
   homeScreenNudgeInstructionsIosSafari: 'Πάτα «Κοινή χρήση», μετά «Προσθήκη στην Αρχική οθόνη».',
   homeScreenNudgeDismissLabel: 'Απόρριψη',
   homeScreenNudgeShareLabel: 'Κοινή χρήση',
+  // ---- SYC-119: επιλογή άλλης γάτας. DRAFT, awaiting native review (SYC-4) ----
+  findCatCardTitle: 'Καμία από αυτές;',
+  findCatCardAction: 'Βρείτε τη γάτα μόνοι σας',
+  findItInsteadLead: 'Έχετε δει αυτή τη γάτα στην εφαρμογή;',
+  findItInsteadAction: 'Βρείτε τη',
+  pickerTitle: 'Ποια γάτα είναι;',
+  pickerSearchPlaceholder: 'Όνομα ή αριθμός SYR',
+  pickerListHeading: 'Γάτες που ξέρουμε εδώ γύρω',
+  pickerConfirm: 'Ναι, αυτή είναι η γάτα',
+  pickerAddNewLead: 'Δεν τη βρίσκετε;',
+  pickerAddNewAction: 'Προσθέστε τη ως νέα γάτα',
+  pickerNotNearby: 'Αυτή η γάτα δεν είναι καταγεγραμμένη κοντά στο σημείο όπου τραβήξατε τη φωτογραφία.',
+  pickerNoSignal: 'Δεν υπάρχει σήμα. Η καταγραφή σας αποθηκεύτηκε. Ολοκληρώστε την όταν έχετε ξανά σύνδεση.',
+  pickerOfflineStale: 'Εμφανίζονται οι γάτες που είναι αποθηκευμένες στο κινητό σας. Μπορεί να λείπουν οι νεότερες.',
+  pickerNoResults: 'Καμία γάτα εδώ γύρω δεν ταιριάζει με «{text}».',
+  pickerEmpty: 'Δεν ξέρουμε ακόμα γάτες εδώ γύρω.',
+  nameTakenIsThis: 'Υπάρχει ήδη γάτα με το όνομα {name}. Είναι αυτή;',
+  nameTakenYes: 'Ναι, αυτή είναι',
+  nameTakenNo: 'Όχι, είναι άλλη γάτα',
 };
 
 const fr: Dict = {
@@ -807,6 +845,25 @@ const fr: Dict = {
   homeScreenNudgeInstructionsIosSafari: 'Appuie sur Partager, puis Sur l\'écran d\'accueil.',
   homeScreenNudgeDismissLabel: 'Fermer',
   homeScreenNudgeShareLabel: 'Partager',
+  // ---- SYC-119 : choisir un autre chat. DRAFT, awaiting native review (SYC-4) ----
+  findCatCardTitle: 'Aucun de ceux-ci ?',
+  findCatCardAction: 'Trouvez le chat vous-même',
+  findItInsteadLead: 'Déjà vu ce chat dans l\'appli ?',
+  findItInsteadAction: 'Retrouvez-le plutôt',
+  pickerTitle: 'Quel chat est-ce ?',
+  pickerSearchPlaceholder: 'Nom ou numéro SYR',
+  pickerListHeading: 'Chats connus dans le coin',
+  pickerConfirm: 'Oui, c\'est ce chat',
+  pickerAddNewLead: 'Introuvable ?',
+  pickerAddNewAction: 'Ajoutez-le comme nouveau chat',
+  pickerNotNearby: 'Ce chat n\'est pas répertorié près de l\'endroit où vous avez pris cette photo.',
+  pickerNoSignal: 'Pas de réseau. Votre observation est enregistrée. Terminez-la quand vous serez de nouveau connecté.',
+  pickerOfflineStale: 'Chats enregistrés sur votre téléphone. Les plus récents peuvent manquer.',
+  pickerNoResults: 'Aucun chat du coin ne correspond à « {text} ».',
+  pickerEmpty: 'Aucun chat connu dans le coin pour l\'instant.',
+  nameTakenIsThis: 'Il y a déjà un chat appelé {name}. Est-ce lui ?',
+  nameTakenYes: 'Oui, c\'est lui',
+  nameTakenNo: 'Non, un autre chat',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

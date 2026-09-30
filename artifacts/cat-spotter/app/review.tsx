@@ -16,7 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   resolveSighting,
   suggestCatNames,
-  ApiError,
+  type NameTakenCat,
   type ResolveResult,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -24,6 +24,13 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useOffline } from "@/context/OfflineContext";
 import { useDevice } from "@/context/DeviceContext";
 import { SightingPhoto } from "@/components/SightingPhoto";
+import { CatPicker } from "@/components/CatPicker";
+import { useCatsWithCache } from "@/hooks/useCatsWithCache";
+import {
+  classifyResolveError,
+  pickerList,
+  type PickedFrom,
+} from "@/lib/catPicker";
 import { photoSource } from "@/lib/urls";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { parseReviewParams } from "@/lib/reviewParams";
@@ -60,7 +67,7 @@ export default function ReviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { remove, pending } = useOffline();
+  const { remove, pending, isOnline } = useOffline();
   const { deviceId } = useDevice();
   const params = useLocalSearchParams<{ data?: string }>();
 
@@ -82,6 +89,26 @@ export default function ReviewScreen() {
   const [shownSuggestions, setShownSuggestions] = useState<string[]>([]);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState(false);
+  // SYC-119: "Find the cat yourself" (choose-a-different-cat.md §3).
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerMessage, setPickerMessage] = useState<string | null>(null);
+  const [sendMessage, setSendMessage] = useState<string | null>(null);
+  const [nameTakenCat, setNameTakenCat] = useState<NameTakenCat | null>(null);
+  // The public cat-alogue: fresh with signal, the phone's saved copy without.
+  const { cats } = useCatsWithCache();
+
+  // "Nearby" is measured from where the photo was taken, as saved with the
+  // sighting, never from where the phone is now (spec §4.8).
+  const from = queuedItem
+    ? { lat: queuedItem.lat, lng: queuedItem.lng }
+    : data?.lat != null && data?.lng != null
+      ? { lat: data.lat, lng: data.lng }
+      : null;
+  const nearbyIds = useMemo(
+    () => new Set(from ? pickerList(from, cats, "").map((c) => c.id) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [from?.lat, from?.lng, cats],
+  );
 
   if (!data) {
     return (
@@ -103,22 +130,48 @@ export default function ReviewScreen() {
     queryClient.invalidateQueries();
   };
 
-  const confirm = async (catId: number) => {
+  // Sending any choice needs signal (spec §4.5). Without it the sighting
+  // stays in the review list and nothing is lost.
+  const confirm = async (catId: number, pickedFrom?: PickedFrom | "name_prompt") => {
     if (!deviceId) return;
+    const say = pickedFrom ? setPickerMessage : setSendMessage;
+    if (!isOnline) {
+      say("pickerNoSignal");
+      return;
+    }
     setBusy(true);
+    say(null);
     try {
       await finishAndInvalidate(
-        await resolveSighting(data.sightingId, { deviceId, catId }),
+        await resolveSighting(data.sightingId, {
+          deviceId,
+          catId,
+          ...(pickedFrom ? { pickedFrom } : {}),
+        }),
       );
-    } catch {
+    } catch (err) {
+      const failure = classifyResolveError(err);
+      if (failure.kind === "offline") say("pickerNoSignal");
+      else if (failure.kind === "not-nearby") say("pickerNotNearby");
+      else say("error");
       setBusy(false);
     }
   };
 
+  const openPicker = () => {
+    setPickerMessage(null);
+    setShowPicker(true);
+  };
+
   const registerNew = async () => {
     if (!newName.trim() || !deviceId) return;
+    if (!isOnline) {
+      setSendMessage("pickerNoSignal");
+      return;
+    }
     setBusy(true);
     setNameError(null);
+    setSendMessage(null);
     try {
       await finishAndInvalidate(
         await resolveSighting(data.sightingId, {
@@ -127,12 +180,19 @@ export default function ReviewScreen() {
         }),
       );
     } catch (err) {
-      const code =
-        err instanceof ApiError
-          ? (err.data as { code?: string } | null)?.code
-          : undefined;
-      if (code === "NAME_TAKEN") setNameError("taken");
-      else if (code === "OFFENSIVE_NAME") setNameError("offensive");
+      const failure = classifyResolveError(err);
+      if (failure.kind === "name-taken") {
+        // "Is this them?" only for a cat in the nearby set (spec §3.1, §4.8).
+        // A cat further away would need "Ask Syros Cats", which stays hidden
+        // until the team can act on it (plan Decision 4), so the spotter is
+        // simply asked for another name, as before.
+        if (failure.cat && nearbyIds.has(failure.cat.id)) {
+          setNameTakenCat(failure.cat);
+        } else {
+          setNameError("taken");
+        }
+      } else if (failure.kind === "offensive") setNameError("offensive");
+      else if (failure.kind === "offline") setSendMessage("pickerNoSignal");
       setBusy(false);
     }
   };
@@ -159,6 +219,15 @@ export default function ReviewScreen() {
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)");
   };
+
+  const yourPhoto = (
+    <SightingPhoto
+      uri={queuedItem ? queuedItem.photoUri : data.photoRef}
+      base64={queuedItem?.photoBase64}
+      style={[styles.pickerPhoto, { borderColor: colors.border }]}
+      contentFit="cover"
+    />
+  );
 
   // ----- Success state -----
   if (result) {
@@ -253,6 +322,108 @@ export default function ReviewScreen() {
     );
   }
 
+  // ----- Find the cat yourself (SYC-119) -----
+  if (showPicker) {
+    return (
+      <CatPicker
+        from={from}
+        cats={cats}
+        isOffline={!isOnline}
+        busy={busy}
+        message={pickerMessage}
+        yourPhoto={yourPhoto}
+        onPick={(catId, pickedFrom) => confirm(catId, pickedFrom)}
+        onAddNew={() => {
+          setShowPicker(false);
+          setShowNewCat(true);
+        }}
+        onClose={() => setShowPicker(false)}
+        insetTop={insets.top}
+        insetBottom={insets.bottom}
+      />
+    );
+  }
+
+  // ----- The name is taken by a cat near here: is this them? -----
+  if (nameTakenCat) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <IconButton
+            variant="ghost"
+            label={t("back")}
+            onPress={() => setNameTakenCat(null)}
+          >
+            <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
+          </IconButton>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView
+          contentContainerStyle={[
+            styles.nameTakenBody,
+            { paddingBottom: insets.bottom + 32 },
+          ]}
+        >
+          <Text style={[styles.nameTakenTitle, { color: colors.foreground }]}>
+            {t("nameTakenIsThis").replace("{name}", nameTakenCat.name)}
+          </Text>
+          <View style={styles.compareRow}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={[styles.photoLabel, { color: colors.mutedForeground }]}>
+                {t("yourPhoto")}
+              </Text>
+              {yourPhoto}
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text
+                style={[styles.photoLabel, { color: colors.mutedForeground }]}
+                numberOfLines={1}
+              >
+                {nameTakenCat.name} · {catCode(nameTakenCat.id)}
+              </Text>
+              <Image
+                source={photoSource(nameTakenCat.photoUrl)}
+                style={[styles.pickerPhoto, { borderColor: colors.border }]}
+                contentFit="cover"
+              />
+            </View>
+          </View>
+          {pickerMessage ? (
+            <Text style={[styles.sendMessage, { color: colors.foreground }]}>
+              {t(pickerMessage)}
+            </Text>
+          ) : null}
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            disabled={busy}
+            onPress={() => confirm(nameTakenCat.id, "name_prompt")}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color={colors.primaryForeground} />
+            ) : (
+              t("nameTakenYes")
+            )}
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            block
+            disabled={busy}
+            onPress={() => {
+              setNameTakenCat(null);
+              setPickerMessage(null);
+              setNameError("taken");
+            }}
+          >
+            {t("nameTakenNo")}
+          </Button>
+        </ScrollView>
+      </View>
+    );
+  }
+
   // ----- ④ Name — a new furriend -----
   if (showNewCat || data.candidates.length === 0) {
     return (
@@ -312,6 +483,19 @@ export default function ReviewScreen() {
             }
           />
 
+          <Pressable
+            onPress={openPicker}
+            accessibilityRole="button"
+            testID="find-it-instead"
+          >
+            <Text style={[styles.findItInstead, { color: colors.mutedForeground }]}>
+              {t("findItInsteadLead")}{" "}
+              <Text style={{ color: colors.primary, fontFamily: fonts.bodyBold }}>
+                {t("findItInsteadAction")}
+              </Text>
+            </Text>
+          </Pressable>
+
           <View style={styles.suggestRow}>
             <Pressable
               onPress={fetchSuggestions}
@@ -368,6 +552,11 @@ export default function ReviewScreen() {
             </View>
           ) : null}
 
+          {sendMessage ? (
+            <Text style={[styles.sendMessage, { color: colors.foreground }]}>
+              {t(sendMessage)}
+            </Text>
+          ) : null}
           <Button
             variant="primary"
             size="lg"
@@ -504,6 +693,33 @@ export default function ReviewScreen() {
           );
         })}
 
+        {sendMessage ? (
+          <Text style={[styles.sendMessage, { color: colors.foreground }]}>
+            {t(sendMessage)}
+          </Text>
+        ) : null}
+
+        <Pressable
+          onPress={openPicker}
+          accessibilityRole="button"
+          testID="find-the-cat-card"
+          style={[
+            styles.findCatCard,
+            { borderColor: colors.border, backgroundColor: colors.card },
+          ]}
+        >
+          <Feather name="search" size={20} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.findCatTitle, { color: colors.foreground }]}>
+              {t("findCatCardTitle")}
+            </Text>
+            <Text style={[styles.findCatAction, { color: colors.primary }]}>
+              {t("findCatCardAction")}
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+        </Pressable>
+
         <View style={styles.dividerRow}>
           <View
             style={[styles.dividerLine, { backgroundColor: colors.border }]}
@@ -571,6 +787,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   sectionTitle: { fontSize: fontSizes.md, fontFamily: fonts.bodyBold },
+  findCatCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    padding: spacing[4],
+  },
+  findCatTitle: { fontSize: fontSizes.sm, fontFamily: fonts.bodyBold },
+  findCatAction: { fontSize: fontSizes.sm, fontFamily: fonts.bodySemiBold },
+  findItInstead: {
+    fontSize: fontSizes.sm,
+    fontFamily: fonts.body,
+    textAlign: "center",
+    paddingVertical: 4,
+  },
+  sendMessage: {
+    fontSize: fontSizes.sm,
+    fontFamily: fonts.bodySemiBold,
+    textAlign: "center",
+  },
+  pickerPhoto: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+  },
+  compareRow: { flexDirection: "row", gap: 12 },
+  nameTakenBody: {
+    padding: 16,
+    gap: 14,
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
+  },
+  nameTakenTitle: {
+    fontSize: fontSizes.lg,
+    fontFamily: fonts.displayBold,
+    textAlign: "center",
+  },
   candidate: { gap: 10 },
   candidateRow: { flexDirection: "row", gap: 13, alignItems: "center" },
   candidatePhoto: { width: 66, height: 66, borderRadius: radii.sm },

@@ -16,6 +16,11 @@
  * trims each candidate's `reasoning` (model text, otherwise unbounded) and
  * drops any value that is a data URL or photo-sized.
  *
+ * SYC-119: it also carries where the photo was taken (two short numbers), so
+ * "Find the cat" can list cats near the sighting's saved location for an
+ * online submission too. They only shape the phone's list: the server checks
+ * a pick against its own stored location.
+ *
  * A test fails if any `/review` navigation bypasses this builder.
  */
 import type { MatchCandidate } from '@workspace/api-client-react';
@@ -28,6 +33,9 @@ export interface ReviewRouteData {
   localId?: string;
   /** An online submission: its photo, saved as `review-<sightingId>`. */
   photoRef?: string;
+  /** Where the photo was taken, as sent with the sighting. Both or neither. */
+  lat?: number;
+  lng?: number;
 }
 
 export interface ReviewRouteInput {
@@ -36,6 +44,8 @@ export interface ReviewRouteInput {
   candidates?: readonly MatchCandidate[] | null;
   localId?: string | null;
   photoRef?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export const REASONING_MAX_LENGTH = 280;
@@ -59,6 +69,14 @@ function safeText(value: unknown, max = MAX_VALUE_LENGTH): string | undefined {
   if (typeof value !== 'string') return undefined;
   if (value.length > max || isDataUrl(value)) return undefined;
   return value;
+}
+
+/** A real latitude/longitude pair, or null. */
+function safeLocation(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
 }
 
 function trimReasoning(value: unknown): string {
@@ -97,6 +115,11 @@ export function buildReviewParams(input: ReviewRouteInput): { data: string } {
     if (localId) data.localId = localId;
     const photoRef = safeText(input.photoRef, 500);
     if (photoRef) data.photoRef = photoRef;
+    const location = safeLocation(input.lat, input.lng);
+    if (location) {
+      data.lat = location.lat;
+      data.lng = location.lng;
+    }
     return { data: JSON.stringify(data) };
   } catch {
     // Never throw: a route to review the sighting, even without candidates,
@@ -118,6 +141,7 @@ export function parseReviewParams(raw: string | undefined): ReviewRouteData | nu
       candidates: Array.isArray(value.candidates) ? value.candidates : [],
       localId: typeof value.localId === 'string' ? value.localId : undefined,
       photoRef: typeof value.photoRef === 'string' ? value.photoRef : undefined,
+      ...(safeLocation(value.lat, value.lng) ?? {}),
     };
   } catch {
     return null;
