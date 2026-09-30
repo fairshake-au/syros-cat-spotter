@@ -1020,7 +1020,9 @@ const styles = StyleSheet.create({
 
   // Capture (viewfinder) state
   viewfinder: {
-    height: 420,
+    // A floor, not a fixed height: a long translation or large text size
+    // grows the card instead of clipping the camera prompt's button.
+    minHeight: 420,
     borderRadius: radii.xl,
     overflow: 'hidden',
     justifyContent: 'space-between',
