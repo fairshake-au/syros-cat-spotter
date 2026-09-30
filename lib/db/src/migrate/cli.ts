@@ -3,7 +3,6 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import pg from "pg";
 import {
   cycle,
@@ -14,6 +13,7 @@ import {
   rollbackLast,
 } from "./runner";
 import { modelledOnly, schemaSignature, signatureDiff } from "./signature";
+import { smoke } from "./smoke";
 import { resolveDatabaseUrl } from "../url";
 
 // pnpm --filter @workspace/db run migrate            apply pending migrations
@@ -233,85 +233,6 @@ async function check(): Promise<void> {
   );
 }
 
-// SYC-121, task B.5. With the SYC-113 pre-launch gate on, an unauthenticated
-// GET gets a 401 (artifacts/api-server/src/middlewares/prelaunchGate.ts), so
-// smoke needs a pass too. Sends X-Prelaunch-Key on every request when
-// PRELAUNCH_KEY is set in the environment; when it isn't (CI, or a
-// deployment with the gate off), behaviour is unchanged.
-// A hanging endpoint must not hang the whole job — fail fast with a clear
-// message instead. Overridable via SMOKE_TIMEOUT_MS so tests can use a short
-// timeout without waiting 30s for the real one to fire.
-const DEFAULT_SMOKE_TIMEOUT_MS = 30_000;
-
-export async function smoke(
-  baseUrl: string | undefined,
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<void> {
-  if (!baseUrl)
-    throw new MigrationError(
-      "usage: smoke <base-url>, e.g. https://api.catspotters.com",
-    );
-  const base = baseUrl.replace(/\/$/, "");
-  const headers: Record<string, string> = {};
-  if (env.PRELAUNCH_KEY) headers["X-Prelaunch-Key"] = env.PRELAUNCH_KEY;
-  const timeoutMs = env.SMOKE_TIMEOUT_MS
-    ? Number(env.SMOKE_TIMEOUT_MS)
-    : DEFAULT_SMOKE_TIMEOUT_MS;
-  // A stalled body must fail the same way a stalled connect does. The
-  // request's AbortSignal keeps applying while a body is being read, so
-  // reading it here (under the same try/catch as the fetch itself) is what
-  // makes that true — reading it later, after get() returns, would not be
-  // covered and would surface as a raw, uncaught DOMException instead of the
-  // "Roll back now" message (and would have already printed `ok`).
-  const asSmokeError = (err: unknown, p: string): Error =>
-    err instanceof Error && err.name === "TimeoutError"
-      ? new MigrationError(
-          `smoke: GET ${p} timed out after ${timeoutMs / 1000} s. Roll back now.`,
-        )
-      : err instanceof Error
-        ? err
-        : new Error(String(err));
-  const cancelBody = async (res: Response): Promise<void> => {
-    await res.body?.cancel();
-  };
-  const jsonBody = async <T>(res: Response): Promise<T> => res.json() as Promise<T>;
-  const get = async <T>(
-    p: string,
-    readBody: (res: Response) => Promise<T>,
-  ): Promise<T> => {
-    let res: Response;
-    const signal = AbortSignal.timeout(timeoutMs);
-    try {
-      res = await fetch(`${base}${p}`, { headers, signal });
-    } catch (err) {
-      throw asSmokeError(err, p);
-    }
-    if (!res.ok) {
-      await res.body?.cancel().catch(() => {});
-      throw new MigrationError(
-        `smoke: GET ${p} returned ${res.status}. Roll back now.`,
-      );
-    }
-    let body: T;
-    try {
-      body = await readBody(res);
-    } catch (err) {
-      throw asSmokeError(err, p);
-    }
-    console.log(`ok  GET ${p} ${res.status}`);
-    return body;
-  };
-  await get("/api/healthz", cancelBody);
-  const cats = await get("/api/cats", jsonBody<{ photoUrl: string }[]>);
-  // Owner-registered cats carry the photo id 0 sentinel, which 404s by design.
-  const withPhoto = cats.find((c) => !c.photoUrl.endsWith("/0"));
-  if (withPhoto) {
-    await get(withPhoto.photoUrl, cancelBody);
-  } else {
-    console.log("--  no cat has a photo yet; photo route not exercised");
-  }
-}
-
 async function main(): Promise<void> {
   const [command = "up", arg] = process.argv.slice(2);
   switch (command) {
@@ -345,25 +266,20 @@ async function main(): Promise<void> {
   }
 }
 
-// Only run main() — and only ever call process.exit() — when this file is
-// executed directly as the CLI. `smoke` is also imported by tests
-// (smoke.test.ts, smoke-cli-exit.test.ts) to call it in-process; without this
-// guard, that import alone would run main() and exit the test runner's
-// worker process too.
-const isCliEntrypoint =
-  process.argv[1] !== undefined &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (isCliEntrypoint) {
-  // Belt and braces on top of `smoke`'s per-request timeout: whatever a
-  // command leaves open (a keep-alive HTTP agent's socket, say — see
-  // SYC-141, where an idle fetch/undici socket held the event loop open for
-  // ~10 minutes after the last request finished) must not stop the CLI from
-  // exiting the moment the command is actually done.
-  main()
-    .then(() => process.exit(0))
-    .catch((err) => {
-      console.error(err instanceof MigrationError ? err.message : err);
-      process.exit(1);
-    });
-}
+// SYC-141, Fable review item 2. cli.ts is entry-only: `smoke` (and its
+// helpers) live in smoke.ts, which tests import directly, so nothing but
+// running this file as the CLI (`tsx cli.ts ...`) reaches this code — no
+// heuristic needed here to tell an import apart from a direct run, and no
+// reason for main() to run except as the CLI entrypoint.
+//
+// Belt and braces on top of `smoke`'s per-request timeout: whatever a
+// command leaves open (a keep-alive HTTP agent's socket, say — see SYC-141,
+// where an idle fetch/undici socket held the event loop open for ~10
+// minutes after the last request finished) must not stop the CLI from
+// exiting the moment the command is actually done.
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err instanceof MigrationError ? err.message : err);
+    process.exit(1);
+  });

@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { smoke } from "./cli";
+import { smoke } from "./smoke";
 
 // SYC-121, task B.5. A stub HTTP server that stands in for the pre-launch
 // gate: 401 without X-Prelaunch-Key, 200 (with the smoke routes' expected
