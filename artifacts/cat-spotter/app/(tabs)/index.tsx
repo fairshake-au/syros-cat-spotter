@@ -25,6 +25,8 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CatCard } from '@/components/CatCard';
 import { Avatar, StatTile } from '@/components/purropolis';
+import { useBannerAreaReserve } from '@/lib/bannerArea';
+import { displayUpperCase } from '@/lib/displayUpperCase';
 import {
   useGetProfile,
   getGetProfileQueryKey,
@@ -38,6 +40,9 @@ export default function HomeScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // SYC-128: room for any top banners showing, so they sit above the
+  // greeting instead of on top of it (0 when there are none).
+  const bannerReserve = useBannerAreaReserve();
   const { deviceId, username } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useLocation();
@@ -115,7 +120,10 @@ export default function HomeScreen() {
         <View
           style={[
             styles.hero,
-            { backgroundColor: palette.aegean600, paddingTop: insets.top + 14 },
+            {
+              backgroundColor: palette.aegean600,
+              paddingTop: insets.top + bannerReserve + 14,
+            },
           ]}
         >
           <Text style={styles.heroPaw} allowFontScaling={false}>
@@ -206,7 +214,11 @@ export default function HomeScreen() {
               {/* The server only sorts by distance when it was given coords.
                   Without them this strip is just "some cats", so don't call it
                   nearby. */}
-              {coords ? t('homeNearbyEyebrow') : t('homeToCollectEyebrow')}
+              {/* SYC-143: capitals via displayUpperCase, not textTransform,
+                  so Greek drops its accents. */}
+              {displayUpperCase(
+                coords ? t('homeNearbyEyebrow') : t('homeToCollectEyebrow'),
+              )}
             </Text>
             <Pressable onPress={() => router.push('/cats')}>
               <Text style={[styles.seeAll, { color: colors.primary }]}>
@@ -347,7 +359,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 11,
     letterSpacing: 1.4,
-    textTransform: 'uppercase',
   },
   seeAll: { fontFamily: fonts.bodyBold, fontSize: fontSizes.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },

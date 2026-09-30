@@ -136,6 +136,8 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
+    // SYC-128: at least a 44px tap target (was 42px with one line of text).
+    minHeight: 44,
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
