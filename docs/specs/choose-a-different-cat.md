@@ -2,8 +2,8 @@
 
 **Status:** Draft for Samuel's approval, 30 September 2026. Two adversarial review passes done and folded in (§12).
 **Owner:** Samuel
-**Covers:** SYC-119, from point 4 of the 29 September user-testing call (SYC-116).
-**Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2, §6.3 (and its SYC-39 override), §6.4, §6.5, §10.1, §10.3 · [`DECISIONS.md`](./DECISIONS.md) Part 2h (500 m matching) and Part 3 (ownership) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3, §6, §7 · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 · SYC-38 (points), SYC-43 (staff dashboard), SYC-53 (roles and the confirmation queue), SYC-56 (matching accuracy), SYC-59 (duplicate merging), SYC-80 (a cat's position following its sightings)
+**Covers:** SYC-119, from point 4 of the 29 September user-testing call (SYC-116), including the colour filter Samuel asked for on 30 September 2026 (§4.7).
+**Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2, §6.3 (and its SYC-39 override), §6.4, §6.5, §10.1, §10.3 · [`DECISIONS.md`](./DECISIONS.md) Part 2h (500 m matching) and Part 3 (ownership) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3, §6, §7 · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 · SYC-38 (points), SYC-43 (staff dashboard), SYC-53 (roles and the confirmation queue), SYC-56 (matching accuracy), SYC-59 (duplicate merging), SYC-80 (a cat's position following its sightings), SYC-2 (coat and markings tags), SYC-52 (per-attribute authority) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) §4.2 and §5 (appearance vocabulary, machine suggestions)
 
 **What this document owns.** The spotter's experience of picking an existing cat by hand when the suggested matches are wrong, what that pick counts for, and what the team sees about it. It does **not** own the cat record, observations, location blurring or merging: those are `cat-record-data-spine.md`'s, and where this feature needs something from them it says so and points there (§8), in line with the ownership rule in `DECISIONS.md` Part 3.
 
@@ -11,11 +11,11 @@
 
 ## 1. The short version
 
-When the app's suggested matches don't include the right cat, the spotter can find it themselves: **a list of cats known around here, with big photos, plus a search box for a name or an SYR number.** Tourists pick by face; cat guardians type the name. The same way in appears when the app has no suggestions at all, and when someone types a name that another cat already has.
+When the app's suggested matches don't include the right cat, the spotter can find it themselves: **a list of cats known around here, always nearest first, with big photos, plus a search box for a name or an SYR number and a colour filter.** Tourists pick by face, and narrow by colour; cat guardians type the name. Each cat's colour is read automatically from its main photo, and a cat the app isn't sure about is never hidden. The same way in appears when the app has no suggestions at all, and when someone types a name that another cat already has.
 
 A pick made by hand earns **the same 15 points** as confirming a suggestion, straight away. It is **recorded as a hand pick**, which is useful twice over: it tells the team to glance at it, and it is exactly the evidence SYC-56 needs about where the matcher goes wrong. Hand picks appear in a short, low-priority list on the staff dashboard, where the team can say *looks right* or move the sighting to the right cat. Nothing waits for the team, and nothing breaks if the team never looks.
 
-The list shows only what the public catalogue already shows. It is built from blurred positions, and it never depends on which cats the matcher looked at. Browsing and searching work without signal from the phone's saved copy of the catalogue. **Sending the choice needs signal**, just like "That's the one" does.
+The list shows only what the public catalogue already shows. It is built from blurred positions, and it never depends on which cats the matcher looked at. Browsing, searching and filtering by colour work without signal from the phone's saved copy of the catalogue. **Sending the choice needs signal**, just like "That's the one" does.
 
 ---
 
@@ -57,6 +57,7 @@ From top to bottom:
 
 - **The spotter's own photo**, small, so they can compare as they scroll.
 - **A search box**: *"Name or SYR number"*. Typing filters the whole island's cat-alogue, not just the nearby list.
+- **A row of colour chips** under the search box: *All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure*. "All" is on until the spotter taps a colour. How it behaves is in §4.7.
 - **"Cats known around here"**: every cat whose public position is within 1.5 km of the photo, which is the same "Nearby" the Cats tab already uses. Each card shows the cat's main photo (large, since for a tourist the face is the decision), its name and its SYR number.
 
 > **The list is always nearest first.** "Nearest" means nearest by map square: the cat's published 250 m square, measured from where the photo was taken. Cats in the same square tie, and ties are broken by SYR number, lowest first. The order is never worked out from a cat's exact position, because an order based on exact distance would give that position away (§4.4). Search and the colour filter (§4.7) narrow the list. They never change its order.
@@ -72,7 +73,7 @@ The spotter sees the same reward screen as for any match: **"Match confirmed"**,
 - Never shows an exact position, a map pin or a distance worked out from exact positions.
 - Never shows who spotted a cat, when to the minute, or where anyone was standing.
 - Never shows a match score for a cat the matcher didn't return.
-- Never lists a cat that has been merged into another. Search finds the surviving cat under either name (§8.4).
+- Never lists a cat that has been merged into another. Search finds the surviving cat under either name (§8.5).
 
 ---
 
@@ -143,7 +144,7 @@ The rule in one sentence: **the list may show only what the public cat-alogue al
 
 **Nearest first, by map square, ties broken by SYR number.** Samuel asked for nearest first, and it is: the list is sorted by the distance from the photo to the centre of each cat's published 250 m square, the same coarse distance the Cats tab uses (`cat-record-data-spine.md` §6.4.2–3). Cats in the same square are listed by SYR number. Sorting by exact distance was ruled out, and not for tidiness: an order based on exact distance lets anyone standing in different places work out where a cat really is, one tap at a time. That is exactly the leak §6.4 closes for the rest of the app.
 
-**What each card may show:** the cat's main photo, its name, its SYR number, and on the side-by-side check up to two more of its *public* photos. It may also show the same short status lines the cat page shows (for example *"No longer with us"* on a card that can't be picked).
+**What each card may show:** the cat's main photo, its name, its SYR number, its coat colour (§4.7), and on the side-by-side check up to two more of its *public* photos. It may also show the same short status lines the cat page shows (for example *"No longer with us"* on a card that can't be picked).
 
 **What it must not show or use:**
 
@@ -169,6 +170,7 @@ Precisely, because "it all works offline" is never true of this app:
 | Getting suggestions | **No.** The photo check runs on the server once the phone has signal. After that, the suggestions are saved on the phone with the sighting. |
 | Opening the review screen for a sighting that has already synced | Yes. The saved suggestions show. |
 | Opening "Find the cat yourself", scrolling "Cats known around here", searching by name or SYR number | **Yes, from the phone's saved copy of the cat-alogue**, the same copy the Cats tab uses offline. Cats added since that copy was last refreshed won't be there. |
+| Filtering by colour | **Yes.** Each cat's colour is part of the public cat-alogue, so the filter runs on the phone against the saved copy. A cat whose colour was read after the copy was saved shows as "Not sure" until the phone next has signal, and so is never hidden. Working out a colour needs signal, because the model runs on the server. |
 | Seeing the cats' photos in the list | **Only photos the phone has already loaded before.** The others show a placeholder with the name and SYR number. |
 | Sending the pick, "That's the one" or "New cat" | **No.** All three need signal. Without it, the app says so plainly: *"No signal. Your sighting is saved. Finish this when you're back online."* The sighting stays in the review list and nothing is lost. |
 
@@ -187,7 +189,7 @@ Precisely, because "it all works offline" is never true of this app:
 
 - **suggested**, with its rank (1st, 2nd or 3rd);
 - **hand pick from the nearby list**, **hand pick from search**, or **hand pick from the name-taken prompt**. The phone says which screen it came from, which is harmless because it only describes the phone's own screen;
-- **new cat**, noting whether the spotter opened "Find the cat" first and still chose new. That is weak but useful evidence the cat really is new (§8.4).
+- **new cat**, noting whether the spotter opened "Find the cat" first and still chose new. That is weak but useful evidence the cat really is new (§8.5).
 
 For hand picks, the server also records for the team whether the chosen cat was among those compared but scored too low (a *matcher miss*), or outside the 500 m that were compared (a *distance miss*).
 
@@ -212,6 +214,58 @@ For hand picks, the server also records for the team whether the chosen cat was 
 **Recommendation: C.** And one thing SYC-56 should know: **a confirmed suggestion is a weaker label than it looks.** People tend to agree with what they are shown, the prompted-versus-volunteered bias the data spine already records for ear tips (§10.1). A hand pick is volunteered. The evaluation should report the two kinds separately.
 
 **Matcher misses also test the 500 m decision.** How many hand picks are *distance misses* is the real-world evidence on whether 500 m, measured from a frozen first-spotted position, is too tight. It feeds SYC-80 (letting a cat's position follow its sightings) more directly than any argument could.
+
+### 4.7 A colour filter, with colours read automatically from each cat's photo
+
+**Decision (Samuel, 30 September 2026): option B.** Samuel asked for a "filter by colour" box in the picker, and chose to have each cat's colour worked out automatically from its main photo rather than tagged by people or left out.
+
+**Why it helps.** In a dense part of Ermoupoli, "Cats known around here" can run to forty cards. A tourist who has just photographed a ginger cat shouldn't have to scroll past thirty black-and-white ones to find it. A guardian who knows the name doesn't need the filter, and loses nothing because it's there.
+
+**The question:** where does each cat's colour come from?
+
+| Option | What it means | Benefits | Risks | Tourists | Guardians |
+|---|---|---|---|---|---|
+| **A. People tag colours** (through SYC-2's coat and markings tags) | A spotter or guardian taps colour chips when adding or confirming a cat | People are usually right about colour. It builds the record SYC-2 wants anyway. | Most cats would have no colour for a long time, because it depends on people filling it in. A filter that hides most cats, or shows most of them under "not sure", is worse than no filter. It also puts a form between spotters and their points, which the data spine warns against (§7). SYC-2 isn't built. | Little help for a season | Extra tapping |
+| **B. Read automatically from each cat's main photo (chosen)** | The vision model matching already uses looks at the main photo once and records the colour | Every cat has a colour, or an honest "not sure", from the day it lands, backfilled for existing cats. Nobody has to tap anything. It costs one model call per cat. | The model is sometimes wrong, and wrong in predictable ways (below). A mislabelled cat disappears from a filtered list, and that could lead to a duplicate. The guards below exist for this. | Helps from day one | Can correct it once SYC-2 lands |
+| **C. No colour filter in this version** | Photos and search only | Nothing to get wrong, nothing to build | Long lists stay long in the busiest parts of town, which is exactly where duplicates are most likely | Slower scrolling | No change |
+
+**The colours.** A small fixed list, shown as tappable chips so it works the same in all three languages:
+
+**Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure**
+
+- **It fits SYC-2 and the health-record design.** SYC-2's design shows *Tuxedo / Black / Tabby / Ginger / White paws*, and the health-record design (`docs/superpowers/specs/2026-07-28-cat-health-record-design.md` §4.2) asks for a controlled list of base colour, pattern and markings, never free text. This list is the colour-and-pattern part of that vocabulary. *Black and white* is the everyday word for SYC-2's *Tuxedo*, and the two are the same value. *White paws* is a marking, not a coat colour, so it stays with SYC-2's markings and is not in the filter. When SYC-2 defines its full vocabulary, these eight values are its colour-and-pattern subset. They are not a second list.
+- **A cat can carry two colours**, because *tabby* is a pattern and not a colour. A ginger tabby is recorded as *Ginger* and *Tabby*, and a grey tabby as *Grey* and *Tabby*. It shows under either chip. The model never gives more than two.
+- **"Not sure"** is what a cat gets when the model can't tell, when the photo is dark or blurred, when the model call fails, or before its colour has been worked out.
+
+**How the filter behaves**
+
+- **"All" is selected by default.** Nothing is filtered until the spotter taps a colour.
+- **More than one colour can be chosen at once** ("Ginger" and "Tabby", say).
+- **Cats marked "Not sure" always stay in a filtered list**, in their own section under the matching cats, headed *"Colour not known"*. A filter never hides a cat whose colour the app doesn't know.
+- **Under the list, the spotter sees how many cats the filter is hiding**, with one tap to show them: *"8 more cats nearby in other colours. Show all colours."* This is the escape hatch for a mislabelled cat (§12, pass 3).
+- **It combines with search.** Typing a name searches the whole island, and the colour filter narrows that too. When a search finds nothing because of the filter, the app says so and offers to clear it.
+- **Order doesn't change.** A filtered list is still nearest first by map square, with ties by SYR number (§3.2).
+- **It never touches the matcher's suggestions.** The filter lives only on the "Find the cat" screen. The suggested matches on the screen before are never filtered, reordered or hidden by colour.
+
+**Where the colour comes from, and who can correct it**
+
+- **Worked out once from the main photo**, by the same vision model matching already uses. It runs again whenever the main photo changes, including when the team hides a photo that was the main one. It is **backfilled** once for every existing cat.
+- **Stored as an observation** in the data spine's model (`cat-record-data-spine.md` §10.1): a new kind, `coat`, authored by `system:vision` (per `DECISIONS.md` Part 2g), with `provenance: "machine"`, the photo it was read from, and which model version read it. It is never an edit to the cat. A new reading after a photo change is a new observation.
+- **People outrank the machine.** A Syros Cats team member's correction always wins over the model. So does a cat guardian's, for cats they look after, once guardians have accounts (SYC-53) and SYC-2 gives them the chips to do it. A later machine reading never overrides a person's correction. It is recorded, and the person's answer still shows. This is per-attribute authority as the data spine and SYC-52 intend it: the machine's word counts for colour only, and only until a person says otherwise.
+- **The model is never asked about anything but colour here.** It does not suggest sex, age, ear tip or health from this call. The health-record design is right that those are not colour-like (§5.1 there).
+
+**How accurate to expect it to be, honestly**
+
+Colour is the easiest thing a vision model can read from a cat photo, and it will still get some wrong. The predictable mistakes:
+
+- **Tabby, tortoiseshell and calico get confused with each other**, especially dark tortoiseshells and brown tabbies. That is why tortoiseshell and calico share one chip.
+- **Black and dark grey or dark tabby merge** in shade or at dusk.
+- **White and cream, grey and "blue"** drift with light and phone cameras.
+- **A photo of half a cat**, a cat in deep shadow, or a kitten whose coat is still changing reads badly.
+
+When the model is unsure, the answer is **"Not sure"**, never a guess. The cut-off starts cautious and is tuned against real labels once SYC-56's evaluation set exists. The health-record design (§5.1) is right that a model's stated confidence is not a probability. Until then, "Not sure" and the hidden-count line are what stop a wrong colour from causing a duplicate.
+
+**What it costs.** One model call per cat when it joins the cat-alogue, one more whenever its main photo changes, and a single backfill of one call per existing cat (a few hundred calls). A matching call already looks at the new cat's photo when it's first spotted, so the first reading can ride along with that call, at no extra cost. If a call fails, the cat is "Not sure" and the reading is retried the next time the photo changes, or in the next backfill run.
 
 ---
 
@@ -239,6 +293,10 @@ English below. Every string also needs Greek and French, and a local check befor
 | Line on the new-cat screen | Seen this cat in the app before? **Find it instead** |
 | Picker title | Which cat is it? |
 | Search box | Name or SYR number |
+| Colour chips | All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure |
+| Section under filtered cats | Colour not known |
+| Hidden-count line | {n} more cats nearby in other colours. **Show all colours** |
+| Search finds nothing because of the filter | No {colour} cats called "{text}". **Search all colours** |
 | List heading | Cats known around here |
 | Side-by-side button | Yes, this is the cat |
 | Bottom of picker | Can't find it? **Add it as a new cat** |
@@ -281,10 +339,16 @@ Nothing in the approved specs lets the team say *this sighting is of a different
 
 §3.2 of the data spine says any later sighting clears a deceased statement, and this spec keeps that rule exactly. It only stops a hand pick from being the sighting that does it (§4.3). A suggested match, where the photo check itself found the likeness, still clears it.
 
-### 8.4 Duplicate merging (SYC-59)
+### 8.4 Coat colour is an observation like any other
+
+The colour behind the filter is a `coat` observation (§4.7), written by `system:vision` with `provenance: "machine"`. People's corrections are observations too, written by staff or, once they have accounts, by guardians. **The data spine owns the new kind and the rule for which reading wins**: a person's reading always beats the machine's, and among people the usual authority order applies. That rule is filed there (§11), not defined here. What this spec needs from it is small: the public cat payload carries the resolved colour (one or two values, or "not sure"), and nothing else about how it was worked out.
+
+Colour is **not evidence of life** (`cat-record-data-spine.md` §3.4). Reading a colour off a years-old photo says nothing about whether the cat is alive, so a backfill run never makes an old cat look recently seen. It is also **never notifiable** (§9): nobody gets news that a cat's colour changed.
+
+### 8.5 Duplicate merging (SYC-59)
 
 - **This feature stops duplicates being made. SYC-59 cleans up the ones that get through.** They share evidence: a spotter who opened "Find the cat", looked, and still chose "New cat" is weak evidence the cat really is new. A spotter who chose "New cat" without opening it is none. SYC-59's detection can use the difference.
-- **Merged cats.** The picker lists only the surviving cat of a merge. Search matches a cat's earlier names too, so "Agatha" still finds her after she was merged into "Αγάθη". Names are compared in the folded form from `DECISIONS.md` Part 2g, so Greek accents and capitals don't matter.
+- **Merged cats.** The picker lists only the surviving cat of a merge. Its colour is the surviving cat's own. A merge doesn't combine colour readings. Search matches a cat's earlier names too, so "Agatha" still finds her after she was merged into "Αγάθη". Names are compared in the folded form from `DECISIONS.md` Part 2g, so Greek accents and capitals don't matter.
 - **The name-taken prompt** (§3.1) is a lightweight version of SYC-59's third trigger ("this might be the same cat as…") at the moment of creation, and both should use the same words for it.
 
 ---
@@ -300,6 +364,9 @@ For whoever builds it. Everything above is the product.
 - **Response shape** for a hand pick is identical to a suggested match, including timing. No field, message or status code differs when a pick is flagged.
 - **Name-taken**: when the name is taken, the server's refusal also returns that cat's id, name, main photo and whether it is deceased (all public), so the phone can ask "Is this them?", or skip the question for a deceased cat. The comparison uses the folded name from `DECISIONS.md` Part 2g.
 - **SYR numbers in search** accept every way people write them: `SYR-0042`, `syr 42`, `0042` and `42` all find cat 42.
+- **Colour** travels in the public cat payload as a list of at most two values from the fixed eight. A missing value, as in an older saved cat-alogue, is treated as "Not sure". The payload change bumps the cat-alogue cache version (`cat-record-data-spine.md` §6.5), so phones fetch it again rather than filtering on a copy without colours.
+- **Colour reading** is a server job: on a new cat, on a main-photo change, and a one-off backfill that can be re-run safely. It asks the model for colour only. It writes a `coat` observation, including "not sure", and never writes over a person's correction. Failures are logged and leave the cat "Not sure".
+- **Nothing about colour reaches the matcher.** The suggestions are worked out exactly as `DECISIONS.md` Part 2h says, with no colour pre-filter. The health-record design's idea of colour as a cheap pre-filter for matching is a separate decision, not made here.
 - **The match record is linked to the sighting, never to a device.** Deleting a person (`cat-record-data-spine.md` §8) severs the sighting from them, and the match record needs nothing extra.
 
 ## 10. Tests that must exist
@@ -316,6 +383,12 @@ For whoever builds it. Everything above is the product.
 10. Offline: the picker opens and searches from the saved cat-alogue. Sending without signal keeps the sighting in the review list and loses nothing.
 11. The name-taken prompt is not offered for a deceased cat.
 12. `SYR-0042`, `syr 42`, `0042` and `42` all find cat 42.
+13. With a colour selected, every cat whose colour is "Not sure" or missing still appears, under "Colour not known".
+14. The filter never changes the order: a filtered list is the unfiltered list with cats removed, still nearest first by map square, with ties by SYR number.
+15. The suggested matches are identical whatever colour filter the spotter last used.
+16. A team correction of a cat's colour wins over any machine reading, including a newer one after a photo change.
+17. A backfilled colour reading doesn't change any cat's "last seen" or presumed-deceased status.
+18. The picker list for a given photo location, with any colour filter, is a subset of the unfiltered list and depends on nothing but public data (extends test 1).
 
 ---
 
@@ -323,6 +396,7 @@ For whoever builds it. Everything above is the product.
 
 Filed to Linear under SYC-119 (deduplicated against existing tickets):
 
+- **Coat colour read automatically from each cat's main photo, backfilled, and stored as a `coat` observation** (data spine, with SYC-2): the vocabulary, the machine reading, the backfill, and the rule that people outrank the machine (§4.7, §8.4). Filed in Linear and linked to SYC-2.
 - **Moving a sighting to a different cat, or to a new cat** (data spine): the append-only reassignment in §8.2, including restating the sighting's observations on the right cat.
 - **The team-only match record** (data spine): what was compared, suggested and chosen, per sighting (§4.6). This is the data SYC-56 needs.
 - **SYC-56 note**: report hand picks and confirmed suggestions separately, and count distance misses as evidence for SYC-80 (§4.6). Added as a comment on SYC-56 rather than a new ticket.
@@ -366,7 +440,7 @@ The review ran in two passes, and both assumed the spec was wrong. They looked f
 | D13 | **A match percentage on cats the app never compared** would be invented. A "compare for me" button would be a free AI service. | Low | Neither is offered (§3.2, §4.4). |
 | D14 | **Confirmed suggestions are biased labels for SYC-56.** | Low (measurement) | Report the two kinds separately (§4.6). |
 | D15 | **Holding points until the team checks** would make the list a backlog the charity must clear. | Low | Rejected (§4.2, option D). |
-| D16 | **A merged-away cat in the picker** would spread picks across both halves of a merge. | Low | Only the surviving cat is listed. Old names still find it (§8.4, test 9). |
+| D16 | **A merged-away cat in the picker** would spread picks across both halves of a merge. | Low | Only the surviving cat is listed. Old names still find it (§8.5, test 9). |
 | D17 | **Telling the spotter their pick "will be checked"** treats the helpful as suspects. | Low (tone) | Not said (§3.3). |
 
 ## 13. Open questions
@@ -377,3 +451,4 @@ The review ran in two passes, and both assumed the spec was wrong. They looked f
 | 2 | Is 30 days right, both for the list ageing out and for an unflagged hand pick to become a SYC-56 label? | Samuel | Yes for launch. Revisit once SYC-56 has a first baseline. |
 | 3 | Should guardians see hand picks in their own colonies once they have accounts (SYC-53)? | Syros Cats | Yes. They know their cats best, and it spreads the load off the core team. |
 | 4 | Are Syros Cats comfortable that a person can choose a cat from anywhere on the island, while automatic suggestions stay within 500 m? | Syros Cats, via Samuel | Yes. One sentence at the next check-in: *"The app only suggests cats within 500 m, but if someone recognises a cat from further away they can pick it, and those picks are marked for you to check."* |
+| 5 | Where should the "not sure" cut-off sit for colour at launch, before SYC-56 has labels to tune it? | Samuel | Cautious. It's better to show a cat under "Not sure" than to hide it under the wrong colour. Re-tune once there are a few hundred checked cats. |
