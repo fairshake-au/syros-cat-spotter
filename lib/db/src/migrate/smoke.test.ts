@@ -173,3 +173,43 @@ describe("smoke against a hanging endpoint", () => {
     }
   }, 5000);
 });
+
+describe("SMOKE_TIMEOUT_MS validation", () => {
+  // Fable review of PR #40, item 3. A typo in this env var must say plainly
+  // what's wrong, not read as a broken endpoint ("timed out"/"Roll back
+  // now") or silently do something unintended (0 meant "every request times
+  // out instantly" before this validation existed). And it must be checked
+  // before any request goes out — port 1 refuses the connection instantly,
+  // so if these ever reached fetch() the test would still finish fast, but
+  // it would fail with a connection error rather than this message.
+  it.each(["abc", "1.5", "-5", "0"])(
+    "SMOKE_TIMEOUT_MS=%s is refused up front, before any request",
+    async (value) => {
+      await expect(
+        smoke("http://127.0.0.1:1", { SMOKE_TIMEOUT_MS: value }),
+      ).rejects.toThrow(/SMOKE_TIMEOUT_MS must be a positive integer \(ms\)/);
+    },
+  );
+
+  it("an unset or empty SMOKE_TIMEOUT_MS falls back to the default instead of being refused", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz" || req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(req.url === "/api/cats" ? "[]" : JSON.stringify({ ok: true }));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(
+      smoke(baseUrl, { SMOKE_TIMEOUT_MS: "" }),
+    ).resolves.toBeUndefined();
+  });
+});

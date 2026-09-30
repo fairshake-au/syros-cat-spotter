@@ -10,6 +10,21 @@ import { MigrationError } from "./runner";
 // timeout without waiting 30s for the real one to fire.
 const DEFAULT_SMOKE_TIMEOUT_MS = 30_000;
 
+// A typo here (SMOKE_TIMEOUT_MS=abc, =1.5, =-5, =0) must not read as either
+// "the endpoint is broken" (a same-shaped "timed out"/"Roll back now"
+// message) or a silent no-op — it must say plainly what's wrong, and it must
+// say so before any request goes out.
+function parseSmokeTimeoutMs(raw: string | undefined): number {
+  if (raw === undefined || raw === "") return DEFAULT_SMOKE_TIMEOUT_MS;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new MigrationError(
+      "SMOKE_TIMEOUT_MS must be a positive integer (ms)",
+    );
+  }
+  return n;
+}
+
 export async function smoke(
   baseUrl: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
@@ -18,12 +33,10 @@ export async function smoke(
     throw new MigrationError(
       "usage: smoke <base-url>, e.g. https://api.catspotters.com",
     );
+  const timeoutMs = parseSmokeTimeoutMs(env.SMOKE_TIMEOUT_MS);
   const base = baseUrl.replace(/\/$/, "");
   const headers: Record<string, string> = {};
   if (env.PRELAUNCH_KEY) headers["X-Prelaunch-Key"] = env.PRELAUNCH_KEY;
-  const timeoutMs = env.SMOKE_TIMEOUT_MS
-    ? Number(env.SMOKE_TIMEOUT_MS)
-    : DEFAULT_SMOKE_TIMEOUT_MS;
   // A stalled body must fail the same way a stalled connect does. The
   // request's AbortSignal keeps applying while a body is being read, so
   // reading it here (under the same try/catch as the fetch itself) is what
