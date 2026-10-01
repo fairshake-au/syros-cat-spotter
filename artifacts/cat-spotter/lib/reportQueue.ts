@@ -46,6 +46,8 @@ export interface PendingReport {
   serverFailures: number;
   /** When the one "hasn't sent yet" reminder was shown (spec §4.3). */
   remindedAt?: string;
+  /** Phone apps: the local notification scheduled for 24 hours on. */
+  nativeReminderId?: string;
 }
 
 export interface SubmitBody {
@@ -78,6 +80,11 @@ function randomId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** The id a report carries from its draft to its submit, and across resends. */
+export function newClientRef(): string {
+  return `r-${randomId()}`;
+}
+
 export function newPendingReport(input: {
   severity: ReportSeverity;
   isLitter: boolean;
@@ -92,7 +99,7 @@ export function newPendingReport(input: {
   const now = input.now ?? new Date();
   return {
     localId: `${now.getTime()}-${randomId().slice(0, 8)}`,
-    clientRef: input.clientRef ?? `r-${randomId()}`,
+    clientRef: input.clientRef ?? newClientRef(),
     createdAt: now.toISOString(),
     severity: input.severity,
     isLitter: input.isLitter,

@@ -24,6 +24,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
+import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { photoSource } from '@/lib/urls';
 import { Badge, Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { palette } from '@/constants/colors';
@@ -187,6 +188,8 @@ export default function CatDetailScreen() {
                 {new Date(cat.lastSeenAt).toLocaleDateString()}
               </Text>
             </View>
+            {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
+            <NeedsHelpLink />
             {!!cat.discovererSpotterCode && (
               <View style={styles.metaRow}>
                 <Feather name="star" size={14} color={colors.mutedForeground} />

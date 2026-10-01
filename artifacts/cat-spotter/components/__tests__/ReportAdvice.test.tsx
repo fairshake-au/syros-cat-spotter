@@ -105,7 +105,7 @@ describe('VetList (§5.7, item 1.10)', () => {
   it('tap-to-call for every number, after-hours labelled, map buttons, pin accuracy', () => {
     const g = getGuidance('en');
     const { container } = render(<VetList guidance={g} />);
-    const links = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    const links = Array.from(container.querySelectorAll('a')).map((a) => a.getAttribute('href'));
     for (const v of g.vets) {
       for (const p of v.phones) expect(links).toContain(`tel:${p.tel}`);
       expect(links).toContain(v.googleMapsUrl);
