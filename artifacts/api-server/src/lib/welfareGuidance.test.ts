@@ -1,39 +1,74 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   GUIDANCE_LANGUAGES,
+  GUIDANCE_SCHEMA_VERSION,
+  allCopyStrings,
+  computeGuidanceVersion,
   getGuidance,
   guidanceVersion,
   urgentBlockCanonical,
-  allCopyStrings,
   type GuidanceCopy,
+  type GuidanceLanguage,
 } from "@workspace/welfare-guidance";
 
-// SYC-42 plan, Slice 0 item 0.2, tests 3–5.
+// SYC-42 plan, Slice 0 item 0.2, tests 3–5 and 22, plus the Slice 0 review's
+// fixes 4–8.
 
 /**
  * THE URGENT-BLOCK LOCK (spec §5.4, plan Decision 6).
  *
- * The English urgent block (§5.3(b)) is settled copy: Samuel line-edited it on
- * 4 Sep 2026 and cut the out-of-hours paragraph on 27 Sep 2026. Unlike the
- * rest of §5.3 it is NOT a free copy swap. If this test fails, someone changed
- * the words people act on while holding a hurt cat.
+ * The urgent block (§5.3(b)) is settled copy: Samuel line-edited the English
+ * on 4 Sep 2026 and cut the out-of-hours paragraph on 27 Sep 2026. Unlike the
+ * rest of §5.3 it is NOT a free copy swap. The hash covers the WHOLE `urgent`
+ * object (every field, in a stable key order) except its `review` and
+ * `locked` notes, so adding a field fails it as surely as changing a word.
  *
- * To change it: get Samuel's approval, then update the hash below AND add a
- * line to the log underneath saying who approved what, and when.
+ * To change the ENGLISH: get Samuel's approval, then update its hash below
+ * and add a line to the log saying who approved what, and when.
+ * To change the GREEK or FRENCH: the change must come from the native-speaker
+ * check (SYC-172, SYC-4) and be reflected in
+ * docs/specs/source/safety-copy-translations.md first; then update the hash
+ * and log it here as "native-check approved", with the checker and date.
  *
  * Approval log:
- * - 2026-10-01: pinned at the text in spec §5.3(b) as approved by Samuel on
- *   28 Sep 2026 (SYC-42 Slice 0).
+ * - 2026-10-01 en: pinned at spec §5.3(b) as approved by Samuel, 28 Sep 2026.
+ * - 2026-10-01 el, fr: pinned at safety-copy-translations.md (drafts,
+ *   awaiting the native check; not yet native-check approved).
  */
-const URGENT_BLOCK_SHA256_EN =
-  "e003e594121026bd0ef7a1df27d15c02cdc7cf8ad98dd0532936ee53e7f2ddd0";
+const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
+  en: "PIN_EN",
+  el: "PIN_EL",
+  fr: "PIN_FR",
+};
 
-const FORBIDDEN: Record<string, string[]> = {
+function sha256(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+/** Lower-case and strip accents, so "Εφημερεύει" and "εφημερευει" match. */
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+const FORBIDDEN: Record<GuidanceLanguage, string[]> = {
   // spec §5.1 and §10: "nobody comes away believing somebody is standing by"
-  en: ["on duty", "standing by", "on call", "someone is coming", "we'll come", "alerted", "on our way"],
-  el: ["σε βάρδια", "σε επιφυλακή", "έρχεται κάποιος", "θα έρθουμε", "ειδοποιήθηκ", "ειδοποιήσαμε"],
-  fr: ["de permanence", "de garde", "quelqu'un arrive", "quelqu'un va venir", "nous viendrons", "on viendra", "alerté"],
+  en: [
+    "on duty", "standing by", "on call", "someone is coming", "somebody is coming",
+    "we'll come", "we will come", "will come", "alerted", "notified", "on our way",
+    "on its way", "monitor", "in touch",
+  ],
+  el: [
+    "σε βάρδια", "σε επιφυλακή", "επιφυλακ", "εφημερ", "έρχεται κάποιος",
+    "θα έρθουμε", "ειδοποι",
+  ],
+  fr: [
+    "de permanence", "de garde", "quelqu'un arrive", "quelqu'un va venir",
+    "nous viendrons", "on viendra", "alerté", "prévenu", "surveill", "en route",
+  ],
 };
 
 // The only sentences allowed to contain a forbidden phrase are the spec's own
@@ -44,50 +79,120 @@ const ALLOWED_NEGATIONS = [
   "Personne n'est de permanence.",
 ];
 
-function stripAllowed(text: string): string {
-  return ALLOWED_NEGATIONS.reduce((t, s) => t.split(s).join(""), text);
+const AFTER_HOURS = ["697 005 5012", "6970055012", "6937 252802", "6937252802"];
+
+/** Where the cage is offered, and where handling first appears, per language. */
+const MARKERS: Record<GuidanceLanguage, { cage: string; handling: string; wontGoIn: string }> = {
+  en: { cage: "will lend you a carrying cage", handling: "drop a towel, a jumper", wontGoIn: "If the cat will not go in." },
+  el: { cage: "θα σου δανείσουν κλουβί μεταφοράς", handling: "ρίξε μια πετσέτα, ένα φούτερ", wontGoIn: "Αν η γάτα δεν μπαίνει με τίποτα." },
+  fr: { cage: "vous prêteront une cage de transport", handling: "laissez tomber une serviette", wontGoIn: "Si le chat refuse d'entrer." },
+};
+
+// ── The translations document is the source for the Greek and French block ──
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const translationsDoc = readFileSync(
+  path.join(here, "../../../../docs/specs/source/safety-copy-translations.md"),
+  "utf8",
+);
+
+const DOC_KEYS: Record<string, (u: GuidanceCopy["urgent"]) => string> = {
+  "injured.send": (u) => u.send,
+  "injured.intro": (u) => u.intro,
+  "injured.cage": (u) => u.cage,
+  "injured.vetlist.heading": (u) => u.vetListHeading,
+  "injured.disclosure": (u) => u.howToHeading,
+  "injured.step1": (u) => u.steps[0]!,
+  "injured.step2": (u) => u.steps[1]!,
+  "injured.step3": (u) => u.steps[2]!,
+  "injured.wontgoin": (u) => u.wontGoIn,
+  "injured.vetdoes": (u) => u.vetDoes,
+  "injured.cost": (u) => u.cost,
+  "injured.decision": (u) => u.decision,
+  "injured.municipality": (u) => u.municipality,
+};
+
+function docBlock(section: "## 2." | "## 3."): Record<string, string> {
+  const start = translationsDoc.indexOf(`\n${section}`);
+  const end = translationsDoc.indexOf("\n## ", start + 5);
+  const lines = translationsDoc.slice(start, end).split("\n");
+  const out: Record<string, string> = {};
+  for (let i = 0; i < lines.length; i++) {
+    const key = /^\*\*`(injured\.[a-z0-9.]+)`\*\*$/.exec(lines[i]!.trim())?.[1];
+    if (!key) continue;
+    const quote = lines.slice(i + 1).find((l) => l.startsWith("> "))!;
+    out[key] = quote
+      .slice(2)
+      .replace(/\s*\*\[[^\]]*\]\*\s*$/, "") // "*[list inserted here]*"
+      .replace(/^\*\*▾\s*(.*)\*\*$/, "$1") // the expander label
+      .replace(/^\*\*([^*]+)\*\*$/, (m, inner: string) => (key === "injured.vetlist.heading" ? inner : m))
+      .trim();
+  }
+  return out;
 }
 
-describe("urgent-block lock (test 3, spec §5.4)", () => {
-  it("the English §5.3(b) block matches the pinned text exactly", () => {
-    const canonical = urgentBlockCanonical(getGuidance("en").copy);
-    const hash = createHash("sha256").update(canonical, "utf8").digest("hex");
-    expect(hash).toBe(URGENT_BLOCK_SHA256_EN);
-  });
+describe("urgent-block lock (test 3, spec §5.4; review fix 4)", () => {
+  for (const lang of GUIDANCE_LANGUAGES) {
+    it(`${lang}: the whole urgent block matches the pinned text exactly`, () => {
+      expect(sha256(urgentBlockCanonical(getGuidance(lang).copy))).toBe(URGENT_BLOCK_SHA256[lang]);
+    });
+  }
 
-  it("leads with 'Send this…', never the discouraging half (spec §5.2)", () => {
-    const urgent = getGuidance("en").copy.urgent;
-    expect(urgent.send.replace(/\*\*/g, "")).toMatch(/^Send this\./);
+  it("the canonical form covers every field, so an added field changes it", () => {
+    const copy = getGuidance("en").copy;
+    const extra = {
+      ...copy,
+      urgent: { ...copy.urgent, outOfHours: "Call +30 697 005 5012" },
+    } as unknown as GuidanceCopy;
+    expect(urgentBlockCanonical(extra)).not.toBe(urgentBlockCanonical(copy));
+    // ... and notes about the block don't.
+    const noted = { ...copy, urgent: { ...copy.urgent, review: "draft", locked: "x" } } as GuidanceCopy;
+    expect(urgentBlockCanonical(noted)).toBe(urgentBlockCanonical(copy));
   });
+});
 
-  it("the cage comes before any handling, and handling begins 'If the cat will not go in' (test 22, spec §10)", () => {
-    const canonical = urgentBlockCanonical(getGuidance("en").copy);
-    const cage = canonical.indexOf("will lend you a carrying cage");
-    const handling = canonical.indexOf("drop a towel");
-    expect(cage).toBeGreaterThan(-1);
-    expect(handling).toBeGreaterThan(cage);
-    expect(getGuidance("en").copy.urgent.wontGoIn.replace(/\*\*/g, "")).toMatch(
-      /^If the cat will not go in\./,
-    );
-  });
+describe("the urgent block, in every language (review fix 5; tests 21–22)", () => {
+  for (const lang of ["el", "fr"] as const) {
+    it(`${lang}: matches safety-copy-translations.md line for line`, () => {
+      const doc = docBlock(lang === "el" ? "## 2." : "## 3.");
+      expect(Object.keys(doc).sort()).toEqual(Object.keys(DOC_KEYS).sort());
+      const urgent = getGuidance(lang).copy.urgent;
+      for (const [key, pick] of Object.entries(DOC_KEYS)) {
+        expect(pick(urgent), `${lang} ${key}`).toBe(doc[key]);
+      }
+    });
+  }
 
-  it("has no out-of-hours paragraph (removed by Samuel, 27 Sep 2026)", () => {
-    for (const lang of GUIDANCE_LANGUAGES) {
+  for (const lang of GUIDANCE_LANGUAGES) {
+    it(`${lang}: the lead is "send this", never the discouraging half (spec §5.2)`, () => {
+      const lead = getGuidance(lang).copy.urgent.send.replace(/\*\*/g, "");
+      expect(lead).toMatch({ en: /^Send this\./, el: /^Στείλ' το\./, fr: /^Envoyez-le\./ }[lang]);
+    });
+
+    it(`${lang}: the cage comes before any handling; handling is the fallback (spec §10)`, () => {
       const canonical = urgentBlockCanonical(getGuidance(lang).copy);
-      expect(canonical).not.toContain("697 005 5012");
-      expect(canonical).not.toContain("6937 252802");
-    }
-  });
+      const cage = canonical.indexOf(MARKERS[lang].cage);
+      const handling = canonical.indexOf(MARKERS[lang].handling);
+      expect(cage, "cage").toBeGreaterThan(-1);
+      expect(handling, "handling").toBeGreaterThan(cage);
+      expect(getGuidance(lang).copy.urgent.wontGoIn.replace(/\*\*/g, "").startsWith(MARKERS[lang].wontGoIn)).toBe(true);
+    });
+
+    it(`${lang}: no after-hours number anywhere in the copy (Part 2b)`, () => {
+      const text = allCopyStrings(getGuidance(lang).copy).join("\n");
+      for (const n of AFTER_HOURS) expect(text).not.toContain(n);
+    });
+  }
 });
 
 describe("vet list (test 4, spec §5.7, Decision 3)", () => {
   const { vets, municipality } = getGuidance("en");
 
-  it("has the three clinics", () => {
+  it("has the three clinics, with the names people ask for", () => {
     expect(vets.map((v) => v.id)).toEqual(["symviosis", "dermitzaki", "cyclades-vets"]);
-    expect(vets.find((v) => v.id === "cyclades-vets")!.name).toBe(
-      "Cyclades Vets (George Maragkos)",
-    );
+    const cyclades = vets.find((v) => v.id === "cyclades-vets")!;
+    expect(cyclades.name).toBe("Cyclades Vets (George Maragkos)");
+    expect(cyclades.vet).toBe("George Maragkos");
   });
 
   it("every clinic has every §5.7 field", () => {
@@ -145,9 +250,7 @@ describe("vet list (test 4, spec §5.7, Decision 3)", () => {
     expect(d.googleMapsUrl).toBe(
       "https://www.google.com/maps/search/?api=1&query=Dermitzaki%20vet%20Livadia%20Manna%20Syros",
     );
-    expect(d.appleMapsUrl).toBe(
-      "https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros",
-    );
+    expect(d.appleMapsUrl).toBe("https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros");
     expect(JSON.stringify(d)).not.toContain("37.43037");
     expect(JSON.stringify(d)).not.toMatch(/Lazaret/i);
   });
@@ -155,19 +258,19 @@ describe("vet list (test 4, spec §5.7, Decision 3)", () => {
   it("the Municipality number in every language's copy is the configured one", () => {
     expect(municipality.phone.display).toBe("+30 22813 61000");
     for (const lang of GUIDANCE_LANGUAGES) {
-      expect(getGuidance(lang).copy.urgent.municipality).toContain(
-        municipality.phone.display,
-      );
+      expect(getGuidance(lang).copy.urgent.municipality).toContain(municipality.phone.display);
     }
   });
 });
 
-describe("no promise anybody is coming (test 5, spec §5.1, §10)", () => {
+describe("no promise anybody is coming (test 5, spec §5.1, §10; review fix 6)", () => {
   for (const lang of GUIDANCE_LANGUAGES) {
-    it(`${lang}: no forbidden phrase anywhere in the copy`, () => {
-      const text = stripAllowed(allCopyStrings(getGuidance(lang).copy).join("\n")).toLowerCase();
-      for (const phrase of FORBIDDEN[lang]!) {
-        expect(text, `"${phrase}" in ${lang}`).not.toContain(phrase.toLowerCase());
+    it(`${lang}: no forbidden phrase anywhere in the copy (accents and case ignored)`, () => {
+      let text = allCopyStrings(getGuidance(lang).copy).join("\n");
+      for (const s of ALLOWED_NEGATIONS) text = text.split(s).join("");
+      const folded = fold(text);
+      for (const phrase of FORBIDDEN[lang]) {
+        expect(folded, `"${phrase}" in ${lang}`).not.toContain(fold(phrase));
       }
     });
   }
@@ -175,8 +278,15 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10)", () => {
   it("the litter block asks for no money (spec §5.3(d))", () => {
     for (const lang of GUIDANCE_LANGUAGES) {
       const litter = getGuidance(lang).copy.litter;
-      const text = [litter.heading, ...litter.paragraphs].join(" ").toLowerCase();
-      expect(text).not.toMatch(/donat|δωρε|don /);
+      const text = fold([litter.heading, ...litter.paragraphs].join(" "));
+      expect(text).not.toMatch(/donat|δωρε|\bdon\b/);
+    }
+  });
+
+  it("the litter block names sterilisation at €50–60 in every language (canonical fact; review fix 8)", () => {
+    for (const lang of GUIDANCE_LANGUAGES) {
+      const litter = getGuidance(lang).copy.litter;
+      expect([litter.heading, ...litter.paragraphs].join(" "), lang).toContain("50–60");
     }
   });
 
@@ -194,9 +304,7 @@ describe("structure", () => {
   it("every language has the same keys and the same number of steps", () => {
     const shape = (c: GuidanceCopy) =>
       JSON.stringify(c, (k, v) =>
-        k === "locked"
-          ? undefined
-          : typeof v === "string" ? "" : Array.isArray(v) ? v.map(() => "") : v,
+        k === "locked" ? undefined : typeof v === "string" ? "" : Array.isArray(v) ? v.map(() => "") : v,
       );
     const en = shape(getGuidance("en").copy);
     expect(shape(getGuidance("el").copy)).toBe(en);
@@ -212,9 +320,21 @@ describe("structure", () => {
     }
   });
 
+  it("the served payload carries schemaVersion 1 (review fix 7)", () => {
+    expect(GUIDANCE_SCHEMA_VERSION).toBe(1);
+    for (const lang of GUIDANCE_LANGUAGES) expect(getGuidance(lang).schemaVersion).toBe(1);
+  });
+
   it("the version changes when any of the content changes, and is stable otherwise", () => {
-    expect(guidanceVersion()).toMatch(/^[0-9a-f]{8}$/);
-    expect(guidanceVersion()).toBe(guidanceVersion());
-    expect(getGuidance("el").version).toBe(guidanceVersion());
+    const g = getGuidance("en");
+    const copies = Object.fromEntries(GUIDANCE_LANGUAGES.map((l) => [l, getGuidance(l).copy])) as Record<GuidanceLanguage, GuidanceCopy>;
+    const base = computeGuidanceVersion(copies, g.vets, g.municipality);
+    expect(base).toBe(guidanceVersion());
+    expect(base).toMatch(/^[0-9a-f]{8}$/);
+    const changedCopy = { ...copies, fr: { ...copies.fr, litter: { ...copies.fr.litter, heading: "x" } } };
+    expect(computeGuidanceVersion(changedCopy, g.vets, g.municipality)).not.toBe(base);
+    const changedVets = g.vets.map((v, i) => (i === 0 ? { ...v, phones: [] } : v));
+    expect(computeGuidanceVersion(copies, changedVets, g.municipality)).not.toBe(base);
+    expect(getGuidance("el").version).toBe(base);
   });
 });
