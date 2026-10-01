@@ -526,7 +526,9 @@ components:
         catId: { type: integer }
         catUpdateId: { type: integer }
         catName: { type: string }
-        catPhotoUrl: { type: string }
+        catPhotoUrl:
+          type: string
+          nullable: true
         updateType:
           type: string
           enum: [sighting, desexed, adopted, general]
@@ -556,7 +558,9 @@ components:
         id: { type: integer }
         name: { type: string }
         description: { type: string }
-        photoUrl: { type: string }
+        photoUrl:
+          type: string
+          nullable: true
         lat: { type: number }
         lng: { type: number }
         sightingsCount: { type: integer }
@@ -619,7 +623,9 @@ components:
         spotterNickname:
           type: string
           nullable: true
-        photoUrl: { type: string }
+        photoUrl:
+          type: string
+          nullable: true
         lat: { type: number }
         lng: { type: number }
         createdAt: { type: string }
@@ -717,7 +723,9 @@ components:
       properties:
         catId: { type: integer }
         name: { type: string }
-        photoUrl: { type: string }
+        photoUrl:
+          type: string
+          nullable: true
         confidence:
           type: number
           description: Match likelihood 0-1

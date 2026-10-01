@@ -12,7 +12,7 @@ export interface AppNotification {
   catId: number;
   catUpdateId: number;
   catName: string;
-  catPhotoUrl: string;
+  catPhotoUrl: string | null;
   updateType: AppNotificationUpdateType;
   message: string;
   read: boolean;

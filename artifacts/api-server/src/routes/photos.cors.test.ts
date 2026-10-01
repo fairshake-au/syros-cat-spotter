@@ -12,6 +12,7 @@ const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
 let photoId: number;
+let publicId: string;
 
 beforeAll(async () => {
   const [photo] = await db
@@ -19,6 +20,7 @@ beforeAll(async () => {
     .values({ data: TINY_JPEG_B64, mime: "image/jpeg" })
     .returning();
   photoId = photo!.id;
+  publicId = photo!.publicId;
 });
 
 afterAll(async () => {
@@ -26,10 +28,10 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe("GET /api/photos/:photoId CORS", () => {
+describe("GET /api/photos/:publicId CORS", () => {
   it("serves the photo and omits ACAO for a disallowed origin", async () => {
     const res = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("Origin", "https://evil-scraper.example");
     expect(res.status).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
@@ -37,7 +39,7 @@ describe("GET /api/photos/:photoId CORS", () => {
 
   it("omits ACAO for a look-alike origin with no dot before catspotters (evilcatspotters.com)", async () => {
     const res = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("Origin", "https://evilcatspotters.com");
     expect(res.status).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
@@ -45,7 +47,7 @@ describe("GET /api/photos/:photoId CORS", () => {
 
   it("omits ACAO for a look-alike origin with catspotters.com as a subdomain of another domain", async () => {
     const res = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("Origin", "https://catspotters.com.evil.io");
     expect(res.status).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
@@ -53,7 +55,7 @@ describe("GET /api/photos/:photoId CORS", () => {
 
   it("sets ACAO for the app's own origin", async () => {
     const res = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("Origin", "https://catspotters.com");
     expect(res.status).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBe(
@@ -63,7 +65,7 @@ describe("GET /api/photos/:photoId CORS", () => {
 
   it("sets ACAO for a catspotters.com subdomain (e.g. the web build on a preview host)", async () => {
     const res = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("Origin", "https://team.catspotters.com");
     expect(res.status).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBe(
@@ -73,7 +75,7 @@ describe("GET /api/photos/:photoId CORS", () => {
 
   it("sets ACAO for the Expo dev server on localhost", async () => {
     const res = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("Origin", "http://localhost:8081");
     expect(res.status).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBe(
@@ -82,7 +84,7 @@ describe("GET /api/photos/:photoId CORS", () => {
   });
 
   it("still serves the photo with no Origin header at all (native app requests)", async () => {
-    const res = await request(app).get(`/api/photos/${photoId}`);
+    const res = await request(app).get(`/api/photos/${publicId}`);
     expect(res.status).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });

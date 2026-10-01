@@ -159,7 +159,9 @@ describe("9. gate on, no pass: every route refuses", () => {
     // Guard against a walker that silently finds nothing.
     expect(routes.length).toBeGreaterThanOrEqual(20);
     expect(routes).toContainEqual({ method: "get", path: "/api/cats" });
-    expect(routes).toContainEqual({ method: "get", path: "/api/photos/:photoId" });
+    // SYC-98: the param is now `:id` (it carries the public_id; a numeric
+    // segment, the old id format, 404s — see routes/photos.ts).
+    expect(routes).toContainEqual({ method: "get", path: "/api/photos/:id" });
 
     for (const route of routes) {
       const url = concrete(route.path);
@@ -555,6 +557,7 @@ describe("16. photos aren't stored by shared caches while the gate is on", () =>
   const TINY_JPEG_B64 =
     "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
   let photoId: number;
+  let publicId: string;
 
   beforeEach(async () => {
     const [photo] = await db
@@ -562,14 +565,18 @@ describe("16. photos aren't stored by shared caches while the gate is on", () =>
       .values({ data: TINY_JPEG_B64, mime: "image/jpeg" })
       .returning();
     photoId = photo!.id;
+    publicId = photo!.publicId;
   });
 
   afterEach(async () => {
     await db.delete(photosTable).where(eq(photosTable.id, photoId));
   });
 
+  // SYC-98: the numeric id 404s rather than serving bytes, so these
+  // requests go by public_id — the id that actually reaches the branch
+  // that sets these cache headers (routes/photos.ts).
   it("gate on: Cache-Control private (a year, immutable) and Vary on both pass headers", async () => {
-    const res = await request(app).get(`/api/photos/${photoId}`).set("X-Prelaunch-Key", TESTER_KEY);
+    const res = await request(app).get(`/api/photos/${publicId}`).set("X-Prelaunch-Key", TESTER_KEY);
     expect(res.status).toBe(200);
     expect(res.headers["cache-control"]).toBe("private, max-age=31536000, immutable");
     const vary = String(res.headers["vary"]).toLowerCase();
@@ -579,7 +586,7 @@ describe("16. photos aren't stored by shared caches while the gate is on", () =>
 
   it("gate off: public, as today", async () => {
     process.env["PRELAUNCH_GATE"] = "off";
-    const res = await request(app).get(`/api/photos/${photoId}`);
+    const res = await request(app).get(`/api/photos/${publicId}`);
     expect(res.status).toBe(200);
     expect(res.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
   });

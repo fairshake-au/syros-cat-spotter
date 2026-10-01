@@ -77,7 +77,12 @@ function safeCandidate(candidate: unknown): MatchCandidate | null {
   return {
     catId: c.catId,
     name: safeText(c.name) ?? '',
-    photoUrl: safeText(c.photoUrl) ?? '',
+    // SYC-98 Fable review, nit 8: MatchCandidate.photoUrl is string | null
+    // (a candidate cat with no real photo yet). Coercing a null photoUrl to
+    // '' used to make photoSource('') request the bare API origin instead
+    // of rendering nothing — kept as the real `null` here so photoSource
+    // treats it the same as any other photo-less candidate.
+    photoUrl: c.photoUrl === null ? null : (safeText(c.photoUrl) ?? ''),
     confidence: typeof c.confidence === 'number' ? c.confidence : 0,
     reasoning: trimReasoning(c.reasoning),
   };
