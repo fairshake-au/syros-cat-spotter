@@ -1,6 +1,6 @@
-# SYC-42: "This cat needs help" — implementation plan (for Samuel's approval)
+# SYC-42: "This cat needs help" — implementation plan (approved by Samuel, 1 Oct 2026)
 
-**Linear:** SYC-42 (urgent), with SYC-43 (the dashboard queue), SYC-45 (email capture), SYC-3 (the shared send function), SYC-68 (vet pins), SYC-35 (the onboarding promise). **Status:** plan only. Nothing here is built, published or configured.
+**Linear:** SYC-42 (urgent), with SYC-43 (the dashboard queue), SYC-45 (email capture), SYC-3 (the shared send function), SYC-68 (vet pins), SYC-35 (the onboarding promise). **Status:** approved by Samuel, 1 Oct 2026. Nothing here is built yet, published or configured.
 **Design (approved, not reopened here):** `docs/specs/team-access-and-welfare-queue.md` v2.0 (approved 28 Sep 2026) §1, §3.1, §4, §5, §8.3–§8.6, §9.3 · `docs/specs/DECISIONS.md` F1, F7b, F8 and Part 2b, which win over the spec · the review `docs/specs/reviews/team-access-and-welfare-queue-review.md` · Susan's reply `docs/specs/source/syros-cats-standard-reply.md` · `docs/specs/source/syros-vets-verified.md` · `docs/specs/source/safety-copy-translations.md`.
 **Checked against:** `origin/main` at `4cc8a2d` (30 Sep 2026); open PRs #23 (data spine plan), #24 (SYC-98), #28 (SYC-43 part 1), #45 (SYC-35), #52 (SYC-119 Slice A); the SYC-3 and SYC-121 plans on `main`; Linear SYC-42 in full, including its comments. Every "exists today" claim below names the file it was read in.
 
@@ -30,7 +30,7 @@ So this plan **builds no alert by default**. It sets the question out properly a
 
 ## Decisions for Samuel
 
-Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong together; the rest stand alone.
+All seven decided by Samuel on 1 Oct 2026: 1–6 as recommended, 7 as B (the line hidden until Slice 1). He approved the plan the same day. Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong together; the rest stand alone.
 
 ### Decision 1 — Should an urgent report message a person, and how?
 
@@ -47,7 +47,7 @@ Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong togeth
 
 **Whose number, if B or C is chosen:** a **new number owned by Syros Cats** (a cheap SIM or a virtual number registered to the charity), never Samuel's or Susan's personal number. The business account would be in Syros Cats' name, and its access key would sit in Replit's secret store like the mail keys (spec §2.11). The message would carry a map link and the photo, never the reporter's details.
 
-**Recommendation: A.** It's what was decided, it's what Susan's own reply says, and it costs nothing. If Syros Cats later ask for faster notice, C is the honest version, and the plan leaves room for it: the send function has an `urgent_alert` purpose slot that does nothing until it's switched on.
+**Recommendation: A. Decided by Samuel, 1 Oct 2026: A, no alert; F1 kept.** It's what was decided, it's what Susan's own reply says, and it costs nothing. If Syros Cats later ask for faster notice, C is the honest version, and the plan leaves room for it: the send function has an `urgent_alert` purpose slot that does nothing until it's switched on.
 
 ### Decision 2 — If there is an alert, does it repeat?
 
@@ -59,7 +59,7 @@ Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong togeth
 | B. One morning round-up at 09:00 Athens time of urgent reports still *New* | Never wakes anyone. Catches anything missed overnight | A daily message about cats nobody can help becomes noise, then gets muted |
 | C. Re-send after N hours, then to a named person after 2N | The strongest safeguard | An on-call rota in all but name, which F1 rejects |
 
-**Recommendation: A.** If Decision 1 stays at A, there is nothing to repeat. If Samuel picks an alert, B is the gentlest repeat. C isn't recommended.
+**Recommendation: A. Decided by Samuel, 1 Oct 2026: not applicable (no alert).** If Decision 1 stays at A, there is nothing to repeat. If Samuel picks an alert, B is the gentlest repeat. C isn't recommended.
 
 ### Decision 3 — SYC-68 (vet pins and after-hours lines) isn't finished. Ship anyway?
 
@@ -71,7 +71,7 @@ Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong togeth
 | B. Hide the two after-hours numbers until someone rings them | Nothing untested is shown | Takes away the only numbers that might answer at night, against Samuel's 28 Sep decision |
 | C. Wait for SYC-68 | Everything exact | Waits on someone being physically on Syros. Delays the most urgent feature for a ten-minute pin job |
 
-**Recommendation: A.** One small fix ships with Slice 1: Dermitzaki gets the interim **search links** from spec §5.7 (no coordinates), not the old Lazareta pin. SYC-68's description is out of date (it still lists Dermitzaki's location as open, and says to ring the lines), so this plan adds a comment there.
+**Recommendation: A. Decided by Samuel, 1 Oct 2026: A.** One small fix ships with Slice 1: Dermitzaki gets the interim **search links** from spec §5.7 (no coordinates), not the old Lazareta pin. SYC-68's description is out of date (it still lists Dermitzaki's location as open, and says to ring the lines), so this plan adds a comment there.
 
 ### Decision 4 — Ship the first version without the "your email" box?
 
@@ -83,7 +83,7 @@ Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong togeth
 | B. Collect the address now, send nothing until checking exists | Addresses collected from day one | Holding addresses we can't use yet, and a box that promises a reply that doesn't come. That's the broken promise SYC-3's plan refused for the news box | A promise not kept | Personal data held without a use |
 | C. Wait and ship everything together | One release | Delays help to injured cats for the least important part | — | — |
 
-**Recommendation: A.** The confirmation screen in Slice 1 uses the spec's wording without the "if an email was given" line.
+**Recommendation: A. Decided by Samuel, 1 Oct 2026: A.** The confirmation screen in Slice 1 uses the spec's wording without the "if an email was given" line.
 
 ### Decision 5 — Where SYC-42's database change goes in the queue
 
@@ -94,7 +94,7 @@ Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong togeth
 | **A. Straight after #28, ahead of SYC-63 §5, SYC-3 and data spine PR 3. If #28 is still unmerged when Slice 1 is reviewed and ready, Slice 1 goes ahead of #28 (recommended)** | SYC-42 is the top priority, and this never makes it wait for someone else's review | Whoever is behind re-generates their migration number. It's a two-minute, mechanical job, but it touches a PR under review |
 | B. Strictly after everything already queued | No churn for anyone | The most urgent feature waits behind work that isn't urgent |
 
-**Recommendation: A.**
+**Recommendation: A. Decided by Samuel, 1 Oct 2026: A.**
 
 ### Decision 6 — How the advice and vet list are kept editable without an app release
 
@@ -106,7 +106,7 @@ Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong togeth
 | B. A database table edited from the dashboard | Syros Cats could edit it themselves | Needs the dashboard (Slice 2 at the earliest) and an editing screen nobody has designed. The urgent block must not be a free edit (§5.4), so editing would need a lock anyway |
 | C. An outside remote-settings service | Instant changes | A new supplier and key for one file. Another thing that can be down |
 
-**Recommendation: A.** The urgent block gets a marker that the spec asks for (§5.4): a test pins its exact text, and changing it means updating that pin with a note saying Samuel approved it. That turns "goes back through Samuel" from a rule people must remember into a check that fails.
+**Recommendation: A. Decided by Samuel, 1 Oct 2026: A.** The urgent block gets a marker that the spec asks for (§5.4): a test pins its exact text, and changing it means updating that pin with a note saying Samuel approved it. That turns "goes back through Samuel" from a rule people must remember into a check that fails.
 
 ### Decision 7 — The onboarding promise if Slice 1 isn't live when #45 publishes
 
@@ -117,7 +117,7 @@ Seven, one at a time. Each has a recommendation. Decisions 1 and 2 belong togeth
 | **A. Publish #45 and Slice 1 together, or Slice 1 first. If #45 must go first, accept a short gap on the test site only (recommended)** | The promise is never broken in a store build. Testers already have Samuel's contact | A few days where web testers read a promise the app can't yet keep |
 | B. Hide the line until Slice 1 ships, then turn it back on | The promise is never unbacked | A copy change in #45 under review, and a second change to undo it |
 
-**Recommendation: A**, with one hard rule: **no store build carries #45's line unless it also carries Slice 1.** That's checked in the rollout.
+**Decided by Samuel, 1 Oct 2026: B, superseding the recommendation.** #45 merged on 1 Oct 2026 with the line hidden (`SHOW_HURT_LINE = false` in `SafetyStep.tsx`); Slice 1 sets it to `true`. *Original recommendation: A*, with one hard rule: **no store build carries #45's line unless it also carries Slice 1.** That's checked in the rollout.
 
 ---
 
