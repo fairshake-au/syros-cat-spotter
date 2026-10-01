@@ -29,7 +29,11 @@ export type ResendResult =
 export const DEFAULT_TIMEOUT_MS = 10_000;
 
 export function resendBase(): string {
-  return (process.env["RESEND_API_BASE"] || "https://api.resend.com").replace(
+  // Never redirectable in production: a wrong base would hand the key to
+  // whoever answers there.
+  const override =
+    process.env["NODE_ENV"] === "production" ? "" : process.env["RESEND_API_BASE"];
+  return (override || "https://api.resend.com").replace(
     /\/+$/,
     "",
   );

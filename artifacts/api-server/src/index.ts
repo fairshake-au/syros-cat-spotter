@@ -23,7 +23,7 @@ if (Number.isNaN(port) || port <= 0) {
 // present (never their values).
 for (const line of describeGate()) logger.info(line);
 // SYC-42: say whether the mail key is present (never its value).
-for (const line of describeMail()) logger.info(line);
+for (const { level, line } of describeMail()) logger[level](line);
 
 app.listen(port, (err) => {
   if (err) {
