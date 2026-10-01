@@ -73,6 +73,19 @@ describe('buildReviewParams', () => {
     expect(parsed.candidates[0]).toMatchObject({ name: '', photoUrl: '', reasoning: '' });
   });
 
+  it('SYC-98 Fable review nit 8: keeps a null photoUrl as null, not \'\'', () => {
+    // A candidate cat with no real photo yet carries photoUrl: null (same as
+    // every other nullable photoUrl in the API). Coercing it to '' used to
+    // make photoSource('') request the bare API origin instead of rendering
+    // nothing, once null became a real value photoUrl could take.
+    const params = buildReviewParams({
+      sightingId: 1,
+      isCatPhoto: true,
+      candidates: [candidate({ photoUrl: null })],
+    });
+    expect(parseReviewParams(params.data)!.candidates[0].photoUrl).toBeNull();
+  });
+
   it('keeps ordinary text that merely mentions data:, since only data URLs are dropped', () => {
     const reasoning = 'Same markings as the data: torn left ear, white socks.';
     const params = buildReviewParams({
