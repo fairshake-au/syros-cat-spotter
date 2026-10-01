@@ -32,7 +32,15 @@ The list of people who can sign in to the staff dashboard (SYC-43) is managed th
 
 **A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in two short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`. They're set from a terminal tab just before the run and deleted straight after. The script masks both before doing anything else and refuses to show output that contains either. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions and who added each person, never an address or a name.
 
-**Seeding Samuel and Jacky after the cutover.** Don't run this until the cutover (Part E) is done and verified, and this PR's migration has been applied to production with `command=migrate`. Run each block in a terminal tab where `SEED_EMAIL` and `SEED_NAME` are already set in the tab's environment. Never type the values into chat. `printf` pipes each value to `gh` without echoing it.
+**Seeding Samuel and Jacky after the cutover — the post-go-live procedure for any production database change (SYC-121/SYC-178).** Since go-live, every production database change (this migration, then the seed) follows the same five steps, in order. **The old Replit project is retired and must never be published again** — all of this targets the EU (new) Replit project only.
+
+1. **Neon snapshot.** Take a snapshot of `production` before changing anything (Neon console, or the Neon MCP's `create_snapshot`), so there's a known-good point to restore to.
+2. **`db-ops migrate`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`, watch it, read the log. This applies this PR's `0003_people_and_staff_sign_in` migration (creates `people`, `person_scopes`, `team_handoff_spent`; no backfill).
+3. **A Neon read-only SQL check, not `verify`** (SYC-178: `verify` compares Neon with the old Replit database row for row, which only made sense before cutover — post-go-live there's no old database left to compare against, so it now fails misleadingly every time). Instead, use the Neon MCP's `run_sql` (SELECT only) to confirm the migration landed, e.g. `SELECT count(*) FROM people` on the new, empty table.
+4. **EU project pull + republish.** Pull `main` into the EU (new) Replit project's workspace and republish it, so the running app matches the new schema.
+5. **Smoke against `https://apptest.catspotters.com`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=smoke -f base_url=https://apptest.catspotters.com`, confirming the live app is healthy against the migrated schema.
+
+Only once all five steps are green, seed Samuel and Jacky. Run each block in a terminal tab where `SEED_EMAIL` and `SEED_NAME` are already set in the tab's environment. Never type the values into chat. `printf` pipes each value to `gh` without echoing it.
 
 Samuel (set `SEED_EMAIL` and `SEED_NAME` for Samuel first):
 
