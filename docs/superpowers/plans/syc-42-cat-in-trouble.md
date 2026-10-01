@@ -239,7 +239,7 @@ This is the cut line's first step (spec §9.3: "works with no dashboard at all")
 - **3.6** `mail_deliveries` and the Resend `delivered` / `bounced` / `complained` webhook (signature-checked, under `/api/internal/resend/*`). Bounces and complaints go on the suppression list, which also blocks verification sends (§2.10). The queue's delivery column reads it.
 - **3.7** The confirmation screen gains the spec's "If an email was given" line.
 
-### Slice 4 — launch protections (must be live before the `/api` pre-launch pass comes off)
+### Slice 4 — launch protections (must be live before the `/api` pre-launch pass comes off; SYC-170)
 
 Until launch, the pre-launch gate means only testers can reach `POST /api/reports`. That is the main abuse control today. Before the pass is removed:
 
@@ -261,7 +261,7 @@ Never "it all works offline". This is what the confirmation screen, tester notes
 
 | | Phone apps | Website |
 |---|---|---|
-| Opening the report flow | Yes | **Only if the website is already open in the browser.** A fresh open with no signal shows nothing, because the site has no offline mode (ticket filed) |
+| Opening the report flow | Yes | **Only if the website is already open in the browser.** A fresh open with no signal shows nothing, because the site has no offline mode (SYC-169) |
 | The advice, the vet list, the Municipality's number | Yes: the last version downloaded, or the version built into the app | Yes, if the site is already open: the last version downloaded, or the one built into the site |
 | Tapping a vet's number | Needs **phone** signal (a voice call), not mobile data | Same, on a phone |
 | The map links to a clinic | Need mobile data, unless offline maps are downloaded in Google or Apple Maps | Same |
@@ -378,12 +378,12 @@ Mutation checks are marked **(M: …)**. Each one is done once by hand before me
 | Decision 1 (alert, which number) and Decision 2 | **Samuel** | Nothing in Slices 0–4. Only an alert, if chosen | Builds no alert. The `urgent_alert` purpose stays off |
 | Decisions 3–7 | **Samuel** | Slice 1's start (Decisions 4, 5, 6 shape it) | — |
 | The API's Resend key and `MAIL_DRAIN_TOKEN` pasted into Replit and GitHub | **Samuel** (Claude creates them and opens the terminal tab) | Slice 1's rollout | Built and tested against a fake mail endpoint |
-| Syros Cats told that reports are coming, and confirming one arrived | **Samuel**, with Syros Cats | Switching the recipient to `admin@syroscats.com` | Alerts go to Samuel's address |
+| Syros Cats told that reports are coming, and confirming one arrived | **Samuel**, with Syros Cats | Switching the recipient to `admin@syroscats.com` | Alerts go to Samuel's address (SYC-173) |
 | Susan's copy: confirm the wording during the closed test (§5.4) | **Syros Cats (Susan)** | Nothing (settled copy, confirmed in testing) | Ships as Samuel left it on 4 Sep, as amended 27–28 Sep |
-| Liability and insurance check of the urgent block before launch (§5.4) | **Samuel / Fair Shake** | Launch (not testing) | Ships to testers. Ticket filed |
+| Liability and insurance check of the urgent block before launch (§5.4) | **Samuel / Fair Shake** | Launch (not testing) | Ships to testers. SYC-171 |
 | SYC-68: three door pins and Dermitzaki's pin | **Someone on Syros** | Nothing (Decision 3) | Landmark pins labelled "within about 100 m"; Dermitzaki uses the search links |
 | SYC-68: ringing the after-hours lines | **Nobody needs to** (Samuel accepted the risk on 28 Sep) | Nothing | Numbers shown, labelled, promising nothing |
-| Greek and French: draft the rest (needs attention, litter, confirmation, labels), then a native check of all of it, including Greek informal vs formal and French *vous* vs *tu* to match whatever SYC-154 decides for onboarding | **Fair Shake** to draft · **a local speaker** to check (SYC-4, SYC-154) | Launch of the copy, the urgent block most of all (§5.5) | Our drafts ship to testers marked `pending-native-check` in the guidance file |
+| Greek and French: draft the rest (needs attention, litter, confirmation, labels), then a native check of all of it, including Greek informal vs formal and French *vous* vs *tu* to match whatever SYC-154 decides for onboarding | **Fair Shake** to draft · **a local speaker** to check (SYC-172, with SYC-4 and SYC-154) | Launch of the copy, the urgent block most of all (§5.5) | Our drafts ship to testers marked `pending-native-check` in the guidance file |
 | A phone or WhatsApp number for litters | **Syros Cats** | Nothing. It would only appear in the acknowledgement email (Slice 3) | Acknowledgement ships without it |
 | Staff can reach the dashboard (SYC-103, SYC-83, Worker repo) | **Samuel** (the other repo) | Slice 2 being *useful* (it can ship before) | Reports still arrive by email |
 | `news.catspotters.com` verified in Resend | **Samuel** (DNS) | Slice 3 | Slice 3 waits; no email box until then |
@@ -428,7 +428,7 @@ The session model reviewed this plan, assuming it was wrong, against the spec, D
 | R3 | High | **Reflected mailbomb** (review §2). Any reporter-email feature in Slice 1 would need verification that doesn't exist yet. | Decision 4: Slice 1 collects no reporter email, so it can't mail a stranger. The alert goes to one fixed address. Slice 3 adds email only with F7b verification, recipient limits and suppression. |
 | R4 | High | **Report photo leaving the team.** The easiest "fix" for a broken photo in an email is a public link. | The photo is an attachment, report photos live in their own table, and every place the rule must hold is listed, with tests 9, 11 and 27. |
 | R5 | High | **Saying "Sent" when nothing was sent.** A queued report showing the online confirmation would tell someone Syros Cats have it when they don't. | 1.12: "Sent" only after the server accepts the text. Test 20 with a mutation probe. |
-| R6 | High | **"Works offline" overstated.** The website has no offline mode, so a fresh open with no signal shows nothing, which the spec's own wording didn't anticipate. | The offline table says so, the tester note avoids the claim, and a ticket is filed for an offline website shell. |
+| R6 | High | **"Works offline" overstated.** The website has no offline mode, so a fresh open with no signal shows nothing, which the spec's own wording didn't anticipate. | The offline table says so, the tester note avoids the claim, and SYC-169 is filed for an offline website shell. |
 | R7 | Medium | **Copy contradicting onboarding.** Onboarding says "Picking one up, or feeding it, does it no favours"; the urgent block says to lure the cat with food and, as a fallback, lift it. F8 settled this by splitting the advice by situation, and the onboarding line itself says a hurt cat "is different". | No copy change (it's settled). Test 22 pins the cage-first order. #45's promise is tied to Slice 1 in the rollout (Decision 7). |
 | R8 | Medium | **The unbacked promise.** If #45 publishes before Slice 1, web testers read "the app will tell you what to do" with nothing behind it. | Decision 7, and rollout step 6: no store build carries #45 without Slice 1. |
 | R9 | Medium | **Abuse before Turnstile.** The report endpoint is public by design, and device ids are free to mint. | Before launch the pre-launch gate limits it to testers. Slice 4 (Turnstile, shared limits, a daily alert ceiling with digest) is a hard condition for removing the `/api` pass. |
