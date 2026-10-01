@@ -27,6 +27,7 @@ import { BannerStack } from '@/components/BannerStack';
 import { ensureOfflineTiles } from '@/lib/offlineTiles';
 import { apiOrigin } from '@/lib/urls';
 import { prelaunchKey } from '@/lib/prelaunch';
+import { hideWebLoadingScreen } from '@/lib/webLoadingScreen';
 
 setBaseUrl(apiOrigin());
 // SYC-113: the tester key is set when this file loads, before any provider
@@ -94,6 +95,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
+      // SYC-133: the website's loading screen hides at the same moment.
+      hideWebLoadingScreen();
     }
   }, [fontsLoaded, fontError]);
 
