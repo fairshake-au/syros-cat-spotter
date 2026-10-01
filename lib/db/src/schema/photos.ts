@@ -19,16 +19,17 @@ export const photosTable = pgTable(
     //
     // Generated with a DATABASE-side default (gen_random_uuid(), built into
     // Postgres core since v13 — no extension needed) rather than in
-    // application code. This is a deliberate deviation from the spec's
-    // "base62, ~22 chars" format to a UUID: SYC-102 found that Replit's
-    // Publish step diffs dev and prod schemas and applies the difference
-    // itself, independent of this repo's migration runner, and can't run a
-    // custom backfill UPDATE or an app-level insert hook. A plain
-    // `ADD COLUMN ... NOT NULL DEFAULT gen_random_uuid()::text` is the one
-    // form of "existing rows get a value, new rows get a value" that is
-    // correct whichever path applies it. See the PR body ("How this
-    // reaches production on Replit") for the full reasoning and the
-    // recommendation to Samuel.
+    // application code, so every insert gets a value without the app having
+    // to generate one (artifacts/api-server/src/routes/sightings.ts inserts
+    // a photo row without specifying public_id). This is a deliberate
+    // deviation from the spec's "base62, ~22 chars" format to a UUID,
+    // originally made under SYC-102 (Replit's publish-time structural diff
+    // couldn't run a custom backfill). Production migrations now go through
+    // the `migrate` runner exclusively (SYC-121, post-Neon-move), which can
+    // run arbitrary SQL — see migrations/0002_photos_public_id.sql for the
+    // backfill-then-constrain shape that uses. The UUID-vs-base62 judgment
+    // call itself stands (still 128 bits of randomness, still unguessable);
+    // flagged to Samuel in PR #24, recommended to accept.
     publicId: text("public_id")
       .notNull()
       .default(sql`gen_random_uuid()::text`),
