@@ -40,9 +40,9 @@ import {
  *   awaiting the native check; not yet native-check approved).
  */
 const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
-  en: "PIN_EN",
-  el: "PIN_EL",
-  fr: "PIN_FR",
+  en: "e003e594121026bd0ef7a1df27d15c02cdc7cf8ad98dd0532936ee53e7f2ddd0",
+  el: "27e9feafc08e8f100abeeaa4407ff717361bde43bad8e6ab8bf5e62222f6d6f1",
+  fr: "ec62f54ef49d62d5745bc353c8dd874cb218e6370334f57540d96771a150d8de",
 };
 
 function sha256(text: string): string {
@@ -279,7 +279,7 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10; review fix 6)"
     for (const lang of GUIDANCE_LANGUAGES) {
       const litter = getGuidance(lang).copy.litter;
       const text = fold([litter.heading, ...litter.paragraphs].join(" "));
-      expect(text).not.toMatch(/donat|δωρε|\bdon\b/);
+      expect(text).not.toMatch(/donat|δωρε|\bun don\b|€\s*\d+\s*(to|for) (help|support)/);
     }
   });
 

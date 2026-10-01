@@ -20,6 +20,13 @@ import vetsFile from "./data/vets.json";
 import municipalityFile from "./data/municipality.json";
 
 export const GUIDANCE_LANGUAGES = ["en", "el", "fr"] as const;
+
+/**
+ * The shape of the served file. The app ignores a served copy whose schema
+ * it doesn't know and falls back to the copy built into it, so a future
+ * shape change can't break the advice on an older app.
+ */
+export const GUIDANCE_SCHEMA_VERSION = 1 as const;
 export type GuidanceLanguage = (typeof GUIDANCE_LANGUAGES)[number];
 
 export type ReviewState = "final" | "draft" | "pending-native-check";
@@ -94,6 +101,7 @@ export type GuidanceCopy = {
 };
 
 export type WelfareGuidance = {
+  schemaVersion: typeof GUIDANCE_SCHEMA_VERSION;
   version: string;
   language: GuidanceLanguage;
   copy: GuidanceCopy;
@@ -124,7 +132,28 @@ function fnv1a(text: string): string {
   return h.toString(16).padStart(8, "0");
 }
 
-const VERSION = fnv1a(JSON.stringify([COPY, VETS, MUNICIPALITY]));
+/** Keys sorted at every level, so the text is the same whatever the key order. */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** The content hash of the whole file (exported so a test can prove it moves). */
+export function computeGuidanceVersion(
+  copies: Record<GuidanceLanguage, GuidanceCopy>,
+  vets: Clinic[],
+  municipality: Municipality,
+): string {
+  return fnv1a(stableStringify([copies, vets, municipality]));
+}
+
+const VERSION = computeGuidanceVersion(COPY, VETS, MUNICIPALITY);
 
 /** One version for the whole file: any change to any language bumps it. */
 export function guidanceVersion(): string {
@@ -140,6 +169,7 @@ export function isGuidanceLanguage(value: unknown): value is GuidanceLanguage {
 
 export function getGuidance(language: GuidanceLanguage): WelfareGuidance {
   return {
+    schemaVersion: GUIDANCE_SCHEMA_VERSION,
     version: VERSION,
     language,
     copy: COPY[language],
@@ -148,26 +178,43 @@ export function getGuidance(language: GuidanceLanguage): WelfareGuidance {
   };
 }
 
+const URGENT_ORDER = [
+  "send",
+  "intro",
+  "cage",
+  "vetListHeading",
+  "howToHeading",
+  "steps",
+  "wontGoIn",
+  "vetDoes",
+  "cost",
+  "decision",
+  "municipality",
+];
+
 /**
- * The urgent block's words, in reading order, as one string: what the lock
- * test hashes (spec §5.4). Metadata (`review`, `locked`) is excluded so that a
- * note about the block never trips the lock; the words do.
+ * The WHOLE urgent block as one string: what the lock test hashes (spec
+ * §5.4). Every field is included, so adding one (say, an out-of-hours line)
+ * changes it as surely as editing a word. The known fields come first in
+ * reading order, so the text also reads top to bottom for the "cage before
+ * handling" check; any other field follows, keys sorted. Only the notes about
+ * the block (`review`, `locked`) are left out.
  */
 export function urgentBlockCanonical(copy: GuidanceCopy): string {
-  const u = copy.urgent;
-  return [
-    u.send,
-    u.intro,
-    u.cage,
-    u.vetListHeading,
-    u.howToHeading,
-    ...u.steps,
-    u.wontGoIn,
-    u.vetDoes,
-    u.cost,
-    u.decision,
-    u.municipality,
-  ].join("\n");
+  const u = copy.urgent as unknown as Record<string, unknown>;
+  const keys = [
+    ...URGENT_ORDER.filter((k) => k in u),
+    ...Object.keys(u)
+      .filter((k) => !URGENT_ORDER.includes(k) && k !== "review" && k !== "locked")
+      .sort(),
+  ];
+  return keys
+    .map((k) => {
+      const v = u[k];
+      const text = Array.isArray(v) ? v.map(String).join("\n") : typeof v === "string" ? v : stableStringify(v);
+      return URGENT_ORDER.includes(k) ? text : `${k}=${text}`;
+    })
+    .join("\n");
 }
 
 /** Every user-facing string in a language's copy (for phrase checks). */

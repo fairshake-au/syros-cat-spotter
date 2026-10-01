@@ -1,5 +1,5 @@
 {
-  "_source": "Urgent block and confirmation 'next' line: docs/specs/source/safety-copy-translations.md §3 (drafted, awaiting a native check). Everything else: Fair Shake drafts for SYC-172, vouvoiement to match the urgent block; a native speaker checks all of it before launch (spec §5.5, SYC-4, SYC-154).",
+  "_source": "Urgent block and confirmation 'next' line: docs/specs/source/safety-copy-translations.md §3 (drafted, awaiting a native check). Everything else: Fair Shake drafts for SYC-172, vouvoiement to match the urgent block; a native speaker checks all of it before launch (spec §5.5, SYC-4, SYC-154). Flag for the checker: confirmation.sentHeading ('Envoyé. Syros Cats l\u2019a bien reçu.') renders 'Syros Cats have this' loosely; 'reçu' may read as more of a promise than the English.",
   "language": "fr",
   "urgent": {
     "review": "pending-native-check",

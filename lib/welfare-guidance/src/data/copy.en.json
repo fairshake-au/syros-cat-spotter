@@ -3,7 +3,7 @@
   "language": "en",
   "urgent": {
     "review": "final",
-    "locked": "spec §5.4: settled copy (Samuel, 4 Sep 2026, as amended 27 Sep 2026). Changing any word needs Samuel's approval and an updated pin in urgentLock.test.ts.",
+    "locked": "spec §5.4: settled copy (Samuel, 4 Sep 2026, as amended 27 Sep 2026). Changing any word needs Samuel's approval and an updated pin in artifacts/api-server/src/lib/welfareGuidance.test.ts.",
     "send": "**Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**",
     "intro": "If this cat is badly hurt, please take it to a local vet if you can.",
     "cage": "**The vets on Syros will lend you a carrying cage.** Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a \"trap\" or a carrying cage. Then take the cat straight to them.",

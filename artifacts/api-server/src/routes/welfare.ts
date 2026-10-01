@@ -23,10 +23,8 @@ router.get("/welfare/guidance", (req, res) => {
   res.setHeader("ETag", etag);
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Vary", "Accept-Encoding");
-  if (req.headers["if-none-match"] === etag) {
-    res.status(304).end();
-    return;
-  }
+  // Express answers 304 itself when If-None-Match matches this ETag
+  // (req.fresh), so no hand-written branch is needed.
   res.json(guidance);
 });
 
