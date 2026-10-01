@@ -1,0 +1,65 @@
+name: mail-drain
+# SYC-42 plan, Slice 1 item 1.6, layer 3. The API runs on autoscale and can
+# sleep, so a timer inside it isn't guaranteed to fire. Every 10 minutes this
+# asks the API to send any queued mail (cat-report alerts to Syros Cats).
+#
+# If a cat-report alert has been unsent for over an hour, the API answers
+# non-2xx, this run FAILS, and GitHub emails Samuel about the failed run.
+# That's a different delivery path from Resend. It's about the system being
+# broken, not about a cat, and it pages nobody (F1).
+#
+# MAIL_DRAIN_TOKEN is a GitHub `production` Environment secret and a Replit
+# deployment secret, never in a file or a prompt (spec §2.11). It opens one
+# path only: POST /api/internal/mail/drain.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        type: string
+        required: false
+        description: "Defaults to the production variable MAIL_DRAIN_BASE_URL, then https://apptest.catspotters.com"
+permissions: { contents: read }
+concurrency: { group: "mail-drain", cancel-in-progress: false }
+jobs:
+  drain:
+    # Off until the rollout switches it on (repo variable MAIL_DRAIN_ENABLED =
+    # true, set once the migration, RESEND_API_KEY and MAIL_DRAIN_TOKEN are
+    # live), so it doesn't fail every 10 minutes before then. A manual run
+    # always goes.
+    if: ${{ vars.MAIL_DRAIN_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Drain the mail outbox
+        env:
+          MAIL_DRAIN_TOKEN: ${{ secrets.MAIL_DRAIN_TOKEN }}
+          BASE_URL: ${{ inputs.base_url || vars.MAIL_DRAIN_BASE_URL || 'https://apptest.catspotters.com' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MAIL_DRAIN_TOKEN}" ]; then
+            echo "::error::MAIL_DRAIN_TOKEN is not set in the production environment"
+            exit 1
+          fi
+          # The first call can wake a sleeping deployment; retry once on a
+          # connection error or a 502/503/504 from the platform.
+          for attempt in 1 2; do
+            code=$(curl -sS -o /tmp/drain.json -w '%{http_code}' --max-time 90 \
+              -X POST -H "Authorization: Bearer ${MAIL_DRAIN_TOKEN}" \
+              "${BASE_URL%/}/api/internal/mail/drain" || echo 000)
+            case "$code" in 000|502|503|504) [ "$attempt" = 1 ] && sleep 20 && continue ;; esac
+            break
+          done
+          echo "HTTP ${code}"
+          cat /tmp/drain.json || true
+          echo
+          if [ "$code" != "200" ]; then
+            if grep -q welfare_alert_overdue /tmp/drain.json 2>/dev/null; then
+              echo "::error::A cat-report alert to Syros Cats has been unsent for over an hour. Check RESEND_API_KEY and WELFARE_ALERT_TO in Replit, and Resend's log."
+            else
+              echo "::error::The mail drain call failed (HTTP ${code})."
+            fi
+            exit 1
+          fi
