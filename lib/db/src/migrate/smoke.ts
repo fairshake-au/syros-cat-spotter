@@ -83,9 +83,13 @@ export async function smoke(
     return body;
   };
   await get("/api/healthz", cancelBody);
-  const cats = await get("/api/cats", jsonBody<{ photoUrl: string }[]>);
-  // Owner-registered cats carry the photo id 0 sentinel, which 404s by design.
-  const withPhoto = cats.find((c) => !c.photoUrl.endsWith("/0"));
+  const cats = await get("/api/cats", jsonBody<{ photoUrl: string | null }[]>);
+  // SYC-98: photoUrl is null for a cat with no real photo yet (the
+  // primaryPhotoId: 0 sentinel, or a missing photo row) — it is never a
+  // string to compare against, so this must not call a string method on it.
+  const withPhoto = cats.find(
+    (c): c is { photoUrl: string } => c.photoUrl !== null,
+  );
   if (withPhoto) {
     await get(withPhoto.photoUrl, cancelBody);
   } else {

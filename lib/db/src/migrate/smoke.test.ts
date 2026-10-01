@@ -109,6 +109,75 @@ describe("smoke through the pre-launch gate", () => {
   });
 });
 
+describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
+  // The old code called `.endsWith("/0")` on every cat's photoUrl to skip
+  // the primaryPhotoId: 0 sentinel; photoUrl is now null for that sentinel
+  // (and for any cat whose photo row is missing), and `null.endsWith` throws
+  // a TypeError — which would fail the release gate with an unreadable crash
+  // instead of either "ok" or a clear "Roll back now" message. The first cat
+  // in the list has a null photoUrl here specifically so a regression to the
+  // old check throws immediately rather than only on an unlucky ordering.
+  it("a null photoUrl on the first cat doesn't crash smoke; it moves on to the next cat with a real photo", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+        if (req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify([
+              { photoUrl: null },
+              { photoUrl: "/api/photos/a1b2c3d4-0000-4000-8000-000000000000" },
+            ]),
+          );
+          return;
+        }
+        if (req.url === "/api/photos/a1b2c3d4-0000-4000-8000-000000000000") {
+          res.writeHead(200, { "Content-Type": "image/jpeg" });
+          res.end("fake-bytes");
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(smoke(baseUrl, {})).resolves.toBeUndefined();
+  });
+
+  it("every cat having a null photoUrl is reported, not treated as a failure", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+        if (req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify([{ photoUrl: null }, { photoUrl: null }]));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(smoke(baseUrl, {})).resolves.toBeUndefined();
+  });
+});
+
 describe("smoke against a hanging endpoint", () => {
   // SYC-141. Without a per-request timeout, an endpoint that never responds
   // hangs the whole smoke job (and, on the real cutover, the CI step running
