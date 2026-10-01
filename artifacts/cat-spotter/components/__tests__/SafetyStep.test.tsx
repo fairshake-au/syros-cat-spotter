@@ -98,13 +98,15 @@ describe('SafetyStep keep-your-distance screen (SYC-35)', () => {
     expect(text).toContain(TRANSLATIONS[code].continue);
   });
 
-  it('hides the hurt-or-sick line until the cat-in-trouble flow ships (SYC-42)', () => {
-    expect(SHOW_HURT_LINE).toBe(false);
+  it('shows the hurt-or-sick line, now the cat-in-trouble flow keeps its promise (SYC-42, Decision 7)', () => {
+    // Samuel, 1 Oct 2026: the line ships with SYC-42 Slice 1, in the same PR
+    // as the flow it promises ("the app will tell you what to do").
+    expect(SHOW_HURT_LINE).toBe(true);
     for (const code of ['en', 'el', 'fr'] as const) {
       lang.current = code;
       const { container } = render(<SafetyStep onNext={() => {}} />);
-      expect(TRANSLATIONS[code].howSafetyHurt, `${code}.howSafetyHurt kept for SYC-42`).toBeTruthy();
-      expect(container.textContent ?? '').not.toContain(TRANSLATIONS[code].howSafetyHurt);
+      expect(TRANSLATIONS[code].howSafetyHurt, `${code}.howSafetyHurt`).toBeTruthy();
+      expect(container.textContent ?? '').toContain(TRANSLATIONS[code].howSafetyHurt);
       cleanup();
     }
   });
