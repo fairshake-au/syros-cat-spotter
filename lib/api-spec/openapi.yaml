@@ -526,7 +526,9 @@ components:
         catId: { type: integer }
         catUpdateId: { type: integer }
         catName: { type: string }
-        catPhotoUrl: { type: string }
+        catPhotoUrl:
+          type: string
+          nullable: true
         updateType:
           type: string
           enum: [sighting, desexed, adopted, general]

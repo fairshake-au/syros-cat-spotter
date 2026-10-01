@@ -454,7 +454,7 @@ export const ListNotificationsResponseItem = zod.object({
   "catId": zod.number(),
   "catUpdateId": zod.number(),
   "catName": zod.string(),
-  "catPhotoUrl": zod.string(),
+  "catPhotoUrl": zod.string().nullable(),
   "updateType": zod.enum(['sighting', 'desexed', 'adopted', 'general']),
   "message": zod.string(),
   "read": zod.boolean(),
