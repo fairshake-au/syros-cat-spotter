@@ -24,7 +24,12 @@ export function apiOrigin(): string {
 // SYC-98: photoUrl is null for a cat/sighting with no real photo yet (the
 // primaryPhotoId: 0 sentinel routes/cats.ts uses for a resident-registered
 // cat) — undefined here so an <Image source={{ uri }}> just renders nothing
-// rather than requesting a URL that can't exist.
+// rather than requesting a URL that can't exist. Overloaded so a caller
+// passing a literal non-null path (signInUrl, below) still gets a plain
+// `string` back, not `string | undefined`.
+export function absoluteUrl(path: string): string;
+export function absoluteUrl(path: null): undefined;
+export function absoluteUrl(path: string | null): string | undefined;
 export function absoluteUrl(path: string | null): string | undefined {
   if (path === null) return undefined;
   if (path.startsWith('http')) return path;
@@ -51,9 +56,13 @@ export function signInUrl(next: string): string {
  * website cookie with a plain same-origin image load.
  *
  * The key only goes to our own API origin, never to another host.
+ *
+ * SYC-98: `path` is null for a cat/sighting with no real photo yet — an
+ * empty source (no `uri`) so <Image> just renders its placeholder/nothing.
  */
-export function photoSource(path: string): ImageSource {
+export function photoSource(path: string | null): ImageSource {
   const uri = absoluteUrl(path);
+  if (!uri) return {};
   const key = prelaunchKey();
   if (key && uri.startsWith(`${apiOrigin()}/`)) {
     return { uri, headers: { 'X-Prelaunch-Key': key } };
