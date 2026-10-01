@@ -10,7 +10,7 @@ import {
   sightingsTable,
   profilesTable,
 } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   photoUrl,
   getProfileStats,
@@ -77,22 +77,34 @@ async function computeMatchCandidates(
     const result = await matchCatPhoto(photoBase64, candidateInputs);
     isCatPhoto = result.isCatPhoto;
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
-    candidates = await Promise.all(
-      result.matches
-        .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
-        .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
-        .slice(0, 3)
-        .map(async (m) => {
-          const cat = byId.get(m.catId)!;
-          return {
-            catId: cat.id,
-            name: cat.name,
-            photoUrl: await photoUrl(cat.primaryPhotoId),
-            confidence: m.confidence,
-            reasoning: m.reasoning,
-          };
-        }),
-    );
+    const ranked = result.matches
+      .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
+      .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
+      .slice(0, 3);
+    // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
+    // ranked cats' photo public ids, instead of a photoUrl() round trip per
+    // candidate.
+    const photoIds = [
+      ...new Set(ranked.map((m) => byId.get(m.catId)!.primaryPhotoId)),
+    ];
+    const photoRows = photoIds.length
+      ? await db
+          .select({ id: photosTable.id, publicId: photosTable.publicId })
+          .from(photosTable)
+          .where(inArray(photosTable.id, photoIds))
+      : [];
+    const publicIdById = new Map(photoRows.map((p) => [p.id, p.publicId]));
+    candidates = ranked.map((m) => {
+      const cat = byId.get(m.catId)!;
+      const publicId = publicIdById.get(cat.primaryPhotoId);
+      return {
+        catId: cat.id,
+        name: cat.name,
+        photoUrl: publicId ? `/api/photos/${publicId}` : null,
+        confidence: m.confidence,
+        reasoning: m.reasoning,
+      };
+    });
   } catch (err) {
     req.log.error({ err }, "AI matching failed; returning no candidates");
   }

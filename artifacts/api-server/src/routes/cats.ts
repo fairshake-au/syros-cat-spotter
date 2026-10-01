@@ -11,6 +11,7 @@ import {
   sightingsTable,
   profilesTable,
   catUpdatesTable,
+  photosTable,
   type Cat,
 } from "@workspace/db";
 import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
@@ -145,17 +146,24 @@ router.get("/cats/:catId", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  // SYC-98 Fable review, finding 7: photosTable is joined here rather than
+  // calling photoUrl(s.photoId) per sighting (an N+1 — one round trip to
+  // Neon per row, serialised 5 at a time behind the pool's default max: 10)
+  // — a cat page with 50 sightings would otherwise cost 50 extra round
+  // trips to Frankfurt from Replit EU.
   const sightings = await db
     .select({
       sighting: sightingsTable,
       spotterUsername: profilesTable.username,
       spotterNickname: profilesTable.nickname,
+      photoPublicId: photosTable.publicId,
     })
     .from(sightingsTable)
     .leftJoin(
       profilesTable,
       eq(profilesTable.deviceId, sightingsTable.deviceId),
     )
+    .leftJoin(photosTable, eq(photosTable.id, sightingsTable.photoId))
     .where(
       and(
         eq(sightingsTable.catId, catId),
@@ -214,18 +222,18 @@ router.get("/cats/:catId", async (req, res) => {
         at: cat.createdAt.toISOString(),
       },
     ],
-    sightings: await Promise.all(
-      sightings.map(async ({ sighting: s, spotterUsername, spotterNickname }) => ({
+    sightings: sightings.map(
+      ({ sighting: s, spotterUsername, spotterNickname, photoPublicId }) => ({
         id: s.id,
         catId: s.catId,
         spotterCode: spotterCode(s.deviceId),
         spotterUsername: spotterUsername ?? null,
         spotterNickname: spotterNickname ?? null,
-        photoUrl: await photoUrl(s.photoId),
+        photoUrl: photoPublicId ? `/api/photos/${photoPublicId}` : null,
         lat: s.lat,
         lng: s.lng,
         createdAt: s.createdAt.toISOString(),
-      })),
+      }),
     ),
   });
 });

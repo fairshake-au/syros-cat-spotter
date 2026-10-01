@@ -78,6 +78,13 @@ export async function listCatsWithStats(
   lat?: number,
   lng?: number,
 ): Promise<CatWithStats[]> {
+  // SYC-98 Fable review, finding 7: photosTable is joined here rather than
+  // calling photoUrl(r.cat.primaryPhotoId) per cat (an N+1 — one round trip
+  // to Neon per row, serialised 5 at a time behind the pool's default
+  // max: 10) — 50 cats would otherwise cost 50 extra round trips to
+  // Frankfurt from Replit EU on every /api/cats call. The join is 1:1
+  // (primaryPhotoId -> photos.id, the real primary key), so it can't
+  // multiply the sightings aggregate rows the groupBy depends on.
   const rows = await db
     .select({
       cat: catsTable,
@@ -91,6 +98,7 @@ export async function listCatsWithStats(
         select ${profilesTable.username} from ${profilesTable}
         where ${profilesTable.deviceId} = ${catsTable.discovererDeviceId}
       )`,
+      photoPublicId: photosTable.publicId,
     })
     .from(catsTable)
     .leftJoin(
@@ -100,32 +108,31 @@ export async function listCatsWithStats(
         eq(sightingsTable.status, "resolved"),
       ),
     )
-    .groupBy(catsTable.id);
+    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
+    .groupBy(catsTable.id, photosTable.publicId);
 
-  const cats = await Promise.all(
-    rows.map(async (r) => {
-      const c: CatWithStats = {
-        id: r.cat.id,
-        name: r.cat.name,
-        description: r.cat.description,
-        photoUrl: await photoUrl(r.cat.primaryPhotoId),
-        lat: r.cat.lat,
-        lng: r.cat.lng,
-        sightingsCount: r.sightingsCount,
-        lastSeenAt: r.lastSeenAt ?? r.cat.createdAt.toISOString(),
-        discovererSpotterCode: spotterCode(r.cat.discovererDeviceId),
-        discovererNickname: r.discovererNickname ?? null,
-        ownerName: r.cat.ownerName,
-        homeDescription: r.cat.homeDescription,
-        hasHome: r.cat.ownerDeviceId !== null,
-        discovererUsername: r.discovererUsername ?? null,
-      };
-      if (lat !== undefined && lng !== undefined) {
-        c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);
-      }
-      return c;
-    }),
-  );
+  const cats = rows.map((r) => {
+    const c: CatWithStats = {
+      id: r.cat.id,
+      name: r.cat.name,
+      description: r.cat.description,
+      photoUrl: r.photoPublicId ? `/api/photos/${r.photoPublicId}` : null,
+      lat: r.cat.lat,
+      lng: r.cat.lng,
+      sightingsCount: r.sightingsCount,
+      lastSeenAt: r.lastSeenAt ?? r.cat.createdAt.toISOString(),
+      discovererSpotterCode: spotterCode(r.cat.discovererDeviceId),
+      discovererNickname: r.discovererNickname ?? null,
+      ownerName: r.cat.ownerName,
+      homeDescription: r.cat.homeDescription,
+      hasHome: r.cat.ownerDeviceId !== null,
+      discovererUsername: r.discovererUsername ?? null,
+    };
+    if (lat !== undefined && lng !== undefined) {
+      c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);
+    }
+    return c;
+  });
 
   if (lat !== undefined && lng !== undefined) {
     cats.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
