@@ -11,10 +11,13 @@ import { VetList } from './VetList';
  * The "Urgent" advice, spec §5.3(b), shown BEFORE the report is sent
  * (guidance before the report, never instead of it: nothing here blocks Send).
  *
- * Layout is part of the design (§5.2): a short lead that is never the
- * discouraging half ("Send this…"), the cage line, the vets, then a labelled
+ * Layout is part of the design (§5.2): a lead that is never the
+ * discouraging half (the vet route: "If this cat is badly hurt, please take
+ * it to a local vet if you can."), the cage line, the vets, then a labelled
  * expander "How to get a hurt cat to a vet", open by default on first use.
  * The cage comes before any handling, and handling is the fallback (§10).
+ * The capacity paragraph (Syros Cats is not an emergency service) is the
+ * LAST thing in the block (Samuel, 1 Oct 2026).
  *
  * The words come from the guidance file and are pinned by a test
  * (artifacts/api-server/src/lib/welfareGuidance.test.ts): changing them goes
@@ -35,8 +38,7 @@ export function UrgentAdvice({
 
   return (
     <View style={styles.block}>
-      <RichText text={u.send} style={[styles.lead, { color: colors.foreground }]} />
-      <RichText text={u.intro} style={para} />
+      <RichText text={u.intro} style={[styles.lead, { color: colors.foreground }]} />
       <RichText text={u.cage} style={para} />
 
       <Text role="heading" style={[styles.subheading, { color: colors.foreground }]}>
@@ -70,6 +72,7 @@ export function UrgentAdvice({
       <RichText text={u.cost} style={para} />
       <RichText text={u.decision} style={para} />
       <RichText text={u.municipality} style={para} />
+      <RichText text={u.capacity} style={para} />
     </View>
   );
 }

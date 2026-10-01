@@ -39,7 +39,8 @@ export function isUsableGuidance(value: unknown, language: GuidanceLanguage): va
     g.schemaVersion === GUIDANCE_SCHEMA_VERSION &&
     g.language === language &&
     typeof g.version === 'string' &&
-    !!g.copy?.urgent?.send &&
+    !!g.copy?.urgent?.intro &&
+    !!g.copy?.urgent?.capacity &&
     Array.isArray(g.copy?.urgent?.steps) &&
     !!g.copy?.attention?.heading &&
     !!g.copy?.litter?.heading &&
