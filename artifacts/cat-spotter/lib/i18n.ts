@@ -307,6 +307,30 @@ const en: Dict = {
   nameTakenIsThis: 'There\'s already a cat called {name}. Is this them?',
   nameTakenYes: 'Yes, that\'s them',
   nameTakenNo: 'No, a different cat',
+  // SYC-42: "This cat needs help" (the report flow). The advice itself
+  // (urgent, needs attention, kittens, confirmation, vet list) is NOT here:
+  // it lives in lib/welfare-guidance so it can be fixed without a release.
+  // Severity hints and the kittens label are spec §4.2 word for word.
+  reportNeedsHelp: 'This cat needs help',
+  reportPhotoTitle: 'A photo',
+  reportPhotoHint: 'A photo helps Syros Cats see what is wrong.',
+  reportRemovePhoto: 'Remove photo',
+  reportWhereTitle: 'Where is the cat?',
+  reportWhereHint: 'Move the map so the pin is where the cat is.',
+  reportWaitingLocation: 'Finding your location…',
+  reportHowBadTitle: 'How bad is it?',
+  reportSeverityAttention: 'Needs attention',
+  reportSeverityAttentionHint: 'Thin, limping, sore eye, or just not right.',
+  reportSeverityUrgent: 'Urgent',
+  reportSeverityUrgentHint: 'Badly hurt, collapsed, or in danger right now.',
+  reportLitter: 'This is kittens, or a mother with kittens.',
+  reportNoteTitle: 'What you saw',
+  reportNotePlaceholder: 'Optional',
+  reportSend: 'Send',
+  reportSending: 'Sending…',
+  reportFailed: 'This report couldn’t be sent. Please try again later, or send a new one.',
+  reportDone: 'Done',
+  reportReminder: 'You have a cat report that hasn’t sent yet.',
 };
 
 const el: Dict = {
@@ -605,6 +629,28 @@ const el: Dict = {
   nameTakenIsThis: 'Υπάρχει ήδη γάτα με το όνομα {name}. Είναι αυτή;',
   nameTakenYes: 'Ναι, αυτή είναι',
   nameTakenNo: 'Όχι, είναι άλλη γάτα',
+  // SYC-42: drafts for the native check (SYC-172), informal εσύ to match the
+  // urgent block. The advice itself lives in lib/welfare-guidance.
+  reportNeedsHelp: 'Αυτή η γάτα χρειάζεται βοήθεια',
+  reportPhotoTitle: 'Μια φωτογραφία',
+  reportPhotoHint: 'Μια φωτογραφία βοηθά τη Syros Cats να δει τι συμβαίνει.',
+  reportRemovePhoto: 'Αφαίρεση φωτογραφίας',
+  reportWhereTitle: 'Πού είναι η γάτα;',
+  reportWhereHint: 'Μετακίνησε τον χάρτη ώστε η καρφίτσα να δείχνει πού είναι η γάτα.',
+  reportWaitingLocation: 'Βρίσκουμε την τοποθεσία σου…',
+  reportHowBadTitle: 'Πόσο σοβαρό είναι;',
+  reportSeverityAttention: 'Χρειάζεται προσοχή',
+  reportSeverityAttentionHint: 'Αδύνατη, κουτσαίνει, έχει πονεμένο μάτι, ή απλώς δεν είναι καλά.',
+  reportSeverityUrgent: 'Επείγον',
+  reportSeverityUrgentHint: 'Σοβαρά τραυματισμένη, σωριασμένη, ή σε κίνδυνο αυτή τη στιγμή.',
+  reportLitter: 'Είναι γατάκια, ή μια μητέρα με γατάκια.',
+  reportNoteTitle: 'Τι είδες',
+  reportNotePlaceholder: 'Προαιρετικό',
+  reportSend: 'Αποστολή',
+  reportSending: 'Γίνεται αποστολή…',
+  reportFailed: 'Αυτή η αναφορά δεν μπόρεσε να σταλεί. Δοκίμασε ξανά αργότερα ή στείλε μια καινούργια.',
+  reportDone: 'Τέλος',
+  reportReminder: 'Έχεις μια αναφορά για γάτα που δεν έχει σταλεί ακόμα.',
 };
 
 const fr: Dict = {
@@ -904,6 +950,28 @@ const fr: Dict = {
   nameTakenIsThis: 'Il y a déjà un chat appelé {name}. Est-ce lui ?',
   nameTakenYes: 'Oui, c\'est lui',
   nameTakenNo: 'Non, un autre chat',
+  // SYC-42: drafts for the native check (SYC-172), vouvoiement to match the
+  // urgent block. The advice itself lives in lib/welfare-guidance.
+  reportNeedsHelp: 'Ce chat a besoin d’aide',
+  reportPhotoTitle: 'Une photo',
+  reportPhotoHint: 'Une photo aide Syros Cats à voir ce qui ne va pas.',
+  reportRemovePhoto: 'Retirer la photo',
+  reportWhereTitle: 'Où est le chat ?',
+  reportWhereHint: 'Déplacez la carte pour que le repère soit là où se trouve le chat.',
+  reportWaitingLocation: 'Recherche de votre position…',
+  reportHowBadTitle: 'C’est grave à quel point ?',
+  reportSeverityAttention: 'A besoin d’attention',
+  reportSeverityAttentionHint: 'Maigre, boiteux, un œil irrité, ou simplement pas bien.',
+  reportSeverityUrgent: 'Urgent',
+  reportSeverityUrgentHint: 'Gravement blessé, effondré, ou en danger en ce moment.',
+  reportLitter: 'Ce sont des chatons, ou une mère avec ses chatons.',
+  reportNoteTitle: 'Ce que vous avez vu',
+  reportNotePlaceholder: 'Facultatif',
+  reportSend: 'Envoyer',
+  reportSending: 'Envoi en cours…',
+  reportFailed: 'Ce signalement n’a pas pu être envoyé. Réessayez plus tard, ou envoyez-en un nouveau.',
+  reportDone: 'Terminé',
+  reportReminder: 'Vous avez un signalement de chat qui n’a pas encore été envoyé.',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

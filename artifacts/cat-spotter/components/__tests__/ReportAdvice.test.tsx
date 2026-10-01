@@ -37,6 +37,19 @@ vi.mock('@/hooks/useColors', () => ({
   }),
 }));
 
+// The design-system barrel pulls in Expo native modules that don't load under
+// vitest; these screens only need Button.
+vi.mock('@/components/purropolis', async () => {
+  const { Text } = await import('react-native');
+  return {
+    Button: ({ children, onPress }: { children: React.ReactNode; onPress?: () => void }) => (
+      <Text role="button" onPress={onPress}>
+        {children}
+      </Text>
+    ),
+  };
+});
+
 import { UrgentAdvice } from '../report/UrgentAdvice';
 import { AttentionAdvice } from '../report/AttentionAdvice';
 import { LitterAdvice } from '../report/LitterAdvice';
