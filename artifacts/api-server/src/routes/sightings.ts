@@ -79,7 +79,7 @@ async function computeMatchCandidates(
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
     candidates = result.matches
       .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
-      .sort((a, b) => b.confidence - a.confidence)
+      .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
       .slice(0, 3)
       .map((m) => {
         const cat = byId.get(m.catId)!;

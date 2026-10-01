@@ -70,7 +70,7 @@ Rationale: Syros Cats' stated goal is fewer cats in their own care and more care
 ### F2 · 250m grid as specced; colony averaging accepted
 Keep the spec's deterministic 250 m grid snapping for public cat locations.
 
-**Not optional, fixed in all cases:** `POST /sightings` is an unauthenticated nearest-neighbour oracle over *exact* coordinates. It must answer from the blurred grid and be rate-limited per device, not per IP. This leaks regardless of what the map draws.
+**Not optional, fixed in all cases:** `POST /sightings` is an unauthenticated nearest-neighbour oracle over *exact* coordinates. It must answer from the blurred grid and be rate-limited per device, not per IP. This leaks regardless of what the map draws. *Amended 30 Sep 2026 by Part 2h: matching uses exact positions within 500 m, with the residual risk accepted. The per-device rate limit still applies.*
 
 **Knowingly accepted limitation:** averaging the published positions of ~30 cats in a colony recovers the colony centre to about 45 m — which is the private feeding-site information Syros Cats raised a targeting concern about at the 1 September meeting.
 
@@ -217,9 +217,10 @@ Samuel decided these after the adversarial review of data spine step 1 (#17). Al
 
 Samuel decided this after a decision write-up on SYC-39 (PR #39) and a direct explanation of the probing risk. It amends `cat-record-data-spine.md` §6.3 point 1, and wins where that section says otherwise.
 
-- **Matching compares a new photo only with cats within 500 m of it, measured on exact positions.** Up to the ten nearest cats within 500 m go to the photo check, nearest first. If none are within 500 m, the app goes straight to "add a new cat". Until SYC-80, a cat's position is where it was first spotted. This keeps the 500 m promise made to Syros Cats (`PRODUCT-SPEC.md` §2.3) and stays in place after the data spine lands: data spine PR 5 keeps it, and the plan's 750 m grid-snapped selection (conflict C3) is superseded.
+- **Matching compares a new photo only with cats within 500 m of it, measured on exact positions.** Up to the ten nearest cats within 500 m go to the photo check, nearest first. If none are within 500 m, the app goes straight to "add a new cat". Until SYC-80, a cat's position is where it was first spotted. This keeps the 500 m promise made to Syros Cats (`PRODUCT-SPEC.md` §2.3) and stays in place after the data spine lands: data spine PR 5 keeps it, and the data spine plan's 750 m grid-snapped selection (PR #23, its conflict C3) is superseded.
 - **Risk accepted knowingly.** §6.3 explains that answering "is this cat near here?" for a location the caller chooses lets someone narrow down a cat's real position by repeated probing. Exact-position matching with a hard 500 m edge keeps that possible. Samuel accepted this residual risk in exchange for accurate matching.
-- **The other §6.3 protections still apply in full.** Point 2: `POST /sightings` requires the device secret, and limits count per device (SYC-92, SYC-107). Point 3: low-confidence candidates never return a cat's id or name, and the response never orders or labels candidates by true distance.
+- **The other §6.3 protections are still required, but are not all live yet.** Point 2: `POST /sightings` already requires the device secret (SYC-92), but its rate limit still counts per IP address (20 per 15 minutes); counting per device arrives in data spine PR 5. Point 3: low-confidence candidates must not return a cat's id or name, and the response must never order or label candidates by true distance. Today only a 0.1 noise floor applies, and the confidence threshold arrives in data spine PR 5. Until then, ties in confidence are broken by cat id, never by distance.
+- **This opens no new channel today.** Until blurring ships (data spine PR 6), `GET /cats` already publishes every cat's exact position to anyone, so the probing risk accepted here only starts to matter once the map is blurred.
 - **Rejected:** 750 m on the blurred grid, as the spec said. It only guarantees cats within about 400 m, because snapping can move each position by up to about 177 m, and it breaks the 500 m promise. **Also rejected:** about 850 m on the grid (recommended in PR #39). Samuel judged it overkill.
 
 ## Part 2i — approval of `choose-a-different-cat.md` (SYC-119), 30 September 2026
