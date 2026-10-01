@@ -6,7 +6,7 @@ import { useColors } from '@/hooks/useColors';
 export function StepDots({ total, active }: { total: number; active: number }) {
   const colors = useColors();
   return (
-    <View style={styles.row}>
+    <View style={styles.row} testID="step-dots">
       {Array.from({ length: total }, (_, i) => (
         <View
           key={i}

@@ -267,6 +267,15 @@ const en: Dict = {
   howStepCatalogBody: 'We check if it\'s a new furriend or one we know.',
   howStepHelp: 'Help them thrive',
   howStepHelpBody: 'Your spots help us desex & vaccinate the colonies.',
+  // SYC-35: keep-your-distance guidance, its own onboarding screen straight
+  // after "How it works" (components/onboarding/SafetyStep.tsx). Word for word
+  // from docs/specs/source/safety-copy-translations.md `onboarding.healthy`
+  // (canonical English: docs/specs/team-access-and-welfare-queue.md §5.3a).
+  howSafetyTitle: 'Look, don\'t touch.',
+  howSafetyLiveHere: 'The cats of Syros are not pets, and they are not strays. They live here.',
+  howSafetyDistance: 'Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.',
+  howSafetyLeaveBe: 'So: photograph them, admire them, leave them be.',
+  howSafetyHurt: 'If you find a cat that is hurt or sick, that is different, and the app will tell you what to do.',
   campaignOpensAt: 'Opens {host} in your browser',
   statsUnavailable: 'Couldn\'t load your stats just now.',
   homeToCollectEyebrow: 'To collect',
@@ -538,6 +547,13 @@ const el: Dict = {
   howStepCatalogBody: 'Ελέγχουμε αν είναι καινούρια ή γνωστή μας.',
   howStepHelp: 'Βοήθησέ τες να ευημερήσουν',
   howStepHelpBody: 'Οι παρατηρήσεις σου βοηθούν στη στείρωση και τον εμβολιασμό.',
+  // SYC-35: word for word from safety-copy-translations.md `onboarding.healthy`.
+  // Needs native review (SYC-4), especially checker items 3 and 14.
+  howSafetyTitle: 'Κοίτα, μην αγγίζεις.',
+  howSafetyLiveHere: 'Οι γάτες της Σύρου δεν είναι κατοικίδια, ούτε είναι αδέσποτες. Εδώ ζουν.',
+  howSafetyDistance: 'Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ\' εσένα, αν το θέλουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή. Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό.',
+  howSafetyLeaveBe: 'Λοιπόν: φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες.',
+  howSafetyHurt: 'Αν βρεις μια γάτα τραυματισμένη ή άρρωστη, αυτό είναι διαφορετικό, και η εφαρμογή θα σου πει τι να κάνεις.',
   campaignOpensAt: 'Ανοίγει το {host} στο πρόγραμμα περιήγησης',
   statsUnavailable: 'Δεν φορτώθηκαν τα στατιστικά σου αυτή τη στιγμή.',
   homeToCollectEyebrow: 'Για συλλογή',
@@ -809,6 +825,14 @@ const fr: Dict = {
   howStepCatalogBody: 'On vérifie si c\'est un nouveau miaou-ami ou un habitué.',
   howStepHelp: 'Aide-les à s\'épanouir',
   howStepHelpBody: 'Tes observations aident à stériliser et vacciner les colonies.',
+  // SYC-35: word for word from safety-copy-translations.md `onboarding.healthy`.
+  // Needs native review (SYC-4). The source uses "vous"; the rest of the
+  // app's French uses "tu".
+  howSafetyTitle: 'Regardez, ne touchez pas.',
+  howSafetyLiveHere: 'Les chats de Syros ne sont pas des animaux de compagnie, et ce ne sont pas des chats abandonnés. Ils vivent ici.',
+  howSafetyDistance: 'Restez à un pas ou deux et laissez-les venir à vous s\'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.',
+  howSafetyLeaveBe: 'Alors : photographiez-les, admirez-les, laissez-les tranquilles.',
+  howSafetyHurt: 'Si vous trouvez un chat blessé ou malade, c\'est différent, et l\'application vous dira quoi faire.',
   campaignOpensAt: 'Ouvre {host} dans votre navigateur',
   statsUnavailable: 'Impossible de charger vos statistiques pour le moment.',
   homeToCollectEyebrow: 'À découvrir',

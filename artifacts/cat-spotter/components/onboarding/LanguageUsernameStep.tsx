@@ -33,6 +33,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { LANGUAGES } from '@/lib/i18n';
 import { Button, Tag } from '@/components/purropolis';
 import { StepDots } from './StepDots';
+import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
 import { AVAILABILITY_WAIT_MS, RECONCILE_WAIT_MS, claimAndReconcile, withDeadline } from '@/lib/usernameClaim';
 
 const MIN_LEN = 3;
@@ -213,7 +214,7 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
         >
           <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
         </Pressable>
-        <StepDots total={3} active={2} />
+        <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('language')} />
         <View style={styles.topBarSpacer} />
       </View>
 
