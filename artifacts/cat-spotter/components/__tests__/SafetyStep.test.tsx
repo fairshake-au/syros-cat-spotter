@@ -56,14 +56,13 @@ vi.mock('@/components/purropolis', async () => {
   };
 });
 
-import { SafetyStep } from '../onboarding/SafetyStep';
+import { SafetyStep, SHOW_HURT_LINE } from '../onboarding/SafetyStep';
 
 const SAFETY_KEYS = [
   'howSafetyTitle',
   'howSafetyLiveHere',
   'howSafetyDistance',
   'howSafetyLeaveBe',
-  'howSafetyHurt',
 ] as const;
 
 // The words that carry the safety message in each language, pinned
@@ -99,8 +98,19 @@ describe('SafetyStep keep-your-distance screen (SYC-35)', () => {
     expect(text).toContain(TRANSLATIONS[code].continue);
   });
 
+  it('hides the hurt-or-sick line until the cat-in-trouble flow ships (SYC-42)', () => {
+    expect(SHOW_HURT_LINE).toBe(false);
+    for (const code of ['en', 'el', 'fr'] as const) {
+      lang.current = code;
+      const { container } = render(<SafetyStep onNext={() => {}} />);
+      expect(TRANSLATIONS[code].howSafetyHurt, `${code}.howSafetyHurt kept for SYC-42`).toBeTruthy();
+      expect(container.textContent ?? '').not.toContain(TRANSLATIONS[code].howSafetyHurt);
+      cleanup();
+    }
+  });
+
   it('keeps the Greek and French distinct from the English (no silent fallback)', () => {
-    for (const key of SAFETY_KEYS) {
+    for (const key of [...SAFETY_KEYS, 'howSafetyHurt'] as const) {
       expect(TRANSLATIONS.el[key]).not.toBe(TRANSLATIONS.en[key]);
       expect(TRANSLATIONS.fr[key]).not.toBe(TRANSLATIONS.en[key]);
     }

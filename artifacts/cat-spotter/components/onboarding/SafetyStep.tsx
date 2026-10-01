@@ -20,6 +20,14 @@ import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
  * 390×844 screen without scrolling in all three languages; the ScrollView
  * is only a fallback for smaller phones and large text settings.
  */
+/**
+ * The last line ("If you find a cat that is hurt or sick… the app will tell
+ * you what to do") promises the cat-in-trouble flow, SYC-42, which isn't
+ * built yet. Samuel decided on 1 Oct 2026 to ship this screen without it and
+ * switch it on with SYC-42's first release. The copy stays in lib/i18n.ts.
+ */
+export const SHOW_HURT_LINE = false;
+
 export function SafetyStep({ onNext }: { onNext: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -51,9 +59,11 @@ export function SafetyStep({ onNext }: { onNext: () => void }) {
             <Text style={[styles.para, { color: colors.foreground }]}>
               {t('howSafetyLeaveBe')}
             </Text>
-            <Text style={[styles.para, styles.strong, { color: colors.foreground }]}>
-              {t('howSafetyHurt')}
-            </Text>
+            {SHOW_HURT_LINE && (
+              <Text style={[styles.para, styles.strong, { color: colors.foreground }]}>
+                {t('howSafetyHurt')}
+              </Text>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -96,5 +106,11 @@ const styles = StyleSheet.create({
   body: { gap: spacing[3] },
   para: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
   strong: { fontFamily: fonts.bodyBold },
-  footer: { paddingHorizontal: spacing[5], paddingTop: spacing[2] },
+  footer: {
+    width: '100%',
+    maxWidth: 560 + spacing[5] * 2,
+    alignSelf: 'center',
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+  },
 });
