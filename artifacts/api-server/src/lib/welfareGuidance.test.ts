@@ -38,11 +38,16 @@ import {
  * - 2026-10-01 en: pinned at spec §5.3(b) as approved by Samuel, 28 Sep 2026.
  * - 2026-10-01 el, fr: pinned at safety-copy-translations.md (drafts,
  *   awaiting the native check; not yet native-check approved).
+ * - 2026-10-01 en: re-pinned after Samuel's edit of 1 Oct 2026, approved by
+ *   Samuel: the opening "Send this…" paragraph removed; a closing capacity
+ *   paragraph added, from Susan's standard reply.
+ * - 2026-10-01 el, fr: re-pinned for the same edit; the new paragraph is a
+ *   Fair Shake draft, not yet native-check approved (SYC-172, SYC-4).
  */
 const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
-  en: "e003e594121026bd0ef7a1df27d15c02cdc7cf8ad98dd0532936ee53e7f2ddd0",
-  el: "27e9feafc08e8f100abeeaa4407ff717361bde43bad8e6ab8bf5e62222f6d6f1",
-  fr: "ec62f54ef49d62d5745bc353c8dd874cb218e6370334f57540d96771a150d8de",
+  en: "PIN_EN_2",
+  el: "PIN_EL_2",
+  fr: "PIN_FR_2",
 };
 
 function sha256(text: string): string {
@@ -96,8 +101,14 @@ const translationsDoc = readFileSync(
   "utf8",
 );
 
+/**
+ * The capacity paragraph Samuel approved on 1 Oct 2026, word for word (the
+ * last paragraph of the urgent block, from Susan's standard reply).
+ */
+const APPROVED_CAPACITY_EN =
+  "Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them.";
+
 const DOC_KEYS: Record<string, (u: GuidanceCopy["urgent"]) => string> = {
-  "injured.send": (u) => u.send,
   "injured.intro": (u) => u.intro,
   "injured.cage": (u) => u.cage,
   "injured.vetlist.heading": (u) => u.vetListHeading,
@@ -110,6 +121,7 @@ const DOC_KEYS: Record<string, (u: GuidanceCopy["urgent"]) => string> = {
   "injured.cost": (u) => u.cost,
   "injured.decision": (u) => u.decision,
   "injured.municipality": (u) => u.municipality,
+  "injured.capacity": (u) => u.capacity,
 };
 
 function docBlock(section: "## 2." | "## 3."): Record<string, string> {
@@ -118,7 +130,8 @@ function docBlock(section: "## 2." | "## 3."): Record<string, string> {
   const lines = translationsDoc.slice(start, end).split("\n");
   const out: Record<string, string> = {};
   for (let i = 0; i < lines.length; i++) {
-    const key = /^\*\*`(injured\.[a-z0-9.]+)`\*\*$/.exec(lines[i]!.trim())?.[1];
+    // A key line may carry a note after it ("— DRAFT, awaiting native review").
+    const key = /^\*\*`(injured\.[a-z0-9.]+)`\*\*(?:\s+—.*)?$/.exec(lines[i]!.trim())?.[1];
     if (!key) continue;
     const quote = lines.slice(i + 1).find((l) => l.startsWith("> "))!;
     out[key] = quote
@@ -164,9 +177,23 @@ describe("the urgent block, in every language (review fix 5; tests 21–22)", ()
   }
 
   for (const lang of GUIDANCE_LANGUAGES) {
-    it(`${lang}: the lead is "send this", never the discouraging half (spec §5.2)`, () => {
-      const lead = getGuidance(lang).copy.urgent.send.replace(/\*\*/g, "");
-      expect(lead).toMatch({ en: /^Send this\./, el: /^Στείλ' το\./, fr: /^Envoyez-le\./ }[lang]);
+    it(`${lang}: the lead is the vet route, never the discouraging half (spec §5.2)`, () => {
+      const canonical = urgentBlockCanonical(getGuidance(lang).copy);
+      const lead = canonical.split("\n")[0]!.replace(/\*\*/g, "");
+      expect(lead).toBe(
+        {
+          en: "If this cat is badly hurt, please take it to a local vet if you can.",
+          el: "Αν αυτή η γάτα είναι σοβαρά τραυματισμένη, πήγαινέ την σε έναν κτηνίατρο εδώ, αν μπορείς.",
+          fr: "Si ce chat est gravement blessé, emmenez-le chez un vétérinaire local si vous le pouvez.",
+        }[lang],
+      );
+      expect(getGuidance(lang).copy.urgent).not.toHaveProperty("send");
+    });
+
+    it(`${lang}: the capacity paragraph ("not an emergency service") is the LAST thing in the block (Samuel, 1 Oct 2026)`, () => {
+      const lines = urgentBlockCanonical(getGuidance(lang).copy).split("\n");
+      expect(lines[lines.length - 1]).toBe(getGuidance(lang).copy.urgent.capacity);
+      expect(lines.filter((l) => l === getGuidance(lang).copy.urgent.capacity)).toHaveLength(1);
     });
 
     it(`${lang}: the cage comes before any handling; handling is the fallback (spec §10)`, () => {
@@ -183,6 +210,18 @@ describe("the urgent block, in every language (review fix 5; tests 21–22)", ()
       for (const n of AFTER_HOURS) expect(text).not.toContain(n);
     });
   }
+});
+
+describe("the approved capacity paragraph (Samuel, 1 Oct 2026)", () => {
+  it("English is word for word what Samuel approved", () => {
+    expect(getGuidance("en").copy.urgent.capacity).toBe(APPROVED_CAPACITY_EN);
+  });
+
+  it("the block no longer says 'Send this' anywhere, in any language", () => {
+    for (const lang of GUIDANCE_LANGUAGES) {
+      expect(urgentBlockCanonical(getGuidance(lang).copy)).not.toMatch(/Send this|Στείλ' το|Envoyez-le\./);
+    }
+  });
 });
 
 describe("vet list (test 4, spec §5.7, Decision 3)", () => {
