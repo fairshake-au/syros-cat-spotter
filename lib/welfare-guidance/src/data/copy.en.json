@@ -3,8 +3,7 @@
   "language": "en",
   "urgent": {
     "review": "final",
-    "locked": "spec §5.4: settled copy (Samuel, 4 Sep 2026, as amended 27 Sep 2026). Changing any word needs Samuel's approval and an updated pin in artifacts/api-server/src/lib/welfareGuidance.test.ts.",
-    "send": "**Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**",
+    "locked": "spec §5.4: settled copy (Samuel, 4 Sep 2026, as amended 27 Sep and 1 Oct 2026: the opening 'Send this…' paragraph removed and the closing capacity paragraph added). Changing any word needs Samuel's approval and an updated pin in artifacts/api-server/src/lib/welfareGuidance.test.ts.",
     "intro": "If this cat is badly hurt, please take it to a local vet if you can.",
     "cage": "**The vets on Syros will lend you a carrying cage.** Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a \"trap\" or a carrying cage. Then take the cat straight to them.",
     "vetListHeading": "Vets on Syros",
@@ -18,7 +17,8 @@
     "vetDoes": "**What the vet does.** They look the cat over and treat what needs treating. They can also scan for a microchip — some of these cats have an owner who is looking for them, and that is the fastest good ending there is.",
     "cost": "**What it costs.** The vet is likely to charge you for the visit.",
     "decision": "**You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive.",
-    "municipality": "**If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 22813 61000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time."
+    "municipality": "**If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 22813 61000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.",
+    "capacity": "Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them."
   },
   "attention": {
     "review": "final",

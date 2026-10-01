@@ -45,9 +45,9 @@ import {
  *   Fair Shake draft, not yet native-check approved (SYC-172, SYC-4).
  */
 const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
-  en: "PIN_EN_2",
-  el: "PIN_EL_2",
-  fr: "PIN_FR_2",
+  en: "d62719b9b755cf5359f3a5225afb11a5e008dfb8d38bc7d595bd845a9b9c9e76",
+  el: "024b8609a73086ffbb59874e24fdb26f098451e153fa73db5c8ee77f28b80bde",
+  fr: "18ce3591a2079d6075d7f90a2e77263d59dd53ec4de282a3ad9aa8a6027684ae",
 };
 
 function sha256(text: string): string {

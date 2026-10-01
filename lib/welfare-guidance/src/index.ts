@@ -66,7 +66,6 @@ export type GuidanceCopy = {
   urgent: {
     review: ReviewState;
     locked?: string;
-    send: string;
     intro: string;
     cage: string;
     vetListHeading: string;
@@ -77,6 +76,11 @@ export type GuidanceCopy = {
     cost: string;
     decision: string;
     municipality: string;
+    /**
+     * Last, always (Samuel, 1 Oct 2026): Syros Cats is a private sanctuary,
+     * not an emergency service. Never the lead (spec §5.2).
+     */
+    capacity: string;
   };
   attention: { review: ReviewState; heading: string; paragraphs: string[] };
   litter: { review: ReviewState; heading: string; paragraphs: string[] };
@@ -179,7 +183,6 @@ export function getGuidance(language: GuidanceLanguage): WelfareGuidance {
 }
 
 const URGENT_ORDER = [
-  "send",
   "intro",
   "cage",
   "vetListHeading",
@@ -190,6 +193,7 @@ const URGENT_ORDER = [
   "cost",
   "decision",
   "municipality",
+  "capacity",
 ];
 
 /**
