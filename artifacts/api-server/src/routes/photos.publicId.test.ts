@@ -42,31 +42,36 @@ describe("GET /api/photos/:id — public_id vs the legacy numeric id", () => {
     expect(res.body).toEqual({ error: "Not found" });
   });
 
-  it("does NOT serve bytes for the numeric id — it redirects instead", async () => {
+  // SYC-112 (done in this PR; decided 1 Oct 2026, Fable review finding 3):
+  // the numeric id used to 301-redirect to the public_id. That handed out
+  // the exact thing it was meant to protect — the Location header *is* the
+  // public_id, so walking the numeric range harvested every photo's
+  // public_id in one rate-limit window, and since they're immutable and
+  // cached a year, a harvested one stays valid forever. A 404 leaks
+  // nothing: it looks identical whether the numeric id exists or not, and
+  // carries no Location header pointing at a real public_id.
+  it("a real photo's numeric id 404s — it is never served, redirected, or looked up", async () => {
     const res = await request(app)
       .get(`/api/photos/${photoId}`)
       .redirects(0);
-    expect(res.status).toBe(301);
-    expect(res.headers["location"]).toBe(`/api/photos/${publicId}`);
-    // The redirect response itself must carry no image bytes — walking the
-    // numeric range must never yield anything but a pointer to an id you'd
-    // already have to know.
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Not found" });
+    expect(res.headers["location"]).toBeUndefined();
     expect(res.headers["content-type"]).not.toBe("image/jpeg");
   });
 
-  it("following the redirect lands on the real bytes", async () => {
-    const redirect = await request(app)
-      .get(`/api/photos/${photoId}`)
-      .redirects(0);
-    const followed = await request(app).get(redirect.headers["location"]);
-    expect(followed.status).toBe(200);
-    expect(followed.headers["content-type"]).toBe("image/jpeg");
-    expect(followed.body.length).toBeGreaterThan(0);
-  });
-
-  it("404s for a numeric id that doesn't exist, rather than redirecting", async () => {
+  it("404s for a numeric id that doesn't exist, identically to one that does", async () => {
     const res = await request(app).get("/api/photos/999999999").redirects(0);
     expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Not found" });
+  });
+
+  it("404s a numeric segment outside Postgres's int4 range instead of 500ing (nit 9)", async () => {
+    const res = await request(app)
+      .get("/api/photos/99999999999999999999")
+      .redirects(0);
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Not found" });
   });
 
   it("the public id is not the sequential integer id, and isn't shaped like one", async () => {

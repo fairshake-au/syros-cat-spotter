@@ -13,28 +13,29 @@ const router: IRouter = Router();
 // per-param regex constraints (`:id(\\d+)`) — this reads the same either
 // way and needs no route-ordering assumptions.
 //
-// A purely-numeric segment is the OLD id format. It is kept as a redirect
-// for one release (not served directly) so a link cached on a tester's
-// phone from before this change still resolves, then removed — tracked in
-// a follow-up ticket. The redirect target is itself unguessable, so this
-// does not reopen the enumerable-id problem; the numeric segment is only
-// useful to someone who already has it cached, not to someone walking a
-// range, since walking it now yields 301s to already-known-shape ids, not
-// image bytes, and is behind the same rate limiter as the real route.
+// A purely-numeric segment is the OLD id format and 404s — it is never
+// looked up or redirected (SYC-112, done in this PR; decided 1 Oct 2026,
+// Fable review finding 3). An earlier version of this PR 301-redirected a
+// numeric id to its public_id, reasoning that the redirect target was
+// itself unguessable so nothing leaked. That reasoning was wrong: the
+// Location header of that redirect *is* the public_id, so a plain
+// `curl -I` loop over /api/photos/1..N inside one rate-limit window
+// harvests the whole corpus's public_ids, and — because they are immutable
+// and cached a year — a public_id harvested during that window stays valid
+// forever, which closing the numeric route later does not undo. A 404
+// here leaks nothing: same response whether the numeric id exists or not.
 router.get("/photos/:id", photoLimiter, async (req, res) => {
   const id = String(req.params.id);
 
-  if (/^\d+$/.test(id)) {
-    const numericId = Number(id);
-    const [photo] = await db
-      .select({ publicId: photosTable.publicId })
-      .from(photosTable)
-      .where(eq(photosTable.id, numericId));
-    if (!photo) {
-      res.status(404).json({ error: "Not found" });
-      return;
-    }
-    res.redirect(301, `/api/photos/${photo.publicId}`);
+  // Numeric segments (the old id format) never serve or redirect — reject
+  // up front, before any query. `/^\d{1,10}$/` also keeps a value outside
+  // Postgres's int4 range (e.g. 99999999999999999999) from reaching the
+  // `eq(photosTable.id, ...)` query below and 500ing instead of 404ing
+  // (Fable review nit 9) — 10 digits is enough for any int4 (max
+  // 2147483647) and short enough that nothing in range survives past it
+  // undetected either.
+  if (/^\d{1,10}$/.test(id)) {
+    res.status(404).json({ error: "Not found" });
     return;
   }
 

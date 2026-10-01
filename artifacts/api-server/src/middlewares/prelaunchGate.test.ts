@@ -159,9 +159,8 @@ describe("9. gate on, no pass: every route refuses", () => {
     // Guard against a walker that silently finds nothing.
     expect(routes.length).toBeGreaterThanOrEqual(20);
     expect(routes).toContainEqual({ method: "get", path: "/api/cats" });
-    // SYC-98: the param is now `:id` (it carries either the public_id or,
-    // for one release, the old numeric id, which redirects — see
-    // routes/photos.ts).
+    // SYC-98: the param is now `:id` (it carries the public_id; a numeric
+    // segment, the old id format, 404s — see routes/photos.ts).
     expect(routes).toContainEqual({ method: "get", path: "/api/photos/:id" });
 
     for (const route of routes) {
@@ -573,9 +572,9 @@ describe("16. photos aren't stored by shared caches while the gate is on", () =>
     await db.delete(photosTable).where(eq(photosTable.id, photoId));
   });
 
-  // SYC-98: the numeric id now 301-redirects rather than serving bytes, so
-  // these requests go by public_id — the id that actually reaches the
-  // branch that sets these cache headers (routes/photos.ts).
+  // SYC-98: the numeric id 404s rather than serving bytes, so these
+  // requests go by public_id — the id that actually reaches the branch
+  // that sets these cache headers (routes/photos.ts).
   it("gate on: Cache-Control private (a year, immutable) and Vary on both pass headers", async () => {
     const res = await request(app).get(`/api/photos/${publicId}`).set("X-Prelaunch-Key", TESTER_KEY);
     expect(res.status).toBe(200);
