@@ -4,7 +4,9 @@
 **Scope:** the injured-cat action block, the healthy-cat onboarding note, and the post-report confirmation screen.
 **Rule:** vet names, addresses, map links and phone numbers are NOT translated. They come from the vet list file and are inserted verbatim in all three languages. **Clinic names too** — "Symviosis" and "Cyclades Vets" stay in Latin script in the Greek, because that is what is written on the sign and what a caller will be understood saying.
 
-This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.send`, `onboarding.healthy`, `confirm.sent`) are for reference only — use whatever key naming the codebase already uses.
+This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.intro`, `onboarding.healthy`, `confirm.sent`) are for reference only — use whatever key naming the codebase already uses.
+
+**1 Oct 2026 (Samuel):** the urgent block no longer opens with `injured.send` (removed) and now ends with `injured.capacity` (added, from Susan's standard reply). The English is approved; the Greek and French of `injured.capacity` are drafts for the native check (SYC-172, SYC-4).
 
 **Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged. `injured.afterhours` was added on 4 September 2026 after the vet verification pass found that two clinics publish out-of-hours numbers; see item 17 for the checker. **Withdrawn 28 September 2026:** Samuel cut the out-of-hours paragraph, and `injured.afterhours` is removed in all three languages.
 
@@ -13,9 +15,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 ## 1. English (source)
 
 ### `injured.*` — Injured cat action block
-
-**`injured.send`**
-> **Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**
 
 **`injured.intro`**
 > If this cat is badly hurt, please take it to a local vet if you can.
@@ -53,6 +52,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 **`injured.municipality`**
 > **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — +30 22813 61000 — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 
+**`injured.capacity`**
+> Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them.
+
 ### `onboarding.healthy` — Onboarding, healthy cats
 
 > **Look, don't touch.**
@@ -76,9 +78,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 *Address form: informal singular (εσύ) throughout. See "For the local checker", item 1.*
 
 ### `injured.*` — Τραυματισμένη γάτα
-
-**`injured.send`**
-> **Στείλ' το. Θέλει τριάντα δευτερόλεπτα και δείχνει στη Syros Cats ακριβώς πού βρίσκεται αυτή η γάτα.**
 
 **`injured.intro`**
 > Αν αυτή η γάτα είναι σοβαρά τραυματισμένη, πήγαινέ την σε έναν κτηνίατρο εδώ, αν μπορείς.
@@ -116,6 +115,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 **`injured.municipality`**
 > **Αν η γάτα χρειάζεται φροντίδα για εβδομάδες, όχι για ώρες.** Σύμφωνα με την ελληνική νομοθεσία, η φροντίδα των αδέσποτων ζώων είναι ευθύνη του Δήμου. Ενημέρωσε τον Δήμο Σύρου-Ερμούπολης — +30 22813 61000 — και ζήτησε το γραφείο προστασίας ζώων. Μερικές φορές μπορούν να βοηθήσουν με το κόστος. Εξαρτάται από το τι χρήματα έχουν εκείνη τη στιγμή.
 
+**`injured.capacity`** — **DRAFT, awaiting native review (SYC-172, SYC-4).**
+> Αν στείλεις αυτή την αναφορά, η Syros Cats θα έχει επίσης μια αναφορά για τη γάτα και, σε ορισμένες περιπτώσεις, μπορεί να αναλάβει δράση. Ωστόσο, η Syros Cats είναι ιδιωτικό καταφύγιο και όχι υπηρεσία έκτακτης ανάγκης, οπότε δεν μπορεί να προσφέρει άμεση διάσωση ή παραλαβή. Η μικρή της ομάδα έχει αυτή τη στιγμή φτάσει στα όριά της, φροντίζοντας τις γάτες που ήδη έχει.
+
 ### `onboarding.healthy` — Υγιείς γάτες
 
 > **Κοίτα, μην αγγίζεις.**
@@ -139,9 +141,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 *Address form: vouvoiement (vous) throughout — the reader is a visitor.*
 
 ### `injured.*` — Chat blessé
-
-**`injured.send`**
-> **Envoyez-le. Cela prend trente secondes et indique à Syros Cats exactement où se trouve ce chat.**
 
 **`injured.intro`**
 > Si ce chat est gravement blessé, emmenez-le chez un vétérinaire local si vous le pouvez.
@@ -178,6 +177,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 **`injured.municipality`**
 > **Si le chat a besoin d'être pris en charge pendant des semaines, pas des heures.** Selon la loi grecque, la prise en charge des animaux des rues incombe à la Municipalité. Prévenez la Municipalité de Syros-Ermoúpoli — +30 22813 61000 — et demandez le bureau de la protection animale. Ils peuvent parfois aider pour les frais. Cela dépend des fonds dont ils disposent à ce moment-là.
+
+**`injured.capacity`** — **DRAFT, awaiting native review (SYC-172, SYC-4).**
+> Envoyer ce signalement transmettra aussi à Syros Cats un signalement sur ce chat et, dans certains cas, l'association pourra intervenir. Cependant, Syros Cats est un refuge privé et non un service d'urgence : l'association ne peut donc pas assurer de sauvetage ou de prise en charge immédiats. Sa petite équipe est actuellement à pleine capacité, avec les chats dont elle s'occupe déjà.
 
 ### `onboarding.healthy` — Chats en bonne santé
 
