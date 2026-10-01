@@ -6,10 +6,14 @@
 -- time, Replit's Publish step diffed dev/prod schemas and applied the
 -- difference itself, independent of this repo's `migrate` runner, and
 -- couldn't run a custom backfill statement. Production migrations now go
--- through the runner exclusively (the `db-ops` GitHub Actions workflow,
--- `migrate` then `verify`, before the Replit project republishes) — see
--- docs/superpowers/plans/syc-121-neon-switchover.md §A.4. The runner can run
--- arbitrary SQL in one transaction, so this goes back to the standard
+-- through the runner exclusively (the `db-ops` GitHub Actions workflow):
+-- `migrate`, then a read-only check of the migration history and this
+-- column against Neon — not `-f command=verify`, whose `compare --projected`
+-- step runs against the old Replit database first and fails as soon as
+-- testers have written anything on Neon — then the Replit project
+-- republishes code, then `smoke` (docs/DEPLOYMENT.md:47,
+-- docs/superpowers/plans/syc-121-neon-switchover.md §A.4). The runner can
+-- run arbitrary SQL in one transaction, so this goes back to the standard
 -- additive shape: add the column nullable, backfill existing rows
 -- explicitly, then tighten to NOT NULL and add the unique index. The
 -- backfill is idempotent (`where public_id is null`), so re-running it
