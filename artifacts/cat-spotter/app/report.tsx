@@ -163,6 +163,13 @@ export default function ReportScreen() {
     [sentLocalId, reports, acceptedIds, syncing],
   );
 
+  // The confirmation starts at its heading, not wherever the form was scrolled to.
+  const scrollRef = useRef<ScrollView>(null);
+  const showingConfirmation = state !== null;
+  useEffect(() => {
+    if (showingConfirmation) scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [showingConfirmation]);
+
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   return (
@@ -177,6 +184,7 @@ export default function ReportScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
       >

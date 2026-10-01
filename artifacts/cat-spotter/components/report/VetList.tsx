@@ -65,7 +65,8 @@ export function VetList({ guidance }: { guidance: WelfareGuidance }) {
         >
           <Text style={[styles.name, { color: colors.foreground }]}>{clinic.name}</Text>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-            {clinic.area} · {clinic.landmark[language]}
+            {/* A landmark is only published for the clinics opposite a petrol station. */}
+            {clinic.pin === 'landmark' ? `${clinic.area} · ${clinic.landmark[language]}` : clinic.area}
           </Text>
           {clinic.phones.map((phone) => (
             <ExternalLink
