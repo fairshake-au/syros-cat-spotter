@@ -208,6 +208,9 @@ importers:
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
+      '@workspace/welfare-guidance':
+        specifier: workspace:*
+        version: link:../../lib/welfare-guidance
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
@@ -339,6 +342,9 @@ importers:
       '@workspace/geo':
         specifier: workspace:*
         version: link:../../lib/geo
+      '@workspace/welfare-guidance':
+        specifier: workspace:*
+        version: link:../../lib/welfare-guidance
       babel-plugin-react-compiler:
         specifier: ^19.0.0-beta-e993439-20250117
         version: 19.0.0-beta-ebf51a3-20250411
@@ -707,6 +713,8 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.5
+
+  lib/welfare-guidance: {}
 
   scripts:
     devDependencies:
