@@ -152,7 +152,14 @@ describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
     await expect(smoke(baseUrl, {})).resolves.toBeUndefined();
   });
 
-  it("every cat having a null photoUrl is reported, not treated as a failure", async () => {
+  // SYC-98 Fable re-review, should-fix 1: production has 52 photos and cats
+  // that use them, so every cat coming back with a null photoUrl is never
+  // legitimately true there — it is exactly the symptom of a broken photos
+  // join (0002 / the LEFT JOIN in listCatsWithStats). A quiet pass here
+  // used to mean smoke printed "ok" and exited 0 while photo serving was
+  // actually broken, so step 4 of the deploy order would never have caught
+  // it. This used to be the pinned "not a failure" behaviour; flipped.
+  it("every cat having a null photoUrl is a failure (photo serving looks broken)", async () => {
     await new Promise<void>((resolve) => {
       server = http.createServer((req, res) => {
         if (req.url === "/api/healthz") {
@@ -163,6 +170,36 @@ describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
         if (req.url === "/api/cats") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify([{ photoUrl: null }, { photoUrl: null }]));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(smoke(baseUrl, {})).rejects.toThrow(
+      "smoke: /api/cats returned 2 cats and none has a photoUrl — photo serving looks broken. Roll back now.",
+    );
+  });
+
+  // The all-null throw must not fire for a genuinely empty catalogue (a
+  // fresh development branch, say) — there is nothing to exercise, not a
+  // broken join.
+  it("an empty catalogue still passes quietly — nothing to exercise", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+        if (req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify([]));
           return;
         }
         res.writeHead(404);

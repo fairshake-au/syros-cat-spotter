@@ -92,7 +92,21 @@ export async function smoke(
   );
   if (withPhoto) {
     await get(withPhoto.photoUrl, cancelBody);
-  } else {
+  } else if (cats.length === 0) {
+    // A genuinely empty catalogue (a fresh development branch, say) — not a
+    // failure, nothing to exercise.
     console.log("--  no cat has a photo yet; photo route not exercised");
+  } else {
+    // SYC-98 Fable re-review, should-fix 1: production has 52 photos and
+    // cats that use them, so this is never legitimately true there. Every
+    // cat coming back with a null photoUrl is exactly the symptom of a
+    // broken photos join (0002 / the LEFT JOIN in listCatsWithStats) — the
+    // one failure mode this step of the deploy order exists to catch. A
+    // quiet pass here would mean smoke prints "ok" and exits 0 while photos
+    // are actually broken, and the first signal would be a tester seeing
+    // blank photos instead of the runbook's "if smoke fails, roll back".
+    throw new MigrationError(
+      `smoke: /api/cats returned ${cats.length} cats and none has a photoUrl — photo serving looks broken. Roll back now.`,
+    );
   }
 }
