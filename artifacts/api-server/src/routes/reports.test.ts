@@ -117,6 +117,13 @@ async function outboxFor(reportId: number) {
   return db.select().from(mailOutboxTable).where(eq(mailOutboxTable.reportId, reportId));
 }
 
+/** Send everything that's due (other tests leave due rows behind). */
+async function drainAll() {
+  for (let i = 0; i < 50; i++) {
+    if ((await drainDue(50)).claimed === 0) return;
+  }
+}
+
 /** Pretend the 10-minute photo wait has passed for every queued alert. */
 async function makeAllDue() {
   await db.execute(
@@ -377,10 +384,10 @@ describe("the alert email (item 1.5)", () => {
     const waitMs = alert!.nextAttemptAt.getTime() - row.submittedAt!.getTime();
     expect(waitMs).toBeGreaterThanOrEqual(9.5 * 60_000);
     expect(waitMs).toBeLessThanOrEqual(10.5 * 60_000);
-    await drainDue(5);
-    expect(sent).toHaveLength(0);
+    await drainAll();
+    expect(sent.filter((m) => String(m.body["text"]).includes(body.publicId))).toHaveLength(0);
     await makeAllDue();
-    await drainDue(5);
+    await drainAll();
     const mine = sent.filter((s) => String(s.body["text"]).includes(body.publicId));
     expect(mine).toHaveLength(1);
     expect(String(mine[0]!.body["text"])).toContain("The photo is still uploading.");
@@ -390,13 +397,13 @@ describe("the alert email (item 1.5)", () => {
   it("test 8: when the photo arrives after the alert went, a short follow-up carries it", async () => {
     const { body } = await submit({ hasPhoto: true, severity: "attention" });
     await makeAllDue();
-    await drainDue(5);
+    await drainAll();
     await request(app)
       .put(`/api/reports/${body.publicId}/photo`)
       .set("X-Device-Secret", SECRET)
       .send({ deviceId: DEVICE, photoBase64: (await jpegWithGps()).toString("base64") });
     await settleOutbox();
-    await drainDue(5);
+    await drainAll();
     const mine = sent.filter((s) => String(s.body["text"]).includes(body.publicId));
     expect(mine).toHaveLength(2);
     expect(mine[1]!.body["subject"]).toBe("Cat report: needs attention (photo)");

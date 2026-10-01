@@ -37,3 +37,26 @@ export function checkInternalToken(
     ? "ok"
     : "unauthorized";
 }
+
+/**
+ * SYC-42 plan, Slice 1 item 1.6: `MAIL_DRAIN_TOKEN`, the scheduled job's own
+ * narrow token. It opens exactly one path, POST /api/internal/mail/drain, and
+ * nothing else; and the sign-in Worker's INTERNAL_PEOPLE_TOKEN does not open
+ * the drain. A separate token means a leaked drain token can at worst make
+ * the server send mail that was already queued. Held only in the GitHub
+ * `production` environment and Replit's deployment secrets (spec §2.11).
+ */
+export const MAIL_DRAIN_PATH = "/api/internal/mail/drain";
+
+export function checkMailDrainToken(
+  authorization: string | undefined,
+): InternalAuthResult {
+  const expected = process.env["MAIL_DRAIN_TOKEN"] ?? "";
+  if (!expected) return "not_configured";
+  const match = /^Bearer (.+)$/i.exec(authorization ?? "");
+  const supplied = match?.[1] ?? "";
+  if (!supplied) return "unauthorized";
+  return timingSafeEqual(sha256(expected), sha256(supplied))
+    ? "ok"
+    : "unauthorized";
+}
