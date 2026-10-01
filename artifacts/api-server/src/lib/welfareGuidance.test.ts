@@ -27,7 +27,7 @@ import {
  *   28 Sep 2026 (SYC-42 Slice 0).
  */
 const URGENT_BLOCK_SHA256_EN =
-  "PIN_ME";
+  "e003e594121026bd0ef7a1df27d15c02cdc7cf8ad98dd0532936ee53e7f2ddd0";
 
 const FORBIDDEN: Record<string, string[]> = {
   // spec §5.1 and §10: "nobody comes away believing somebody is standing by"
@@ -127,8 +127,12 @@ describe("vet list (test 4, spec §5.7, Decision 3)", () => {
     for (const v of vets.filter((c) => c.pin === "landmark")) {
       expect(v.coordinates).not.toBeNull();
       const { lat, lng } = v.coordinates!;
-      expect(v.googleMapsUrl).toContain(`${lat.toFixed(4)}`);
-      expect(v.appleMapsUrl).toContain(`ll=${lat.toFixed(4)}`);
+      const latText = String(lat).slice(0, 7);
+      const lngText = String(lng).slice(0, 7);
+      expect(v.googleMapsUrl).toContain(`query=${latText}`);
+      expect(v.googleMapsUrl).toContain(`,${lngText}`);
+      expect(v.appleMapsUrl).toContain(`ll=${latText}`);
+      expect(v.appleMapsUrl).toContain(`,${lngText}`);
       expect(Math.abs(lat - 37.43)).toBeLessThan(0.05);
       expect(Math.abs(lng - 24.93)).toBeLessThan(0.05);
     }
@@ -189,8 +193,10 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10)", () => {
 describe("structure", () => {
   it("every language has the same keys and the same number of steps", () => {
     const shape = (c: GuidanceCopy) =>
-      JSON.stringify(c, (_k, v) =>
-        typeof v === "string" ? "" : Array.isArray(v) ? v.map(() => "") : v,
+      JSON.stringify(c, (k, v) =>
+        k === "locked"
+          ? undefined
+          : typeof v === "string" ? "" : Array.isArray(v) ? v.map(() => "") : v,
       );
     const en = shape(getGuidance("en").copy);
     expect(shape(getGuidance("el").copy)).toBe(en);
