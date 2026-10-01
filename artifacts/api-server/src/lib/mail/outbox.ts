@@ -175,9 +175,9 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
     }
 
     const message = buildWelfareAlert(report, photo ?? null, kind);
+    // The recipient is WELFARE_ALERT_TO, resolved inside sendMail.
     const result = await sendMail({
       purpose: "welfare_alert",
-      to: alertRecipient(),
       ...message,
       // Resend keeps idempotency keys for 24 hours: a retry after a lost
       // response can't produce a second email. The key includes whether the
