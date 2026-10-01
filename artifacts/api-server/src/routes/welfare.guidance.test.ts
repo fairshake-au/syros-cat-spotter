@@ -17,7 +17,8 @@ describe("GET /api/welfare/guidance", () => {
     expect(res.status).toBe(200);
     expect(res.body.language).toBe("el");
     expect(res.body.version).toBe(guidanceVersion());
-    expect(res.body.copy.urgent.send).toContain("Syros Cats");
+    expect(res.body.copy.urgent.capacity).toContain("Syros Cats");
+    expect(res.body.copy.urgent).not.toHaveProperty("send");
     expect(res.body.vets).toHaveLength(3);
     expect(res.body.municipality.phone.tel).toBe("+302281361000");
   });
