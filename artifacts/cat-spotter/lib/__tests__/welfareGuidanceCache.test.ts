@@ -28,7 +28,8 @@ describe('loadGuidance', () => {
   it('test 24: with storage empty and the network off, the built-in copy renders', async () => {
     const storage = memoryStorage();
     const g = await loadGuidance('el', storage);
-    expect(g.copy.urgent.send).toBe(getGuidance('el').copy.urgent.send);
+    expect(g.copy.urgent.intro).toBe(getGuidance('el').copy.urgent.intro);
+    expect(g.copy.urgent.capacity).toBe(getGuidance('el').copy.urgent.capacity);
     expect(g.vets).toHaveLength(3);
     expect(g.source).toBe('built-in');
   });

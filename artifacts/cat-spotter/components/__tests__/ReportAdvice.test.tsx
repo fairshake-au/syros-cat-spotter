@@ -65,13 +65,15 @@ afterEach(() => {
 });
 
 describe('UrgentAdvice (§5.3(b))', () => {
-  it.each(LANGS)('test 21 (%s): leads with "send this", the how-to open on first use', (code) => {
+  it.each(LANGS)('test 21 (%s): leads with the vet route, the how-to open on first use', (code) => {
     lang.current = code;
     const g = getGuidance(code);
     const { container } = render(<UrgentAdvice guidance={g} firstUse />);
     const text = container.textContent ?? '';
-    // The lead is the first thing said.
-    expect(text.trim().startsWith(plain(g.copy.urgent.send))).toBe(true);
+    // The lead is the first thing said: the vet route (Samuel, 1 Oct 2026).
+    expect(text.trim().startsWith(plain(g.copy.urgent.intro))).toBe(true);
+    // The capacity paragraph ("not an emergency service") is the last thing said.
+    expect(text.trim().endsWith(plain(g.copy.urgent.capacity))).toBe(true);
     for (const step of g.copy.urgent.steps) expect(text).toContain(plain(step));
     expect(text).toContain(plain(g.copy.urgent.municipality));
   });
