@@ -14,9 +14,12 @@ import { setReportHandoff, type ReportHandoff } from '@/lib/reportHandoff';
  */
 export function NeedsHelpLink({
   handoff,
+  prepare,
   style,
 }: {
   handoff?: ReportHandoff;
+  /** Builds the handoff on tap (the review screen reads the sighting's photo). */
+  prepare?: () => Promise<ReportHandoff>;
   style?: object;
 }) {
   const colors = useColors();
@@ -25,8 +28,13 @@ export function NeedsHelpLink({
   return (
     <Pressable
       accessibilityRole="link"
-      onPress={() => {
+      onPress={async () => {
         if (handoff) setReportHandoff(handoff);
+        if (prepare) {
+          // Nothing blocks a report: if the photo can't be read, open anyway.
+          const ready = await prepare().catch(() => null);
+          if (ready) setReportHandoff(ready);
+        }
         router.push('/report');
       }}
       hitSlop={8}
