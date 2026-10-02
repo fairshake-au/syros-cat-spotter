@@ -413,7 +413,7 @@ Four moments, deliberately:
 
 Same rule, same words, in the flow and in the mail. A message that appears in only one place is a message half the people never see.
 
-**A layout note that is part of the design, not decoration.** The urgent block is long because it has to be. It is shown as a short lead, then a clearly labelled expander — **"How to get a hurt cat to a vet"** — open by default on first use. The lead must never be the discouraging half: leading with "we may not come" turns a worried person away at the exact moment we want them to press Send. The block therefore opens with the vet route ("If this cat is badly hurt, please take it to a local vet if you can") and puts the capacity paragraph — Syros Cats is not an emergency service — **last** (Samuel, 1 Oct 2026).
+**A layout note that is part of the design, not decoration.** The urgent block is long because it has to be. It is shown as a short lead, then a clearly labelled expander — **"How to get a hurt cat to a vet"** — ~~open by default on first use~~ **folded by default, behind a clear, prominent button-style expander (never small print)**. *Samuel, 2 Oct 2026: the steps are folded behind a prominent button so the advice screen needs no scrolling.* The report flow is three screens (Where → How bad → Before you send), each fitting a 390×844 phone without scrolling; the capacity paragraph is always shown in full, directly above the pinned Send report button. The lead must never be the discouraging half: leading with "we may not come" turns a worried person away at the exact moment we want them to press Send. The block therefore opens with the vet route ("If this cat is badly hurt, please take it to a local vet if you can") and puts the capacity paragraph — Syros Cats is not an emergency service — **last** (Samuel, 1 Oct 2026).
 
 ### 5.3 The copy
 
@@ -449,7 +449,7 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > ---
 >
-> **▾ How to get a hurt cat to a vet** *(open by default)*
+> **▾ How to get a hurt cat to a vet** *(folded by default behind a prominent button — Samuel, 2 Oct 2026: the steps are folded behind a prominent button so the advice screen needs no scrolling)*
 >
 > **1. Phone a vet and ask for a cage.** Any of the clinics above. Say where you are and what you have found.
 >
