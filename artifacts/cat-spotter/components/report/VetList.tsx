@@ -17,14 +17,30 @@ function ExternalLink({
   children,
   style,
   label,
+  block = false,
 }: {
   href: string;
   children: React.ReactNode;
   style?: object;
   label: string;
+  /** Lay the children out as a block (a column), not as inline text. */
+  block?: boolean;
 }) {
   // On the web a real <a href> (react-native-web renders `href`), so tel:
   // and map links work with the browser's own handling.
+  if (Platform.OS === 'web' && block) {
+    return (
+      <View
+        // @ts-expect-error react-native-web supports href on View
+        href={href}
+        accessibilityRole="link"
+        accessibilityLabel={label}
+        style={style}
+      >
+        {children}
+      </View>
+    );
+  }
   if (Platform.OS === 'web') {
     return (
       <Text
@@ -92,31 +108,37 @@ function CompactVetCards({ guidance }: { guidance: WelfareGuidance }) {
             {clinic.phones.map((phone) => (
               <ExternalLink
                 key={phone.tel}
+                block
                 href={telHref(phone)}
-                label={`${v.call} ${clinic.name}: ${phone.display}`}
-                style={[compact.phone, { borderColor: colors.border }]}
+                label={`${v.call} ${clinic.name}: ${phone.display} (${v.phoneKinds[phone.kind]})`}
+                style={compact.phone}
               >
-                <Text style={[compact.number, { color: colors.primary }]}>
-                  <Feather name="phone" size={12} color={colors.primary} /> {phone.display}
+                <Text style={[compact.number, { color: colors.primary }]} numberOfLines={1}>
+                  <Feather name="phone" size={11} color={colors.primary} /> {phone.display}
                 </Text>
-                <Text style={[compact.kind, { color: colors.mutedForeground }]}> {v.phoneKinds[phone.kind]}</Text>
+                <Text style={[compact.kind, { color: colors.mutedForeground }]} numberOfLines={1}>
+                  {v.phoneKindsShort[phone.kind]}
+                </Text>
               </ExternalLink>
             ))}
+            <View style={compact.maps}>
+              <ExternalLink href={clinic.googleMapsUrl} label={`${v.googleMaps}: ${clinic.name}`}>
+                <Text style={[compact.mapLink, { color: colors.primary }]}>{v.googleMaps}</Text>
+              </ExternalLink>
+              <ExternalLink href={clinic.appleMapsUrl} label={`${v.appleMaps}: ${clinic.name}`}>
+                <Text style={[compact.mapLink, { color: colors.primary }]}>{v.appleMaps}</Text>
+              </ExternalLink>
+            </View>
           </View>
-          {/* A row, not nested text: a link can't sit inside <Text> on the phone apps. */}
-          <View style={compact.mapRow}>
-            <ExternalLink href={clinic.googleMapsUrl} label={`${v.googleMaps}: ${clinic.name}`} style={compact.inline}>
-              <Text style={[compact.mapLink, { color: colors.primary }]}>{v.googleMaps}</Text>
-            </ExternalLink>
-            <ExternalLink href={clinic.appleMapsUrl} label={`${v.appleMaps}: ${clinic.name}`} style={compact.inline}>
-              <Text style={[compact.mapLink, { color: colors.primary }]}>{v.appleMaps}</Text>
-            </ExternalLink>
-            <Text style={[compact.maps, { color: colors.mutedForeground }]}>
-              {clinic.pin === 'landmark' ? v.pinLandmark : v.pinSearch}
-            </Text>
-          </View>
+          {/* Only the clinic without a landmark pin says so on its card. */}
+          {clinic.pin === 'search' && (
+            <Text style={[compact.note, { color: colors.mutedForeground }]}>{v.pinSearch}</Text>
+          )}
         </View>
       ))}
+      <Text style={[compact.note, { color: colors.mutedForeground }]}>
+        {v.pinLandmark} {v.publishedNote}
+      </Text>
     </View>
   );
 }
@@ -182,17 +204,16 @@ export function VetList({ guidance, compact: isCompact = false }: { guidance: We
 }
 
 const compact = StyleSheet.create({
-  list: { gap: 6 },
-  card: { borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 10, paddingVertical: 6, gap: 2 },
+  list: { gap: 4 },
+  card: { borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 10, paddingVertical: 4, gap: 2 },
   name: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17 },
-  phones: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12 },
-  phone: { flexDirection: 'row', alignItems: 'center', minHeight: 30, paddingVertical: 2 },
-  number: { fontFamily: fonts.bodyBold, fontSize: 14 },
-  kind: { fontFamily: fonts.body, fontSize: 11 },
-  mapRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10 },
-  maps: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
-  inline: {},
-  mapLink: { fontFamily: fonts.bodySemiBold, fontSize: 11, textDecorationLine: 'underline' },
+  maps: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
+  mapLink: { fontFamily: fonts.bodySemiBold, fontSize: 11, lineHeight: 15, textDecorationLine: 'underline' },
+  phones: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  phone: { flex: 1, minHeight: 34, justifyContent: 'center' },
+  number: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17 },
+  kind: { fontFamily: fonts.body, fontSize: 11, lineHeight: 14 },
+  note: { fontFamily: fonts.body, fontSize: 10, lineHeight: 13 },
 });
 
 const styles = StyleSheet.create({

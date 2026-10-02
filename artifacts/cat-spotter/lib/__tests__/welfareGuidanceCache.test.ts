@@ -53,6 +53,21 @@ describe('loadGuidance', () => {
     expect(g.vets[0]!.name).toBe('Renamed clinic');
   });
 
+  it('ignores a served or saved copy missing any field this app renders (found in the 2 Oct browser check)', async () => {
+    // An API still running an older guidance file served vetList without the
+    // compact labels, and the urgent screen crashed. Same schemaVersion, so
+    // only a shape check catches it.
+    const older = JSON.parse(JSON.stringify(getGuidance('en')));
+    delete older.copy.vetList.phoneKindsShort;
+    const s1 = memoryStorage({ [`${GUIDANCE_STORAGE_PREFIX}en`]: JSON.stringify(older) });
+    expect((await loadGuidance('en', s1)).source).toBe('built-in');
+    const s2 = memoryStorage();
+    expect(await refreshGuidance('en', s2, async () => older)).toBeNull();
+    const wrongType = JSON.parse(JSON.stringify(getGuidance('en')));
+    wrongType.copy.urgent.steps = 'not a list';
+    expect(await refreshGuidance('en', s2, async () => wrongType)).toBeNull();
+  });
+
   it('ignores a saved copy with an unknown schemaVersion, or one that is malformed', async () => {
     const future = { ...getGuidance('en'), schemaVersion: 2 };
     const s1 = memoryStorage({ [`${GUIDANCE_STORAGE_PREFIX}en`]: JSON.stringify(future) });

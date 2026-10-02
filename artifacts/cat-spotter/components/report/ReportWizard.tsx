@@ -247,7 +247,7 @@ export function ReportWizard({
 
       <View
         testID="report-footer"
-        style={[styles.footer, { paddingBottom: insets.bottom + spacing[3], borderColor: colors.border, backgroundColor: colors.background }]}
+        style={[styles.footer, { paddingBottom: insets.bottom + spacing[2], borderColor: colors.border, backgroundColor: colors.background }]}
       >
         <View style={styles.footerInner}>
           {flow.step < 3 ? (
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.displayBold, fontSize: 18, flex: 1 },
   stepOf: { fontFamily: fonts.bodySemiBold, fontSize: 13 },
   scroll: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: spacing[4], paddingTop: spacing[3], paddingBottom: spacing[3] },
+  scrollContent: { flexGrow: 1, paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[2] },
   column: { flexGrow: 1, width: '100%', maxWidth: 640, alignSelf: 'center', gap: spacing[3] },
   hint: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
   linkText: { fontFamily: fonts.bodySemiBold, fontSize: 14, textDecorationLine: 'underline' },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[3],
     borderRadius: radii.md,
-    minHeight: 72,
+    minHeight: 64,
   },
   choiceTitle: { fontFamily: fonts.bodyBold, fontSize: 17 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], minHeight: 44 },
@@ -313,12 +313,12 @@ const styles = StyleSheet.create({
   note: {
     borderWidth: 1,
     borderRadius: radii.md,
-    height: 72,
+    height: 64,
     padding: spacing[3],
     fontFamily: fonts.body,
     fontSize: 15,
     textAlignVertical: 'top',
   },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[3], paddingHorizontal: spacing[4] },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[2], paddingHorizontal: spacing[4] },
   footerInner: { width: '100%', maxWidth: 640, alignSelf: 'center' },
 });

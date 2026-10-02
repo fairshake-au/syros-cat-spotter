@@ -94,10 +94,10 @@ export function UrgentAdvice({ guidance }: { guidance: WelfareGuidance }) {
 }
 
 const styles = StyleSheet.create({
-  block: { gap: 10 },
-  lead: { fontFamily: fonts.bodySemiBold, fontSize: 16, lineHeight: 22 },
-  para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
-  capacity: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
+  block: { gap: 6 },
+  lead: { fontFamily: fonts.bodySemiBold, fontSize: 15, lineHeight: 20 },
+  para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 19 },
+  capacity: { fontFamily: fonts.body, fontSize: 13, lineHeight: 17 },
   subheading: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18 },
   fold: { borderWidth: 1.5, borderRadius: radii.md, overflow: 'hidden' },
   foldHeader: {
