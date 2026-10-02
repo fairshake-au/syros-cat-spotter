@@ -1,0 +1,65 @@
+{
+  "_source": "docs/specs/team-access-and-welfare-queue.md §5.7, from docs/specs/source/syros-vets-verified.md. Names and numbers are not translated. Coordinates are landmark-anchored (the petrol station opposite each clinic, good to about 50–100 m) until someone on Syros drops real door pins (SYC-68). Dermitzaki has no coordinates and uses interim map searches (plan Decision 3, Samuel 1 Oct 2026). The Greek and French landmark lines are Fair Shake drafts, pending a native check (SYC-172).",
+  "clinics": [
+    {
+      "id": "symviosis",
+      "name": "Symviosis — Κτηνιατρικό Κέντρο Σύρου",
+      "vet": "Emmanouil \"Manolis\" Vorrisis",
+      "area": "Talanta / Τάλαντα",
+      "landmark": {
+        "en": "Opposite the Shell petrol station, on the Pagos–Ermoupoli road",
+        "el": "Απέναντι από το πρατήριο Shell, στον δρόμο Πάγου–Ερμούπολης",
+        "fr": "En face de la station-service Shell, sur la route Pagos–Ermoúpoli"
+      },
+      "address": "Stavros Talanton, Talanta, Syros 841 00, Cyclades. No street name or number published.",
+      "phones": [
+        { "display": "+30 22810 77929", "tel": "+302281077929", "kind": "clinic_hours" },
+        { "display": "+30 697 005 5012", "tel": "+306970055012", "kind": "after_hours" }
+      ],
+      "coordinates": { "lat": 37.4234996, "lng": 24.9202989 },
+      "pin": "landmark",
+      "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=37.4234996,24.9202989",
+      "appleMapsUrl": "https://maps.apple.com/?ll=37.4234996,24.9202989&q=Symviosis%20Vet%20Talanta"
+    },
+    {
+      "id": "dermitzaki",
+      "name": "Dr Irini Dermitzaki — Κτηνιατρείο Δρ. Δερμιτζάκη Ειρήνη",
+      "vet": "Dr Irini Dermitzaki",
+      "area": "Livadia / Λιβάδια, Manna",
+      "landmark": {
+        "en": "Livadia, Manna",
+        "el": "Λιβάδια, Μάννα",
+        "fr": "Livadia, Manna"
+      },
+      "address": "λιβάδια 0, Manna 841 00, Greece (as Google Maps lists it; the \"0\" means no street number).",
+      "phones": [
+        { "display": "+30 22813 06720", "tel": "+302281306720", "kind": "landline" },
+        { "display": "+30 6986 705837", "tel": "+306986705837", "kind": "mobile" }
+      ],
+      "coordinates": null,
+      "pin": "search",
+      "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Dermitzaki%20vet%20Livadia%20Manna%20Syros",
+      "appleMapsUrl": "https://maps.apple.com/?q=Dermitzaki%20Vet%20Livadia%20Manna%20Syros"
+    },
+    {
+      "id": "cyclades-vets",
+      "name": "Cyclades Vets (George Maragkos)",
+      "vet": "George Maragkos",
+      "area": "Livadia, Kato Manna / Κάτω Μάννα",
+      "landmark": {
+        "en": "On the main road, opposite the AVIN petrol station",
+        "el": "Επί της κεντρικής οδού, απέναντι από το πρατήριο AVIN",
+        "fr": "Sur la route principale, en face de la station-service AVIN"
+      },
+      "address": "Λιβάδια, επί της κεντρικής οδού, έναντι AVIN — Kato Manna, Syros 841 00. No street name or number published.",
+      "phones": [
+        { "display": "+30 22810 79439", "tel": "+302281079439", "kind": "main" },
+        { "display": "+30 6937 252802", "tel": "+306937252802", "kind": "emergency" }
+      ],
+      "coordinates": { "lat": 37.428163, "lng": 24.940013 },
+      "pin": "landmark",
+      "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=37.4281630,24.9400130",
+      "appleMapsUrl": "https://maps.apple.com/?ll=37.4281630,24.9400130&q=Cyclades%20Vets%20Syros"
+    }
+  ]
+}

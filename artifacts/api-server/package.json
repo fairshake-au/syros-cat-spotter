@@ -16,6 +16,7 @@
     "@workspace/db": "workspace:*",
     "@workspace/geo": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
+    "@workspace/welfare-guidance": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "drizzle-orm": "catalog:",

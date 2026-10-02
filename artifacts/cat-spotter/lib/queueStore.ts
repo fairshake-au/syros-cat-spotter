@@ -22,6 +22,12 @@
  * queue read-only for the session, so nothing can overwrite it.
  *
  * Framework-free on purpose, so the ordering rules are unit-testable.
+ *
+ * Generic over the item type (SYC-42 plan, Slice 0 item 0.4): the cat-report
+ * queue uses the same store, so it gets this exact write path, the Web Lock
+ * and the "never overwrite an unreadable list" rule, not a second copy. The
+ * type parameter defaults to `PendingSighting`, so sighting call sites are
+ * unchanged.
  */
 import type { PendingSighting } from './offlineQueue';
 
@@ -59,7 +65,7 @@ export function isQueueWriteError(err: unknown): err is QueueWriteError {
  * replayed onto a later one. Return the SAME array when nothing changes so the
  * store can skip the write.
  */
-export type QueueChange = (items: PendingSighting[]) => PendingSighting[];
+export type QueueChange<T extends QueueItem = PendingSighting> = (items: T[]) => T[];
 
 /**
  * - `user`: a change someone asked for. If it cannot be saved it throws
@@ -72,25 +78,34 @@ export type QueueChange = (items: PendingSighting[]) => PendingSighting[];
  */
 export type ChangeKind = 'user' | 'system';
 
-export interface QueueStoreOptions {
+/** Anything queued has a local id. */
+export type QueueItem = { localId: string };
+
+export interface QueueStoreOptions<T extends QueueItem = PendingSighting> {
   read: () => Promise<string | null>;
   write: (raw: string) => Promise<void>;
   /** Hold the cross-tab queue lock while `fn` runs. Identity where there is none. */
   withLock?: <T>(fn: () => Promise<T>) => Promise<T>;
   /** Memory changed; show it. */
-  publish: (items: PendingSighting[]) => void;
+  publish: (items: T[]) => void;
+  /**
+   * Checks one saved item. A list containing anything that fails it is
+   * treated as unreadable (and so never overwritten). Defaults to "has a
+   * string localId", which is what the sighting queue has always checked.
+   */
+  isItem?: (value: unknown) => value is T;
 }
 
-export interface LoadContext {
+export interface LoadContext<T extends QueueItem = PendingSighting> {
   /** The list as memory has it now. */
-  items(): PendingSighting[];
+  items(): T[];
   /** The saved text exactly as stored right now (for a backup). */
   readRaw(): Promise<string | null>;
   /** `mutate` for use INSIDE the load (the load already holds the chain). */
-  mutate(change: QueueChange): Promise<PendingSighting[]>;
+  mutate(change: QueueChange<T>): Promise<T[]>;
 }
 
-export interface LoadHooks {
+export interface LoadHooks<T extends QueueItem = PendingSighting> {
   /** The saved text could not be parsed. Keep a copy of it somewhere safe. */
   onUnparseable?: (raw: string) => Promise<void>;
   /**
@@ -98,10 +113,10 @@ export interface LoadHooks {
    * stale marking, moving photos, the orphan sweep. Anything it throws is
    * contained — the parsed list is already in memory.
    */
-  afterParse?: (ctx: LoadContext, raw: string | null) => Promise<void>;
+  afterParse?: (ctx: LoadContext<T>, raw: string | null) => Promise<void>;
 }
 
-export interface QueueStore {
+export interface QueueStore<T extends QueueItem = PendingSighting> {
   /** Resolves once the saved list has been loaded (or found unreadable). */
   readonly ready: Promise<void>;
   isReady(): boolean;
@@ -109,16 +124,16 @@ export interface QueueStore {
   isReadOnly(): boolean;
   /** A system change reached memory but not storage yet. */
   hasUnsavedChanges(): boolean;
-  items(): PendingSighting[];
-  load(hooks?: LoadHooks): Promise<void>;
-  mutate(change: QueueChange, kind?: ChangeKind): Promise<PendingSighting[]>;
+  items(): T[];
+  load(hooks?: LoadHooks<T>): Promise<void>;
+  mutate(change: QueueChange<T>, kind?: ChangeKind): Promise<T[]>;
   /** Re-read storage into memory (another tab may have changed it). */
   refresh(): Promise<void>;
 }
 
-type Parsed = { ok: true; items: PendingSighting[] } | { ok: false };
+type Parsed<T> = { ok: true; items: T[] } | { ok: false };
 
-function isItem(value: unknown): value is PendingSighting {
+function hasLocalId(value: unknown): value is PendingSighting {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -130,7 +145,12 @@ function isItem(value: unknown): value is PendingSighting {
  * Parse the saved text. Anything that is not an array of queue items counts
  * as unparseable — and an unparseable list is never overwritten.
  */
-export function parseQueue(raw: string | null): Parsed {
+export function parseQueue<T extends QueueItem = PendingSighting>(
+  raw: string | null,
+  isItem: (value: unknown) => value is T = hasLocalId as unknown as (
+    value: unknown,
+  ) => value is T,
+): Parsed<T> {
   if (raw === null || raw === '') return { ok: true, items: [] };
   try {
     const value: unknown = JSON.parse(raw);
@@ -141,13 +161,17 @@ export function parseQueue(raw: string | null): Parsed {
   }
 }
 
-export function createQueueStore(options: QueueStoreOptions): QueueStore {
+export function createQueueStore<T extends QueueItem = PendingSighting>(
+  options: QueueStoreOptions<T>,
+): QueueStore<T> {
+  const isItem =
+    options.isItem ?? (hasLocalId as unknown as (value: unknown) => value is T);
   const withLock =
     options.withLock ?? (<T,>(fn: () => Promise<T>): Promise<T> => fn());
 
   let chain: Promise<unknown> = Promise.resolve();
-  let memory: PendingSighting[] = [];
-  let unsaved: QueueChange[] = [];
+  let memory: T[] = [];
+  let unsaved: QueueChange<T>[] = [];
   let loaded = false;
   let readOnly = false;
   let loadPromise: Promise<void> | null = null;
@@ -162,17 +186,17 @@ export function createQueueStore(options: QueueStoreOptions): QueueStore {
     return result;
   }
 
-  function setMemory(items: PendingSighting[]) {
+  function setMemory(items: T[]) {
     memory = items;
     options.publish(items);
   }
 
-  function replayUnsaved(items: PendingSighting[]): PendingSighting[] {
+  function replayUnsaved(items: T[]): T[] {
     return unsaved.reduce((list, change) => change(list), items);
   }
 
   async function readStored(): Promise<
-    { ok: true; items: PendingSighting[] } | { ok: false; reason: QueueWriteFailure }
+    { ok: true; items: T[] } | { ok: false; reason: QueueWriteFailure }
   > {
     let raw: string | null;
     try {
@@ -180,14 +204,14 @@ export function createQueueStore(options: QueueStoreOptions): QueueStore {
     } catch {
       return { ok: false, reason: 'failed' };
     }
-    const parsed = parseQueue(raw);
+    const parsed = parseQueue<T>(raw, isItem);
     return parsed.ok ? parsed : { ok: false, reason: 'read-only' };
   }
 
   function mutateNow(
-    change: QueueChange,
+    change: QueueChange<T>,
     kind: ChangeKind,
-  ): Promise<PendingSighting[]> {
+  ): Promise<T[]> {
     return withLock(async () => {
       const stored = await readStored();
       if (!stored.ok) {
@@ -225,7 +249,7 @@ export function createQueueStore(options: QueueStoreOptions): QueueStore {
     setMemory(replayUnsaved(stored.items));
   }
 
-  async function loadNow(hooks: LoadHooks | undefined): Promise<void> {
+  async function loadNow(hooks: LoadHooks<T> | undefined): Promise<void> {
     try {
       let raw: string | null = null;
       try {
@@ -241,7 +265,7 @@ export function createQueueStore(options: QueueStoreOptions): QueueStore {
         // next launch runs the load steps normally.
         return;
       }
-      const parsed = parseQueue(raw);
+      const parsed = parseQueue<T>(raw, isItem);
       if (!parsed.ok) {
         readOnly = true;
         if (raw !== null && hooks?.onUnparseable) {

@@ -3,6 +3,7 @@ import app from "./app";
 import { logDatabaseTarget } from "./lib/databaseStartup";
 import { logger } from "./lib/logger";
 import { describeGate } from "./lib/prelaunch";
+import { describeMail } from "./lib/mail/send";
 
 const rawPort = process.env["PORT"];
 
@@ -21,6 +22,8 @@ if (Number.isNaN(port) || port <= 0) {
 // SYC-113: say whether the pre-launch gate is on and which settings are
 // present (never their values).
 for (const line of describeGate()) logger.info(line);
+// SYC-42: say whether the mail key is present (never its value).
+for (const { level, line } of describeMail()) logger[level](line);
 
 app.listen(port, (err) => {
   if (err) {

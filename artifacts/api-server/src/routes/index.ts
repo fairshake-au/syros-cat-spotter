@@ -8,6 +8,7 @@ import notificationsRouter from "./notifications";
 import campaignRouter from "./campaign";
 import internalRouter from "./internal";
 import teamRouter from "./team";
+import welfareRouter from "./welfare";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(notificationsRouter);
 router.use(campaignRouter);
 router.use(internalRouter);
 router.use(teamRouter);
+router.use(welfareRouter);
 
 export default router;
