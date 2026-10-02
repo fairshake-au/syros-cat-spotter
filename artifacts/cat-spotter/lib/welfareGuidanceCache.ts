@@ -31,24 +31,50 @@ export interface GuidanceStorage {
 
 export type LoadedGuidance = WelfareGuidance & { source: 'saved' | 'built-in' };
 
-/** Enough of a check that a malformed or foreign copy is never rendered. */
+/**
+ * True when `value` has every key `shape` has, with the same kind of value
+ * (string, number, boolean, list or object), all the way down. Extra keys
+ * are fine; a missing or mistyped one is not.
+ */
+function hasShape(value: unknown, shape: unknown): boolean {
+  if (Array.isArray(shape)) {
+    if (!Array.isArray(value)) return false;
+    return value.every((v) => (shape.length ? hasShape(v, shape[0]) : true));
+  }
+  if (shape && typeof shape === 'object') {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const v = value as Record<string, unknown>;
+    return Object.entries(shape as Record<string, unknown>).every(
+      ([k, s]) => k in v && hasShape(v[k], s),
+    );
+  }
+  if (shape === null) return true;
+  return typeof value === typeof shape;
+}
+
+/**
+ * Never render a copy that is malformed, foreign, or missing anything this
+ * app shows: it must match the built-in copy's shape, key for key. A served
+ * file from an older (or newer) API that lacks a field falls back to the
+ * built-in copy rather than crashing the screen (found in the 2 Oct 2026
+ * browser check). Optional notes (`locked`, `coordinates`) are not required.
+ */
 export function isUsableGuidance(value: unknown, language: GuidanceLanguage): value is WelfareGuidance {
   if (!value || typeof value !== 'object') return false;
   const g = value as Partial<WelfareGuidance>;
+  if (g.schemaVersion !== GUIDANCE_SCHEMA_VERSION || g.language !== language || typeof g.version !== 'string') {
+    return false;
+  }
+  const built = getGuidance(language);
+  const { locked: _locked, ...urgentShape } = built.copy.urgent;
+  const copyShape = { ...built.copy, urgent: urgentShape };
+  const vetShape = built.vets.map(({ coordinates: _c, ...rest }) => rest)[0];
   return (
-    g.schemaVersion === GUIDANCE_SCHEMA_VERSION &&
-    g.language === language &&
-    typeof g.version === 'string' &&
-    !!g.copy?.urgent?.intro &&
-    !!g.copy?.urgent?.capacity &&
-    Array.isArray(g.copy?.urgent?.steps) &&
-    !!g.copy?.attention?.heading &&
-    !!g.copy?.litter?.heading &&
-    !!g.copy?.confirmation?.sentHeading &&
-    !!g.copy?.vetList?.phoneKinds &&
+    hasShape(g.copy, copyShape) &&
     Array.isArray(g.vets) &&
     g.vets.length > 0 &&
-    !!g.municipality?.phone?.tel
+    g.vets.every((v) => hasShape(v, vetShape)) &&
+    hasShape(g.municipality, built.municipality)
   );
 }
 
