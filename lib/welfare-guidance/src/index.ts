@@ -95,6 +95,14 @@ export type GuidanceCopy = {
   vetList: {
     review: ReviewState;
     phoneKinds: Record<PhoneKind, string>;
+    /**
+     * Short labels for the compact vet cards on the "Before you send" screen
+     * (Samuel, 2 Oct 2026: no scrolling). A '*' marks a number the clinic
+     * publishes itself, explained once by `publishedNote`, so the cards still
+     * promise nothing about who answers.
+     */
+    phoneKindsShort: Record<PhoneKind, string>;
+    publishedNote: string;
     call: string;
     googleMaps: string;
     appleMaps: string;

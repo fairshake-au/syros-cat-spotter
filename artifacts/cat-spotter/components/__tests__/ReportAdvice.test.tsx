@@ -138,7 +138,15 @@ describe('VetList (§5.7, item 1.10)', () => {
       expect(links).toContain(v.appleMapsUrl);
     }
     const text = container.textContent ?? '';
-    expect(text).toContain(g.copy.vetList.phoneKinds.after_hours);
+    if (compact) {
+      // Short labels, with the after-hours and emergency lines starred and
+      // the star explained once: the clinic's own published number.
+      expect(text).toContain(g.copy.vetList.phoneKindsShort.after_hours);
+      expect(text).toContain(g.copy.vetList.phoneKindsShort.emergency);
+      expect(text).toContain(g.copy.vetList.publishedNote);
+    } else {
+      expect(text).toContain(g.copy.vetList.phoneKinds.after_hours);
+    }
     expect(text).toContain(g.copy.vetList.pinLandmark);
     expect(text).toContain(g.copy.vetList.pinSearch);
     // The full list ends with the Municipality; the compact cards leave it to

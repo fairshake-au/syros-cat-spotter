@@ -54,6 +54,15 @@
       "main": "Standard",
       "emergency": "Ligne d'urgence (numéro publié par la clinique)"
     },
+    "phoneKindsShort": {
+      "clinic_hours": "Heures d'ouverture",
+      "after_hours": "Hors horaires*",
+      "landline": "Fixe",
+      "mobile": "Portable",
+      "main": "Standard",
+      "emergency": "Urgences*"
+    },
+    "publishedNote": "* Numéro publié par la clinique elle-même.",
     "call": "Appeler",
     "googleMaps": "Google Maps",
     "appleMaps": "Apple Maps",

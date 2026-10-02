@@ -55,6 +55,15 @@
       "main": "Main line",
       "emergency": "Emergency line (the clinic's published number)"
     },
+    "phoneKindsShort": {
+      "clinic_hours": "Clinic hours",
+      "after_hours": "After hours*",
+      "landline": "Landline",
+      "mobile": "Mobile",
+      "main": "Main line",
+      "emergency": "Emergency*"
+    },
+    "publishedNote": "* The clinic's own published number.",
     "call": "Call",
     "googleMaps": "Google Maps",
     "appleMaps": "Apple Maps",

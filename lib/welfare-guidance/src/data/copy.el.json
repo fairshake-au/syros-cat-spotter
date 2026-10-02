@@ -54,6 +54,15 @@
       "main": "Κεντρικό τηλέφωνο",
       "emergency": "Γραμμή επειγόντων (ο αριθμός που δίνει το ιατρείο)"
     },
+    "phoneKindsShort": {
+      "clinic_hours": "Ώρες ιατρείου",
+      "after_hours": "Εκτός ωραρίου*",
+      "landline": "Σταθερό",
+      "mobile": "Κινητό",
+      "main": "Κεντρικό",
+      "emergency": "Επείγοντα*"
+    },
+    "publishedNote": "* Ο αριθμός που δίνει το ίδιο το ιατρείο.",
     "call": "Κλήση",
     "googleMaps": "Google Maps",
     "appleMaps": "Apple Maps",
