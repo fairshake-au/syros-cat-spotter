@@ -23,7 +23,7 @@ vi.mock("../lib/logger", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/logger")>();
   const { default: pino } = await import("pino");
   const logger = pino(
-    { level: "trace", redact: actual.REDACT_PATHS },
+    { level: "trace", redact: actual.REDACT_PATHS, serializers: actual.LOG_SERIALIZERS },
     { write: (line: string) => void spies.logLines.push(line) },
   );
   return { ...actual, logger };
@@ -491,5 +491,20 @@ describe("test 19: logs", () => {
     expect(log).not.toContain(DEVICE);
     expect(log).not.toContain("alerts@example.org");
     expect(log).not.toContain(SECRET);
+  });
+
+  it("S1 (review of #55): a database error on a report route logs no note, coordinates or device id", async () => {
+    // A NUL byte can't be stored in Postgres text, so the insert fails and
+    // the driver's error message carries the whole query and its params.
+    spies.logLines.length = 0;
+    const res = await submit({ hasPhoto: false, note: "Bleeding by the bakery \u0000 door" });
+    expect(res.status).toBe(500);
+    const log = spies.logLines.join("\n");
+    expect(log).toContain("Unhandled route error");
+    expect(log).not.toContain("Bleeding by the bakery");
+    expect(log).not.toContain(String(LAT));
+    expect(log).not.toContain(String(LNG));
+    expect(log).not.toContain(DEVICE);
+    expect(log).not.toMatch(/Failed query|params:/);
   });
 });
