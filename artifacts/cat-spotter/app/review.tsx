@@ -28,6 +28,7 @@ import { CatPicker } from "@/components/CatPicker";
 import { useCatsWithCache } from "@/hooks/useCatsWithCache";
 import {
   classifyResolveError,
+  newCatRequest,
   noSignalMessage,
   pickerList,
   type PickedFrom,
@@ -92,6 +93,9 @@ export default function ReviewScreen() {
   const [suggestError, setSuggestError] = useState(false);
   // SYC-119: "Find the cat yourself" (choose-a-different-cat.md §3).
   const [showPicker, setShowPicker] = useState(false);
+  // SYC-151: a new cat chosen after looking is weak evidence it really is
+  // new (spec §4.6), so the server is told the picker was opened.
+  const [openedPicker, setOpenedPicker] = useState(false);
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const [sendMessage, setSendMessage] = useState<string | null>(null);
   const [nameTakenCat, setNameTakenCat] = useState<NameTakenCat | null>(null);
@@ -161,6 +165,7 @@ export default function ReviewScreen() {
 
   const openPicker = () => {
     setPickerMessage(null);
+    setOpenedPicker(true);
     setShowPicker(true);
   };
 
@@ -171,10 +176,10 @@ export default function ReviewScreen() {
     setSendMessage(null);
     try {
       await finishAndInvalidate(
-        await resolveSighting(data.sightingId, {
-          deviceId,
-          newCatName: newName.trim(),
-        }),
+        await resolveSighting(
+          data.sightingId,
+          newCatRequest(deviceId, newName, openedPicker),
+        ),
       );
     } catch (err) {
       const failure = classifyResolveError(err);
