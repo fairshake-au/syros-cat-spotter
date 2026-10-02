@@ -3,37 +3,63 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { WelfareGuidance } from '@workspace/welfare-guidance';
 import { useColors } from '@/hooks/useColors';
+import { useLanguage } from '@/context/LanguageContext';
 import { fonts, radii, spacing } from '@/constants/theme';
 import { RichText } from './RichText';
-import { VetList } from './VetList';
+import { MunicipalityCard, VetList } from './VetList';
 
 /**
- * The "Urgent" advice, spec §5.3(b), shown BEFORE the report is sent
- * (guidance before the report, never instead of it: nothing here blocks Send).
+ * The "Urgent" advice, spec §5.3(b), on the "Before you send" screen. It is
+ * guidance before the report, never instead of it: nothing here blocks Send.
  *
- * Layout is part of the design (§5.2): a lead that is never the
- * discouraging half (the vet route: "If this cat is badly hurt, please take
- * it to a local vet if you can."), the cage line, the vets, then a labelled
- * expander "How to get a hurt cat to a vet", open by default on first use.
- * The cage comes before any handling, and handling is the fallback (§10).
- * The capacity paragraph (Syros Cats is not an emergency service) is the
- * LAST thing in the block (Samuel, 1 Oct 2026).
+ * Presentation (Samuel, 2 Oct 2026: the advice screen must not scroll):
+ *  - the lead: the vet route, never the discouraging half (§5.2);
+ *  - the cage line;
+ *  - the three vets as compact tap-to-call cards with map links;
+ *  - "How to get a hurt cat to a vet": folded, behind a prominent button;
+ *  - "Costs, and the Municipality": folded, holding what the vet does, the
+ *    cost, the decision at the desk and the Municipality (with its number);
+ *  - the capacity paragraph, ALWAYS in full and always the last thing, so it
+ *    sits directly above the pinned "Send report" button.
  *
- * The words come from the guidance file and are pinned by a test
- * (artifacts/api-server/src/lib/welfareGuidance.test.ts): changing them goes
- * back through Samuel (§5.4).
+ * The words are the guidance file's, pinned by a test
+ * (artifacts/api-server/src/lib/welfareGuidance.test.ts). Folding changes
+ * how they are shown, not what they say. The cage still comes before any
+ * handling: the handling paragraph is inside the how-to, after the cage line.
  */
-export function UrgentAdvice({
-  guidance,
-  firstUse,
+function Fold({
+  title,
+  icon,
+  children,
 }: {
-  guidance: WelfareGuidance;
-  /** Open the how-to the first time someone sees this block (§5.2). */
-  firstUse: boolean;
+  title: string;
+  icon: React.ComponentProps<typeof Feather>['name'];
+  children: React.ReactNode;
 }) {
   const colors = useColors();
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={[styles.fold, { borderColor: colors.primary, backgroundColor: colors.card }]}>
+      <Pressable
+        onPress={() => setOpen((o) => !o)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        aria-expanded={open}
+        style={styles.foldHeader}
+      >
+        <Feather name={icon} size={18} color={colors.primary} />
+        <Text style={[styles.foldTitle, { color: colors.primary }]}>{title}</Text>
+        <Feather name={open ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
+      </Pressable>
+      {open && <View style={styles.foldBody}>{children}</View>}
+    </View>
+  );
+}
+
+export function UrgentAdvice({ guidance }: { guidance: WelfareGuidance }) {
+  const colors = useColors();
+  const { t } = useLanguage();
   const u = guidance.copy.urgent;
-  const [open, setOpen] = useState(firstUse);
   const para = [styles.para, { color: colors.foreground }];
 
   return (
@@ -44,52 +70,43 @@ export function UrgentAdvice({
       <Text role="heading" style={[styles.subheading, { color: colors.foreground }]}>
         {u.vetListHeading}
       </Text>
-      <VetList guidance={guidance} />
+      <VetList guidance={guidance} compact />
 
-      <View style={[styles.expander, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <Pressable
-          onPress={() => setOpen((o) => !o)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
-          style={styles.expanderHeader}
-        >
-          <Feather name={open ? 'chevron-down' : 'chevron-right'} size={18} color={colors.foreground} />
-          <Text style={[styles.subheading, styles.expanderTitle, { color: colors.foreground }]}>
-            {u.howToHeading}
-          </Text>
-        </Pressable>
-        {open && (
-          <View style={styles.expanderBody}>
-            {u.steps.map((step, i) => (
-              <RichText key={i} text={step} style={para} />
-            ))}
-            <RichText text={u.wontGoIn} style={para} />
-          </View>
-        )}
-      </View>
+      <Fold title={u.howToHeading} icon="info">
+        {u.steps.map((step, i) => (
+          <RichText key={i} text={step} style={para} />
+        ))}
+        <RichText text={u.wontGoIn} style={para} />
+      </Fold>
 
-      <RichText text={u.vetDoes} style={para} />
-      <RichText text={u.cost} style={para} />
-      <RichText text={u.decision} style={para} />
-      <RichText text={u.municipality} style={para} />
-      <RichText text={u.capacity} style={para} />
+      <Fold title={t('reportCostsHeading')} icon="credit-card">
+        <RichText text={u.vetDoes} style={para} />
+        <RichText text={u.cost} style={para} />
+        <RichText text={u.decision} style={para} />
+        <RichText text={u.municipality} style={para} />
+        <MunicipalityCard guidance={guidance} />
+      </Fold>
+
+      {/* Always shown in full, never folded, always last (Samuel, 1-2 Oct 2026). */}
+      <RichText text={u.capacity} style={[styles.capacity, { color: colors.foreground }]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  block: { gap: spacing[3] },
-  lead: { fontFamily: fonts.body, fontSize: 17, lineHeight: 24 },
-  para: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22 },
-  subheading: { fontFamily: fonts.bodyBold, fontSize: 16, lineHeight: 22 },
-  expander: { borderWidth: 1, borderRadius: radii.md, overflow: 'hidden' },
-  expanderHeader: {
+  block: { gap: 10 },
+  lead: { fontFamily: fonts.bodySemiBold, fontSize: 16, lineHeight: 22 },
+  para: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+  capacity: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
+  subheading: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18 },
+  fold: { borderWidth: 1.5, borderRadius: radii.md, overflow: 'hidden' },
+  foldHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
-    padding: spacing[3],
+    paddingHorizontal: spacing[3],
     minHeight: 44,
   },
-  expanderTitle: { flex: 1 },
-  expanderBody: { paddingHorizontal: spacing[3], paddingBottom: spacing[3], gap: spacing[3] },
+  foldTitle: { flex: 1, fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18, paddingVertical: 8 },
+  foldBody: { paddingHorizontal: spacing[3], paddingBottom: spacing[3], gap: spacing[2] },
 });

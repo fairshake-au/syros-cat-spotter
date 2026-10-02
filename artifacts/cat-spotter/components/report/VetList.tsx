@@ -51,10 +51,81 @@ function ExternalLink({
   );
 }
 
-export function VetList({ guidance }: { guidance: WelfareGuidance }) {
+/** The Municipality's tap-to-call card (spec §5.7). */
+export function MunicipalityCard({ guidance }: { guidance: WelfareGuidance }) {
   const colors = useColors();
-  const { copy, vets, municipality, language } = guidance;
+  const { copy, municipality, language } = guidance;
   const v = copy.vetList;
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[styles.meta, { color: colors.mutedForeground }]}>{v.municipalityHeading}</Text>
+      <Text style={[styles.name, { color: colors.foreground }]}>{municipality.name[language]}</Text>
+      <ExternalLink
+        href={telHref(municipality.phone)}
+        label={`${v.call} ${municipality.name[language]}: ${municipality.phone.display}`}
+        style={[styles.phoneRow, { borderColor: colors.border }]}
+      >
+        <Text style={[styles.phoneNumber, { color: colors.primary }]}>
+          <Feather name="phone" size={14} color={colors.primary} /> {municipality.phone.display}
+        </Text>
+      </ExternalLink>
+    </View>
+  );
+}
+
+/**
+ * The compact cards for the "Before you send" screen (Samuel, 2 Oct 2026: the
+ * advice must fit a 390x844 phone without scrolling). Every required piece is
+ * still there: each labelled number tap-to-call (after-hours labelled as the
+ * clinic's published number), both map links, and how accurate the pin is.
+ * The Municipality sits in the "Costs, and the Municipality" fold instead.
+ */
+function CompactVetCards({ guidance }: { guidance: WelfareGuidance }) {
+  const colors = useColors();
+  const v = guidance.copy.vetList;
+  return (
+    <View style={compact.list}>
+      {guidance.vets.map((clinic) => (
+        <View key={clinic.id} style={[compact.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[compact.name, { color: colors.foreground }]}>{clinic.name}</Text>
+          <View style={compact.phones}>
+            {clinic.phones.map((phone) => (
+              <ExternalLink
+                key={phone.tel}
+                href={telHref(phone)}
+                label={`${v.call} ${clinic.name}: ${phone.display}`}
+                style={[compact.phone, { borderColor: colors.border }]}
+              >
+                <Text style={[compact.number, { color: colors.primary }]}>
+                  <Feather name="phone" size={12} color={colors.primary} /> {phone.display}
+                </Text>
+                <Text style={[compact.kind, { color: colors.mutedForeground }]}> {v.phoneKinds[phone.kind]}</Text>
+              </ExternalLink>
+            ))}
+          </View>
+          {/* A row, not nested text: a link can't sit inside <Text> on the phone apps. */}
+          <View style={compact.mapRow}>
+            <ExternalLink href={clinic.googleMapsUrl} label={`${v.googleMaps}: ${clinic.name}`} style={compact.inline}>
+              <Text style={[compact.mapLink, { color: colors.primary }]}>{v.googleMaps}</Text>
+            </ExternalLink>
+            <ExternalLink href={clinic.appleMapsUrl} label={`${v.appleMaps}: ${clinic.name}`} style={compact.inline}>
+              <Text style={[compact.mapLink, { color: colors.primary }]}>{v.appleMaps}</Text>
+            </ExternalLink>
+            <Text style={[compact.maps, { color: colors.mutedForeground }]}>
+              {clinic.pin === 'landmark' ? v.pinLandmark : v.pinSearch}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export function VetList({ guidance, compact: isCompact = false }: { guidance: WelfareGuidance; compact?: boolean }) {
+  const colors = useColors();
+  const { copy, vets, language } = guidance;
+  const v = copy.vetList;
+  if (isCompact) return <CompactVetCards guidance={guidance} />;
 
   return (
     <View style={styles.list}>
@@ -105,22 +176,24 @@ export function VetList({ guidance }: { guidance: WelfareGuidance }) {
           </Text>
         </View>
       ))}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.meta, { color: colors.mutedForeground }]}>{v.municipalityHeading}</Text>
-        <Text style={[styles.name, { color: colors.foreground }]}>{municipality.name[language]}</Text>
-        <ExternalLink
-          href={telHref(municipality.phone)}
-          label={`${v.call} ${municipality.name[language]}: ${municipality.phone.display}`}
-          style={[styles.phoneRow, { borderColor: colors.border }]}
-        >
-          <Text style={[styles.phoneNumber, { color: colors.primary }]}>
-            <Feather name="phone" size={14} color={colors.primary} /> {municipality.phone.display}
-          </Text>
-        </ExternalLink>
-      </View>
+      <MunicipalityCard guidance={guidance} />
     </View>
   );
 }
+
+const compact = StyleSheet.create({
+  list: { gap: 6 },
+  card: { borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 10, paddingVertical: 6, gap: 2 },
+  name: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17 },
+  phones: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12 },
+  phone: { flexDirection: 'row', alignItems: 'center', minHeight: 30, paddingVertical: 2 },
+  number: { fontFamily: fonts.bodyBold, fontSize: 14 },
+  kind: { fontFamily: fonts.body, fontSize: 11 },
+  mapRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10 },
+  maps: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
+  inline: {},
+  mapLink: { fontFamily: fonts.bodySemiBold, fontSize: 11, textDecorationLine: 'underline' },
+});
 
 const styles = StyleSheet.create({
   list: { gap: spacing[2] },

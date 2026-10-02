@@ -315,7 +315,7 @@ const en: Dict = {
   reportPhotoTitle: 'A photo',
   reportPhotoHint: 'A photo helps Syros Cats see what is wrong.',
   reportRemovePhoto: 'Remove photo',
-  reportWhereTitle: 'Where is the cat?',
+  reportWhereTitle: 'Where’s the cat?',
   reportWhereHint: 'Move the map so the pin is where the cat is.',
   reportWaitingLocation: 'Finding your location…',
   reportHowBadTitle: 'How bad is it?',
@@ -326,11 +326,18 @@ const en: Dict = {
   reportLitter: 'This is kittens, or a mother with kittens.',
   reportNoteTitle: 'What you saw',
   reportNotePlaceholder: 'Optional',
-  reportSend: 'Send',
   reportSending: 'Sending…',
   reportFailed: 'This report couldn’t be sent. Please try again later, or send a new one.',
   reportDone: 'Done',
   reportReminder: 'You have a cat report that hasn’t sent yet.',
+  // Samuel, 2 Oct 2026: three screens, no scrolling.
+  reportStepOf: '{n} of 3',
+  reportNext: 'Next',
+  reportBeforeSendTitle: 'Before you send',
+  reportSendReport: 'Send report',
+  reportCostsHeading: 'Costs, and the Municipality',
+  reportTakePhoto: 'Take photo',
+  reportFromLibrary: 'From library',
 };
 
 const el: Dict = {
@@ -646,11 +653,17 @@ const el: Dict = {
   reportLitter: 'Είναι γατάκια, ή μια μητέρα με γατάκια.',
   reportNoteTitle: 'Τι είδες',
   reportNotePlaceholder: 'Προαιρετικό',
-  reportSend: 'Αποστολή',
   reportSending: 'Γίνεται αποστολή…',
   reportFailed: 'Αυτή η αναφορά δεν μπόρεσε να σταλεί. Δοκίμασε ξανά αργότερα ή στείλε μια καινούργια.',
   reportDone: 'Τέλος',
   reportReminder: 'Έχεις μια αναφορά για γάτα που δεν έχει σταλεί ακόμα.',
+  reportStepOf: '{n} από 3',
+  reportNext: 'Επόμενο',
+  reportBeforeSendTitle: 'Πριν τη στείλεις',
+  reportSendReport: 'Αποστολή αναφοράς',
+  reportCostsHeading: 'Κόστος, και ο Δήμος',
+  reportTakePhoto: 'Τράβα φωτογραφία',
+  reportFromLibrary: 'Από τη συλλογή',
 };
 
 const fr: Dict = {
@@ -967,11 +980,17 @@ const fr: Dict = {
   reportLitter: 'Ce sont des chatons, ou une mère avec ses chatons.',
   reportNoteTitle: 'Ce que vous avez vu',
   reportNotePlaceholder: 'Facultatif',
-  reportSend: 'Envoyer',
   reportSending: 'Envoi en cours…',
   reportFailed: 'Ce signalement n’a pas pu être envoyé. Réessayez plus tard, ou envoyez-en un nouveau.',
   reportDone: 'Terminé',
   reportReminder: 'Vous avez un signalement de chat qui n’a pas encore été envoyé.',
+  reportStepOf: '{n} sur 3',
+  reportNext: 'Suivant',
+  reportBeforeSendTitle: 'Avant d’envoyer',
+  reportSendReport: 'Envoyer le signalement',
+  reportCostsHeading: 'Frais, et la Municipalité',
+  reportTakePhoto: 'Prendre une photo',
+  reportFromLibrary: 'Depuis la galerie',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

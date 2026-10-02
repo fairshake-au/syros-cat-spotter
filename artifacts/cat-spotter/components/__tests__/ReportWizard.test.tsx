@@ -39,10 +39,10 @@ vi.mock('@/components/LocationPicker', async () => {
 });
 vi.mock('@/components/purropolis', async () => {
   const { Text } = await import('react-native');
-  const Btn = ({ children, onPress, disabled, accessibilityLabel }: {
-    children?: React.ReactNode; onPress?: () => void; disabled?: boolean; accessibilityLabel?: string;
+  const Btn = ({ children, onPress, disabled, accessibilityLabel, label }: {
+    children?: React.ReactNode; onPress?: () => void; disabled?: boolean; accessibilityLabel?: string; label?: string;
   }) => (
-    <Text role="button" aria-disabled={disabled ? 'true' : 'false'} aria-label={accessibilityLabel}
+    <Text role="button" aria-disabled={!!disabled} aria-label={label ?? accessibilityLabel}
       onPress={disabled ? undefined : onPress}>
       {children}
     </Text>
