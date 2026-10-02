@@ -113,9 +113,8 @@ function CompactVetCards({ guidance }: { guidance: WelfareGuidance }) {
                 label={`${v.call} ${clinic.name}: ${phone.display} (${v.phoneKinds[phone.kind]})`}
                 style={compact.phone}
               >
-                <Text style={[compact.number, { color: colors.primary }]} numberOfLines={1}>
-                  <Feather name="phone" size={11} color={colors.primary} /> {phone.display}
-                </Text>
+                {/* Never truncated: a number someone may dial by hand must be whole. */}
+                <Text style={[compact.number, { color: colors.primary }]}>{phone.display}</Text>
                 <Text style={[compact.kind, { color: colors.mutedForeground }]} numberOfLines={1}>
                   {v.phoneKindsShort[phone.kind]}
                 </Text>
@@ -204,14 +203,14 @@ export function VetList({ guidance, compact: isCompact = false }: { guidance: We
 }
 
 const compact = StyleSheet.create({
-  list: { gap: 4 },
+  list: { gap: 3 },
   card: { borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 10, paddingVertical: 4, gap: 2 },
   name: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17 },
-  maps: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
-  mapLink: { fontFamily: fonts.bodySemiBold, fontSize: 11, lineHeight: 15, textDecorationLine: 'underline' },
-  phones: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  phone: { flex: 1, minHeight: 34, justifyContent: 'center' },
-  number: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17 },
+  maps: { flexShrink: 0, alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
+  mapLink: { fontFamily: fonts.bodySemiBold, fontSize: 10, lineHeight: 15, textDecorationLine: 'underline' },
+  phones: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  phone: { flexGrow: 1, flexShrink: 0, minHeight: 34, justifyContent: 'center' },
+  number: { fontFamily: fonts.bodyBold, fontSize: 13, lineHeight: 17, textDecorationLine: 'underline' },
   kind: { fontFamily: fonts.body, fontSize: 11, lineHeight: 14 },
   note: { fontFamily: fonts.body, fontSize: 10, lineHeight: 13 },
 });
