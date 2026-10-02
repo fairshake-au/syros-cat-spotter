@@ -198,6 +198,26 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
     expect(queued).toContain(g.copy.confirmation.offline);
   });
 
+  it.each(LANGS)('SYC-180 (%s): a report sent without a photo never says the photo is saved', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const text = render(<ReportConfirmation state="sent" guidance={g} hasPhoto={false} onDone={() => {}} />)
+      .container.textContent ?? '';
+    expect(text).toContain(g.copy.confirmation.sentHeading);
+    expect(text).toContain(g.copy.confirmation.sentBodyNoPhoto);
+    expect(text).not.toContain(g.copy.confirmation.sentBody);
+    expect(g.copy.confirmation.sentBodyNoPhoto.toLowerCase()).not.toMatch(/photo|φωτογραφ/);
+  });
+
+  it.each(LANGS)('nit (%s): a report held back by a 429 says so, not "no signal"', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const text = render(<ReportConfirmation state="busy" guidance={g} onDone={() => {}} />).container.textContent ?? '';
+    expect(text).toContain(TRANSLATIONS[code].reportBusy);
+    expect(text).not.toContain(g.copy.confirmation.offline);
+    expect(text).not.toContain(g.copy.confirmation.sentHeading);
+  });
+
   it('S3: a refused report offers Try again, and the words claim no automatic retry', () => {
     const onRetry = vi.fn();
     const g = getGuidance('en');

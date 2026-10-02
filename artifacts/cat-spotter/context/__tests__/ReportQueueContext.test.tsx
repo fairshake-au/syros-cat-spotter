@@ -142,6 +142,30 @@ describe('ReportQueueProvider', () => {
     await waitFor(() => expect(h.cancel).toHaveBeenCalledWith('notif-1'));
   });
 
+  it('nit (review of #55): a report saved while a send is in flight is sent straight after, not on the next timer', async () => {
+    let release!: () => void;
+    const first = new Promise<{ publicId: string }>((resolve) => {
+      release = () => resolve({ publicId: 'R-1' });
+    });
+    h.customFetch.mockImplementationOnce(() => first).mockImplementation(accepted);
+    const q = mount();
+    await waitFor(() => expect(q.current?.ready).toBe(true));
+    await act(async () => {
+      await q.current!.submitReport({ ...input(null), clientRef: 'c-a' });
+    });
+    await waitFor(() => expect(h.customFetch).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await q.current!.submitReport({ ...input(null), clientRef: 'c-b' });
+    });
+    expect(h.customFetch).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release();
+    });
+    await waitFor(() => expect(stored()).toEqual([]));
+    const bodies = h.customFetch.mock.calls.map((c) => String((c[1] as { body: string }).body));
+    expect(bodies.some((b) => b.includes('"c-b"'))).toBe(true);
+  });
+
   it('S3: Try again puts a refused report back in the queue and sends it', async () => {
     const failed: PendingReport = {
       ...newPendingReport({

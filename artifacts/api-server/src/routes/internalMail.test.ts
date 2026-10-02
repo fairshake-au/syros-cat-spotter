@@ -120,6 +120,27 @@ describe("test 14: two drains at once send each alert exactly once (SKIP LOCKED)
       .where(inArray(mailOutboxTable.reportId, reports.map((r) => r.id)));
     expect(rows.every((r) => r.state === "sent")).toBe(true);
   });
+
+  it("nit (review of #55): a row another server holds is skipped, not waited on (plain FOR UPDATE would block here)", async () => {
+    installFakeResend();
+    const held = await seedReport();
+    const free = await seedReport();
+    const other = await pool.connect();
+    try {
+      await other.query("begin");
+      await other.query("select id from mail_outbox where report_id = $1 for update", [held.id]);
+      const outcome = await Promise.race([
+        drainDue(10).then(() => "drained" as const),
+        new Promise<"blocked">((resolve) => setTimeout(() => resolve("blocked"), 3_000)),
+      ]);
+      expect(outcome).toBe("drained");
+      expect(sentIds).toContain(free.publicId);
+      expect(sentIds).not.toContain(held.publicId);
+    } finally {
+      await other.query("rollback");
+      other.release();
+    }
+  });
 });
 
 describe("retries", () => {

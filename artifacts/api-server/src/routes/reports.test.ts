@@ -40,7 +40,7 @@ const NOTE = "Limping badly near the bakery on Miaouli square";
 const LAT = 37.4441234;
 const LNG = 24.9412345;
 
-type Sent = { body: Record<string, unknown> };
+type Sent = { body: Record<string, unknown>; idempotencyKey: string | null };
 let sent: Sent[] = [];
 let failMail = false;
 
@@ -49,7 +49,11 @@ function installFakeResend() {
     "fetch",
     vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       if (failMail) throw new Error("network down");
-      sent.push({ body: JSON.parse(String(init?.body)) as Record<string, unknown> });
+      const headers = new Headers(init?.headers);
+      sent.push({
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+        idempotencyKey: headers.get("Idempotency-Key"),
+      });
       return new Response(JSON.stringify({ id: `re_${sent.length}` }), { status: 200 });
     }),
   );
@@ -342,6 +346,23 @@ describe("PUT /api/reports/:publicId/photo", () => {
     expect(res.status).toBe(400);
   });
 
+  it("nit (review of #55): a refused photo marks the report's photo failed and sends the alert now, saying so", async () => {
+    const { body } = await submit({ hasPhoto: true });
+    const res = await request(app)
+      .put(`/api/reports/${body.publicId}/photo`)
+      .set("X-Device-Secret", SECRET)
+      .send({ deviceId: DEVICE, photoBase64: Buffer.from("not an image at all").toString("base64") });
+    expect(res.status).toBe(400);
+    const row = await reportRow(body.publicId);
+    expect(row.photoState).toBe("failed");
+    // No ten-minute wait for a photo that can't come.
+    await drainAll();
+    const mine = sent.filter((s) => String(s.body["text"]).includes(body.publicId));
+    expect(mine).toHaveLength(1);
+    expect(String(mine[0]!.body["text"])).not.toContain("still uploading");
+    expect(String(mine[0]!.body["text"])).toContain("The photo couldn't be received");
+  });
+
   it("test 17: refuses a different device's secret, and a different device", async () => {
     const { body } = await submit();
     const jpeg = (await jpegWithGps()).toString("base64");
@@ -438,6 +459,10 @@ describe("the alert email (item 1.5)", () => {
     const mine = sent.filter((s) => String(s.body["text"]).includes(body.publicId));
     expect(mine).toHaveLength(1);
     expect(String(mine[0]!.body["text"])).toContain("Photo: attached");
+    // Nit (review of #55): the key names the report as well as the outbox
+    // row, so a reset table's reused row ids can never collide inside
+    // Resend's 24-hour window.
+    expect(mine[0]!.idempotencyKey).toMatch(new RegExp(`^welfare-${body.publicId}-\\d+-photo$`));
   });
 
   it("test 11 [§4.3]: the photo is an attachment, there's no link into any photo route, and no reporter contact", async () => {

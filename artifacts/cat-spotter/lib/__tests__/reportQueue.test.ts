@@ -159,6 +159,17 @@ describe('syncReports', () => {
     }
   });
 
+  it('nit (review of #55): a 429 marks the report busy, so the screen can say so; any other failure clears it', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const busy = api({ submit: vi.fn(async () => { throw new FakeApiError(429); }) });
+    await syncReports(store, { api: busy, deviceId: 'dev-1', ...photos });
+    expect(store.items()[0]!.busy).toBe(true);
+    const down = api({ submit: vi.fn(async () => { throw new TypeError('Network request failed'); }) });
+    await syncReports(store, { api: down, deviceId: 'dev-1', ...photos });
+    expect(store.items()[0]!.busy).toBeFalsy();
+  });
+
   it('a photo the browser cleared is let go; the text already reached Syros Cats', async () => {
     const { store } = makeStore([report({ status: 'photo', publicId: 'pub-1' })]);
     await store.load();
@@ -182,6 +193,12 @@ describe('confirmationState (item 1.12)', () => {
     expect(confirmationState(r.localId, [{ ...r, status: 'photo' }], new Set(), false)).toBe('sent');
     expect(confirmationState(r.localId, [], new Set([r.localId]), false)).toBe('sent');
     expect(confirmationState(r.localId, [{ ...r, status: 'failed' }], new Set(), false)).toBe('failed');
+  });
+
+  it('nit (review of #55): a report held back by a 429 is "busy", not "no signal"', () => {
+    const r = report({ busy: true });
+    expect(confirmationState(r.localId, [r], new Set(), false)).toBe('busy');
+    expect(confirmationState(r.localId, [r], new Set(), true)).toBe('sending');
   });
 
   it('a report that vanished without being accepted is never shown as sent', () => {

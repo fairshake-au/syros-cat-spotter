@@ -68,6 +68,19 @@ describe('loadGuidance', () => {
     expect(await refreshGuidance('en', s2, async () => wrongType)).toBeNull();
   });
 
+  it('nit (review of #55): ignores a copy whose capacity line or steps are empty', async () => {
+    const s = memoryStorage();
+    const blankCapacity = JSON.parse(JSON.stringify(getGuidance('en')));
+    blankCapacity.copy.urgent.capacity = '';
+    expect(await refreshGuidance('en', s, async () => blankCapacity)).toBeNull();
+    const noSteps = JSON.parse(JSON.stringify(getGuidance('en')));
+    noSteps.copy.urgent.steps = [];
+    expect(await refreshGuidance('en', s, async () => noSteps)).toBeNull();
+    const blankStep = JSON.parse(JSON.stringify(getGuidance('en')));
+    blankStep.copy.urgent.steps[0] = '   ';
+    expect(await refreshGuidance('en', s, async () => blankStep)).toBeNull();
+  });
+
   it('ignores a saved copy with an unknown schemaVersion, or one that is malformed', async () => {
     const future = { ...getGuidance('en'), schemaVersion: 2 };
     const s1 = memoryStorage({ [`${GUIDANCE_STORAGE_PREFIX}en`]: JSON.stringify(future) });
