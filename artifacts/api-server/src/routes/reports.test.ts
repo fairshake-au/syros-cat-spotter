@@ -195,7 +195,25 @@ describe("POST /api/reports", () => {
     const res = await submit({ hasPhoto: false });
     expect(res.status).toBe(201);
     await settleOutbox();
-    expect(await reportRow(res.body.publicId)).toBeTruthy();
+    const row = await reportRow(res.body.publicId);
+    expect(row).toBeTruthy();
+    expect(sent).toHaveLength(0);
+    // S2 (review of #55): a configuration gap keeps the alert queued (so the
+    // overdue check still sees it and the drain fails loudly), never failed.
+    const [alert] = await outboxFor(row.id);
+    expect(alert!.state).toBe("queued");
+    expect(alert!.lastError).toContain("not_configured");
+  });
+
+  it("S2: with no WELFARE_ALERT_TO, the alert stays queued (bad_recipient), never failed", async () => {
+    delete process.env["WELFARE_ALERT_TO"];
+    const res = await submit({ hasPhoto: false });
+    expect(res.status).toBe(201);
+    await settleOutbox();
+    const row = await reportRow(res.body.publicId);
+    const [alert] = await outboxFor(row.id);
+    expect(alert!.state).toBe("queued");
+    expect(alert!.lastError).toContain("bad_recipient");
     expect(sent).toHaveLength(0);
   });
 
