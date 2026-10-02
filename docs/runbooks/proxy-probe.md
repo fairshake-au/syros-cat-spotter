@@ -99,8 +99,23 @@ If a fix is needed, change the number in `app.set("trust proxy", <n>)`
 (`artifacts/api-server/src/app.ts`) in its own small PR, redeploy, and run
 this probe again to confirm.
 
+## If the token leaks
+
+Nothing it guards is itself sensitive — `runProxyProbe` never touches the
+response, so a correct guess can't read anyone's IP or change what
+`/api/healthz` returns. The actual blast radius of a leaked
+`PROXY_PROBE_TOKEN` is that anyone who has it can replay a request
+indefinitely and flood our own logs with `proxy-probe` lines (there's no
+rate limit on this path specifically). If that happens: rotate or delete
+`PROXY_PROBE_TOKEN` from both the GitHub `production` Environment and the
+Replit deployment secret (same two places it was set, above) — that alone
+makes the diagnostic inert again, with no redeploy needed on the code side.
+
 ## Afterwards
 
 Remove the probe once the hop count is confirmed and stable — it's a
-diagnostic, not something that should live in the API indefinitely. Tracked
-as a follow-up ticket rather than done inline here, so this PR stays reviewable.
+diagnostic, not something that should live in the API indefinitely.
+Tracked as **SYC-187**, not just this paragraph: delete
+`runProxyProbe`/`proxyProbe.ts` and its tests, delete
+`.github/workflows/proxy-probe.yml`, delete the `PROXY_PROBE_TOKEN` secret
+from both places it was set, and tick the DEPLOYMENT.md §C box.
