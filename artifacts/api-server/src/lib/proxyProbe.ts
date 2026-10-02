@@ -21,9 +21,12 @@ export type IpKind = "public" | "private" | "loopback" | "unknown";
  * Covers: RFC1918 (10/8, 172.16/12, 192.168/16), CGNAT (100.64/10),
  * IPv4 link-local (169.254/16), IPv4 loopback (127/8), IPv6 loopback
  * (::1), IPv6 unique-local (fc00::/7) and IPv6 link-local (fe80::/10).
- * IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) are unwrapped and classified
- * by their IPv4 rules. Anything else that parses as a valid IP is "public";
- * anything that doesn't parse at all is "unknown".
+ * IPv4-mapped IPv6 addresses are unwrapped and classified by their IPv4
+ * rules — in compact form (::ffff:a.b.c.d, or the rarer ::a.b.c.d), in the
+ * fully expanded dotted-quad-tail form (0:0:0:0:0:ffff:a.b.c.d, no "::"),
+ * and in the fully expanded all-hex form (0:0:0:0:0:ffff:0a0a:0a0a).
+ * Anything else that parses as a valid IP is "public"; anything that
+ * doesn't parse at all is "unknown".
  */
 export function classifyIp(ip: string): IpKind {
   if (!ip) return "unknown";
@@ -37,14 +40,29 @@ export function classifyIp(ip: string): IpKind {
 
     if (lower === "::1") return "loopback";
 
-    // IPv4-mapped IPv6: ::ffff:a.b.c.d (or the rarer ::a.b.c.d form).
-    const mapped = lower.match(/^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) {
-      return classifyIpv4(mapped[1]);
+    // IPv4-mapped IPv6 with a dotted-quad tail: the "::"-compact form
+    // (::ffff:a.b.c.d / ::a.b.c.d) or the fully expanded, uncompressed
+    // form (0:0:0:0:0:ffff:a.b.c.d) — both end in a literal dotted quad.
+    const mappedDotted = lower.match(
+      /^(?:::(?:ffff:)?|(?:0:){5}ffff:)(\d+\.\d+\.\d+\.\d+)$/,
+    );
+    if (mappedDotted) {
+      return classifyIpv4(mappedDotted[1]);
     }
 
     const hextets = expandIpv6(lower);
     if (!hextets) return "unknown";
+
+    // IPv4-mapped IPv6 written fully in hex, no dotted-quad tail at all
+    // (0:0:0:0:0:ffff:0a0a:0a0a) — the canonical ::ffff:0:0/96 prefix as
+    // eight plain hextets. Unwrap the last two hextets back into octets.
+    if (hextets.slice(0, 5).every((h) => h === 0) && hextets[5] === 0xffff) {
+      const a = (hextets[6] >> 8) & 0xff;
+      const b = hextets[6] & 0xff;
+      const c = (hextets[7] >> 8) & 0xff;
+      const d = hextets[7] & 0xff;
+      return classifyIpv4(`${a}.${b}.${c}.${d}`);
+    }
 
     // fc00::/7 covers the two top bits "1111 110", i.e. the first hextet's
     // top 7 bits are 0b1111110x -> first hextet in [0xfc00, 0xfdff].

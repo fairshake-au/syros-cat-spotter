@@ -78,6 +78,19 @@ describe("classifyIp", () => {
     expect(classifyIp("::ffff:127.0.0.1")).toBe("loopback");
   });
 
+  it("classifies the fully expanded IPv4-mapped form with a dotted-quad tail", () => {
+    // No "::" compression at all — written out as 0:0:0:0:0:ffff: + dotted quad.
+    expect(classifyIp("0:0:0:0:0:ffff:10.10.10.10")).toBe("private");
+    expect(classifyIp("0:0:0:0:0:ffff:203.0.113.1")).toBe("public");
+    expect(classifyIp("0:0:0:0:0:ffff:127.0.0.1")).toBe("loopback");
+  });
+
+  it("classifies the fully expanded IPv4-mapped form written entirely in hex", () => {
+    // 0x0a0a:0x0a0a == 10.10.10.10; 0xcb00:7101 == 203.0.113.1.
+    expect(classifyIp("0:0:0:0:0:ffff:a0a:a0a")).toBe("private");
+    expect(classifyIp("0:0:0:0:0:ffff:cb00:7101")).toBe("public");
+  });
+
   it("classifies an ordinary public address as public", () => {
     expect(classifyIp("203.0.113.77")).toBe("public");
     expect(classifyIp("2001:db8::1")).toBe("public");
