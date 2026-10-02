@@ -1,25 +1,43 @@
 # Data spine, steps 2–7: implementation plan (for approval)
 
-**Spec:** `docs/specs/cat-record-data-spine.md` (approved 28 Sep 2026), its review `docs/specs/reviews/cat-record-data-spine-review.md`, and `docs/specs/DECISIONS.md`, which wins over every spec (Part 2c for the spine; Part 2g for the step-1 follow-ups; D4, F2, F3, F4, F6). Sibling specs where they touch the spine: `team-access-and-welfare-queue.md`, `email-capture.md`, `hosting-and-photo-storage.md`, `offline-queue-on-web.md`.
+**Refreshed 2 Oct 2026** against `origin/main` at `67701c9`, after the move to Neon (SYC-121, cutover 1 Oct 2026). The first draft (29 Sep) was written against `f8c362c`, when production was still Replit's own database. What changed, and why, is in the next section.
+
+**Spec:** `docs/specs/cat-record-data-spine.md` (approved 28 Sep 2026), its review `docs/specs/reviews/cat-record-data-spine-review.md`, and `docs/specs/DECISIONS.md`, which wins over every spec (Part 2c for the spine; Part 2g for the step-1 follow-ups; **Part 2h** for the matching distance; **Part 2i** for choosing a different cat; D4, D7, F2, F3, F4, F6). Sibling specs where they touch the spine: `team-access-and-welfare-queue.md`, `email-capture.md`, `hosting-and-photo-storage.md`, `offline-queue-on-web.md`, `choose-a-different-cat.md`.
 **Linear:** SYC-40 (life status, presumed deceased) and SYC-52 (the confidence engine this makes additive), delivering SYC-41 (blurring), SYC-37 and SYC-74 (the sighting questions) and SYC-75 (the sterilised thin slice) along the way.
-**Builds on:** step 1, **done** in PR #17 (`1e88a97`, `docs/superpowers/plans/data-spine-step-1.md`): migration `0001_data_spine_tables` created `observations`, `cat_identity`, `colonies`, `colony_name_history`, `feeding_sites` and the `sightings` redaction columns, with the append-only triggers. This plan starts at §11.2 step 2 and does not re-plan step 1.
-**Owned by other plans, and only sequenced here:** step 8, deletion (**SYC-63**, `docs/superpowers/plans/syc-63-self-service-deletion.md`, PR #21, including the deletion schema migration its §5 describes); the staff dashboard's people list and sign-in (**SYC-43 part 1**, `docs/superpowers/plans/syc-43-part-1-people-and-staff-sign-in.md`, PR #20); API tests on a throwaway database (**SYC-111**, filed by the SYC-63 plan). This plan lists what it needs from each and what each needs from it.
-**Migration numbers:** none are hardcoded. Chip E's SYC-98 (`photos.public_id`) is `0002`; every other migration takes the next free number when it merges, and the runner refuses one that lands behind another, so the later one regenerates (`lib/db/migrations/README.md`).
+**Builds on:** step 1, **done** in PR #17 (`docs/superpowers/plans/data-spine-step-1.md`): migration `0001_data_spine_tables` created `observations`, `cat_identity`, `colonies`, `colony_name_history`, `feeding_sites` and the `sightings` redaction columns, with the append-only triggers. **Confirmed in production on 2 Oct 2026** (Neon, read-only query): the four triggers and the attribution check are there, and `observations` is empty. This plan starts at §11.2 step 2.
+**Owned by other plans, and only sequenced here:** step 8, deletion (**SYC-63**, `docs/superpowers/plans/syc-63-self-service-deletion.md`); staff sign-in (**SYC-43 part 1**, merged as #28); API tests on a throwaway database (**SYC-111**); the welfare report (**SYC-42**); choosing a different cat (**SYC-119**).
 
 **A note on format.** This is a plan for approval, so it carries no application code, schema or SQL. Each PR names its files, the interfaces later PRs rely on, its tests by name, and its rollback. Whoever builds a PR writes the code test-first against those names.
 
+## What changed since the 29 Sep draft
+
+Each item was checked against the code on `main`, the merged pull requests, Linear, or the live database, and the evidence is named.
+
+| What | Then | Now | Evidence |
+|---|---|---|---|
+| How database changes reach production | Through Replit's Publish, which could miss safety rules or empty a table, so the draft added **PR P** and asked **Q1** | The database is Neon (Frankfurt). Changes reach it **only through the `db-ops` workflow, before the publish that needs them**. Replit's Publish no longer touches the database. **PR P is withdrawn; Q1 is settled by the move** | SYC-121 cutover comment (1 Oct); `.github/workflows/db-ops.yml`; `docs/DEPLOYMENT.md` §C |
+| SYC-107 (claim, register and rename trusting a device id without its secret) | Inside PR 2 | **Done**, merged in #41. Removed from PR 2 | `git log origin/main -S SYC-107` → `9385be2`; `routes/cats.ts` imports `verifyDeviceSecret` |
+| Matching distance | PR 5 widened matching to 750 m on the blurred grid (conflict C3) | **Samuel decided on 30 Sep: exact positions, 500 m, kept after the spine lands** (DECISIONS Part 2h). Already live: `lib/candidateSelection.ts`, `MATCH_RADIUS_KM = 0.5`. PR 5 keeps it and adds only the other protections | #39; DECISIONS Part 2h; SYC-52 comment of 30 Sep |
+| Opaque photo ids (SYC-98) | In flight; PR 6 waited for it | **Done**, merged in #24 (`0002_photos_public_id`) | #24; `lib/db/migrations/` |
+| Staff sign-in and `requireTeam` (SYC-43 part 1) | Waiting for approval; PR 8 blocked on it | **Merged today** in #28 (`0003_people_and_staff_sign_in`). `requireTeam(capability)` exists, with `set_life_status` and `set_sterilisation`. **PR 8 can now be built** | `middlewares/requireTeam.ts`; `lib/capabilities.ts` |
+| Migration numbers | `0002` taken; the rest "next free" | `main` has `0000`–`0003`. **Production has `0000`–`0002`**: `0003` is merged but not yet applied there. SYC-42 Slice 1 (#55, open) holds `0004`. This plan's first migration (PR 3) will be `0005` or later, and still takes the next free number when it merges | `lib/db/migrations/meta/_journal.json`; Neon `drizzle.__drizzle_migrations` (3 rows, 2 Oct); #55's file list |
+| New writers of observations | — | SYC-119 will write a cat's coat colour as a `coat` observation authored `system:vision` (Part 2i). SYC-42 Slice 5 will write `welfare_report` authored by the reporter's device, or `system:welfare-report` if the device was deleted. PR 2 must accept both | `syc-119-choose-a-different-cat.md` Slice C; `syc-42-cat-in-trouble.md` 5.1 |
+| SYC-63's sightings guard | "allows only pending → resolved" | Must also allow **pending → awaiting_team** and **awaiting_team → resolved** (SYC-119's "Ask Syros Cats to match it") | SYC-63 Linear comment, 30 Sep |
+| What the backfill will find in production | Unknown | 28 cats, **12 claimed**, 35 care updates, **all of type `sighting`**: no `desexed` or `adopted` updates exist. So the backfill writes about 12 "has a home" statements and 28 names, and nothing about sterilisation | Neon read-only counts, 2 Oct |
+| The name backfill | Part of PR 3, so PR 3 waited for SYC-101 (folded names, not started) | **Split out as PR 3b**, after SYC-101. PR 3 (homes and care updates) no longer waits for it, so the cat page, deletion and everything after stop depending on an unstarted ticket | This refresh's review, R23 |
+
 ## In plain English
 
-Step 1 built the empty filing cabinet. This plan fills it and starts reading from it:
+Step 1 built the empty filing cabinet, and it's in the live database with its locks on. This plan fills it and starts reading from it:
 
-- **The rules** that turn a cat's statements into "Lives on the street", "Probably sterilised" or "Not seen since June 2024" are written and tested on their own first, with no database, because a wrong answer here looks exactly like a right one.
-- **Everything the app already knows** is copied in once: cats marked desexed or adopted through the old admin route, claimed cats (now "Has a home", Samuel's 28 Sep decision), and each cat's current name.
-- **The cat page starts saying** what the rules work out.
-- **The location leak is closed before the blurring is switched on**, because blurring the map while the matching endpoint still answers questions about exact positions would be a promise that is already false.
-- **Spotters get the two quick questions** (ear tip, food and water) and the private note, after their points.
-- **Before any of that reaches testers**, the app starts applying our own tested database changes to the live database itself, because Replit's publish step can miss safety rules and can even empty a table (decision Q1).
+- **The rules** that turn what people have said about a cat into "Lives on the street", "Probably sterilised" or "Not seen since June 2024" are written and tested on their own first, with no database, because a wrong answer here looks exactly like a right one.
+- **Everything the app already knows** is copied in once: the 12 cats people have claimed become "Has a home" (Samuel's 28 Sep decision), and each cat's current name is recorded.
+- **The cat page starts saying** what the rules work out, and the "Has a home" badge never flickers off while the copying happens.
+- **Matching stays at 500 m** as Samuel decided, and gains its remaining protections before blurring is switched on.
+- **The map is blurred** before the pre-launch pass comes off, so nobody outside the testers can find a cat's exact spot.
+- **Spotters get the two quick questions** (ear tip, food and water) and the private note, after their points. Syros Cats staff get the endpoints to correct a wrong answer.
 
-Nobody's spot flow gets slower, and nothing a tester has already done is lost.
+Database changes reach the live app the way every change now does: the `db-ops` workflow applies them to Neon, Claude checks them with a read-only query, and only then is the new app published. Nobody's spot flow gets slower, and nothing a tester has already done is lost.
 
 ## Scope
 
@@ -27,29 +45,28 @@ Nobody's spot flow gets slower, and nothing a tester has already done is lost.
 |---|---|---|
 | The resolver: life status, presumed deceased, the sterilised ladder, never crossing attributes | §3, §4.1–4.3, §4.6, §10.2 | SYC-40, SYC-52 (phase-1 rules), SYC-75 |
 | One way to write an observation, used by every writer, and the go-forward writes from claim, owner registration, the old admin care route and naming | §3.2, §10.1, §10.3, §11.2 step 4 | SYC-40, SYC-52 |
-| Backfill of what exists: legacy care updates, claims, owner registrations, current names | §11.2 steps 2–4 | SYC-40 |
+| Backfill of what exists: claims and legacy care updates (PR 3), current names (PR 3b) | §11.2 steps 2–4 | SYC-40 |
 | Showing derived status on the cat page; no pushes about a cat the team has recorded as dead | §3.3, §3.5, §4.2, §10.7 | SYC-40, SYC-75 |
-| Closing the nearest-cat oracle and securing the claim | §6.3, §10.6, §11.2 step 5 | SYC-41, SYC-107 |
-| Turning on blurring: one serialiser for four emitters, pagination, cache v2, drawing the cell | §2.3, §6.2, §6.4, §6.5, §6.6's label, §10.6, §10.7, §11.2 step 6 | SYC-41 |
+| Hardening matching around the 500 m rule (per-device limit, confidence threshold, no distance ordering) | §6.3 points 2–3, as amended by Part 2h | SYC-41 |
+| Turning on blurring: the grid, one serialiser for four emitters, pagination, a new cache key, drawing the cell | §2.3, §6.2, §6.4, §6.5, §6.6's label, §10.6, §10.7, §11.2 step 6 | SYC-41 |
 | Coarsening sighting pushes | §6.4.4 | SYC-41 |
 | The ear-tip and food-and-water questions and the private note | §4.4, §7, §11.2 step 7 | SYC-37, SYC-74 |
 | The correction path: team statements, supersede, the *Likely* review list (endpoints only) | §3.5, §4.5, §10.7 | SYC-52 |
-| Getting this plan's triggers and backfills into production on Replit | §11.1 | SYC-102 (finding) |
 
 **Out, with where it lives:**
 
-- **Deletion**, step 8: the `DELETE /me` endpoint, the Settings screen, the deletion schema migration and the sightings append-only guard. **SYC-63's plan**, PR #21. The interface points are below.
-- **The dashboard**: sign-in, `people`, `person_scopes`, the `requireTeam(capability)` middleware (**SYC-43 part 1**, PR #20); the screens that call the correction endpoints, show notes and food-and-water, manage colonies and feeding sites, the public feeding-sites endpoint and the staff deletion action (**SYC-43**, later parts).
+- **Deletion**, step 8: the `DELETE /me` endpoint, the Settings screen, the deletion schema migration and the sightings append-only guard. **SYC-63's plan.** The interface points are below.
+- **The dashboard screens** that call the correction endpoints, show notes and food-and-water, manage colonies and feeding sites, the public feeding-sites endpoint and the staff deletion action (**SYC-43**, later parts). The workspace hand-off that lets staff actually reach the dashboard is **SYC-103**.
 - API tests on a throwaway database: **SYC-111**.
-- Writing `welfare_report` / `welfare_outcome` observations: **SYC-42**, through this plan's write service.
-- Folding cat names for uniqueness: **SYC-101** (Part 2g, own migration). This plan supplies the shared folding function (PR 1) and sequences its migration.
+- Writing `welfare_report` / `welfare_outcome` observations: **SYC-42 Slice 5**, through this plan's write service.
+- Writing `coat` observations, and the colour backfill: **SYC-119 Slice C**, through this plan's write service.
+- Folding cat names for uniqueness: **SYC-101** (Part 2g, own migration). This plan supplies the shared folding function (PR 1).
 - The derived "where it's usually seen" position: **SYC-80**, deferred by Samuel. The map says "first spotted around here".
 - Records import: **SYC-49 / SYC-82**, optional and post-MVP. The resolver takes an empty import list.
 - The nightly notify job and its `notified_status` baseline: **SYC-55 / SYC-45** (`email-capture.md` §5.3). This plan exposes the resolved snapshot the job reads.
 - Duplicate merge (**SYC-59**), litters (**SYC-58**), roles beyond staff (**SYC-53**, SYC-24).
 - Photo retention: **SYC-81**. It keeps ear-tip and sterilisation evidence photos at full size, found through `observations.photo_id` once PR 7 writes them.
-- Opaque photo ids: **SYC-98** (Chip E, in flight). Blurring depends on it (§6.4.4).
-- Owner-name remnants (**SYC-69**) and milestone dates (**SYC-73**, deferred by Samuel: this plan orders the work, it doesn't date it).
+- Owner-name remnants (**SYC-69**), making claiming harder to do by mischief (**SYC-130**), and milestone dates (**SYC-73**, deferred by Samuel: this plan orders the work, it doesn't date it).
 
 ## Global constraints
 
@@ -62,65 +79,40 @@ Every PR's requirements include these.
 - **Public copy** (§3.5, §4.2): *"Lives on the street"*, *"Has a home"*, *"In Syros Cats' care"*, *"No longer with us"*, *"Not seen since {Month Year}"*; *"Sterilised — confirmed by Syros Cats"*, *"Probably sterilised — a clipped ear tip has been seen"*, *"Not sterilised — Syros Cats' records"*, *"Not known yet"*. "Clipped tip", never "notched"; usually the **left** ear. English, Greek and French, with the Greek and French checked under SYC-4.
 - **Terms:** "spotter" and "snapper"; "cat guardian", never "colony carer". User-facing copy says "Syros Cats", not "the charity". Sterilisation costs Syros Cats **€50–60 per cat**.
 - **Offline support is partial.** Photos, capture locations and map tiles work without signal and the spot queue syncs later. Nothing in this plan claims more.
-- **Exact coordinates never reach the mobile app** (§6.5). Blurring happens server-side when the payload is built.
-- **App-written statements are authored `account_id = 'system:<source>'`** (Part 2g): `system:legacy-backfill` for PR 3, `system:admin-route` for the old `OWNER_SECRET` route in PR 2. Every row keeps exactly one author, and deletion never matches these.
-- **Migrations:** generated, reviewed, with a commented rollback block; all pending migrations run in one transaction with a 5 s lock timeout; no `CREATE INDEX CONCURRENTLY` (`lib/db/migrations/README.md`). **Every step must be safe to run twice**, because of how production receives changes (see "How each step reaches production").
+- **Exact coordinates never reach the mobile app in a public payload** (§6.5). Blurring happens server-side when the payload is built. (Matching itself compares exact positions on the server, Part 2h; that is not a payload.)
+- **App-written statements are authored `account_id = 'system:<source>'`** (Part 2g). The known sources: `system:legacy-backfill` (PR 3, PR 3b), `system:admin-route` (the old `OWNER_SECRET` route, PR 2), `system:vision` (SYC-119's coat colour) and `system:welfare-report` (SYC-42 Slice 5, a report whose reporter was deleted). Every row keeps exactly one author, and deletion never matches these.
+- **Migrations:** generated, reviewed, with a commented rollback block; all pending migrations run in one transaction with a 5 s lock timeout; no `CREATE INDEX CONCURRENTLY`; numbers never hardcoded, the later one regenerates (`lib/db/migrations/README.md`).
+- **Production rollout for anything with a migration** (`docs/DEPLOYMENT.md` §C, SYC-121 plan §A.4): merge → `db-ops` migrate on `development` → **`db-ops` migrate on `production`, before publishing the code that needs it** → Claude checks the history, the new objects and any backfilled rows with a **read-only Neon query** (not `-f command=verify`, which false-alarms once testers have written to Neon) → Samuel pulls in the EU Replit project and publishes → `db-ops` smoke. Take a Neon snapshot first when real data is affected (Neon's 7-day restore is the backstop).
+- **Never approve a Replit database review.** After the move, Replit's Publish has nothing of ours to compare. If one ever appears, cancel it: something is pointing at Replit's own database (SYC-121 rule R3).
 - **F6:** every schema change lands before the Google Play fourteen-day closed test starts.
-- **Launch gate (SYC-113, Samuel's decision recorded on PR #25):** until launch, every `/api` route except `/api/healthz` sits behind a pre-launch pass: the website session, a tester key built into store builds, or the Worker secret. That pass comes off at launch, and from then on **anyone can read what `/api` returns**. So **PR 5 (closing the location oracle) and PR 6 (turning on blurring) must be live in production before the `/api` pre-launch pass is removed.** This gates the launch, not the merge. Until then the pass is the only thing keeping exact cat and sighting coordinates private.
-- **Never approve a Replit publish database review that contains `TRUNCATE` or `DROP` on a populated table.** Cancel the publish and raise it (SYC-102's evidence, "How each step reaches production").
+- **Launch gate (SYC-113, done):** until launch, every `/api` route except `/api/healthz` sits behind a pre-launch pass. That pass comes off at launch (SYC-114), and from then on **anyone can read what `/api` returns**. So **PR 5 and PR 6 must be live in production before the pass is removed.** This gates the launch, not the merge. Until then the pass is the only thing keeping exact cat and sighting coordinates private.
 
 ## The sequence
 
-This plan's own PRs are **P and 1–9**. The others in the table are owned elsewhere and appear because the order depends on them.
+This plan's own PRs are **1, 2, 3, 3b and 4–9**. (PR P is withdrawn; the numbers are kept so that the SYC-63, SYC-42 and SYC-119 plans, which cite them, stay correct.) The others in the table are owned elsewhere and appear because the order depends on them.
 
 | # | PR | Spec step | Migration | Blocked by |
 |---|---|---|---|---|
-| — | SYC-98: opaque photo ids (Chip E) | hosting §6.2 | `0002` | — |
-| — | SYC-43 part 1: `people` and staff sign-in | team-access §2, §7.3 | next free | its own approval (PR #20) |
-| — | SYC-111: API tests on a throwaway database | — | none | — |
-| — | SYC-63 §5: the deletion schema migration (nullable device columns, checks, index, sightings guard) | step 8, schema half | next free, **after PR 3's** in the agreed queue | SYC-111; PR P; its own approval (PR #21) |
+| — | SYC-111: API tests on a throwaway database | — | none | — (Backlog: **on the critical path, start now**) |
+| — | SYC-43 part 1: `people`, staff sign-in, `requireTeam` | team-access §2, §7.3 | `0003`, **merged; production migrate pending** | — |
+| — | SYC-42 Slice 1: welfare reports (#55) | — | `0004` if it merges next | its own review |
+| — | SYC-63 §5: the deletion schema migration (nullable device columns, checks, index, **sightings guard**) | step 8, schema half | next free | SYC-111 |
 | — | SYC-101: fold cat names | §10.3, Part 2g | next free | PR 1 (`foldName`); after PR 2 (shared files) |
-| **P** | Our migrations reach production | §11.1 | none | decision Q1; its first check (build-time database target, build-vs-diff order) |
 | **1** | The resolver and the name-folding function (pure) | §10.2, §10.3 | none | — |
-| **2** | One way to write an observation, and the go-forward writes | steps 2, 4 | none | SYC-111, PR 1; **PR P live, and step 1's guards confirmed in production** |
-| **3** | Backfill what already exists | steps 3, 4 | next free (data only) | PR 2 **live in production**; SYC-43 part 1's and SYC-101's migrations merged |
-| **4** | The cat page shows derived status | §3.5, §4.2, §10.7 | none | PR 2; **merged only after PR 3 has run in production** |
-| **5** | Close the oracle | step 5 | none | PR 2 |
-| **6** | Turn on blurring | step 6 | none | PR 4, PR 5, SYC-98 |
-| **7** | The sighting questions and the note | step 7 | none | PR 5; SYC-79 photos; decisions Q2, Q3 |
-| **8** | The correction path (team endpoints) | §4.5 | none | PR 2; SYC-43 part 1's `requireTeam` |
+| **2** | One way to write an observation, and the go-forward writes | steps 2, 4 | none | SYC-111, PR 1 |
+| **3** | Backfill claims and care updates | steps 3, 4 | next free (data only) | PR 2 **live in production** |
+| **3b** | Backfill current names | step 4 | next free (data only) | PR 2 live; SYC-101's migration applied |
+| **4** | The cat page shows derived status | §3.5, §4.2, §10.7 | none | PR 2; **merged only after PR 3 has run in production**, and gated in code |
+| **5** | Harden matching (500 m kept) | step 5, as amended by Part 2h | none | — |
+| **6** | Turn on blurring | step 6 | none | PR 4, PR 5 |
+| **7** | The sighting questions and the note | step 7 | none | PR 2; **SYC-79's example photos**; decisions Q2, Q3; ships with #46 |
+| **8** | The correction path (team endpoints) | §4.5 | none | PR 2 (SYC-43 part 1 is merged) |
 | **9** | Coarsen sighting pushes | §6.4.4 | none | PR 4; decision Q4 |
-| — | SYC-63 build: `DELETE /me` and "Delete my data" | step 8 | none | SYC-63 §5 migration; SYC-107 (PR 2); PR 4 |
+| — | SYC-63 build: `DELETE /me` and "Delete my data" | step 8 | none | SYC-63 §5 migration; PR 2, PR 3, PR 4 |
 
 Step 2 ("backfill life status") writes nothing, by design: a cat with no `life_status` observation resolves to Street (§11.2). It needs no PR; PR 1's test *"no observations resolves to street and unknown"* is its proof.
 
 ---
-
-### PR P — Our migrations reach production
-
-Q1's recommended answer (finalised after SYC-102's experiment): **the app applies our own migrations to production**, through the SYC-64 runner, and Replit's Publish is treated as code delivery only. If production already matches dev when Publish runs, Replit's structural diff is empty: no review gate, and nothing for it to truncate.
-
-- **First check, before any code** (the implementer, with the read-only query tool and a throwaway Replit app like SYC-102's): **where does the build-time `DATABASE_URL` point, and does the build run before or after Replit's database diff?** The answer picks the variant below. Record it in `docs/DEPLOYMENT.md`.
-- **Preferred variant — migrate in the build step.** This applies if the build-time `DATABASE_URL` is production *and* the build runs before the diff. The deployment's build command runs `pnpm --filter @workspace/db run migrate` before bundling. Production then matches dev by the time the diff runs, so the diff is empty. A failed migration fails the build; the migration is one transaction, so nothing half-applies. Whether the old version keeps serving when a build fails is confirmed in the same first check.
-- **Fallback variant — migrate at start-up, non-blocking.** This applies if the build can't reach production or runs after the diff. The API **starts serving at once** and runs `migrate` in the background. It never delays start-up and never crashes the process: on failure it logs, backs off and retries. Until the runner reports production up to date, **only writes to the guarded tables** (`observations`, `cat_identity`) are refused with a 503 and a clear log line; spotting, browsing and everything else work normally. In this variant Replit's diff runs *before* our code and may already have created a migration's tables. So the runner's exact-match adoption, which today covers only the baseline, is extended to every migration. If everything a migration creates already exists and matches exactly, the runner records the migration as applied and runs only the parts the diff never carries: triggers, function bodies, checks and data steps. Those parts are written to be safe to run twice. Anything that doesn't match exactly is refused, and the differences are printed.
-- **The lock is bounded, in both variants.** Two runners (an autoscale or redeploy overlap, or a build racing a start-up) mustn't both apply migrations, and neither may wait forever. `runner.ts::lockAndLimit` today takes `pg_advisory_xact_lock` *before* it sets `lock_timeout`, so a second runner waits unboundedly. This PR sets `lock_timeout` first, or switches to `pg_try_advisory_lock` with backoff.
-- **Adopting our history on production the first time.** Production has no `drizzle` schema today. On the first run, the runner does what #13 built: it builds `0000_baseline` inside a throwaway schema, in a transaction it rolls back, and compares it with production's live `public` schema. That comparison covers tables, columns, indexes, constraints, triggers, functions, sequences and views. **Exact match:** it records the baseline as applied and then applies `0001` onward normally (or adopts them, in the fallback variant). **Drift** — anything in production that `0000` doesn't describe, for example step 1's tables copied in by an earlier Publish without their triggers: it writes nothing, prints each difference and stops. The app keeps serving, the guarded writes stay closed, and the implementer reads the differences:
-  - drift that is exactly a later migration's own objects is handled by the per-migration adoption above;
-  - anything else gets a reviewed, hand-written reconciling migration.
-
-  Production is never edited by hand to make it match.
-- **Data steps are ordinary migrations.** PR 3's backfill is a custom migration in the journal like any other, so the runner's history records it once. No bespoke tracking table is needed.
-- **Files:** `lib/db/src/migrate/runner.ts` (the bounded lock, per-migration adoption), `artifacts/api-server/src/index.ts` (fallback variant: start `migrate` in the background after `listen()`), `artifacts/api-server/src/lib/observations.ts` (the write gate, shared with PR 2), the deployment's build command (preferred variant), `docs/DEPLOYMENT.md` §C (replace "run `migrate` against production first" with what really happens, plus the review-gate rule below), `lib/db/migrations/README.md` (non-structural parts safe to run twice).
-- **Tests:**
-  - A production-shaped database (the baseline's tables, no `drizzle` schema) adopts `0000` and then applies `0001` onward.
-  - A drifted one is refused with the differences named, and nothing is written.
-  - A database where the "diff" pre-created `0001`'s tables without triggers adopts `0001` and gains its triggers; a second run changes nothing.
-  - **Two runners racing against one database**: exactly one applies, the other returns within its bounded wait, and neither errors or blocks.
-  - **While `migrate` is failing** (forced to throw), the app still serves `GET /api/cats`, `POST /api/sightings` and resolve, and refuses only the guarded writes.
-  - A second runner waits no longer than `lock_timeout`.
-- **Assurance:** mutation probes (skip the trigger part of an adopted migration, and the adoption test must fail; remove the write gate, and the failing-`migrate` test must fail). After the first publish, the read-only query tool confirms that production has the `drizzle` history, step 1's triggers and the attribution check.
-- **Rollback:** revert. The history and triggers it added are what the migrations always intended, so they stay.
-- **Also serves** SYC-43 part 1's, SYC-63's and SYC-101's migrations, which reach production the same way.
 
 ### PR 1 — The resolver and the name-folding function
 
@@ -130,9 +122,10 @@ Pure functions: no database, no I/O. This is where the design risk lives, so it 
 - **Produces:**
   - `resolveLifeStatus(observations, evidenceOfLife, now)` and `resolveSterilised(observations, importRecords)` with exactly the §10.2 signatures and the `Resolved<T>` shape (`value`, `confidence`, `supportingObservationIds`, `conflicts`, `asOf`). `confidence` includes `reported`, unreachable in phase 1.
   - `evidenceOfLife` is an input, `{ at, source } | null`, computed by PR 2's loader. The resolver queries nothing.
-  - `resolveCat(observations, evidenceOfLife, now)`, returning the snapshot §9.1 describes (sterilised level and value, life status, `presumedDeceased`, `notSeenSince`, and the date each was derived from). The cat page, the fan-out check, SYC-55's nightly job and the dashboard all read this one function.
+  - `resolveCat(observations, evidenceOfLife, now)`, returning the snapshot §9.1 describes (sterilised level and value, life status, `presumedDeceased`, `notSeenSince`, and the date each was derived from). The cat page, the fan-out check, SYC-55's nightly job, the dashboard and SYC-119's dead-cat guard all read this one function.
   - `clippedTipCount(observations)` for the API's `clippedTipSightings`.
   - `foldName(name)`: NFC, case-folded, accents stripped, `ς` folded to `σ` (Part 2g). The same folding `colonies.normalised_name` uses.
+  - If SYC-119 Slice C has already shipped its small coat-colour rule ("a person beats the machine; among each, the newest wins"), PR 1 adopts it into `resolve.ts` unchanged; if not, Slice C adds it here.
 - **Rules, as tests** (the names are the test titles):
   1. *ear-tip asymmetry: no number, authority or recency of spotter "looks whole" or "can't tell" answers moves sterilised* (§10.8.1). Its failure message says what it costs: a volunteer sent to trap a cat that was sterilised years ago.
   2. *a clipped tip reaches likely and never confirmed, whoever wrote it* (§10.8.2; §4.2 "never crosses attributes").
@@ -142,7 +135,7 @@ Pure functions: no database, no I/O. This is where the design risk lives, so it 
   6. *a sighting after a deceased statement clears it in the same read*, returning street, with the disagreement in `conflicts` (§10.8.5, §3.2).
   7. *a cat created today with no sightings is not presumed deceased* (§10.8.6).
   8. *presumed deceased counts from when the photo was taken, not when it synced* (§10.8.7).
-  9. *presumed deceased after 36 months of silence, and each kind of evidence of life resets it*: a resolved sighting, `life_status` street/homed/in care, `sterilised`, `ear_tip` and `welfare_report` do; `colony`, `note`, `name` and `food_and_water` don't (§3.4, §10.5).
+  9. *presumed deceased after 36 months of silence, and each kind of evidence of life resets it*: a resolved sighting, `life_status` street/homed/in care, `sterilised`, `ear_tip` and `welfare_report` do; `colony`, `note`, `name`, `food_and_water` and `coat` don't (§3.4, §10.5).
   10. *a live deceased statement suppresses presumed deceased*, and *a life_status newer than the last evidence of life suppresses it*.
   11. *superseded and redacted-value observations are ignored*.
   12. *welfare reports and outcomes move no derived status* (§10.8.17, the resolver half).
@@ -153,92 +146,105 @@ Pure functions: no database, no I/O. This is where the design risk lives, so it 
 
 ### PR 2 — One way to write an observation, and the go-forward writes
 
-The single write path every later writer uses (this plan's PRs, SYC-42's welfare observations, the dashboard), and the loader every reader uses.
+The single write path every later writer uses (this plan's PRs, SYC-42 Slice 5, SYC-119 Slice C, the dashboard), and the loader every reader uses.
 
 - **Files:** new `artifacts/api-server/src/lib/observations.ts` and tests; `routes/cats.ts` (claim, owner registration, rename); `routes/notifications.ts` (the `OWNER_SECRET` care-update route); `routes/sightings.ts` (naming a new cat on resolve).
 - **Produces:**
-  - `writeObservation(tx, input)`: validates `kind` against the phase-1 vocabulary (`life_status`, `sterilised`, `ear_tip`, `food_and_water`, `note`, `name`, `colony`, `welfare_report`, `welfare_outcome`) and each kind's value shape (§10.1); enforces one author; applies the `observedAt` rule (public writes clamped to 30 days back with the existing `clampCaptureTime`, any past date for team, vet, import and legacy, the future refused everywhere, §10.1); refuses a `roleAtTime` of guardian, volunteer or vet, unreachable in phase 1 (§10.4); refuses an `accountId` starting `system:` from any caller but the named system writers; returns the row.
-  - `loadCatRecords(catIds)`: one batched query for the observations of many cats, reading through `cat_identity` so a future merge needs no change here (§2.3: never one query per cat), and one batched query for each cat's evidence of life (newest resolved sighting, newest life-implying observation, the cat's `created_at`). **It deliberately leaves out §3.4's fourth source, a linked import record's operation date**, because the import is out of scope. SYC-49 / SYC-82 must add it to this query when the import tables exist. Returns what PR 1's `resolveCat` takes.
-  - `SYSTEM_AUTHORS`: `system:legacy-backfill` and `system:admin-route` (Part 2g).
+  - `writeObservation(tx, input)`: validates `kind` against the phase-1 vocabulary (`life_status`, `sterilised`, `ear_tip`, `food_and_water`, `note`, `name`, `colony`, `welfare_report`, `welfare_outcome`, and **`coat`**, which Part 2i added) and each kind's value shape (§10.1); enforces one author; applies the `observedAt` rule (public writes clamped to 30 days back with the existing `clampCaptureTime`, any past date for team, vet, import and legacy, the future refused everywhere, §10.1); refuses a `roleAtTime` of guardian, volunteer or vet, unreachable in phase 1 (§10.4); refuses an `accountId` starting `system:` from any caller but the named system writers; returns the row. The `coat` value is SYC-119's (`choose-a-different-cat.md` §4.7, §8.4): one or two of its fixed eight colours, or "not sure", with the model version; `provenance: machine` is accepted only from `system:vision`. PR 2 validates exactly that and nothing more; the colour list itself is imported from SYC-119's code, not copied.
+  - `loadCatRecords(catIds)`: one batched query for the observations of many cats, reading through `cat_identity` so a future merge needs no change here (§2.3: never one query per cat), and one batched query for each cat's evidence of life (newest resolved sighting, newest life-implying observation, the cat's `created_at`). **It deliberately leaves out §3.4's fourth source, a linked import record's operation date**, because the import is out of scope. SYC-49 / SYC-82 must add it when the import tables exist. Returns what PR 1's `resolveCat` takes.
+  - `SYSTEM_AUTHORS`: `system:legacy-backfill`, `system:admin-route`, `system:vision`, `system:welfare-report`. A new system writer adds its name here in its own PR.
 - **Go-forward writes**, each in the same transaction as the change it records:
   - **A claim** writes `life_status: homed` from the claiming device, `roleAtTime: public`, `authorityScope: owner_of_this_cat` (Part 2c).
   - **Owner registration** (`POST /cats`) writes the same at creation (§11.2 step 4).
   - **Naming** a new cat on resolve, **registering** one, and an owner's **rename** each write a `name` observation with the folded form, so no rename destroys an earlier name (§5, §10.3).
-  - **The old admin care route** (`POST /cats/:catId/updates`): `desexed` also writes `sterilised: true`, and `adopted` writes `life_status: homed`, `roleAtTime: staff`, author `system:admin-route`, with `observedAt` = the new `cat_updates` row's `created_at`, so PR 3 can recognise it and not copy it twice. Without this, anything recorded through it before the dashboard exists would be missing from the record.
-  - **Claim, registration and rename check the device secret.** §10.6 requires it of the claim "before the owner tier means anything at all", and the spec puts that in step 5; it moves here because from this PR on a claim changes what a cat's page says (Part 2c: "securing the claim endpoint therefore matters more"). Registration and rename have the same gap and aren't named in the spec (**SYC-107**, filed from this plan); from this PR they write attributed statements, and an author anyone can forge defeats §2's "how do you know". SYC-63's plan is blocked on the same fix, because an unchecked route could re-attach a deleted person's device id. The app already sends the secret on every request (`custom-fetch.ts`, noted in `routes/sightings.ts`), so no tester is locked out.
-- **Tests:** each go-forward write appears once with the right role, scope and provenance, and not at all when the request fails; each of the three routes refuses a missing or wrong secret and writes nothing; `writeObservation` refuses an unknown kind, a malformed value, a future date, a public date more than 30 days old, an unreachable role and a borrowed `system:` author; `loadCatRecords` for 50 cats issues a fixed number of queries (asserted with a query counter).
+  - **The old admin care route** (`POST /cats/:catId/updates`): `desexed` also writes `sterilised: true`, and `adopted` writes `life_status: homed`, `roleAtTime: staff`, author `system:admin-route`, with `observedAt` = the new `cat_updates` row's `created_at`, so PR 3 can recognise it and not copy it twice. Nothing in production has ever come through it (2 Oct: no `desexed` or `adopted` rows), and D7 retires it once staff sign-in is live (Conflicts, C13); this is cheap insurance for the meantime.
+  - The device secret is **already** checked on claim, registration and rename (SYC-107, #41). PR 2 relies on it and adds a test that a refused request writes no observation.
+- **Tests:** each go-forward write appears once with the right role, scope and provenance, and not at all when the request fails (including a 401/403 from the secret check); `writeObservation` refuses an unknown kind, a malformed value, a future date, a public date more than 30 days old, an unreachable role and a borrowed `system:` author, and accepts a well-formed `coat` from `system:vision`; `loadCatRecords` for 50 cats issues a fixed number of queries (asserted with a query counter).
+- **Why it waits for SYC-111:** observations can't be deleted, and the API tests today clean up by deleting from a shared test database. PR 2 is the first API code that writes them.
 - **Rollback:** revert. Observations already written stay (append-only), are true statements, and nothing reads them until PR 4.
 
-### PR 3 — Backfill what already exists (next free migration number, data only)
+### PR 3 — Backfill claims and care updates (next free migration number, data only)
 
-Steps 3 and 4. Everything the app knows today becomes a statement in the record, once.
+Steps 3 and 4, for homes and sterilisation. Everything the app knows about these today becomes a statement in the record, once.
 
 - **What's written.**
-  - Each `cat_updates` row of type `desexed` → `sterilised: true`; each `adopted` → `life_status: homed`. `provenance: legacy`, `roleAtTime: staff` (they came through the admin route), `observedAt` = the update's `created_at`, author `system:legacy-backfill`.
-  - Each cat with `owner_device_id` set → `life_status: homed` from that device, `authorityScope: owner_of_this_cat`, `provenance: legacy`. **`observedAt` = the cat's `created_at`**, because the claim date was never stored. That's the earliest the claim could have been, so the backfill never claims evidence of life later than we actually know it.
-  - Each cat → one `name` observation with its current name and folded form, `provenance: legacy`, author `system:legacy-backfill`, `observedAt` = the cat's `created_at`. The folded form is copied from the column SYC-101 adds to `cats`, because a SQL migration can't call PR 1's TypeScript `foldName`. (SYC-101 has the same problem filling that column: it needs either a SQL folding that a test proves matches `foldName` on the Greek and Latin cases, or a data step run from TypeScript. Flagged on the ticket.)
+  - Each `cat_updates` row of type `desexed` → `sterilised: true`; each `adopted` → `life_status: homed`. `provenance: legacy`, `roleAtTime: staff` (they came through the admin route), `observedAt` = the update's `created_at`, author `system:legacy-backfill`. (Production has none today; the rule is kept for the development database and for anything recorded before PR 3 runs.)
+  - Each cat with `owner_device_id` set → `life_status: homed` from that device, `authorityScope: owner_of_this_cat`, `provenance: legacy`. **`observedAt` = the cat's `created_at`**, because the claim date was never stored. That's the earliest the claim could have been, so the backfill never claims evidence of life later than we actually know it. (Production: 12 cats on 2 Oct.)
   - Every row carries `suggestion_source = 'backfill:data-spine'`, so the rollback finds exactly these rows. PR 2's validation refuses that value from any other writer.
-- **Idempotent against the go-forward writes, with an explicit match key for each kind** (not a vague "equivalent observation"):
+- **Idempotent against the go-forward writes, with an explicit match key for each kind:**
   - *Care updates:* skip if a `sterilised` / `life_status` observation exists for that cat with `observedAt` equal to the `cat_updates` row's `created_at` (PR 2 writes exactly that).
   - *Claims:* skip if the cat has any `life_status: homed` observation from its `owner_device_id` with `authorityScope: owner_of_this_cat`.
-  - *Names:* **skip any cat that already has any `name` observation.** Such a cat was named or renamed after PR 2 went live, so PR 2 already recorded its names in order. Writing its *current* name dated at `created_at` would backdate the rename, and the original name would be lost, which is what §10.3 forbids.
 
-  PR 2 must be **live in production** before this runs: it closes the window in which a claim, rename or care update could happen after the backfill read the tables and before the new code was live.
+  PR 2 must be **live in production** before this runs: it closes the window in which a claim or care update could happen after the backfill read the tables and before the new code was live.
 - **Self-checking.** It ends with a block that compares what it expected to write with what it wrote and raises if they differ, so a partial or wrong backfill rolls back whole instead of landing.
-- **Notifications.** Nothing is sent: it writes only to `observations`. The notify job's baseline doesn't exist yet, and when SYC-55 builds it, it seeds from current derived status on its first run (`email-capture.md` §5.3: "the job would simply re-seed and send nothing"), so this history is never news (§9.2, test §10.8.15). See Conflicts, C4.
-- **How it's made:** `drizzle-kit generate --custom --name data_spine_backfill`, so it enters the journal and `migrate:check` accepts it. In production it runs through PR P's runner like any other migration, recorded once in the runner's history. It is still written to be safe to run twice, because in PR P's fallback variant the adoption path may re-run a migration's non-structural parts.
-- **Tests** (`lib/db/src/migrate/backfill.test.ts`, throwaway database): seeded cats, claims, registrations and care updates produce exactly the expected observations; running it where PR 2 already wrote a claim's `homed` or a care route's statement produces no duplicate; *a cat renamed after PR 2 went live keeps both names in order, and gains no backdated name row*; up–down–up leaves the same rows; every seeded cat's resolved status matches what its old flags said (homed ↔ `hasHome`, sterilised ↔ the `Desexed` badge).
-- **Rollback block:** in one transaction, the table owner disables the observations append-only trigger, deletes the rows marked `backfill:data-spine`, and re-enables it. The block says this is the one sanctioned bypass and that it removes only these rows.
+- **Notifications.** Nothing is sent: it writes only to `observations`. The notify job's baseline doesn't exist yet, and when SYC-55 builds it, it seeds from current derived status on its first run (`email-capture.md` §5.3), so this history is never news (§9.2, test §10.8.15). See Conflicts, C4.
+- **How it's made:** `drizzle-kit generate --custom --name data_spine_backfill`, so it enters the journal and `migrate:check` accepts it. It reaches production through `db-ops` migrate like any migration, and the runner's history records it once.
+- **Tests** (`lib/db/src/migrate/backfill.test.ts`, throwaway database): seeded cats, claims, registrations and care updates produce exactly the expected observations; running it where PR 2 already wrote a claim's `homed` or a care route's statement produces no duplicate; up–down–up leaves the same rows; every seeded cat's resolved status matches what its old flags said (homed ↔ `hasHome`, sterilised ↔ the `Desexed` badge).
+- **Rollback block:** in one transaction, the table owner disables the observations append-only trigger, deletes the rows marked `backfill:data-spine`, and re-enables it. The block says this is the one sanctioned bypass and that it removes only these rows. Applied with `db-ops -f command=migrate-rollback`, and only after the app code has been rolled back first (`docs/DEPLOYMENT.md` §C's order).
+
+### PR 3b — Backfill current names (next free migration number, data only)
+
+Step 4, for names. Split from PR 3 in this refresh so that the cat page doesn't wait for SYC-101 (R23).
+
+- **What's written:** each cat → one `name` observation with its current name and folded form, `provenance: legacy`, author `system:legacy-backfill`, `observedAt` = the cat's `created_at`, `suggestion_source = 'backfill:data-spine-names'`.
+- **The folded form is copied from the column SYC-101 adds to `cats`**, because a SQL migration can't call PR 1's TypeScript `foldName`. SYC-101 has the same problem filling that column: it needs either a SQL folding that a test proves matches `foldName` on the Greek and Latin cases, or a data step run from TypeScript. (Flagged on SYC-101.)
+- **Match key:** **skip any cat that already has any `name` observation.** Such a cat was named or renamed after PR 2 went live, so PR 2 already recorded its names in order. Writing its *current* name dated at `created_at` would backdate the rename and lose the original, which §10.3 forbids.
+- **Tests:** as PR 3's, plus *a cat renamed after PR 2 went live keeps both names in order, and gains no backdated name row*.
+- **Nothing reads names from observations yet**, so PR 3b changes nothing anyone sees. It must land before the records import (SYC-49) or duplicate merge (SYC-59), which do.
+- **Rollback block:** as PR 3's, for `backfill:data-spine-names` rows only.
 
 ### PR 4 — The cat page shows derived status
 
-- **API:** `Cat` and `CatDetail` gain `lifeStatus`, `notSeenSince` and `sterilised { value, confidence, clippedTipSightings }` (§10.7). `hasHome` becomes `lifeStatus === 'homed'`, derived, instead of `owner_device_id is not null`, so a team correction to Street is honoured, and deleting an owner (SYC-63) doesn't quietly unhome a cat. `GET /cats` and `GET /cats/:id` use `loadCatRecords` and `resolveCat` in one batch. **Request-duration logging** on both ships with the resolver, as §2.3 requires, so §12 risk 8's 200 ms trigger is observable.
-- **Merged only after PR 3 has run in production, and gated in code, not only by merge order.** Before the backfill, a claimed cat has no `homed` statement, and deriving `hasHome` would briefly strip every claimed cat of its home badge. So PR 4's derivation first checks that the runner's history (`drizzle.__drizzle_migrations`) records PR 3's migration as applied. That is the same record in production, dev, CI and tests. Until it does, `hasHome` falls back to the legacy `owner_device_id is not null`, and the sterilised line falls back to the legacy `desexed` care update. The check is read once per process and re-read until it passes. Test: *with PR 3's step not recorded, a claimed cat with no `homed` observation still has `hasHome: true`; once it's recorded, `hasHome` follows life status.* One visible change is intended: a cat marked "adopted" through the old admin route, with no owner in the app, now shows "Has a home", which is what the team meant.
+- **API:** `Cat` and `CatDetail` gain `lifeStatus`, `notSeenSince` and `sterilised { value, confidence, clippedTipSightings }` (§10.7). `hasHome` becomes `lifeStatus === 'homed'`, derived, instead of `owner_device_id is not null`, so a team correction to Street is honoured, and deleting an owner (SYC-63, which clears `owner_device_id`) doesn't quietly unhome a cat. `GET /cats` and `GET /cats/:id` use `loadCatRecords` and `resolveCat` in one batch. **Request-duration logging** on both ships with the resolver, as §2.3 requires, so §12 risk 8's 200 ms trigger is observable.
+- **Merged only after PR 3 has run in production, and gated in code, not only by merge order.** Before the backfill, a claimed cat has no `homed` statement, and deriving `hasHome` would strip all 12 claimed cats of their home badge. So PR 4's derivation first checks that the runner's history (`drizzle.__drizzle_migrations`) records PR 3's migration as applied. That is the same record in production, development, CI and tests. Until it does, `hasHome` falls back to the legacy `owner_device_id is not null`, and the sterilised line falls back to the legacy `desexed` care update. The check is read once per process and re-read until it passes. Test: *with PR 3's step not recorded, a claimed cat with no `homed` observation still has `hasHome: true`; once it's recorded, `hasHome` follows life status.* One visible change is intended: a cat marked "adopted" through the old admin route, with no owner in the app, now shows "Has a home", which is what the team meant. (None exist in production.)
 - **Fan-out:** `createUpdateAndFanOut` and `notifyCatSpotters` skip a cat whose resolved life status is deceased (§3.3). Follows are kept, so a sighting that clears the status resumes them.
+- **SYC-119 hand-off (its Slice D), built in this PR's checklist:** the "find the cat yourself" picker greys out a cat recorded as deceased, and resolve refuses a hand pick of one with the same `NOT_NEARBY`-style refusal. A suggested match still clears the death (§3.2). Until the team can record a death (PR 8), this is a no-op, which is fine.
 - **App:** the cat page shows the life line and the sterilised line, in the copy above, where "Last seen" sits today. The `Desexed` badge, which reads `careTimeline` today (`app/cat/[id].tsx`), is replaced by the sterilised line. The "Has a home" filter keeps working through `hasHome`. `lastSeenAt` stays.
-- **Files:** `lib/catHelpers.ts`, `routes/cats.ts`, `routes/sightings.ts` (the resolve response's `hasHome`), `lib/notificationFanout.ts`, `lib/notifications.ts`, `lib/api-spec/openapi.yaml` and the regenerated client and zod packages, `artifacts/cat-spotter/app/cat/[id].tsx`, `components/CatCard.tsx`, `lib/i18n.ts`.
-- **Tests:** the API returns each life and sterilised state for seeded observations; a presumed-deceased cat's payload carries `notSeenSince` and never `deceased`; no push goes out for a cat with a live deceased statement; a claimed cat set back to Street by a later staff statement has `hasHome: false`; an app test renders each line in each language, with no "presumed" and no "No longer with us" for the presumed case.
+- **Files:** `lib/catHelpers.ts`, `routes/cats.ts`, `routes/sightings.ts` (the resolve response's `hasHome`, the hand-pick guard), `lib/notificationFanout.ts`, `lib/notifications.ts`, `lib/api-spec/openapi.yaml` and the regenerated client and zod packages, `artifacts/cat-spotter/app/cat/[id].tsx`, `components/CatCard.tsx`, the picker component SYC-119 adds, `lib/i18n.ts`.
+- **Tests:** the API returns each life and sterilised state for seeded observations; a presumed-deceased cat's payload carries `notSeenSince` and never `deceased`; no push goes out for a cat with a live deceased statement; a claimed cat set back to Street by a later staff statement has `hasHome: false`; a hand pick of a deceased cat is refused; an app test renders each line in each language, with no "presumed" and no "No longer with us" for the presumed case.
 - **Checked** at ~390 px and desktop, with data (a seeded cat in each state), before the PR opens.
 - **Rollback:** revert. The fields are additive; old clients ignore them.
 
-### PR 5 — Close the oracle
+### PR 5 — Harden matching (500 m kept)
 
-Step 5, owned by this plan. It ships before blurring, because blurring while this endpoint answers questions about exact positions is a promise that is already false (§11.2 step 5; F2, "not optional"). The claim half of step 5 is already done in PR 2.
+Step 5, as Samuel amended it on 30 Sep (DECISIONS Part 2h). **Matching keeps comparing a new photo only with the cats within 500 m of it, on exact positions, up to ten, nearest first** — already live in `lib/candidateSelection.ts` (#39). This PR does **not** reintroduce grid-snapped selection. Samuel knowingly accepted that a determined person can still narrow down a cat's position by repeated probing; this PR adds the other two protections §6.3 still requires, which make that slow and noisy.
 
 - **What changes in `POST /sightings`** (`computeMatchCandidates`, which the dedupe-hit path also uses):
-  1. Candidates are chosen by the distance between the **snapped** probe point and **snapped** cat positions, within **750 m**, ties broken on cat id. The vision model still re-ranks (§6.3.1). See Conflicts, C3, on SYC-39's 500 m.
-  2. The limiter counts per **device**, after the secret check SYC-92 already added, not per IP. (Where the count is kept is SYC-105's; this PR keys it by device either way.)
-  3. Candidates below the confidence threshold come back without `catId` and `name`, and the response never orders or annotates candidates by true distance (§6.3.3).
-- **New:** `lib/blur.ts` (pure): `BLUR_CELL_METRES = 250`, `blurPosition`, `publicDistanceKm`, and a grid-origin offset derived by HMAC from a server secret, `BLUR_GRID_SECRET` (§6.2). The implementer adds the secret to the Replit deployment before deploying; the server refuses to start in production without it.
-- **Files:** `routes/sightings.ts`, new `lib/blur.ts` and tests, `middlewares/rateLimit.ts`.
-- **Tests:** §10.8.10: probing from a grid of coordinates with a known cat's photo returns a candidate set that doesn't change with sub-cell movement and doesn't reveal true-distance order. `blurPosition` is deterministic and idempotent and keeps every point in its cell. The per-device limit refuses the 21st request from one device, and not a second device on the same IP.
-- **Assurance:** the probe test is mutation-checked (feed it exact coordinates; it must fail). An adversarial pass runs §6.3's bisection attack against the built endpoint.
-- **Rollback:** revert, which reopens the oracle. Never revert it after PR 6 has shipped.
+  1. **The limiter counts per device**, after the device-secret check SYC-92 already added, not per IP address (today: 20 per 15 minutes per IP). Where the count is kept is SYC-105's; this PR keys it by device either way.
+  2. **Candidates below the confidence threshold come back without `catId` and `name`.** Today only a 0.1 noise floor applies.
+  3. **The response never orders or labels candidates by true distance**: ordered by confidence, ties broken by cat id (§6.3.3; Part 2h).
+- **Files:** `routes/sightings.ts`, `lib/candidateSelection.ts` (only to keep its output out of the response order), `middlewares/rateLimit.ts`.
+- **Tests:** a cat 499 m away is a candidate and one 501 m away isn't (the existing radius tests, kept); the per-device limit refuses the 21st request from one device and not a second device on the same IP; a low-confidence candidate has no id or name; two candidates with equal confidence come back in cat-id order whatever their distances.
+- **Assurance:** mutation probes (order by distance: the tie test must fail; drop the threshold: the id/name test must fail). An adversarial pass tries to recover a cat's position from the response alone and records how many requests it needs under the per-device limit.
+- **Rollback:** revert, which returns to per-IP limiting and the 0.1 floor. Never revert it after PR 6 has shipped without Samuel's say-so.
 
 ### PR 6 — Turn on blurring
 
-Step 6. Server and app ship together with the cache version bump, so no phone keeps an exact payload.
+Step 6. Server and app ship together with a new cache key, so no phone keeps an exact payload.
 
+- **New:** `lib/blur.ts` (pure): `BLUR_CELL_METRES = 250`, `blurPosition`, `publicDistanceKm`, and a grid-origin offset derived by HMAC from a server secret, `BLUR_GRID_SECRET` (§6.2). (This moved here from PR 5, which no longer snaps anything.) The secret goes into the EU Replit project's deployment secrets before the publish; the server refuses to start in production without it. Claude generates the value and puts it on the clipboard; Samuel pastes it into Replit's Secrets pane, the one step that needs his login.
 - **Server:** one `serialiseCat(cat, viewer)` in `lib/catHelpers.ts`, and all four emitters go through it (§10.6): `listCatsWithStats`, `catPayload` in `routes/cats.ts`, the inline cat in the resolve response, and the sightings array in `GET /cats/:id`. The public payload has the cell centre, `locationPrecision: approximate`, `locationCellM: 250`, `distanceKm` from the cell centre rounded to 0.1, a stable sort with ties on id, last-seen as a date, and no sighting coordinates, notes, private feeding sites or device ids. The detail page gives an **authenticated owner** exact coordinates for their own cat (Option B, §10.6); the list is always public.
-- **Pagination** of `GET /cats` (§2.3), loading each page's observations in one batch. It changes the list contract, so it ships here with the app and the cache bump, not in PR 4. The app walks every page in the background when it refreshes the offline cache (a few pages at today's size), so the catalogue still works without signal exactly as it does now.
-- **App:** the catalogue cache key becomes `cats-cache/public/v2` (`hooks/useCatsWithCache.ts`). The map draws the 250 m cell with softened corners, labelled *"Somewhere in here"*, instead of a pin, and the cat page labels the position *"first spotted around here"* (§6.6, SYC-80). `BLUR_DISPLAY_RADIUS_METRES` is never introduced (retired, §6.2).
-- **Depends on SYC-98**, for two reasons: photo ids in public payloads must be opaque before the coarse-timestamp claim is true (§6.4.4), and both change `photoUrl()` in `catHelpers.ts`.
-- **Files:** `lib/catHelpers.ts`, `routes/cats.ts`, `routes/sightings.ts`, `openapi.yaml` and the generated packages, `hooks/useCatsWithCache.ts`, `components/AppMap.tsx`, `components/AppMap.web.tsx`, `app/(tabs)/cats.tsx`, `app/(tabs)/index.tsx`, `app/cat/[id].tsx`, `lib/i18n.ts`.
-- **Tests:** §10.8.8 against all four emitters by name; §10.8.9 (a hundred requests from varied viewer positions return byte-identical geography); the old cache key is never read. (The public feeding-sites query filtering `is_public` in SQL, §10.5, is tested where SYC-43 builds that endpoint.)
+- **SYC-119 hand-off (on SYC-41):** `lib/geo`'s `publishedPosition(cat)` snaps to a public-origin 250 m grid today, because the phone can't know the server's secret offset. In this PR it switches to the payload's cell centre as-is, without snapping again; SYC-119's tests 2, 24 and 25 and their mutation probe re-run here.
+- **Pagination** of `GET /cats` (§2.3), loading each page's observations in one batch. It changes the list contract, so it ships here with the app and the new cache key. The app walks every page in the background when it refreshes the offline cache, so the catalogue still works without signal exactly as it does now.
+- **App:** the catalogue cache key changes from `cat-spotter/cats-cache` to a new key no earlier build used (SYC-119 Slice C may change it first; PR 6 takes the next one) in `hooks/useCatsWithCache.ts`. The map draws the 250 m cell with softened corners, labelled *"Somewhere in here"*, instead of a pin, and the cat page labels the position *"first spotted around here"* (§6.6, SYC-80). `BLUR_DISPLAY_RADIUS_METRES` is never introduced (retired, §6.2).
+- **SYC-98 is done** (#24), so photo ids in public payloads are already opaque, which the coarse-timestamp promise needs (§6.4.4).
+- **Files:** `lib/blur.ts` and tests, `lib/catHelpers.ts`, `routes/cats.ts`, `routes/sightings.ts`, `openapi.yaml` and the generated packages, `lib/geo` (`publishedPosition`), `hooks/useCatsWithCache.ts`, `components/AppMap.tsx`, `components/AppMap.web.tsx`, `app/(tabs)/cats.tsx`, `app/(tabs)/index.tsx`, `app/cat/[id].tsx`, `lib/i18n.ts`.
+- **Tests:** `blurPosition` is deterministic and idempotent and keeps every point in its cell; §10.8.8 against all four emitters by name; §10.8.9 (a hundred requests from varied viewer positions return byte-identical geography); the old cache key is never read; SYC-119's 2, 24, 25. (The public feeding-sites query filtering `is_public` in SQL, §10.5, is tested where SYC-43 builds that endpoint.)
 - **Checked** at ~390 px and desktop, on native and web, with data, before the PR opens.
-- **Assurance:** mutation probe (route one emitter around the serialiser; §10.8.8 must fail). Adversarial review hunting for a fifth emitter.
+- **Assurance:** mutation probe (route one emitter around the serialiser; §10.8.8 must fail). Adversarial review hunting for a fifth emitter, including anything SYC-42 or SYC-119 added since this plan was written.
 - **Rollback:** revert server and app together. A revert republishes exact positions, so it is Samuel's decision, not a routine rollback.
 
 ### PR 7 — The sighting questions and the note
 
-Step 7: SYC-37 and SYC-74.
+Step 7: SYC-37 and SYC-74. **Ships together with #46** (SYC-117 part 1 and SYC-118: "Retake photo" and the "New spot" wording), as Samuel decided on 30 Sep: the spot flow changes once, as one piece. Build on #46's branch, and make the "New spot" wording set up the questions that now follow matching.
 
 - **Timing, which the spec leaves open** (Conflicts, C5): the questions appear on the reward screen, after the points, and the points come back from resolve. So the answers go to a new device-authenticated `POST /sightings/{id}/answers`, accepted once per sighting, within 24 hours of its resolve, from the sighting's own device. Resolve stays exactly as it is.
-- **What's written** (§10.7): `ear_tip` (`clipped_left | clipped_right | clipped_unsure | looks_whole | cant_tell`), `food_and_water` (`yes | no | cant_tell`) and `note` (≤ 500 characters), each its own observation with the sighting's `photoId` and `observedAt` = the sighting's capture time. `provenance: volunteered`, because in phase 1 the app pre-fills nothing; `prompted` arrives with pre-filled answers later (SYC-52).
+- **What's written** (§10.7): `ear_tip` (`clipped_left | clipped_right | clipped_unsure | looks_whole | cant_tell`), `food_and_water` (`yes | no | cant_tell`) and `note` (≤ 500 characters), each its own observation through `writeObservation`, with the sighting's `photoId` and `observedAt` = the sighting's capture time. `provenance: volunteered`, because in phase 1 the app pre-fills nothing.
 - **When to ask:** the resolve response gains `askEarTip: boolean`, false after "Can't tell" from this device for this cat (§4.4) and otherwise as Samuel decides in Q3.
-- **App** (`app/review.tsx`): the one-tap question with the required example photo (a clean clipped tip beside a torn ear, with its one-line explanation) and `Skip`; the food-and-water tap; and the optional note box, which says only Syros Cats see it. Nothing stands between a spotter and their points. The example photo is **SYC-79**'s, and this PR can't merge without it.
-- **Likely before the correction path** (Conflicts, C6, and Q2): the public sterilised line shows *Likely* only once PR 8 is live, or as Samuel decides in Q2.
-- **Tests:** answers from another device, a second set of answers, and answers after 24 hours are refused; a note never appears in any public payload (added to §10.8.8's list); "looks whole" moves nothing (rule 1, end to end); skipping writes nothing.
+- **App** (`app/review.tsx`): the one-tap question with the required example photo (a clean clipped tip beside a torn ear, with its one-line explanation) and `Skip`; the food-and-water tap; and the optional note box, which says only Syros Cats see it. Nothing stands between a spotter and their points. **The example photo is SYC-79's, still outstanding (Backlog, 2 Oct), and this PR can't merge without it.**
+- **Likely before the correction path** (Conflicts, C6, and Q2): the public sterilised line shows *Likely* only once Syros Cats can correct it, or as Samuel decides in Q2.
+- **SYC-119 hand-off (its Slice D, needs its Slice B):** a "clipped" answer on a sighting the server recorded as a hand pick is sorted first in PR 8's *Likely* list and marked *matched by hand*.
+- **Tests:** answers from another device, a second set of answers, and answers after 24 hours are refused; a note never appears in any public payload (added to §10.8.8's list); "looks whole" moves nothing (rule 1, end to end); skipping writes nothing; no sightings row is updated (SYC-63's guard).
 - **Checked** at ~390 px and desktop with a real resolve.
 - **Rollback:** revert. Answers already stored stay valid observations.
 
@@ -246,10 +252,11 @@ Step 7: SYC-37 and SYC-74.
 
 §4.5 and §3.5. The endpoints only; SYC-43's later parts build the screens.
 
-- `POST /observations` (a team statement of life status or sterilised, with a reason); `POST /observations/{id}/supersede` (marks one observation wrong, with a reason, by writing a new one that points at it); `GET /observations/review/likely` (cats at *Likely* with their evidence photos, newest first).
-- **Behind SYC-43 part 1's `requireTeam(capability)`** with `set_life_status` and `set_sterilisation` (`team-access-and-welfare-queue.md` §7.3). `roleAtTime: staff`, `accountId` = the person's `people.id`. The staff **"that's not a clip"** writes `ear_tip { clipped: false }` superseding the spotter's, which PR 1's rule 5 already handles.
+- `POST /observations` (a team statement of life status or sterilised, with a reason); `POST /observations/{id}/supersede` (marks one observation wrong, with a reason, by writing a new one that points at it); `GET /observations/review/likely` (cats at *Likely* with their evidence photos, newest first; hand picks first once SYC-119 Slice B exists).
+- **Behind `requireTeam(capability)`** (merged in #28) with `set_life_status` and `set_sterilisation`, both already in `lib/capabilities.ts`. `roleAtTime: staff`, `accountId` = the person's `people.id`. The staff **"that's not a clip"** writes `ear_tip { clipped: false }` superseding the spotter's, which PR 1's rule 5 already handles. This is also how Syros Cats records a cat's death, which they asked for in the 29 Sep testing call (SYC-40 comment).
+- **Can be built now.** For staff to *use* it, three more things must be live: `0003` applied to production, the workspace hand-off (SYC-103), and a screen (SYC-43). Until then it is reachable only by tests.
 - **Files:** new `routes/observations.ts` and tests; `openapi.yaml`.
-- **Tests:** unauthenticated and wrong-capability requests are refused; superseding a missing or already-superseded observation is refused; after a staff "not a clip" the cat reads *Not known yet*; the review list holds only *Likely* cats.
+- **Tests:** unauthenticated and wrong-capability requests are refused; superseding a missing or already-superseded observation is refused; after a staff "not a clip" the cat reads *Not known yet*; after a staff `deceased`, the cat reads *No longer with us* and no push goes out; the review list holds only *Likely* cats.
 - **Rollback:** revert. Statements already written stay, correctly attributed.
 
 ### PR 9 — Coarsen sighting pushes
@@ -260,138 +267,135 @@ Step 7: SYC-37 and SYC-74.
 - **Tests:** a non-owner gets no push inside the window Q4 sets; an owner still does; no text contains a time.
 - **Rollback:** revert to live pushes.
 
-## Interfaces with the deletion and dashboard plans
+## Interfaces with other plans
 
-**What SYC-63 (deletion) needs from this plan**, checked against its plan on `claude/syc-63-deletion-plan`:
+**What SYC-63 (deletion) needs from this plan.** Its plan was approved by Samuel on 29 Sep (Linear), though the file on `main` still says "awaiting approval" (Conflicts, C9).
 
-- **Claims recorded as `homed` (PR 2, PR 3) and `hasHome` derived from life status (PR 4)**, before its build. Otherwise clearing a deleted owner's link flips the cat to "no home". Its plan says the same ("step 4 should land before this").
-- **SYC-107 (in PR 2)** before its build, so no unchecked cat route can re-attach a deleted person's device id. Its plan names the same blocker.
+- **Claims recorded as `homed` (PR 2, PR 3) and `hasHome` derived from life status (PR 4), before its build.** Samuel chose (flag 5, option b) that deletion clears `cats.owner_device_id`; without PR 4, that flips a deleted owner's cat to "no home".
+- **SYC-107 is done** (#41), so no unchecked cat route can re-attach a deleted person's device id.
+- **So SYC-63's build waits for PR 2, PR 3 and PR 4.** Its schema migration (§5) waits for none of them, only for SYC-111.
 - **Every observation kind this plan adds is severable by its SQL.** PR 2's and PR 7's rows are device-authored, and a `note`'s text is emptied by `value = '{}'` in SQL, which the step-1 trigger permits. No new kind stores personal text anywhere but `note`. (`system:` rows are never matched, per Part 2g.)
-- **Its §5 migration and this plan's code agree on the sightings guard**: the only application update to `sightings` is resolve (pending → resolved, `cat_id` set once). PR 7 adds no sightings update; its answers are observations. Anything later that updates a sighting must change the guard on purpose.
-- **PR P delivers its triggers and checks to production** (the same Replit problem applies to it).
+- **The sightings guard is SYC-63's**, in its §5 migration. From this plan it needs only resolve (pending → resolved, `cat_id` set once) and redaction. PR 7 adds no sightings update; its answers are observations. **It must also allow pending → awaiting_team and awaiting_team → resolved** for SYC-119's "Ask Syros Cats to match it" (Conflicts, C10). Moving a sighting to another cat (SYC-150) will need its own deliberate change later.
+- **Welfare reports:** deletion clears `welfare_reports.reporter_device` and keeps the report and its photo as the cat's history (SYC-42 plan; SYC-63 comment of 30 Sep). Whichever of SYC-63's build or SYC-42 Slice 1 lands second adds the clearing and its test. Once SYC-42 Slice 5 has written a `welfare_report` observation, that row is device-authored and is severed like any other.
 
-**SYC-107 is covered inside this plan, in PR 2**, not as separate work: the claim secret check (step 5's claim half) and the registration and rename checks ship together there, ahead of PR 5 (step 5's oracle half). So "steps 4 and 5 before step 8", as SYC-63's plan asks, means PR 2, PR 3 and PR 4 before its build; PR 5 is not a prerequisite for deletion.
+**What this plan needs from SYC-63:** nothing. Its only shared prerequisite is SYC-111, which PR 2's tests need too.
 
-**The sightings append-only guard is SYC-63's**, in its migration (PR #21). This plan doesn't duplicate it; it only relies on it allowing resolve.
-
-**What this plan needs from SYC-63:** nothing before PR 2. Its only shared prerequisite is SYC-111 (throwaway test database), which PR 2's tests need because observations can't be deleted between tests.
-
-**What this plan needs from SYC-43 part 1:** `requireTeam(capability)` and `people.id` for PR 8. Nothing else here waits for it.
+**SYC-43 part 1 (merged):** PR 8 uses `requireTeam(capability)` and `people.id`. Nothing else here waits for it.
 
 **What SYC-43's later parts need from this plan:** `writeObservation` (PR 2) for every correction and colony assignment; `resolveCat` for every status they show; PR 8's endpoints.
 
+**SYC-42 (welfare):** Slice 5 (tying a report to a cat) needs PR 2 live; it writes `welfare_report` (reporter's device, or `system:welfare-report`) and `welfare_outcome` (staff account), and neither moves a derived status (PR 1 rule 12). Slices 0–4 need nothing from this plan.
+
+**SYC-119 (choose a different cat):** Slice C needs PR 2 for `coat` observations; Slice D rides inside PR 4 (dead-cat guard), PR 6 (`publishedPosition`) and PR 7/PR 8 (hand-picked clipped answers first). Slice E2 needs SYC-63's guard to allow `awaiting_team`.
+
+**SYC-3 (keep my spots safe):** moving a spotter to a new phone keeps their device id and swaps its secret, so device-authored observations stay theirs with no re-keying. Nothing to build here.
+
 ## How each step reaches production
 
-**What SYC-102 found (29 Sep; the full table is in its latest Linear comment).**
+The move to Neon settled this. Everything below is the route `docs/DEPLOYMENT.md` §C and the SYC-121 plan §A.4 already describe; this plan adds nothing to it.
 
-- Production is Replit-managed, separate from dev, and has **no `drizzle` schema and no migration history**. It has the same nine tables as dev.
-- **The first publish to an *empty* production copies everything**: rows, triggers, functions, the `drizzle` schema and its rows. Our production isn't empty, so that doesn't help us.
-- **Every later publish diffs the structure, and puts "risky" changes behind a manual review on the Replit website.** For adding a NOT NULL column without a default to a populated table, the diff's own plan was **`TRUNCATE ... CASCADE`**: every row in that table and everything referencing it, gone.
-- **A changed function body, and new rows in `drizzle.__drizzle_migrations`, don't appear in the diff at all.** So a guard updated by a migration would silently stay old in production.
-- **The deployed app has full DDL and write rights on production at runtime** (confirmed live).
-- `DATABASE_URL` is set at build time. It isn't yet confirmed whether it points at production then, or whether the diff runs before or after the build (PR P's first check).
+1. Merge.
+2. `gh workflow run db-ops.yml --ref main -f target=development -f command=migrate`.
+3. For anything that touches real data (PR 3, PR 3b): take a Neon snapshot of `production` and record its name in the PR.
+4. `gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`, **before** publishing the code that needs it. The runner applies every pending migration in one transaction, triggers and data steps included, with a 5 s lock timeout.
+5. Claude checks with a read-only Neon query: the migration history matches the journal, and the new objects or backfilled rows are there. For PR 3, the counts match the ones recorded in the PR (12 claimed cats on 2 Oct, plus any since).
+6. Samuel pulls `main` in the EU Replit project and publishes. A Replit database review should never appear; if one does, cancel it.
+7. `db-ops -f command=smoke`.
 
-**So Replit's diff can't be the way our changes reach production.** It misses guards and history, and it can destroy data. The plan therefore treats Publish as **code delivery only**, and **our own runner applies our migrations to production** (PR P, Q1). If the runner has already brought production level with dev when Publish runs, the diff is empty.
+**If smoke fails:** republish the previous build first, then `migrate-rollback`. New code on the old schema is the one broken combination; old code on the new schema is fine.
 
-| What a step needs in production | Replit's diff | Our runner (PR P) |
-|---|---|---|
-| New tables and columns | Yes, but "risky" ones go to a manual review, and a NOT NULL column may be planned as a truncate | Yes, as written and reviewed in the PR |
-| Relaxed NOT NULL, CHECK constraints | Uncertain | Yes |
-| Triggers and functions, including a changed function body | New ones uncertain; **changed bodies not in the diff** | Yes |
-| The migration history | **Not in the diff** | Yes: it is the runner's own record |
-| Data backfills (PR 3, SYC-101) | No | Yes, as custom migrations |
+**Code-only PRs** (1, 2, 4–9) skip steps 2–5.
 
-**The rule for every rollout, stated here and in `docs/DEPLOYMENT.md` §C by PR P:** **never approve a Replit publish database review that contains `TRUNCATE` or `DROP` on a populated table. Cancel the publish and raise it.** If our runner has done its job, the review should be empty. A review that isn't empty means production and dev have drifted, and that is a problem to understand, not to click through.
+**What's in production today** (read-only query, 2 Oct): migrations `0000`–`0002` in the history; `0003` (staff sign-in) is merged but not yet applied. The observations and `cat_identity` triggers (four) and `observations_attribution_ck` are present. `observations` is empty. 28 cats, 12 claimed; 35 care updates, all `sighting`.
 
-**The consequence to take seriously now:** if step 1's tables ever reached production through a diff, they arrived **without their append-only triggers and without the attribution check**. Nothing writes observations yet, so nothing is wrong today. It becomes wrong the day PR 2 deploys. **So PR 2 and PR 3 are blocked on PR P**, whose adoption step either finds production clean or names the drift.
-
-**Launch gate (SYC-113, Samuel's decision recorded on PR #25):** until launch, every `/api` route except `/api/healthz` sits behind a pre-launch pass: the website session, a tester key built into store builds, or the Worker secret. That pass comes off at launch, and from then on **anyone can read what `/api` returns**. So **PR 5 (closing the location oracle) and PR 6 (turning on blurring) must be live in production before the `/api` pre-launch pass is removed.** This gates the launch, not the merge. Until then the pass is the only thing keeping exact cat and sighting coordinates private. Removing the pass is itself a deployment step, and `docs/DEPLOYMENT.md` §C (rewritten by PR P) lists this check before it.
-
-**Verification after each publish is a probe, not an assumption**: the implementer uses the read-only query tool to confirm the runner's history, the triggers, the constraints and any backfilled rows, and records it in the PR.
+**Launch gate:** whoever removes the `/api` pre-launch pass (SYC-114) first checks in production, with a public request, that `GET /api/cats` returns cell centres and that `POST /api/sightings` refuses the 21st request from one device and hides low-confidence ids. `docs/DEPLOYMENT.md` §C lists this check before the removal.
 
 ## Data safety on the live test database
 
-Testers are using apptest.catspotters.com now. In this plan only PR 3 touches live data (inserts into `observations`); PR P adopts the history and applies the migrations already merged. Everything else is code.
+Testers are using apptest.catspotters.com now. In this plan only PR 3 and PR 3b touch live data (inserts into `observations`); everything else is code.
 
-**Before either, check the ground** (the implementer does this, not Samuel, with the read-only query tool):
+**Before either, check the ground** (Claude, not Samuel, with the read-only query tool):
 
-0. **PR P's first check:** where the build-time `DATABASE_URL` points, and whether the build runs before or after Replit's diff (see PR P). The production app's DDL rights, the earlier precondition, are **confirmed** by SYC-102.
-1. What production actually has from step 1: the five tables, the attribution check, the three triggers, the three functions. Also compare production's schema with `0000_baseline`, so the adoption result is known before PR P runs. Record both in PR P's description.
-2. Confirm a restorable backup point exists (Replit's point-in-time restore or a dump) and record its time in the PR.
-3. Run read-only counts the backfill will reproduce: cats, claimed cats, owner-registered cats, `cat_updates` by type. They go in PR 3's description, and PR 3's self-check must match them on production.
+1. Re-run the counts the backfill will reproduce: cats, claimed cats, owner-registered cats, `cat_updates` by type. They go in the PR's description, and its self-check must match them on production.
+2. Take a Neon snapshot of `production` and record its name (Neon's 7-day restore is the backstop).
 
 | Change | What it locks, and for how long | Why nothing is lost | If it goes wrong |
 |---|---|---|---|
-| PR P: adopt the baseline, then apply the merged migrations | Adoption only reads (its comparison runs in a rolled-back transaction); each migration takes brief locks, bounded by the 5 s `lock_timeout` | One transaction per run, so either everything lands or nothing does; drift stops it before any write | Build variant: the build fails and nothing changes. Start-up variant: the runner logs and retries, and only history writes are refused |
-| PR 3: backfill | Row inserts into `observations` only; reads the rest | Append-only, idempotent, self-checking; nothing existing changes | The transaction raises and nothing lands, or the rollback removes exactly the `backfill:data-spine` rows |
+| PR 3 / PR 3b: backfill | Row inserts into `observations` only; reads the rest; bounded by the 5 s lock timeout | Append-only, idempotent, self-checking; nothing existing changes | The transaction raises and nothing lands; or the rollback removes exactly its marked rows; or restore the snapshot |
 
-**Order.** PR 3's code prerequisite (PR 2) must be **live in production** first, *then* its backfill runs, *then* PR 4 merges. `docs/DEPLOYMENT.md` §C's "migrate, deploy, smoke" is rewritten by PR P to match the variant chosen, and it carries the review-gate rule above.
+**Order.** PR 2 must be **live in production** first, *then* PR 3 runs, *then* PR 4 merges (and PR 4's code gate holds the old badge until PR 3 is recorded, whatever the merge order).
 
-**The Play clock (F6).** This plan adds **no schema change of its own**: PR 3 is data only, and PR P adds only what earlier migrations already defined. The remaining schema changes in the chain are SYC-43 part 1's, SYC-63 §5 and SYC-101's; all three should land before the closed test starts. The up–down–up against a copy of production (`docs/DEPLOYMENT.md` §C) is best run on SYC-63 §5, the first migration after `0001` with a meaningful rollback; the copy is made by restoring production into a throwaway Replit database, as SYC-102's experiment did.
+**The Play clock (F6).** This plan adds **no schema change of its own**: PR 3 and PR 3b are data only. The remaining schema changes in the chain (SYC-42's, SYC-63 §5, SYC-3's, SYC-101's, SYC-119 Slice B's) all land before the closed test starts. The up–down–up against a copy of production (`docs/DEPLOYMENT.md` §C) is best run on SYC-63 §5, the first migration with a meaningful rollback, on a Neon branch restored from production.
 
 ## Parallelism
 
 Migrations are serial by nature: one chain, in merge order, each regenerated if it lands behind another. Code PRs run in parallel where their files don't collide.
 
 ```
-Migration chain (serial, numbers taken at merge):
-  0002 SYC-98 (Chip E) → SYC-43 part 1 (PR #20) → SYC-101 → PR 3 (data) → SYC-63 deletion (PR #21)
-  (agreed across sessions: no plan hardcodes a number; migrations merge strictly one at a time,
-   and whoever merges second rebases and regenerates at the next free number)
+Migration chain (serial, numbers taken at merge; main has 0000–0003):
+  0003 SYC-43 part 1 (merged; production migrate pending)
+  → 0004 SYC-42 Slice 1 (#55) if it merges next
+  → then, in whatever order they become ready: SYC-63 §5 · SYC-3 Slice 1 · SYC-101 · SYC-119 Slice B
+    · PR 3 (data) · PR 3b (data, after SYC-101) · SYC-42 Slice 2
+  (no plan hardcodes a number; migrations merge strictly one at a time,
+   and whoever merges second rebases and regenerates)
 
-Wave 1 (start now, in parallel):   PR 1 · SYC-111 · PR P (once Q1 is answered)
-Wave 2:                            PR 2 (needs SYC-111, PR 1; deploys only after PR P is live)
-Wave 3 (in parallel):              SYC-101 (after PR 2) · PR 5 · PR 4 built now, merged after PR 3 has run · PR 8 once SYC-43 part 1 lands
-Wave 4:                            PR 3 (needs PR 2 live, SYC-101) → then PR 4 merges
-Wave 5 (in parallel):              PR 6 (needs PR 4, PR 5, SYC-98) · PR 7 (needs PR 5, SYC-79, Q2, Q3) · SYC-63 build (needs PR 4)
-Wave 6:                            PR 9 (needs PR 4, Q4)
+Wave 1 (start now, in parallel):   SYC-111 · PR 1 · PR 5
+Wave 2:                            PR 2 (needs SYC-111, PR 1)
+Wave 3 (in parallel):              PR 3 (needs PR 2 live) · PR 4 built now, merged after PR 3 has run
+                                   · PR 8 · SYC-101 (after PR 2) · SYC-119 Slice C (after PR 2)
+Wave 4 (in parallel):              PR 4 merges · PR 3b (after SYC-101) · PR 6 (needs PR 4, PR 5)
+                                   · PR 7 (needs SYC-79's photos, Q2, Q3; with #46) · SYC-63 build (needs PR 4)
+Wave 5:                            PR 9 (needs PR 4, Q4)
 
 LAUNCH GATE (not a merge gate): PR 5 and PR 6 live in production
-  → only then may SYC-113's /api pre-launch pass be removed
+  → only then may SYC-113's /api pre-launch pass be removed (SYC-114)
 ```
 
-The launch gate means PR 5 and PR 6 are on the critical path to launch, even though nothing else here waits for them. Whoever removes the `/api` pass checks in production, with the read-only query tool and a public request, that `GET /api/cats` returns cell centres and that `POST /api/sightings` selects candidates on the grid.
+The critical path to launch is **SYC-111 → PR 2 → PR 3 → PR 4 → PR 6**. SYC-111 is in the Backlog and nothing is building it; it gates both this plan and deletion, so it is the first thing to start.
 
 | Pair | Together? | Why |
 |---|---|---|
-| SYC-43 part 1 and this plan | **Default: SYC-43 part 1's migration first** | Agreed order. PR 8 (the team endpoints) must come after it regardless, because it needs `requireTeam`. **Option, with its risk:** PR P, PR 1 and PR 2 add no migration and no staff endpoint, so they can be built and merged before SYC-43 part 1 without touching the queue. PR 3 is the only one that takes a migration number; if it merged before SYC-43 part 1, #20 would have to regenerate, which is cheap but churns a PR under review. So PR 3 waits for SYC-43 part 1 unless Samuel says otherwise |
-| PR 1, SYC-111, PR P | Yes | A new pure file, the API test setup, and the migrate folder plus the server's start-up |
-| PR P and SYC-63 §5 | **Serial**: PR P first | SYC-63 §5's trigger is delivered to production by PR P's mechanism, and both touch `lib/db/src/migrate/` |
+| PR 1, PR 5, SYC-111 | Yes | A new pure file, the matching route and limiter, and the API test setup |
 | PR 2 and SYC-101 | **Serial**: PR 2 first | Both change the naming code in `routes/cats.ts` and `routes/sightings.ts`; SYC-101 rebases and swaps its lookups to the folded column |
-| PR 2 and SYC-63's build | Serial: PR 2 first | Both touch the three cat routes (SYC-107) |
-| PR 4 and PR 5 | Yes | Different functions; both touch `routes/sightings.ts` (resolve's response vs matching), so expect a trivial rebase |
+| PR 2 and SYC-119 Slice C | **Serial**: PR 2 first | Slice C writes through `writeObservation` |
+| PR 2 and SYC-63's build | Serial: PR 2 first | Both touch the three cat routes |
+| PR 2 and SYC-42 Slice 5 | Serial: PR 2 first | Slice 5 writes through `writeObservation` |
+| PR 4 and PR 5 | Yes | Different functions in `routes/sightings.ts` (resolve's response vs matching); expect a trivial rebase |
 | PR 4 and PR 3 | Build together, merge PR 3 first | PR 3 is a migration file only; the order matters for testers, not for files |
+| PR 4 and SYC-119 Slice A (#52) | **Serial**: #52 first | PR 4's hand-pick guard edits the resolve check #52 adds |
 | PR 6 and PR 7 | Yes, with a rebase | Both touch `routes/sightings.ts` and `openapi.yaml` |
-| PR 6 and SYC-98 | **Serial**: SYC-98 first | Both change `photoUrl()` in `catHelpers.ts` |
+| PR 6 and SYC-119 Slice C | Serial on the cache key | Whichever ships second takes the next cache key |
 | PR 6 and SYC-63's build | Yes | Both touch `catHelpers.ts`' discoverer fields and `lib/i18n.ts`; additive, expect a rebase |
-| Anything and Chip E | Only PR 6 waits | None of this plan's PRs edit `photos` |
+| PR 7 and #46 | **Together** (Samuel, 30 Sep) | One change to the spot flow |
+| Anything and SYC-42 (#54, #55) | Yes | No shared files until Slice 5 |
 
 Each parallel builder gets **its own worktree**, never a shared one, and commits after each task.
 
 ## Model delegation
 
-Planning ran on Opus (justified in the brief: the sequencing compounds). Building runs on the cheapest tier that can do each PR well. "Review" means a reviewer in its own worktree, on the tier named.
+Planning and this refresh ran on Opus (justified in the brief: judgement-heavy reconciliation across four merged PRs and an infrastructure move, gating six tickets). Building runs on the cheapest tier that can do each PR well. "Review" means a reviewer in its own worktree, on the tier named.
 
 | Work package | Builds on | Why this tier | Assurance |
 |---|---|---|---|
-| PR P production delivery | **Opus** | Escalated: it decides whether production's safety rules exist at all, and its failures are silent (a missing trigger breaks nothing until someone rewrites history) | Tests on a diff-built throwaway database; **mutation probe** (skip one trigger; the start-up check must report it); read-only probe of production after the first publish; Sonnet adversarial review |
 | PR 1 resolver and `foldName` | **Sonnet** | The rules are fully written down (§10.2 and the 14 named tests); the risk is in the tests, which are specified | Named tests; **mutation probe** on rules 1, 3 and 6; **Opus adversarial review** (escalation: a wrong confidence level looks exactly like a right one, and every later PR trusts this logic) |
-| PR 2 write service and go-forward writes | **Sonnet** | Clear interfaces, routine route changes | Tests, including the query counter and the three secret checks; Sonnet review against §10.1 |
-| PR 3 backfill | **Sonnet** | A short, well-specified SQL file | Its own self-check block; migration tests; up–down–up on a throwaway database seeded like production; **Opus review** of the idempotency guard (escalation: a duplicate or missing statement is silent and permanent) |
-| PR 4 status on the cat page | **Sonnet**; translation strings on **Haiku** | Standard API and screen work; the strings are mechanical given the English | Tests; screenshots at ~390 px and desktop with seeded data; strings then go to SYC-4 for a native check |
-| PR 5 oracle | **Opus** | Escalated: privacy-critical and adversarial by nature; the grid offset and candidate rules are easy to get subtly wrong | The probe test (§10.8.10), **mutation-checked**; an adversarial pass that actually runs the bisection attack |
+| PR 2 write service and go-forward writes | **Sonnet** | Clear interfaces, routine route changes | Tests, including the query counter and the refused-request cases; Sonnet review against §10.1 |
+| PR 3 and PR 3b backfills | **Sonnet** | Short, well-specified SQL files | Their own self-check blocks; migration tests; up–down–up on a throwaway database seeded like production; **Opus review** of the match keys (escalation: a duplicate or missing statement is silent and permanent); read-only production probe after `db-ops` |
+| PR 4 status on the cat page | **Sonnet**; translation strings on **Haiku** | Standard API and screen work; the strings are mechanical given the English | Tests, including the code gate's two states; screenshots at ~390 px and desktop with seeded data; strings then go to SYC-4 for a native check |
+| PR 5 matching hardening | **Sonnet** | Smaller than the first draft's PR 5: the 500 m rule is already built, and what's left is a limiter key, a threshold and an ordering | **Mutation probes** on the ordering and the threshold; an **Opus adversarial pass** that attempts the probing attack and records its cost (escalation: privacy-critical, and a regression is invisible) |
 | PR 6 blurring | **Sonnet** for server and app | Clear spec, several files | §10.8.8 and §10.8.9; **mutation probe** (bypass the serialiser once); **Opus adversarial review** hunting a fifth emitter (escalation: one missed emitter voids the whole promise); screenshots at both widths, native and web |
 | PR 7 sighting questions | **Sonnet**; strings on **Haiku** | Standard endpoint and screen | Tests; a real resolve walked through in the browser pane at both widths |
-| PR 8 correction endpoints | **Sonnet** | Straightforward once `requireTeam` exists | Tests; Sonnet review |
+| PR 8 correction endpoints | **Sonnet** | Straightforward now that `requireTeam` exists | Tests; Sonnet review |
 | PR 9 push coarsening | **Sonnet** | Small, once Q4 is answered | Tests; Sonnet review |
 | Each PR's final adversarial review before merge (`/ship`) | **Opus** | The standing rule for PRs Claude built | As `/ship` defines |
 
 **Every silent-failure guard in this plan, and where else it must hold**, so a reviewer checks the list rather than only the guard:
 
-- *Never cross attributes / the ear-tip asymmetry:* the resolver (PR 1), and every reader, which is why there is one `resolveCat` that the cat page, the fan-out (PR 4), the notify job (SYC-55) and the dashboard (SYC-43) all call. No other code derives a status.
-- *No exact coordinate in a public payload:* the four emitters (PR 6), the matching response (PR 5), notes (PR 7), feeding sites (SYC-43), and any future endpoint, which must go through `serialiseCat`.
-- *Append-only:* `observations` and `cat_identity` (step 1, delivered to production by PR P), `sightings` (SYC-63 §5). Only PR 3's rollback bypasses it, and says so.
-- *Attribution:* every writer goes through `writeObservation`; the three cat routes check the secret (PR 2); `system:` authors can't be borrowed (PR 2).
+- *Never cross attributes / the ear-tip asymmetry:* the resolver (PR 1), and every reader, which is why there is one `resolveCat` that the cat page, the fan-out (PR 4), the notify job (SYC-55), the dashboard (SYC-43) and SYC-119's dead-cat guard all call. No other code derives a status.
+- *No exact coordinate in a public payload:* the four emitters (PR 6), `lib/geo`'s `publishedPosition` (PR 6), the matching response (PR 5: no distances, no low-confidence ids), notes (PR 7), feeding sites (SYC-43), welfare report positions (SYC-42: team-only), and any future endpoint, which must go through `serialiseCat`.
+- *Append-only:* `observations` and `cat_identity` (step 1, **confirmed in production**), `sightings` (SYC-63 §5). Only PR 3's and PR 3b's rollbacks bypass it, and say so.
+- *Attribution:* every writer goes through `writeObservation`; the three cat routes check the secret (SYC-107, done); `system:` authors can't be borrowed (PR 2).
+- *"Has a home" never flickers:* PR 4's code gate on PR 3's recorded migration.
 
 ## Conflicts to resolve
 
@@ -405,11 +409,9 @@ Where the approved spec disagrees with the code, a ticket, another spec or anoth
 - *What a spotter notices:* following the spec, the questions come after the points, as designed, and need signal at that moment. Following the ticket, they'd come before matching, which puts a questionnaire in front of the points (§7: "the fastest way to kill this project").
 - *Recommendation:* follow the spec. The small cost: answers typed with no signal on the reward screen aren't queued. Resolve already needs signal, so the spotter almost always has it seconds later.
 
-**C3 · SYC-39 caps matching at 500 m; the spec widens the candidate radius to 750 m on the blurred grid** (§6.3), to make up for positions being snapped.
-- *What a spotter notices:* nothing in practice. The vision model decides the match either way, and 750 m on snapped cells covers roughly what 500 m did on exact positions.
-- *Recommendation:* 750 m on the grid (PR 5), and close SYC-39 as superseded by the spec.
+**C3 · Matching distance. Resolved** by Samuel on 30 Sep (DECISIONS Part 2h): exact positions within 500 m, kept after the spine lands. PR 5 is rewritten to match. SYC-39 is done (#39).
 
-**C4 · Who owns "what we last told people" about a cat.** The spine (§9.1) says it exposes a notified-status record; `email-capture.md` §5.3 says that table is the email job's own, written only by the job. DECISIONS.md Part 3 gives the job to `email-capture.md`.
+**C4 · Who owns "what we last told people" about a cat.** The spine (§9.1) says it exposes a notified-status record; `email-capture.md` §5.3 says that table is the email job's own. DECISIONS.md Part 3 gives the job to `email-capture.md`.
 - *Recommendation:* the email spec owns the table (SYC-55); this plan exposes only `resolveCat`. PR 3 seeds nothing, because the job seeds itself on first run and so never treats history as news.
 
 **C5 · The spec sends the ear-tip answer with resolve, but the question appears on the screen that shows resolve's result** (the points).
@@ -417,34 +419,44 @@ Where the approved spec disagrees with the code, a ticket, another spec or anoth
 - *What a spotter notices:* (a) nothing; (b) a spot that isn't saved until they finish or skip the questions, and is lost if they close the app first.
 - *Recommendation:* (a).
 
-**C6 · A wrong *Likely* must be correctable from the day it can appear** (§4.3: the correction path "ships in the same change, not later"), **but the correction path needs team sign-in**, which SYC-43 part 1 hasn't built yet. See Q2.
+**C6 · A wrong *Likely* must be correctable from the day it can appear** (§4.3: the correction path "ships in the same change, not later"). PR 8's endpoints can now be built, but Syros Cats can only *use* them once `0003` is in production, the workspace hand-off (SYC-103) works and a screen exists (SYC-43). See Q2.
 
-**C7 · The plans disagree about migration slots.** SYC-63's plan says "SYC-43 holds `0002`"; SYC-98 (Chip E) actually holds `0002`, and SYC-43 part 1 takes the next free number. *Recommendation:* nobody hardcodes a number (as this plan now does); SYC-63's plan should drop "`0003` once SYC-43 takes `0002`" when it's next edited.
+**C7 · Migration slots. Resolved.** No plan hardcodes a number any more except SYC-63's, whose queue line (`0002` SYC-98 → SYC-43 part 1 → SYC-101 → spine PR 3 → SYC-63) predates the Neon move and SYC-42. See C12.
 
-**C8 · Who writes the deletion migration.** An earlier draft of SYC-63's plan left it to "whoever holds the next slot". The other session has since confirmed PR #21 owns it, including the sightings guard. *Resolved:* SYC-63 owns it, before the Play closed test; this plan's PR P delivers its triggers and checks to production. Worth checking that PR #21's text says so when Samuel approves it.
+**C8 · Who writes the deletion migration. Resolved:** SYC-63 owns it, before the Play closed test. It reaches production through `db-ops` like everything else.
+
+**C9 · SYC-63's plan file says "awaiting Samuel's approval"; Linear records his approval on 29 Sep** (decisions A–E, flags 5 and 6).
+- *Recommendation:* treat it as approved (Linear is the record), and correct the status line in the plan file when its build starts.
+
+**C10 · SYC-63's sightings guard allows only resolve and redaction; SYC-119's "Ask Syros Cats to match it" needs pending → awaiting_team → resolved.**
+- *Options:* (a) SYC-63's migration allows both transitions now; (b) SYC-119 adds a small follow-up migration when E2 is built.
+- *What people notice:* nothing either way, until E2 ships.
+- *Recommendation:* (a). It's two lines in a trigger being written anyway, and it saves a migration that would rewrite a guard function (exactly the kind of change that used to go missing on Replit, and still deserves care).
+
+**C11 · Observation kinds: the spec's phase-1 list doesn't include `coat`; Part 2i adds it.** *Resolved* in PR 2: `coat` is accepted with SYC-119's value shape, and `system:vision` is a named system author.
+
+**C12 · Two queue orders.** SYC-63's plan puts spine PR 3 before deletion's migration; SYC-42's plan (approved later) puts SYC-63 §5 and SYC-3 Slice 1 before PR 3.
+- *What matters:* nothing technical links PR 3 (inserts into `observations`) and SYC-63 §5 (relaxes two columns, adds checks and the sightings guard). The real constraints are PR 3 after PR 2 is live, PR 3b after SYC-101, and SYC-63's *build* after PR 4.
+- *Recommendation:* migrations merge in the order they become ready, one at a time, each regenerating if it lands second. Neither plan's queue line is binding beyond those constraints.
+
+**C13 · The old admin care route still uses a shared password (`OWNER_SECRET`), and D7 retires shared passwords the day staff sign-in goes live.** Staff sign-in merged today.
+- *Options:* (a) PR 2 still records what the route writes, and the route is removed once PR 8 and a SYC-43 screen can record sterilisation and adoption; (b) remove the route now.
+- *What Syros Cats notices:* nothing; production has no record of the route ever being used (no `desexed` or `adopted` updates).
+- *Recommendation:* (a). Removing it is SYC-43's to do under D7, and PR 2's few lines keep anything recorded in the meantime.
+
+**C14 · SYC-119's picker publishes positions on a public-origin grid; PR 6 uses a grid offset by a server secret.** Until PR 6, a cat's "square" in the picker and its future blurred cell can differ.
+- *Recommendation:* accept it as transitional. Nothing public uses the secret grid before PR 6, and PR 6 switches `publishedPosition` to the payload's cell centre in the same change (SYC-41 hand-off).
 
 ## Decisions for Samuel
 
-Plain English, one at a time, each with a recommendation. Q1 is needed first; Q2 and Q3 before PR 7; Q4 before PR 9. (Whose name goes on statements the app writes by itself is already decided: Part 2g, "system:" authors.)
+Plain English, one at a time, each with a recommendation. Q2 and Q3 are needed before PR 7; Q4 before PR 9. Nothing blocks PR 1–PR 6.
 
-**Q1 · How do database changes reach the live app on Replit?** (Blocks PR P, PR 2 and PR 3; the same answer applies to SYC-43 part 1, SYC-63 and SYC-101.)
+**Q1 · How do database changes reach the live app? Settled by the move to Neon.** The 29 Sep draft asked this because Replit's Publish could leave out safety rules and once planned to empty a table. Since 1 Oct the live database is on Neon, our own `db-ops` workflow applies changes to it before each publish, and Replit no longer touches it. Nothing to decide. The one standing rule carries over: **if Replit's Publish ever shows a database review, cancel it and tell Claude.**
 
-When the app is published, Replit compares the development database with the live one and copies over the structural differences itself. SYC-102 tested what that really does:
-- it leaves out the database's own safety rules when they change, and the record of which changes the live database has had;
-- it can't copy one-off data changes;
-- it holds anything it considers risky for a manual review on its website. For one ordinary kind of change, its own plan was to **empty a whole table**.
-
-The live app does have permission to change its own database, so it can do the job properly itself.
-- **Option A — the app applies our own tested database changes to the live database itself** (recommended). This uses the same step-by-step, history-keeping changes that dev already uses (SYC-64). Ideally it happens while the new version is being built, before Replit compares the two databases; then Replit finds nothing to copy, and there's no review screen and no risk of emptying a table. If the build can't reach the live database, the app does it straight after starting instead. In that case it keeps serving while it works, and pauses only the saving of cat-history statements until it's done. *Benefits:* one mechanism, already built and tested, with the same guarantees in dev and live; nothing done by hand; no data-destroying review to click through. *Risks:* whether the build can reach the live database, and in which order Replit does things, still has to be confirmed (PR P's first check). The start-up fallback is a little more complex, because Replit's copy may already have created some tables.
-- **Option B — let Replit copy the tables, then patch in whatever it missed when the app starts.** *Benefits:* little new code. *Risks:* **unsafe on the evidence.** Replit's copy runs inside Publish, before any of our code starts. If it decides to empty a table, the data is gone before our patch runs. It also doesn't carry changes to the safety rules, so a guard could stay silently out of date.
-- **Option C — someone pastes each change into Replit's live database console by hand.** *Benefits:* no new code. *Risks:* relies on Samuel doing it correctly at the right moment on every release, which the working rules exist to avoid; easy to forget, and nothing records it.
-- **Option D — move the live database off Replit's managed service** (for example to a hosted Postgres we can reach). *Benefits:* the standard tooling works as designed. *Risks:* reopens "everything stays on Replit" (D1) and the hosting question (SYC-47) in the middle of testing. It's unnecessary now that the app can do the job.
-- **Recommendation: A**, applying the changes during the build if the first check allows it, otherwise straight after start-up. **And one standing rule whichever you choose: never approve a Replit publish that shows a database review with "TRUNCATE" or "DROP" on a table that has data in it. Cancel it and tell Claude.**
-
-**Q2 · Should "Probably sterilised" show publicly before Syros Cats can correct it?** The ear-tip question can ship before the team dashboard does. When a tourist mistakes a torn ear for a clipped one, the cat would show "Probably sterilised" to everyone, and until the dashboard exists nobody at Syros Cats could fix it. A cat wrongly shown as probably done can be skipped for trapping and have a litter.
-- **Option A — collect the answers now, show "Probably sterilised" only once the team can correct it.** Until then the public sees "Not known yet". Nothing is lost: the answers are stored, and those cats update the day the correction screen arrives. *Benefits:* every answer from the testing season is captured, with no uncorrectable wrong label. *Risks:* for a while the app knows more than it shows.
+**Q2 · Should "Probably sterilised" show publicly before Syros Cats can correct it?** The ear-tip question can ship before the team has a screen to correct answers. When a tourist mistakes a torn ear for a clipped one, the cat would show "Probably sterilised" to everyone, and nobody at Syros Cats could fix it. A cat wrongly shown as probably done can be skipped for trapping and have a litter.
+- **Option A — collect the answers now, show "Probably sterilised" only once the team can correct it** (PR 8 live, staff able to sign in, and a correction screen). Until then the public sees "Not known yet". Nothing is lost: the answers are stored, and those cats update the day the correction screen arrives. *Benefits:* every answer from the testing season is captured, with no uncorrectable wrong label. *Risks:* for a while the app knows more than it shows.
 - **Option B — hold the whole question until the dashboard ships.** *Benefits:* simplest. *Risks:* loses the testing season's ear-tip answers, which can't be recovered later (the spotter has walked away).
-- **Option C — show it now, and Claude corrects mistakes on request** (a team member sends a cat and a photo; Claude records the correction). *Benefits:* the label is live now. *Risks:* puts Claude in the loop for every correction, and relies on someone noticing.
+- **Option C — show it now, and Claude corrects mistakes on request** (a team member sends a cat and a photo; Claude records the correction through PR 8). *Benefits:* the label is live now. *Risks:* puts Claude in the loop for every correction, and relies on someone noticing.
 - **Recommendation: A.**
 
 **Q3 · Should a spotter be asked the ear-tip question every time they spot the same cat?** The spec says "Can't tell" stops the app asking that spotter about that cat again. It doesn't say what happens after "Yes, clipped" or "No, looks whole".
@@ -453,7 +465,7 @@ The live app does have permission to change its own database, so it can do the j
 - **Option C — ask again only after 30 days.** *Benefits:* fresh looks without nagging. *Risks:* one more rule to explain.
 - **Recommendation: C.** It keeps the spec's "Can't tell" rule and adds a quiet period after any other answer.
 
-**Q4 · How quickly should "Agatha was spotted again!" reach people who don't own the cat?** Today it arrives within seconds. That lets anyone who once spotted a cat follow, to the minute, when it's seen, and so when its feeder visits. The spec says these must be "batched or coarsened".
+**Q4 · How quickly should "Agatha was spotted again!" reach people who don't own the cat?** Today it arrives within seconds. That lets anyone who once spotted a cat follow, to the minute, when it's seen, and so when its cat guardian comes to feed. The spec says these must be "batched or coarsened".
 - **Option A — one round-up a day** ("Agatha and 2 other cats you follow were spotted today"), at a fixed evening hour. *Benefits:* closes the leak properly, and fewer pushes is kinder anyway. *Risks:* loses the instant "someone just saw her!" delight.
 - **Option B — keep it live, but only the first sighting of each cat each day.** *Benefits:* keeps some immediacy. *Risks:* still tells a watcher the moment the cat was first seen each day, which is the feeding-time pattern the spec worries about.
 - **Option C — a random delay of a few hours.** *Benefits:* feels close to live. *Risks:* delays average out over many days, so a patient watcher still learns the pattern.
@@ -461,38 +473,60 @@ The live app does have permission to change its own database, so it can do the j
 
 ## Review
 
-An adversarial second pass over this plan, run deliberately after the first draft (a chip can't spawn a critic agent). It tried to refute each PR's order, safety and completeness against the spec, DECISIONS.md (including Part 2g, merged while this plan was written), the SYC-63 and SYC-43 part 1 plans, and the code on `origin/main` at `f8c362c`. Findings, and what changed:
+### Refresh review, 2 Oct 2026
+
+An adversarial pass over the refreshed plan, run deliberately after rewriting it (a chip can't spawn a critic agent). It looked for ordering bugs, migration-number collisions with #54/#55, and anything assumed shipped that isn't, checking each claim against `gh pr view --json files`, `git log origin/main -S`, Linear and a read-only query of Neon production.
 
 | # | Finding | Severity | Resolution |
 |---|---|---|---|
-| R1 | **PR 4 before PR 3 strips every claimed cat of its home badge.** Deriving `hasHome` from life status before the backfill has written any `homed` statement turns every claim into "no home" for testers. | High | PR 4 is built in parallel but merges only after PR 3 has run in production. |
-| R2 | **The backfill can't call the folding function.** PR 3 is SQL; `foldName` is TypeScript. The first draft had PR 3 compute folded names. | High | PR 3 copies SYC-101's folded column; SYC-101's same problem is flagged. |
-| R3 | **PR 3 would copy PR 2's own care-route statements a second time**, because "no equivalent observation" had no match key. | Medium | PR 2 sets `observedAt` to the `cat_updates` row's `created_at`, which PR 3 matches on. |
-| R4 | **Append-only tables break the API tests**, which clean up by deleting against the shared dev database. | High | PR 2 is blocked on SYC-111 (throwaway test database). |
-| R5 | **Production may already be missing step 1's safety rules** (SYC-102): Replit's publish copies tables and columns but isn't documented to copy triggers or checks, and production has no migration history. | High | "How each step reaches production", PR P and Q1; PR 2 and PR 3 blocked on them; the start-up check refuses history writes without the guard. |
-| R6 | **The ear-tip answer can't travel with resolve** (C5): the question is on the screen resolve's response produces. | Medium | PR 7 adds a separate answers call. |
-| R7 | **A wrong *Likely* could go public with no way to correct it** (C6). | High | Q2, recommending answers are collected now and *Likely* shown once correction exists. |
-| R8 | **Rename and registration accept a forged device id**, and from PR 2 they write attributed statements. The spec names only the claim. | Medium | In PR 2; filed as **SYC-107** (SYC-63's plan now depends on it too). |
-| R9 | **Paging the catalogue could quietly shrink the offline catalogue** to its first page. | Medium | PR 6: the app walks every page when refreshing the cache. |
-| R10 | **The first draft planned deletion's schema and endpoint itself**, and named the `cats` columns `discoverer_redacted_at`, contradicting Part 2g (`cats.redacted_at` / `redaction_reason`) and duplicating SYC-63's plan. | Medium | Deletion is now SYC-63's, referenced with its interface points; the column names follow Part 2g. |
-| R11 | **The first draft asked Samuel who authors app-written statements**, which Part 2g had already decided. | Low | Removed from the decisions; `system:legacy-backfill` and `system:admin-route` used throughout. |
-| R12 | **Hardcoded migration numbers** would clash with SYC-43 part 1 and SYC-63. | Low | None hardcoded; C7 records the other plan's stale number. |
-| R13 | **PR P's record of data steps would itself need a migration**, which production can't run. | Low | Superseded by R20: data steps are ordinary migrations, recorded in the runner's own history. |
-| R14 | **Deletion would miss a note written by PR 7** if notes were stored anywhere but `observations.value`. | Medium | PR 7 writes notes only as `note` observations; the interface section states it, and SYC-63's information-schema test would catch a second copy. |
-| R15 | *External review, blocker.* **Running PR P's finish step before `listen()` turned "refuse cat-history writes" into "the app won't start"**, a total outage. And `runner.ts::lockAndLimit` takes `pg_advisory_xact_lock` before it sets `lock_timeout`, so a second instance waits forever. | High | PR P now serves at once, runs the finish step in the background with retry, and gates only the guarded tables' writes. The lock is a bounded try-lock, and the runner's order is fixed. New tests race two `finish()` calls and check that the app serves while `finish()` fails. |
-| R16 | *External review.* **PR 3's name backfill backdated renames** made between PR 2 going live and PR 3 running: the current name dated at `created_at`, with the original lost (§10.3). The claim guard was also a vague "no equivalent observation". | Medium | Names are skipped for any cat that already has a `name` observation. Every kind now has an explicit match key (R3's discipline), and there's a test for a rename in the window. |
-| R17 | *External review.* **"PR 4 after PR 3" was only a remembered merge order.** | Medium | PR 4 checks the runner's history for PR 3's migration, and falls back to the legacy `hasHome` and `desexed` signals until then. There's a test for both states. |
-| R18 | *External review, nit.* **The evidence-of-life query silently lacked §3.4's import source.** | Low | PR 2 now says so explicitly and names SYC-49 / SYC-82 as where it's added. |
-| R19 | *External review.* **PR P assumed the production role may run DDL.** | Resolved | SYC-102 confirmed full DDL and write rights at runtime. |
-| R21 | *SYC-113 input.* **Once the `/api` pre-launch pass is removed at launch, exact coordinates are public** unless PR 5 and PR 6 are already live. | High | A hard launch gate in the global constraints, the parallelism map and "How each step reaches production". |
-| R20 | *External review, with SYC-102's evidence.* **Patching after Replit's diff (the first draft's recommended option) is unsafe**: the diff runs inside Publish before any of our code, planned `TRUNCATE ... CASCADE` for a NOT NULL column on a populated table, and omits changed function bodies and history rows. | High | Q1 now recommends our own runner applying migrations to production (the build step if possible, otherwise non-blocking start-up); PR P is rebuilt around it, keeping R15's non-blocking start-up, bounded lock and race tests; it adds exact-match adoption of the baseline and per-migration adoption; and there is a standing rule never to approve a TRUNCATE/DROP review. |
+| R22 | **"`0003` is in production" would have been assumed from "#28 merged".** It isn't: production's history has three rows (`0000`–`0002`). PR 8's staff use and anything citing staff sign-in as "live" were overclaiming. | Medium | The plan says "merged; production migrate pending" everywhere, and PR 8 lists what must be live before staff can use it. |
+| R23 | **PR 3 waited for SYC-101, which nobody has started**, so the whole critical path (cat page, blurring, deletion) hung on it, only because of the name backfill. | High | Names split into PR 3b, after SYC-101. PR 3 now waits only for PR 2 being live. |
+| R24 | **The draft's PR 5 contradicted Part 2h** (grid-snapped 750 m), and its §10.8.10 probe test would have failed against the 500 m rule Samuel chose. | High | PR 5 rewritten: 500 m on exact positions kept; per-device limit, threshold and id-ordering added; tests replaced. `lib/blur.ts` moved to PR 6, which is the first to need it. |
+| R25 | **`writeObservation`'s closed kind list and system-author list would have refused SYC-119's `coat` / `system:vision` and SYC-42's `system:welfare-report`**, breaking two approved plans at their first write. | High | Both kinds and all four system authors are in PR 2. |
+| R26 | **SYC-63's sightings guard, as its plan describes it, would refuse SYC-119's `awaiting_team` transitions.** | Medium | C10, recommending the guard allows them from the start; restated in the interfaces section. |
+| R27 | **Migration-number collision with #55.** #55 takes `0004`; if PR 3 merged first it would collide. | Low | Nothing here hardcodes a number; whoever merges second regenerates (the existing rule). Stated against today's numbers. |
+| R28 | **Backdated badge loss (R1) re-checked against real data:** 12 of production's 28 cats are claimed, and none has a `homed` statement. Deriving `hasHome` before PR 3 would strip all 12. | High (if unguarded) | PR 4's code gate stays and is listed among the silent-failure guards. |
+| R29 | **PR 6's cache key `cats-cache/public/v2` assumed a versioned key that doesn't exist** (today's is `cat-spotter/cats-cache`) and could collide with SYC-119 Slice C's bump. | Low | PR 6 takes "a new key no earlier build used, the next after SYC-119's". |
+| R30 | **SYC-79 (the ear-tip example photos) is still Backlog**, so PR 7 can't merge, and #46 is held waiting for it. | Medium (schedule) | Stated as a hard blocker on PR 7; Samuel owns the ask to Syros Cats. |
+| R31 | **SYC-111 is Backlog with no owner, yet gates PR 2 and SYC-63's migration.** | High (schedule) | Named as the first thing on the critical path, Wave 1. |
+| R32 | **The old admin route (`OWNER_SECRET`) is a shared password D7 retires.** | Low | C13; PR 2 keeps a few lines of insurance; removal is SYC-43's. |
+| R33 | **The runner's advisory lock is taken before its lock timeout** (`runner.ts::lockAndLimit`), so a second migrate run waits without limit. The withdrawn PR P fixed this. | Low | Not reopened: `db-ops` runs one at a time (its `concurrency` group), and a second run waiting its turn and then finding nothing to do is the correct outcome. Recorded so a future reader knows it was considered. |
+
+**Checked, and holding:** SYC-107 is on `main` (`9385be2`); SYC-39's 500 m is on `main` (`lib/candidateSelection.ts`); SYC-98 is on `main` (`0002_photos_public_id`); `requireTeam` and both capabilities PR 8 needs exist; step 1's triggers and attribution check exist in production; `observations` in production is empty, so PR 3's idempotency keys have nothing to collide with on first run.
+
+### Original review, 29 Sep 2026
+
+Kept for the record. Findings marked *superseded* no longer apply after the move to Neon.
+
+| # | Finding | Severity | Resolution |
+|---|---|---|---|
+| R1 | **PR 4 before PR 3 strips every claimed cat of its home badge.** | High | PR 4 merges only after PR 3 has run in production (and R17's code gate). |
+| R2 | **The backfill can't call the folding function** (SQL vs TypeScript). | High | The name backfill copies SYC-101's folded column (now PR 3b). |
+| R3 | **PR 3 would copy PR 2's own care-route statements a second time.** | Medium | PR 2 sets `observedAt` to the `cat_updates` row's `created_at`, which PR 3 matches on. |
+| R4 | **Append-only tables break the API tests**, which clean up by deleting against a shared database. | High | PR 2 is blocked on SYC-111. |
+| R5 | *Superseded.* Production might lack step 1's safety rules after a Replit publish. | — | Production is now on Neon; the rules were confirmed present on 2 Oct. |
+| R6 | **The ear-tip answer can't travel with resolve** (C5). | Medium | PR 7 adds a separate answers call. |
+| R7 | **A wrong *Likely* could go public with no way to correct it** (C6). | High | Q2. |
+| R8 | **Rename and registration accepted a forged device id.** | Medium | Filed as SYC-107; done in #41. |
+| R9 | **Paging the catalogue could shrink the offline catalogue** to its first page. | Medium | PR 6: the app walks every page when refreshing the cache. |
+| R10 | **The first draft planned deletion itself**, contradicting Part 2g. | Medium | Deletion is SYC-63's; column names follow Part 2g. |
+| R11 | **The first draft asked who authors app-written statements**, already decided by Part 2g. | Low | `system:` authors used throughout. |
+| R12 | **Hardcoded migration numbers** would clash. | Low | None hardcoded. |
+| R13 | *Superseded.* A record of data steps would need its own migration. | — | Data steps are ordinary migrations. |
+| R14 | **Deletion would miss a note stored anywhere but `observations.value`.** | Medium | PR 7 writes notes only as `note` observations. |
+| R15 | *Superseded.* PR P's start-up step could stop the app starting; unbounded runner lock. | — | PR P withdrawn; the lock is R33. |
+| R16 | **The name backfill backdated renames made after PR 2 went live.** | Medium | Skip any cat with a `name` observation (PR 3b); explicit match keys for every kind. |
+| R17 | **"PR 4 after PR 3" was only a remembered merge order.** | Medium | PR 4 checks the runner's history and falls back until PR 3 is recorded. |
+| R18 | **The evidence-of-life query silently lacked §3.4's import source.** | Low | PR 2 says so and names SYC-49 / SYC-82. |
+| R19 | *Superseded.* PR P assumed the production role could run DDL. | — | `db-ops` migrates Neon directly. |
+| R20 | *Superseded.* Replit's diff could truncate a table and skip function bodies. | — | Replit no longer touches the database. |
+| R21 | **Once the `/api` pre-launch pass is removed, exact coordinates are public** unless PR 5 and PR 6 are live. | High | A hard launch gate. |
 
 **Checked, and holding:**
 
-- *Every spec step has an owner:* step 2 (PR 1's test 13), 3 and 4 (PR 2, PR 3), 5 (PR 5, the claim in PR 2), 6 (PR 6), 7 (PR 7), 8 (SYC-63). §4.5 is PR 8; §6.4.4 is SYC-98 plus PR 9; §2.3's logging is PR 4.
-- *Every §10.8 test has an owner:* 1–7 and 17 (PR 1, PR 4), 8–9 (PR 6), 10 (PR 5), 14 (SYC-63), 16 (SYC-101 and PR 1's `foldName` test). 11 and 12 are the import's (SYC-49). 13's spotter half already exists (`imageValidation.exif.test.ts`, SYC-65); its import half is SYC-49's. 15 is SYC-55's, and C4 explains why this plan's backfill can't trigger it.
-- *DECISIONS.md:* D4's public negative is in the copy and PR 1 rule 3; F2's oracle fix precedes blurring; F3 is step 1 plus SYC-63; F4 (no death announcements) is PR 4's fan-out check and the global constraints; F6 holds because this plan adds no schema of its own; Part 2c's points are each reflected (claims homed, vets unreachable in phase 1, import optional, discovery position labelled, colony averaging not reopened, presumed deceased never "No longer with us"); Part 2g's three points are followed (folded names via SYC-101, deletion's nullable columns via SYC-63, `system:` authors).
+- *Every spec step has an owner:* step 2 (PR 1's test 13), 3 and 4 (PR 2, PR 3, PR 3b), 5 (PR 5, as amended by Part 2h; the claim half by SYC-107), 6 (PR 6), 7 (PR 7), 8 (SYC-63). §4.5 is PR 8; §6.4.4 is SYC-98 plus PR 9; §2.3's logging is PR 4.
+- *Every §10.8 test has an owner:* 1–7 and 17 (PR 1, PR 4), 8–9 (PR 6), 10 (superseded by Part 2h; PR 5's tests replace it), 14 (SYC-63), 16 (SYC-101 and PR 1's `foldName` test). 11 and 12 are the import's (SYC-49). 13's spotter half already exists (`imageValidation.exif.test.ts`, SYC-65); its import half is SYC-49's. 15 is SYC-55's, and C4 explains why this plan's backfill can't trigger it.
+- *DECISIONS.md:* D4's public negative is in the copy and PR 1 rule 3; D7 is C13; F2 is PR 5 then PR 6, with Part 2h's amendment; F3 is step 1 plus SYC-63; F4 (no death announcements) is PR 4's fan-out check; F6 holds because this plan adds no schema of its own; Part 2c's points are each reflected; Part 2g's three points are followed; Part 2h is PR 5; Part 2i's `coat` and dead-cat guard are in PR 2 and PR 4.
 - *Canonical facts:* €50–60, "cat guardian", "spotter" and "snapper", "Not seen since…", partial offline, and "absence of a clip is never negative evidence" are in the global constraints; no copy in this plan says otherwise.
-- *Chip E:* nothing here edits `photos`; PR 6 waits for SYC-98 because both change `photoUrl()`.
 
 **Left open, on purpose:** the spec's own open questions stay with their owners and block nothing here: the 250 m cell and the colony-averaging acceptance (Syros Cats, SYC-67), whether a public feeding site shows its exact position (Syros Cats; SYC-43 builds that endpoint), whether a cat guardian may mark a cat deceased (unreachable until SYC-53), and how long sighting notes are kept (Samuel with Syros Cats).
