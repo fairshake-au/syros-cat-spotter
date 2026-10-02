@@ -261,7 +261,9 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
         // Couldn't save it with the photo inline (storage full): save the
         // report without the photo rather than not at all. Nothing blocks
         // the report itself.
-        const textOnly = { ...base, hasPhoto: false };
+        // Keep the reminder id, so the reminder is still cancelled once the
+        // text is accepted (review of #55, S7).
+        const textOnly = { ...base, hasPhoto: false, nativeReminderId: item.nativeReminderId };
         await store.mutate((list) => [...list, textOnly]);
       }
       void syncNow();
