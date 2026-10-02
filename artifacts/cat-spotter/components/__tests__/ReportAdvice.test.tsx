@@ -64,49 +64,70 @@ afterEach(() => {
   lang.current = 'en';
 });
 
-describe('UrgentAdvice (§5.3(b))', () => {
-  it.each(LANGS)('test 21 (%s): leads with the vet route, the how-to open on first use', (code) => {
+describe('UrgentAdvice (§5.3(b), as folded by Samuel on 2 Oct 2026)', () => {
+  it.each(LANGS)('test 21 (%s): leads with the vet route and ends with the capacity paragraph, in full', (code) => {
     lang.current = code;
     const g = getGuidance(code);
-    const { container } = render(<UrgentAdvice guidance={g} firstUse />);
+    const { container } = render(<UrgentAdvice guidance={g} />);
     const text = container.textContent ?? '';
     // The lead is the first thing said: the vet route (Samuel, 1 Oct 2026).
     expect(text.trim().startsWith(plain(g.copy.urgent.intro))).toBe(true);
-    // The capacity paragraph ("not an emergency service") is the last thing said.
+    // The capacity paragraph is ALWAYS shown, in full, without expanding
+    // anything, and it is the last thing said (Samuel, 1-2 Oct 2026).
     expect(text.trim().endsWith(plain(g.copy.urgent.capacity))).toBe(true);
-    for (const step of g.copy.urgent.steps) expect(text).toContain(plain(step));
-    expect(text).toContain(plain(g.copy.urgent.municipality));
+    expect(text).toContain(plain(g.copy.urgent.cage));
+    expect(text).toContain('Cyclades Vets (George Maragkos)');
   });
 
-  it('test 21: collapsed after first use, and opens on tap', () => {
+  it.each(LANGS)('test 21 (%s): both expanders start folded, behind clear buttons', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const { container, getAllByRole } = render(<UrgentAdvice guidance={g} />);
+    const text = container.textContent ?? '';
+    for (const step of g.copy.urgent.steps) expect(text).not.toContain(plain(step));
+    expect(text).not.toContain(plain(g.copy.urgent.wontGoIn));
+    for (const p of [g.copy.urgent.vetDoes, g.copy.urgent.cost, g.copy.urgent.decision, g.copy.urgent.municipality]) {
+      expect(text).not.toContain(plain(p));
+    }
+    const toggles = getAllByRole('button').filter((b) => b.getAttribute('aria-expanded') === 'false');
+    expect(toggles.length).toBe(2);
+    expect(text).toContain(g.copy.urgent.howToHeading);
+    expect(text).toContain(TRANSLATIONS[code].reportCostsHeading);
+  });
+
+  it('the how-to opens on tap, and the costs expander holds the vet, cost, decision and Municipality paragraphs', () => {
     const g = getGuidance('en');
-    const { container, getByText } = render(<UrgentAdvice guidance={g} firstUse={false} />);
-    expect(container.textContent).not.toContain(plain(g.copy.urgent.steps[1]!));
+    const { container, getByText } = render(<UrgentAdvice guidance={g} />);
     fireEvent.click(getByText(g.copy.urgent.howToHeading));
     expect(container.textContent).toContain(plain(g.copy.urgent.steps[1]!));
+    fireEvent.click(getByText(TRANSLATIONS.en.reportCostsHeading));
+    for (const p of [g.copy.urgent.vetDoes, g.copy.urgent.cost, g.copy.urgent.decision, g.copy.urgent.municipality]) {
+      expect(container.textContent).toContain(plain(p));
+    }
+    // ...with the Municipality's number as a tap-to-call link.
+    const links = Array.from(container.querySelectorAll('a')).map((x) => x.getAttribute('href'));
+    expect(links).toContain('tel:+302281361000');
+    // Opening the folds never moves the capacity paragraph from the end.
+    expect((container.textContent ?? '').trim().endsWith(plain(g.copy.urgent.capacity))).toBe(true);
   });
 
   it.each(LANGS)('test 22 (%s): the cage appears before any handling line', (code) => {
     lang.current = code;
     const g = getGuidance(code);
-    const text = render(<UrgentAdvice guidance={g} firstUse />).container.textContent ?? '';
+    const { container, getByText } = render(<UrgentAdvice guidance={g} />);
+    fireEvent.click(getByText(g.copy.urgent.howToHeading));
+    const text = container.textContent ?? '';
     const cage = text.indexOf(plain(g.copy.urgent.cage));
     const handling = text.indexOf(plain(g.copy.urgent.wontGoIn));
     expect(cage).toBeGreaterThan(-1);
     expect(handling).toBeGreaterThan(cage);
   });
-
-  it('shows the vet list inside the urgent block, with no after-hours line in the block itself', () => {
-    const g = getGuidance('en');
-    const text = render(<UrgentAdvice guidance={g} firstUse />).container.textContent ?? '';
-    expect(text).toContain('Cyclades Vets (George Maragkos)');
-  });
 });
 
 describe('VetList (§5.7, item 1.10)', () => {
-  it('tap-to-call for every number, after-hours labelled, map buttons, pin accuracy', () => {
+  it.each([false, true])('tap-to-call for every number, after-hours labelled, map buttons, pin accuracy (compact=%s)', (compact) => {
     const g = getGuidance('en');
-    const { container } = render(<VetList guidance={g} />);
+    const { container } = render(<VetList guidance={g} compact={compact} />);
     const links = Array.from(container.querySelectorAll('a')).map((a) => a.getAttribute('href'));
     for (const v of g.vets) {
       for (const p of v.phones) expect(links).toContain(`tel:${p.tel}`);
@@ -117,7 +138,9 @@ describe('VetList (§5.7, item 1.10)', () => {
     expect(text).toContain(g.copy.vetList.phoneKinds.after_hours);
     expect(text).toContain(g.copy.vetList.pinLandmark);
     expect(text).toContain(g.copy.vetList.pinSearch);
-    expect(links).toContain('tel:+302281361000');
+    // The full list ends with the Municipality; the compact cards leave it to
+    // the "Costs, and the Municipality" fold (tested with UrgentAdvice).
+    if (!compact) expect(links).toContain('tel:+302281361000');
   });
 });
 
