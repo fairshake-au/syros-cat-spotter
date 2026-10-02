@@ -1,1 +1,1 @@
-If the Replit agent can't `git fetch` from GitHub, don't re-diagnose it: read docs/runbooks/replit-github-sync.md (SYC-96). Short version: the Git pane and the agent's shell use separate GitHub auth, and the Replit agent can't write to Secrets itself.
+Replit sync is manual: Samuel pulls main in the Repl's Git pane and publishes on request. Never ask him to disconnect GitHub in Replit, because Replit warns that it breaks the app. The Replit agent can't fetch from GitHub on its own, and that's accepted. Details: docs/runbooks/replit-github-sync.md (SYC-96).
