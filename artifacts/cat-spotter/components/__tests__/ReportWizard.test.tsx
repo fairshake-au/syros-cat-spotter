@@ -133,15 +133,40 @@ describe('ReportWizard', () => {
     expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
   });
 
-  it('screen 2: Next waits for a severity; kittens advice shows when ticked', () => {
+  it('screen 2: Next waits for a severity; kittens advice shows when ticked with Needs attention', () => {
     const w = setup({ initial: { ...INITIAL_FLOW, step: 2, coords: here } });
     w.next();
     expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
+    fireEvent.click(w.getByTestId('severity-attention'));
     fireEvent.click(w.getByTestId('litter-checkbox'));
     expect(w.text()).toContain(g.copy.litter.heading);
-    fireEvent.click(w.getByTestId('severity-attention'));
     w.next();
     expect(w.text()).toContain(g.copy.attention.heading);
+    expect(w.text()).not.toContain(g.copy.litter.withUrgent);
+  });
+
+  it('kittens + Urgent (Samuel, 2 Oct 2026): the urgent advice wins; no "don\'t move them" message, one line on screen 3', () => {
+    const w = setup({ initial: { ...INITIAL_FLOW, step: 2, coords: here } });
+    fireEvent.click(w.getByTestId('severity-urgent'));
+    fireEvent.click(w.getByTestId('litter-checkbox'));
+    expect(w.text()).not.toContain(g.copy.litter.heading);
+    for (const p of g.copy.litter.paragraphs) expect(w.text()).not.toContain(plain(p));
+    w.next();
+    const scroll = w.getByTestId('report-scroll').textContent ?? '';
+    expect(scroll).toContain(g.copy.litter.withUrgent);
+    expect(scroll).not.toContain(g.copy.litter.heading);
+    // Above the urgent advice, outside the locked block.
+    expect(scroll.indexOf(g.copy.litter.withUrgent)).toBeLessThan(scroll.indexOf(plain(g.copy.urgent.intro)));
+    // Back to screen 2 and switch to Needs attention: the full kittens message returns.
+    fireEvent.click(w.getByLabelText(T.back));
+    fireEvent.click(w.getByTestId('severity-attention'));
+    expect(w.text()).toContain(g.copy.litter.heading);
+  });
+
+  it('kittens with no severity chosen yet: the kittens message waits for Needs attention', () => {
+    const w = setup({ initial: { ...INITIAL_FLOW, step: 2, coords: here } });
+    fireEvent.click(w.getByTestId('litter-checkbox'));
+    expect(w.text()).not.toContain(g.copy.litter.heading);
   });
 
   it('screen 3 (urgent): lead first, folds closed, the capacity paragraph visible and last, Send pinned', () => {

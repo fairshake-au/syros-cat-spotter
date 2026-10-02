@@ -329,6 +329,16 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10; review fix 6)"
     }
   });
 
+  it("kittens + Urgent (Samuel, 2 Oct 2026): one line says the urgent advice applies to a hurt kitten", () => {
+    expect(getGuidance("en").copy.litter.withUrgent).toBe("If a kitten is hurt, the advice below applies to it.");
+    for (const lang of GUIDANCE_LANGUAGES) {
+      const line = getGuidance(lang).copy.litter.withUrgent;
+      expect(line.trim().length, lang).toBeGreaterThan(10);
+      // It never repeats the "don't move them" instruction.
+      expect(getGuidance(lang).copy.litter.paragraphs.join(" "), lang).not.toContain(line);
+    }
+  });
+
   it("the confirmation screen has no 'if an email was given' line (Decision 4)", () => {
     for (const lang of GUIDANCE_LANGUAGES) {
       const c = getGuidance(lang).copy.confirmation as Record<string, unknown>;
