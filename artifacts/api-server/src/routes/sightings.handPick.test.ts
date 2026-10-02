@@ -245,6 +245,42 @@ describe("hand pick: the server's nearby check (spec §4.8)", () => {
     expect(res.body.code).toBeUndefined();
   });
 
+  // Review of #52: the device secret is checked before the nearby check, so
+  // a caller without the device's secret learns nothing about whether a cat
+  // is "near" a sighting. Moving the nearby check above verifyDeviceSecret
+  // turns these red (they would get 422 NOT_NEARBY instead).
+  it("checks the device secret before distance: no secret is 401, not NOT_NEARBY", async () => {
+    const device = `${DEVICE}-no-secret`;
+    const cat = await seedCat(SQUARE);
+    const sightingId = await insertSighting(device, northOf(SQUARE, 3));
+
+    const res = await request(app)
+      .post(`/api/sightings/${sightingId}/resolve`)
+      .send({ deviceId: device, catId: cat.id, pickedFrom: "search" });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBeUndefined();
+    expect((await sightingRow(sightingId)).status).toBe("pending");
+  });
+
+  it("checks the device secret before distance: a wrong secret is 403, not NOT_NEARBY", async () => {
+    const device = `${DEVICE}-wrong-secret`;
+    const cat = await seedCat(SQUARE);
+    const bound = await insertSighting(device, SQUARE);
+    // Binds SECRET to this device (trust on first use) with a valid pick.
+    expect((await resolve(bound, device, { catId: cat.id })).status).toBe(200);
+    const sightingId = await insertSighting(device, northOf(SQUARE, 3));
+
+    const res = await request(app)
+      .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", "vitest-handpick-WRONG-secret-0123")
+      .send({ deviceId: device, catId: cat.id, pickedFrom: "search" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBeUndefined();
+    expect((await sightingRow(sightingId)).status).toBe("pending");
+  });
+
   it("accepts the optional pickedFrom field and ignores it", async () => {
     const device = `${DEVICE}-picked-from`;
     const cat = await seedCat(SQUARE);
