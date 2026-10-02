@@ -442,7 +442,7 @@ Where the approved spec disagrees with the code, a ticket, another spec or anoth
 **C13 · The old admin care route still uses a shared password (`OWNER_SECRET`), and D7 retires shared passwords the day staff sign-in goes live.** Staff sign-in merged today.
 - *Options:* (a) PR 2 still records what the route writes, and the route is removed once PR 8 and a SYC-43 screen can record sterilisation and adoption; (b) remove the route now.
 - *What Syros Cats notices:* nothing; production has no record of the route ever being used (no `desexed` or `adopted` updates).
-- *Recommendation:* (a). Removing it is SYC-43's to do under D7, and PR 2's few lines keep anything recorded in the meantime.
+- *Recommendation:* (a). Removing it is filed as **SYC-185** (under D7, after PR 8 and a SYC-43 screen), and PR 2's few lines keep anything recorded in the meantime.
 
 **C14 · SYC-119's picker publishes positions on a public-origin grid; PR 6 uses a grid offset by a server secret.** Until PR 6, a cat's "square" in the picker and its future blurred cell can differ.
 - *Recommendation:* accept it as transitional. Nothing public uses the secret grid before PR 6, and PR 6 switches `publishedPosition` to the payload's cell centre in the same change (SYC-41 hand-off).
