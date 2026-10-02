@@ -38,8 +38,15 @@ const SECRET = "vitest-matchrecord-secret-0123456789ab";
 const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
-/** Open sea south-east of Syros: nothing else in the test database is near. */
-const SEA = squareCentre({ lat: 37.3, lng: 25.1 });
+/**
+ * Open sea south-east of Syros: nothing else in the test database is near.
+ * Each test takes its own spot, about 5 km from the last, so no test's cats
+ * crowd another test's 500 m.
+ */
+let spots = 0;
+function spot(): LatLng {
+  return squareCentre({ lat: 37.3, lng: 25.1 + ++spots * 0.06 });
+}
 
 function northOf(p: LatLng, km: number): LatLng {
   return { lat: p.lat + ((km / 6371) * 180) / Math.PI, lng: p.lng };
@@ -193,6 +200,7 @@ afterAll(async () => {
 
 describe("the match record is written when matching runs", () => {
   it("records the cats compared and the cats suggested, with rank and score", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-write`;
     const a = await seedCat(northOf(SEA, 0.1));
     const b = await seedCat(northOf(SEA, 0.2));
@@ -217,6 +225,7 @@ describe("the match record is written when matching runs", () => {
   });
 
   it("records a failed matcher call, with nothing suggested", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-failed`;
     const a = await seedCat(northOf(SEA, 0.1));
     matchCatPhoto.mockImplementationOnce(async () => {
@@ -234,6 +243,7 @@ describe("the match record is written when matching runs", () => {
   });
 
   it("the dedupe-hit path stores the set it actually returned last", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-dedupe`;
     const a = await seedCat(northOf(SEA, 0.1));
     const b = await seedCat(northOf(SEA, 0.2));
@@ -258,6 +268,7 @@ describe("the match record is written when matching runs", () => {
 
 describe("resolve labels the choice from the stored set (test 4)", () => {
   it("a suggested cat is labelled suggested, with its rank", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-suggested`;
     const a = await seedCat(northOf(SEA, 0.1));
     const b = await seedCat(northOf(SEA, 0.2));
@@ -278,6 +289,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 
   it("test 4: pickedFrom can't make a hand pick look suggested, or a suggestion look like a hand pick", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-claims`;
     const a = await seedCat(northOf(SEA, 0.1));
     const notSuggested = await seedCat(northOf(SEA, 0.2));
@@ -298,6 +310,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 
   it("a hand pick of a cat that was compared but scored too low is a matcher miss", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-matcher-miss`;
     const a = await seedCat(northOf(SEA, 0.1));
     const low = await seedCat(northOf(SEA, 0.2));
@@ -315,6 +328,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 
   it("a hand pick of a cat that was never compared is a distance miss", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-distance-miss`;
     const near = await seedCat(northOf(SEA, 0.1));
     const beyond = await seedCat(northOf(SEA, 1.0)); // nearby (1.5 km), not compared (500 m)
@@ -331,6 +345,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 
   it("a stored suggestion is accepted even if the nearby rule would refuse it", async () => {
+    const SEA = spot();
     // Belt and braces (plan Slice B): a real suggestion is always within
     // 500 m, but the server trusts its own record over the geometry.
     const device = `${DEVICE}-stored-wins`;
@@ -347,6 +362,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 
   it("a cat that is neither suggested nor nearby is still refused, and nothing is recorded", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-refused`;
     const far = await seedCat(northOf(SEA, 5));
     const sub = await submit(device, SEA);
@@ -358,6 +374,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 
   it("a new cat records whether the spotter opened the picker first", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-new-cat`;
     const s1 = await submit(device, SEA);
     const s2 = await submit(device, SEA);
@@ -381,6 +398,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 
   it("a sighting from before match records existed is resolved and marked unlabelled", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-legacy`;
     const cat = await seedCat(northOf(SEA, 0.1));
     const photoId = await insertPhoto();
@@ -402,6 +420,7 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
 
 describe("nothing about the record reaches a spotter", () => {
   it("test 3: suggested, matcher-miss and distance-miss picks get responses of the same shape", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-shape`;
     const a = await seedCat(northOf(SEA, 0.1));
     const low = await seedCat(northOf(SEA, 0.2));
@@ -423,6 +442,7 @@ describe("nothing about the record reaches a spotter", () => {
   });
 
   it("test 8: no public payload carries the record, pickedFrom or a label", async () => {
+    const SEA = spot();
     const device = `${DEVICE}-public`;
     const a = await seedCat(northOf(SEA, 0.1));
     const low = await seedCat(northOf(SEA, 0.2));

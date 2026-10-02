@@ -8,9 +8,11 @@ import {
   catsTable,
   photosTable,
   sightingsTable,
+  sightingMatchesTable,
   profilesTable,
+  type SuggestedMatch,
 } from "@workspace/db";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   photoUrl,
   getProfileStats,
@@ -88,8 +90,12 @@ async function nameTakenBody(
 // candidates. Shared between a fresh submission and a deduped repeat (§3.6 of
 // offline-queue-on-web.md) so both paths produce an equivalent response from
 // the same logic, rather than two hand-maintained copies of it.
+//
+// SYC-151: it also writes the sighting's team-only match record, so resolve
+// can tell a suggestion from a hand pick without taking the phone's word.
 async function computeMatchCandidates(
   req: Request,
+  sightingId: number,
   photoBase64: string,
   lat: number,
   lng: number,
@@ -101,9 +107,15 @@ async function computeMatchCandidates(
 
   let isCatPhoto = true;
   let candidates: Candidate[] = [];
+  let matcherFailed = false;
+  const candidateInputs: {
+    catId: number;
+    name: string;
+    photoBase64: string;
+    mime: string;
+  }[] = [];
 
   try {
-    const candidateInputs = [];
     for (const cat of nearest) {
       const [p] = await db
         .select()
@@ -150,10 +162,98 @@ async function computeMatchCandidates(
       };
     });
   } catch (err) {
+    matcherFailed = true;
     req.log.error({ err }, "AI matching failed; returning no candidates");
   }
 
+  await recordMatch(req, sightingId, {
+    comparedCatIds: candidateInputs.map((c) => c.catId),
+    suggested: candidates.map((c, i) => ({
+      catId: c.catId,
+      rank: i + 1,
+      score: c.confidence,
+    })),
+    matcherFailed,
+  });
+
   return { isCatPhoto, candidates };
+}
+
+// SYC-151: store what was compared and suggested. The dedupe-hit path calls
+// this again and overwrites the sets, because the phone shows the latest
+// response (plan finding P3), but never once a choice has been recorded.
+// Best effort: a failed write is logged and the sighting still gets its
+// response; resolve then labels it "unlabelled" rather than guessing.
+async function recordMatch(
+  req: Request,
+  sightingId: number,
+  sets: {
+    comparedCatIds: number[];
+    suggested: SuggestedMatch[];
+    matcherFailed: boolean;
+  },
+): Promise<void> {
+  const values = { ...sets, matchedAt: new Date() };
+  try {
+    await db
+      .insert(sightingMatchesTable)
+      .values({ sightingId, ...values })
+      .onConflictDoUpdate({
+        target: sightingMatchesTable.sightingId,
+        set: values,
+        setWhere: isNull(sightingMatchesTable.chosenAt),
+      });
+  } catch (err) {
+    req.log.error({ err, sightingId }, "Could not write the match record");
+  }
+}
+
+/**
+ * SYC-151 (choose-a-different-cat.md §4.6): how the spotter's choice was
+ * made, as the server decides it. "Suggested" only if the cat is in the set
+ * the server stored for this sighting; a hand pick is a matcher miss if the
+ * cat was compared, and a distance miss if it never was. Without a stored set
+ * (a sighting from before records existed) it doesn't guess.
+ */
+function labelChoice(input: {
+  stored:
+    | { comparedCatIds: number[] | null; suggested: SuggestedMatch[] | null }
+    | undefined;
+  storedSuggestion: SuggestedMatch | undefined;
+  isNewCat: boolean;
+  catId: number;
+  pickedFrom: "nearby" | "search" | "name_prompt" | null;
+  openedPicker: boolean;
+}) {
+  const base = {
+    chosenCatId: input.catId,
+    chosenAt: new Date(),
+    suggestedRank: null as number | null,
+    pickedFrom: null as string | null,
+    missKind: null as string | null,
+    openedPicker: null as boolean | null,
+  };
+  if (input.isNewCat) {
+    return { ...base, choice: "new_cat", openedPicker: input.openedPicker };
+  }
+  if (!input.stored || input.stored.suggested == null) {
+    return { ...base, choice: "unlabelled", pickedFrom: input.pickedFrom };
+  }
+  if (input.storedSuggestion) {
+    return {
+      ...base,
+      choice: "suggested",
+      suggestedRank: input.storedSuggestion.rank,
+    };
+  }
+  return {
+    ...base,
+    choice: "hand_pick",
+    pickedFrom: input.pickedFrom,
+    missKind: (input.stored.comparedCatIds ?? []).includes(input.catId)
+      ? "matcher_miss"
+      : "distance_miss",
+  };
 }
 
 router.post("/sightings", aiLimiter, async (req, res) => {
@@ -224,6 +324,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
     const { isCatPhoto, candidates } = existingPhoto
       ? await computeMatchCandidates(
           req,
+          existing.id,
           existingPhoto.data,
           existing.lat,
           existing.lng,
@@ -258,6 +359,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
 
   const { isCatPhoto, candidates } = await computeMatchCandidates(
     req,
+    sighting!.id,
     normalizedBase64,
     body.lat,
     body.lng,
@@ -300,26 +402,38 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   let existingCat: typeof catsTable.$inferSelect | undefined;
   let newCatName: string | undefined;
 
+  // SYC-151: what the server itself suggested for this sighting. A sighting
+  // from before match records existed has none.
+  const [stored] = await db
+    .select()
+    .from(sightingMatchesTable)
+    .where(eq(sightingMatchesTable.sightingId, sightingId));
+  const storedSuggestion =
+    body.catId != null
+      ? stored?.suggested?.find((s) => s.catId === body.catId)
+      : undefined;
+
   if (body.catId != null) {
     const [existing] = await db
       .select()
       .from(catsTable)
       .where(eq(catsTable.id, body.catId));
-    // SYC-119: a spotter may only choose a cat whose PUBLISHED square is
-    // within 1.5 km of the sighting's stored location, the same shared rule
-    // the phone's list uses (lib/geo). Never measured on exact positions: a
-    // refusal worked out from them would answer "is this cat within 1.5 km
-    // of here?" about where it really is. Every suggestion passes, because
-    // suggestions are within 500 m exactly and snapping moves a cat at most
-    // ~177 m. `pickedFrom` plays no part in this; it is ignored until the
-    // match record (Slice B) stores it. Checked only after ownership and the
-    // device secret, so nobody can probe with someone else's sighting.
+    // SYC-119: a spotter may only choose a cat the server suggested for this
+    // sighting, or one whose PUBLISHED square is within 1.5 km of the
+    // sighting's stored location, the same shared rule the phone's list uses
+    // (lib/geo). Never measured on exact positions: a refusal worked out from
+    // them would answer "is this cat within 1.5 km of here?" about where it
+    // really is. Every suggestion passes the distance rule anyway (500 m
+    // exactly, plus at most ~177 m of snapping); the stored set is belt and
+    // braces. `pickedFrom` plays no part. Checked only after ownership and
+    // the device secret, so nobody can probe with someone else's sighting.
     if (
       !existing ||
-      !isNearby(
-        { lat: sighting.lat, lng: sighting.lng },
-        publishedPosition({ lat: existing.lat, lng: existing.lng }),
-      )
+      (!storedSuggestion &&
+        !isNearby(
+          { lat: sighting.lat, lng: sighting.lng },
+          publishedPosition({ lat: existing.lat, lng: existing.lng }),
+        ))
     ) {
       res.status(NOT_NEARBY.status).json(NOT_NEARBY.body);
       return;
@@ -370,6 +484,24 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         .update(sightingsTable)
         .set({ catId: cat!.id, status: "resolved" })
         .where(eq(sightingsTable.id, sightingId));
+
+      // SYC-151: the server's own label for this choice (§4.6), decided from
+      // the stored set and never from what the phone says. Team-only.
+      const label = labelChoice({
+        stored,
+        storedSuggestion,
+        isNewCat,
+        catId: cat!.id,
+        pickedFrom: body.pickedFrom ?? null,
+        openedPicker: body.openedPicker === true,
+      });
+      await tx
+        .insert(sightingMatchesTable)
+        .values({ sightingId, ...label })
+        .onConflictDoUpdate({
+          target: sightingMatchesTable.sightingId,
+          set: label,
+        });
 
       await tx
         .insert(profilesTable)
