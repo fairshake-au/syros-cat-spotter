@@ -73,6 +73,19 @@ describe('buildReviewParams', () => {
     expect(parsed.candidates[0]).toMatchObject({ name: '', photoUrl: '', reasoning: '' });
   });
 
+  it('SYC-98 Fable review nit 8: keeps a null photoUrl as null, not \'\'', () => {
+    // A candidate cat with no real photo yet carries photoUrl: null (same as
+    // every other nullable photoUrl in the API). Coercing it to '' used to
+    // make photoSource('') request the bare API origin instead of rendering
+    // nothing, once null became a real value photoUrl could take.
+    const params = buildReviewParams({
+      sightingId: 1,
+      isCatPhoto: true,
+      candidates: [candidate({ photoUrl: null })],
+    });
+    expect(parseReviewParams(params.data)!.candidates[0].photoUrl).toBeNull();
+  });
+
   it('keeps ordinary text that merely mentions data:, since only data URLs are dropped', () => {
     const reasoning = 'Same markings as the data: torn left ear, white socks.';
     const params = buildReviewParams({
@@ -135,5 +148,46 @@ describe('parseReviewParams', () => {
     expect(parseReviewParams(undefined)).toBeNull();
     expect(parseReviewParams('{')).toBeNull();
     expect(parseReviewParams('{"isCatPhoto":true}')).toBeNull();
+  });
+});
+
+describe('the sighting\'s saved location (SYC-119, plan P7)', () => {
+  it('carries lat and lng so the picker can measure "nearby" from where the photo was taken', () => {
+    const params = buildReviewParams({
+      sightingId: 9,
+      isCatPhoto: true,
+      candidates: [],
+      photoRef: 'idb:review-9',
+      lat: 37.4448,
+      lng: 24.9425,
+    });
+    const parsed = parseReviewParams(params.data);
+    expect(parsed?.lat).toBe(37.4448);
+    expect(parsed?.lng).toBe(24.9425);
+    expect(params.data.length).toBeLessThan(200);
+  });
+
+  it.each([
+    ['not numbers', '37.4', '24.9'],
+    ['not finite', Number.NaN, Number.POSITIVE_INFINITY],
+    ['out of range', 91, 24.9],
+    ['only one of the two', 37.4, undefined],
+  ])('drops a location that is %s', (_label, lat, lng) => {
+    const params = buildReviewParams({
+      sightingId: 9,
+      isCatPhoto: true,
+      candidates: [],
+      lat: lat as unknown as number,
+      lng: lng as unknown as number,
+    });
+    const parsed = parseReviewParams(params.data);
+    expect(parsed?.lat).toBeUndefined();
+    expect(parsed?.lng).toBeUndefined();
+  });
+
+  it('ignores a crafted location in the route that is not a pair of numbers', () => {
+    expect(
+      parseReviewParams('{"sightingId":1,"lat":"37","lng":24}')?.lat,
+    ).toBeUndefined();
   });
 });

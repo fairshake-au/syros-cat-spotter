@@ -8,10 +8,10 @@ import {
   catsTable,
   catUpdatesTable,
   notificationsTable,
+  photosTable,
   pushTokensTable,
 } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { photoUrl } from "../lib/catHelpers";
 import { requireDeviceAuth } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 
@@ -57,6 +57,8 @@ router.get("/notifications/:deviceId", async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
 
+  // SYC-98 Fable review, finding 7: photosTable is joined here rather than
+  // calling photoUrl(r.catPrimaryPhotoId) per notification (an N+1).
   const rows = await db
     .select({
       id: notificationsTable.id,
@@ -67,7 +69,7 @@ router.get("/notifications/:deviceId", async (req, res) => {
       message: catUpdatesTable.message,
       catId: catsTable.id,
       catName: catsTable.name,
-      catPrimaryPhotoId: catsTable.primaryPhotoId,
+      catPhotoPublicId: photosTable.publicId,
     })
     .from(notificationsTable)
     .innerJoin(
@@ -75,6 +77,7 @@ router.get("/notifications/:deviceId", async (req, res) => {
       eq(notificationsTable.catUpdateId, catUpdatesTable.id),
     )
     .innerJoin(catsTable, eq(catUpdatesTable.catId, catsTable.id))
+    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
     .where(eq(notificationsTable.deviceId, deviceId))
     .orderBy(desc(notificationsTable.createdAt), desc(notificationsTable.id));
 
@@ -84,7 +87,7 @@ router.get("/notifications/:deviceId", async (req, res) => {
       catId: r.catId,
       catUpdateId: r.catUpdateId,
       catName: r.catName,
-      catPhotoUrl: photoUrl(r.catPrimaryPhotoId),
+      catPhotoUrl: r.catPhotoPublicId ? `/api/photos/${r.catPhotoPublicId}` : null,
       updateType: r.updateType,
       message: r.message,
       read: r.read,

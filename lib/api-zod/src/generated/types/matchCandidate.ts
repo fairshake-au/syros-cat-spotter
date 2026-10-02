@@ -9,7 +9,7 @@
 export interface MatchCandidate {
   catId: number;
   name: string;
-  photoUrl: string;
+  photoUrl: string | null;
   /** Match likelihood 0-1 */
   confidence: number;
   reasoning: string;

@@ -16,6 +16,7 @@ const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
 let photoId: number;
+let publicId: string;
 
 beforeAll(async () => {
   const [photo] = await db
@@ -23,6 +24,7 @@ beforeAll(async () => {
     .values({ data: TINY_JPEG_B64, mime: "image/jpeg" })
     .returning();
   photoId = photo!.id;
+  publicId = photo!.publicId;
 });
 
 afterAll(async () => {
@@ -30,9 +32,9 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe("GET /api/photos/:photoId ETag / conditional requests", () => {
+describe("GET /api/photos/:publicId ETag / conditional requests", () => {
   it("emits an ETag alongside the immutable Cache-Control header", async () => {
-    const res = await request(app).get(`/api/photos/${photoId}`);
+    const res = await request(app).get(`/api/photos/${publicId}`);
     expect(res.status).toBe(200);
     expect(res.headers["etag"]).toBeDefined();
     expect(res.headers["cache-control"]).toBe(
@@ -41,12 +43,12 @@ describe("GET /api/photos/:photoId ETag / conditional requests", () => {
   });
 
   it("returns 304 with no body when If-None-Match matches the ETag", async () => {
-    const first = await request(app).get(`/api/photos/${photoId}`);
+    const first = await request(app).get(`/api/photos/${publicId}`);
     const etag = first.headers["etag"];
     expect(etag).toBeDefined();
 
     const second = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("If-None-Match", etag);
     expect(second.status).toBe(304);
     expect(second.body).toEqual({});
@@ -55,7 +57,7 @@ describe("GET /api/photos/:photoId ETag / conditional requests", () => {
 
   it("returns 200 with the body when If-None-Match doesn't match", async () => {
     const res = await request(app)
-      .get(`/api/photos/${photoId}`)
+      .get(`/api/photos/${publicId}`)
       .set("If-None-Match", '"not-the-real-etag"');
     expect(res.status).toBe(200);
     expect(res.body.length).toBeGreaterThan(0);

@@ -6,6 +6,7 @@ import {
   catsTable,
   pushTokensTable,
   sightingsTable,
+  deviceCredentialsTable,
 } from "@workspace/db";
 import { like } from "drizzle-orm";
 
@@ -32,6 +33,10 @@ const notifyCatSpottersMock = vi.mocked(notifyCatSpotters);
 const PREFIX = "vitest-claim-";
 const NAME_PREFIX = "VitestClaimCat";
 
+// SYC-107: these routes require the device's secret. Every device id in this
+// file binds this secret on its first request, as the app does.
+const DEVICE_SECRET = "vitest-claim-device-secret-aaaa";
+
 const device = (suffix: string) => `${PREFIX}${suffix}`;
 const catName = (suffix: string) => `${NAME_PREFIX}${suffix}`;
 
@@ -39,6 +44,9 @@ async function cleanup() {
   await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(pushTokensTable).where(like(pushTokensTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
+  await db
+    .delete(deviceCredentialsTable)
+    .where(like(deviceCredentialsTable.deviceId, `${PREFIX}%`));
 }
 
 beforeAll(cleanup);
@@ -97,6 +105,7 @@ describe("POST /api/cats/:catId/claim", () => {
     const cat = await insertCat("Free");
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({
         deviceId: device("owner1"),
         homeDescription: "Blue door near the port",
@@ -123,6 +132,7 @@ describe("POST /api/cats/:catId/claim", () => {
     });
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({
         deviceId: device("owner2"),
         homeDescription: "Different text",
@@ -142,6 +152,7 @@ describe("POST /api/cats/:catId/claim", () => {
     });
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({
         deviceId: device("intruder"),
         homeDescription: "",
@@ -156,6 +167,7 @@ describe("POST /api/cats/:catId/claim", () => {
     const claim = (suffix: string) =>
       request(app)
         .post(`/api/cats/${cat.id}/claim`)
+        .set("X-Device-Secret", DEVICE_SECRET)
         .send({ deviceId: device(suffix), homeDescription: "" });
     const [r1, r2] = await Promise.all([claim("race1"), claim("race2")]);
     expect([r1.status, r2.status].sort()).toEqual([200, 409]);
@@ -165,6 +177,7 @@ describe("POST /api/cats/:catId/claim", () => {
     for (const id of ["999999999", "not-a-number"]) {
       const res = await request(app)
         .post(`/api/cats/${id}/claim`)
+        .set("X-Device-Secret", DEVICE_SECRET)
         .send({ deviceId: device("x"), homeDescription: "" });
       expect(res.status).toBe(404);
     }
@@ -178,6 +191,7 @@ describe("POST /api/cats/:catId/claim", () => {
 
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({
         deviceId: device("actor"),
         ownerName: "Actor",
@@ -200,6 +214,7 @@ describe("PATCH /api/cats/:catId", () => {
     });
     const res = await request(app)
       .patch(`/api/cats/${cat.id}`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({
         deviceId: device("owner4"),
         name: catName("RenamedNow"),
@@ -218,6 +233,7 @@ describe("PATCH /api/cats/:catId", () => {
     });
     const res = await request(app)
       .patch(`/api/cats/${cat.id}`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("stranger"), name: catName("Hijack") });
     expect(res.status).toBe(403);
     expect(notifyCatSpottersMock).not.toHaveBeenCalled();
@@ -231,6 +247,7 @@ describe("PATCH /api/cats/:catId", () => {
     const cat = await insertCat("Unowned");
     const res = await request(app)
       .patch(`/api/cats/${cat.id}`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("anyone"), name: catName("Nope") });
     expect(res.status).toBe(403);
   });
@@ -246,6 +263,7 @@ describe("PATCH /api/cats/:catId", () => {
 
     const res = await request(app)
       .patch(`/api/cats/${cat.id}`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("owner6"), name: catName("NotifyRenamed") });
     expect(res.status).toBe(200);
 
@@ -270,6 +288,7 @@ describe("PATCH /api/cats/:catId", () => {
 
     const res = await request(app)
       .patch(`/api/cats/${cat.id}`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("owner7"), homeDescription: "Fresh description" });
     expect(res.status).toBe(200);
     expect(notifyCatSpottersMock).toHaveBeenCalledWith(
@@ -288,6 +307,7 @@ describe("PATCH /api/cats/:catId", () => {
     });
     const res = await request(app)
       .patch(`/api/cats/${cat.id}`)
+      .set("X-Device-Secret", DEVICE_SECRET)
       .send({ deviceId: device("owner8") });
     expect(res.status).toBe(200);
     expect(notifyCatSpottersMock).not.toHaveBeenCalled();

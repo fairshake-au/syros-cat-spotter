@@ -12,7 +12,7 @@
  * banners render and are both reachable (their own tap handlers fire).
  */
 import React from 'react';
-import { render, fireEvent, cleanup } from '@testing-library/react';
+import { render, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@expo/vector-icons', () => ({
@@ -72,11 +72,39 @@ vi.mock('react-native', async () => {
   return { ...actual, Linking: { openURL } };
 });
 
+// SYC-128: react-native-web reports onLayout through a ResizeObserver,
+// which jsdom lacks. This stand-in records what's observed so a test can
+// fire a layout change by hand. It has to exist before BannerStack first
+// renders: react-native-web creates its one observer lazily, on first use.
+const resizeObserver = vi.hoisted(() => {
+  const state = {
+    callback: null as null | ((entries: { target: Element }[]) => void),
+    observed: new Set<Element>(),
+  };
+  (globalThis as any).ResizeObserver = class {
+    constructor(cb: (entries: { target: Element }[]) => void) {
+      state.callback = cb;
+    }
+    observe(el: Element) {
+      state.observed.add(el);
+    }
+    unobserve(el: Element) {
+      state.observed.delete(el);
+    }
+    disconnect() {
+      state.observed.clear();
+    }
+  };
+  return state;
+});
+
 import { BannerStack } from '../BannerStack';
+import { getBannerAreaHeight, setBannerAreaHeight } from '@/lib/bannerArea';
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  setBannerAreaHeight(0);
 });
 
 describe('BannerStack', () => {
@@ -154,5 +182,32 @@ describe('BannerStack', () => {
     const topStack = container.querySelector('[class*="r-position-"]');
     expect(topStack).toBeTruthy();
     expect(topStack!.contains(nudgeText)).toBe(false);
+  });
+
+  // SYC-128: the banners used to float over the top of every screen, so on
+  // desktop web (no safe-area inset) they covered the Home greeting. The
+  // stack now reports its own height, and Home reserves that much room.
+  it('reports the banner area height while banners show, and zero once it unmounts', async () => {
+    useDevice.mockReturnValue({ username: null, isReady: false });
+    useOffline.mockReturnValue({
+      needsSignIn: true,
+      reviewPromptVisible: true,
+      reviewReadyCount: 1,
+      pending: [{ localId: 'A', status: 'review', sightingId: 1, isCatPhoto: true, candidates: [] }],
+      dismissReviewPrompt: vi.fn(),
+    });
+
+    const { container, unmount } = render(<BannerStack />);
+    const topStack = container.querySelector('[class*="r-position-"]') as HTMLElement;
+    expect(topStack).toBeTruthy();
+    expect(resizeObserver.observed.has(topStack)).toBe(true);
+
+    // Two 44px banners and the 8px gap between them.
+    Object.defineProperty(topStack, 'offsetHeight', { value: 96, configurable: true });
+    resizeObserver.callback!([{ target: topStack }]);
+    await waitFor(() => expect(getBannerAreaHeight()).toBe(96));
+
+    unmount();
+    expect(getBannerAreaHeight()).toBe(0);
   });
 });

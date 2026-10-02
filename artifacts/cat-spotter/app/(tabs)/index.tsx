@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -24,7 +25,9 @@ import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CatCard } from '@/components/CatCard';
-import { Avatar, StatTile } from '@/components/purropolis';
+import { Avatar, StatTile, StatTileGroup } from '@/components/purropolis';
+import { useBannerAreaReserve } from '@/lib/bannerArea';
+import { displayUpperCase } from '@/lib/displayUpperCase';
 import {
   useGetProfile,
   getGetProfileQueryKey,
@@ -38,6 +41,12 @@ export default function HomeScreen() {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // SYC-128: room for any top banners showing, so they sit above the
+  // greeting instead of on top of it (0 when there are none).
+  const bannerReserve = useBannerAreaReserve();
+  // SYC-143: on the narrowest phones (320px) three tiles leave the label
+  // too little room, so tighten the tile padding and gaps there.
+  const compactTiles = useWindowDimensions().width < 360;
   const { deviceId, username } = useDevice();
   const { isOnline } = useOffline();
   const { coords } = useLocation();
@@ -115,7 +124,10 @@ export default function HomeScreen() {
         <View
           style={[
             styles.hero,
-            { backgroundColor: palette.aegean600, paddingTop: insets.top + 14 },
+            {
+              backgroundColor: palette.aegean600,
+              paddingTop: insets.top + bannerReserve + 14,
+            },
           ]}
         >
           <Text style={styles.heroPaw} allowFontScaling={false}>
@@ -171,14 +183,18 @@ export default function HomeScreen() {
           </Text>
         )}
 
-        {/* Stat tiles — every figure is server-derived. */}
-        <View style={styles.tiles}>
+        {/* Stat tiles — every figure is server-derived. SYC-143: the group
+            gives all three labels one size, stepped down only as far as the
+            longest word (Greek "ΑΝΑΚΑΛΥΨΕΙΣ") needs to fit without breaking. */}
+        <StatTileGroup
+          style={[styles.tiles, compactTiles && styles.tilesCompact]}
+        >
           <View style={styles.tile}>
             <StatTile
               value={spotted ?? dash}
               label={t('statSpotted')}
               tone="aegean"
-              style={styles.tileInner}
+              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
             />
           </View>
           <View style={styles.tile}>
@@ -186,7 +202,7 @@ export default function HomeScreen() {
               value={profile?.uniqueCatsDiscovered ?? dash}
               label={t('statFirstFinds')}
               tone="sun"
-              style={styles.tileInner}
+              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
             />
           </View>
           <View style={styles.tile}>
@@ -194,10 +210,10 @@ export default function HomeScreen() {
               value={profile?.badges?.length ?? dash}
               label={t('statBadges')}
               tone="bougain"
-              style={styles.tileInner}
+              style={[styles.tileInner, compactTiles && styles.tileInnerCompact]}
             />
           </View>
-        </View>
+        </StatTileGroup>
 
         {/* Nearby to collect */}
         <View style={styles.section}>
@@ -206,7 +222,11 @@ export default function HomeScreen() {
               {/* The server only sorts by distance when it was given coords.
                   Without them this strip is just "some cats", so don't call it
                   nearby. */}
-              {coords ? t('homeNearbyEyebrow') : t('homeToCollectEyebrow')}
+              {/* SYC-143: capitals via displayUpperCase, not textTransform,
+                  so Greek drops its accents. */}
+              {displayUpperCase(
+                coords ? t('homeNearbyEyebrow') : t('homeToCollectEyebrow'),
+              )}
             </Text>
             <Pressable onPress={() => router.push('/cats')}>
               <Text style={[styles.seeAll, { color: colors.primary }]}>
@@ -335,7 +355,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
   },
   tile: { flex: 1, minWidth: 0 },
-  tileInner: { minWidth: 0 },
+  // SYC-143: 12px side padding (DS default 16) leaves the label ~8px more
+  // room per tile, so Greek labels stay closer to the design size on a phone.
+  tileInner: { minWidth: 0, paddingHorizontal: spacing[3] },
+  tilesCompact: { gap: spacing[2] },
+  tileInnerCompact: { paddingHorizontal: spacing[2] },
   section: { paddingHorizontal: spacing[4], paddingTop: spacing[5] },
   sectionHead: {
     flexDirection: 'row',
@@ -347,7 +371,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 11,
     letterSpacing: 1.4,
-    textTransform: 'uppercase',
   },
   seeAll: { fontFamily: fonts.bodyBold, fontSize: fontSizes.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },

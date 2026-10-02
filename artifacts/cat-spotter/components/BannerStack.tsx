@@ -1,10 +1,11 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SignInRequiredBanner } from './SignInRequiredBanner';
 import { ReviewReadyBanner } from './ReviewReadyBanner';
 import { OwnershipNoticeBanner } from './OwnershipNoticeBanner';
 import { HomeScreenNudgeBanner } from './HomeScreenNudgeBanner';
+import { BANNER_AREA_TOP_GAP, setBannerAreaHeight } from '@/lib/bannerArea';
 
 /**
  * SYC-121 review fix: SignInRequiredBanner, ReviewReadyBanner and
@@ -28,14 +29,26 @@ import { HomeScreenNudgeBanner } from './HomeScreenNudgeBanner';
  * own full-screen positioning (see HomeScreenNudgeBanner). It still defers
  * to the sign-in-required prompt itself (checked inside that component),
  * so the two never show at once.
+ *
+ * SYC-128: the stack still floats (it's shared by every screen), but it now
+ * measures itself and publishes its height through lib/bannerArea, so a
+ * screen can reserve that much room at its top instead of having its header
+ * covered — on desktop web there's no safe-area inset to push the banners
+ * clear of it. With no banner showing the stack is 0 tall and nothing moves.
  */
 export function BannerStack() {
   const insets = useSafeAreaInsets();
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    setBannerAreaHeight(e.nativeEvent.layout.height);
+  }, []);
+  // Leaving the tree (e.g. back to onboarding) must not strand a reserve.
+  useEffect(() => () => setBannerAreaHeight(0), []);
   return (
     <>
       <View
         pointerEvents="box-none"
-        style={[styles.stack, { top: insets.top + 8 }]}
+        onLayout={onLayout}
+        style={[styles.stack, { top: insets.top + BANNER_AREA_TOP_GAP }]}
       >
         <SignInRequiredBanner />
         <ReviewReadyBanner />
@@ -52,6 +65,6 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     flexDirection: 'column',
-    gap: 8,
+    gap: BANNER_AREA_TOP_GAP,
   },
 });

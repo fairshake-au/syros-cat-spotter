@@ -41,7 +41,7 @@ export const RegisterCatResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "lat": zod.number(),
   "lng": zod.number(),
   "sightingsCount": zod.number(),
@@ -68,7 +68,7 @@ export const ListCatsResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "lat": zod.number(),
   "lng": zod.number(),
   "sightingsCount": zod.number(),
@@ -96,7 +96,7 @@ export const GetCatResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "lat": zod.number(),
   "lng": zod.number(),
   "sightingsCount": zod.number(),
@@ -115,7 +115,7 @@ export const GetCatResponse = zod.object({
   "spotterCode": zod.string(),
   "spotterUsername": zod.string().nullish(),
   "spotterNickname": zod.string().nullish(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "lat": zod.number(),
   "lng": zod.number(),
   "createdAt": zod.string()
@@ -153,7 +153,7 @@ export const UpdateCatResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "lat": zod.number(),
   "lng": zod.number(),
   "sightingsCount": zod.number(),
@@ -189,7 +189,7 @@ export const ClaimCatResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "lat": zod.number(),
   "lng": zod.number(),
   "sightingsCount": zod.number(),
@@ -242,7 +242,7 @@ export const CreateSightingResponse = zod.object({
   "candidates": zod.array(zod.object({
   "catId": zod.number(),
   "name": zod.string(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "confidence": zod.number().describe('Match likelihood 0-1'),
   "reasoning": zod.string()
 }))
@@ -259,7 +259,8 @@ export const ResolveSightingParams = zod.object({
 export const ResolveSightingBody = zod.object({
   "deviceId": zod.string().describe('Device credential of the sighting owner; must match the sighting'),
   "catId": zod.number().nullish().describe('Existing cat to confirm as the match'),
-  "newCatName": zod.string().nullish().describe('Name for a new unique cat (when no match)')
+  "newCatName": zod.string().nullish().describe('Name for a new unique cat (when no match)'),
+  "pickedFrom": zod.enum(['nearby', 'search', 'name_prompt']).optional().describe('Which screen a hand pick came from. It only describes the phone\'s own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6).')
 })
 
 export const ResolveSightingResponse = zod.object({
@@ -267,7 +268,7 @@ export const ResolveSightingResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string(),
-  "photoUrl": zod.string(),
+  "photoUrl": zod.string().nullable(),
   "lat": zod.number(),
   "lng": zod.number(),
   "sightingsCount": zod.number(),
@@ -454,7 +455,7 @@ export const ListNotificationsResponseItem = zod.object({
   "catId": zod.number(),
   "catUpdateId": zod.number(),
   "catName": zod.string(),
-  "catPhotoUrl": zod.string(),
+  "catPhotoUrl": zod.string().nullable(),
   "updateType": zod.enum(['sighting', 'desexed', 'adopted', 'general']),
   "message": zod.string(),
   "read": zod.boolean(),

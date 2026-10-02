@@ -10,9 +10,8 @@ import {
   sightingsTable,
   profilesTable,
 } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
-  haversineKm,
   photoUrl,
   getProfileStats,
   profilePayload,
@@ -26,20 +25,64 @@ import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { aiLimiter } from "../middlewares/rateLimit";
+import { selectCandidateCats } from "../lib/candidateSelection";
+import { isNearby, publishedPosition } from "@workspace/geo";
 
-const POINTS_CONFIRM = 10;
+export const POINTS_CONFIRM = 10;
 const POINTS_NEW_CAT = 50;
-const MAX_CANDIDATES = 10;
+
+// SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
+// cat that isn't nearby. It is identical whatever the reason (too far, or no
+// such cat), so a refusal can't be used to learn anything about a cat's
+// position beyond what the public cat-alogue already says. The spec's copy
+// continues "Ask Syros Cats to match it instead"; that route is hidden until
+// the team can act on it (plan Decision 4), so the server doesn't offer it.
+const NOT_NEARBY = {
+  status: 422,
+  body: {
+    error: "That cat isn't listed near where you took this photo.",
+    code: "NOT_NEARBY",
+  },
+} as const;
 
 type Candidate = {
   catId: number;
   name: string;
-  photoUrl: string;
+  photoUrl: string | null;
   confidence: number;
   reasoning: string;
 };
 
 const router: IRouter = Router();
+
+async function catNamed(name: string) {
+  const [cat] = await db
+    .select({
+      id: catsTable.id,
+      name: catsTable.name,
+      primaryPhotoId: catsTable.primaryPhotoId,
+    })
+    .from(catsTable)
+    .where(sql`lower(${catsTable.name}) = lower(${name})`);
+  return cat;
+}
+
+// SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
+// has the name, so the phone can ask "Is this them?". Public details only.
+async function nameTakenBody(
+  cat: Awaited<ReturnType<typeof catNamed>>,
+): Promise<{
+  error: string;
+  code: "NAME_TAKEN";
+  cat?: { id: number; name: string; photoUrl: string | null };
+}> {
+  const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
+  if (!cat) return body;
+  return {
+    ...body,
+    cat: { id: cat.id, name: cat.name, photoUrl: await photoUrl(cat.primaryPhotoId) },
+  };
+}
 
 // Compare a submitted photo against the nearest known cats and return ranked
 // candidates. Shared between a fresh submission and a deduped repeat (§3.6 of
@@ -51,23 +94,17 @@ async function computeMatchCandidates(
   lat: number,
   lng: number,
 ): Promise<{ isCatPhoto: boolean; candidates: Candidate[] }> {
-  // Nearest cats first — matching a street cat against ones seen nearby is
-  // both cheaper and more accurate than comparing against the whole island.
+  // SYC-39: only cats within 500 m (exact positions), nearest first — see
+  // selectCandidateCats and DECISIONS.md Part 2h.
   const cats = await db.select().from(catsTable);
-  const nearest = cats
-    .map((c) => ({
-      cat: c,
-      dist: haversineKm(lat, lng, c.lat, c.lng),
-    }))
-    .sort((a, b) => a.dist - b.dist)
-    .slice(0, MAX_CANDIDATES);
+  const nearest = selectCandidateCats(cats, lat, lng);
 
   let isCatPhoto = true;
   let candidates: Candidate[] = [];
 
   try {
     const candidateInputs = [];
-    for (const { cat } of nearest) {
+    for (const cat of nearest) {
       const [p] = await db
         .select()
         .from(photosTable)
@@ -83,21 +120,35 @@ async function computeMatchCandidates(
     }
     const result = await matchCatPhoto(photoBase64, candidateInputs);
     isCatPhoto = result.isCatPhoto;
-    const byId = new Map(nearest.map((n) => [n.cat.id, n.cat]));
-    candidates = result.matches
+    const byId = new Map(nearest.map((cat) => [cat.id, cat]));
+    const ranked = result.matches
       .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 3)
-      .map((m) => {
-        const cat = byId.get(m.catId)!;
-        return {
-          catId: cat.id,
-          name: cat.name,
-          photoUrl: photoUrl(cat.primaryPhotoId),
-          confidence: m.confidence,
-          reasoning: m.reasoning,
-        };
-      });
+      .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
+      .slice(0, 3);
+    // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
+    // ranked cats' photo public ids, instead of a photoUrl() round trip per
+    // candidate.
+    const photoIds = [
+      ...new Set(ranked.map((m) => byId.get(m.catId)!.primaryPhotoId)),
+    ];
+    const photoRows = photoIds.length
+      ? await db
+          .select({ id: photosTable.id, publicId: photosTable.publicId })
+          .from(photosTable)
+          .where(inArray(photosTable.id, photoIds))
+      : [];
+    const publicIdById = new Map(photoRows.map((p) => [p.id, p.publicId]));
+    candidates = ranked.map((m) => {
+      const cat = byId.get(m.catId)!;
+      const publicId = publicIdById.get(cat.primaryPhotoId);
+      return {
+        catId: cat.id,
+        name: cat.name,
+        photoUrl: publicId ? `/api/photos/${publicId}` : null,
+        confidence: m.confidence,
+        reasoning: m.reasoning,
+      };
+    });
   } catch (err) {
     req.log.error({ err }, "AI matching failed; returning no candidates");
   }
@@ -254,8 +305,23 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       .select()
       .from(catsTable)
       .where(eq(catsTable.id, body.catId));
-    if (!existing) {
-      res.status(404).json({ error: "Cat not found" });
+    // SYC-119: a spotter may only choose a cat whose PUBLISHED square is
+    // within 1.5 km of the sighting's stored location, the same shared rule
+    // the phone's list uses (lib/geo). Never measured on exact positions: a
+    // refusal worked out from them would answer "is this cat within 1.5 km
+    // of here?" about where it really is. Every suggestion passes, because
+    // suggestions are within 500 m exactly and snapping moves a cat at most
+    // ~177 m. `pickedFrom` plays no part in this; it is ignored until the
+    // match record (Slice B) stores it. Checked only after ownership and the
+    // device secret, so nobody can probe with someone else's sighting.
+    if (
+      !existing ||
+      !isNearby(
+        { lat: sighting.lat, lng: sighting.lng },
+        publishedPosition({ lat: existing.lat, lng: existing.lng }),
+      )
+    ) {
+      res.status(NOT_NEARBY.status).json(NOT_NEARBY.body);
       return;
     }
     existingCat = existing;
@@ -268,12 +334,9 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       });
       return;
     }
-    const [taken] = await db
-      .select({ id: catsTable.id })
-      .from(catsTable)
-      .where(sql`lower(${catsTable.name}) = lower(${name})`);
+    const taken = await catNamed(name);
     if (taken) {
-      res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
+      res.status(409).json(await nameTakenBody(taken));
       return;
     }
     newCatName = name;
@@ -326,7 +389,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   } catch (err: any) {
     // Unique-index violation from a concurrent submission of the same name.
     if (err?.code === "23505" || err?.cause?.code === "23505") {
-      res.status(409).json({ error: "Cat name already taken", code: "NAME_TAKEN" });
+      res.status(409).json(await nameTakenBody(await catNamed(newCatName!)));
       return;
     }
     throw err;
@@ -359,7 +422,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       id: cat.id,
       name: cat.name,
       description: cat.description,
-      photoUrl: photoUrl(cat.primaryPhotoId),
+      photoUrl: await photoUrl(cat.primaryPhotoId),
       lat: cat.lat,
       lng: cat.lng,
       sightingsCount: countRow?.n ?? 1,

@@ -11,6 +11,7 @@ import {
   sightingsTable,
   profilesTable,
   catUpdatesTable,
+  photosTable,
   type Cat,
 } from "@workspace/db";
 import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
@@ -24,6 +25,7 @@ import { notifyCatSpotters } from "../lib/notifications";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
+import { verifyDeviceSecret } from "../lib/deviceAuth";
 
 const router: IRouter = Router();
 
@@ -59,7 +61,7 @@ async function catPayload(
     id: cat.id,
     name: cat.name,
     description: cat.description,
-    photoUrl: photoUrl(cat.primaryPhotoId),
+    photoUrl: await photoUrl(cat.primaryPhotoId),
     lat: cat.lat,
     lng: cat.lng,
     sightingsCount,
@@ -99,6 +101,10 @@ router.get("/cats", async (req, res) => {
 // Resident registers a brand-new owned cat (no sighting required).
 router.post("/cats", async (req, res) => {
   const body = RegisterCatBody.parse(req.body);
+  // SYC-107: every route that acts as a spotter proves the caller holds the
+  // device's secret before anything else, so an id seen in traffic can't be
+  // used to register, claim or rename cats as someone else.
+  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
   const name = body.name.trim().slice(0, 60);
   if (containsOffensiveLanguage(name)) {
     res.status(400).json({
@@ -140,17 +146,24 @@ router.get("/cats/:catId", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  // SYC-98 Fable review, finding 7: photosTable is joined here rather than
+  // calling photoUrl(s.photoId) per sighting (an N+1 — one round trip to
+  // Neon per row, serialised 5 at a time behind the pool's default max: 10)
+  // — a cat page with 50 sightings would otherwise cost 50 extra round
+  // trips to Frankfurt from Replit EU.
   const sightings = await db
     .select({
       sighting: sightingsTable,
       spotterUsername: profilesTable.username,
       spotterNickname: profilesTable.nickname,
+      photoPublicId: photosTable.publicId,
     })
     .from(sightingsTable)
     .leftJoin(
       profilesTable,
       eq(profilesTable.deviceId, sightingsTable.deviceId),
     )
+    .leftJoin(photosTable, eq(photosTable.id, sightingsTable.photoId))
     .where(
       and(
         eq(sightingsTable.catId, catId),
@@ -210,13 +223,13 @@ router.get("/cats/:catId", async (req, res) => {
       },
     ],
     sightings: sightings.map(
-      ({ sighting: s, spotterUsername, spotterNickname }) => ({
+      ({ sighting: s, spotterUsername, spotterNickname, photoPublicId }) => ({
         id: s.id,
         catId: s.catId,
         spotterCode: spotterCode(s.deviceId),
         spotterUsername: spotterUsername ?? null,
         spotterNickname: spotterNickname ?? null,
-        photoUrl: photoUrl(s.photoId),
+        photoUrl: photoPublicId ? `/api/photos/${photoPublicId}` : null,
         lat: s.lat,
         lng: s.lng,
         createdAt: s.createdAt.toISOString(),
@@ -233,6 +246,9 @@ router.post("/cats/:catId/claim", async (req, res) => {
     return;
   }
   const body = ClaimCatBody.parse(req.body);
+  // SYC-107: before the cat lookup, so the ownership answers (idempotent 200,
+  // 409) are only ever given to the device itself.
+  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
 
   const [cat] = await db
     .select()
@@ -287,6 +303,9 @@ router.patch("/cats/:catId", async (req, res) => {
     return;
   }
   const body = UpdateCatBody.parse(req.body);
+  // SYC-107: the owner check below compares a body value against the stored
+  // owner, which proves nothing on its own; the secret is what proves it.
+  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
 
   const [cat] = await db
     .select()

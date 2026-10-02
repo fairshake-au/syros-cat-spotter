@@ -70,6 +70,9 @@ jobs:
       - name: Typecheck api-server
         run: pnpm --filter @workspace/api-server run typecheck
 
+      - name: Test lib/geo (the shared "nearby" rule)
+        run: pnpm --filter @workspace/geo test
+
       - name: Test cat-spotter (mobile app)
         run: pnpm --filter @workspace/cat-spotter test
 

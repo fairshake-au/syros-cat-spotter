@@ -27,6 +27,9 @@ import { AppMap } from '@/components/AppMap';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Chip } from '@/components/purropolis';
 import { photoSource, SYROS_CENTER } from '@/lib/urls';
+// Cats within NEARBY_KM count as "near me": one number for the whole app,
+// shared with the "Find the cat" picker (SYC-119).
+import { NEARBY_KM } from '@workspace/geo';
 import {
   useGetProfile,
   getGetProfileQueryKey,
@@ -42,9 +45,6 @@ const catCardRadius = colorsConst.radius;
  * deliberately absent rather than rendered as controls that do nothing.
  */
 type FilterKey = 'all' | 'nearby' | 'homed';
-
-/** Cats within this radius count as "near me". */
-const NEARBY_KM = 1.5;
 
 export default function CatalogScreen() {
   const colors = useColors();

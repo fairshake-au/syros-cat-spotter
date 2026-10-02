@@ -15,7 +15,8 @@
     "migrate:check": "tsx ./src/migrate/cli.ts check",
     "smoke": "tsx ./src/migrate/cli.ts smoke",
     "switchover": "tsx ./src/switchover/cli.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "people": "tsx ./src/people/cli.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

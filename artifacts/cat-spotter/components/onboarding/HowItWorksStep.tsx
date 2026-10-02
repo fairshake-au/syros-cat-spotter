@@ -8,6 +8,7 @@ import { fonts, fontSizes, radii, shadows, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/purropolis';
 import { StepDots } from './StepDots';
+import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
 
 export function HowItWorksStep({
   onNext,
@@ -62,7 +63,7 @@ export function HowItWorksStep({
             is more than twice the length of "Skip", so a fixed-width label and
             matching spacer would either wrap or shove the dots off-centre. */}
         <View style={styles.dots} pointerEvents="none">
-          <StepDots total={3} active={1} />
+          <StepDots total={ONBOARDING_DOT_COUNT} active={stepIndex('how')} />
         </View>
       </View>
 

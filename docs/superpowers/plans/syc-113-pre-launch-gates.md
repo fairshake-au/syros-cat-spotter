@@ -187,7 +187,7 @@ Not callers: `components/SightingPhoto.tsx:41` and `app/(tabs)/spot.tsx:783` sho
 ### Risky paths, and how each is closed
 
 - **Photos on native (19–23).** Image loads don't go through `customFetch`. Without item 5, every photo in the store builds would be blank. Closed by `photoSource` and by a guard test (below) that fails if any file builds an image source from `absoluteUrl` directly.
-- **Photo redirects on native.** SYC-98 (PR #24) redirects old photo ids to new ones for one release. iOS and Android keep custom headers when following a redirect to the same host, but that is the phone's HTTP library's behaviour, not ours, so it is checked on a real build (checklist 10b), not assumed.
+- **Photo redirects on native.** (Dropped, 1 Oct 2026.) SYC-98 (PR #24) originally 301-redirected old numeric photo ids to the new public_id for one release. A Fable review found that redirect handed out the exact thing it was meant to protect (its `Location` header is the public_id), so it was dropped instead: a numeric id now 404s, never redirects. Checklist 10b and finding 4 below are stale as a result — nothing to check here.
 - **A new screen that calls the API some other way.** Closed by a guard test that fails if app code contains `fetch(`, `XMLHttpRequest`, `axios` or `FileSystem.uploadAsync` outside an allow-list (`lib/offlineTiles.ts`, `scripts/`).
 - **The offline queue flushing before the key is set.** Closed by setting the key when `_layout.tsx` loads, not inside a provider. A test imports the layout module and checks the key is set before any provider mounts.
 - **A store build made without the key.** Every call fails with "Cat Spotters isn't open yet." Closed by the end-to-end check on a real build (checklist items 7–8) before testers are invited.
@@ -308,7 +308,7 @@ Run by Claude with `curl` unless marked; the tester key and password are read fr
 | 9 | **Real Play closed-test build** (Samuel or a tester on Android) | Same as 8 |
 | 10 | Search the served website JavaScript for the tester key | Not found |
 | 10a | In Safari and Chrome on a phone, after logging in: the browser's cookie list shows `__Host-cs_prelaunch` for apptest.catspotters.com (proves Replit's proxy passes `Set-Cookie` through untouched and the browser accepted the `__Host-` rules over HTTPS) | Present |
-| 10b | In the TestFlight build, open a cat whose photo link uses an **old** photo id (SYC-98 redirects those for one release) | Photo shows: the key survives the redirect |
+| 10b | (Dropped, 1 Oct 2026 — SYC-98 no longer redirects old photo ids, see finding 4) | — |
 | 11 | `GET /robots.txt` | `Disallow: /` |
 | 12 | Deployment logs | `prelaunch gate: on (session keys: 1, tester keys: 1, internal token: yes)` |
 
@@ -376,7 +376,7 @@ The build happens in its own worktree off fresh `origin/main`, one commit per it
 | 1 | Major | The API gate was only on when `NODE_ENV=production`. An unset or unexpected `NODE_ENV` would leave the API wide open while the website stayed shut, which is the worst mix. | The gate is now on unless `NODE_ENV` is exactly `development` or `test`. Test 15 and a matching break added. |
 | 2 | Major | Deciding whether a path is `/api/internal` before percent-decoding would let `/api/%69nternal/…` be judged by the tester-key rule. (PR #20's route still checks its own token, so this was defence in depth, not a leak.) | The gate decodes, lower-cases and collapses slashes before deciding. Test 9 and a matching break added. |
 | 3 | Major | The web-build guard only checked the environment. Expo also reads `.env` files, so the tester key could reach the public website's code without the guard noticing. | The guard also reads `.env*` files, and after the build it scans `dist/` for each configured tester key. Test 22 and two breaks added. |
-| 4 | Minor | SYC-98 redirects old photo ids. Whether the phone keeps the tester key when it follows that redirect depends on the phone's own HTTP library. | Checked on a real build (checklist 10b) instead of assumed. |
+| 4 | Minor | SYC-98 redirected old photo ids; whether the phone kept the tester key following that redirect depended on the phone's own HTTP library. | Moot (1 Oct 2026): the redirect was dropped after a Fable review found it leaked the public_id it was meant to protect. A numeric id 404s instead — nothing for the phone to follow. |
 | 5 | Minor | Nothing proved Replit's proxy lets the `__Host-` cookie through, or that browsers accept it on apptest. | Checklist 10a: the cookie must be present in Safari and Chrome on a phone after logging in. |
 | 6 | Minor | The login form had no size limit. | Capped at 4 KB (413). Test 23 added. |
 | 7 | Nit | Safari refuses `Secure` cookies on `http://localhost`, so local testing of the website gate would appear to loop. | Noted under "Development and Expo Go keep working". |

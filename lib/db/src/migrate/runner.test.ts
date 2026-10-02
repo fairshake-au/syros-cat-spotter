@@ -463,4 +463,37 @@ describe("the real migration history", () => {
     await cycle(c, readMigrations(defaultMigrationsFolder()));
     expect(await tables(c)).toContain("cats");
   });
+
+  // SYC-98 Fable review, finding 6: every test database up to this point is
+  // empty when 0002 runs, so nothing pinned the one thing in that migration
+  // that only matters with data — backfilling public_id onto rows that
+  // already exist. Deleting the UPDATE statement from 0002's SQL still
+  // passed migrate:check and the rest of the suite (every table stays
+  // empty), so this is the regression guard for that gap: seed rows at
+  // 0001, migrate up to the real 0002, and assert the backfill actually
+  // ran. Prove it goes red: comment out 0002's `UPDATE "photos" SET
+  // "public_id" = ...` line and re-run this test — it fails at the
+  // `ALTER TABLE ... SET NOT NULL` step instead (a constraint violation,
+  // since the added rows are still null), inside the one transaction the
+  // whole migration run shares, so the column never half-exists either way.
+  it("backfills public_id onto rows that already exist when 0002 runs", async () => {
+    const c = await freshDb();
+    const migrations = readMigrations(defaultMigrationsFolder());
+    const zeroOneIdx = migrations.findIndex(
+      (m) => m.tag === "0001_data_spine_tables",
+    );
+    expect(zeroOneIdx).toBeGreaterThanOrEqual(0);
+    await migrateUp(c, migrations, { throughIdx: zeroOneIdx });
+
+    await c.query(
+      `insert into photos (data, mime) select 'photo-' || g, 'image/jpeg' from generate_series(1, 3) g`,
+    );
+
+    await migrateUp(c, migrations);
+
+    const r = await c.query<{ total: string; distinct: string; nulls: string }>(
+      `select count(*) as total, count(distinct public_id) as distinct, count(*) filter (where public_id is null) as nulls from photos`,
+    );
+    expect(r.rows[0]).toEqual({ total: "3", distinct: "3", nulls: "0" });
+  });
 });
