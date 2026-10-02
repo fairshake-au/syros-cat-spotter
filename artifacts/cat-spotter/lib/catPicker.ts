@@ -14,9 +14,18 @@ type Searchable = LatLng & { id: number; name: string };
 
 export type PickedFrom = 'nearby' | 'search';
 
-/** Lower-case and strip accents, so "ΑΓΆΘΗ" finds "Αγάθη" and "zoe" finds "Zoé". */
+/**
+ * Lower-case, strip accents and fold final sigma, so "ΑΓΆΘΗ" finds "Αγάθη",
+ * "zoe" finds "Zoé" and "ΝΗΣ" finds "Νησος" (the folding in DECISIONS
+ * Part 2g: ς is the same letter as σ).
+ */
 function fold(text: string): string {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+  return text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/ς/g, 'σ')
+    .trim();
 }
 
 /** "SYR-0042", "syr 42", "0042" and "42" all mean cat 42 (spec §9, test 12). */

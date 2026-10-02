@@ -72,6 +72,19 @@ describe('names in search', () => {
     expect(matchesSearch({ id: 1, name: 'Agatha', lat: 0, lng: 0 }, 'krispy')).toBe(false);
   });
 
+  // DECISIONS Part 2g: names compare in a folded form where final sigma (ς)
+  // is the same letter as σ. Capitals typed mid-word lower-case to ς at the
+  // end of the query ("ΝΗΣ" -> "νης"), so without folding, typing the first
+  // letters of "Νησος" in capitals, or "αγαθησ" with a medial sigma, misses.
+  it('treats final sigma as sigma (Part 2g folding)', () => {
+    const nisos = { id: 1, name: 'Νησος', lat: 0, lng: 0 };
+    const agathis = { id: 2, name: 'Αγάθης', lat: 0, lng: 0 };
+    expect(matchesSearch(nisos, 'ΝΗΣ')).toBe(true);
+    expect(matchesSearch(nisos, 'νης')).toBe(true);
+    expect(matchesSearch(agathis, 'αγαθησ')).toBe(true);
+    expect(matchesSearch(agathis, 'ΑΓΑΘΗΣ')).toBe(true);
+  });
+
   it('an empty search matches every cat', () => {
     expect(matchesSearch({ id: 1, name: 'Agatha', lat: 0, lng: 0 }, '   ')).toBe(true);
   });
