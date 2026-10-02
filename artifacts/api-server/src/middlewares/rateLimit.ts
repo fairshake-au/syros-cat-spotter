@@ -49,3 +49,13 @@ export const photoLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
 });
+
+// POST /api/team/handoff (SYC-43 part 1 plan §5): a courtesy cap on
+// signature-checking work, not a security control. Each pass is single-use in
+// Postgres and every session is re-checked against the list, so nothing that
+// security depends on rests on this per-server, in-memory count.
+export const handoffLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+});

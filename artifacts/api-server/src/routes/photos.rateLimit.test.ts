@@ -13,7 +13,7 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe("GET /api/photos/:photoId rate limiting", () => {
+describe("GET /api/photos/:id rate limiting", () => {
   it(
     "429s once the per-IP budget (300 / 15 min) is exceeded",
     async () => {

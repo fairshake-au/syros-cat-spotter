@@ -6,6 +6,8 @@ import sightingsRouter from "./sightings";
 import profilesRouter from "./profiles";
 import notificationsRouter from "./notifications";
 import campaignRouter from "./campaign";
+import internalRouter from "./internal";
+import teamRouter from "./team";
 
 const router: IRouter = Router();
 
@@ -16,5 +18,7 @@ router.use(sightingsRouter);
 router.use(profilesRouter);
 router.use(notificationsRouter);
 router.use(campaignRouter);
+router.use(internalRouter);
+router.use(teamRouter);
 
 export default router;

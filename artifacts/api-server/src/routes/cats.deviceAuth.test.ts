@@ -243,3 +243,58 @@ describe("PATCH /api/cats/:catId device auth (SYC-107)", () => {
     expect((await reload(cat.id)).name).toBe(catName("PatchStranger"));
   });
 });
+
+// Review of #41: the secret must be checked before anything is said about the
+// cat (whether it exists, who owns it, whether its name is acceptable). SYC-3's
+// restore relies on this: an old phone must get the secret refusal, never
+// "already claimed" or "not the owner". Moving any check later turns these red.
+describe("the secret is checked before anything about the cat (SYC-107)", () => {
+  const MISSING_CAT = 999999999;
+
+  it("claim: a wrong secret on a cat someone else owns is 403 mismatch, not 409", async () => {
+    const caller = device("order-a");
+    await bind(caller, SECRET_OWNER);
+    const cat = await insertCat("OrderClaimed", { ownerDeviceId: device("order-a-third") });
+    const res = await request(app)
+      .post(`/api/cats/${cat.id}/claim`)
+      .set("X-Device-Secret", SECRET_OTHER)
+      .send({ deviceId: caller, homeDescription: "Mine" });
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "Device secret does not match" });
+  });
+
+  it("claim: no secret on a cat that doesn't exist is 401, not 404", async () => {
+    const res = await request(app)
+      .post(`/api/cats/${MISSING_CAT}/claim`)
+      .send({ deviceId: device("order-b"), homeDescription: "Mine" });
+    expect(res.status).toBe(401);
+  });
+
+  it("rename: no secret on a cat that doesn't exist is 401, not 404", async () => {
+    const res = await request(app)
+      .patch(`/api/cats/${MISSING_CAT}`)
+      .send({ deviceId: device("order-c"), name: catName("OrderMissing") });
+    expect(res.status).toBe(401);
+  });
+
+  it("rename: no secret from a stranger on someone else's cat is 401, not the owner check", async () => {
+    const cat = await insertCat("OrderStranger", { ownerDeviceId: device("order-d-owner") });
+    const res = await request(app)
+      .patch(`/api/cats/${cat.id}`)
+      .send({ deviceId: device("order-d-stranger"), name: catName("OrderStrangerHijack") });
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "Device secret required" });
+  });
+
+  it("register: no secret with an unacceptable name is 401, not the name check", async () => {
+    const res = await request(app).post("/api/cats").send({
+      deviceId: device("order-e"),
+      name: "malakas the cat",
+      ownerName: "Maria",
+      homeDescription: "Blue door",
+      lat: 37.44,
+      lng: 24.9,
+    });
+    expect(res.status).toBe(401);
+  });
+});

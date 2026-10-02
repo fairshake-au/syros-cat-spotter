@@ -116,7 +116,7 @@ export function CatPicker({
     const out: string[] = [];
     for (const s of detail.data.sightings) {
       if (out.length === 2) break;
-      if (seen.has(s.photoUrl)) continue;
+      if (!s.photoUrl || seen.has(s.photoUrl)) continue;
       seen.add(s.photoUrl);
       out.push(s.photoUrl);
     }

@@ -19,8 +19,8 @@ import { mark } from "./guard";
 // properties around them (id collisions, exact values, ordering, re-runs,
 // wrong targets). Each test builds two throwaway databases on the server
 // DATABASE_URL points at: "old" (the old Replit database, at the baseline)
-// and "neon" (Neon production: every migration, plus a simulated 0002 that
-// adds photos.public_id, as the plan's test 4 describes).
+// and "neon" (Neon production: every migration, including SYC-98's real
+// 0002 which adds photos.public_id, as the plan's test 4 describes).
 
 const baseUrl = process.env.DATABASE_URL;
 if (!baseUrl) throw new Error("DATABASE_URL must be set to run these tests");
@@ -108,7 +108,7 @@ async function seed(c: pg.Client): Promise<void> {
 }
 
 /**
- * old at 0000 with rows; neon at every migration plus a simulated 0002,
+ * old at 0000 with rows; neon at every migration (including the real 0002),
  * with the same rows, and marked as the copy of old (with old's
  * fingerprint, as db-ops' mark --fingerprint-file stores it).
  */
@@ -129,7 +129,6 @@ async function scenario(
   const neon = neonDb.client;
   await migrateUp(old, migrations, { throughIdx: 0 });
   await migrateUp(neon, migrations);
-  await neon.query(`alter table photos add column public_id text`);
   await seed(old);
   await seed(neon);
   let fp;

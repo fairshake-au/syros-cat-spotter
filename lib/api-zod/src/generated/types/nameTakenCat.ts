@@ -12,5 +12,5 @@
 export interface NameTakenCat {
   id: number;
   name: string;
-  photoUrl: string;
+  photoUrl: string | null;
 }

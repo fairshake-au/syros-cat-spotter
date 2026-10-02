@@ -10,7 +10,7 @@ import {
   sightingsTable,
   profilesTable,
 } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   photoUrl,
   getProfileStats,
@@ -48,7 +48,7 @@ const NOT_NEARBY = {
 type Candidate = {
   catId: number;
   name: string;
-  photoUrl: string;
+  photoUrl: string | null;
   confidence: number;
   reasoning: string;
 };
@@ -69,14 +69,18 @@ async function catNamed(name: string) {
 
 // SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
 // has the name, so the phone can ask "Is this them?". Public details only.
-function nameTakenBody(
+async function nameTakenBody(
   cat: Awaited<ReturnType<typeof catNamed>>,
-): { error: string; code: "NAME_TAKEN"; cat?: { id: number; name: string; photoUrl: string } } {
+): Promise<{
+  error: string;
+  code: "NAME_TAKEN";
+  cat?: { id: number; name: string; photoUrl: string | null };
+}> {
   const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
   if (!cat) return body;
   return {
     ...body,
-    cat: { id: cat.id, name: cat.name, photoUrl: photoUrl(cat.primaryPhotoId) },
+    cat: { id: cat.id, name: cat.name, photoUrl: await photoUrl(cat.primaryPhotoId) },
   };
 }
 
@@ -117,20 +121,34 @@ async function computeMatchCandidates(
     const result = await matchCatPhoto(photoBase64, candidateInputs);
     isCatPhoto = result.isCatPhoto;
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
-    candidates = result.matches
+    const ranked = result.matches
       .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 3)
-      .map((m) => {
-        const cat = byId.get(m.catId)!;
-        return {
-          catId: cat.id,
-          name: cat.name,
-          photoUrl: photoUrl(cat.primaryPhotoId),
-          confidence: m.confidence,
-          reasoning: m.reasoning,
-        };
-      });
+      .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
+      .slice(0, 3);
+    // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
+    // ranked cats' photo public ids, instead of a photoUrl() round trip per
+    // candidate.
+    const photoIds = [
+      ...new Set(ranked.map((m) => byId.get(m.catId)!.primaryPhotoId)),
+    ];
+    const photoRows = photoIds.length
+      ? await db
+          .select({ id: photosTable.id, publicId: photosTable.publicId })
+          .from(photosTable)
+          .where(inArray(photosTable.id, photoIds))
+      : [];
+    const publicIdById = new Map(photoRows.map((p) => [p.id, p.publicId]));
+    candidates = ranked.map((m) => {
+      const cat = byId.get(m.catId)!;
+      const publicId = publicIdById.get(cat.primaryPhotoId);
+      return {
+        catId: cat.id,
+        name: cat.name,
+        photoUrl: publicId ? `/api/photos/${publicId}` : null,
+        confidence: m.confidence,
+        reasoning: m.reasoning,
+      };
+    });
   } catch (err) {
     req.log.error({ err }, "AI matching failed; returning no candidates");
   }
@@ -318,7 +336,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     }
     const taken = await catNamed(name);
     if (taken) {
-      res.status(409).json(nameTakenBody(taken));
+      res.status(409).json(await nameTakenBody(taken));
       return;
     }
     newCatName = name;
@@ -371,7 +389,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   } catch (err: any) {
     // Unique-index violation from a concurrent submission of the same name.
     if (err?.code === "23505" || err?.cause?.code === "23505") {
-      res.status(409).json(nameTakenBody(await catNamed(newCatName!)));
+      res.status(409).json(await nameTakenBody(await catNamed(newCatName!)));
       return;
     }
     throw err;
@@ -404,7 +422,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       id: cat.id,
       name: cat.name,
       description: cat.description,
-      photoUrl: photoUrl(cat.primaryPhotoId),
+      photoUrl: await photoUrl(cat.primaryPhotoId),
       lat: cat.lat,
       lng: cat.lng,
       sightingsCount: countRow?.n ?? 1,

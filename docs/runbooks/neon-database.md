@@ -24,7 +24,49 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`.
+
+## Adding people to the staff list (`people-add`, `people-list`)
+
+The list of people who can sign in to the staff dashboard (SYC-43) is managed through `db-ops` until the people screen exists (SYC-104). `people-add` and `people-list` run against `development` or `production` only.
+
+**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in two short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`. They're set from a terminal tab just before the run and deleted straight after. The script masks both before doing anything else and refuses to show output that contains either. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions and who added each person, never an address or a name.
+
+**Seeding Samuel and Jacky after the cutover — the post-go-live procedure for any production database change (SYC-121/SYC-178).** Since go-live, every production database change (this migration, then the seed) follows the same five steps, in order. **The old Replit project is retired and must never be published again** — all of this targets the EU (new) Replit project only.
+
+1. **Neon snapshot.** Take a snapshot of `production` before changing anything (Neon console, or the Neon MCP's `create_snapshot`), so there's a known-good point to restore to.
+2. **`db-ops migrate`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`, watch it, read the log. This applies this PR's `0003_people_and_staff_sign_in` migration (creates `people`, `person_scopes`, `team_handoff_spent`; no backfill).
+3. **A Neon read-only SQL check, not `verify`** (SYC-178: `verify` compares Neon with the old Replit database row for row, which only made sense before cutover — post-go-live there's no old database left to compare against, so it now fails misleadingly every time). Instead, use the Neon MCP's `run_sql` (SELECT only) to confirm the migration landed, e.g. `SELECT count(*) FROM people` on the new, empty table.
+4. **EU project pull + republish.** Pull `main` into the EU (new) Replit project's workspace and republish it, so the running app matches the new schema.
+5. **Smoke against `https://apptest.catspotters.com`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=smoke -f base_url=https://apptest.catspotters.com`, confirming the live app is healthy against the migrated schema.
+
+Only once all five steps are green, seed Samuel and Jacky. Run each block in a terminal tab where `SEED_EMAIL` and `SEED_NAME` are already set in the tab's environment. Never type the values into chat. `printf` pipes each value to `gh` without echoing it.
+
+Samuel (set `SEED_EMAIL` and `SEED_NAME` for Samuel first):
+
+```bash
+cd /Users/samuelporter/Projects/syros-cat-spotter
+printf '%s' "$SEED_EMAIL" | gh secret set PEOPLE_EMAIL --env production
+printf '%s' "$SEED_NAME" | gh secret set PEOPLE_NAME --env production
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-add -f people_role=staff
+sleep 5
+gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh secret delete PEOPLE_EMAIL --env production
+gh secret delete PEOPLE_NAME --env production
+```
+
+Jacky: set `SEED_EMAIL` and `SEED_NAME` for Jacky in the tab, then run the same block again.
+
+Then check the list, which should show two ids, both `staff`:
+
+```bash
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-list
+sleep 5
+gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --log
+```
+
+To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Removing someone and "sign out everywhere" aren't `db-ops` commands yet. They need the address typed twice, so they wait for the people screen (SYC-104). For development, swap in `--env development` and `target=development`.
 
 The workflow never prints a connection string — only host names, counts and hashes. If a log ever shows one, that's a bug: stop and fix `scripts/db-ops.sh` before running it again.
 
@@ -41,7 +83,7 @@ If `migrate` refuses the Neon `development` branch ("cannot be adopted", or "the
 **Two different things are both called "restore" here — they behave differently, and this runbook used to blur them (corrected after the Fable review, 30 Sep):**
 
 - **A point-in-time restore to a new branch** (Neon console: **Branches** → `production` → **Restore**, pick a timestamp): Neon creates a **new, separate branch** at that point, leaving `production` untouched. Nothing is pointed at it until someone decides to — it's reviewable first, and nothing about `production`'s connection string or password changes, because `production` itself hasn't moved.
-- **`restore_snapshot` onto `production`** (the plan's Part D/E/F recovery route, via `db-ops`/the Neon MCP): this **swaps `production` in place** — a new branch id takes over the `production` name and the pooled endpoint, and the replaced branch is kept as "`production (old)`". **This changes the `neondb_owner` password** (see below), which a plain point-in-time restore to a new branch does not.
+- **`restore_snapshot` onto `production`** (the plan's Part D/E/F recovery route, via `db-ops`/the Neon MCP): this **swaps `production` in place** — a new branch id takes over the `production` name and the pooled endpoint, and the replaced branch is kept as "`production (old)`". **When `production`'s "protected" setting is on, this changes the `neondb_owner` password** (see below), which a plain point-in-time restore to a new branch does not. **With protection off — the state `production` is in for the whole cutover window — the password survives the restore** (confirmed by the dress rehearsal's re-run, 30 Sep; see below).
 
 Neon's restore window on `production` is **7 days** (the paid "Launch" plan; the plan's Part C.3 sets this when the project is created). For anything bigger than a restore (the old database intact, testers' new Neon rows carried back), that's the rollback procedure in the plan's Part F, run through `db-ops`'s `carry-back-dry-run`/`carry-back-apply` commands, never by hand.
 
@@ -53,19 +95,28 @@ Neon's restore window on `production` is **7 days** (the paid "Launch" plan; the
 
 *Kept as its own section, separate from any concurrent edits to the sections above and to `db-ops.sh`/`db-ops.yml`, so it merges cleanly alongside other in-flight runbook changes (see this PR's description).*
 
-### A snapshot restore onto `production` changes the `neondb_owner` password
+### A snapshot restore onto a *protected* `production` changes the `neondb_owner` password — confirmed fixed by switching protection off
 
-Confirmed twice on 30 Sep, including a clean repeat with no password reset in between: restoring a Neon snapshot onto `production` swaps in a **new branch id** and leaves the saved connection string's **password no longer valid**, even though Neon's own docs say the connection string is kept. The pooled endpoint (`ep-fancy-union-b1al1ulz`) and its hostname are unaffected — only the branch id and the password change. The replaced branch is kept by Neon under the name "`production (old)`" (a second restore in the same session can leave "`production (old) (1)`" too).
+Confirmed twice on 30 Sep, including a clean repeat with no password reset in between: restoring a Neon snapshot onto a **protected** `production` swaps in a **new branch id** and leaves the saved connection string's **password no longer valid**, even though Neon's own docs say the connection string is kept. The pooled endpoint (`ep-fancy-union-b1al1ulz`) and its hostname are unaffected — only the branch id and the password change. The replaced branch is kept by Neon under the name "`production (old)`" (a second restore in the same session can leave "`production (old) (1)`" too).
 
-**After any restore onto `production`, before running `db-ops` or republishing Replit again:**
+**Confirmed by the dress rehearsal's re-run (30 Sep): with `production`'s protection switched off, a `restore_snapshot` keeps the existing password.** The re-run restored with protection off and, with **no re-paste and no republish**, both the existing `NEON_PROD_DIRECT_URL` and `APP_DATABASE_URL` worked immediately; compute limits also stayed at 0.25–1 CU / 300 s (a restore with protection off didn't reset them to 8 CU either), and the restore itself took about 1 second. `production`'s protection is switched off for the whole cutover window (switchover plan A.1/E.0), so this is now the **normal path**.
+
+**The normal path after any restore onto `production`, before running `db-ops` or republishing Replit again:**
+
+1. **Claude, via the Neon MCP:** verify the restored `production` **read-only** with `run_sql` — row counts match the last-known-good fingerprint, `switchover.rehearsal_marker` present, `switchover.cutover_done` absent.
+2. **Claude, via the Neon MCP:** **rename** (never delete) the leftover "`production (old)`" branch to `pre-restore-<attempt>-<hhmm>` (`list_branches`, then rename). **Don't delete it here** — it can be the parent of a kept archive or recovery branch, and Neon refuses to delete a branch with children. It's deleted only at E.13/G.1, with Samuel's OK.
+3. **Claude, via the Neon MCP:** check `production`'s compute limits; re-set to **0.25–1 CU, suspend after 300 s** only if they've changed.
+4. **Claude:** run `db-ops -f target=production -f command=fingerprint-source` (or `verify`) using the **existing** `NEON_PROD_DIRECT_URL`, then `db-ops -f command=smoke -f base_url=<the EU project's own *.replit.app address>` — **no republish.** (In most recoveries `apptest.catspotters.com` isn't pointed at the EU project, so `smoke`'s default `base_url` would resolve to the wrong place and fail misleadingly; use the explicit EU address.) **Republish only if the start-up log shows a stale instance** still answering.
+
+**The re-paste procedure below is now a fallback only** — run it if step 4 fails with "password authentication failed" (which means protection was on for this restore, or something else changed the password):
 
 1. **Claude, via the Neon MCP:** verify the restored `production` **read-only** with `run_sql` first — row counts match the last-known-good fingerprint, `switchover.rehearsal_marker` present, `switchover.cutover_done` absent.
 2. **Claude, via the Neon MCP:** **rename** (never delete) the leftover "`production (old)`" branch to `pre-restore-<attempt>-<hhmm>` (`list_branches`, then rename). **Don't delete it here** — it can be the parent of a kept archive or recovery branch, and Neon refuses to delete a branch with children. It's deleted only at E.13/G.1, with Samuel's OK.
-3. **Claude, via the Neon MCP:** re-set `production`'s compute to **0.25–1 CU, suspend after 300 s** — a restore resets the endpoint's autoscaling max to **8 CU**.
+3. **Claude, via the Neon MCP:** re-set `production`'s compute to **0.25–1 CU, suspend after 300 s** — a restore onto a *protected* branch resets the endpoint's autoscaling max to **8 CU**.
 4. **Samuel:** open Neon Connect for **Branch: production** twice — pooling **off** into GitHub `production` environment secret `NEON_PROD_DIRECT_URL`; pooling **on** into **the EU (new) project's** deployment secret `APP_DATABASE_URL` (Neon Connect gives `sslmode=require`; change it to `verify-full` after pasting, as in the plan's C.4) — then **republish the EU project. Never the old project** (the domain may have just been reconnected to it, which makes "the live Replit project" ambiguous — it always means the EU one here).
 5. **Claude:** wait for a **new instance start-up** log line (the start-up log from `lib/db` §B.2 in the plan) before judging anything — Replit's autoscale can keep serving the previous instance for a minute or two after a republish — then run `smoke`. **If `apptest.catspotters.com` isn't currently pointed at the EU project** (true for most of a rollback recovery), pass `-f base_url=<the EU project's own *.replit.app address>` — otherwise `smoke` resolves against whichever project the domain is on right now and can fail misleadingly.
 
-Do the steps above in order: the dress rehearsal's first live run took **~26 minutes** because the first Replit paste came from a stale look-alike branch name and a republish happened before the paste landed. Done in order, it's **estimated at ~5 minutes** — not yet measured end to end. This procedure is a **fallback**: see the plan's A.1 and F.1 for when it's needed versus when the cheaper path (fingerprint/verify with no re-paste, `production`'s protection switched off for the cutover window) is tried first.
+Do the fallback steps above in order: the dress rehearsal's first live run (with protection on) took **~26 minutes** because the first Replit paste came from a stale look-alike branch name and a republish happened before the paste landed. Done in order, it's **estimated at ~5 minutes** — not yet measured end to end. See the plan's A.1 and F.1 for the full normal-path-versus-fallback reasoning.
 
 ### SSL root certificate for `pg_dump`/`pg_restore` (PR #33)
 

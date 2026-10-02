@@ -109,6 +109,112 @@ describe("smoke through the pre-launch gate", () => {
   });
 });
 
+describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
+  // The old code called `.endsWith("/0")` on every cat's photoUrl to skip
+  // the primaryPhotoId: 0 sentinel; photoUrl is now null for that sentinel
+  // (and for any cat whose photo row is missing), and `null.endsWith` throws
+  // a TypeError — which would fail the release gate with an unreadable crash
+  // instead of either "ok" or a clear "Roll back now" message. The first cat
+  // in the list has a null photoUrl here specifically so a regression to the
+  // old check throws immediately rather than only on an unlucky ordering.
+  it("a null photoUrl on the first cat doesn't crash smoke; it moves on to the next cat with a real photo", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+        if (req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify([
+              { photoUrl: null },
+              { photoUrl: "/api/photos/a1b2c3d4-0000-4000-8000-000000000000" },
+            ]),
+          );
+          return;
+        }
+        if (req.url === "/api/photos/a1b2c3d4-0000-4000-8000-000000000000") {
+          res.writeHead(200, { "Content-Type": "image/jpeg" });
+          res.end("fake-bytes");
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(smoke(baseUrl, {})).resolves.toBeUndefined();
+  });
+
+  // SYC-98 Fable re-review, should-fix 1: production has 52 photos and cats
+  // that use them, so every cat coming back with a null photoUrl is never
+  // legitimately true there — it is exactly the symptom of a broken photos
+  // join (0002 / the LEFT JOIN in listCatsWithStats). A quiet pass here
+  // used to mean smoke printed "ok" and exited 0 while photo serving was
+  // actually broken, so step 4 of the deploy order would never have caught
+  // it. This used to be the pinned "not a failure" behaviour; flipped.
+  it("every cat having a null photoUrl is a failure (photo serving looks broken)", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+        if (req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify([{ photoUrl: null }, { photoUrl: null }]));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(smoke(baseUrl, {})).rejects.toThrow(
+      "smoke: /api/cats returned 2 cats and none has a photoUrl — photo serving looks broken. Roll back now.",
+    );
+  });
+
+  // The all-null throw must not fire for a genuinely empty catalogue (a
+  // fresh development branch, say) — there is nothing to exercise, not a
+  // broken join.
+  it("an empty catalogue still passes quietly — nothing to exercise", async () => {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+        if (req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify([]));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    await expect(smoke(baseUrl, {})).resolves.toBeUndefined();
+  });
+});
+
 describe("smoke against a hanging endpoint", () => {
   // SYC-141. Without a per-request timeout, an endpoint that never responds
   // hangs the whole smoke job (and, on the real cutover, the CI step running

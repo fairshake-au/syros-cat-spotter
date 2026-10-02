@@ -72,6 +72,11 @@ const en: Dict = {
   notACat: 'No cat found',
   notACatMsg: 'We could not find a cat in this photo. Try another shot.',
   tryAgain: 'Try again',
+  // SYC-133: the loading screen the website shows while its code downloads.
+  // Copied into server/loading-screen.js; a test keeps the two in step.
+  webLoading: 'Loading…',
+  webLoadingSlow: 'Still loading. On a weak connection this can take a minute or two. Please keep this page open.',
+  webLoadingFailed: 'The app didn’t finish downloading. Check your connection and try again.',
   points: 'points',
   pointsAwarded: 'points earned',
   matchConfirmed: 'Sighting confirmed!',
@@ -105,7 +110,7 @@ const en: Dict = {
   discoveredBy: 'Discovered by',
   error: 'Something went wrong. Please try again.',
   confirmLocation: 'Confirm the location',
-  confirmLocationHint: 'Drag the map so the pin marks exactly where you saw the cat.',
+  confirmLocationHint: 'Drag the map, or tap a spot, until the pin marks where you saw the cat. It starts near where you are.',
   mapDownloading: 'Downloading the offline Syros map… {pct}%',
   photoRejectedTitle: 'Photo not accepted',
   photoTooLarge: 'That photo is too large — try a smaller one (up to 5 MB).',
@@ -262,6 +267,15 @@ const en: Dict = {
   howStepCatalogBody: 'We check if it\'s a new furriend or one we know.',
   howStepHelp: 'Help them thrive',
   howStepHelpBody: 'Your spots help us desex & vaccinate the colonies.',
+  // SYC-35: keep-your-distance guidance, its own onboarding screen straight
+  // after "How it works" (components/onboarding/SafetyStep.tsx). Word for word
+  // from docs/specs/source/safety-copy-translations.md `onboarding.healthy`
+  // (canonical English: docs/specs/team-access-and-welfare-queue.md §5.3a).
+  howSafetyTitle: 'Look, don\'t touch.',
+  howSafetyLiveHere: 'The cats of Syros are not pets, and they are not strays. They live here.',
+  howSafetyDistance: 'Keep a step or two back and let them come to you if they want to. A cat that stays a bit wary of people is a cat that stays out of the road and out of trouble — being careful around strangers is one of the things keeping it alive. Picking one up, or feeding it, does it no favours.',
+  howSafetyLeaveBe: 'So: photograph them, admire them, leave them be.',
+  howSafetyHurt: 'If you find a cat that is hurt or sick, that is different, and the app will tell you what to do.',
   campaignOpensAt: 'Opens {host} in your browser',
   statsUnavailable: 'Couldn\'t load your stats just now.',
   homeToCollectEyebrow: 'To collect',
@@ -358,6 +372,10 @@ const el: Dict = {
   notACat: 'Δεν βρέθηκε γάτα',
   notACatMsg: 'Δεν εντοπίσαμε γάτα στη φωτογραφία. Δοκιμάστε άλλη λήψη.',
   tryAgain: 'Δοκιμάστε ξανά',
+  // SYC-133: needs native review (SYC-4).
+  webLoading: 'Φόρτωση…',
+  webLoadingSlow: 'Φορτώνει ακόμα. Με αδύναμη σύνδεση μπορεί να πάρει ένα με δύο λεπτά. Κράτα αυτή τη σελίδα ανοιχτή.',
+  webLoadingFailed: 'Η εφαρμογή δεν κατέβηκε ολόκληρη. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.',
   points: 'πόντοι',
   pointsAwarded: 'πόντοι κερδήθηκαν',
   matchConfirmed: 'Η παρατήρηση επιβεβαιώθηκε!',
@@ -391,7 +409,7 @@ const el: Dict = {
   discoveredBy: 'Ανακαλύφθηκε από',
   error: 'Κάτι πήγε στραβά. Δοκιμάστε ξανά.',
   confirmLocation: 'Επιβεβαιώστε την τοποθεσία',
-  confirmLocationHint: 'Σύρετε τον χάρτη ώστε η πινέζα να δείχνει ακριβώς πού είδατε τη γάτα.',
+  confirmLocationHint: 'Σύρε τον χάρτη ή πάτα ένα σημείο, ώσπου η πινέζα να δείχνει πού είδες τη γάτα. Ξεκινά κοντά στο σημείο που βρίσκεσαι.',
   mapDownloading: 'Λήψη του χάρτη της Σύρου για χρήση εκτός σύνδεσης… {pct}%',
   photoRejectedTitle: 'Η φωτογραφία δεν έγινε δεκτή',
   photoTooLarge: 'Η φωτογραφία είναι πολύ μεγάλη — δοκιμάστε μια μικρότερη (έως 5 MB).',
@@ -548,6 +566,13 @@ const el: Dict = {
   howStepCatalogBody: 'Ελέγχουμε αν είναι καινούρια ή γνωστή μας.',
   howStepHelp: 'Βοήθησέ τες να ευημερήσουν',
   howStepHelpBody: 'Οι παρατηρήσεις σου βοηθούν στη στείρωση και τον εμβολιασμό.',
+  // SYC-35: word for word from safety-copy-translations.md `onboarding.healthy`.
+  // Needs native review (SYC-4), especially checker items 3 and 14.
+  howSafetyTitle: 'Κοίτα, μην αγγίζεις.',
+  howSafetyLiveHere: 'Οι γάτες της Σύρου δεν είναι κατοικίδια, ούτε είναι αδέσποτες. Εδώ ζουν.',
+  howSafetyDistance: 'Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ\' εσένα, αν το θέλουν. Μια γάτα που κρατάει μια επιφύλαξη απέναντι στους ανθρώπους είναι μια γάτα που μένει μακριά από τον δρόμο και μακριά από τους μπελάδες — το να προσέχει με τους ξένους είναι ένα από τα πράγματα που την κρατούν ζωντανή. Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό.',
+  howSafetyLeaveBe: 'Λοιπόν: φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες.',
+  howSafetyHurt: 'Αν βρεις μια γάτα τραυματισμένη ή άρρωστη, αυτό είναι διαφορετικό, και η εφαρμογή θα σου πει τι να κάνεις.',
   campaignOpensAt: 'Ανοίγει το {host} στο πρόγραμμα περιήγησης',
   statsUnavailable: 'Δεν φορτώθηκαν τα στατιστικά σου αυτή τη στιγμή.',
   homeToCollectEyebrow: 'Για συλλογή',
@@ -644,6 +669,10 @@ const fr: Dict = {
   notACat: 'Aucun chat trouvé',
   notACatMsg: 'Nous n\u2019avons pas trouvé de chat sur cette photo. Essayez une autre prise.',
   tryAgain: 'Réessayer',
+  // SYC-133: needs native review (SYC-4).
+  webLoading: 'Chargement…',
+  webLoadingSlow: 'Chargement en cours. Avec une connexion faible, cela peut prendre une minute ou deux. Garde cette page ouverte.',
+  webLoadingFailed: 'L’application n’a pas fini de se télécharger. Vérifie ta connexion et réessaie.',
   points: 'points',
   pointsAwarded: 'points gagnés',
   matchConfirmed: 'Observation confirmée !',
@@ -677,7 +706,7 @@ const fr: Dict = {
   discoveredBy: 'Découvert par',
   error: 'Une erreur est survenue. Veuillez réessayer.',
   confirmLocation: 'Confirmez l\u2019emplacement',
-  confirmLocationHint: 'Déplacez la carte pour que l\u2019épingle indique exactement où vous avez vu le chat.',
+  confirmLocationHint: 'Fais glisser la carte, ou touche un endroit, jusqu\u2019à ce que l\u2019épingle indique où tu as vu le chat. Elle part près de l\u2019endroit où tu es.',
   mapDownloading: 'Téléchargement de la carte de Syros hors ligne… {pct}%',
   photoRejectedTitle: 'Photo refusée',
   photoTooLarge: 'Cette photo est trop volumineuse — essayez une plus petite (5 Mo max).',
@@ -834,6 +863,14 @@ const fr: Dict = {
   howStepCatalogBody: 'On vérifie si c\'est un nouveau miaou-ami ou un habitué.',
   howStepHelp: 'Aide-les à s\'épanouir',
   howStepHelpBody: 'Tes observations aident à stériliser et vacciner les colonies.',
+  // SYC-35: word for word from safety-copy-translations.md `onboarding.healthy`.
+  // Needs native review (SYC-4). The source uses "vous"; the rest of the
+  // app's French uses "tu".
+  howSafetyTitle: 'Regardez, ne touchez pas.',
+  howSafetyLiveHere: 'Les chats de Syros ne sont pas des animaux de compagnie, et ce ne sont pas des chats abandonnés. Ils vivent ici.',
+  howSafetyDistance: 'Restez à un pas ou deux et laissez-les venir à vous s\'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.',
+  howSafetyLeaveBe: 'Alors : photographiez-les, admirez-les, laissez-les tranquilles.',
+  howSafetyHurt: 'Si vous trouvez un chat blessé ou malade, c\'est différent, et l\'application vous dira quoi faire.',
   campaignOpensAt: 'Ouvre {host} dans votre navigateur',
   statsUnavailable: 'Impossible de charger vos statistiques pour le moment.',
   homeToCollectEyebrow: 'À découvrir',

@@ -47,6 +47,19 @@ app.use(
 // other route still uses. Scoped narrowly (not a blanket app-wide change)
 // so nothing else's CORS behaviour shifts in this PR.
 app.use((req, res, next) => {
+  // SYC-43 part 1: no CORS headers at all on the staff dashboard (same-origin,
+  // team-access spec §2.6) or the Worker's server-to-server routes (§2.7).
+  // Lower-cased because Express matches routes case-insensitively.
+  const path = req.path.toLowerCase();
+  if (
+    path === "/api/team" ||
+    path.startsWith("/api/team/") ||
+    path === "/api/internal" ||
+    path.startsWith("/api/internal/")
+  ) {
+    next();
+    return;
+  }
   if (req.path.startsWith("/api/photos/")) {
     photoCors(req, res, next);
     return;

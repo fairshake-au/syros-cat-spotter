@@ -81,7 +81,18 @@ function checkAfter({ env, appDir }) {
     .map((s) => s.trim())
     .filter(Boolean);
   const distDir = path.join(appDir, 'dist');
-  if (!keys.length || !fs.existsSync(distDir)) return problems;
+  if (!fs.existsSync(distDir)) return problems;
+  // SYC-133: this check runs before precompress-web.js, so a .br/.gz file
+  // here is left over from an earlier build. Its contents can't be searched
+  // for a key, and serve-web.js would send it, so it must go first.
+  for (const file of filesUnder(distDir)) {
+    if (/\.(br|gz)$/.test(file)) {
+      problems.push(
+        `${path.relative(appDir, file)} is a compressed copy left over from an earlier build, so it can't be checked for tester keys. Delete dist/ and build again.`,
+      );
+    }
+  }
+  if (!keys.length) return problems;
   const needles = keys.map((k) => Buffer.from(k, 'utf8'));
   for (const file of filesUnder(distDir)) {
     const bytes = fs.readFileSync(file);

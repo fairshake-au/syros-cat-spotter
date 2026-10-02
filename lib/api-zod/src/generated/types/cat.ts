@@ -10,7 +10,7 @@ export interface Cat {
   id: number;
   name: string;
   description: string;
-  photoUrl: string;
+  photoUrl: string | null;
   lat: number;
   lng: number;
   sightingsCount: number;

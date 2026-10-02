@@ -51,6 +51,19 @@ describe('photoSource', () => {
       uri: 'https://apptest.example.evil.io/x.jpg',
     });
   });
+
+  // SYC-98 Fable re-review, nit 4: '' used to fall through to
+  // absoluteUrl(''), which returns the bare API origin (truthy, since ''
+  // doesn't start with 'http') rather than undefined — photoSource would
+  // request the API root instead of rendering nothing. '' is now treated
+  // the same as null, same as a candidate with no real photo at all.
+  it('a null photoUrl renders nothing (no uri)', () => {
+    expect(photoSource(null)).toEqual({});
+  });
+
+  it("an empty string is treated the same as null, not a request to the bare API origin", () => {
+    expect(photoSource('')).toEqual({});
+  });
 });
 
 describe('prelaunchKey', () => {

@@ -15,7 +15,8 @@ export interface LocationPickerProps {
 
 /**
  * Pan-to-pick location confirmation: the pin stays centered while the user
- * drags the map underneath it. Uses the offline Syros tiles when available.
+ * drags the map underneath it, or taps a spot to bring it to the pin. Uses
+ * the offline Syros tiles when available.
  */
 export function LocationPicker({
   latitude,
@@ -29,10 +30,12 @@ export function LocationPicker({
   // Only the first coords should re-position the map; afterwards the user
   // is in control and we merely report the center back.
   const initial = useRef({ latitude, longitude });
+  const mapRef = useRef<MapView>(null);
 
   return (
     <View style={[styles.container, style]}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={{
           latitude: initial.current.latitude,
@@ -44,6 +47,9 @@ export function LocationPicker({
         onRegionChangeComplete={(region: Region) =>
           onChange({ latitude: region.latitude, longitude: region.longitude })
         }
+        // A tap moves the map so the tapped spot sits under the pin; the
+        // region change that follows reports it through onRegionChangeComplete.
+        onPress={(e) => mapRef.current?.animateCamera({ center: e.nativeEvent.coordinate })}
       >
         <OsmTiles />
       </MapView>
