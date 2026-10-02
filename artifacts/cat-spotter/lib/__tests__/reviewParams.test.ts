@@ -150,3 +150,44 @@ describe('parseReviewParams', () => {
     expect(parseReviewParams('{"isCatPhoto":true}')).toBeNull();
   });
 });
+
+describe('the sighting\'s saved location (SYC-119, plan P7)', () => {
+  it('carries lat and lng so the picker can measure "nearby" from where the photo was taken', () => {
+    const params = buildReviewParams({
+      sightingId: 9,
+      isCatPhoto: true,
+      candidates: [],
+      photoRef: 'idb:review-9',
+      lat: 37.4448,
+      lng: 24.9425,
+    });
+    const parsed = parseReviewParams(params.data);
+    expect(parsed?.lat).toBe(37.4448);
+    expect(parsed?.lng).toBe(24.9425);
+    expect(params.data.length).toBeLessThan(200);
+  });
+
+  it.each([
+    ['not numbers', '37.4', '24.9'],
+    ['not finite', Number.NaN, Number.POSITIVE_INFINITY],
+    ['out of range', 91, 24.9],
+    ['only one of the two', 37.4, undefined],
+  ])('drops a location that is %s', (_label, lat, lng) => {
+    const params = buildReviewParams({
+      sightingId: 9,
+      isCatPhoto: true,
+      candidates: [],
+      lat: lat as unknown as number,
+      lng: lng as unknown as number,
+    });
+    const parsed = parseReviewParams(params.data);
+    expect(parsed?.lat).toBeUndefined();
+    expect(parsed?.lng).toBeUndefined();
+  });
+
+  it('ignores a crafted location in the route that is not a pair of numbers', () => {
+    expect(
+      parseReviewParams('{"sightingId":1,"lat":"37","lng":24}')?.lat,
+    ).toBeUndefined();
+  });
+});

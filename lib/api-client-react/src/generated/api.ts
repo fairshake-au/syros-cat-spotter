@@ -43,6 +43,7 @@ import type {
   Profile,
   RegisterPushToken200,
   RegisterPushTokenRequest,
+  ResolveConflictBody,
   ResolveResult,
   ResolveSightingRequest,
   SuggestCatNamesRequest,
@@ -702,7 +703,7 @@ export const resolveSighting = async (sightingId: number,
 
 
 
-export const getResolveSightingMutationOptions = <TError = ErrorType<void | ApiErrorBody>,
+export const getResolveSightingMutationOptions = <TError = ErrorType<void | ResolveConflictBody | ApiErrorBody>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveSighting>>, TError,{sightingId: number;data: BodyType<ResolveSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof resolveSighting>>, TError,{sightingId: number;data: BodyType<ResolveSightingRequest>}, TContext> => {
 
@@ -731,12 +732,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ResolveSightingMutationResult = NonNullable<Awaited<ReturnType<typeof resolveSighting>>>
     export type ResolveSightingMutationBody = BodyType<ResolveSightingRequest>
-    export type ResolveSightingMutationError = ErrorType<void | ApiErrorBody>
+    export type ResolveSightingMutationError = ErrorType<void | ResolveConflictBody | ApiErrorBody>
 
     /**
  * @summary Confirm a match to an existing cat, or register a new named cat
  */
-export const useResolveSighting = <TError = ErrorType<void | ApiErrorBody>,
+export const useResolveSighting = <TError = ErrorType<void | ResolveConflictBody | ApiErrorBody>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveSighting>>, TError,{sightingId: number;data: BodyType<ResolveSightingRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof resolveSighting>>,

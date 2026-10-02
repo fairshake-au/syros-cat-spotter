@@ -488,6 +488,10 @@ export default function SpotScreen() {
                 isCatPhoto: result.isCatPhoto,
                 candidates: result.candidates,
                 photoRef: kept.ok ? kept.ref : undefined,
+                // SYC-119: where the photo was taken, so "Find the cat" can
+                // list the cats near it.
+                lat: finalCoords.latitude,
+                lng: finalCoords.longitude,
               }),
             });
             break;

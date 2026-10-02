@@ -317,7 +317,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     expect(profile!.points).toBe(10);
   });
 
-  it("returns 404 for an unknown sighting or cat", async () => {
+  it("returns 404 for an unknown sighting, and the NOT_NEARBY refusal for an unknown cat", async () => {
     const device = `${DEVICE}-404`;
     const res = await request(app)
       .post(`/api/sightings/999999999/resolve`)
@@ -329,7 +329,10 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .post(`/api/sightings/${sightingId}/resolve`)
       .set("X-Device-Secret", RESOLVE_SECRET)
       .send({ deviceId: device, catId: 999999999 });
-    expect(res2.status).toBe(404);
+    // SYC-119: an unknown cat gets the same refusal as a cat that isn't
+    // nearby (choose-a-different-cat.md §4.8: one refusal, whatever the reason).
+    expect(res2.status).toBe(422);
+    expect(res2.body.code).toBe("NOT_NEARBY");
   });
 });
 
