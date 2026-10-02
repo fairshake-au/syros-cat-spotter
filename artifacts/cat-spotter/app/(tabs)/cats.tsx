@@ -24,6 +24,7 @@ import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { CatCard } from '@/components/CatCard';
 import { AppMap } from '@/components/AppMap';
+import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Chip } from '@/components/purropolis';
 import { photoSource, SYROS_CENTER } from '@/lib/urls';
@@ -190,6 +191,13 @@ export default function CatalogScreen() {
       </View>
 
       <OfflineBanner />
+
+      {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
+      {showMap && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 6 }}>
+          <NeedsHelpLink />
+        </View>
+      )}
 
       {isLoading ? (
         <View style={styles.center}>

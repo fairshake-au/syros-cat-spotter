@@ -63,6 +63,8 @@ vi.mock('@/context/OfflineContext', () => ({
   useOffline: () => ({ isOnline: true }),
 }));
 vi.mock('@/context/NotificationContext', () => ({ NotificationProvider: stubComponent('NotificationProvider') }));
+// SYC-42: the cat-report queue's provider.
+vi.mock('@/context/ReportQueueContext', () => ({ ReportQueueProvider: stubComponent('ReportQueueProvider') }));
 vi.mock('@/components/onboarding/OnboardingFlow', () => ({ OnboardingFlow: stubComponent('OnboardingFlow') }));
 // SYC-121 review fix: _layout.tsx now mounts one BannerStack instead of the
 // three banners individually (see components/BannerStack.tsx) — stub the

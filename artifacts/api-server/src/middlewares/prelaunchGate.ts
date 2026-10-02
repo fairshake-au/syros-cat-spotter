@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { MAIL_DRAIN_PATH, checkMailDrainToken } from "../lib/internalAuth";
 import {
   gateEnabled,
   matchInternalToken,
@@ -19,7 +20,10 @@ import {
  * In order:
  * 1. Gate off → next().
  * 2. GET or HEAD on exactly /api/healthz → next() (Replit's start-up check).
- * 3. /api/internal/* → only `Authorization: Bearer <INTERNAL_PEOPLE_TOKEN>`.
+ * 3. Exactly POST /api/internal/mail/drain → only `Authorization: Bearer
+ *    <MAIL_DRAIN_TOKEN>` (SYC-42: the scheduled drain's own narrow token).
+ *    Any other /api/internal/* → only `Authorization: Bearer
+ *    <INTERNAL_PEOPLE_TOKEN>`. Neither token opens the other's paths.
  * 4. /api/team/* → next() (Decision 1, Samuel, 29 Sep 2026: its own staff
  *    sign-in is the stronger door).
  * 5. Anything else → a valid website cookie OR a matching X-Prelaunch-Key.
@@ -84,6 +88,17 @@ export function prelaunchGate(
   if (path === null) {
     res.setHeader("Cache-Control", "no-store");
     res.status(400).json({ error: "Bad request" });
+    return;
+  }
+
+  if (path === MAIL_DRAIN_PATH && req.method === "POST") {
+    // Not configured → the same refusal as a wrong token (fails closed; the
+    // route itself says not_configured when the gate is off).
+    if (checkMailDrainToken(req.headers.authorization) === "ok") {
+      next();
+      return;
+    }
+    refuse(res);
     return;
   }
 

@@ -43,11 +43,14 @@ import {
  *   paragraph added, from Susan's standard reply.
  * - 2026-10-01 el, fr: re-pinned for the same edit; the new paragraph is a
  *   Fair Shake draft, not yet native-check approved (SYC-172, SYC-4).
+ * - 2026-10-02 fr: re-pinned. Samuel 2 Oct 2026: register change to tu, no
+ *   change of meaning. Still a draft, not yet native-check approved
+ *   (SYC-154, SYC-172); safety-copy-translations.md §3 updated first.
  */
 const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
   en: "d62719b9b755cf5359f3a5225afb11a5e008dfb8d38bc7d595bd845a9b9c9e76",
   el: "024b8609a73086ffbb59874e24fdb26f098451e153fa73db5c8ee77f28b80bde",
-  fr: "18ce3591a2079d6075d7f90a2e77263d59dd53ec4de282a3ad9aa8a6027684ae",
+  fr: "c280ffaf842c6dd07f5e147c8111be710d06e36be48bda5744945cd0e2e002fa",
 };
 
 function sha256(text: string): string {
@@ -73,6 +76,8 @@ const FORBIDDEN: Record<GuidanceLanguage, string[]> = {
   fr: [
     "de permanence", "de garde", "quelqu'un arrive", "quelqu'un va venir",
     "nous viendrons", "on viendra", "alerté", "prévenu", "surveill", "en route",
+    // tu forms (Samuel, 2 Oct 2026: French uses tu throughout the app)
+    "on te contacte", "nous te contacterons", "te recontact", "on te rappelle", "on vient te",
   ],
 };
 
@@ -90,7 +95,7 @@ const AFTER_HOURS = ["697 005 5012", "6970055012", "6937 252802", "6937252802"];
 const MARKERS: Record<GuidanceLanguage, { cage: string; handling: string; wontGoIn: string }> = {
   en: { cage: "will lend you a carrying cage", handling: "drop a towel, a jumper", wontGoIn: "If the cat will not go in." },
   el: { cage: "θα σου δανείσουν κλουβί μεταφοράς", handling: "ρίξε μια πετσέτα, ένα φούτερ", wontGoIn: "Αν η γάτα δεν μπαίνει με τίποτα." },
-  fr: { cage: "vous prêteront une cage de transport", handling: "laissez tomber une serviette", wontGoIn: "Si le chat refuse d'entrer." },
+  fr: { cage: "te prêteront une cage de transport", handling: "laisse tomber une serviette", wontGoIn: "Si le chat refuse d'entrer." },
 };
 
 // ── The translations document is the source for the Greek and French block ──
@@ -184,7 +189,7 @@ describe("the urgent block, in every language (review fix 5; tests 21–22)", ()
         {
           en: "If this cat is badly hurt, please take it to a local vet if you can.",
           el: "Αν αυτή η γάτα είναι σοβαρά τραυματισμένη, πήγαινέ την σε έναν κτηνίατρο εδώ, αν μπορείς.",
-          fr: "Si ce chat est gravement blessé, emmenez-le chez un vétérinaire local si vous le pouvez.",
+          fr: "Si ce chat est gravement blessé, emmène-le chez un vétérinaire local si tu le peux.",
         }[lang],
       );
       expect(getGuidance(lang).copy.urgent).not.toHaveProperty("send");
@@ -219,7 +224,7 @@ describe("the approved capacity paragraph (Samuel, 1 Oct 2026)", () => {
 
   it("the block no longer says 'Send this' anywhere, in any language", () => {
     for (const lang of GUIDANCE_LANGUAGES) {
-      expect(urgentBlockCanonical(getGuidance(lang).copy)).not.toMatch(/Send this|Στείλ' το|Envoyez-le\./);
+      expect(urgentBlockCanonical(getGuidance(lang).copy)).not.toMatch(/Send this|Στείλ' το|Envoyez-le\.|Envoie-le\./);
     }
   });
 });
@@ -329,11 +334,27 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10; review fix 6)"
     }
   });
 
+  it("kittens + Urgent (Samuel, 2 Oct 2026): one line says the urgent advice applies to a hurt kitten", () => {
+    expect(getGuidance("en").copy.litter.withUrgent).toBe("If a kitten is hurt, the advice below applies to it.");
+    for (const lang of GUIDANCE_LANGUAGES) {
+      const line = getGuidance(lang).copy.litter.withUrgent;
+      expect(line.trim().length, lang).toBeGreaterThan(10);
+      // It never repeats the "don't move them" instruction.
+      expect(getGuidance(lang).copy.litter.paragraphs.join(" "), lang).not.toContain(line);
+    }
+  });
+
+  it("French uses tu throughout, every block (Samuel, 2 Oct 2026)", () => {
+    const text = allCopyStrings(getGuidance("fr").copy).join("\n");
+    expect(text).not.toMatch(/(^|[^\p{L}])(vous|votre|vos)([^\p{L}]|$)/iu);
+    expect(text).not.toMatch(/(^|[^\p{L}])(appelez|dites|demandez|emmenez|laissez|placez|ouvrez|reculez|attendez|fermez|couvrez|partez|posez|allez|donnez|essayez|soulevez|mettez|prévenez|envoyez|sachez|déplacez|attirez)([^\p{L}]|$)/iu);
+  });
+
   it("the confirmation screen has no 'if an email was given' line (Decision 4)", () => {
     for (const lang of GUIDANCE_LANGUAGES) {
       const c = getGuidance(lang).copy.confirmation as Record<string, unknown>;
       expect(Object.keys(c).sort()).toEqual(
-        ["hurt", "next", "offline", "review", "sentBody", "sentHeading"].sort(),
+        ["hurt", "next", "offline", "review", "sentBody", "sentBodyNoPhoto", "sentHeading"].sort(),
       );
     }
   });

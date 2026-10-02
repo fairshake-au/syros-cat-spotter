@@ -40,6 +40,7 @@ import {
 import { useLocation } from '@/hooks/useLocation';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
+import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
 import {
@@ -902,6 +903,13 @@ export default function SpotScreen() {
                     : t('savingSighting')
                 : t('checkForMatches')}
             </Button>
+            {/* SYC-42: quiet, below the main action; reuses this photo and place. */}
+            {photo && !submitting && (
+              <NeedsHelpLink
+                handoff={{ photo, coords: pickedCoords ?? undefined }}
+                style={{ alignSelf: 'center' }}
+              />
+            )}
           </>
         ) : (
           // ── Capture state: dark viewfinder treatment ──

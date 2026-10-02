@@ -451,6 +451,15 @@ function isReviewPhoto(name: string): boolean {
   return name.startsWith('review-');
 }
 
+/**
+ * A cat report's photo (`report-<localId>`, SYC-42). The report queue owns
+ * it and deletes it once it has been sent; this sweep, which only knows the
+ * sighting queue, never touches it.
+ */
+function isReportPhoto(name: string): boolean {
+  return name.startsWith('report-');
+}
+
 /** Before this, an unreferenced photo may be deleted. */
 function deleteCutoff(name: string, now: number): number {
   return now - (isReviewPhoto(name) ? REVIEW_PHOTO_KEEP_MS : ORPHAN_GRACE_MS);
@@ -473,7 +482,7 @@ export async function cleanupOrphanPhotos(keepRefs: string[]): Promise<void> {
     if (!store) return;
     const keep = new Set(keepRefs.filter(isStoredPhotoRef).map(idbId));
     for (const id of await store.photoIds()) {
-      if (keep.has(id)) continue;
+      if (keep.has(id) || isReportPhoto(id)) continue;
       await store
         .deletePhotoIfSavedBefore(id, deleteCutoff(id, now))
         .catch(() => false);
@@ -486,7 +495,7 @@ export async function cleanupOrphanPhotos(keepRefs: string[]): Promise<void> {
       keepRefs.map((u) => u.slice(u.lastIndexOf('/') + 1)),
     );
     for (const name of names) {
-      if (keep.has(name)) continue;
+      if (keep.has(name) || isReportPhoto(name)) continue;
       const uri = `${PHOTOS_DIR}/${name}`;
       try {
         const info = await FileSystem.getInfoAsync(uri);

@@ -32,6 +32,7 @@
   "litter": {
     "review": "final",
     "heading": "Please don't move them, and please don't bring them anywhere.",
+    "withUrgent": "If a kitten is hurt, the advice below applies to it.",
     "paragraphs": [
       "Kittens are almost always better off exactly where they are, with their mother. She is usually close by even when you cannot see her, and she is far better at this than any of us. If they look round and quiet, she is doing her job.",
       "Sending this report is exactly the right thing to do. It tells the team where the mother is, and getting her sterilised — around **€50–60** — is what stops the next litter."
@@ -41,6 +42,7 @@
     "review": "final",
     "sentHeading": "Sent. Syros Cats have this.",
     "sentBody": "Your photo and the location are saved, and this report is in Syros Cats' list.",
+    "sentBodyNoPhoto": "The location is saved, and this report is in Syros Cats' list.",
     "next": "**What happens next, honestly:** somebody at Syros Cats will read it when they can.",
     "hurt": "**If this cat is badly hurt, please don't wait for us.** A vet is the fastest help there is, and **the vets here will lend you a carrying cage** — phone the nearest one and ask for a \"trap\" or carrying cage, then lure the cat in with sardines or wet food.",
     "offline": "This report is saved on your phone and sends itself the moment you have a signal."
@@ -55,6 +57,15 @@
       "main": "Main line",
       "emergency": "Emergency line (the clinic's published number)"
     },
+    "phoneKindsShort": {
+      "clinic_hours": "Clinic hours",
+      "after_hours": "After hours*",
+      "landline": "Landline",
+      "mobile": "Mobile",
+      "main": "Main line",
+      "emergency": "Emergency*"
+    },
+    "publishedNote": "* The clinic's own published number.",
     "call": "Call",
     "googleMaps": "Google Maps",
     "appleMaps": "Apple Maps",

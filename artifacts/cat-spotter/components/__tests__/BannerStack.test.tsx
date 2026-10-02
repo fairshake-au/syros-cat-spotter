@@ -66,6 +66,10 @@ const { useOffline, openURL } = vi.hoisted(() => ({
   openURL: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline }));
+// SYC-42: the cat-report reminder banner reads the report queue.
+vi.mock('@/context/ReportQueueContext', () => ({
+  useReportQueue: () => ({ reminderVisible: false, dismissReminder: () => undefined, syncNow: async () => undefined }),
+}));
 
 vi.mock('react-native', async () => {
   const actual = await vi.importActual('react-native-web');

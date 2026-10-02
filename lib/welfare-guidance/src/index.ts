@@ -83,11 +83,19 @@ export type GuidanceCopy = {
     capacity: string;
   };
   attention: { review: ReviewState; heading: string; paragraphs: string[] };
-  litter: { review: ReviewState; heading: string; paragraphs: string[] };
+  litter: {
+    review: ReviewState;
+    heading: string;
+    /** Kittens + Urgent (Samuel, 2 Oct 2026): the urgent advice wins; this one line instead. */
+    withUrgent: string;
+    paragraphs: string[];
+  };
   confirmation: {
     review: ReviewState;
     sentHeading: string;
     sentBody: string;
+    /** SYC-180: the same line for a report sent without a photo. */
+    sentBodyNoPhoto: string;
     next: string;
     hurt: string;
     offline: string;
@@ -95,6 +103,14 @@ export type GuidanceCopy = {
   vetList: {
     review: ReviewState;
     phoneKinds: Record<PhoneKind, string>;
+    /**
+     * Short labels for the compact vet cards on the "Before you send" screen
+     * (Samuel, 2 Oct 2026: no scrolling). A '*' marks a number the clinic
+     * publishes itself, explained once by `publishedNote`, so the cards still
+     * promise nothing about who answers.
+     */
+    phoneKindsShort: Record<PhoneKind, string>;
+    publishedNote: string;
     call: string;
     googleMaps: string;
     appleMaps: string;
