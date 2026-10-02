@@ -34,8 +34,17 @@ vi.mock('@/hooks/useColors', () => ({
   }),
 }));
 vi.mock('@/components/LocationPicker', async () => {
-  const { View } = await import('react-native');
-  return { LocationPicker: () => <View testID="location-picker" /> };
+  const { Text } = await import('react-native');
+  // A stand-in the test can "drag": tapping it moves the pin 50 m north.
+  return {
+    LocationPicker: ({ latitude, longitude, onChange }: {
+      latitude: number; longitude: number; onChange: (c: { latitude: number; longitude: number }) => void;
+    }) => (
+      <Text testID="location-picker" onPress={() => onChange({ latitude: latitude + 0.00045, longitude })}>
+        pin
+      </Text>
+    ),
+  };
 });
 vi.mock('@/components/purropolis', async () => {
   const { Text } = await import('react-native');
@@ -105,9 +114,21 @@ describe('ReportWizard', () => {
     expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1'));
   });
 
-  it('screen 1: with no GPS at all, the pin starts in Ermoupoli so the person can move it', () => {
+  it('S4: with no GPS, the pin starts in Ermoupoli and Next waits until the person moves it', () => {
     const w = setup({ gps: { coords: null, locating: false, denied: true } });
     expect(w.getByTestId('location-picker')).toBeTruthy();
+    expect(w.text()).toContain(T.reportMovePin);
+    w.next();
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1'));
+    fireEvent.click(w.getByTestId('location-picker'));
+    expect(w.text()).not.toContain(T.reportMovePin);
+    w.next();
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
+  });
+
+  it('S4: with a GPS fix, Next is available straight away (the pin is where the phone is)', () => {
+    const w = setup();
+    expect(w.text()).not.toContain(T.reportMovePin);
     w.next();
     expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
   });

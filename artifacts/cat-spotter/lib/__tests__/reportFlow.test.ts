@@ -39,6 +39,11 @@ describe('reportFlow', () => {
     expect(canAdvance({ ...two, severity: 'attention' })).toBe(true);
   });
 
+  it('S4 (review of #55): a pin that only sits on the no-GPS default needs moving before Next', () => {
+    expect(canAdvance({ ...INITIAL_FLOW, coords: here, pinIsDefault: true })).toBe(false);
+    expect(canAdvance({ ...INITIAL_FLOW, coords: here, pinIsDefault: false })).toBe(true);
+  });
+
   it('a photo is never required (nothing blocks a report)', () => {
     expect(canAdvance({ ...INITIAL_FLOW, coords: here, photo: null })).toBe(true);
   });
