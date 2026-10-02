@@ -166,6 +166,8 @@ describe("9. gate on, no pass: every route refuses", () => {
     for (const route of routes) {
       const url = concrete(route.path);
       const isHealth = url === "/api/healthz";
+      // /api/team/* skips the pass (Decision 1); test 12a walks those routes.
+      if (url === "/api/team" || url.startsWith("/api/team/")) continue;
       if (!isHealth) {
         const res = await send(route.method, url);
         expect({ route: `${route.method} ${url}`, status: res.status }).toEqual({
@@ -324,10 +326,17 @@ describe("11. passes", () => {
 describe("12. /api/internal/* takes only the Worker's bearer", () => {
   const url = "/api/internal/people/allowed";
 
-  it("right bearer → passes the gate (reaches the router; the route itself is PR #20's)", async () => {
+  it("right bearer → passes the gate and reaches PR #28's route", async () => {
     const res = await request(app).post(url).set("Authorization", `Bearer ${INTERNAL_TOKEN}`);
-    expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: "Not found" });
+    // No body, so the route itself answers 400: the gate let it through.
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "invalid_request" });
+    const listed = await request(app)
+      .post(url)
+      .set("Authorization", `Bearer ${INTERNAL_TOKEN}`)
+      .send({ email: "vitest-gate-nobody@example.com" });
+    expect(listed.status).toBe(200);
+    expect(listed.body).toEqual({ allowed: false });
   });
 
   it("website cookie → 401; tester key → 401; nothing → 401; wrong bearer → 401", async () => {
@@ -360,16 +369,45 @@ describe("12. /api/internal/* takes only the Worker's bearer", () => {
   });
 });
 
-describe("12a (partial). /api/team/* skips the pass (Decision 1)", () => {
-  // PR #20's /api/team routes don't exist yet. Whichever of this and PR #20
-  // lands second walks every /api/team route and expects not_signed_in; here
-  // we pin that the exemption is exactly /api/team and /api/team/*.
-  it("reaches the router without a pass", async () => {
-    for (const url of ["/api/team", "/api/team/me", "/API/TEAM/me", "/api//team/handoff"]) {
-      const res = await send("get", url);
-      expect({ url, status: res.status }).toEqual({ url, status: 404 });
-      expect(res.body).toEqual({ error: "Not found" });
+describe("12a. /api/team/* skips the pass (Decision 1), and its own sign-in refuses", () => {
+  // PR #28 landed second, so it walks every /api/team route: with no pass and
+  // no staff session, each answers the dashboard's own 401 not_signed_in,
+  // never the pre-launch refusal.
+  it("walks every registered /api/team route and gets 401 not_signed_in", async () => {
+    const teamRoutes = registeredRoutes().filter(
+      (r) => r.path === "/api/team" || r.path.startsWith("/api/team/"),
+    );
+    // Guard against a walker that silently finds nothing.
+    expect(teamRoutes).toEqual(
+      expect.arrayContaining([
+        { method: "post", path: "/api/team/handoff" },
+        { method: "get", path: "/api/team" },
+        { method: "get", path: "/api/team/me" },
+        { method: "post", path: "/api/team/signout" },
+      ]),
+    );
+    for (const route of teamRoutes) {
+      const url = concrete(route.path);
+      for (const u of [url, url.toUpperCase()]) {
+        const res = await send(route.method, u);
+        expect({ route: `${route.method} ${u}`, status: res.status }).toEqual({
+          route: `${route.method} ${u}`,
+          status: 401,
+        });
+        expect(res.body).toEqual({ error: "not_signed_in" });
+      }
     }
+  });
+
+  it("the exemption is exactly /api/team and /api/team/*", async () => {
+    for (const url of ["/api/teams", "/api/teamx/me", "/api/team-me"]) {
+      const res = await send("get", url);
+      expect({ url, status: res.status }).toEqual({ url, status: 401 });
+      expect(res.body).toEqual(REFUSAL);
+    }
+    // A doubled slash is still the team area to the gate; no route matches it.
+    const doubled = await send("get", "/api//team/handoff");
+    expect(doubled.status).toBe(404);
   });
 });
 
@@ -392,6 +430,27 @@ describe("13. CORS runs before the gate", () => {
       .set("Access-Control-Request-Method", "GET");
     expect(res.status).toBe(204);
     expect(res.headers["access-control-allow-origin"]).toBe("https://catspotters.com");
+  });
+
+  it("OPTIONS on /api/internal/* gets the gate's 401 and no CORS headers", async () => {
+    const res = await request(app)
+      .options("/api/internal/people/allowed")
+      .set("Origin", "https://example.org")
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual(REFUSAL);
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("OPTIONS on /api/team/* gets no CORS headers (the dashboard is same-origin)", async () => {
+    for (const url of ["/api/team/handoff", "/api/team/me"]) {
+      const res = await request(app)
+        .options(url)
+        .set("Origin", "https://example.org")
+        .set("Access-Control-Request-Method", "POST");
+      expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+      expect(res.headers["access-control-allow-methods"]).toBeUndefined();
+    }
   });
 
   it("a 401 still carries Access-Control-Allow-Origin", async () => {

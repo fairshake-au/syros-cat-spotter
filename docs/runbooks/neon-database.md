@@ -24,7 +24,49 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`.
+
+## Adding people to the staff list (`people-add`, `people-list`)
+
+The list of people who can sign in to the staff dashboard (SYC-43) is managed through `db-ops` until the people screen exists (SYC-104). `people-add` and `people-list` run against `development` or `production` only.
+
+**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in two short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`. They're set from a terminal tab just before the run and deleted straight after. The script masks both before doing anything else and refuses to show output that contains either. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions and who added each person, never an address or a name.
+
+**Seeding Samuel and Jacky after the cutover — the post-go-live procedure for any production database change (SYC-121/SYC-178).** Since go-live, every production database change (this migration, then the seed) follows the same five steps, in order. **The old Replit project is retired and must never be published again** — all of this targets the EU (new) Replit project only.
+
+1. **Neon snapshot.** Take a snapshot of `production` before changing anything (Neon console, or the Neon MCP's `create_snapshot`), so there's a known-good point to restore to.
+2. **`db-ops migrate`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`, watch it, read the log. This applies this PR's `0003_people_and_staff_sign_in` migration (creates `people`, `person_scopes`, `team_handoff_spent`; no backfill).
+3. **A Neon read-only SQL check, not `verify`** (SYC-178: `verify` compares Neon with the old Replit database row for row, which only made sense before cutover — post-go-live there's no old database left to compare against, so it now fails misleadingly every time). Instead, use the Neon MCP's `run_sql` (SELECT only) to confirm the migration landed, e.g. `SELECT count(*) FROM people` on the new, empty table.
+4. **EU project pull + republish.** Pull `main` into the EU (new) Replit project's workspace and republish it, so the running app matches the new schema.
+5. **Smoke against `https://apptest.catspotters.com`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=smoke -f base_url=https://apptest.catspotters.com`, confirming the live app is healthy against the migrated schema.
+
+Only once all five steps are green, seed Samuel and Jacky. Run each block in a terminal tab where `SEED_EMAIL` and `SEED_NAME` are already set in the tab's environment. Never type the values into chat. `printf` pipes each value to `gh` without echoing it.
+
+Samuel (set `SEED_EMAIL` and `SEED_NAME` for Samuel first):
+
+```bash
+cd /Users/samuelporter/Projects/syros-cat-spotter
+printf '%s' "$SEED_EMAIL" | gh secret set PEOPLE_EMAIL --env production
+printf '%s' "$SEED_NAME" | gh secret set PEOPLE_NAME --env production
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-add -f people_role=staff
+sleep 5
+gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh secret delete PEOPLE_EMAIL --env production
+gh secret delete PEOPLE_NAME --env production
+```
+
+Jacky: set `SEED_EMAIL` and `SEED_NAME` for Jacky in the tab, then run the same block again.
+
+Then check the list, which should show two ids, both `staff`:
+
+```bash
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-list
+sleep 5
+gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --log
+```
+
+To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Removing someone and "sign out everywhere" aren't `db-ops` commands yet. They need the address typed twice, so they wait for the people screen (SYC-104). For development, swap in `--env development` and `target=development`.
 
 The workflow never prints a connection string — only host names, counts and hashes. If a log ever shows one, that's a bug: stop and fix `scripts/db-ops.sh` before running it again.
 
