@@ -356,6 +356,7 @@ describe("PUT /api/reports/:publicId/photo", () => {
     const row = await reportRow(body.publicId);
     expect(row.photoState).toBe("failed");
     // No ten-minute wait for a photo that can't come.
+    await settleOutbox();
     await drainAll();
     const mine = sent.filter((s) => String(s.body["text"]).includes(body.publicId));
     expect(mine).toHaveLength(1);

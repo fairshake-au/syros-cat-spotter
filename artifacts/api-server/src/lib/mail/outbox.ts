@@ -182,8 +182,9 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
       // Resend keeps idempotency keys for 24 hours: a retry after a lost
       // response can't produce a second email. The key includes whether the
       // photo is attached, because Resend refuses a reused key whose message
-      // has changed, and the photo can arrive between two attempts.
-      idempotencyKey: `welfare-outbox-${row.id}-${photo ? "photo" : "nophoto"}`,
+      // has changed, and the photo can arrive between two attempts. It names
+      // the report too, so a reset table's reused row ids can't collide.
+      idempotencyKey: `welfare-${report.publicId}-${row.id}-${photo ? "photo" : "nophoto"}`,
     });
     if (!result.ok) {
       await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);

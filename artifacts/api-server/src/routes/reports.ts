@@ -234,6 +234,30 @@ router.put("/reports/:publicId/photo", async (req, res) => {
   // full decode, EXIF rotation and metadata strip, bounded re-encode.
   const validated = await validatePhotoBase64(body.photoBase64);
   if ("error" in validated) {
+    // The same bytes will be refused again, so stop waiting for them: the
+    // alert goes now and says the photo couldn't be received, rather than
+    // "still uploading" (review of #55). A later good photo still attaches.
+    if (report.photoState === "pending") {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(welfareReportsTable)
+          .set({ photoState: "failed" })
+          .where(and(eq(welfareReportsTable.id, report.id), eq(welfareReportsTable.photoState, "pending")));
+        await tx
+          .update(mailOutboxTable)
+          .set({ nextAttemptAt: new Date() })
+          .where(
+            and(
+              eq(mailOutboxTable.reportId, report.id),
+              eq(mailOutboxTable.state, "queued"),
+              sql`${mailOutboxTable.payload}->>'kind' = 'alert'`,
+            ),
+          );
+      });
+      res.status(400).json({ error: validated.error });
+      kick();
+      return;
+    }
     res.status(400).json({ error: validated.error });
     return;
   }

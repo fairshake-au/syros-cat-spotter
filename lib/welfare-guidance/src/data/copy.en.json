@@ -41,6 +41,7 @@
     "review": "final",
     "sentHeading": "Sent. Syros Cats have this.",
     "sentBody": "Your photo and the location are saved, and this report is in Syros Cats' list.",
+    "sentBodyNoPhoto": "The location is saved, and this report is in Syros Cats' list.",
     "next": "**What happens next, honestly:** somebody at Syros Cats will read it when they can.",
     "hurt": "**If this cat is badly hurt, please don't wait for us.** A vet is the fastest help there is, and **the vets here will lend you a carrying cage** — phone the nearest one and ask for a \"trap\" or carrying cage, then lure the cat in with sardines or wet food.",
     "offline": "This report is saved on your phone and sends itself the moment you have a signal."

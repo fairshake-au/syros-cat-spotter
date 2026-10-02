@@ -57,6 +57,9 @@ export default function ReportScreen() {
   const clientRef = useRef(newClientRef()).current;
   const [sending, setSending] = useState(false);
   const [sentLocalId, setSentLocalId] = useState<string | null>(null);
+  // SYC-180: whether the sent report carries a photo. A report saved without
+  // its photo (storage full) says so too, even after it has left the queue.
+  const [sentHasPhoto, setSentHasPhoto] = useState(true);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -86,6 +89,7 @@ export default function ReportScreen() {
         clientRef,
         photo: flow.photo,
       });
+      setSentHasPhoto(!!flow.photo);
       setSentLocalId(localId);
     } catch {
       notify(t('error'));
@@ -93,6 +97,9 @@ export default function ReportScreen() {
       setSending(false);
     }
   };
+
+  const sentItem = sentLocalId ? reports.find((r) => r.localId === sentLocalId) : undefined;
+  if (sentItem && !sentItem.hasPhoto && sentHasPhoto) setSentHasPhoto(false);
 
   const state = useMemo(
     () => (sentLocalId ? confirmationState(sentLocalId, reports, acceptedIds, syncing) : null),
@@ -110,7 +117,13 @@ export default function ReportScreen() {
         </View>
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}>
           <View style={styles.column}>
-            <ReportConfirmation state={state} guidance={guidance} onDone={close} onRetry={() => void retryFailed()} />
+            <ReportConfirmation
+              state={state}
+              guidance={guidance}
+              hasPhoto={sentHasPhoto}
+              onDone={close}
+              onRetry={() => void retryFailed()}
+            />
           </View>
         </ScrollView>
       </View>

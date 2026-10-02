@@ -151,8 +151,16 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
   const tRef = useRef(t);
   tRef.current = t;
 
-  const syncNow = useCallback(async () => {
-    if (!deviceId || syncingRef.current) return;
+  // A sync asked for while one is running runs straight after it, so a
+  // report saved mid-send isn't left for the next timer (review of #55).
+  const againRef = useRef(false);
+
+  const syncNow = useCallback(async (): Promise<void> => {
+    if (!deviceId) return;
+    if (syncingRef.current) {
+      againRef.current = true;
+      return;
+    }
     await store.ready;
     if (!store.items().some((r) => r.status !== 'failed')) return;
     syncingRef.current = true;
@@ -179,6 +187,10 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
     } finally {
       syncingRef.current = false;
       setSyncing(false);
+    }
+    if (againRef.current) {
+      againRef.current = false;
+      await syncNow();
     }
   }, [deviceId, store]);
 

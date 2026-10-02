@@ -66,7 +66,9 @@ export function buildWelfareAlert(
     ? "Photo: attached."
     : report.photoState === "none"
       ? "No photo was taken."
-      : "The photo is still uploading.";
+      : report.photoState === "failed"
+        ? "The photo couldn't be received, so this alert has none."
+        : "The photo is still uploading.";
   const note = report.note?.trim() ? report.note.trim() : "(nothing written)";
 
   const rows: [string, string][] = kind === "photo"

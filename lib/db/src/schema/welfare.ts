@@ -65,7 +65,8 @@ export const welfareReportsTable = pgTable(
     isDraft: boolean("is_draft").notNull().default(false),
     // The app's own id for this report, so a resent queued report is stored once.
     clientRef: text("client_ref").notNull(),
-    // pending | attached | none: "photo pending" is visible (spec §4.3).
+    // pending | attached | none | failed: "photo pending" is visible (spec
+    // §4.3); failed means the server refused the photo (review of #55).
     photoState: text("photo_state").notNull().default("pending"),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -90,7 +91,7 @@ export const welfareReportsTable = pgTable(
     ),
     check(
       "welfare_reports_photo_state_ck",
-      sql`${t.photoState} in ('pending', 'attached', 'none')`,
+      sql`${t.photoState} in ('pending', 'attached', 'none', 'failed')`,
     ),
   ],
 );

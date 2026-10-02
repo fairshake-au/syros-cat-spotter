@@ -24,9 +24,12 @@ export function ReportConfirmation({
   guidance,
   onDone,
   onRetry,
+  hasPhoto = true,
 }: {
   state: ConfirmationState;
   guidance: WelfareGuidance;
+  /** SYC-180: a report sent without a photo never says the photo is saved. */
+  hasPhoto?: boolean;
   onDone: () => void;
   /** Failed only: put the report back in the queue and send. */
   onRetry?: () => void;
@@ -43,7 +46,7 @@ export function ReportConfirmation({
           <Text role="heading" style={[styles.heading, { color: colors.foreground }]}>
             {c.sentHeading}
           </Text>
-          <Text style={para}>{c.sentBody}</Text>
+          <Text style={para}>{hasPhoto ? c.sentBody : c.sentBodyNoPhoto}</Text>
         </>
       ) : state === 'sending' ? (
         <View style={styles.row}>
@@ -52,6 +55,10 @@ export function ReportConfirmation({
             {t('reportSending')}
           </Text>
         </View>
+      ) : state === 'busy' ? (
+        <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
+          {t('reportBusy')}
+        </Text>
       ) : state === 'failed' ? (
         <Text role="heading" style={[styles.headingSmall, { color: colors.destructive }]}>
           {t('reportFailed')}

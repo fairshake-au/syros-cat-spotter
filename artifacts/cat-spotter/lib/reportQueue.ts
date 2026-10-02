@@ -48,6 +48,8 @@ export interface PendingReport {
   remindedAt?: string;
   /** Phone apps: the local notification scheduled for 24 hours on. */
   nativeReminderId?: string;
+  /** The last try met a 429 (too many reports from this connection). */
+  busy?: boolean;
 }
 
 export interface SubmitBody {
@@ -210,6 +212,13 @@ export async function syncReports(
         );
       } catch (err) {
         if (!isPermanentRefusal(err)) {
+          // Remember a 429, so the screen says "too many just now", not "no signal".
+          const busy = statusOf(err) === 429;
+          if (busy !== Boolean(current.busy)) {
+            await store
+              .mutate(update(current.localId, (r) => ({ ...r, busy })), 'system')
+              .catch(() => undefined);
+          }
           if (statusOf(err) === null) return; // no signal
           continue;
         }
@@ -258,7 +267,7 @@ export async function syncReports(
   }
 }
 
-export type ConfirmationState = 'sent' | 'sending' | 'queued' | 'failed';
+export type ConfirmationState = 'sent' | 'sending' | 'queued' | 'busy' | 'failed';
 
 /** What the confirmation screen may say about one report (spec §5.3(e)). */
 export function confirmationState(
@@ -270,7 +279,8 @@ export function confirmationState(
   const item = items.find((r) => r.localId === localId);
   if (acceptedIds.has(localId) || item?.status === 'photo') return 'sent';
   if (item?.status === 'failed') return 'failed';
-  return syncing && item ? 'sending' : 'queued';
+  if (syncing && item) return 'sending';
+  return item?.busy ? 'busy' : 'queued';
 }
 
 /**

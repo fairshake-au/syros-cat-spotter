@@ -48,7 +48,7 @@ CREATE TABLE "welfare_reports" (
 	CONSTRAINT "welfare_reports_kind_ck" CHECK ("welfare_reports"."kind" in ('welfare', 'content')),
 	CONSTRAINT "welfare_reports_severity_ck" CHECK ("welfare_reports"."severity" in ('attention', 'urgent')),
 	CONSTRAINT "welfare_reports_state_ck" CHECK ("welfare_reports"."state" in ('new', 'looking', 'done', 'nothing_needed')),
-	CONSTRAINT "welfare_reports_photo_state_ck" CHECK ("welfare_reports"."photo_state" in ('pending', 'attached', 'none'))
+	CONSTRAINT "welfare_reports_photo_state_ck" CHECK ("welfare_reports"."photo_state" in ('pending', 'attached', 'none', 'failed'))
 );
 --> statement-breakpoint
 ALTER TABLE "mail_outbox" ADD CONSTRAINT "mail_outbox_report_id_welfare_reports_id_fk" FOREIGN KEY ("report_id") REFERENCES "public"."welfare_reports"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint

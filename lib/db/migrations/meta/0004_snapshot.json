@@ -1644,7 +1644,7 @@
         },
         "welfare_reports_photo_state_ck": {
           "name": "welfare_reports_photo_state_ck",
-          "value": "\"welfare_reports\".\"photo_state\" in ('pending', 'attached', 'none')"
+          "value": "\"welfare_reports\".\"photo_state\" in ('pending', 'attached', 'none', 'failed')"
         }
       },
       "isRLSEnabled": false

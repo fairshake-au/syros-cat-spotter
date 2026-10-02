@@ -40,6 +40,7 @@
     "review": "pending-native-check",
     "sentHeading": "Envoyé. Syros Cats l'a bien reçu.",
     "sentBody": "Votre photo et l'emplacement sont enregistrés, et ce signalement est dans la liste de Syros Cats.",
+    "sentBodyNoPhoto": "L'emplacement est enregistré, et ce signalement est dans la liste de Syros Cats.",
     "next": "**Ce qui se passe ensuite, honnêtement :** quelqu'un chez Syros Cats le lira quand il le pourra.",
     "hurt": "**Si ce chat est gravement blessé, n'attendez pas après nous.** Un vétérinaire est l'aide la plus rapide qui soit, et **les vétérinaires d'ici vous prêteront une cage de transport** — appelez le plus proche et demandez un « piège » ou une cage de transport, puis attirez le chat à l'intérieur avec des sardines ou de la pâtée.",
     "offline": "Ce signalement est enregistré sur votre téléphone et partira tout seul dès que vous aurez du réseau."

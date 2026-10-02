@@ -39,6 +39,8 @@ export type LoadedGuidance = WelfareGuidance & { source: 'saved' | 'built-in' };
 function hasShape(value: unknown, shape: unknown): boolean {
   if (Array.isArray(shape)) {
     if (!Array.isArray(value)) return false;
+    // A list the built-in copy fills (the steps, say) can't arrive empty.
+    if (shape.length && !value.length) return false;
     return value.every((v) => (shape.length ? hasShape(v, shape[0]) : true));
   }
   if (shape && typeof shape === 'object') {
@@ -49,6 +51,8 @@ function hasShape(value: unknown, shape: unknown): boolean {
     );
   }
   if (shape === null) return true;
+  // Nor can a line the built-in copy has (the capacity line, say) arrive blank.
+  if (typeof shape === 'string' && shape.trim() && typeof value === 'string') return value.trim() !== '';
   return typeof value === typeof shape;
 }
 

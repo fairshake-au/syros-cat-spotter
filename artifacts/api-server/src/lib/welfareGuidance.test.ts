@@ -333,7 +333,7 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10; review fix 6)"
     for (const lang of GUIDANCE_LANGUAGES) {
       const c = getGuidance(lang).copy.confirmation as Record<string, unknown>;
       expect(Object.keys(c).sort()).toEqual(
-        ["hurt", "next", "offline", "review", "sentBody", "sentHeading"].sort(),
+        ["hurt", "next", "offline", "review", "sentBody", "sentBodyNoPhoto", "sentHeading"].sort(),
       );
     }
   });

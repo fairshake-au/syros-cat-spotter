@@ -330,6 +330,7 @@ const en: Dict = {
   reportSending: 'Sending…',
   reportFailed: 'This report couldn’t be sent. It’s still saved on your phone: tap Try again, or send a new report.',
   reportTryAgain: 'Try again',
+  reportBusy: 'Too many reports have come from this connection in the last hour. Yours is saved on your phone and will send itself within the hour.',
   reportDone: 'Done',
   reportReminder: 'You have a cat report that hasn’t sent yet.',
   // Samuel, 2 Oct 2026: three screens, no scrolling.
@@ -659,6 +660,7 @@ const el: Dict = {
   reportSending: 'Γίνεται αποστολή…',
   reportFailed: 'Αυτή η αναφορά δεν μπόρεσε να σταλεί. Είναι ακόμα αποθηκευμένη στο κινητό σου: πάτα «Δοκίμασε ξανά» ή στείλε νέα αναφορά.',
   reportTryAgain: 'Δοκίμασε ξανά',
+  reportBusy: 'Έχουν σταλεί πολλές αναφορές από αυτή τη σύνδεση την τελευταία ώρα. Η δική σου είναι αποθηκευμένη στο κινητό σου και θα σταλεί μόνη της μέσα στην ώρα.',
   reportDone: 'Τέλος',
   reportReminder: 'Έχεις μια αναφορά για γάτα που δεν έχει σταλεί ακόμα.',
   reportStepOf: '{n} από 3',
@@ -988,6 +990,7 @@ const fr: Dict = {
   reportSending: 'Envoi en cours…',
   reportFailed: 'Ce signalement n’a pas pu être envoyé. Il est toujours enregistré sur ton téléphone : appuie sur « Réessayer », ou envoie un nouveau signalement.',
   reportTryAgain: 'Réessayer',
+  reportBusy: 'Trop de signalements sont partis de cette connexion dans la dernière heure. Le tien est enregistré sur ton téléphone et partira tout seul dans l’heure.',
   reportDone: 'Terminé',
   reportReminder: 'Vous avez un signalement de chat qui n’a pas encore été envoyé.',
   reportStepOf: '{n} sur 3',

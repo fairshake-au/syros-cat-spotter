@@ -88,6 +88,8 @@ export type GuidanceCopy = {
     review: ReviewState;
     sentHeading: string;
     sentBody: string;
+    /** SYC-180: the same line for a report sent without a photo. */
+    sentBodyNoPhoto: string;
     next: string;
     hurt: string;
     offline: string;
