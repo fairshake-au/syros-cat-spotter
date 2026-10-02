@@ -107,8 +107,11 @@ describe('UrgentAdvice (§5.3(b), as folded by Samuel on 2 Oct 2026)', () => {
     // ...with the Municipality's number as a tap-to-call link.
     const links = Array.from(container.querySelectorAll('a')).map((x) => x.getAttribute('href'));
     expect(links).toContain('tel:+302281361000');
-    // Opening the folds never moves the capacity paragraph from the end.
-    expect((container.textContent ?? '').trim().endsWith(plain(g.copy.urgent.capacity))).toBe(true);
+    // Opening the folds never moves the capacity paragraph from the end, and
+    // it lives in no fold: it appears exactly once, outside them.
+    const all = (container.textContent ?? '').trim();
+    expect(all.endsWith(plain(g.copy.urgent.capacity))).toBe(true);
+    expect(all.split(plain(g.copy.urgent.capacity)).length - 1).toBe(1);
   });
 
   it.each(LANGS)('test 22 (%s): the cage appears before any handling line', (code) => {
