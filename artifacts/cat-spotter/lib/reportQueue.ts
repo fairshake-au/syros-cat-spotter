@@ -273,12 +273,22 @@ export function confirmationState(
   return syncing && item ? 'sending' : 'queued';
 }
 
-/** Reports still not sent 24 hours on, not yet reminded about (once each). */
+/**
+ * Reports still not sent 24 hours on, not yet reminded about (once each).
+ * A report the server refused (failed) counts too: it is stranded on the
+ * phone until the person taps Try again (review of #55, S3).
+ */
 export function dueReminders(items: PendingReport[], now: Date): PendingReport[] {
   return items.filter(
     (r) =>
-      r.status === 'queued' &&
+      (r.status === 'queued' || r.status === 'failed') &&
       !r.remindedAt &&
       now.getTime() - new Date(r.createdAt).getTime() >= REMINDER_AFTER_MS,
   );
+}
+
+/** Try again: refused reports go back in the queue with a fresh count. */
+export function requeueFailed(list: PendingReport[]): PendingReport[] {
+  if (!list.some((r) => r.status === 'failed')) return list;
+  return list.map((r) => (r.status === 'failed' ? { ...r, status: 'queued' as const, serverFailures: 0 } : r));
 }

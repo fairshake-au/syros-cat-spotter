@@ -23,10 +23,13 @@ export function ReportConfirmation({
   state,
   guidance,
   onDone,
+  onRetry,
 }: {
   state: ConfirmationState;
   guidance: WelfareGuidance;
   onDone: () => void;
+  /** Failed only: put the report back in the queue and send. */
+  onRetry?: () => void;
 }) {
   const colors = useColors();
   const { t } = useLanguage();
@@ -63,6 +66,11 @@ export function ReportConfirmation({
       <RichText text={c.hurt} style={para} />
       <VetList guidance={guidance} />
 
+      {state === 'failed' && onRetry && (
+        <Button variant="primary" size="lg" block onPress={onRetry}>
+          {t('reportTryAgain')}
+        </Button>
+      )}
       <Button variant="secondary" size="lg" block onPress={onDone}>
         {t('reportDone')}
       </Button>

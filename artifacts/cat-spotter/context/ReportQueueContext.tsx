@@ -22,6 +22,7 @@ import {
   dueReminders,
   isPendingReport,
   newPendingReport,
+  requeueFailed,
   reportPhotoKey,
   syncReports,
   type PendingReport,
@@ -63,6 +64,8 @@ interface ReportQueueValue {
   /** Save first; then try to send. Resolves with the saved report's local id. */
   submitReport: (input: NewReportInput) => Promise<string>;
   syncNow: () => Promise<void>;
+  /** Try again: put refused reports back in the queue and send. */
+  retryFailed: () => Promise<void>;
   /** The one "hasn't sent yet" reminder, for the web (spec §4.3). */
   reminderVisible: boolean;
   dismissReminder: () => void;
@@ -267,6 +270,12 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
     [store, syncNow],
   );
 
+  const retryFailed = useCallback(async () => {
+    await store.ready;
+    await store.mutate(requeueFailed, 'user').catch(() => undefined);
+    await syncNow();
+  }, [store, syncNow]);
+
   const sendDraft = useCallback<ReportQueueValue['sendDraft']>(
     (input) => {
       if (!deviceId) return;
@@ -286,11 +295,12 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
       syncing,
       submitReport,
       syncNow,
+      retryFailed,
       reminderVisible,
       dismissReminder: () => setReminderVisible(false),
       sendDraft,
     }),
-    [ready, reports, acceptedIds, syncing, submitReport, syncNow, reminderVisible, sendDraft],
+    [ready, reports, acceptedIds, syncing, submitReport, syncNow, retryFailed, reminderVisible, sendDraft],
   );
 
   return <ReportQueueContext.Provider value={value}>{children}</ReportQueueContext.Provider>;

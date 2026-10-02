@@ -227,6 +227,8 @@ export function ReportWizard({
                   value={flow.note}
                   onChangeText={(note) => update({ note })}
                   multiline
+                  // The server's cap (POST /api/reports refuses more).
+                  maxLength={4000}
                   placeholder={t('reportNotePlaceholder')}
                   placeholderTextColor={colors.mutedForeground}
                   style={[styles.note, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}

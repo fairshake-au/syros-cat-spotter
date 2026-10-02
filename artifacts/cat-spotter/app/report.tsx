@@ -50,7 +50,7 @@ export default function ReportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const guidance = useWelfareGuidance();
-  const { submitReport, sendDraft, reports, acceptedIds, syncing } = useReportQueue();
+  const { submitReport, sendDraft, reports, acceptedIds, syncing, retryFailed } = useReportQueue();
   const { coords, loading: locating, denied } = useLocation();
 
   const initial = useRef(startFlow(takeReportHandoff())).current;
@@ -110,7 +110,7 @@ export default function ReportScreen() {
         </View>
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}>
           <View style={styles.column}>
-            <ReportConfirmation state={state} guidance={guidance} onDone={close} />
+            <ReportConfirmation state={state} guidance={guidance} onDone={close} onRetry={() => void retryFailed()} />
           </View>
         </ScrollView>
       </View>

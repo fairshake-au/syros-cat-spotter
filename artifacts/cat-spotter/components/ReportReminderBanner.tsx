@@ -14,19 +14,23 @@ import { useReportQueue } from '@/context/ReportQueueContext';
 export function ReportReminderBanner() {
   const colors = useColors();
   const { t } = useLanguage();
-  const { reminderVisible, dismissReminder, syncNow } = useReportQueue();
+  const { reminderVisible, dismissReminder, retryFailed } = useReportQueue();
   if (!reminderVisible) return null;
+  const tryAgain = () => {
+    dismissReminder();
+    void retryFailed();
+  };
   return (
     <Pressable
-      onPress={() => {
-        dismissReminder();
-        void syncNow();
-      }}
+      onPress={tryAgain}
       style={[styles.banner, { backgroundColor: colors.accent, shadowColor: '#000' }]}
       accessibilityRole="button"
     >
       <Feather name="alert-circle" size={16} color={colors.accentForeground} />
       <Text style={[styles.text, { color: colors.accentForeground }]}>{t('reportReminder')}</Text>
+      <Pressable onPress={tryAgain} hitSlop={8} accessibilityRole="button">
+        <Text style={[styles.action, { color: colors.accentForeground }]}>{t('reportTryAgain')}</Text>
+      </Pressable>
       <Pressable onPress={dismissReminder} hitSlop={10} accessibilityLabel={t('homeScreenNudgeDismissLabel')}>
         <Feather name="x" size={16} color={colors.accentForeground} />
       </Pressable>
@@ -49,4 +53,5 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   text: { flex: 1, fontSize: 13, fontFamily: 'Inter_700Bold' },
+  action: { fontSize: 13, fontFamily: 'Inter_700Bold', textDecorationLine: 'underline' },
 });
