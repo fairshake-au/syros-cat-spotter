@@ -1,4 +1,4 @@
-# Data spine, steps 2–7: implementation plan (for approval)
+# Data spine, steps 2–7: implementation plan (approved by Samuel, 2 Oct 2026)
 
 **Refreshed 2 Oct 2026** against `origin/main` at `67701c9`, after the move to Neon (SYC-121, cutover 1 Oct 2026). The first draft (29 Sep) was written against `f8c362c`, when production was still Replit's own database. What changed, and why, is in the next section.
 
@@ -240,9 +240,9 @@ Step 7: SYC-37 and SYC-74. **Ships together with #46** (SYC-117 part 1 and SYC-1
 
 - **Timing, which the spec leaves open** (Conflicts, C5): the questions appear on the reward screen, after the points, and the points come back from resolve. So the answers go to a new device-authenticated `POST /sightings/{id}/answers`, accepted once per sighting, within 24 hours of its resolve, from the sighting's own device. Resolve stays exactly as it is.
 - **What's written** (§10.7): `ear_tip` (`clipped_left | clipped_right | clipped_unsure | looks_whole | cant_tell`), `food_and_water` (`yes | no | cant_tell`) and `note` (≤ 500 characters), each its own observation through `writeObservation`, with the sighting's `photoId` and `observedAt` = the sighting's capture time. `provenance: volunteered`, because in phase 1 the app pre-fills nothing.
-- **When to ask:** the resolve response gains `askEarTip: boolean`, false after "Can't tell" from this device for this cat (§4.4) and otherwise as Samuel decides in Q3.
+- **When to ask:** the resolve response gains `askEarTip: boolean`, false after "Can't tell" from this device for this cat (§4.4) and true otherwise (Q3, decided A).
 - **App** (`app/review.tsx`): the one-tap question with the required example photo (a clean clipped tip beside a torn ear, with its one-line explanation) and `Skip`; the food-and-water tap; and the optional note box, which says only Syros Cats see it. Nothing stands between a spotter and their points. **The example photo is SYC-79's, still outstanding (Backlog, 2 Oct), and this PR can't merge without it.**
-- **Likely before the correction path** (Conflicts, C6, and Q2): the public sterilised line shows *Likely* only once Syros Cats can correct it, or as Samuel decides in Q2.
+- **Likely before the correction path** (Conflicts, C6, and Q2): the public sterilised line shows *Likely* only once Syros Cats can correct it (Q2, decided A).
 - **SYC-119 hand-off (its Slice D, needs its Slice B):** a "clipped" answer on a sighting the server recorded as a hand pick is sorted first in PR 8's *Likely* list and marked *matched by hand*.
 - **Tests:** answers from another device, a second set of answers, and answers after 24 hours are refused; a note never appears in any public payload (added to §10.8.8's list); "looks whole" moves nothing (rule 1, end to end); skipping writes nothing; no sightings row is updated (SYC-63's guard).
 - **Checked** at ~390 px and desktop with a real resolve.
@@ -261,7 +261,7 @@ Step 7: SYC-37 and SYC-74. **Ships together with #46** (SYC-117 part 1 and SYC-1
 
 ### PR 9 — Coarsen sighting pushes
 
-§6.4.4: *"Agatha was spotted again!"* arriving within seconds gives anyone who once spotted a cat a minute-accurate feed of every later sighting of it. For cats the recipient doesn't own, the push becomes whatever Samuel chooses in Q4, and its text never carries a time. Owners keep live pushes about their own cat.
+§6.4.4: *"Agatha was spotted again!"* arriving within seconds gives anyone who once spotted a cat a minute-accurate feed of every later sighting of it. For cats the recipient doesn't own, the push becomes one daily round-up (Q4, decided A), and its text never carries a time. Owners keep live pushes about their own cat.
 
 - **Files:** `lib/notificationFanout.ts`, plus a small scheduled sender if Q4 picks a daily round-up.
 - **Tests:** a non-owner gets no push inside the window Q4 sets; an owner still does; no text contains a time.
@@ -449,7 +449,9 @@ Where the approved spec disagrees with the code, a ticket, another spec or anoth
 
 ## Decisions for Samuel
 
-Plain English, one at a time, each with a recommendation. Q2 and Q3 are needed before PR 7; Q4 before PR 9. Nothing blocks PR 1–PR 6.
+**Decided by Samuel, 2 Oct 2026, and the plan approved: Q2 → A, Q3 → A, Q4 → A.** Q3 departs from the recommendation (C): spotters are asked about the ear on every sighting of a cat, except that "Can't tell" still stops the app asking that spotter about that cat again (the spec's rule, which Option A keeps). PR 7's `askEarTip` is therefore false only after "Can't tell" from this device for this cat, with no quiet period.
+
+The options as they were put to Samuel are kept below for the record.
 
 **Q1 · How do database changes reach the live app? Settled by the move to Neon.** The 29 Sep draft asked this because Replit's Publish could leave out safety rules and once planned to empty a table. Since 1 Oct the live database is on Neon, our own `db-ops` workflow applies changes to it before each publish, and Replit no longer touches it. Nothing to decide. The one standing rule carries over: **if Replit's Publish ever shows a database review, cancel it and tell Claude.**
 
