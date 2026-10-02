@@ -32,7 +32,7 @@ describe('picker copy', () => {
 
   it('every picker key exists in every language', () => {
     for (const lang of ['en', 'el', 'fr'] as const) {
-      for (const key of [...Object.keys(SPEC_COPY), 'pickerNoResults', 'pickerEmpty']) {
+      for (const key of [...Object.keys(SPEC_COPY), 'pickerNoResults', 'pickerEmpty', 'pickerNoSignalStay']) {
         expect(TRANSLATIONS[lang][key], `${lang}.${key}`).toBeTruthy();
       }
     }

@@ -28,6 +28,7 @@ import { CatPicker } from "@/components/CatPicker";
 import { useCatsWithCache } from "@/hooks/useCatsWithCache";
 import {
   classifyResolveError,
+  noSignalMessage,
   pickerList,
   type PickedFrom,
 } from "@/lib/catPicker";
@@ -132,8 +133,10 @@ export default function ReviewScreen() {
 
   // Sending any choice needs signal (spec §4.5). It is always attempted (the
   // online flag can be wrong on a weak connection); if the request can't get
-  // through, the spotter is told plainly and the sighting stays in the
-  // review list, so nothing is lost.
+  // through, the spotter is told plainly. A queued sighting stays in the
+  // review list; one sent straight away has no entry there, so that spotter
+  // is asked to keep the screen open instead (noSignalMessage).
+  const noSignal = noSignalMessage({ inReviewList: queuedItem != null });
   const confirm = async (catId: number, pickedFrom?: PickedFrom | "name_prompt") => {
     if (!deviceId) return;
     const say = pickedFrom ? setPickerMessage : setSendMessage;
@@ -149,7 +152,7 @@ export default function ReviewScreen() {
       );
     } catch (err) {
       const failure = classifyResolveError(err);
-      if (failure.kind === "offline") say("pickerNoSignal");
+      if (failure.kind === "offline") say(noSignal);
       else if (failure.kind === "not-nearby") say("pickerNotNearby");
       else say("error");
       setBusy(false);
@@ -186,7 +189,7 @@ export default function ReviewScreen() {
           setNameError("taken");
         }
       } else if (failure.kind === "offensive") setNameError("offensive");
-      else if (failure.kind === "offline") setSendMessage("pickerNoSignal");
+      else if (failure.kind === "offline") setSendMessage(noSignal);
       setBusy(false);
     }
   };

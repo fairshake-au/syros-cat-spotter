@@ -17,6 +17,7 @@ import {
   classifyResolveError,
   matchesSearch,
   pickedFromFor,
+  noSignalMessage,
   pickerList,
 } from '../catPicker';
 
@@ -243,3 +244,22 @@ describe('source guards', () => {
     expect(read('components/CatPicker.tsx')).not.toMatch(/distanceKm|\bkm\b/);
   });
 });
+
+// Review of #52: "Your sighting is saved. Finish this when you're back
+// online" is only true for a sighting in the phone's review list (one that
+// went through the queue). A sighting sent straight away has no entry there:
+// once the spotter leaves the screen, there is no way back to it. So it gets
+// an honest line instead of a promise the app can't keep.
+describe('noSignalMessage', () => {
+  it('promises the review list only for a queued sighting', () => {
+    expect(noSignalMessage({ inReviewList: true })).toBe('pickerNoSignal');
+    expect(noSignalMessage({ inReviewList: false })).toBe('pickerNoSignalStay');
+  });
+
+  it('the review screen never shows the promise directly', () => {
+    const src = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
+    expect(src).not.toMatch(/["']pickerNoSignal["']/);
+    expect(src).toMatch(/noSignalMessage\(/);
+  });
+});
+

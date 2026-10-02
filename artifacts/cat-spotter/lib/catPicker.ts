@@ -54,6 +54,21 @@ export function pickedFromFor(query: string): PickedFrom {
   return query.trim() === '' ? 'nearby' : 'search';
 }
 
+/**
+ * What to say when a choice can't be sent (spec §4.5, §6). The spec's line
+ * promises the sighting waits in the review list, which is true only for a
+ * sighting that went through the phone's queue. One sent straight away has
+ * no entry there, so leaving the screen loses the way back to it: that
+ * spotter is asked to keep the screen open instead.
+ */
+export function noSignalMessage({
+  inReviewList,
+}: {
+  inReviewList: boolean;
+}): 'pickerNoSignal' | 'pickerNoSignalStay' {
+  return inReviewList ? 'pickerNoSignal' : 'pickerNoSignalStay';
+}
+
 export type ResolveFailure =
   | { kind: 'not-nearby' }
   | { kind: 'name-taken'; cat: NameTakenCat | null }
