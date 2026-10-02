@@ -49,7 +49,7 @@ The build work fits the window. The things that can sink October are all **lead 
 - [ ] **Never approve a Replit database review (SYC-121, rule R3).** After the SYC-121 move, Replit's publish has nothing of ours to compare — the app never uses Replit's own managed database (`lib/db/src/url.ts` refuses `DATABASE_URL` inside a Replit workspace and in production). If Publish ever shows a database review, especially one with `TRUNCATE` or `DROP` on a table with rows, **cancel it** and treat it as a sign something is wrongly pointed at Replit's own database.
 - [ ] **One instance while the Postgres rate-limit store doesn't exist (SYC-105).** The live deployment is capped at **Max instances: 1**, so the in-memory rate limiter stays correct. Raise this only after SYC-105 moves rate limiting to Postgres.
 - [ ] Environment: `OWNER_SECRET` set, `CAMPAIGN_*` set with corrected €50–60 copy (SYC-14), log level
-- [ ] Confirm `trust proxy` matches Replit's production proxy chain (rate limiting depends on it)
+- [ ] Confirm `trust proxy` matches Replit's production proxy chain (rate limiting depends on it). Checked with the token-gated `/api/healthz` diagnostic — `docs/runbooks/proxy-probe.md` (SYC-100) — not by eye. Still open: the diagnostic exists, but the live deployment hasn't been probed yet.
 - [ ] Outbound email for welfare/report notifications to admin@syroscats via Resend on the new domain (SPF/DKIM so Google Workspace doesn't junk it)
 - [ ] Uptime monitor on `/api/healthz` + error alerting to Samuel
 

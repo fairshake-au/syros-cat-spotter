@@ -1,0 +1,44 @@
+name: proxy-probe
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        type: string
+        required: false
+        description: "Defaults to https://apptest.catspotters.com"
+permissions: { contents: read }
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    # Same Environment db-ops.yml's production runs use, so PROXY_PROBE_TOKEN
+    # is only ever read here, never typed by hand and never seen by Claude.
+    environment: production
+    steps:
+      - name: Probe with a spoofed X-Forwarded-For
+        env:
+          PROXY_PROBE_TOKEN: ${{ secrets.PROXY_PROBE_TOKEN }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          url="${BASE_URL:-https://apptest.catspotters.com}/api/healthz"
+          echo "Probing $url with a spoofed X-Forwarded-For"
+          curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "$url" \
+            -H "X-Forwarded-For: 203.0.113.77" \
+            -H "X-Proxy-Probe: ${PROXY_PROBE_TOKEN}"
+
+      - name: Probe with no X-Forwarded-For
+        env:
+          PROXY_PROBE_TOKEN: ${{ secrets.PROXY_PROBE_TOKEN }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          url="${BASE_URL:-https://apptest.catspotters.com}/api/healthz"
+          echo "Probing $url with no X-Forwarded-For"
+          curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "$url" \
+            -H "X-Proxy-Probe: ${PROXY_PROBE_TOKEN}"
+
+      - name: Where to read the result
+        run: |
+          echo "Neither step prints the response body or any header value."
+          echo "Read the two 'proxy-probe' log lines from the deployment itself"
+          echo "(via the Replit agent) — see docs/runbooks/proxy-probe.md."
