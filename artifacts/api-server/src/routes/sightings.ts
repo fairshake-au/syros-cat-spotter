@@ -485,24 +485,6 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         .set({ catId: cat!.id, status: "resolved" })
         .where(eq(sightingsTable.id, sightingId));
 
-      // SYC-151: the server's own label for this choice (§4.6), decided from
-      // the stored set and never from what the phone says. Team-only.
-      const label = labelChoice({
-        stored,
-        storedSuggestion,
-        isNewCat,
-        catId: cat!.id,
-        pickedFrom: body.pickedFrom ?? null,
-        openedPicker: body.openedPicker === true,
-      });
-      await tx
-        .insert(sightingMatchesTable)
-        .values({ sightingId, ...label })
-        .onConflictDoUpdate({
-          target: sightingMatchesTable.sightingId,
-          set: label,
-        });
-
       await tx
         .insert(profilesTable)
         .values({ deviceId: sighting.deviceId, points: pointsAwarded })
@@ -528,6 +510,30 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   }
 
   const { cat, pointsAwarded, isNewCat } = resolution;
+
+  // SYC-151: the server's own label for this choice (§4.6), decided from the
+  // stored set and never from what the phone says. Team-only, and best
+  // effort: it is written after the spotter's resolve has committed, so a
+  // failure here is logged and never costs the spotter their sighting.
+  const label = labelChoice({
+    stored,
+    storedSuggestion,
+    isNewCat,
+    catId: cat.id,
+    pickedFrom: body.pickedFrom ?? null,
+    openedPicker: body.openedPicker === true,
+  });
+  try {
+    await db
+      .insert(sightingMatchesTable)
+      .values({ sightingId, ...label })
+      .onConflictDoUpdate({
+        target: sightingMatchesTable.sightingId,
+        set: label,
+      });
+  } catch (err) {
+    req.log.error({ err, sightingId }, "Could not label the match record");
+  }
 
   // Notification fan-out is best-effort and deliberately happens only after
   // the core resolve writes have committed.

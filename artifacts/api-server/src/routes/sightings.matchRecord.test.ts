@@ -418,6 +418,34 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
   });
 });
 
+describe("the record never costs a spotter their sighting", () => {
+  it("if the label can't be written, the resolve still succeeds and awards points", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-label-fails`;
+    const cat = await seedCat(northOf(SEA, 0.1));
+    matcherReturns({ [cat]: 0.9 });
+    const sub = await submit(device, SEA);
+
+    const realInsert = db.insert.bind(db);
+    const spy = vi.spyOn(db, "insert").mockImplementation(((table: unknown) => {
+      if (table === sightingMatchesTable) throw new Error("table unavailable");
+      return realInsert(table as never);
+    }) as typeof db.insert);
+    try {
+      const res = await resolve(sub.body.sightingId, device, { catId: cat });
+      expect(res.status).toBe(200);
+      expect(res.body.pointsAwarded).toBeGreaterThan(0);
+    } finally {
+      spy.mockRestore();
+    }
+    const [s] = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sub.body.sightingId));
+    expect(s!.status).toBe("resolved");
+  });
+});
+
 describe("nothing about the record reaches a spotter", () => {
   it("test 3: suggested, matcher-miss and distance-miss picks get responses of the same shape", async () => {
     const SEA = spot();
