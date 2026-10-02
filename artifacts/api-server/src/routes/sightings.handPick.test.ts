@@ -330,10 +330,15 @@ describe("NAME_TAKEN says which cat has the name (spec §3.1, §9)", () => {
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("NAME_TAKEN");
+    // SYC-98: photo links use the photo's unguessable public id.
+    const [photo] = await db
+      .select({ publicId: photosTable.publicId })
+      .from(photosTable)
+      .where(eq(photosTable.id, cat.photoId));
     expect(res.body.cat).toEqual({
       id: cat.id,
       name: row!.name,
-      photoUrl: `/api/photos/${cat.photoId}`,
+      photoUrl: `/api/photos/${photo!.publicId}`,
     });
   });
 });
