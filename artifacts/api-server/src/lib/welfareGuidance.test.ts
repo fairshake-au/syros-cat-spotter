@@ -43,11 +43,14 @@ import {
  *   paragraph added, from Susan's standard reply.
  * - 2026-10-01 el, fr: re-pinned for the same edit; the new paragraph is a
  *   Fair Shake draft, not yet native-check approved (SYC-172, SYC-4).
+ * - 2026-10-02 fr: re-pinned. Samuel 2 Oct 2026: register change to tu, no
+ *   change of meaning. Still a draft, not yet native-check approved
+ *   (SYC-154, SYC-172); safety-copy-translations.md §3 updated first.
  */
 const URGENT_BLOCK_SHA256: Record<GuidanceLanguage, string> = {
   en: "d62719b9b755cf5359f3a5225afb11a5e008dfb8d38bc7d595bd845a9b9c9e76",
   el: "024b8609a73086ffbb59874e24fdb26f098451e153fa73db5c8ee77f28b80bde",
-  fr: "18ce3591a2079d6075d7f90a2e77263d59dd53ec4de282a3ad9aa8a6027684ae",
+  fr: "c280ffaf842c6dd07f5e147c8111be710d06e36be48bda5744945cd0e2e002fa",
 };
 
 function sha256(text: string): string {
