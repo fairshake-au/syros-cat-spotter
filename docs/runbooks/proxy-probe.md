@@ -81,11 +81,18 @@ a curl Claude types with the value in it.
 
 ## Reading the two lines
 
+Check the rows in order — they're written so each only applies once the
+ones above it are ruled out. In particular, always check
+`ip_matches_xff_first` on the spoofed-XFF probe **before** reading
+`ip_kind=public` as "all good": a spoofed, public-looking address also
+produces `ip_kind=public`, and only `ip_matches_xff_first=true` tells you
+it was believed rather than ignored.
+
 | Spoofed-XFF probe shows | No-XFF probe shows | Means | Fix |
 |---|---|---|---|
+| `ip_matches_xff_first=true` | — | Too many hops trusted — the spoofed `X-Forwarded-For` value is being believed as the client address, regardless of what `ip_kind` says | Lower the `trust proxy` count and re-run the probe |
+| `ip_kind=private` or `ip_kind=loopback` (and not matched above) | same | Too few hops trusted — `req.ip` is resolving to a Replit-internal address, not the visitor | Raise the `trust proxy` count by the difference and re-run the probe |
 | `ip_kind=public`, `ip_matches_xff_first=false` | `ip_kind=public` | `trust proxy: 1` is correct — Replit's one real hop is trusted, the spoofed value is ignored | None. Tick the DEPLOYMENT.md §C box. |
-| `ip_kind=private` or `ip_kind=loopback` | same | Too few hops trusted — `req.ip` is resolving to a Replit-internal address, not the visitor | Raise the `trust proxy` count by the difference and re-run the probe |
-| `ip_matches_xff_first=true` (on the spoofed-XFF probe) | — | Too many hops trusted — a visitor-supplied value is being believed as the client address | Lower the `trust proxy` count and re-run the probe |
 | `xff_hops=0` on both probes | | Replit isn't forwarding `X-Forwarded-For` at all, or the deployment is unreachable without a pre-launch pass | Check the deployment's logs directly before touching `trust proxy` |
 
 If a fix is needed, change the number in `app.set("trust proxy", <n>)`
