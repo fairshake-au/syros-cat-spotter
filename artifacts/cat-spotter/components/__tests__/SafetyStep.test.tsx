@@ -71,7 +71,8 @@ const SAFETY_KEYS = [
 const MUST_SAY: Record<Language, string[]> = {
   en: ['Look, don\'t touch.', 'Keep a step or two back', 'leave them be'],
   el: ['Κοίτα, μην αγγίζεις.', 'Κράτα ένα-δυο βήματα απόσταση', 'άσε τες ήσυχες'],
-  fr: ['Regardez, ne touchez pas.', 'Restez à un pas ou deux', 'laissez-les tranquilles'],
+  // Samuel, 2 Oct 2026: French uses tu throughout the app.
+  fr: ['Regarde, ne touche pas.', 'Reste à un pas ou deux', 'laisse-les tranquilles'],
 };
 
 afterEach(() => {

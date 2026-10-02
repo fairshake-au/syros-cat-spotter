@@ -73,6 +73,8 @@ const FORBIDDEN: Record<GuidanceLanguage, string[]> = {
   fr: [
     "de permanence", "de garde", "quelqu'un arrive", "quelqu'un va venir",
     "nous viendrons", "on viendra", "alerté", "prévenu", "surveill", "en route",
+    // tu forms (Samuel, 2 Oct 2026: French uses tu throughout the app)
+    "on te contacte", "nous te contacterons", "te recontact", "on te rappelle", "on vient te",
   ],
 };
 
@@ -90,7 +92,7 @@ const AFTER_HOURS = ["697 005 5012", "6970055012", "6937 252802", "6937252802"];
 const MARKERS: Record<GuidanceLanguage, { cage: string; handling: string; wontGoIn: string }> = {
   en: { cage: "will lend you a carrying cage", handling: "drop a towel, a jumper", wontGoIn: "If the cat will not go in." },
   el: { cage: "θα σου δανείσουν κλουβί μεταφοράς", handling: "ρίξε μια πετσέτα, ένα φούτερ", wontGoIn: "Αν η γάτα δεν μπαίνει με τίποτα." },
-  fr: { cage: "vous prêteront une cage de transport", handling: "laissez tomber une serviette", wontGoIn: "Si le chat refuse d'entrer." },
+  fr: { cage: "te prêteront une cage de transport", handling: "laisse tomber une serviette", wontGoIn: "Si le chat refuse d'entrer." },
 };
 
 // ── The translations document is the source for the Greek and French block ──
@@ -184,7 +186,7 @@ describe("the urgent block, in every language (review fix 5; tests 21–22)", ()
         {
           en: "If this cat is badly hurt, please take it to a local vet if you can.",
           el: "Αν αυτή η γάτα είναι σοβαρά τραυματισμένη, πήγαινέ την σε έναν κτηνίατρο εδώ, αν μπορείς.",
-          fr: "Si ce chat est gravement blessé, emmenez-le chez un vétérinaire local si vous le pouvez.",
+          fr: "Si ce chat est gravement blessé, emmène-le chez un vétérinaire local si tu le peux.",
         }[lang],
       );
       expect(getGuidance(lang).copy.urgent).not.toHaveProperty("send");
@@ -219,7 +221,7 @@ describe("the approved capacity paragraph (Samuel, 1 Oct 2026)", () => {
 
   it("the block no longer says 'Send this' anywhere, in any language", () => {
     for (const lang of GUIDANCE_LANGUAGES) {
-      expect(urgentBlockCanonical(getGuidance(lang).copy)).not.toMatch(/Send this|Στείλ' το|Envoyez-le\./);
+      expect(urgentBlockCanonical(getGuidance(lang).copy)).not.toMatch(/Send this|Στείλ' το|Envoyez-le\.|Envoie-le\./);
     }
   });
 });
@@ -337,6 +339,12 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10; review fix 6)"
       // It never repeats the "don't move them" instruction.
       expect(getGuidance(lang).copy.litter.paragraphs.join(" "), lang).not.toContain(line);
     }
+  });
+
+  it("French uses tu throughout, every block (Samuel, 2 Oct 2026)", () => {
+    const text = allCopyStrings(getGuidance("fr").copy).join("\n");
+    expect(text).not.toMatch(/(^|[^\p{L}])(vous|votre|vos)([^\p{L}]|$)/iu);
+    expect(text).not.toMatch(/(^|[^\p{L}])(appelez|dites|demandez|emmenez|laissez|placez|ouvrez|reculez|attendez|fermez|couvrez|partez|posez|allez|donnez|essayez|soulevez|mettez|prévenez|envoyez|sachez|déplacez|attirez)([^\p{L}]|$)/iu);
   });
 
   it("the confirmation screen has no 'if an email was given' line (Decision 4)", () => {

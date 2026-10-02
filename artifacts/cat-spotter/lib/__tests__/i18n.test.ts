@@ -7,7 +7,15 @@ function placeholders(value: string): string[] {
   return [...new Set(value.match(/\{[^{}]+\}/g) ?? [])].sort();
 }
 
+/** Vouvoiement markers: vous/votre/vos, and the -ez imperatives the app used. */
+const VOUS = /(^|[^\p{L}])(vous|votre|vos|veuillez|essayez|réessayez|activez|confirmez|choisissez|vérifiez|indiquez|repérez|enregistrez|découvrez|gagnez|soyez|donnez|utilisez|appuyez|déplacez|regardez|touchez|restez|laissez|photographiez|admirez)([^\p{L}]|$)/iu;
+
 describe('i18n dictionaries', () => {
+  it('French uses tu throughout the app (Samuel, 2 Oct 2026)', () => {
+    const vous = Object.entries(TRANSLATIONS.fr).filter(([, v]) => VOUS.test(v));
+    expect(vous.map(([k, v]) => `${k}: ${v}`)).toEqual([]);
+  });
+
   it('has a dictionary for every declared language', () => {
     expect(LANG_CODES.sort()).toEqual(LANGUAGES.map((l) => l.code).sort());
   });
