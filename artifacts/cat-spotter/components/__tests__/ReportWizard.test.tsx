@@ -157,6 +157,11 @@ describe('ReportWizard', () => {
     expect(w.onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('S3: the note box stops at 4000 characters, the server\'s cap', () => {
+    const w = setup({ initial: { ...INITIAL_FLOW, step: 2, coords: here } });
+    expect(w.getByTestId('report-note').getAttribute('maxlength')).toBe('4000');
+  });
+
   it('writes the draft once location and severity are both set (spec §4.2)', () => {
     vi.useFakeTimers();
     try {

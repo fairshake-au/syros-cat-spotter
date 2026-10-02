@@ -198,6 +198,20 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
     expect(queued).toContain(g.copy.confirmation.offline);
   });
 
+  it('S3: a refused report offers Try again, and the words claim no automatic retry', () => {
+    const onRetry = vi.fn();
+    const g = getGuidance('en');
+    const { getByText, container } = render(
+      <ReportConfirmation state="failed" guidance={g} onDone={() => {}} onRetry={onRetry} />,
+    );
+    fireEvent.click(getByText(TRANSLATIONS.en.reportTryAgain));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    for (const code of LANGS) {
+      expect(TRANSLATIONS[code].reportFailed.toLowerCase()).not.toMatch(/automatic|later|αργότερα|plus tard/);
+    }
+    expect(container.textContent).toContain(TRANSLATIONS.en.reportFailed);
+  });
+
   it('never says somebody is coming, and the i18n strings around it agree', () => {
     for (const code of LANGS) {
       for (const key of ['reportSending', 'reportFailed', 'reportDone']) {

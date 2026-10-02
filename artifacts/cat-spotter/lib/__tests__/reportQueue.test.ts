@@ -12,6 +12,7 @@ import {
   REMINDER_AFTER_MS,
   confirmationState,
   dueReminders,
+  requeueFailed,
   isPendingReport,
   newPendingReport,
   syncReports,
@@ -198,6 +199,23 @@ describe('dueReminders (item 1.13, test 25)', () => {
     expect(dueReminders([r], after).map((x) => x.localId)).toEqual([r.localId]);
     const reminded = { ...r, remindedAt: after.toISOString() };
     expect(dueReminders([reminded], new Date(after.getTime() + 86_400_000))).toEqual([]);
+  });
+
+  it('S3 (review of #55): a report the server refused (failed) is reminded about too, once', () => {
+    const r = report({ createdAt: '2026-09-01T00:00:00Z', status: 'failed', serverFailures: 3 });
+    expect(dueReminders([r], new Date('2026-10-01T00:00:00Z')).map((x) => x.localId)).toEqual([r.localId]);
+    expect(dueReminders([{ ...r, remindedAt: '2026-10-01T00:00:00Z' }], new Date('2026-10-02T00:00:00Z'))).toEqual([]);
+  });
+
+  it('S3: Try again puts failed reports back in the queue with a fresh count, and leaves others alone', () => {
+    const failed = report({ status: 'failed', serverFailures: 3 });
+    const queued = report({ status: 'queued', serverFailures: 1 });
+    const out = requeueFailed([failed, queued]);
+    expect(out[0]).toMatchObject({ localId: failed.localId, status: 'queued', serverFailures: 0 });
+    expect(out[1]).toBe(queued);
+    // Nothing failed: the same list back, so the store skips the write.
+    const none = [queued];
+    expect(requeueFailed(none)).toBe(none);
   });
 
   it('a report whose text was accepted (waiting only on its photo) gets no reminder', () => {
