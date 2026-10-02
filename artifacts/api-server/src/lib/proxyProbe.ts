@@ -133,8 +133,18 @@ function parseXffEntries(req: Request): string[] {
  * the single lookup, and no header is ever inspected further).
  *
  * Logs exactly one structured line, with no raw IP in it:
- *   proxy-probe: ips=<n> ip_kind=<public|private|loopback|unknown>
+ *   proxy-probe: ip_kind=<public|private|loopback|unknown>
  *     ip_matches_xff_first=<bool> ip_matches_xff_last=<bool> xff_hops=<n>
+ *
+ * There is no "number of trusted hops" field: `req.ips` is not it. Under a
+ * numeric `trust proxy` setting, proxy-addr's scan stops at the first
+ * untrusted address, so `req.ips.length` is structurally capped at 0 (no
+ * X-Forwarded-For) or 1 (any X-Forwarded-For) regardless of how many real
+ * proxy hops exist upstream — it reads the same whether there's truly 1 hop
+ * or 3 still-under-trusted hops, so it can't diagnose "too few hops" and
+ * was dropped rather than published as a misleading count. `xff_hops` (the
+ * raw X-Forwarded-For entry count) is the field that actually reflects the
+ * real chain length, for exactly that reason.
  */
 export function runProxyProbe(req: Request, logger: Logger): void {
   const expected = process.env.PROXY_PROBE_TOKEN;
@@ -145,12 +155,10 @@ export function runProxyProbe(req: Request, logger: Logger): void {
   if (!tokenMatches(providedValue, expected)) return;
 
   const ip = req.ip ?? "";
-  const ips = req.ips ?? [];
   const xffEntries = parseXffEntries(req);
 
   logger.info(
     {
-      ips: ips.length,
       ip_kind: classifyIp(ip),
       ip_matches_xff_first: xffEntries.length > 0 && xffEntries[0] === ip,
       ip_matches_xff_last: xffEntries.length > 0 && xffEntries[xffEntries.length - 1] === ip,

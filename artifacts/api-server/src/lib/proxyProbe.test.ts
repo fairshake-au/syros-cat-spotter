@@ -152,11 +152,13 @@ describe("runProxyProbe", () => {
     expect(lines).toHaveLength(1);
     const parsed = JSON.parse(lines[0]!);
     expect(parsed.msg).toBe("proxy-probe");
-    expect(parsed.ips).toBe(2);
     expect(parsed.ip_kind).toBe("public");
     expect(parsed.ip_matches_xff_first).toBe(false);
     expect(parsed.ip_matches_xff_last).toBe(true);
     expect(parsed.xff_hops).toBe(2);
+    // No "ips"/hop-count field — req.ips.length is capped at 0/1 under a
+    // numeric trust proxy setting and can't reveal the real hop count.
+    expect(parsed.ips).toBeUndefined();
 
     const serialised = lines[0]!;
     expect(serialised).not.toMatch(DOTTED_QUAD);

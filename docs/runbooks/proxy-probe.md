@@ -26,17 +26,22 @@ route behaves exactly as it does today.
 A matching request logs exactly one line, and never a raw IP:
 
 ```
-proxy-probe: ips=<n> ip_kind=<public|private|loopback|unknown> ip_matches_xff_first=<bool> ip_matches_xff_last=<bool> xff_hops=<n>
+proxy-probe: ip_kind=<public|private|loopback|unknown> ip_matches_xff_first=<bool> ip_matches_xff_last=<bool> xff_hops=<n>
 ```
 
-- `ips` — the length of Express's `req.ips` (how many hops `trust proxy`
-  currently resolves).
 - `ip_kind` — what `req.ip` (the address Express decided is the client)
   looks like: a RFC1918/CGNAT/link-local/loopback address, or `public`.
 - `ip_matches_xff_first` / `ip_matches_xff_last` — whether `req.ip` equals
   the first or last entry of the `X-Forwarded-For` header, without ever
   printing either value.
 - `xff_hops` — how many comma-separated entries were in `X-Forwarded-For`.
+  This is the field that reflects the real chain length. (There is
+  deliberately no `req.ips`-derived field: under a numeric `trust proxy`
+  setting, `proxy-addr`'s scan stops at the first untrusted address, so
+  `req.ips.length` is structurally capped at 0 or 1 no matter how many real
+  proxy hops exist upstream — it reads `1` whether there's truly one hop or
+  three still-under-trusted ones, so it can't diagnose "too few hops" and
+  was left out rather than published as a count it isn't.)
 
 ## Running the check
 

@@ -69,11 +69,12 @@ describe("GET /api/healthz proxy probe (SYC-100)", () => {
     const lines = proxyProbeLines();
     expect(lines).toHaveLength(1);
     const entry = lines[0]!;
-    expect(typeof entry.ips).toBe("number");
     expect(["public", "private", "loopback", "unknown"]).toContain(entry.ip_kind);
     expect(typeof entry.ip_matches_xff_first).toBe("boolean");
     expect(typeof entry.ip_matches_xff_last).toBe("boolean");
     expect(typeof entry.xff_hops).toBe("number");
+    // No "ips"/hop-count field — see proxyProbe.ts for why it was dropped.
+    expect(entry.ips).toBeUndefined();
 
     for (const line of spies.logLines) {
       expect(line).not.toMatch(DOTTED_QUAD);
