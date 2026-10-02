@@ -83,7 +83,13 @@ export type GuidanceCopy = {
     capacity: string;
   };
   attention: { review: ReviewState; heading: string; paragraphs: string[] };
-  litter: { review: ReviewState; heading: string; paragraphs: string[] };
+  litter: {
+    review: ReviewState;
+    heading: string;
+    /** Kittens + Urgent (Samuel, 2 Oct 2026): the urgent advice wins; this one line instead. */
+    withUrgent: string;
+    paragraphs: string[];
+  };
   confirmation: {
     review: ReviewState;
     sentHeading: string;

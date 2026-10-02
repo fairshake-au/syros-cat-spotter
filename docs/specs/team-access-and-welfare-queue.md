@@ -493,6 +493,10 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 *The donation ask does not appear here.* Somebody crouched over a cardboard box is not being asked for money. The ask moves to the acknowledgement email, where it reads as gratitude rather than as a toll.
 
+*Samuel, 2 Oct 2026: with Urgent, the urgent advice wins; kittens message only with Needs attention.* When kittens is ticked and the report is Urgent, the message above does not appear; instead, one line sits just above the urgent advice (outside its locked block):
+
+> If a kitten is hurt, the advice below applies to it.
+
 #### (e) The confirmation screen, immediately after any report
 
 > ### Sent. Syros Cats have this.

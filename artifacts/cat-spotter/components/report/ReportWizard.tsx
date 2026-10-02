@@ -225,7 +225,9 @@ export function ReportWizard({
                 <Feather name={flow.isLitter ? 'check-square' : 'square'} size={22} color={colors.primary} />
                 <Text style={[styles.checkLabel, { color: colors.foreground }]}>{t('reportLitter')}</Text>
               </Pressable>
-              {flow.isLitter && <LitterAdvice guidance={guidance} />}
+              {/* Kittens + Urgent (Samuel, 2 Oct 2026): the urgent advice wins,
+                  so "please don't move them" shows only with Needs attention. */}
+              {flow.isLitter && flow.severity === 'attention' && <LitterAdvice guidance={guidance} />}
 
               <View style={styles.noteBlock}>
                 <Text style={[styles.noteTitle, { color: colors.foreground }]}>{t('reportNoteTitle')}</Text>
@@ -246,7 +248,14 @@ export function ReportWizard({
 
           {flow.step === 3 &&
             (flow.severity === 'urgent' ? (
-              <UrgentAdvice guidance={guidance} />
+              <>
+                {flow.isLitter && (
+                  <Text style={[styles.kittenLine, { color: colors.foreground }]} testID="report-kitten-urgent">
+                    {guidance.copy.litter.withUrgent}
+                  </Text>
+                )}
+                <UrgentAdvice guidance={guidance} />
+              </>
             ) : (
               <AttentionAdvice guidance={guidance} />
             ))}
@@ -292,6 +301,7 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.displayBold, fontSize: 18, flex: 1 },
   stepOf: { fontFamily: fonts.bodySemiBold, fontSize: 13 },
+  kittenLine: { fontFamily: fonts.bodySemiBold, fontSize: 15, lineHeight: 22 },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: spacing[4], paddingTop: spacing[2], paddingBottom: spacing[2] },
   column: { flexGrow: 1, width: '100%', maxWidth: 640, alignSelf: 'center', gap: spacing[3] },
