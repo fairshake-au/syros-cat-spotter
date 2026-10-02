@@ -68,10 +68,11 @@ export function ReportWizard({
 
   // Where: the phone's fix, or Ermoupoli if there isn't one; the person moves the pin.
   useEffect(() => {
-    if (flow.coords) return;
-    if (gps.coords) update({ coords: gps.coords });
-    else if (!gps.locating || gps.denied) update({ coords: FALLBACK });
-  }, [gps.coords, gps.locating, gps.denied, flow.coords]);
+    // A fix that arrives late still replaces the untouched fallback pin.
+    if (flow.coords && !(flow.pinIsDefault && gps.coords)) return;
+    if (gps.coords) update({ coords: gps.coords, pinIsDefault: false });
+    else if (!gps.locating || gps.denied) update({ coords: FALLBACK, pinIsDefault: true });
+  }, [gps.coords, gps.locating, gps.denied, flow.coords, flow.pinIsDefault]);
 
   // §4.2: the draft once location and severity are both set. Best effort.
   const draftKey = draftReady(flow)
@@ -153,11 +154,16 @@ export function ReportWizard({
                 </View>
               )}
               <Text style={[styles.hint, { color: colors.mutedForeground }]}>{t('reportWhereHint')}</Text>
+              {flow.pinIsDefault && (
+                <Text style={[styles.hint, { color: colors.foreground, fontFamily: fonts.bodySemiBold }]}>
+                  {t('reportMovePin')}
+                </Text>
+              )}
               {flow.coords ? (
                 <LocationPicker
                   latitude={flow.coords.latitude}
                   longitude={flow.coords.longitude}
-                  onChange={(coords) => update({ coords })}
+                  onChange={(coords) => update({ coords, pinIsDefault: false })}
                   pinColor={colors.accent}
                   style={styles.map}
                 />

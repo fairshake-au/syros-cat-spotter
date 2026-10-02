@@ -24,6 +24,12 @@ export interface ReportFlow {
   severity: ReportSeverity | null;
   isLitter: boolean;
   note: string;
+  /**
+   * The pin is still on the Ermoupoli fallback (no GPS fix). Next waits until
+   * the person moves it, like Spot, which never uses a location nobody chose
+   * (review of #55, S4).
+   */
+  pinIsDefault?: boolean;
 }
 
 export const INITIAL_FLOW: ReportFlow = {
@@ -33,10 +39,11 @@ export const INITIAL_FLOW: ReportFlow = {
   severity: null,
   isLitter: false,
   note: '',
+  pinIsDefault: false,
 };
 
 export function canAdvance(flow: ReportFlow): boolean {
-  if (flow.step === 1) return flow.coords !== null;
+  if (flow.step === 1) return flow.coords !== null && !flow.pinIsDefault;
   if (flow.step === 2) return flow.severity !== null;
   return false;
 }
@@ -53,7 +60,7 @@ export function flowBack(flow: ReportFlow): ReportFlow {
 
 /** Spec §4.2: the draft is written once severity and location are both set. */
 export function draftReady(flow: ReportFlow): boolean {
-  return flow.coords !== null && flow.severity !== null;
+  return flow.coords !== null && !flow.pinIsDefault && flow.severity !== null;
 }
 
 /**
