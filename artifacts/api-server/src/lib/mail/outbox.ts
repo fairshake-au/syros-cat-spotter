@@ -6,7 +6,7 @@ import {
   type MailOutboxRow,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
-import { logger } from "../logger";
+import { logger, safeError } from "../logger";
 import { buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
 import { hashRecipient, sendMail } from "./send";
 
@@ -192,7 +192,8 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
     await markSent(row, result.providerMessageId, { ...payload, kind, photoIncluded: Boolean(photo) });
     return "sent";
   } catch (err) {
-    await markRetry(row, String(err)).catch(() => undefined);
+    // Name and codes only: a database error message carries query params (review S1).
+    await markRetry(row, JSON.stringify(safeError(err))).catch(() => undefined);
     return "retry";
   }
 }
