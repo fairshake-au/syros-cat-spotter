@@ -14,6 +14,7 @@ import {
 import { and, desc, eq, sql } from "drizzle-orm";
 import { requireDeviceAuth } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
+import { writeObservation } from "../lib/observations";
 
 const router: IRouter = Router();
 
@@ -38,10 +39,45 @@ router.post("/cats/:catId/updates", async (req, res) => {
     return;
   }
 
-  const update = await createUpdateAndFanOut({
-    cat,
-    updateType: body.updateType,
-    message: body.message,
+  // C13 / D7: the old shared-password admin route is kept as insurance
+  // until PR 8 and a SYC-43 screen can record sterilisation and adoption
+  // (production has never actually used it — no desexed/adopted rows on 2
+  // Oct). `desexed` also writes `sterilised: true`, and `adopted` writes
+  // `life_status: homed`, both authored `system:admin-route` with
+  // `observedAt` set to the new cat_updates row's `created_at` so PR 3's
+  // backfill can recognise and skip them later.
+  const observedAt = new Date();
+  const update = await db.transaction(async (tx) => {
+    const u = await createUpdateAndFanOut({
+      cat,
+      updateType: body.updateType,
+      message: body.message,
+      tx,
+    });
+    if (body.updateType === "desexed") {
+      await writeObservation(tx, {
+        catId: cat.id,
+        kind: "sterilised",
+        value: { sterilised: true },
+        accountId: "system:admin-route",
+        roleAtTime: "staff",
+        authorityScope: "none",
+        provenance: "volunteered",
+        observedAt: u.createdAt ?? observedAt,
+      });
+    } else if (body.updateType === "adopted") {
+      await writeObservation(tx, {
+        catId: cat.id,
+        kind: "life_status",
+        value: { status: "homed" },
+        accountId: "system:admin-route",
+        roleAtTime: "staff",
+        authorityScope: "none",
+        provenance: "volunteered",
+        observedAt: u.createdAt ?? observedAt,
+      });
+    }
+    return u;
   });
 
   res.status(201).json({

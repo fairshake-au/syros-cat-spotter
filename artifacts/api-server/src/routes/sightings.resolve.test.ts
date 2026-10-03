@@ -10,6 +10,7 @@ import {
   catSubscriptionsTable,
   catUpdatesTable,
   notificationsTable,
+  observationsTable,
 } from "@workspace/db";
 import { eq, like, ilike, inArray, sql } from "drizzle-orm";
 
@@ -122,11 +123,13 @@ afterAll(async () => {
 });
 
 describe("POST /api/sightings/:sightingId/resolve", () => {
-  it("rejects a differently-cased duplicate name and leaves the sighting pending", async () => {
+  it("rejects a differently-cased duplicate name and leaves the sighting pending, writing no observation", async () => {
     const device = `${DEVICE}-duplicate`;
     const existingName = `${CAT_PREFIX}-CaseGuard`;
     await seedCat(existingName);
     const sightingId = await insertSighting(device);
+
+    const before = await db.select().from(observationsTable);
 
     const res = await request(app)
       .post(`/api/sightings/${sightingId}/resolve`)
@@ -142,6 +145,11 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .where(eq(sightingsTable.id, sightingId));
     expect(sighting!.status).toBe("pending");
     expect(sighting!.catId).toBeNull();
+
+    // A refused resolve (no new cat created) writes no observation at all —
+    // naming happens only inside the same transaction as the cat insert.
+    const after = await db.select().from(observationsTable);
+    expect(after.length).toBe(before.length);
   });
 
   it("creates exactly one cat when two sightings concurrently claim the same name", async () => {
@@ -232,6 +240,29 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .from(catsTable)
       .where(eq(catsTable.id, res.body.cat.id));
     expect(cat!.discovererDeviceId).toBe(device);
+
+    // data-spine.md PR 2: naming a new cat on resolve writes a name
+    // observation, dated at the sighting's own capture time, so no later
+    // rename destroys it.
+    const named = await db
+      .select()
+      .from(observationsTable)
+      .where(
+        sql`${observationsTable.catId} = ${res.body.cat.id} and ${observationsTable.kind} = 'name'`,
+      );
+    expect(named).toHaveLength(1);
+    expect(named[0]).toMatchObject({
+      deviceId: device,
+      roleAtTime: "public",
+      value: { name },
+    });
+    const [sighting] = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sightingId));
+    expect(named[0]!.observedAt.toISOString()).toBe(
+      sighting!.createdAt.toISOString(),
+    );
   });
 
   it("returns newly earned badges in the response", async () => {
