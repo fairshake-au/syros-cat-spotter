@@ -57,6 +57,9 @@ type Candidate = {
 
 const router: IRouter = Router();
 
+/** Thrown inside the resolve transaction when another resolve got there first. */
+const ALREADY_RESOLVED = new Error("Sighting already resolved");
+
 async function catNamed(name: string) {
   const [cat] = await db
     .select({
@@ -133,8 +136,11 @@ async function computeMatchCandidates(
     const result = await matchCatPhoto(photoBase64, candidateInputs);
     isCatPhoto = result.isCatPhoto;
     const byId = new Map(nearest.map((cat) => [cat.id, cat]));
+    // Only a cat the matcher was actually sent can be suggested (review F5):
+    // a nearby cat whose photo row is gone was never compared.
+    const sent = new Set(candidateInputs.map((c) => c.catId));
     const ranked = result.matches
-      .filter((m) => byId.has(m.catId) && m.confidence >= 0.1)
+      .filter((m) => sent.has(m.catId) && m.confidence >= 0.1)
       .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
       .slice(0, 3);
     // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
@@ -167,7 +173,9 @@ async function computeMatchCandidates(
   }
 
   await recordMatch(req, sightingId, {
-    comparedCatIds: candidateInputs.map((c) => c.catId),
+    // A failed call scored nothing, so nothing counts as compared (review
+    // F1): a hand pick on it is then a distance miss, never a matcher miss.
+    comparedCatIds: matcherFailed ? [] : candidateInputs.map((c) => c.catId),
     suggested: candidates.map((c, i) => ({
       catId: c.catId,
       rank: i + 1,
@@ -330,6 +338,14 @@ router.post("/sightings", aiLimiter, async (req, res) => {
           existing.lng,
         )
       : { isCatPhoto: true, candidates: [] };
+    if (!existingPhoto) {
+      // SYC-151 (review F4): store the empty set the phone is shown now.
+      await recordMatch(req, existing.id, {
+        comparedCatIds: [],
+        suggested: [],
+        matcherFailed: false,
+      });
+    }
     res.status(201).json({ sightingId: existing.id, isCatPhoto, candidates });
     return;
   }
@@ -480,10 +496,20 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
           .returning();
       }
 
-      await tx
+      // Only a pending sighting resolves (review F6): two resolves sent at
+      // once used to both succeed and award points twice. The loser's
+      // transaction rolls back, a new cat included.
+      const updated = await tx
         .update(sightingsTable)
         .set({ catId: cat!.id, status: "resolved" })
-        .where(eq(sightingsTable.id, sightingId));
+        .where(
+          and(
+            eq(sightingsTable.id, sightingId),
+            eq(sightingsTable.status, "pending"),
+          ),
+        )
+        .returning({ id: sightingsTable.id });
+      if (updated.length === 0) throw ALREADY_RESOLVED;
 
       await tx
         .insert(profilesTable)
@@ -501,6 +527,10 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       return { cat: cat!, pointsAwarded, isNewCat };
     });
   } catch (err: any) {
+    if (err === ALREADY_RESOLVED) {
+      res.status(409).json({ error: "Sighting already resolved" });
+      return;
+    }
     // Unique-index violation from a concurrent submission of the same name.
     if (err?.code === "23505" || err?.cause?.code === "23505") {
       res.status(409).json(await nameTakenBody(await catNamed(newCatName!)));
@@ -530,6 +560,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       .onConflictDoUpdate({
         target: sightingMatchesTable.sightingId,
         set: label,
+        // A label is written once (review F6).
+        setWhere: isNull(sightingMatchesTable.chosenAt),
       });
   } catch (err) {
     req.log.error({ err, sightingId }, "Could not label the match record");

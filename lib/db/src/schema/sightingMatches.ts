@@ -64,6 +64,11 @@ export const sightingMatchesTable = pgTable(
     pickedFrom: text("picked_from"),
     missKind: text("miss_kind"),
     openedPicker: boolean("opened_picker"),
+    // With a new cat: was a colour filter on in the picker when the spotter
+    // chose new (spec §4.6)? A choice from a filtered list is weaker evidence
+    // the cat is new. Set by SYC-119 Slice C once the filter exists; null
+    // until then.
+    colourFilterOn: boolean("colour_filter_on"),
     chosenAt: timestamp("chosen_at", { withTimezone: true }),
   },
   (t) => [

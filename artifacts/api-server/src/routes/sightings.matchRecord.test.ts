@@ -7,7 +7,7 @@
  * Every test works far out at sea, so no cat seeded by another test file is
  * ever within 500 m and the compared set is exactly what this file seeds.
  */
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import {
   db,
@@ -28,6 +28,13 @@ const { matchCatPhoto } = vi.hoisted(() => ({
   matchCatPhoto: vi.fn(async () => ({ isCatPhoto: true, matches: [] as unknown[] })),
 }));
 vi.mock("../lib/matching", () => ({ matchCatPhoto }));
+// This file uploads more than the 20-per-IP AI budget allows (the budget has
+// its own tests in rateLimit.test.ts), so here the upload limit lets
+// everything through.
+vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../middlewares/rateLimit")>()),
+  aiLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 
 import app from "../app";
 
@@ -105,8 +112,9 @@ async function seedCat(at: LatLng): Promise<number> {
 }
 
 let tick = 0;
-function submit(device: string, at: LatLng, capturedAt?: string) {
-  return request(app)
+/** Upload a photo; fails the test loudly if the upload itself is refused. */
+async function submit(device: string, at: LatLng, capturedAt?: string) {
+  const res = await request(app)
     .post("/api/sightings")
     .set("X-Device-Secret", SECRET)
     .send({
@@ -117,6 +125,8 @@ function submit(device: string, at: LatLng, capturedAt?: string) {
       capturedAt:
         capturedAt ?? new Date(Date.now() - 120_000 + ++tick * 1000).toISOString(),
     });
+  expect(res.status, `upload refused: ${JSON.stringify(res.body)}`).toBe(201);
+  return res;
 }
 
 function resolve(sightingId: number, device: string, body: object) {
@@ -193,6 +203,11 @@ async function cleanup() {
 }
 
 beforeAll(cleanup);
+// Review F8: a queued matcher result must never leak into the next test.
+beforeEach(() => {
+  matchCatPhoto.mockReset();
+  matchCatPhoto.mockImplementation(async () => ({ isCatPhoto: true, matches: [] }));
+});
 afterAll(async () => {
   await cleanup();
   await pool.end();
@@ -237,7 +252,9 @@ describe("the match record is written when matching runs", () => {
     expect(res.body.candidates).toEqual([]);
 
     const row = await record(res.body.sightingId);
-    expect(row!.comparedCatIds).toContain(a);
+    // Nothing was scored, so nothing counts as compared (review F1).
+    expect(row!.comparedCatIds).toEqual([]);
+    expect(a).toBeGreaterThan(0);
     expect(row!.suggested).toEqual([]);
     expect(row!.matcherFailed).toBe(true);
   });
@@ -299,7 +316,9 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
     const s2 = await submit(device, SEA);
 
     // A hand pick, sent without pickedFrom, as a modified app might.
-    await resolve(s1.body.sightingId, device, { catId: notSuggested });
+    expect(
+      (await resolve(s1.body.sightingId, device, { catId: notSuggested })).status,
+    ).toBe(200);
     expect((await record(s1.body.sightingId))!.choice).toBe("hand_pick");
 
     // A suggested cat, sent claiming it came from search.
@@ -415,6 +434,104 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
       comparedCatIds: null,
       suggested: null,
     });
+  });
+});
+
+describe("review findings (adversarial review of #59)", () => {
+  it("F1: when the matcher fails, a hand pick is not a matcher miss, because nothing was scored", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-f1`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    matchCatPhoto.mockImplementationOnce(async () => {
+      throw new Error("model down");
+    });
+    const sub = await submit(device, SEA);
+    const res = await resolve(sub.body.sightingId, device, { catId: a, pickedFrom: "nearby" });
+    expect(res.status).toBe(200);
+    const row = await record(sub.body.sightingId);
+    expect(row!.matcherFailed).toBe(true);
+    expect(row!.comparedCatIds).toEqual([]);
+    expect(row).toMatchObject({ choice: "hand_pick", missKind: "distance_miss" });
+  });
+
+  it("F2: a dedupe re-submit after the choice never rewrites the sets behind the label", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-f2`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const b = await seedCat(northOf(SEA, 0.2));
+    const capturedAt = new Date(Date.now() - 80_000).toISOString();
+    matcherReturns({ [a]: 0.9 });
+    const first = await submit(device, SEA, capturedAt);
+    expect((await resolve(first.body.sightingId, device, { catId: a })).status).toBe(200);
+    const before = await record(first.body.sightingId);
+
+    matcherReturns({ [b]: 0.8 });
+    const again = await submit(device, SEA, capturedAt);
+    expect(again.body.sightingId).toBe(first.body.sightingId);
+
+    const after = await record(first.body.sightingId);
+    expect(after!.suggested).toEqual(before!.suggested);
+    expect(after!.comparedCatIds).toEqual(before!.comparedCatIds);
+    expect(after!.choice).toBe("suggested");
+  });
+
+  it("F4: a dedupe hit whose photo has gone records the empty set it returned", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-f4`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const capturedAt = new Date(Date.now() - 70_000).toISOString();
+    matcherReturns({ [a]: 0.9 });
+    const first = await submit(device, SEA, capturedAt);
+    const [s] = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, first.body.sightingId));
+    await db.delete(photosTable).where(eq(photosTable.id, s!.photoId));
+
+    const again = await submit(device, SEA, capturedAt);
+    expect(again.body.candidates).toEqual([]);
+    expect((await record(first.body.sightingId))!.suggested).toEqual([]);
+  });
+
+  it("F5: a cat the matcher was never sent (no photo) can't be suggested", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-f5`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const ghost = await seedCat(northOf(SEA, 0.2));
+    const [g] = await db.select().from(catsTable).where(eq(catsTable.id, ghost));
+    await db.delete(photosTable).where(eq(photosTable.id, g!.primaryPhotoId));
+    matcherReturns({ [a]: 0.5, [ghost]: 0.9 });
+
+    const sub = await submit(device, SEA);
+    expect(sub.body.candidates.map((c: { catId: number }) => c.catId)).toEqual([a]);
+    const row = await record(sub.body.sightingId);
+    expect(row!.comparedCatIds).toEqual([a]);
+    expect(row!.suggested!.map((x) => x.catId)).toEqual([a]);
+  });
+
+  it("F6: two resolves sent at once: exactly one wins, points are awarded once, and the label matches", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-f6`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const b = await seedCat(northOf(SEA, 0.2));
+    matcherReturns({ [a]: 0.9, [b]: 0.6 });
+    const sub = await submit(device, SEA);
+
+    const results = await Promise.all([
+      resolve(sub.body.sightingId, device, { catId: a }),
+      resolve(sub.body.sightingId, device, { catId: b }),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    const [p] = await db
+      .select()
+      .from(profilesTable)
+      .where(eq(profilesTable.deviceId, device));
+    expect(p!.points).toBe(results.find((r) => r.status === 200)!.body.pointsAwarded);
+    const [s] = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sub.body.sightingId));
+    expect((await record(sub.body.sightingId))!.chosenCatId).toBe(s!.catId);
   });
 });
 

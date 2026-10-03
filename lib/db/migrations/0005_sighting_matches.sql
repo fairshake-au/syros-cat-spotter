@@ -10,6 +10,7 @@ CREATE TABLE "sighting_matches" (
 	"picked_from" text,
 	"miss_kind" text,
 	"opened_picker" boolean,
+	"colour_filter_on" boolean,
 	"chosen_at" timestamp with time zone,
 	CONSTRAINT "sighting_matches_choice_ck" CHECK ("sighting_matches"."choice" IS NULL OR "sighting_matches"."choice" IN ('suggested', 'hand_pick', 'new_cat', 'unlabelled')),
 	CONSTRAINT "sighting_matches_picked_from_ck" CHECK ("sighting_matches"."picked_from" IS NULL OR "sighting_matches"."picked_from" IN ('nearby', 'search', 'name_prompt')),

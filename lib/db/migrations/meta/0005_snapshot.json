@@ -1,5 +1,5 @@
 {
-  "id": "215f9ffd-0371-4ad7-b3fc-282fa61a2d13",
+  "id": "fc3dc0c3-beeb-491e-97c9-a92967094096",
   "prevId": "1669f968-d400-44c5-8652-0f012223ddf8",
   "version": "7",
   "dialect": "postgresql",
@@ -1716,6 +1716,12 @@
         },
         "opened_picker": {
           "name": "opened_picker",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "colour_filter_on": {
+          "name": "colour_filter_on",
           "type": "boolean",
           "primaryKey": false,
           "notNull": false
