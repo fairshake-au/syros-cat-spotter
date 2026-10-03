@@ -38,11 +38,21 @@ async function insertPhoto(): Promise<number> {
   return p!.id;
 }
 
-async function insertSighting(deviceId: string): Promise<number> {
+async function insertSighting(
+  deviceId: string,
+  overrides: Partial<typeof sightingsTable.$inferInsert> = {},
+): Promise<number> {
   const photoId = await insertPhoto();
   const [s] = await db
     .insert(sightingsTable)
-    .values({ deviceId, photoId, lat: 37.44, lng: 24.9, status: "pending" })
+    .values({
+      deviceId,
+      photoId,
+      lat: 37.44,
+      lng: 24.9,
+      status: "pending",
+      ...overrides,
+    })
     .returning();
   return s!.id;
 }
@@ -262,6 +272,51 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .where(eq(sightingsTable.id, sightingId));
     expect(named[0]!.observedAt.toISOString()).toBe(
       sighting!.createdAt.toISOString(),
+    );
+  });
+
+  it("resolves a sighting captured 31 days ago to a new cat, clamping its name observation's observedAt", async () => {
+    // Review of PR #66 (SYC-52): the ordinary offline-sync-delay scenario —
+    // spot a cat with no signal, sync days later, resolve some time after
+    // that — can mean a pending sighting's (already-clamped) createdAt sits
+    // more than 30 days before the resolve itself. Naming a new cat on
+    // resolve writes a `name` observation with roleAtTime "public" dated at
+    // the sighting's own createdAt (routes/sightings.ts); before the
+    // writeObservation fix this threw PUBLIC_DATE_TOO_OLD inside the
+    // transaction, surfacing as a bare 500 that lost the whole resolve.
+    const device = `${DEVICE}-oldcapture`;
+    const thirtyOneDaysAgo = new Date(Date.now() - 31 * 86_400_000);
+    const sightingId = await insertSighting(device, { createdAt: thirtyOneDaysAgo });
+    const name = `${CAT_PREFIX}-OldCapture`;
+
+    const res = await request(app)
+      .post(`/api/sightings/${sightingId}/resolve`)
+      .set("X-Device-Secret", RESOLVE_SECRET)
+      .send({ deviceId: device, newCatName: name });
+
+    expect(res.status).toBe(200);
+    expect(res.body.isNewCat).toBe(true);
+
+    const [cat] = await db
+      .select()
+      .from(catsTable)
+      .where(eq(catsTable.id, res.body.cat.id));
+    expect(cat).toBeTruthy();
+
+    const named = await db
+      .select()
+      .from(observationsTable)
+      .where(
+        sql`${observationsTable.catId} = ${res.body.cat.id} and ${observationsTable.kind} = 'name'`,
+      );
+    expect(named).toHaveLength(1);
+    // Clamped to the 30-day boundary — not refused, and not left at the raw
+    // 31-day-old capture time.
+    expect(named[0]!.observedAt.getTime()).toBeGreaterThan(
+      thirtyOneDaysAgo.getTime(),
+    );
+    expect(named[0]!.observedAt.getTime()).toBeLessThanOrEqual(
+      Date.now() - 30 * 86_400_000 + 5_000,
     );
   });
 
