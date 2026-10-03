@@ -8,6 +8,23 @@ import {
   type EvidenceOfLife,
 } from "./resolve";
 
+/** Builds an EvidenceOfLife with a sensible default for the new field, so
+ * every pre-existing test that only cares about `at`/`source` doesn't need
+ * to spell out `lastSightingAt` too. Tests that exercise the clearing rule
+ * pass `lastSightingAt` explicitly. */
+function makeEvidence(e: {
+  at: string;
+  source: EvidenceOfLife["source"];
+  lastSightingAt?: string | null;
+}): EvidenceOfLife {
+  return {
+    at: new Date(e.at),
+    source: e.source,
+    lastSightingAt:
+      e.lastSightingAt == null ? null : new Date(e.lastSightingAt),
+  };
+}
+
 // Every test below is named for the rule it pins, matching
 // docs/superpowers/plans/data-spine.md's PR 1 test list (§10.2, §10.8 of
 // docs/specs/cat-record-data-spine.md). This file carries the hard tests —
@@ -215,26 +232,7 @@ describe("resolveSterilised", () => {
     expect(resolved.confidence).toBe("unknown");
   });
 
-  it("superseded and redacted-value observations are ignored (sterilised)", () => {
-    // A redacted correction is ignored outright, so the original it would
-    // have corrected still resolves.
-    const originalTrue = obs({
-      kind: "sterilised",
-      value: { sterilised: true },
-      roleAtTime: "staff",
-      accountId: "a1",
-      observedAt: new Date("2025-01-01"),
-    });
-    const redactedCorrection = obs({
-      kind: "sterilised",
-      value: { sterilised: false },
-      roleAtTime: "staff",
-      accountId: "a1",
-      observedAt: new Date("2026-01-01"),
-      redactedAt: new Date("2026-02-01"),
-    });
-    expect(resolveSterilised([originalTrue, redactedCorrection]).value).toBe(true);
-
+  it("superseded observations are ignored, whatever date they carry", () => {
     // A superseded observation is excluded even though it's dated later
     // than the one superseding it.
     const superseded = obs({
@@ -280,6 +278,251 @@ describe("resolveSterilised", () => {
     expect(resolved.value).toBeNull();
     expect(resolved.confidence).toBe("unknown");
   });
+
+  it(
+    "a newer photo-backed clip doesn't move a confirmed negative, but is " +
+      "surfaced to the team (J2)",
+    () => {
+      const neg = obs({
+        kind: "sterilised",
+        value: { sterilised: false },
+        roleAtTime: "staff",
+        accountId: "s",
+        observedAt: new Date("2024-01-01"),
+      });
+      const olderClip = obs({
+        kind: "ear_tip",
+        value: { clipped: true },
+        photoId: 1,
+        observedAt: new Date("2023-01-01"), // older than the negative: not a conflict
+      });
+      const newerClip = obs({
+        kind: "ear_tip",
+        value: { clipped: true },
+        photoId: 9,
+        observedAt: new Date("2026-06-01"), // newer than the negative: a conflict
+      });
+      const resolved = resolveSterilised([neg, olderClip, newerClip]);
+      expect(resolved.value).toBe(false);
+      expect(resolved.confidence).toBe("confirmed");
+      expect(resolved.conflicts).toEqual([newerClip.id]);
+    },
+  );
+
+  it("vet and admin sterilised:false are confirmed negative (never dropped from authoritative)", () => {
+    for (const roleAtTime of ["vet", "admin"] as const) {
+      const resolved = resolveSterilised([
+        obs({
+          kind: "sterilised",
+          value: { sterilised: false },
+          roleAtTime,
+          accountId: "x",
+        }),
+      ]);
+      expect(resolved.value).toBe(false);
+      expect(resolved.confidence).toBe("confirmed");
+    }
+  });
+
+  it("vet and admin can also clear a wrong likely back to unknown", () => {
+    for (const roleAtTime of ["vet", "admin"] as const) {
+      const clip = obs({
+        kind: "ear_tip",
+        value: { clipped: true },
+        photoId: 1,
+        observedAt: new Date("2026-01-01"),
+      });
+      const correction = obs({
+        kind: "ear_tip",
+        value: { clipped: false },
+        roleAtTime,
+        accountId: "x",
+        observedAt: new Date("2026-02-01"),
+      });
+      expect(resolveSterilised([clip, correction]).confidence).toBe("unknown");
+    }
+  });
+
+  it("a system or guardian role sterilised assertion is NOT authoritative", () => {
+    for (const roleAtTime of ["system", "guardian", "volunteer", "public"] as const) {
+      const resolved = resolveSterilised([
+        obs({ kind: "sterilised", value: { sterilised: false }, roleAtTime }),
+      ]);
+      expect(resolved.confidence).toBe("unknown");
+    }
+  });
+
+  it("disagreeing authoritative statements surface the losing one in conflicts (S3)", () => {
+    const older = obs({
+      kind: "sterilised",
+      value: { sterilised: true },
+      roleAtTime: "staff",
+      accountId: "s",
+      observedAt: new Date("2024-01-01"),
+    });
+    const newer = obs({
+      kind: "sterilised",
+      value: { sterilised: false },
+      roleAtTime: "staff",
+      accountId: "s",
+      observedAt: new Date("2026-01-01"),
+    });
+    expect(resolveSterilised([older, newer]).conflicts).toEqual([older.id]);
+  });
+
+  it(
+    "an authoritative clipped:false at exactly the same instant as the " +
+      "spotter's clip clears it too, with no explicit supersede link (M13 tie)",
+    () => {
+      const spotterClip = obs({
+        kind: "ear_tip",
+        value: { clipped: true },
+        photoId: 9,
+        observedAt: new Date("2026-02-01T00:00:00Z"),
+      });
+      const sameInstantCorrection = obs({
+        kind: "ear_tip",
+        value: { clipped: false },
+        roleAtTime: "staff",
+        accountId: "account-staff",
+        observedAt: new Date("2026-02-01T00:00:00Z"),
+      });
+      const resolved = resolveSterilised([spotterClip, sameInstantCorrection]);
+      expect(resolved.value).toBeNull();
+      expect(resolved.confidence).toBe("unknown");
+    },
+  );
+
+  it("likely's asOf is the newest surviving clip, not the first one in the array (M22)", () => {
+    const earliest = obs({
+      kind: "ear_tip",
+      value: { clipped: true },
+      photoId: 1,
+      observedAt: new Date("2026-01-01"),
+    });
+    const newest = obs({
+      kind: "ear_tip",
+      value: { clipped: true },
+      photoId: 2,
+      observedAt: new Date("2026-06-01"),
+    });
+    const middle = obs({
+      kind: "ear_tip",
+      value: { clipped: true },
+      photoId: 3,
+      observedAt: new Date("2026-03-01"),
+    });
+    // Deliberately out of date order in the input array.
+    const resolved = resolveSterilised([middle, newest, earliest]);
+    expect(resolved.asOf).toBe("2026-06-01T00:00:00.000Z");
+  });
+
+});
+
+describe("B1: deleting a person must not change a cat's derived status (§8.3, §8.5, §10.8.14)", () => {
+  // §8.3/§8.5: redaction clears the identifying columns and stamps
+  // redactedAt — it does NOT empty the value for anything but a `note`,
+  // which never reaches this resolver. A redacted row with its value
+  // intact must count exactly as it did before redaction.
+  it("a redacted ear_tip observation with its value intact still counts (sterilised stays likely)", () => {
+    const clip = obs({
+      kind: "ear_tip",
+      value: { clipped: true, side: "left" },
+      photoId: 7,
+      deviceId: null,
+      accountId: null,
+      redactedAt: new Date("2026-05-01"),
+      redactionReason: "delete_me",
+    });
+    const resolved = resolveSterilised([clip]);
+    expect(resolved.value).toBe(true);
+    expect(resolved.confidence).toBe("likely");
+    expect(clippedTipCount([clip])).toBe(1);
+  });
+
+  it("a redacted life_status observation with its value intact still counts (an owner deleting themselves does not unhome their cat)", () => {
+    const homed = obs({
+      kind: "life_status",
+      value: { status: "homed" },
+      authorityScope: "owner_of_this_cat",
+      deviceId: null,
+      accountId: null,
+      redactedAt: new Date("2026-05-01"),
+      redactionReason: "delete_me",
+    });
+    const resolved = resolveLifeStatus([homed], null, new Date("2026-06-01"));
+    expect(resolved.value).toBe("homed");
+  });
+
+  it("a redacted observation whose value HAS been emptied (the note case) does not count", () => {
+    // Hypothetical for this resolver's kinds (only `note` is actually
+    // emptied by §8.3, and `note` never reaches resolveSterilised /
+    // resolveLifeStatus) — proves the exclusion comes from failing to
+    // parse the value, not from a redactedAt check.
+    const emptiedClip = obs({
+      kind: "ear_tip",
+      value: {},
+      photoId: 7,
+      deviceId: null,
+      accountId: null,
+      redactedAt: new Date("2026-05-01"),
+      redactionReason: "delete_me",
+    });
+    const resolved = resolveSterilised([emptiedClip]);
+    expect(resolved.value).toBeNull();
+    expect(resolved.confidence).toBe("unknown");
+  });
+
+  it(
+    "a full resolveCat snapshot is unchanged by a deletion-shaped redaction " +
+      "(identifying columns cleared, redactedAt set, value kept)",
+    () => {
+      const clip = obs({
+        kind: "ear_tip",
+        value: { clipped: true, side: "left" },
+        photoId: 3,
+        observedAt: new Date("2026-01-01"),
+      });
+      const homed = obs({
+        kind: "life_status",
+        value: { status: "homed" },
+        authorityScope: "owner_of_this_cat",
+        observedAt: new Date("2026-01-01"),
+      });
+      const before = resolveCat(
+        [clip, homed],
+        makeEvidence({ at: "2026-01-01T00:00:00Z", source: "sighting" }),
+        new Date("2026-02-01"),
+      );
+
+      const redactedClip: Observation = {
+        ...clip,
+        deviceId: null,
+        accountId: null,
+        redactedAt: new Date("2026-03-01"),
+        redactionReason: "delete_me",
+      };
+      const redactedHomed: Observation = {
+        ...homed,
+        deviceId: null,
+        accountId: null,
+        redactedAt: new Date("2026-03-01"),
+        redactionReason: "delete_me",
+      };
+      const after = resolveCat(
+        [redactedClip, redactedHomed],
+        makeEvidence({ at: "2026-01-01T00:00:00Z", source: "sighting" }),
+        new Date("2026-02-01"),
+      );
+
+      expect(after.sterilised.value).toBe(before.sterilised.value);
+      expect(after.sterilised.confidence).toBe(before.sterilised.confidence);
+      expect(after.sterilised.clippedTipSightings).toBe(before.sterilised.clippedTipSightings);
+      expect(after.lifeStatus).toBe(before.lifeStatus);
+      expect(after.lifeStatus).toBe("homed");
+      expect(after.sterilised.confidence).toBe("likely");
+    },
+  );
 });
 
 describe("clippedTipCount", () => {
@@ -324,7 +567,8 @@ describe("clippedTipCount", () => {
 describe("resolveLifeStatus", () => {
   it(
     "a sighting after a deceased statement clears it in the same read, " +
-      "returning street, with the disagreement in conflicts",
+      "returning street, with the disagreement in conflicts, and stays " +
+      "confirmed (S2: Samuel decided — a cleared death is not a weaker claim)",
     () => {
       const deceased = obs({
         kind: "life_status",
@@ -333,10 +577,23 @@ describe("resolveLifeStatus", () => {
         accountId: "account-1",
         observedAt: new Date("2026-01-01"),
       });
-      const evidence: EvidenceOfLife = { at: "2026-02-01T00:00:00Z", source: "sighting" };
-      const resolved = resolveLifeStatus([deceased], evidence, new Date("2026-02-02"));
+      const resolved = resolveLifeStatus(
+        [deceased],
+        makeEvidence({
+          at: "2026-02-01T00:00:00Z",
+          source: "sighting",
+          lastSightingAt: "2026-02-01T00:00:00Z",
+        }),
+        new Date("2026-02-02"),
+      );
       expect(resolved.value).toBe("street");
       expect(resolved.conflicts).toEqual([deceased.id]);
+      expect(resolved.confidence).toBe("confirmed");
+      // Flagged, not fixed here: EvidenceOfLife carries only a date, no
+      // observation/sighting id, so the clearing sighting itself can't be
+      // added to supportingObservationIds yet — PR 2 would need to widen
+      // the contract again to close this. See the PR body.
+      expect(resolved.supportingObservationIds).toEqual([]);
     },
   );
 
@@ -348,15 +605,94 @@ describe("resolveLifeStatus", () => {
       accountId: "account-1",
       observedAt: new Date("2026-02-01"),
     });
-    const evidence: EvidenceOfLife = { at: "2026-01-01T00:00:00Z", source: "sighting" };
-    const resolved = resolveLifeStatus([deceased], evidence, new Date("2026-02-02"));
+    const resolved = resolveLifeStatus(
+      [deceased],
+      makeEvidence({
+        at: "2026-01-01T00:00:00Z",
+        source: "sighting",
+        lastSightingAt: "2026-01-01T00:00:00Z",
+      }),
+      new Date("2026-02-02"),
+    );
     expect(resolved.value).toBe("deceased");
     expect(resolved.conflicts).toEqual([]);
   });
 
+  it(
+    "a sighting at exactly the deceased statement's time does NOT clear it " +
+      "(strictly greater, not greater-or-equal — kills M15)",
+    () => {
+      const deceased = obs({
+        kind: "life_status",
+        value: { status: "deceased" },
+        roleAtTime: "staff",
+        accountId: "account-1",
+        observedAt: new Date("2026-01-01T00:00:00Z"),
+      });
+      const resolved = resolveLifeStatus(
+        [deceased],
+        makeEvidence({
+          at: "2026-01-01T00:00:00Z",
+          source: "sighting",
+          lastSightingAt: "2026-01-01T00:00:00Z",
+        }),
+        new Date("2026-02-02"),
+      );
+      expect(resolved.value).toBe("deceased");
+    },
+  );
+
+  it(
+    "B2: a welfare report dated after a clearing sighting must not hide " +
+      "that sighting — the resolver checks lastSightingAt, not the overall " +
+      "newest evidence's source (kills M5)",
+    () => {
+      const deceased = obs({
+        kind: "life_status",
+        value: { status: "deceased" },
+        roleAtTime: "staff",
+        accountId: "s1",
+        observedAt: new Date("2026-01-01T00:00:00Z"),
+      });
+      // The newest evidence of life overall is the welfare report (1 Mar),
+      // but there was also a sighting on 1 Feb — after the death, so it
+      // must still clear it.
+      const resolved = resolveLifeStatus(
+        [deceased],
+        makeEvidence({
+          at: "2026-03-01T00:00:00Z",
+          source: "welfare_report",
+          lastSightingAt: "2026-02-01T00:00:00Z",
+        }),
+        new Date("2026-03-02"),
+      );
+      expect(resolved.value).toBe("street");
+    },
+  );
+
+  it(
+    "P5: non-sighting evidence after a deceased statement leaves it " +
+      "deceased — only a sighting clears it (surviving mutant)",
+    () => {
+      const deceased = obs({
+        kind: "life_status",
+        value: { status: "deceased" },
+        roleAtTime: "staff",
+        accountId: "s1",
+        observedAt: new Date("2026-01-01"),
+      });
+      const resolved = resolveLifeStatus(
+        [deceased],
+        makeEvidence({ at: "2026-02-01T00:00:00Z", source: "sterilised", lastSightingAt: null }),
+        new Date("2026-03-01"),
+      );
+      expect(resolved.value).toBe("deceased");
+    },
+  );
+
   it("a cat created today with no sightings is not presumed deceased", () => {
     const now = new Date("2026-10-02T12:00:00Z");
-    const evidence: EvidenceOfLife = { at: now.toISOString(), source: "created" };
+    const evidence = makeEvidence({ at: now.toISOString(), source: "created" });
     const resolved = resolveLifeStatus([], evidence, now);
     expect(resolved.value).toBe("street");
     expect(resolved.presumedDeceased).toBe(false);
@@ -369,7 +705,7 @@ describe("resolveLifeStatus", () => {
     // ever sees the one date it's given, and trusts it.
     const takenAt = new Date("2023-09-01T00:00:00Z");
     const now = new Date("2026-10-02T00:00:00Z");
-    const evidence: EvidenceOfLife = { at: takenAt.toISOString(), source: "sighting" };
+    const evidence = makeEvidence({ at: takenAt.toISOString(), source: "sighting" });
     const resolved = resolveLifeStatus([], evidence, now);
     expect(resolved.presumedDeceased).toBe(true);
     expect(resolved.notSeenSince).toBe(takenAt.toISOString());
@@ -382,16 +718,17 @@ describe("resolveLifeStatus", () => {
 
     // Silence: nothing recent → presumed deceased.
     expect(
-      resolveLifeStatus([], { at: old.toISOString(), source: "created" }, now).presumedDeceased,
+      resolveLifeStatus([], makeEvidence({ at: old.toISOString(), source: "created" }), now)
+        .presumedDeceased,
     ).toBe(true);
 
     // Each qualifying kind resets it when recent. A non-deceased life_status
     // is handled by the resolver itself (test below); the rest arrive via
     // evidenceOfLife, however PR 2's loader labels them.
-    for (const source of ["sighting", "sterilised", "ear_tip", "welfare_report"]) {
+    for (const source of ["sighting", "sterilised", "ear_tip", "welfare_report"] as const) {
       const resolved = resolveLifeStatus(
         [],
-        { at: recent.toISOString(), source },
+        makeEvidence({ at: recent.toISOString(), source }),
         now,
       );
       expect(resolved.presumedDeceased).toBe(false);
@@ -402,8 +739,11 @@ describe("resolveLifeStatus", () => {
       observedAt: recent,
     });
     expect(
-      resolveLifeStatus([recentLifeStatus], { at: old.toISOString(), source: "created" }, now)
-        .presumedDeceased,
+      resolveLifeStatus(
+        [recentLifeStatus],
+        makeEvidence({ at: old.toISOString(), source: "created" }),
+        now,
+      ).presumedDeceased,
     ).toBe(false);
 
     // colony, note, name, food_and_water and coat are never evidence of
@@ -419,11 +759,69 @@ describe("resolveLifeStatus", () => {
       });
       const resolved = resolveLifeStatus(
         [recentOther],
-        { at: old.toISOString(), source: "created" },
+        makeEvidence({ at: old.toISOString(), source: "created" }),
         now,
       );
       expect(resolved.presumedDeceased).toBe(true);
     }
+  });
+
+  describe("S1: the 36-month presumed-deceased boundary", () => {
+    const at = "2023-10-02T00:00:00.000Z";
+
+    it("exactly 36 months is not 'more than 36 months'", () => {
+      const now = new Date("2026-10-02T00:00:00.000Z");
+      expect(
+        resolveLifeStatus([], makeEvidence({ at, source: "sighting" }), now).presumedDeceased,
+      ).toBe(false);
+    });
+
+    it("one millisecond past 36 months is presumed", () => {
+      const now = new Date("2026-10-02T00:00:00.001Z");
+      expect(
+        resolveLifeStatus([], makeEvidence({ at, source: "sighting" }), now).presumedDeceased,
+      ).toBe(true);
+    });
+
+    it("35 months and 30 days is not presumed", () => {
+      const now = new Date("2026-09-30T00:00:00Z");
+      expect(
+        resolveLifeStatus([], makeEvidence({ at, source: "sighting" }), now).presumedDeceased,
+      ).toBe(false);
+    });
+
+    it("leap day: 29 Feb 2024 + 36 months rolls over to 1 Mar 2027, not 28/29 Feb", () => {
+      const leapAt = "2024-02-29T00:00:00Z";
+      const justBefore = resolveLifeStatus(
+        [],
+        makeEvidence({ at: leapAt, source: "sighting" }),
+        new Date("2027-02-28T23:59:59Z"),
+      );
+      const justAfter = resolveLifeStatus(
+        [],
+        makeEvidence({ at: leapAt, source: "sighting" }),
+        new Date("2027-03-01T00:00:01Z"),
+      );
+      expect(justBefore.presumedDeceased).toBe(false);
+      expect(justAfter.presumedDeceased).toBe(true);
+    });
+
+    it(
+      "the threshold is computed in UTC months, not the runner's local " +
+        "calendar (kills M10's setMonth/setUTCMonth swap)",
+      () => {
+        // A date-plus-time whose UTC and local month roll over on different
+        // days exposes a local-time addMonths immediately, in any TZ.
+        const evidenceAt = "2023-10-31T22:30:00Z";
+        const now = new Date("2026-10-31T22:30:01Z"); // 1 ms after the UTC threshold
+        const resolved = resolveLifeStatus(
+          [],
+          makeEvidence({ at: evidenceAt, source: "sighting" }),
+          now,
+        );
+        expect(resolved.presumedDeceased).toBe(true);
+      },
+    );
   });
 
   it("a live deceased statement suppresses presumed deceased", () => {
@@ -436,7 +834,11 @@ describe("resolveLifeStatus", () => {
       accountId: "account-1",
       observedAt: new Date("2026-09-01"),
     });
-    const resolved = resolveLifeStatus([deceased], { at: old.toISOString(), source: "created" }, now);
+    const resolved = resolveLifeStatus(
+      [deceased],
+      makeEvidence({ at: old.toISOString(), source: "created" }),
+      now,
+    );
     expect(resolved.value).toBe("deceased");
     expect(resolved.presumedDeceased).toBe(false);
   });
@@ -451,13 +853,13 @@ describe("resolveLifeStatus", () => {
     });
     const resolved = resolveLifeStatus(
       [recentHomed],
-      { at: old.toISOString(), source: "sighting" },
+      makeEvidence({ at: old.toISOString(), source: "sighting" }),
       now,
     );
     expect(resolved.presumedDeceased).toBe(false);
   });
 
-  it("superseded and redacted-value observations are ignored (life status)", () => {
+  it("superseded observations are ignored, whatever date they carry (life status)", () => {
     const superseded = obs({
       kind: "life_status",
       value: { status: "deceased" },
@@ -473,20 +875,45 @@ describe("resolveLifeStatus", () => {
       supersedesId: superseded.id,
       observedAt: new Date("2026-06-01"),
     });
-    const redactedLater = obs({
-      kind: "life_status",
-      value: { status: "deceased" },
-      roleAtTime: "staff",
-      accountId: "a1",
-      observedAt: new Date("2026-07-01"),
-      redactedAt: new Date("2026-08-01"),
-    });
-    const resolved = resolveLifeStatus(
-      [superseded, supersedes, redactedLater],
-      null,
-      new Date("2026-09-01"),
-    );
+    const resolved = resolveLifeStatus([superseded, supersedes], null, new Date("2026-09-01"));
     expect(resolved.value).toBe("street");
+  });
+
+  it(
+    "a tie in observedAt between two life_status writes breaks by the " +
+      "higher id, the later write (kills M14)",
+    () => {
+      const sameInstant = new Date("2026-01-01T00:00:00Z");
+      const first = obs({
+        kind: "life_status",
+        value: { status: "homed" },
+        roleAtTime: "staff",
+        accountId: "a",
+        observedAt: sameInstant,
+      });
+      const second = obs({
+        kind: "life_status",
+        value: { status: "deceased" },
+        roleAtTime: "staff",
+        accountId: "a",
+        observedAt: sameInstant,
+      });
+      // second.id > first.id (nextId increments), so it is treated as the
+      // later write and wins the tie.
+      const resolved = resolveLifeStatus([first, second], null, new Date("2026-02-01"));
+      expect(resolved.value).toBe("deceased");
+    },
+  );
+
+  it("a live life_status resolves confirmed (S3, kills M8)", () => {
+    const h = obs({
+      kind: "life_status",
+      value: { status: "in_care" },
+      roleAtTime: "staff",
+      accountId: "s",
+      observedAt: new Date("2026-01-01"),
+    });
+    expect(resolveLifeStatus([h], null, new Date("2026-02-01")).confidence).toBe("confirmed");
   });
 
   it("welfare reports and outcomes move no derived status (the resolver half)", () => {
@@ -535,7 +962,7 @@ describe("resolveCat", () => {
     });
     const snapshot = resolveCat(
       [homed, clip],
-      { at: "2026-09-01T00:00:00Z", source: "sighting" },
+      makeEvidence({ at: "2026-09-01T00:00:00Z", source: "sighting" }),
       new Date("2026-10-01"),
     );
     expect(snapshot.lifeStatus).toBe("homed");
@@ -546,5 +973,16 @@ describe("resolveCat", () => {
       asOf: "2026-01-01T00:00:00.000Z",
       clippedTipSightings: 1,
     });
+  });
+
+  it("is pure: the same input twice gives identical output", () => {
+    const observations = [
+      obs({ kind: "ear_tip", value: { clipped: true }, photoId: 1 }),
+    ];
+    const evidence = makeEvidence({ at: "2026-01-01T00:00:00Z", source: "sighting" });
+    const now = new Date("2026-02-01");
+    expect(resolveCat(observations, evidence, now)).toEqual(
+      resolveCat(observations, evidence, now),
+    );
   });
 });

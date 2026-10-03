@@ -36,6 +36,33 @@ const LIFE_STATUS_VALUES: readonly LifeStatusValue[] = [
 ];
 
 /**
+ * The sources `loadCatRecords` (PR 2) can report evidence of life from,
+ * exported as a typed const so PR 2 and this resolver share one vocabulary
+ * instead of agreeing on a string by convention. `"sighting"` is the one
+ * value this resolver inspects by name (§3.2's clearing rule, via
+ * `lastSightingAt` below); every other label is used only for its date.
+ *
+ * Amended 3 Oct 2026, Samuel: the original `{at, source}` shape collapsed
+ * every kind of evidence into a single newest instant, which meant a
+ * welfare report or an ear-tip answer dated after the true clearing
+ * sighting hid that sighting from the resolver entirely (§3.2's rule only
+ * ever talks about sightings). `lastSightingAt` was added so the clearing
+ * rule can be checked on its own, regardless of what the overall newest
+ * evidence of life turned out to be.
+ */
+export const EVIDENCE_SOURCES = [
+  "sighting",
+  "life_status",
+  "sterilised",
+  "ear_tip",
+  "welfare_report",
+  "import",
+  "created",
+] as const;
+
+export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
+
+/**
  * The newest thing that tells us this cat was alive, computed by PR 2's
  * `loadCatRecords` from §3.4's sources other than `life_status` itself (a
  * resolved sighting; a `sterilised` record; an `ear_tip` observation; a
@@ -44,17 +71,24 @@ const LIFE_STATUS_VALUES: readonly LifeStatusValue[] = [
  * of life, but this resolver already has those directly (it's resolving
  * them) and folds them in itself — PR 2's loader doesn't need to.
  *
- * `source` is a free label PR 2 sets — the one value this resolver inspects
- * itself is the literal string `"sighting"`, to run §3.2's "a sighting
- * after a deceased statement clears it" rule. Every other label is used
- * only for its date. A `colony`, `note`, `name`, `food_and_water` or `coat`
- * observation must never reach this parameter, because none of those imply
- * the cat is alive (§3.4) — that filtering is `loadCatRecords`'s job, not
- * this function's.
+ * `at`/`source` is the newest evidence of life of any kind — used only for
+ * the 36-month presumed-deceased threshold. `lastSightingAt` is a second,
+ * narrower fact: the newest *resolved sighting* specifically, whatever its
+ * relationship to `at` — used only for §3.2's "a sighting after a deceased
+ * statement clears it" rule. A `colony`, `note`, `name`, `food_and_water` or
+ * `coat` observation must never reach either field, because none of those
+ * imply the cat is alive (§3.4) — that filtering is `loadCatRecords`'s job,
+ * not this function's.
+ *
+ * `at` and `lastSightingAt` are `Date`, not strings: PR 2's loader reads
+ * these from Drizzle, which already hands back `Date` objects, and an
+ * untyped string input let an unparseable or zone-less value skew the
+ * 36-month threshold or throw inside the resolver (caught in review).
  */
 export interface EvidenceOfLife {
-  at: string;
-  source: string;
+  at: Date;
+  source: EvidenceSource;
+  lastSightingAt: Date | null;
 }
 
 export interface LifeStatusResolved extends Resolved<LifeStatusValue> {
@@ -97,13 +131,46 @@ export interface ImportRecord {
 
 const AUTHORITATIVE_ROLES = new Set(["vet", "staff", "admin"]);
 
+/**
+ * §10.2 rule 2's authority: a team/vet role, OR an imported record. Used for
+ * the `sterilised` assertions themselves.
+ */
 function isAuthoritative(o: Observation): boolean {
   return AUTHORITATIVE_ROLES.has(o.roleAtTime) || o.provenance === "import";
 }
 
-/** Not redacted, and not pointed at by any other observation's `supersedesId`. */
+/**
+ * §10.2 rule 3's narrower authority: a team/vet role, full stop. Used for an
+ * `ear_tip { clipped: false }` correction. The spec's rule 3 names
+ * "roleAtTime in {vet, staff, admin}" only — it does not extend
+ * import-provenance authority to ear-tip corrections the way rule 2 does for
+ * `sterilised` assertions, and nothing in DECISIONS.md says otherwise (an
+ * import record is a `sterilised` statement, §10.2 rule 2 already covers
+ * it; it never carries an ear-tip answer). Using the broader
+ * `isAuthoritative` here would let a `provenance: "import"` row with no
+ * team/vet role clear a *Likely* back to *Unknown*, which the spec doesn't
+ * grant it.
+ */
+function isAuthoritativeRole(o: Observation): boolean {
+  return AUTHORITATIVE_ROLES.has(o.roleAtTime);
+}
+
+/**
+ * Not pointed at by any other observation's `supersedesId`.
+ *
+ * Redaction (§8.3/§8.5/§10.8.14) is deliberately NOT checked here. Deleting
+ * a person clears their identifying columns and stamps `redactedAt`, but
+ * the observation's *value* survives for every kind in this resolver's
+ * vocabulary — only a `note`'s text is ever emptied (§8.3), and `note`
+ * observations never reach this resolver at all. So a redacted
+ * `ear_tip`/`sterilised`/`life_status` row is exactly as active as an
+ * unredacted one; a row whose value genuinely has been emptied (the `note`
+ * case, or any malformed value) is excluded naturally because it fails
+ * `parseEarTip`/`parseSterilised`/`parseLifeStatus`, not because of
+ * `redactedAt`. Spec test: "after deletion... the cat's derived sterilised
+ * and life status are unchanged" (§8.5, §10.8.14).
+ */
 function isActive(o: Observation, all: readonly Observation[]): boolean {
-  if (o.redactedAt != null) return false;
   return !all.some((other) => other.supersedesId === o.id);
 }
 
@@ -182,17 +249,26 @@ const EPOCH = new Date(0).toISOString();
 /**
  * Sterilised — an ordered fold, not independent clauses (§10.2).
  *
- * 1. Discard superseded and redacted observations.
+ * 1. Discard superseded observations (redaction does not discard anything
+ *    here — see `isActive`'s doc comment).
  * 2. Authoritative assertions (`roleAtTime` vet/staff/admin, or
  *    `provenance: "import"`) — newest by `observedAt` wins, whatever sign.
  * 3. Otherwise, a photo-backed `ear_tip { clipped: true }` reaches *likely*,
- *    unless an authoritative `clipped: false` supersedes or postdates it.
+ *    unless a team/vet `clipped: false` (§10.2 rule 3: roles only, not
+ *    import — see `isAuthoritativeRole`) supersedes or postdates it.
  * 4. Otherwise, *unknown*.
  *
  * Rule 1 (the ear-tip asymmetry) falls out of this by construction: a
  * spotter's `clipped: false` / `"cant_tell"` is never authoritative, so it
  * never reaches step 2 and never overrides step 3's survivors. It is still
  * collected into `supportingObservationIds` for display (§4.1).
+ *
+ * J2 (Samuel, flagged to the team): when an authoritative negative wins at
+ * step 2 but a *newer* photo-backed clipped-tip observation also exists,
+ * the public answer stays the authoritative negative (§4.6: nothing beats
+ * an authoritative assertion except a newer authoritative one) — but that
+ * newer clip is surfaced in `conflicts` so the team sees it rather than it
+ * silently vanishing into "we already said no".
  */
 export function resolveSterilised(
   observations: readonly Observation[],
@@ -235,9 +311,20 @@ export function resolveSterilised(
         return candidate;
       return newest;
     });
-    const conflicts = candidates
+    const disagreeingConflicts = candidates
       .filter((c) => c !== winner && c.sterilised !== winner.sterilised)
       .flatMap((c) => (c.observationId != null ? [c.observationId] : []));
+
+    // J2: a newer photo-backed clipped-tip observation doesn't move the
+    // winning authoritative answer, but is flagged for the team.
+    const newerClips = active
+      .filter((o) => o.kind === "ear_tip" && o.observedAt.getTime() > winner.at.getTime())
+      .flatMap((o) => {
+        const parsed = parseEarTip(o.value);
+        return parsed?.clipped === true && o.photoId != null ? [o.id] : [];
+      });
+
+    const conflicts = [...disagreeingConflicts, ...newerClips];
 
     return {
       value: winner.sterilised,
@@ -259,7 +346,7 @@ export function resolveSterilised(
     (e) => e.clipped === true && e.o.photoId != null,
   );
   const authoritativeFalse = earTip.filter(
-    (e) => e.clipped === false && isAuthoritative(e.o),
+    (e) => e.clipped === false && isAuthoritativeRole(e.o),
   );
 
   const survivors = clippedTrueWithPhoto.filter(
@@ -322,6 +409,12 @@ function addMonths(date: Date, months: number): Date {
  * `presumedDeceased` is true when the newest evidence of life is more than
  * 36 months old and the resolved status isn't `deceased` (a live `deceased`
  * statement suppresses the derivation entirely, §3.4).
+ *
+ * B2 (Samuel, 3 Oct 2026): the clearing check uses `evidenceOfLife.lastSightingAt`
+ * specifically, never `evidenceOfLife.at`/`source` — §3.2 is a rule about
+ * sightings, not about "whatever the newest evidence of life happened to
+ * be". A welfare report or an ear-tip answer dated after the clearing
+ * sighting must not hide that sighting from this rule.
  */
 export function resolveLifeStatus(
   observations: readonly Observation[],
@@ -347,11 +440,17 @@ export function resolveLifeStatus(
   let supportingObservationIds = newestEntry ? [newestEntry.o.id] : [];
   let conflicts: number[] = [];
 
+  // S2 (Samuel decided): a death cleared by a sighting keeps
+  // confidence: "confirmed" — it isn't touched below. The clearing sighting
+  // itself has no observation id to add to supportingObservationIds
+  // (EvidenceOfLife carries only a date, not an id); flagged in the PR body
+  // for PR 2 to consider passing one through, rather than widening this
+  // contract further on a guess.
   if (
     value === "deceased" &&
     newestEntry &&
-    evidenceOfLife?.source === "sighting" &&
-    new Date(evidenceOfLife.at).getTime() > newestEntry.o.observedAt.getTime()
+    evidenceOfLife?.lastSightingAt != null &&
+    evidenceOfLife.lastSightingAt.getTime() > newestEntry.o.observedAt.getTime()
   ) {
     conflicts = [newestEntry.o.id];
     value = "street";
@@ -372,7 +471,7 @@ export function resolveLifeStatus(
   let presumedDeceased = false;
   let notSeenSince: string | null = null;
   if (value !== "deceased") {
-    const evidenceOfLifeAt = evidenceOfLife ? new Date(evidenceOfLife.at).getTime() : null;
+    const evidenceOfLifeAt = evidenceOfLife ? evidenceOfLife.at.getTime() : null;
     const candidates = [evidenceOfLifeAt, lifeStatusEvidenceAt].filter(
       (at): at is number => at != null,
     );
@@ -389,7 +488,7 @@ export function resolveLifeStatus(
   const asOf = newestEntry
     ? toIso(newestEntry.o.observedAt)
     : evidenceOfLife
-      ? new Date(evidenceOfLife.at).toISOString()
+      ? toIso(evidenceOfLife.at)
       : EPOCH;
 
   return {
