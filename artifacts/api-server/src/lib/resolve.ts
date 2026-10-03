@@ -396,7 +396,10 @@ export function resolveCat(
   const life = resolveLifeStatus(observations, evidenceOfLife, now);
   const sterilised = resolveSterilised(observations, []);
   return {
-    lifeStatus: life.value,
+    // resolveLifeStatus always resolves to a concrete status (street is the
+    // untouched default) — never null, unlike the generic Resolved<T> shape
+    // it's built on.
+    lifeStatus: life.value as LifeStatusValue,
     lifeStatusConfidence: life.confidence,
     lifeStatusAsOf: life.asOf,
     presumedDeceased: life.presumedDeceased,
