@@ -754,6 +754,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MatchCandidate"
+          description: >-
+            Candidates below the matcher's confidence threshold are omitted
+            entirely — not included with blank or null fields. A weak match
+            never names a cat, not even via an anonymous placeholder entry.
       required: [sightingId, isCatPhoto, candidates]
     ResolveSightingRequest:
       type: object
