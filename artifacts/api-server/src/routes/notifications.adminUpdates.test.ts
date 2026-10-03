@@ -1,13 +1,36 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { db, pool, catsTable, catUpdatesTable, observationsTable } from "@workspace/db";
+import {
+  db,
+  pool,
+  catsTable,
+  catUpdatesTable,
+  catSubscriptionsTable,
+  notificationsTable,
+  pushTokensTable,
+  observationsTable,
+} from "@workspace/db";
 import { and, eq, inArray, like } from "drizzle-orm";
+import { ObservationRefused } from "../lib/observations";
 
 vi.mock("../lib/push", () => ({
   sendPushNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Wraps the real writeObservation so a single test can force it to throw
+// (mockImplementationOnce, below) while every other test in this file still
+// gets the real validation and insert.
+vi.mock("../lib/observations", async () => {
+  const actual =
+    await vi.importActual<typeof import("../lib/observations")>(
+      "../lib/observations",
+    );
+  return { ...actual, writeObservation: vi.fn(actual.writeObservation) };
+});
+
 import app from "../app";
+import { sendPushNotification } from "../lib/push";
+import { writeObservation } from "../lib/observations";
 
 // SYC-113: every /api route sits behind a pre-launch pass today. This admin
 // route predates that gate and is checked by its own Bearer secret, which
@@ -17,6 +40,7 @@ import app from "../app";
 // C13).
 const NAME_PREFIX = "VitestAdminUpdateCat";
 const OWNER_SECRET = "vitest-admin-updates-owner-secret";
+const SUBSCRIBER_DEVICE = "vitest-admin-updates-subscriber";
 
 async function observationsFor(catId: number, kind: string) {
   return db
@@ -32,9 +56,23 @@ async function cleanup() {
     .where(like(catsTable.name, `${NAME_PREFIX}%`));
   const catIds = cats.map((c) => c.id);
   if (catIds.length > 0) {
+    const updates = await db
+      .select({ id: catUpdatesTable.id })
+      .from(catUpdatesTable)
+      .where(inArray(catUpdatesTable.catId, catIds));
+    const updateIds = updates.map((u) => u.id);
+    if (updateIds.length > 0) {
+      await db
+        .delete(notificationsTable)
+        .where(inArray(notificationsTable.catUpdateId, updateIds));
+    }
     await db.delete(catUpdatesTable).where(inArray(catUpdatesTable.catId, catIds));
+    await db
+      .delete(catSubscriptionsTable)
+      .where(inArray(catSubscriptionsTable.catId, catIds));
   }
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
+  await db.delete(pushTokensTable).where(eq(pushTokensTable.deviceId, SUBSCRIBER_DEVICE));
 }
 
 async function insertCat(nameSuffix: string) {
@@ -104,6 +142,59 @@ describe("POST /api/cats/:catId/updates (admin, OWNER_SECRET)", () => {
       roleAtTime: "staff",
       value: { status: "homed" },
     });
+  });
+
+  it("writes no cat_updates row, no notification and sends no push when writeObservation throws (review of PR #66, SYC-52/SYC-40)", async () => {
+    // Before this fix, createUpdateAndFanOut only routed the cat_updates
+    // insert through `tx` — the notifications insert and push send ran on
+    // the plain pool and committed immediately, ahead of writeObservation
+    // and the outer transaction. A subscriber with a push token proves
+    // neither fires when the write this update is supposed to accompany
+    // never lands.
+    const cat = await insertCat("ObsThrows");
+    await db
+      .insert(catSubscriptionsTable)
+      .values({ deviceId: SUBSCRIBER_DEVICE, catId: cat.id });
+    await db
+      .insert(pushTokensTable)
+      .values({ deviceId: SUBSCRIBER_DEVICE, token: "ExponentPushToken[forced-failure]" })
+      .onConflictDoUpdate({
+        target: pushTokensTable.deviceId,
+        set: { token: "ExponentPushToken[forced-failure]" },
+      });
+
+    vi.mocked(writeObservation).mockImplementationOnce(() => {
+      throw new ObservationRefused("TEST_FORCED_FAILURE", "forced for this test");
+    });
+
+    const res = await request(app)
+      .post(`/api/cats/${cat.id}/updates`)
+      .set("Authorization", `Bearer ${OWNER_SECRET}`)
+      .send({ updateType: "desexed", message: "Done at the clinic" });
+
+    expect(res.status).toBe(500);
+
+    // The transaction rolled back: no cat_updates row at all.
+    const updates = await db
+      .select()
+      .from(catUpdatesTable)
+      .where(eq(catUpdatesTable.catId, cat.id));
+    expect(updates).toHaveLength(0);
+
+    // No notification row — fanOutNotifications is never reached because
+    // the transaction it would run after never committed.
+    const notifications = await db
+      .select()
+      .from(notificationsTable)
+      .innerJoin(
+        catUpdatesTable,
+        eq(notificationsTable.catUpdateId, catUpdatesTable.id),
+      )
+      .where(eq(catUpdatesTable.catId, cat.id));
+    expect(notifications).toHaveLength(0);
+
+    // No push attempted.
+    expect(sendPushNotification).not.toHaveBeenCalled();
   });
 
   it("a general update writes no observation", async () => {
