@@ -736,7 +736,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       lng: cat.lng,
       sightingsCount: countRow?.n ?? 1,
       lastSeenAt: new Date().toISOString(),
-      hasHome: derivedStatus.hasHome,
+      ...derivedStatus,
     },
     pointsAwarded,
     isNewCat,

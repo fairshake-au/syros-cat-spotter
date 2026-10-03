@@ -67,6 +67,41 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * The cat's resolved life status (§3). A live "deceased" status is
+ * cleared automatically the moment a later sighting resolves to
+ * this cat (§3.2) — the client never needs to handle that itself.
+ */
+export type CatLifeStatus = typeof CatLifeStatus[keyof typeof CatLifeStatus];
+
+
+export const CatLifeStatus = {
+  street: 'street',
+  homed: 'homed',
+  in_care: 'in_care',
+  deceased: 'deceased',
+} as const;
+
+export type CatSterilisedConfidence = typeof CatSterilisedConfidence[keyof typeof CatSterilisedConfidence];
+
+
+export const CatSterilisedConfidence = {
+  confirmed: 'confirmed',
+  likely: 'likely',
+  reported: 'reported',
+  unknown: 'unknown',
+} as const;
+
+/**
+ * Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one.
+ */
+export type CatSterilised = {
+  value: boolean | null;
+  confidence: CatSterilisedConfidence;
+  /** How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level. */
+  clippedTipSightings: number;
+};
+
 export interface Cat {
   id: number;
   name: string;
@@ -90,8 +125,29 @@ export interface Cat {
      * @nullable
      */
   homeDescription?: string | null;
-  /** Whether a resident has claimed this cat as having a home */
+  /**
+     * Whether this cat has a home. Derived from lifeStatus === "homed"
+     * (cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather
+     * than a claim column directly, so a team correction is honoured
+     * and deleting an owner's device never silently unhomes a cat.
+     */
   hasHome: boolean;
+  /**
+     * The cat's resolved life status (§3). A live "deceased" status is
+     * cleared automatically the moment a later sighting resolves to
+     * this cat (§3.2) — the client never needs to handle that itself.
+     */
+  lifeStatus: CatLifeStatus;
+  /**
+     * Set only when this cat is presumed deceased (§3.4: no evidence
+     * of life for 36 months) — never alongside lifeStatus: "deceased",
+     * and never shown as a headline or sent as a notification. The app
+     * reads it as "Not seen since {date}", in the same quiet place it
+     * would show "Last seen yesterday".
+     */
+  notSeenSince: string | null;
+  /** Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one. */
+  sterilised: CatSterilised;
 }
 
 export interface CatRegistration {
@@ -230,6 +286,7 @@ export interface MatchResult {
   sightingId: number;
   /** False when the AI could not find a cat in the photo */
   isCatPhoto: boolean;
+  /** Candidates below the matcher's confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry. */
   candidates: MatchCandidate[];
 }
 
