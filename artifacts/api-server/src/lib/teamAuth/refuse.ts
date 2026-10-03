@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { SIGN_IN_PAGE } from "./config";
 
 // The one refusal for the staff dashboard (team-access spec §2.4): 401, a
@@ -40,4 +40,24 @@ export function refuseNotSignedIn(req: Request, res: Response): void {
     return;
   }
   res.json(NOT_SIGNED_IN_JSON);
+}
+
+/**
+ * Every dashboard POST must come from exactly one expected Origin — a
+ * missing Origin is not a free pass either (team.ts's own convention,
+ * originally inline on POST /team/signout; extracted here so every
+ * dashboard mutation, including observations.ts's, shares one check and one
+ * refusal). SameSite=Lax treats every *.catspotters.com host as same-site,
+ * so this is the only thing standing between a cross-site form post and a
+ * signed-in person's cookie.
+ */
+export function requireOrigin(expectedOrigin: string): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.headers.origin !== expectedOrigin) {
+      req.log.warn({ reason: "bad_origin" }, "team request refused");
+      refuseNotSignedIn(req, res);
+      return;
+    }
+    next();
+  };
 }
