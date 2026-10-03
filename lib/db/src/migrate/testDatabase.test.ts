@@ -1,6 +1,10 @@
 import pg from "pg";
 import { afterAll, describe, expect, it } from "vitest";
-import { createThrowawayDatabase, dropThrowawayDatabase } from "./testDatabase";
+import {
+  createThrowawayDatabase,
+  dropThrowawayDatabase,
+  reapStaleThrowawayDatabases,
+} from "./testDatabase";
 
 // SYC-111. Proves two things about createThrowawayDatabase:
 //  1. it runs the real checked-in migrations, not just a table shape — a
@@ -52,5 +56,34 @@ describe("createThrowawayDatabase", () => {
         "postgresql://u:p@ep-dev.eu-central-1.aws.neon.tech/neondb?sslmode=verify-full",
       ),
     ).rejects.toThrow(/refuses a Neon host/);
+  });
+
+  it("reaps databases a killed run left behind, and leaves recent ones alone", async () => {
+    const prefix = "reap_proof";
+    const admin = new pg.Client({ connectionString: baseUrl });
+    await admin.connect();
+    open.push(admin);
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    const stale = `${prefix}_${twoHoursAgo}_deadbeef`;
+    await admin.query(`create database "${stale}"`);
+    created.push({ name: stale }); // dropped by afterAll if the reaper misses it
+    const fresh = await createThrowawayDatabase(baseUrl!, { prefix });
+    created.push({ name: fresh.name });
+
+    const reaped = await reapStaleThrowawayDatabases(baseUrl!, { prefix });
+
+    expect(reaped).toEqual([stale]);
+    const { rows } = await admin.query<{ datname: string }>(
+      "select datname from pg_database where datname like 'reap_proof%'",
+    );
+    expect(rows.map((r) => r.datname)).toEqual([fresh.name]);
+  });
+
+  it("keeps underscores in the prefix", async () => {
+    const { name } = await createThrowawayDatabase(baseUrl!, {
+      prefix: "Under_Score",
+    });
+    created.push({ name });
+    expect(name).toMatch(/^under_score_\d{13}_[0-9a-f]{8}$/);
   });
 });

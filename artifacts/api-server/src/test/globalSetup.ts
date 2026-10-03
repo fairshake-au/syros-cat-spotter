@@ -1,6 +1,7 @@
 import {
   createThrowawayDatabase,
   dropThrowawayDatabase,
+  reapStaleThrowawayDatabases,
 } from "@workspace/db/testDatabase";
 
 /**
@@ -35,9 +36,14 @@ export default async function setup(): Promise<() => Promise<void>> {
     );
   }
 
-  const { url, name } = await createThrowawayDatabase(baseUrl, {
-    prefix: "api_server_test",
-  });
+  const prefix = "api_server_test";
+  // A run stopped by Ctrl-C, a cancelled CI job or a kill never reaches the
+  // teardown below (vitest exits before an async drop could finish), so its
+  // database stays behind. Clear what earlier runs left: anything over an
+  // hour old, so a concurrent run's database is never touched.
+  await reapStaleThrowawayDatabases(baseUrl, { prefix });
+
+  const { url, name } = await createThrowawayDatabase(baseUrl, { prefix });
   process.env.DATABASE_URL = url;
 
   return async () => {
