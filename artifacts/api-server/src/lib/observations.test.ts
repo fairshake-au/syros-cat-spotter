@@ -89,18 +89,30 @@ describe("writeObservation — refusals", () => {
     ).rejects.toMatchObject({ code: "FUTURE_OBSERVED_AT" });
   });
 
-  it("refuses a public date more than 30 days old", async () => {
+  it("clamps a public observedAt more than 30 days old, rather than refusing it", async () => {
+    // §10.1's last line: "Public writes are clamped by the existing
+    // capture-time rule (30 days back)" — the same rule
+    // captureTime.ts's clampCaptureTime applies to a sighting's capture
+    // time. Review of PR #66: an earlier version of this code refused
+    // (PUBLIC_DATE_TOO_OLD) instead, which broke resolving an
+    // offline-synced sighting more than 30 days after its own capture time.
     const cat = await insertCat();
-    await expect(
-      writeObservation(db, {
+    const now = new Date("2026-06-15T12:00:00Z");
+    const row = await writeObservation(
+      db,
+      {
         catId: cat.id,
         kind: "life_status",
         value: { status: "homed" },
         deviceId: "device-1",
         roleAtTime: "public",
-        observedAt: new Date(Date.now() - 31 * 86_400_000),
-      }),
-    ).rejects.toMatchObject({ code: "PUBLIC_DATE_TOO_OLD" });
+        observedAt: new Date(now.getTime() - 31 * 86_400_000),
+      },
+      now,
+    );
+    expect(row.observedAt.toISOString()).toBe(
+      new Date(now.getTime() - 30 * 86_400_000).toISOString(),
+    );
   });
 
   it("accepts the same date from staff (any past date for team/vet/import/legacy)", async () => {
