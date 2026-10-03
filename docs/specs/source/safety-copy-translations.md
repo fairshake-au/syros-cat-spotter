@@ -4,7 +4,11 @@
 **Scope:** the injured-cat action block, the healthy-cat onboarding note, and the post-report confirmation screen.
 **Rule:** vet names, addresses, map links and phone numbers are NOT translated. They come from the vet list file and are inserted verbatim in all three languages. **Clinic names too** — "Symviosis" and "Cyclades Vets" stay in Latin script in the Greek, because that is what is written on the sign and what a caller will be understood saying.
 
-This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.send`, `onboarding.healthy`, `confirm.sent`) are for reference only — use whatever key naming the codebase already uses.
+This is the one block in the app people **act on** rather than read. Structure, bold emphasis and block order are identical across all three languages so a developer can map them one to one. Block IDs (`injured.intro`, `onboarding.healthy`, `confirm.sent`) are for reference only — use whatever key naming the codebase already uses.
+
+**2 Oct 2026 (Samuel):** French uses tu throughout the app. Every French line below is now in tu; register change only, no change of meaning. All of it remains a draft for the native check (SYC-154, SYC-172).
+
+**1 Oct 2026 (Samuel):** the urgent block no longer opens with `injured.send` (removed) and now ends with `injured.capacity` (added, from Susan's standard reply). The English is approved; the Greek and French of `injured.capacity` are drafts for the native check (SYC-172, SYC-4).
 
 **Coverage:** all three blocks are complete and were checked line by line against the canonical English in `team-access-and-welfare-queue.md` §5.3(a), (b) and (e). Nothing is abridged. `injured.afterhours` was added on 4 September 2026 after the vet verification pass found that two clinics publish out-of-hours numbers; see item 17 for the checker. **Withdrawn 28 September 2026:** Samuel cut the out-of-hours paragraph, and `injured.afterhours` is removed in all three languages.
 
@@ -13,9 +17,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 ## 1. English (source)
 
 ### `injured.*` — Injured cat action block
-
-**`injured.send`**
-> **Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**
 
 **`injured.intro`**
 > If this cat is badly hurt, please take it to a local vet if you can.
@@ -53,6 +54,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 **`injured.municipality`**
 > **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — +30 22813 61000 — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
 
+**`injured.capacity`**
+> Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them.
+
 ### `onboarding.healthy` — Onboarding, healthy cats
 
 > **Look, don't touch.**
@@ -76,9 +80,6 @@ This is the one block in the app people **act on** rather than read. Structure, 
 *Address form: informal singular (εσύ) throughout. See "For the local checker", item 1.*
 
 ### `injured.*` — Τραυματισμένη γάτα
-
-**`injured.send`**
-> **Στείλ' το. Θέλει τριάντα δευτερόλεπτα και δείχνει στη Syros Cats ακριβώς πού βρίσκεται αυτή η γάτα.**
 
 **`injured.intro`**
 > Αν αυτή η γάτα είναι σοβαρά τραυματισμένη, πήγαινέ την σε έναν κτηνίατρο εδώ, αν μπορείς.
@@ -116,6 +117,9 @@ This is the one block in the app people **act on** rather than read. Structure, 
 **`injured.municipality`**
 > **Αν η γάτα χρειάζεται φροντίδα για εβδομάδες, όχι για ώρες.** Σύμφωνα με την ελληνική νομοθεσία, η φροντίδα των αδέσποτων ζώων είναι ευθύνη του Δήμου. Ενημέρωσε τον Δήμο Σύρου-Ερμούπολης — +30 22813 61000 — και ζήτησε το γραφείο προστασίας ζώων. Μερικές φορές μπορούν να βοηθήσουν με το κόστος. Εξαρτάται από το τι χρήματα έχουν εκείνη τη στιγμή.
 
+**`injured.capacity`** — **DRAFT, awaiting native review (SYC-172, SYC-4).**
+> Αν στείλεις αυτή την αναφορά, η Syros Cats θα έχει επίσης μια αναφορά για τη γάτα και, σε ορισμένες περιπτώσεις, μπορεί να αναλάβει δράση. Ωστόσο, η Syros Cats είναι ιδιωτικό καταφύγιο και όχι υπηρεσία έκτακτης ανάγκης, οπότε δεν μπορεί να προσφέρει άμεση διάσωση ή παραλαβή. Η μικρή της ομάδα έχει αυτή τη στιγμή φτάσει στα όριά της, φροντίζοντας τις γάτες που ήδη έχει.
+
 ### `onboarding.healthy` — Υγιείς γάτες
 
 > **Κοίτα, μην αγγίζεις.**
@@ -136,18 +140,15 @@ This is the one block in the app people **act on** rather than read. Structure, 
 
 ## 3. Français (French)
 
-*Address form: vouvoiement (vous) throughout — the reader is a visitor.*
+*Address form: tu throughout. **Samuel, 2 Oct 2026: French uses tu throughout the app.** (Register change only, no change of meaning; still a draft for the native check, SYC-154, SYC-172.)*
 
 ### `injured.*` — Chat blessé
 
-**`injured.send`**
-> **Envoyez-le. Cela prend trente secondes et indique à Syros Cats exactement où se trouve ce chat.**
-
 **`injured.intro`**
-> Si ce chat est gravement blessé, emmenez-le chez un vétérinaire local si vous le pouvez.
+> Si ce chat est gravement blessé, emmène-le chez un vétérinaire local si tu le peux.
 
 **`injured.cage`**
-> **Les vétérinaires de Syros vous prêteront une cage de transport.** Appelez la clinique la plus proche, dites que vous avez trouvé un chat blessé, et demandez à emprunter un « piège » ou une cage de transport. Emmenez ensuite le chat directement chez eux.
+> **Les vétérinaires de Syros te prêteront une cage de transport.** Appelle la clinique la plus proche, dis que tu as trouvé un chat blessé, et demande à emprunter un « piège » ou une cage de transport. Emmène ensuite le chat directement chez eux.
 
 **`injured.vetlist.heading`**
 > **Vétérinaires à Syros** *[liste insérée ici]*
@@ -156,40 +157,43 @@ This is the one block in the app people **act on** rather than read. Structure, 
 > **▾ Comment emmener un chat blessé chez le vétérinaire**
 
 **`injured.step1`**
-> **1. Appelez un vétérinaire et demandez une cage.** N'importe laquelle des cliniques ci-dessus. Dites où vous êtes et ce que vous avez trouvé.
+> **1. Appelle un vétérinaire et demande une cage.** N'importe laquelle des cliniques ci-dessus. Dis où tu es et ce que tu as trouvé.
 
 **`injured.step2`**
-> **2. Laissez la nourriture faire le travail.** Placez quelque chose qui sent fort au fond de la cage — des sardines, ou de la pâtée pour chat. Ouvrez la porte, reculez bien et attendez.
+> **2. Laisse la nourriture faire le travail.** Place quelque chose qui sent fort au fond de la cage — des sardines, ou de la pâtée pour chat. Ouvre la porte, recule bien et attends.
 
 **`injured.step3`**
-> **3. Fermez, couvrez, partez.** Une fois la porte fermée, posez une serviette ou une veste sur la cage. L'obscurité et le calme gardent le chat tranquille. Allez directement à la clinique. Ne lui donnez ni nourriture ni eau en chemin, et n'essayez pas de soigner la blessure vous-même.
+> **3. Ferme, couvre, pars.** Une fois la porte fermée, pose une serviette ou une veste sur la cage. L'obscurité et le calme gardent le chat tranquille. Va directement à la clinique. Ne lui donne ni nourriture ni eau en chemin, et n'essaie pas de soigner la blessure toi-même.
 
 **`injured.wontgoin`**
-> **Si le chat refuse d'entrer.** Seulement à ce moment-là, et seulement si vous vous sentez en sécurité pour le faire : laissez tomber une serviette, un pull ou une veste directement sur le chat, tête comprise. Soulevez-le enveloppé et mettez-le tout de suite dans la cage, ou dans un carton que vous pouvez fermer. Un chat blessé peut mordre et griffer, fort, pendant que vous l'aidez — il a peur, il a mal, et il ne sait pas que vous êtes de son côté.
+> **Si le chat refuse d'entrer.** Seulement à ce moment-là, et seulement si tu te sens en sécurité pour le faire : laisse tomber une serviette, un pull ou une veste directement sur le chat, tête comprise. Soulève-le enveloppé et mets-le tout de suite dans la cage, ou dans un carton que tu peux fermer. Un chat blessé peut mordre et griffer, fort, pendant que tu l'aides — il a peur, il a mal, et il ne sait pas que tu es de son côté.
 
 **`injured.vetdoes`**
 > **Ce que fait le vétérinaire.** Il examine le chat et soigne ce qui doit l'être. Il peut aussi chercher une puce électronique — certains de ces chats ont un propriétaire qui les cherche, et c'est la meilleure issue, et la plus rapide.
 
 **`injured.cost`**
-> **Ce que ça coûte.** Le vétérinaire vous facturera probablement la consultation.
+> **Ce que ça coûte.** Le vétérinaire te facturera probablement la consultation.
 
 **`injured.decision`**
-> **On peut vous demander de décider.** La personne qui amène un animal peut être appelée à autoriser un traitement, ou à accepter qu'il soit euthanasié. Si vous ne voulez pas être celui ou celle qui prend cette décision, dites-le à l'accueil en arrivant.
+> **On peut te demander de décider.** La personne qui amène un animal peut être appelée à autoriser un traitement, ou à accepter qu'il soit euthanasié. Si tu ne veux pas être celui ou celle qui prend cette décision, dis-le à l'accueil en arrivant.
 
 **`injured.municipality`**
-> **Si le chat a besoin d'être pris en charge pendant des semaines, pas des heures.** Selon la loi grecque, la prise en charge des animaux des rues incombe à la Municipalité. Prévenez la Municipalité de Syros-Ermoúpoli — +30 22813 61000 — et demandez le bureau de la protection animale. Ils peuvent parfois aider pour les frais. Cela dépend des fonds dont ils disposent à ce moment-là.
+> **Si le chat a besoin d'être pris en charge pendant des semaines, pas des heures.** Selon la loi grecque, la prise en charge des animaux des rues incombe à la Municipalité. Préviens la Municipalité de Syros-Ermoúpoli — +30 22813 61000 — et demande le bureau de la protection animale. Ils peuvent parfois aider pour les frais. Cela dépend des fonds dont ils disposent à ce moment-là.
+
+**`injured.capacity`** — **DRAFT, awaiting native review (SYC-172, SYC-4).**
+> Envoyer ce signalement transmettra aussi à Syros Cats un signalement sur ce chat et, dans certains cas, l'association pourra intervenir. Cependant, Syros Cats est un refuge privé et non un service d'urgence : l'association ne peut donc pas assurer de sauvetage ou de prise en charge immédiats. Sa petite équipe est actuellement à pleine capacité, avec les chats dont elle s'occupe déjà.
 
 ### `onboarding.healthy` — Chats en bonne santé
 
-> **Regardez, ne touchez pas.**
+> **Regarde, ne touche pas.**
 >
 > Les chats de Syros ne sont pas des animaux de compagnie, et ce ne sont pas des chats abandonnés. Ils vivent ici.
 >
-> Restez à un pas ou deux et laissez-les venir à vous s'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.
+> Reste à un pas ou deux et laisse-les venir à toi s'ils en ont envie. Un chat qui reste un peu méfiant envers les gens est un chat qui reste loin de la route et loin des ennuis — se méfier des inconnus fait partie de ce qui le garde en vie. Le prendre dans les bras, ou le nourrir, ne lui rend pas service.
 >
-> Alors : photographiez-les, admirez-les, laissez-les tranquilles.
+> Alors : photographie-les, admire-les, laisse-les tranquilles.
 >
-> **Si vous trouvez un chat blessé ou malade, c'est différent, et l'application vous dira quoi faire.**
+> **Si tu trouves un chat blessé ou malade, c'est différent, et l'application te dira quoi faire.**
 
 ### `confirm.sent` — Écran de confirmation
 
@@ -232,7 +236,7 @@ The English "out of trouble" is light and idiomatic. I used *μακριά από
 This English phrase is quietly emotional and there is no clean French equivalent. I turned it into *c'est la meilleure issue, et la plus rapide* — "that's the best outcome, and the fastest". It carries the meaning but loses some of the warmth. The Greek kept closer to the original with *το πιο γρήγορο καλό τέλος που υπάρχει*, which I think works, but it is an unusual construction and a native ear should confirm it does not sound translated.
 
 **11. French: "carton" for a box.**
-I used *un carton que vous pouvez fermer* for "a box you can close". A French tourist will read this as a cardboard box, which is the right image. Flagging only in case anyone prefers *une caisse*.
+I used *un carton que tu peux fermer* (originally *que vous pouvez fermer*, before the 2 Oct 2026 switch to tu) for "a box you can close". A French tourist will read this as a cardboard box, which is the right image. Flagging only in case anyone prefers *une caisse*.
 
 **13. [Withdrawn 28 Sep 2026: the line this note is about was cut.] "Most of them are fed, watched over and known by somebody" — I translated the meaning, not the words.**
 This is the line that does the real work in the whole onboarding screen: it is what makes these cats different from strays. A literal Greek rendering came out flat and administrative, so I wrote *Οι περισσότερες έχουν τον άνθρωπό τους — κάποιον που τις ταΐζει, τις προσέχει και τις ξέρει*, which is closer to "most of them have their person — somebody who feeds them, keeps an eye on them and knows them." I think that carries the charity's framing better than the literal version, but it is a real departure and you should say if it overclaims. Specifically: is it true enough of Syros to print? If a meaningful number of these cats have nobody, "most of them have their person" may be warmer than the facts justify, and the English "somebody" is vaguer on purpose. The French does the same thing more modestly: *La plupart d'entre eux ont quelqu'un — quelqu'un qui les nourrit, veille sur eux et les connaît.*
@@ -241,7 +245,7 @@ This is the line that does the real work in the whole onboarding screen: it is w
 This sentence now carries more weight than it looks, because the explicit don't-touch guardrail was cut from the injured-cat block, leaving this as the main place the app discourages handling. The English is gentle and idiomatic, and gentle idioms are exactly what goes limp in translation.
 - **Greek:** *Το να τη σηκώσεις ή να την ταΐσεις δεν της κάνει κανένα καλό* — "picking it up or feeding it does it no good at all." This is slightly firmer than the English, which I think is the right direction to err, but confirm it does not tip into scolding. If it reads soft rather than firm, harden it.
 - **French:** *Le prendre dans les bras, ou le nourrir, ne lui rend pas service* — this is the natural French idiom and it matches the English register closely, but French *ne pas rendre service* is quite mild. If you want it firmer, *ne lui fait aucun bien* is the stronger option.
-Both languages also lose a little force in the opening *Κοίτα, μην αγγίζεις* / *Regardez, ne touchez pas*. They are correct and they are the right length for a heading, but neither has quite the snap of the English pairing. Worth reading aloud.
+Both languages also lose a little force in the opening *Κοίτα, μην αγγίζεις* / *Regardez, ne touchez pas*. They are correct and they are the right length for a heading, but neither has quite the snap of the English pairing. Worth reading aloud. (The French is now *Regarde, ne touche pas*, after the 2 Oct 2026 switch to tu.)
 
 **15. Whether the Greek should keep "Λοιπόν:" for "So:".**
 *Λοιπόν* is the natural spoken word and it gives the three-verb line (*φωτογράφισέ τες, θαύμασέ τες, άσε τες ήσυχες*) the conversational turn the English has. It is informal. If the informal/formal decision in item 1 goes the formal way, this word should probably go too.

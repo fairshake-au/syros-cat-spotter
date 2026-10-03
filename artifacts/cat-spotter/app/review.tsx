@@ -34,6 +34,8 @@ import {
   type PickedFrom,
 } from "@/lib/catPicker";
 import { photoSource } from "@/lib/urls";
+import { NeedsHelpLink } from "@/components/report/NeedsHelpLink";
+import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { parseReviewParams } from "@/lib/reviewParams";
 import {
@@ -756,6 +758,20 @@ export default function ReviewScreen() {
             {t("newCatCardSubtitle")}
           </Text>
         </Pressable>
+
+        {/* SYC-42 (Samuel, 2 Oct 2026): quiet, last on the screen, well apart
+            from "Find the cat yourself"; reuses this sighting's photo and place. */}
+        <NeedsHelpLink
+          prepare={() =>
+            reviewReportHandoff({
+              photoRef: queuedItem ? queuedItem.photoUri : data.photoRef,
+              photoBase64: queuedItem?.photoBase64,
+              lat: from?.lat,
+              lng: from?.lng,
+            })
+          }
+          style={{ alignSelf: "center", marginTop: 4 }}
+        />
       </ScrollView>
     </View>
   );

@@ -413,7 +413,7 @@ Four moments, deliberately:
 
 Same rule, same words, in the flow and in the mail. A message that appears in only one place is a message half the people never see.
 
-**A layout note that is part of the design, not decoration.** The urgent block is long because it has to be. It is shown as a short lead, then a clearly labelled expander — **"How to get a hurt cat to a vet"** — open by default on first use. The lead must never be the discouraging half: leading with "we may not come" turns a worried person away at the exact moment we want them to press Send.
+**A layout note that is part of the design, not decoration.** The urgent block is long because it has to be. It is shown as a short lead, then a clearly labelled expander — **"How to get a hurt cat to a vet"** — ~~open by default on first use~~ **folded by default, behind a clear, prominent button-style expander (never small print)**. *Samuel, 2 Oct 2026: the steps are folded behind a prominent button so the advice screen needs no scrolling.* The report flow is three screens (Where → How bad → Before you send), each fitting a 390×844 phone without scrolling; the capacity paragraph is always shown in full, directly above the pinned Send report button. The lead must never be the discouraging half: leading with "we may not come" turns a worried person away at the exact moment we want them to press Send. The block therefore opens with the vet route ("If this cat is badly hurt, please take it to a local vet if you can") and puts the capacity paragraph — Syros Cats is not an emergency service — **last** (Samuel, 1 Oct 2026).
 
 ### 5.3 The copy
 
@@ -439,8 +439,8 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 
 **One version, and it is final.** The two-variant structure that stood here — a night-and-weekend variant shown against a daytime one — is gone. There is one urgent block, below, edited line by line by Samuel on 4 September 2026. It has no out-of-hours paragraph: the one that stood here was removed by Samuel on 27 September 2026.
 
-> **Send this. It takes thirty seconds and it tells Syros Cats exactly where this cat is.**
->
+**Edited by Samuel, 1 Oct 2026: opening 'Send this…' paragraph removed; closing capacity paragraph added, from Susan's standard reply.** (Two grammar fixes to his wording: "they may" added so the sentence reads, and "Our/us" became "Their/them" because the app speaks about Syros Cats, not as them.)
+
 > If this cat is badly hurt, please take it to a local vet if you can.
 >
 > **The vets on Syros will lend you a carrying cage.** Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a "trap" or a carrying cage. Then take the cat straight to them.
@@ -449,7 +449,7 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 >
 > ---
 >
-> **▾ How to get a hurt cat to a vet** *(open by default)*
+> **▾ How to get a hurt cat to a vet** *(folded by default behind a prominent button — Samuel, 2 Oct 2026: the steps are folded behind a prominent button so the advice screen needs no scrolling)*
 >
 > **1. Phone a vet and ask for a cage.** Any of the clinics above. Say where you are and what you have found.
 >
@@ -468,6 +468,8 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 > **You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive.
 >
 > **If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 22813 61000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.
+>
+> Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them.
 
 **Out-of-hours: the paragraph that named these numbers in the urgent block was removed by Samuel on 27 September 2026.** What follows is kept as the record of why it was there. SYC-68 asked who somebody calls at nine in the evening in February. The earlier answer — that there is no cover and the app should say nothing — was wrong on both halves, and the verification pass in `docs/specs/source/syros-vets-verified.md` is what corrected it. Two of the three clinics publish an out-of-hours contact: Symviosis lists **+30 697 005 5012** on its own site as the number to call outside clinic hours, and Cyclades Vets advertises 24-hour operation, 365 days a year, on **+30 6937 252802**. Those are published claims, not tested realities — nobody has rung either number at 2am to find out what happens. So the app names them and vouches for nothing, in one short paragraph placed directly under the vet list. Confirming whether they actually answer is a testing task (§5.4), not a blocker: naming a number the clinic itself publishes is better than a silence that implies there is nobody at all. Syros Cats told us there is no night cover; the clinics' own material says otherwise; the app reports the published position and leaves the reader to judge.
 
@@ -490,6 +492,10 @@ Same rule, same words, in the flow and in the mail. A message that appears in on
 > Sending this report is exactly the right thing to do. It tells the team where the mother is, and getting her sterilised — around **€50–60** — is what stops the next litter.
 
 *The donation ask does not appear here.* Somebody crouched over a cardboard box is not being asked for money. The ask moves to the acknowledgement email, where it reads as gratitude rather than as a toll.
+
+*Samuel, 2 Oct 2026: with Urgent, the urgent advice wins; kittens message only with Needs attention.* When kittens is ticked and the report is Urgent, the message above does not appear; instead, one line sits just above the urgent advice (outside its locked block):
+
+> If a kitten is hurt, the advice below applies to it.
 
 #### (e) The confirmation screen, immediately after any report
 

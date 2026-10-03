@@ -1,0 +1,76 @@
+{
+  "_source": "docs/specs/team-access-and-welfare-queue.md §5.3 (b), (c), (d), (e), as amended by DECISIONS.md Part 2b. **bold** marks the spec's bold. The urgent block is LOCKED (spec §5.4): its text is pinned by a test, and changing it goes back through Samuel.",
+  "language": "en",
+  "urgent": {
+    "review": "final",
+    "locked": "spec §5.4: settled copy (Samuel, 4 Sep 2026, as amended 27 Sep and 1 Oct 2026: the opening 'Send this…' paragraph removed and the closing capacity paragraph added). Changing any word needs Samuel's approval and an updated pin in artifacts/api-server/src/lib/welfareGuidance.test.ts.",
+    "intro": "If this cat is badly hurt, please take it to a local vet if you can.",
+    "cage": "**The vets on Syros will lend you a carrying cage.** Phone the nearest clinic, tell them you have found a hurt cat, and ask to borrow a \"trap\" or a carrying cage. Then take the cat straight to them.",
+    "vetListHeading": "Vets on Syros",
+    "howToHeading": "How to get a hurt cat to a vet",
+    "steps": [
+      "**1. Phone a vet and ask for a cage.** Any of the clinics above. Say where you are and what you have found.",
+      "**2. Let food do the work.** Put something strong-smelling at the back of the cage — sardines, or wet cat food. Open the door, step well back, and wait.",
+      "**3. Close it, cover it, go.** Once the door is shut, put a towel or a jacket over the cage. Dark and quiet keeps the cat calm. Drive straight to the clinic. Don't give it food or water on the way, and don't try to treat the injury yourself."
+    ],
+    "wontGoIn": "**If the cat will not go in.** Only then, and only if you feel safe doing it: drop a towel, a jumper or a jacket right over the cat, including its head. Lift it wrapped and put it straight into the cage, or a box you can close. A hurt cat might bite and scratch, hard, while you are helping it — it is frightened and in pain and it does not know you are on its side.",
+    "vetDoes": "**What the vet does.** They look the cat over and treat what needs treating. They can also scan for a microchip — some of these cats have an owner who is looking for them, and that is the fastest good ending there is.",
+    "cost": "**What it costs.** The vet is likely to charge you for the visit.",
+    "decision": "**You may be asked to decide.** Whoever brings an animal in can be asked to approve treatment, or to agree to it being put to sleep. If you do not want to be the person making that decision, say so at the desk when you arrive.",
+    "municipality": "**If the cat needs looking after for weeks, not hours.** Under Greek law the care of street animals is the Municipality's job. Tell the Municipality of Syros-Ermoupoli — **+30 22813 61000** — and ask for the animal welfare office. They can sometimes help with the cost. It depends on what money they have at the time.",
+    "capacity": "Sending this report will also provide Syros Cats with a report about the cat and, in some circumstances, they may take action in response. However, Syros Cats is a private sanctuary and not an emergency service, so they are unable to provide immediate rescue or collection. Their small team is currently at full capacity caring for the cats already with them."
+  },
+  "attention": {
+    "review": "final",
+    "heading": "Thank you for noticing.",
+    "paragraphs": [
+      "Reports like this are how Syros Cats know which cats to check on. Send it — a thin cat with a sore eye is worth recording, and the record is what tells the team where to spend what little they have.",
+      "Please know what this is and isn't: it goes to a small charity, not to a rescue service. Nobody is on duty. Somebody reads the list when they can, and that may be a few days.",
+      "If the cat gets worse in the meantime, a vet is the fastest help — and you can send another report any time."
+    ]
+  },
+  "litter": {
+    "review": "final",
+    "heading": "Please don't move them, and please don't bring them anywhere.",
+    "withUrgent": "If a kitten is hurt, the advice below applies to it.",
+    "paragraphs": [
+      "Kittens are almost always better off exactly where they are, with their mother. She is usually close by even when you cannot see her, and she is far better at this than any of us. If they look round and quiet, she is doing her job.",
+      "Sending this report is exactly the right thing to do. It tells the team where the mother is, and getting her sterilised — around **€50–60** — is what stops the next litter."
+    ]
+  },
+  "confirmation": {
+    "review": "final",
+    "sentHeading": "Sent. Syros Cats have this.",
+    "sentBody": "Your photo and the location are saved, and this report is in Syros Cats' list.",
+    "sentBodyNoPhoto": "The location is saved, and this report is in Syros Cats' list.",
+    "next": "**What happens next, honestly:** somebody at Syros Cats will read it when they can.",
+    "hurt": "**If this cat is badly hurt, please don't wait for us.** A vet is the fastest help there is, and **the vets here will lend you a carrying cage** — phone the nearest one and ask for a \"trap\" or carrying cage, then lure the cat in with sardines or wet food.",
+    "offline": "This report is saved on your phone and sends itself the moment you have a signal."
+  },
+  "vetList": {
+    "review": "draft",
+    "phoneKinds": {
+      "clinic_hours": "Clinic hours",
+      "after_hours": "After hours (the clinic's published number)",
+      "landline": "Landline",
+      "mobile": "Mobile",
+      "main": "Main line",
+      "emergency": "Emergency line (the clinic's published number)"
+    },
+    "phoneKindsShort": {
+      "clinic_hours": "Clinic hours",
+      "after_hours": "After hours*",
+      "landline": "Landline",
+      "mobile": "Mobile",
+      "main": "Main line",
+      "emergency": "Emergency*"
+    },
+    "publishedNote": "* The clinic's own published number.",
+    "call": "Call",
+    "googleMaps": "Google Maps",
+    "appleMaps": "Apple Maps",
+    "pinLandmark": "Map pin is near the clinic (within about 100 m).",
+    "pinSearch": "The map links search for the clinic by name.",
+    "municipalityHeading": "For long-term care"
+  }
+}

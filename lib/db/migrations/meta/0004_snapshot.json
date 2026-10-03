@@ -1,5 +1,5 @@
 {
-  "id": "4f8883f5-2099-41f3-a8cf-4ffcf96d2853",
+  "id": "1669f968-d400-44c5-8652-0f012223ddf8",
   "prevId": "df485a69-3647-48d3-8292-eef5bc870246",
   "version": "7",
   "dialect": "postgresql",
@@ -1187,92 +1187,227 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.sighting_matches": {
-      "name": "sighting_matches",
+    "public.mail_outbox": {
+      "name": "mail_outbox",
       "schema": "",
       "columns": {
-        "sighting_id": {
-          "name": "sighting_id",
-          "type": "integer",
+        "id": {
+          "name": "id",
+          "type": "serial",
           "primaryKey": true,
           "notNull": true
         },
-        "compared_cat_ids": {
-          "name": "compared_cat_ids",
-          "type": "integer[]",
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report_id": {
+          "name": "report_id",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
-        "suggested": {
-          "name": "suggested",
+        "recipient_hash": {
+          "name": "recipient_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "matcher_failed": {
-          "name": "matcher_failed",
-          "type": "boolean",
+        "state": {
+          "name": "state",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": false
+          "default": "'queued'"
         },
-        "matched_at": {
-          "name": "matched_at",
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_message_id": {
+          "name": "provider_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sent_at": {
+          "name": "sent_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "choice": {
-          "name": "choice",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "chosen_cat_id": {
-          "name": "chosen_cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "suggested_rank": {
-          "name": "suggested_rank",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "picked_from": {
-          "name": "picked_from",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "miss_kind": {
-          "name": "miss_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "opened_picker": {
-          "name": "opened_picker",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "chosen_at": {
-          "name": "chosen_at",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "mail_outbox_due_idx": {
+          "name": "mail_outbox_due_idx",
+          "columns": [
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"mail_outbox\".\"state\" in ('queued', 'sending')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mail_outbox_report_idx": {
+          "name": "mail_outbox_report_idx",
+          "columns": [
+            {
+              "expression": "report_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "sighting_matches_sighting_id_sightings_id_fk": {
-          "name": "sighting_matches_sighting_id_sightings_id_fk",
-          "tableFrom": "sighting_matches",
-          "tableTo": "sightings",
+        "mail_outbox_report_id_welfare_reports_id_fk": {
+          "name": "mail_outbox_report_id_welfare_reports_id_fk",
+          "tableFrom": "mail_outbox",
+          "tableTo": "welfare_reports",
           "columnsFrom": [
-            "sighting_id"
+            "report_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "mail_outbox_state_ck": {
+          "name": "mail_outbox_state_ck",
+          "value": "\"mail_outbox\".\"state\" in ('queued', 'sending', 'sent', 'failed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.welfare_report_photos": {
+      "name": "welfare_report_photos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "public_id": {
+          "name": "public_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "report_id": {
+          "name": "report_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mime": {
+          "name": "mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "welfare_report_photos_public_id_key": {
+          "name": "welfare_report_photos_public_id_key",
+          "columns": [
+            {
+              "expression": "public_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "welfare_report_photos_report_id_key": {
+          "name": "welfare_report_photos_report_id_key",
+          "columns": [
+            {
+              "expression": "report_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "welfare_report_photos_report_id_welfare_reports_id_fk": {
+          "name": "welfare_report_photos_report_id_welfare_reports_id_fk",
+          "tableFrom": "welfare_report_photos",
+          "tableTo": "welfare_reports",
+          "columnsFrom": [
+            "report_id"
           ],
           "columnsTo": [
             "id"
@@ -1284,26 +1419,232 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.welfare_reports": {
+      "name": "welfare_reports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "public_id": {
+          "name": "public_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'welfare'"
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_litter": {
+          "name": "is_litter",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "lat": {
+          "name": "lat",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lng": {
+          "name": "lng",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reporter_language": {
+          "name": "reporter_language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'en'"
+        },
+        "reporter_device": {
+          "name": "reporter_device",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reporter_contact_id": {
+          "name": "reporter_contact_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cat_id": {
+          "name": "cat_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'new'"
+        },
+        "state_changed_at": {
+          "name": "state_changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state_changed_by": {
+          "name": "state_changed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team_note": {
+          "name": "team_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_draft": {
+          "name": "is_draft",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "client_ref": {
+          "name": "client_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "photo_state": {
+          "name": "photo_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "welfare_reports_public_id_key": {
+          "name": "welfare_reports_public_id_key",
+          "columns": [
+            {
+              "expression": "public_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "welfare_reports_device_client_ref_key": {
+          "name": "welfare_reports_device_client_ref_key",
+          "columns": [
+            {
+              "expression": "reporter_device",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "client_ref",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "welfare_reports_queue_idx": {
+          "name": "welfare_reports_queue_idx",
+          "columns": [
+            {
+              "expression": "is_draft",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
       "checkConstraints": {
-        "sighting_matches_choice_ck": {
-          "name": "sighting_matches_choice_ck",
-          "value": "\"sighting_matches\".\"choice\" IS NULL OR \"sighting_matches\".\"choice\" IN ('suggested', 'hand_pick', 'new_cat', 'unlabelled')"
+        "welfare_reports_kind_ck": {
+          "name": "welfare_reports_kind_ck",
+          "value": "\"welfare_reports\".\"kind\" in ('welfare', 'content')"
         },
-        "sighting_matches_picked_from_ck": {
-          "name": "sighting_matches_picked_from_ck",
-          "value": "\"sighting_matches\".\"picked_from\" IS NULL OR \"sighting_matches\".\"picked_from\" IN ('nearby', 'search', 'name_prompt')"
+        "welfare_reports_severity_ck": {
+          "name": "welfare_reports_severity_ck",
+          "value": "\"welfare_reports\".\"severity\" in ('attention', 'urgent')"
         },
-        "sighting_matches_miss_kind_ck": {
-          "name": "sighting_matches_miss_kind_ck",
-          "value": "\"sighting_matches\".\"miss_kind\" IS NULL OR \"sighting_matches\".\"miss_kind\" IN ('matcher_miss', 'distance_miss')"
+        "welfare_reports_state_ck": {
+          "name": "welfare_reports_state_ck",
+          "value": "\"welfare_reports\".\"state\" in ('new', 'looking', 'done', 'nothing_needed')"
         },
-        "sighting_matches_chosen_ck": {
-          "name": "sighting_matches_chosen_ck",
-          "value": "(\"sighting_matches\".\"choice\" IS NULL) = (\"sighting_matches\".\"chosen_at\" IS NULL)"
-        },
-        "sighting_matches_rank_ck": {
-          "name": "sighting_matches_rank_ck",
-          "value": "(\"sighting_matches\".\"choice\" = 'suggested') = (\"sighting_matches\".\"suggested_rank\" IS NOT NULL)"
+        "welfare_reports_photo_state_ck": {
+          "name": "welfare_reports_photo_state_ck",
+          "value": "\"welfare_reports\".\"photo_state\" in ('pending', 'attached', 'none', 'failed')"
         }
       },
       "isRLSEnabled": false

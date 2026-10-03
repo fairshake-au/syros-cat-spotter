@@ -22,11 +22,11 @@ import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
  */
 /**
  * The last line ("If you find a cat that is hurt or sick… the app will tell
- * you what to do") promises the cat-in-trouble flow, SYC-42, which isn't
- * built yet. Samuel decided on 1 Oct 2026 to ship this screen without it and
- * switch it on with SYC-42's first release. The copy stays in lib/i18n.ts.
+ * you what to do") promises the cat-in-trouble flow, SYC-42. Samuel decided on
+ * 1 Oct 2026 that it ships in the same release as that flow (SYC-42 plan,
+ * Decision 7), so SYC-42 Slice 1 switches it on here.
  */
-export const SHOW_HURT_LINE = false;
+export const SHOW_HURT_LINE = true;
 
 export function SafetyStep({ onNext }: { onNext: () => void }) {
   const colors = useColors();

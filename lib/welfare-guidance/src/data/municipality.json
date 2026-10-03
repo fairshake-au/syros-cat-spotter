@@ -1,0 +1,9 @@
+{
+  "_source": "docs/specs/team-access-and-welfare-queue.md §5.7. Susan's '+30 2281 361000', standardised to the spec's grouping (same digits). A general switchboard, office hours, in Greek; there is no dedicated animal-welfare number.",
+  "name": {
+    "en": "Municipality of Syros-Ermoupoli",
+    "el": "Δήμος Σύρου-Ερμούπολης",
+    "fr": "Municipalité de Syros-Ermoúpoli"
+  },
+  "phone": { "display": "+30 22813 61000", "tel": "+302281361000" }
+}

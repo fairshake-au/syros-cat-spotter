@@ -21,6 +21,7 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { NotificationProvider } from '@/context/NotificationContext';
+import { ReportQueueProvider } from '@/context/ReportQueueContext';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
@@ -58,6 +59,7 @@ function RootLayoutNav() {
       <Stack.Screen name="cat/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="review" options={{ headerShown: false }} />
       <Stack.Screen name="notifications" options={{ headerShown: false }} />
+      <Stack.Screen name="report" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -110,13 +112,15 @@ export default function RootLayout() {
             <LanguageProvider>
               <DeviceProvider>
                 <OfflineProvider>
-                  <NotificationProvider>
-                    <GestureHandlerRootView>
-                      <KeyboardProvider>
-                        <OnboardingGate />
-                      </KeyboardProvider>
-                    </GestureHandlerRootView>
-                  </NotificationProvider>
+                  <ReportQueueProvider>
+                    <NotificationProvider>
+                      <GestureHandlerRootView>
+                        <KeyboardProvider>
+                          <OnboardingGate />
+                        </KeyboardProvider>
+                      </GestureHandlerRootView>
+                    </NotificationProvider>
+                  </ReportQueueProvider>
                 </OfflineProvider>
               </DeviceProvider>
             </LanguageProvider>

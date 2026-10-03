@@ -19,6 +19,7 @@ CREATE TABLE "sighting_matches" (
 );
 --> statement-breakpoint
 ALTER TABLE "sighting_matches" ADD CONSTRAINT "sighting_matches_sighting_id_sightings_id_fk" FOREIGN KEY ("sighting_id") REFERENCES "public"."sightings"("id") ON DELETE cascade ON UPDATE no action;
+
 -- rollback-begin
 -- DROP TABLE "sighting_matches";
 -- rollback-end

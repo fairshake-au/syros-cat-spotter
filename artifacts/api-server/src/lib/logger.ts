@@ -9,11 +9,40 @@ export const REDACT_PATHS = [
   "res.headers['set-cookie']",
 ];
 
+/**
+ * What an error looks like in the logs (SYC-42 review S1). Database errors
+ * carry the whole query and its parameters in their message and stack
+ * ("Failed query: … params: …"), and those parameters can be a reporter's
+ * note, exact coordinates, a device id or a photo's bytes. So an error is
+ * logged as its name and codes only; an ordinary message is kept unless it
+ * looks like a query.
+ */
+const QUERY_TEXT = /failed query|params:|\binsert into\b|\bupdate\b.+\bset\b|\bselect\b.+\bfrom\b/i;
+
+export function safeError(err: unknown): Record<string, unknown> {
+  if (!err || typeof err !== "object") return { type: typeof err };
+  const e = err as { name?: unknown; message?: unknown; code?: unknown; cause?: unknown };
+  const out: Record<string, unknown> = { type: typeof e.name === "string" ? e.name : "Error" };
+  if (typeof e.code === "string" || typeof e.code === "number") out["code"] = e.code;
+  const message = typeof e.message === "string" ? e.message : "";
+  if (message && !QUERY_TEXT.test(message)) out["message"] = message.slice(0, 300);
+  const cause = e.cause as { name?: unknown; code?: unknown } | undefined;
+  if (cause && typeof cause === "object") {
+    if (typeof cause.name === "string") out["causeType"] = cause.name;
+    if (typeof cause.code === "string" || typeof cause.code === "number") out["causeCode"] = cause.code;
+  }
+  return out;
+}
+
+// Exported so the capturing loggers in tests use exactly these serializers.
+export const LOG_SERIALIZERS = { err: safeError, error: safeError };
+
 const isProduction = process.env.NODE_ENV === "production";
 
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
   redact: REDACT_PATHS,
+  serializers: LOG_SERIALIZERS,
   ...(isProduction
     ? {}
     : {

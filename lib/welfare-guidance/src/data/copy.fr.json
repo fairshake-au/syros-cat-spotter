@@ -1,0 +1,75 @@
+{
+  "_source": "Urgent block and confirmation 'next' line: docs/specs/source/safety-copy-translations.md §3 (drafted, awaiting a native check). Everything else: Fair Shake drafts for SYC-172, in tu like the rest of the app's French (Samuel, 2 Oct 2026: French uses tu throughout the app; register change only, no change of meaning); a native speaker checks all of it before launch (spec §5.5, SYC-4, SYC-154). Flag for the checker: confirmation.sentHeading ('Envoyé. Syros Cats l’a bien reçu.') renders 'Syros Cats have this' loosely; 'reçu' may read as more of a promise than the English. The urgent block's last paragraph (capacity, added by Samuel 1 Oct 2026) is a Fair Shake DRAFT for native review (SYC-172, SYC-4).",
+  "language": "fr",
+  "urgent": {
+    "review": "pending-native-check",
+    "intro": "Si ce chat est gravement blessé, emmène-le chez un vétérinaire local si tu le peux.",
+    "cage": "**Les vétérinaires de Syros te prêteront une cage de transport.** Appelle la clinique la plus proche, dis que tu as trouvé un chat blessé, et demande à emprunter un « piège » ou une cage de transport. Emmène ensuite le chat directement chez eux.",
+    "vetListHeading": "Vétérinaires à Syros",
+    "howToHeading": "Comment emmener un chat blessé chez le vétérinaire",
+    "steps": [
+      "**1. Appelle un vétérinaire et demande une cage.** N'importe laquelle des cliniques ci-dessus. Dis où tu es et ce que tu as trouvé.",
+      "**2. Laisse la nourriture faire le travail.** Place quelque chose qui sent fort au fond de la cage — des sardines, ou de la pâtée pour chat. Ouvre la porte, recule bien et attends.",
+      "**3. Ferme, couvre, pars.** Une fois la porte fermée, pose une serviette ou une veste sur la cage. L'obscurité et le calme gardent le chat tranquille. Va directement à la clinique. Ne lui donne ni nourriture ni eau en chemin, et n'essaie pas de soigner la blessure toi-même."
+    ],
+    "wontGoIn": "**Si le chat refuse d'entrer.** Seulement à ce moment-là, et seulement si tu te sens en sécurité pour le faire : laisse tomber une serviette, un pull ou une veste directement sur le chat, tête comprise. Soulève-le enveloppé et mets-le tout de suite dans la cage, ou dans un carton que tu peux fermer. Un chat blessé peut mordre et griffer, fort, pendant que tu l'aides — il a peur, il a mal, et il ne sait pas que tu es de son côté.",
+    "vetDoes": "**Ce que fait le vétérinaire.** Il examine le chat et soigne ce qui doit l'être. Il peut aussi chercher une puce électronique — certains de ces chats ont un propriétaire qui les cherche, et c'est la meilleure issue, et la plus rapide.",
+    "cost": "**Ce que ça coûte.** Le vétérinaire te facturera probablement la consultation.",
+    "decision": "**On peut te demander de décider.** La personne qui amène un animal peut être appelée à autoriser un traitement, ou à accepter qu'il soit euthanasié. Si tu ne veux pas être celui ou celle qui prend cette décision, dis-le à l'accueil en arrivant.",
+    "municipality": "**Si le chat a besoin d'être pris en charge pendant des semaines, pas des heures.** Selon la loi grecque, la prise en charge des animaux des rues incombe à la Municipalité. Préviens la Municipalité de Syros-Ermoúpoli — +30 22813 61000 — et demande le bureau de la protection animale. Ils peuvent parfois aider pour les frais. Cela dépend des fonds dont ils disposent à ce moment-là.",
+    "capacity": "Envoyer ce signalement transmettra aussi à Syros Cats un signalement sur ce chat et, dans certains cas, l'association pourra intervenir. Cependant, Syros Cats est un refuge privé et non un service d'urgence : l'association ne peut donc pas assurer de sauvetage ou de prise en charge immédiats. Sa petite équipe est actuellement à pleine capacité, avec les chats dont elle s'occupe déjà."
+  },
+  "attention": {
+    "review": "pending-native-check",
+    "heading": "Merci de l'avoir remarqué.",
+    "paragraphs": [
+      "C'est grâce à des signalements comme celui-ci que Syros Cats sait quels chats aller voir. Envoie-le — un chat maigre avec un œil irrité mérite d'être noté, et c'est ce registre qui indique à l'équipe où consacrer le peu dont elle dispose.",
+      "Sache ce que c'est, et ce que ce n'est pas : ce signalement va à une petite association, pas à un service de secours. Personne n'est de permanence. Quelqu'un lit la liste quand il le peut, et cela peut prendre quelques jours.",
+      "Si l'état du chat s'aggrave entre-temps, un vétérinaire est l'aide la plus rapide — et tu peux envoyer un autre signalement à tout moment."
+    ]
+  },
+  "litter": {
+    "review": "pending-native-check",
+    "heading": "Ne les déplace pas, et ne les emmène nulle part.",
+    "withUrgent": "Si un chaton est blessé, les conseils ci-dessous s’appliquent à lui.",
+    "paragraphs": [
+      "Les chatons sont presque toujours mieux exactement là où ils sont, avec leur mère. Elle est généralement tout près, même quand tu ne la vois pas, et elle s'y prend bien mieux que n'importe lequel d'entre nous. S'ils ont l'air dodus et calmes, elle fait son travail.",
+      "Envoyer ce signalement est exactement ce qu'il faut faire. Cela indique à l'équipe où se trouve la mère, et la faire stériliser — environ **50–60 €** — c'est ce qui empêche la prochaine portée."
+    ]
+  },
+  "confirmation": {
+    "review": "pending-native-check",
+    "sentHeading": "Envoyé. Syros Cats l'a bien reçu.",
+    "sentBody": "Ta photo et l'emplacement sont enregistrés, et ce signalement est dans la liste de Syros Cats.",
+    "sentBodyNoPhoto": "L'emplacement est enregistré, et ce signalement est dans la liste de Syros Cats.",
+    "next": "**Ce qui se passe ensuite, honnêtement :** quelqu'un chez Syros Cats le lira quand il le pourra.",
+    "hurt": "**Si ce chat est gravement blessé, n'attends pas après nous.** Un vétérinaire est l'aide la plus rapide qui soit, et **les vétérinaires d'ici te prêteront une cage de transport** — appelle le plus proche et demande un « piège » ou une cage de transport, puis attire le chat à l'intérieur avec des sardines ou de la pâtée.",
+    "offline": "Ce signalement est enregistré sur ton téléphone et partira tout seul dès que tu auras du réseau."
+  },
+  "vetList": {
+    "review": "pending-native-check",
+    "phoneKinds": {
+      "clinic_hours": "Heures d'ouverture",
+      "after_hours": "En dehors des heures d'ouverture (numéro publié par la clinique)",
+      "landline": "Fixe",
+      "mobile": "Portable",
+      "main": "Standard",
+      "emergency": "Ligne d'urgence (numéro publié par la clinique)"
+    },
+    "phoneKindsShort": {
+      "clinic_hours": "Heures d'ouverture",
+      "after_hours": "Hors horaires*",
+      "landline": "Fixe",
+      "mobile": "Portable",
+      "main": "Standard",
+      "emergency": "Urgences*"
+    },
+    "publishedNote": "* Numéro publié par la clinique elle-même.",
+    "call": "Appeler",
+    "googleMaps": "Google Maps",
+    "appleMaps": "Apple Maps",
+    "pinLandmark": "Le repère sur la carte est près de la clinique (à environ 100 m).",
+    "pinSearch": "Les liens de carte recherchent la clinique par son nom.",
+    "municipalityHeading": "Pour des soins de longue durée"
+  }
+}
