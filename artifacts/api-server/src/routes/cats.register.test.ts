@@ -1,9 +1,22 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { db, pool, catsTable, deviceCredentialsTable } from "@workspace/db";
-import { like } from "drizzle-orm";
+import {
+  db,
+  pool,
+  catsTable,
+  deviceCredentialsTable,
+  observationsTable,
+} from "@workspace/db";
+import { and, eq, like } from "drizzle-orm";
 
 import app from "../app";
+
+async function observationsFor(catId: number, kind: string) {
+  return db
+    .select()
+    .from(observationsTable)
+    .where(and(eq(observationsTable.catId, catId), eq(observationsTable.kind, kind)));
+}
 
 const DEVICE_PREFIX = "vitest-register-owned-";
 const NAME_PREFIX = "VitestOwnedCat";
@@ -56,6 +69,34 @@ describe("POST /api/cats", () => {
       }),
     );
     expect(res.body.discovererSpotterCode).not.toBe(validBody.deviceId);
+
+    // data-spine.md PR 2: owner registration writes homed + name
+    // observations at creation, in the same transaction as the cat row.
+    const homed = await observationsFor(res.body.id, "life_status");
+    expect(homed).toHaveLength(1);
+    expect(homed[0]).toMatchObject({
+      deviceId: validBody.deviceId,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      value: { status: "homed" },
+    });
+    const named = await observationsFor(res.body.id, "name");
+    expect(named).toHaveLength(1);
+    expect(named[0]).toMatchObject({
+      deviceId: validBody.deviceId,
+      value: { name: validBody.name },
+    });
+  });
+
+  it("writes no observation when the request is rejected (400)", async () => {
+    const before = await db.select().from(observationsTable);
+    const res = await request(app)
+      .post("/api/cats")
+      .set("X-Device-Secret", DEVICE_SECRET)
+      .send({ ...validBody, name: undefined });
+    expect(res.status).toBe(400);
+    const after = await db.select().from(observationsTable);
+    expect(after.length).toBe(before.length);
   });
 
   it("returns null (not a minted token) for the primaryPhotoId: 0 sentinel", async () => {
