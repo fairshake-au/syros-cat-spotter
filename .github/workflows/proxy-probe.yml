@@ -14,7 +14,60 @@ jobs:
     # is only ever read here, never typed by hand and never seen by Claude.
     environment: production
     steps:
-      - name: Probe with a spoofed X-Forwarded-For
+      - name: Learn this runner's own public egress IP, and hash it (never printed)
+        env:
+          PROXY_PROBE_TOKEN: ${{ secrets.PROXY_PROBE_TOKEN }}
+        run: |
+          set -euo pipefail
+          primary="$(curl -sS https://api.ipify.org || true)"
+          fallback="$(curl -sS https://ifconfig.me || true)"
+          # Mask both immediately — before any check that could otherwise
+          # echo them in a failure message.
+          echo "::add-mask::$primary"
+          echo "::add-mask::$fallback"
+          if [ -z "$primary" ] || [ -z "$fallback" ]; then
+            echo "::error::could not determine this runner's public egress IP (ipify or ifconfig.me returned empty)"
+            exit 1
+          fi
+          if [ "$primary" != "$fallback" ]; then
+            echo "::error::ipify and ifconfig.me disagree on this runner's public egress IP"
+            exit 1
+          fi
+          # SYC-100 confirmation probe: HMAC-SHA256(key=PROXY_PROBE_TOKEN,
+          # msg=this runner's own public IP), hex-encoded. The server hashes
+          # each candidate address in the X-Forwarded-For chain and the
+          # socket address the same way and reports which one (if any)
+          # matches — never a raw IP. The IP itself is never written to
+          # GITHUB_ENV or any step output; only the hash is.
+          expect_hash="$(printf '%s' "$primary" | openssl dgst -sha256 -hmac "$PROXY_PROBE_TOKEN" -binary | od -An -tx1 | tr -d ' \n')"
+          echo "::add-mask::$expect_hash"
+          echo "PROXY_PROBE_EXPECT=$expect_hash" >> "$GITHUB_ENV"
+
+      - name: "Probe 1/3 — no client X-Forwarded-For"
+        env:
+          PROXY_PROBE_TOKEN: ${{ secrets.PROXY_PROBE_TOKEN }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          url="${BASE_URL:-https://apptest.catspotters.com}/api/healthz"
+          echo "Probing $url (run 1 of 2, no client X-Forwarded-For)"
+          curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "$url" \
+            -H "X-Proxy-Probe: ${PROXY_PROBE_TOKEN}" \
+            -H "X-Proxy-Probe-Expect: ${PROXY_PROBE_EXPECT}"
+
+      - name: "Probe 2/3 — no client X-Forwarded-For, repeated (checks stability)"
+        env:
+          PROXY_PROBE_TOKEN: ${{ secrets.PROXY_PROBE_TOKEN }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          url="${BASE_URL:-https://apptest.catspotters.com}/api/healthz"
+          echo "Probing $url (run 2 of 2, no client X-Forwarded-For)"
+          curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "$url" \
+            -H "X-Proxy-Probe: ${PROXY_PROBE_TOKEN}" \
+            -H "X-Proxy-Probe-Expect: ${PROXY_PROBE_EXPECT}"
+
+      - name: "Probe 3/3 — spoofed X-Forwarded-For (must not change client_pos_from_right)"
         env:
           PROXY_PROBE_TOKEN: ${{ secrets.PROXY_PROBE_TOKEN }}
           BASE_URL: ${{ inputs.base_url }}
@@ -24,21 +77,14 @@ jobs:
           echo "Probing $url with a spoofed X-Forwarded-For"
           curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "$url" \
             -H "X-Forwarded-For: 203.0.113.77" \
-            -H "X-Proxy-Probe: ${PROXY_PROBE_TOKEN}"
-
-      - name: Probe with no X-Forwarded-For
-        env:
-          PROXY_PROBE_TOKEN: ${{ secrets.PROXY_PROBE_TOKEN }}
-          BASE_URL: ${{ inputs.base_url }}
-        run: |
-          set -euo pipefail
-          url="${BASE_URL:-https://apptest.catspotters.com}/api/healthz"
-          echo "Probing $url with no X-Forwarded-For"
-          curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "$url" \
-            -H "X-Proxy-Probe: ${PROXY_PROBE_TOKEN}"
+            -H "X-Proxy-Probe: ${PROXY_PROBE_TOKEN}" \
+            -H "X-Proxy-Probe-Expect: ${PROXY_PROBE_EXPECT}"
 
       - name: Where to read the result
         run: |
-          echo "Neither step prints the response body or any header value."
-          echo "Read the two 'proxy-probe' log lines from the deployment itself"
-          echo "(via the Replit agent) — see docs/runbooks/proxy-probe.md."
+          echo "None of the three requests above print the response body, a"
+          echo "header value, or the runner's own IP/hash — only an HTTP status."
+          echo "Read the three 'proxy-probe' log lines from the deployment"
+          echo "itself (via the Replit agent) — see docs/runbooks/proxy-probe.md."
+          echo "client_pos_from_right must be identical across all three lines;"
+          echo "that number is the value to put in app.set(\"trust proxy\", <n>)."
