@@ -25,6 +25,21 @@ import {
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 
 /**
+ * Not in lib/api-spec/openapi.yaml, by design (review of #68): every other
+ * staff dashboard route (team.ts, welfare.ts, reports.ts) is left out of
+ * the generated spec/client/zod packages too, because those are bundled
+ * into the public mobile app — shipping staff-only request/response shapes
+ * in that bundle is unnecessary attack surface for a route the app never
+ * calls. These three endpoints:
+ *
+ *   POST   /api/team/observations
+ *   POST   /api/team/observations/:id/supersede
+ *   GET    /api/team/observations/review/likely
+ *
+ * See the module doc comment immediately below for what each does and why.
+ */
+
+/**
  * The correction path (data-spine plan, PR 8; spec §4.5, §3.5).
  *
  * The endpoints only — there is no staff screen yet (SYC-43's later parts
