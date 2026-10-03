@@ -5,6 +5,7 @@ import {
   classifyIp,
   findClientPosition,
   hmacHex,
+  MAX_XFF_ENTRIES,
   normalizeIpForHash,
   runProxyProbe,
   tokenMatches,
@@ -272,6 +273,41 @@ describe("runProxyProbe", () => {
     const parsed = JSON.parse(lines[0]!);
     expect(parsed.client_found).toBe(false);
     expect(parsed.client_pos_from_right).toBeNull();
+  });
+
+  it(`caps xff_hops at ${MAX_XFF_ENTRIES} even when the header carries far more entries`, () => {
+    process.env.PROXY_PROBE_TOKEN = "correct-token";
+    const { logger, lines } = capturingLogger();
+    const entries = Array.from({ length: MAX_XFF_ENTRIES + 30 }, (_, i) => `10.0.${i}.1`);
+    const req = fakeReq({
+      ip: "198.51.100.9",
+      xff: entries.join(", "),
+      socketRemoteAddress: "10.0.0.254",
+      probeHeader: "correct-token",
+    });
+    runProxyProbe(req, logger);
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed.xff_hops).toBe(MAX_XFF_ENTRIES);
+  });
+
+  it("still finds the client within the capped (rightmost) XFF entries", () => {
+    process.env.PROXY_PROBE_TOKEN = "correct-token";
+    const { logger, lines } = capturingLogger();
+    // A huge header with the real client near the right-hand (server) end,
+    // well inside the cap, and a wall of junk padding it out on the left.
+    const padding = Array.from({ length: MAX_XFF_ENTRIES + 50 }, (_, i) => `10.0.${i}.1`);
+    const entries = [...padding, "203.0.113.77", "10.0.0.1"];
+    const req = fakeReq({
+      ip: "198.51.100.9",
+      xff: entries.join(", "),
+      socketRemoteAddress: "10.0.0.254",
+      probeHeader: "correct-token",
+      expectHeader: hmacHex("correct-token", "203.0.113.77"),
+    });
+    runProxyProbe(req, logger);
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed.xff_hops).toBe(MAX_XFF_ENTRIES);
+    expect(parsed.client_found).toBe(true);
   });
 
   it("never logs a raw IP or a 64-hex-char hash, even with an expect header and a match", () => {

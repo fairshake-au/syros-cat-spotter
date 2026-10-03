@@ -175,18 +175,32 @@ export function tokenMatches(provided: string | undefined, expected: string): bo
 }
 
 /**
+ * Defensive cap on how many X-Forwarded-For entries this module will ever
+ * parse or hash. A real chain here is a handful of hops; nothing stops a
+ * client from sending thousands of comma-separated junk entries, and this
+ * module hashes every one of them in `findClientPosition` — so an unbounded
+ * header is effectively a free way to burn CPU on this route. 20 is far
+ * more than any real deployment topology needs, so this only ever bites a
+ * deliberately oversized header.
+ */
+export const MAX_XFF_ENTRIES = 20;
+
+/**
  * Parses the X-Forwarded-For header into its comma-separated entries
  * (trimmed), left to right as the header carries them. Returns [] when the
- * header is absent.
+ * header is absent. Capped to the rightmost `MAX_XFF_ENTRIES` entries (the
+ * ones nearest the server, which are the only ones any real `trust proxy`
+ * count would reach) if there are more than that.
  */
 function parseXffEntries(req: Request): string[] {
   const raw = req.headers["x-forwarded-for"];
   const header = Array.isArray(raw) ? raw[0] : raw;
   if (!header) return [];
-  return header
+  const entries = header
     .split(",")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+  return entries.length > MAX_XFF_ENTRIES ? entries.slice(-MAX_XFF_ENTRIES) : entries;
 }
 
 /** Hex-encoded HMAC-SHA256 of `message`, keyed by `key`. */
