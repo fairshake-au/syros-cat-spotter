@@ -10,20 +10,58 @@
  * why an earlier version that did was wrong in the bundled build) — every
  * case here is a plain `drizzle.__drizzle_migrations` row keyed on
  * {@link PR3_MIGRATION_WHEN}.
+ *
+ * The suite's shared throwaway database (globalSetup.ts) now has PR 3's
+ * migration (0006) applied for real — the row this file tests for is
+ * already there before any test runs. So this file snapshots and removes
+ * that real row in `beforeAll`, runs every case against a clean slate, and
+ * restores the exact original row in `afterAll` — never leaving the shared
+ * database in a different state than it found it.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import fs from "node:fs";
+import path from "node:path";
 import {
   PR3_MIGRATION_WHEN,
   pr3Recorded,
   resetPr3GateCacheForTests,
 } from "./pr3Gate";
 
-async function insertMigrationRow(createdAt: number): Promise<void> {
+interface MigrationRow {
+  hash: string;
+  created_at: number;
+}
+
+async function fetchMigrationRow(
+  createdAt: number,
+): Promise<MigrationRow | null> {
+  const result = await db.execute<{ hash: string; created_at: string }>(
+    sql`select hash, created_at from "drizzle"."__drizzle_migrations"
+        where created_at = ${createdAt}`,
+  );
+  const row = result.rows[0] as
+    | { hash: string; created_at: string }
+    | undefined;
+  return row ? { hash: row.hash, created_at: Number(row.created_at) } : null;
+}
+
+async function insertMigrationRow(
+  createdAt: number,
+  hash = `test-hash-${createdAt}-${Math.random()}`,
+): Promise<void> {
   await db.execute(
     sql`insert into "drizzle"."__drizzle_migrations" (hash, created_at)
-        values (${`test-hash-${createdAt}-${Math.random()}`}, ${createdAt})`,
+        values (${hash}, ${createdAt})`,
   );
 }
 
@@ -34,6 +72,22 @@ async function deleteMigrationRow(createdAt: number): Promise<void> {
 }
 
 describe("pr3Recorded", () => {
+  // The real row (or absence of one) that this database had before this
+  // file touched anything. Restored in `afterAll` no matter what the tests
+  // below do to it.
+  let originalRow: MigrationRow | null = null;
+
+  beforeAll(async () => {
+    originalRow = await fetchMigrationRow(PR3_MIGRATION_WHEN);
+    if (originalRow) await deleteMigrationRow(PR3_MIGRATION_WHEN);
+  });
+
+  afterAll(async () => {
+    if (originalRow) {
+      await insertMigrationRow(originalRow.created_at, originalRow.hash);
+    }
+  });
+
   beforeEach(() => resetPr3GateCacheForTests());
 
   afterEach(async () => {
@@ -73,5 +127,25 @@ describe("pr3Recorded", () => {
     // The same process, same call, now sees it — proving the earlier
     // `false` wasn't cached.
     await expect(pr3Recorded()).resolves.toBe(true);
+  });
+
+  // Guards against the constant drifting from the migration it's meant to
+  // key on: a mutant that bumps PR3_MIGRATION_WHEN by +1 (or any other
+  // value) must turn this red. The runtime gate itself must never read this
+  // file (see pr3Gate.ts's doc comment on why reading the filesystem at
+  // runtime was wrong in the bundled build) — only the test is allowed to.
+  it("PR3_MIGRATION_WHEN matches 0006_data_spine_backfill's `when` in the journal", () => {
+    const journalPath = path.resolve(
+      import.meta.dirname,
+      "../../../../lib/db/migrations/meta/_journal.json",
+    );
+    const journal = JSON.parse(fs.readFileSync(journalPath, "utf8")) as {
+      entries: { tag: string; when: number }[];
+    };
+    const entry = journal.entries.find(
+      (e) => e.tag === "0006_data_spine_backfill",
+    );
+    expect(entry).toBeDefined();
+    expect(PR3_MIGRATION_WHEN).toBe(entry!.when);
   });
 });
