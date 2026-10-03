@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { db, pool, catsTable, observationsTable } from "@workspace/db";
+import { db, pool, catsTable, observationsTable, sightingsTable } from "@workspace/db";
 import { eq, like, sql } from "drizzle-orm";
 import {
   writeObservation,
@@ -324,6 +324,43 @@ describe("loadCatRecords", () => {
     const rec = records.get(cat.id)!;
     expect(rec.evidenceOfLife!.source).toBe("ear_tip");
     expect(rec.evidenceOfLife!.at.toISOString()).toBe(tenDaysAgo.toISOString());
+  });
+
+  it("lastSightingAt comes from the newest RESOLVED sighting, ignoring a newer pending one", async () => {
+    // Test gap found in review of PR #66: the test above this one is named
+    // for exactly this rule but inserts no sighting rows at all, so it would
+    // pass even with the `status = 'resolved'` filter removed from
+    // loadCatRecords's sighting query. This test actually seeds both
+    // statuses and proves the newer, unresolved sighting is ignored.
+    const cat = await insertCat();
+    const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000);
+    const fiveDaysAgo = new Date(Date.now() - 5 * 86_400_000);
+    await db.insert(sightingsTable).values({
+      catId: cat.id,
+      deviceId: "device-sighting-resolved",
+      photoId: 1,
+      lat: 37.44,
+      lng: 24.9,
+      status: "resolved",
+      createdAt: tenDaysAgo,
+    });
+    // Newer, but still pending — must not win.
+    await db.insert(sightingsTable).values({
+      catId: cat.id,
+      deviceId: "device-sighting-pending",
+      photoId: 1,
+      lat: 37.44,
+      lng: 24.9,
+      status: "pending",
+      createdAt: fiveDaysAgo,
+    });
+
+    const records = await loadCatRecords([cat.id]);
+    const rec = records.get(cat.id)!;
+    expect(rec.evidenceOfLife!.lastSightingAt?.toISOString()).toBe(
+      tenDaysAgo.toISOString(),
+    );
+    expect(rec.evidenceOfLife!.source).toBe("sighting");
   });
 
   it("a redacted observation with its value intact still counts", async () => {
