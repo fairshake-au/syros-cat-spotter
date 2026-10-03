@@ -26,7 +26,7 @@ import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import { containsOffensiveLanguage } from "../lib/moderation";
-import { aiLimiter } from "../middlewares/rateLimit";
+import { checkDeviceMatchLimit } from "../middlewares/rateLimit";
 import { selectCandidateCats } from "../lib/candidateSelection";
 import { isNearby, publishedPosition } from "@workspace/geo";
 
@@ -48,12 +48,25 @@ const NOT_NEARBY = {
 } as const;
 
 type Candidate = {
-  catId: number;
-  name: string;
+  catId: number | null;
+  name: string | null;
   photoUrl: string | null;
   confidence: number;
   reasoning: string;
 };
+
+// Data spine PR 5 (DECISIONS.md Part 2h, §6.3 point 3): below this, a
+// candidate's catId, name and photoUrl are withheld — the geography of
+// "which cat" is exactly what a probe is trying to learn, and a photo url
+// would hand that back as surely as the id or name would (photos are served
+// unauthenticated from an opaque but public id). The 0.1 floor just below
+// stays as it was: real noise that shouldn't be offered at all, confident or
+// not. 0.4 isn't named by the spec or DECISIONS.md — the plan leaves the
+// exact figure to the builder, picked here as the point below which the
+// vision model's own reasoning (SYC-39's matcher) is usually a guess rather
+// than a likely match; flagged in the PR for Samuel/Syros Cats to revisit
+// once real matching data exists.
+const CONFIDENCE_THRESHOLD = 0.4;
 
 const router: IRouter = Router();
 
@@ -117,6 +130,12 @@ async function computeMatchCandidates(
     photoBase64: string;
     mime: string;
   }[] = [];
+  // The team-only match record (SYC-151) always keeps the real cat ids, even
+  // for a candidate the public response anonymises below the confidence
+  // threshold — the redaction is a publication rule for the phone's
+  // response, never a gap in what the server itself remembers (recordMatch,
+  // below). Populated from `ranked`, not from the public `candidates`.
+  let rankedForRecord: { catId: number; confidence: number }[] = [];
 
   try {
     for (const cat of nearest) {
@@ -139,10 +158,18 @@ async function computeMatchCandidates(
     // Only a cat the matcher was actually sent can be suggested (review F5):
     // a nearby cat whose photo row is gone was never compared.
     const sent = new Set(candidateInputs.map((c) => c.catId));
+    // Data spine PR 5 (§6.3 point 3; DECISIONS.md Part 2h): ranked by
+    // confidence, ties broken by cat id — NEVER by true distance, and
+    // candidateInputs' nearest-first order (candidateSelection.ts) is used
+    // only to decide who gets compared, not to decide who's returned first.
+    // The tie-break on cat id, not distance, is what makes two equally
+    // confident candidates come back in the same order every time, whatever
+    // their true distances from the sighting.
     const ranked = result.matches
       .filter((m) => sent.has(m.catId) && m.confidence >= 0.1)
       .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
       .slice(0, 3);
+    rankedForRecord = ranked.map((m) => ({ catId: m.catId, confidence: m.confidence }));
     // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
     // ranked cats' photo public ids, instead of a photoUrl() round trip per
     // candidate.
@@ -158,6 +185,19 @@ async function computeMatchCandidates(
     const publicIdById = new Map(photoRows.map((p) => [p.id, p.publicId]));
     candidates = ranked.map((m) => {
       const cat = byId.get(m.catId)!;
+      // Below the confidence threshold: no catId, no name, no photoUrl. A
+      // probe can still learn "something was nearby and confident-ish", but
+      // never which cat, so repeated probing at this confidence narrows
+      // nothing down (§6.3 point 3).
+      if (m.confidence < CONFIDENCE_THRESHOLD) {
+        return {
+          catId: null,
+          name: null,
+          photoUrl: null,
+          confidence: m.confidence,
+          reasoning: m.reasoning,
+        };
+      }
       const publicId = publicIdById.get(cat.primaryPhotoId);
       return {
         catId: cat.id,
@@ -176,7 +216,7 @@ async function computeMatchCandidates(
     // A failed call scored nothing, so nothing counts as compared (review
     // F1): a hand pick on it is then a distance miss, never a matcher miss.
     comparedCatIds: matcherFailed ? [] : candidateInputs.map((c) => c.catId),
-    suggested: candidates.map((c, i) => ({
+    suggested: rankedForRecord.map((c, i) => ({
       catId: c.catId,
       rank: i + 1,
       score: c.confidence,
@@ -264,7 +304,7 @@ function labelChoice(input: {
   };
 }
 
-router.post("/sightings", aiLimiter, async (req, res) => {
+router.post("/sightings", async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
 
   // SYC-92: the upload route was the one place a device id was taken on
@@ -291,7 +331,21 @@ router.post("/sightings", aiLimiter, async (req, res) => {
   //     secret.
   //   - There's no store build to worry about going stale (no eas.json in
   //     this repo) — web and Expo clients always load the current bundle.
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+  const verifiedDeviceId = await verifyDeviceSecret(req, res, body.deviceId);
+  if (!verifiedDeviceId) return;
+
+  // Data spine PR 5 (DECISIONS.md Part 2h, §6.3 point 2): candidate matching
+  // is rate-limited per device, counted only now that verifyDeviceSecret has
+  // proven the caller holds this device's secret (SYC-107) — never on the
+  // raw body.deviceId, and never on the IP (middlewares/rateLimit.ts has the
+  // full reasoning). Checked before the dedupe lookup, so a dedupe-hit
+  // retry — which still re-runs computeMatchCandidates below — counts
+  // against the same budget as a fresh upload, exactly as the old per-IP
+  // limiter counted every POST to this route.
+  if (!checkDeviceMatchLimit(verifiedDeviceId)) {
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return;
+  }
 
   // When the client queued this offline, the spot happened before the sync.
   // Store the capture time (clamped) so streak day buckets reflect when the
