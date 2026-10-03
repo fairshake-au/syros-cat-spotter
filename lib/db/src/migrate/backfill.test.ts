@@ -356,4 +356,141 @@ describe("PR 3: backfill claims and care updates", () => {
     );
     expect(applied.rowCount).toBe(0);
   });
+
+  // ---- Review of PR #67 (SYC-52) ----
+
+  it("a care update's microsecond-precision created_at still matches a millisecond-precision go-forward observation (finding B1)", async () => {
+    // cat_updates.created_at is the column's own now() -- microsecond
+    // precision. The observation routes/notifications.ts writes for the
+    // same event is built from a JS Date, which only carries milliseconds.
+    // A plain `=` match key never hits this; the BETWEEN form must.
+    const catId = await seedCat({ name: "Micro", createdAt: new Date(2026, 0, 1) });
+    const inserted = await c.query<{ created_at: Date }>(
+      `insert into cat_updates (cat_id, update_type, message, created_at)
+       values ($1, 'desexed', '', '2026-10-03 07:00:00.123456+00') returning created_at`,
+      [catId],
+    );
+    const msTruncated: Date = inserted.rows[0]!.created_at;
+    await c.query(
+      `insert into observations (cat_id, kind, value, account_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'sterilised', '{"sterilised": true}', 'system:admin-route', 'staff', 'none', 'volunteered', $2)`,
+      [catId, msTruncated],
+    );
+
+    await migrateUp(c, migrations, { throughIdx: BACKFILL });
+
+    const rows = await observations(catId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.account_id).toBe("system:admin-route");
+    expect(rows[0]!.suggestion_source).toBeNull();
+  });
+
+  it("two desexed updates on the same cat each get their own sterilised observation", async () => {
+    // A match key that forgot observed_at (only cat_id + kind) would see
+    // the first insert as already covering the second.
+    const catId = await seedCat({ name: "Relapsed", createdAt: new Date(2023, 0, 1) });
+    await seedCareUpdate(catId, "desexed", new Date(2023, 1, 1));
+    await seedCareUpdate(catId, "desexed", new Date(2023, 2, 1));
+
+    await migrateUp(c, migrations, { throughIdx: BACKFILL });
+
+    const rows = await observations(catId);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.kind === "sterilised")).toBe(true);
+    expect(new Set(rows.map((r) => r.observed_at.getTime())).size).toBe(2);
+  });
+
+  it("two adopted updates on the same cat each get their own life_status observation", async () => {
+    const catId = await seedCat({ name: "RehomedTwice", createdAt: new Date(2023, 0, 1) });
+    await seedCareUpdate(catId, "adopted", new Date(2023, 1, 1));
+    await seedCareUpdate(catId, "adopted", new Date(2023, 2, 1));
+
+    await migrateUp(c, migrations, { throughIdx: BACKFILL });
+
+    const rows = await observations(catId);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.kind === "life_status")).toBe(true);
+    expect(new Set(rows.map((r) => r.observed_at.getTime())).size).toBe(2);
+  });
+
+  it("a go-forward homed observation from a DIFFERENT device doesn't stop the claim being backfilled", async () => {
+    // The claims match key requires the observation's device_id to be the
+    // cat's CURRENT owner_device_id, not just any owner_of_this_cat/homed
+    // row for that cat (an owner who moved devices, or a stray row from
+    // someone else, must not be mistaken for coverage).
+    const catId = await seedCat({
+      name: "Moved",
+      ownerDeviceId: "device-new",
+      createdAt: new Date(2024, 0, 1),
+    });
+    await c.query(
+      `insert into observations (cat_id, kind, value, device_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'life_status', '{"status":"homed"}', 'device-old', 'public', 'owner_of_this_cat', 'volunteered', now())`,
+      [catId],
+    );
+
+    await migrateUp(c, migrations, { throughIdx: BACKFILL });
+
+    const rows = await observations(catId);
+    expect(rows).toHaveLength(2);
+    const backfilled = rows.find((r) => r.suggestion_source === "backfill:data-spine");
+    expect(backfilled).toBeDefined();
+    expect(backfilled!.device_id).toBe("device-new");
+  });
+
+  it("an existing life_status observation that isn't 'homed' doesn't stop a claimed cat being backfilled", async () => {
+    // The claims match key checks the value (status: "homed"), not just
+    // the kind -- an observation recording that the owner's cat went back
+    // to the street must not be mistaken for coverage of the claim.
+    const catId = await seedCat({
+      name: "WentMissing",
+      ownerDeviceId: "device-x",
+      createdAt: new Date(2024, 0, 1),
+    });
+    await c.query(
+      `insert into observations (cat_id, kind, value, device_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'life_status', '{"status":"street"}', 'device-x', 'public', 'owner_of_this_cat', 'volunteered', now())`,
+      [catId],
+    );
+
+    await migrateUp(c, migrations, { throughIdx: BACKFILL });
+
+    const rows = await observations(catId);
+    expect(rows).toHaveLength(2);
+    const backfilled = rows.find((r) => r.suggestion_source === "backfill:data-spine");
+    expect(backfilled).toMatchObject({ value: { status: "homed" } });
+  });
+
+  it("a homed observation left on a cat whose owner_device_id has since been cleared doesn't make the claims self-check raise (finding S1)", async () => {
+    const claimed = await seedCat({
+      name: "Claimed",
+      ownerDeviceId: "device-a",
+      createdAt: new Date(2024, 0, 1),
+    });
+    const cleared = await seedCat({ name: "OwnerCleared", createdAt: new Date(2024, 0, 1) });
+    await c.query(
+      `insert into observations (cat_id, kind, value, device_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'life_status', '{"status":"homed"}', 'device-b', 'public', 'owner_of_this_cat', 'volunteered', now())`,
+      [cleared],
+    );
+
+    await expect(
+      migrateUp(c, migrations, { throughIdx: BACKFILL }),
+    ).resolves.not.toThrow();
+    expect(await observations(claimed)).toHaveLength(1);
+  });
+
+  it("the claims self-check raises if an owned cat has no matching homed observation (finding S1)", async () => {
+    // Runs only the self-check statement (skipping the inserts that would
+    // otherwise satisfy it), proving the guard fires for a real gap rather
+    // than only ever passing by construction.
+    await seedCat({ name: "NeverBackfilled", ownerDeviceId: "device-z", createdAt: new Date(2024, 0, 1) });
+    await migrateUp(c, migrations, { throughIdx: BEFORE_BACKFILL });
+    const migration = migrations.find((m) => m.idx === BACKFILL)!;
+    const selfCheck = migration.statements[migration.statements.length - 1]!;
+
+    await expect(c.query(selfCheck)).rejects.toThrow(
+      /expected every one of 1 claimed\/owner-registered cats/,
+    );
+  });
 });
