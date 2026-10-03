@@ -37,16 +37,20 @@ const LIFE_STATUS_VALUES: readonly LifeStatusValue[] = [
 
 /**
  * The newest thing that tells us this cat was alive, computed by PR 2's
- * `loadCatRecords` from §3.4's sources (a resolved sighting; a `life_status`
- * of street, homed or in care; a `sterilised` record; an `ear_tip`
- * observation; a `welfare_report`; failing all of those, the cat's
- * `created_at`). `source` is a free label PR 2 sets — the one value this
- * resolver inspects itself is the literal string `"sighting"`, to run §3.2's
- * "a sighting after a deceased statement clears it" rule. Every other label
- * is used only for its date. The resolver queries nothing else: a `colony`,
- * `note`, `name`, `food_and_water` or `coat` observation must never reach
- * this parameter, because none of those imply the cat is alive (§3.4) — that
- * filtering is `loadCatRecords`'s job, not this function's.
+ * `loadCatRecords` from §3.4's sources other than `life_status` itself (a
+ * resolved sighting; a `sterilised` record; an `ear_tip` observation; a
+ * `welfare_report`; failing all of those, the cat's `created_at`). A
+ * non-superseded `life_status` of street, homed or in care is also evidence
+ * of life, but this resolver already has those directly (it's resolving
+ * them) and folds them in itself — PR 2's loader doesn't need to.
+ *
+ * `source` is a free label PR 2 sets — the one value this resolver inspects
+ * itself is the literal string `"sighting"`, to run §3.2's "a sighting
+ * after a deceased statement clears it" rule. Every other label is used
+ * only for its date. A `colony`, `note`, `name`, `food_and_water` or `coat`
+ * observation must never reach this parameter, because none of those imply
+ * the cat is alive (§3.4) — that filtering is `loadCatRecords`'s job, not
+ * this function's.
  */
 export interface EvidenceOfLife {
   at: string;
@@ -354,14 +358,31 @@ export function resolveLifeStatus(
     supportingObservationIds = [];
   }
 
+  // A non-deceased life_status write is itself evidence of life (§3.4), and
+  // unlike a sighting, sterilised record, ear-tip or welfare report, this
+  // resolver already has it directly — it doesn't need PR 2's loader to
+  // fold it into evidenceOfLife, and must not miss it if the loader's
+  // evidenceOfLife happens to be stale (test: "a life_status newer than the
+  // last evidence of life suppresses it").
+  const lifeStatusEvidenceAt =
+    newestEntry && newestEntry.status !== "deceased"
+      ? newestEntry.o.observedAt.getTime()
+      : null;
+
   let presumedDeceased = false;
   let notSeenSince: string | null = null;
-  if (value !== "deceased" && evidenceOfLife) {
-    const evidenceAt = new Date(evidenceOfLife.at);
-    const threshold = addMonths(evidenceAt, PRESUMED_DECEASED_MONTHS);
-    if (now.getTime() > threshold.getTime()) {
-      presumedDeceased = true;
-      notSeenSince = evidenceAt.toISOString();
+  if (value !== "deceased") {
+    const evidenceOfLifeAt = evidenceOfLife ? new Date(evidenceOfLife.at).getTime() : null;
+    const candidates = [evidenceOfLifeAt, lifeStatusEvidenceAt].filter(
+      (at): at is number => at != null,
+    );
+    if (candidates.length > 0) {
+      const latestAt = Math.max(...candidates);
+      const threshold = addMonths(new Date(latestAt), PRESUMED_DECEASED_MONTHS);
+      if (now.getTime() > threshold.getTime()) {
+        presumedDeceased = true;
+        notSeenSince = new Date(latestAt).toISOString();
+      }
     }
   }
 
