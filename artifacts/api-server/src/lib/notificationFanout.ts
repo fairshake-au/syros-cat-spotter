@@ -26,6 +26,18 @@ export async function insertCatUpdate(
     updateType: "sighting" | "desexed" | "adopted" | "general";
     message: string;
     triggerSightingId?: number | null;
+    /**
+     * Review of PR #67 (SYC-52), finding B1: left to the column's own
+     * `defaultNow()`, `cat_updates.created_at` carries microsecond
+     * precision while a JS `Date` (what every observation's `observedAt`
+     * is built from) only has milliseconds — so a later equality match
+     * between the two (PR 3's backfill match key) never hits. A caller
+     * that also writes an observation for this same event (currently only
+     * `routes/notifications.ts`'s admin care route) passes the exact same
+     * `Date` here as it passes as that observation's `observedAt`, so both
+     * rows carry the identical millisecond-precision instant.
+     */
+    createdAt?: Date;
   },
 ): Promise<CatUpdate> {
   const [update] = await tx
@@ -35,6 +47,7 @@ export async function insertCatUpdate(
       updateType: opts.updateType,
       message: opts.message,
       triggerSightingId: opts.triggerSightingId ?? null,
+      ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
     })
     .returning();
   return update!;

@@ -396,6 +396,22 @@ export async function writeObservation(
       'provenance "machine" is only accepted from system:vision',
     );
   }
+  // Review of PR #67 (SYC-52), finding S2: migration 0006's rollback finds
+  // exactly the rows it wrote by `suggestion_source = 'backfill:data-spine'`
+  // and deletes only those (the one sanctioned bypass of the observations
+  // append-only trigger). The migration's own header already claimed
+  // `writeObservation` refuses that value from any other caller — this
+  // makes that true, so the rollback can never delete a row some other
+  // write happened to tag the same way.
+  if (
+    typeof input.suggestionSource === "string" &&
+    input.suggestionSource.startsWith("backfill:")
+  ) {
+    refuse(
+      "RESERVED_SUGGESTION_SOURCE",
+      `suggestionSource "${input.suggestionSource}" is reserved for migration backfills and may not be written through writeObservation`,
+    );
+  }
 
   const observedAtMs = input.observedAt.getTime();
   if (Number.isNaN(observedAtMs)) {
