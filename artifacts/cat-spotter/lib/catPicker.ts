@@ -17,14 +17,24 @@ export type PickedFrom = 'nearby' | 'search';
 /**
  * Lower-case, strip accents and fold final sigma, so "ΑΓΆΘΗ" finds "Αγάθη",
  * "zoe" finds "Zoé" and "ΝΗΣ" finds "Νησος" (the folding in DECISIONS
- * Part 2g: ς is the same letter as σ).
+ * Part 2g: ς is the same letter as σ). Also strips invisible formatting
+ * characters (zero-width spaces and the like) and collapses any run of
+ * whitespace to one space, so a stray paste artefact in a cat's name
+ * doesn't stop a search from finding it (Samuel, 3 Oct 2026).
+ *
+ * Matches `@workspace/db`'s `foldName` for every case above. The two still
+ * disagree on Hangul (`foldName` normalises to NFC, this search fold
+ * doesn't) — harmless here because this only ever narrows a visible list
+ * and never merges two records; see `foldName`'s doc comment.
  */
 function fold(text: string): string {
   return text
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
+    .replace(/\p{Cf}/gu, '')
     .toLowerCase()
     .replace(/ς/g, 'σ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
