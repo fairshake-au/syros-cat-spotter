@@ -144,7 +144,11 @@ describe("POST /api/sightings matching hardening (data spine PR 5)", () => {
     expect(otherRes.status).toBe(201);
   });
 
-  it("a low-confidence candidate has no id or name", async () => {
+  // Review of PR #64 (S1): the first cut of this nulled catId/name/photoUrl
+  // but still returned the candidate — confidence, and critically
+  // `reasoning`, intact. Spec §6.3 point 3 says a below-threshold candidate
+  // is "not returned ... at all", not "returned with some fields blanked".
+  it("a below-threshold candidate is left out of the response entirely", async () => {
     const strong = await insertCatAt("Strong", 50);
     const weak = await insertCatAt("Weak", 60);
 
@@ -152,8 +156,8 @@ describe("POST /api/sightings matching hardening (data spine PR 5)", () => {
       isCatPhoto: true,
       matches: candidates.map((c) => ({
         catId: c.catId,
-        // Below CONFIDENCE_THRESHOLD (0.4) but above the 0.1 noise floor, so
-        // it is still offered — just without anything that names the cat.
+        // Below CONFIDENCE_THRESHOLD (0.4) but above the 0.1 noise floor —
+        // compared, scored, but never shown.
         confidence: c.catId === strong.id ? 0.8 : 0.2,
         reasoning: "test",
       })),
@@ -162,17 +166,61 @@ describe("POST /api/sightings matching hardening (data spine PR 5)", () => {
     const res = await submit(`${PREFIX}confidence-device`);
     expect(res.status).toBe(201);
 
-    const byConfidence = (res.body.candidates as any[]).sort(
-      (a, b) => b.confidence - a.confidence,
-    );
-    expect(byConfidence[0]).toMatchObject({ catId: strong.id, name: strong.name });
-    expect(byConfidence[1]).toMatchObject({
-      catId: null,
-      name: null,
-      photoUrl: null,
-      confidence: 0.2,
-    });
+    // Not "present with nulled fields" — absent. Only the strong candidate
+    // appears anywhere in the response at all.
+    expect(res.body.candidates).toEqual([
+      expect.objectContaining({ catId: strong.id, name: strong.name }),
+    ]);
     expect(weak.id).toBeTypeOf("number"); // sanity: fixture really has an id
+  });
+
+  // Review of PR #64 (S1): the vision model's own `reasoning` routinely
+  // echoes a candidate's name ("different coat from Agatha") — a nulled
+  // catId/name doesn't stop that reasoning text, sitting right there in the
+  // same response, from naming the cat anyway. Omitting the whole candidate
+  // (above) is what actually closes this; this test asserts directly on the
+  // serialised response body, so a regression that reintroduces a
+  // below-threshold entry under some other key would still be caught.
+  it("a weak candidate's reasoning, which can name the cat, appears nowhere in the response", async () => {
+    const weak = await insertCatAt("NamedInReasoning", 50);
+
+    matchCatPhoto.mockImplementationOnce(async (_photo, candidates: { catId: number }[]) => ({
+      isCatPhoto: true,
+      matches: candidates.map((c) => ({
+        catId: c.catId,
+        confidence: 0.2,
+        reasoning: `Different coat from ${weak.name}, but could be the same cat`,
+      })),
+    }));
+
+    const res = await submit(`${PREFIX}reasoning-leak-device`);
+    expect(res.status).toBe(201);
+    expect(res.body.candidates).toEqual([]);
+    expect(JSON.stringify(res.body)).not.toContain(weak.name);
+  });
+
+  // Review of PR #64 (S5, mutant M2): locks in which side of the threshold
+  // "below" means. The route's own comment says "at or above this threshold
+  // a candidate is shown" (comment on CONFIDENCE_THRESHOLD, sightings.ts) —
+  // this test fails if that boundary is ever flipped to `<=`.
+  it("a candidate at exactly the confidence threshold is shown; just below it is not", async () => {
+    const atThreshold = await insertCatAt("AtThreshold", 50);
+    const justBelow = await insertCatAt("JustBelow", 60);
+
+    matchCatPhoto.mockImplementationOnce(async (_photo, candidates: { catId: number }[]) => ({
+      isCatPhoto: true,
+      matches: candidates.map((c) => ({
+        catId: c.catId,
+        confidence: c.catId === atThreshold.id ? 0.4 : 0.399,
+        reasoning: "boundary",
+      })),
+    }));
+
+    const res = await submit(`${PREFIX}boundary-device`);
+    expect(res.status).toBe(201);
+    expect(res.body.candidates).toEqual([
+      expect.objectContaining({ catId: atThreshold.id, name: atThreshold.name }),
+    ]);
   });
 
   it("two candidates with equal confidence come back in cat-id order whatever their distances", async () => {
@@ -194,5 +242,47 @@ describe("POST /api/sightings matching hardening (data spine PR 5)", () => {
       far.id,
       near.id,
     ]);
+  });
+
+  // Review of PR #64 (S5, mutant M6): the per-device limit is checked only
+  // after verifyDeviceSecret has proven the caller holds the device's
+  // secret, keyed on the id it returns — never on the raw, unverified
+  // body.deviceId. If the limit were ever checked earlier, or kept on the
+  // body's deviceId regardless of the secret, an attacker who merely knows
+  // (or guesses) a victim's device id could burn the victim's budget with
+  // wrong-secret requests, without ever authenticating as them.
+  it("wrong-secret requests naming a victim's device id do not use up the victim's budget", async () => {
+    const victim = `${PREFIX}victim-device`;
+
+    // Bind the victim's real secret first (TOFU, deviceAuth.ts) — otherwise
+    // an attacker's "wrong" secret would be the one that binds, which is a
+    // different attack (and one TOFU accepts: see SYC-92/SYC-107) from the
+    // one this test is checking.
+    const first = await submit(victim);
+    expect(first.status).toBe(201);
+
+    for (let i = 0; i < 25; i++) {
+      const res = await request(app)
+        .post("/api/sightings")
+        .set("X-Device-Secret", "wrong-secret-0123456789ab")
+        .send({
+          deviceId: victim,
+          lat: ORIGIN.lat,
+          lng: ORIGIN.lng,
+          photoBase64: TINY_JPEG_B64,
+          capturedAt: new Date(Date.now() - 86_400_000).toISOString(),
+        });
+      expect(res.status).toBe(403);
+    }
+
+    // The victim's own, correctly-authenticated requests still have their
+    // full budget (minus the one spent above) — none of the 25 wrong-secret
+    // attempts counted against it.
+    for (let i = 0; i < 19; i++) {
+      const res = await submit(victim);
+      expect(res.status).toBe(201);
+    }
+    const blocked = await submit(victim);
+    expect(blocked.status).toBe(429);
   });
 });

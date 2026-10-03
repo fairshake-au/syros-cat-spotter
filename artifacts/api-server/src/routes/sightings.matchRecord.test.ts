@@ -29,8 +29,13 @@ const { matchCatPhoto } = vi.hoisted(() => ({
 }));
 vi.mock("../lib/matching", () => ({ matchCatPhoto }));
 // This file uploads more than the 20-per-IP AI budget allows (the budget has
-// its own tests in rateLimit.test.ts), so here the upload limit lets
-// everything through.
+// its own tests in rateLimit.test.ts). Review of PR #64 (B1) restored
+// `aiLimiter` on POST /sightings after it had been dropped in favour of the
+// per-device limiter alone — this mock is still needed, and more load-bearing
+// than before: without it every test past the 20th upload in this file would
+// 429 against the real aiLimiter, which is keyed on supertest's one shared
+// local IP across the whole file, not per device. (Each test here uses its
+// own device id, so the per-device limiter below is never what would trip.)
 vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../middlewares/rateLimit")>()),
   aiLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
@@ -433,6 +438,66 @@ describe("resolve labels the choice from the stored set (test 4)", () => {
       chosenCatId: cat,
       comparedCatIds: null,
       suggested: null,
+    });
+  });
+});
+
+describe("review findings (adversarial review of #64)", () => {
+  // S2: a below-threshold candidate is withheld from the public response
+  // (sightings.matchHardening.test.ts covers that), but it was still sitting
+  // in the stored `suggested` set — before this fix, a spotter who hand-
+  // picked it anyway (having spotted the cat by eye, having had it withheld)
+  // was recorded as "suggested, rank 2", as if the server had offered it.
+  // That's wrong twice over: the phone never showed it, and the rank/score
+  // wouldn't mean what the rest of the data assumes "suggested" means.
+  it("S2: hand-picking a withheld (below-threshold) candidate is a matcher miss, not a suggestion", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-s2-withheld`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const hidden = await seedCat(northOf(SEA, 0.2));
+    // 0.25 clears the 0.1 noise floor (compared, scored) but not
+    // CONFIDENCE_THRESHOLD (0.4) — withheld from the response, per S1.
+    matcherReturns({ [a]: 0.9, [hidden]: 0.25 });
+    const sub = await submit(device, SEA);
+    expect(sub.body.candidates.map((c: { catId: number }) => c.catId)).toEqual([a]);
+
+    await resolve(sub.body.sightingId, device, { catId: hidden, pickedFrom: "nearby" });
+    const row = await record(sub.body.sightingId);
+    expect(row).toMatchObject({
+      choice: "hand_pick",
+      chosenCatId: hidden,
+      pickedFrom: "nearby",
+      missKind: "matcher_miss",
+      suggestedRank: null,
+    });
+    // The withheld candidate's id and score must still be in the team's
+    // record — the fix is in the labelling, not in dropping the candidate
+    // from `suggested` (that would lose the data a future recalibration of
+    // CONFIDENCE_THRESHOLD needs). Kills mutant M4 ("team record redacted").
+    expect(row!.suggested).toEqual(
+      expect.arrayContaining([expect.objectContaining({ catId: hidden, score: 0.25 })]),
+    );
+  });
+
+  // The flip side: a candidate that WAS shown (confidence at or above the
+  // threshold) is unaffected by the S2 fix and is still labelled "suggested".
+  it("S2 regression guard: a shown candidate is still labelled suggested when hand-picked", async () => {
+    const SEA = spot();
+    const device = `${DEVICE}-s2-shown`;
+    const a = await seedCat(northOf(SEA, 0.1));
+    const shown = await seedCat(northOf(SEA, 0.2));
+    matcherReturns({ [a]: 0.9, [shown]: 0.4 }); // exactly at threshold: shown
+    const sub = await submit(device, SEA);
+    expect(sub.body.candidates.map((c: { catId: number }) => c.catId).sort()).toEqual(
+      [a, shown].sort(),
+    );
+
+    await resolve(sub.body.sightingId, device, { catId: shown });
+    expect(await record(sub.body.sightingId)).toMatchObject({
+      choice: "suggested",
+      chosenCatId: shown,
+      suggestedRank: 2,
+      missKind: null,
     });
   });
 });
