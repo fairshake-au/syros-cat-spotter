@@ -357,6 +357,23 @@ describe("PR 3: backfill claims and care updates", () => {
     expect(applied.rowCount).toBe(0);
   });
 
+  it("the adopted-care self-check raises if an adopted cat_updates row has no matching homed observation (review of PR #67, finding M9)", async () => {
+    // Runs only the self-check statement (skipping the inserts that would
+    // otherwise satisfy it) -- the same technique the claims self-check
+    // test above uses -- proving covered_homed_from_care actually
+    // disagreeing with expected_homed_from_care makes this raise, rather
+    // than only ever passing by construction.
+    const catId = await seedCat({ name: "NeverRecordedAdopted", createdAt: new Date(2024, 0, 1) });
+    await seedCareUpdate(catId, "adopted", new Date(2024, 1, 1));
+    await migrateUp(c, migrations, { throughIdx: BEFORE_BACKFILL });
+    const migration = migrations.find((m) => m.idx === BACKFILL)!;
+    const selfCheck = migration.statements[migration.statements.length - 1]!;
+
+    await expect(c.query(selfCheck)).rejects.toThrow(
+      /expected 1 homed observations from adopted care updates, found 0 covered/,
+    );
+  });
+
   // ---- Review of PR #67 (SYC-52) ----
 
   it("a care update's microsecond-precision created_at still matches a millisecond-precision go-forward observation (finding B1)", async () => {
@@ -386,13 +403,25 @@ describe("PR 3: backfill claims and care updates", () => {
   });
 
   it("two desexed updates on the same cat each get their own sterilised observation", async () => {
-    // A match key that forgot observed_at (only cat_id + kind) would see
-    // the first insert as already covering the second.
+    // A single INSERT ... SELECT's NOT EXISTS sees only the table as it was
+    // before the statement started, so running both rows through in one go
+    // can't actually distinguish "match key forgot observed_at" from
+    // "match key is correct" (neither row sees the other's new insert
+    // either way). The real risk is across two runs: a desexed update added
+    // AFTER this migration already ran once and covered an earlier one. So
+    // this seeds and runs the first, then adds the second and re-executes
+    // the migration's own forward statements directly (same idempotency
+    // path "running it twice" above exercises) -- a match key that forgot
+    // observed_at would see the first backfilled observation as already
+    // covering the second update too, and never write it.
     const catId = await seedCat({ name: "Relapsed", createdAt: new Date(2023, 0, 1) });
     await seedCareUpdate(catId, "desexed", new Date(2023, 1, 1));
-    await seedCareUpdate(catId, "desexed", new Date(2023, 2, 1));
-
     await migrateUp(c, migrations, { throughIdx: BACKFILL });
+    expect(await observations(catId)).toHaveLength(1);
+
+    await seedCareUpdate(catId, "desexed", new Date(2023, 2, 1));
+    const migration = migrations.find((m) => m.idx === BACKFILL)!;
+    for (const statement of migration.statements) await c.query(statement);
 
     const rows = await observations(catId);
     expect(rows).toHaveLength(2);
@@ -401,11 +430,15 @@ describe("PR 3: backfill claims and care updates", () => {
   });
 
   it("two adopted updates on the same cat each get their own life_status observation", async () => {
+    // Same two-run shape as the desexed case above, for the adopted key.
     const catId = await seedCat({ name: "RehomedTwice", createdAt: new Date(2023, 0, 1) });
     await seedCareUpdate(catId, "adopted", new Date(2023, 1, 1));
-    await seedCareUpdate(catId, "adopted", new Date(2023, 2, 1));
-
     await migrateUp(c, migrations, { throughIdx: BACKFILL });
+    expect(await observations(catId)).toHaveLength(1);
+
+    await seedCareUpdate(catId, "adopted", new Date(2023, 2, 1));
+    const migration = migrations.find((m) => m.idx === BACKFILL)!;
+    for (const statement of migration.statements) await c.query(statement);
 
     const rows = await observations(catId);
     expect(rows).toHaveLength(2);
@@ -459,6 +492,30 @@ describe("PR 3: backfill claims and care updates", () => {
     expect(rows).toHaveLength(2);
     const backfilled = rows.find((r) => r.suggestion_source === "backfill:data-spine");
     expect(backfilled).toMatchObject({ value: { status: "homed" } });
+  });
+
+  it("an existing homed observation with the wrong authority_scope doesn't stop a claimed cat being backfilled", async () => {
+    // The claims match key checks authority_scope = 'owner_of_this_cat',
+    // not just kind + value + device -- a "homed" fact recorded under a
+    // different authority (e.g. a future guardian_of_this_cat write) isn't
+    // the owner's own claim and must not be mistaken for coverage of it.
+    const catId = await seedCat({
+      name: "WrongScope",
+      ownerDeviceId: "device-y",
+      createdAt: new Date(2024, 0, 1),
+    });
+    await c.query(
+      `insert into observations (cat_id, kind, value, device_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'life_status', '{"status":"homed"}', 'device-y', 'public', 'none', 'volunteered', now())`,
+      [catId],
+    );
+
+    await migrateUp(c, migrations, { throughIdx: BACKFILL });
+
+    const rows = await observations(catId);
+    expect(rows).toHaveLength(2);
+    const backfilled = rows.find((r) => r.suggestion_source === "backfill:data-spine");
+    expect(backfilled).toMatchObject({ authority_scope: "owner_of_this_cat" });
   });
 
   it("a homed observation left on a cat whose owner_device_id has since been cleared doesn't make the claims self-check raise (finding S1)", async () => {
