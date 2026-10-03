@@ -11,6 +11,7 @@ import teamRouter from "./team";
 import welfareRouter from "./welfare";
 import reportsRouter from "./reports";
 import internalMailRouter from "./internalMail";
+import observationsRouter from "./observations";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(teamRouter);
 router.use(welfareRouter);
 router.use(reportsRouter);
 router.use(internalMailRouter);
+router.use(observationsRouter);
 
 export default router;
