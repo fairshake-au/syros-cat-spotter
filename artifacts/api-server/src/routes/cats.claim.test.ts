@@ -7,8 +7,16 @@ import {
   pushTokensTable,
   sightingsTable,
   deviceCredentialsTable,
+  observationsTable,
 } from "@workspace/db";
-import { like } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
+
+async function observationsFor(catId: number, kind: string) {
+  return db
+    .select()
+    .from(observationsTable)
+    .where(and(eq(observationsTable.catId, catId), eq(observationsTable.kind, kind)));
+}
 
 vi.mock("../lib/push", () => ({
   sendPushNotification: vi.fn().mockResolvedValue(undefined),
@@ -122,9 +130,21 @@ describe("POST /api/cats/:catId/claim", () => {
         data: expect.objectContaining({ type: "cat_claimed", catId: cat.id }),
       }),
     );
+
+    // data-spine.md PR 2: a claim writes life_status: homed, from the
+    // claiming device, owner_of_this_cat, exactly once.
+    const obs = await observationsFor(cat.id, "life_status");
+    expect(obs).toHaveLength(1);
+    expect(obs[0]).toMatchObject({
+      deviceId: device("owner1"),
+      accountId: null,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      value: { status: "homed" },
+    });
   });
 
-  it("is idempotent for a re-claim by the same device (no duplicate notification)", async () => {
+  it("is idempotent for a re-claim by the same device (no duplicate notification, no duplicate observation)", async () => {
     const cat = await insertCat("Idem", {
       ownerDeviceId: device("owner2"),
       ownerName: "Nikos",
@@ -142,9 +162,10 @@ describe("POST /api/cats/:catId/claim", () => {
     expect(res.body.ownerName).toBe("Nikos");
     expect(res.body.homeDescription).toBe("White house");
     expect(notifyCatSpottersMock).not.toHaveBeenCalled();
+    expect(await observationsFor(cat.id, "life_status")).toHaveLength(0);
   });
 
-  it("returns 409 when another device already claimed the cat", async () => {
+  it("returns 409 when another device already claimed the cat, and writes no observation", async () => {
     const cat = await insertCat("Taken", {
       ownerDeviceId: device("owner3"),
       ownerName: "Eleni",
@@ -160,6 +181,20 @@ describe("POST /api/cats/:catId/claim", () => {
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/already claimed/i);
     expect(notifyCatSpottersMock).not.toHaveBeenCalled();
+    expect(await observationsFor(cat.id, "life_status")).toHaveLength(0);
+  });
+
+  it("writes no observation when the device secret check refuses the request", async () => {
+    const cat = await insertCat("SecretRefused");
+    const res = await request(app)
+      .post(`/api/cats/${cat.id}/claim`)
+      .set("X-Device-Secret", "wrong-secret-but-16-chars-long!")
+      .send({
+        deviceId: device("owner1"),
+        homeDescription: "",
+      });
+    expect([401, 403]).toContain(res.status);
+    expect(await observationsFor(cat.id, "life_status")).toHaveLength(0);
   });
 
   it("lets only one of two concurrent claims succeed", async () => {
@@ -223,9 +258,20 @@ describe("PATCH /api/cats/:catId", () => {
     expect(res.status).toBe(200);
     expect(res.body.name).toBe(catName("RenamedNow"));
     expect(res.body.homeDescription).toBe("New home by the bakery");
+
+    // §5, §10.3: a rename writes a name observation (never destroying the
+    // earlier name — it's an append, not an edit of the one existing row).
+    const obs = await observationsFor(cat.id, "name");
+    expect(obs).toHaveLength(1);
+    expect(obs[0]).toMatchObject({
+      deviceId: device("owner4"),
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      value: { name: catName("RenamedNow") },
+    });
   });
 
-  it("returns 403 when a non-owner tries to update", async () => {
+  it("returns 403 when a non-owner tries to update, and writes no observation", async () => {
     const cat = await insertCat("Guarded", {
       ownerDeviceId: device("owner5"),
       ownerName: "Kostas",
@@ -241,6 +287,21 @@ describe("PATCH /api/cats/:catId", () => {
     // Name unchanged.
     const detail = await request(app).get(`/api/cats/${cat.id}`);
     expect(detail.body.cat.name).toBe(catName("Guarded"));
+    expect(await observationsFor(cat.id, "name")).toHaveLength(0);
+  });
+
+  it("writes no observation when a home-description-only update has no name change", async () => {
+    const cat = await insertCat("NoRenameObs", {
+      ownerDeviceId: device("owner9"),
+      ownerName: "Stavros",
+      homeDescription: "Old",
+    });
+    const res = await request(app)
+      .patch(`/api/cats/${cat.id}`)
+      .set("X-Device-Secret", DEVICE_SECRET)
+      .send({ deviceId: device("owner9"), homeDescription: "New" });
+    expect(res.status).toBe(200);
+    expect(await observationsFor(cat.id, "name")).toHaveLength(0);
   });
 
   it("returns 403 for an unclaimed cat (no owner yet)", async () => {
