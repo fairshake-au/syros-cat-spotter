@@ -277,12 +277,17 @@ function validateValue(kind: ObservationKind, value: unknown): void {
 
 /** How far back a public-role observation may date itself — the same
  * constant `captureTime.ts`'s `clampCaptureTime` uses for sightings (§10.1:
- * "Public writes are clamped by the existing capture-time rule"). Unlike
- * that function, which clamps a sighting's timestamp so a bad phone clock
- * never loses a photo, `writeObservation` *refuses* an out-of-range public
- * date outright: an observation is a deliberate statement, not a capture
- * instant with a clock-skew story behind it, and the plan names the refusal
- * as its own test ("a public date more than 30 days old"). */
+ * "Public writes are clamped by the existing capture-time rule (30 days
+ * back)"). A public `observedAt` older than this is clamped to this
+ * boundary, exactly as `clampCaptureTime` clamps a sighting's capture time —
+ * not refused. (Review of PR #66, 3 Oct 2026: an earlier version of this
+ * code refused instead, which matched the plan's own Tests bullet but
+ * contradicted both §10.1's last line and this file's design prose; it
+ * broke the ordinary case of naming a new cat on resolve for a sighting
+ * synced from the offline queue more than 30 days after its own [already
+ * clamped] capture time — routes/sightings.ts passes that capture time
+ * straight through as the name observation's `observedAt`. The plan's
+ * Tests bullet is corrected to match.) */
 const MAX_PUBLIC_BACKDATE_MS = 30 * 86_400_000;
 
 /** Tolerance for a slightly-fast client clock, matching `captureTime.ts`. */
@@ -329,9 +334,13 @@ export interface WriteObservationInput {
  * - an `accountId` starting `system:` that isn't on {@link SYSTEM_AUTHORS}
  *   (Part 2g: "real account ids ... never start with system:");
  * - `provenance: "machine"` from anyone but `system:vision` (the only
- *   machine-authored kind today is `coat`, SYC-119 §4.7);
- * - a future `observedAt` (refused for every role); or
- * - a `public`-role `observedAt` more than 30 days in the past.
+ *   machine-authored kind today is `coat`, SYC-119 §4.7); or
+ * - a future `observedAt` (refused for every role).
+ *
+ * A `public`-role `observedAt` more than 30 days in the past is not
+ * refused — it is clamped to that 30-day boundary, the same rule
+ * `captureTime.ts`'s `clampCaptureTime` applies to a sighting's capture
+ * time (§10.1's last line). The row returned carries the clamped date.
  *
  * Every other combination is inserted and returned.
  */
@@ -396,14 +405,16 @@ export async function writeObservation(
   if (observedAtMs > nowMs + MAX_FUTURE_SKEW_MS) {
     refuse("FUTURE_OBSERVED_AT", "observedAt cannot be in the future");
   }
+  // §10.1's last line: "Public writes are clamped by the existing
+  // capture-time rule (30 days back)" — clamped, not refused. See the
+  // comment on MAX_PUBLIC_BACKDATE_MS for why an earlier version of this
+  // refused instead, and what that broke.
+  let observedAt = input.observedAt;
   if (
     input.roleAtTime === "public" &&
     observedAtMs < nowMs - MAX_PUBLIC_BACKDATE_MS
   ) {
-    refuse(
-      "PUBLIC_DATE_TOO_OLD",
-      "A public observedAt cannot be more than 30 days in the past",
-    );
+    observedAt = new Date(nowMs - MAX_PUBLIC_BACKDATE_MS);
   }
 
   const [row] = await tx
@@ -422,7 +433,7 @@ export async function writeObservation(
       sightingId: input.sightingId ?? null,
       photoId: input.photoId ?? null,
       importRecordId: input.importRecordId ?? null,
-      observedAt: input.observedAt,
+      observedAt,
       supersedesId: input.supersedesId ?? null,
       supersedeReason: input.supersedeReason ?? null,
     })
