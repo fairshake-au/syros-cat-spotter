@@ -16,4 +16,6 @@ export interface ResolveSightingRequest {
   newCatName?: string | null;
   /** Which screen a hand pick came from. It only describes the phone's own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6). */
   pickedFrom?: ResolveSightingRequestPickedFrom;
+  /** With newCatName: the spotter opened "Find the cat yourself" before choosing a new cat. Weak evidence the cat really is new; recorded for the team only (choose-a-different-cat.md §4.6). */
+  openedPicker?: boolean;
 }

@@ -263,3 +263,25 @@ describe('noSignalMessage', () => {
   });
 });
 
+
+describe('the new-cat request (SYC-151)', () => {
+  it('says whether the spotter opened "Find the cat yourself" first', async () => {
+    const { newCatRequest } = await import('../catPicker');
+    expect(newCatRequest('dev-1', '  Agatha ', true)).toEqual({
+      deviceId: 'dev-1',
+      newCatName: 'Agatha',
+      openedPicker: true,
+    });
+    expect(newCatRequest('dev-1', 'Agatha', false)).toEqual({
+      deviceId: 'dev-1',
+      newCatName: 'Agatha',
+      openedPicker: false,
+    });
+  });
+
+  it('review.tsx builds its new-cat request with it, from the picker having been opened', () => {
+    const review = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
+    expect(review).toMatch(/newCatRequest\(\s*deviceId,\s*newName,\s*openedPicker\s*\)/);
+    expect(review).toMatch(/setOpenedPicker\(true\)/);
+  });
+});

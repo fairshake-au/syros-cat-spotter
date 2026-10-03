@@ -8,3 +8,4 @@ export * from "./observations";
 export * from "./colonies";
 export * from "./people";
 export * from "./welfare";
+export * from "./sightingMatches";

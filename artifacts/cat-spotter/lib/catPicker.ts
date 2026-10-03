@@ -69,6 +69,19 @@ export function noSignalMessage({
   return inReviewList ? 'pickerNoSignal' : 'pickerNoSignalStay';
 }
 
+/**
+ * The request for a new cat. `openedPicker` says whether the spotter opened
+ * "Find the cat yourself" first: weak evidence the cat really is new,
+ * recorded for the team only (SYC-151, spec §4.6).
+ */
+export function newCatRequest(
+  deviceId: string,
+  name: string,
+  openedPicker: boolean,
+): { deviceId: string; newCatName: string; openedPicker: boolean } {
+  return { deviceId, newCatName: name.trim(), openedPicker };
+}
+
 export type ResolveFailure =
   | { kind: 'not-nearby' }
   | { kind: 'name-taken'; cat: NameTakenCat | null }
