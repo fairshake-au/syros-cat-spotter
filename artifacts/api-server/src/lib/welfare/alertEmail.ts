@@ -171,7 +171,7 @@ export function buildWelfareAlert(
       : `<tr><td style="padding:14px 24px 0;color:#B54708;font-size:14px">${esc(status)}</td></tr>`;
 
   const band =
-    `<tr><td style="padding:18px 24px;background:${palette.band};color:${palette.bandText}">` +
+    `<tr><td bgcolor="${palette.band}" style="padding:18px 24px;background:${palette.band};color:${palette.bandText}">` +
     `<div style="font-size:13px;letter-spacing:0.04em;text-transform:uppercase;opacity:0.9">Cat report</div>` +
     `<div style="font-size:22px;font-weight:700;line-height:1.25">${esc(palette.label)}</div>` +
     `<div style="font-size:15px;line-height:1.4">${esc(kind === "photo" ? "The photo for this report has now arrived." : palette.summary)}</div>` +
@@ -217,7 +217,7 @@ export function buildWelfareAlert(
     `<body style="margin:0;padding:0;background:#F2F4F7">` +
     `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</div>` +
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F2F4F7"><tr><td align="center" style="padding:16px 8px">` +
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;background:#FFFFFF;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" bgcolor="#FFFFFF" style="width:100%;max-width:560px;background:#FFFFFF;border-radius:12px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">` +
     body +
     `</table>` +
     `<div style="max-width:560px;padding:12px 8px 0;color:#98A2B3;font-size:12px;line-height:1.5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">Sent by Cat Spotters for Syros Cats.</div>` +
