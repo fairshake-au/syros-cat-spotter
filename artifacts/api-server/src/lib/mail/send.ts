@@ -109,7 +109,8 @@ let enabledOverride: readonly MailPurpose[] | null = null;
 /** Never shed under the priority budget (spec §2.10). */
 export const NEVER_SHED_PURPOSES: readonly MailPurpose[] = ["welfare_alert"];
 
-export type MailAttachment = { filename: string; content: Buffer };
+/** `contentId` lets the HTML show the attachment inline with `cid:<contentId>`. */
+export type MailAttachment = { filename: string; content: Buffer; contentId?: string };
 
 /** A message built by our own code, to the team address. */
 export type TeamMessage = {
@@ -327,6 +328,7 @@ export async function sendMail(message: MailMessage, deps: SendDeps = {}): Promi
       attachments: content.attachments?.map((a) => ({
         filename: headerSafe(a.filename),
         content: a.content.toString("base64"),
+        ...(a.contentId ? { content_id: headerSafe(a.contentId) } : {}),
       })),
       idempotencyKey: message.idempotencyKey,
     },

@@ -292,6 +292,17 @@ describe("sendMail", () => {
     ]);
   });
 
+  it("an inline photo carries its content id to Resend as content_id", async () => {
+    const { impl, calls } = fakeFetch();
+    await sendMail(
+      { ...ALERT, attachments: [{ filename: "photo.jpg", content: Buffer.from("x"), contentId: "cat-photo" }] },
+      { fetchImpl: impl, log: quietLog() },
+    );
+    expect(sentBody(calls[0]!)["attachments"]).toEqual([
+      { filename: "photo.jpg", content: Buffer.from("x").toString("base64"), content_id: "cat-photo" },
+    ]);
+  });
+
   it("test 2: a newline in the subject can't add a header", async () => {
     const { impl, calls } = fakeFetch();
     await sendMail(
