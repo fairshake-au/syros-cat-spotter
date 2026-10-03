@@ -56,12 +56,21 @@ export const handoffLimiter = rateLimit({
 });
 
 // Data spine PR 5 (DECISIONS.md Part 2h; docs/superpowers/plans/data-spine.md
-// §PR 5): POST /sightings' candidate matching is rate-limited per DEVICE, not
-// per IP. SYC-39's exact-position matching is a nearest-cat oracle (see
-// cat-record-data-spine.md §6.3) — the IP-keyed `aiLimiter` above would let
-// anyone behind a shared address (a café, a ferry terminal) throttle a
-// stranger's spotting, and would let an attacker on their own IP rotate
-// addresses for a fresh 20-request budget instead of a fresh device.
+// §PR 5): POST /sightings' candidate matching needs BOTH limiters, for two
+// different reasons, restored after an adversarial review of PR #64 found
+// `aiLimiter` had been dropped from the route entirely:
+//
+// - `aiLimiter` (IP-keyed, above) is the cost ceiling: it caps paid OpenAI
+//   vision calls and the photo/sighting rows each request writes, which a
+//   freely-mintable device id (TOFU in deviceAuth.ts) can't be trusted to
+//   cap on its own — nothing stops an attacker minting a fresh device per
+//   request to dodge a device-only budget.
+// - The per-device limiter below is the fairness fix on top of that: it
+//   stops one misbehaving device from using up a whole shared address's
+//   (a café's, a ferry terminal's) `aiLimiter` budget and throttling its
+//   neighbours. It does NOT replace `aiLimiter` — a device that mints fresh
+//   ids still hits the IP ceiling, same as before this PR. Closing the
+//   mint-a-fresh-device gap itself is SYC-195, deferred to before PR 6.
 //
 // Keyed on a device id ONLY after routes/sightings.ts has called
 // verifyDeviceSecret() (SYC-107) and gotten it back — never on the raw,
@@ -70,17 +79,32 @@ export const handoffLimiter = rateLimit({
 // partway through the handler (after the secret check), not at the point
 // Express picks middleware.
 //
-// Same budget as the old per-IP limiter (20 per 15 minutes) — this PR swaps
-// the key, not the shape. SYC-105 tracks moving the count into Postgres so
-// one shared budget holds across app instances; until then this Map is
-// per-process, so a device gets roughly limit × (number of app instances)
-// requests before every instance has throttled it, the same scaling gap the
-// old per-IP limiter had. Not solved here.
+// Same budget as `aiLimiter` (20 per 15 minutes) — this PR adds a key, not a
+// new shape. SYC-105 tracks moving the count into Postgres so one shared
+// budget holds across app instances; until then this Map is per-process, so
+// a device gets roughly limit × (number of app instances) requests before
+// every instance has throttled it, the same scaling gap `aiLimiter` has.
+// Not solved here.
 export const DEVICE_MATCH_LIMIT = 20;
 export const DEVICE_MATCH_WINDOW_MS = 15 * 60 * 1000;
 
 type DeviceWindow = { count: number; resetAt: number };
 const deviceMatchWindows = new Map<string, DeviceWindow>();
+
+// Review of PR #64 (S3): nothing ever removed an entry, so a device id that
+// is used once and never again (the common case for a freely-mintable id)
+// sat in this Map forever — an unbounded, unkeyed-to-anything-real memory
+// leak. Rather than a ticking timer (one more thing to unref in tests and on
+// shutdown), the sweep piggybacks on the already-frequent call path: once
+// the Map has grown past a threshold, the next call pays the cost of
+// scanning it once and dropping anything whose window has already elapsed.
+const SWEEP_THRESHOLD = 10_000;
+
+function sweepExpiredDeviceWindows(now: number): void {
+  for (const [deviceId, window] of deviceMatchWindows) {
+    if (window.resetAt <= now) deviceMatchWindows.delete(deviceId);
+  }
+}
 
 /**
  * Returns true if `deviceId` may make another candidate-matching request
@@ -93,6 +117,8 @@ export function checkDeviceMatchLimit(
   deviceId: string,
   now: number = Date.now(),
 ): boolean {
+  if (deviceMatchWindows.size > SWEEP_THRESHOLD) sweepExpiredDeviceWindows(now);
+
   const existing = deviceMatchWindows.get(deviceId);
   if (!existing || existing.resetAt <= now) {
     deviceMatchWindows.set(deviceId, {
@@ -108,7 +134,21 @@ export function checkDeviceMatchLimit(
   return true;
 }
 
+/**
+ * The time (ms since epoch) at which `deviceId`'s current window resets, if
+ * it has one yet. Used only to put an accurate `Retry-After` on a 429 — never
+ * to decide whether the request is allowed (that's `checkDeviceMatchLimit`).
+ */
+export function deviceMatchResetAt(deviceId: string): number | undefined {
+  return deviceMatchWindows.get(deviceId)?.resetAt;
+}
+
 /** Test-only: clears every device's window so tests don't leak into each other. */
 export function _resetDeviceMatchLimitForTests(): void {
   deviceMatchWindows.clear();
+}
+
+/** Test-only: how many devices currently have a window tracked. */
+export function _deviceMatchWindowCountForTests(): number {
+  return deviceMatchWindows.size;
 }

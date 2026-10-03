@@ -26,7 +26,13 @@ import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import { containsOffensiveLanguage } from "../lib/moderation";
-import { checkDeviceMatchLimit } from "../middlewares/rateLimit";
+import {
+  aiLimiter,
+  checkDeviceMatchLimit,
+  deviceMatchResetAt,
+  DEVICE_MATCH_LIMIT,
+  DEVICE_MATCH_WINDOW_MS,
+} from "../middlewares/rateLimit";
 import { selectCandidateCats } from "../lib/candidateSelection";
 import { isNearby, publishedPosition } from "@workspace/geo";
 
@@ -48,24 +54,32 @@ const NOT_NEARBY = {
 } as const;
 
 type Candidate = {
-  catId: number | null;
-  name: string | null;
+  catId: number;
+  name: string;
   photoUrl: string | null;
   confidence: number;
   reasoning: string;
 };
 
 // Data spine PR 5 (DECISIONS.md Part 2h, §6.3 point 3): below this, a
-// candidate's catId, name and photoUrl are withheld — the geography of
-// "which cat" is exactly what a probe is trying to learn, and a photo url
-// would hand that back as surely as the id or name would (photos are served
-// unauthenticated from an opaque but public id). The 0.1 floor just below
-// stays as it was: real noise that shouldn't be offered at all, confident or
-// not. 0.4 isn't named by the spec or DECISIONS.md — the plan leaves the
+// candidate is left out of the response ENTIRELY — not nulled-out fields on
+// an otherwise-present entry. Review of PR #64 found the first cut of this
+// nulled catId/name/photoUrl but still returned the candidate, confidence
+// and `reasoning` intact; the vision model's own `reasoning` routinely
+// echoes the cat's name ("different coat from Agatha"), which hands a
+// prober exactly what the redaction was meant to withhold. §6.3 point 3 says
+// "not returned ... at all", which this now does literally: a withheld
+// candidate contributes nothing to `candidates`, so there's nothing in the
+// response — not even an anonymous placeholder — for its `reasoning` to leak
+// through. The 0.1 floor just below stays as it was: real noise that
+// shouldn't be offered at all, confident or not. At or above this threshold
+// a candidate is shown; the boundary (exactly 0.4) is covered by a named
+// test. 0.4 isn't named by the spec or DECISIONS.md — the plan leaves the
 // exact figure to the builder, picked here as the point below which the
 // vision model's own reasoning (SYC-39's matcher) is usually a guess rather
-// than a likely match; flagged in the PR for Samuel/Syros Cats to revisit
-// once real matching data exists.
+// than a likely match. Samuel decided (3 Oct 2026) to keep 0.4 for now and
+// revisit once there's real matching data from ~100 resolved sightings to
+// calibrate against (SYC-194).
 const CONFIDENCE_THRESHOLD = 0.4;
 
 const router: IRouter = Router();
@@ -169,12 +183,20 @@ async function computeMatchCandidates(
       .filter((m) => sent.has(m.catId) && m.confidence >= 0.1)
       .sort((a, b) => b.confidence - a.confidence || a.catId - b.catId)
       .slice(0, 3);
+    // The team-only record keeps every ranked candidate, shown or not — see
+    // the comment on `rankedForRecord`'s declaration. `labelChoice` (below)
+    // is what stops a withheld one from ever being mislabelled "suggested".
     rankedForRecord = ranked.map((m) => ({ catId: m.catId, confidence: m.confidence }));
+    // §6.3 point 3: a candidate below CONFIDENCE_THRESHOLD is left out of
+    // `candidates` entirely (see the comment on CONFIDENCE_THRESHOLD) — only
+    // `shown` ever reaches the public response.
+    const shown = ranked.filter((m) => m.confidence >= CONFIDENCE_THRESHOLD);
     // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
-    // ranked cats' photo public ids, instead of a photoUrl() round trip per
-    // candidate.
+    // shown cats' photo public ids, instead of a photoUrl() round trip per
+    // candidate. Only `shown` cats' photos are ever fetched — a withheld
+    // candidate's photo is never looked up, let alone returned.
     const photoIds = [
-      ...new Set(ranked.map((m) => byId.get(m.catId)!.primaryPhotoId)),
+      ...new Set(shown.map((m) => byId.get(m.catId)!.primaryPhotoId)),
     ];
     const photoRows = photoIds.length
       ? await db
@@ -183,21 +205,8 @@ async function computeMatchCandidates(
           .where(inArray(photosTable.id, photoIds))
       : [];
     const publicIdById = new Map(photoRows.map((p) => [p.id, p.publicId]));
-    candidates = ranked.map((m) => {
+    candidates = shown.map((m) => {
       const cat = byId.get(m.catId)!;
-      // Below the confidence threshold: no catId, no name, no photoUrl. A
-      // probe can still learn "something was nearby and confident-ish", but
-      // never which cat, so repeated probing at this confidence narrows
-      // nothing down (§6.3 point 3).
-      if (m.confidence < CONFIDENCE_THRESHOLD) {
-        return {
-          catId: null,
-          name: null,
-          photoUrl: null,
-          confidence: m.confidence,
-          reasoning: m.reasoning,
-        };
-      }
       const publicId = publicIdById.get(cat.primaryPhotoId);
       return {
         catId: cat.id,
@@ -259,9 +268,15 @@ async function recordMatch(
 /**
  * SYC-151 (choose-a-different-cat.md §4.6): how the spotter's choice was
  * made, as the server decides it. "Suggested" only if the cat is in the set
- * the server stored for this sighting; a hand pick is a matcher miss if the
- * cat was compared, and a distance miss if it never was. Without a stored set
- * (a sighting from before records existed) it doesn't guess.
+ * the server stored for this sighting AND the spotter was actually shown it
+ * (its `storedSuggestion`, computed by the caller, already excludes anything
+ * below CONFIDENCE_THRESHOLD — see the caller in the resolve route, and
+ * review of PR #64's S2: before that filter, hand-picking a withheld,
+ * below-threshold candidate was mislabelled "suggested" instead of a matcher
+ * miss, because it was still sitting in the stored set even though the
+ * spotter was never shown it). A hand pick is a matcher miss if the cat was
+ * compared, and a distance miss if it never was. Without a stored set (a
+ * sighting from before records existed) it doesn't guess.
  */
 function labelChoice(input: {
   stored:
@@ -304,7 +319,11 @@ function labelChoice(input: {
   };
 }
 
-router.post("/sightings", async (req, res) => {
+// aiLimiter (per-IP cost ceiling) restored after review of PR #64 found it had
+// been dropped — see the comment on the per-device limiter in rateLimit.ts
+// for why this route needs both. Applied before body parsing, exactly as it
+// was before this PR's device-keyed limiter existed.
+router.post("/sightings", aiLimiter, async (req, res) => {
   const body = CreateSightingBody.parse(req.body);
 
   // SYC-92: the upload route was the one place a device id was taken on
@@ -343,6 +362,22 @@ router.post("/sightings", async (req, res) => {
   // against the same budget as a fresh upload, exactly as the old per-IP
   // limiter counted every POST to this route.
   if (!checkDeviceMatchLimit(verifiedDeviceId)) {
+    // Nit from review of PR #64: the per-IP aiLimiter sends RateLimit-* and
+    // Retry-After on a 429; this in-memory limiter had sent neither. A
+    // client (or a spotter's phone, eventually) can't tell how long to back
+    // off without one.
+    const resetAt = deviceMatchResetAt(verifiedDeviceId);
+    const retryAfterSeconds = Math.max(
+      0,
+      Math.ceil(
+        (resetAt ?? Date.now() + DEVICE_MATCH_WINDOW_MS) / 1000 -
+          Date.now() / 1000,
+      ),
+    );
+    res.set("RateLimit-Limit", String(DEVICE_MATCH_LIMIT));
+    res.set("RateLimit-Remaining", "0");
+    res.set("RateLimit-Reset", String(retryAfterSeconds));
+    res.set("Retry-After", String(retryAfterSeconds));
     res.status(429).json({ error: "Too many requests. Please try again later." });
     return;
   }
@@ -478,9 +513,23 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     .select()
     .from(sightingMatchesTable)
     .where(eq(sightingMatchesTable.sightingId, sightingId));
+  // Review of PR #64 (S2): `stored.suggested` holds every candidate the
+  // matcher ranked, shown or withheld — see the comment on
+  // `rankedForRecord` in computeMatchCandidates, above. A withheld candidate
+  // (score < CONFIDENCE_THRESHOLD) was never actually shown to the spotter
+  // (§6.3 point 3 / S1), so a hand pick of one is not a "suggestion" the
+  // phone offered, however confidently the server's own stored set names
+  // it — it must fall through to the hand-pick path below and land as a
+  // matcher miss (it was compared, just scored too low to show). Requiring
+  // the stored score to clear the threshold here, rather than splitting
+  // `suggested` into separate shown/withheld fields, keeps every candidate's
+  // score in one place for future recalibration (SYC-194) without a schema
+  // change.
   const storedSuggestion =
     body.catId != null
-      ? stored?.suggested?.find((s) => s.catId === body.catId)
+      ? stored?.suggested?.find(
+          (s) => s.catId === body.catId && s.score >= CONFIDENCE_THRESHOLD,
+        )
       : undefined;
 
   if (body.catId != null) {
