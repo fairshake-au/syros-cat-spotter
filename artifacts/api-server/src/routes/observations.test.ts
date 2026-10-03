@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { like, eq } from "drizzle-orm";
 import {
@@ -19,6 +19,12 @@ import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 // No staff screen exists yet (SYC-43's later parts build it) — these are
 // reachable only by tests and by anyone who can sign in through the
 // hand-off until then.
+//
+// Mounted under /api/team/observations*, like every other dashboard route
+// (review of #68): every mutation here must carry the dashboard's own
+// Origin, exactly like team.ts's POST /team/signout.
+
+const TEAM_ORIGIN = "https://team.catspotters.com";
 
 const NAME_PREFIX = "VitestObsRoute";
 const STAFF_EMAIL = "vitest-obs-staff@example.com";
@@ -102,17 +108,21 @@ async function observationsFor(catId: number) {
     .where(eq(observationsTable.catId, catId));
 }
 
-describe("POST /api/observations", () => {
+/** Every POST in this suite carries the dashboard's own Origin, exactly
+ * like a real request from team.catspotters.com. */
+function post(path: string) {
+  return request(app).post(path).set("Origin", TEAM_ORIGIN);
+}
+
+describe("POST /api/team/observations", () => {
   it("refuses with no session", async () => {
     const cat = await insertCat();
-    const res = await request(app)
-      .post("/api/observations")
-      .send({
-        catId: cat.id,
-        kind: "life_status",
-        value: { status: "deceased" },
-        reason: "found on the road",
-      });
+    const res = await post("/api/team/observations").send({
+      catId: cat.id,
+      kind: "life_status",
+      value: { status: "deceased" },
+      reason: "found on the road",
+    });
     expect(res.status).toBe(401);
     expect(res.body).toEqual({ error: "not_signed_in" });
     expect(await observationsFor(cat.id)).toHaveLength(0);
@@ -121,8 +131,7 @@ describe("POST /api/observations", () => {
   it("refuses a signed-in person without the capability, the same way", async () => {
     const cat = await insertCat();
     const cookie = await signIn(guardianId);
-    const res = await request(app)
-      .post("/api/observations")
+    const res = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: cat.id,
@@ -138,8 +147,7 @@ describe("POST /api/observations", () => {
   it("writes a life_status observation as staff, with the right role, author and reason", async () => {
     const cat = await insertCat();
     const cookie = await signIn(staffId);
-    const res = await request(app)
-      .post("/api/observations")
+    const res = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: cat.id,
@@ -170,8 +178,7 @@ describe("POST /api/observations", () => {
   it("writes a sterilised observation as staff", async () => {
     const cat = await insertCat();
     const cookie = await signIn(staffId);
-    const res = await request(app)
-      .post("/api/observations")
+    const res = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: cat.id,
@@ -192,8 +199,7 @@ describe("POST /api/observations", () => {
   it("refuses a malformed value", async () => {
     const cat = await insertCat();
     const cookie = await signIn(staffId);
-    const res = await request(app)
-      .post("/api/observations")
+    const res = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: cat.id,
@@ -207,8 +213,7 @@ describe("POST /api/observations", () => {
 
   it("refuses a missing cat", async () => {
     const cookie = await signIn(staffId);
-    const res = await request(app)
-      .post("/api/observations")
+    const res = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: 999_999_999,
@@ -226,8 +231,7 @@ describe("POST /api/observations", () => {
       .select()
       .from(catUpdatesTable)
       .where(eq(catUpdatesTable.catId, cat.id));
-    const res = await request(app)
-      .post("/api/observations")
+    const res = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: cat.id,
@@ -252,8 +256,7 @@ describe("POST /api/observations", () => {
     const cat = await insertCat();
     const cookie = await signIn(staffId);
     const deathAt = new Date("2026-01-01T00:00:00Z");
-    const deathRes = await request(app)
-      .post("/api/observations")
+    const deathRes = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: cat.id,
@@ -293,9 +296,84 @@ describe("POST /api/observations", () => {
     expect(snapshot2.lifeStatus).toBe("street");
     expect(snapshot2.presumedDeceased).toBe(false);
   });
+
+  it("ignores a client-supplied accountId/roleAtTime; the row is authored by the signed-in person (review of #68, accountid-injection)", async () => {
+    const cat = await insertCat();
+    const cookie = await signIn(staffId);
+    const res = await post("/api/team/observations")
+      .set("Cookie", cookie)
+      .send({
+        catId: cat.id,
+        kind: "life_status",
+        value: { status: "homed" },
+        reason: "probe",
+        accountId: "someone-else-entirely",
+        email: "spoofed@example.com",
+        roleAtTime: "admin",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.accountId).toBe(staffId);
+    expect(res.body.accountId).not.toBe("someone-else-entirely");
+    expect(res.body.roleAtTime).toBe("staff");
+  });
 });
 
-describe("POST /api/observations/:id/supersede", () => {
+describe("POST /api/team/observations — Origin (review of #68, cors-origin)", () => {
+  it("refuses a foreign Origin even with a valid session", async () => {
+    const cat = await insertCat();
+    const cookie = await signIn(staffId);
+    const res = await request(app)
+      .post("/api/team/observations")
+      .set("Cookie", cookie)
+      .set("Origin", "https://evil.example.com")
+      .send({
+        catId: cat.id,
+        kind: "life_status",
+        value: { status: "homed" },
+        reason: "probe",
+      });
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "not_signed_in" });
+    expect(await observationsFor(cat.id)).toHaveLength(0);
+  });
+
+  it("refuses a missing Origin even with a valid session", async () => {
+    const cat = await insertCat();
+    const cookie = await signIn(staffId);
+    const res = await request(app)
+      .post("/api/team/observations")
+      .set("Cookie", cookie)
+      // No .set("Origin", ...) at all.
+      .send({
+        catId: cat.id,
+        kind: "life_status",
+        value: { status: "homed" },
+        reason: "probe",
+      });
+    expect(res.status).toBe(401);
+    expect(await observationsFor(cat.id)).toHaveLength(0);
+  });
+
+  it("is exempt from the app-wide CORS middleware, like every other /api/team/* route", async () => {
+    const preflight = await request(app)
+      .options("/api/team/observations")
+      .set("Origin", "https://evil.example.com")
+      .set("Access-Control-Request-Method", "POST");
+    expect(preflight.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("carries the dashboard's headers (CSP, no-store) on a refusal, not just on success", async () => {
+    const res = await request(app)
+      .post("/api/team/observations")
+      .set("Origin", "https://evil.example.com")
+      .send({});
+    expect(res.status).toBe(401);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.headers["content-security-policy"]).toContain("default-src 'none'");
+  });
+});
+
+describe("POST /api/team/observations/:id/supersede", () => {
   async function writeEarTip(
     catId: number,
     clipped: boolean,
@@ -317,16 +395,28 @@ describe("POST /api/observations/:id/supersede", () => {
   }
 
   it("refuses with no session", async () => {
+    const res = await post("/api/team/observations/1/supersede").send({
+      value: { clipped: false },
+      reason: "torn, not clipped",
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("refuses a foreign Origin even with a valid session (review of #68, cors-origin)", async () => {
+    const cat = await insertCat();
+    const spotted = await writeEarTip(cat.id, true);
+    const cookie = await signIn(staffId);
     const res = await request(app)
-      .post("/api/observations/1/supersede")
+      .post(`/api/team/observations/${spotted.id}/supersede`)
+      .set("Cookie", cookie)
+      .set("Origin", "https://evil.example.com")
       .send({ value: { clipped: false }, reason: "torn, not clipped" });
     expect(res.status).toBe(401);
   });
 
   it("refuses a missing observation", async () => {
     const cookie = await signIn(staffId);
-    const res = await request(app)
-      .post("/api/observations/999999999/supersede")
+    const res = await post("/api/team/observations/999999999/supersede")
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "torn, not clipped" });
     expect(res.status).toBe(404);
@@ -336,8 +426,7 @@ describe("POST /api/observations/:id/supersede", () => {
     const cat = await insertCat();
     const spotted = await writeEarTip(cat.id, true);
     const cookie = await signIn(staffId);
-    const res = await request(app)
-      .post(`/api/observations/${spotted.id}/supersede`)
+    const res = await post(`/api/team/observations/${spotted.id}/supersede`)
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "that's a torn ear, not a clip" });
     expect(res.status).toBe(201);
@@ -367,14 +456,12 @@ describe("POST /api/observations/:id/supersede", () => {
     const cat = await insertCat();
     const spotted = await writeEarTip(cat.id, true);
     const cookie = await signIn(staffId);
-    const first = await request(app)
-      .post(`/api/observations/${spotted.id}/supersede`)
+    const first = await post(`/api/team/observations/${spotted.id}/supersede`)
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "first correction" });
     expect(first.status).toBe(201);
 
-    const second = await request(app)
-      .post(`/api/observations/${spotted.id}/supersede`)
+    const second = await post(`/api/team/observations/${spotted.id}/supersede`)
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "second attempt" });
     expect(second.status).toBe(409);
@@ -384,11 +471,34 @@ describe("POST /api/observations/:id/supersede", () => {
     const cat = await insertCat();
     const spotted = await writeEarTip(cat.id, true);
     const cookie = await signIn(guardianId);
-    const res = await request(app)
-      .post(`/api/observations/${spotted.id}/supersede`)
+    const res = await post(`/api/team/observations/${spotted.id}/supersede`)
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "nope" });
     expect(res.status).toBe(401);
+  });
+
+  it("gives a capability-less person the uniform 401 against an already-superseded target, not a 409 (review of #68, authz-ordering-leak)", async () => {
+    const cat = await insertCat();
+    const original = await writeEarTip(cat.id, true);
+    const staffCookie = await signIn(staffId);
+    const firstCorrection = await post(
+      `/api/team/observations/${original.id}/supersede`,
+    )
+      .set("Cookie", staffCookie)
+      .send({ value: { clipped: false }, reason: "already corrected" });
+    expect(firstCorrection.status).toBe(201);
+
+    // A capability-less signed-in person (guardian) targets the now
+    // already-superseded original. Capability is checked before the
+    // existence/already-superseded lookups, so they get the same uniform
+    // refusal as any other capability-less attempt — never the 409 that
+    // would tell them the target's correction state.
+    const guardianCookie = await signIn(guardianId);
+    const res = await post(`/api/team/observations/${original.id}/supersede`)
+      .set("Cookie", guardianCookie)
+      .send({ value: { clipped: true }, reason: "trying again" });
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "not_signed_in" });
   });
 
   it("lets staff supersede with an earlier observedAt than the entry it corrects (the J4 case)", async () => {
@@ -398,8 +508,7 @@ describe("POST /api/observations/:id/supersede", () => {
     // wrong entry stand. Supersede names it explicitly.
     const cat = await insertCat();
     const cookie = await signIn(staffId);
-    const wrong = await request(app)
-      .post("/api/observations")
+    const wrong = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
         catId: cat.id,
@@ -410,8 +519,9 @@ describe("POST /api/observations/:id/supersede", () => {
       });
     expect(wrong.status).toBe(201);
 
-    const correction = await request(app)
-      .post(`/api/observations/${wrong.body.id}/supersede`)
+    const correction = await post(
+      `/api/team/observations/${wrong.body.id}/supersede`,
+    )
       .set("Cookie", cookie)
       .send({
         value: { sterilised: false },
@@ -434,11 +544,35 @@ describe("POST /api/observations/:id/supersede", () => {
     expect(snapshot.sterilised.value).toBe(false);
     expect(snapshot.sterilised.confidence).toBe("confirmed");
   });
+
+  it("lets only one of several concurrent supersede attempts against the same target succeed (review of #68, double-supersede-race)", async () => {
+    const cat = await insertCat();
+    const original = await writeEarTip(cat.id, true);
+    const cookie = await signIn(staffId);
+
+    const fire = () =>
+      post(`/api/team/observations/${original.id}/supersede`)
+        .set("Cookie", cookie)
+        .send({ value: { clipped: false }, reason: "race" });
+
+    const all = await Promise.all([fire(), fire(), fire(), fire(), fire(), fire()]);
+    const successes = all.filter((r) => r.status === 201).length;
+    const conflicts = all.filter((r) => r.status === 409).length;
+
+    expect(successes).toBe(1);
+    expect(conflicts).toBe(all.length - 1);
+
+    const children = await db
+      .select()
+      .from(observationsTable)
+      .where(eq(observationsTable.supersedesId, original.id));
+    expect(children).toHaveLength(1);
+  });
 });
 
-describe("GET /api/observations/review/likely", () => {
+describe("GET /api/team/observations/review/likely", () => {
   it("refuses with no session", async () => {
-    const res = await request(app).get("/api/observations/review/likely");
+    const res = await request(app).get("/api/team/observations/review/likely");
     expect(res.status).toBe(401);
   });
 
@@ -458,7 +592,7 @@ describe("GET /api/observations/review/likely", () => {
 
     const cookie = await signIn(staffId);
     const res = await request(app)
-      .get("/api/observations/review/likely")
+      .get("/api/team/observations/review/likely")
       .set("Cookie", cookie);
     expect(res.status).toBe(200);
     const ids: number[] = res.body.cats.map((c: { catId: number }) => c.catId);
@@ -469,19 +603,22 @@ describe("GET /api/observations/review/likely", () => {
     );
     expect(entry.evidence).toHaveLength(1);
     expect(entry.evidence[0]).toMatchObject({ side: "left" });
+    // photoId: 1 in this fixture doesn't correspond to a real photos row
+    // (same as the rest of this suite); the batched lookup resolves it to
+    // null rather than throwing, same as photoUrl() did for an unknown id.
+    expect(entry.evidence[0]).toHaveProperty("photoUrl");
 
     // Correct it, then it drops off the list.
     const [earTip] = await db
       .select()
       .from(observationsTable)
       .where(eq(observationsTable.catId, likelyCat.id));
-    await request(app)
-      .post(`/api/observations/${earTip!.id}/supersede`)
+    await post(`/api/team/observations/${earTip!.id}/supersede`)
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "torn ear" });
 
     const res2 = await request(app)
-      .get("/api/observations/review/likely")
+      .get("/api/team/observations/review/likely")
       .set("Cookie", cookie);
     const ids2: number[] = res2.body.cats.map((c: { catId: number }) => c.catId);
     expect(ids2).not.toContain(likelyCat.id);
@@ -490,8 +627,39 @@ describe("GET /api/observations/review/likely", () => {
   it("refuses a person without set_sterilisation", async () => {
     const cookie = await signIn(guardianId);
     const res = await request(app)
-      .get("/api/observations/review/likely")
+      .get("/api/team/observations/review/likely")
       .set("Cookie", cookie);
     expect(res.status).toBe(401);
+  });
+
+  it("issues the same number of queries whether a cat without ear-tip evidence exists or not (review of #68, n-plus-one)", async () => {
+    const likelyCat = await insertCat();
+    await db.insert(observationsTable).values({
+      catId: likelyCat.id,
+      kind: "ear_tip",
+      value: { clipped: true },
+      deviceId: "vitest-obs-route-spotter",
+      roleAtTime: "public",
+      observedAt: new Date(),
+      photoId: 1,
+    });
+    // A cat with no ear_tip observation at all — the N+1 fix means it's
+    // never loaded by loadCatRecords and never costs a query.
+    await Promise.all(Array.from({ length: 20 }, () => insertCat()));
+
+    const cookie = await signIn(staffId);
+    const spy = vi.spyOn(pool, "query");
+    spy.mockClear();
+    const res = await request(app)
+      .get("/api/team/observations/review/likely")
+      .set("Cookie", cookie);
+    const queryCount = spy.mock.calls.length;
+    spy.mockRestore();
+
+    expect(res.status).toBe(200);
+    // A fixed, small number of queries regardless of how many cats exist
+    // with no ear-tip evidence at all (each used to cost a loadCatRecords
+    // pass and, before that, a photoUrl() round trip per photo).
+    expect(queryCount).toBeLessThan(10);
   });
 });
