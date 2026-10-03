@@ -10,6 +10,8 @@ import {
 import { eq, inArray } from "drizzle-orm";
 import { sendPushNotification } from "./push";
 import type { DbOrTx } from "./observations";
+import { isResolvedDeceased } from "./catHelpers";
+import { logger } from "./logger";
 
 /**
  * Insert a cat_updates row. Takes `tx` so a caller that also needs to write
@@ -56,6 +58,20 @@ export async function fanOutNotifications(opts: {
   update: CatUpdate;
   excludeDeviceId?: string;
 }): Promise<void> {
+  // §3.3: "Notifications stop" for a cat with a live deceased statement —
+  // "the cruellest bug in the app" would be everyone who ever spotted her
+  // still getting "Agatha was spotted again!" about a cat the team has
+  // recorded as dead. Follows are kept (nothing here touches
+  // cat_subscriptions), so a later sighting that clears the status (§3.2)
+  // resumes them automatically — this check simply re-runs on that call too.
+  if (await isResolvedDeceased(opts.cat.id)) {
+    logger.info(
+      { catId: opts.cat.id, catUpdateId: opts.update.id },
+      "fan-out skipped: cat is recorded as deceased",
+    );
+    return;
+  }
+
   const subscribers = await db
     .select()
     .from(catSubscriptionsTable)

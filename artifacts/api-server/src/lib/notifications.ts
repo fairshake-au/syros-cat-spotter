@@ -2,6 +2,7 @@ import { db, pushTokensTable, sightingsTable } from "@workspace/db";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendPushNotification } from "./push";
+import { isResolvedDeceased } from "./catHelpers";
 
 export interface CatNotification {
   title: string;
@@ -60,6 +61,13 @@ export async function notifyCatSpotters(
   notification: CatNotification,
 ): Promise<void> {
   try {
+    // data-spine.md PR 4, §3.3: never push about a cat recorded as deceased
+    // (same rule as fanOutNotifications — see its doc comment). Follows
+    // stay; a later sighting that clears the status resumes them.
+    if (await isResolvedDeceased(catId)) {
+      logger.info({ catId }, "notifyCatSpotters skipped: cat is recorded as deceased");
+      return;
+    }
     const rows = await db
       .select({ deviceId: sql<string>`distinct ${sightingsTable.deviceId}` })
       .from(sightingsTable)

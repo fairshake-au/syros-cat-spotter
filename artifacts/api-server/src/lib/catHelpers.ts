@@ -192,6 +192,34 @@ function publicSterilised(sterilised: {
   return sterilised;
 }
 
+/**
+ * Is this cat's resolved life status currently `deceased`? Used by:
+ *
+ * - the resolve route's hand-pick guard (SYC-119 Slice D,
+ *   `choose-a-different-cat.md` §4.8): a hand pick of a cat recorded as
+ *   deceased is refused with the same `NOT_NEARBY`-style refusal, so a
+ *   refusal never tells a prober *why* a cat couldn't be picked. A
+ *   *suggested* match is exempt — "a suggested match still clears the
+ *   death" (§3.2) — so this is only ever consulted for a hand pick.
+ * - the fan-out (`notificationFanout.ts`, `notifications.ts`): "Agatha was
+ *   spotted again!" must never reach anyone for a cat the team has recorded
+ *   as dead (§3.3's "cruellest bug in the app").
+ *
+ * Deliberately **not** behind the PR 3 gate: that gate exists because a
+ * claimed cat's *homed* status can be missing from `observations` until the
+ * backfill runs. A `deceased` status is never missing that way — nothing
+ * before this plan could write one at all, so every `deceased` observation
+ * that exists was written through `writeObservation` and is real evidence,
+ * backfill or not. (No PR before PR 8 writes one yet, so this is a no-op in
+ * practice until PR 8 ships — exactly as the plan expects.)
+ */
+export async function isResolvedDeceased(catId: number): Promise<boolean> {
+  const records = await loadCatRecords([catId]);
+  const rec = records.get(catId);
+  const snapshot = resolveCat(rec?.observations ?? [], rec?.evidenceOfLife ?? null, new Date());
+  return snapshot.lifeStatus === "deceased";
+}
+
 export async function listCatsWithStats(
   lat?: number,
   lng?: number,
