@@ -620,13 +620,15 @@ export function resolveSterilised(
 
 export function resolveLifeStatus(
   observations: Observation[],
-  evidenceOfLife: { at: string; source: string } | null,   // §3.4
+  evidenceOfLife: { at: Date; source: EvidenceSource; lastSightingAt: Date | null } | null,   // §3.4
   now: Date,
 ): Resolved<"street" | "homed" | "in_care" | "deceased"> & {
   presumedDeceased: boolean;
   notSeenSince: string | null;
 };
 ```
+
+*Amended 3 Oct 2026, Samuel: the `{at, source}` input can't express §3.2's sighting-clears-deceased rule on its own — a welfare report or ear-tip answer dated after the true clearing sighting hid that sighting entirely — so `lastSightingAt` was added, and `at`/`source` are typed `Date`/`EvidenceSource` rather than untyped strings. See DECISIONS.md.*
 
 Phase-1 rules the resolver implements:
 
@@ -641,7 +643,7 @@ A spotter's `clipped: false` or `"cant_tell"` is collected into `supportingObser
 
 **Life status.**
 
-- The newest non-superseded `life_status` observation by `observedAt` wins — **except** that a resolved sighting dated after a live `deceased` observation clears it in the same read, returning `street` and recording the disagreement in `conflicts` (§3.2). No job, no queue.
+- The newest non-superseded `life_status` observation by `observedAt` wins — **except** that a resolved sighting dated after a live `deceased` observation clears it in the same read, returning `street` and recording the disagreement in `conflicts` (§3.2). No job, no queue. Checked against `evidenceOfLife.lastSightingAt` specifically, never against the newest evidence of life of any kind — see the amendment above.
 - `presumedDeceased` is true when the newest **evidence of life** (§3.4) is more than 36 months old and no `life_status` observation is newer than it. A live `deceased` status suppresses the presumed-deceased derivation entirely.
 
 **Never crosses attributes.** There is an explicit test that no quantity or authority of `ear_tip` observations can produce `confidence: "confirmed"` on sterilised.
