@@ -113,24 +113,33 @@ confirmed hash match can.
    never appeared anywhere in the chain Replit handed to the app (not in any
    `X-Forwarded-For` entry, not as the socket address). Check the workflow
    run for a `::error::` from the egress-IP step first (ipify/ifconfig.me
-   disagreement or emptiness); if that passed, something is being rewritten
-   between the runner and the app (e.g. Replit isn't forwarding the runner's
-   literal IP for some other reason) — investigate before touching
-   `trust proxy`.
-2. **The three lines don't agree on `client_pos_from_right`** — in
+   disagreement or emptiness). If that passed, the likeliest cause is a
+   **family mismatch**: the egress-IP step and the probe requests to
+   `apptest.catspotters.com` each resolved over whichever of IPv4/IPv6 the
+   runner (or GitHub's DNS) preferred independently, and picked different
+   families — so the hash is of, say, the runner's IPv6 address while the
+   app only ever saw its IPv4 one (or vice versa). Re-run with both curls
+   forced to the same family (`curl -4` on the egress-IP lookups and on the
+   probe requests) and try again before assuming anything is actually
+   rewriting addresses between the runner and the app.
+2. **Still `client_found=false` after forcing one family** — now something
+   really is being rewritten between the runner and the app (e.g. Replit
+   isn't forwarding the runner's literal IP for some other reason) —
+   investigate before touching `trust proxy`.
+3. **The three lines don't agree on `client_pos_from_right`** — in
    particular, if the spoofed-XFF line differs from the two plain lines,
    something about the chain isn't stable (or the spoof is somehow
    influencing which entry the real client lands on) — don't set
    `trust proxy` from a single run; re-run and investigate before trusting
    the number.
-3. **All three lines agree on the same `client_pos_from_right=<n>`** — that
+4. **All three lines agree on the same `client_pos_from_right=<n>`** — that
    `<n>` is the hop count to trust. Set `app.set("trust proxy", <n>)`
    (`artifacts/api-server/src/app.ts`) in its own small PR, redeploy, and
    run this probe again to confirm `client_pos_from_right` stays stable
    with the new setting (it should land on the same physical hop, now
    reported in `req.ip` itself — `ip_matches_xff_first`/`ip_matches_xff_last`
    can cross-check that). Tick the DEPLOYMENT.md §C box.
-4. **`xff_hops=0` on the plain-request lines** — Replit isn't forwarding
+5. **`xff_hops=0` on the plain-request lines** — Replit isn't forwarding
    `X-Forwarded-For` at all, or the deployment is unreachable without a
    pre-launch pass. Check the deployment's logs directly before touching
    `trust proxy`.
