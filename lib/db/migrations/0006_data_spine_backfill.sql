@@ -18,13 +18,21 @@
 -- go-forward write already recorded:
 --  * care updates ("desexed" -> sterilised, "adopted" -> homed): skip a
 --    cat_updates row if an observation of the matching kind already exists
---    for that cat with observed_at = the cat_updates row's created_at --
---    exactly what PR 2's admin route (routes/notifications.ts) writes for
---    the same event.
+--    for that cat with observed_at BETWEEN the cat_updates row's created_at
+--    truncated to milliseconds AND that same created_at (not a plain `=`:
+--    review of PR #67, SYC-52, finding B1 -- cat_updates.created_at is the
+--    column's own `now()`, microsecond precision, but a JS `Date` only
+--    carries milliseconds, so an exact match against an observed_at written
+--    from one would never hit. routes/notifications.ts's admin route now
+--    also writes cat_updates.created_at from that same JS Date going
+--    forward, so a go-forward row matches this key exactly; the BETWEEN
+--    form is what still recognises the legacy rows written before that
+--    change, where the two columns can differ by sub-millisecond amounts).
 --  * claims and owner registrations (both set cats.owner_device_id and both
 --    write the same shape, so one match key covers both routes in
---    routes/cats.ts): skip a cat if it already has ANY life_status: homed
---    observation from its owner_device_id with
+--    routes/cats.ts): skip a cat if it already has a life_status: homed
+--    observation from its OWN owner_device_id (device_id match, not just
+--    any homed/owner_of_this_cat row anywhere -- finding S1 below) with
 --    authority_scope = 'owner_of_this_cat'. This also catches a cat claimed
 --    after PR 2 went live but before this migration ran -- its go-forward
 --    row satisfies the same match key, so no duplicate is written for it.
@@ -52,7 +60,7 @@ WHERE u."update_type" = 'desexed'
     SELECT 1 FROM "observations" o
      WHERE o."cat_id" = u."cat_id"
        AND o."kind" = 'sterilised'
-       AND o."observed_at" = u."created_at"
+       AND o."observed_at" BETWEEN date_trunc('milliseconds', u."created_at") AND u."created_at"
   );
 --> statement-breakpoint
 
@@ -78,7 +86,7 @@ WHERE u."update_type" = 'adopted'
     SELECT 1 FROM "observations" o
      WHERE o."cat_id" = u."cat_id"
        AND o."kind" = 'life_status'
-       AND o."observed_at" = u."created_at"
+       AND o."observed_at" BETWEEN date_trunc('milliseconds', u."created_at") AND u."created_at"
   );
 --> statement-breakpoint
 
@@ -150,7 +158,7 @@ BEGIN
        SELECT 1 FROM "observations" o
         WHERE o."cat_id" = u."cat_id"
           AND o."kind" = 'sterilised'
-          AND o."observed_at" = u."created_at"
+          AND o."observed_at" BETWEEN date_trunc('milliseconds', u."created_at") AND u."created_at"
      );
   SELECT count(*) INTO tagged_sterilised
     FROM "observations"
@@ -170,12 +178,14 @@ BEGIN
        SELECT 1 FROM "observations" o
         WHERE o."cat_id" = u."cat_id"
           AND o."kind" = 'life_status'
-          AND o."observed_at" = u."created_at"
+          AND o."observed_at" BETWEEN date_trunc('milliseconds', u."created_at") AND u."created_at"
      );
   SELECT count(*) INTO tagged_homed_from_care
     FROM "observations" o
     JOIN "cat_updates" u
-      ON u."cat_id" = o."cat_id" AND u."created_at" = o."observed_at" AND u."update_type" = 'adopted'
+      ON u."cat_id" = o."cat_id"
+     AND o."observed_at" BETWEEN date_trunc('milliseconds', u."created_at") AND u."created_at"
+     AND u."update_type" = 'adopted'
    WHERE o."kind" = 'life_status' AND o."suggestion_source" = 'backfill:data-spine';
   IF covered_homed_from_care <> expected_homed_from_care OR tagged_homed_from_care > expected_homed_from_care THEN
     RAISE EXCEPTION
@@ -187,13 +197,30 @@ BEGIN
   -- migration just wrote, because a cat claimed between PR 2 going live and
   -- this migration running already has its go-forward row (see the match
   -- key note above) and must still be counted as covered.
+  -- S1 (review of PR #67, SYC-52): the original check counted every
+  -- distinct cat_id across ALL homed/owner_of_this_cat observations, so an
+  -- observation left behind on a cat whose owner_device_id was later
+  -- cleared (still counted, bloating the total) or on a cat_id that no
+  -- longer has a "cats" row at all (same) could mask a real gap, or wrongly
+  -- raise on a cat the migration never needed to touch. This instead counts
+  -- owned cats that have a matching observation under the EXACT key the
+  -- insert above uses (including the device match), and requires that to
+  -- equal the number of owned cats -- so neither an orphaned/un-owned
+  -- observation nor a device mismatch can hide a real miss or manufacture a
+  -- false raise.
   SELECT count(*) INTO expected_claimed_cats
     FROM "cats" WHERE "owner_device_id" IS NOT NULL;
-  SELECT count(DISTINCT "cat_id") INTO actual_homed_total
-    FROM "observations"
-   WHERE "kind" = 'life_status'
-     AND "authority_scope" = 'owner_of_this_cat'
-     AND ("value"->>'status') = 'homed';
+  SELECT count(*) INTO actual_homed_total
+    FROM "cats" c
+   WHERE c."owner_device_id" IS NOT NULL
+     AND EXISTS (
+       SELECT 1 FROM "observations" o
+        WHERE o."cat_id" = c."id"
+          AND o."kind" = 'life_status'
+          AND o."device_id" = c."owner_device_id"
+          AND o."authority_scope" = 'owner_of_this_cat'
+          AND (o."value"->>'status') = 'homed'
+     );
   IF actual_homed_total <> expected_claimed_cats THEN
     RAISE EXCEPTION
       'data spine backfill: expected every one of % claimed/owner-registered cats to have a homed observation, found %',
@@ -202,6 +229,14 @@ BEGIN
 END
 $$;
 
+-- Nit (review of PR #67, SYC-52): if a later migration (PR 8's corrections)
+-- has by then written a row whose supersedes_id points at one of this
+-- backfill's rows, rolling back after that point would delete the
+-- superseded row out from under it, leaving supersedes_id dangling. Doc
+-- only -- no corrections exist yet for this migration to worry about, and
+-- the rollback's own ordering note (PR 4's code gate first) already keeps
+-- rollbacks rare and deliberate.
+--
 -- CAUTION: against a database with real data, take a Neon snapshot first
 -- (the plan's "Data safety on the live test database" section). Applied
 -- with `db-ops -f command=migrate-rollback`, and only after the app code
