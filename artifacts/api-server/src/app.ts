@@ -19,10 +19,11 @@ const app: Express = express();
 // proxy-probe run 37091945054, client_pos_from_right=4 on all three
 // probes, including one with a spoofed X-Forwarded-For). Trusting exactly
 // those 4 hops makes req.ip the real visitor for per-IP rate limiting, while
-// anything a client prepends to X-Forwarded-For stays untrusted. If Replit's
-// proxy chain ever changes length, re-run the probe (docs/runbooks/proxy-probe.md):
-// too low shares one rate-limit bucket between visitors, and too high lets
-// visitors spoof their address.
+// anything a client prepends to X-Forwarded-For stays untrusted. The
+// measurement method (a token-gated diagnostic on /api/healthz) was removed
+// under SYC-187 once it had done its job; it's preserved as a historical
+// note in docs/runbooks/proxy-probe.md and can be restored from PRs #57/#60
+// if Replit's proxy chain changes and this needs re-measuring.
 app.set("trust proxy", 4);
 
 app.use(
