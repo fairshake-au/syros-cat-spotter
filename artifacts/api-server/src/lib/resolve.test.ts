@@ -352,6 +352,30 @@ describe("resolveSterilised", () => {
     }
   });
 
+  it(
+    "J5: an import-provenance ear_tip clipped:false (no team/vet role) does " +
+      "NOT clear a likely back to unknown — §10.2 rule 3 names roles only",
+    () => {
+      const spotterClip = obs({
+        kind: "ear_tip",
+        value: { clipped: true },
+        photoId: 9,
+        observedAt: new Date("2026-01-01"),
+      });
+      const importFalse = obs({
+        kind: "ear_tip",
+        value: { clipped: false },
+        provenance: "import",
+        accountId: "system:legacy-backfill",
+        deviceId: null,
+        observedAt: new Date("2026-02-01"),
+      });
+      const resolved = resolveSterilised([spotterClip, importFalse]);
+      expect(resolved.value).toBe(true);
+      expect(resolved.confidence).toBe("likely");
+    },
+  );
+
   it("disagreeing authoritative statements surface the losing one in conflicts (S3)", () => {
     const older = obs({
       kind: "sterilised",
@@ -810,16 +834,33 @@ describe("resolveLifeStatus", () => {
       "the threshold is computed in UTC months, not the runner's local " +
         "calendar (kills M10's setMonth/setUTCMonth swap)",
       () => {
-        // A date-plus-time whose UTC and local month roll over on different
-        // days exposes a local-time addMonths immediately, in any TZ.
-        const evidenceAt = "2023-10-31T22:30:00Z";
-        const now = new Date("2026-10-31T22:30:01Z"); // 1 ms after the UTC threshold
-        const resolved = resolveLifeStatus(
-          [],
-          makeEvidence({ at: evidenceAt, source: "sighting" }),
-          now,
-        );
-        expect(resolved.presumedDeceased).toBe(true);
+        // A 36-month addition is 3 exact years, so a local-vs-UTC month
+        // mislabelling alone can't move the answer — the two calendars only
+        // diverge at a US DST boundary, because its date shifts by a few
+        // days each year (first Sunday of November). 2 Nov sits inside DST
+        // in 2023 but outside it in 2026, a 1-hour difference. Forcing TZ
+        // makes this reproducible on any machine, any CI, regardless of
+        // its own default timezone — the point the review's "run under
+        // TZ=Europe/Athens" guidance was making, applied concretely.
+        const originalTz = process.env.TZ;
+        process.env.TZ = "America/Denver";
+        try {
+          const evidenceAt = "2023-11-02T06:30:00Z";
+          // UTC-correct threshold is exactly 2026-11-02T06:30:00Z; the
+          // local-setMonth mutant computes 2026-11-02T07:30:00Z instead
+          // (DST has ended in 2026 but not in 2023, for this date). "now"
+          // sits strictly between the two, so only the correct threshold
+          // reports presumed deceased.
+          const now = new Date("2026-11-02T07:00:00Z");
+          const resolved = resolveLifeStatus(
+            [],
+            makeEvidence({ at: evidenceAt, source: "sighting" }),
+            now,
+          );
+          expect(resolved.presumedDeceased).toBe(true);
+        } finally {
+          process.env.TZ = originalTz;
+        }
       },
     );
   });
