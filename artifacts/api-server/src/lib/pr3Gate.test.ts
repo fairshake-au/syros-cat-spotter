@@ -3,108 +3,75 @@
  * "with PR 3's step not recorded, a claimed cat with no `homed` observation
  * still has `hasHome: true`; once it's recorded, `hasHome` follows life
  * status." This file tests {@link pr3Recorded} itself in isolation; the
- * end-to-end behaviour it gates is tested in `catHelpers.test.ts` and
- * `sightings.resolve.test.ts`.
+ * end-to-end behaviour it gates is tested in `catHelpers.derivedStatus.test.ts`
+ * and `sightings.deceasedGuard.test.ts`.
+ *
+ * Deliberately touches no filesystem path (see `pr3Gate.ts`'s doc comment on
+ * why an earlier version that did was wrong in the bundled build) — every
+ * case here is a plain `drizzle.__drizzle_migrations` row keyed on
+ * {@link PR3_MIGRATION_WHEN}.
  */
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import {
-  PR3_MIGRATION_TAG,
+  PR3_MIGRATION_WHEN,
   pr3Recorded,
   resetPr3GateCacheForTests,
 } from "./pr3Gate";
 
-function makeScratchFolder(sqlBody: string, tag = PR3_MIGRATION_TAG): {
-  folder: string;
-  hash: string;
-} {
-  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "pr3gate-test-"));
-  fs.writeFileSync(path.join(folder, `${tag}.sql`), sqlBody);
-  fs.mkdirSync(path.join(folder, "meta"));
-  fs.writeFileSync(
-    path.join(folder, "meta/_journal.json"),
-    JSON.stringify({
-      version: "7",
-      dialect: "postgresql",
-      entries: [{ idx: 0, version: "7", when: 1, tag }],
-    }),
+async function insertMigrationRow(createdAt: number): Promise<void> {
+  await db.execute(
+    sql`insert into "drizzle"."__drizzle_migrations" (hash, created_at)
+        values (${`test-hash-${createdAt}-${Math.random()}`}, ${createdAt})`,
   );
-  const hash = crypto.createHash("sha256").update(sqlBody).digest("hex");
-  return { folder, hash };
+}
+
+async function deleteMigrationRow(createdAt: number): Promise<void> {
+  await db.execute(
+    sql`delete from "drizzle"."__drizzle_migrations" where created_at = ${createdAt}`,
+  );
 }
 
 describe("pr3Recorded", () => {
-  const scratchFolders: string[] = [];
-  const insertedHashes: string[] = [];
-
-  beforeEach(() => {
-    resetPr3GateCacheForTests();
-  });
+  beforeEach(() => resetPr3GateCacheForTests());
 
   afterEach(async () => {
-    for (const hash of insertedHashes) {
-      await db.execute(
-        sql`delete from "drizzle"."__drizzle_migrations" where hash = ${hash}`,
-      );
-    }
-    insertedHashes.length = 0;
-    for (const folder of scratchFolders) {
-      fs.rmSync(folder, { recursive: true, force: true });
-    }
-    scratchFolders.length = 0;
+    await deleteMigrationRow(PR3_MIGRATION_WHEN);
     resetPr3GateCacheForTests();
   });
 
-  it("is false when the tag isn't in the local migrations folder at all (PR 3 not in this tree yet)", async () => {
-    const { folder } = makeScratchFolder("select 1;", "0006_something_else");
-    scratchFolders.push(folder);
-    await expect(pr3Recorded(folder)).resolves.toBe(false);
+  it("is false when no row with PR 3's created_at exists", async () => {
+    await expect(pr3Recorded()).resolves.toBe(false);
   });
 
-  it("is false when the migration file exists but its hash isn't recorded as applied", async () => {
-    const { folder } = makeScratchFolder("select 1;");
-    scratchFolders.push(folder);
-    await expect(pr3Recorded(folder)).resolves.toBe(false);
+  it("is false when a DIFFERENT migration's created_at exists, but not PR 3's", async () => {
+    await insertMigrationRow(PR3_MIGRATION_WHEN + 1);
+    try {
+      await expect(pr3Recorded()).resolves.toBe(false);
+    } finally {
+      await deleteMigrationRow(PR3_MIGRATION_WHEN + 1);
+    }
   });
 
-  it("is true once the exact hash is recorded in drizzle.__drizzle_migrations, and stays true after the row is removed (cached)", async () => {
-    const { folder, hash } = makeScratchFolder("select 2;");
-    scratchFolders.push(folder);
-    await db.execute(
-      sql`insert into "drizzle"."__drizzle_migrations" (hash, created_at) values (${hash}, ${Date.now()})`,
-    );
-    insertedHashes.push(hash);
+  it("is true once a row with PR 3's exact created_at is recorded, and stays true after the row is removed (cached)", async () => {
+    await insertMigrationRow(PR3_MIGRATION_WHEN);
 
-    await expect(pr3Recorded(folder)).resolves.toBe(true);
+    await expect(pr3Recorded()).resolves.toBe(true);
 
-    // Remove the row (simulating nothing — the cache is what matters here):
-    // once observed true in this process, it must never flip back to false,
-    // because a migration that has run stays run.
-    await db.execute(
-      sql`delete from "drizzle"."__drizzle_migrations" where hash = ${hash}`,
-    );
-    insertedHashes.length = 0;
-    await expect(pr3Recorded(folder)).resolves.toBe(true);
+    // Remove the row: once observed true in this process, it must never
+    // flip back to false, because a migration that has run stays run.
+    await deleteMigrationRow(PR3_MIGRATION_WHEN);
+    await expect(pr3Recorded()).resolves.toBe(true);
   });
 
   it("re-reads on every call while false — no caching of a negative result", async () => {
-    const { folder, hash } = makeScratchFolder("select 3;");
-    scratchFolders.push(folder);
+    await expect(pr3Recorded()).resolves.toBe(false);
 
-    await expect(pr3Recorded(folder)).resolves.toBe(false);
+    await insertMigrationRow(PR3_MIGRATION_WHEN);
 
-    await db.execute(
-      sql`insert into "drizzle"."__drizzle_migrations" (hash, created_at) values (${hash}, ${Date.now()})`,
-    );
-    insertedHashes.push(hash);
-
-    // The same process, same call, now sees it — proving the earlier `false`
-    // wasn't cached.
-    await expect(pr3Recorded(folder)).resolves.toBe(true);
+    // The same process, same call, now sees it — proving the earlier
+    // `false` wasn't cached.
+    await expect(pr3Recorded()).resolves.toBe(true);
   });
 });
