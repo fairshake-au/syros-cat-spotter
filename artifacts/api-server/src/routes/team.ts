@@ -15,6 +15,7 @@ import { clearSession, issueSession } from "../lib/teamAuth/session";
 import {
   isBrowserNavigation,
   refuseNotSignedIn,
+  requireOrigin,
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
@@ -134,23 +135,20 @@ router.get("/team/me", requireTeam(), (_req: Request, res: Response) => {
 /**
  * POST /api/team/signout: clears the cookie on this device (§2.1). Like every
  * dashboard POST, it must come from the dashboard's own origin; a missing
- * Origin is refused too.
+ * Origin is refused too (requireOrigin).
  */
-router.post("/team/signout", (req: Request, res: Response) => {
-  setTeamHeaders(res);
-  if (req.headers.origin !== TEAM_ORIGIN) {
-    // The same refusal as every other /api/team/* failure, so the SYC-113
-    // walk of every dashboard route sees one answer.
-    req.log.warn({ reason: "bad_origin" }, "team sign-out refused");
-    refuseNotSignedIn(req, res);
-    return;
-  }
-  clearSession(res);
-  if (isBrowserNavigation(req)) {
-    res.redirect(303, SIGN_IN_PAGE);
-    return;
-  }
-  res.status(204).end();
-});
+router.post(
+  "/team/signout",
+  requireOrigin(TEAM_ORIGIN),
+  (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    clearSession(res);
+    if (isBrowserNavigation(req)) {
+      res.redirect(303, SIGN_IN_PAGE);
+      return;
+    }
+    res.status(204).end();
+  },
+);
 
 export default router;

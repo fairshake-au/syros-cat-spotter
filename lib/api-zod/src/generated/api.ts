@@ -245,7 +245,7 @@ export const CreateSightingResponse = zod.object({
   "photoUrl": zod.string().nullable(),
   "confidence": zod.number().describe('Match likelihood 0-1'),
   "reasoning": zod.string()
-}))
+})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.')
 })
 
 

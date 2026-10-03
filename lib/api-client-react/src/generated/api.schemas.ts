@@ -230,6 +230,7 @@ export interface MatchResult {
   sightingId: number;
   /** False when the AI could not find a cat in the photo */
   isCatPhoto: boolean;
+  /** Candidates below the matcher's confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry. */
   candidates: MatchCandidate[];
 }
 
