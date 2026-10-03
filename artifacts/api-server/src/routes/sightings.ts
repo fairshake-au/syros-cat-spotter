@@ -10,6 +10,7 @@ import {
   sightingsTable,
   sightingMatchesTable,
   profilesTable,
+  foldName,
   type SuggestedMatch,
 } from "@workspace/db";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
@@ -22,6 +23,7 @@ import { badgesFor } from "../lib/badges";
 import { clampCaptureTime } from "../lib/captureTime";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
+import { writeObservation } from "../lib/observations";
 import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
@@ -597,6 +599,20 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
             discovererDeviceId: sighting.deviceId,
           })
           .returning();
+        // §5, §10.3: naming a new cat on resolve writes a name observation,
+        // so no later rename destroys this first name. observedAt is the
+        // sighting's own (clamped) capture time, not "now" — the name was
+        // given when the cat was spotted, not when the sync reached the
+        // server.
+        await writeObservation(tx, {
+          catId: cat!.id,
+          kind: "name",
+          value: { name: cat!.name, normalised: foldName(cat!.name) },
+          deviceId: sighting.deviceId,
+          roleAtTime: "public",
+          authorityScope: "none",
+          observedAt: sighting.createdAt,
+        });
       }
 
       // Only a pending sighting resolves (review F6): two resolves sent at
