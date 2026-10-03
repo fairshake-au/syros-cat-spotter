@@ -9,11 +9,19 @@ import {
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { sendPushNotification } from "./push";
+import type { DbOrTx } from "./observations";
 
 /**
  * Insert a cat_updates row and fan out notifications (in-app rows + Expo
  * push, fire-and-forget) to every subscriber of the cat, excluding
  * `excludeDeviceId` (e.g. the spotter who triggered the update).
+ *
+ * `tx`, when given, is used for the `cat_updates` insert only — the admin
+ * care route (routes/notifications.ts) passes its transaction so the
+ * `cat_updates` row and the observation it also writes (data-spine.md PR 2)
+ * commit or roll back together. Subscriber lookup and push delivery stay on
+ * the plain pool: they read unrelated rows and are already fire-and-forget,
+ * so there's nothing transactional to gain by routing them through `tx`.
  */
 export async function createUpdateAndFanOut(opts: {
   cat: Cat;
@@ -21,8 +29,10 @@ export async function createUpdateAndFanOut(opts: {
   message: string;
   triggerSightingId?: number | null;
   excludeDeviceId?: string;
+  tx?: DbOrTx;
 }): Promise<CatUpdate> {
-  const [update] = await db
+  const executor = opts.tx ?? db;
+  const [update] = await executor
     .insert(catUpdatesTable)
     .values({
       catId: opts.cat.id,

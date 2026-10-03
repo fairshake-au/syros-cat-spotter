@@ -12,6 +12,7 @@ import {
   profilesTable,
   catUpdatesTable,
   photosTable,
+  foldName,
   type Cat,
 } from "@workspace/db";
 import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
@@ -26,6 +27,7 @@ import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
+import { writeObservation } from "../lib/observations";
 
 const router: IRouter = Router();
 
@@ -113,23 +115,47 @@ router.post("/cats", async (req, res) => {
     });
     return;
   }
-  const [cat] = await db
-    .insert(catsTable)
-    .values({
-      name,
-      description: "",
-      // No photo yet — 0 is a sentinel; the photos route 404s for it and the
-      // owner (or a first sighting) can supply a real photo later.
-      primaryPhotoId: 0,
-      lat: body.lat,
-      lng: body.lng,
-      discovererDeviceId: body.deviceId,
-      ownerDeviceId: body.deviceId,
-      ownerName: body.ownerName.trim().slice(0, 60),
-      homeDescription: body.homeDescription.trim().slice(0, 200),
-    })
-    .returning();
-  res.status(201).json(await catPayload(cat!, 0, cat!.createdAt.toISOString()));
+  // Owner registration writes homed + name observations in the same
+  // transaction as the cat row itself (data-spine.md PR 2: "Owner
+  // registration (POST /cats) writes the same [as a claim] at creation").
+  const cat = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(catsTable)
+      .values({
+        name,
+        description: "",
+        // No photo yet — 0 is a sentinel; the photos route 404s for it and
+        // the owner (or a first sighting) can supply a real photo later.
+        primaryPhotoId: 0,
+        lat: body.lat,
+        lng: body.lng,
+        discovererDeviceId: body.deviceId,
+        ownerDeviceId: body.deviceId,
+        ownerName: body.ownerName.trim().slice(0, 60),
+        homeDescription: body.homeDescription.trim().slice(0, 200),
+      })
+      .returning();
+    await writeObservation(tx, {
+      catId: row!.id,
+      kind: "life_status",
+      value: { status: "homed" },
+      deviceId: body.deviceId,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: row!.createdAt,
+    });
+    await writeObservation(tx, {
+      catId: row!.id,
+      kind: "name",
+      value: { name: row!.name, normalised: foldName(row!.name) },
+      deviceId: body.deviceId,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: row!.createdAt,
+    });
+    return row!;
+  });
+  res.status(201).json(await catPayload(cat, 0, cat.createdAt.toISOString()));
 });
 
 router.get("/cats/:catId", async (req, res) => {
@@ -266,15 +292,32 @@ router.post("/cats/:catId/claim", async (req, res) => {
 
   let updated = cat;
   if (!cat.ownerDeviceId) {
-    // Guard against a concurrent claim: only set ownership if still unclaimed.
-    const [row] = await db
-      .update(catsTable)
-      .set({
-        ownerDeviceId: body.deviceId,
-        homeDescription: body.homeDescription.trim().slice(0, 200),
-      })
-      .where(and(eq(catsTable.id, catId), isNull(catsTable.ownerDeviceId)))
-      .returning();
+    const claimedAt = new Date();
+    // Guard against a concurrent claim: only set ownership if still
+    // unclaimed. The homed observation is written in the same transaction
+    // (data-spine.md PR 2: "A claim writes life_status: homed ... in the
+    // same transaction as the change it records").
+    const row = await db.transaction(async (tx) => {
+      const [updatedRow] = await tx
+        .update(catsTable)
+        .set({
+          ownerDeviceId: body.deviceId,
+          homeDescription: body.homeDescription.trim().slice(0, 200),
+        })
+        .where(and(eq(catsTable.id, catId), isNull(catsTable.ownerDeviceId)))
+        .returning();
+      if (!updatedRow) return null;
+      await writeObservation(tx, {
+        catId,
+        kind: "life_status",
+        value: { status: "homed" },
+        deviceId: body.deviceId,
+        roleAtTime: "public",
+        authorityScope: "owner_of_this_cat",
+        observedAt: claimedAt,
+      });
+      return updatedRow;
+    });
     if (!row) {
       res
         .status(409)
@@ -337,14 +380,30 @@ router.patch("/cats/:catId", async (req, res) => {
 
   let updated = cat;
   if (Object.keys(changes).length > 0) {
-    const [row] = await db
-      .update(catsTable)
-      .set(changes)
-      .where(eq(catsTable.id, catId))
-      .returning();
-    updated = row!;
-
+    const changedAt = new Date();
     const renamed = changes.name !== undefined && changes.name !== cat.name;
+    updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(catsTable)
+        .set(changes)
+        .where(eq(catsTable.id, catId))
+        .returning();
+      if (renamed) {
+        // §5, §10.3: a rename never destroys an earlier name — it appends
+        // a new name observation rather than editing the cat row's only
+        // name in place.
+        await writeObservation(tx, {
+          catId,
+          kind: "name",
+          value: { name: row!.name, normalised: foldName(row!.name) },
+          deviceId: body.deviceId,
+          roleAtTime: "public",
+          authorityScope: "owner_of_this_cat",
+          observedAt: changedAt,
+        });
+      }
+      return row!;
+    });
     void notifyCatSpotters(catId, body.deviceId, {
       title: renamed
         ? `${cat.name} is now ${updated.name}!`
