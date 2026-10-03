@@ -1,0 +1,411 @@
+/**
+ * The resolver (cat-record-data-spine.md §10.2, DECISIONS.md Part 2c/2g/2h).
+ *
+ * Pure: no database, no I/O. Every status a cat page, a push, a dashboard or
+ * the nightly email job shows is derived here from the append-only
+ * `observations` row list PR 2's `loadCatRecords` reads — never stored.
+ *
+ * This file is where the design risk in the whole data spine lives (plan
+ * `docs/superpowers/plans/data-spine.md`, PR 1): a wrong confidence level
+ * looks exactly like a right one, and every later PR trusts this logic.
+ * Every rule below is named in §10.2 and §10.8 and has a named test in
+ * `resolve.test.ts` with the same name.
+ */
+import type { Observation } from "@workspace/db/schema";
+
+export type Confidence = "confirmed" | "likely" | "reported" | "unknown";
+
+export interface Resolved<T> {
+  value: T | null;
+  confidence: Confidence;
+  /** Which observations produced this value, for display. */
+  supportingObservationIds: number[];
+  /** Disagreements worth a team's attention. Never shown to the public. */
+  conflicts: number[];
+  /** The date this value was derived from, ISO 8601. */
+  asOf: string;
+}
+
+export type LifeStatusValue = "street" | "homed" | "in_care" | "deceased";
+
+const LIFE_STATUS_VALUES: readonly LifeStatusValue[] = [
+  "street",
+  "homed",
+  "in_care",
+  "deceased",
+];
+
+/**
+ * The newest thing that tells us this cat was alive, computed by PR 2's
+ * `loadCatRecords` from §3.4's sources (a resolved sighting; a `life_status`
+ * of street, homed or in care; a `sterilised` record; an `ear_tip`
+ * observation; a `welfare_report`; failing all of those, the cat's
+ * `created_at`). `source` is a free label PR 2 sets — the one value this
+ * resolver inspects itself is the literal string `"sighting"`, to run §3.2's
+ * "a sighting after a deceased statement clears it" rule. Every other label
+ * is used only for its date. The resolver queries nothing else: a `colony`,
+ * `note`, `name`, `food_and_water` or `coat` observation must never reach
+ * this parameter, because none of those imply the cat is alive (§3.4) — that
+ * filtering is `loadCatRecords`'s job, not this function's.
+ */
+export interface EvidenceOfLife {
+  at: string;
+  source: string;
+}
+
+export interface LifeStatusResolved extends Resolved<LifeStatusValue> {
+  presumedDeceased: boolean;
+  /** ISO date (or null). Never shown as "presumed deceased" — §3.4. */
+  notSeenSince: string | null;
+}
+
+export interface CatSnapshot {
+  lifeStatus: LifeStatusValue;
+  lifeStatusConfidence: Confidence;
+  lifeStatusAsOf: string;
+  presumedDeceased: boolean;
+  notSeenSince: string | null;
+  sterilised: {
+    value: boolean | null;
+    confidence: Confidence;
+    asOf: string;
+    /** For the API's `clippedTipSightings` (§4.3). */
+    clippedTipSightings: number;
+  };
+}
+
+/**
+ * Records-import.md §2.5's "waiting pool" of import rows not yet linked to
+ * any cat. Once §2.5 is built, a pool record the team has matched to this
+ * cat but not yet formally linked becomes authoritative evidence here too.
+ * Nothing produces one today — the import is optional and post-MVP (data
+ * spine plan, "What's out") — so every phase-1 caller passes `[]`, and
+ * `resolveCat` never exposes the parameter at all. An already-*linked*
+ * import record is not this: linking writes a `sterilised` observation with
+ * `provenance: "import"` (records-import.md §3), which the ordinary
+ * authoritative-assertion rule below already covers.
+ */
+export interface ImportRecord {
+  id: number;
+  sterilised: boolean;
+  observedAt: string;
+}
+
+const AUTHORITATIVE_ROLES = new Set(["vet", "staff", "admin"]);
+
+function isAuthoritative(o: Observation): boolean {
+  return AUTHORITATIVE_ROLES.has(o.roleAtTime) || o.provenance === "import";
+}
+
+/** Not redacted, and not pointed at by any other observation's `supersedesId`. */
+function isActive(o: Observation, all: readonly Observation[]): boolean {
+  if (o.redactedAt != null) return false;
+  return !all.some((other) => other.supersedesId === o.id);
+}
+
+function toIso(d: Date | string): string {
+  return typeof d === "string" ? new Date(d).toISOString() : d.toISOString();
+}
+
+function newestByObservedAt<T extends Observation>(
+  list: readonly T[],
+): T | undefined {
+  if (list.length === 0) return undefined;
+  return list.reduce((newest, candidate) => {
+    const newestAt = newest.observedAt.getTime();
+    const candidateAt = candidate.observedAt.getTime();
+    if (candidateAt > newestAt) return candidate;
+    // Deterministic tie-break: the higher id is the later write.
+    if (candidateAt === newestAt && candidate.id > newest.id) return candidate;
+    return newest;
+  });
+}
+
+interface LifeStatusValueShape {
+  status: LifeStatusValue;
+}
+
+function parseLifeStatus(value: unknown): LifeStatusValueShape | null {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "status" in value &&
+    LIFE_STATUS_VALUES.includes((value as { status: unknown }).status as LifeStatusValue)
+  ) {
+    return value as LifeStatusValueShape;
+  }
+  return null;
+}
+
+interface SterilisedValueShape {
+  sterilised: boolean;
+}
+
+function parseSterilised(value: unknown): SterilisedValueShape | null {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "sterilised" in value &&
+    typeof (value as { sterilised: unknown }).sterilised === "boolean"
+  ) {
+    return value as SterilisedValueShape;
+  }
+  return null;
+}
+
+interface EarTipValueShape {
+  clipped: true | false | "cant_tell";
+}
+
+function parseEarTip(value: unknown): EarTipValueShape | null {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "clipped" in value &&
+    (() => {
+      const c = (value as { clipped: unknown }).clipped;
+      return c === true || c === false || c === "cant_tell";
+    })()
+  ) {
+    return value as EarTipValueShape;
+  }
+  return null;
+}
+
+/** Before any date exists to derive from. Never shown; only a fallback for "nothing at all". */
+const EPOCH = new Date(0).toISOString();
+
+/**
+ * Sterilised — an ordered fold, not independent clauses (§10.2).
+ *
+ * 1. Discard superseded and redacted observations.
+ * 2. Authoritative assertions (`roleAtTime` vet/staff/admin, or
+ *    `provenance: "import"`) — newest by `observedAt` wins, whatever sign.
+ * 3. Otherwise, a photo-backed `ear_tip { clipped: true }` reaches *likely*,
+ *    unless an authoritative `clipped: false` supersedes or postdates it.
+ * 4. Otherwise, *unknown*.
+ *
+ * Rule 1 (the ear-tip asymmetry) falls out of this by construction: a
+ * spotter's `clipped: false` / `"cant_tell"` is never authoritative, so it
+ * never reaches step 2 and never overrides step 3's survivors. It is still
+ * collected into `supportingObservationIds` for display (§4.1).
+ */
+export function resolveSterilised(
+  observations: readonly Observation[],
+  importRecords: readonly ImportRecord[] = [],
+): Resolved<boolean> {
+  const active = observations.filter((o) => isActive(o, observations));
+
+  // Step 2: authoritative sterilised assertions (phase 1: observations only;
+  // importRecords is always [] today — see ImportRecord's doc comment).
+  // Each candidate carries the one observation id supporting it (or none,
+  // for a not-yet-linked import record), so the newest-wins fold works the
+  // same way regardless of where the assertion came from.
+  type Candidate = { sterilised: boolean; at: Date; observationId: number | null };
+  const authoritative: Candidate[] = active
+    .filter((o) => o.kind === "sterilised" && isAuthoritative(o))
+    .flatMap((o) => {
+      const parsed = parseSterilised(o.value);
+      return parsed
+        ? [{ sterilised: parsed.sterilised, at: o.observedAt, observationId: o.id }]
+        : [];
+    });
+  const fromImport: Candidate[] = importRecords.map((r) => ({
+    sterilised: r.sterilised,
+    at: new Date(r.observedAt),
+    observationId: null,
+  }));
+  const candidates = [...authoritative, ...fromImport];
+
+  if (candidates.length > 0) {
+    // Newest by observedAt wins, whatever sign it carries (§10.2, §4.6).
+    // Ties: an observation (a cat's own record) beats a not-yet-linked
+    // import row at the same instant.
+    const winner = candidates.reduce((newest, candidate) => {
+      if (candidate.at.getTime() > newest.at.getTime()) return candidate;
+      if (
+        candidate.at.getTime() === newest.at.getTime() &&
+        candidate.observationId != null &&
+        newest.observationId == null
+      )
+        return candidate;
+      return newest;
+    });
+    const conflicts = candidates
+      .filter((c) => c !== winner && c.sterilised !== winner.sterilised)
+      .flatMap((c) => (c.observationId != null ? [c.observationId] : []));
+
+    return {
+      value: winner.sterilised,
+      confidence: "confirmed",
+      supportingObservationIds: winner.observationId != null ? [winner.observationId] : [],
+      conflicts,
+      asOf: toIso(winner.at),
+    };
+  }
+
+  // Step 3: photo-backed ear-tip evidence, only when nothing authoritative exists.
+  const earTip = active.flatMap((o) => {
+    if (o.kind !== "ear_tip") return [];
+    const parsed = parseEarTip(o.value);
+    return parsed ? [{ o, clipped: parsed.clipped }] : [];
+  });
+
+  const clippedTrueWithPhoto = earTip.filter(
+    (e) => e.clipped === true && e.o.photoId != null,
+  );
+  const authoritativeFalse = earTip.filter(
+    (e) => e.clipped === false && isAuthoritative(e.o),
+  );
+
+  const survivors = clippedTrueWithPhoto.filter(
+    (candidate) =>
+      !authoritativeFalse.some(
+        (af) =>
+          af.o.supersedesId === candidate.o.id ||
+          af.o.observedAt.getTime() >= candidate.o.observedAt.getTime(),
+      ),
+  );
+
+  // Every ear-tip statement is collected for display (§4.1: "the cat page
+  // shows how many people have said it"), whatever its effect on the level.
+  const supportingObservationIds = earTip.map((e) => e.o.id);
+
+  if (survivors.length > 0) {
+    const newest = newestByObservedAt(survivors.map((s) => s.o))!;
+    return {
+      value: true,
+      confidence: "likely",
+      supportingObservationIds,
+      conflicts: [],
+      asOf: toIso(newest.observedAt),
+    };
+  }
+
+  return {
+    value: null,
+    confidence: "unknown",
+    supportingObservationIds,
+    conflicts: [],
+    asOf: earTip.length > 0 ? toIso(newestByObservedAt(earTip.map((e) => e.o))!.observedAt) : EPOCH,
+  };
+}
+
+/** For the API's `clippedTipSightings` (§4.3): how many people have said it,
+ * whatever a later correction did to the level. */
+export function clippedTipCount(observations: readonly Observation[]): number {
+  return observations.filter((o) => {
+    if (o.kind !== "ear_tip" || !isActive(o, observations)) return false;
+    const parsed = parseEarTip(o.value);
+    return parsed?.clipped === true && o.photoId != null;
+  }).length;
+}
+
+const PRESUMED_DECEASED_MONTHS = 36;
+
+function addMonths(date: Date, months: number): Date {
+  const d = new Date(date.getTime());
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d;
+}
+
+/**
+ * Life status (§10.2, §3.2, §3.4).
+ *
+ * The newest non-superseded `life_status` observation wins — except that a
+ * resolved sighting dated after a live `deceased` observation clears it in
+ * the same read, returning `street` with the disagreement in `conflicts`.
+ * `presumedDeceased` is true when the newest evidence of life is more than
+ * 36 months old and the resolved status isn't `deceased` (a live `deceased`
+ * statement suppresses the derivation entirely, §3.4).
+ */
+export function resolveLifeStatus(
+  observations: readonly Observation[],
+  evidenceOfLife: EvidenceOfLife | null,
+  now: Date,
+): LifeStatusResolved {
+  const active = observations.filter(
+    (o) => o.kind === "life_status" && isActive(o, observations),
+  );
+  const parsed = active.flatMap((o) => {
+    const v = parseLifeStatus(o.value);
+    return v ? [{ o, status: v.status }] : [];
+  });
+  const newest = newestByObservedAt(parsed.map((p) => p.o));
+  const newestEntry = newest ? parsed.find((p) => p.o.id === newest.id) : undefined;
+
+  let value: LifeStatusValue = newestEntry ? newestEntry.status : "street";
+  // Every life_status write comes from someone §3.2 authorises for this cat
+  // (enforced upstream by PR 2's writeObservation, not here) — so any
+  // non-superseded write is as good as confirmed. Nothing claimed at all is
+  // the untouched default: street, unconfirmed.
+  let confidence: Confidence = newestEntry ? "confirmed" : "unknown";
+  let supportingObservationIds = newestEntry ? [newestEntry.o.id] : [];
+  let conflicts: number[] = [];
+
+  if (
+    value === "deceased" &&
+    newestEntry &&
+    evidenceOfLife?.source === "sighting" &&
+    new Date(evidenceOfLife.at).getTime() > newestEntry.o.observedAt.getTime()
+  ) {
+    conflicts = [newestEntry.o.id];
+    value = "street";
+    supportingObservationIds = [];
+  }
+
+  let presumedDeceased = false;
+  let notSeenSince: string | null = null;
+  if (value !== "deceased" && evidenceOfLife) {
+    const evidenceAt = new Date(evidenceOfLife.at);
+    const threshold = addMonths(evidenceAt, PRESUMED_DECEASED_MONTHS);
+    if (now.getTime() > threshold.getTime()) {
+      presumedDeceased = true;
+      notSeenSince = evidenceAt.toISOString();
+    }
+  }
+
+  const asOf = newestEntry
+    ? toIso(newestEntry.o.observedAt)
+    : evidenceOfLife
+      ? new Date(evidenceOfLife.at).toISOString()
+      : EPOCH;
+
+  return {
+    value,
+    confidence,
+    supportingObservationIds,
+    conflicts,
+    asOf,
+    presumedDeceased,
+    notSeenSince,
+  };
+}
+
+/**
+ * The one snapshot the cat page, the fan-out check, the nightly notify job,
+ * the dashboard and SYC-119's dead-cat guard all read (§9.1). Phase 1 takes
+ * an empty import list (see `ImportRecord`'s doc comment), so it isn't a
+ * parameter here at all.
+ */
+export function resolveCat(
+  observations: readonly Observation[],
+  evidenceOfLife: EvidenceOfLife | null,
+  now: Date,
+): CatSnapshot {
+  const life = resolveLifeStatus(observations, evidenceOfLife, now);
+  const sterilised = resolveSterilised(observations, []);
+  return {
+    lifeStatus: life.value,
+    lifeStatusConfidence: life.confidence,
+    lifeStatusAsOf: life.asOf,
+    presumedDeceased: life.presumedDeceased,
+    notSeenSince: life.notSeenSince,
+    sterilised: {
+      value: sterilised.value,
+      confidence: sterilised.confidence,
+      asOf: sterilised.asOf,
+      clippedTipSightings: clippedTipCount(observations),
+    },
+  };
+}
