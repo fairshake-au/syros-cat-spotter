@@ -196,6 +196,38 @@ describe("writeObservation — refusals", () => {
       }),
     ).rejects.toMatchObject({ code: "INVALID_PROVENANCE" });
   });
+
+  it("refuses any suggestionSource starting backfill: (review of PR #67, SYC-52, finding S2)", async () => {
+    // Migration 0006's rollback finds exactly the rows it wrote by
+    // suggestion_source = 'backfill:data-spine' and deletes only those.
+    // The migration's header already claimed writeObservation refuses that
+    // value from any other caller; before this fix nothing enforced it, so
+    // a go-forward write using the same prefix would have been silently
+    // deletable by a future rollback.
+    const cat = await insertCat();
+    await expect(
+      writeObservation(db, {
+        catId: cat.id,
+        kind: "life_status",
+        value: { status: "homed" },
+        accountId: "system:legacy-backfill",
+        roleAtTime: "staff",
+        observedAt: new Date(),
+        suggestionSource: "backfill:data-spine",
+      }),
+    ).rejects.toMatchObject({ code: "RESERVED_SUGGESTION_SOURCE" });
+    await expect(
+      writeObservation(db, {
+        catId: cat.id,
+        kind: "life_status",
+        value: { status: "homed" },
+        accountId: "system:legacy-backfill",
+        roleAtTime: "staff",
+        observedAt: new Date(),
+        suggestionSource: "backfill:some-future-migration",
+      }),
+    ).rejects.toMatchObject({ code: "RESERVED_SUGGESTION_SOURCE" });
+  });
 });
 
 describe("writeObservation — go-forward acceptances", () => {
