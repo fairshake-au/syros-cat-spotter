@@ -13,7 +13,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { requireDeviceAuth } from "../lib/deviceAuth";
-import { createUpdateAndFanOut } from "../lib/notificationFanout";
+import { insertCatUpdate, fanOutNotifications } from "../lib/notificationFanout";
 import { writeObservation } from "../lib/observations";
 
 const router: IRouter = Router();
@@ -46,13 +46,22 @@ router.post("/cats/:catId/updates", async (req, res) => {
   // `life_status: homed`, both authored `system:admin-route` with
   // `observedAt` set to the new cat_updates row's `created_at` so PR 3's
   // backfill can recognise and skip them later.
+  //
+  // Review of PR #66 (SYC-52/SYC-40): the cat_updates row and the
+  // observation it records commit atomically in this transaction — same
+  // pattern routes/cats.ts uses for claim/register/rename. Fan-out
+  // (notification rows + push) runs only AFTER that commits, via
+  // fanOutNotifications below; it used to run on the plain pool inside this
+  // function (createUpdateAndFanOut only routed the cat_updates insert
+  // through `tx`), ahead of writeObservation and the outer commit, so a
+  // notification could be sent — or a push fired — for a change that then
+  // rolled back.
   const observedAt = new Date();
   const update = await db.transaction(async (tx) => {
-    const u = await createUpdateAndFanOut({
+    const u = await insertCatUpdate(tx, {
       cat,
       updateType: body.updateType,
       message: body.message,
-      tx,
     });
     if (body.updateType === "desexed") {
       await writeObservation(tx, {
@@ -79,6 +88,8 @@ router.post("/cats/:catId/updates", async (req, res) => {
     }
     return u;
   });
+
+  await fanOutNotifications({ cat, update });
 
   res.status(201).json({
     id: update.id,
