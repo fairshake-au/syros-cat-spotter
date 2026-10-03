@@ -266,7 +266,14 @@ describe("deriveCatStatuses: life and sterilised states (gate open)", () => {
 
     const result = await deriveCatStatuses([cat]);
 
-    expect(result.get(cat.id)?.notSeenSince).toBe(old.toISOString());
+    // Public payload precision: a calendar date (YYYY-MM-DD, UTC day), not
+    // the full ISO timestamp resolve.ts computes internally -- a
+    // three-year-old "last seen" doesn't need time-of-day precision, and a
+    // bare date avoids a timezone round-trip when the app renders it.
+    expect(result.get(cat.id)?.notSeenSince).toBe(
+      old.toISOString().slice(0, 10),
+    );
+    expect(result.get(cat.id)?.notSeenSince).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(result.get(cat.id)?.lifeStatus).not.toBe("deceased");
     expect(result.get(cat.id)?.lifeStatus).toBe("street");
   });

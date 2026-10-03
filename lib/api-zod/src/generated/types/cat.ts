@@ -45,11 +45,21 @@ export interface Cat {
      */
   lifeStatus: CatLifeStatus;
   /**
-     * Set only when this cat is presumed deceased (§3.4: no evidence
-     * of life for 36 months) — never alongside lifeStatus: "deceased",
-     * and never shown as a headline or sent as a notification. The app
-     * reads it as "Not seen since {date}", in the same quiet place it
-     * would show "Last seen yesterday".
+     * A calendar date (YYYY-MM-DD, UTC day — the same convention
+     * lastSeenAt's server-side computation uses), set only when this
+     * cat is presumed deceased (§3.4: no evidence of life for 36
+     * months) — never alongside lifeStatus: "deceased", and never
+     * shown as a headline or sent as a notification. The app reads it
+     * as "Not seen since {date}", in the same quiet place it would
+     * show "Last seen yesterday". Date-only, not a timestamp: a
+     * three-year-old "last seen" doesn't need time-of-day precision,
+     * and a bare date avoids a timezone round-trip when the client
+     * renders it. Deliberately plain `type: string` rather than
+     * `format: date` — this repo's orval config coerces a `date`
+     * format straight to a JS `Date` in the zod package
+     * (`override.zod.coerce.response`), which would desync from the
+     * plain `string` the react-query client keeps; a bare string
+     * keeps both generated packages agreeing on the wire type.
      */
   notSeenSince: string | null;
   /** Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one. */

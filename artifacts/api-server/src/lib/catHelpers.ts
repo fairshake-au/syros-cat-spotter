@@ -98,6 +98,19 @@ const UNKNOWN_STERILISED: SterilisedStatus = {
 };
 
 /**
+ * Truncates a full ISO timestamp to its UTC calendar date (YYYY-MM-DD) for
+ * the public API, matching `lastSeenAt`'s own UTC-day convention (the
+ * `to_char(... at time zone 'UTC', ...)` below). resolve.ts's `notSeenSince`
+ * keeps full timestamp precision internally for its own month-threshold
+ * math — only the value handed to the public Cat payload is truncated,
+ * since the app only ever renders a date ("Not seen since 3 June 2023"),
+ * never a time.
+ */
+function toPublicDate(iso: string | null): string | null {
+  return iso ? iso.slice(0, 10) : null;
+}
+
+/**
  * One cat's derived status — `lifeStatus`, `notSeenSince` and `sterilised`
  * (cat-record-data-spine.md §10.7), plus `hasHome` redefined as
  * `lifeStatus === "homed"` (plan `data-spine.md`, PR 4) — for a batch of
@@ -163,7 +176,7 @@ export async function deriveCatStatuses(
     result.set(cat.id, {
       hasHome: snapshot.lifeStatus === "homed",
       lifeStatus: snapshot.lifeStatus,
-      notSeenSince: snapshot.notSeenSince,
+      notSeenSince: toPublicDate(snapshot.notSeenSince),
       sterilised: publicSterilised(snapshot.sterilised),
     });
   }

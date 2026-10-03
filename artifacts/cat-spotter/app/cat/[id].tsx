@@ -27,7 +27,7 @@ import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
-import { lifeLine, sterilisedLineKey } from '@/lib/catStatusLines';
+import { lifeLine, parseDateOnly, sterilisedLineKey } from '@/lib/catStatusLines';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
 
@@ -132,7 +132,7 @@ export default function CatDetailScreen() {
   const line = lifeLine(cat);
   const lifeLineText =
     line.key === 'notSeenSince'
-      ? t('notSeenSince').replace('{date}', new Date(line.date).toLocaleDateString())
+      ? t('notSeenSince').replace('{date}', parseDateOnly(line.date).toLocaleDateString())
       : t(line.key);
   const sterilisedLine = t(sterilisedLineKey(cat.sterilised));
 

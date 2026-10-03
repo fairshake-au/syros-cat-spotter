@@ -75,3 +75,24 @@ export function textFor(language: Language, key: (typeof STATUS_LINE_KEYS)[numbe
   const dict = TRANSLATIONS[language] as Record<string, string>;
   return dict[key];
 }
+
+/**
+ * `notSeenSince` is a bare calendar date (`YYYY-MM-DD`, no time or offset,
+ * catHelpers.ts's `toPublicDate`). `new Date('YYYY-MM-DD')` parses that as
+ * UTC midnight (the ISO 8601 date-only rule), and `.toLocaleDateString()`
+ * then renders it in the *viewer's* local timezone -- for anyone west of
+ * UTC (most tourists reading this app on a phone from outside Greece), UTC
+ * midnight falls in the previous local day, so the cat page would read
+ * "Not seen since 2 June" for a date the server meant as 3 June. Building
+ * the Date from its y/m/d parts directly (local midnight, no UTC
+ * round-trip) keeps the calendar date exactly what the server sent,
+ * whatever timezone the phone is in.
+ */
+export function parseDateOnly(dateOnly: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+  if (!match) {
+    throw new Error(`parseDateOnly: not a bare YYYY-MM-DD date: ${dateOnly}`);
+  }
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}

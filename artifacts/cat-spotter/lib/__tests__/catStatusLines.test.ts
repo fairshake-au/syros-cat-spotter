@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { LANGUAGES } from '../i18n';
 import {
   lifeLine,
+  parseDateOnly,
   sterilisedLineKey,
   textFor,
   STATUS_LINE_KEYS,
@@ -34,16 +35,49 @@ describe('lifeLine', () => {
   });
 
   it('prefers notSeenSince over the ordinary lifeStatus line -- never both, never "presumed"', () => {
-    const result = lifeLine(cat({ lifeStatus: 'street', notSeenSince: '2024-06-01T00:00:00Z' }));
-    expect(result).toEqual({ key: 'notSeenSince', date: '2024-06-01T00:00:00Z' });
+    // notSeenSince is a bare calendar date (catHelpers.ts's toPublicDate),
+    // not a full timestamp -- see parseDateOnly's own tests below for why
+    // that matters to rendering.
+    const result = lifeLine(cat({ lifeStatus: 'street', notSeenSince: '2024-06-01' }));
+    expect(result).toEqual({ key: 'notSeenSince', date: '2024-06-01' });
     // The resolver's own invariant is that notSeenSince and
     // lifeStatus: "deceased" never both apply to the same cat; this is
     // simply never reached in practice, but if it ever were, notSeenSince
     // still wins -- it is never shown as "deceased".
     const impossible = lifeLine(
-      cat({ lifeStatus: 'deceased', notSeenSince: '2024-06-01T00:00:00Z' }),
+      cat({ lifeStatus: 'deceased', notSeenSince: '2024-06-01' }),
     );
     expect((impossible as LifeLine).key).toBe('notSeenSince');
+  });
+});
+
+describe('parseDateOnly', () => {
+  it('reads a bare YYYY-MM-DD date into the matching calendar date, local midnight', () => {
+    const d = parseDateOnly('2024-06-03');
+    expect(d.getFullYear()).toBe(2024);
+    expect(d.getMonth()).toBe(5); // 0-indexed: June
+    expect(d.getDate()).toBe(3);
+    expect(d.getHours()).toBe(0);
+  });
+
+  it('never rolls the date back a day for a viewer west of UTC -- the bug `new Date(dateOnly)` + toLocaleDateString has', () => {
+    const dateOnly = '2024-06-03';
+
+    // The bug this guards against: new Date('2024-06-03') is UTC midnight,
+    // which a viewer west of UTC (anywhere from the UK back to the US)
+    // renders as 2 June in their local timezone -- one day earlier than the
+    // server meant. parseDateOnly must never do that: its result's
+    // calendar date matches the input regardless of the runner's own
+    // timezone (whatever CI happens to run in).
+    const viaParseDateOnly = parseDateOnly(dateOnly);
+    expect(
+      `${viaParseDateOnly.getFullYear()}-${String(viaParseDateOnly.getMonth() + 1).padStart(2, '0')}-${String(viaParseDateOnly.getDate()).padStart(2, '0')}`,
+    ).toBe(dateOnly);
+  });
+
+  it('rejects anything that is not a bare YYYY-MM-DD date', () => {
+    expect(() => parseDateOnly('2024-06-03T00:00:00Z')).toThrow();
+    expect(() => parseDateOnly('not-a-date')).toThrow();
   });
 });
 
