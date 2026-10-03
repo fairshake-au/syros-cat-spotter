@@ -9,7 +9,8 @@
  *   endpoint for the browser check (plan test 26). Production leaves it unset.
  */
 
-export type ResendAttachment = { filename: string; content: string };
+/** `content_id` makes the attachment an inline image the HTML can show with `cid:`. */
+export type ResendAttachment = { filename: string; content: string; content_id?: string };
 
 export type ResendMessage = {
   from: string;
