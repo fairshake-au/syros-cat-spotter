@@ -2,13 +2,15 @@
  * Data spine PR 5 — matching hardening (DECISIONS.md Part 2h; the plan's PR 5,
  * docs/superpowers/plans/data-spine.md). SYC-39's exact-position 500 m
  * matching is kept (its own tests live in sightings.radius.test.ts and
- * candidateSelection.test.ts); this file covers the three protections PR 5
- * adds on top of it:
+ * candidateSelection.test.ts); this file covers the protections PR 5 adds on
+ * top of it, plus the fixes from an adversarial review of PR #64:
  *
  *   1. The candidate-matching rate limit counts per device, not per IP
- *      (§6.3 point 2).
- *   2. A candidate below the confidence threshold comes back with no catId
- *      and no name (§6.3 point 3).
+ *      (§6.3 point 2) — checked only after the device secret, never on the
+ *      raw body.deviceId (review S5, mutant M6).
+ *   2. A candidate below the confidence threshold is left out of the
+ *      response entirely, not nulled-out-but-present (§6.3 point 3; review
+ *      S1), including at the exact boundary (review S5, mutant M2).
  *   3. The response is never ordered by true distance — ties in confidence
  *      break on cat id (§6.3 point 3).
  */
@@ -31,6 +33,18 @@ const { matchCatPhoto } = vi.hoisted(() => ({
   })),
 }));
 vi.mock("../lib/matching", () => ({ matchCatPhoto }));
+// This file's whole point is many requests (several per test, well past 20
+// across the file) from supertest's one shared local IP, to prove the
+// per-device limiter — not the IP — is what's actually being exercised.
+// Review of PR #64 (B1) restored the real, IP-keyed `aiLimiter` on this
+// route; without stubbing it out here the way sightings.matchRecord.test.ts
+// already does, this file's own request volume would 429 against it well
+// before any test finished, for a reason that has nothing to do with what
+// each test is checking.
+vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../middlewares/rateLimit")>()),
+  aiLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 
 import app from "../app";
 import { _resetDeviceMatchLimitForTests } from "../middlewares/rateLimit";
