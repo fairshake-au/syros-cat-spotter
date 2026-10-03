@@ -175,7 +175,8 @@ export async function deriveCatStatuses(
  * until Syros Cats can correct it. Downgraded to `unknown` rather than
  * hidden, so the API never claims a stronger negative or positive than it
  * means — "Not known yet" is the honest thing to say about a cat sitting on
- * one uncorrectable photo.
+ * one uncorrectable photo. Also strips the resolver's internal `asOf` (not
+ * part of the API's `sterilised` shape, §10.7).
  */
 function publicSterilised(sterilised: {
   value: boolean | null;
@@ -189,7 +190,11 @@ function publicSterilised(sterilised: {
       clippedTipSightings: sterilised.clippedTipSightings,
     };
   }
-  return sterilised;
+  return {
+    value: sterilised.value,
+    confidence: sterilised.confidence,
+    clippedTipSightings: sterilised.clippedTipSightings,
+  };
 }
 
 /**
