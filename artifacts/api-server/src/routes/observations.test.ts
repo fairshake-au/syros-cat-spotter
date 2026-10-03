@@ -371,6 +371,11 @@ describe("POST /api/team/observations — Origin (review of #68, cors-origin)", 
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.headers["content-security-policy"]).toContain("default-src 'none'");
   });
+
+  it("keeps the dashboard's headers off routes it doesn't own", async () => {
+    const res = await request(app).get("/api/no-such-route-for-header-scope");
+    expect(res.headers["content-security-policy"]).toBeUndefined();
+  });
 });
 
 describe("POST /api/team/observations/:id/supersede", () => {

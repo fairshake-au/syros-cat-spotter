@@ -75,8 +75,10 @@ const router: IRouter = Router();
 // Every response from this router carries the dashboard's headers (CSP,
 // no-store, Referrer-Policy), success or failure alike — team.ts's own
 // convention (setTeamHeaders), applied once here instead of at each
-// handler/return so a new branch can't forget it.
-router.use((_req: Request, res: Response, next) => {
+// handler/return so a new branch can't forget it. Scoped to this router's
+// own paths: the router is mounted on the shared /api router, so an
+// unscoped use() would also stamp unmatched and later-mounted routes.
+router.use("/team/observations", (_req: Request, res: Response, next) => {
   setTeamHeaders(res);
   next();
 });
