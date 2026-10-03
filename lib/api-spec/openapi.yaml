@@ -18,6 +18,13 @@ tags:
     description: Device profiles, points, badges
   - name: notifications
     description: Cat update notifications and push tokens
+  - name: team
+    description: >-
+      Staff dashboard: the correction path for a cat's life status and
+      sterilisation (cat-record-data-spine.md §4.5, §3.5; PR 8 of the data
+      spine plan). Endpoints only — no dashboard screen calls these yet
+      (SYC-43's later parts build it), so they are reachable only by tests
+      until then.
 paths:
   /healthz:
     get:
@@ -491,6 +498,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Campaign"
+  /observations:
+    post:
+      operationId: createObservation
+      tags: [team]
+      summary: >-
+        Staff states a cat's life status or sterilisation, with a reason
+        (spec §4.5, §3.5)
+      security:
+        - teamSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateObservationRequest"
+      responses:
+        "201":
+          description: Observation written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ObservationRecord"
+        "400":
+          description: Invalid request, or the observation was refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: Not signed in, or signed in without the matching capability
+        "404":
+          description: Cat not found
+  /observations/{id}/supersede:
+    post:
+      operationId: supersedeObservation
+      tags: [team]
+      summary: >-
+        The correction path — marks one observation wrong, with a reason, by
+        writing a new one of the same kind that points at it (spec §4.5)
+      security:
+        - teamSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupersedeObservationRequest"
+      responses:
+        "201":
+          description: The correcting observation, pointing at the one it replaces
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ObservationRecord"
+        "400":
+          description: Invalid request, or the observation was refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: Not signed in, or signed in without the matching capability
+        "404":
+          description: The observation to supersede was not found
+        "409":
+          description: That observation is already superseded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+  /observations/review/likely:
+    get:
+      operationId: listLikelyReview
+      tags: [team]
+      summary: >-
+        Cats whose sterilised status is currently Likely, newest evidence
+        first, with their evidence photos (spec §4.5 point 3)
+      security:
+        - teamSession: []
+      responses:
+        "200":
+          description: The review list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikelyReviewResult"
+        "401":
+          description: Not signed in, or signed in without set_sterilisation
 components:
   parameters:
     DeviceSecretHeader:
@@ -506,6 +606,14 @@ components:
       type: http
       scheme: bearer
       description: OWNER_SECRET bearer token for owner-only endpoints
+    teamSession:
+      type: apiKey
+      in: cookie
+      name: __Host-cs_team
+      description: >-
+        Staff dashboard session cookie (team-access-and-welfare-queue.md
+        §8.2). A missing session and a missing capability refuse identically
+        (401, {"error":"not_signed_in"}) — see requireTeam.ts.
   schemas:
     RegisterPushTokenRequest:
       type: object
@@ -959,3 +1067,112 @@ components:
         uniqueCatsDiscovered: { type: integer }
         rank: { type: integer }
       required: [spotterCode, points, uniqueCatsDiscovered, rank]
+    LifeStatusValue:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [street, homed, in_care, deceased]
+      required: [status]
+    SterilisedValue:
+      type: object
+      properties:
+        sterilised: { type: boolean }
+      required: [sterilised]
+    CreateObservationRequest:
+      type: object
+      description: >-
+        kind: life_status needs a LifeStatusValue; kind: sterilised needs a
+        SterilisedValue. There is no direct create for ear_tip — a staff
+        "that's not a clip" always goes through supersede.
+      properties:
+        catId: { type: integer }
+        kind:
+          type: string
+          enum: [life_status, sterilised]
+        value:
+          description: Shape depends on kind — see LifeStatusValue / SterilisedValue
+        reason:
+          type: string
+          description: Short, required. Stored inside the observation's own value.
+        observedAt:
+          type: string
+          description: >-
+            ISO 8601, when the thing was true. Any past date (team writes are
+            not clamped to 30 days, unlike public ones). Defaults to now.
+      required: [catId, kind, value, reason]
+    SupersedeObservationRequest:
+      type: object
+      properties:
+        value:
+          description: >-
+            The corrected value, in the shape the observation being
+            superseded's own kind requires.
+        reason:
+          type: string
+          description: Why the original observation was wrong. Stored as supersedeReason.
+        observedAt:
+          type: string
+          description: >-
+            ISO 8601. May be earlier than the observation it corrects — see
+            the data-spine plan's PR 8 section (the "J4" case): a wrong
+            entry can only be beaten by naming it, not merely by a later
+            date. Defaults to now.
+      required: [value, reason]
+    ObservationRecord:
+      type: object
+      properties:
+        id: { type: integer }
+        catId: { type: integer }
+        kind: { type: string }
+        value:
+          description: Shape depends on kind — the kind-specific value this observation carries.
+        accountId: { type: string, nullable: true }
+        deviceId: { type: string, nullable: true }
+        roleAtTime: { type: string }
+        authorityScope: { type: string }
+        provenance: { type: string }
+        observedAt: { type: string }
+        createdAt: { type: string }
+        supersedesId: { type: integer, nullable: true }
+        supersedeReason: { type: string, nullable: true }
+      required:
+        [
+          id,
+          catId,
+          kind,
+          value,
+          roleAtTime,
+          authorityScope,
+          provenance,
+          observedAt,
+          createdAt,
+        ]
+    LikelyReviewEvidencePhoto:
+      type: object
+      properties:
+        observationId: { type: integer }
+        photoId: { type: integer, nullable: true }
+        photoUrl: { type: string, nullable: true }
+        observedAt: { type: string }
+        side: { type: string, nullable: true }
+      required: [observationId, photoId, photoUrl, observedAt, side]
+    LikelyReviewCat:
+      type: object
+      properties:
+        catId: { type: integer }
+        name: { type: string }
+        sterilisedAsOf: { type: string }
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/LikelyReviewEvidencePhoto"
+      required: [catId, name, sterilisedAsOf, evidence]
+    LikelyReviewResult:
+      type: object
+      properties:
+        cats:
+          type: array
+          items:
+            $ref: "#/components/schemas/LikelyReviewCat"
+      required: [cats]

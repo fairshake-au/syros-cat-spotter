@@ -33,13 +33,16 @@ import type {
   ClaimUsernameRequest,
   ClaimedUsername,
   CreateCatUpdateRequest,
+  CreateObservationRequest,
   CreateSightingRequest,
   HealthStatus,
   LeaderboardEntry,
+  LikelyReviewResult,
   ListCatsParams,
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
   MatchResult,
+  ObservationRecord,
   Profile,
   RegisterPushToken200,
   RegisterPushTokenRequest,
@@ -48,6 +51,7 @@ import type {
   ResolveSightingRequest,
   SuggestCatNamesRequest,
   SuggestCatNamesResult,
+  SupersedeObservationRequest,
   UpdateProfileRequest,
   UsernameAvailability,
   UsernameSuggestions
@@ -1713,6 +1717,226 @@ export function useGetCampaign<TData = Awaited<ReturnType<typeof getCampaign>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCampaignQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateObservationUrl = () => {
+
+
+
+
+  return `/api/observations`
+}
+
+/**
+ * @summary Staff states a cat's life status or sterilisation, with a reason (spec §4.5, §3.5)
+ */
+export const createObservation = async (createObservationRequest: CreateObservationRequest, options?: RequestInit): Promise<ObservationRecord> => {
+
+  return customFetch<ObservationRecord>(getCreateObservationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createObservationRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateObservationMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createObservation>>, TError,{data: BodyType<CreateObservationRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createObservation>>, TError,{data: BodyType<CreateObservationRequest>}, TContext> => {
+
+const mutationKey = ['createObservation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createObservation>>, {data: BodyType<CreateObservationRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createObservation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateObservationMutationResult = NonNullable<Awaited<ReturnType<typeof createObservation>>>
+    export type CreateObservationMutationBody = BodyType<CreateObservationRequest>
+    export type CreateObservationMutationError = ErrorType<ApiErrorBody | void>
+
+    /**
+ * @summary Staff states a cat's life status or sterilisation, with a reason (spec §4.5, §3.5)
+ */
+export const useCreateObservation = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createObservation>>, TError,{data: BodyType<CreateObservationRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createObservation>>,
+        TError,
+        {data: BodyType<CreateObservationRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateObservationMutationOptions(options));
+    }
+
+export const getSupersedeObservationUrl = (id: number,) => {
+
+
+
+
+  return `/api/observations/${id}/supersede`
+}
+
+/**
+ * @summary The correction path — marks one observation wrong, with a reason, by writing a new one of the same kind that points at it (spec §4.5)
+ */
+export const supersedeObservation = async (id: number,
+    supersedeObservationRequest: SupersedeObservationRequest, options?: RequestInit): Promise<ObservationRecord> => {
+
+  return customFetch<ObservationRecord>(getSupersedeObservationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(supersedeObservationRequest)
+  }
+);}
+
+
+
+
+
+export const getSupersedeObservationMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof supersedeObservation>>, TError,{id: number;data: BodyType<SupersedeObservationRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof supersedeObservation>>, TError,{id: number;data: BodyType<SupersedeObservationRequest>}, TContext> => {
+
+const mutationKey = ['supersedeObservation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof supersedeObservation>>, {id: number;data: BodyType<SupersedeObservationRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  supersedeObservation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SupersedeObservationMutationResult = NonNullable<Awaited<ReturnType<typeof supersedeObservation>>>
+    export type SupersedeObservationMutationBody = BodyType<SupersedeObservationRequest>
+    export type SupersedeObservationMutationError = ErrorType<ApiErrorBody | void>
+
+    /**
+ * @summary The correction path — marks one observation wrong, with a reason, by writing a new one of the same kind that points at it (spec §4.5)
+ */
+export const useSupersedeObservation = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof supersedeObservation>>, TError,{id: number;data: BodyType<SupersedeObservationRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof supersedeObservation>>,
+        TError,
+        {id: number;data: BodyType<SupersedeObservationRequest>},
+        TContext
+      > => {
+      return useMutation(getSupersedeObservationMutationOptions(options));
+    }
+
+export const getListLikelyReviewUrl = () => {
+
+
+
+
+  return `/api/observations/review/likely`
+}
+
+/**
+ * @summary Cats whose sterilised status is currently Likely, newest evidence first, with their evidence photos (spec §4.5 point 3)
+ */
+export const listLikelyReview = async ( options?: RequestInit): Promise<LikelyReviewResult> => {
+
+  return customFetch<LikelyReviewResult>(getListLikelyReviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLikelyReviewQueryKey = () => {
+    return [
+    `/api/observations/review/likely`
+    ] as const;
+    }
+
+
+export const getListLikelyReviewQueryOptions = <TData = Awaited<ReturnType<typeof listLikelyReview>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLikelyReview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLikelyReviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLikelyReview>>> = ({ signal }) => listLikelyReview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLikelyReview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLikelyReviewQueryResult = NonNullable<Awaited<ReturnType<typeof listLikelyReview>>>
+export type ListLikelyReviewQueryError = ErrorType<void>
+
+
+/**
+ * @summary Cats whose sterilised status is currently Likely, newest evidence first, with their evidence photos (spec §4.5 point 3)
+ */
+
+export function useListLikelyReview<TData = Awaited<ReturnType<typeof listLikelyReview>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLikelyReview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLikelyReviewQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -245,7 +245,7 @@ export const CreateSightingResponse = zod.object({
   "photoUrl": zod.string().nullable(),
   "confidence": zod.number().describe('Match likelihood 0-1'),
   "reasoning": zod.string()
-}))
+})).describe('Candidates below the matcher\'s confidence threshold are omitted entirely — not included with blank or null fields. A weak match never names a cat, not even via an anonymous placeholder entry.')
 })
 
 
@@ -548,5 +548,82 @@ export const GetCampaignResponse = zod.object({
   "donateUrl": zod.string().describe('Empty when no donation page is configured; the client hides the CTA'),
   "suggestedAmountsCents": zod.array(zod.number())
 }).describe('Colony fundraising campaign shown on the Help tab. Server-side config, so\nfigures can be corrected without an app release. There is no payments\nbackend: the app opens `donateUrl` externally and no money moves through\nthis API.\n')
+
+
+/**
+ * @summary Staff states a cat's life status or sterilisation, with a reason (spec §4.5, §3.5)
+ */
+export const CreateObservationBody = zod.object({
+  "catId": zod.number(),
+  "kind": zod.enum(['life_status', 'sterilised']),
+  "value": zod.unknown().describe('Shape depends on kind — see LifeStatusValue \/ SterilisedValue'),
+  "reason": zod.string().describe('Short, required. Stored inside the observation\'s own value.'),
+  "observedAt": zod.string().optional().describe('ISO 8601, when the thing was true. Any past date (team writes are not clamped to 30 days, unlike public ones). Defaults to now.')
+}).describe('kind: life_status needs a LifeStatusValue; kind: sterilised needs a SterilisedValue. There is no direct create for ear_tip — a staff \"that\'s not a clip\" always goes through supersede.')
+
+export const CreateObservationResponse = zod.object({
+  "id": zod.number(),
+  "catId": zod.number(),
+  "kind": zod.string(),
+  "value": zod.unknown().describe('Shape depends on kind — the kind-specific value this observation carries.'),
+  "accountId": zod.string().nullish(),
+  "deviceId": zod.string().nullish(),
+  "roleAtTime": zod.string(),
+  "authorityScope": zod.string(),
+  "provenance": zod.string(),
+  "observedAt": zod.string(),
+  "createdAt": zod.string(),
+  "supersedesId": zod.number().nullish(),
+  "supersedeReason": zod.string().nullish()
+})
+
+
+/**
+ * @summary The correction path — marks one observation wrong, with a reason, by writing a new one of the same kind that points at it (spec §4.5)
+ */
+export const SupersedeObservationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SupersedeObservationBody = zod.object({
+  "value": zod.unknown().describe('The corrected value, in the shape the observation being superseded\'s own kind requires.'),
+  "reason": zod.string().describe('Why the original observation was wrong. Stored as supersedeReason.'),
+  "observedAt": zod.string().optional().describe('ISO 8601. May be earlier than the observation it corrects — see the data-spine plan\'s PR 8 section (the \"J4\" case): a wrong entry can only be beaten by naming it, not merely by a later date. Defaults to now.')
+})
+
+export const SupersedeObservationResponse = zod.object({
+  "id": zod.number(),
+  "catId": zod.number(),
+  "kind": zod.string(),
+  "value": zod.unknown().describe('Shape depends on kind — the kind-specific value this observation carries.'),
+  "accountId": zod.string().nullish(),
+  "deviceId": zod.string().nullish(),
+  "roleAtTime": zod.string(),
+  "authorityScope": zod.string(),
+  "provenance": zod.string(),
+  "observedAt": zod.string(),
+  "createdAt": zod.string(),
+  "supersedesId": zod.number().nullish(),
+  "supersedeReason": zod.string().nullish()
+})
+
+
+/**
+ * @summary Cats whose sterilised status is currently Likely, newest evidence first, with their evidence photos (spec §4.5 point 3)
+ */
+export const ListLikelyReviewResponse = zod.object({
+  "cats": zod.array(zod.object({
+  "catId": zod.number(),
+  "name": zod.string(),
+  "sterilisedAsOf": zod.string(),
+  "evidence": zod.array(zod.object({
+  "observationId": zod.number(),
+  "photoId": zod.number().nullable(),
+  "photoUrl": zod.string().nullable(),
+  "observedAt": zod.string(),
+  "side": zod.string().nullable()
+}))
+}))
+})
 
 
