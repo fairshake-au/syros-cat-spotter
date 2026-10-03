@@ -56,12 +56,19 @@ router.post("/cats/:catId/updates", async (req, res) => {
   // through `tx`), ahead of writeObservation and the outer commit, so a
   // notification could be sent — or a push fired — for a change that then
   // rolled back.
+  // Review of PR #67 (SYC-52), finding B1: this is the one Date passed to
+  // BOTH the cat_updates row's created_at and the observation's observedAt,
+  // so the two always carry the identical millisecond-precision instant —
+  // the DB column's own `defaultNow()` would otherwise keep microsecond
+  // precision while a JS Date can't, so an equality match between them
+  // (PR 3's backfill match key) would never hit.
   const observedAt = new Date();
   const update = await db.transaction(async (tx) => {
     const u = await insertCatUpdate(tx, {
       cat,
       updateType: body.updateType,
       message: body.message,
+      createdAt: observedAt,
     });
     if (body.updateType === "desexed") {
       await writeObservation(tx, {
@@ -72,7 +79,7 @@ router.post("/cats/:catId/updates", async (req, res) => {
         roleAtTime: "staff",
         authorityScope: "none",
         provenance: "volunteered",
-        observedAt: u.createdAt ?? observedAt,
+        observedAt,
       });
     } else if (body.updateType === "adopted") {
       await writeObservation(tx, {
@@ -83,7 +90,7 @@ router.post("/cats/:catId/updates", async (req, res) => {
         roleAtTime: "staff",
         authorityScope: "none",
         provenance: "volunteered",
-        observedAt: u.createdAt ?? observedAt,
+        observedAt,
       });
     }
     return u;
