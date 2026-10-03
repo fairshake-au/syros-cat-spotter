@@ -88,8 +88,15 @@ function photoStatus(report: WelfareReport, photo: AlertPhoto | null): string {
   return "The photo is still uploading.";
 }
 
-const WHAT_THEY_WERE_TOLD =
-  "The reporter was shown the vet advice for this kind of report, with the three Syros clinics' numbers, and was told that Syros Cats is a private sanctuary, not an emergency service, and can't provide immediate rescue or collection.";
+/**
+ * What the app showed the reporter before they sent it (spec §5.3(b) for
+ * urgent, §5.3(c) for needs attention), so the team knows where things stand.
+ */
+function whatTheyWereTold(severity: string): string {
+  return severity === "urgent"
+    ? "The reporter was shown the advice for a badly hurt cat: take it to a vet, with the three Syros clinics' numbers. They were told that Syros Cats is a private sanctuary, not an emergency service, and can't provide immediate rescue or collection."
+    : "The reporter was told that this goes to a small charity, not a rescue service; that nobody is on duty and it may be a few days before someone reads it; and that a vet is the fastest help if the cat gets worse.";
+}
 
 export function buildWelfareAlert(
   report: WelfareReport,
@@ -132,7 +139,7 @@ export function buildWelfareAlert(
           "No contact details were left.",
           `Report: ${report.publicId}`,
           "",
-          WHAT_THEY_WERE_TOLD,
+          whatTheyWereTold(report.severity),
           "",
           "Sent by Cat Spotters for Syros Cats.",
         ];
@@ -203,7 +210,7 @@ export function buildWelfareAlert(
         fact("Contact", "No contact details were left.") +
         fact("Report", report.publicId) +
         `</table></td></tr>` +
-        `<tr><td style="padding:16px 24px 22px"><div style="border-top:1px solid #EAECF0;padding-top:14px;color:#475467;font-size:13px;line-height:1.5">${esc(WHAT_THEY_WERE_TOLD)}</div></td></tr>`;
+        `<tr><td style="padding:16px 24px 22px"><div style="border-top:1px solid #EAECF0;padding-top:14px;color:#475467;font-size:13px;line-height:1.5">${esc(whatTheyWereTold(report.severity))}</div></td></tr>`;
 
   const html =
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(subject)}</title></head>` +

@@ -70,10 +70,16 @@ describe("welfare alert email", () => {
     expect(out.html).toContain("white-space:pre-wrap");
   });
 
-  it("tells the team what the reporter was told, and says no contact was left", () => {
-    const out = buildWelfareAlert(base, null, "alert");
-    for (const part of [out.text, out.html]) {
+  it("tells the team what the reporter was told, for each severity, and says no contact was left", () => {
+    const urgent = buildWelfareAlert(base, null, "alert");
+    const attention = buildWelfareAlert({ ...base, severity: "attention" } as WelfareReport, null, "alert");
+    for (const part of [urgent.text, urgent.html]) {
       expect(part).toContain("private sanctuary, not an emergency service");
+      expect(part).toContain("No contact details were left.");
+    }
+    for (const part of [attention.text, attention.html]) {
+      expect(part).toContain("small charity, not a rescue service");
+      expect(part).not.toContain("private sanctuary");
       expect(part).toContain("No contact details were left.");
     }
   });
