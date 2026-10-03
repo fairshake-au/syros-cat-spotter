@@ -14,10 +14,16 @@ import { opportunisticDrain } from "./lib/mail/outbox";
 
 const app: Express = express();
 
-// Exactly one proxy (Replit's) sits in front of the server; trust it so
-// req.ip reflects the real client for per-IP rate limiting, without letting
-// clients spoof arbitrary X-Forwarded-For chains.
-app.set("trust proxy", 1);
+// Replit's production chain puts the visitor exactly 4 hops from the
+// server: measured on the live deployment on 3 Oct 2026 (SYC-100,
+// proxy-probe run 37091945054, client_pos_from_right=4 on all three
+// probes, including one with a spoofed X-Forwarded-For). Trusting exactly
+// those 4 hops makes req.ip the real visitor for per-IP rate limiting, while
+// anything a client prepends to X-Forwarded-For stays untrusted. If Replit's
+// proxy chain ever changes length, re-run the probe (docs/runbooks/proxy-probe.md):
+// too low shares one rate-limit bucket between visitors, and too high lets
+// visitors spoof their address.
+app.set("trust proxy", 4);
 
 app.use(
   pinoHttp({

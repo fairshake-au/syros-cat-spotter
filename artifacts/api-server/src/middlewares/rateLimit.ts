@@ -8,15 +8,10 @@ import rateLimit from "express-rate-limit";
 // usage comfortable (a person spots a handful of cats per hour) while stopping
 // tight-loop abuse from a single address.
 //
-// app.ts sets `trust proxy: 1`, assuming exactly one Replit proxy hop in
-// front of this process. That assumption is UNVERIFIED against production
-// (DEPLOYMENT.md §C: "Confirm trust proxy matches Replit's production
-// proxy chain" is still an open checkbox) — if the real chain has more
-// hops, req.ip resolves to a shared proxy address rather than the real
-// client, and every visitor lands in one limiter bucket together. This PR
-// does not change the value; it only adds a second limiter (photoLimiter,
-// below) that inherits whatever that setting turns out to mean in
-// production. Confirming the real hop count is tracked separately.
+// app.ts sets `trust proxy: 4`, measured on the live deployment
+// (SYC-100, 3 Oct 2026). With it, req.ip is the real visitor, so each
+// visitor gets their own limiter bucket. With a value that's too low, every
+// visitor would share a Replit proxy's address and one bucket.
 
 const common = {
   standardHeaders: true as const,
