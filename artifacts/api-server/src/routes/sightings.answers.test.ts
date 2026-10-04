@@ -18,10 +18,11 @@ import {
   catsTable,
   observationsTable,
   photosTable,
+  profilesTable,
   sightingsTable,
   sightingMatchesTable,
 } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 
 vi.mock("../lib/matching", () => ({
   matchCatPhoto: vi.fn(async () => ({ isCatPhoto: true, matches: [] })),
@@ -112,6 +113,10 @@ async function observationsForSighting(sightingId: number) {
 }
 
 afterAll(async () => {
+  // Every resolve here awards points, and test files share one database:
+  // left behind, these profiles would crowd other files' devices off the
+  // top-20 leaderboard. Profiles aren't append-only, so they can go.
+  await db.delete(profilesTable).where(like(profilesTable.deviceId, `${DEVICE}%`));
   await pool.end();
 });
 
@@ -413,8 +418,8 @@ describe("POST /api/sightings/:id/answers", () => {
     expect(snapshot.sterilised.value).toBeNull();
 
     const page = await request(app).get(`/api/cats/${catId}`);
-    expect(page.body.sterilised.confidence).toBe("unknown");
-    expect(page.body.sterilised.value).toBeNull();
+    expect(page.body.cat.sterilised.confidence).toBe("unknown");
+    expect(page.body.cat.sterilised.value).toBeNull();
   });
 
   it("a clipped answer reaches Likely in the record, but the public line stays Not known yet (Q2 → A)", async () => {
@@ -427,7 +432,7 @@ describe("POST /api/sightings/:id/answers", () => {
     expect(snapshot.sterilised.confidence).toBe("likely");
 
     const page = await request(app).get(`/api/cats/${catId}`);
-    expect(page.body.sterilised.confidence).toBe("unknown");
+    expect(page.body.cat.sterilised.confidence).toBe("unknown");
   });
 
   it("a note never appears in any public payload (§10.8.8)", async () => {

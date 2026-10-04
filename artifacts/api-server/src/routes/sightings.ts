@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import {
+  AnswerSightingQuestionsBody,
   CreateSightingBody,
   ResolveSightingBody,
 } from "@workspace/api-zod";
@@ -10,6 +11,7 @@ import {
   sightingsTable,
   sightingMatchesTable,
   profilesTable,
+  observationsTable,
   foldName,
   type SuggestedMatch,
 } from "@workspace/db";
@@ -25,7 +27,7 @@ import { badgesFor } from "../lib/badges";
 import { clampCaptureTime } from "../lib/captureTime";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
-import { writeObservation } from "../lib/observations";
+import { writeObservation, type DbOrTx } from "../lib/observations";
 import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
 import { validatePhotoBase64 } from "../lib/imageValidation";
@@ -87,6 +89,55 @@ type Candidate = {
 const CONFIDENCE_THRESHOLD = 0.4;
 
 const router: IRouter = Router();
+
+// Data spine PR 7 (plan "PR 7 — The sighting questions and the note";
+// Conflicts C5): the questions on the reward screen can be answered for this
+// long after the sighting was resolved, and no longer. They are about what
+// the spotter saw in the moment; adding details to a cat later is SYC-117
+// part 2's, and is specced separately.
+const ANSWER_WINDOW_MS = 24 * 3_600_000;
+
+// §10.7's answer vocabulary, mapped to §10.1's ear_tip and food_and_water
+// value shapes. "clipped_unsure" is a clipped tip on an ear the spotter
+// isn't sure about, not an unsure answer (that's "cant_tell").
+const EAR_TIP_VALUES = {
+  clipped_left: { clipped: true, side: "left" },
+  clipped_right: { clipped: true, side: "right" },
+  clipped_unsure: { clipped: true, side: "unsure" },
+  looks_whole: { clipped: false },
+  cant_tell: { clipped: "cant_tell" },
+} as const;
+const FOOD_AND_WATER_VALUES = {
+  yes: { present: true },
+  no: { present: false },
+  cant_tell: { present: "cant_tell" },
+} as const;
+
+/**
+ * Q3 → B (Samuel, 2 Oct 2026): each spotter is asked about a cat's ear tip
+ * once, whatever they answered ("clipped", "looks whole" or "can't tell").
+ * Any ear_tip observation this device has written about this cat counts,
+ * superseded or not: being corrected by the team doesn't mean the spotter
+ * should be asked again.
+ */
+async function hasAnsweredEarTip(
+  tx: DbOrTx,
+  deviceId: string,
+  catId: number,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: observationsTable.id })
+    .from(observationsTable)
+    .where(
+      and(
+        eq(observationsTable.catId, catId),
+        eq(observationsTable.deviceId, deviceId),
+        eq(observationsTable.kind, "ear_tip"),
+      ),
+    )
+    .limit(1);
+  return row != null;
+}
 
 /** Thrown inside the resolve transaction when another resolve got there first. */
 const ALREADY_RESOLVED = new Error("Sighting already resolved");
@@ -711,6 +762,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 
   const profile = await profilePayload(sighting.deviceId);
   const newBadges = profile.badges.filter((b) => !badgesBefore.includes(b));
+  const askEarTip = !(await hasAnsweredEarTip(db, sighting.deviceId, cat.id));
 
   const [countRow] = await db
     .select({ n: sql<number>`count(*)::int` })
@@ -742,7 +794,149 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     isNewCat,
     newBadges,
     profile,
+    askEarTip,
   });
+});
+
+/**
+ * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7): the answers to
+ * the optional questions on the reward screen, sent after resolve so nothing
+ * stands between a spotter and their points (Conflicts C5). Each answer
+ * becomes its own observation about the cat, through writeObservation; the
+ * sightings row is never touched (SYC-63's append-only guard).
+ *
+ * Accepted once per sighting, within ANSWER_WINDOW_MS of its resolve, from
+ * the sighting's own device. A request whose answers are all skipped writes
+ * nothing, and so doesn't use up the sighting's one set of answers (the app
+ * doesn't send one).
+ */
+router.post("/sightings/:sightingId/answers", async (req, res) => {
+  const sightingId = Number(req.params.sightingId);
+  const body = AnswerSightingQuestionsBody.parse(req.body);
+  if (!Number.isInteger(sightingId)) {
+    res.status(404).json({ error: "Sighting not found" });
+    return;
+  }
+
+  const [sighting] = await db
+    .select()
+    .from(sightingsTable)
+    .where(eq(sightingsTable.id, sightingId));
+  if (!sighting) {
+    res.status(404).json({ error: "Sighting not found" });
+    return;
+  }
+  // The same ownership check as resolve: the device id must name the
+  // sighting's owner AND the caller must hold that device's secret.
+  if (body.deviceId !== sighting.deviceId) {
+    res.status(403).json({ error: "Not your sighting" });
+    return;
+  }
+  if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
+
+  if (sighting.status !== "resolved" || sighting.catId == null) {
+    res.status(409).json({
+      error: "This sighting hasn't been matched to a cat yet",
+      code: "NOT_RESOLVED",
+    });
+    return;
+  }
+  const catId = sighting.catId;
+
+  // `sightings` has no resolved-at column, and PR 7 adds no migration. The
+  // match record's chosen_at is written at resolve (SYC-151), so it is the
+  // resolve time. If that best-effort write failed, fall back to the
+  // sighting's capture time, which is always earlier than its resolve: the
+  // fallback can only close the window sooner, never keep it open longer.
+  const [match] = await db
+    .select({ chosenAt: sightingMatchesTable.chosenAt })
+    .from(sightingMatchesTable)
+    .where(eq(sightingMatchesTable.sightingId, sightingId));
+  const resolvedAt = match?.chosenAt ?? sighting.createdAt;
+  if (Date.now() - resolvedAt.getTime() > ANSWER_WINDOW_MS) {
+    res.status(422).json({
+      error: "The questions for this sighting have closed",
+      code: "ANSWERS_CLOSED",
+    });
+    return;
+  }
+
+  const note = body.note?.trim() ?? "";
+  const answers: { kind: "ear_tip" | "food_and_water" | "note"; value: unknown }[] = [];
+  if (body.earTip) answers.push({ kind: "ear_tip", value: EAR_TIP_VALUES[body.earTip] });
+  if (body.foodAndWater) {
+    answers.push({ kind: "food_and_water", value: FOOD_AND_WATER_VALUES[body.foodAndWater] });
+  }
+  if (note.length > 0) answers.push({ kind: "note", value: { text: note } });
+
+  if (answers.length === 0) {
+    res.json({ recorded: [] });
+    return;
+  }
+
+  const ALREADY_ANSWERED = { code: "ALREADY_ANSWERED" } as const;
+  const EAR_TIP_ALREADY_ANSWERED = { code: "EAR_TIP_ALREADY_ANSWERED" } as const;
+  try {
+    await db.transaction(async (tx) => {
+      // Serialise every answer this device sends about this cat, so neither
+      // "once per sighting" nor "ear tip once per cat" can be beaten by two
+      // requests sent at once. An advisory lock, not SELECT ... FOR UPDATE on
+      // the sighting, so nothing here even looks like a sightings update.
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`sighting-answers:${sighting.deviceId}`}), ${catId})`,
+      );
+      const [existing] = await tx
+        .select({ id: observationsTable.id })
+        .from(observationsTable)
+        .where(
+          and(
+            eq(observationsTable.sightingId, sightingId),
+            inArray(observationsTable.kind, ["ear_tip", "food_and_water", "note"]),
+          ),
+        )
+        .limit(1);
+      if (existing) throw ALREADY_ANSWERED;
+      if (body.earTip && (await hasAnsweredEarTip(tx, sighting.deviceId, catId))) {
+        throw EAR_TIP_ALREADY_ANSWERED;
+      }
+
+      for (const a of answers) {
+        await writeObservation(tx, {
+          catId,
+          kind: a.kind,
+          value: a.value,
+          deviceId: sighting.deviceId,
+          roleAtTime: "public",
+          authorityScope: "none",
+          // Phase 1: the app pre-fills nothing, so every answer is the
+          // spotter's own (§10.7: "prompted" only when the app suggested it).
+          provenance: "volunteered",
+          sightingId,
+          photoId: sighting.photoId,
+          // When the spotter saw the cat, not when they tapped the answer.
+          observedAt: sighting.createdAt,
+        });
+      }
+    });
+  } catch (err) {
+    if (err === ALREADY_ANSWERED) {
+      res.status(409).json({
+        error: "This sighting's questions were already answered",
+        code: "ALREADY_ANSWERED",
+      });
+      return;
+    }
+    if (err === EAR_TIP_ALREADY_ANSWERED) {
+      res.status(409).json({
+        error: "You've already told us about this cat's ear tip",
+        code: "EAR_TIP_ALREADY_ANSWERED",
+      });
+      return;
+    }
+    throw err;
+  }
+
+  res.json({ recorded: answers.map((a) => a.kind) });
 });
 
 export default router;
