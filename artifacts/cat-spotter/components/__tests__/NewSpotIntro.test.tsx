@@ -59,6 +59,17 @@ describe('NewSpotIntro', () => {
     expect(TRANSLATIONS.en.spotLocationHint.toLowerCase()).not.toContain('detail');
   });
 
+  // Data spine PR 7: the questions now come after matching, on the reward
+  // screen. Testers were promised (2 Oct) that the "add a few details"
+  // confusion would be fixed, so the first screen sets them up honestly:
+  // location first, the rest after the match.
+  it('says the chance to tell us more comes after matching', () => {
+    const hint = TRANSLATIONS.en.spotLocationHint.toLowerCase();
+    expect(hint).toMatch(/first/);
+    expect(hint).toMatch(/after we check for matches/);
+    expect(hint).toMatch(/tell us more/);
+  });
+
   it('shows a "Retake photo" button, announced as a button', () => {
     const { container } = renderIntro();
     const button = retakeButton(container);
