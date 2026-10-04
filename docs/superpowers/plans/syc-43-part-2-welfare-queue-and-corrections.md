@@ -97,7 +97,7 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 | B. Always the placeholder | Simplest to explain | A cat with twenty good photos looks photoless because one was bad |
 | C. Make the team choose a new main photo before hiding | The team decides | Breaks "one tap, no confirmation theatre" (§3.3). A bad photo has to come down first |
 
-**Recommendation: A.** SYC-119's spec already expects the cat's colour to be re-read "when the team hides a photo that was the main one". That re-read doesn't exist yet. It is filed as a follow-up, not built here.
+**Recommendation: A.** SYC-119's spec already expects the cat's colour to be re-read "when the team hides a photo that was the main one". That re-read doesn't exist yet. It belongs to SYC-161 (noted there), not here.
 
 ### Decision 5: Renaming a cat keeps today's pattern
 
@@ -327,13 +327,13 @@ This carries SYC-42's list forward:
 | Not here | Where it goes |
 |---|---|
 | Reporter emails, contact yes/no, reporter delivery state, the optional team sentence on *Done* | SYC-42 Slice 3. PR 1's `reporter_message` column is ready for it |
-| "Use this photo on the cat" (SYC-42 Slice 5.2) | **Deferred to SYC-163.** A promoted photo has no sighting, so nothing on a cat's page would show it until SYC-163 designs how extra photos appear. New ticket |
+| "Use this photo on the cat" (SYC-42 Slice 5.2) | **SYC-203**, built with SYC-163. A promoted photo has no sighting, so nothing on a cat's page would show it until SYC-163 designs how extra photos appear |
 | The feeding-site map, the public/private switch, colony names | SYC-43 part 3 (spec §3.2, §3.4) |
 | Managing people | SYC-104 |
 | "Matched by hand" list, moving a sighting | SYC-152, SYC-150 |
 | Data requests (deletions by email) | With SYC-63's staff action (spec §3.5) |
-| Banner for sign-in rate limits crossed on the Worker | **New ticket.** Needs the Worker to report crossings to the API. Mail failures are covered in PR 1 |
-| Re-reading a cat's colour when its main photo is hidden | **New ticket**, with SYC-119 Slice B |
+| Banner for sign-in rate limits crossed on the Worker | **SYC-202**. Needs the Worker to report crossings to the API. Mail failures are covered in PR 1 |
+| Re-reading a cat's colour when its main photo is hidden | **SYC-161** (coat colour from the main photo), commented there |
 | A database-level guarantee of one correction per statement | SYC-199 |
 
 ## What works with no signal
