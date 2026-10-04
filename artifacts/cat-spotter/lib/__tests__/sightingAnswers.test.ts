@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { answersRequest, NO_ANSWERS, NOTE_MAX_LENGTH } from '../sightingAnswers';
+import { ApiError } from '@workspace/api-client-react';
+import {
+  answersRequest,
+  classifyAnswersError,
+  NO_ANSWERS,
+  NOTE_MAX_LENGTH,
+} from '../sightingAnswers';
 
 const DEVICE = 'device-1';
 
@@ -49,5 +55,37 @@ describe('answersRequest', () => {
   it('never sends a note longer than the server accepts', () => {
     const body = answersRequest(DEVICE, { ...NO_ANSWERS, note: 'x'.repeat(600) });
     expect(body!.note).toHaveLength(NOTE_MAX_LENGTH);
+  });
+});
+
+describe('classifyAnswersError', () => {
+  function apiError(status: number, data: unknown) {
+    return new ApiError(new Response(JSON.stringify(data), { status }), data, {
+      method: 'POST',
+      url: '/api/sightings/1/answers',
+    });
+  }
+
+  it('no answer from the server (no signal) offers a retry', () => {
+    expect(classifyAnswersError(new TypeError('Failed to fetch'))).toBe('retry');
+  });
+
+  it('a server error offers a retry', () => {
+    expect(classifyAnswersError(apiError(500, { error: 'x' }))).toBe('retry');
+  });
+
+  it.each(['ALREADY_ANSWERED', 'EAR_TIP_ALREADY_ANSWERED'])(
+    '%s means the answers are already in: carry on',
+    (code) => {
+      expect(classifyAnswersError(apiError(409, { error: 'x', code }))).toBe('done');
+    },
+  );
+
+  it.each([
+    [422, 'ANSWERS_CLOSED'],
+    [409, 'NOT_RESOLVED'],
+    [400, undefined],
+  ])('a %s %s cannot be fixed by retrying', (status, code) => {
+    expect(classifyAnswersError(apiError(status, { error: 'x', code }))).toBe('closed');
   });
 });

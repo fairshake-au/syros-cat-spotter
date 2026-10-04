@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  answerSightingQuestions,
   resolveSighting,
   suggestCatNames,
   type NameTakenCat,
@@ -35,6 +36,13 @@ import {
 } from "@/lib/catPicker";
 import { photoSource } from "@/lib/urls";
 import { NeedsHelpLink } from "@/components/report/NeedsHelpLink";
+import { SightingQuestions } from "@/components/SightingQuestions";
+import {
+  answersRequest,
+  classifyAnswersError,
+  NO_ANSWERS,
+  type SightingAnswers,
+} from "@/lib/sightingAnswers";
 import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { parseReviewParams } from "@/lib/reviewParams";
@@ -101,6 +109,10 @@ export default function ReviewScreen() {
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const [sendMessage, setSendMessage] = useState<string | null>(null);
   const [nameTakenCat, setNameTakenCat] = useState<NameTakenCat | null>(null);
+  // Data spine PR 7: the optional questions on the reward screen.
+  const [answers, setAnswers] = useState<SightingAnswers>(NO_ANSWERS);
+  const [sendingAnswers, setSendingAnswers] = useState(false);
+  const [answersFailed, setAnswersFailed] = useState(false);
   // The public cat-alogue: fresh with signal, the phone's saved copy without.
   const { cats } = useCatsWithCache();
 
@@ -235,12 +247,45 @@ export default function ReviewScreen() {
 
   // ----- Success state -----
   if (result) {
+    const openCat = () =>
+      router.replace({
+        pathname: "/cat/[id]",
+        params: { id: String(result.cat.id) },
+      });
+    // Data spine PR 7: any answers are sent on the way to the cat's page.
+    // Skipping everything sends nothing. A failed send never blocks the
+    // spotter: they can try again or carry on without sending.
+    const sendAnswersAndContinue = async () => {
+      const body = deviceId ? answersRequest(deviceId, answers) : null;
+      if (!body) {
+        openCat();
+        return;
+      }
+      setSendingAnswers(true);
+      setAnswersFailed(false);
+      try {
+        await answerSightingQuestions(data.sightingId, body);
+        openCat();
+      } catch (err) {
+        if (classifyAnswersError(err) === "retry") {
+          setAnswersFailed(true);
+          setSendingAnswers(false);
+        } else {
+          openCat();
+        }
+      }
+    };
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, padding: 24, gap: 14 },
+      <ScrollView
+        style={{ backgroundColor: colors.background }}
+        contentContainerStyle={[
+          styles.successScroll,
+          {
+            paddingTop: insets.top + 24,
+            paddingBottom: insets.bottom + 32,
+          },
         ]}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.successIcon, { backgroundColor: colors.accent }]}>
           <Feather name="check" size={34} color={colors.accentForeground} />
@@ -282,19 +327,43 @@ export default function ReviewScreen() {
             </Text>
           </View>
         ))}
+        <View style={styles.questions}>
+          <Text style={[styles.questionsHeading, { color: colors.foreground }]}>
+            {t("questionsHeading")}
+          </Text>
+          <SightingQuestions
+            catName={result.cat.name}
+            askEarTip={result.askEarTip}
+            answers={answers}
+            onChange={setAnswers}
+            t={t}
+          />
+        </View>
+        {answersFailed ? (
+          <Text
+            style={[styles.subtitle, { color: colors.destructive, textAlign: "center" }]}
+          >
+            {t("answersFailed")}
+          </Text>
+        ) : null}
         <Button
           variant="primary"
           size="lg"
-          onPress={() => {
-            router.replace({
-              pathname: "/cat/[id]",
-              params: { id: String(result.cat.id) },
-            });
-          }}
+          disabled={sendingAnswers}
+          onPress={sendAnswersAndContinue}
         >
-          {result.cat.name} →
+          {sendingAnswers
+            ? "…"
+            : answersFailed
+              ? t("answersSend")
+              : `${result.cat.name} →`}
         </Button>
-      </View>
+        {answersFailed ? (
+          <Button variant="ghost" size="md" onPress={openCat}>
+            {t("answersContinueWithout")}
+          </Button>
+        ) : null}
+      </ScrollView>
     );
   }
 
@@ -780,6 +849,16 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  successScroll: {
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 16,
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
+  },
+  questions: { width: "100%", gap: spacing[2], marginTop: spacing[2] },
+  questionsHeading: { fontSize: fontSizes.md, fontFamily: fonts.displayBold },
   header: {
     flexDirection: "row",
     alignItems: "center",

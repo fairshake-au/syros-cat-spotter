@@ -57,7 +57,7 @@ function Harness({
 }
 
 const button = (c: HTMLElement, label: string) => {
-  const match = [...c.querySelectorAll('[role="button"]')].find(
+  const match = Array.from(c.querySelectorAll('[role="button"]')).find(
     (el) => el.textContent?.trim() === label,
   );
   if (!match) throw new Error(`No button labelled ${label}`);
@@ -177,7 +177,6 @@ describe('Question copy in every language', () => {
     'notePlaceholder',
     'noteHint',
     'answersSend',
-    'answersSent',
     'answersFailed',
     'answersContinueWithout',
   ];

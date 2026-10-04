@@ -7,7 +7,7 @@
  * already on screen when these are asked, every question can be skipped, and
  * skipping everything sends nothing at all.
  */
-import type { SightingAnswersRequest } from '@workspace/api-client-react';
+import { ApiError, type SightingAnswersRequest } from '@workspace/api-client-react';
 
 export type EarTipChoice = 'clipped' | 'looks_whole' | 'cant_tell';
 export type EarSide = 'left' | 'right' | 'unsure';
@@ -58,4 +58,26 @@ export function answersRequest(
   if (note.length > 0) body.note = note;
 
   return Object.keys(body).length > 1 ? body : null;
+}
+
+/**
+ * What to do when sending the answers fails.
+ *
+ * - "done": the server already has this sighting's answers (the first send
+ *   got through but its reply was lost), or this device had already
+ *   answered the ear tip for this cat. Nothing to retry; carry on.
+ * - "closed": too late (more than 24 hours since the match) or the sighting
+ *   can't take answers. Retrying won't help; carry on without them.
+ * - "retry": no signal or a server hiccup. Offer to try again, or to carry
+ *   on without sending. The answers aren't queued offline (plan, Conflicts
+ *   C2): the match needed signal seconds earlier, so it's almost always
+ *   there.
+ */
+export function classifyAnswersError(err: unknown): 'done' | 'closed' | 'retry' {
+  if (!(err instanceof ApiError)) return 'retry';
+  const code = (err.data as { code?: string } | null)?.code;
+  if (code === 'ALREADY_ANSWERED' || code === 'EAR_TIP_ALREADY_ANSWERED') return 'done';
+  if (code === 'ANSWERS_CLOSED' || code === 'NOT_RESOLVED') return 'closed';
+  if (err.status >= 400 && err.status < 500) return 'closed';
+  return 'retry';
 }
