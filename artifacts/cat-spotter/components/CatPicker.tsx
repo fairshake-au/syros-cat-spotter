@@ -286,47 +286,74 @@ export function CatPicker({
           </Text>
         ) : (
           <View style={styles.grid}>
-            {listed.map((cat) => (
-              <Pressable
-                key={cat.id}
-                testID={`picker-cat-${cat.id}`}
-                accessibilityRole="button"
-                accessibilityLabel={`${cat.name}, ${catCode(cat.id)}`}
-                onPress={() => setSelected(cat)}
-                style={({ pressed }) => [
-                  styles.card,
-                  {
-                    width: cardWidth,
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-              >
-                <View style={[styles.cardPhotoBox, { backgroundColor: colors.muted }]}>
-                  {/* Offline, a photo the phone never loaded shows this
-                      placeholder: the name and number are still below. */}
-                  <Text style={styles.placeholder}>🐈</Text>
-                  <Image
-                    source={photoSource(cat.photoUrl)}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                  />
-                </View>
-                <View style={styles.cardText}>
-                  <Text
-                    style={[styles.cardName, { color: colors.foreground }]}
-                    numberOfLines={1}
-                  >
-                    {cat.name}
-                  </Text>
-                  <Text style={[styles.cardCode, { color: colors.mutedForeground }]}>
-                    {catCode(cat.id)}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
+            {listed.map((cat) => {
+              // SYC-119 Slice D (data spine PR 4): a cat recorded as
+              // deceased is greyed out, not hidden -- a spotter who really
+              // is looking at that cat should understand why they can't
+              // pick it, rather than wondering why it vanished from the
+              // list. resolve refuses a hand pick of one with the same
+              // refusal a too-far pick gets; a suggested match (never
+              // offered through this picker) is the only way to clear it.
+              const isDeceased = cat.lifeStatus === 'deceased';
+              return (
+                <Pressable
+                  key={cat.id}
+                  testID={`picker-cat-${cat.id}`}
+                  disabled={isDeceased}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isDeceased }}
+                  accessibilityLabel={
+                    isDeceased
+                      ? `${cat.name}, ${catCode(cat.id)}, ${t('pickerDeceased')}`
+                      : `${cat.name}, ${catCode(cat.id)}`
+                  }
+                  onPress={() => {
+                    if (isDeceased) return;
+                    setSelected(cat);
+                  }}
+                  style={({ pressed }) => [
+                    styles.card,
+                    {
+                      width: cardWidth,
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      opacity: isDeceased ? 0.45 : pressed ? 0.85 : 1,
+                    },
+                  ]}
+                >
+                  <View style={[styles.cardPhotoBox, { backgroundColor: colors.muted }]}>
+                    {/* Offline, a photo the phone never loaded shows this
+                        placeholder: the name and number are still below. */}
+                    <Text style={styles.placeholder}>🐈</Text>
+                    <Image
+                      source={photoSource(cat.photoUrl)}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                    />
+                  </View>
+                  <View style={styles.cardText}>
+                    <Text
+                      style={[styles.cardName, { color: colors.foreground }]}
+                      numberOfLines={1}
+                    >
+                      {cat.name}
+                    </Text>
+                    <Text style={[styles.cardCode, { color: colors.mutedForeground }]}>
+                      {catCode(cat.id)}
+                    </Text>
+                    {isDeceased ? (
+                      <Text
+                        style={[styles.cardDeceased, { color: colors.mutedForeground }]}
+                        numberOfLines={1}
+                      >
+                        {t('pickerDeceased')}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
@@ -404,6 +431,11 @@ const styles = StyleSheet.create({
   cardText: { padding: 10, gap: 2 },
   cardName: { fontSize: fontSizes.md, fontFamily: fonts.displayBold },
   cardCode: { fontSize: fontSizes['2xs'], fontFamily: fonts.mono },
+  cardDeceased: {
+    fontSize: fontSizes['3xs'],
+    fontFamily: fonts.bodySemiBold,
+    textTransform: 'uppercase',
+  },
   compareRow: { flexDirection: 'row', gap: 12 },
   compareCol: { flex: 1, gap: 6 },
   comparePhoto: {

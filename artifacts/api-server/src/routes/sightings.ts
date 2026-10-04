@@ -15,6 +15,8 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
+  deriveCatStatuses,
+  isResolvedDeceased,
   photoUrl,
   getProfileStats,
   profilePayload,
@@ -548,9 +550,18 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     // exactly, plus at most ~177 m of snapping); the stored set is belt and
     // braces. `pickedFrom` plays no part. Checked only after ownership and
     // the device secret, so nobody can probe with someone else's sighting.
+    const isHandPick = !storedSuggestion;
+    // SYC-119 Slice D (choose-a-different-cat.md §4.8; data-spine.md PR 4):
+    // a hand pick of a cat recorded as deceased gets the same NOT_NEARBY-
+    // style refusal as a too-far pick — never a different one, so a
+    // refusal can't be used to learn *why* a pick failed. A *suggested*
+    // match is exempt: "a suggested match still clears the death" (§3.2),
+    // and the matcher only ever suggests from nearby candidates anyway.
+    const pickedDeceased = isHandPick && existing && (await isResolvedDeceased(existing.id));
     if (
       !existing ||
-      (!storedSuggestion &&
+      pickedDeceased ||
+      (isHandPick &&
         !isNearby(
           { lat: sighting.lat, lng: sighting.lng },
           publishedPosition({ lat: existing.lat, lng: existing.lng }),
@@ -706,6 +717,15 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     .from(sightingsTable)
     .where(eq(sightingsTable.catId, cat.id));
 
+  // data-spine.md PR 4: hasHome is lifeStatus === "homed", derived, behind
+  // the PR 3 gate (catHelpers.ts's deriveCatStatuses doc comment) — not the
+  // legacy owner_device_id check this response used before. §10.6 also
+  // means this response carries no cat coordinates beyond lat/lng, which
+  // stay as before (blurring is PR 6's).
+  const derivedStatus = (
+    await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
+  ).get(cat.id)!;
+
   res.json({
     cat: {
       id: cat.id,
@@ -716,7 +736,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       lng: cat.lng,
       sightingsCount: countRow?.n ?? 1,
       lastSeenAt: new Date().toISOString(),
-      hasHome: cat.ownerDeviceId !== null,
+      ...derivedStatus,
     },
     pointsAwarded,
     isNewCat,

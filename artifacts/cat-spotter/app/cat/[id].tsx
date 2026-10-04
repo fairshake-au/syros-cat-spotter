@@ -26,7 +26,8 @@ import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { photoSource } from '@/lib/urls';
-import { Badge, Tag, StatTile, IconButton, Button } from '@/components/purropolis';
+import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
+import { lifeLine, parseDateOnly, sterilisedLineKey } from '@/lib/catStatusLines';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
 
@@ -118,9 +119,22 @@ export default function CatDetailScreen() {
   const careTimeline = data.careTimeline;
   const isClaimed = cat.hasHome;
   const isOwner = isClaimed && ownedCatIds.includes(cat.id);
-  const isDesexed = (careTimeline ?? []).some((e) => e.type === 'desexed');
   const dash = '—';
   const locationLabel = cat.description?.trim();
+
+  // Data spine PR 4 (cat-record-data-spine.md §3.5, §4.2): one of five
+  // mutually exclusive life lines, never a headline, never "presumed" --
+  // "Not seen since {date}" takes the place the ordinary lifeStatus line
+  // would otherwise sit in, exactly as quietly as "Last seen yesterday"
+  // would. The Desexed badge this used to read from careTimeline is
+  // replaced entirely by the sterilised line below. Pure selection logic
+  // lives in lib/catStatusLines.ts, tested there across every language.
+  const line = lifeLine(cat);
+  const lifeLineText =
+    line.key === 'notSeenSince'
+      ? t('notSeenSince').replace('{date}', parseDateOnly(line.date).toLocaleDateString())
+      : t(line.key);
+  const sterilisedLine = t(sterilisedLineKey(cat.sterilised));
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -169,17 +183,26 @@ export default function CatDetailScreen() {
               </Pressable>
             )}
 
-            {isDesexed && (
-              <View style={styles.badgeRow}>
-                <Badge tone="success">{t('desexedBadge')}</Badge>
-              </View>
-            )}
-
             {locationLabel ? (
               <View style={styles.badgeRow}>
                 <Tag tone="neutral">📍 {locationLabel}</Tag>
               </View>
             ) : null}
+
+            {/* Data spine PR 4: the life line and the sterilised line, where
+                the Desexed badge used to sit, right above "Last seen". */}
+            <View style={styles.metaRow}>
+              <Feather name="heart" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+                {lifeLineText}
+              </Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Feather name="info" size={14} color={colors.mutedForeground} />
+              <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+                {sterilisedLine}
+              </Text>
+            </View>
 
             <View style={styles.metaRow}>
               <Feather name="eye" size={14} color={colors.mutedForeground} />

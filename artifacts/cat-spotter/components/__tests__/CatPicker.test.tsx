@@ -38,7 +38,12 @@ function north(km: number) {
   return { lat: FROM.lat + km / 111.2, lng: FROM.lng };
 }
 
-function cat(id: number, name: string, at: { lat: number; lng: number }): Cat {
+function cat(
+  id: number,
+  name: string,
+  at: { lat: number; lng: number },
+  opts: { lifeStatus?: Cat['lifeStatus'] } = {},
+): Cat {
   return {
     id,
     name,
@@ -48,6 +53,9 @@ function cat(id: number, name: string, at: { lat: number; lng: number }): Cat {
     lastSeenAt: '2026-09-01T00:00:00Z',
     hasHome: false,
     distanceKm: 0.123,
+    lifeStatus: opts.lifeStatus ?? 'street',
+    notSeenSince: null,
+    sterilised: { value: null, confidence: 'unknown', clippedTipSightings: 0 },
     ...at,
   };
 }
@@ -185,5 +193,43 @@ describe('CatPicker', () => {
     const { container, getByText } = renderPicker({ from: null });
     expect(listedNames(container)).toEqual([]);
     expect(getByText('pickerAddNewAction')).toBeTruthy();
+  });
+
+  // SYC-119 Slice D (data spine PR 4): a cat recorded as deceased is greyed
+  // out, not hidden -- it still appears in the list (never silently
+  // disappears), just can't be tapped through to the compare step.
+  describe('a cat recorded as deceased (SYC-119 Slice D)', () => {
+    const CATS_WITH_DECEASED = [
+      cat(42, 'Agatha', north(0.6)),
+      cat(7, 'Krispy', north(0.05), { lifeStatus: 'deceased' }),
+    ];
+
+    it('still appears in the list', () => {
+      const { container } = renderPicker({ cats: CATS_WITH_DECEASED });
+      expect(listedNames(container)).toEqual(['7', '42']);
+    });
+
+    it('is marked with the deceased label and a reduced accessibility state', () => {
+      const { container, getAllByText } = renderPicker({ cats: CATS_WITH_DECEASED });
+      expect(getAllByText('pickerDeceased').length).toBeGreaterThan(0);
+      const card = container.querySelector('[data-testid="picker-cat-7"]');
+      expect(card?.getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('tapping it does not open the compare step', () => {
+      const { container, queryByText } = renderPicker({ cats: CATS_WITH_DECEASED });
+      const card = container.querySelector('[data-testid="picker-cat-7"]')!;
+      fireEvent.click(card);
+      // The compare step's confirm button never appears -- selection never
+      // happened.
+      expect(queryByText('pickerConfirm')).toBeNull();
+    });
+
+    it('a live cat in the same list is still tappable', () => {
+      const { container, getByText } = renderPicker({ cats: CATS_WITH_DECEASED });
+      const card = container.querySelector('[data-testid="picker-cat-42"]')!;
+      fireEvent.click(card);
+      expect(getByText('pickerConfirm')).toBeTruthy();
+    });
   });
 });

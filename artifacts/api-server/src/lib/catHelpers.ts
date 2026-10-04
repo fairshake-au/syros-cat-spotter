@@ -5,14 +5,19 @@ import {
   sightingsTable,
   profilesTable,
   photosTable,
+  catUpdatesTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { badgesFor, type ProfileStats } from "./badges";
 import {
   STREAK_TIMEZONE,
   streakFromDays,
   todayInStreakTimezone,
 } from "./streak";
+import { loadCatRecords } from "./observations";
+import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
+import { pr3Recorded } from "./pr3Gate";
+import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
 
 export function haversineKm(
   lat1: number,
@@ -56,7 +61,20 @@ export async function photoUrl(photoId: number): Promise<string | null> {
   return photo ? `/api/photos/${photo.publicId}` : null;
 }
 
-export interface CatWithStats {
+export interface SterilisedStatus {
+  value: boolean | null;
+  confidence: Confidence;
+  clippedTipSightings: number;
+}
+
+export interface DerivedCatStatus {
+  hasHome: boolean;
+  lifeStatus: LifeStatusValue;
+  notSeenSince: string | null;
+  sterilised: SterilisedStatus;
+}
+
+export interface CatWithStats extends DerivedCatStatus {
   id: number;
   name: string;
   description: string;
@@ -70,8 +88,154 @@ export interface CatWithStats {
   discovererNickname: string | null;
   ownerName: string | null;
   homeDescription: string | null;
-  hasHome: boolean;
   discovererUsername: string | null;
+}
+
+const UNKNOWN_STERILISED: SterilisedStatus = {
+  value: null,
+  confidence: "unknown",
+  clippedTipSightings: 0,
+};
+
+/**
+ * Truncates a full ISO timestamp to its UTC calendar date (YYYY-MM-DD) for
+ * the public API, matching `lastSeenAt`'s own UTC-day convention (the
+ * `to_char(... at time zone 'UTC', ...)` below). resolve.ts's `notSeenSince`
+ * keeps full timestamp precision internally for its own month-threshold
+ * math — only the value handed to the public Cat payload is truncated,
+ * since the app only ever renders a date ("Not seen since 3 June 2023"),
+ * never a time.
+ */
+function toPublicDate(iso: string | null): string | null {
+  return iso ? iso.slice(0, 10) : null;
+}
+
+/**
+ * One cat's derived status — `lifeStatus`, `notSeenSince` and `sterilised`
+ * (cat-record-data-spine.md §10.7), plus `hasHome` redefined as
+ * `lifeStatus === "homed"` (plan `data-spine.md`, PR 4) — for a batch of
+ * cats in a fixed number of queries, whatever the batch size (§2.3).
+ *
+ * **The PR 3 code gate** (plan, PR 4; `pr3Gate.ts`): before PR 3's backfill
+ * has run, a claimed cat has no `homed` observation at all, so deriving
+ * straight from `resolveCat` would show every one of them as `street` and
+ * strip their home badge (plan R1/R28). Gated as a whole snapshot, not
+ * field by field, so a page never shows `hasHome: true` next to a life line
+ * that says "Lives on the street" for the same cat: while the gate is
+ * closed, `lifeStatus` and `hasHome` both come from the legacy
+ * `owner_device_id` column, and `sterilised` both comes from the legacy
+ * `desexed` `cat_updates` row — exactly what the cat page showed before
+ * this PR. The one visible change once the gate opens is named in the plan:
+ * a cat marked "adopted" through the old admin route, with no owner in the
+ * app, starts showing "Has a home" (its life_status becomes derivable),
+ * which the plan says is what the team meant.
+ */
+export async function deriveCatStatuses(
+  cats: readonly { id: number; ownerDeviceId: string | null }[],
+): Promise<Map<number, DerivedCatStatus>> {
+  const result = new Map<number, DerivedCatStatus>();
+  if (cats.length === 0) return result;
+  const catIds = cats.map((c) => c.id);
+
+  const live = await pr3Recorded();
+
+  if (!live) {
+    // Legacy fallback (plan, PR 4): hasHome from owner_device_id, the
+    // sterilised line from the legacy `desexed` cat_updates row. One
+    // batched query for every id in the page, never one per cat (§2.3).
+    const desexedRows = await db
+      .select({ catId: catUpdatesTable.catId })
+      .from(catUpdatesTable)
+      .where(
+        and(
+          inArray(catUpdatesTable.catId, catIds),
+          eq(catUpdatesTable.updateType, "desexed"),
+        ),
+      );
+    const desexedCatIds = new Set(desexedRows.map((r) => r.catId));
+
+    for (const cat of cats) {
+      const hasHome = cat.ownerDeviceId !== null;
+      result.set(cat.id, {
+        hasHome,
+        lifeStatus: hasHome ? "homed" : "street",
+        notSeenSince: null,
+        sterilised: desexedCatIds.has(cat.id)
+          ? { value: true, confidence: "confirmed", clippedTipSightings: 0 }
+          : UNKNOWN_STERILISED,
+      });
+    }
+    return result;
+  }
+
+  const records = await loadCatRecords(catIds);
+  const now = new Date();
+  for (const cat of cats) {
+    const rec = records.get(cat.id);
+    const snapshot = resolveCat(rec?.observations ?? [], rec?.evidenceOfLife ?? null, now);
+    result.set(cat.id, {
+      hasHome: snapshot.lifeStatus === "homed",
+      lifeStatus: snapshot.lifeStatus,
+      notSeenSince: toPublicDate(snapshot.notSeenSince),
+      sterilised: publicSterilised(snapshot.sterilised),
+    });
+  }
+  return result;
+}
+
+/**
+ * Decision Q2's gate (`likelyGate.ts`): the public line never shows *Likely*
+ * until Syros Cats can correct it. Downgraded to `unknown` rather than
+ * hidden, so the API never claims a stronger negative or positive than it
+ * means — "Not known yet" is the honest thing to say about a cat sitting on
+ * one uncorrectable photo. Also strips the resolver's internal `asOf` (not
+ * part of the API's `sterilised` shape, §10.7).
+ */
+function publicSterilised(sterilised: {
+  value: boolean | null;
+  confidence: Confidence;
+  clippedTipSightings: number;
+}): SterilisedStatus {
+  if (sterilised.confidence === "likely" && !LIKELY_STERILISED_PUBLIC_LIVE) {
+    return {
+      value: null,
+      confidence: "unknown",
+      clippedTipSightings: sterilised.clippedTipSightings,
+    };
+  }
+  return {
+    value: sterilised.value,
+    confidence: sterilised.confidence,
+    clippedTipSightings: sterilised.clippedTipSightings,
+  };
+}
+
+/**
+ * Is this cat's resolved life status currently `deceased`? Used by:
+ *
+ * - the resolve route's hand-pick guard (SYC-119 Slice D,
+ *   `choose-a-different-cat.md` §4.8): a hand pick of a cat recorded as
+ *   deceased is refused with the same `NOT_NEARBY`-style refusal, so a
+ *   refusal never tells a prober *why* a cat couldn't be picked. A
+ *   *suggested* match is exempt — "a suggested match still clears the
+ *   death" (§3.2) — so this is only ever consulted for a hand pick.
+ * - the fan-out (`notificationFanout.ts`, `notifications.ts`): "Agatha was
+ *   spotted again!" must never reach anyone for a cat the team has recorded
+ *   as dead (§3.3's "cruellest bug in the app").
+ *
+ * Deliberately **not** behind the PR 3 gate: that gate exists because a
+ * claimed cat's *homed* status can be missing from `observations` until the
+ * backfill runs. A `deceased` status is never missing that way — nothing
+ * before this plan could write one at all, so every `deceased` observation
+ * that exists was written through `writeObservation` and is real evidence,
+ * backfill or not. (No PR before PR 8 writes one yet, so this is a no-op in
+ * practice until PR 8 ships — exactly as the plan expects.)
+ */
+export async function isResolvedDeceased(catId: number): Promise<boolean> {
+  const records = await loadCatRecords([catId]);
+  const rec = records.get(catId);
+  const snapshot = resolveCat(rec?.observations ?? [], rec?.evidenceOfLife ?? null, new Date());
+  return snapshot.lifeStatus === "deceased";
 }
 
 export async function listCatsWithStats(
@@ -111,7 +275,14 @@ export async function listCatsWithStats(
     .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
     .groupBy(catsTable.id, photosTable.publicId);
 
+  // §2.3: every cat's derived status loaded in one batch (loadCatRecords'
+  // own fixed query count), never one query per cat.
+  const derived = await deriveCatStatuses(
+    rows.map((r) => ({ id: r.cat.id, ownerDeviceId: r.cat.ownerDeviceId })),
+  );
+
   const cats = rows.map((r) => {
+    const status = derived.get(r.cat.id)!;
     const c: CatWithStats = {
       id: r.cat.id,
       name: r.cat.name,
@@ -125,8 +296,8 @@ export async function listCatsWithStats(
       discovererNickname: r.discovererNickname ?? null,
       ownerName: r.cat.ownerName,
       homeDescription: r.cat.homeDescription,
-      hasHome: r.cat.ownerDeviceId !== null,
       discovererUsername: r.discovererUsername ?? null,
+      ...status,
     };
     if (lat !== undefined && lng !== undefined) {
       c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);
