@@ -1,11 +1,11 @@
 # The cat record data spine
 
-**Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`)
+**Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`). §10.9 (match records, SYC-151) approved by Samuel, 4 October 2026.
 **Owner:** Samuel
-**Covers:** SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
+**Covers:** SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), the team-only match record behind hand picks (SYC-151, §10.9), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
 **Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) · [`docs/specs/team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) · [`docs/specs/email-capture.md`](./email-capture.md) · [`docs/specs/hosting-and-photo-storage.md`](./hosting-and-photo-storage.md)
 
-**What this document owns**, per the ownership table in `DECISIONS.md`: the cat record model, observations and how status is worked out; presumed-deceased; location blurring, the nearest-cat oracle and feeding-site privacy; records import and matching; and the deletion mechanism. Other specs reference this behaviour rather than restating it. In particular, `team-access-and-welfare-queue.md` independently described a status-column-plus-audit-log record model — the exact design §2 rejects by name. **That description is struck; this document owns the record.** Sign-in, roles, the dashboard, the welfare queue and the safety copy are that document's, and are referenced here, never redefined.
+**What this document owns**, per the ownership table in `DECISIONS.md`: the cat record model, observations and how status is worked out; presumed-deceased; location blurring, the nearest-cat oracle and feeding-site privacy; records import and matching; the team-only match record behind hand picks; and the deletion mechanism. Other specs reference this behaviour rather than restating it. In particular, `team-access-and-welfare-queue.md` independently described a status-column-plus-audit-log record model — the exact design §2 rejects by name. **That description is struck; this document owns the record.** Sign-in, roles, the dashboard, the welfare queue and the safety copy are that document's, and are referenced here, never redefined.
 
 **Section numbering changed in this revision.** Deletion (§8) and the status-change feed (§9) are new sections; the technical specification is now §10 and the migration plan §11. Anything citing the old §9.x should cite §10.x.
 
@@ -829,6 +829,101 @@ The resolver carries the design risk, so it carries the tests.
 15. **Notification baseline:** any bulk write of historical data (a backfill, or a future import) produces zero notifiable status changes.
 16. **Greek names:** the migration-level normalisation test in §10.3.
 17. **Welfare observations:** filing a report against a known cat writes a `welfare_report` observation and moves no derived status; closing it writes a `welfare_outcome`; neither produces a notifiable change; and a `welfare_report` counts as evidence of life for §3.4.
+18. **Match records:** a choice is labelled from the stored row, never from the phone's word. A below-threshold candidate picked by hand is a `hand_pick`, not `suggested`. A hand pick after a failed matcher, or with no photo compared, has no miss kind. A second resolve, or a repeated photo after resolve, can't change a recorded choice or the sets it was worked out from. A failed match write still lets the sighting resolve, and it reads as `unlabelled`. A team step can't break the CHECKs when its account is later deleted. No public payload contains anything from `sighting_matches`.
+
+### 10.9 Match records
+
+`choose-a-different-cat.md` §4.6 decides that the server, never the phone, says how a spotter's choice was made, and that the record behind it lives in a small team-only table. `DECISIONS.md` Part 3 gives that table to this document. This section is that table.
+
+**What it is for.** One row per sighting. It holds what the matcher compared, what it suggested, what the spotter chose, and what the team later did about it. It is:
+
+- the dataset SYC-56 measures matching accuracy from, including its "looks right, or not flagged within 30 days" label rule;
+- the evidence SYC-80 needs on the 500 m limit;
+- the source of the "Matched by hand" list and its photos waiting for a match (`choose-a-different-cat.md` §5);
+- the "looked, then still chose new" signal SYC-59 uses (`choose-a-different-cat.md` §8.5).
+
+```ts
+// lib/db/src/schema/sightingMatches.ts
+export const sightingMatchesTable = pgTable("sighting_matches", {
+  sightingId: integer("sighting_id").primaryKey()
+    .references(() => sightingsTable.id, { onDelete: "cascade" }),
+
+  // 1. What the matcher looked at. Null when no match was recorded for the
+  //    sighting and the row was first written at a later step.
+  comparedCatIds: integer("compared_cat_ids").array(),
+  // What it suggested: [{ catId, rank, score }], with real cat ids, including
+  // any candidate the public response anonymised below the threshold.
+  suggested: jsonb("suggested").$type<SuggestedMatch[]>(),
+  // The matcher produced no comparison: the call failed, or there was no
+  // photo to compare. Distinguishes "compared nothing" from "no cats nearby".
+  matcherFailed: boolean("matcher_failed").notNull().default(false),
+  matchedAt: timestamp("matched_at", { withTimezone: true }),
+
+  // 2. The spotter's choice, labelled by the server.
+  choice: text("choice"),
+  //   suggested | hand_pick | new_cat | sent_to_team | unlabelled
+  chosenCatId: integer("chosen_cat_id"),
+  suggestedRank: integer("suggested_rank"),   // with "suggested" only
+  pickedFrom: text("picked_from"),             // nearby | search | name_prompt
+  missKind: text("miss_kind"),                 // matcher_miss | distance_miss
+  openedPicker: boolean("opened_picker"),      // with "new_cat"
+  colourFilterOn: boolean("colour_filter_on"), // with "new_cat"
+  aliveClaim: boolean("alive_claim"),          // with "sent_to_team"
+  chosenAt: timestamp("chosen_at", { withTimezone: true }),
+
+  // 3. What the team did, once (choose-a-different-cat.md §5).
+  teamAction: text("team_action"),
+  //   on "sent_to_team": matched | made_new_cat
+  //   on "hand_pick" or "unlabelled": looks_right | different_cat | new_cat | hidden
+  teamCatId: integer("team_cat_id"),           // the cat the team chose at this step
+  teamByAccountId: text("team_by_account_id"),
+  teamAt: timestamp("team_at", { withTimezone: true }),
+
+  // §8: deleting the account that took the team step.
+  redactedAt: timestamp("redacted_at", { withTimezone: true }),
+});
+// CHECKs: each enum column holds only its listed values, or null.
+// A choice comes with a time, and a time with a choice. A rank comes with
+// "suggested" and only with it. teamAction, teamAt and teamByAccountId are
+// all set or all null, except that teamByAccountId may be null once
+// redactedAt is set. teamAction's value fits the choice it answers.
+// teamCatId is set exactly when teamAction is matched, made_new_cat,
+// different_cat or new_cat.
+```
+
+**The labels, as the server decides them.** The phone sends only two things: which cat it chose, and which of its own screens the choice came from (`pickedFrom`). That is harmless because it describes the phone's screen and nothing else. The server works out the label from the row as it stands when the label is written:
+
+| Label | When |
+|---|---|
+| `new_cat`, with `openedPicker` and `colourFilterOn` | The spotter created a cat. This label applies whatever the row holds. Whether they opened "Find the cat yourself" first, and whether a colour filter was on, are weak evidence the cat really is new. |
+| `suggested`, with its rank | The chosen cat is in `suggested` **and** cleared the confidence threshold, so the spotter was actually shown it. A below-threshold candidate sits in the stored set but was never shown, so picking it is a hand pick. |
+| `hand_pick`, with `pickedFrom` and `missKind` | Any other existing cat. The miss is a `matcher_miss` if the cat is in `comparedCatIds`, and a `distance_miss` if it isn't. **When `matcherFailed` is set**, nothing was really compared, so `missKind` is null, never a distance miss. |
+| `sent_to_team`, with `aliveClaim` | The spotter asked Syros Cats to match the photo. `aliveClaim` marks a request made from a deceased cat's card ("Think this cat is alive?", `choose-a-different-cat.md` §4.3). |
+| `unlabelled`, with `pickedFrom` | An existing cat was chosen, but the row has no stored set to compare with, because no match was recorded. The server doesn't guess. |
+
+**When it is written.** It is written in three steps. Each step is written at most once. Step 3 may also fill in a `sent_to_team` choice that step 2 failed to write:
+
+1. **When the match runs** (`POST /sightings`), the compared and suggested sets are stored. If the same photo is sent again (the dedupe path in `offline-queue-on-web.md`), they are overwritten, because the phone shows the latest response. This never happens once the sighting is resolved or sent to the team.
+2. **When the spotter chooses**, the label is written: at `POST /sightings/{id}/resolve` for a cat or a new cat, or at the "Ask Syros Cats to match it" request for `sent_to_team`. The write happens only if no choice is recorded yet, so a retried or racing request can't relabel it. A resolve writes its label after its transaction commits.
+3. **When the team acts.** On a photo sent to the team, matching it or making it a new cat fills the team columns. If step 2's write was lost, the same write also records `choice = sent_to_team`, with `aliveClaim` left null because it can no longer be known. On a hand pick, or an existing-cat choice recorded as `unlabelled`, "Looks right", "Different cat…", "It's a new cat" or "Hide this photo" fills them. The write happens only if `teamAt` is still null, so two people acting at once can't both record a step. Anything the team changes after that is a move statement (`choose-a-different-cat.md` §8.2) or a report, never an edit to this row.
+
+Every write is best effort. If a write fails, it is logged, and the spotter's sighting, points and response still go ahead. **Readers treat a resolved sighting with no recorded choice as `unlabelled`**, the same as a choice with no stored set. Those sightings appear in "Matched by hand" like any `unlabelled` pick, and a team step on one records `choice = unlabelled` with it. The record is incomplete there, never wrong.
+
+**Why this table is updated, unlike observations.** §2 makes statements about cats append-only. A match record is not a statement about a cat. It is the working of one decision about one sighting, completed in the three fixed steps above. Nothing in it feeds the resolver, and no derived status reads it. **Moving a sighting to a different cat** (`choose-a-different-cat.md` §8.2) is its own attributed statement. The match record keeps what the spotter chose next to what the team did, which is exactly the pair SYC-56 measures.
+
+**Privacy.** It is team-only by construction. No public route reads this table, so the matcher's working can't reach a public payload: it is filtered in the query, not the serialiser, as for private feeding sites in §10.5. The table never holds a position, a device id or a photo.
+
+Deleting a person:
+- **A spotter** (§8) needs nothing extra here, because the row is linked to the sighting and sightings outlive deletion (§8.3). The cascade only follows a sighting if one is ever removed.
+- **A team member, cat guardian or vet who took a team step** gets the same redaction as their observations: `teamByAccountId` is cleared and `redactedAt` is stamped. What the team did stays recorded.
+
+**Merges.** All the cat ids in a row are the ids at the time:
+- `chosenCatId`
+- `teamCatId`
+- the ids in `comparedCatIds`
+- the ids in `suggested`
+
+Readers resolve them through `cat_identity` (§10.3), as for everything else, so a later merge never rewrites a match record.
 
 ---
 

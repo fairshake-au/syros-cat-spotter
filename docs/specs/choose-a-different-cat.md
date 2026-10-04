@@ -205,7 +205,7 @@ For hand picks, the server also records for the team whether the chosen cat was 
 | **B. As an observation on the cat** | Reuses the observation table | Wrong kind of thing. Observations are statements *about a cat* ("its ear tip is clipped"). "Which cat is this photo of" is a statement about the *sighting*, and it can change when the team moves it, which an observation fixed to one cat cannot follow. |
 | **C. A small team-only table of match records**, one row per sighting, written when the match runs and completed when the choice arrives (recommended) | Keeps the matcher's working, and what the spotter chose, out of every public payload by construction, the same principle as private feeding sites (§10.5: filtered in the query, not the serialiser). It is exactly the dataset SYC-56 needs, and can be read without touching public tables. | One more table. |
 
-**Recommendation: C.** It is owned by the data spine, since `DECISIONS.md` Part 3 gives it the record model and matching, so the table shape goes to it as a follow-up (§11). This spec states what it must hold, not its columns.
+**Recommendation: C.** It is owned by the data spine, since `DECISIONS.md` Part 3 keeps the records this feature relies on, the match record among them, with the data spine, so the table is defined there, in `cat-record-data-spine.md` §10.9. This spec states what it must hold, not its columns.
 
 **Matching accuracy (SYC-56).** SYC-56 builds its test set from confirmed sightings, treating each as a human-checked "same cat" label. Hand picks change that in two ways, and both are recommended:
 
@@ -458,7 +458,7 @@ Filed to Linear under SYC-119 (deduplicated against existing tickets):
 - **"Ask Syros Cats to match it", matched in the dashboard** (§3.2, §4.8, §5): added to SYC-152's scope, together with the server's nearby check on resolve.
 - **Vets picking from anywhere** depends on a vet role that doesn't exist. Noted on SYC-24 (vet access, parked by Syros Cats) rather than filed as a new ticket.
 - **Moving a sighting to a different cat, or to a new cat** (data spine): the append-only reassignment in §8.2, including restating the sighting's observations on the right cat.
-- **The team-only match record** (data spine): what was compared, suggested and chosen, per sighting (§4.6). This is the data SYC-56 needs.
+- **The team-only match record** (data spine): what was compared, suggested and chosen, per sighting (§4.6). This is the data SYC-56 needs. Defined in `cat-record-data-spine.md` §10.9.
 - **SYC-56 note**: report hand picks and confirmed suggestions separately, and count distance misses as evidence for SYC-80 (§4.6). Added as a comment on SYC-56 rather than a new ticket.
 - **Queue "That's the one", "New cat" and hand picks when there's no signal** (§4.5, option B): its own piece of work, if ever.
 - **The "Matched by hand" dashboard list** (§5): an addition to SYC-43's scope, filed as its own ticket linked to SYC-43.
