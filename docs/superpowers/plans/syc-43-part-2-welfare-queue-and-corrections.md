@@ -1,6 +1,6 @@
 # SYC-43 part 2: the welfare queue and the corrections screens
 
-**Status: awaiting Samuel's approval. Plan only, nothing is built.**
+**Status: awaiting Samuel's approval. Plan only, nothing is built. Adversarially reviewed (Sonnet critic, 4 Oct 2026): 2 blockers, 1 major and 2 minor findings, all folded in (see "Review").**
 **Spec:** `docs/specs/team-access-and-welfare-queue.md` (approved 28 Sep 2026) §3.1, §3.3, §3.6, §4.3 (report photos), §5.3(h) (closing states), §7.3, §8.4–§8.6. `DECISIONS.md` wins where they differ (F1, Part 2b, 2g, 2i, 2j). The record model is `docs/specs/cat-record-data-spine.md` (§4.5, §10.1, §10.3, §10.7).
 **Linear:** SYC-43 (this part), and SYC-42 Slices 2 and 5.1, which this plan carries out (Decision 2). It touches SYC-44, SYC-150, SYC-152, SYC-163, SYC-185 and SYC-198.
 **Checked against:** `origin/main` at `a7eec8f` (4 Oct 2026), open PRs #46 and #71, the branch `claude/spine-pr7-questions`, and Linear SYC-43 in full with its comments. Every "exists today" claim below names the file it was read in.
@@ -117,7 +117,7 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 
 | Option | What happens | Benefits | Risks |
 |---|---|---|---|
-| **A. It records a team "yes, that's a clip" on that photo, and the cat leaves the list until new evidence arrives (recommended)** | A signed `ear_tip { clipped: true }` from the team, pointing at the same photo. The cat stays *Probably sterilised* | Honest. A clipped tip is still only evidence, not proof: Syros Cats can't know from a photo that a specific operation happened (§4.1). The list empties as it's worked through | The cat is still *Likely*, not *Confirmed*. To confirm it, the team uses "say whether a cat has been sterilised" |
+| **A. It records a team "yes, that's a clip" on that photo, and the cat leaves the list until new evidence arrives (recommended)** | A signed `ear_tip { clipped: true }` from the team, pointing at the same photo. The cat stays *Probably sterilised*: the resolver treats a team "clipped" like any other clipped evidence, so it can only ever produce *Likely* (checked in `lib/resolve.ts`, `resolveSterilised`). Leaving the list is a rule of **the list**, not of the resolver (PR 4 states it exactly) | Honest. A clipped tip is still only evidence, not proof: Syros Cats can't know from a photo that a specific operation happened (§4.1). The list empties as it's worked through | The cat is still *Likely*, not *Confirmed*. To confirm it, the team uses "say whether a cat has been sterilised" |
 | B. It records "sterilised: yes", which is *Confirmed* | One tap to confirm | Turns a photo into a confirmed sterilisation. If wrong, a cat is never trapped, which is the costlier mistake. Not what §4.1 or §4.5 allow |
 | C. It records nothing and just hides the cat on this device | Nothing written | The next team member sees the same cat again. No record that anyone looked |
 
@@ -234,7 +234,7 @@ Every action below is a form on the team cat page. Each is `requireOrigin(TEAM_O
 | **Say whether sterilised** (yes / no), with an optional date, clinic and reason. On screen: *"A clipped ear seen in a photo is never proof. Use this only when Syros Cats or a vet knows."* | `set_sterilisation` | `sterilised` | Same |
 | **Mark a statement wrong**, from any row in the history, with a reason. For an ear-tip answer this is *"That's not a clip"* | Whatever capability the statement's kind needs (PR 8's `capabilityFor`) | A new statement of the same kind, with `supersedesId` set | PR 8's supersede, including its row lock and its "already corrected" `409`, shown as *"Someone already corrected this."* |
 | **Rename the cat**, with a reason | `rename_cat` | `cats.name` updated **and** a `name` observation, in one transaction (Decision 5). A name another cat already has is refused, and the screen says which cat has it. The name passes the existing name moderation filter | The `routes/cats.ts` pattern |
-| **Probably sterilised list** at `GET /api/team/likely`: cats at *Likely* with their evidence photos, newest first. Each has two buttons: **Looks right** (Decision 6) and **That's not a clip** (supersede) | `set_sterilisation` | `ear_tip { clipped: true }` agreeing (Looks right), or the supersede | PR 8's `GET …/review/likely`. It changes in two small ways: photo URLs point at the team photo route (they don't load on the team domain today), and a cat whose newest clipped evidence was agreed by the team drops off the list until a newer spotter answer arrives |
+| **Probably sterilised list** at `GET /api/team/likely`: cats at *Likely* with their evidence photos, newest first. Each has two buttons: **Looks right** (Decision 6) and **That's not a clip** (supersede) | `set_sterilisation` | `ear_tip { clipped: true }` agreeing (Looks right), or the supersede | PR 8's `GET …/review/likely`, changed in two ways:<br>• Photo URLs point at the team photo route; they don't load on the team domain today.<br>• **The list rule:** a cat is listed when the resolver says *Likely* **and** its newest active `ear_tip { clipped: true }` (newest by `createdAt`) was written by a spotter (`roleAtTime` not `staff`, `vet` or `admin`). When the newest one is the team's agreement, the cat is off the list. A newer spotter "clipped" puts it back.<br>The resolver itself is not changed, and the cat's public answer is the same with or without the agreement (P4-2) |
 
 **This PR unblocks SYC-198.** The "Probably sterilised" answer can go public (`LIKELY_STERILISED_PUBLIC_LIVE`) once this screen and SYC-103 are live. **It also unblocks SYC-185**: staff can now record sterilised and homed, so the `OWNER_SECRET` route can retire. Both stay their own tickets.
 
@@ -245,6 +245,12 @@ Every action below is a form on the team cat page. Each is `requireOrigin(TEAM_O
   - sets `cat_id`;
   - writes a `welfare_report` observation (`{ severity, isLitter, reportId }`, `observedAt` = when the report was submitted), **authored by the reporter's device**, or `system:welfare-report` if the device has been deleted (`DECISIONS.md` Part 2g). The reporter's note is **never** copied in (§8.4).
 - Choosing a different cat later is a new tie. The first observation is superseded with the reason "tied to the wrong cat", so the cat's history stays honest.
+- **Two people tying the same report at once.** `writeObservation` doesn't check for an earlier correction on its own; only the supersede route does, with a row lock. So the tie route does the same, in one transaction:
+  1. lock the report row (`SELECT … FOR UPDATE` on `welfare_reports`);
+  2. lock the current `welfare_report` observation, if there is one, the same way `routes/observations.ts` does;
+  3. check it hasn't already been superseded, and that `cat_id` is still what the page showed.
+
+  The second person gets *"Someone else tied this report a moment ago."* The lock shape is extracted from the supersede route into one shared helper rather than copied. SYC-199's database index stays the later backstop.
 - **Closing a tied report** (PR 2's route) also writes `welfare_outcome { state, reportId }` authored by the staff member, in the same transaction as the state change. Reopening and closing again writes a second outcome. That is history, and nothing is emailed (Slice 3).
 - **Neither kind changes a derived status** (§8.4). A test pins that.
 - The queue row then links to the team cat page, and the cat's history shows the report (§3.1).
@@ -261,7 +267,7 @@ Every action below is a form on the team cat page. Each is `requireOrigin(TEAM_O
 
   It has an index on `(photo_id, at desc)`. Rows are never updated or deleted (Decision 3). Rollback: drop the table, which un-hides everything; the rollback block says so in capitals.
 - On the team cat page, each photo has **Hide** or **Restore**: one tap, no "are you sure?" (§3.3), behind `hide_photo` or `restore_photo` and the Origin rule. A hidden photo stays visible to staff, marked *Hidden from the public by Susan, 4 Oct*.
-- **One function, `visiblePhotoIds()` / `isPhotoHidden()` in `lib/photoVisibility.ts`, is the only place visibility is decided.** Every public reader goes through it (the full list is in "Every place a hidden photo must stay hidden").
+- **`lib/photoVisibility.ts` is the only place visibility is decided.** It holds `hiddenPhotoIds(ids)` (one batched query) and `publicPhotoUrl(photo, hidden)`, the only builder of a public photo address. Every public reader goes through it, and a source test enforces that (see "Every place a hidden photo must stay hidden").
 - When the hidden photo is a cat's main photo, the public sees the newest visible photo of that cat, or the placeholder (Decision 4). `cats.primary_photo_id` isn't changed, so a restore brings the original back.
 
 ---
@@ -270,13 +276,28 @@ Every action below is a form on the team cat page. Each is `requireOrigin(TEAM_O
 
 The guard on any one of these can fail without anyone noticing: a hidden photo still showing, with every test green. So each place gets a named test, and the test gets a mutation probe.
 
+**A list written by hand misses places.** The first draft of this plan missed the notifications screen, which the review found. So the build doesn't rely on the list alone:
+- **Every public photo address is built in one function**, `publicPhotoUrl()` in `lib/photoVisibility.ts`. It returns `null` for a hidden photo.
+- PR 6 moves the five places that build `/api/photos/…` by hand today onto it:
+  - `lib/catHelpers.ts:61` and `:290`;
+  - `routes/cats.ts:275`;
+  - `routes/sightings.ts:218`;
+  - `routes/notifications.ts:144`.
+- **A source test (P6-0) fails if the text `/api/photos/` appears in any file under `artifacts/api-server/src` apart from `lib/photoVisibility.ts`, `routes/photos.ts` and tests.** A new place that builds a photo address by hand turns that test red, even if nobody remembered to add it to the list.
+
+The places known on `main` today:
+
 1. `GET /api/photos/:publicId`: a hidden photo answers `404`, exactly as an unknown id does.
-2. `GET /api/cats` (list): the thumbnail falls back per Decision 4.
-3. `GET /api/cats/:id` (detail): the main photo and each sighting's photo. A sighting whose photo is hidden stays in the list but shows no photo.
-4. The cat returned inline by `POST /api/sightings/:id/resolve` and the match candidates in `POST /api/sightings`: candidate photos are what a spotter sees when choosing a match.
-5. The hand-pick list "cats known around here" (SYC-119, once Slice B ships): it reads the same cat thumbnails as item 2. Its PR must call `visiblePhotoIds()`. Noted on SYC-119.
-6. Push notifications (`lib/notificationFanout.ts`), if they carry a photo URL. Checked during the build; if they don't, the test asserts that.
-7. **Not affected, by design:** the team routes (staff see hidden photos), the matching model's own reference images (hiding is about what people see, not about identification; flagged in the PR for Samuel), and report photos, which were never public.
+2. `GET /api/cats` (list, `lib/catHelpers.ts:290`): the thumbnail falls back per Decision 4.
+3. `GET /api/cats/:id` (detail, `routes/cats.ts:275` and `lib/catHelpers.ts:61`): the main photo and each sighting's photo. A sighting whose photo is hidden stays in the list but shows no photo.
+4. The match candidates in `POST /api/sightings` (`routes/sightings.ts:218`), and the cat returned inline by `POST /api/sightings/:id/resolve`: candidate photos are what a spotter sees when choosing a match.
+5. **`GET /api/notifications/:deviceId`** (`routes/notifications.ts:144`, `catPhotoUrl`): a device-authenticated public reader that joins straight to the main photo. Found by the review.
+6. The hand-pick list "cats known around here" (SYC-119, once Slice B ships). It reads the same cat thumbnails as item 2, and P6-0 forces it through `publicPhotoUrl()`. Noted on SYC-119.
+7. Push notifications (`lib/notificationFanout.ts`), if they carry a photo address. Checked during the build; if they don't, the test asserts that.
+8. **Not affected, by design:**
+   - the team routes, because staff see hidden photos;
+   - the matching model's own reference images, because hiding is about what people see, not about identification (flagged in the PR for Samuel);
+   - report photos, which were never public.
 
 ## Every place "a report photo never leaves the team" must hold
 
@@ -324,10 +345,10 @@ Precisely: **nothing on the dashboard works offline.** Every screen is drawn by 
 API tests use supertest against the real app and CI's Postgres, as part 1 did. `lib/db` tests use the throwaway database built from the real migrations. SYC-42 test numbers are kept where this plan carries them out. Each mutation check (**M**) is done once by hand before merge: break the line, watch the named test go red, put it back.
 
 **PR 1**
-- **P1-1 [SYC-42 #27, §8.6 #12]** A walk test: every `/api/team/*` route registered on the router (read from the router itself, not a hand-written list) returns the identical `401 not_signed_in` without a session, and with a session for a person who has no `staff` scope. **M:** register one new route without `requireTeam` → red.
+- **P1-1 [SYC-42 #27, §8.6 #12]** A walk test: every `/api/team/*` route registered on the router (read from the router itself, not a hand-written list) returns the identical `401 not_signed_in` without a session, and with a session for a person who has no `staff` scope. **M:** register one new route without `requireTeam` → red. Reading routes from the router uses Express's internal `router.stack`, which isn't public and has changed shape between versions. So the test also asserts that it found at least as many routes as a fixed minimum (the routes this part adds). If an Express upgrade makes it find none, it fails instead of passing on an empty list.
 - **P1-2 [SYC-42 #28]** Urgent above attention, then newest. Closed reports are below open ones. Drafts appear only under "Started but not sent".
 - **P1-3 [§8.6 #12, team half]** The team report-photo route serves the bytes with a session and `401`s without one. `GET /api/photos/<report photo publicId>` is `404`. **M:** make the team route read `photos` → red.
-- **P1-4 [SYC-42 #30]** Neither the queue HTML nor its JSON contains a reporter address, a device id, or any photo URL outside `/api/team/`. A seeded report with a contact row proves this once Slice 3 exists. Until then, the test asserts the columns are never selected.
+- **P1-4 [SYC-42 #30]** Neither the queue HTML nor its JSON contains a reporter address, a device id, or any photo URL outside `/api/team/`. A seeded report with a contact row proves this once Slice 3 exists. Until then, the test asserts the columns are never selected. **M:** add `reporterDevice` to the queue's select → red.
 - **P1-5** Every response has the team headers. The security header now includes `img-src 'self'` and still has no `script-src`. **M:** add `script-src 'self'` → red.
 - **P1-6** The words "escalate", "assign", "due", "on call" and "urgent alert" don't appear anywhere on the page (§3.1, §3.6, F1).
 - **P1-7** The mail banner shows for a `failed` alert or one an hour overdue, and not otherwise.
@@ -344,26 +365,28 @@ API tests use supertest against the real app and CI's Postgres, as part 1 did. `
 
 **PR 3**
 - **P3-1** Search finds `Μιμή` by `μιμη`, `ΜΙΜΗ` and `mimi`… (only what `foldName` actually folds, no Greek/Latin look-alikes, per Part 2j), and by `SYR-0012`.
-- **P3-2** The team cat page shows exact sighting positions. The **public** `GET /api/cats/:id` for the same cat is byte-for-byte unchanged by this PR.
+- **P3-2** The team cat page shows exact sighting positions. The **public** `GET /api/cats/:id` for the same cat is byte-for-byte unchanged by this PR (compared against a snapshot taken before the PR). **M:** route the public detail through `lib/teamCatView.ts` → red.
 - **P3-3** A superseded statement appears with the statement that replaced it and its reason.
 - **P3-4** Removed person → "a former team member". `system:*` → "imported" or the right label. A spotter → "a spotter", never a device id.
 
 **PR 4**
 - **P4-1** Each form writes exactly one observation with `roleAtTime: staff`, the person's id and the reason. Nothing in `observations` is ever updated (the append-only trigger stays the backstop).
-- **P4-2** After *That's not a clip*, the cat reads *Not known yet*. After *Looks right*, it's still *Probably sterilised* and off the review list. A newer spotter clip puts it back on.
+- **P4-2** After *That's not a clip*, the cat reads *Not known yet*. After *Looks right*, it's still *Probably sterilised* and off the review list. A newer spotter clip puts it back on. The cat's resolved answer is identical before and after *Looks right*. **M:** drop the "newest clipped is a spotter's" rule → red (the cat stays listed).
 - **P4-3** Rename: the column and the `name` observation are written together, or neither is (a forced failure in the second write leaves the old name). A clash with another cat's name is refused. **M:** write the column outside the transaction → red.
 - **P4-4** Each form is refused without its capability. Using a person whose scopes grant nothing: the identical 401, and no write.
-- **P4-5** The Likely list's photo URLs are all under `/api/team/photos/`.
+- **P4-5** The Likely list's photo URLs are all under `/api/team/photos/`. **M:** restore the `/api/photos/` URL → red.
 - **P4-6** The life-status and sterilisation forms and PR 8's JSON route produce identical rows for the same input (one shared function).
 
 **PR 5**
 - **P5-1 [SYC-42 #40]** Tying writes one `welfare_report` authored by the reporter's device, with no note text. Closing a tied report writes `welfare_outcome` by the staff account. Neither changes the resolved status. **M:** copy the note into the value → red.
 - **P5-2** Re-tying to another cat supersedes the first `welfare_report`, and the old cat's history shows why.
 - **P5-3** A report whose `reporter_device` is null ties as `system:welfare-report`.
+- **P5-4** Six concurrent re-ties of one report to different cats: exactly one succeeds, the rest get the "someone else" answer, and exactly one superseding observation exists. **M:** remove the row lock → red (the pattern of #68's six-way test).
 
 **PR 6**
-- **P6-1…P6-6** One test per public reader (items 1–6 above): hide → gone, restore → back. **M** on each: bypass `visiblePhotoIds()` at that site → that test red.
-- **P6-7** Hiding the main photo shows the newest visible photo, or the placeholder (Decision 4). Restoring brings the original back.
+- **P6-0** The source test above: no `/api/photos/` text outside `lib/photoVisibility.ts`, `routes/photos.ts` and tests. **M:** put the hand-built URL back in `routes/notifications.ts` → red.
+- **P6-1…P6-7** One test per public reader (items 1–7 above): hide → gone, restore → back. **M** on each: bypass `publicPhotoUrl()` at that site → that test red.
+- **P6-7b** Hiding the main photo shows the newest visible photo, or the placeholder (Decision 4). Restoring brings the original back.
 - **P6-8** Staff still see a hidden photo, labelled with who hid it and when.
 - **P6-9** Events are only ever inserted. Hide → restore → hide gives three rows.
 
@@ -403,4 +426,30 @@ Each PR is built in its own worktree off fresh `origin/main`, with one commit pe
 
 ## Review
 
-*To be completed after the adversarial review of this plan.*
+A Sonnet critic reviewed this plan in its own worktree, against the spec, `DECISIONS.md`, the SYC-42, part 1 and data spine plans, and the code on `main` (`a7eec8f`). It found two blockers, one major and two minor issues. The session model checked each one against the code before folding it in.
+
+| # | Severity | Finding | What changed |
+|---|---|---|---|
+| 1 | Blocker | **"Looks right" couldn't take a cat off the review list as written.** The resolver treats a team "clipped" exactly like a spotter's, so the cat stays *Likely*, and the review list is driven only by the resolver. The plan named no rule that would remove it. Confirmed in `lib/resolve.ts` (`resolveSterilised`: `isAuthoritativeRole` applies only to `clipped: false`). | Decision 6 now says leaving the list is the list's rule, not the resolver's. PR 4 states the exact rule: listed only while the newest active "clipped" is a spotter's. P4-2 checks that the public answer is unchanged, with a mutation probe. |
+| 2 | Blocker | **A public place showing photos was missing from the "hidden stays hidden" list:** `GET /api/notifications/:deviceId` builds a main-photo address by hand (`routes/notifications.ts:144`). | Added as item 5. The session model's own check (grepping for `/api/photos/`) found five places that build the address by hand, not one. So the fix is structural: one builder, `publicPhotoUrl()`, and a source test (P6-0) that turns red if any other file builds the address. A forgotten place now fails a test instead of relying on the list. |
+| 3 | Major | **Re-tying a report had no protection against two people doing it at once.** `writeObservation` doesn't check for an earlier correction; only the supersede route locks the row (#68's double-supersede fix). | PR 5 now locks the report and the current observation in one transaction, using a helper shared with the supersede route. New test P5-4: six at once, exactly one wins, with a mutation probe. |
+| 4 | Minor | Three "nothing leaks" checks had no mutation probe: P1-4, P3-2 and P4-5. | Each has one now. |
+| 5 | Minor | The route walk test relies on Express internals and could silently find no routes after an upgrade. | P1-1 now also requires a minimum route count, so an empty walk fails. |
+
+**Checked and confirmed correct by the critic:**
+- the pre-launch gate claim: `/api/photos/*` is gated and `/api/team/*` is exempt;
+- the current security header;
+- `requireOrigin` works as a defence against cross-site form posts with plain HTML forms. Browsers send `Origin` on form POSTs, and the URL-encoded body parser is registered app-wide before the routes;
+- the 12 capability names;
+- `photos` has no hidden column, and `cats.primary_photo_id` is not null;
+- the two `name` writes in `routes/cats.ts`;
+- the `welfare_reports` columns;
+- `0007` as the next migration, with PR 7 adding none;
+- `serialiseCat` doesn't exist yet;
+- the append-only trigger;
+- `capabilityFor`;
+- the SYC-119 "already exists" wording;
+- Replit's `/api`-only routing;
+- the canonical facts and the offline section.
+
+It found no part of spec §3.1 or §3.3 dropped without being named in "What this part does not do".
