@@ -874,8 +874,8 @@ export const sightingMatchesTable = pgTable("sighting_matches", {
   // 3. What the team did, once (choose-a-different-cat.md §5).
   teamAction: text("team_action"),
   //   on "sent_to_team": matched | made_new_cat
-  //   on "hand_pick":    looks_right | different_cat | new_cat | hidden
-  teamCatId: integer("team_cat_id"),           // the cat the sighting now belongs to
+  //   on "hand_pick" or "unlabelled": looks_right | different_cat | new_cat | hidden
+  teamCatId: integer("team_cat_id"),           // the cat the team chose at this step
   teamByAccountId: text("team_by_account_id"),
   teamAt: timestamp("team_at", { withTimezone: true }),
 
@@ -901,13 +901,13 @@ export const sightingMatchesTable = pgTable("sighting_matches", {
 | `sent_to_team`, with `aliveClaim` | The spotter asked Syros Cats to match the photo. `aliveClaim` marks a request made from a deceased cat's card ("Think this cat is alive?", `choose-a-different-cat.md` §4.3). |
 | `unlabelled`, with `pickedFrom` | An existing cat was chosen, but the row has no stored set to compare with, because no match was recorded. The server doesn't guess. |
 
-**When it is written.** It is written in three steps. Each one is written once, and each is conditional on the step before it, never on a later one:
+**When it is written.** It is written in three steps. Each step is written at most once. Step 3 may also fill in a `sent_to_team` choice that step 2 failed to write:
 
 1. **When the match runs** (`POST /sightings`), the compared and suggested sets are stored. If the same photo is sent again (the dedupe path in `offline-queue-on-web.md`), they are overwritten, because the phone shows the latest response. This never happens once the sighting is resolved or sent to the team.
 2. **When the spotter chooses**, the label is written: at `POST /sightings/{id}/resolve` for a cat or a new cat, or at the "Ask Syros Cats to match it" request for `sent_to_team`. The write happens only if no choice is recorded yet, so a retried or racing request can't relabel it. A resolve writes its label after its transaction commits.
-3. **When the team acts.** On a photo sent to the team, matching it or making it a new cat fills the team columns. If step 2's write was lost, the same write also records `choice = sent_to_team`. On a hand pick, "Looks right", "Different cat…", "It's a new cat" or "Hide this photo" fills them. Anything the team changes after that is a move statement (`choose-a-different-cat.md` §8.2) or a report, never an edit to this row.
+3. **When the team acts.** On a photo sent to the team, matching it or making it a new cat fills the team columns. If step 2's write was lost, the same write also records `choice = sent_to_team`, with `aliveClaim` left null because it can no longer be known. On a hand pick, or an existing-cat choice recorded as `unlabelled`, "Looks right", "Different cat…", "It's a new cat" or "Hide this photo" fills them. The write happens only if `teamAt` is still null, so two people acting at once can't both record a step. Anything the team changes after that is a move statement (`choose-a-different-cat.md` §8.2) or a report, never an edit to this row.
 
-Every write is best effort. If a write fails, it is logged, and the spotter's sighting, points and response still go ahead. **Readers treat a resolved sighting with no recorded choice as `unlabelled`**, the same as a choice with no stored set. The record is incomplete there, never wrong.
+Every write is best effort. If a write fails, it is logged, and the spotter's sighting, points and response still go ahead. **Readers treat a resolved sighting with no recorded choice as `unlabelled`**, the same as a choice with no stored set. Those sightings appear in "Matched by hand" like any `unlabelled` pick, and a team step on one records `choice = unlabelled` with it. The record is incomplete there, never wrong.
 
 **Why this table is updated, unlike observations.** §2 makes statements about cats append-only. A match record is not a statement about a cat. It is the working of one decision about one sighting, completed in the three fixed steps above. Nothing in it feeds the resolver, and no derived status reads it. **Moving a sighting to a different cat** (`choose-a-different-cat.md` §8.2) is its own attributed statement. The match record keeps what the spotter chose next to what the team did, which is exactly the pair SYC-56 measures.
 
