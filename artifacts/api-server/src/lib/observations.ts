@@ -568,7 +568,13 @@ export async function loadCatRecords(
     };
     for (const o of observations) {
       if (o.kind === "sterilised") consider(o.observedAt, "sterilised");
-      else if (o.kind === "ear_tip") consider(o.observedAt, "ear_tip");
+      // An ear-tip answer that belongs to a sighting (data spine PR 7) adds
+      // nothing the sighting doesn't already say, at its true date. Counting
+      // it separately would be wrong whenever writeObservation's 30-day
+      // public clamp moved its date forward (a late-synced sighting answered
+      // later still), pulling the cat's "last seen alive" forward with it.
+      // Ear tips with no sighting (team entries) still count.
+      else if (o.kind === "ear_tip" && o.sightingId == null) consider(o.observedAt, "ear_tip");
       else if (o.kind === "welfare_report") consider(o.observedAt, "welfare_report");
     }
 
