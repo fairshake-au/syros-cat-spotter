@@ -1,6 +1,6 @@
 # The cat record data spine
 
-**Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`)
+**Status:** **Approved by Samuel, 28 September 2026**, with his review edits incorporated. Revised after adversarial review and Samuel's decisions of 3 September 2026 (`docs/specs/DECISIONS.md`). §10.9 (match records, SYC-151) approved by Samuel, 4 October 2026.
 **Owner:** Samuel
 **Covers:** SYC-40 (life status and presumed-deceased), SYC-41 (blurred public locations), the deletion mechanism (F3), the status-change feed the email spec reads (F4), the team-only match record behind hand picks (SYC-151, §10.9), plus the per-sighting note and food-and-water question from the 1 September meeting. Designed to be extended by SYC-52 (the full confidence engine) without a migration that rewrites history.
 **Related:** [`docs/PRODUCT-SPEC.md`](../PRODUCT-SPEC.md) §2.3 and §2.4 · [`docs/SPEC.md`](../SPEC.md) · [`docs/superpowers/specs/2026-07-28-cat-health-record-design.md`](../superpowers/specs/2026-07-28-cat-health-record-design.md) · [`docs/specs/team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) · [`docs/specs/email-capture.md`](./email-capture.md) · [`docs/specs/hosting-and-photo-storage.md`](./hosting-and-photo-storage.md)
