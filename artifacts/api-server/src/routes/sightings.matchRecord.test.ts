@@ -503,7 +503,7 @@ describe("review findings (adversarial review of #64)", () => {
 });
 
 describe("review findings (adversarial review of #59)", () => {
-  it("F1: when the matcher fails, a hand pick is not a matcher miss, because nothing was scored", async () => {
+  it("F1: when the matcher fails, a hand pick has no miss kind, because nothing was compared", async () => {
     const SEA = spot();
     const device = `${DEVICE}-f1`;
     const a = await seedCat(northOf(SEA, 0.1));
@@ -516,7 +516,7 @@ describe("review findings (adversarial review of #59)", () => {
     const row = await record(sub.body.sightingId);
     expect(row!.matcherFailed).toBe(true);
     expect(row!.comparedCatIds).toEqual([]);
-    expect(row).toMatchObject({ choice: "hand_pick", missKind: "distance_miss" });
+    expect(row).toMatchObject({ choice: "hand_pick", missKind: null });
   });
 
   it("F2: a dedupe re-submit after the choice never rewrites the sets behind the label", async () => {
@@ -555,7 +555,16 @@ describe("review findings (adversarial review of #59)", () => {
 
     const again = await submit(device, SEA, capturedAt);
     expect(again.body.candidates).toEqual([]);
-    expect((await record(first.body.sightingId))!.suggested).toEqual([]);
+    const row = await record(first.body.sightingId);
+    expect(row!.suggested).toEqual([]);
+    expect(row!.matcherFailed).toBe(true);
+
+    // Nothing was compared, so a hand pick is neither kind of miss.
+    await resolve(first.body.sightingId, device, { catId: a, pickedFrom: "nearby" });
+    expect(await record(first.body.sightingId)).toMatchObject({
+      choice: "hand_pick",
+      missKind: null,
+    });
   });
 
   it("F5: a cat the matcher was never sent (no photo) can't be suggested", async () => {
