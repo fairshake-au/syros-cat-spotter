@@ -284,7 +284,11 @@ async function recordMatch(
  */
 function labelChoice(input: {
   stored:
-    | { comparedCatIds: number[] | null; suggested: SuggestedMatch[] | null }
+    | {
+        comparedCatIds: number[] | null;
+        suggested: SuggestedMatch[] | null;
+        matcherFailed: boolean;
+      }
     | undefined;
   storedSuggestion: SuggestedMatch | undefined;
   isNewCat: boolean;
@@ -317,9 +321,13 @@ function labelChoice(input: {
     ...base,
     choice: "hand_pick",
     pickedFrom: input.pickedFrom,
-    missKind: (input.stored.comparedCatIds ?? []).includes(input.catId)
-      ? "matcher_miss"
-      : "distance_miss",
+    // Data spine §10.9: when the matcher failed or had no photo, nothing was
+    // really compared, so the pick is neither kind of miss.
+    missKind: input.stored.matcherFailed
+      ? null
+      : (input.stored.comparedCatIds ?? []).includes(input.catId)
+        ? "matcher_miss"
+        : "distance_miss",
   };
 }
 
@@ -433,10 +441,12 @@ router.post("/sightings", aiLimiter, async (req, res) => {
       : { isCatPhoto: true, candidates: [] };
     if (!existingPhoto) {
       // SYC-151 (review F4): store the empty set the phone is shown now.
+      // No photo means nothing was compared, which data spine §10.9 records
+      // as matcherFailed, so it isn't read as "no cats nearby".
       await recordMatch(req, existing.id, {
         comparedCatIds: [],
         suggested: [],
-        matcherFailed: false,
+        matcherFailed: true,
       });
     }
     res.status(201).json({ sightingId: existing.id, isCatPhoto, candidates });
