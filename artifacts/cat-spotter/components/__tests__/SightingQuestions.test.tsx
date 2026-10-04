@@ -47,9 +47,12 @@ function Harness({
       catName="Agatha"
       askEarTip={askEarTip}
       answers={answers}
-      onChange={(a) => {
-        setAnswers(a);
-        onChange?.(a);
+      onChange={(patch) => {
+        setAnswers((prev) => {
+          const next = { ...prev, ...patch };
+          onChange?.(next);
+          return next;
+        });
       }}
       t={t}
     />

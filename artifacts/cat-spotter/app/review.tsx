@@ -335,7 +335,7 @@ export default function ReviewScreen() {
             catName={result.cat.name}
             askEarTip={result.askEarTip}
             answers={answers}
-            onChange={setAnswers}
+            onChange={(patch) => setAnswers((prev) => ({ ...prev, ...patch }))}
             t={t}
           />
         </View>

@@ -13,7 +13,9 @@ interface SightingQuestionsProps {
    * (resolve's askEarTip; Q3 → B, asked once per cat). */
   askEarTip: boolean;
   answers: SightingAnswers;
-  onChange: (answers: SightingAnswers) => void;
+  /** Only what changed. The screen merges it into its latest answers, so
+   * two quick taps can never overwrite each other with a stale copy. */
+  onChange: (patch: Partial<SightingAnswers>) => void;
   t: (key: string) => string;
 }
 
@@ -33,7 +35,7 @@ export function SightingQuestions({
   const colors = useColors();
   const [earTipSkipped, setEarTipSkipped] = React.useState(false);
   const toggle = <K extends keyof SightingAnswers>(key: K, value: SightingAnswers[K]) =>
-    onChange({ ...answers, [key]: answers[key] === value ? null : value });
+    onChange({ [key]: answers[key] === value ? null : value } as Partial<SightingAnswers>);
 
   const showEarTip = askEarTip && !earTipSkipped;
 
@@ -83,7 +85,6 @@ export function SightingQuestions({
               active={answers.earTip === 'clipped'}
               onPress={() =>
                 onChange({
-                  ...answers,
                   earTip: answers.earTip === 'clipped' ? null : 'clipped',
                   earSide: null,
                 })
@@ -94,7 +95,6 @@ export function SightingQuestions({
               active={answers.earTip === 'looks_whole'}
               onPress={() =>
                 onChange({
-                  ...answers,
                   earTip: answers.earTip === 'looks_whole' ? null : 'looks_whole',
                   earSide: null,
                 })
@@ -105,7 +105,6 @@ export function SightingQuestions({
               active={answers.earTip === 'cant_tell'}
               onPress={() =>
                 onChange({
-                  ...answers,
                   earTip: answers.earTip === 'cant_tell' ? null : 'cant_tell',
                   earSide: null,
                 })
@@ -143,7 +142,7 @@ export function SightingQuestions({
             hitSlop={8}
             onPress={() => {
               setEarTipSkipped(true);
-              onChange({ ...answers, earTip: null, earSide: null });
+              onChange({ earTip: null, earSide: null });
             }}
             style={styles.skip}
           >
@@ -182,7 +181,7 @@ export function SightingQuestions({
           placeholder={t('notePlaceholder')}
           helper={t('noteHint')}
           value={answers.note}
-          onChangeText={(note) => onChange({ ...answers, note })}
+          onChangeText={(note) => onChange({ note })}
           maxLength={NOTE_MAX_LENGTH}
           multiline
           style={styles.note}
