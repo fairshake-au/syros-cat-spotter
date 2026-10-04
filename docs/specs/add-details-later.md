@@ -1,6 +1,6 @@
 # Adding details to a cat later, from the cat's page
 
-**Status:** Draft for Samuel's approval, 4 October 2026. Adversarial review done and folded in (§11; full review in [`reviews/add-details-later-review.md`](./reviews/add-details-later-review.md)).
+**Status:** Draft for Samuel's approval, 4 October 2026. An independent adversarial review found one serious problem (a late answer could have made a cat look recently seen). It is fixed here and in PR 7. All findings are folded in (§11; full review in [`reviews/add-details-later-review.md`](./reviews/add-details-later-review.md)).
 **Owner:** Samuel
 **Covers:** SYC-117 part 2, from the 29 September user-testing call (SYC-116): *"anyone must be able to answer [the details questions] later from the cat's page, not only in the moment."*
 **Builds on:** data spine PR 7, the questions on the reward screen (SYC-37, SYC-74; draft PR #72, waiting for SYC-79's photos). This spec changes two of PR 7's approved rules, on purpose, and says so in §5.
@@ -19,7 +19,7 @@ What they add is **tied to their own sighting**: to the photo they took and the 
 Three things change from PR 7, and each one is a decision for Samuel (§4):
 
 - **Who:** the people who spotted the cat, not literally anyone (Decision 1).
-- **How long:** 30 days after the sighting, not 24 hours (Decision 2).
+- **How long:** for a month after the photo was taken, not 24 hours (Decision 2).
 - **How often:** still once per question per sighting, and still once per cat for the ear tip. You can add what you skipped, but you can't change what you said (Decision 3).
 
 ---
@@ -53,7 +53,7 @@ Each of these is an answer we could have had and didn't get. Syros Cats can't ge
 > **You spotted Agatha on 3 October.** Anything to add?
 > *[Tell us more]*
 
-If they've spotted her more than once in the last 30 days, the card lists each sighting, newest first, with its small photo and date. Sightings with nothing left to answer don't appear. If nothing is left at all, the card isn't shown. Most visitors to a cat's page never see it, because most visitors haven't spotted that cat.
+If they've spotted her more than once in the last month, the card lists each sighting, newest first, with its small photo and date. Sightings with nothing left to answer don't appear. If nothing is left at all, the card isn't shown. Most visitors to a cat's page never see it, because most visitors haven't spotted that cat.
 
 **Tapping "Tell us more"** opens the same questions as the reward screen (PR 7's `SightingQuestions`), with the spotter's own photo at the top so they're answering about the right moment. It shows **only what they haven't answered yet**:
 
@@ -79,7 +79,7 @@ The ticket says "anyone". Taken literally, that means a box on every cat's page 
 
 | | **A. The people who spotted the cat, attached to their own sighting (recommended)** | **B. Anyone, attached to nothing** | **C. A, plus a note-only box for anyone who has ever spotted the cat** |
 |---|---|---|---|
-| **What the person sees** | The card appears only on cats they've spotted in the last 30 days | A "Tell us something about this cat" box on every cat's page, for everyone | A's card, plus a note box on any cat they've ever spotted |
+| **What the person sees** | The card appears only on cats they've photographed in the last month | A "Tell us something about this cat" box on every cat's page, for everyone | A's card, plus a note box on any cat they've ever spotted |
 | **Ear tip** | Counts as usual: it has the spotter's own photo behind it | **Can't count.** A clipped tip only reaches *Likely* with a photo (§4.2's rule). It would be stored and do nothing | As A |
 | **"Is this cat alive?"** | Dated to the sighting, so it says "seen on 3 October", which is true | **Dated today, by someone who may be on their sofa.** An ear-tip answer counts as evidence the cat was alive (§3.4), so a cat unseen for three years would quietly stop being "Not seen since…" because someone answered from memory | As A. Notes don't count as evidence of life |
 | **Abuse** | Limited to people who really photographed this cat | Anyone can write about any cat, including ones they've never seen. Notes are private, so nothing hostile is published, but the team's notes list fills with noise | Small: notes only, and only from past spotters |
@@ -91,13 +91,13 @@ The ticket says "anyone". Taken literally, that means a box on every cat's page 
 
 PR 7 accepts answers for 24 hours after the match. That was set for the reward screen, where answers arrive within seconds. It's the rule this feature pushes against hardest.
 
-| | **A. Keep 24 hours** | **B. 30 days (recommended)** | **C. No limit** |
-|---|---|---|---|
-| **What the person sees** | The card disappears the next day | The card stays for a month after each sighting | The card stays for ever, for every cat they've ever spotted |
-| **Benefits** | No change to PR 7 | Covers "back at the hotel tonight", "looked at my photos at the weekend" and "home from holiday". 30 days is already the app's limit for how old a sighting's date can be (`captureTime.ts`), so it matches a rule people have already met | Nothing is ever lost |
-| **Risks** | Barely helps: most of the value is in the evening and the days after | A month-old memory of an ear can be wrong. The photo is still there to look at, which helps | Year-old answers from memory. A permanent card on every cat page they've visited. Their answers keep arriving long after they could check the photo |
+| | **A. Keep 24 hours** | **B. 30 days after the photo was taken (recommended)** | **C. 30 days after the match** | **D. No limit** |
+|---|---|---|---|---|
+| **What the person sees** | The card disappears the next day | The card stays until a month after they took the photo | The card stays for a month after the app matched the cat | The card stays for ever, for every cat they've ever spotted |
+| **Benefits** | No change to PR 7 | Covers "back at the hotel tonight", "looked at my photos at the weekend" and "home from holiday". 30 days is already the app's limit for how old a sighting's date can be, so it matches a rule people have already met. And the answer's date never needs adjusting (see below) | Everyone gets a full month, even for a photo that synced late | Nothing is ever lost |
+| **Risks** | Barely helps: most of the value is in the evening and the days after | A photo that waited in the phone's queue for weeks before it synced gets less time: one taken 25 days ago and synced today leaves 5 days. Rare, because most photos sync within the day | **Answers could end up wrongly dated.** The app won't accept a public date more than 30 days old; it quietly moves it to "30 days ago". A late-synced photo answered weeks later would have its answer re-dated weeks newer than the real sighting (found in review, §11) | Year-old answers from memory. A permanent card on every cat page they've visited |
 
-**Recommendation: B, 30 days.** It turns "lost" into "later" for nearly every case, and it's the same limit the app already uses for dates. The answer is still about the original moment, so it's dated to the photo, not to the day it was typed.
+**Recommendation: B, a month from the photo.** It turns "lost" into "later" for nearly every case. It's the same limit the app already uses for dates, so every answer can keep the true date of the photo, and that is what stops a late answer from making a cat look more recently seen. (PR 7 also now counts an answer only through its sighting when working out when a cat was last seen alive, so even a wrongly dated answer couldn't move that. Belt and braces.)
 
 ### Decision 3 · Can a spotter change an answer, or answer the ear tip again?
 
@@ -135,7 +135,7 @@ A smaller choice, with a clear default: the card sits **on the cat's page, under
 
 | PR 7 rule (approved) | This spec, if Decisions 2 and 3 go as recommended | Why it's safe |
 |---|---|---|
-| Answers are accepted **within 24 hours** of the match | **30 days** for the ear tip and the note; food and water stays at 24 hours | Every answer is still dated to the photo, not to the day it's typed, so a late answer can't make a cat look recently seen. Public answers can't be dated more than 30 days back anyway (§10.1) |
+| Answers are accepted **within 24 hours** of the match | Ear tip and note: **until 30 days after the photo was taken**. Food and water: still 24 hours after the match | Every answer keeps the true date of the photo, never the day it's typed, and a month from the photo is inside the app's 30-day limit on public dates, so no date is ever moved. And an answer only counts through its sighting when working out when the cat was last seen alive (PR 7), so a late answer can't make a cat look recently seen |
 | **One set of answers per sighting** | **Each question once per sighting**; ear tip still **once per cat** (Q3 → B unchanged) | Nothing is ever overwritten; observations stay append-only. A spotter can only fill gaps they left |
 
 Nothing else in PR 7 changes. The questions, wording, example photo, privacy of the note, and the "Probably sterilised stays hidden until Syros Cats can correct it" rule (Q2 → A) all carry over as they are.
@@ -146,19 +146,19 @@ Nothing else in PR 7 changes. The questions, wording, example photo, privacy of 
 
 No migration. Everything below rides on PR 7.
 
-- **`POST /sightings/{id}/answers`** (PR 7) changes in two ways. Its window becomes per question: `ear_tip` and `note` for 30 days after the match, and `food_and_water` for 24 hours. The window is still timed from the match record's `chosen_at`, then the resolve's `cat_updates` row, then the capture time, exactly as PR 7 does. And "already answered" becomes per question: a second `note` for the same sighting is refused, but a `note` after an earlier `food_and_water` is accepted. The ear tip stays once per device per cat. A request with a mix of open and already-answered questions records the open ones and reports which it recorded (PR 7 already does this for the ear tip).
-- **New `GET /cats/{catId}/my-open-sightings`**, device-authenticated (`X-Device-Secret`, the same check resolve uses). It returns this device's resolved sightings of this cat from the last 30 days that still have an open question. Each one has its id, capture date, its photo's opaque URL, and which questions are still open. It answers only about the caller's own sightings, so it reveals nothing about anyone else. Its payload carries no coordinates.
+- **`POST /sightings/{id}/answers`** (PR 7) changes in two ways. Its window becomes per question: `ear_tip` and `note` are accepted until **30 days after the sighting's capture time** (`sightings.created_at`), and `food_and_water` for 24 hours after the match, timed as PR 7 does (the match record's `chosen_at`, then the resolve's `cat_updates` row, then the capture time). Measuring the long window from the capture time keeps every answer's `observedAt` inside `writeObservation`'s 30-day public limit, so the date is never clamped. And "already answered" becomes per question: a second `note` for the same sighting is refused, but a `note` after an earlier `food_and_water` is accepted. The ear tip stays once per device per cat. A request with a mix of open and already-answered questions records the open ones and reports which it recorded (PR 7 already does this for the ear tip).
+- **New `GET /cats/{catId}/my-open-sightings`**, device-authenticated (`X-Device-Secret`, the same check resolve uses). It returns this device's resolved sightings of this cat, taken in the last 30 days, that still have an open question. Each one has its id, capture date, its photo's opaque URL, and which questions are still open. It answers only about the caller's own sightings, so it reveals nothing about anyone else. Its payload carries no coordinates.
 - **The app.** A `MoreToAdd` card on `app/cat/[id].tsx`, fed by that endpoint, shown only with signal and only when it has something. The sheet reuses `SightingQuestions` with a new `questions` prop (which to show) and the sighting's own photo, and sends through the same `answersRequest`.
-- **Every answer is still written by `writeObservation`** with the sighting's `photoId`, `observedAt` = the sighting's capture time, role `public`, provenance `volunteered`. So: a clipped answer reaches *Likely* only with its photo, as always; the answer adds no new evidence of life beyond the sighting it belongs to (the sighting itself already counts); and deleting a person (SYC-63) severs these rows like any other device-authored observation.
+- **Every answer is still written by `writeObservation`** with the sighting's `photoId`, `observedAt` = the sighting's capture time, role `public`, provenance `volunteered`. So: a clipped answer reaches *Likely* only with its photo, as always; deleting a person (SYC-63) severs these rows like any other device-authored observation; and the answer adds no evidence of life of its own, because `loadCatRecords` counts an ear-tip answer that belongs to a sighting only through that sighting, at its true date (PR 7, after this spec's review).
 - **Rate limits.** The card's endpoint is cheap and device-scoped; it sits behind the same device check as resolve. Answers are bounded by the number of the device's own sightings, which are already rate-limited at upload.
 
 ---
 
 ## 7. Tests that must exist
 
-1. A spotter can add the ear tip or a note to their own sighting 10 days later. The answer's `observedAt` is the photo's capture time, not the day it was sent.
-2. **A late answer never makes a cat look more recently seen.** An ear-tip answer sent today on a 20-day-old sighting leaves the cat's "last evidence of life" at that sighting's date, not today.
-3. Answers after 30 days are refused. Food and water after 24 hours is refused (Decision 4 A).
+1. A spotter can add the ear tip or a note to their own sighting 10 days later. The answer's `observedAt` is exactly the photo's capture time, not the day it was sent, and not moved.
+2. **A late answer never makes a cat look more recently seen.** An ear-tip answer sent today on a 20-day-old sighting leaves the cat's "last evidence of life" at that sighting's date, not today. And the edge the review found: a sighting captured 29 days ago, synced and matched today, accepts an answer today and refuses one in two days; no answer is ever stored with a moved date.
+3. Ear tip and note answers more than 30 days after the photo was taken are refused. Food and water more than 24 hours after the match is refused (Decision 4 A).
 4. Each question once per sighting: food and water on the reward screen, then a note later, both land; a second note is refused.
 5. The ear tip stays once per device per cat across sightings, the reward screen and the cat's page (Q3 → B), including two sends at once.
 6. `my-open-sightings` returns only the caller's own sightings, refuses a wrong secret, never includes coordinates, another person's sighting, or any answer text, and is empty when nothing is open.
@@ -174,6 +174,7 @@ No migration. Everything below rides on PR 7.
 - **Sex, age and health.** Not asked anywhere today. Health worries already have their own route: the "This cat needs help" report (SYC-42).
 - **Owners and cat guardians adding authoritative facts** ("she was spayed in 2023"). That's a different authority, not a spotter's observation, and it belongs with roles (SYC-53) and the team's correction tools.
 - **Showing notes, answers and food and water to the team.** That's the staff dashboard (SYC-43).
+- **A sighting the team moves to a different cat** (SYC-150, not built yet). Its answers were written against the first cat. Whoever builds moving a sighting must decide what happens to its answers, and must make sure `my-open-sightings` then shows the sighting under its new cat only. Flagged here so it isn't missed (review finding 3).
 
 ---
 
@@ -193,4 +194,4 @@ Code only; no migration. It ships after PR 7 (it extends PR 7's endpoint and com
 
 ## 11. Review
 
-An independent adversarial review (Sonnet, its own worktree) checked this spec against the data spine, PR 7's code and DECISIONS.md, on 4 October 2026. Findings and how each was folded in are in [`reviews/add-details-later-review.md`](./reviews/add-details-later-review.md).
+An independent adversarial review (Sonnet, in its own worktree) checked this spec against the data spine, PR 7's code and DECISIONS.md on 4 October 2026. Its one serious finding: a late answer could have been stored with a date weeks newer than its photo, and made the cat look more recently seen. That's now fixed twice, in PR 7's code and in Decision 2's recommendation. Everything else held up or is folded in. The full findings, and what changed for each, are in [`reviews/add-details-later-review.md`](./reviews/add-details-later-review.md).
