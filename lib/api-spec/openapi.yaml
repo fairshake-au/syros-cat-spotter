@@ -237,6 +237,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /sightings/{sightingId}/answers:
+    post:
+      operationId: answerSightingQuestions
+      tags: [sightings]
+      summary: Answer the optional questions asked after the points (ear tip, food and water, note)
+      description: >-
+        Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan
+        Conflicts C5). Sent after resolve, from the reward screen, so nothing
+        stands between a spotter and their points. Accepted once per
+        sighting, within 24 hours of its resolve, from the sighting's own
+        device (which must prove its secret). Each answer is written as its
+        own observation about the cat; the sightings row is never updated.
+        Every field is optional; a request with none of them writes nothing.
+        The note is seen only by the Syros Cats team and never appears in a
+        public payload.
+      parameters:
+        - name: sightingId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SightingAnswersRequest"
+      responses:
+        "200":
+          description: Answers recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SightingAnswersResult"
+        "400":
+          description: Malformed answers
+        "403":
+          description: Not this device's sighting
+        "404":
+          description: Sighting not found
+        "409":
+          description: >-
+            NOT_RESOLVED (the sighting has no cat yet), ALREADY_ANSWERED (this
+            sighting's answers were already recorded), or
+            EAR_TIP_ALREADY_ANSWERED (this device has already answered the
+            ear-tip question for this cat; each spotter is asked once per cat)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "422":
+          description: ANSWERS_CLOSED (more than 24 hours since the sighting was resolved)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /cats/name-suggestions:
     post:
       operationId: suggestCatNames
@@ -894,7 +949,47 @@ components:
           items: { type: string }
         profile:
           $ref: "#/components/schemas/Profile"
-      required: [cat, pointsAwarded, isNewCat, newBadges, profile]
+        askEarTip:
+          type: boolean
+          description: >-
+            Whether to ask this spotter the ear-tip question about this cat.
+            False once this device has given any ear-tip answer for this cat
+            ("clipped", "looks whole" or "can't tell"), so each spotter is
+            asked once per cat (data spine plan, decision Q3 → B).
+      required: [cat, pointsAwarded, isNewCat, newBadges, profile, askEarTip]
+    SightingAnswersRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          description: Device credential of the sighting owner; must match the sighting
+        earTip:
+          type: string
+          enum: [clipped_left, clipped_right, clipped_unsure, looks_whole, cant_tell]
+          description: >-
+            Is the ear tip clipped? "clipped_unsure" means clipped, but the
+            spotter isn't sure which ear. Omit to skip.
+        foodAndWater:
+          type: string
+          enum: ["yes", "no", cant_tell]
+          description: Do they have food and water? Omit to skip.
+        note:
+          type: string
+          maxLength: 500
+          description: >-
+            "Anything you noticed?" Seen only by the Syros Cats team, never
+            published. Blank is treated as skipped.
+      required: [deviceId]
+    SightingAnswersResult:
+      type: object
+      properties:
+        recorded:
+          type: array
+          description: Which answers were written (empty if everything was skipped)
+          items:
+            type: string
+            enum: [ear_tip, food_and_water, note]
+      required: [recorded]
     UpdateProfileRequest:
       type: object
       properties:

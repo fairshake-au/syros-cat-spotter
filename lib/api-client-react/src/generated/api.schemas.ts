@@ -401,6 +401,62 @@ export interface ResolveResult {
   isNewCat: boolean;
   newBadges: string[];
   profile: Profile;
+  /** Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat ("clipped", "looks whole" or "can't tell"), so each spotter is asked once per cat (data spine plan, decision Q3 → B). */
+  askEarTip: boolean;
+}
+
+/**
+ * Is the ear tip clipped? "clipped_unsure" means clipped, but the spotter isn't sure which ear. Omit to skip.
+ */
+export type SightingAnswersRequestEarTip = typeof SightingAnswersRequestEarTip[keyof typeof SightingAnswersRequestEarTip];
+
+
+export const SightingAnswersRequestEarTip = {
+  clipped_left: 'clipped_left',
+  clipped_right: 'clipped_right',
+  clipped_unsure: 'clipped_unsure',
+  looks_whole: 'looks_whole',
+  cant_tell: 'cant_tell',
+} as const;
+
+/**
+ * Do they have food and water? Omit to skip.
+ */
+export type SightingAnswersRequestFoodAndWater = typeof SightingAnswersRequestFoodAndWater[keyof typeof SightingAnswersRequestFoodAndWater];
+
+
+export const SightingAnswersRequestFoodAndWater = {
+  yes: 'yes',
+  no: 'no',
+  cant_tell: 'cant_tell',
+} as const;
+
+export interface SightingAnswersRequest {
+  /** Device credential of the sighting owner; must match the sighting */
+  deviceId: string;
+  /** Is the ear tip clipped? "clipped_unsure" means clipped, but the spotter isn't sure which ear. Omit to skip. */
+  earTip?: SightingAnswersRequestEarTip;
+  /** Do they have food and water? Omit to skip. */
+  foodAndWater?: SightingAnswersRequestFoodAndWater;
+  /**
+     * "Anything you noticed?" Seen only by the Syros Cats team, never published. Blank is treated as skipped.
+     * @maxLength 500
+     */
+  note?: string;
+}
+
+export type SightingAnswersResultRecordedItem = typeof SightingAnswersResultRecordedItem[keyof typeof SightingAnswersResultRecordedItem];
+
+
+export const SightingAnswersResultRecordedItem = {
+  ear_tip: 'ear_tip',
+  food_and_water: 'food_and_water',
+  note: 'note',
+} as const;
+
+export interface SightingAnswersResult {
+  /** Which answers were written (empty if everything was skipped) */
+  recorded: SightingAnswersResultRecordedItem[];
 }
 
 export interface UpdateProfileRequest {

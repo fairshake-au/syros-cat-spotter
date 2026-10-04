@@ -46,6 +46,8 @@ import type {
   ResolveConflictBody,
   ResolveResult,
   ResolveSightingRequest,
+  SightingAnswersRequest,
+  SightingAnswersResult,
   SuggestCatNamesRequest,
   SuggestCatNamesResult,
   UpdateProfileRequest,
@@ -746,6 +748,79 @@ export const useResolveSighting = <TError = ErrorType<void | ResolveConflictBody
         TContext
       > => {
       return useMutation(getResolveSightingMutationOptions(options));
+    }
+
+export const getAnswerSightingQuestionsUrl = (sightingId: number,) => {
+
+
+
+
+  return `/api/sightings/${sightingId}/answers`
+}
+
+/**
+ * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5). Sent after resolve, from the reward screen, so nothing stands between a spotter and their points. Accepted once per sighting, within 24 hours of its resolve, from the sighting's own device (which must prove its secret). Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. The note is seen only by the Syros Cats team and never appears in a public payload.
+ * @summary Answer the optional questions asked after the points (ear tip, food and water, note)
+ */
+export const answerSightingQuestions = async (sightingId: number,
+    sightingAnswersRequest: SightingAnswersRequest, options?: RequestInit): Promise<SightingAnswersResult> => {
+
+  return customFetch<SightingAnswersResult>(getAnswerSightingQuestionsUrl(sightingId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sightingAnswersRequest)
+  }
+);}
+
+
+
+
+
+export const getAnswerSightingQuestionsMutationOptions = <TError = ErrorType<void | ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof answerSightingQuestions>>, TError,{sightingId: number;data: BodyType<SightingAnswersRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof answerSightingQuestions>>, TError,{sightingId: number;data: BodyType<SightingAnswersRequest>}, TContext> => {
+
+const mutationKey = ['answerSightingQuestions'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof answerSightingQuestions>>, {sightingId: number;data: BodyType<SightingAnswersRequest>}> = (props) => {
+          const {sightingId,data} = props ?? {};
+
+          return  answerSightingQuestions(sightingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AnswerSightingQuestionsMutationResult = NonNullable<Awaited<ReturnType<typeof answerSightingQuestions>>>
+    export type AnswerSightingQuestionsMutationBody = BodyType<SightingAnswersRequest>
+    export type AnswerSightingQuestionsMutationError = ErrorType<void | ApiErrorBody>
+
+    /**
+ * @summary Answer the optional questions asked after the points (ear tip, food and water, note)
+ */
+export const useAnswerSightingQuestions = <TError = ErrorType<void | ApiErrorBody>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof answerSightingQuestions>>, TError,{sightingId: number;data: BodyType<SightingAnswersRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof answerSightingQuestions>>,
+        TError,
+        {sightingId: number;data: BodyType<SightingAnswersRequest>},
+        TContext
+      > => {
+      return useMutation(getAnswerSightingQuestionsMutationOptions(options));
     }
 
 export const getSuggestCatNamesUrl = () => {

@@ -14,4 +14,6 @@ export interface ResolveResult {
   isNewCat: boolean;
   newBadges: string[];
   profile: Profile;
+  /** Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat ("clipped", "looks whole" or "can't tell"), so each spotter is asked once per cat (data spine plan, decision Q3 → B). */
+  askEarTip: boolean;
 }

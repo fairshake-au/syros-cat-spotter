@@ -341,7 +341,32 @@ export const ResolveSightingResponse = zod.object({
   "currentStreakDays": zod.number().describe('Consecutive days (Europe\/Athens) with at least one resolved sighting. Survives a day not yet spotted; breaks after a full missed day.'),
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
   "totalCats": zod.number().describe('Size of the whole cat-alog — the denominator in \"12 of 142\".')
+}),
+  "askEarTip": zod.boolean().describe('Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat (\"clipped\", \"looks whole\" or \"can\'t tell\"), so each spotter is asked once per cat (data spine plan, decision Q3 → B).')
 })
+
+
+/**
+ * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5). Sent after resolve, from the reward screen, so nothing stands between a spotter and their points. Accepted once per sighting, within 24 hours of its resolve, from the sighting's own device (which must prove its secret). Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. The note is seen only by the Syros Cats team and never appears in a public payload.
+ * @summary Answer the optional questions asked after the points (ear tip, food and water, note)
+ */
+export const AnswerSightingQuestionsParams = zod.object({
+  "sightingId": zod.coerce.number()
+})
+
+export const answerSightingQuestionsBodyNoteMax = 500;
+
+
+
+export const AnswerSightingQuestionsBody = zod.object({
+  "deviceId": zod.string().describe('Device credential of the sighting owner; must match the sighting'),
+  "earTip": zod.enum(['clipped_left', 'clipped_right', 'clipped_unsure', 'looks_whole', 'cant_tell']).optional().describe('Is the ear tip clipped? \"clipped_unsure\" means clipped, but the spotter isn\'t sure which ear. Omit to skip.'),
+  "foodAndWater": zod.enum(['yes', 'no', 'cant_tell']).optional().describe('Do they have food and water? Omit to skip.'),
+  "note": zod.string().max(answerSightingQuestionsBodyNoteMax).optional().describe('\"Anything you noticed?\" Seen only by the Syros Cats team, never published. Blank is treated as skipped.')
+})
+
+export const AnswerSightingQuestionsResponse = zod.object({
+  "recorded": zod.array(zod.enum(['ear_tip', 'food_and_water', 'note'])).describe('Which answers were written (empty if everything was skipped)')
 })
 
 
