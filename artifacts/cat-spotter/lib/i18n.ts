@@ -232,6 +232,18 @@ const en: Dict = {
   tryLabel: 'Try:',
   addToCatalogButton: 'Add to the cat-alogue 🐾',
   desexedBadge: 'Desexed',
+  // ---- Data spine PR 4: the life line and sterilised line (spec
+  // cat-record-data-spine.md §3.5, §4.2). Drafts flagged for a native
+  // check on SYC-4 (fr/el below) -- English is authoritative here.
+  lifeStatusStreet: 'Lives on the street',
+  lifeStatusHomed: 'Has a home',
+  lifeStatusInCare: "In Syros Cats' care",
+  lifeStatusDeceased: 'No longer with us',
+  notSeenSince: 'Not seen since {date}',
+  sterilisedConfirmedTrue: 'Sterilised — confirmed by Syros Cats',
+  sterilisedConfirmedFalse: "Not sterilised — Syros Cats' records",
+  sterilisedLikely: 'Probably sterilised — a clipped ear tip has been seen',
+  sterilisedUnknown: 'Not known yet',
   timesSpottedStat: 'Times spotted',
   fansStat: 'Fans',
   careTimelineTitle: 'Care timeline',
@@ -303,6 +315,10 @@ const en: Dict = {
   pickerNoSignalStay: 'No signal. Keep this screen open and try again when you\'re back online.',
   pickerOfflineStale: 'Showing the cats saved on your phone. New ones may be missing.',
   pickerNoResults: 'No cats around here match "{text}".',
+  // SYC-119 Slice D (data spine PR 4): a cat recorded as deceased is greyed
+  // out in this list rather than hidden, so a spotter who really is looking
+  // at that cat understands why they can't pick it.
+  pickerDeceased: 'No longer with us',
   pickerEmpty: 'No cats are known around here yet.',
   nameTakenIsThis: 'There\'s already a cat called {name}. Is this them?',
   nameTakenYes: 'Yes, that\'s them',
@@ -566,6 +582,16 @@ const el: Dict = {
   tryLabel: 'Δοκίμασε:',
   addToCatalogButton: 'Πρόσθεσε στον γατά-λογο 🐾',
   desexedBadge: 'Στειρωμένη',
+  // DRAFT — needs a native Greek check (SYC-4) before launch.
+  lifeStatusStreet: 'Ζει στο δρόμο',
+  lifeStatusHomed: 'Έχει σπίτι',
+  lifeStatusInCare: 'Υπό τη φροντίδα των Syros Cats',
+  lifeStatusDeceased: 'Δεν είναι πια μαζί μας',
+  notSeenSince: 'Δεν έχει παρατηρηθεί από {date}',
+  sterilisedConfirmedTrue: 'Στειρωμένη — επιβεβαιωμένο από τους Syros Cats',
+  sterilisedConfirmedFalse: 'Μη στειρωμένη — αρχείο Syros Cats',
+  sterilisedLikely: 'Πιθανώς στειρωμένη — έχει παρατηρηθεί κομμένη άκρη αυτιού',
+  sterilisedUnknown: 'Δεν είναι γνωστό ακόμη',
   timesSpottedStat: 'Φορές που εντοπίστηκε',
   fansStat: 'Θαυμαστές',
   careTimelineTitle: 'Ιστορικό φροντίδας',
@@ -635,6 +661,8 @@ const el: Dict = {
   pickerNoSignalStay: 'Δεν υπάρχει σήμα. Κράτα αυτή την οθόνη ανοιχτή και δοκίμασε ξανά όταν έχεις σύνδεση.',
   pickerOfflineStale: 'Εμφανίζονται οι γάτες που είναι αποθηκευμένες στο κινητό σου. Μπορεί να λείπουν οι νεότερες.',
   pickerNoResults: 'Καμία γάτα εδώ γύρω δεν ταιριάζει με «{text}».',
+  // DRAFT — needs a native Greek check (SYC-4) before launch.
+  pickerDeceased: 'Δεν είναι πια μαζί μας',
   pickerEmpty: 'Δεν ξέρουμε ακόμα γάτες εδώ γύρω.',
   nameTakenIsThis: 'Υπάρχει ήδη γάτα με το όνομα {name}. Είναι αυτή;',
   nameTakenYes: 'Ναι, αυτή είναι',
@@ -895,6 +923,16 @@ const fr: Dict = {
   tryLabel: 'Essaie :',
   addToCatalogButton: 'Ajouter au cat-alogue 🐾',
   desexedBadge: 'Stérilisé',
+  // DRAFT — needs a native French check (SYC-4) before launch.
+  lifeStatusStreet: 'Vit dans la rue',
+  lifeStatusHomed: 'A un foyer',
+  lifeStatusInCare: 'Pris en charge par Syros Cats',
+  lifeStatusDeceased: "N'est plus parmi nous",
+  notSeenSince: 'Pas vu depuis {date}',
+  sterilisedConfirmedTrue: 'Stérilisé — confirmé par Syros Cats',
+  sterilisedConfirmedFalse: 'Non stérilisé — dossier de Syros Cats',
+  sterilisedLikely: 'Probablement stérilisé — une oreille coupée a été observée',
+  sterilisedUnknown: 'Pas encore connu',
   timesSpottedStat: 'Fois repéré',
   fansStat: 'Fans',
   careTimelineTitle: 'Suivi des soins',
@@ -965,6 +1003,8 @@ const fr: Dict = {
   pickerNoSignalStay: 'Pas de réseau. Garde cet écran ouvert et réessaie quand tu seras de nouveau connecté·e.',
   pickerOfflineStale: 'Chats enregistrés sur ton téléphone. Les plus récents peuvent manquer.',
   pickerNoResults: 'Aucun chat du coin ne correspond à « {text} ».',
+  // DRAFT — needs a native French check (SYC-4) before launch.
+  pickerDeceased: "N'est plus parmi nous",
   pickerEmpty: 'Aucun chat connu dans le coin pour l\'instant.',
   nameTakenIsThis: 'Il y a déjà un chat appelé {name}. Est-ce lui ?',
   nameTakenYes: 'Oui, c\'est lui',

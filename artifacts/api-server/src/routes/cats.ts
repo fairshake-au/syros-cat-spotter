@@ -17,10 +17,12 @@ import {
 } from "@workspace/db";
 import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
 import {
+  deriveCatStatuses,
   fansCount,
   listCatsWithStats,
   photoUrl,
   spotterCode,
+  type DerivedCatStatus,
 } from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
 import { suggestCatNames } from "../lib/nameSuggestions";
@@ -28,6 +30,7 @@ import { aiLimiter } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { writeObservation } from "../lib/observations";
+import { logRouteDuration } from "../lib/requestTiming";
 
 const router: IRouter = Router();
 
@@ -51,14 +54,23 @@ async function catPayload(
   cat: Cat,
   sightingsCount: number,
   lastSeenAt: string,
+  derived?: DerivedCatStatus,
 ) {
-  const [profile] = await db
-    .select({
-      nickname: profilesTable.nickname,
-      username: profilesTable.username,
-    })
-    .from(profilesTable)
-    .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
+  const [profile, status] = await Promise.all([
+    db
+      .select({
+        nickname: profilesTable.nickname,
+        username: profilesTable.username,
+      })
+      .from(profilesTable)
+      .where(eq(profilesTable.deviceId, cat.discovererDeviceId))
+      .then((r) => r[0]),
+    derived
+      ? Promise.resolve(derived)
+      : deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }]).then(
+          (m) => m.get(cat.id)!,
+        ),
+  ]);
   return {
     id: cat.id,
     name: cat.name,
@@ -73,7 +85,7 @@ async function catPayload(
     discovererUsername: profile?.username ?? null,
     ownerName: cat.ownerName,
     homeDescription: cat.homeDescription,
-    hasHome: cat.ownerDeviceId !== null,
+    ...status,
   };
 }
 
@@ -91,12 +103,14 @@ async function sightingsCountFor(catId: number): Promise<number> {
 }
 
 router.get("/cats", async (req, res) => {
+  const startedAt = performance.now();
   const lat = req.query.lat !== undefined ? Number(req.query.lat) : undefined;
   const lng = req.query.lng !== undefined ? Number(req.query.lng) : undefined;
   const cats = await listCatsWithStats(
     Number.isFinite(lat) ? lat : undefined,
     Number.isFinite(lng) ? lng : undefined,
   );
+  logRouteDuration(req, "GET /cats", startedAt, { count: cats.length });
   res.json(cats);
 });
 
@@ -159,6 +173,7 @@ router.post("/cats", async (req, res) => {
 });
 
 router.get("/cats/:catId", async (req, res) => {
+  const startedAt = performance.now();
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });
@@ -224,13 +239,15 @@ router.get("/cats/:catId", async (req, res) => {
       .then((r) => r[0]),
   ]);
 
+  const catBody = await catPayload(
+    cat,
+    sightings.length,
+    sightings[0]?.sighting.createdAt.toISOString() ??
+      cat.createdAt.toISOString(),
+  );
+  logRouteDuration(req, "GET /cats/:id", startedAt, { catId });
   res.json({
-    cat: await catPayload(
-      cat,
-      sightings.length,
-      sightings[0]?.sighting.createdAt.toISOString() ??
-        cat.createdAt.toISOString(),
-    ),
+    cat: catBody,
     fansCount: fans,
     careTimeline: [
       ...updates.map((u) => ({

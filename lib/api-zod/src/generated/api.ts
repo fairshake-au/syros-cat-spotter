@@ -52,7 +52,14 @@ export const RegisterCatResponse = zod.object({
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
-  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
+  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
+  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
+  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
+  "sterilised": zod.object({
+  "value": zod.boolean().nullable(),
+  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
+  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
 })
 
 
@@ -79,7 +86,14 @@ export const ListCatsResponseItem = zod.object({
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
-  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
+  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
+  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
+  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
+  "sterilised": zod.object({
+  "value": zod.boolean().nullable(),
+  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
+  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
 })
 export const ListCatsResponse = zod.array(ListCatsResponseItem)
 
@@ -107,7 +121,14 @@ export const GetCatResponse = zod.object({
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
-  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
+  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
+  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
+  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
+  "sterilised": zod.object({
+  "value": zod.boolean().nullable(),
+  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
+  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
 }),
   "sightings": zod.array(zod.object({
   "id": zod.number(),
@@ -164,7 +185,14 @@ export const UpdateCatResponse = zod.object({
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
-  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
+  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
+  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
+  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
+  "sterilised": zod.object({
+  "value": zod.boolean().nullable(),
+  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
+  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
 })
 
 
@@ -200,7 +228,14 @@ export const ClaimCatResponse = zod.object({
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
-  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
+  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
+  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
+  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
+  "sterilised": zod.object({
+  "value": zod.boolean().nullable(),
+  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
+  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
 })
 
 
@@ -280,7 +315,14 @@ export const ResolveSightingResponse = zod.object({
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
-  "hasHome": zod.boolean().describe('Whether a resident has claimed this cat as having a home')
+  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
+  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
+  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
+  "sterilised": zod.object({
+  "value": zod.boolean().nullable(),
+  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
+  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
 }),
   "pointsAwarded": zod.number(),
   "isNewCat": zod.boolean(),
