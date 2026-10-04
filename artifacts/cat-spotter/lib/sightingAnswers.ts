@@ -64,8 +64,7 @@ export function answersRequest(
  * What to do when sending the answers fails.
  *
  * - "done": the server already has this sighting's answers (the first send
- *   got through but its reply was lost), or this device had already
- *   answered the ear tip for this cat. Nothing to retry; carry on.
+ *   got through but its reply was lost). Nothing to retry; carry on.
  * - "closed": too late (more than 24 hours since the match) or the sighting
  *   can't take answers. Retrying won't help; carry on without them.
  * - "retry": no signal or a server hiccup. Offer to try again, or to carry
@@ -76,7 +75,7 @@ export function answersRequest(
 export function classifyAnswersError(err: unknown): 'done' | 'closed' | 'retry' {
   if (!(err instanceof ApiError)) return 'retry';
   const code = (err.data as { code?: string } | null)?.code;
-  if (code === 'ALREADY_ANSWERED' || code === 'EAR_TIP_ALREADY_ANSWERED') return 'done';
+  if (code === 'ALREADY_ANSWERED') return 'done';
   if (code === 'ANSWERS_CLOSED' || code === 'NOT_RESOLVED') return 'closed';
   if (err.status >= 400 && err.status < 500) return 'closed';
   return 'retry';

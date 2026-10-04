@@ -12,6 +12,7 @@ import {
   sightingMatchesTable,
   profilesTable,
   observationsTable,
+  catUpdatesTable,
   foldName,
   type SuggestedMatch,
 } from "@workspace/db";
@@ -845,14 +846,31 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
 
   // `sightings` has no resolved-at column, and PR 7 adds no migration. The
   // match record's chosen_at is written at resolve (SYC-151), so it is the
-  // resolve time. If that best-effort write failed, fall back to the
-  // sighting's capture time, which is always earlier than its resolve: the
-  // fallback can only close the window sooner, never keep it open longer.
+  // resolve time. That write is best effort, so if it failed, the resolve's
+  // own "spotted again" cat_updates row (written straight after, and not
+  // best effort: resolve fails if it can't be written) stands in. Only if
+  // both are missing does the window count from the sighting's capture
+  // time, which is always earlier than its resolve: the last fallback can
+  // only close the window sooner, never keep it open longer. (Review of
+  // PR 7: without the middle step, a failed match-record write on a
+  // sighting synced days late refused answers moments after the points.)
   const [match] = await db
     .select({ chosenAt: sightingMatchesTable.chosenAt })
     .from(sightingMatchesTable)
     .where(eq(sightingMatchesTable.sightingId, sightingId));
-  const resolvedAt = match?.chosenAt ?? sighting.createdAt;
+  let resolvedAt = match?.chosenAt ?? null;
+  if (resolvedAt == null) {
+    const [update] = await db
+      .select({ createdAt: catUpdatesTable.createdAt })
+      .from(catUpdatesTable)
+      .where(eq(catUpdatesTable.triggerSightingId, sightingId))
+      .limit(1);
+    resolvedAt = update?.createdAt ?? sighting.createdAt;
+    req.log.warn(
+      { sightingId, fallback: update ? "cat_update" : "capture_time" },
+      "No match record for a resolved sighting; timing its answers from a fallback",
+    );
+  }
   if (Date.now() - resolvedAt.getTime() > ANSWER_WINDOW_MS) {
     res.status(422).json({
       error: "The questions for this sighting have closed",
@@ -875,13 +893,15 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
   }
 
   const ALREADY_ANSWERED = { code: "ALREADY_ANSWERED" } as const;
-  const EAR_TIP_ALREADY_ANSWERED = { code: "EAR_TIP_ALREADY_ANSWERED" } as const;
+  let written = answers;
   try {
     await db.transaction(async (tx) => {
       // Serialise every answer this device sends about this cat, so neither
       // "once per sighting" nor "ear tip once per cat" can be beaten by two
       // requests sent at once. An advisory lock, not SELECT ... FOR UPDATE on
       // the sighting, so nothing here even looks like a sightings update.
+      // hashtext is 32-bit, so two devices can share a key: that only makes
+      // them wait for each other briefly; the checks below are exact.
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtext(${`sighting-answers:${sighting.deviceId}`}), ${catId})`,
       );
@@ -896,11 +916,17 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
         )
         .limit(1);
       if (existing) throw ALREADY_ANSWERED;
+      // Ask once per cat (Q3 → B). A second ear-tip answer can only arrive
+      // when two sightings of the same cat were resolved before either was
+      // answered (both said askEarTip: true). Drop just that answer and keep
+      // the rest: food and water and the note are about this moment, and
+      // losing them would be a worse outcome than the duplicate it prevents.
+      // (Review of PR 7: this used to refuse the whole set.)
       if (body.earTip && (await hasAnsweredEarTip(tx, sighting.deviceId, catId))) {
-        throw EAR_TIP_ALREADY_ANSWERED;
+        written = answers.filter((a) => a.kind !== "ear_tip");
       }
 
-      for (const a of answers) {
+      for (const a of written) {
         await writeObservation(tx, {
           catId,
           kind: a.kind,
@@ -926,17 +952,10 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       });
       return;
     }
-    if (err === EAR_TIP_ALREADY_ANSWERED) {
-      res.status(409).json({
-        error: "You've already told us about this cat's ear tip",
-        code: "EAR_TIP_ALREADY_ANSWERED",
-      });
-      return;
-    }
     throw err;
   }
 
-  res.json({ recorded: answers.map((a) => a.kind) });
+  res.json({ recorded: written.map((a) => a.kind) });
 });
 
 export default router;

@@ -74,12 +74,11 @@ describe('classifyAnswersError', () => {
     expect(classifyAnswersError(apiError(500, { error: 'x' }))).toBe('retry');
   });
 
-  it.each(['ALREADY_ANSWERED', 'EAR_TIP_ALREADY_ANSWERED'])(
-    '%s means the answers are already in: carry on',
-    (code) => {
-      expect(classifyAnswersError(apiError(409, { error: 'x', code }))).toBe('done');
-    },
-  );
+  it('ALREADY_ANSWERED means the answers are already in: carry on', () => {
+    expect(
+      classifyAnswersError(apiError(409, { error: 'x', code: 'ALREADY_ANSWERED' })),
+    ).toBe('done');
+  });
 
   it.each([
     [422, 'ANSWERS_CLOSED'],

@@ -250,6 +250,9 @@ paths:
         device (which must prove its secret). Each answer is written as its
         own observation about the cat; the sightings row is never updated.
         Every field is optional; a request with none of them writes nothing.
+        Each spotter answers the ear-tip question once per cat: an ear-tip
+        answer from a device that has already given one for this cat is
+        dropped (left out of `recorded`), and the other answers are kept.
         The note is seen only by the Syros Cats team and never appears in a
         public payload.
       parameters:
@@ -278,10 +281,8 @@ paths:
           description: Sighting not found
         "409":
           description: >-
-            NOT_RESOLVED (the sighting has no cat yet), ALREADY_ANSWERED (this
-            sighting's answers were already recorded), or
-            EAR_TIP_ALREADY_ANSWERED (this device has already answered the
-            ear-tip question for this cat; each spotter is asked once per cat)
+            NOT_RESOLVED (the sighting has no cat yet) or ALREADY_ANSWERED
+            (this sighting's answers were already recorded)
           content:
             application/json:
               schema:

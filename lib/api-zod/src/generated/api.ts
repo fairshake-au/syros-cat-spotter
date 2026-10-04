@@ -347,7 +347,7 @@ export const ResolveSightingResponse = zod.object({
 
 
 /**
- * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5). Sent after resolve, from the reward screen, so nothing stands between a spotter and their points. Accepted once per sighting, within 24 hours of its resolve, from the sighting's own device (which must prove its secret). Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. The note is seen only by the Syros Cats team and never appears in a public payload.
+ * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5). Sent after resolve, from the reward screen, so nothing stands between a spotter and their points. Accepted once per sighting, within 24 hours of its resolve, from the sighting's own device (which must prove its secret). Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. Each spotter answers the ear-tip question once per cat: an ear-tip answer from a device that has already given one for this cat is dropped (left out of `recorded`), and the other answers are kept. The note is seen only by the Syros Cats team and never appears in a public payload.
  * @summary Answer the optional questions asked after the points (ear tip, food and water, note)
  */
 export const AnswerSightingQuestionsParams = zod.object({

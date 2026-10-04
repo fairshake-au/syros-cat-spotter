@@ -21,8 +21,10 @@ import {
   profilesTable,
   sightingsTable,
   sightingMatchesTable,
+  catUpdatesTable,
+  notificationsTable,
 } from "@workspace/db";
-import { and, eq, like, sql } from "drizzle-orm";
+import { and, eq, inArray, like, sql } from "drizzle-orm";
 
 vi.mock("../lib/matching", () => ({
   matchCatPhoto: vi.fn(async () => ({ isCatPhoto: true, matches: [] })),
@@ -307,7 +309,7 @@ describe("POST /api/sightings/:id/answers", () => {
     expect((await answer(sighting.id, device, { foodAndWater: "yes" })).status).toBe(200);
   });
 
-  it("without a match record, the 24 hours count from the capture time, never later", async () => {
+  it("without a match record, the 24 hours count from the resolve's update, then the capture time, never later", async () => {
     // A sighting taken two days ago and synced from the offline queue now:
     // its match record says it was resolved just now, so answers are open.
     const catId = await seedCat();
@@ -316,15 +318,33 @@ describe("POST /api/sightings/:id/answers", () => {
     expect((await resolve(old.id, device, { catId })).status).toBe(200);
     expect((await answer(old.id, device, { foodAndWater: "yes" })).status).toBe(200);
 
-    // Without that record (a best-effort write that failed), the server
-    // falls back to the capture time, which can only be earlier than the
-    // resolve, so the fallback is stricter, never looser.
+    // Without that record (a best-effort write that failed), the resolve's
+    // own cat_updates row stands in, so answers are still open...
     const orphan = await insertSighting(device, new Date(Date.now() - 48 * 3_600_000));
     expect((await resolve(orphan.id, device, { catId })).status).toBe(200);
     await db
       .delete(sightingMatchesTable)
       .where(eq(sightingMatchesTable.sightingId, orphan.id));
-    const res = await answer(orphan.id, device, { foodAndWater: "yes" });
+    expect((await answer(orphan.id, device, { foodAndWater: "yes" })).status).toBe(200);
+
+    // ...and only with neither does it fall back to the capture time, which
+    // is always earlier than the resolve: stricter, never looser.
+    const bare = await insertSighting(device, new Date(Date.now() - 48 * 3_600_000));
+    expect((await resolve(bare.id, device, { catId })).status).toBe(200);
+    await db
+      .delete(sightingMatchesTable)
+      .where(eq(sightingMatchesTable.sightingId, bare.id));
+    const updates = await db
+      .select({ id: catUpdatesTable.id })
+      .from(catUpdatesTable)
+      .where(eq(catUpdatesTable.triggerSightingId, bare.id));
+    if (updates.length > 0) {
+      await db.delete(notificationsTable).where(
+        inArray(notificationsTable.catUpdateId, updates.map((u) => u.id)),
+      );
+    }
+    await db.delete(catUpdatesTable).where(eq(catUpdatesTable.triggerSightingId, bare.id));
+    const res = await answer(bare.id, device, { foodAndWater: "yes" });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ANSWERS_CLOSED");
   });
@@ -342,7 +362,7 @@ describe("POST /api/sightings/:id/answers", () => {
     expect(res.status).toBe(404);
   });
 
-  it("an ear-tip answer for a cat this device has already answered about is refused", async () => {
+  it("a second ear-tip answer for the same cat is dropped, and the other answers are still recorded", async () => {
     const catId = await seedCat();
     const first = await resolvedSighting(catId);
     await answer(first.sighting.id, first.device, { earTip: "cant_tell" });
@@ -352,10 +372,42 @@ describe("POST /api/sightings/:id/answers", () => {
     const res = await answer(second.id, first.device, {
       earTip: "clipped_left",
       foodAndWater: "yes",
+      note: "same cat, ten minutes later",
     });
-    expect(res.status).toBe(409);
-    expect(res.body.code).toBe("EAR_TIP_ALREADY_ANSWERED");
-    expect(await observationsForSighting(second.id)).toHaveLength(0);
+    expect(res.status).toBe(200);
+    expect(res.body.recorded.sort()).toEqual(["food_and_water", "note"]);
+    const kinds = (await observationsForSighting(second.id)).map((r) => r.kind).sort();
+    expect(kinds).toEqual(["food_and_water", "note"]);
+  });
+
+  it("two sightings of the same cat answered at once record only one ear-tip answer", async () => {
+    // Both resolved before either was answered, so both were asked.
+    const catId = await seedCat();
+    const first = await resolvedSighting(catId);
+    const second = await insertSighting(first.device);
+    expect((await resolve(second.id, first.device, { catId })).body.askEarTip).toBe(true);
+
+    const results = await Promise.all([
+      answer(first.sighting.id, first.device, { earTip: "clipped_left", foodAndWater: "yes" }),
+      answer(second.id, first.device, { earTip: "looks_whole", foodAndWater: "no" }),
+    ]);
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+    const earTips = await db
+      .select()
+      .from(observationsTable)
+      .where(
+        and(
+          eq(observationsTable.catId, catId),
+          eq(observationsTable.deviceId, first.device),
+          eq(observationsTable.kind, "ear_tip"),
+        ),
+      );
+    expect(earTips).toHaveLength(1);
+    const food = await db
+      .select()
+      .from(observationsTable)
+      .where(and(eq(observationsTable.catId, catId), eq(observationsTable.kind, "food_and_water")));
+    expect(food).toHaveLength(2);
   });
 
   it.each([
