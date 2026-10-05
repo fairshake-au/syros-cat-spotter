@@ -34,20 +34,24 @@ Branch: `claude/syc-211-username-claim-fixes`
    unrecognised `aria-*`/`data-*` props) so `.disabled` is directly
    queryable. Commit c472e46.
 
+3. `artifacts/cat-spotter/components/__tests__/UsernameEditor.test.tsx` —
+   4 tests, all fail today for the right reason (F1 Cancel disabled
+   while pending/uncertain, F1 firm-409-retry leaves input read-only
+   forever, F5 double tap sends 2 requests, F7 "Cat  Lover" -> server
+   "Cat Lover" never accepted because the reconcile compare is a strict
+   `toLowerCase()` only). Save/Cancel have no `accessibilityRole`, so
+   queried by text + the Pressable's own `aria-disabled` attribute, not
+   `getByRole('button')`. Commit 5dfacd2.
+4. Regression check: `lib/usernameClaim.test.ts`,
+   `components/__tests__/OnboardingFlow.test.tsx`,
+   `components/__tests__/SafetyStep.test.tsx` — all still pass (18/18).
+   Combined run of all 3 new files: 10 failed / 2 passed, consistent
+   with the per-file counts — no cross-file interference.
+
 ## Next
 
-3. `artifacts/cat-spotter/components/__tests__/UsernameEditor.test.tsx` —
-   same shape for the editor (F1 Cancel always enabled + firm-rejection
-   unlock, F5 double tap -> one request), plus F7 (whitespace-normalized
-   reconcile: "Cat  Lover" submitted, server returns "Cat Lover",
-   accepted as claimed). Note from the LanguageUsernameStep file: probe
-   first with `/tmp` DOM dumps if a Pressable's disabled state isn't
-   showing up as expected — UsernameEditor's Save/Cancel Pressables have
-   no `accessibilityRole`, so they render as plain `<div>` with
-   `aria-disabled`/`tabindex`, not a `<button>`; query by text + closest
-   ancestor attribute, not `getByRole('button')`.
-4. Push branch: `git push -u origin claude/syc-211-username-claim-fixes`.
-5. Write the final report for the caller (status of every test today,
+5. Push branch: `git push -u origin claude/syc-211-username-claim-fixes`.
+6. Write the final report for the caller (status of every test today,
    commit SHAs, anything not expressible as a test).
 
 ## Hang hazard (read before running vitest again)
