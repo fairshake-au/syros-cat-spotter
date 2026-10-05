@@ -1,6 +1,6 @@
 # Adding details to a cat later: implementation plan (SYC-117 part 2)
 
-**Spec:** `docs/specs/add-details-later.md`, approved by Samuel on 5 October 2026 (`DECISIONS.md` Part 2k). Decisions 1, 2 and 5 as recommended; Decisions 3 and 4 as B.
+**Spec:** `docs/specs/add-details-later.md`, approved by Samuel on 5 October 2026 (`DECISIONS.md` Part 2l). Decisions 1, 2 and 5 as recommended; Decisions 3 and 4 as B.
 **Builds on:** data spine PR 7 (#72): `POST /sightings/{id}/answers`, `askEarTip`, `SightingQuestions`. This work is stacked on PR 7's branch and merges after it.
 **Go-ahead:** Samuel, 5 October 2026: "pls proceed", without waiting for the ear-tip photo. The plan ships in the same PR as the build for him to read alongside it.
 
