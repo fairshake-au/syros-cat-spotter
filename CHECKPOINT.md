@@ -11,9 +11,26 @@ Delete this file before merge.
 - [x] `people.ts`: both readers refuse left; `markLeft`; `addPerson` rejoins (roles replaced, name updated, added_by kept); `removePerson` maps FK refusal (23503) to "has history". Store tests P0-2..P0-5 in `lib/db/src/migrate/peopleLeft.test.ts`.
 - [x] CLI: `mark-left` (confirms address), `list` shows LEFT + header count, `add` says "Rejoined". Tests in `cli.test.ts`.
 - [x] Tests P0-1 (`artifacts/api-server/src/routes/team.left.test.ts`), P0-2..5 (`lib/db/src/migrate/peopleLeft.test.ts`).
-- [ ] Mutation probes, recorded below.
+- [x] Mutation probes, recorded below.
+- [x] Runbook `docs/runbooks/neon-database.md` updated.
 - [ ] PR, adversarial review, SYC-43 comment, SYC-131 update.
 
 ## Local test setup (cloud container)
 `service postgresql start`; env: DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres,
 AI_INTEGRATIONS_OPENAI_BASE_URL=http://127.0.0.1:9, AI_INTEGRATIONS_OPENAI_API_KEY=ci-dummy-not-a-key.
+
+## Mutation probes (each: break the line, run, restore with `git checkout -- <file>`, confirmed clean)
+| # | Mutation | Red |
+|---|---|---|
+| M1 (P0-1, plan's) | `findPersonById` without the left_at check | hand-off, requireTeam (Worker stays green) |
+| M2 (P0-1, plan's) | `findAllowedPerson` without the left_at check | Worker's question |
+| M3 (P0-2, plan's) | `markLeft` without the session_version raise | P0-2 + 3 others |
+| M4 (P0-3) | `addPerson` treats a left address as "already on the list" | P0-3 (2 tests) |
+| M5 (P0-3) | rejoin doesn't clear left_at/left_by | P0-3 (2 tests) |
+| M6 (P0-3) | rejoin doesn't raise session_version | P0-3 main test |
+| M7 (P0-4) | `removePerson` doesn't reword the FK refusal | P0-4 store + CLI |
+| M8 (P0-5) | rollback doesn't drop left_by | P0-5 up/down/up |
+| M9 (P0-5) | rollback without the "someone has left" guard | P0-5 guard test |
+| M10 (CLI) | `list` doesn't mark left people | CLI list test |
+
+Full suites after: db 206 passed, api-server 631 passed, migrate:check ok, typechecks clean.

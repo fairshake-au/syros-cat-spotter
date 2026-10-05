@@ -30,7 +30,7 @@ gh run view --log
 
 The list of people who can sign in to the staff dashboard (SYC-43) is managed through `db-ops` until the people screen exists (SYC-104). `people-add` and `people-list` run against `development` or `production` only.
 
-**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in two short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`. They're set from a terminal tab just before the run and deleted straight after. The script masks both before doing anything else and refuses to show output that contains either. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions and who added each person, never an address or a name.
+**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in two short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`. They're set from a terminal tab just before the run and deleted straight after. The script masks both before doing anything else and refuses to show output that contains either. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions, who added each person, and, for anyone marked as left, `LEFT` with when and by whom. Never an address or a name. `people-add` for an address that has left brings back the same person (same id, history intact) and says "Rejoined".
 
 **Seeding Samuel and Jacky after the cutover — the post-go-live procedure for any production database change (SYC-121/SYC-178).** Since go-live, every production database change (this migration, then the seed) follows the same five steps, in order. **The old Replit project is retired and must never be published again** — all of this targets the EU (new) Replit project only.
 
@@ -66,7 +66,7 @@ gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --
 gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --log
 ```
 
-To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Removing someone and "sign out everywhere" aren't `db-ops` commands yet. They need the address typed twice, so they wait for the people screen (SYC-104). For development, swap in `--env development` and `target=development`.
+To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Someone who leaves is **marked as left** (`people mark-left`), not removed (SYC-43 part 2, Decision 7): they can't sign in, their sessions end at their next request, and everything they did stays attributed to them. `people remove` is only for a mistaken add, and refuses anyone with history. Marking as left, removing and "sign out everywhere" aren't `db-ops` commands yet. They need the address typed twice; `people-mark-left` is SYC-131, and the people screen is SYC-104. For development, swap in `--env development` and `target=development`.
 
 The workflow never prints a connection string — only host names, counts and hashes. If a log ever shows one, that's a bug: stop and fix `scripts/db-ops.sh` before running it again.
 
