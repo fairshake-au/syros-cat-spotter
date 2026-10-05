@@ -1,6 +1,6 @@
 # SYC-43 part 2: the welfare queue and the corrections screens
 
-**Status: all seven decisions made by Samuel, 5 Oct 2026 (1–6 as recommended; 7 as "strict link + mark as left", see below). The plan as a whole still awaits his approval. Plan only, nothing is built. Adversarially reviewed (Sonnet critic, 4 Oct 2026): 2 blockers, 1 major and 2 minor findings, all folded in (see "Review").**
+**Status: approved. All seven decisions made by Samuel, 5 Oct 2026 (1–6 as recommended; 7 as "strict link + mark as left", see below). **Plan approved by Samuel, 5 Oct 2026.** Nothing is built yet; the build starts with PR 0. Adversarially reviewed (Sonnet critic, 4 Oct 2026): 2 blockers, 1 major and 2 minor findings, all folded in (see "Review").**
 **Spec:** `docs/specs/team-access-and-welfare-queue.md` (approved 28 Sep 2026) §3.1, §3.3, §3.6, §4.3 (report photos), §5.3(h) (closing states), §7.3, §8.4–§8.6. `DECISIONS.md` wins where they differ (F1, Part 2b, 2g, 2i, 2j). The record model is `docs/specs/cat-record-data-spine.md` (§4.5, §10.1, §10.3, §10.7).
 **Linear:** SYC-43 (this part), and SYC-42 Slices 2 and 5.1, which this plan carries out (Decision 2). It touches SYC-44, SYC-150, SYC-152, SYC-163, SYC-185 and SYC-198.
 **Checked against:** `origin/main` at `a7eec8f` (4 Oct 2026), open PRs #46 and #71, the branch `claude/spine-pr7-questions`, and Linear SYC-43 in full with its comments. Every "exists today" claim below names the file it was read in.
