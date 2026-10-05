@@ -83,7 +83,7 @@ availability wait and availability gate (F2 was onboarding-only).
   brief; needs Samuel's call. Suggested fix: make that test's late-failure
   read return `{ username: null }` (server didn't save NameA). That exact
   scenario is already pinned in `LanguageUsernameStep.reconcile.test.tsx`.
-- Full app suite: 70 files, 682 tests, 1 failure (the above). CI typecheck
+- Full app suite: 70 files, 684 tests, 683 pass, 1 failure (the above). CI typecheck
   (`typecheck:libs`, cat-spotter, api-server): all exit 0.
 
 ### Mutation check (each applied alone, run, reverted with git checkout)
