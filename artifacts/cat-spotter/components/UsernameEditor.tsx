@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,7 +20,9 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
-import { AVAILABILITY_WAIT_MS, claimAndReconcile, withDeadline, withUpdatedUsername } from '@/lib/usernameClaim';
+import { AVAILABILITY_WAIT_MS, withDeadline, withUpdatedUsername } from '@/lib/usernameClaim';
+import { sameUsername } from '@/lib/usernameNormalize';
+import { useUsernameClaim } from '@/hooks/useUsernameClaim';
 
 const MIN_LEN = 3;
 
@@ -39,11 +41,7 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [claimError, setClaimError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [uncertainName, setUncertainName] = useState<string | null>(null);
-  const outstanding = useRef(0);
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(draft.trim()), 400);
@@ -52,8 +50,7 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
 
   const trimmed = draft.trim();
   const longEnough = trimmed.length >= MIN_LEN;
-  const isCurrent =
-    !!currentUsername && trimmed.toLowerCase() === currentUsername.toLowerCase();
+  const isCurrent = sameUsername(trimmed, currentUsername);
   const checkEnabled =
     isOnline && editing && debounced.length >= MIN_LEN && !isCurrent;
 
@@ -78,11 +75,19 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
     queryClient.invalidateQueries({ queryKey: key });
     queryClient.invalidateQueries({ queryKey: getGetLeaderboardQueryKey() });
     setEditing(false);
-    setUncertainName(null);
     setDraft('');
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const {
+    submit: claim,
+    pending,
+    uncertainName,
+    claimError,
+    setClaimError,
+    isRejectedName,
+  } = useUsernameClaim({ deviceId, t, onClaimed });
 
   const checking =
     !isCurrent && longEnough && (availability.isFetching || debounced !== trimmed);
@@ -125,32 +130,17 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
     return null;
   }, [editing, trimmed, isCurrent, longEnough, isOnline, checking, available, taken, availability.data, availability.isError, t, colors]);
 
-  const canSubmit = (available || uncertainName === trimmed) && isOnline && !!deviceId && !pending;
+  // The editor still waits for availability (SYC-211 kept F2 to onboarding).
+  // While a rename is uncertain, only the same-name retry is offered.
+  const canSubmit =
+    isOnline &&
+    !!deviceId &&
+    !pending &&
+    (uncertainName ? true : available && !isRejectedName(trimmed));
 
-  const submit = async () => {
-    if (!canSubmit || !deviceId) return;
-    setClaimError(null);
-    setPending(true);
-    outstanding.current++;
-    const outcome = await claimAndReconcile(
-      deviceId, uncertainName ?? trimmed, onClaimed,
-      () => {
-        outstanding.current--;
-        if (outstanding.current === 0) setUncertainName(null);
-      },
-      undefined,
-      (name) => name.toLowerCase() === trimmed.toLowerCase(),
-    );
-    setPending(false);
-    if (outcome.kind === 'uncertain') {
-      if (outstanding.current > 0) setUncertainName(trimmed);
-      setClaimError(t('usernameClaimUncertain'));
-    } else if (outcome.kind === 'rejected') {
-      const e = outcome.error as { status?: number; data?: { code?: string } | null };
-      setClaimError(e?.data?.code === 'offensive_username'
-        ? t('usernameRejected')
-        : e?.status === 409 ? t('landingTaken') : e?.status === 400 ? t('landingInvalid') : t('error'));
-    }
+  const submit = () => {
+    if (!canSubmit) return;
+    void claim(trimmed);
   };
 
   return (
@@ -168,8 +158,9 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
           )}
           <Pressable
             onPress={() => {
-              setDraft(currentUsername ?? '');
-              setClaimError(null);
+              // An uncertain rename stays locked to its name until resolved.
+              setDraft(uncertainName ?? currentUsername ?? '');
+              setClaimError(uncertainName ? t('usernameClaimUncertain') : null);
               setEditing(true);
             }}
             style={[styles.editBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
@@ -241,7 +232,6 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
             </Text>
           )}
           <Pressable
-            disabled={pending || !!uncertainName}
             onPress={() => {
               setEditing(false);
               setDraft('');
