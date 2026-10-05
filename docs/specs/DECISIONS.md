@@ -258,6 +258,16 @@ Samuel decided these on the SYC-43 part 2 plan (`docs/superpowers/plans/syc-43-p
 - **"Looks right" on the Probably sterilised list records a team `ear_tip { clipped: true }`.** The cat stays *Likely* (a photo is never proof, §4.1) and leaves the review list until a newer spotter answer arrives.
 - **People who leave are marked as left, not deleted, and dashboard attribution is a strict database link to `people`.** This amends §2.9 and §10. "Removing somebody… one deletion" becomes **"marking somebody as left, one action in one place, takes effect at their next request in both systems"**. A person marked as left can't sign in, and their open sessions end. Their name stays on everything they did. Adding their address again brings back the same person. Hard deletion remains only for someone with no history (a mistaken add). Forgetting a former staff member's details is done by anonymising, never by deleting (SYC-208). Samuel chose this over storing ids without a link, after being shown that a strict link with deletion would make anyone who had ever touched a report impossible to remove.
 
+## Part 2l — approval of `add-details-later.md` (SYC-117 part 2), 5 October 2026
+
+Samuel **approved the spec on 5 October 2026**. It lets a spotter come back to a cat's page and add details about their own sighting of it. Where anything earlier in this document, `cat-record-data-spine.md` or the data spine plan's PR 7 says otherwise, these win.
+
+- **Who:** only people who spotted the cat, and what they add is tied to their own sighting (its photo and the date it was taken). Not a free box for anyone (Decision 1, as recommended).
+- **How long:** a month after the photo was taken, for all three questions (Decisions 2 and 4). This replaces PR 7's 24 hours after the match. **Food and water too (Decision 4 → B, not the recommendation)**: answers carry the photo's date, so the team reads them in the order the cat was actually seen.
+- **Changing an answer (Decision 3 → B, not the recommendation):** on the cat's page, a spotter can replace their own ear-tip answer. Only their own, only from a sighting of the cat in the last month, and never once Syros Cats have checked it. The old answer is kept, marked replaced. The reward screen still never asks about the same cat's ear twice (Q3 → B stands for the asking).
+- **Where:** the cat's page only, for now (Decision 5, as recommended).
+- **Each question once per sighting** replaces PR 7's "one set of answers per sighting".
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
