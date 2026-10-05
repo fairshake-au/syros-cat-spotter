@@ -48,11 +48,76 @@ Branch: `claude/syc-211-username-claim-fixes`
    Combined run of all 3 new files: 10 failed / 2 passed, consistent
    with the per-file counts — no cross-file interference.
 
+## Implementation (fix pass, 5 Oct)
+
+Done (commits on this branch, all pushed):
+
+- 8fa2cd3 F1 transport timeout: `lib/api-client-react/src/custom-fetch.ts`
+  aborts the username claim/read/availability routes after 30 s
+  (`USERNAME_REQUEST_TIMEOUT_MS`), rejects with `RequestTimeoutError` (no
+  status = unclear). Route-scoped plus a per-call `timeoutMs`; no global
+  default, so uploads are unchanged. Abort is also raced, so a runtime that
+  ignores the signal still settles.
+- d441fbd F1/F2/F3/F5 onboarding + `lib/usernameNormalize.ts` (server
+  normalisation mirror) + rewritten `lib/usernameClaim.ts` + shared
+  `hooks/useUsernameClaim.ts`.
+- 0085f25 F1/F5/F7 editor on the shared hook.
+- a783f46, a164f49 extra tests (companion reconcile tests, claim unit tests).
+
+Timers now: transport 30 s ends every request; CLAIM_WAIT_MS 8 s and
+RECONCILE_WAIT_MS 4 s are UI waits only; the onboarding availability check
+has no UI deadline (late answers kept). The editor keeps its 5 s
+availability wait and availability gate (F2 was onboarding-only).
+
+### Test status
+
+- 11 of the 12 new tests pass. **Not passing, by design:**
+  `LanguageUsernameStep.test.tsx > F3`. In its own scenario the
+  follow-up read after the late network failure reports the server holds
+  NameA, the name the spotter submitted. Approved behaviour 3 says to accept
+  a reconciled name equal to the submitted one, so onboarding correctly
+  opens as NameA (phone and server agree), and the test's
+  `not.toHaveBeenCalledWith('NameA')` fails. A probe confirmed
+  `setUsername('NameA')` happens at the late-failure step, before NameB is
+  ever typed. No correct implementation passes it. Left unedited per the
+  brief; needs Samuel's call. Suggested fix: make that test's late-failure
+  read return `{ username: null }` (server didn't save NameA). That exact
+  scenario is already pinned in `LanguageUsernameStep.reconcile.test.tsx`.
+- Full app suite: 70 files, 682 tests, 1 failure (the above). CI typecheck
+  (`typecheck:libs`, cat-spotter, api-server): all exit 0.
+
+### Mutation check (each applied alone, run, reverted with git checkout)
+
+Script: scratchpad `mutate.py`. The original F3 test fails in every run
+(baseline) and is not counted.
+
+| # | Mutation | Caught by |
+|---|---|---|
+| M0 | remove F5 ref guard | both F5 tests |
+| M1 | remove transport timeout | NetworkTimeout test + 2 customFetch.timeout tests |
+| M2 | default acceptor `() => true` | 2 reconcile component tests + 2 unit tests |
+| M3 | drop latest-name guard | stale-late-success unit test |
+| M4 | normaliser = `toLowerCase` only | editor F7, normalise tests, reconcile tests |
+| M5 | firm rejection keeps lock | both F1 firm-rejection tests |
+| M6 | Back disabled again | F1 Back test |
+| M7 | Cancel disabled again | F1 Cancel test |
+| M8 | Continue gated on `available` | F2 not-gated test |
+| M9 | known-taken no longer disables | F2 guard test |
+| M10 | late unclear failure skips read | 2 component + 2 unit tests |
+| M11 | failed read unlocks | read-fails-stays-locked test |
+| M12 | unlock with same-name request open | survived at first; killed by new test (a164f49) |
+| M13 | 5xx treated as firm | notSaved/unknown unit test |
+| M14 | recovery read overrides sent claim | survived at first; killed by new test (a164f49) |
+
+All reverted; `git status` clean after the run.
+
 ## Next
 
-5. Push branch: `git push -u origin claude/syc-211-username-claim-fixes`.
-6. Write the final report for the caller (status of every test today,
-   commit SHAs, anything not expressible as a test).
+- Samuel: decide on the contradicting F3 test (see above).
+- Not done (out of scope / deferred): F4 auto re-check while uncertain;
+  `usernameCheckFailed` copy still says "try another name" even though
+  Continue now works; editor availability gate and 5 s wait (F2 not
+  applied to the editor); F6 log redaction; P1.
 
 ## Hang hazard (read before running vitest again)
 
