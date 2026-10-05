@@ -206,11 +206,12 @@ describe("the people operations", () => {
   });
 
   it("finds, signs out everywhere and removes by address", async () => {
-    const p = await store.addPerson({
+    const { rejoined, ...p } = await store.addPerson({
       email: "susan@example.com",
       name: "Susan",
       addedBy: "cli:test",
     });
+    expect(rejoined).toBe(false);
     expect(await store.findAllowedPerson("SUSAN@example.com")).toEqual(p);
     expect(await store.signOutEverywhere("susan@example.com")).toBe(2);
     const byId = await store.findPersonById(p.id);

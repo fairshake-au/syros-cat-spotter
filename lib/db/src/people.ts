@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "./schema";
 import {
@@ -35,6 +35,20 @@ export class PeopleError extends Error {
     super(message);
     this.name = "PeopleError";
   }
+}
+
+/** removePerson's refusal for someone who has history (Decision 7). */
+export const HAS_HISTORY_MESSAGE =
+  "This person has history. Use mark-left instead.";
+
+/** Postgres' foreign_key_violation, wherever the driver's wrapper puts it. */
+function isForeignKeyViolation(err: unknown): boolean {
+  let e = err;
+  while (e && typeof e === "object") {
+    if ((e as { code?: unknown }).code === "23503") return true;
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
 }
 
 const UUID_RE =
@@ -85,12 +99,20 @@ export interface AddPersonInput {
   roles?: string[];
 }
 
+export interface MarkLeftResult {
+  id: string;
+  sessionVersion: number;
+}
+
 /**
  * The people operations, bound to one database. `@workspace/db` exports
  * these bound to the app's database; the `people` command and the tests bind
  * them to the database they name.
  */
 export function peopleStore(db: PeopleDb) {
+  // The one rule (Decision 7): a person with left_at set is not on the list.
+  // findAllowedPerson and findPersonById are every reader of "who is allowed
+  // in", and both apply it.
   async function findPersonByEmail(
     email: string,
   ): Promise<AllowedPerson | null> {
@@ -102,13 +124,40 @@ export function peopleStore(db: PeopleDb) {
         sessionVersion: peopleTable.sessionVersion,
       })
       .from(peopleTable)
-      .where(eq(peopleTable.email, normaliseEmail(email)));
+      .where(
+        and(
+          eq(peopleTable.email, normaliseEmail(email)),
+          isNull(peopleTable.leftAt),
+        ),
+      );
     return row ?? null;
   }
 
+  function removeInTransaction(email: string): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      const [person] = await tx
+        .select({ id: peopleTable.id })
+        .from(peopleTable)
+        .where(eq(peopleTable.email, email));
+      if (!person) return false;
+      await tx
+        .delete(personScopesTable)
+        .where(eq(personScopesTable.personId, person.id));
+      await tx.delete(peopleTable).where(eq(peopleTable.id, person.id));
+      return true;
+    });
+  }
+
   return {
-    /** One transaction: the person and their roles, or nothing. */
-    async addPerson(input: AddPersonInput): Promise<AllowedPerson> {
+    /**
+     * One transaction: the person and their roles, or nothing. An address
+     * that has left rejoins the same row (Decision 7): the same id, so their
+     * history stays theirs, with left_at cleared, a new session_version, and
+     * the roles given here in place of the ones they had.
+     */
+    async addPerson(
+      input: AddPersonInput,
+    ): Promise<AllowedPerson & { rejoined: boolean }> {
       const email = normaliseEmail(input.email);
       const check = checkPersonEmail(email);
       if (!check.ok) throw new PeopleError(check.reason);
@@ -127,11 +176,36 @@ export function peopleStore(db: PeopleDb) {
         // Looked up first, so a missing unique constraint can't let a second
         // row in quietly.
         const [existing] = await tx
-          .select({ id: peopleTable.id })
+          .select({ id: peopleTable.id, leftAt: peopleTable.leftAt })
           .from(peopleTable)
-          .where(eq(peopleTable.email, email));
-        if (existing)
+          .where(eq(peopleTable.email, email))
+          .for("update");
+        if (existing && existing.leftAt === null)
           throw new PeopleError("That address is already on the list.");
+        if (existing) {
+          const [person] = await tx
+            .update(peopleTable)
+            .set({
+              name,
+              leftAt: null,
+              leftBy: null,
+              sessionVersion: sql`${peopleTable.sessionVersion} + 1`,
+            })
+            .where(eq(peopleTable.id, existing.id))
+            .returning({
+              id: peopleTable.id,
+              name: peopleTable.name,
+              email: peopleTable.email,
+              sessionVersion: peopleTable.sessionVersion,
+            });
+          await tx
+            .delete(personScopesTable)
+            .where(eq(personScopesTable.personId, existing.id));
+          await tx
+            .insert(personScopesTable)
+            .values(roles.map((role) => ({ personId: existing.id, role })));
+          return { ...person!, rejoined: true };
+        }
         const id = crypto.randomUUID();
         const [person] = await tx
           .insert(peopleTable)
@@ -145,29 +219,63 @@ export function peopleStore(db: PeopleDb) {
         await tx
           .insert(personScopesTable)
           .values(roles.map((role) => ({ personId: id, role })));
-        return person!;
+        return { ...person!, rejoined: false };
       });
     },
 
     /**
-     * Deletes their roles, then the person, in one transaction. The cascade
-     * is declared too; deleting the roles here keeps removal correct even if
-     * it were ever missing. False if they weren't on the list.
+     * Marks this person as left (Decision 7): sets left_at and left_by and
+     * raises session_version in one transaction, so an open session dies at
+     * its next request even before the left_at check is reached. The row,
+     * and so everything attributed to them, stays. Null if the address isn't
+     * in the table at all.
      */
-    async removePerson(email: string): Promise<boolean> {
+    async markLeft(email: string, by: string): Promise<MarkLeftResult | null> {
       const normalised = normaliseEmail(email);
       return db.transaction(async (tx) => {
         const [person] = await tx
-          .select({ id: peopleTable.id })
+          .select({ id: peopleTable.id, leftAt: peopleTable.leftAt })
           .from(peopleTable)
-          .where(eq(peopleTable.email, normalised));
-        if (!person) return false;
-        await tx
-          .delete(personScopesTable)
-          .where(eq(personScopesTable.personId, person.id));
-        await tx.delete(peopleTable).where(eq(peopleTable.id, person.id));
-        return true;
+          .where(eq(peopleTable.email, normalised))
+          .for("update");
+        if (!person) return null;
+        // Marking again would overwrite when, and by whom, they left.
+        if (person.leftAt !== null) {
+          throw new PeopleError("That person is already marked as left.");
+        }
+        const [row] = await tx
+          .update(peopleTable)
+          .set({
+            leftAt: sql`now()`,
+            leftBy: by,
+            sessionVersion: sql`${peopleTable.sessionVersion} + 1`,
+          })
+          .where(eq(peopleTable.id, person.id))
+          .returning({
+            id: peopleTable.id,
+            sessionVersion: peopleTable.sessionVersion,
+          });
+        return row!;
       });
+    },
+
+    /**
+     * Hard deletion, only for someone with no history: a mistaken add
+     * (Decision 7). The database's strict links to people.id refuse it for
+     * anyone else, and that refusal becomes "use mark-left instead". Deletes
+     * their roles, then the person, in one transaction. The cascade is
+     * declared too; deleting the roles here keeps removal correct even if it
+     * were ever missing. False if they weren't in the table.
+     */
+    async removePerson(email: string): Promise<boolean> {
+      try {
+        return await removeInTransaction(normaliseEmail(email));
+      } catch (err) {
+        if (isForeignKeyViolation(err)) {
+          throw new PeopleError(HAS_HISTORY_MESSAGE);
+        }
+        throw err;
+      }
     },
 
     /** Signs this person out on every device. Their new version, or null. */
@@ -180,10 +288,13 @@ export function peopleStore(db: PeopleDb) {
       return row?.sessionVersion ?? null;
     },
 
-    /** Is this address on the list? */
+    /** Is this address on the list? Never for someone who has left. */
     findAllowedPerson: findPersonByEmail,
 
-    /** The person behind a hand-off pass or session, with their roles. */
+    /**
+     * The person behind a hand-off pass or session, with their roles. Never
+     * someone who has left.
+     */
     async findPersonById(id: string): Promise<PersonWithScopes | null> {
       // Anything that isn't a uuid would make Postgres throw; it simply isn't
       // on the list.
@@ -196,7 +307,7 @@ export function peopleStore(db: PeopleDb) {
           sessionVersion: peopleTable.sessionVersion,
         })
         .from(peopleTable)
-        .where(eq(peopleTable.id, id));
+        .where(and(eq(peopleTable.id, id), isNull(peopleTable.leftAt)));
       if (!person) return null;
       const scopes = await db
         .select({
@@ -213,12 +324,17 @@ export function peopleStore(db: PeopleDb) {
       };
     },
 
-    /** Everybody on the list, with their roles, oldest first. */
+    /**
+     * Everybody in the table, with their roles, oldest first. That includes
+     * people who have left (leftAt set), so the command can show them.
+     */
     async listPeople(): Promise<
       (AllowedPerson & {
         roles: string[];
         addedAt: Date;
         addedBy: string | null;
+        leftAt: Date | null;
+        leftBy: string | null;
       })[]
     > {
       const people = await db
@@ -233,6 +349,8 @@ export function peopleStore(db: PeopleDb) {
         sessionVersion: p.sessionVersion,
         addedAt: p.addedAt,
         addedBy: p.addedBy,
+        leftAt: p.leftAt,
+        leftBy: p.leftBy,
         roles: scopes
           .filter((s) => s.personId === p.id)
           .map((s) =>
