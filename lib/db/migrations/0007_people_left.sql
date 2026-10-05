@@ -1,0 +1,21 @@
+ALTER TABLE "people" ADD COLUMN "left_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "people" ADD COLUMN "left_by" text;
+-- SYC-43 part 2, PR 0 (Decision 7): people who leave are marked as left, not
+-- deleted. A person with left_at set is refused by findPersonById and
+-- findAllowedPerson (lib/db/src/people.ts), so they can't sign in and their
+-- sessions end.
+--
+-- CAUTION: dropping left_at would put everyone marked as left straight back
+-- on the list. So the rollback refuses while anyone is marked as left. Roll
+-- the app back first (docs/DEPLOYMENT.md §C), then deal with each left person
+-- by hand (hard-delete them if they have no history) before rolling back.
+-- rollback-begin
+-- DO $$
+-- BEGIN
+--   IF EXISTS (SELECT 1 FROM "people" WHERE "left_at" IS NOT NULL) THEN
+--     RAISE EXCEPTION 'people: someone is marked as left; dropping left_at would let them back in. Refusing.';
+--   END IF;
+-- END $$;
+-- ALTER TABLE "people" DROP COLUMN "left_by";
+-- ALTER TABLE "people" DROP COLUMN "left_at";
+-- rollback-end

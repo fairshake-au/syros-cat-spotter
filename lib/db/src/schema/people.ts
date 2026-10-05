@@ -56,6 +56,13 @@ export const peopleTable = pgTable(
     // The adder's person id, or `cli:<operator>`. No foreign key, like
     // colonies.created_by, so removing the adder never blocks anything.
     addedBy: text("added_by"),
+    // Set when this person has left (SYC-43 part 2, Decision 7). A person
+    // with left_at set is not on the list: they can't sign in, and their
+    // sessions end. The row stays, so everything they did stays attributed
+    // to them. Adding their address again clears it.
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    // Who marked them as left: a person id or `cli:<operator>`, like added_by.
+    leftBy: text("left_by"),
   },
   (t) => [
     check(
