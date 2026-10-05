@@ -177,14 +177,15 @@ describe('LanguageUsernameStep (SYC-211)', () => {
     await tick(12010);
 
     // Connection drops: fetch rejects with a network error. The POST to
-    // claim NameA may already have committed server-side.
+    // claim NameA may already have committed server-side, but the reconcile
+    // read finds nothing saved yet, so the input unlocks.
     h.read.mockReset();
-    h.read.mockImplementationOnce(() => Promise.resolve({ username: 'NameA' }));
+    h.read.mockImplementationOnce(() => Promise.resolve({ username: null }));
     await act(async () => { failA(new TypeError('Network request failed')); });
     await tick(10);
 
     // The spotter now picks NameB. Its POST is slow; the reconcile read
-    // still reports NameA (committed earlier). Onboarding must not open
+    // reports NameA (the earlier POST committed late). Onboarding must not open
     // under NameA when the spotter asked for NameB.
     h.claim.mockImplementationOnce(never);
     h.read.mockImplementationOnce(() => Promise.resolve({ username: 'NameA' }));
