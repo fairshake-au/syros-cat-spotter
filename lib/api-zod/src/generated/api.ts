@@ -347,7 +347,7 @@ export const ResolveSightingResponse = zod.object({
 
 
 /**
- * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5). Sent after resolve, from the reward screen, so nothing stands between a spotter and their points. Accepted once per sighting, within 24 hours of its resolve, from the sighting's own device (which must prove its secret). Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. Each spotter answers the ear-tip question once per cat: an ear-tip answer from a device that has already given one for this cat is dropped (left out of `recorded`), and the other answers are kept. The note is seen only by the Syros Cats team and never appears in a public payload.
+ * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5) and SYC-117 part 2 (add-details-later.md). Sent from the reward screen after the points, or later from the cat's page. Accepted until 30 days after the photo was taken, from the sighting's own device (which must prove its secret). Each question is answered once per sighting: an already-answered question in the request is left out of `recorded`, and the rest are kept. Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. Each spotter answers the ear-tip question once per cat: an ear-tip answer from a device that has already given one for this cat is dropped (left out of `recorded`), and the other answers are kept. The note is seen only by the Syros Cats team and never appears in a public payload.
  * @summary Answer the optional questions asked after the points (ear tip, food and water, note)
  */
 export const AnswerSightingQuestionsParams = zod.object({
@@ -362,11 +362,38 @@ export const AnswerSightingQuestionsBody = zod.object({
   "deviceId": zod.string().describe('Device credential of the sighting owner; must match the sighting'),
   "earTip": zod.enum(['clipped_left', 'clipped_right', 'clipped_unsure', 'looks_whole', 'cant_tell']).optional().describe('Is the ear tip clipped? \"clipped_unsure\" means clipped, but the spotter isn\'t sure which ear. Omit to skip.'),
   "foodAndWater": zod.enum(['yes', 'no', 'cant_tell']).optional().describe('Do they have food and water? Omit to skip.'),
-  "note": zod.string().max(answerSightingQuestionsBodyNoteMax).optional().describe('\"Anything you noticed?\" Seen only by the Syros Cats team, never published. Blank is treated as skipped.')
+  "note": zod.string().max(answerSightingQuestionsBodyNoteMax).optional().describe('\"Anything you noticed?\" Seen only by the Syros Cats team, never published. Blank is treated as skipped.'),
+  "changeEarTip": zod.boolean().optional().describe('With earTip: replace this device\'s own current ear-tip answer for this cat (from the cat\'s page). The old answer is kept, marked replaced. Refused with EAR_TIP_CHECKED once Syros Cats have checked it. Without this, a second ear-tip answer is left out.')
 })
 
 export const AnswerSightingQuestionsResponse = zod.object({
   "recorded": zod.array(zod.enum(['ear_tip', 'food_and_water', 'note'])).describe('Which answers were written (empty if everything was skipped)')
+})
+
+
+/**
+ * SYC-117 part 2 (add-details-later.md §6). Feeds the "Anything to add?" card on a cat's page. Only the caller's own resolved sightings of this cat, taken in the last 30 days, with something still open. Needs the device's secret. Carries no coordinates and no note text.
+ * @summary This device's recent sightings of a cat that still have questions open
+ */
+export const GetMyOpenSightingsParams = zod.object({
+  "deviceId": zod.coerce.string(),
+  "catId": zod.coerce.number()
+})
+
+export const GetMyOpenSightingsResponse = zod.object({
+  "earTip": zod.object({
+  "state": zod.enum(['open', 'answered', 'checked']),
+  "current": zod.enum(['clipped_left', 'clipped_right', 'clipped_unsure', 'looks_whole', 'cant_tell']).optional()
+}).describe('This device\'s ear-tip answer for this cat. \"open\": not answered yet. \"answered\": `current` is the answer, and it can be changed. \"checked\": Syros Cats have checked it; it can\'t be changed.'),
+  "sightings": zod.array(zod.object({
+  "sightingId": zod.number(),
+  "takenAt": zod.coerce.date(),
+  "photoUrl": zod.string().nullable(),
+  "open": zod.object({
+  "foodAndWater": zod.boolean(),
+  "note": zod.boolean()
+})
+}))
 })
 
 

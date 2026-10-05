@@ -443,6 +443,54 @@ export interface SightingAnswersRequest {
      * @maxLength 500
      */
   note?: string;
+  /** With earTip: replace this device's own current ear-tip answer for this cat (from the cat's page). The old answer is kept, marked replaced. Refused with EAR_TIP_CHECKED once Syros Cats have checked it. Without this, a second ear-tip answer is left out. */
+  changeEarTip?: boolean;
+}
+
+export type MyOpenSightingsEarTipState = typeof MyOpenSightingsEarTipState[keyof typeof MyOpenSightingsEarTipState];
+
+
+export const MyOpenSightingsEarTipState = {
+  open: 'open',
+  answered: 'answered',
+  checked: 'checked',
+} as const;
+
+export type MyOpenSightingsEarTipCurrent = typeof MyOpenSightingsEarTipCurrent[keyof typeof MyOpenSightingsEarTipCurrent];
+
+
+export const MyOpenSightingsEarTipCurrent = {
+  clipped_left: 'clipped_left',
+  clipped_right: 'clipped_right',
+  clipped_unsure: 'clipped_unsure',
+  looks_whole: 'looks_whole',
+  cant_tell: 'cant_tell',
+} as const;
+
+/**
+ * This device's ear-tip answer for this cat. "open": not answered yet. "answered": `current` is the answer, and it can be changed. "checked": Syros Cats have checked it; it can't be changed.
+ */
+export type MyOpenSightingsEarTip = {
+  state: MyOpenSightingsEarTipState;
+  current?: MyOpenSightingsEarTipCurrent;
+};
+
+export type OpenSightingOpen = {
+  foodAndWater: boolean;
+  note: boolean;
+};
+
+export interface OpenSighting {
+  sightingId: number;
+  takenAt: string;
+  photoUrl: string | null;
+  open: OpenSightingOpen;
+}
+
+export interface MyOpenSightings {
+  /** This device's ear-tip answer for this cat. "open": not answered yet. "answered": `current` is the answer, and it can be changed. "checked": Syros Cats have checked it; it can't be changed. */
+  earTip: MyOpenSightingsEarTip;
+  sightings: OpenSighting[];
 }
 
 export type SightingAnswersResultRecordedItem = typeof SightingAnswersResultRecordedItem[keyof typeof SightingAnswersResultRecordedItem];

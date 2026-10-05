@@ -20,4 +20,6 @@ export interface SightingAnswersRequest {
      * @maxLength 500
      */
   note?: string;
+  /** With earTip: replace this device's own current ear-tip answer for this cat (from the cat's page). The old answer is kept, marked replaced. Refused with EAR_TIP_CHECKED once Syros Cats have checked it. Without this, a second ear-tip answer is left out. */
+  changeEarTip?: boolean;
 }

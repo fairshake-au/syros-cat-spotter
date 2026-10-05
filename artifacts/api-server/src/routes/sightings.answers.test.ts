@@ -263,18 +263,28 @@ describe("POST /api/sightings/:id/answers", () => {
     expect(await observationsForSighting(sighting.id)).toHaveLength(0);
   });
 
-  it("a second set of answers is refused", async () => {
+  it("each question once per sighting: a repeated answer is dropped, a new question is still recorded (SYC-117 part 2)", async () => {
     const { device, sighting } = await resolvedSighting(await seedCat());
     expect((await answer(sighting.id, device, { foodAndWater: "yes" })).status).toBe(200);
 
     const second = await answer(sighting.id, device, {
       foodAndWater: "no",
-      note: "changed my mind",
+      note: "came back later to add this",
     });
-    expect(second.status).toBe(409);
-    expect(second.body.code).toBe("ALREADY_ANSWERED");
+    expect(second.status).toBe(200);
+    expect(second.body.recorded).toEqual(["note"]);
     const rows = await observationsForSighting(sighting.id);
-    expect(rows.map((r) => r.kind)).toEqual(["food_and_water"]);
+    expect(rows.map((r) => r.kind).sort()).toEqual(["food_and_water", "note"]);
+    expect(rows.find((r) => r.kind === "food_and_water")!.value).toEqual({ present: true });
+  });
+
+  it("a request with nothing left to record is ALREADY_ANSWERED", async () => {
+    const { device, sighting } = await resolvedSighting(await seedCat());
+    await answer(sighting.id, device, { foodAndWater: "yes", note: "first" });
+    const res = await answer(sighting.id, device, { foodAndWater: "no", note: "second" });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("ALREADY_ANSWERED");
+    expect(await observationsForSighting(sighting.id)).toHaveLength(2);
   });
 
   it("two sets of answers sent at once record only one", async () => {
@@ -287,66 +297,41 @@ describe("POST /api/sightings/:id/answers", () => {
     expect(await observationsForSighting(sighting.id)).toHaveLength(1);
   });
 
-  it("answers after 24 hours are refused", async () => {
-    const { device, sighting } = await resolvedSighting(await seedCat());
-    await db
-      .update(sightingMatchesTable)
-      .set({ chosenAt: new Date(Date.now() - 24 * 3_600_000 - 60_000) })
-      .where(eq(sightingMatchesTable.sightingId, sighting.id));
-
-    const res = await answer(sighting.id, device, { earTip: "clipped_left" });
-    expect(res.status).toBe(422);
-    expect(res.body.code).toBe("ANSWERS_CLOSED");
-    expect(await observationsForSighting(sighting.id)).toHaveLength(0);
-  });
-
-  it("answers just inside 24 hours are accepted", async () => {
-    const { device, sighting } = await resolvedSighting(await seedCat());
-    await db
-      .update(sightingMatchesTable)
-      .set({ chosenAt: new Date(Date.now() - 23 * 3_600_000) })
-      .where(eq(sightingMatchesTable.sightingId, sighting.id));
-    expect((await answer(sighting.id, device, { foodAndWater: "yes" })).status).toBe(200);
-  });
-
-  it("without a match record, the 24 hours count from the resolve's update, then the capture time, never later", async () => {
-    // A sighting taken two days ago and synced from the offline queue now:
-    // its match record says it was resolved just now, so answers are open.
+  it("answers are open for 30 days after the photo was taken, and keep its exact date (SYC-117 part 2)", async () => {
     const catId = await seedCat();
     const device = `${DEVICE}-${uid()}`;
-    const old = await insertSighting(device, new Date(Date.now() - 48 * 3_600_000));
-    expect((await resolve(old.id, device, { catId })).status).toBe(200);
-    expect((await answer(old.id, device, { foodAndWater: "yes" })).status).toBe(200);
-
-    // Without that record (a best-effort write that failed), the resolve's
-    // own cat_updates row stands in, so answers are still open...
-    const orphan = await insertSighting(device, new Date(Date.now() - 48 * 3_600_000));
-    expect((await resolve(orphan.id, device, { catId })).status).toBe(200);
-    await db
-      .delete(sightingMatchesTable)
-      .where(eq(sightingMatchesTable.sightingId, orphan.id));
-    expect((await answer(orphan.id, device, { foodAndWater: "yes" })).status).toBe(200);
-
-    // ...and only with neither does it fall back to the capture time, which
-    // is always earlier than the resolve: stricter, never looser.
-    const bare = await insertSighting(device, new Date(Date.now() - 48 * 3_600_000));
-    expect((await resolve(bare.id, device, { catId })).status).toBe(200);
-    await db
-      .delete(sightingMatchesTable)
-      .where(eq(sightingMatchesTable.sightingId, bare.id));
-    const updates = await db
-      .select({ id: catUpdatesTable.id })
-      .from(catUpdatesTable)
-      .where(eq(catUpdatesTable.triggerSightingId, bare.id));
-    if (updates.length > 0) {
-      await db.delete(notificationsTable).where(
-        inArray(notificationsTable.catUpdateId, updates.map((u) => u.id)),
-      );
+    // Taken 29 days ago, synced and matched today: still open, and the
+    // answer keeps the photo's date, not moved by the 30-day public limit.
+    const taken = new Date(Date.now() - 29 * 86_400_000);
+    const s29 = await insertSighting(device, taken);
+    expect((await resolve(s29.id, device, { catId })).status).toBe(200);
+    const res = await answer(s29.id, device, { earTip: "clipped_left", foodAndWater: "no" });
+    expect(res.status).toBe(200);
+    for (const row of await observationsForSighting(s29.id)) {
+      expect(row.observedAt.getTime()).toBe(s29.createdAt.getTime());
     }
-    await db.delete(catUpdatesTable).where(eq(catUpdatesTable.triggerSightingId, bare.id));
-    const res = await answer(bare.id, device, { foodAndWater: "yes" });
+  });
+
+  it("answers more than 30 days after the photo was taken are refused, however recently it was matched", async () => {
+    const catId = await seedCat();
+    const device = `${DEVICE}-${uid()}`;
+    const s31 = await insertSighting(device, new Date(Date.now() - 31 * 86_400_000));
+    expect((await resolve(s31.id, device, { catId })).status).toBe(200);
+    const res = await answer(s31.id, device, { foodAndWater: "yes", note: "late" });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("ANSWERS_CLOSED");
+    expect(await observationsForSighting(s31.id)).toHaveLength(0);
+  });
+
+  it("a late answer never makes the cat look more recently seen", async () => {
+    const catId = await seedCat();
+    const device = `${DEVICE}-${uid()}`;
+    const taken = new Date(Date.now() - 20 * 86_400_000);
+    const s20 = await insertSighting(device, taken);
+    await resolve(s20.id, device, { catId });
+    await answer(s20.id, device, { earTip: "looks_whole", foodAndWater: "yes", note: "late" });
+    const rec = (await loadCatRecords([catId])).get(catId)!;
+    expect(rec.evidenceOfLife!.at.getTime()).toBe(taken.getTime());
   });
 
   it("answers for a sighting that hasn't been resolved are refused", async () => {
