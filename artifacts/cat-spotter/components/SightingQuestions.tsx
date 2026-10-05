@@ -19,6 +19,14 @@ interface SightingQuestionsProps {
   t: (key: string) => string;
   /** Defaults to Syros Cats' example photo, once it exists (SYC-79). */
   examplePhoto?: ImageSourcePropType | null;
+  /** SYC-117 part 2, on the cat's page: which of the other two to ask. */
+  show?: { foodAndWater: boolean; note: boolean };
+  /** SYC-117 part 2: "answered" shows the spotter's earlier answer with a
+   * way to change it; "checked" means Syros Cats have checked it, so it
+   * can't be changed. The reward screen leaves this "open". */
+  earTipState?: 'open' | 'answered' | 'checked';
+  /** With "answered": the earlier answer, as words. */
+  currentEarTipLabel?: string;
 }
 
 /**
@@ -34,16 +42,42 @@ export function SightingQuestions({
   onChange,
   t,
   examplePhoto = EAR_TIP_EXAMPLE_PHOTO,
+  show = { foodAndWater: true, note: true },
+  earTipState = 'open',
+  currentEarTipLabel,
 }: SightingQuestionsProps) {
   const colors = useColors();
   const [earTipSkipped, setEarTipSkipped] = React.useState(false);
+  const [changing, setChanging] = React.useState(false);
   const toggle = <K extends keyof SightingAnswers>(key: K, value: SightingAnswers[K]) =>
-    onChange({ [key]: answers[key] === value ? null : value } as Partial<SightingAnswers>);
+    onChange({
+      [key]: answers[key] === value ? null : value,
+    } as Partial<SightingAnswers>);
 
-  const showEarTip = askEarTip && !earTipSkipped;
+  const showEarTip = askEarTip && !earTipSkipped && (earTipState === 'open' || changing);
 
   return (
     <View style={styles.wrap}>
+      {askEarTip && earTipState === 'checked' ? (
+        <View style={[styles.block, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Text style={[styles.hint, { color: colors.mutedForeground }]}>{t('earTipChecked')}</Text>
+        </View>
+      ) : null}
+      {askEarTip && earTipState === 'answered' && !changing && !earTipSkipped ? (
+        <View style={[styles.block, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Text style={[styles.question, { color: colors.foreground }]}>
+            {t('earTipYouSaid').replace('{answer}', currentEarTipLabel ?? '')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => setChanging(true)}
+            style={styles.skip}
+          >
+            <Text style={[styles.skipText, { color: colors.primary }]}>{t('earTipChange')}</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {showEarTip ? (
         <View style={[styles.block, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <Text style={[styles.question, { color: colors.foreground }]}>
@@ -143,42 +177,46 @@ export function SightingQuestions({
         </View>
       ) : null}
 
-      <View style={[styles.block, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <Text style={[styles.question, { color: colors.foreground }]}>
-          {t('foodWaterQuestion')}
-        </Text>
-        <View style={styles.choices}>
-          <Chip
-            label={t('foodWaterYes')}
-            active={answers.foodAndWater === 'yes'}
-            onPress={() => toggle('foodAndWater', 'yes')}
-          />
-          <Chip
-            label={t('foodWaterNo')}
-            active={answers.foodAndWater === 'no'}
-            onPress={() => toggle('foodAndWater', 'no')}
-          />
-          <Chip
-            label={t('foodWaterCantTell')}
-            active={answers.foodAndWater === 'cant_tell'}
-            onPress={() => toggle('foodAndWater', 'cant_tell')}
+      {show.foodAndWater ? (
+        <View style={[styles.block, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Text style={[styles.question, { color: colors.foreground }]}>
+            {t('foodWaterQuestion')}
+          </Text>
+          <View style={styles.choices}>
+            <Chip
+              label={t('foodWaterYes')}
+              active={answers.foodAndWater === 'yes'}
+              onPress={() => toggle('foodAndWater', 'yes')}
+            />
+            <Chip
+              label={t('foodWaterNo')}
+              active={answers.foodAndWater === 'no'}
+              onPress={() => toggle('foodAndWater', 'no')}
+            />
+            <Chip
+              label={t('foodWaterCantTell')}
+              active={answers.foodAndWater === 'cant_tell'}
+              onPress={() => toggle('foodAndWater', 'cant_tell')}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {show.note ? (
+        <View style={[styles.block, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Input
+            testID="sighting-note"
+            label={t('noteLabel')}
+            placeholder={t('notePlaceholder')}
+            helper={t('noteHint')}
+            value={answers.note}
+            onChangeText={(note) => onChange({ note })}
+            maxLength={NOTE_MAX_LENGTH}
+            multiline
+            style={styles.note}
           />
         </View>
-      </View>
-
-      <View style={[styles.block, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <Input
-          testID="sighting-note"
-          label={t('noteLabel')}
-          placeholder={t('notePlaceholder')}
-          helper={t('noteHint')}
-          value={answers.note}
-          onChangeText={(note) => onChange({ note })}
-          maxLength={NOTE_MAX_LENGTH}
-          multiline
-          style={styles.note}
-        />
-      </View>
+      ) : null}
     </View>
   );
 }
@@ -200,11 +238,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
   },
-  caption: { fontSize: fontSizes.xs, fontFamily: fonts.body, lineHeight: fontSizes.xs * 1.45 },
+  caption: {
+    fontSize: fontSizes.xs,
+    fontFamily: fonts.body,
+    lineHeight: fontSizes.xs * 1.45,
+  },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   subQuestion: { gap: spacing[1] },
   subLabel: { fontSize: fontSizes.xs, fontFamily: fonts.bodyBold },
   skip: { alignSelf: 'flex-start', paddingVertical: spacing[1] },
-  skipText: { fontSize: fontSizes.xs, fontFamily: fonts.displayBold, textDecorationLine: 'underline' },
+  skipText: {
+    fontSize: fontSizes.xs,
+    fontFamily: fonts.displayBold,
+    textDecorationLine: 'underline',
+  },
   note: { minHeight: 72, textAlignVertical: 'top' },
 });

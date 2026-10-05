@@ -41,11 +41,12 @@ function Harness({
   askEarTip = true,
   onChange,
   examplePhoto,
+  ...extra
 }: {
   askEarTip?: boolean;
   onChange?: (a: SightingAnswers) => void;
   examplePhoto?: { uri: string } | null;
-}) {
+} & Partial<Pick<React.ComponentProps<typeof SightingQuestions>, 'show' | 'earTipState' | 'currentEarTipLabel'>>) {
   const [answers, setAnswers] = useState<SightingAnswers>(NO_ANSWERS);
   return (
     <SightingQuestions
@@ -61,6 +62,7 @@ function Harness({
       }}
       t={t}
       {...(examplePhoto !== undefined ? { examplePhoto } : {})}
+      {...extra}
     />
   );
 }
@@ -176,6 +178,34 @@ describe('SightingQuestions', () => {
   });
 });
 
+describe('SightingQuestions on the cat page (SYC-117 part 2)', () => {
+  it('shows only the questions still open', () => {
+    const { queryByText } = render(<Harness show={{ foodAndWater: false, note: true }} />);
+    expect(queryByText(en.foodWaterQuestion!)).toBeNull();
+    expect(queryByText(en.noteLabel!)).not.toBeNull();
+  });
+
+  it('shows an earlier ear-tip answer, and offers to change it', () => {
+    const onChange = vi.fn();
+    const { container, getByText, queryByText } = render(
+      <Harness earTipState="answered" currentEarTipLabel="No, looks whole" onChange={onChange} />,
+    );
+    expect(getByText(en.earTipYouSaid!.replace('{answer}', 'No, looks whole'))).toBeTruthy();
+    // The answers aren't offered until the spotter chooses to change it.
+    expect(queryByText(en.earTipYes!)).toBeNull();
+    fireEvent.click(button(container, en.earTipChange!));
+    fireEvent.click(button(container, en.earTipYes!));
+    expect(onChange).toHaveBeenLastCalledWith({ ...NO_ANSWERS, earTip: 'clipped' });
+  });
+
+  it('once Syros Cats have checked it, says so and offers no change', () => {
+    const { container, getByText } = render(<Harness earTipState="checked" />);
+    expect(getByText(en.earTipChecked!)).toBeTruthy();
+    expect(() => button(container, en.earTipChange!)).toThrow();
+    expect(() => button(container, en.earTipYes!)).toThrow();
+  });
+});
+
 describe('Question copy in every language', () => {
   const langs = Object.keys(TRANSLATIONS) as Language[];
   const keys = [
@@ -200,6 +230,14 @@ describe('Question copy in every language', () => {
     'answersSend',
     'answersFailed',
     'answersContinueWithout',
+    'moreToAddOne',
+    'moreToAddMany',
+    'moreToAddAsk',
+    'moreToAddButton',
+    'moreToAddSheetTitle',
+    'earTipYouSaid',
+    'earTipChange',
+    'earTipChecked',
   ];
 
   it.each(langs)('has every question string (%s)', (lang) => {
