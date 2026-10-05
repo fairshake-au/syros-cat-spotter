@@ -1,11 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   catsTable,
   observationsTable,
   photosTable,
+  sightingMatchesTable,
   type Observation,
 } from "@workspace/db";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
@@ -364,9 +365,14 @@ router.post(
  * GET /team/observations/review/likely — the *Likely* review list (§4.5
  * point 3): cats whose sterilised status is currently *Likely*, newest
  * evidence first, with the evidence photos so a team member can judge them
- * without leaving the list. SYC-119 Slice B's hand-pick marker (hand picks
- * sorted first) doesn't exist yet — this list is plain newest-first until
- * then, noted in the PR body.
+ * without leaving the list.
+ *
+ * Data spine PR 7 (SYC-119 hand-off, its Slice D): a "clipped" answer given
+ * on a sighting the server recorded as a hand pick (`sighting_matches.choice
+ * = 'hand_pick'`, SYC-151) is marked `matchedByHand`, and cats with such
+ * evidence are sorted first. A spotter who picked the cat themselves may
+ * have picked the wrong one, so their clipped tip is the one most worth a
+ * second look. The match record is team-only, and so is this list.
  *
  * Only loads cats that actually have an `ear_tip` observation (review of
  * #68, "n-plus-one": the previous version loaded every cat in the corpus to
@@ -394,17 +400,43 @@ router.get(
     const records = await loadCatRecords(earTipCats.map((c) => c.id));
     const now = new Date();
 
+    // One batched lookup of which evidence sightings were hand picks.
+    const evidenceSightingIds = [
+      ...new Set(
+        [...records.values()].flatMap((r) =>
+          r.observations
+            .filter((o) => o.kind === "ear_tip" && o.sightingId != null)
+            .map((o) => o.sightingId!),
+        ),
+      ),
+    ];
+    const handPickRows =
+      evidenceSightingIds.length === 0
+        ? []
+        : await db
+            .select({ sightingId: sightingMatchesTable.sightingId })
+            .from(sightingMatchesTable)
+            .where(
+              and(
+                inArray(sightingMatchesTable.sightingId, evidenceSightingIds),
+                eq(sightingMatchesTable.choice, "hand_pick"),
+              ),
+            );
+    const handPickedSightings = new Set(handPickRows.map((r) => r.sightingId));
+
     type EvidenceDraft = {
       observationId: number;
       photoId: number | null;
       observedAt: string;
       side: string | null;
+      matchedByHand: boolean;
     };
 
     const likelyDraft: {
       catId: number;
       name: string;
       sterilisedAsOf: string;
+      matchedByHand: boolean;
       evidence: EvidenceDraft[];
     }[] = [];
 
@@ -435,12 +467,14 @@ router.get(
             typeof (o.value as { side?: unknown })?.side === "string"
               ? ((o.value as { side: string }).side)
               : null,
+          matchedByHand: o.sightingId != null && handPickedSightings.has(o.sightingId),
         }));
 
       likelyDraft.push({
         catId: cat.id,
         name: cat.name,
         sterilisedAsOf: snapshot.sterilised.asOf,
+        matchedByHand: evidence.some((e) => e.matchedByHand),
         evidence,
       });
     }
@@ -477,6 +511,7 @@ router.get(
 
     likely.sort(
       (a, b) =>
+        Number(b.matchedByHand) - Number(a.matchedByHand) ||
         new Date(b.sterilisedAsOf).getTime() - new Date(a.sterilisedAsOf).getTime(),
     );
 

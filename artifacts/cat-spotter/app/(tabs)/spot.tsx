@@ -10,7 +10,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,6 +26,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
+import { NewSpotIntro } from '@/components/NewSpotIntro';
 import { notify, confirmChoice } from '@/lib/notify';
 import {
   createSingleFlight,
@@ -788,7 +788,13 @@ export default function SpotScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         {photo ? (
           <View style={styles.detailsHeaderRow}>
-            <Pressable onPress={clearPhoto} hitSlop={8}>
+            <Pressable
+              onPress={clearPhoto}
+              disabled={submitting}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('retakePhoto')}
+            >
               <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
             </Pressable>
             <Text style={[styles.title, { color: colors.foreground }]}>
@@ -817,26 +823,14 @@ export default function SpotScreen() {
         {photo ? (
           // ── Details state: captured photo, location confirm, submit ──
           <>
-            <View style={styles.detailsIntroRow}>
-              <Image
-                source={{ uri: photo.uri }}
-                style={[styles.thumb, { borderColor: colors.border }]}
-                contentFit="cover"
-              />
-              <View style={{ flex: 1, gap: spacing[1] }}>
-                <Text style={[styles.niceShot, { color: colors.foreground }]}>
-                  {t('niceShot')}
-                </Text>
-                <Text style={[styles.niceShotHint, { color: colors.mutedForeground }]}>
-                  {t('addDetailsHint')}
-                </Text>
-                <Pressable onPress={clearPhoto}>
-                  <Text style={[styles.addAnother, { color: colors.primary }]}>
-                    {t('addAnotherPhoto')}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
+            <NewSpotIntro
+              photoUri={photo.uri}
+              title={t('niceShot')}
+              hint={t('spotLocationHint')}
+              retakeLabel={t('retakePhoto')}
+              onRetake={clearPhoto}
+              disabled={submitting}
+            />
 
             <View style={{ gap: spacing[2] }}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
@@ -1106,11 +1100,6 @@ const styles = StyleSheet.create({
   },
 
   // Details state
-  detailsIntroRow: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
-  thumb: { width: 88, height: 88, borderRadius: radii.lg, borderWidth: 1 },
-  niceShot: { fontSize: fontSizes.md, fontFamily: fonts.displayBold },
-  niceShotHint: { fontSize: fontSizes.xs, fontFamily: fonts.body, lineHeight: fontSizes.xs * 1.45 },
-  addAnother: { marginTop: spacing[1], fontSize: fontSizes['2xs'], fontFamily: fonts.displayBold },
   fieldLabel: { fontSize: fontSizes['2xs'], fontFamily: fonts.bodyBold, textTransform: 'uppercase' },
   locationField: {
     flexDirection: 'row',

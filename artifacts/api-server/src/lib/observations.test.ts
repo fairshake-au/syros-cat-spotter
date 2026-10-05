@@ -358,6 +358,46 @@ describe("loadCatRecords", () => {
     expect(rec.evidenceOfLife!.at.toISOString()).toBe(tenDaysAgo.toISOString());
   });
 
+  it("an ear-tip answer tied to a sighting adds no evidence of life beyond that sighting, even if its date was moved forward", async () => {
+    // Review of the SYC-117 part 2 spec, 4 Oct 2026: a spotter's answer is
+    // dated to their sighting's capture time, but writeObservation moves a
+    // public date older than 30 days forward to the 30-day limit. On a
+    // sighting synced late and answered later still, that made the answer
+    // look newer than the sighting, and pulled the cat's "last seen alive"
+    // forward. The sighting already counts, at its true date, so an answer
+    // that belongs to it must not count separately.
+    const cat = await insertCat();
+    const fortyDaysAgo = new Date(Date.now() - 40 * 86_400_000);
+    const [sighting] = await db
+      .insert(sightingsTable)
+      .values({
+        catId: cat.id,
+        deviceId: "device-late-answer",
+        photoId: 1,
+        lat: 37.44,
+        lng: 24.9,
+        status: "resolved",
+        createdAt: fortyDaysAgo,
+      })
+      .returning();
+    const answer = await writeObservation(db, {
+      catId: cat.id,
+      kind: "ear_tip",
+      value: { clipped: true, side: "left" },
+      deviceId: "device-late-answer",
+      roleAtTime: "public",
+      photoId: 1,
+      sightingId: sighting!.id,
+      observedAt: fortyDaysAgo,
+    });
+    // The clamp moved it forward: this is the situation being guarded.
+    expect(answer.observedAt.getTime()).toBeGreaterThan(fortyDaysAgo.getTime());
+
+    const rec = (await loadCatRecords([cat.id])).get(cat.id)!;
+    expect(rec.evidenceOfLife!.source).toBe("sighting");
+    expect(rec.evidenceOfLife!.at.toISOString()).toBe(fortyDaysAgo.toISOString());
+  });
+
   it("lastSightingAt comes from the newest RESOLVED sighting, ignoring a newer pending one", async () => {
     // Test gap found in review of PR #66: the test above this one is named
     // for exactly this rule but inserts no sighting rows at all, so it would
