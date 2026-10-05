@@ -246,6 +246,18 @@ Samuel decided these after an adversarial review of PR #62 (`resolve.ts`, `fold.
 - **J2: a newer photo-backed clipped-tip observation after an authoritative "not sterilised" does not move the public answer, but is flagged to the team.** Flagged rather than decided outright — Samuel wants the team's dashboard to show it rather than the resolver silently dropping it, but whether it should ever move the public answer is a question for the team, not this PR.
 - **SYC-101: `foldName` strips invisible formatting characters and collapses whitespace runs to one space, trimmed.** Greek/Latin look-alike letters (`Α` vs `A`) are deliberately NOT folded — deferred to SYC-101 for Samuel to decide, since merging those silently could collapse two differently-spelled cats into one name.
 
+## Part 2k — SYC-43 part 2 plan decisions (dashboard queue and corrections), 5 October 2026
+
+Samuel decided these on the SYC-43 part 2 plan (`docs/superpowers/plans/syc-43-part-2-welfare-queue-and-corrections.md`, PR #73). They amend `team-access-and-welfare-queue.md` and the SYC-42 plan, and win where those say otherwise.
+
+- **Dashboard screens are plain server-drawn pages and forms, with no scripts, for now.** Ready-made admin tools and plugins are to be explored as alternatives (SYC-207).
+- **The SYC-43 plan builds the welfare queue** (SYC-42 Slices 2 and 5.1), using SYC-42's approved design. "Use this photo on the cat" (Slice 5.2) waits for SYC-163 (SYC-203).
+- **Hiding a photo is recorded in an add-only hide/restore log** (`photo_visibility_events`), not as an observation on the cat. This amends §3.3's "every one of these actions appends an observation" for photo hiding only. The rule's spirit is unchanged: nothing is overwritten, everything is attributed, and a restore is another row. "Report an issue" (SYC-44) writes into the same log.
+- **When a cat's main photo is hidden, the public sees its newest visible photo, or the placeholder.** The main photo itself is unchanged, so restoring it brings it back.
+- **Renaming a cat keeps today's pattern:** the name column is updated and a signed `name` observation is appended, in one transaction.
+- **"Looks right" on the Probably sterilised list records a team `ear_tip { clipped: true }`.** The cat stays *Likely* (a photo is never proof, §4.1) and leaves the review list until a newer spotter answer arrives.
+- **People who leave are marked as left, not deleted, and dashboard attribution is a strict database link to `people`.** This amends §2.9 and §10. "Removing somebody… one deletion" becomes **"marking somebody as left, one action in one place, takes effect at their next request in both systems"**. A person marked as left can't sign in, and their open sessions end. Their name stays on everything they did. Adding their address again brings back the same person. Hard deletion remains only for someone with no history (a mistaken add). Forgetting a former staff member's details is done by anonymising, never by deleting (SYC-208). Samuel chose this over storing ids without a link, after being shown that a strict link with deletion would make anyone who had ever touched a report impossible to remove.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
