@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { Image } from 'expo-image';
 import { useColors } from '@/hooks/useColors';
 import { Chip, Input } from '@/components/purropolis';
@@ -17,6 +17,8 @@ interface SightingQuestionsProps {
    * two quick taps can never overwrite each other with a stale copy. */
   onChange: (patch: Partial<SightingAnswers>) => void;
   t: (key: string) => string;
+  /** Defaults to Syros Cats' example photo, once it exists (SYC-79). */
+  examplePhoto?: ImageSourcePropType | null;
 }
 
 /**
@@ -31,6 +33,7 @@ export function SightingQuestions({
   answers,
   onChange,
   t,
+  examplePhoto = EAR_TIP_EXAMPLE_PHOTO,
 }: SightingQuestionsProps) {
   const colors = useColors();
   const [earTipSkipped, setEarTipSkipped] = React.useState(false);
@@ -51,29 +54,18 @@ export function SightingQuestions({
           </Text>
 
           <View testID="ear-tip-example" style={styles.example}>
-            {EAR_TIP_EXAMPLE_PHOTO ? (
+            {/* Samuel, 5 Oct 2026: ship without waiting for Syros Cats'
+                photo (SYC-79). Until it arrives, the written line below is the
+                whole explanation; the photo appears here once
+                EAR_TIP_EXAMPLE_PHOTO is set. Never a stand-in photo. */}
+            {examplePhoto ? (
               <Image
-                source={EAR_TIP_EXAMPLE_PHOTO}
+                source={examplePhoto}
                 style={[styles.examplePhoto, { borderColor: colors.border }]}
                 contentFit="cover"
                 accessibilityLabel={t('earTipExampleCaption')}
               />
-            ) : (
-              // TODO(SYC-79): placeholder until Syros Cats' example photos
-              // arrive. PR 7 must not merge while this is showing.
-              <View
-                style={[
-                  styles.examplePhoto,
-                  styles.placeholder,
-                  { borderColor: colors.mutedForeground, backgroundColor: colors.muted },
-                ]}
-              >
-                <Text style={[styles.placeholderText, { color: colors.mutedForeground }]}>
-                  PLACEHOLDER{'\n'}Example photos still to come from Syros Cats (SYC-79):
-                  a clipped tip beside a torn ear
-                </Text>
-              </View>
-            )}
+            ) : null}
             <Text style={[styles.caption, { color: colors.mutedForeground }]}>
               {t('earTipExampleCaption')}
             </Text>
@@ -207,17 +199,6 @@ const styles = StyleSheet.create({
     aspectRatio: 2,
     borderRadius: radii.md,
     borderWidth: 1,
-  },
-  placeholder: {
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing[3],
-  },
-  placeholderText: {
-    fontSize: fontSizes['2xs'],
-    fontFamily: fonts.bodyBold,
-    textAlign: 'center',
   },
   caption: { fontSize: fontSizes.xs, fontFamily: fonts.body, lineHeight: fontSizes.xs * 1.45 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },

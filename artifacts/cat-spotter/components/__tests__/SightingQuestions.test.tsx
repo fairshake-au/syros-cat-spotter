@@ -9,7 +9,10 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
-vi.mock('expo-image', () => ({ Image: () => null }));
+vi.mock('expo-image', async () => {
+  const R = await import('react');
+  return { Image: () => R.createElement('span', { 'data-testid': 'example-image' }) };
+});
 vi.mock('@/hooks/useColors', () => ({
   useColors: () => ({
     foreground: '#111',
@@ -37,9 +40,11 @@ const t = (key: string) => en[key] ?? key;
 function Harness({
   askEarTip = true,
   onChange,
+  examplePhoto,
 }: {
   askEarTip?: boolean;
   onChange?: (a: SightingAnswers) => void;
+  examplePhoto?: { uri: string } | null;
 }) {
   const [answers, setAnswers] = useState<SightingAnswers>(NO_ANSWERS);
   return (
@@ -55,6 +60,7 @@ function Harness({
         });
       }}
       t={t}
+      {...(examplePhoto !== undefined ? { examplePhoto } : {})}
     />
   );
 }
@@ -76,10 +82,22 @@ describe('SightingQuestions', () => {
     }
   });
 
-  it('always shows the example photo, with the line telling a clip from a tear', () => {
+  it('always explains a clip versus a tear in words', () => {
     const { container, getByText } = render(<Harness />);
     expect(container.querySelector('[data-testid="ear-tip-example"]')).not.toBeNull();
     expect(getByText(en.earTipExampleCaption!)).toBeTruthy();
+  });
+
+  // Samuel, 5 Oct 2026: ship without waiting for Syros Cats' photo (SYC-79).
+  it('until the photo arrives, shows no photo and no placeholder', () => {
+    const { container } = render(<Harness />);
+    expect(container.querySelector('[data-testid="example-image"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/placeholder|SYC-79/i);
+  });
+
+  it('shows the example photo once there is one', () => {
+    const { container } = render(<Harness examplePhoto={{ uri: 'ear.jpg' }} />);
+    expect(container.querySelector('[data-testid="example-image"]')).not.toBeNull();
   });
 
   it('says "clipped tip", never "notched", as the thing to look for', () => {
