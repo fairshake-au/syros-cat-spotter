@@ -13,7 +13,10 @@ Delete this file before merge.
 - [x] Tests P0-1 (`artifacts/api-server/src/routes/team.left.test.ts`), P0-2..5 (`lib/db/src/migrate/peopleLeft.test.ts`).
 - [x] Mutation probes, recorded below.
 - [x] Runbook `docs/runbooks/neon-database.md` updated.
-- [ ] PR, adversarial review, SYC-43 comment, SYC-131 update.
+- [x] PR #76 opened (draft), subscribed. SYC-43 and SYC-131 commented.
+- [x] Adversarial review (Opus, own worktree): nothing blocking. Fixed: removePerson now also refuses someone who wrote observations (no FK on account_id); rollback locks the table before the guard; rollback-order CAUTION + runbook (old app code re-admits leavers).
+- [ ] Open for Samuel: rejoin audit trail (who re-admitted, when): no columns today. Needs a decision.
+- [ ] Samuel's go-ahead; delete this file before merge.
 
 ## Local test setup (cloud container)
 `service postgresql start`; env: DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres,
@@ -32,5 +35,6 @@ AI_INTEGRATIONS_OPENAI_BASE_URL=http://127.0.0.1:9, AI_INTEGRATIONS_OPENAI_API_K
 | M8 (P0-5) | rollback doesn't drop left_by | P0-5 up/down/up |
 | M9 (P0-5) | rollback without the "someone has left" guard | P0-5 guard test |
 | M10 (CLI) | `list` doesn't mark left people | CLI list test |
+| M11 (P0-4) | `removePerson` without the observations check | P0-4 observation test |
 
 Full suites after: db 206 passed, api-server 631 passed, migrate:check ok, typechecks clean.

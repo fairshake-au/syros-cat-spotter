@@ -5,6 +5,7 @@ import {
   db,
   pool,
   addPerson,
+  markLeft,
   removePerson,
   catsTable,
   sightingsTable,
@@ -63,7 +64,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanupCats();
-  await removePerson(STAFF_EMAIL);
+  // The staff member wrote observations, so they have history: they leave
+  // rather than being deleted (SYC-43 part 2, Decision 7).
+  await markLeft(STAFF_EMAIL, "cli:vitest");
   await removePerson(GUARDIAN_EMAIL);
   await pool.end();
 });

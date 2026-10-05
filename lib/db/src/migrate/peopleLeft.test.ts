@@ -223,6 +223,26 @@ describe("P0-4: hard deletion is only for someone with no history", () => {
     });
   });
 
+  it("refuses deleting a person who has written an observation, which has no database link", async () => {
+    const p = await addSusan();
+    const cat = await c.query(
+      `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
+         values ('Agatha', 0, 37.44, 24.94, 'd') returning id`,
+    );
+    await c.query(
+      `insert into observations
+         (cat_id, kind, value, account_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'sterilised', '{"sterilised": true}', $2, 'staff', 'none', 'volunteered', now())`,
+      [cat.rows[0].id, p.id],
+    );
+    await expect(store.removePerson(SUSAN)).rejects.toThrow(
+      new PeopleError(HAS_HISTORY_MESSAGE),
+    );
+    expect(await store.findPersonById(p.id)).toMatchObject({
+      scopes: [{ role: "staff", colonyId: null }],
+    });
+  });
+
   it("deletes a person with no history", async () => {
     const p = await addSusan();
     expect(await store.removePerson(SUSAN)).toBe(true);

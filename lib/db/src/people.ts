@@ -9,6 +9,7 @@ import {
   personScopesTable,
   type PersonRole,
 } from "./schema/people";
+import { observationsTable } from "./schema/observations";
 
 // The rules shared by every way into the list of people (team-access spec
 // §2.8, §2.9): the `people` command now, the manage_people screen later. The
@@ -138,8 +139,18 @@ export function peopleStore(db: PeopleDb) {
       const [person] = await tx
         .select({ id: peopleTable.id })
         .from(peopleTable)
-        .where(eq(peopleTable.email, email));
+        .where(eq(peopleTable.email, email))
+        .for("update");
       if (!person) return false;
+      // Observations name their author by account_id, which has no database
+      // link (the data spine keeps it as text, §10.1), so the links can't
+      // refuse this one. Check it here.
+      const [authored] = await tx
+        .select({ id: observationsTable.id })
+        .from(observationsTable)
+        .where(eq(observationsTable.accountId, person.id))
+        .limit(1);
+      if (authored) throw new PeopleError(HAS_HISTORY_MESSAGE);
       await tx
         .delete(personScopesTable)
         .where(eq(personScopesTable.personId, person.id));
@@ -262,7 +273,8 @@ export function peopleStore(db: PeopleDb) {
     /**
      * Hard deletion, only for someone with no history: a mistaken add
      * (Decision 7). The database's strict links to people.id refuse it for
-     * anyone else, and that refusal becomes "use mark-left instead". Deletes
+     * anyone else, and that refusal becomes "use mark-left instead"; so does
+     * having written an observation, which has no link. Deletes
      * their roles, then the person, in one transaction. The cascade is
      * declared too; deleting the roles here keeps removal correct even if it
      * were ever missing. False if they weren't in the table.
