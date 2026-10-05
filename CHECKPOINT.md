@@ -15,7 +15,7 @@ Delete this file before merge.
 - [x] Runbook `docs/runbooks/neon-database.md` updated.
 - [x] PR #76 opened (draft), subscribed. SYC-43 and SYC-131 commented.
 - [x] Adversarial review (Opus, own worktree): nothing blocking. Fixed: removePerson now also refuses someone who wrote observations (no FK on account_id); rollback locks the table before the guard; rollback-order CAUTION + runbook (old app code re-admits leavers).
-- [ ] Open for Samuel: rejoin audit trail (who re-admitted, when): no columns today. Needs a decision.
+- [x] Samuel (5 Oct): rejoin audit trail → follow-up SYC-213 (person_events, with SYC-104). P0-4 stand-in accepted → plan's PR 1 gains P1-10 to repoint it.
 - [ ] Samuel's go-ahead; delete this file before merge.
 
 ## Local test setup (cloud container)

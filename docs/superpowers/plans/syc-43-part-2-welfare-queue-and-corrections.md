@@ -406,6 +406,7 @@ API tests use supertest against the real app and CI's Postgres, as part 1 did. `
 - **P1-7** The mail banner shows for a `failed` alert or one an hour overdue, and not otherwise.
 - **P1-8** A note containing `<script>` renders as text. **M:** remove the escape → red.
 - **P1-9** The migration's rollback restores the schema exactly; up/down/up passes (the runner's harness).
+- **P1-10 [P0-4, repointed]** PR 0's P0-4 proved `removePerson` against a test-only table with a strict link, because the real links arrive here. Repoint it at the real ones: a person named in `welfare_reports.state_changed_by` or `team_note_by`, or in `report_state_events.person_id`, can't be hard-deleted (the database refuses; `removePerson` says "use mark-left"). Then drop the stand-in `history_probe` table from `peopleLeft.test.ts`. **M:** declare one of the links with `ON DELETE SET NULL` → red. (Decided by Samuel, 5 Oct 2026, on PR #76.)
 
 **PR 2**
 - **P2-1 [SYC-42 #29]** A state change writes exactly one `report_state_events` row carrying the signed-in person's id.
