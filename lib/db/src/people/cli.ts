@@ -11,8 +11,13 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 //
 //   pnpm --filter @workspace/db run people -- add --target <t> [--email <e>] [--name <n>] [--role staff] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- list --target <t>
+//   pnpm --filter @workspace/db run people -- mark-left --target <t> [--email <e>] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- remove --target <t> [--email <e>]
 //   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>]
+//
+// Someone who leaves is marked as left, not removed (SYC-43 part 2, Decision
+// 7): their history stays theirs. `remove` is only for a mistaken add, and
+// refuses anyone with history.
 //
 // Claude runs it through db-ops (scripts/db-ops.sh, `people-add` and
 // `people-list`), the SYC-121 route for every database command. It picks its
@@ -40,7 +45,8 @@ const USAGE = [
   "Usage:",
   "  people add --target <target> [--email <address>] [--name <name>] [--role <role>]... [--by <operator>]",
   "  people list --target <target>",
-  "  people remove --target <target> [--email <address>]",
+  "  people mark-left --target <target> [--email <address>] [--by <operator>]",
+  "  people remove --target <target> [--email <address>]   (only for someone with no history)",
   "  people sign-out-everywhere --target <target> [--email <address>]",
   "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
   "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
@@ -157,7 +163,7 @@ export async function runPeopleCommand(
   let connectionString: string | undefined;
   try {
     const { command, flags } = parseArgs(argv);
-    const known = ["add", "list", "remove", "sign-out-everywhere"];
+    const known = ["add", "list", "mark-left", "remove", "sign-out-everywhere"];
     if (!known.includes(command)) {
       throw new UsageError(`Unknown command "${command}".`);
     }
@@ -186,30 +192,40 @@ export async function runPeopleCommand(
     await client.connect();
     const store = peopleStore(drizzle(client, { schema }));
 
+    const operator = `cli:${flags.get("by")?.[0] ?? os.userInfo().username}`;
+
     if (addInput) {
-      const person = await store.addPerson({
-        ...addInput,
-        addedBy: `cli:${flags.get("by")?.[0] ?? os.userInfo().username}`,
-      });
-      io.out(`Added person ${person.id} as ${addInput.roles.join(", ")}.`);
+      const person = await store.addPerson({ ...addInput, addedBy: operator });
+      io.out(
+        person.rejoined
+          ? `Rejoined person ${person.id} as ${addInput.roles.join(", ")}. They had left; their history is still theirs.`
+          : `Added person ${person.id} as ${addInput.roles.join(", ")}.`,
+      );
       return 0;
     }
 
     if (command === "list") {
       const people = await store.listPeople();
+      const onList = people.filter((p) => p.leftAt === null).length;
+      const left = people.length - onList;
       // Ids and roles only: never an address or a name (H.1(b)).
       io.out(
-        `${people.length} ${people.length === 1 ? "person" : "people"} on the list.`,
+        `${onList} ${onList === 1 ? "person" : "people"} on the list` +
+          (left ? `, and ${left} marked as left.` : "."),
       );
       for (const p of people) {
         io.out(
-          `${p.id}\t${p.roles.join(",") || "(no roles)"}\tsession ${p.sessionVersion}\tadded ${p.addedAt.toISOString()} by ${p.addedBy ?? "unknown"}`,
+          `${p.id}\t${p.roles.join(",") || "(no roles)"}\tsession ${p.sessionVersion}\tadded ${p.addedAt.toISOString()} by ${p.addedBy ?? "unknown"}` +
+            (p.leftAt
+              ? `\tLEFT ${p.leftAt.toISOString()} by ${p.leftBy ?? "unknown"}`
+              : ""),
         );
       }
       return 0;
     }
 
-    // remove and sign-out-everywhere: the address is typed a second time.
+    // mark-left, remove and sign-out-everywhere: the address is typed a
+    // second time.
     const email = normaliseEmail(
       flagOrEnv(flags, "email", "PEOPLE_EMAIL", io.env),
     );
@@ -219,6 +235,15 @@ export async function runPeopleCommand(
     if (confirmation !== email) {
       io.out("The addresses don't match. Nothing was changed.");
       return 1;
+    }
+    if (command === "mark-left") {
+      const marked = await store.markLeft(email, operator);
+      io.out(
+        marked === null
+          ? "That address isn't on the list. Nothing was changed."
+          : `Marked person ${marked.id} as left. They're signed out everywhere and can't sign in. Their history stays theirs.`,
+      );
+      return marked === null ? 1 : 0;
     }
     if (command === "remove") {
       const removed = await store.removePerson(email);
