@@ -1,0 +1,27 @@
+ALTER TABLE "people" ADD COLUMN "left_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "people" ADD COLUMN "left_by" text;
+-- SYC-43 part 2, PR 0 (Decision 7): people who leave are marked as left, not
+-- deleted. A person with left_at set is refused by findPersonById and
+-- findAllowedPerson (lib/db/src/people.ts), so they can't sign in and their
+-- sessions end.
+--
+-- CAUTION: code from before this migration ignores left_at, so anyone marked
+-- as left can sign in again from the moment the app is rolled back, even with
+-- the column still here. Prefer fixing forward. If the app must go back, first
+-- lock out each left person in a way the old code respects: hard-delete them
+-- if they have no history, otherwise replace their email with a placeholder
+-- (the SYC-208 anonymising pattern), so the Worker's question finds no one.
+-- Only then roll the app back (docs/DEPLOYMENT.md §C), and then this.
+-- The rollback refuses while anyone is still marked as left, and locks the
+-- table first so a mark-left can't slip in between the check and the drop.
+-- rollback-begin
+-- LOCK TABLE "people" IN ACCESS EXCLUSIVE MODE;
+-- DO $$
+-- BEGIN
+--   IF EXISTS (SELECT 1 FROM "people" WHERE "left_at" IS NOT NULL) THEN
+--     RAISE EXCEPTION 'people: someone is marked as left; dropping left_at would let them back in. Refusing.';
+--   END IF;
+-- END $$;
+-- ALTER TABLE "people" DROP COLUMN "left_by";
+-- ALTER TABLE "people" DROP COLUMN "left_at";
+-- rollback-end

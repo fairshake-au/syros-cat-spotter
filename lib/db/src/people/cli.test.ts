@@ -259,3 +259,108 @@ describe("people command", () => {
     );
   });
 });
+
+describe("people who leave (SYC-43 part 2, Decision 7)", () => {
+  const add = () =>
+    run([
+      "add",
+      "--target",
+      "development",
+      "--email",
+      "susan@example.com",
+      "--name",
+      "Susan",
+    ]);
+  const markLeft = (answer = "susan@example.com") =>
+    run(
+      [
+        "mark-left",
+        "--target",
+        "development",
+        "--email",
+        "susan@example.com",
+        "--by",
+        "samuel",
+      ],
+      devEnv(),
+      answer,
+    );
+
+  it("marks a person as left after the address is typed again, and list shows it", async () => {
+    await add();
+    const ml = await markLeft("SUSAN@example.com ");
+    expect(ml.code).toBe(0);
+    expect(ml.out[1]).toMatch(
+      /^Marked person [0-9a-f-]{36} as left\. They're signed out everywhere and can't sign in\. Their history stays theirs\.$/,
+    );
+    const row = (
+      await c.query(`select left_at, left_by, session_version from people`)
+    ).rows[0];
+    expect(row.left_at).toBeInstanceOf(Date);
+    expect(row.left_by).toBe("cli:samuel");
+    expect(row.session_version).toBe(2);
+
+    const list = await run(["list", "--target", "development"]);
+    expect(list.out[1]).toBe("0 people on the list, and 1 marked as left.");
+    expect(list.out[2]).toMatch(
+      /^[0-9a-f-]{36}\tstaff\tsession 2\tadded \S+ by cli:\S+\tLEFT \S+ by cli:samuel$/,
+    );
+    expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
+  });
+
+  it("changes nothing when the confirmation doesn't match", async () => {
+    await add();
+    const ml = await markLeft("susan@example.org");
+    expect(ml.code).toBe(1);
+    expect(ml.out).toContain("The addresses don't match. Nothing was changed.");
+    const row = (await c.query(`select left_at from people`)).rows[0];
+    expect(row.left_at).toBeNull();
+  });
+
+  it("refuses an address that isn't on the list, or has already left", async () => {
+    const none = await markLeft();
+    expect(none.code).toBe(1);
+    expect(none.out).toContain(
+      "That address isn't on the list. Nothing was changed.",
+    );
+    await add();
+    await markLeft();
+    const again = await markLeft();
+    expect(again.code).toBe(1);
+    expect(again.out).toContain("That person is already marked as left.");
+  });
+
+  it("adding a left person's address again says they rejoined", async () => {
+    await add();
+    const id = (await c.query(`select id from people`)).rows[0].id;
+    await markLeft();
+    const back = await add();
+    expect(back.code).toBe(0);
+    expect(back.out[1]).toBe(
+      `Rejoined person ${id} as staff. They had left; their history is still theirs.`,
+    );
+    expect(await countPeople()).toBe(1);
+  });
+
+  it("remove refuses someone with history and points to mark-left", async () => {
+    await add();
+    await c.query(
+      `create table history_probe (person_id uuid not null references people(id))`,
+    );
+    try {
+      await c.query(`insert into history_probe select id from people`);
+      const rm = await run(
+        ["remove", "--target", "development", "--email", "susan@example.com"],
+        devEnv(),
+        "susan@example.com",
+      );
+      expect(rm.code).toBe(1);
+      expect(rm.out).toContain(
+        "This person has history. Use mark-left instead.",
+      );
+      expect(await countPeople()).toBe(1);
+    } finally {
+      await c.query(`drop table history_probe`);
+    }
+  });
+});

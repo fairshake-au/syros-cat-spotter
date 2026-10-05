@@ -35,6 +35,7 @@ import { peopleStore } from "./people";
 const people = peopleStore(db);
 export const addPerson = people.addPerson;
 export const removePerson = people.removePerson;
+export const markLeft = people.markLeft;
 export const signOutEverywhere = people.signOutEverywhere;
 export const findAllowedPerson = people.findAllowedPerson;
 export const findPersonById = people.findPersonById;
