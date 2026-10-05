@@ -8,6 +8,7 @@ import {
   removePerson,
   catsTable,
   sightingsTable,
+  sightingMatchesTable,
   observationsTable,
   catUpdatesTable,
   notificationsTable,
@@ -627,6 +628,72 @@ describe("GET /api/team/observations/review/likely", () => {
       .set("Cookie", cookie);
     const ids2: number[] = res2.body.cats.map((c: { catId: number }) => c.catId);
     expect(ids2).not.toContain(likelyCat.id);
+  });
+
+  it("sorts a clipped answer from a hand-picked sighting first, marked matched by hand (data spine PR 7, SYC-119 hand-off)", async () => {
+    // A spotter who chose the cat by hand (not from the matcher's
+    // suggestions) may have chosen the wrong cat, so their "clipped" answer
+    // is the one most worth a second look.
+    const handPickedCat = await insertCat();
+    const suggestedCat = await insertCat();
+    const [handSighting] = await db
+      .insert(sightingsTable)
+      .values({
+        deviceId: "vitest-obs-route-spotter",
+        photoId: 1,
+        lat: 37.44,
+        lng: 24.9,
+        status: "resolved",
+        catId: handPickedCat.id,
+      })
+      .returning();
+    await db.insert(sightingMatchesTable).values({
+      sightingId: handSighting!.id,
+      comparedCatIds: [],
+      suggested: [],
+      choice: "hand_pick",
+      chosenCatId: handPickedCat.id,
+      pickedFrom: "nearby",
+      missKind: "distance_miss",
+      chosenAt: new Date(),
+    });
+    // The hand-picked evidence is OLDER, so newest-first alone would put it
+    // second.
+    await db.insert(observationsTable).values({
+      catId: handPickedCat.id,
+      kind: "ear_tip",
+      value: { clipped: true, side: "left" },
+      deviceId: "vitest-obs-route-spotter",
+      roleAtTime: "public",
+      observedAt: new Date(Date.now() - 3_600_000),
+      photoId: 1,
+      sightingId: handSighting!.id,
+    });
+    await db.insert(observationsTable).values({
+      catId: suggestedCat.id,
+      kind: "ear_tip",
+      value: { clipped: true, side: "left" },
+      deviceId: "vitest-obs-route-spotter",
+      roleAtTime: "public",
+      observedAt: new Date(),
+      photoId: 1,
+    });
+
+    const cookie = await signIn(staffId);
+    const res = await request(app)
+      .get("/api/team/observations/review/likely")
+      .set("Cookie", cookie);
+    expect(res.status).toBe(200);
+    const ids: number[] = res.body.cats.map((c: { catId: number }) => c.catId);
+    expect(ids.indexOf(handPickedCat.id)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(handPickedCat.id)).toBeLessThan(ids.indexOf(suggestedCat.id));
+
+    const hand = res.body.cats.find((c: { catId: number }) => c.catId === handPickedCat.id);
+    const suggested = res.body.cats.find((c: { catId: number }) => c.catId === suggestedCat.id);
+    expect(hand.matchedByHand).toBe(true);
+    expect(hand.evidence[0].matchedByHand).toBe(true);
+    expect(suggested.matchedByHand).toBe(false);
+    expect(suggested.evidence[0].matchedByHand).toBe(false);
   });
 
   it("refuses a person without set_sterilisation", async () => {
