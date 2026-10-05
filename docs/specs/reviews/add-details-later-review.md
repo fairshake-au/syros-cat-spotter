@@ -21,3 +21,16 @@
 - Canonical facts are respected: "clipped tip", usually the left ear, "cat guardian", "Syros Cats", the two audiences' needs fit together, and no claim that it all works without signal.
 - SYC-2 (coat and markings) appears only as a future kind of detail.
 - Plain English throughout.
+
+## Second pass: the parts written after approval (5 October 2026)
+
+Samuel approved the spec on 5 October, choosing option B for Decisions 3 (a spotter can change their own ear-tip answer) and 4 (food and water for the month). The new text was reviewed by a second independent reviewer (Sonnet, its own worktree) against the code on PR 7's branch.
+
+| # | Severity | Finding | What changed |
+|---|---|---|---|
+| 1 | **Critical** | **A change and a team correction sent at the same moment could both land.** The change would run inside PR 7's lock, which is per device and cat. The team's correction locks the answer row itself. The two locks never meet, and nothing stops two rows pointing at the same answer. The resolver would then see both as current, and with a backdated team correction the spotter's change could win, putting the cat back to *Likely*. Verified in code (`resolve.ts`, `routes/observations.ts`, `routes/sightings.ts`, the observations schema). | §6: a change locks the answer it replaces (`SELECT … FOR UPDATE`, as the team's endpoint does) and re-checks under the lock that nothing points at it. If the team got there first, it's refused. New test: both orders, plus a backdated team correction. (The database-level guard, a unique index on `supersedes_id`, remains the existing low-priority follow-up from the PR 8 review.) |
+| 2 | High | **"Checked" missed one kind of team action.** A team or vet statement that the cat is or isn't sterilised doesn't touch the spotter's answer, so the card would still offer "Change my answer". Public data stays right (that statement decides the public line), but the card's promise was false. | §3.1 and §6: "checked" now also covers any staff, admin, vet or records statement about sterilisation. New test. |
+| 3 | Medium | Food and water for a month relies on the team reading answers in the order the cat was seen. Nothing required the dashboard to do that. | Decision 4's note now states it as a requirement on SYC-43 (which owns the dashboard), and it's recorded on SYC-43. |
+| 4 | Low | It wasn't clear whether a change on the same sighting as the original answer was allowed under "each question once per sighting". | §6: it is allowed; that rule doesn't apply to a change. |
+
+**What held up:** the non-racing orders (a team correction then a spotter's change is refused; a change then a team correction of the replaced answer is refused by the team endpoint's own check); a staff or vet sterilisation statement always outranks any ear-tip answer; supersede chains can't loop; two changes at once from one device are serialised by PR 7's lock; deleting a person (SYC-63) can't confuse the "only your own answer" check; plain English and house terms throughout.
