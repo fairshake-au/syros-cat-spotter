@@ -25,6 +25,7 @@ import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
+import { MoreToAdd } from '@/components/MoreToAdd';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { lifeLine, parseDateOnly, sterilisedLineKey } from '@/lib/catStatusLines';
@@ -225,6 +226,10 @@ export default function CatDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* SYC-117 part 2: "You spotted Agatha on 3 October. Anything to
+              add?" Only for this phone's own recent sightings of this cat. */}
+          <MoreToAdd catId={cat.id} catName={cat.name} />
 
           {highlighted && (
             <View

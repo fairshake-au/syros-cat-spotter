@@ -12,11 +12,10 @@ import {
   sightingMatchesTable,
   profilesTable,
   observationsTable,
-  catUpdatesTable,
   foldName,
   type SuggestedMatch,
 } from "@workspace/db";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import {
   deriveCatStatuses,
   isResolvedDeceased,
@@ -26,7 +25,7 @@ import {
 } from "../lib/catHelpers";
 import { badgesFor } from "../lib/badges";
 import { clampCaptureTime } from "../lib/captureTime";
-import { verifyDeviceSecret } from "../lib/deviceAuth";
+import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { writeObservation, type DbOrTx } from "../lib/observations";
 import { catSubscriptionsTable } from "@workspace/db";
@@ -91,12 +90,13 @@ const CONFIDENCE_THRESHOLD = 0.4;
 
 const router: IRouter = Router();
 
-// Data spine PR 7 (plan "PR 7 — The sighting questions and the note";
-// Conflicts C5): the questions on the reward screen can be answered for this
-// long after the sighting was resolved, and no longer. They are about what
-// the spotter saw in the moment; adding details to a cat later is SYC-117
-// part 2's, and is specced separately.
-const ANSWER_WINDOW_MS = 24 * 3_600_000;
+// SYC-117 part 2 (add-details-later.md, approved 5 Oct 2026, Decisions 2 and
+// 4): every question can be answered until 30 days after the photo was
+// taken, from the reward screen or later from the cat's page. Measured from
+// the capture time, not the match, so an answer's observedAt (the capture
+// time) is always inside writeObservation's 30-day public limit and is never
+// moved forward. Replaces PR 7's 24 hours after the match.
+const ANSWER_WINDOW_MS = 30 * 86_400_000;
 
 // §10.7's answer vocabulary, mapped to §10.1's ear_tip and food_and_water
 // value shapes. "clipped_unsure" is a clipped tip on an ear the spotter
@@ -113,6 +113,77 @@ const FOOD_AND_WATER_VALUES = {
   no: { present: false },
   cant_tell: { present: "cant_tell" },
 } as const;
+
+type EarTipAnswer = keyof typeof EAR_TIP_VALUES;
+
+/** The answer an ear_tip value records, for showing it back to the spotter. */
+function earTipAnswerOf(value: unknown): EarTipAnswer | null {
+  const v = value as { clipped?: unknown; side?: unknown } | null;
+  if (v?.clipped === false) return "looks_whole";
+  if (v?.clipped === "cant_tell") return "cant_tell";
+  if (v?.clipped === true) {
+    return v.side === "left"
+      ? "clipped_left"
+      : v.side === "right"
+        ? "clipped_right"
+        : "clipped_unsure";
+  }
+  return null;
+}
+
+/**
+ * Where this device stands on this cat's ear tip (add-details-later.md
+ * §3.1):
+ * - "open": it has never answered;
+ * - "answered": `current` is its answer that nothing has replaced, and it may
+ *   change it;
+ * - "checked": it has answered, and Syros Cats have checked it, so it can't
+ *   be changed. That's either a row this device didn't write replacing one
+ *   of its answers (a team correction), or any `sterilised` statement about
+ *   the cat (only staff, the legacy admin route and backfills ever write
+ *   one).
+ */
+async function earTipStateFor(
+  tx: DbOrTx,
+  deviceId: string,
+  catId: number,
+): Promise<
+  | { state: "open" }
+  | { state: "checked" }
+  | { state: "answered"; current: { id: number; answer: EarTipAnswer | null } }
+> {
+  const mine = await tx
+    .select({ id: observationsTable.id, value: observationsTable.value })
+    .from(observationsTable)
+    .where(
+      and(
+        eq(observationsTable.catId, catId),
+        eq(observationsTable.deviceId, deviceId),
+        eq(observationsTable.kind, "ear_tip"),
+      ),
+    );
+  const [sterilised] = await tx
+    .select({ id: observationsTable.id })
+    .from(observationsTable)
+    .where(and(eq(observationsTable.catId, catId), eq(observationsTable.kind, "sterilised")))
+    .limit(1);
+  // "Checked" only ever stops a change. A spotter with no answer yet can
+  // always give a first one, on the reward screen or the cat's page, even
+  // after the team has spoken about sterilisation (review of the SYC-117
+  // part 2 build: this used to drop such first answers silently).
+  if (mine.length === 0) return { state: "open" };
+  if (sterilised) return { state: "checked" };
+
+  const replacing = await tx
+    .select({ supersedesId: observationsTable.supersedesId, deviceId: observationsTable.deviceId })
+    .from(observationsTable)
+    .where(inArray(observationsTable.supersedesId, mine.map((m) => m.id)));
+  if (replacing.some((r) => r.deviceId !== deviceId)) return { state: "checked" };
+  const replaced = new Set(replacing.map((r) => r.supersedesId));
+  const current = mine.filter((m) => !replaced.has(m.id)).sort((a, b) => b.id - a.id)[0];
+  if (!current) return { state: "checked" };
+  return { state: "answered", current: { id: current.id, answer: earTipAnswerOf(current.value) } };
+}
 
 /**
  * Q3 → B (Samuel, 2 Oct 2026): each spotter is asked about a cat's ear tip
@@ -810,16 +881,23 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 });
 
 /**
- * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7): the answers to
- * the optional questions on the reward screen, sent after resolve so nothing
- * stands between a spotter and their points (Conflicts C5). Each answer
- * becomes its own observation about the cat, through writeObservation; the
- * sightings row is never touched (SYC-63's append-only guard).
+ * The answers to the optional questions about a sighting: data spine PR 7
+ * (cat-record-data-spine.md §4.4, §7, §10.7), sent from the reward screen
+ * after the points (Conflicts C5), and SYC-117 part 2 (add-details-later.md),
+ * sent later from the cat's page. Each answer becomes its own observation
+ * about the cat, through writeObservation; the sightings row is never
+ * touched (SYC-63's append-only guard).
  *
- * Accepted once per sighting, within ANSWER_WINDOW_MS of its resolve, from
- * the sighting's own device. A request whose answers are all skipped writes
- * nothing, and so doesn't use up the sighting's one set of answers (the app
- * doesn't send one).
+ * - Accepted until ANSWER_WINDOW_MS after the photo was taken, from the
+ *   sighting's own device.
+ * - Each question once per sighting: an already-answered food-and-water or
+ *   note is left out and the rest is recorded. ALREADY_ANSWERED only when
+ *   nothing in the request could be recorded.
+ * - The ear tip once per device per cat (Q3 → B): a second answer is left
+ *   out, unless `changeEarTip` asks to replace the device's own current
+ *   answer (Decision 3 → B), which is refused with EAR_TIP_CHECKED once
+ *   Syros Cats have checked it.
+ * - A request whose answers are all skipped writes nothing.
  */
 router.post("/sightings/:sightingId/answers", async (req, res) => {
   const sightingId = Number(req.params.sightingId);
@@ -854,34 +932,7 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
   }
   const catId = sighting.catId;
 
-  // `sightings` has no resolved-at column, and PR 7 adds no migration. The
-  // match record's chosen_at is written at resolve (SYC-151), so it is the
-  // resolve time. That write is best effort, so if it failed, the resolve's
-  // own "spotted again" cat_updates row (written straight after, and not
-  // best effort: resolve fails if it can't be written) stands in. Only if
-  // both are missing does the window count from the sighting's capture
-  // time, which is always earlier than its resolve: the last fallback can
-  // only close the window sooner, never keep it open longer. (Review of
-  // PR 7: without the middle step, a failed match-record write on a
-  // sighting synced days late refused answers moments after the points.)
-  const [match] = await db
-    .select({ chosenAt: sightingMatchesTable.chosenAt })
-    .from(sightingMatchesTable)
-    .where(eq(sightingMatchesTable.sightingId, sightingId));
-  let resolvedAt = match?.chosenAt ?? null;
-  if (resolvedAt == null) {
-    const [update] = await db
-      .select({ createdAt: catUpdatesTable.createdAt })
-      .from(catUpdatesTable)
-      .where(eq(catUpdatesTable.triggerSightingId, sightingId))
-      .limit(1);
-    resolvedAt = update?.createdAt ?? sighting.createdAt;
-    req.log.warn(
-      { sightingId, fallback: update ? "cat_update" : "capture_time" },
-      "No match record for a resolved sighting; timing its answers from a fallback",
-    );
-  }
-  if (Date.now() - resolvedAt.getTime() > ANSWER_WINDOW_MS) {
+  if (Date.now() - sighting.createdAt.getTime() > ANSWER_WINDOW_MS) {
     res.status(422).json({
       error: "The questions for this sighting have closed",
       code: "ANSWERS_CLOSED",
@@ -890,7 +941,12 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
   }
 
   const note = body.note?.trim() ?? "";
-  const answers: { kind: "ear_tip" | "food_and_water" | "note"; value: unknown }[] = [];
+  type Answer = {
+    kind: "ear_tip" | "food_and_water" | "note";
+    value: unknown;
+    supersedesId?: number;
+  };
+  const answers: Answer[] = [];
   if (body.earTip) answers.push({ kind: "ear_tip", value: EAR_TIP_VALUES[body.earTip] });
   if (body.foodAndWater) {
     answers.push({ kind: "food_and_water", value: FOOD_AND_WATER_VALUES[body.foodAndWater] });
@@ -903,40 +959,72 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
   }
 
   const ALREADY_ANSWERED = { code: "ALREADY_ANSWERED" } as const;
-  let written = answers;
+  const EAR_TIP_CHECKED = { code: "EAR_TIP_CHECKED" } as const;
+  let written: Answer[] = [];
   try {
     await db.transaction(async (tx) => {
       // Serialise every answer this device sends about this cat, so neither
-      // "once per sighting" nor "ear tip once per cat" can be beaten by two
-      // requests sent at once. An advisory lock, not SELECT ... FOR UPDATE on
-      // the sighting, so nothing here even looks like a sightings update.
-      // hashtext is 32-bit, so two devices can share a key: that only makes
-      // them wait for each other briefly; the checks below are exact.
+      // "once per question per sighting" nor "ear tip once per cat" can be
+      // beaten by two requests sent at once. An advisory lock, not SELECT ...
+      // FOR UPDATE on the sighting, so nothing here even looks like a
+      // sightings update. hashtext is 32-bit, so two devices can share a
+      // key: that only makes them wait for each other briefly; the checks
+      // below are exact.
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtext(${`sighting-answers:${sighting.deviceId}`}), ${catId})`,
       );
-      const [existing] = await tx
-        .select({ id: observationsTable.id })
-        .from(observationsTable)
-        .where(
-          and(
-            eq(observationsTable.sightingId, sightingId),
-            inArray(observationsTable.kind, ["ear_tip", "food_and_water", "note"]),
-          ),
-        )
-        .limit(1);
-      if (existing) throw ALREADY_ANSWERED;
-      // Ask once per cat (Q3 → B). A second ear-tip answer can only arrive
-      // when two sightings of the same cat were resolved before either was
-      // answered (both said askEarTip: true). Drop just that answer and keep
-      // the rest: food and water and the note are about this moment, and
-      // losing them would be a worse outcome than the duplicate it prevents.
-      // (Review of PR 7: this used to refuse the whole set.)
-      if (body.earTip && (await hasAnsweredEarTip(tx, sighting.deviceId, catId))) {
-        written = answers.filter((a) => a.kind !== "ear_tip");
+      const answeredHere = new Set(
+        (
+          await tx
+            .select({ kind: observationsTable.kind })
+            .from(observationsTable)
+            .where(
+              and(
+                eq(observationsTable.sightingId, sightingId),
+                inArray(observationsTable.kind, ["food_and_water", "note"]),
+              ),
+            )
+        ).map((r) => r.kind),
+      );
+      const toWrite: Answer[] = answers.filter(
+        (a) => a.kind === "ear_tip" || !answeredHere.has(a.kind),
+      );
+
+      const ear = toWrite.find((a) => a.kind === "ear_tip");
+      if (ear) {
+        const keep = await (async (): Promise<boolean> => {
+          const state = await earTipStateFor(tx, sighting.deviceId, catId);
+          if (state.state === "open") return true;
+          // Without changeEarTip a second answer is left out, as PR 7 did, so
+          // the reward screen can never change an answer by accident.
+          if (!body.changeEarTip) return false;
+          if (state.state === "checked") throw EAR_TIP_CHECKED;
+          if (state.current.answer === body.earTip) return false;
+          // Lock the answer being replaced exactly as the team's supersede
+          // endpoint does (routes/observations.ts), then check again that
+          // nothing points at it. PR 7's advisory lock is per device and
+          // cat and never meets the team's row lock, so without this a
+          // change and a team correction sent at the same moment could both
+          // point at the same answer, and the spotter's could win (second
+          // review of add-details-later.md, 5 Oct 2026).
+          await tx.execute(
+            sql`select id from observations where id = ${state.current.id} for update`,
+          );
+          const [taken] = await tx
+            .select({ id: observationsTable.id })
+            .from(observationsTable)
+            .where(eq(observationsTable.supersedesId, state.current.id))
+            .limit(1);
+          if (taken) throw EAR_TIP_CHECKED;
+          ear.supersedesId = state.current.id;
+          return true;
+        })();
+        if (!keep) toWrite.splice(toWrite.indexOf(ear), 1);
       }
 
-      for (const a of written) {
+      if (toWrite.length === 0) throw ALREADY_ANSWERED;
+
+      for (const a of toWrite) {
         await writeObservation(tx, {
           catId,
           kind: a.kind,
@@ -951,8 +1039,12 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
           photoId: sighting.photoId,
           // When the spotter saw the cat, not when they tapped the answer.
           observedAt: sighting.createdAt,
+          ...(a.supersedesId != null
+            ? { supersedesId: a.supersedesId, supersedeReason: "changed by the spotter" }
+            : {}),
         });
       }
+      written = toWrite;
     });
   } catch (err) {
     if (err === ALREADY_ANSWERED) {
@@ -962,10 +1054,84 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       });
       return;
     }
+    if (err === EAR_TIP_CHECKED) {
+      res.status(409).json({
+        error: "Syros Cats have already checked this cat's ear tip",
+        code: "EAR_TIP_CHECKED",
+      });
+      return;
+    }
     throw err;
   }
 
   res.json({ recorded: written.map((a) => a.kind) });
+});
+
+/**
+ * SYC-117 part 2 (add-details-later.md §6): this device's resolved sightings
+ * of this cat, taken within ANSWER_WINDOW_MS, that still have something to
+ * add, for the "Anything to add?" card on the cat's page. Only the caller's
+ * own sightings, behind its device secret. No coordinates, no note text.
+ */
+router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) => {
+  const deviceId = await requireDeviceAuth(req, res);
+  if (!deviceId) return;
+  const catId = Number(req.params.catId);
+  if (!Number.isInteger(catId)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const recent = await db
+    .select({
+      id: sightingsTable.id,
+      createdAt: sightingsTable.createdAt,
+      publicId: photosTable.publicId,
+    })
+    .from(sightingsTable)
+    .leftJoin(photosTable, eq(photosTable.id, sightingsTable.photoId))
+    .where(
+      and(
+        eq(sightingsTable.deviceId, deviceId),
+        eq(sightingsTable.catId, catId),
+        eq(sightingsTable.status, "resolved"),
+        gte(sightingsTable.createdAt, new Date(Date.now() - ANSWER_WINDOW_MS)),
+      ),
+    )
+    .orderBy(desc(sightingsTable.createdAt));
+
+  const answered = recent.length
+    ? await db
+        .select({ sightingId: observationsTable.sightingId, kind: observationsTable.kind })
+        .from(observationsTable)
+        .where(
+          and(
+            inArray(observationsTable.sightingId, recent.map((r) => r.id)),
+            inArray(observationsTable.kind, ["food_and_water", "note"]),
+          ),
+        )
+    : [];
+  const ear = await earTipStateFor(db, deviceId, catId);
+
+  const sightings = recent
+    .map((r) => {
+      const kinds = new Set(answered.filter((a) => a.sightingId === r.id).map((a) => a.kind));
+      return {
+        sightingId: r.id,
+        takenAt: r.createdAt.toISOString(),
+        photoUrl: r.publicId ? `/api/photos/${r.publicId}` : null,
+        open: { foodAndWater: !kinds.has("food_and_water"), note: !kinds.has("note") },
+      };
+    })
+    .filter((s) => s.open.foodAndWater || s.open.note || ear.state !== "checked");
+
+  res.json({
+    earTip:
+      ear.state === "answered" && ear.current.answer
+        ? { state: "answered", current: ear.current.answer }
+        : { state: ear.state === "answered" ? "checked" : ear.state },
+    sightings,
+  });
 });
 
 export default router;

@@ -40,6 +40,7 @@ import type {
   MarkAllNotificationsRead200,
   MarkNotificationRead200,
   MatchResult,
+  MyOpenSightings,
   Profile,
   RegisterPushToken200,
   RegisterPushTokenRequest,
@@ -759,7 +760,7 @@ export const getAnswerSightingQuestionsUrl = (sightingId: number,) => {
 }
 
 /**
- * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5). Sent after resolve, from the reward screen, so nothing stands between a spotter and their points. Accepted once per sighting, within 24 hours of its resolve, from the sighting's own device (which must prove its secret). Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. Each spotter answers the ear-tip question once per cat: an ear-tip answer from a device that has already given one for this cat is dropped (left out of `recorded`), and the other answers are kept. The note is seen only by the Syros Cats team and never appears in a public payload.
+ * Data spine PR 7 (cat-record-data-spine.md §4.4, §7, §10.7; plan Conflicts C5) and SYC-117 part 2 (add-details-later.md). Sent from the reward screen after the points, or later from the cat's page. Accepted until 30 days after the photo was taken, from the sighting's own device (which must prove its secret). Each question is answered once per sighting: an already-answered question in the request is left out of `recorded`, and the rest are kept. Each answer is written as its own observation about the cat; the sightings row is never updated. Every field is optional; a request with none of them writes nothing. Each spotter answers the ear-tip question once per cat: an ear-tip answer from a device that has already given one for this cat is dropped (left out of `recorded`), and the other answers are kept. The note is seen only by the Syros Cats team and never appears in a public payload.
  * @summary Answer the optional questions asked after the points (ear tip, food and water, note)
  */
 export const answerSightingQuestions = async (sightingId: number,
@@ -822,6 +823,89 @@ export const useAnswerSightingQuestions = <TError = ErrorType<void | ApiErrorBod
       > => {
       return useMutation(getAnswerSightingQuestionsMutationOptions(options));
     }
+
+export const getGetMyOpenSightingsUrl = (deviceId: string,
+    catId: number,) => {
+
+
+
+
+  return `/api/profiles/${deviceId}/cats/${catId}/open-sightings`
+}
+
+/**
+ * SYC-117 part 2 (add-details-later.md §6). Feeds the "Anything to add?" card on a cat's page. Only the caller's own resolved sightings of this cat, taken in the last 30 days, with something still open. Needs the device's secret. Carries no coordinates and no note text.
+ * @summary This device's recent sightings of a cat that still have questions open
+ */
+export const getMyOpenSightings = async (deviceId: string,
+    catId: number, options?: RequestInit): Promise<MyOpenSightings> => {
+
+  return customFetch<MyOpenSightings>(getGetMyOpenSightingsUrl(deviceId,catId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyOpenSightingsQueryKey = (deviceId: string,
+    catId: number,) => {
+    return [
+    `/api/profiles/${deviceId}/cats/${catId}/open-sightings`
+    ] as const;
+    }
+
+
+export const getGetMyOpenSightingsQueryOptions = <TData = Awaited<ReturnType<typeof getMyOpenSightings>>, TError = ErrorType<void>>(deviceId: string,
+    catId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyOpenSightings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyOpenSightingsQueryKey(deviceId,catId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyOpenSightings>>> = ({ signal }) => getMyOpenSightings(deviceId,catId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: deviceId !== null && deviceId !== undefined && catId !== null && catId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyOpenSightings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyOpenSightingsQueryResult = NonNullable<Awaited<ReturnType<typeof getMyOpenSightings>>>
+export type GetMyOpenSightingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary This device's recent sightings of a cat that still have questions open
+ */
+
+export function useGetMyOpenSightings<TData = Awaited<ReturnType<typeof getMyOpenSightings>>, TError = ErrorType<void>>(
+ deviceId: string,
+    catId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyOpenSightings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyOpenSightingsQueryOptions(deviceId,catId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getSuggestCatNamesUrl = () => {
 
