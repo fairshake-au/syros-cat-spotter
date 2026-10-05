@@ -263,6 +263,29 @@ describe("changing your own ear-tip answer (Decision 3 → B)", () => {
     expect(res.body.code).toBe("EAR_TIP_CHECKED");
   });
 
+  it("a spotter's first ear-tip answer is still recorded after the team has spoken about sterilisation (review of the build)", async () => {
+    // "Checked" stops a CHANGE. A new spotter's first answer, on the reward
+    // screen or the cat's page, is ordinary data and must never be dropped.
+    const catId = await seedCat();
+    await db.insert(observationsTable).values({
+      catId,
+      kind: "sterilised",
+      value: { sterilised: true },
+      accountId: "vitest-staff",
+      roleAtTime: "staff",
+      observedAt: new Date(),
+    });
+    const device = `${DEVICE}-${uid()}`;
+    const s = await sightingOf(catId, device);
+    const res = await answer(s.id, device, { earTip: "clipped_left" });
+    expect(res.status).toBe(200);
+    expect(res.body.recorded).toEqual(["ear_tip"]);
+    expect(await earTips(catId, device)).toHaveLength(1);
+    // ...and only now is a change refused.
+    const change = await answer(s.id, device, { earTip: "looks_whole", changeEarTip: true });
+    expect(change.body.code).toBe("EAR_TIP_CHECKED");
+  });
+
   it("a change racing a team correction of the same answer never lets both land", async () => {
     const catId = await seedCat();
     const device = `${DEVICE}-${uid()}`;
@@ -359,12 +382,13 @@ describe("GET /api/profiles/:deviceId/cats/:catId/open-sightings", () => {
     await sightingOf(catId, device, 31);
     await sightingOf(catId, other, 1);
     const done = await sightingOf(catId, device, 2);
-    await answer(done.id, device, { foodAndWater: "no", note: "all done" });
+    await answer(done.id, device, { foodAndWater: "no", note: "all done", earTip: "looks_whole" });
     // The ear tip is still open, so a sighting with only that left stays.
     let res = await openSightings(catId, device);
     expect(res.body.sightings.map((x: { sightingId: number }) => x.sightingId)).toEqual([done.id]);
 
-    // Once Syros Cats have checked the cat, nothing is left on it.
+    // Once Syros Cats have checked the cat, this spotter's answer can't be
+    // changed, so nothing is left on it.
     await db.insert(observationsTable).values({
       catId,
       kind: "sterilised",

@@ -137,10 +137,11 @@ function earTipAnswerOf(value: unknown): EarTipAnswer | null {
  * - "open": it has never answered;
  * - "answered": `current` is its answer that nothing has replaced, and it may
  *   change it;
- * - "checked": Syros Cats have checked it, so it can't be changed. That's
- *   either a row this device didn't write replacing one of its answers (a
- *   team correction), or any `sterilised` statement about the cat (only
- *   staff, the legacy admin route and backfills ever write one).
+ * - "checked": it has answered, and Syros Cats have checked it, so it can't
+ *   be changed. That's either a row this device didn't write replacing one
+ *   of its answers (a team correction), or any `sterilised` statement about
+ *   the cat (only staff, the legacy admin route and backfills ever write
+ *   one).
  */
 async function earTipStateFor(
   tx: DbOrTx,
@@ -166,7 +167,11 @@ async function earTipStateFor(
     .from(observationsTable)
     .where(and(eq(observationsTable.catId, catId), eq(observationsTable.kind, "sterilised")))
     .limit(1);
-  if (mine.length === 0) return sterilised ? { state: "checked" } : { state: "open" };
+  // "Checked" only ever stops a change. A spotter with no answer yet can
+  // always give a first one, on the reward screen or the cat's page, even
+  // after the team has spoken about sterilisation (review of the SYC-117
+  // part 2 build: this used to drop such first answers silently).
+  if (mine.length === 0) return { state: "open" };
   if (sterilised) return { state: "checked" };
 
   const replacing = await tx
