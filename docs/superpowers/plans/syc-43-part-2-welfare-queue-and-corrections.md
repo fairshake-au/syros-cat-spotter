@@ -1,6 +1,6 @@
 # SYC-43 part 2: the welfare queue and the corrections screens
 
-**Status: awaiting Samuel's approval. Plan only, nothing is built. Adversarially reviewed (Sonnet critic, 4 Oct 2026): 2 blockers, 1 major and 2 minor findings, all folded in (see "Review").**
+**Status: all seven decisions made by Samuel, 5 Oct 2026 (1–6 as recommended; 7 as "strict link + mark as left", see below). The plan as a whole still awaits his approval. Plan only, nothing is built. Adversarially reviewed (Sonnet critic, 4 Oct 2026): 2 blockers, 1 major and 2 minor findings, all folded in (see "Review").**
 **Spec:** `docs/specs/team-access-and-welfare-queue.md` (approved 28 Sep 2026) §3.1, §3.3, §3.6, §4.3 (report photos), §5.3(h) (closing states), §7.3, §8.4–§8.6. `DECISIONS.md` wins where they differ (F1, Part 2b, 2g, 2i, 2j). The record model is `docs/specs/cat-record-data-spine.md` (§4.5, §10.1, §10.3, §10.7).
 **Linear:** SYC-43 (this part), and SYC-42 Slices 2 and 5.1, which this plan carries out (Decision 2). It touches SYC-44, SYC-150, SYC-152, SYC-163, SYC-185 and SYC-198.
 **Checked against:** `origin/main` at `a7eec8f` (4 Oct 2026), open PRs #46 and #71, the branch `claude/spine-pr7-questions`, and Linear SYC-43 in full with its comments. Every "exists today" claim below names the file it was read in.
@@ -50,9 +50,11 @@ There is also a short **"Probably sterilised" review list**. It shows the cats t
 
 ## Decisions for Samuel
 
-Seven decisions, each with a recommendation. Decisions 1–3 shape the whole build. 4–7 are smaller.
+Seven decisions, each with a recommendation. Decisions 1–3 shape the whole build. 4–7 are smaller. **All seven were decided by Samuel on 5 Oct 2026**, and each decision's heading says how.
 
 ### Decision 1: How the dashboard screens are built
+
+**Decided by Samuel, 5 Oct 2026: A, plain server-drawn pages, "for now".** He also wants ready-made alternatives explored, such as off-the-shelf admin tools and plugins. That exploration is ticketed separately (SYC-207) and doesn't block this build.
 
 **The question.** The dashboard lives inside the app's own server, at `team.catspotters.com/api/team/`, because Replit only sends `/api/...` to that server (`artifacts/api-server/.replit-artifact/artifact.toml`, `paths = ["/api"]`). Today's signed-in page is plain HTML with no scripts. Its security header allows no scripts and no images at all (`lib/teamAuth/refuse.ts`, `setTeamHeaders`). How should the real screens be built?
 
@@ -66,6 +68,8 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 
 ### Decision 2: The queue is already planned in SYC-42. Which plan governs it?
 
+**Decided by Samuel, 5 Oct 2026: A.**
+
 **The question.** The approved SYC-42 plan (`docs/superpowers/plans/syc-42-cat-in-trouble.md`) already defines **Slice 2, "the welfare queue on the dashboard"**: its routes, its database table and tests 27–30. It also defines **Slice 5, "tying a report to a cat"**. SYC-43 is the dashboard ticket. Without a clear owner, two sessions could build the same screen.
 
 | Option | Benefits | Risks |
@@ -76,6 +80,8 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 **Recommendation: A.** Slice 5.2 ("use this photo on the cat") is *not* included; see "What this part does not do".
 
 ### Decision 3: How "hide this photo" is recorded
+
+**Decided by Samuel, 5 Oct 2026: A, the hide/restore log.**
 
 **The question.** Nothing on `main` can hide a photo. `photos` has no hidden flag (`lib/db/src/schema/photos.ts`). SYC-119's spec says "Hide this photo… already exists". It doesn't. Spec §3.3 says every correction "appends an observation", but observations are statements *about a cat* (life, sterilisation, names). A hidden photo is about a picture. The same hiding is also needed by "Report an issue" (SYC-44), where a single member-of-the-public report hides a photo pending review, and that can happen without anyone on the team being involved.
 
@@ -89,6 +95,8 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 
 ### Decision 4: What the public sees when the cat's main photo is hidden
 
+**Decided by Samuel, 5 Oct 2026: A.**
+
 **The question.** Every cat has exactly one main photo (`cats.primary_photo_id`, not null). If the team hides it, what does the public catalogue show?
 
 | Option | Benefits | Risks |
@@ -100,6 +108,8 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 **Recommendation: A.** SYC-119's spec already expects the cat's colour to be re-read "when the team hides a photo that was the main one". That re-read doesn't exist yet. It belongs to SYC-161 (noted there), not here.
 
 ### Decision 5: Renaming a cat keeps today's pattern
+
+**Decided by Samuel, 5 Oct 2026: A.**
 
 **The question.** Spec §3.3 says "nothing on this screen edits a field". But a cat's name is the `cats.name` column, which every screen reads. Since data spine PR 2, each naming already writes the column *and* a `name` observation in the same step (`routes/cats.ts`, the two `kind: "name"` writes). Nothing reads names from observations yet (data spine plan, PR 3b).
 
@@ -113,6 +123,8 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 
 ### Decision 6: What "Looks right" does on the Probably sterilised list
 
+**Decided by Samuel, 5 Oct 2026: A.**
+
 **The question.** The data spine gives the review list two buttons, *looks right* and *that's not a clip* (§4.5). *That's not a clip* is defined: a team `ear_tip { clipped: false }` replaces the spotter's answer, and the cat goes back to *Not known yet*. *Looks right* isn't defined.
 
 | Option | What happens | Benefits | Risks |
@@ -123,7 +135,9 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 
 **Recommendation: A.**
 
-### Decision 7: Who changed a report: store the person's id, without a database link to the people list
+### Decision 7: Who changed a report, and what happens when someone leaves
+
+**Decided by Samuel, 5 Oct 2026: a strict database link to the people list, and people who leave are marked "left", not deleted.** He first picked option C, the link as SYC-42 wrote it. Then he was shown that, with deletion as it works today, nobody who had ever moved a report could be removed. He confirmed instead the strict link combined with a change to how leaving works. The table below is the original write-up. What the decision requires is in **"Decision 7's knock-on: marking people as left"**, further down.
 
 **The question.** The SYC-42 plan (Slice 2, item 2.1) said to add a database link from `welfare_reports.state_changed_by` to `people.id`. A database link like that would **stop anyone being removed** from the people list once they had touched a report. That breaks "removing somebody is one deletion" (spec §2.9, §10).
 
@@ -133,7 +147,42 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 | B. A link that empties the field when the person is removed | Database-checked | Removing someone wipes who did what, which is the attribution the spec says is permanent (§7.3) |
 | C. The link as SYC-42's plan says | Database-checked | Blocks removal, as above |
 
-**Recommendation: A.** This changes one line of the approved SYC-42 plan, so it's recorded here for approval.
+*Original recommendation: A.* What was decided is neither A nor C as written: it is C's strict link plus "mark as left". That keeps every attribution permanent and checked by the database, and still ends a leaver's access at their next request.
+
+### Decision 7's knock-on: marking people as left
+
+**What Syros Cats staff experience.** When someone leaves, a team member (or Claude, until SYC-104's people screen exists) marks them as left. Their next tap on any dashboard page, on any device, sends them back to the sign-in page. The sign-in page then treats their address like any address not on the list, so no link is sent. Everything they did stays attributed to them by name, with "(left)" after it. If they come back, adding the same address again brings back the same person, with their history intact and a fresh sign-in.
+
+**What changes, built as PR 0 before PR 1:**
+- **Migration** (next free number, the first in this part): `people` gains `left_at` (timestamptz, nullable) and `left_by` (text, like `added_by`).
+- **One rule, in `lib/db/src/people.ts`: a person with `left_at` set is not on the list.** `findPersonById` and `findAllowedPerson` both refuse such a person. Those two functions are every reader of "who is allowed in" in this repo:
+  - the hand-off (`routes/team.ts`);
+  - `requireTeam` (every dashboard request);
+  - the Worker's question (`routes/internal.ts`).
+
+  The Worker reads the list only through that question, so it obeys too.
+- `markLeft(email, by)` sets `left_at`/`left_by` **and** raises `session_version`, in one transaction, so an open session dies at its next request even before the `left_at` check is reached.
+- `addPerson` for an address that already exists and has left **rejoins** that person: it clears `left_at` and raises `session_version`. It doesn't create a second row, because the email is unique and the history should stay with one person.
+- **`removePerson` (hard delete) stays**, but only for someone with no history: a mistaken add. For anyone else the database link refuses it, and the command says *"This person has history. Use mark-left instead."*
+- The `people` command gains `mark-left`. `list` shows who has left.
+- **SYC-131** (db-ops `people-remove`) becomes db-ops `people-mark-left`, and **SYC-104** (the people screen) uses "Mark as left". Both tickets are updated.
+- **Spec amendment, recorded in `DECISIONS.md` Part 2k:** §2.9's "removal takes effect at the next request… one deletion" now reads "marking someone as left takes effect at the next request, in both systems, in one step". Removal is still one action in one place, and nothing about how fast it takes effect changes.
+
+**The database links this part then adds**, all to `people.id` and all strict (no cascade, no set-null):
+- `welfare_reports.state_changed_by` and `welfare_reports.team_note_by`. Both change from text to uuid. They are empty in production today (nothing writes them; checked against `routes/reports.ts`), so the type change is safe. The migration asserts they're empty before altering them.
+- `report_state_events.person_id` (uuid).
+- `photo_visibility_events` keeps `author` as text, because SYC-44 will write `report:<id>` there. It also gets a nullable `person_id` uuid link that is set whenever a team member is the author.
+
+**Not linked:** `observations.account_id` stays text, as the data spine defines it (§10.1). It also holds `system:…` authors and device-era ids, and changing it is the data spine's call, not this part's. Removal is no longer a delete, so it never orphans these ids either.
+
+**A risk to know about.** A former staff member's name and email now stay in `people` for as long as their actions are on record. That is staff personal data the charity holds about a former volunteer. If one of them asks to be forgotten, the answer is to replace their email and name with a placeholder ("Former team member 3"), not to delete the row. That keeps every link intact. This is filed as a follow-up (SYC-208), and the privacy policy (SYC-66) should mention it.
+
+**Tests (PR 0):**
+- **P0-1** A person marked as left is refused by the hand-off, by `requireTeam` on their very next request with an existing cookie, and by the Worker's question (`allowed: false`). It's the identical refusal in each case. **M:** remove the `left_at` check from `findPersonById` → the hand-off and `requireTeam` cases go red. Remove it from `findAllowedPerson` → the Worker case goes red.
+- **P0-2** `markLeft` raises `session_version`. **M:** drop the raise → a test that bypasses the `left_at` check (by calling the session comparison alone) goes red.
+- **P0-3** Adding a left person's address again rejoins the same row: same id, `left_at` cleared, new `session_version`, and their old reports still attributed to them.
+- **P0-4** Hard-deleting a person who has moved a report is refused by the database. Hard-deleting a person with no history works.
+- **P0-5** The migration's rollback and up/down/up pass.
 
 ---
 
@@ -157,9 +206,9 @@ Seven decisions, each with a recommendation. Decisions 1–3 shape the whole bui
 | Reporter email, contact yes/no, reporter delivery state | **No**: SYC-42 Slice 3. `reporter_contact_id` is always empty | `welfare.ts` comment "Unused until Slice 3" |
 | Next free migration number | `0007` (`0006` is PR 3's backfill). `spine-pr7-questions` adds none | `lib/db/migrations/` |
 
-## What this part builds, in six PRs
+## What this part builds, in seven PRs
 
-Each PR can be reviewed and shipped on its own, in this order. Only PRs 1 and 6 change the database. Migration numbers are generated at merge time, never typed by hand (`lib/db/migrations/README.md`).
+Each PR can be reviewed and shipped on its own, in this order. **PR 0** (marking people as left) comes first and is described under "Decision 7's knock-on" above. Only PRs 0, 1 and 6 change the database. Migration numbers are generated at merge time, never typed by hand (`lib/db/migrations/README.md`).
 
 ### PR 1: The dashboard frame and the queue, read-only (migration `welfare_queue`)
 
@@ -168,10 +217,10 @@ Each PR can be reviewed and shipped on its own, in this order. Only PRs 1 and 6 
   - `id`;
   - `report_id` → `welfare_reports.id`, on delete cascade;
   - `from_state`, `to_state`, both checked against the four states;
-  - `person_id`, text with no link (Decision 7);
+  - `person_id`, uuid, a strict link to `people.id` (Decision 7);
   - `at`;
   - `reporter_message`, nullable text. It stays empty until SYC-42 Slice 3, and will record which reporter email this change sent, so "never mail twice" is a query (§5.3h).
-- **`welfare_reports` gains `team_note_by` (text) and `team_note_at`**, so "who wrote this note?" has an answer. The note itself stays the one free-text field the spec asks for (§3.1).
+- **`welfare_reports` gains `team_note_by` (uuid, a strict link to `people.id`) and `team_note_at`**, so "who wrote this note?" has an answer. `state_changed_by` changes from text to uuid and gets the same link (see "Decision 7's knock-on"). The note itself stays the one free-text field the spec asks for (§3.1).
 - Rollback block: drop both. No data exists before the migration runs.
 
 **The frame.** New `lib/teamPages/`:
@@ -220,7 +269,7 @@ The page also shows **a mail-failure banner** (§8.3 "persistent send failure ra
   - the derived status from `resolveCat`, exactly as the public sees it, plus the team-only detail behind it;
   - every sighting with its **exact** position and time;
   - every photo, through the team photo route;
-  - **the full statement history**, newest first. Each statement shows what was said, who said it ("a spotter", a team member's name, "a former team member", or "imported"), when, and its reason. Replaced statements stay visible, struck through, with what replaced them and why (§3.3: "the earlier statement stays visible underneath").
+  - **the full statement history**, newest first. Each statement shows what was said, who said it ("a spotter", a team member's name, with "(left)" if they've left, or "imported"), when, and its reason. Replaced statements stay visible, struck through, with what replaced them and why (§3.3: "the earlier statement stays visible underneath").
   - Notes and food-and-water answers from data spine PR 7 appear in the history once they exist; nothing here waits on them.
 - **Team payloads never go through the public serialiser.** The team view builds its own shape in `lib/teamCatView.ts`. When data spine PR 6 adds `serialiseCat(cat, viewer)`, this becomes its `team` viewer. That way PR 6 has one more emitter to name, not a hidden fifth one. See "Where this collides with other work".
 
@@ -315,6 +364,7 @@ This carries SYC-42's list forward:
 |---|---|---|
 | **Data spine PR 6, blurring** (`serialiseCat`, feeding-site privacy; queued) | PR 3's team cat view is a new place cat positions are sent. PR 6 makes "every emitter goes through `serialiseCat`" a rule. PR 6 also edits the same public emitters PR 6 here (hiding) must filter: `lib/catHelpers.ts` and `routes/cats.ts` | Team views get exact positions **only** behind `view_exact_location`, and are named in PR 6's emitter list as its `team` viewer. **PR 6 (hiding) is built after data spine PR 6 merges**, so the photo filter goes into `serialiseCat` once, not into four functions twice. If data spine PR 6 slips, hiding goes first and PR 6 inherits the filter. No feeding-site data is shown anywhere in this part |
 | **SYC-63, deletion** (queued) | It clears `welfare_reports.reporter_device`. That breaks nothing here: "contact left" reads `reporter_contact_id`, and drafts are grouped by report, not device. PR 5 authors `welfare_report` as `system:welfare-report` when the device is gone. Staff ids in `report_state_events`, `team_note_by` and observations aren't personal data of a spotter, and stay | The SYC-63 build's checklist gains: "a welfare report with no device still shows and still ties to a cat" (test P5-3 covers this side) |
+| **SYC-131 and SYC-104, removing people** (Backlog) | Decision 7 turns "remove" into "mark as left" | SYC-131 becomes db-ops `people-mark-left`, and SYC-104's screen uses "Mark as left". Both tickets are updated. PR 0 provides `markLeft()` for both |
 | **SYC-101, folded names** (queued) | PR 3's search and PR 4's rename both check names | Both call `foldName` (PR 1's) and the uniqueness check that exists when they're built. SYC-101 moves the check in one place (Decision 5) |
 | **Data spine PR 7, sighting questions** (in flight: `routes/sightings.ts`, `openapi.yaml`) | The team cat page shows its `note` and `food_and_water` answers | No shared files: this plan doesn't touch `sightings.ts` or `openapi.yaml`. All team routes stay out of `openapi.yaml`, by the #68 rule |
 | **Data spine PR 9, push coarsening** (queued) | `notificationFanout.ts` (item 6 above) | Item 6's test is written against whichever version is on `main` |
@@ -335,6 +385,8 @@ This carries SYC-42's list forward:
 | Banner for sign-in rate limits crossed on the Worker | **SYC-202**. Needs the Worker to report crossings to the API. Mail failures are covered in PR 1 |
 | Re-reading a cat's colour when its main photo is hidden | **SYC-161** (coat colour from the main photo), commented there |
 | A database-level guarantee of one correction per statement | SYC-199 |
+| Ready-made admin tools as an alternative to these screens | SYC-207 (Samuel, Decision 1) |
+| Forgetting a former staff member without breaking links | SYC-208 (Decision 7's risk) |
 
 ## What works with no signal
 
@@ -361,13 +413,13 @@ API tests use supertest against the real app and CI's Postgres, as part 1 did. `
 - **P2-3** POSTs with a missing Origin or a wrong Origin (including `https://evil.catspotters.com`) are refused with the identical 401. **M:** accept a missing Origin → red.
 - **P2-4** Moving to *Looking at it*, *Done* or *Nothing needed* puts nothing in `mail_outbox` (until Slice 3).
 - **P2-5** A draft can't be moved. A state outside the four is refused.
-- **P2-6** A person removed from `people` after changing a report: the report still shows, attributed to "a former team member", and the removal itself succeeds (Decision 7). **M:** add the database link → red.
+- **P2-6** A person marked as left after changing a report: the report still shows, attributed to "Maria (left)". Hard-deleting that person is refused by the database link (Decision 7). **M:** drop the link from the migration → red.
 
 **PR 3**
 - **P3-1** Search finds `Μιμή` by `μιμη`, `ΜΙΜΗ` and `mimi`… (only what `foldName` actually folds, no Greek/Latin look-alikes, per Part 2j), and by `SYR-0012`.
 - **P3-2** The team cat page shows exact sighting positions. The **public** `GET /api/cats/:id` for the same cat is byte-for-byte unchanged by this PR (compared against a snapshot taken before the PR). **M:** route the public detail through `lib/teamCatView.ts` → red.
 - **P3-3** A superseded statement appears with the statement that replaced it and its reason.
-- **P3-4** Removed person → "a former team member". `system:*` → "imported" or the right label. A spotter → "a spotter", never a device id.
+- **P3-4** A person who has left → their name with "(left)". `system:*` → "imported" or the right label. A spotter → "a spotter", never a device id.
 
 **PR 4**
 - **P4-1** Each form writes exactly one observation with `roleAtTime: staff`, the person's id and the reason. Nothing in `observations` is ever updated (the append-only trigger stays the backstop).
@@ -396,7 +448,7 @@ API tests use supertest against the real app and CI's Postgres, as part 1 did. `
 
 For each PR, in order, after its own review:
 1. Merge. CI runs `migrate:check`, the migration tests and the API tests.
-2. PRs 1 and 6 only: db-ops `migrate` on development, then a Neon snapshot of production, then db-ops `migrate` on production and `verify`. **Migrate before publish**, as with 0003 and 0004.
+2. PRs 0, 1 and 6 only: db-ops `migrate` on development, then a Neon snapshot of production, then db-ops `migrate` on production and `verify`. **Migrate before publish**, as with 0003 and 0004.
 3. Samuel pulls into the EU Replit project and publishes. Then db-ops `smoke`.
 4. **Probe (Claude):** `curl` every new `/api/team/*` route without a session → `401 not_signed_in`. `curl` a report photo's public URL → `404`. After PR 6, hide a test photo and `curl` its public URL → `404`, then restore it.
 5. **Once SYC-103 lets staff in:** Samuel signs in and walks the queue on his phone. Then he shows Susan or Jacky, and their first real use is the acceptance test.
@@ -409,6 +461,7 @@ Session model for this plan: **Opus 5.5** (the brief named Sonnet for planning; 
 
 | Work package | Model | Why this tier | Assurance |
 |---|---|---|---|
+| PR 0 marking people as left (migration, `people.ts`, command) | **Opus** | *Escalated:* it changes who is allowed in, and a missed reader is a silent security hole (a leaver who can still sign in) | P0-1…P0-5 with **mutation probes** on P0-1 (both functions) and P0-2; the walk-through of every reader of the people list (hand-off, `requireTeam`, Worker question); independent review |
 | PR 1 migration, schema, rollback block | Sonnet | Two plain tables/columns, following `0004`'s pattern | `migrate:check`, P1-9 up/down/up; the session model reads the generated SQL line by line |
 | PR 1 page frame, queue page, team photo routes | Sonnet | Server-rendered HTML following part 1's page; queries over one table | P1-1…P1-8 with their **mutation probes** (P1-1, P1-3, P1-5, P1-8); browser check at 390 px and desktop; Opus spot review of the diff |
 | PR 2 state and note routes | Sonnet | Two form routes with a conditional update | P2-1…P2-6, **mutation probes** on P2-2, P2-3, P2-6; Opus spot review |
