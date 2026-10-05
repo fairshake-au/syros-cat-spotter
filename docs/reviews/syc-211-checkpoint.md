@@ -22,21 +22,42 @@ Branch: `claude/syc-211-username-claim-fixes`
    transport-timeout piece. Drives `claimUsername` with global `fetch`
    mocked to hang unless its AbortSignal fires. **Fails today** (hangs
    forever, no timeout in `custom-fetch.ts`). Commit 76075f2.
+2. `artifacts/cat-spotter/components/__tests__/LanguageUsernameStep.test.tsx`
+   — 7 tests. 5 fail today for the right reason (F1 Back disabled while
+   pending/uncertain; F1 firm-409-retry leaves input read-only forever;
+   F2 Continue stays disabled while availability is pending/erroring; F3
+   onboarding opens as the wrong reconciled name; F5 double tap sends 2
+   claim POSTs). 2 pass as guards (known-taken still disables Continue;
+   a late availability answer after its own deadline still shows).
+   Mock for `@/components/purropolis` Button renders a native
+   `<button disabled>` (not react-native-web Text, which drops
+   unrecognised `aria-*`/`data-*` props) so `.disabled` is directly
+   queryable. Commit c472e46.
 
 ## Next
 
-2. `artifacts/cat-spotter/components/__tests__/LanguageUsernameStep.test.tsx`
-   — onboarding screen tests: F1 (Back always enabled, firm rejection
-   unlocks immediately even with the hung original outstanding), F2
-   (availability doesn't gate Continue, late answer not discarded, taken
-   still disables — guard), F3 (normalized reconcile, never calls
-   setUsername with the wrong name), F5 (double tap -> one request).
 3. `artifacts/cat-spotter/components/__tests__/UsernameEditor.test.tsx` —
-   same shape for the editor, plus F7 (whitespace-normalized reconcile:
-   "Cat  Lover" submitted, server returns "Cat Lover", accepted).
+   same shape for the editor (F1 Cancel always enabled + firm-rejection
+   unlock, F5 double tap -> one request), plus F7 (whitespace-normalized
+   reconcile: "Cat  Lover" submitted, server returns "Cat Lover",
+   accepted as claimed). Note from the LanguageUsernameStep file: probe
+   first with `/tmp` DOM dumps if a Pressable's disabled state isn't
+   showing up as expected — UsernameEditor's Save/Cancel Pressables have
+   no `accessibilityRole`, so they render as plain `<div>` with
+   `aria-disabled`/`tabindex`, not a `<button>`; query by text + closest
+   ancestor attribute, not `getByRole('button')`.
 4. Push branch: `git push -u origin claude/syc-211-username-claim-fixes`.
 5. Write the final report for the caller (status of every test today,
    commit SHAs, anything not expressible as a test).
+
+## Hang hazard (read before running vitest again)
+
+A test with NO fake timers and a mock dependency that never settles
+(`() => new Promise(() => {})`) will hang the vitest process for real
+wall-clock time until its default 5s test timeout — or longer if
+something awaits the hung promise directly. Always wrap the run command
+in `timeout 120 ...` and pass `--testTimeout=20000` to vitest so a
+runaway test can't stall the session again.
 
 ## Notes / judgment calls
 
