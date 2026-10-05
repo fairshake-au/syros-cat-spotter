@@ -185,4 +185,37 @@ describe('LanguageUsernameStep reconcile after a late failure (SYC-211 F3)', () 
     await tick(500);
     expect(s.continueBtn().disabled).toBe(false);
   });
+
+  it('a retry that fails unclearly does not unlock while the earlier same-name request is still open', async () => {
+    h.read.mockImplementation(() => Promise.resolve({ username: null }));
+    h.claim.mockImplementationOnce(never); // first POST stays open
+    const s = setup();
+    await tick(0);
+    fireEvent.change(s.input, { target: { value: 'SeaCat' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(s.continueBtn()); });
+    await tick(8010);
+    expect(s.input.readOnly).toBe(true);
+
+    // The retry dies with a network error; the server does not hold the name
+    // yet, but the first POST could still commit, so the lock must hold.
+    h.claim.mockImplementationOnce(() => Promise.reject(new TypeError('Network request failed')));
+    await act(async () => { fireEvent.click(s.continueBtn()); });
+    await tick(10);
+    expect(s.input.readOnly).toBe(true);
+    expect(s.continueBtn().textContent).toBe(en.usernameRetryClaim);
+  });
+
+  it('the startup recovery read does not override a claim the spotter has already sent', async () => {
+    h.read.mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ username: 'OtherName' }), 2000)));
+    h.read.mockImplementation(() => Promise.resolve({ username: null }));
+    h.claim.mockImplementationOnce(never);
+    const s = setup();
+    await tick(0);
+    fireEvent.change(s.input, { target: { value: 'MyPick' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(s.continueBtn()); });
+    await tick(2000);
+    expect(h.setUsername).not.toHaveBeenCalledWith('OtherName');
+  });
 });
