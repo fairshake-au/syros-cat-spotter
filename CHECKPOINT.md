@@ -10,7 +10,8 @@ Delete this file before merge.
 ## Next
 - [x] `people.ts`: both readers refuse left; `markLeft`; `addPerson` rejoins (roles replaced, name updated, added_by kept); `removePerson` maps FK refusal (23503) to "has history". Store tests P0-2..P0-5 in `lib/db/src/migrate/peopleLeft.test.ts`.
 - [x] CLI: `mark-left` (confirms address), `list` shows LEFT + header count, `add` says "Rejoined". Tests in `cli.test.ts`.
-- [ ] Tests P0-1..P0-5 with mutation probes recorded.
+- [x] Tests P0-1 (`artifacts/api-server/src/routes/team.left.test.ts`), P0-2..5 (`lib/db/src/migrate/peopleLeft.test.ts`).
+- [ ] Mutation probes, recorded below.
 - [ ] PR, adversarial review, SYC-43 comment, SYC-131 update.
 
 ## Local test setup (cloud container)
