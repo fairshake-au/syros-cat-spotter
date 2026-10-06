@@ -17,6 +17,7 @@ import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
   clearWelfareTables,
   seedReport,
+  sessionCookieFor,
   signInThroughHandoff,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/__fixtures__/queueKit";
@@ -60,7 +61,8 @@ beforeAll(async () => {
   mariaId = maria.id;
   susanCookie = await signInThroughHandoff(app, handoffKey, susan.id);
   mariaCookie = await signInThroughHandoff(app, handoffKey, maria.id);
-  veraCookie = await signInThroughHandoff(app, handoffKey, vera.id);
+  // A volunteer gets no session from the hand-off (SYC-188).
+  veraCookie = sessionCookieFor(vera.id);
 });
 
 beforeEach(async () => {

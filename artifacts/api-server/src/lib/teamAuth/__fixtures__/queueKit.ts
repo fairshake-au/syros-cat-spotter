@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import request from "supertest";
-import type { Express } from "express";
+import type { Express, Response } from "express";
 import {
   db,
   mailOutboxTable,
@@ -8,6 +8,7 @@ import {
   welfareReportsTable,
 } from "@workspace/db";
 import { claimsFor, mint, type TestKey } from "./mint";
+import { SESSION_COOKIE, issueSession } from "../session";
 
 // Test-only helpers for the dashboard's queue tests (SYC-43 part 2, PR 1).
 // API test files run one at a time against one throwaway database, so a test
@@ -29,6 +30,26 @@ export async function signInThroughHandoff(
     .send({ token: mint(key, claimsFor(personId, { sv })) });
   if (res.status !== 303) throw new Error(`hand-off gave ${res.status}`);
   return (res.headers["set-cookie"] as unknown as string[])[0]!.split(";")[0]!;
+}
+
+/**
+ * A session cookie signed by the real issueSession, without the hand-off.
+ * The hand-off only gives sessions to people who may enter (SYC-188), so
+ * this stands for a session someone holds anyway: one issued before their
+ * roles changed. Every route must still refuse them.
+ */
+export function sessionCookieFor(personId: string, sv = 1): string {
+  let value: string | undefined;
+  const res = {
+    cookie: (_name: string, v: string) => {
+      value = v;
+    },
+  } as unknown as Response;
+  const now = Math.floor(Date.now() / 1000);
+  if (!issueSession(res, { id: personId, sessionVersion: sv }, now)) {
+    throw new Error("TEAM_SESSION_KEYS is not set");
+  }
+  return `${SESSION_COOKIE}=${value}`;
 }
 
 export async function clearWelfareTables(): Promise<void> {

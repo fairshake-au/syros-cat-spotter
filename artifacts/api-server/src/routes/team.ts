@@ -19,7 +19,7 @@ import {
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
-import { capabilitiesOf } from "../lib/capabilities";
+import { capabilitiesOf, mayEnter } from "../lib/capabilities";
 import { renderQueuePage } from "../lib/teamPages/queuePage";
 import { listWelfareQueue } from "../lib/welfareQueue";
 
@@ -80,6 +80,8 @@ router.post(
     // but equality is refused.
     const person = await findPersonById(claims.sub);
     if (!person) return refuse("not_on_list", claims.jti);
+    // A role that grants nothing gets no session either (SYC-188).
+    if (!mayEnter(person)) return refuse("no_capability", claims.jti);
     if (claims.sv !== person.sessionVersion) {
       return refuse("stale_session_version", claims.jti);
     }

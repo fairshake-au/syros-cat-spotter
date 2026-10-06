@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
+import { sessionCookieFor } from "../lib/teamAuth/__fixtures__/queueKit";
 
 // Data spine plan, PR 8 (spec §4.5, §3.5): the correction path's endpoints.
 // No staff screen exists yet (SYC-43's later parts build it) — these are
@@ -76,7 +77,11 @@ process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
 process.env["TEAM_SESSION_KEYS"] =
   "vitest-obs-route-session-key-0123456789abcdef";
 
-/** Signs in through the real hand-off; returns the cookie to send. */
+/**
+ * Signs in through the real hand-off; returns the cookie to send. Staff only:
+ * the guardian gets no session from the hand-off (SYC-188), so the guardian's
+ * tests use sessionCookieFor, a session held anyway.
+ */
 async function signIn(personId: string): Promise<string> {
   const res = await request(app)
     .post("/api/team/handoff")
@@ -134,7 +139,7 @@ describe("POST /api/team/observations", () => {
 
   it("refuses a signed-in person without the capability, the same way", async () => {
     const cat = await insertCat();
-    const cookie = await signIn(guardianId);
+    const cookie = sessionCookieFor(guardianId);
     const res = await post("/api/team/observations")
       .set("Cookie", cookie)
       .send({
@@ -479,7 +484,7 @@ describe("POST /api/team/observations/:id/supersede", () => {
   it("refuses a signed-in person without the matching capability", async () => {
     const cat = await insertCat();
     const spotted = await writeEarTip(cat.id, true);
-    const cookie = await signIn(guardianId);
+    const cookie = sessionCookieFor(guardianId);
     const res = await post(`/api/team/observations/${spotted.id}/supersede`)
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "nope" });
@@ -502,7 +507,7 @@ describe("POST /api/team/observations/:id/supersede", () => {
     // existence/already-superseded lookups, so they get the same uniform
     // refusal as any other capability-less attempt — never the 409 that
     // would tell them the target's correction state.
-    const guardianCookie = await signIn(guardianId);
+    const guardianCookie = sessionCookieFor(guardianId);
     const res = await post(`/api/team/observations/${original.id}/supersede`)
       .set("Cookie", guardianCookie)
       .send({ value: { clipped: true }, reason: "trying again" });
@@ -700,7 +705,7 @@ describe("GET /api/team/observations/review/likely", () => {
   });
 
   it("refuses a person without set_sterilisation", async () => {
-    const cookie = await signIn(guardianId);
+    const cookie = sessionCookieFor(guardianId);
     const res = await request(app)
       .get("/api/team/observations/review/likely")
       .set("Cookie", cookie);
