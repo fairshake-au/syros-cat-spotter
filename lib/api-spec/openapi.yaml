@@ -822,8 +822,11 @@ components:
       required: [deviceId]
     Sighting:
       type: object
+      description: |
+        A sighting in a cat's public history: photo, spotter and date. No
+        position and no sighting id, which would give away upload order
+        (cat-record-data-spine.md §6.4).
       properties:
-        id: { type: integer }
         catId:
           type: integer
           nullable: true
@@ -840,7 +843,7 @@ components:
         createdAt:
           type: string
           description: A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).
-      required: [id, spotterCode, photoUrl, createdAt]
+      required: [spotterCode, photoUrl, createdAt]
     CareEvent:
       type: object
       properties:

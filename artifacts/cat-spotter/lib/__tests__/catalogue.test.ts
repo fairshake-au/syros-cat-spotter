@@ -90,6 +90,21 @@ describe('fetchWholeCatalogue', () => {
     expect(cats.map((c) => c.id)).toEqual([1, 2, 3]);
   });
 
+  it('walks again once if a cat was skipped because the list shifted mid-walk', async () => {
+    let walk = 0;
+    const fetchPage = async (p: ListCatsParams): Promise<CatPage> => {
+      if (p.page === 1) walk++;
+      // First walk: cat 3 is added between pages, so page 2 starts one later
+      // and cat 2 is never seen. Second walk: stable.
+      const ids = walk === 1 && p.page === 2 ? [0, 1, 2, 3].slice(2) : [1, 2, 3].slice(((p.page ?? 1) - 1) * 2, (p.page ?? 1) * 2);
+      const total = walk === 1 && p.page === 2 ? 4 : 3;
+      return { cats: ids.map(cat), page: p.page ?? 1, pageSize: 2, total, nextPage: p.page === 1 ? 2 : null };
+    };
+    const cats = await fetchWholeCatalogue(undefined, fetchPage);
+    expect(walk).toBe(2);
+    expect(cats.map((c) => c.id)).toEqual([1, 2, 3]);
+  });
+
   it('an empty catalogue is one request', async () => {
     const { fetchPage, calls } = server([]);
     expect(await fetchWholeCatalogue(undefined, fetchPage)).toEqual([]);

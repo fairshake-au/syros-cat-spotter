@@ -235,7 +235,11 @@ export default function CatalogScreen() {
                   params: { id: String(group[0]!.id) },
                 }),
             }))}
-            markers={filtered.map((cat) => ({
+            // On web, markers are the tappable strip under the map. On native
+            // they would be photo pins at the cell centre, which the cell
+            // replaces (spec §10.7: "drawn as that cell, never as a pin";
+            // review of #95, finding 6), so native shows the cells only.
+            markers={Platform.OS !== 'web' ? [] : filtered.map((cat) => ({
               id: String(cat.id),
               latitude: cat.lat,
               longitude: cat.lng,

@@ -40,17 +40,30 @@ export function catalogueQueryKey(params?: Position) {
 
 /**
  * Every page, in the server's order. A cat that appears twice (the list
- * shifted between pages) is kept once, at its first place.
+ * shifted between pages) is kept once, at its first place. If the list
+ * shifted so that a cat was skipped (fewer cats than the server's total, or
+ * the total changed mid-walk), the walk starts again once, so the offline
+ * catalogue isn't left a cat short (review of #95, finding 8).
  */
 export async function fetchWholeCatalogue(
   params?: Position,
   fetchPage: (p: ListCatsParams) => ReturnType<typeof listCats> = (p) => listCats(p),
 ): Promise<Cat[]> {
+  const first = await walkOnce(params, fetchPage);
+  return first.complete ? first.cats : (await walkOnce(params, fetchPage)).cats;
+}
+
+async function walkOnce(
+  params: Position | undefined,
+  fetchPage: (p: ListCatsParams) => ReturnType<typeof listCats>,
+): Promise<{ cats: Cat[]; complete: boolean }> {
+  const totals = new Set<number>();
   const seen = new Set<number>();
   const cats: Cat[] = [];
   let page: number | null = 1;
   for (let n = 0; page !== null && n < MAX_PAGES; n++) {
     const res = await fetchPage({ ...params, page, pageSize: CATALOGUE_PAGE_SIZE });
+    totals.add(res.total);
     for (const cat of res.cats) {
       if (seen.has(cat.id)) continue;
       seen.add(cat.id);
@@ -58,7 +71,8 @@ export async function fetchWholeCatalogue(
     }
     page = res.nextPage;
   }
-  return cats;
+  const [total] = [...totals];
+  return { cats, complete: totals.size === 1 && cats.length >= (total ?? 0) };
 }
 
 interface Storage {

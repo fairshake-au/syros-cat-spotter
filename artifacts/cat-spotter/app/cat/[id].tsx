@@ -393,8 +393,8 @@ export default function CatDetailScreen() {
             {t('sightingsHistory')}
           </Text>
           <View style={styles.sightingGrid}>
-            {sightings.map((s) => (
-              <View key={s.id} style={styles.sightingItem}>
+            {sightings.map((s, i) => (
+              <View key={s.photoUrl ?? `sighting-${i}`} style={styles.sightingItem}>
                 <Image
                   source={photoSource(s.photoUrl)}
                   style={[styles.sightingPhoto, { borderColor: colors.border }]}

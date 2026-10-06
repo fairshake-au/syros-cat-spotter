@@ -3,6 +3,11 @@ import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { smoke } from "./smoke";
 
+/** GET /api/cats's paged shape (SYC-41, data spine PR 6). */
+function page(cats: { photoUrl: string | null }[]) {
+  return { cats, page: 1, pageSize: 100, total: cats.length, nextPage: null };
+}
+
 // SYC-121, task B.5. A stub HTTP server that stands in for the pre-launch
 // gate: 401 without X-Prelaunch-Key, 200 (with the smoke routes' expected
 // shapes) with it.
@@ -33,7 +38,7 @@ function startStubGate(expectedKey: string): Promise<void> {
       }
       if (req.url === "/api/cats") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify([]));
+        res.end(JSON.stringify(page([])));
         return;
       }
       res.writeHead(404);
@@ -93,7 +98,7 @@ describe("smoke through the pre-launch gate", () => {
         }
         if (req.url === "/api/cats") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify([]));
+          res.end(JSON.stringify(page([])));
           return;
         }
         res.writeHead(404);
@@ -128,10 +133,12 @@ describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
         if (req.url === "/api/cats") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(
-            JSON.stringify([
-              { photoUrl: null },
-              { photoUrl: "/api/photos/a1b2c3d4-0000-4000-8000-000000000000" },
-            ]),
+            JSON.stringify(
+              page([
+                { photoUrl: null },
+                { photoUrl: "/api/photos/a1b2c3d4-0000-4000-8000-000000000000" },
+              ]),
+            ),
           );
           return;
         }
@@ -169,7 +176,7 @@ describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
         }
         if (req.url === "/api/cats") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify([{ photoUrl: null }, { photoUrl: null }]));
+          res.end(JSON.stringify(page([{ photoUrl: null }, { photoUrl: null }])));
           return;
         }
         res.writeHead(404);
@@ -199,7 +206,7 @@ describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
         }
         if (req.url === "/api/cats") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify([]));
+          res.end(JSON.stringify(page([])));
           return;
         }
         res.writeHead(404);
@@ -264,7 +271,7 @@ describe("smoke against a hanging endpoint", () => {
           if (req.url === "/api/cats") {
             // Headers sent, then the body stalls forever.
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.write('[{"pho');
+            res.write('{"cats":[{"pho');
             return;
           }
           res.writeHead(404);
@@ -310,7 +317,7 @@ describe("SMOKE_TIMEOUT_MS validation", () => {
       server = http.createServer((req, res) => {
         if (req.url === "/api/healthz" || req.url === "/api/cats") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(req.url === "/api/cats" ? "[]" : JSON.stringify({ ok: true }));
+          res.end(req.url === "/api/cats" ? JSON.stringify(page([])) : JSON.stringify({ ok: true }));
           return;
         }
         res.writeHead(404);
@@ -339,7 +346,7 @@ describe("smoke reports the live build (SYC-200)", () => {
         }
         if (req.url === "/api/cats") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify([]));
+          res.end(JSON.stringify(page([])));
           return;
         }
         res.writeHead(404);

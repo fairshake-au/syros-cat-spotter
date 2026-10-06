@@ -162,14 +162,13 @@ export const GetCatResponse = zod.object({
 }).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
 }),
   "sightings": zod.array(zod.object({
-  "id": zod.number(),
   "catId": zod.number().nullish(),
   "spotterCode": zod.string(),
   "spotterUsername": zod.string().nullish(),
   "spotterNickname": zod.string().nullish(),
   "photoUrl": zod.string().nullable(),
   "createdAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).')
-})),
+}).describe('A sighting in a cat\'s public history: photo, spotter and date. No\nposition and no sighting id, which would give away upload order\n(cat-record-data-spine.md §6.4).\n')),
   "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),
   "careTimeline": zod.array(zod.object({
   "type": zod.enum(['desexed', 'adopted', 'general', 'discovered']).describe('Care events recorded against the cat. `discovered` is synthesised\nfrom the cat\'s own creation, and its `message` is the discoverer\'s\ndisplay name rather than free text.\n'),

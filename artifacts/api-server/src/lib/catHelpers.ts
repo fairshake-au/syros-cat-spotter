@@ -187,9 +187,14 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
   return out;
 }
 
-/** A sighting in a cat's public history (§6.4.1): photo, spotter and date. No position. */
+/**
+ * A sighting in a cat's public history (§6.4.1): photo, spotter and date. No
+ * position, and no sighting id: ids are handed out in upload order, so
+ * anyone who uploads their own sightings and notes the times could read the
+ * time of day of every public one back from its id (review of #95, finding
+ * 4; the same clock §6.4.4 names for photo ids).
+ */
 export interface PublicSighting {
-  id: number;
   catId: number | null;
   spotterCode: string;
   spotterUsername: string | null;
@@ -208,7 +213,6 @@ export function serialiseSighting(s: {
   photoUrl: string | null;
 }): PublicSighting {
   return {
-    id: s.id,
     catId: s.catId,
     spotterCode: spotterCode(s.deviceId),
     spotterUsername: s.spotterUsername,

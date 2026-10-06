@@ -85,14 +85,54 @@ function keysIn(v: unknown, out: string[] = []): string[] {
   return out;
 }
 
+/** Every string anywhere in a JSON value. */
+function stringsIn(v: unknown, out: string[] = []): string[] {
+  if (typeof v === "string") out.push(v);
+  else if (Array.isArray(v)) v.forEach((x) => stringsIn(x, out));
+  else if (v && typeof v === "object") Object.values(v).forEach((x) => stringsIn(x, out));
+  return out;
+}
+
+/** Syros sits inside these: a coordinate-shaped number falls in one of them. */
+const isLatLike = (n: number) => n > 36 && n < 39;
+const isLngLike = (n: number) => n > 24 && n < 26;
+
+/**
+ * Review of #95, finding 5: "not within 1 cm of the truth" let a coordinate
+ * rounded to 1 m, or one sent as text, through. So instead: any non-integer
+ * number shaped like a Syros latitude or longitude, in a number or inside a
+ * string, must be a published cell centre, or the payload fails.
+ */
+function expectOnlyCellCentres(payload: unknown) {
+  const candidates = [
+    ...numbersIn(payload),
+    ...stringsIn(payload).flatMap((t) => (t.match(/-?\d+\.\d+/g) ?? []).map(Number)),
+  ].filter((n) => !Number.isInteger(n));
+  for (const n of candidates) {
+    if (isLatLike(n)) {
+      expect(blurPosition(n, 24.94).lat, `latitude-shaped ${n} is not a cell centre`).toBe(n);
+    }
+    if (isLngLike(n)) {
+      expect(blurPosition(37.44, n).lng, `longitude-shaped ${n} is not a cell centre`).toBe(n);
+    }
+  }
+}
+
 /** §10.8.8, the whole list, for one payload. */
 function expectNothingPrivate(payload: unknown) {
   const json = JSON.stringify(payload);
+  expectOnlyCellCentres(payload);
   for (const n of numbersIn(payload)) {
     for (const exact of EXACT_NUMBERS) {
       // Within ~1 cm of an exact coordinate counts as the exact coordinate.
       expect(Math.abs(n - exact), `exact coordinate ${exact} leaked as ${n}`).toBeGreaterThan(1e-7);
     }
+  }
+  // The seeded positions' distinctive sub-metre digits, in any text form.
+  // (Published centres keep 6 decimals, so they never carry these.)
+  for (const exact of EXACT_NUMBERS) {
+    const digits = String(exact).split(".")[1]!.slice(3, 9);
+    expect(json, `exact coordinate ${exact} leaked as text`).not.toContain(digits);
   }
   expect(json).not.toContain(NOTE_TEXT);
   expect(json).not.toContain(FEEDING_NAME);
@@ -227,6 +267,8 @@ describe("§10.8.8: no public payload carries anything private, by emitter", () 
     expect(sightings.length).toBeGreaterThanOrEqual(2);
     expectNothingPrivate(sightings);
     for (const s of sightings) {
+      // No id either: ids are handed out in upload order, a clock (review of #95).
+      expect(Object.keys(s)).not.toContain("id");
       expect(Object.keys(s)).not.toContain("lat");
       expect(Object.keys(s)).not.toContain("lng");
       expect(s["createdAt"]).toMatch(/^\d{4}-\d{2}-\d{2}$/);

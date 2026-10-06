@@ -94,7 +94,9 @@ export async function smoke(
     }
   });
   console.log(`    live build: ${describeBuild(health)}`);
-  const cats = await get("/api/cats", jsonBody<{ photoUrl: string | null }[]>);
+  // SYC-41 (data spine PR 6): GET /api/cats is paged — { cats, page, ... }.
+  // The first page is enough to exercise the photos join.
+  const { cats } = await get("/api/cats", jsonBody<{ cats: { photoUrl: string | null }[] }>);
   // SYC-98: photoUrl is null for a cat with no real photo yet (the
   // primaryPhotoId: 0 sentinel, or a missing photo row) — it is never a
   // string to compare against, so this must not call a string method on it.

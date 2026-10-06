@@ -71,11 +71,22 @@ assert(leaderboard.every((e) => e.deviceId === undefined), "leaderboard entries 
 assert(leaderboard.some((e) => e.nickname === "Alpha Cat"), "leaderboard shows nickname");
 
 console.log("3. Cat catalog + detail leak no device ids");
-const cats = await (await fetch(`${base}/cats`)).json();
-assert(!JSON.stringify(cats).match(/deviceId/i), "cat list has no deviceId fields");
+// GET /cats is paged since SYC-41 (data spine PR 6): { cats, page, ... }.
+const catsPage = await (await fetch(`${base}/cats`)).json();
+assert(Array.isArray(catsPage.cats), "cat list is the paged shape { cats, ... }");
+const cats = catsPage.cats;
+assert(!JSON.stringify(catsPage).match(/deviceId/i), "cat list has no deviceId fields");
+assert(
+  cats.every((c) => c.locationPrecision === "approximate" && c.locationCellM === 250),
+  "every cat in the public list is blurred to its 250 m cell",
+);
 if (cats[0]) {
   const detail = await (await fetch(`${base}/cats/${cats[0].id}`)).json();
   assert(!JSON.stringify(detail).match(/"deviceId"/), "cat detail (incl. sightings) has no deviceId fields");
+  assert(
+    detail.sightings.every((s) => s.lat === undefined && s.lng === undefined),
+    "public sightings carry no position",
+  );
 }
 
 console.log("4. Resolve endpoint enforces sighting ownership");

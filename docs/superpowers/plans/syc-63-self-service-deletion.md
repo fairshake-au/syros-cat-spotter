@@ -230,7 +230,7 @@ What the migration contains. The agreed queue is set in the data spine plan (`do
 | Wiped | Kept |
 |---|---|
 | `cat-spotter/device-id`, `device-secret`, `username`, `owned-cat-ids`, `ownership-snapshot` | `cat-spotter/language`, `appearance` (preferences, not identity) |
-| `cat-spotter/pending-sightings` and every queued photo, review photo and queue backup | `cat-spotter/cats-cache` (the public cat list, so the map keeps working offline) |
+| `cat-spotter/pending-sightings` and every queued photo, review photo and queue backup | `cat-spotter/cats-cache/public/v2` (the public cat list, so the map keeps working offline; renamed from `cat-spotter/cats-cache` by SYC-41) |
 | The in-memory query cache: profile, notifications, anything else fetched with the old id | Offline map tiles |
 
 4. **Make the new identity** and re-point the API client's secret getter at it.

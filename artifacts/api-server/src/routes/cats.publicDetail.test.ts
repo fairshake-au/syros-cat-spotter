@@ -21,7 +21,7 @@ import app from "../app";
 //
 // Regenerated once, on purpose, by SYC-41 (data spine PR 6, #95): blurring
 // changed this payload (cell centre, locationPrecision/locationCellM, dates
-// not times, no sighting positions). Nothing else in it changed.
+// not times, no sighting positions or sighting ids). Nothing else changed.
 //
 // Only the database's own serial ids are swapped for placeholders; every other
 // byte, including key order, is compared as sent.
@@ -139,7 +139,8 @@ describe("P3-2 (public half): GET /api/cats/:id is unchanged by PR 3", () => {
     };
     body.cat.id = "<cat>";
     for (const s of body.sightings) {
-      s.id = `<sighting-${sightingIds.indexOf(s.id as number) + 1}>`;
+      // Public sightings carry no id since SYC-41 (#95); only swap one if sent.
+      if ("id" in s) s.id = `<sighting-${sightingIds.indexOf(s.id as number) + 1}>`;
       s.catId = s.catId === catId ? "<cat>" : s.catId;
     }
     const text = JSON.stringify(body);
