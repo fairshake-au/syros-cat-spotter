@@ -82,7 +82,18 @@ export async function smoke(
     console.log(`ok  GET ${p} ${res.status}`);
     return body;
   };
-  await get("/api/healthz", cancelBody);
+  // SYC-200: say which build is live, so "run this against production after
+  // the publish" can confirm the publish actually shipped the expected
+  // commit. An older server without these fields still passes.
+  const health = await get("/api/healthz", async (res) => {
+    const text = await res.text();
+    try {
+      return JSON.parse(text) as { commit?: unknown; builtAt?: unknown };
+    } catch {
+      return {};
+    }
+  });
+  console.log(`    live build: ${describeBuild(health)}`);
   const cats = await get("/api/cats", jsonBody<{ photoUrl: string | null }[]>);
   // SYC-98: photoUrl is null for a cat with no real photo yet (the
   // primaryPhotoId: 0 sentinel, or a missing photo row) — it is never a
@@ -109,4 +120,11 @@ export async function smoke(
       `smoke: /api/cats returned ${cats.length} cats and none has a photoUrl — photo serving looks broken. Roll back now.`,
     );
   }
+}
+
+/** "commit 21ab9a3, built 2026-10-06T…" from /api/healthz's body (SYC-200). */
+export function describeBuild(health: { commit?: unknown; builtAt?: unknown }): string {
+  const commit = typeof health.commit === "string" ? health.commit : "not reported";
+  const builtAt = typeof health.builtAt === "string" ? health.builtAt : "not reported";
+  return `commit ${commit}, built ${builtAt}`;
 }

@@ -4,17 +4,46 @@ import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
+// SYC-200: which code the live server is running, reported by /api/healthz.
+// Replit exposes no commit variable (checked with the Replit agent on
+// 6 Oct 2026), but its workspace is a git checkout, so the build asks git.
+// "-dirty" means the build had uncommitted changes to tracked files, i.e.
+// it is not exactly that commit. Anything that goes wrong gives "unknown"
+// rather than failing the publish. Only the short hash: no branch names.
+function gitCommit() {
+  try {
+    const run = (...args) =>
+      execFileSync("git", args, { cwd: artifactDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const commit = run("rev-parse", "--short", "HEAD");
+    if (!/^[0-9a-f]{7,40}$/.test(commit)) return "unknown";
+    const dirty = run("status", "--porcelain", "--untracked-files=no") !== "";
+    return dirty ? `${commit}-dirty` : commit;
+  } catch {
+    return "unknown";
+  }
+}
+
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
+  const buildCommit = gitCommit();
+  const builtAt = new Date().toISOString();
+  console.log(`Building commit ${buildCommit} at ${builtAt}`);
+
   await esbuild({
+    // Baked into the bundle; routes/health.ts reads them.
+    define: {
+      __BUILD_COMMIT__: JSON.stringify(buildCommit),
+      __BUILD_TIME__: JSON.stringify(builtAt),
+    },
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",
     bundle: true,
