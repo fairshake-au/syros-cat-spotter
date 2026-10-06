@@ -76,6 +76,24 @@ describe("new phones per address (SYC-195)", () => {
 });
 
 describe("allowNewDevice", () => {
+  it("counts IPv6 addresses from one network together (PR #93 review)", () => {
+    const t0 = 2_000_000;
+    for (let i = 0; i < NEW_DEVICES_PER_ADDRESS_PER_HOUR; i++) {
+      // A fresh address from the same block on every call.
+      expect(allowNewDevice(`2001:db8:aa:bb::${(i + 1).toString(16)}`, t0)).toBe(true);
+    }
+    expect(allowNewDevice("2001:db8:aa:cc::99", t0)).toBe(false);
+    expect(allowNewDevice("2001:db8:ab:00::1", t0)).toBe(true);
+  });
+
+  it("counts an IPv4-mapped address as the IPv4 address", () => {
+    const t0 = 3_000_000;
+    for (let i = 0; i < NEW_DEVICES_PER_ADDRESS_PER_HOUR; i++) {
+      expect(allowNewDevice("198.51.100.77", t0)).toBe(true);
+    }
+    expect(allowNewDevice("::ffff:198.51.100.77", t0)).toBe(false);
+  });
+
   it("counts per address and resets after an hour", () => {
     const t0 = 1_000_000;
     for (let i = 0; i < NEW_DEVICES_PER_ADDRESS_PER_HOUR; i++) {

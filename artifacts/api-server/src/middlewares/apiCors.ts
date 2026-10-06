@@ -13,7 +13,7 @@ import type { RequestHandler } from "express";
 // /api/team/* and /api/internal/* get no CORS headers at all (app.ts).
 //
 // Allowed:
-// - catspotters.com and any subdomain (the website, apptest.*, team.*,
+// - catspotters.com and any one-level subdomain (the website, apptest.*, team.*,
 //   admin.*, api.*). The web build calls its own origin (apiOrigin() in the
 //   app), so its requests are same-origin and need none of this; subdomains
 //   are allowed in case the site is ever served from a different one.

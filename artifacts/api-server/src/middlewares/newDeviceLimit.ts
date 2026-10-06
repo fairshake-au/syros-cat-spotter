@@ -25,8 +25,18 @@
 // Same caveats as the other in-memory limits in rateLimit.ts: per process
 // (SYC-105 moves counts into Postgres), and it relies on `trust proxy` in
 // app.ts so req.ip is the real visitor (SYC-100).
+import { ipKeyGenerator } from "express-rate-limit";
+
 export const NEW_DEVICES_PER_ADDRESS_PER_HOUR = 20;
 const WINDOW_MS = 60 * 60 * 1000;
+
+// Group addresses the way express-rate-limit does for the other limits: an
+// IPv6 address is counted by its /56 network, since anyone with an IPv6
+// connection can pick a fresh address from their block on every request
+// (review of PR #93); an IPv4-mapped address counts as the IPv4 one.
+function keyFor(address: string): string {
+  return address === "unknown" ? address : ipKeyGenerator(address);
+}
 
 type AddressWindow = { count: number; resetAt: number };
 const windows = new Map<string, AddressWindow>();
@@ -48,6 +58,7 @@ function sweep(now: number): void {
  */
 export function allowNewDevice(address: string, now: number = Date.now()): boolean {
   if (windows.size > SWEEP_THRESHOLD) sweep(now);
+  address = keyFor(address);
   const existing = windows.get(address);
   if (!existing || existing.resetAt <= now) {
     windows.set(address, { count: 1, resetAt: now + WINDOW_MS });
@@ -60,7 +71,7 @@ export function allowNewDevice(address: string, now: number = Date.now()): boole
 
 /** When `address`'s current window resets (ms since epoch), for Retry-After. */
 export function newDeviceResetAt(address: string): number | undefined {
-  return windows.get(address)?.resetAt;
+  return windows.get(keyFor(address))?.resetAt;
 }
 
 /** Test-only: forget every address's count. */
