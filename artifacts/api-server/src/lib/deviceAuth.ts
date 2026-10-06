@@ -89,6 +89,18 @@ export async function verifyDeviceSecret(
     return null;
   }
 
+  // SYC-63: this MUST come before the bind-on-first-use insert below. A
+  // deleted id has no credential row, so the insert would quietly recreate
+  // the identity for whoever still holds the old id (a second tab, an upload
+  // that was mid-flight, a phone killed before it wiped itself). The marker
+  // answers 410 instead, and the phone finishes wiping and starts fresh.
+  // It also comes before the secret check, so a deleted id gets 410 whether
+  // or not a secret came with it (plan §8.1 item 7).
+  if (await isDeletedDevice(deviceId)) {
+    sendIdentityDeleted(res);
+    return null;
+  }
+
   const header = req.headers["x-device-secret"];
   const secret = typeof header === "string" ? header : "";
   if (secret.length < MIN_SECRET_LENGTH || secret.length > MAX_SECRET_LENGTH) {
@@ -97,16 +109,6 @@ export async function verifyDeviceSecret(
   }
 
   const secretHash = hashSecret(secret);
-
-  // SYC-63: this MUST come before the bind-on-first-use insert below. A
-  // deleted id has no credential row, so the insert would quietly recreate
-  // the identity for whoever still holds the old id (a second tab, an upload
-  // that was mid-flight, a phone killed before it wiped itself). The marker
-  // answers 410 instead, and the phone finishes wiping and starts fresh.
-  if (await isDeletedDevice(deviceId)) {
-    sendIdentityDeleted(res);
-    return null;
-  }
 
   const storedHash = async () =>
     (
