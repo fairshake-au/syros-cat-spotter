@@ -15,6 +15,7 @@ import {
 import { ApiError } from '@workspace/api-client-react';
 import {
   classifyResolveError,
+  isBlankName,
   matchesSearch,
   pickedFromFor,
   noSignalMessage,
@@ -283,5 +284,18 @@ describe('the new-cat request (SYC-151)', () => {
     const review = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
     expect(review).toMatch(/newCatRequest\(\s*deviceId,\s*newName,\s*openedPicker\s*\)/);
     expect(review).toMatch(/setOpenedPicker\(true\)/);
+  });
+});
+
+describe('isBlankName (SYC-101)', () => {
+  it('treats empty, spaces and invisible-only names as blank', () => {
+    expect(isBlankName('')).toBe(true);
+    expect(isBlankName('  \u00a0 ')).toBe(true);
+    expect(isBlankName('\u200b\u2060\u200b')).toBe(true);
+  });
+  it('keeps any real name, including a single accent-bearing letter or emoji', () => {
+    expect(isBlankName('Ή')).toBe(false);
+    expect(isBlankName('🐈')).toBe(false);
+    expect(isBlankName(' Μιμή ')).toBe(false);
   });
 });

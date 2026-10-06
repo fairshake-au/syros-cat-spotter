@@ -1,0 +1,76 @@
+import { db, catsTable, foldName, foldedNameEquals } from "@workspace/db";
+import { photoUrl } from "./catHelpers";
+
+/**
+ * The cat that already holds `name`, if any: the same once folded (SYC-101,
+ * DECISIONS.md Part 2g: accents, case, final sigma), which is exactly what
+ * `cats_normalised_name_unique` refuses. The fold runs in SQL, so this can
+ * never disagree with the index.
+ */
+export async function catNamed(name: string) {
+  const [cat] = await db
+    .select({
+      id: catsTable.id,
+      name: catsTable.name,
+      primaryPhotoId: catsTable.primaryPhotoId,
+    })
+    .from(catsTable)
+    .where(foldedNameEquals(name));
+  return cat;
+}
+
+// SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
+// has the name, so the phone can ask "Is this them?". Public details only.
+export async function nameTakenBody(
+  cat: Awaited<ReturnType<typeof catNamed>>,
+): Promise<{
+  error: string;
+  code: "NAME_TAKEN";
+  cat?: { id: number; name: string; photoUrl: string | null };
+}> {
+  const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
+  if (!cat) return body;
+  return {
+    ...body,
+    cat: { id: cat.id, name: cat.name, photoUrl: await photoUrl(cat.primaryPhotoId) },
+  };
+}
+
+/**
+ * A violation of the folded-name unique index specifically, however Drizzle
+ * wraps the pg error. Any other unique violation (a primary key, say) is not
+ * "name taken" and must surface as the error it is.
+ */
+export function isUniqueViolation(err: unknown): boolean {
+  for (let cur = err; cur; cur = (cur as { cause?: unknown }).cause) {
+    const pgErr = cur as { code?: string; constraint?: string };
+    if (pgErr.code === "23505" && pgErr.constraint === "cats_normalised_name_unique") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * A name with nothing left once folded (only invisible characters, say).
+ * Refused: it would be "taken" by every other such name, and nobody could
+ * read it.
+ */
+export function isBlankName(name: string): boolean {
+  return foldName(name) === "";
+}
+
+export const BLANK_NAME_BODY = {
+  error: "Cat name is empty",
+  code: "EMPTY_NAME" as const,
+};
+
+/**
+ * For `.catch` on a write that can lose a race for a cat name: a
+ * unique-index violation becomes `null` (answer NAME_TAKEN); anything else
+ * is thrown on.
+ */
+export function nullOnUniqueViolation(err: unknown): null {
+  if (isUniqueViolation(err)) return null;
+  throw err;
+}

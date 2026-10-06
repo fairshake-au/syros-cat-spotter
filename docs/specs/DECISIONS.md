@@ -269,6 +269,13 @@ Samuel **approved the spec on 5 October 2026**. It lets a spotter come back to a
 - **Where:** the cat's page only, for now (Decision 5, as recommended).
 - **Each question once per sighting** replaces PR 7's "one set of answers per sighting".
 
+## Part 2m — Greek and Latin look-alike letters in cat names (SYC-223), 6 October 2026
+
+Samuel decided this after SYC-101 (#92), which left it open (Part 2j). It amends Part 2g's folding, and wins where anything earlier says otherwise.
+
+- **For launch, Greek and Latin look-alike letters stay separate in cat names.** `ΑΓΑΘΗ` and `AΓAΘH` (Latin `A` and `H` typed for Greek `Α` and `Η`) are two different names, and `cats_normalised_name_unique` accepts both. `foldName` and the database's folded column fold accents, case and final sigma only (Part 2g). **Why:** production has 28 cats, all with plain English names, so this hasn't happened; the SYR number already tells two cats apart; and silently merging look-alikes could refuse a genuinely different name, the surprise Part 2j decided against.
+- **If it ever happens, warn instead of refusing** (SYC-227): when a new name differs from an existing one only by look-alike letters, the app asks "There's already a cat called ΑΓΑΘΗ. Is this them?" (SYC-119's existing screen), and the spotter can still go ahead. **Rejected:** folding look-alikes into the unique index, which blocks real names a spotter never meant to copy.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.

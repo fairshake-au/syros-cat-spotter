@@ -229,6 +229,9 @@ describe("carry-back, end to end (test 4)", () => {
     expect(dry.noHomeRows).toEqual({ observations: 1 });
     expect(dry.droppedColumns).toEqual([
       { table: "photos", columns: ["public_id"] },
+      // SYC-101's generated folded name: the old database has no such
+      // column, and recomputes nothing it needs from it.
+      { table: "cats", columns: ["normalised_name"] },
       { table: "sightings", columns: ["redacted_at", "redaction_reason"] },
     ]);
     expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
@@ -502,9 +505,10 @@ describe("carry-back when a unique value moves between rows", () => {
 
   it("a genuinely violating end state still rolls back cleanly", async () => {
     const { old, neon } = await scenario();
-    // Neon without the index lets two cats differ only by case; the old
-    // database's index can't hold both.
-    await neon.query(`drop index cats_name_lower_unique`);
+    // Neon without its unique index (SYC-101's folded one, which replaced
+    // lower(name)) lets two cats differ only by case; the old database's
+    // lower(name) index can't hold both.
+    await neon.query(`drop index cats_normalised_name_unique`);
     await neon.query(
       `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
        values ('tom', 1, 37.2, 24.2, 'dev-b')`,

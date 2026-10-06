@@ -12,7 +12,6 @@ import {
   profilesTable,
   catUpdatesTable,
   photosTable,
-  foldName,
   type Cat,
 } from "@workspace/db";
 import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
@@ -31,6 +30,13 @@ import { containsOffensiveLanguage } from "../lib/moderation";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { writeObservation } from "../lib/observations";
 import { logRouteDuration } from "../lib/requestTiming";
+import {
+  BLANK_NAME_BODY,
+  catNamed,
+  isBlankName,
+  nameTakenBody,
+  nullOnUniqueViolation,
+} from "../lib/catNames";
 
 const router: IRouter = Router();
 
@@ -122,11 +128,22 @@ router.post("/cats", async (req, res) => {
   // used to register, claim or rename cats as someone else.
   if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
   const name = body.name.trim().slice(0, 60);
+  if (isBlankName(name)) {
+    res.status(400).json(BLANK_NAME_BODY);
+    return;
+  }
   if (containsOffensiveLanguage(name)) {
     res.status(400).json({
       error: "Cat name contains offensive language",
       code: "OFFENSIVE_NAME",
     });
+    return;
+  }
+  // SYC-101: one cat per folded name. Checked first so the answer names
+  // the cat holding it; the unique index still decides a race (below).
+  const taken = await catNamed(name);
+  if (taken) {
+    res.status(409).json(await nameTakenBody(taken));
     return;
   }
   // Owner registration writes homed + name observations in the same
@@ -161,14 +178,19 @@ router.post("/cats", async (req, res) => {
     await writeObservation(tx, {
       catId: row!.id,
       kind: "name",
-      value: { name: row!.name, normalised: foldName(row!.name) },
+      value: { name: row!.name, normalised: row!.normalisedName },
       deviceId: body.deviceId,
       roleAtTime: "public",
       authorityScope: "owner_of_this_cat",
       observedAt: row!.createdAt,
     });
     return row!;
-  });
+  }).catch(nullOnUniqueViolation);
+  if (!cat) {
+    // Another cat took the name between the check above and this write.
+    res.status(409).json(await nameTakenBody(await catNamed(name)));
+    return;
+  }
   res.status(201).json(await catPayload(cat, 0, cat.createdAt.toISOString()));
 });
 
@@ -383,11 +405,23 @@ router.patch("/cats/:catId", async (req, res) => {
   const changes: Partial<typeof catsTable.$inferInsert> = {};
   if (body.name !== undefined) {
     const newName = body.name.trim().slice(0, 60);
+    if (isBlankName(newName)) {
+      res.status(400).json(BLANK_NAME_BODY);
+      return;
+    }
     if (containsOffensiveLanguage(newName)) {
       res.status(400).json({
         error: "Cat name contains offensive language",
         code: "OFFENSIVE_NAME",
       });
+      return;
+    }
+    // SYC-101: one cat per folded name. Another cat holding it is refused,
+    // naming that cat; the owner re-spelling their own cat's name (Mimi to
+    // MIMI, say) is fine.
+    const holder = await catNamed(newName);
+    if (holder && holder.id !== catId) {
+      res.status(409).json(await nameTakenBody(holder));
       return;
     }
     changes.name = newName;
@@ -399,7 +433,7 @@ router.patch("/cats/:catId", async (req, res) => {
   if (Object.keys(changes).length > 0) {
     const changedAt = new Date();
     const renamed = changes.name !== undefined && changes.name !== cat.name;
-    updated = await db.transaction(async (tx) => {
+    const written = await db.transaction(async (tx) => {
       const [row] = await tx
         .update(catsTable)
         .set(changes)
@@ -412,7 +446,7 @@ router.patch("/cats/:catId", async (req, res) => {
         await writeObservation(tx, {
           catId,
           kind: "name",
-          value: { name: row!.name, normalised: foldName(row!.name) },
+          value: { name: row!.name, normalised: row!.normalisedName },
           deviceId: body.deviceId,
           roleAtTime: "public",
           authorityScope: "owner_of_this_cat",
@@ -420,7 +454,13 @@ router.patch("/cats/:catId", async (req, res) => {
         });
       }
       return row!;
-    });
+    }).catch(nullOnUniqueViolation);
+    if (!written) {
+      // Another cat took the name between the check above and this write.
+      res.status(409).json(await nameTakenBody(await catNamed(changes.name!)));
+      return;
+    }
+    updated = written;
     void notifyCatSpotters(catId, body.deviceId, {
       title: renamed
         ? `${cat.name} is now ${updated.name}!`
