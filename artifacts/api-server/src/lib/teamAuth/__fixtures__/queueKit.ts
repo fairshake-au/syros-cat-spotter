@@ -56,7 +56,10 @@ export interface SeedReport {
   /** A photo's mime type; seeds a row in welfare_report_photos. */
   photo?: { mime: string; bytes: Buffer } | "pending" | "failed";
   /** The alert email's state, and how long ago it was queued. */
-  mail?: { state: "queued" | "sending" | "sent" | "failed"; minutesAgo?: number };
+  mail?: {
+    state: "queued" | "sending" | "sent" | "failed";
+    minutesAgo?: number;
+  };
 }
 
 export async function seedReport(

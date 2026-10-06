@@ -120,7 +120,8 @@ function send(route: string, cookie?: string): request.Test {
   const t = request(app)[method.toLowerCase() as "get" | "post"](path);
   // The right Origin, so it is the session check being tested, not the
   // Origin check that comes before it on a POST.
-  if (method === "POST") t.set("Origin", TEAM_ORIGIN).send(WELL_FORMED_BODIES[route] ?? {});
+  if (method === "POST")
+    t.set("Origin", TEAM_ORIGIN).send(WELL_FORMED_BODIES[route] ?? {});
   if (cookie) t.set("Cookie", cookie);
   return t;
 }
@@ -153,10 +154,10 @@ describe("P1-1: every /api/team route refuses the unauthorised the same way", ()
     for (const route of teamRoutes()) {
       if (route in WITHOUT_SESSION_OK) continue;
       const res = await send(route);
-      expect(
-        [res.status, res.text],
-        `${route} without a session`,
-      ).toEqual([401, '{"error":"not_signed_in"}']);
+      expect([res.status, res.text], `${route} without a session`).toEqual([
+        401,
+        '{"error":"not_signed_in"}',
+      ]);
     }
   });
 

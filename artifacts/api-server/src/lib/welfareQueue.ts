@@ -216,7 +216,10 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
         })
         .from(welfareReportsTable)
         .where(eq(welfareReportsTable.isDraft, true))
-        .orderBy(desc(welfareReportsTable.createdAt), desc(welfareReportsTable.id))
+        .orderBy(
+          desc(welfareReportsTable.createdAt),
+          desc(welfareReportsTable.id),
+        )
         .limit(DRAFT_LIMIT),
       mailHealth(),
     ]);

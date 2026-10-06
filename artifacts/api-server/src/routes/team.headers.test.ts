@@ -43,7 +43,9 @@ beforeAll(async () => {
     .type("form")
     .send({ token: mint(handoffKey, claimsFor(p.id, { sv: 1 })) });
   expect(res.status).toBe(303);
-  cookie = (res.headers["set-cookie"] as unknown as string[])[0]!.split(";")[0]!;
+  cookie = (res.headers["set-cookie"] as unknown as string[])[0]!.split(
+    ";",
+  )[0]!;
 });
 
 beforeEach(() => {
@@ -69,7 +71,10 @@ const RESPONSES: [string, () => request.Test][] = [
     "the queue as JSON",
     () => request(app).get("/api/team/reports").set("Cookie", cookie),
   ],
-  ["the queue as JSON, signed out", () => request(app).get("/api/team/reports")],
+  [
+    "the queue as JSON, signed out",
+    () => request(app).get("/api/team/reports"),
+  ],
   [
     "a report photo",
     () =>
@@ -79,7 +84,8 @@ const RESPONSES: [string, () => request.Test][] = [
   ],
   [
     "a report photo that doesn't exist",
-    () => request(app).get("/api/team/report-photos/nope").set("Cookie", cookie),
+    () =>
+      request(app).get("/api/team/report-photos/nope").set("Cookie", cookie),
   ],
   [
     "a report photo, signed out",
@@ -89,7 +95,10 @@ const RESPONSES: [string, () => request.Test][] = [
     "a catalogue photo that doesn't exist",
     () => request(app).get("/api/team/photos/nope").set("Cookie", cookie),
   ],
-  ["a catalogue photo, signed out", () => request(app).get("/api/team/photos/x")],
+  [
+    "a catalogue photo, signed out",
+    () => request(app).get("/api/team/photos/x"),
+  ],
   ["GET /me", () => request(app).get("/api/team/me").set("Cookie", cookie)],
   ["GET /me, signed out", () => request(app).get("/api/team/me")],
   [

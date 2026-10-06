@@ -36,7 +36,10 @@ const EMAIL: Record<EmailToTeam, string> = {
 
 /** "3 hours ago". Older than a month: the date. */
 export function timeAgo(iso: string, now: Date): string {
-  const seconds = Math.max(0, Math.round((now.getTime() - Date.parse(iso)) / 1000));
+  const seconds = Math.max(
+    0,
+    Math.round((now.getTime() - Date.parse(iso)) / 1000),
+  );
   const plural = (n: number, unit: string) =>
     `${n} ${unit}${n === 1 ? "" : "s"} ago`;
   if (seconds < 60) return "just now";

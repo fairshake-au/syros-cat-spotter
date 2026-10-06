@@ -1,12 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import {
-  addPerson,
-  db,
-  pool,
-  photosTable,
-  removePerson,
-} from "@workspace/db";
+import { addPerson, db, pool, photosTable, removePerson } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
@@ -61,7 +55,9 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
-  await db.delete(photosTable).where(eq(photosTable.publicId, cataloguePhotoId));
+  await db
+    .delete(photosTable)
+    .where(eq(photosTable.publicId, cataloguePhotoId));
   await removePerson(EMAIL);
   await pool.end();
 });

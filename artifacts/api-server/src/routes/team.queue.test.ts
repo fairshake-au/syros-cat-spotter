@@ -135,7 +135,11 @@ describe("P1-2: order and sections", () => {
       mail: { state: "sent" },
     });
     await seedReport({ publicId: "waiting", photo: "pending" });
-    await seedReport({ publicId: "bare", photo: "failed", mail: { state: "failed" } });
+    await seedReport({
+      publicId: "bare",
+      photo: "failed",
+      mail: { state: "failed" },
+    });
     const q = await getQueue();
     const byId = Object.fromEntries(q.open.map((x) => [x.id, x]));
     expect(byId["full"]).toMatchObject({
@@ -176,7 +180,9 @@ describe("P1-4: nothing private leaves the queue", () => {
       isDraft: true,
       reporterDevice: "device-that-must-not-leak",
     });
-    const res = await request(app).get("/api/team/reports").set("Cookie", cookie);
+    const res = await request(app)
+      .get("/api/team/reports")
+      .set("Cookie", cookie);
     const json = res.text;
     expect(json).not.toContain("device-that-must-not-leak");
     expect(json).not.toContain(bytes.toString("base64"));

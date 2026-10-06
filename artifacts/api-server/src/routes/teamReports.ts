@@ -1,9 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import {
-  db,
-  photosTable,
-  welfareReportPhotosTable,
-} from "@workspace/db";
+import { db, photosTable, welfareReportPhotosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { listWelfareQueue } from "../lib/welfareQueue";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";

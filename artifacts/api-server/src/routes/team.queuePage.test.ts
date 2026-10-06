@@ -75,7 +75,11 @@ describe("P1-2: the page's order", () => {
       severity: "urgent",
       sentMinutesAgo: 60,
     });
-    await seedReport({ publicId: "closed-1", state: "done", sentMinutesAgo: 1 });
+    await seedReport({
+      publicId: "closed-1",
+      state: "done",
+      sentMinutesAgo: 1,
+    });
     await seedReport({
       publicId: "closed-2",
       state: "nothing_needed",
@@ -140,7 +144,9 @@ describe("what each row shows", () => {
     expect(html).toContain(">No photo<");
     expect(html).toContain("No photo: the photo could not be received");
     expect(html).toContain("37.44412, 24.94123");
-    expect(html).toContain("google.com/maps/search/?api=1&amp;query=37.44412%2C24.94123");
+    expect(html).toContain(
+      "google.com/maps/search/?api=1&amp;query=37.44412%2C24.94123",
+    );
     expect(html).toContain("Kittens");
     expect(html).toContain("Three kittens under the red boat");
     expect(html).toContain("Contact left</dt><dd>No</dd>");
@@ -150,7 +156,9 @@ describe("what each row shows", () => {
     expect(html).toContain("Maria (left)");
     expect(html).toContain("Email to Syros Cats</dt><dd><span>Sent</span>");
     expect(html).toContain("Waiting to send");
-    expect(html).toContain("Failed. Syros Cats may not have been told by email.");
+    expect(html).toContain(
+      "Failed. Syros Cats may not have been told by email.",
+    );
   });
 
   it("has no scripts, and images only from the dashboard's own routes", async () => {
@@ -158,7 +166,9 @@ describe("what each row shows", () => {
     const html = await getPage();
     expect(html).not.toMatch(/<script/i);
     expect(html).not.toMatch(/\son[a-z]+=/i);
-    const srcs = [...html.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)].map((m) => m[1]);
+    const srcs = [...html.matchAll(/<img[^>]*\ssrc="([^"]*)"/g)].map(
+      (m) => m[1],
+    );
     expect(srcs).toHaveLength(1);
     expect(srcs[0]).toMatch(/^\/api\/team\/report-photos\//);
     expect(html).not.toContain("/api/photos/");
@@ -264,7 +274,9 @@ describe("P1-8: values are escaped", () => {
       expect(html).not.toContain("<script>alert");
       expect(html).not.toMatch(/<script/i);
       expect(html).not.toContain("<img src=x");
-      expect(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
+      expect(html).toContain(
+        "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;",
+      );
       expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
       expect(html).toContain("team &lt;script&gt;");
     } finally {

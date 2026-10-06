@@ -22,14 +22,21 @@ Baseline on origin/main (fc3def6): db 207 tests, api-server 685 tests, all green
 4. [x] Queue page, mail banner (P1-6, P1-7, P1-8)
 5. [x] Team photo routes (P1-3)
 6. [x] Route walk test (P1-1)
-7. [ ] Browser check + screenshots in docs/screenshots/syc-43-pr1/
-8. [ ] Final: prettier, all suites, push
+7. [x] Browser check + screenshots in docs/screenshots/syc-43-pr1/
+8. [x] Final: prettier, all suites, push
 
 ## Mutation probes (record: mutation -> tests red)
 - P1-10: declared welfare_reports.state_changed_by FK `ON DELETE set null` in 0008 SQL -> red: P1-10 (state_changed_by case). Restored.
 - P1-3: made GET /api/team/report-photos/:publicId read `photos` instead of welfare_report_photos -> red: P1-3 'serves the bytes' and 'is a 404 for ... a catalogue photo's id'. Restored.
 - P1-8: removed escapeHtml on the reporter's note in queuePage.ts -> red: P1-8. Same for the team note, and for the state-changer's name (who()). Each restored.
+- P1-1: registered `GET /api/team/probe` with no requireTeam in teamReports.ts -> red: both walk tests (no session; no staff scope). Restored.
+- P1-4: added reporterDevice to QUEUE_COLUMNS -> red: 'selects neither the reporter's device nor ...'. Restored.
 - P1-5: added `script-src 'self'` to setTeamHeaders CSP -> red: all 7 P1-5 tests. Restored.
 
 ## Deviations
 - Migration SQL: added `USING "state_changed_by"::uuid` (Postgres has no automatic text->uuid cast, even on an empty table), a LOCK TABLE before the empty-assert, and a rollback that refuses once report_state_events / team notes hold history (plan said just "drop both").
+
+## Final state
+db 213 tests, api-server 725 tests, typechecks clean, migrate:check ok, prettier clean on touched files.
+Screenshots: docs/screenshots/syc-43-pr1/queue-390.png and queue-1280.png (seeded local DB, real hand-off, Chromium).
+Nav items Cats and Probably sterilised are plain text until PR 3 and PR 4 give them pages (layout.ts NAV).
