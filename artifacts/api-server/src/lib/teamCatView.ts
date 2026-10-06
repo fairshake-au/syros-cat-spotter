@@ -271,6 +271,9 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
   const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   if (!cat) return null;
 
+  // deriveCatStatuses reads this cat's records again (one extra query). Kept
+  // on purpose: the public line must come from the very function the public
+  // page uses, PR 3 gate and Likely gate included, not a copy of it.
   const [records, statuses, sightings] = await Promise.all([
     loadCatRecords([cat.id]),
     deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }]),

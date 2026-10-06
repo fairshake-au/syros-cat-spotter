@@ -304,6 +304,21 @@ describe("P3-1: finding a cat", () => {
     expect(empty.text).not.toContain('class="catrow"');
   });
 
+  it("treats a repeated or bracketed q as no query, and cuts a long one at 100 characters", async () => {
+    for (const path of ["/api/team/cats?q=μιμη&q=μιμη", "/api/team/cats?q[x]=μιμη"]) {
+      const res = await request(app)
+        .get(encodeURI(path))
+        .set("Accept", "application/json")
+        .set("Cookie", cookie);
+      expect(res.status, path).toBe(200);
+      expect(res.body, path).toEqual({ query: "", results: [] });
+    }
+    // The first 100 characters are "μιμη" and spaces, so it still finds her;
+    // anything past them is ignored.
+    const long = `μιμη${" ".repeat(96)}zzzz`;
+    expect((await searchJson(long))[0]).toBe(mimi);
+  });
+
   it("escapes the query it shows back", async () => {
     const res = await request(app)
       .get("/api/team/cats")
