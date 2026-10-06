@@ -93,6 +93,7 @@ const devAdd = (extra: Record<string, string | undefined> = {}) =>
     DATABASE_TARGET: "development",
     NEON_DEV_URL: url(name),
     PEOPLE_EMAIL: EMAIL,
+    PEOPLE_EMAIL_CONFIRM: EMAIL,
     PEOPLE_NAME: PERSON_NAME,
     PEOPLE_ROLE: "staff",
     GITHUB_ACTOR: "claude-bot",
@@ -109,6 +110,7 @@ describe("db-ops people-add", () => {
     const lines = r.out.split("\n");
     expect(lines[0]).toBe(`::add-mask::${EMAIL}`);
     expect(lines[1]).toBe(`::add-mask::${PERSON_NAME}`);
+    expect(lines[2]).toBe(`::add-mask::${EMAIL}`);
     const row = await c.query(`select id, email, name, added_by from people`);
     expect(row.rows[0]).toMatchObject({
       email: "jacky.test@example.com",
@@ -165,6 +167,7 @@ describe("db-ops people-add", () => {
       { PEOPLE_ROLE: "staff --role vet" },
       { PEOPLE_EMAIL: undefined },
       { PEOPLE_NAME: undefined },
+      { PEOPLE_EMAIL_CONFIRM: undefined },
     ]) {
       const r = devAdd(extra);
       expect(r.code).not.toBe(0);
@@ -172,8 +175,28 @@ describe("db-ops people-add", () => {
     expect(await countPeople()).toBe(0);
   });
 
+  it("refuses when the confirmation doesn't match, showing neither address (SYC-131)", async () => {
+    const r = devAdd({ PEOPLE_EMAIL_CONFIRM: "jacky.tset@example.com" });
+    expect(r.code).not.toBe(0);
+    const out = shown(r.out);
+    expect(out).toContain(
+      "db-ops: PEOPLE_EMAIL and PEOPLE_EMAIL_CONFIRM don't match. Nothing was changed.",
+    );
+    expect(out.toLowerCase()).not.toContain("jacky");
+    expect(await countPeople()).toBe(0);
+  });
+
+  it("accepts a confirmation that differs only in case and spaces", async () => {
+    const r = devAdd({ PEOPLE_EMAIL_CONFIRM: ` ${EMAIL.toUpperCase()} ` });
+    expect(r.code).toBe(0);
+    expect(await countPeople()).toBe(1);
+  });
+
   it("refuses a shared mailbox, without showing the address", async () => {
-    const r = devAdd({ PEOPLE_EMAIL: "admin@syroscats.com" });
+    const r = devAdd({
+      PEOPLE_EMAIL: "admin@syroscats.com",
+      PEOPLE_EMAIL_CONFIRM: "admin@syroscats.com",
+    });
     expect(r.code).not.toBe(0);
     const out = shown(r.out);
     expect(out).toContain("admin@ is a shared mailbox.");
@@ -237,6 +260,7 @@ describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
     TARGET: "production",
     NEON_PROD_URL: "postgres://stub@stub.invalid/neondb",
     PEOPLE_EMAIL: EMAIL,
+    PEOPLE_EMAIL_CONFIRM: EMAIL,
     PEOPLE_NAME: PERSON_NAME,
     PEOPLE_ROLE: "staff",
   };
@@ -249,7 +273,13 @@ describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
 
   it("refuses a missing or mismatched DATABASE_TARGET itself, before calling the CLI", () => {
     for (const DATABASE_TARGET of [undefined, "development", "rehearsal"]) {
-      for (const COMMAND of ["people-add", "people-list"]) {
+      for (const COMMAND of [
+        "people-add",
+        "people-list",
+        "people-mark-left",
+        "people-remove",
+        "people-sign-out-everywhere",
+      ]) {
         const r = stubbedRun({ ...base, COMMAND, DATABASE_TARGET });
         expect(r.code).not.toBe(0);
         expect(r.called).toBe(false);
@@ -258,5 +288,126 @@ describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
         );
       }
     }
+  });
+});
+
+// SYC-131: the commands that end someone's access, run the way db-ops runs
+// them: the address twice, from two secrets, in place of the CLI's retype.
+describe("db-ops people-mark-left, people-remove, people-sign-out-everywhere", () => {
+  const devRun = (
+    COMMAND: string,
+    extra: Record<string, string | undefined> = {},
+  ) =>
+    run({
+      COMMAND,
+      TARGET: "development",
+      DATABASE_TARGET: "development",
+      NEON_DEV_URL: url(name),
+      PEOPLE_EMAIL: EMAIL,
+      PEOPLE_EMAIL_CONFIRM: EMAIL,
+      GITHUB_ACTOR: "claude-bot",
+      ...extra,
+    });
+  const person = async () =>
+    (await c.query(`select id, left_at, left_by, session_version from people`))
+      .rows[0] as
+      | {
+          id: string;
+          left_at: Date | null;
+          left_by: string | null;
+          session_version: number;
+        }
+      | undefined;
+
+  it("mark-left marks the person as left, by the GitHub actor, and shows only the id", async () => {
+    expect(devAdd().code).toBe(0);
+    const r = devRun("people-mark-left");
+    expect(r.code).toBe(0);
+    const p = (await person())!;
+    expect(p.left_at).toBeInstanceOf(Date);
+    expect(p.left_by).toBe("cli:db-ops:claude-bot");
+    expect(p.session_version).toBe(2);
+    const out = shown(r.out);
+    expect(out).toContain(`Marked person ${p.id} as left.`);
+    expect(out.toLowerCase()).not.toContain("jacky");
+    expect(out).not.toMatch(/postgres(ql)?:\/\//);
+  });
+
+  it("sign-out-everywhere raises the session version", async () => {
+    expect(devAdd().code).toBe(0);
+    const r = devRun("people-sign-out-everywhere");
+    expect(r.code).toBe(0);
+    expect(shown(r.out)).toContain(
+      "Signed that person out everywhere (session version is now 2).",
+    );
+    expect((await person())!.session_version).toBe(2);
+  });
+
+  it("remove deletes a mistaken add, and refuses someone with history", async () => {
+    expect(devAdd().code).toBe(0);
+    const ok = devRun("people-remove");
+    expect(ok.code).toBe(0);
+    expect(shown(ok.out)).toContain("Removed that person and their roles.");
+    expect(await countPeople()).toBe(0);
+
+    expect(devAdd().code).toBe(0);
+    const p = (await person())!;
+    const cat = await c.query(
+      `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
+         values ('Agatha', 0, 37.44, 24.94, 'd') returning id`,
+    );
+    await c.query(
+      `insert into observations
+         (cat_id, kind, value, account_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'sterilised', '{"sterilised": true}', $2, 'staff', 'none', 'volunteered', now())`,
+      [cat.rows[0].id, p.id],
+    );
+    const refused = devRun("people-remove");
+    expect(refused.code).not.toBe(0);
+    expect(shown(refused.out)).toContain(
+      "This person has history. Use mark-left instead.",
+    );
+    expect(await countPeople()).toBe(1);
+  });
+
+  for (const COMMAND of [
+    "people-mark-left",
+    "people-remove",
+    "people-sign-out-everywhere",
+  ]) {
+    it(`${COMMAND} changes nothing when the confirmation is missing or doesn't match`, async () => {
+      expect(devAdd().code).toBe(0);
+      const before = await person();
+      for (const PEOPLE_EMAIL_CONFIRM of [
+        undefined,
+        "",
+        "jacky.tset@example.com",
+      ]) {
+        const r = devRun(COMMAND, { PEOPLE_EMAIL_CONFIRM });
+        expect(r.code).not.toBe(0);
+        expect(shown(r.out).toLowerCase()).not.toContain("jacky");
+      }
+      expect(await person()).toEqual(before);
+    });
+
+    it(`${COMMAND} refuses target=rehearsal`, () => {
+      const r = devRun(COMMAND, {
+        TARGET: "rehearsal",
+        DATABASE_TARGET: "rehearsal",
+        NEON_REHEARSAL_URL: url(name),
+      });
+      expect(r.code).not.toBe(0);
+      expect(r.out).toMatch(
+        /only runs against target=development or target=production/,
+      );
+    });
+  }
+
+  it("says so, and exits non-zero, for an address that isn't on the list", () => {
+    const r = devRun("people-mark-left");
+    expect(r.code).not.toBe(0);
+    expect(shown(r.out)).toContain(
+      "That address isn't on the list. Nothing was changed.",
+    );
   });
 });

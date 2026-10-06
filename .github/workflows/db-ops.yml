@@ -22,12 +22,15 @@ on:
             carry-back-apply,
             people-add,
             people-list,
+            people-mark-left,
+            people-remove,
+            people-sign-out-everywhere,
           ]
       people_role:
         # SYC-43: a fixed list, validated again by scripts/db-ops.sh, the
         # people CLI and the database. The person's email and name are never
-        # inputs: they come from the short-lived PEOPLE_EMAIL and PEOPLE_NAME
-        # Environment secrets (SYC-121 plan H.1(b)).
+        # inputs: they come from the short-lived PEOPLE_EMAIL, PEOPLE_NAME and
+        # PEOPLE_EMAIL_CONFIRM Environment secrets (SYC-121 plan H.1(b)).
         type: choice
         options: [staff, guardian, volunteer, vet]
         default: staff
@@ -101,6 +104,9 @@ jobs:
           # the script's first lines; never echoed.
           PEOPLE_EMAIL: ${{ secrets.PEOPLE_EMAIL }}
           PEOPLE_NAME: ${{ secrets.PEOPLE_NAME }}
+          # SYC-131: the address a second time. Every people command that names
+          # a person refuses unless it equals PEOPLE_EMAIL.
+          PEOPLE_EMAIL_CONFIRM: ${{ secrets.PEOPLE_EMAIL_CONFIRM }}
           PEOPLE_ROLE: ${{ inputs.people_role }}
         run: bash scripts/db-ops.sh
       - name: Upload encrypted dump (copy-cutover only, if produced)

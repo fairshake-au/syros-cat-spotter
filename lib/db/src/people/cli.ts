@@ -15,12 +15,17 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 //   pnpm --filter @workspace/db run people -- remove --target <t> [--email <e>]
 //   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>]
 //
+// The address is typed a second time for mark-left, remove and
+// sign-out-everywhere: at a terminal, interactively; otherwise (db-ops,
+// SYC-131) as the first line of stdin.
+//
 // Someone who leaves is marked as left, not removed (SYC-43 part 2, Decision
 // 7): their history stays theirs. `remove` is only for a mistaken add, and
 // refuses anyone with history.
 //
-// Claude runs it through db-ops (scripts/db-ops.sh, `people-add` and
-// `people-list`), the SYC-121 route for every database command. It picks its
+// Claude runs it through db-ops (scripts/db-ops.sh, `people-add`,
+// `people-list`, `people-mark-left`, `people-remove` and
+// `people-sign-out-everywhere`), the SYC-121 route for every database command. It picks its
 // database exactly the way db-ops.sh does for migrate:
 //  1. `--target` is mandatory, and DATABASE_TARGET (set by the GitHub
 //     Environment) must equal it. This is checked first; a mismatch refuses.
@@ -281,25 +286,41 @@ export async function runPeopleCommand(
   }
 }
 
+/**
+ * The first line of a piped stdin, read up front: db-ops pipes the
+ * confirmation in (SYC-131), and stdin can close before the command gets as
+ * far as asking.
+ */
+async function firstLineOfStdin(): Promise<string> {
+  let data = "";
+  for await (const chunk of process.stdin) data += String(chunk);
+  return data.split("\n")[0] ?? "";
+}
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  // A terminal gets the interactive retype; anything else (db-ops) is read
+  // once, before connecting.
+  const rl = process.stdin.isTTY
+    ? readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      })
+    : null;
+  const piped = rl ? null : firstLineOfStdin();
   runPeopleCommand(process.argv.slice(2), {
     env: process.env,
     out: (line) => console.log(line),
-    ask: (question) => rl.question(question),
+    ask: (question) => (rl ? rl.question(question) : piped!),
   })
     .then((code) => {
-      rl.close();
+      rl?.close();
       process.exitCode = code;
     })
     .catch(() => {
-      rl.close();
+      rl?.close();
       process.exitCode = 1;
     });
 }
