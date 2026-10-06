@@ -602,10 +602,14 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             status: 'queued' as const,
           }
         : { ...item, status: 'queued' as const };
-      await store.mutate(
-        (list) => [...list.filter((p) => p.localId !== stored.localId), stored],
-        'user',
-      );
+      await store.mutate((list) => {
+        // SYC-63: nothing new joins the queue while "Delete my data" has
+        // syncing paused, or a spot whose photo was still saving could land
+        // after the wipe and survive it. Checked here, in the write itself,
+        // so it holds however long the photo took.
+        if (pausedRef.current) throw new QueueWriteError('failed');
+        return [...list.filter((p) => p.localId !== stored.localId), stored];
+      }, 'user');
     },
     [store],
   );
