@@ -3,6 +3,10 @@ import request from "supertest";
 import { addPerson, pool, removePerson } from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
+import {
+  clearWelfareTables,
+  seedReport,
+} from "../lib/teamAuth/__fixtures__/queueKit";
 
 // SYC-43 part 2 plan, test P1-5: every dashboard response carries the team
 // headers. The security header now includes `img-src 'self'` and still has no
@@ -13,6 +17,7 @@ const TEAM = "https://team.catspotters.com";
 const KEY = "vitest-headers-key-0123456789abcdef-0123456789";
 const handoffKey = makeKey();
 let cookie: string;
+let reportPhotoId: string;
 
 const EXPECTED_CSP =
   "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
@@ -21,6 +26,12 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await removePerson(EMAIL);
+  await clearWelfareTables();
+  reportPhotoId = (
+    await seedReport({
+      photo: { mime: "image/jpeg", bytes: Buffer.from("headers-test") },
+    })
+  ).photoPublicId!;
   const p = await addPerson({
     email: EMAIL,
     name: "Susan",
@@ -43,6 +54,7 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
+  await clearWelfareTables();
   await removePerson(EMAIL);
   await pool.end();
 });
@@ -53,6 +65,31 @@ const RESPONSES: [string, () => request.Test][] = [
     "the queue page, signed out",
     () => request(app).get("/api/team").set("Sec-Fetch-Mode", "navigate"),
   ],
+  [
+    "the queue as JSON",
+    () => request(app).get("/api/team/reports").set("Cookie", cookie),
+  ],
+  ["the queue as JSON, signed out", () => request(app).get("/api/team/reports")],
+  [
+    "a report photo",
+    () =>
+      request(app)
+        .get(`/api/team/report-photos/${reportPhotoId}`)
+        .set("Cookie", cookie),
+  ],
+  [
+    "a report photo that doesn't exist",
+    () => request(app).get("/api/team/report-photos/nope").set("Cookie", cookie),
+  ],
+  [
+    "a report photo, signed out",
+    () => request(app).get(`/api/team/report-photos/${reportPhotoId}`),
+  ],
+  [
+    "a catalogue photo that doesn't exist",
+    () => request(app).get("/api/team/photos/nope").set("Cookie", cookie),
+  ],
+  ["a catalogue photo, signed out", () => request(app).get("/api/team/photos/x")],
   ["GET /me", () => request(app).get("/api/team/me").set("Cookie", cookie)],
   ["GET /me, signed out", () => request(app).get("/api/team/me")],
   [
