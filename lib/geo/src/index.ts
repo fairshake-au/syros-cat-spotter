@@ -9,10 +9,11 @@
  * worked out from exact distance lets someone locate the cat by asking from
  * different places.
  *
- * Hand-off to data spine PR 6 (blurring): once the public payload itself
- * carries the cell centre, `publishedPosition` must read that published
- * position rather than snap it here, in the same PR as the serialiser. Re-run
- * the tests in this package and spec tests 2, 24 and 25 there.
+ * Data spine PR 6 (blurring) has landed: the public payload itself carries
+ * each cat's cell centre, snapped on the server's secret-origin grid
+ * (artifacts/api-server/src/lib/blur.ts), which the phone can't reproduce.
+ * So `publishedPosition` reads that position as it is and never snaps again.
+ * The server's hand-pick check passes it the same cell centre.
  */
 
 export type LatLng = { lat: number; lng: number };
@@ -49,7 +50,12 @@ export function haversineKm(a: LatLng, b: LatLng): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
 }
 
-/** The centre of the fixed 250 m square a point falls in. */
+/**
+ * The centre of the 250 m square a point falls in, on a public grid with its
+ * origin at 0°, 0°. Not how the server publishes cats: that grid's origin is
+ * secret (blur.ts). Kept as a deterministic stand-in for "a published cell"
+ * in tests.
+ */
 export function squareCentre(p: LatLng): LatLng {
   return {
     lat: (Math.floor(p.lat / CELL_LAT_DEG) + 0.5) * CELL_LAT_DEG,
@@ -58,11 +64,13 @@ export function squareCentre(p: LatLng): LatLng {
 }
 
 /**
- * Where the public may consider a cat to be: the centre of its 250 m square.
- * Pass the position from the public cat payload.
+ * Where the public may consider a cat to be: the centre of its 250 m cell,
+ * exactly as the public cat payload gives it. Never snapped again here (data
+ * spine PR 6): pass the payload's lat/lng on the phone, and the server's
+ * blurPosition() result on the server.
  */
 export function publishedPosition(cat: LatLng): LatLng {
-  return squareCentre(cat);
+  return { lat: cat.lat, lng: cat.lng };
 }
 
 /**
@@ -77,7 +85,8 @@ export function isNearby(sighting: LatLng, published: LatLng): boolean {
 /**
  * "Cats known around here": the cats whose published square is nearby,
  * nearest first by published square, ties broken by SYR number (the cat id),
- * lowest first. Returns the caller's own objects in a new array.
+ * lowest first. Returns the caller's own objects in a new array. The cats
+ * must be the public payload's, whose positions are already cell centres.
  */
 export function nearbyOrder<T extends LatLng & { id: number }>(
   sighting: LatLng,
