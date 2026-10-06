@@ -57,7 +57,7 @@ const place = (lat: number, lng: number) => {
   const here = `${lat}, ${lng}`;
   // A plain link: leaving the dashboard sends nothing until it is tapped.
   const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
-  return `${esc(here)} &middot; <a href="${esc(map)}" rel="noopener noreferrer">Open map</a>`;
+  return `${esc(here)} &middot; <a class="tap" href="${esc(map)}" rel="noopener noreferrer">Open map</a>`;
 };
 
 const row = (label: string, value: string) =>
@@ -115,13 +115,15 @@ export function renderCatSearchPage(
   const form =
     '<form class="search" method="get" action="/api/team/cats" role="search">' +
     '<label class="label" for="q">Name or SYR number</label>' +
-    `<div class="searchrow"><input id="q" name="q" type="search" value="${esc(query)}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
+    `<div class="searchrow"><input id="q" name="q" type="search" value="${esc(query)}" maxlength="${QUERY_MAX}"${query.trim() === "" ? " autofocus" : ""} autocomplete="off" autocapitalize="none" spellcheck="false">` +
     '<button type="submit">Find</button></div></form>';
   let body: string;
   if (query.trim() === "") {
     body = '<p class="empty">Type a name, or a number like SYR-0012.</p>';
   } else if (results.length === 0) {
-    body = `<p class="empty">No cat matches “${esc(query)}” by name or SYR number.</p>`;
+    body =
+      `<p class="empty">No cat matches “${esc(query)}” by name or SYR number.</p>` +
+      '<p class="empty">Check the spelling, try fewer letters, or try the SYR number.</p>';
   } else {
     const more =
       results.length >= 30
@@ -135,22 +137,43 @@ export function renderCatSearchPage(
 // ── The team's cat page ────────────────────────────────────────────────────
 
 const statementLink = (id: number) => `<a href="#s-${id}">#${id}</a>`;
-const statementLinks = (ids: number[]) =>
-  ids.length ? ids.map(statementLink).join(", ") : "none";
+
+/**
+ * The statements an answer rests on, in words: what was said, by whom and
+ * when, each linking to its place in the history below.
+ */
+function statementRefs(ids: number[], byId: Map<number, TeamStatement>): string {
+  if (ids.length === 0) return "Nothing yet";
+  return (
+    '<ul class="refs">' +
+    ids
+      .map((id) => {
+        const s = byId.get(id);
+        if (!s) return `<li>${statementLink(id)}</li>`;
+        return (
+          `<li><a href="#s-${id}">${esc(s.said)}</a> ` +
+          `<span class="meta">(${esc(s.author.label)}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
+        );
+      })
+      .join("") +
+    "</ul>"
+  );
+}
 
 function recordBlock<T>(
   label: string,
   r: TeamResolved<T>,
   valueText: string,
   extra: string,
+  byId: Map<number, TeamStatement>,
 ): string {
   return (
     `<h3>${esc(label)}</h3><dl>` +
     row("Records say", `${esc(valueText)} <span class="tag">${esc(CONFIDENCE[r.confidence])}</span>`) +
     row("As of", time(r.asOf, day(r.asOf))) +
-    row("Based on", statementLinks(r.supportingStatementIds)) +
+    row("Based on", statementRefs(r.supportingStatementIds, byId)) +
     (r.conflictingStatementIds.length
-      ? row("Disagrees", `<span class="bad">${statementLinks(r.conflictingStatementIds)}</span>`)
+      ? row("Disagrees", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId)}</div>`)
       : "") +
     extra +
     "</dl>"
@@ -180,7 +203,7 @@ function statementItem(s: TeamStatement, byId: Map<number, TeamStatement>): stri
     `<p class="meta">${meta}</p>` +
     (s.reason ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
     (s.replaces != null ? `<p class="meta">Corrects ${statementLink(s.replaces)}</p>` : "") +
-    (s.photoUrl ? `<p class="meta"><a href="${esc(s.photoUrl)}">Photo</a></p>` : "") +
+    (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
     "</li>"
   );
@@ -188,12 +211,13 @@ function statementItem(s: TeamStatement, byId: Map<number, TeamStatement>): stri
 
 export function renderCatPage(v: TeamCatView, personName: string): string {
   const { cat, records } = v;
+  const byId = new Map(v.history.map((s) => [s.id, s]));
   const main = cat.mainPhotoUrl
-    ? `<img class="photo" src="${esc(cat.mainPhotoUrl)}" alt="Main photo of ${esc(cat.name)}">`
+    ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="Main photo of ${esc(cat.name)}">`
     : '<div class="nophoto">No photo</div>';
+  const clipped = records.sterilised.clippedTipSightings;
 
   const overview =
-    `<p class="syrline"><span class="syr">${esc(cat.syr)}</span></p>` +
     main +
     (cat.description ? `<p>${esc(cat.description)}</p>` : "") +
     "<h2>What the public sees</h2>" +
@@ -208,14 +232,24 @@ export function renderCatPage(v: TeamCatView, personName: string): string {
         ? row("Not seen since", time(records.lifeStatus.notSeenSince, day(records.lifeStatus.notSeenSince)))
         : "") +
         (records.lifeStatus.presumedDeceased
-          ? row("Note", "Not seen for so long it may have died. The public is never told this.")
+          ? row(
+              "Note",
+              "Not seen for over three years. The public sees “Not seen since…”, never that it may have died.",
+            )
           : ""),
+      byId,
     ) +
     recordBlock(
       "Sterilised",
       records.sterilised,
       sterilisedText(records.sterilised),
-      row("Clipped ear seen", esc(String(records.sterilised.clippedTipSightings))),
+      row(
+        "Clipped ear",
+        clipped === 0
+          ? "Not seen in any sighting"
+          : esc(`Seen in ${clipped} sighting${clipped === 1 ? "" : "s"}`),
+      ),
+      byId,
     ) +
     "<h2>First recorded</h2><dl>" +
     row("Where", place(cat.lat, cat.lng)) +
@@ -232,7 +266,7 @@ export function renderCatPage(v: TeamCatView, personName: string): string {
             (s) =>
               "<li>" +
               (s.photoUrl
-                ? `<a href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="" loading="lazy"></a>`
+                ? `<a href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${when(s.at)}`)}" loading="lazy"></a>`
                 : '<span class="thumb nothumb">No photo</span>') +
               `<span>${time(s.at)}<br>${place(s.lat, s.lng)}</span></li>`,
           )
@@ -246,13 +280,12 @@ export function renderCatPage(v: TeamCatView, personName: string): string {
       : '<div class="gallery">' +
         v.photos
           .map(
-            (p) =>
-              `<a href="${esc(p.url)}"><img src="${esc(p.url)}" alt="" loading="lazy"></a>`,
+            (p, i) =>
+              `<a href="${esc(p.url)}"><img src="${esc(p.url)}" alt="${esc(`Photo ${i + 1} of ${v.photos.length}`)}" loading="lazy"></a>`,
           )
           .join("") +
         "</div>");
 
-  const byId = new Map(v.history.map((s) => [s.id, s]));
   const history =
     `<h2>What has been said (${v.history.length})</h2>` +
     '<p class="hint">Newest first. Nothing is ever deleted: a statement that was corrected stays, struck through, with what replaced it.</p>' +
@@ -264,8 +297,9 @@ export function renderCatPage(v: TeamCatView, personName: string): string {
     title: cat.name,
     active: "cats",
     personName,
+    beforeTitle: '<p class="back"><a href="/api/team/cats">&larr; Find another cat</a></p>',
+    afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
     body:
-      '<p class="back"><a href="/api/team/cats">Find another cat</a></p>' +
       overview +
       sightings +
       photos +

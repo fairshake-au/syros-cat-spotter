@@ -68,7 +68,6 @@ dd{margin:0}
 .actions button.save:hover{background:#0b4553}
 textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;resize:vertical;min-height:84px}
 h3{font-size:16px;margin:16px 0 4px}
-.back{margin:4px 0 0;font-size:15px}
 .hint{color:#55524a;font-size:14px;margin:0 0 8px}
 .search{margin:8px 0 16px}
 .searchrow{display:flex;gap:8px}
@@ -95,6 +94,13 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
 .meta{color:#55524a;font-size:14px}
 .why{font-size:15px}
 .replacement{border-top:1px dashed #c9c4b6;margin-top:6px!important;padding-top:6px}
+.back{margin:12px 0 0}
+.back a,a.tap{display:inline-block;padding:8px 0}
+.syrline{margin:0 0 4px;color:#55524a;font-size:15px;font-variant-numeric:tabular-nums}
+.photo.catmain{width:auto;max-width:100%;max-height:240px}
+.refs{margin:0;padding:0;list-style:none}
+.refs li{margin:0 0 2px}
+.refs a{display:inline-block;padding:4px 0}
 @media (min-width:700px){
 main{padding-top:20px}
 .report.has-photo{display:grid;grid-template-columns:240px 1fr;gap:0 16px;align-items:start}
@@ -104,6 +110,7 @@ main{padding-top:20px}
 dl{grid-template-columns:150px 1fr;gap:4px 12px}
 dt{margin-top:0}
 .thumb{width:96px;height:96px}
+.photo.catmain{max-height:320px}
 .gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 }
 `;
@@ -115,6 +122,10 @@ export interface PageOptions {
   personName: string;
   /** Trusted HTML: built only from fixed text and escapeHtml. */
   banner?: string;
+  /** Trusted HTML above the heading (a back link). Fixed text and escapeHtml only. */
+  beforeTitle?: string;
+  /** Trusted HTML right under the heading (a cat's SYR number). Same rule. */
+  afterTitle?: string;
   /** Trusted HTML: built only from fixed text and escapeHtml. */
   body: string;
 }
@@ -138,7 +149,9 @@ export function renderPage(opts: PageOptions): string {
     '<form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form>' +
     "</nav><main>" +
     (opts.banner ?? "") +
+    (opts.beforeTitle ?? "") +
     `<h1>${escapeHtml(opts.title)}</h1>` +
+    (opts.afterTitle ?? "") +
     `<p class="who">Signed in as ${escapeHtml(opts.personName)}</p>` +
     opts.body +
     "</main></body></html>"

@@ -448,3 +448,34 @@ describe("P3-4: who said it", () => {
     expect(html).toContain("Sleeps on the &lt;b&gt;church&lt;/b&gt; steps");
   });
 });
+
+describe("design review fixes (PR 3)", () => {
+  it("puts the cursor in an empty search, and helps when nothing matches", async () => {
+    const empty = await request(app).get("/api/team/cats").set("Cookie", cookie);
+    expect(empty.text).toMatch(/<input id="q"[^>]* autofocus/);
+    const none = await request(app).get("/api/team/cats").query({ q: "zzzz" }).set("Cookie", cookie);
+    expect(none.text).not.toMatch(/autofocus/);
+    expect(none.text).toContain("try the SYR number");
+  });
+
+  it("puts the SYR number under the name, and the way back above it", async () => {
+    const html = await catHtml();
+    const syr = `SYR-${String(mimi).padStart(4, "0")}`;
+    expect(html.indexOf("Find another cat")).toBeLessThan(html.indexOf("<h1>"));
+    expect(html).toContain(`<h1>Μιμή</h1><p class="syrline">${syr}</p>`);
+  });
+
+  it("says in words what each answer rests on", async () => {
+    const html = await catHtml();
+    expect(html).toContain(`<a href="#s-${ids["maria"]}">Lives on the street</a> <span class="meta">(Maria (left), `);
+    expect(html).toContain(`<a href="#s-${ids["fix"]}">Not sterilised</a>`);
+    expect(html).toContain("Seen in 1 sighting");
+  });
+
+  it("gives every photo link a name a screen reader can say", async () => {
+    const html = await catHtml();
+    expect(html).not.toMatch(/<a [^>]*><img [^>]*alt=""[^>]*><\/a>/);
+    expect(html).toContain('alt="Photo 1 of 4"');
+    expect(html).toMatch(/alt="Photo from the sighting on [^"]+"/);
+  });
+});
