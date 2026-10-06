@@ -478,4 +478,33 @@ describe("design review fixes (PR 3)", () => {
     expect(html).toContain('alt="Photo 1 of 4"');
     expect(html).toMatch(/alt="Photo from the sighting on [^"]+"/);
   });
+
+  it("escapes the statements an answer rests on, both what was said and who said it", async () => {
+    const eve = await addPerson({
+      email: `vitest-p3-eve-${RUN}@example.com`,
+      name: "Eve <b>Bold</b>",
+      addedBy: "cli:vitest",
+    });
+    const other = await cat(`${PREFIX}refs`, await photo("refs"));
+    const [row] = await db
+      .insert(observationsTable)
+      .values({
+        catId: other,
+        kind: "sterilised",
+        value: { sterilised: true, clinic: '<img src=x onerror="alert(2)">', reason: "vet" },
+        accountId: eve.id,
+        roleAtTime: "staff",
+        observedAt: new Date(),
+      })
+      .returning({ id: observationsTable.id });
+    const html = await catHtml(other);
+    const basedOn = html.slice(html.indexOf("<dt>Based on</dt>", html.indexOf("<h3>Sterilised</h3>")));
+    const refs = basedOn.slice(0, basedOn.indexOf("</dd>"));
+    expect(refs).toContain(`href="#s-${row!.id}"`);
+    expect(refs).toContain("&lt;img src=x onerror=&quot;alert(2)&quot;&gt;");
+    expect(refs).toContain("Eve &lt;b&gt;Bold&lt;/b&gt;");
+    expect(html).not.toContain('<img src=x onerror="alert(2)">');
+    expect(html).not.toContain("<b>Bold</b>");
+    await markLeft(`vitest-p3-eve-${RUN}@example.com`, "cli:vitest");
+  });
 });
