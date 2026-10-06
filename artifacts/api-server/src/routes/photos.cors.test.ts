@@ -89,11 +89,10 @@ describe("GET /api/photos/:publicId CORS", () => {
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
-  it("does not weaken CORS on an unrelated route", async () => {
+  it("applies the same allow-list on other routes (SYC-106)", async () => {
     const res = await request(app)
-      .get("/api/health")
+      .get("/api/healthz")
       .set("Origin", "https://evil-scraper.example");
-    // Unrelated routes keep the pre-existing bare cors() behaviour.
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
   });
 });

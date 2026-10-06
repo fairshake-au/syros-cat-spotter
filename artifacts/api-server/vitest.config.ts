@@ -10,6 +10,7 @@ export default defineConfig({
     // uses (see globalSetup.ts). Generous — SYC-127 saw a sibling
     // throwaway-database hook flake at the default 10s on a slow CI runner.
     globalSetup: ["./src/test/globalSetup.ts"],
+    setupFiles: ["./src/test/setup.ts"],
     hookTimeout: 30000,
   },
 });

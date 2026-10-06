@@ -327,3 +327,56 @@ describe("SMOKE_TIMEOUT_MS validation", () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe("smoke reports the live build (SYC-200)", () => {
+  async function serveHealth(body: string): Promise<void> {
+    await new Promise<void>((resolve) => {
+      server = http.createServer((req, res) => {
+        if (req.url === "/api/healthz") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(body);
+          return;
+        }
+        if (req.url === "/api/cats") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify([]));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+  }
+
+  async function logsOf(run: () => Promise<void>): Promise<string[]> {
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((msg: string) => {
+      logs.push(msg);
+    });
+    try {
+      await run();
+    } finally {
+      spy.mockRestore();
+    }
+    return logs;
+  }
+
+  it("prints the commit and build time /api/healthz reports", async () => {
+    await serveHealth(
+      JSON.stringify({ status: "ok", commit: "21ab9a3", builtAt: "2026-10-06T09:00:00.000Z" }),
+    );
+    const logs = await logsOf(() => smoke(baseUrl, {}));
+    expect(logs).toContain("    live build: commit 21ab9a3, built 2026-10-06T09:00:00.000Z");
+  });
+
+  it("still passes against an older server that doesn't report them", async () => {
+    await serveHealth("ok");
+    const logs = await logsOf(() => smoke(baseUrl, {}));
+    expect(logs).toContain("    live build: commit not reported, built not reported");
+  });
+});

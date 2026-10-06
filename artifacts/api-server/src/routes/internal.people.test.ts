@@ -16,9 +16,11 @@ import app from "../app";
 // Every log line the app writes, so test 8 can check the address never
 // appears in one.
 const logLines = vi.hoisted(() => [] as string[]);
-vi.mock("../lib/logger", async () => {
+vi.mock("../lib/logger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/logger")>();
   const { default: pino } = await import("pino");
   return {
+    ...actual,
     logger: pino(
       { level: "debug" },
       { write: (line: string) => void logLines.push(line) },
