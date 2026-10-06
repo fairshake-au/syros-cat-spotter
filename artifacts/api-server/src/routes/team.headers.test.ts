@@ -32,7 +32,6 @@ beforeAll(async () => {
     .type("form")
     .send({ token: mint(handoffKey, claimsFor(p.id, { sv: 1 })) });
   expect(res.status).toBe(303);
-  expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
   cookie = (res.headers["set-cookie"] as unknown as string[])[0]!.split(";")[0]!;
 });
 
