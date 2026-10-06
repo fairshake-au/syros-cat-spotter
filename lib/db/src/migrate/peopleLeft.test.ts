@@ -40,15 +40,6 @@ beforeAll(async () => {
   await c.connect();
   await migrateUp(c, migrations);
   store = peopleStore(drizzle(c, { schema }));
-  // A stand-in for the strict links to people.id that PR 1 adds
-  // (welfare_reports.state_changed_by and friends): no cascade, no set-null.
-  // Only this throwaway database has it.
-  await c.query(
-    `create table history_probe (
-       id serial primary key,
-       person_id uuid not null references people(id)
-     )`,
-  );
 });
 
 afterAll(async () => {
@@ -60,7 +51,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await c.query(
-    `truncate history_probe, welfare_reports, person_scopes, people cascade`,
+    `truncate report_state_events, welfare_reports, person_scopes, people cascade`,
   );
 });
 
@@ -149,7 +140,6 @@ describe("P0-3: adding a left person's address again rejoins the same row", () =
        values ('r-1', 'urgent', 37.4, 24.9, 'c-1', 'looking', $1)`,
       [p.id],
     );
-    await c.query(`insert into history_probe (person_id) values ($1)`, [p.id]);
     await store.markLeft(SUSAN, "cli:samuel");
 
     const back = await store.addPerson({
@@ -172,14 +162,9 @@ describe("P0-3: adding a left person's address again rejoins the same row", () =
     // Their old report still names them.
     const report = await c.query(
       `select p.id from welfare_reports w join people p
-         on p.id::text = w.state_changed_by where w.public_id = 'r-1'`,
+         on p.id = w.state_changed_by where w.public_id = 'r-1'`,
     );
     expect(report.rows).toEqual([{ id: p.id }]);
-    const probe = await c.query(
-      `select count(*)::int as n from history_probe where person_id = $1`,
-      [p.id],
-    );
-    expect(probe.rows[0].n).toBe(1);
 
     // Back on the list, with the roles given now, not the ones they had.
     expect(await store.findAllowedPerson(SUSAN)).toMatchObject({ id: p.id });
@@ -206,22 +191,66 @@ describe("P0-3: adding a left person's address again rejoins the same row", () =
 });
 
 describe("P0-4: hard deletion is only for someone with no history", () => {
-  it("the database refuses deleting a person who has history, and removePerson says use mark-left", async () => {
-    const p = await addSusan();
-    await c.query(`insert into history_probe (person_id) values ($1)`, [p.id]);
+  // P1-10 (P0-4, repointed at the real links PR 1 added): each is a strict
+  // link to people.id, no cascade and no set-null.
+  const links: [string, (personId: string) => Promise<void>][] = [
+    [
+      "welfare_reports.state_changed_by",
+      async (personId) => {
+        await c.query(
+          `insert into welfare_reports
+             (public_id, severity, lat, lng, client_ref, state, state_changed_by)
+           values ('h-1', 'urgent', 37.4, 24.9, 'h-c-1', 'looking', $1)`,
+          [personId],
+        );
+      },
+    ],
+    [
+      "welfare_reports.team_note_by",
+      async (personId) => {
+        await c.query(
+          `insert into welfare_reports
+             (public_id, severity, lat, lng, client_ref, team_note, team_note_by, team_note_at)
+           values ('h-2', 'urgent', 37.4, 24.9, 'h-c-2', 'went, cat gone', $1, now())`,
+          [personId],
+        );
+      },
+    ],
+    [
+      "report_state_events.person_id",
+      async (personId) => {
+        const r = await c.query(
+          `insert into welfare_reports (public_id, severity, lat, lng, client_ref)
+           values ('h-3', 'urgent', 37.4, 24.9, 'h-c-3') returning id`,
+        );
+        await c.query(
+          `insert into report_state_events (report_id, from_state, to_state, person_id)
+           values ($1, 'new', 'looking', $2)`,
+          [r.rows[0].id, personId],
+        );
+      },
+    ],
+  ];
 
-    await expect(
-      c.query(`delete from people where id = $1`, [p.id]),
-    ).rejects.toMatchObject({ code: "23503" });
+  it.each(links)(
+    "P1-10: a person named in %s can't be hard-deleted; the database refuses and removePerson says use mark-left",
+    async (_link, seed) => {
+      const p = await addSusan();
+      await seed(p.id);
 
-    await expect(store.removePerson(SUSAN)).rejects.toThrow(
-      new PeopleError(HAS_HISTORY_MESSAGE),
-    );
-    // Nothing changed: the person and their roles are both still there.
-    expect(await store.findPersonById(p.id)).toMatchObject({
-      scopes: [{ role: "staff", colonyId: null }],
-    });
-  });
+      await expect(
+        c.query(`delete from people where id = $1`, [p.id]),
+      ).rejects.toMatchObject({ code: "23503" });
+
+      await expect(store.removePerson(SUSAN)).rejects.toThrow(
+        new PeopleError(HAS_HISTORY_MESSAGE),
+      );
+      // Nothing changed: the person and their roles are both still there.
+      expect(await store.findPersonById(p.id)).toMatchObject({
+        scopes: [{ role: "staff", colonyId: null }],
+      });
+    },
+  );
 
   it("refuses deleting a person who has written an observation, which has no database link", async () => {
     const p = await addSusan();

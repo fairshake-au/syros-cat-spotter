@@ -12,7 +12,9 @@ import {
   uniqueIndex,
   check,
   customType,
+  uuid,
 } from "drizzle-orm/pg-core";
+import { peopleTable } from "./people";
 
 /**
  * "This cat needs help" (SYC-42 plan, Slice 1 item 1.1; spec §4, §8.4).
@@ -58,9 +60,14 @@ export const welfareReportsTable = pgTable(
     // new | looking | done | nothing_needed (spec §3.1). Slice 2 moves it.
     state: text("state").notNull().default("new"),
     stateChangedAt: timestamp("state_changed_at", { withTimezone: true }),
-    // The foreign key to people.id is added in Slice 2.
-    stateChangedBy: text("state_changed_by"),
+    // Strict link to people.id: no cascade, no set-null, so a person who has
+    // moved a report can't be hard-deleted (mark them as left instead;
+    // SYC-43 part 2, Decision 7).
+    stateChangedBy: uuid("state_changed_by").references(() => peopleTable.id),
     teamNote: text("team_note"),
+    // Who wrote the team note, and when (spec §3.1, §8.5). Same strict link.
+    teamNoteBy: uuid("team_note_by").references(() => peopleTable.id),
+    teamNoteAt: timestamp("team_note_at", { withTimezone: true }),
     // A draft is written once severity and location are set (spec §4.2).
     isDraft: boolean("is_draft").notNull().default(false),
     // The app's own id for this report, so a resent queued report is stored once.
@@ -157,6 +164,45 @@ export const mailOutboxTable = pgTable(
   ],
 );
 
+/**
+ * Every move of a report between the four states (spec §8.4; SYC-43 part 2,
+ * PR 1). Add-only: rows are never updated or deleted.
+ */
+const REPORT_STATES = ["new", "looking", "done", "nothing_needed"] as const;
+const stateList = sql.raw(REPORT_STATES.map((s) => `'${s}'`).join(", "));
+
+export const reportStateEventsTable = pgTable(
+  "report_state_events",
+  {
+    id: serial("id").primaryKey(),
+    reportId: integer("report_id")
+      .notNull()
+      .references(() => welfareReportsTable.id, { onDelete: "cascade" }),
+    fromState: text("from_state").notNull(),
+    toState: text("to_state").notNull(),
+    // Strict link to people.id (Decision 7): no cascade, no set-null.
+    personId: uuid("person_id")
+      .notNull()
+      .references(() => peopleTable.id),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    // Stays empty until SYC-42 Slice 3: which reporter email this change
+    // sent, so "never mail twice" is a query (§5.3h).
+    reporterMessage: text("reporter_message"),
+  },
+  (t) => [
+    index("report_state_events_report_idx").on(t.reportId, t.at),
+    check(
+      "report_state_events_from_state_ck",
+      sql`${t.fromState} in (${stateList})`,
+    ),
+    check(
+      "report_state_events_to_state_ck",
+      sql`${t.toState} in (${stateList})`,
+    ),
+  ],
+);
+
 export type WelfareReport = typeof welfareReportsTable.$inferSelect;
+export type ReportStateEvent = typeof reportStateEventsTable.$inferSelect;
 export type WelfareReportPhoto = typeof welfareReportPhotosTable.$inferSelect;
 export type MailOutboxRow = typeof mailOutboxTable.$inferSelect;

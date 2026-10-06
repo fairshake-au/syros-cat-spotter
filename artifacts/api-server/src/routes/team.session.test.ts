@@ -161,9 +161,8 @@ describe("the signed-in page", () => {
     const cookie = await signIn(personId, await currentVersion());
     const res = await request(app).get("/api/team/").set("Cookie", cookie);
     expect(res.status).toBe(200);
-    expect(res.text).toContain(
-      "You're signed in as Susan &lt;b&gt;. The welfare queue is coming soon.",
-    );
+    expect(res.text).toContain("Signed in as Susan &lt;b&gt;");
+    expect(res.text).toContain("<h1>Welfare queue</h1>");
     expect(res.text).toContain('action="/api/team/signout"');
     expect(res.text).not.toMatch(/<script/i);
   });
