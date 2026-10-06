@@ -415,11 +415,11 @@ describe("13. CORS runs before the gate", () => {
   it("a preflight with no pass is answered by CORS (204), not 401", async () => {
     const res = await request(app)
       .options("/api/cats")
-      .set("Origin", "https://example.org")
+      .set("Origin", "http://localhost:8081")
       .set("Access-Control-Request-Method", "POST")
       .set("Access-Control-Request-Headers", "x-prelaunch-key, content-type");
     expect(res.status).toBe(204);
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:8081");
     expect(res.headers["access-control-allow-methods"]).toBeTruthy();
   });
 
@@ -453,10 +453,11 @@ describe("13. CORS runs before the gate", () => {
     }
   });
 
-  it("a 401 still carries Access-Control-Allow-Origin", async () => {
-    const res = await request(app).get("/api/cats").set("Origin", "https://example.org");
+  it("a 401 still carries Access-Control-Allow-Origin for an allowed origin", async () => {
+    // SYC-106: the allow-list echoes the origin back; there is no wildcard.
+    const res = await request(app).get("/api/cats").set("Origin", "http://localhost:8081");
     expect(res.status).toBe(401);
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:8081");
   });
 });
 
