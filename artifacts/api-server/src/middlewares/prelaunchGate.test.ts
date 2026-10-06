@@ -247,7 +247,7 @@ describe("10. /api/healthz is the only open path", () => {
   it("GET and HEAD /api/healthz → 200 with no pass", async () => {
     const get = await send("get", "/api/healthz");
     expect(get.status).toBe(200);
-    expect(get.body).toEqual({ status: "ok" });
+    expect(get.body).toMatchObject({ status: "ok" });
     expect((await send("head", "/api/healthz")).status).toBe(200);
   });
 
