@@ -95,7 +95,7 @@ export function SightingQuestions({
                 source={examplePhoto}
                 style={[styles.examplePhoto, { borderColor: colors.border }]}
                 contentFit="cover"
-                accessibilityLabel={t('earTipExampleCaption')}
+                accessibilityLabel={t('earTipExampleAlt')}
               />
             ) : null}
             <Text style={[styles.caption, { color: colors.mutedForeground }]}>
