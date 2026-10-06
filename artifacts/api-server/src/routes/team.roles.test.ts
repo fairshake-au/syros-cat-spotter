@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
@@ -12,6 +11,7 @@ import {
 } from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
+import { sessionCookieFor } from "../lib/teamAuth/__fixtures__/queueKit";
 
 // SYC-188: being in the people table is not being let in. Only someone whose
 // role grants something through can() (staff, today: spec §7.1) gets a yes
@@ -55,20 +55,8 @@ const handoff = (id: string, sv: number) =>
     .type("form")
     .send({ token: mint(handoffKey, claimsFor(id, { sv })) });
 
-/** A session cookie, signed the way issueSession signs one. */
-function cookieFor(pid: string, sv: number): string {
-  const exp = Math.floor(Date.now() / 1000) + 3600;
-  const body = Buffer.from(JSON.stringify({ pid, sv, exp })).toString(
-    "base64url",
-  );
-  const mac = createHmac("sha256", Buffer.from(SESSION_KEY))
-    .update(body)
-    .digest("base64url");
-  return `__Host-cs_team=${body}.${mac}`;
-}
-
 const me = (pid: string, sv: number) =>
-  request(app).get("/api/team/me").set("Cookie", cookieFor(pid, sv));
+  request(app).get("/api/team/me").set("Cookie", sessionCookieFor(pid, sv));
 
 /** What a client can see of a response. */
 const seen = (res: request.Response) => ({
