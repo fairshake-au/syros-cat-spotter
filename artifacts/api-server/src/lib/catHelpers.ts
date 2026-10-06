@@ -7,7 +7,7 @@ import {
   photosTable,
   catUpdatesTable,
 } from "@workspace/db";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, sql } from "drizzle-orm";
 import { badgesFor, type ProfileStats } from "./badges";
 import {
   STREAK_TIMEZONE,
@@ -41,10 +41,22 @@ export function haversineKm(
  * Opaque public identifier for a device profile. Device IDs act as the
  * bearer credential in this anonymous-profile model, so they must never
  * appear in public API responses (leaderboard, cat credits, sightings).
+ *
+ * Null for nobody: a spotter who deleted their data (SYC-63). The app shows
+ * "a spotter".
  */
-export function spotterCode(deviceId: string): string {
+export function spotterCode(deviceId: string): string;
+export function spotterCode(deviceId: string | null): string | null;
+export function spotterCode(deviceId: string | null): string | null {
+  if (deviceId === null) return null;
   return createHash("sha256").update(deviceId).digest("hex").slice(0, 4).toUpperCase();
 }
+
+/**
+ * The care timeline's "discovered" entry when the discoverer deleted their
+ * data (SYC-63 plan §4.5). A fixed marker the app translates, never a name.
+ */
+export const UNLINKED_SPOTTER = "a spotter";
 
 /**
  * The single place in the codebase that builds a photo URL
@@ -93,7 +105,8 @@ export interface CatWithStats extends DerivedCatStatus {
   /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
   distanceKm?: number;
-  discovererSpotterCode: string;
+  // Null once the discoverer has deleted their data (SYC-63).
+  discovererSpotterCode: string | null;
   discovererNickname: string | null;
   ownerName: string | null;
   homeDescription: string | null;
@@ -583,7 +596,11 @@ export async function spottedCatIds(deviceId: string): Promise<number[]> {
     .sort((a, b) => a - b);
 }
 
-/** How many distinct devices have spotted this cat — the design's "Fans" tile. */
+/**
+ * How many distinct devices have spotted this cat — the design's "Fans" tile.
+ * A spotter who deleted their data stops counting (SYC-63 decision C), so
+ * unlinked sightings are left out rather than counted as one more fan.
+ */
 export async function fansCount(catId: number): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(distinct ${sightingsTable.deviceId})::int` })
@@ -592,6 +609,7 @@ export async function fansCount(catId: number): Promise<number> {
       and(
         eq(sightingsTable.catId, catId),
         eq(sightingsTable.status, "resolved"),
+        isNotNull(sightingsTable.deviceId),
       ),
     );
   return row?.n ?? 0;

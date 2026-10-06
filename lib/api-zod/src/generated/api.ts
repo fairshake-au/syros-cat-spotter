@@ -51,7 +51,7 @@ export const RegisterCatResponse = zod.object({
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
   "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
-  "discovererSpotterCode": zod.string().optional(),
+  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
@@ -98,7 +98,7 @@ export const ListCatsResponse = zod.object({
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
   "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
-  "discovererSpotterCode": zod.string().optional(),
+  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
@@ -147,7 +147,7 @@ export const GetCatResponse = zod.object({
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
   "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
-  "discovererSpotterCode": zod.string().optional(),
+  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
@@ -163,7 +163,7 @@ export const GetCatResponse = zod.object({
 }),
   "sightings": zod.array(zod.object({
   "catId": zod.number().nullish(),
-  "spotterCode": zod.string(),
+  "spotterCode": zod.string().nullable().describe('Null once the spotter has deleted their data; the app shows \"a spotter\"'),
   "spotterUsername": zod.string().nullish(),
   "spotterNickname": zod.string().nullish(),
   "photoUrl": zod.string().nullable(),
@@ -210,7 +210,7 @@ export const UpdateCatResponse = zod.object({
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
   "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
-  "discovererSpotterCode": zod.string().optional(),
+  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
@@ -255,7 +255,7 @@ export const ClaimCatResponse = zod.object({
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
   "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
-  "discovererSpotterCode": zod.string().optional(),
+  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
@@ -344,7 +344,7 @@ export const ResolveSightingResponse = zod.object({
   "sightingsCount": zod.number(),
   "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
   "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
-  "discovererSpotterCode": zod.string().optional(),
+  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
@@ -644,6 +644,18 @@ export const RegisterPushTokenBody = zod.object({
 export const RegisterPushTokenResponse = zod.object({
   "ok": zod.boolean()
 })
+
+
+/**
+ * Removes the profile, points, follows, notifications and push token, and unlinks every sighting and note from the spotter, in one transaction. The cat records stay, credited to "a spotter". The device id travels in a header so it never lands in a request log. Running it again is safe and returns 204.
+ * @summary Delete everything that identifies this device's spotter (SYC-63)
+ */
+export const DeleteMyDataHeader = zod.object({
+  "X-Device-Id": zod.string().describe('The device id, for the one route that takes it in a header rather than the path (DELETE \/me), so it never appears in a request log.'),
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const DeleteMyDataResponse = zod.void()
 
 
 /**

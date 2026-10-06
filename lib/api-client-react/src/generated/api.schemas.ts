@@ -143,7 +143,8 @@ export interface Cat {
   lastSeenAt: string;
   /** To the cat's published cell centre, rounded to 0.1 km (§6.4.2). */
   distanceKm?: number | null;
-  discovererSpotterCode?: string;
+  /** Null once the discoverer has deleted their data; the app shows "a spotter" */
+  discovererSpotterCode?: string | null;
   discovererNickname?: string | null;
   discovererUsername?: string | null;
   /**
@@ -245,7 +246,8 @@ export interface CatOwnerUpdate {
  */
 export interface Sighting {
   catId?: number | null;
-  spotterCode: string;
+  /** Null once the spotter has deleted their data; the app shows "a spotter" */
+  spotterCode: string | null;
   spotterUsername?: string | null;
   spotterNickname?: string | null;
   photoUrl: string | null;
@@ -591,6 +593,11 @@ export interface LeaderboardEntry {
   uniqueCatsDiscovered: number;
   rank: number;
 }
+
+/**
+ * The device id, for the one route that takes it in a header rather than the path (DELETE /me), so it never appears in a request log.
+ */
+export type DeviceIdHeaderParameter = string;
 
 /**
  * Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.

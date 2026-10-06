@@ -31,6 +31,7 @@ export * from './claimUsernameRequest';
 export * from './createCatUpdateRequest';
 export * from './createCatUpdateRequestUpdateType';
 export * from './createSightingRequest';
+export * from './deviceIdHeaderParameter';
 export * from './deviceSecretHeaderParameter';
 export * from './healthStatus';
 export * from './leaderboardEntry';

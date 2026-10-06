@@ -32,7 +32,8 @@ export interface Cat {
   lastSeenAt: string;
   /** To the cat's published cell centre, rounded to 0.1 km (§6.4.2). */
   distanceKm?: number | null;
-  discovererSpotterCode?: string;
+  /** Null once the discoverer has deleted their data; the app shows "a spotter" */
+  discovererSpotterCode?: string | null;
   discovererNickname?: string | null;
   discovererUsername?: string | null;
   /**
