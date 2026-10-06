@@ -24,7 +24,7 @@
 
 ## Decisions for Samuel
 
-Decisions 1–5 were **decided by Samuel on 30 Sep 2026, each as recommended**. The 6 Oct refresh found that none of them needs reopening, but it raised two new ones, **Decisions 6 and 7**. The plan as a whole is still awaiting his approval.
+Decisions 1–5 were **decided by Samuel on 30 Sep 2026, each as recommended**. **Reconfirmed by Samuel, 6 Oct 2026:** all five stand after the refresh. The 6 Oct refresh found that none of them needs reopening, but it raised two new ones, **Decisions 6 and 7**. The plan as a whole is still awaiting his approval.
 
 ### Decision 1 — What do we do for testers before this ships?
 
