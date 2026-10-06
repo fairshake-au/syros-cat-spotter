@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   timestamp,
+  date,
   primaryKey,
 } from "drizzle-orm/pg-core";
 
@@ -55,6 +56,22 @@ export const pushTokensTable = pgTable("push_tokens", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+/**
+ * One row per evening sighting round-up (data-spine.md PR 9, spec §6.4.4,
+ * Q4 = A). `round_up_date` is the Europe/Athens calendar date; inserting it
+ * is the claim, so two drains can never send the same evening's round-up
+ * twice. Holds no device id: what each person was sent is not recorded, so
+ * there is nothing here for deletion (SYC-63) to remove.
+ */
+export const pushRoundupRunsTable = pgTable("push_roundup_runs", {
+  roundUpDate: date("round_up_date").primaryKey(),
+  // Sightings (cat_updates.created_at) in [window_start, window_end) are in it.
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+  windowEnd: timestamp("window_end", { withTimezone: true }).notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  devices: integer("devices"),
 });
 
 export type CatSubscription = typeof catSubscriptionsTable.$inferSelect;
