@@ -114,9 +114,23 @@ export function peopleStore(db: PeopleDb) {
   // The one rule (Decision 7): a person with left_at set is not on the list.
   // findAllowedPerson and findPersonById are every reader of "who is allowed
   // in", and both apply it.
+  /** This person's roles, dropping any the code doesn't know. */
+  async function scopesOf(id: string): Promise<PersonWithScopes["scopes"]> {
+    const scopes = await db
+      .select({
+        role: personScopesTable.role,
+        colonyId: personScopesTable.colonyId,
+      })
+      .from(personScopesTable)
+      .where(eq(personScopesTable.personId, id));
+    return scopes.filter((s): s is PersonWithScopes["scopes"][number] =>
+      isRole(s.role),
+    );
+  }
+
   async function findPersonByEmail(
     email: string,
-  ): Promise<AllowedPerson | null> {
+  ): Promise<PersonWithScopes | null> {
     const [row] = await db
       .select({
         id: peopleTable.id,
@@ -131,7 +145,8 @@ export function peopleStore(db: PeopleDb) {
           isNull(peopleTable.leftAt),
         ),
       );
-    return row ?? null;
+    if (!row) return null;
+    return { ...row, scopes: await scopesOf(row.id) };
   }
 
   function removeInTransaction(email: string): Promise<boolean> {
@@ -300,7 +315,11 @@ export function peopleStore(db: PeopleDb) {
       return row?.sessionVersion ?? null;
     },
 
-    /** Is this address on the list? Never for someone who has left. */
+    /**
+     * This address's person, with their roles. Never someone who has left.
+     * Being in the table is not being let in: callers decide that with the
+     * roles, through can() (SYC-188).
+     */
     findAllowedPerson: findPersonByEmail,
 
     /**
@@ -321,19 +340,7 @@ export function peopleStore(db: PeopleDb) {
         .from(peopleTable)
         .where(and(eq(peopleTable.id, id), isNull(peopleTable.leftAt)));
       if (!person) return null;
-      const scopes = await db
-        .select({
-          role: personScopesTable.role,
-          colonyId: personScopesTable.colonyId,
-        })
-        .from(personScopesTable)
-        .where(eq(personScopesTable.personId, id));
-      return {
-        ...person,
-        scopes: scopes.filter((s): s is PersonWithScopes["scopes"][number] =>
-          isRole(s.role),
-        ),
-      };
+      return { ...person, scopes: await scopesOf(id) };
     },
 
     /**

@@ -7,6 +7,7 @@ import {
 } from "express";
 import { findAllowedPerson, normaliseEmail } from "@workspace/db";
 import { checkInternalToken } from "../lib/internalAuth";
+import { mayEnter } from "../lib/capabilities";
 
 // POST /api/internal/people/allowed (team-access spec §2.7; SYC-43 part 1
 // plan §4, Decisions 1 and 2). The sign-in Worker asks "is this address on
@@ -14,6 +15,10 @@ import { checkInternalToken } from "../lib/internalAuth";
 // headers (app.ts skips /api/internal/), and only the Worker's bearer token.
 //
 // The address travels in the body, never the URL, and is never logged.
+//
+// "On the list" means in the table, not marked as left, AND holding a role
+// that lets them in (mayEnter, decided by can(); SYC-188). Anyone else gets
+// the same {"allowed": false} as an address we have never heard of.
 
 const router: IRouter = Router();
 
@@ -54,7 +59,7 @@ router.post(
       return;
     }
     const person = await findAllowedPerson(normaliseEmail(raw));
-    if (!person) {
+    if (!person || !mayEnter(person)) {
       req.log.info({ outcome: "not_allowed" }, "people allowed check");
       res.json({ allowed: false });
       return;

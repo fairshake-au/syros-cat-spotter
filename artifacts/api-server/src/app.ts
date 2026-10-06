@@ -4,11 +4,10 @@ import express, {
   type Response,
   type NextFunction,
 } from "express";
-import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
-import { logger, safeError } from "./lib/logger";
-import { photoCors } from "./middlewares/photoCors";
+import { logger, redactRequestUrl, safeError } from "./lib/logger";
+import { apiCors } from "./middlewares/apiCors";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
 import { opportunisticDrain } from "./lib/mail/outbox";
 import { opportunisticRoundUp } from "./lib/sightingRoundUp";
@@ -35,12 +34,8 @@ app.use(
         return {
           id: req.id,
           method: req.method,
-          // The URL contains a private device id on profile routes. Strip
-          // query strings (including availability names) and path identifiers.
-          url: req.url?.split("?")[0].replace(
-            /\/profiles\/(?!username-availability(?:\/|$)|username-suggestions(?:\/|$))[^/]+/,
-            "/profiles/:deviceId",
-          ),
+          // Device ids in the path are swapped for a placeholder (SYC-109).
+          url: redactRequestUrl(req.url),
         };
       },
       res(res) {
@@ -51,10 +46,8 @@ app.use(
     },
   }),
 );
-// hosting-and-photo-storage.md §6.2 item 3: the photo route gets an
-// explicit origin allowlist instead of the bare, wide-open cors() every
-// other route still uses. Scoped narrowly (not a blanket app-wide change)
-// so nothing else's CORS behaviour shifts in this PR.
+// SYC-106: every public route answers cross-origin only to the origins in
+// apiCors's allow-list (first written for the photo route, SYC-65).
 app.use((req, res, next) => {
   // SYC-43 part 1: no CORS headers at all on the staff dashboard (same-origin,
   // team-access spec §2.6) or the Worker's server-to-server routes (§2.7).
@@ -69,15 +62,11 @@ app.use((req, res, next) => {
     next();
     return;
   }
-  if (req.path.startsWith("/api/photos/")) {
-    photoCors(req, res, next);
-    return;
-  }
-  cors()(req, res, next);
+  apiCors(req, res, next);
 });
 // SYC-113 pre-launch pass (docs/superpowers/plans/syc-113-pre-launch-gates.md,
 // item 2). Its place is load-bearing:
-// - AFTER the CORS switch, so a browser's preflight is answered by cors()
+// - AFTER the CORS switch, so an allowed origin's preflight is answered by apiCors
 //   before the gate (preflights never carry cookies or custom headers), and
 //   the gate's 401 still carries CORS headers a caller's code can read;
 // - BEFORE express.json, so a request without a pass is refused before a

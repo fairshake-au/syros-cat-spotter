@@ -58,14 +58,13 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
   const { deviceId, setUsername } = useDevice();
   const { isOnline } = useOffline();
 
-  const [draft, setDraft] = useState('');
-  const [debounced, setDebounced] = useState('');
   const tappedAt = useRef(0);
 
   const {
     submit: claim,
     pending,
     uncertainName,
+    outstandingName,
     claimError,
     setClaimError,
     isRejectedName,
@@ -79,6 +78,10 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
       setUsername(name);
     },
   });
+
+  // SYC-214: back on this screen with a claim still outstanding, show its name.
+  const [draft, setDraft] = useState(() => outstandingName ?? '');
+  const [debounced, setDebounced] = useState(() => (outstandingName ?? '').trim());
 
   // Recover a claim committed before the app closed or its response was lost.
   // Once this screen has sent a claim, that claim decides the name instead.
