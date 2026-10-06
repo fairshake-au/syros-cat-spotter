@@ -142,3 +142,6 @@ export function useUsernameClaim({
     hasStarted,
   };
 }
+
+/** SYC-214 test hook (stub until the fix lands). */
+export function resetUsernameClaimStateForTests() {}
