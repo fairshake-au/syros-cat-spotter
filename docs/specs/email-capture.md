@@ -447,8 +447,14 @@ The **mechanism** — how a row is redacted in an append-only store, and the gua
 > **What stays**
 > The sightings themselves, with your name off them. Which cat was seen, roughly where, and when — that belongs to the island's record of its cats, and taking it out would put holes in the history of cats that have nothing to do with you.
 > Names you gave cats stay too. Other people call Agatha "Agatha" now.
+> If you told us a cat lives with you, it still shows as having a home, and the note about where it lives stays. Your name and your link to it come off.
 >
 > **[ Delete my data ]**  ·  **[ Keep my data ]**
+
+Two lines appear only when they apply (approved by Samuel, 29 Sep 2026, SYC-63 plan §9 B and E):
+
+- When spots on the phone haven't been sent yet, under **What goes**: *"You have 3 spots that haven't been sent yet. They'll be deleted too."* (the real count).
+- With no connection, the delete button is disabled, with: *"You need a connection to delete your data."*
 
 And afterwards:
 
