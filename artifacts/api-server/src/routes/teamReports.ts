@@ -14,8 +14,8 @@ router.get(
   "/team/reports",
   requireTeam("view_exact_location"),
   async (_req: Request, res: Response) => {
+    setTeamHeaders(res); // before any await, so an error answer carries them too
     const queue = await listWelfareQueue();
-    setTeamHeaders(res);
     res.json(queue);
   },
 );

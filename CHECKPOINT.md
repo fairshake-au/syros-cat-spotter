@@ -19,7 +19,7 @@ Baseline on origin/main (fc3def6): db 207 tests, api-server 685 tests, all green
 1. [x] Migration 0008_welfare_queue + schema + P1-9 + P1-10 (repoint P0-4; stand-in history_probe removed from peopleLeft.test.ts and people/cli.test.ts)
 2. [x] Page frame lib/teamPages (layout, shared escapeHtml), CSP img-src 'self' (P1-5)
 3. [x] listWelfareQueue() + GET /api/team/reports JSON (P1-2, P1-4)
-4. [ ] Queue page, mail banner (P1-6, P1-7, P1-8)
+4. [x] Queue page, mail banner (P1-6, P1-7, P1-8)
 5. [ ] Team photo routes (P1-3)
 6. [ ] Route walk test (P1-1)
 7. [ ] Browser check + screenshots in docs/screenshots/syc-43-pr1/

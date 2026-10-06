@@ -20,7 +20,8 @@ import {
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { capabilitiesOf } from "../lib/capabilities";
-import { renderPage } from "../lib/teamPages/layout";
+import { renderQueuePage } from "../lib/teamPages/queuePage";
+import { listWelfareQueue } from "../lib/welfareQueue";
 
 // The staff dashboard on team.catspotters.com (team-access spec §2.4, §2.6,
 // §8.2; SYC-43 part 1 plan §5, §6). No CORS headers: app.ts skips /api/team/.
@@ -100,17 +101,11 @@ router.post(
 router.get(
   "/team",
   requireTeam("view_exact_location"),
-  (_req: Request, res: Response) => {
+  async (_req: Request, res: Response) => {
     const person = teamPerson(res);
-    setTeamHeaders(res);
-    res.type("html").send(
-      renderPage({
-        title: "Welfare queue",
-        active: "queue",
-        personName: person.name,
-        body: "",
-      }),
-    );
+    setTeamHeaders(res); // before any await, so an error answer carries them too
+    const queue = await listWelfareQueue();
+    res.type("html").send(renderQueuePage(queue, person.name));
   },
 );
 
