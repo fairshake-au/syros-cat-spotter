@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import {
   RegisterCatBody,
   ClaimCatBody,
@@ -17,18 +17,23 @@ import {
 } from "@workspace/db";
 import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
 import {
+  PUBLIC_VIEWER,
   deriveCatStatuses,
   fansCount,
   listCatsWithStats,
   photoUrl,
+  serialiseCat,
+  serialiseSighting,
   spotterCode,
+  toPublicDay,
   type DerivedCatStatus,
+  type Viewer,
 } from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
-import { verifyDeviceSecret } from "../lib/deviceAuth";
+import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
 import { writeObservation } from "../lib/observations";
 import { logRouteDuration } from "../lib/requestTiming";
 
@@ -50,10 +55,16 @@ router.post("/cats/name-suggestions", aiLimiter, async (req, res) => {
   }
 });
 
+/**
+ * A cat for the app, through the one serialiser (catHelpers.serialiseCat,
+ * §10.6). `viewer` is public unless the route has proved the caller is this
+ * cat's owner.
+ */
 async function catPayload(
   cat: Cat,
   sightingsCount: number,
-  lastSeenAt: string,
+  lastSeenAt: Date | string,
+  viewer: Viewer,
   derived?: DerivedCatStatus,
 ) {
   const [profile, status] = await Promise.all([
@@ -71,22 +82,46 @@ async function catPayload(
           (m) => m.get(cat.id)!,
         ),
   ]);
-  return {
-    id: cat.id,
-    name: cat.name,
-    description: cat.description,
-    photoUrl: await photoUrl(cat.primaryPhotoId),
-    lat: cat.lat,
-    lng: cat.lng,
-    sightingsCount,
-    lastSeenAt,
-    discovererSpotterCode: spotterCode(cat.discovererDeviceId),
-    discovererNickname: profile?.nickname ?? null,
-    discovererUsername: profile?.username ?? null,
-    ownerName: cat.ownerName,
-    homeDescription: cat.homeDescription,
-    ...status,
-  };
+  return serialiseCat(
+    {
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      photoUrl: await photoUrl(cat.primaryPhotoId),
+      lat: cat.lat,
+      lng: cat.lng,
+      ownerDeviceId: cat.ownerDeviceId,
+      sightingsCount,
+      lastSeenAt,
+      discovererDeviceId: cat.discovererDeviceId,
+      discovererNickname: profile?.nickname ?? null,
+      discovererUsername: profile?.username ?? null,
+      ownerName: cat.ownerName,
+      homeDescription: cat.homeDescription,
+      derived: status,
+    },
+    viewer,
+  );
+}
+
+/**
+ * §10.6 Option B: the detail page shows an owner their own cat exactly, once
+ * they've proved it. The app sends its device id in `X-Device-Id` (a header,
+ * so it never lands in a logged URL) with its usual `X-Device-Secret`.
+ * Anything short of a proven owner is the public view, with no error, so
+ * the answer never says whether a guess at an owner's id was close.
+ */
+async function detailViewer(req: Request, cat: Cat): Promise<Viewer> {
+  const header = req.headers["x-device-id"];
+  const deviceId = typeof header === "string" ? header : "";
+  if (!deviceId || !cat.ownerDeviceId || deviceId !== cat.ownerDeviceId) return PUBLIC_VIEWER;
+  return (await deviceSecretMatches(req, deviceId)) ? { tier: "owner", deviceId } : PUBLIC_VIEWER;
+}
+
+function queryNumber(raw: unknown): number | undefined {
+  if (typeof raw !== "string" || raw.trim() === "") return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 async function sightingsCountFor(catId: number): Promise<number> {
@@ -104,14 +139,18 @@ async function sightingsCountFor(catId: number): Promise<number> {
 
 router.get("/cats", async (req, res) => {
   const startedAt = performance.now();
-  const lat = req.query.lat !== undefined ? Number(req.query.lat) : undefined;
-  const lng = req.query.lng !== undefined ? Number(req.query.lng) : undefined;
-  const cats = await listCatsWithStats(
-    Number.isFinite(lat) ? lat : undefined,
-    Number.isFinite(lng) ? lng : undefined,
-  );
-  logRouteDuration(req, "GET /cats", startedAt, { count: cats.length });
-  res.json(cats);
+  const lat = queryNumber(req.query.lat);
+  const lng = queryNumber(req.query.lng);
+  const result = await listCatsWithStats({
+    from: lat !== undefined && lng !== undefined ? { lat, lng } : undefined,
+    page: queryNumber(req.query.page),
+    pageSize: queryNumber(req.query.pageSize),
+  });
+  logRouteDuration(req, "GET /cats", startedAt, {
+    count: result.cats.length,
+    page: result.page,
+  });
+  res.json(result);
 });
 
 // Resident registers a brand-new owned cat (no sighting required).
@@ -169,7 +208,10 @@ router.post("/cats", async (req, res) => {
     });
     return row!;
   });
-  res.status(201).json(await catPayload(cat, 0, cat.createdAt.toISOString()));
+  // The registering device is the owner and has just proved its secret.
+  res
+    .status(201)
+    .json(await catPayload(cat, 0, cat.createdAt, { tier: "owner", deviceId: body.deviceId }));
 });
 
 router.get("/cats/:catId", async (req, res) => {
@@ -242,8 +284,8 @@ router.get("/cats/:catId", async (req, res) => {
   const catBody = await catPayload(
     cat,
     sightings.length,
-    sightings[0]?.sighting.createdAt.toISOString() ??
-      cat.createdAt.toISOString(),
+    sightings[0]?.sighting.createdAt ?? cat.createdAt,
+    await detailViewer(req, cat),
   );
   logRouteDuration(req, "GET /cats/:id", startedAt, { catId });
   res.json({
@@ -253,7 +295,7 @@ router.get("/cats/:catId", async (req, res) => {
       ...updates.map((u) => ({
         type: u.updateType,
         message: u.message,
-        at: u.createdAt.toISOString(),
+        at: toPublicDay(u.createdAt),
       })),
       // The cat-alog entry itself is always the oldest event on the timeline.
       {
@@ -262,21 +304,23 @@ router.get("/cats/:catId", async (req, res) => {
           discovererProfile?.username ??
           discovererProfile?.nickname ??
           spotterCode(cat.discovererDeviceId),
-        at: cat.createdAt.toISOString(),
+        // A date, never a time (§6.4.4): this is the first sighting's moment.
+        at: toPublicDay(cat.createdAt),
       },
     ],
+    // §6.4.1: no sighting carries a position in public, not even for the
+    // cat's owner. Photo, spotter and date only.
     sightings: sightings.map(
-      ({ sighting: s, spotterUsername, spotterNickname, photoPublicId }) => ({
-        id: s.id,
-        catId: s.catId,
-        spotterCode: spotterCode(s.deviceId),
-        spotterUsername: spotterUsername ?? null,
-        spotterNickname: spotterNickname ?? null,
-        photoUrl: photoPublicId ? `/api/photos/${photoPublicId}` : null,
-        lat: s.lat,
-        lng: s.lng,
-        createdAt: s.createdAt.toISOString(),
-      }),
+      ({ sighting: s, spotterUsername, spotterNickname, photoPublicId }) =>
+        serialiseSighting({
+          id: s.id,
+          catId: s.catId,
+          deviceId: s.deviceId,
+          createdAt: s.createdAt,
+          spotterUsername: spotterUsername ?? null,
+          spotterNickname: spotterNickname ?? null,
+          photoUrl: photoPublicId ? `/api/photos/${photoPublicId}` : null,
+        }),
     ),
   });
 });
@@ -352,7 +396,10 @@ router.post("/cats/:catId/claim", async (req, res) => {
   }
 
   const count = await sightingsCountFor(catId);
-  res.json(await catPayload(updated, count, new Date().toISOString()));
+  // The caller proved the device secret above and is (now) the owner.
+  res.json(
+    await catPayload(updated, count, new Date(), { tier: "owner", deviceId: body.deviceId }),
+  );
 });
 
 // Owner renames the cat or updates its home description.
@@ -433,7 +480,10 @@ router.patch("/cats/:catId", async (req, res) => {
   }
 
   const count = await sightingsCountFor(catId);
-  res.json(await catPayload(updated, count, new Date().toISOString()));
+  // The caller proved the device secret above and is (now) the owner.
+  res.json(
+    await catPayload(updated, count, new Date(), { tier: "owner", deviceId: body.deviceId }),
+  );
 });
 
 export default router;

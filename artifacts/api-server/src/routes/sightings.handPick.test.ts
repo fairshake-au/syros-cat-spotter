@@ -20,7 +20,11 @@ import {
   notificationsTable,
 } from "@workspace/db";
 import { eq, ilike, inArray, like } from "drizzle-orm";
-import { squareCentre, type LatLng } from "@workspace/geo";
+import { type LatLng } from "@workspace/geo";
+import { blurPosition } from "../lib/blur";
+
+/** The published cell centre: the server's secret-origin grid (data spine PR 6). */
+const squareCentre = (p: LatLng): LatLng => blurPosition(p.lat, p.lng);
 
 vi.mock("../lib/matching", () => ({
   matchCatPhoto: vi.fn(async () => ({ isCatPhoto: true, matches: [] })),
@@ -36,7 +40,7 @@ const SECRET = "vitest-handpick-secret-0123456789ab";
 const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
-/** A square centre in Ermoupoli, so offsets inside its square are exact. */
+/** A published cell centre in Ermoupoli, so offsets inside its cell are exact. */
 const SQUARE = squareCentre({ lat: 37.4448, lng: 24.9425 });
 
 /** A point exactly `km` due north of `p` (negative: south). */

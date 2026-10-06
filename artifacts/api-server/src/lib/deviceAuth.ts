@@ -84,3 +84,23 @@ export async function verifyDeviceSecret(
 
   return deviceId;
 }
+
+/**
+ * Does the caller hold `deviceId`'s secret? A read-only check for routes
+ * where proving it only *adds* something to a public answer (SYC-41: an
+ * owner sees their own cat's exact position on its page). Unlike
+ * {@link verifyDeviceSecret} it never binds a secret on first use and never
+ * writes a response: a missing, malformed or wrong secret is simply "no",
+ * and the caller serves the public answer.
+ */
+export async function deviceSecretMatches(req: Request, deviceId: string): Promise<boolean> {
+  if (!deviceId || deviceId.length > 128) return false;
+  const header = req.headers["x-device-secret"];
+  const secret = typeof header === "string" ? header : "";
+  if (secret.length < MIN_SECRET_LENGTH || secret.length > MAX_SECRET_LENGTH) return false;
+  const [row] = await db
+    .select({ secretHash: deviceCredentialsTable.secretHash })
+    .from(deviceCredentialsTable)
+    .where(eq(deviceCredentialsTable.deviceId, deviceId));
+  return !!row && hashesMatch(row.secretHash, hashSecret(secret));
+}
