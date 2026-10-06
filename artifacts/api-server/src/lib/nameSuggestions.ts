@@ -1,4 +1,5 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { foldName } from "@workspace/db/fold";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -8,7 +9,9 @@ const LANGUAGE_NAMES: Record<string, string> = {
 
 /**
  * Generate playful cat name ideas in the given language via AI, excluding
- * any names already in use (case-insensitive).
+ * any names already in use. "In use" means the same once folded (SYC-101:
+ * accents, case, final sigma), the rule the database's unique index applies,
+ * so a suggestion is never a name the spotter would then be refused.
  */
 export async function suggestCatNames(
   language: "en" | "el" | "fr",
@@ -18,7 +21,7 @@ export async function suggestCatNames(
 ): Promise<string[]> {
   const unavailable = new Set(
     [...takenNames, ...excludeNames]
-      .map((n) => n.trim().toLowerCase())
+      .map(foldName)
       .filter((n) => n.length > 0),
   );
   const excludedNames = [
@@ -56,14 +59,14 @@ export async function suggestCatNames(
     ? parsed.names
         .filter((n): n is string => typeof n === "string")
         .map((n) => n.trim().slice(0, 40))
-        .filter((n) => n.length > 0 && !unavailable.has(n.toLowerCase()))
+        .filter((n) => n.length > 0 && !unavailable.has(foldName(n)))
     : [];
 
-  // Dedupe case-insensitively and cap the list.
+  // Dedupe by folded form and cap the list.
   const seen = new Set<string>();
   const unique: string[] = [];
   for (const n of names) {
-    const key = n.toLowerCase();
+    const key = foldName(n);
     if (!seen.has(key)) {
       seen.add(key);
       unique.push(n);

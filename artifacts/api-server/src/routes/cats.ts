@@ -12,7 +12,6 @@ import {
   profilesTable,
   catUpdatesTable,
   photosTable,
-  foldName,
   type Cat,
 } from "@workspace/db";
 import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
@@ -31,6 +30,7 @@ import { containsOffensiveLanguage } from "../lib/moderation";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { writeObservation } from "../lib/observations";
 import { logRouteDuration } from "../lib/requestTiming";
+import { catNamed, nameTakenBody, nullOnUniqueViolation } from "../lib/catNames";
 
 const router: IRouter = Router();
 
@@ -129,6 +129,13 @@ router.post("/cats", async (req, res) => {
     });
     return;
   }
+  // SYC-101: one cat per folded name. Checked first so the answer names
+  // the cat holding it; the unique index still decides a race (below).
+  const taken = await catNamed(name);
+  if (taken) {
+    res.status(409).json(await nameTakenBody(taken));
+    return;
+  }
   // Owner registration writes homed + name observations in the same
   // transaction as the cat row itself (data-spine.md PR 2: "Owner
   // registration (POST /cats) writes the same [as a claim] at creation").
@@ -161,14 +168,19 @@ router.post("/cats", async (req, res) => {
     await writeObservation(tx, {
       catId: row!.id,
       kind: "name",
-      value: { name: row!.name, normalised: foldName(row!.name) },
+      value: { name: row!.name, normalised: row!.normalisedName },
       deviceId: body.deviceId,
       roleAtTime: "public",
       authorityScope: "owner_of_this_cat",
       observedAt: row!.createdAt,
     });
     return row!;
-  });
+  }).catch(nullOnUniqueViolation);
+  if (!cat) {
+    // Another cat took the name between the check above and this write.
+    res.status(409).json(await nameTakenBody(await catNamed(name)));
+    return;
+  }
   res.status(201).json(await catPayload(cat, 0, cat.createdAt.toISOString()));
 });
 
@@ -390,6 +402,14 @@ router.patch("/cats/:catId", async (req, res) => {
       });
       return;
     }
+    // SYC-101: one cat per folded name. Another cat holding it is refused,
+    // naming that cat; the owner re-spelling their own cat's name (Mimi to
+    // MIMI, say) is fine.
+    const holder = await catNamed(newName);
+    if (holder && holder.id !== catId) {
+      res.status(409).json(await nameTakenBody(holder));
+      return;
+    }
     changes.name = newName;
   }
   if (body.homeDescription !== undefined)
@@ -399,7 +419,7 @@ router.patch("/cats/:catId", async (req, res) => {
   if (Object.keys(changes).length > 0) {
     const changedAt = new Date();
     const renamed = changes.name !== undefined && changes.name !== cat.name;
-    updated = await db.transaction(async (tx) => {
+    const written = await db.transaction(async (tx) => {
       const [row] = await tx
         .update(catsTable)
         .set(changes)
@@ -412,7 +432,7 @@ router.patch("/cats/:catId", async (req, res) => {
         await writeObservation(tx, {
           catId,
           kind: "name",
-          value: { name: row!.name, normalised: foldName(row!.name) },
+          value: { name: row!.name, normalised: row!.normalisedName },
           deviceId: body.deviceId,
           roleAtTime: "public",
           authorityScope: "owner_of_this_cat",
@@ -420,7 +440,13 @@ router.patch("/cats/:catId", async (req, res) => {
         });
       }
       return row!;
-    });
+    }).catch(nullOnUniqueViolation);
+    if (!written) {
+      // Another cat took the name between the check above and this write.
+      res.status(409).json(await nameTakenBody(await catNamed(changes.name!)));
+      return;
+    }
+    updated = written;
     void notifyCatSpotters(catId, body.deviceId, {
       title: renamed
         ? `${cat.name} is now ${updated.name}!`

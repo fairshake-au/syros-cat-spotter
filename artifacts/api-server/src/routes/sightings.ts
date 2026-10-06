@@ -12,7 +12,6 @@ import {
   sightingMatchesTable,
   profilesTable,
   observationsTable,
-  foldName,
   type SuggestedMatch,
 } from "@workspace/db";
 import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
@@ -40,6 +39,7 @@ import {
   DEVICE_MATCH_WINDOW_MS,
 } from "../middlewares/rateLimit";
 import { selectCandidateCats } from "../lib/candidateSelection";
+import { catNamed, isUniqueViolation, nameTakenBody } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
 
 export const POINTS_CONFIRM = 10;
@@ -213,35 +213,6 @@ async function hasAnsweredEarTip(
 
 /** Thrown inside the resolve transaction when another resolve got there first. */
 const ALREADY_RESOLVED = new Error("Sighting already resolved");
-
-async function catNamed(name: string) {
-  const [cat] = await db
-    .select({
-      id: catsTable.id,
-      name: catsTable.name,
-      primaryPhotoId: catsTable.primaryPhotoId,
-    })
-    .from(catsTable)
-    .where(sql`lower(${catsTable.name}) = lower(${name})`);
-  return cat;
-}
-
-// SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
-// has the name, so the phone can ask "Is this them?". Public details only.
-async function nameTakenBody(
-  cat: Awaited<ReturnType<typeof catNamed>>,
-): Promise<{
-  error: string;
-  code: "NAME_TAKEN";
-  cat?: { id: number; name: string; photoUrl: string | null };
-}> {
-  const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
-  if (!cat) return body;
-  return {
-    ...body,
-    cat: { id: cat.id, name: cat.name, photoUrl: await photoUrl(cat.primaryPhotoId) },
-  };
-}
 
 // Compare a submitted photo against the nearest known cats and return ranked
 // candidates. Shared between a fresh submission and a deduped repeat (§3.6 of
@@ -751,7 +722,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         await writeObservation(tx, {
           catId: cat!.id,
           kind: "name",
-          value: { name: cat!.name, normalised: foldName(cat!.name) },
+          value: { name: cat!.name, normalised: cat!.normalisedName },
           deviceId: sighting.deviceId,
           roleAtTime: "public",
           authorityScope: "none",
@@ -795,7 +766,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       return;
     }
     // Unique-index violation from a concurrent submission of the same name.
-    if (err?.code === "23505" || err?.cause?.code === "23505") {
+    if (isUniqueViolation(err)) {
       res.status(409).json(await nameTakenBody(await catNamed(newCatName!)));
       return;
     }
