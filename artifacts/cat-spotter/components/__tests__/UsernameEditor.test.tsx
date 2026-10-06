@@ -47,6 +47,7 @@ vi.mock('@/hooks/useColors', () => ({
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 
 import { UsernameEditor } from '../UsernameEditor';
+import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 const never = () => new Promise<never>(() => {});
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
@@ -62,6 +63,7 @@ function setup(currentUsername: string | null = 'OldName') {
 }
 
 beforeEach(() => {
+  resetUsernameClaimStateForTests();
   vi.useFakeTimers();
   h.claim.mockReset();
   h.read.mockReset();
