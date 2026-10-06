@@ -6,6 +6,7 @@ import type {
   TeamPerson,
   WelfareQueue,
 } from "../welfareQueue";
+import { CHANGED_MESSAGE, NOTE_MAX, REPORT_STATES } from "../welfareActions";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 
@@ -82,7 +83,42 @@ function photoBlock(r: QueueReport): string {
   return `<div class="nophoto">${esc(text)}</div>`;
 }
 
-function reportCard(r: QueueReport, now: Date, closed: boolean): string {
+/**
+ * The two forms on a sent report (PR 2): move it, and the team note. Plain
+ * forms posting to the routes in routes/teamReports.ts; the browser sends
+ * the Origin the routes check. `from` is the state this page showed.
+ */
+function actionForms(r: QueueReport): string {
+  const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
+  const buttons = REPORT_STATES.map((s) =>
+    s === r.state
+      ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (now)</button>`
+      : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
+  ).join("");
+  const noteId = `note-${r.id}`;
+  return (
+    '<div class="actions">' +
+    `<form method="post" action="${esc(base)}/state">` +
+    `<input type="hidden" name="from" value="${esc(r.state)}">` +
+    '<p class="label">Move this report to</p>' +
+    `<div class="states">${buttons}</div></form>` +
+    `<form method="post" action="${esc(base)}/note">` +
+    `<label class="label" for="${esc(noteId)}">Team note ` +
+    '<span class="hint">Team only. Never shown to the reporter.</span></label>' +
+    // The first newline after <textarea> is dropped by browsers, so one is
+    // added to keep a note that starts with a blank line as written.
+    `<textarea id="${esc(noteId)}" name="note" rows="3" maxlength="${NOTE_MAX}">\n${esc(r.teamNote ?? "")}</textarea>` +
+    '<button type="submit" class="save">Save note</button></form>' +
+    "</div>"
+  );
+}
+
+function reportCard(
+  r: QueueReport,
+  now: Date,
+  closed: boolean,
+  changedId?: string,
+): string {
   const classes = [
     "report",
     r.severity === "urgent" ? "urgent" : "",
@@ -115,6 +151,9 @@ function reportCard(r: QueueReport, now: Date, closed: boolean): string {
   return (
     `<article class="${classes}" id="r-${esc(r.id)}">` +
     photoBlock(r) +
+    (r.id === changedId
+      ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>`
+      : "") +
     `<div class="head">${tags}</div>` +
     "<dl>" +
     row("Where", place(r.lat, r.lng)) +
@@ -128,7 +167,9 @@ function reportCard(r: QueueReport, now: Date, closed: boolean): string {
     row("Team note", note) +
     moved +
     row("Email to Syros Cats", email) +
-    "</dl></article>"
+    "</dl>" +
+    actionForms(r) +
+    "</article>"
   );
 }
 
@@ -161,9 +202,10 @@ export function renderQueuePage(
   queue: WelfareQueue,
   personName: string,
   now: Date = new Date(),
+  changedId?: string,
 ): string {
   const open = queue.open.length
-    ? queue.open.map((r) => reportCard(r, now, false)).join("")
+    ? queue.open.map((r) => reportCard(r, now, false, changedId)).join("")
     : '<p class="empty">No reports are waiting for the team.</p>';
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
@@ -175,7 +217,7 @@ export function renderQueuePage(
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +
-      queue.closed.map((r) => reportCard(r, now, true)).join("") +
+      queue.closed.map((r) => reportCard(r, now, true, changedId)).join("") +
       (queue.closedTotal > queue.closed.length
         ? `<p class="empty">Showing the newest ${queue.closed.length} of ${queue.closedTotal}.</p>`
         : "")

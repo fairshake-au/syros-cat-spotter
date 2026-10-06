@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getQueueReport, listWelfareQueue } from "../lib/welfareQueue";
 import {
+  CHANGED_MESSAGE,
   moveReportState,
   NOTE_MAX,
   REPORT_STATES,
@@ -95,9 +96,6 @@ router.get(
 );
 
 // ── PR 2: moving a report and the team note ────────────────────────────────
-
-export const CHANGED_MESSAGE =
-  "Someone else changed this report a moment ago. Here's where it is now.";
 
 const PUBLIC_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 

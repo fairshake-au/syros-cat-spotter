@@ -19,6 +19,10 @@ export type ReportState = (typeof REPORT_STATES)[number];
 
 export const NOTE_MAX = 2000;
 
+/** Said (page or JSON) to whoever's move lost the race. */
+export const CHANGED_MESSAGE =
+  "Someone else changed this report a moment ago. Here's where it is now.";
+
 export type MoveOutcome =
   /** The report moved, and exactly one event was written. */
   | "moved"
