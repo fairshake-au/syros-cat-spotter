@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CatLifeStatus } from './catLifeStatus';
+import type { CatLocationPrecision } from './catLocationPrecision';
 import type { CatSterilised } from './catSterilised';
 
 export interface Cat {
@@ -13,10 +14,23 @@ export interface Cat {
   name: string;
   description: string;
   photoUrl: string | null;
+  /** Where this cat is. For "approximate", the centre of its cell, never a pin. */
   lat: number;
+  /** See lat. */
   lng: number;
+  /**
+     * "approximate" means lat/lng are the centre of a cell of
+     * locationCellM metres and must be drawn as that cell, never as a
+     * pin (cat-record-data-spine.md §10.7). "exact" only ever reaches
+     * a cat's own owner, on its detail page.
+     */
+  locationPrecision: CatLocationPrecision;
+  /** The cell's side in metres when approximate; null when exact. */
+  locationCellM: number | null;
   sightingsCount: number;
+  /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
+  /** To the cat's published cell centre, rounded to 0.1 km (§6.4.2). */
   distanceKm?: number | null;
   discovererSpotterCode?: string;
   discovererNickname?: string | null;

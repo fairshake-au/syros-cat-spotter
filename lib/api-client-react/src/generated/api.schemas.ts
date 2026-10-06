@@ -68,6 +68,20 @@ export interface HealthStatus {
 }
 
 /**
+ * "approximate" means lat/lng are the centre of a cell of
+ * locationCellM metres and must be drawn as that cell, never as a
+ * pin (cat-record-data-spine.md §10.7). "exact" only ever reaches
+ * a cat's own owner, on its detail page.
+ */
+export type CatLocationPrecision = typeof CatLocationPrecision[keyof typeof CatLocationPrecision];
+
+
+export const CatLocationPrecision = {
+  exact: 'exact',
+  approximate: 'approximate',
+} as const;
+
+/**
  * The cat's resolved life status (§3). A live "deceased" status is
  * cleared automatically the moment a later sighting resolves to
  * this cat (§3.2) — the client never needs to handle that itself.
@@ -107,10 +121,23 @@ export interface Cat {
   name: string;
   description: string;
   photoUrl: string | null;
+  /** Where this cat is. For "approximate", the centre of its cell, never a pin. */
   lat: number;
+  /** See lat. */
   lng: number;
+  /**
+     * "approximate" means lat/lng are the centre of a cell of
+     * locationCellM metres and must be drawn as that cell, never as a
+     * pin (cat-record-data-spine.md §10.7). "exact" only ever reaches
+     * a cat's own owner, on its detail page.
+     */
+  locationPrecision: CatLocationPrecision;
+  /** The cell's side in metres when approximate; null when exact. */
+  locationCellM: number | null;
   sightingsCount: number;
+  /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
+  /** To the cat's published cell centre, rounded to 0.1 km (§6.4.2). */
   distanceKm?: number | null;
   discovererSpotterCode?: string;
   discovererNickname?: string | null;
@@ -160,6 +187,15 @@ export interface Cat {
   sterilised: CatSterilised;
 }
 
+export interface CatPage {
+  cats: Cat[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /** The next page to ask for, or null on the last page. */
+  nextPage: number | null;
+}
+
 export interface CatRegistration {
   /** @minLength 1 */
   deviceId: string;
@@ -205,8 +241,7 @@ export interface Sighting {
   spotterUsername?: string | null;
   spotterNickname?: string | null;
   photoUrl: string | null;
-  lat: number;
-  lng: number;
+  /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }
 
@@ -233,6 +268,7 @@ export interface CareEvent {
      */
   type: CareEventType;
   message: string;
+  /** A UTC calendar date (YYYY-MM-DD). */
   at: string;
 }
 
@@ -556,6 +592,17 @@ export type DeviceSecretHeaderParameter = string;
 export type ListCatsParams = {
 lat?: number;
 lng?: number;
+/**
+ * 1-based page number. Defaults to 1.
+ * @minimum 1
+ */
+page?: number;
+/**
+ * Cats per page. Defaults to 100; at most 200.
+ * @minimum 1
+ * @maximum 200
+ */
+pageSize?: number;
 };
 
 export type CheckUsernameAvailabilityParams = {

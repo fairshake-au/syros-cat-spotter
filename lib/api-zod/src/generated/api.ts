@@ -42,11 +42,13 @@ export const RegisterCatResponse = zod.object({
   "name": zod.string(),
   "description": zod.string(),
   "photoUrl": zod.string().nullable(),
-  "lat": zod.number(),
-  "lng": zod.number(),
+  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
+  "lng": zod.number().describe('See lat.'),
+  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
+  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
   "sightingsCount": zod.number(),
-  "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish(),
+  "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
+  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
@@ -64,23 +66,36 @@ export const RegisterCatResponse = zod.object({
 
 
 /**
- * @summary List all cats in the catalog
+ * Paged (cat-record-data-spine.md §2.3). Walk `nextPage` until it is
+ * null to get every cat. Every cat is the public view: lat/lng are the
+ * centre of its 250 m cell (§6.2, §10.6).
+ * @summary One page of the catalogue (always the public, blurred view)
  */
+
+export const listCatsQueryPageSizeMax = 200;
+
+
+
 export const ListCatsQueryParams = zod.object({
   "lat": zod.coerce.number().optional(),
-  "lng": zod.coerce.number().optional()
+  "lng": zod.coerce.number().optional(),
+  "page": zod.coerce.number().min(1).optional().describe('1-based page number. Defaults to 1.'),
+  "pageSize": zod.coerce.number().min(1).max(listCatsQueryPageSizeMax).optional().describe('Cats per page. Defaults to 100; at most 200.')
 })
 
-export const ListCatsResponseItem = zod.object({
+export const ListCatsResponse = zod.object({
+  "cats": zod.array(zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string(),
   "photoUrl": zod.string().nullable(),
-  "lat": zod.number(),
-  "lng": zod.number(),
+  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
+  "lng": zod.number().describe('See lat.'),
+  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
+  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
   "sightingsCount": zod.number(),
-  "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish(),
+  "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
+  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
@@ -94,15 +109,27 @@ export const ListCatsResponseItem = zod.object({
   "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
 }).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
+})),
+  "page": zod.number(),
+  "pageSize": zod.number(),
+  "total": zod.number(),
+  "nextPage": zod.number().nullable().describe('The next page to ask for, or null on the last page.')
 })
-export const ListCatsResponse = zod.array(ListCatsResponseItem)
 
 
 /**
+ * Public view by default. A device that owns this cat, sending its id
+ * in X-Device-Id with its X-Device-Secret, sees the cat's exact
+ * position (§10.6 Option B). Anything less is the public view, with no
+ * error.
  * @summary Get a cat with its sighting history
  */
 export const GetCatParams = zod.object({
   "catId": zod.coerce.number()
+})
+
+export const GetCatHeader = zod.object({
+  "X-Device-Id": zod.string().optional()
 })
 
 export const GetCatResponse = zod.object({
@@ -111,11 +138,13 @@ export const GetCatResponse = zod.object({
   "name": zod.string(),
   "description": zod.string(),
   "photoUrl": zod.string().nullable(),
-  "lat": zod.number(),
-  "lng": zod.number(),
+  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
+  "lng": zod.number().describe('See lat.'),
+  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
+  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
   "sightingsCount": zod.number(),
-  "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish(),
+  "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
+  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
@@ -137,15 +166,13 @@ export const GetCatResponse = zod.object({
   "spotterUsername": zod.string().nullish(),
   "spotterNickname": zod.string().nullish(),
   "photoUrl": zod.string().nullable(),
-  "lat": zod.number(),
-  "lng": zod.number(),
-  "createdAt": zod.string()
+  "createdAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).')
 })),
   "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),
   "careTimeline": zod.array(zod.object({
   "type": zod.enum(['desexed', 'adopted', 'general', 'discovered']).describe('Care events recorded against the cat. `discovered` is synthesised\nfrom the cat\'s own creation, and its `message` is the discoverer\'s\ndisplay name rather than free text.\n'),
   "message": zod.string(),
-  "at": zod.string()
+  "at": zod.string().describe('A UTC calendar date (YYYY-MM-DD).')
 })).describe('Care history, newest first, oldest entry always `discovered`')
 })
 
@@ -175,11 +202,13 @@ export const UpdateCatResponse = zod.object({
   "name": zod.string(),
   "description": zod.string(),
   "photoUrl": zod.string().nullable(),
-  "lat": zod.number(),
-  "lng": zod.number(),
+  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
+  "lng": zod.number().describe('See lat.'),
+  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
+  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
   "sightingsCount": zod.number(),
-  "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish(),
+  "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
+  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
@@ -218,11 +247,13 @@ export const ClaimCatResponse = zod.object({
   "name": zod.string(),
   "description": zod.string(),
   "photoUrl": zod.string().nullable(),
-  "lat": zod.number(),
-  "lng": zod.number(),
+  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
+  "lng": zod.number().describe('See lat.'),
+  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
+  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
   "sightingsCount": zod.number(),
-  "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish(),
+  "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
+  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
@@ -305,11 +336,13 @@ export const ResolveSightingResponse = zod.object({
   "name": zod.string(),
   "description": zod.string(),
   "photoUrl": zod.string().nullable(),
-  "lat": zod.number(),
-  "lng": zod.number(),
+  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
+  "lng": zod.number().describe('See lat.'),
+  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
+  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
   "sightingsCount": zod.number(),
-  "lastSeenAt": zod.string(),
-  "distanceKm": zod.number().nullish(),
+  "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
+  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
   "discovererSpotterCode": zod.string().optional(),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),

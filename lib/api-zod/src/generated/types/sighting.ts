@@ -13,7 +13,6 @@ export interface Sighting {
   spotterUsername?: string | null;
   spotterNickname?: string | null;
   photoUrl: string | null;
-  lat: number;
-  lng: number;
+  /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }

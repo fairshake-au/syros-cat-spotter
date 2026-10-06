@@ -27,6 +27,7 @@ import type {
   CatClaim,
   CatDetail,
   CatOwnerUpdate,
+  CatPage,
   CatRegistration,
   CatUpdate,
   CheckUsernameAvailabilityParams,
@@ -247,11 +248,14 @@ export const getListCatsUrl = (params?: ListCatsParams,) => {
 }
 
 /**
- * @summary List all cats in the catalog
+ * Paged (cat-record-data-spine.md §2.3). Walk `nextPage` until it is
+ * null to get every cat. Every cat is the public view: lat/lng are the
+ * centre of its 250 m cell (§6.2, §10.6).
+ * @summary One page of the catalogue (always the public, blurred view)
  */
-export const listCats = async (params?: ListCatsParams, options?: RequestInit): Promise<Cat[]> => {
+export const listCats = async (params?: ListCatsParams, options?: RequestInit): Promise<CatPage> => {
 
-  return customFetch<Cat[]>(getListCatsUrl(params),
+  return customFetch<CatPage>(getListCatsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -294,7 +298,7 @@ export type ListCatsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List all cats in the catalog
+ * @summary One page of the catalogue (always the public, blurred view)
  */
 
 export function useListCats<TData = Awaited<ReturnType<typeof listCats>>, TError = ErrorType<unknown>>(
@@ -324,6 +328,10 @@ export const getGetCatUrl = (catId: number,) => {
 }
 
 /**
+ * Public view by default. A device that owns this cat, sending its id
+ * in X-Device-Id with its X-Device-Secret, sees the cat's exact
+ * position (§10.6 Option B). Anything less is the public view, with no
+ * error.
  * @summary Get a cat with its sighting history
  */
 export const getCat = async (catId: number, options?: RequestInit): Promise<CatDetail> => {

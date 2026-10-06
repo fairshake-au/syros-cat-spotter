@@ -54,7 +54,11 @@ paths:
     get:
       operationId: listCats
       tags: [cats]
-      summary: List all cats in the catalog
+      summary: One page of the catalogue (always the public, blurred view)
+      description: |
+        Paged (cat-record-data-spine.md §2.3). Walk `nextPage` until it is
+        null to get every cat. Every cat is the public view: lat/lng are the
+        centre of its 250 m cell (§6.2, §10.6).
       parameters:
         - name: lat
           in: query
@@ -64,25 +68,45 @@ paths:
           in: query
           required: false
           schema: { type: number }
+        - name: page
+          in: query
+          required: false
+          description: 1-based page number. Defaults to 1.
+          schema: { type: integer, minimum: 1 }
+        - name: pageSize
+          in: query
+          required: false
+          description: Cats per page. Defaults to 100; at most 200.
+          schema: { type: integer, minimum: 1, maximum: 200 }
       responses:
         "200":
-          description: Cats, sorted by distance when lat/lng provided
+          description: |
+            Sorted by distance to each cat's published cell (rounded to
+            100 m) when lat/lng are given, otherwise by last-seen date,
+            newest first. Ties always break on cat id.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Cat"
+                $ref: "#/components/schemas/CatPage"
   /cats/{catId}:
     get:
       operationId: getCat
       tags: [cats]
       summary: Get a cat with its sighting history
+      description: |
+        Public view by default. A device that owns this cat, sending its id
+        in X-Device-Id with its X-Device-Secret, sees the cat's exact
+        position (§10.6 Option B). Anything less is the public view, with no
+        error.
       parameters:
         - name: catId
           in: path
           required: true
           schema: { type: integer }
+        - name: X-Device-Id
+          in: header
+          required: false
+          schema: { type: string }
       responses:
         "200":
           description: Cat detail
@@ -664,13 +688,32 @@ components:
         photoUrl:
           type: string
           nullable: true
-        lat: { type: number }
-        lng: { type: number }
+        lat:
+          type: number
+          description: Where this cat is. For "approximate", the centre of its cell, never a pin.
+        lng:
+          type: number
+          description: See lat.
+        locationPrecision:
+          type: string
+          enum: [exact, approximate]
+          description: |
+            "approximate" means lat/lng are the centre of a cell of
+            locationCellM metres and must be drawn as that cell, never as a
+            pin (cat-record-data-spine.md §10.7). "exact" only ever reaches
+            a cat's own owner, on its detail page.
+        locationCellM:
+          type: integer
+          nullable: true
+          description: The cell's side in metres when approximate; null when exact.
         sightingsCount: { type: integer }
-        lastSeenAt: { type: string }
+        lastSeenAt:
+          type: string
+          description: A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).
         distanceKm:
           type: number
           nullable: true
+          description: To the cat's published cell centre, rounded to 0.1 km (§6.4.2).
         discovererSpotterCode: { type: string }
         discovererNickname:
           type: string
@@ -732,7 +775,22 @@ components:
               description: How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.
           required: [value, confidence, clippedTipSightings]
       required:
-        [id, name, description, photoUrl, lat, lng, sightingsCount, lastSeenAt, hasHome, lifeStatus, notSeenSince, sterilised]
+        [id, name, description, photoUrl, lat, lng, locationPrecision, locationCellM, sightingsCount, lastSeenAt, hasHome, lifeStatus, notSeenSince, sterilised]
+    CatPage:
+      type: object
+      properties:
+        cats:
+          type: array
+          items:
+            $ref: "#/components/schemas/Cat"
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+        nextPage:
+          type: integer
+          nullable: true
+          description: The next page to ask for, or null on the last page.
+      required: [cats, page, pageSize, total, nextPage]
     CatRegistration:
       type: object
       properties:
@@ -773,10 +831,10 @@ components:
         photoUrl:
           type: string
           nullable: true
-        lat: { type: number }
-        lng: { type: number }
-        createdAt: { type: string }
-      required: [id, spotterCode, photoUrl, lat, lng, createdAt]
+        createdAt:
+          type: string
+          description: A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1).
+      required: [id, spotterCode, photoUrl, createdAt]
     CareEvent:
       type: object
       properties:
@@ -788,7 +846,9 @@ components:
             from the cat's own creation, and its `message` is the discoverer's
             display name rather than free text.
         message: { type: string }
-        at: { type: string }
+        at:
+          type: string
+          description: A UTC calendar date (YYYY-MM-DD).
       required: [type, message, at]
     CatDetail:
       type: object
