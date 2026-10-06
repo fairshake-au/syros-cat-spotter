@@ -13,6 +13,8 @@ import {
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { renderPage } from "../lib/teamPages/layout";
+import { escapeHtml } from "../lib/teamPages/escape";
 
 // The welfare queue's data and photos for the staff dashboard (SYC-43 part 2
 // plan, PR 1 and PR 2). No CORS headers: app.ts skips /api/team/. The reading
@@ -113,11 +115,55 @@ const isFormPost = (req: Request) =>
 const backToReport = (publicId: string, changed = false) =>
   `/api/team${changed ? `?changed=${encodeURIComponent(publicId)}` : ""}#r-${encodeURIComponent(publicId)}`;
 
-/** 400 with field names only: never the values, which can include the note. */
-function badRequest(res: Response, fields: string[]) {
+/**
+ * 400 with field names only: never the values, which can include the note.
+ * A browser form post gets a short page with a way back to the report rather
+ * than bare JSON; a JSON caller gets the field names.
+ */
+function badRequest(
+  req: Request,
+  res: Response,
+  fields: string[],
+  publicId: string,
+) {
   setTeamHeaders(res);
-  res.status(400).json({ error: "Invalid request", fields });
+  if (!isFormPost(req)) {
+    res.status(400).json({ error: "Invalid request", fields });
+    return;
+  }
+  const why = fields.includes("note")
+    ? `A team note can be at most ${NOTE_MAX.toLocaleString("en-GB")} characters.`
+    : "Something in the form wasn't right.";
+  const back = PUBLIC_ID_RE.test(publicId)
+    ? backToReport(publicId)
+    : "/api/team";
+  res
+    .status(400)
+    .type("html")
+    .send(
+      renderPage({
+        title: "That didn't save",
+        active: "queue",
+        personName: teamPerson(res).name,
+        body:
+          `<p>${escapeHtml(why)} Nothing was changed.</p>` +
+          `<p><a href="${escapeHtml(back)}">Back to the report</a></p>`,
+      }),
+    );
 }
+
+/**
+ * A browser sends a textarea's line breaks as CRLF, which its own maxlength
+ * counts as one character. Store and count them as LF, so a note that fits
+ * the box always fits the limit.
+ */
+const withLfNote = (body: unknown): unknown => {
+  if (!body || typeof body !== "object") return body;
+  const note = (body as Record<string, unknown>)["note"];
+  return typeof note === "string"
+    ? { ...body, note: note.replace(/\r\n?/g, "\n") }
+    : body;
+};
 
 const fieldsOf = (err: z.ZodError) => [
   ...new Set(err.issues.map((i) => i.path.join("."))),
@@ -138,10 +184,11 @@ router.post(
     const person = teamPerson(res);
     const publicId = String(req.params["publicId"]);
     const parsed = StateBody.safeParse(req.body ?? {});
-    if (!parsed.success) return badRequest(res, fieldsOf(parsed.error));
+    if (!parsed.success)
+      return badRequest(req, res, fieldsOf(parsed.error), publicId);
     const { from, to } = parsed.data;
     // "Move" to where it already is: nothing to record.
-    if (from === to) return badRequest(res, ["to"]);
+    if (from === to) return badRequest(req, res, ["to"], publicId);
     if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
 
     const outcome = await moveReportState({
@@ -181,8 +228,9 @@ router.post(
     setTeamHeaders(res);
     const person = teamPerson(res);
     const publicId = String(req.params["publicId"]);
-    const parsed = NoteBody.safeParse(req.body ?? {});
-    if (!parsed.success) return badRequest(res, fieldsOf(parsed.error));
+    const parsed = NoteBody.safeParse(withLfNote(req.body ?? {}));
+    if (!parsed.success)
+      return badRequest(req, res, fieldsOf(parsed.error), publicId);
     if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
 
     const written = await writeTeamNote({

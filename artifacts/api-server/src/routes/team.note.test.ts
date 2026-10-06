@@ -175,6 +175,45 @@ describe("the team note route", () => {
     expect((await row(id)).teamNote).toBe("a".repeat(2000));
   });
 
+  it("counts a browser's CRLF line breaks as one character, and stores them as LF (review of PR 2)", async () => {
+    const { id, publicId } = await seedReport();
+    // 2,000 characters as the textarea counts them; 2,099 once CRLF is sent.
+    const lines = Array.from({ length: 100 }, () => "x".repeat(19)).join(
+      "\r\n",
+    );
+    expect(lines.replace(/\r\n/g, "\n")).toHaveLength(1999);
+    const res = await request(app)
+      .post(`/api/team/reports/${publicId}/note`)
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", susanCookie)
+      .type("form")
+      .send({ note: lines + "y" });
+    expect(res.status).toBe(303);
+    const stored = (await row(id)).teamNote!;
+    expect(stored).toHaveLength(2000);
+    expect(stored).not.toContain("\r");
+  });
+
+  it("answers a form post that's too long with a page and a way back, not JSON, and never the note", async () => {
+    const { id, publicId } = await seedReport({ teamNote: "keep me" });
+    const marker = "SECRET-NOTE-MARKER";
+    const res = await request(app)
+      .post(`/api/team/reports/${publicId}/note`)
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", susanCookie)
+      .type("form")
+      .send({ note: marker + "z".repeat(2001) });
+    expect(res.status).toBe(400);
+    expect(res.headers["content-type"]).toMatch(/text\/html/);
+    expect(res.text).toContain("A team note can be at most 2,000 characters.");
+    expect(res.text).toContain(`href="/api/team#r-${publicId}"`);
+    expect(res.text).not.toContain(marker);
+    expect(res.headers["content-security-policy"]).toContain(
+      "default-src 'none'",
+    );
+    expect((await row(id)).teamNote).toBe("keep me");
+  });
+
   it("refuses a missing or non-text note, with field names only", async () => {
     const { id, publicId } = await seedReport({ teamNote: "keep me" });
     for (const body of [{}, { note: 42 }, { note: ["x"] }, { note: null }]) {
@@ -338,5 +377,34 @@ describe("P2-6: a person who has left stays named on what they did", () => {
     const r = await row(id);
     expect(r.stateChangedBy).toBe(mariaId);
     expect(r.teamNoteBy).toBe(mariaId);
+  });
+});
+
+describe("a person marked as left can't use either form (review of PR 2)", () => {
+  const LENA = "vitest-note-lena@example.com";
+
+  it("gets the identical 401 on both routes, at their very next request, and nothing is written", async () => {
+    await removePerson(LENA);
+    const lena = await addPerson({
+      email: LENA,
+      name: "Lena",
+      addedBy: "cli:vitest",
+    });
+    const cookie = await signInThroughHandoff(app, handoffKey, lena.id);
+    const { id, publicId } = await seedReport({ state: "new" });
+    expect((await note(publicId, { note: "before" }, cookie)).status).toBe(200);
+    expect(await markLeft(LENA, "cli:vitest")).not.toBeNull();
+
+    const n = await note(publicId, { note: "after" }, cookie);
+    const m = await move(publicId, "new", "looking", cookie);
+    for (const res of [n, m]) {
+      expect([res.status, res.text]).toEqual([
+        401,
+        '{"error":"not_signed_in"}',
+      ]);
+    }
+    const r = await row(id);
+    expect(r.teamNote).toBe("before");
+    expect(r.state).toBe("new");
   });
 });
