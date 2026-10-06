@@ -376,11 +376,12 @@ describe("the evening round-up", () => {
     const watcher = device("watcher");
     const cat = await seedCat();
     await follow(watcher, cat.id);
-    await sighting(cat, athens("03-22", "11:00"));
-    await sighting(cat, athens("03-22", "21:30"));
+    const morning = await sighting(cat, athens("03-22", "11:00"));
+    const late = await sighting(cat, athens("03-22", "21:30"));
     await sendDailyRoundUp(athens("03-22", "20:00"));
     expect(pushesTo(watcher)).toHaveLength(1);
-    expect(await inAppRows(watcher)).toHaveLength(1);
+    // Tonight's covers the morning sighting, not the later one.
+    expect((await inAppRows(watcher)).map((r) => r.catUpdateId)).toEqual([morning.id]);
 
     sendPushNotificationMock.mockClear();
     expect(await sendDailyRoundUp(athens("03-23", "20:00"))).toEqual({
@@ -389,7 +390,9 @@ describe("the evening round-up", () => {
       pushes: 1,
     });
     expect(pushesTo(watcher)).toHaveLength(1);
-    expect(await inAppRows(watcher)).toHaveLength(2);
+    expect((await inAppRows(watcher)).map((r) => r.catUpdateId).sort()).toEqual(
+      [morning.id, late.id].sort(),
+    );
 
     sendPushNotificationMock.mockClear();
     expect(await sendDailyRoundUp(athens("03-24", "20:00"))).toEqual({
