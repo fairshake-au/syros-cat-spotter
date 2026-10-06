@@ -344,11 +344,14 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
 
   it("remove refuses someone with history and points to mark-left", async () => {
     await add();
+    // A real strict link (PR 1): this person has moved a report.
     await c.query(
-      `create table history_probe (person_id uuid not null references people(id))`,
+      `insert into welfare_reports
+         (public_id, severity, lat, lng, client_ref, state, state_changed_by)
+       select 'cli-r-1', 'urgent', 37.4, 24.9, 'cli-c-1', 'looking', id
+         from people`,
     );
     try {
-      await c.query(`insert into history_probe select id from people`);
       const rm = await run(
         ["remove", "--target", "development", "--email", "susan@example.com"],
         devEnv(),
@@ -360,7 +363,7 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
       );
       expect(await countPeople()).toBe(1);
     } finally {
-      await c.query(`drop table history_probe`);
+      await c.query(`delete from welfare_reports where public_id = 'cli-r-1'`);
     }
   });
 });
