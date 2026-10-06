@@ -68,3 +68,23 @@ describe("POST /api/sightings/:id/resolve cat name moderation", () => {
     expect(res.body.code).toBe("OFFENSIVE_NAME");
   });
 });
+
+// SYC-101 (review of #92): a name with nothing left once folded (only
+// invisible characters) can't name a new cat; nothing is created.
+describe("POST /api/sightings/:id/resolve with a name that folds to nothing", () => {
+  it("rejects it with 400 EMPTY_NAME and leaves the sighting pending", async () => {
+    const sighting = await createPendingSighting();
+    const res = await request(app)
+      .post(`/api/sightings/${sighting.id}/resolve`)
+      .set("X-Device-Secret", "vitest-resolve-secret-0123456789ab")
+      .send({ deviceId: DEVICE, newCatName: "\u200b\u2060\u200b" });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "Cat name is empty", code: "EMPTY_NAME" });
+    const [after] = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.id, sighting.id));
+    expect(after!.status).toBe("pending");
+    expect(after!.catId).toBeNull();
+  });
+});

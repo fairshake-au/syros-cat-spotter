@@ -24,7 +24,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { registerModalOpen } from '@/lib/modalVisibility';
-import { classifyResolveError } from '@/lib/catPicker';
+import { classifyResolveError, isBlankName } from '@/lib/catPicker';
 
 type Mode = 'claim' | 'edit';
 
@@ -105,7 +105,7 @@ export function ClaimCatSheet({
     !isPending &&
     (mode === 'claim'
       ? trimmedHome.length > 0
-      : trimmedCatName.length > 0 && trimmedHome.length > 0);
+      : !isBlankName(trimmedCatName) && trimmedHome.length > 0);
 
   const submit = () => {
     if (!canSubmit || !deviceId) return;
