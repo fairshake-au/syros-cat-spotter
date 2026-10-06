@@ -14,11 +14,13 @@ import { renderPage } from "./layout";
 // the team's page for one cat. Read-only. Server-drawn, no scripts. Every
 // value goes through escapeHtml; the data comes only from lib/teamCatView.ts.
 
+// The app's own English words (artifacts/cat-spotter/lib/i18n.ts), so the
+// team reads the public line exactly as a spotter does.
 const LIFE: Record<LifeStatusValue, string> = {
   street: "Lives on the street",
   homed: "Has a home",
-  in_care: "In care",
-  deceased: "Has died",
+  in_care: "In Syros Cats' care",
+  deceased: "No longer with us",
 };
 
 const CONFIDENCE: Record<Confidence, string> = {
@@ -61,7 +63,19 @@ const place = (lat: number, lng: number) => {
 const row = (label: string, value: string) =>
   `<dt>${esc(label)}</dt><dd>${value}</dd>`;
 
-/** The sterilised line in the public's words. */
+/**
+ * The public sterilised line, word for word as the app shows it
+ * (catStatusLines.ts's sterilisedLineKey): only confirmed and likely say
+ * anything; everything else, "reported" included, is "Not known yet".
+ */
+function publicSterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
+  if (s.confidence === "confirmed")
+    return s.value ? "Sterilised — confirmed by Syros Cats" : "Not sterilised — Syros Cats' records";
+  if (s.confidence === "likely") return "Probably sterilised — a clipped ear tip has been seen";
+  return "Not known yet";
+}
+
+/** The records' own answer, short: its confidence is shown beside it. */
 function sterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
   if (s.value === null || s.confidence === "unknown") return "Not known yet";
   if (s.value) {
@@ -75,7 +89,7 @@ function sterilisedText(s: { value: boolean | null; confidence: Confidence }): s
 function publicStatusText(s: DerivedCatStatus): string {
   const life = LIFE[s.lifeStatus];
   const seen = s.notSeenSince ? ` · Not seen since ${day(s.notSeenSince)}` : "";
-  return `${life} · ${sterilisedText(s.sterilised)}${seen}`;
+  return `${life} · ${publicSterilisedText(s.sterilised)}${seen}`;
 }
 
 // ── Finding a cat ──────────────────────────────────────────────────────────

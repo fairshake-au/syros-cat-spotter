@@ -93,8 +93,8 @@ function authorOf(o: Observation, people: Map<string, PersonName>): TeamAuthor {
 const LIFE: Record<LifeStatusValue, string> = {
   street: "Lives on the street",
   homed: "Has a home",
-  in_care: "In care",
-  deceased: "Has died",
+  in_care: "In Syros Cats' care",
+  deceased: "No longer with us",
 };
 
 const SEVERITY: Record<string, string> = {

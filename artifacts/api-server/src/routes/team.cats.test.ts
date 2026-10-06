@@ -343,6 +343,10 @@ describe("P3-2 (team half): the team's cat page shows exact positions", () => {
       supportingStatementIds: [ids["fix"]],
     });
     expect(view.records.lifeStatus.supportingStatementIds).toEqual([ids["maria"]]);
+    // The page says it in the app's own words (cat-spotter/lib/i18n.ts).
+    expect(await catHtml()).toContain(
+      '<p class="public">Lives on the street · Not sterilised — Syros Cats&#39; records</p>',
+    );
   });
 
   it("shows every photo through the team photo route, never a public address", async () => {
