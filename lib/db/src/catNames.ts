@@ -9,8 +9,13 @@ const PLACEHOLDER = "\u0000name\u0000";
  * already holds a name. It folds with the same expression as the column, not
  * with `foldName`, so a lookup always agrees with the unique index, even on
  * the few letters newer than the database's Unicode (see foldSql.test.ts).
+ *
+ * The fold lower-cases under the ICU collation, which the result would
+ * otherwise carry into the comparison and stop Postgres using
+ * `cats_normalised_name_unique` (a full scan on every name check). Putting
+ * the column's own collation back keeps the lookup on the index.
  */
 export function foldedNameEquals(name: string): SQL {
   const [before, after] = foldNameSql(PLACEHOLDER).split(PLACEHOLDER);
-  return sql`${catsTable.normalisedName} = ${sql.raw(before!)}${name}::text${sql.raw(after!)}`;
+  return sql`${catsTable.normalisedName} = (${sql.raw(before!)}${name}::text${sql.raw(after!)}) COLLATE "default"`;
 }

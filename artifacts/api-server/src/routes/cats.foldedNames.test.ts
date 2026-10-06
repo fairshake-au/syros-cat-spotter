@@ -14,13 +14,30 @@ import { and, eq, ilike, like } from "drizzle-orm";
 // or renaming to such a name answers NAME_TAKEN, naming the cat that has it,
 // and writes nothing.
 
+// Lets a test skip the pre-write name check once, so the unique index has to
+// decide, as when two people take the same name at the same moment.
+const race = vi.hoisted(() => ({ skipPrechecks: 0 }));
+vi.mock("../lib/catNames", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/catNames")>();
+  return {
+    ...actual,
+    catNamed: vi.fn(async (name: string) => {
+      if (race.skipPrechecks > 0) {
+        race.skipPrechecks--;
+        return undefined;
+      }
+      return actual.catNamed(name);
+    }),
+  };
+});
+
 vi.mock("../lib/notifications", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/notifications")>();
   return { ...actual, notifyCatSpotters: vi.fn() };
 });
 
 import app from "../app";
-import { catNamed } from "../lib/catNames";
+import { catNamed, isUniqueViolation } from "../lib/catNames";
 
 const PREFIX = "vitest-folded-names-";
 const NAME_PREFIX = "VitestFold";
@@ -160,5 +177,81 @@ describe("PATCH /api/cats/:id rename with a folded-name clash (SYC-101)", () => 
         normalised: `${NAME_PREFIX.toLowerCase()} λιλη`,
       },
     ]);
+  });
+});
+
+describe("losing a race for a name (SYC-101, review of #92)", () => {
+  // The pre-check found nothing, then another cat took the name before this
+  // write: the unique index refuses it, and the answer is still NAME_TAKEN.
+  it("registering answers NAME_TAKEN, naming the cat that won", async () => {
+    const winner = await insertCat(`${NAME_PREFIX} Φιλιώ`);
+    race.skipPrechecks = 1;
+    const res = await request(app)
+      .post("/api/cats")
+      .set("X-Device-Secret", SECRET)
+      .send({
+        deviceId: owner,
+        name: `${NAME_PREFIX.toUpperCase()} ΦΙΛΙΩ`,
+        ownerName: "Maria",
+        homeDescription: "Blue door",
+        lat: 37.44,
+        lng: 24.9,
+      });
+    expect(race.skipPrechecks).toBe(0);
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "NAME_TAKEN", cat: { id: winner.id } });
+  });
+
+  it("renaming answers NAME_TAKEN and changes nothing", async () => {
+    const winner = await insertCat(`${NAME_PREFIX} Μαρίνα`);
+    const mine = await insertCat(`${NAME_PREFIX} Τούλα`, owner);
+    race.skipPrechecks = 1;
+    const res = await request(app)
+      .patch(`/api/cats/${mine.id}`)
+      .set("X-Device-Secret", SECRET)
+      .send({ deviceId: owner, name: `${NAME_PREFIX} μαρινα` });
+    expect(race.skipPrechecks).toBe(0);
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "NAME_TAKEN", cat: { id: winner.id } });
+    const [after] = await db.select().from(catsTable).where(eq(catsTable.id, mine.id));
+    expect(after!.name).toBe(`${NAME_PREFIX} Τούλα`);
+    expect(await nameObservations(mine.id)).toEqual([]);
+  });
+
+  it("only the folded-name index counts as name taken", () => {
+    const nameClash = { code: "23505", constraint: "cats_normalised_name_unique" };
+    expect(isUniqueViolation(nameClash)).toBe(true);
+    expect(isUniqueViolation(new Error("wrapped", { cause: nameClash }))).toBe(true);
+    expect(isUniqueViolation({ code: "23505", constraint: "cats_pkey" })).toBe(false);
+    expect(isUniqueViolation({ code: "23503" })).toBe(false);
+  });
+});
+
+describe("a name that is empty once folded (SYC-101, review of #92)", () => {
+  it("is refused on registration and on rename, and writes nothing", async () => {
+    const invisible = "\u200b\u2060\u200b";
+    const reg = await request(app)
+      .post("/api/cats")
+      .set("X-Device-Secret", SECRET)
+      .send({
+        deviceId: owner,
+        name: invisible,
+        ownerName: "Maria",
+        homeDescription: "Blue door",
+        lat: 37.44,
+        lng: 24.9,
+      });
+    expect(reg.status).toBe(400);
+    expect(reg.body).toEqual({ error: "Cat name is empty", code: "EMPTY_NAME" });
+
+    const mine = await insertCat(`${NAME_PREFIX} Κίκα`, owner);
+    const ren = await request(app)
+      .patch(`/api/cats/${mine.id}`)
+      .set("X-Device-Secret", SECRET)
+      .send({ deviceId: owner, name: invisible });
+    expect(ren.status).toBe(400);
+    expect(ren.body.code).toBe("EMPTY_NAME");
+    const [after] = await db.select().from(catsTable).where(eq(catsTable.id, mine.id));
+    expect(after!.name).toBe(`${NAME_PREFIX} Κίκα`);
   });
 });

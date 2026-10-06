@@ -39,7 +39,13 @@ import {
   DEVICE_MATCH_WINDOW_MS,
 } from "../middlewares/rateLimit";
 import { selectCandidateCats } from "../lib/candidateSelection";
-import { catNamed, isUniqueViolation, nameTakenBody } from "../lib/catNames";
+import {
+  BLANK_NAME_BODY,
+  catNamed,
+  isBlankName,
+  isUniqueViolation,
+  nameTakenBody,
+} from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
 
 export const POINTS_CONFIRM = 10;
@@ -677,6 +683,10 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     existingCat = existing;
   } else if (body.newCatName && body.newCatName.trim().length > 0) {
     const name = body.newCatName.trim().slice(0, 60);
+    if (isBlankName(name)) {
+      res.status(400).json(BLANK_NAME_BODY);
+      return;
+    }
     if (containsOffensiveLanguage(name)) {
       res.status(400).json({
         error: "Cat name contains offensive language",

@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { foldedNameEquals } from "../catNames";
 import { foldName } from "../fold";
 import {
   defaultMigrationsFolder,
@@ -137,5 +139,27 @@ describe("0009_cats_folded_name (SYC-101)", () => {
       `select normalised_name from cats order by id`,
     );
     expect(r.rows.map((row) => row.normalised_name)).toEqual(["μιμη", "zoe", "krispy"]);
+  });
+
+  it("the app's name lookup can use the unique index", async () => {
+    // Review of #92: the ICU collation the fold lower-cases under leaked
+    // into the comparison, so Postgres could not use the index at all.
+    for (const n of ["Μιμή", "Zoë", "Krispy"]) await seedCat(n);
+    await upToFolded();
+    const { sql: text, params } = new PgDialect().sqlToQuery(foldedNameEquals("ΜΙΜΗ"));
+    await c.query("set enable_seqscan = off");
+    try {
+      const plan = await c.query<{ "QUERY PLAN": string }>(
+        `explain select id from cats where ${text}`,
+        params,
+      );
+      expect(plan.rows.map((r) => r["QUERY PLAN"]).join("\n")).toContain(
+        "cats_normalised_name_unique",
+      );
+      const hit = await c.query(`select name from cats where ${text}`, params);
+      expect(hit.rows).toEqual([{ name: "Μιμή" }]);
+    } finally {
+      await c.query("reset enable_seqscan");
+    }
   });
 });

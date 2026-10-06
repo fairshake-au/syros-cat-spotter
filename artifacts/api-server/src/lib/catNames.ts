@@ -1,4 +1,4 @@
-import { db, catsTable, foldedNameEquals } from "@workspace/db";
+import { db, catsTable, foldName, foldedNameEquals } from "@workspace/db";
 import { photoUrl } from "./catHelpers";
 
 /**
@@ -36,13 +36,34 @@ export async function nameTakenBody(
   };
 }
 
-/** A unique-index violation, however Drizzle wraps the pg error. */
+/**
+ * A violation of the folded-name unique index specifically, however Drizzle
+ * wraps the pg error. Any other unique violation (a primary key, say) is not
+ * "name taken" and must surface as the error it is.
+ */
 export function isUniqueViolation(err: unknown): boolean {
   for (let cur = err; cur; cur = (cur as { cause?: unknown }).cause) {
-    if ((cur as { code?: string }).code === "23505") return true;
+    const pgErr = cur as { code?: string; constraint?: string };
+    if (pgErr.code === "23505" && pgErr.constraint === "cats_normalised_name_unique") {
+      return true;
+    }
   }
   return false;
 }
+
+/**
+ * A name with nothing left once folded (only invisible characters, say).
+ * Refused: it would be "taken" by every other such name, and nobody could
+ * read it.
+ */
+export function isBlankName(name: string): boolean {
+  return foldName(name) === "";
+}
+
+export const BLANK_NAME_BODY = {
+  error: "Cat name is empty",
+  code: "EMPTY_NAME" as const,
+};
 
 /**
  * For `.catch` on a write that can lose a race for a cat name: a

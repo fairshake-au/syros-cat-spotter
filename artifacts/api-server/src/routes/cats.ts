@@ -30,7 +30,13 @@ import { containsOffensiveLanguage } from "../lib/moderation";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { writeObservation } from "../lib/observations";
 import { logRouteDuration } from "../lib/requestTiming";
-import { catNamed, nameTakenBody, nullOnUniqueViolation } from "../lib/catNames";
+import {
+  BLANK_NAME_BODY,
+  catNamed,
+  isBlankName,
+  nameTakenBody,
+  nullOnUniqueViolation,
+} from "../lib/catNames";
 
 const router: IRouter = Router();
 
@@ -122,6 +128,10 @@ router.post("/cats", async (req, res) => {
   // used to register, claim or rename cats as someone else.
   if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
   const name = body.name.trim().slice(0, 60);
+  if (isBlankName(name)) {
+    res.status(400).json(BLANK_NAME_BODY);
+    return;
+  }
   if (containsOffensiveLanguage(name)) {
     res.status(400).json({
       error: "Cat name contains offensive language",
@@ -395,6 +405,10 @@ router.patch("/cats/:catId", async (req, res) => {
   const changes: Partial<typeof catsTable.$inferInsert> = {};
   if (body.name !== undefined) {
     const newName = body.name.trim().slice(0, 60);
+    if (isBlankName(newName)) {
+      res.status(400).json(BLANK_NAME_BODY);
+      return;
+    }
     if (containsOffensiveLanguage(newName)) {
       res.status(400).json({
         error: "Cat name contains offensive language",
