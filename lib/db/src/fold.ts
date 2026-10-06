@@ -6,13 +6,14 @@
  * ever folded case, letter for letter, under the database's ctype. That
  * leaves `ΜΙΜΗ` beside `Μιμή` (no accent folding), `ΣΟΦΊΑΣ` beside `Σοφίας`
  * (no final-sigma folding) and the NFD spelling of any name as a second cat
- * (no Unicode normalisation) — all pinned as "today's behaviour" in
- * `lib/db/src/migrate/dataSpine.test.ts`'s
- * `cats_name_lower_unique with Greek names` tests.
+ * (no Unicode normalisation). SYC-101 replaced that index with
+ * `cats_normalised_name_unique` on a folded column.
  *
- * `foldName` is the one folding function every writer and lookup uses
- * instead: SYC-101's `cats.normalised_name` column, `colonies.normalised_name`,
- * and the data spine's `name` observations (§10.3).
+ * `foldName` is the one folding function: `colonies.normalised_name`, the
+ * data spine's `name` observations (§10.3) and the app's name checks fold
+ * with it. `cats.normalised_name` is a generated column the database folds
+ * with `foldNameSql` (./foldSql.ts), this function written as SQL;
+ * `foldSql.test.ts` proves the two agree.
  *
  * **What it folds, exactly** (Samuel, 3 Oct 2026, after the PR #62 review):
  * Unicode normalisation (NFD then NFC), case, accents (combining marks),
@@ -22,8 +23,9 @@
  * (including non-breaking space) collapsed to one plain space, trimmed.
  * **What it deliberately does NOT fold:** Greek/Latin look-alike letters
  * (`Α` vs `A`, `Η` vs `H`) — a mixed-keyboard name like `ΑΓΑΘΗ` typed as
- * `AΓAΘH` is a real, separate risk, deferred to SYC-101 for Samuel to
- * decide rather than silently merged here.
+ * `AΓAΘH` is a real, separate risk. SYC-101 kept them unfolded, as Part
+ * 2g's folding specifies; whether to fold them is Samuel's decision,
+ * ticketed separately.
  *
  * **Agreement with the app's own fold.** `artifacts/cat-spotter/lib/catPicker.ts`'s
  * `fold` folds the app's "find the cat" search the same way, for every case
@@ -32,9 +34,9 @@
  * typed in a decomposed form can search-match slightly differently than it
  * would merge under this function's uniqueness index. That difference is
  * harmless for a *search* (it only ever narrows a visible list; it can
- * never merge two records), which is why it's noted here rather than fixed
- * — fixing it means adding an NFC normalise to the app's fold too, which is
- * SYC-101's call, not this PR's.
+ * never merge two records). SYC-101 left it on purpose: an NFC step in the
+ * app's fold would stop a partial Hangul syllable finding the full one
+ * (`가` in `간`).
  */
 export function foldName(name: string): string {
   return name
