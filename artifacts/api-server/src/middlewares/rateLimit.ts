@@ -55,6 +55,16 @@ export const handoffLimiter = rateLimit({
   limit: 60,
 });
 
+// DELETE /api/me (SYC-63): a person deletes themselves once, and a retry
+// after a dropped connection is safe, so a handful is plenty. Per IP rather
+// than per device, because the device id here is unverified until the
+// secret check, and keying on it would let a caller pick a fresh bucket.
+export const deleteMeLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+});
+
 // Data spine PR 5 (DECISIONS.md Part 2h; docs/superpowers/plans/data-spine.md
 // §PR 5): POST /sightings' candidate matching needs BOTH limiters, for two
 // different reasons, restored after an adversarial review of PR #64 found

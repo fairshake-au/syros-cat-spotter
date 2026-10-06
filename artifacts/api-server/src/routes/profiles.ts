@@ -4,7 +4,14 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { profilePayload, spotterCode } from "../lib/catHelpers";
 import { normalizeUsername, suggestUsernames } from "../lib/usernames";
 import { containsOffensiveLanguage } from "../lib/moderation";
-import { requireDeviceAuth } from "../lib/deviceAuth";
+import {
+  DELETED_PREFIX,
+  isDeletedDevice,
+  requireDeviceAuth,
+  verifyDeviceSecret,
+} from "../lib/deviceAuth";
+import { DELETED_BY_THE_PERSON, severPerson } from "../lib/severPerson";
+import { deleteMeLimiter } from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
@@ -17,6 +24,39 @@ function isUniqueViolation(err: unknown): boolean {
   }
   return false;
 }
+
+/**
+ * DELETE /api/me — "Delete my data" (SYC-63 plan §4.1). The device id comes in
+ * the X-Device-Id header and the secret in X-Device-Secret, so neither lands
+ * in a request log (the URL has nothing identifying) and no proxy can drop
+ * them as it might a DELETE body.
+ *
+ * Running it twice is safe: the first call leaves the "deleted device"
+ * marker, and every later call finds it and answers 204 without binding
+ * anything (§4.4). A wrong secret gets 403 and deletes nothing.
+ */
+router.delete("/me", deleteMeLimiter, async (req, res) => {
+  const header = req.headers["x-device-id"];
+  const deviceId = typeof header === "string" ? header : "";
+  if (!deviceId || deviceId.length > 128 || deviceId.startsWith(DELETED_PREFIX)) {
+    res.status(400).json({ error: "Invalid device id" });
+    return;
+  }
+  // Before verifyDeviceSecret, whose bind-on-first-use would otherwise be
+  // the first thing a retry touches (§4.1 step 1).
+  if (await isDeletedDevice(deviceId)) {
+    res.status(204).end();
+    return;
+  }
+  const verified = await verifyDeviceSecret(req, res, deviceId);
+  if (!verified) return;
+
+  await db.transaction((tx) =>
+    severPerson(tx, { deviceId: verified, reason: DELETED_BY_THE_PERSON }),
+  );
+  req.log.info("person deleted their data");
+  res.status(204).end();
+});
 
 // Static /profiles/* routes must come before the /profiles/:deviceId param route.
 router.get("/profiles/username-availability", async (req, res) => {
