@@ -356,8 +356,10 @@ export default function CatDetailScreen() {
             <AppMap
               latitude={cat.lat}
               longitude={cat.lng}
-              latitudeDelta={0.008}
-              longitudeDelta={0.008}
+              // Close enough that the 250 m cell fills most of the map, so
+              // "Somewhere in here" reads as an area, not a dot.
+              latitudeDelta={0.0035}
+              longitudeDelta={0.0035}
               interactive={false}
               markerBorderColor={colors.primary}
               // Data spine PR 6 (spec §6.2, §6.6): the cat is somewhere in
