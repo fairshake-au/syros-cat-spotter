@@ -1,6 +1,61 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  /**
+   * SYC-211: abort the request (and its body read) after this many ms.
+   * Overrides the per-route default below; 0 or a negative value disables it.
+   */
+  timeoutMs?: number;
 };
+
+/**
+ * SYC-211: transport timeout for the username claim, read and availability
+ * calls. React Native's Android fetch (OkHttp) has no connect/read timeout at
+ * all, so a stalled connection never settles. These calls are small JSON
+ * requests, so a hard limit is safe. It is scoped to these routes on purpose:
+ * a global default could cut off photo uploads on slow links.
+ *
+ * The UI's own, shorter waits (lib/usernameClaim.ts) only stop the screen
+ * waiting; this is what actually ends the request.
+ */
+export const USERNAME_REQUEST_TIMEOUT_MS = 30_000;
+const USERNAME_ROUTE = /\/api\/profiles\/(?:username-availability|[^/?#]+\/username)(?:[?#]|$)/;
+
+function defaultTimeoutMs(url: string): number | undefined {
+  return USERNAME_ROUTE.test(url) ? USERNAME_REQUEST_TIMEOUT_MS : undefined;
+}
+
+/** Thrown when a request is abandoned by its transport timeout. No HTTP status: the outcome is unknown. */
+export class RequestTimeoutError extends Error {
+  readonly name = "RequestTimeoutError";
+  readonly timeoutMs: number;
+
+  constructor(url: string, timeoutMs: number) {
+    super(`Request to ${url} timed out after ${timeoutMs}ms`);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+/** An AbortSignal that fires on the caller's signal or after `ms`, without AbortSignal.any (missing on Hermes). */
+function withTimeoutSignal(callerSignal: AbortSignal | null | undefined, ms: number) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) controller.abort(callerSignal.reason);
+  else callerSignal?.addEventListener("abort", onCallerAbort);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, ms);
+  return {
+    signal: controller.signal,
+    timedOut: () => timedOut,
+    dispose: () => {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener("abort", onCallerAbort);
+    },
+  };
+}
 
 export type ErrorType<T = unknown> = ApiError<T>;
 
@@ -364,7 +419,7 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const { responseType = "auto", headers: headersInit, timeoutMs: explicitTimeoutMs, ...init } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -412,10 +467,39 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const timeoutMs = explicitTimeoutMs ?? defaultTimeoutMs(requestInfo.url);
+  if (!timeoutMs || timeoutMs <= 0) {
+    return send<T>(input, { ...init, method, headers }, responseType, requestInfo);
+  }
+
+  const timeout = withTimeoutSignal(init.signal, timeoutMs);
+  try {
+    // Race as well as abort: a runtime that ignores the signal (or stalls
+    // reading the body) must still settle.
+    return await Promise.race([
+      send<T>(input, { ...init, method, headers, signal: timeout.signal }, responseType, requestInfo),
+      new Promise<never>((_, reject) => {
+        timeout.signal.addEventListener("abort", () => reject(timeout.signal.reason));
+      }),
+    ]);
+  } catch (error) {
+    if (timeout.timedOut()) throw new RequestTimeoutError(requestInfo.url, timeoutMs);
+    throw error;
+  } finally {
+    timeout.dispose();
+  }
+}
+
+async function send<T>(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  responseType: "json" | "text" | "blob" | "auto",
+  requestInfo: { method: string; url: string },
+): Promise<T> {
+  const response = await fetch(input, init);
 
   if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
+    const errorData = await parseErrorBody(response, requestInfo.method);
     throw new ApiError(response, errorData, requestInfo);
   }
 

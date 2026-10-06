@@ -95,4 +95,85 @@ describe('username claim deadlines and reconciliation', () => {
     expect(withUpdatedUsername(profile, 'After')).toEqual({ ...profile, username: 'After' });
     expect(withUpdatedUsername(undefined, 'After')).toBeUndefined();
   });
+
+  // SYC-211
+  it('after a late network failure, reads the server name before reporting the request settled', async () => {
+    vi.useFakeTimers();
+    let fail!: (e: unknown) => void;
+    const slow = new Promise<{ username: string }>((_r, reject) => { fail = reject; });
+    const reads = [async () => ({ username: null }), async () => ({ username: 'Sea Cat' })];
+    const claimed = vi.fn();
+    const settled = vi.fn();
+    const result = claimAndReconcile('device', 'sea  cat', claimed, settled,
+      mockCalls(() => slow, () => reads.shift()!()));
+    await vi.advanceTimersByTimeAsync(CLAIM_WAIT_MS);
+    expect(await result).toEqual({ kind: 'uncertain' });
+    fail(new TypeError('Network request failed'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(claimed).toHaveBeenCalledWith('Sea Cat');
+    expect(settled).toHaveBeenCalledWith({ kind: 'claimed', username: 'Sea Cat' });
+  });
+
+  it('reports notSaved / unknown after an unclear failure depending on the follow-up read', async () => {
+    const networkError = async () => { throw new TypeError('Network request failed'); };
+    expect(await claimAndReconcile('device', 'Name', vi.fn(), undefined,
+      mockCalls(networkError, async () => ({ username: null })))).toEqual({ kind: 'notSaved' });
+    expect(await claimAndReconcile('device', 'Name', vi.fn(), undefined,
+      mockCalls(networkError, async () => { throw new TypeError('offline'); }))).toEqual({ kind: 'uncertain' });
+    // A 5xx is not a firm answer either: the write may have committed.
+    expect(await claimAndReconcile('device', 'Name', vi.fn(), undefined,
+      mockCalls(async () => { throw { status: 503 }; }, async () => ({ username: 'name' }))))
+      .toEqual({ kind: 'claimed', username: 'name' });
+  });
+
+  it('a firm 409 is rejected without waiting on a read', async () => {
+    const read = vi.fn();
+    const settled = vi.fn();
+    const duplicate = { status: 409 };
+    expect(await claimAndReconcile('device', 'Name', vi.fn(), settled,
+      mockCalls(async () => { throw duplicate; }, read))).toEqual({ kind: 'rejected', error: duplicate });
+    expect(read).not.toHaveBeenCalled();
+    expect(settled).toHaveBeenCalledWith({ kind: 'rejected', error: duplicate });
+  });
+
+  it('never applies a reconciled name that differs from the submitted one', async () => {
+    vi.useFakeTimers();
+    const claimed = vi.fn();
+    const result = claimAndReconcile('device', 'NameB', claimed, undefined,
+      mockCalls(() => new Promise(() => {}), async () => ({ username: 'NameA' })));
+    await vi.advanceTimersByTimeAsync(CLAIM_WAIT_MS);
+    expect(await result).toEqual({ kind: 'uncertain' });
+    expect(claimed).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late success for an older name once a newer name has been claimed', async () => {
+    vi.useFakeTimers();
+    let resolveOld!: (v: { username: string }) => void;
+    const oldClaimed = vi.fn();
+    const oldSettled = vi.fn();
+    const old = claimAndReconcile('device', 'OldPick', oldClaimed, oldSettled,
+      mockCalls(() => new Promise((resolve) => { resolveOld = resolve; }), async () => ({ username: null })));
+    await vi.advanceTimersByTimeAsync(CLAIM_WAIT_MS);
+    expect(await old).toEqual({ kind: 'uncertain' });
+
+    void claimAndReconcile('device', 'NewPick', vi.fn(), undefined,
+      mockCalls(() => new Promise(() => {}), async () => ({ username: null })));
+    resolveOld({ username: 'OldPick' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(oldClaimed).not.toHaveBeenCalled();
+    expect(oldSettled).toHaveBeenCalledWith({ kind: 'ignored' });
+  });
+
+  it('calls onClaimed at most once when both the reconcile read and the late success confirm it', async () => {
+    vi.useFakeTimers();
+    let resolveClaim!: (v: { username: string }) => void;
+    const claimed = vi.fn();
+    const result = claimAndReconcile('device', 'Once', claimed, undefined,
+      mockCalls(() => new Promise((resolve) => { resolveClaim = resolve; }), async () => ({ username: 'Once' })));
+    await vi.advanceTimersByTimeAsync(CLAIM_WAIT_MS);
+    expect(await result).toEqual({ kind: 'claimed', username: 'Once' });
+    resolveClaim({ username: 'Once' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(claimed).toHaveBeenCalledTimes(1);
+  });
 });

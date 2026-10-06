@@ -34,7 +34,8 @@ import { LANGUAGES } from '@/lib/i18n';
 import { Button, Tag } from '@/components/purropolis';
 import { StepDots } from './StepDots';
 import { ONBOARDING_DOT_COUNT, stepIndex } from './steps';
-import { AVAILABILITY_WAIT_MS, RECONCILE_WAIT_MS, claimAndReconcile, withDeadline } from '@/lib/usernameClaim';
+import { RECONCILE_WAIT_MS, withDeadline } from '@/lib/usernameClaim';
+import { useUsernameClaim } from '@/hooks/useUsernameClaim';
 
 const MIN_LEN = 3;
 
@@ -59,23 +60,38 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
 
   const [draft, setDraft] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [claimError, setClaimError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const [uncertainName, setUncertainName] = useState<string | null>(null);
-  const outstanding = useRef(0);
-  const finished = useRef(false);
+  const tappedAt = useRef(0);
+
+  const {
+    submit: claim,
+    pending,
+    uncertainName,
+    claimError,
+    setClaimError,
+    isRejectedName,
+    hasStarted,
+  } = useUsernameClaim({
+    deviceId,
+    t,
+    finishOnClaim: true,
+    onClaimed: (name) => {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('Username claim-to-navigation timing', { ms: Date.now() - tappedAt.current });
+      setUsername(name);
+    },
+  });
 
   // Recover a claim committed before the app closed or its response was lost.
+  // Once this screen has sent a claim, that claim decides the name instead.
   useEffect(() => {
     if (!deviceId || !isOnline) return;
     let active = true;
     withDeadline(getClaimedUsername(deviceId), RECONCILE_WAIT_MS)
       .then((result) => {
-        if (active && result.username) setUsername(result.username);
+        if (active && result.username && !hasStarted()) setUsername(result.username);
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [deviceId, isOnline, setUsername]);
+  }, [deviceId, isOnline, setUsername, hasStarted]);
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(draft.trim()), 400);
@@ -94,9 +110,12 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
         queryKey: getCheckUsernameAvailabilityQueryKey({ name: debounced }),
         staleTime: 30_000,
         retry: false,
+        // SYC-211 F2: no UI deadline here. A slow answer (cold server, weak
+        // signal) is kept when it arrives, and Continue does not wait for it.
+        // The transport timeout in custom-fetch.ts still ends a stalled request.
         queryFn: ({ signal }) => {
           const startedCheck = Date.now();
-          return withDeadline(checkUsernameAvailability({ name: debounced }, { signal }), AVAILABILITY_WAIT_MS)
+          return checkUsernameAvailability({ name: debounced }, { signal })
             .then((result) => {
               if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('Username availability timing', { ms: Date.now() - startedCheck });
               return result;
@@ -163,40 +182,22 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
     colors,
   ]);
 
-  const canSubmit = (available || uncertainName === trimmed) && isOnline && !!deviceId && !pending;
+  // SYC-211 F2: availability informs but does not gate Continue; the claim
+  // itself is authoritative (409 when taken). A name known to be taken, or
+  // firmly refused by the server, still disables it. While a claim is
+  // uncertain, only the same-name retry is offered.
+  const canSubmit =
+    isOnline &&
+    !!deviceId &&
+    !pending &&
+    (uncertainName
+      ? true
+      : longEnough && !taken && !isRejectedName(trimmed));
 
-  const submit = async () => {
-    if (!canSubmit || !deviceId || finished.current) return;
-    setClaimError(null);
-    setPending(true);
-    outstanding.current++;
-    const started = Date.now();
-    const outcome = await claimAndReconcile(
-      deviceId, uncertainName ?? trimmed,
-      (name) => {
-        if (finished.current) return;
-        finished.current = true;
-        if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('Username claim-to-navigation timing', { ms: Date.now() - started });
-        setUsername(name);
-      },
-      () => {
-        outstanding.current--;
-        if (outstanding.current === 0 && !finished.current) setUncertainName(null);
-      },
-    );
-    if (finished.current) return;
-    setPending(false);
-    if (outcome.kind === 'uncertain') {
-      // A timed-out POST can still commit. Do not submit a different name.
-      if (outstanding.current > 0) setUncertainName(trimmed);
-      setClaimError(t('usernameClaimUncertain'));
-    } else if (outcome.kind === 'rejected') {
-      const e = outcome.error as { status?: number; data?: { code?: string } | null };
-      if (outstanding.current === 0) setUncertainName(null);
-      setClaimError(e?.data?.code === 'offensive_username'
-        ? t('usernameRejected')
-        : e?.status === 409 ? t('landingTaken') : e?.status === 400 ? t('landingInvalid') : t('error'));
-    }
+  const submit = () => {
+    if (!canSubmit) return;
+    tappedAt.current = Date.now();
+    void claim(trimmed);
   };
 
   const suggestions = suggestionsQuery.data?.suggestions ?? [];
@@ -210,7 +211,6 @@ export function LanguageUsernameStep({ onBack }: { onBack: () => void }) {
           accessibilityRole="button"
           accessibilityLabel={t('back')}
           hitSlop={10}
-          disabled={pending || !!uncertainName}
         >
           <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
         </Pressable>
