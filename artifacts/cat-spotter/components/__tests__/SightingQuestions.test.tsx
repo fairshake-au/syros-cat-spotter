@@ -90,9 +90,14 @@ describe('SightingQuestions', () => {
     expect(getByText(en.earTipExampleCaption!)).toBeTruthy();
   });
 
-  // Samuel, 5 Oct 2026: ship without waiting for Syros Cats' photo (SYC-79).
-  it('until the photo arrives, shows no photo and no placeholder', () => {
+  // SYC-79: Syros Cats' photo arrived on 5 Oct 2026 and is the default.
+  it("shows Syros Cats' example photo by default", () => {
     const { container } = render(<Harness />);
+    expect(container.querySelector('[data-testid="example-image"]')).not.toBeNull();
+  });
+
+  it('with no photo, shows no photo and no placeholder', () => {
+    const { container } = render(<Harness examplePhoto={null} />);
     expect(container.querySelector('[data-testid="example-image"]')).toBeNull();
     expect(container.textContent).not.toMatch(/placeholder|SYC-79/i);
   });
