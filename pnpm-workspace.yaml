@@ -77,8 +77,6 @@ onlyBuiltDependencies:
 overrides:
   # Metro's 1.x range is vulnerable; safe 2.x receives file bytes via patches below.
   image-size: "2.0.4"
-  # GHSA-jqcg-44mw-7w3h (critical, IPv4-mapped IPv6 trust-subnet spoofing); Replit's deploy gate blocks 2.0.7.
-  proxy-addr: "2.0.8"
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"
@@ -162,20 +160,27 @@ overrides:
   # Security-patched transitive dependencies required by Expo and build tooling.
   "@expo/ngrok>uuid": "11.1.1"
   "xcode>uuid": "11.1.1"
-  "@expo/xcpretty>js-yaml": "4.3.1"
-  "orval>js-yaml": "4.3.1"
-  "@istanbuljs/load-nyc-config>js-yaml": "3.15.1"
-  "minimatch@3>brace-expansion": "1.1.18"
-  "minimatch@9>brace-expansion": "2.1.4"
-  "minimatch@10>brace-expansion": "5.0.9"
-  "@expo/cli>undici": "6.28.0"
-  "jsdom>undici": "7.29.0"
+  "@expo/xcpretty>js-yaml": "4.3.2"
+  "orval>js-yaml": "4.3.2"
+  # This parent already uses load(), compatible with v4; removes argparse v1/sprintf-js.
+  "@istanbuljs/load-nyc-config>js-yaml": "4.3.2"
+  "minimatch@3>brace-expansion": "1.1.21"
+  "minimatch@9>brace-expansion": "2.1.7"
+  "minimatch@10>brace-expansion": "5.0.12"
+  "@expo/cli>undici": "6.29.0"
+  "jsdom>undici": "7.30.0"
   "@expo/plist>@xmldom/xmldom": "0.8.15"
   "plist>@xmldom/xmldom": "0.9.12"
   browserslist: "4.28.8"
   decode-uri-component: "0.5.0"
-  fast-uri: "3.1.6"
-  ip-address: "10.3.1"
+  fast-uri: "3.1.8"
+  ip-address: "10.7.3"
+  proxy-addr: "2.0.8"
+  source-map-js: "1.2.2"
+  compression: "1.8.2"
+  http-cache-semantics: "4.3.0"
+  markdown-it: "14.3.2"
+  fast-copy: "4.1.1"
   nanoid: "3.3.18"
   postcss: "8.5.23"
   qs: "6.16.0"
@@ -185,5 +190,8 @@ overrides:
   esbuild: "0.28.1"
 
 patchedDependencies:
+  # No upstream releases fix these advisories yet; see docs/dependency-security.md.
+  node-forge@1.4.0: patches/node-forge@1.4.0.patch
+  braces@3.0.3: patches/braces@3.0.3.patch
   metro@0.83.3: patches/metro@0.83.3.patch
   metro@0.83.7: patches/metro@0.83.7.patch
