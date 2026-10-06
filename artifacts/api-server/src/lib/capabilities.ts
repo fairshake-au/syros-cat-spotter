@@ -46,3 +46,15 @@ export function can(
 export function capabilitiesOf(person: CapabilityHolder): Capability[] {
   return CAPABILITIES.filter((c) => can(person, c));
 }
+
+/**
+ * May this person in at all: the workspace sign-in, the hand-off, and the
+ * signed-in pages that need no particular capability (SYC-188). Being in the
+ * people table is not enough; they must hold at least one capability, so it
+ * is decided by can() like everything else. Today that means staff (§7.1).
+ * When guardians, volunteers and vets are given capabilities (§7.2), they
+ * are let in by the same rule without this changing.
+ */
+export function mayEnter(person: CapabilityHolder): boolean {
+  return CAPABILITIES.some((c) => can(person, c));
+}

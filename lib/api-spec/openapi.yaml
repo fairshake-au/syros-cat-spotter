@@ -678,7 +678,13 @@ components:
       type: object
       properties:
         status: { type: string }
-      required: [status]
+        commit:
+          type: string
+          description: Short git commit the running server was built from, or "unknown" when the build couldn't read it (and in development).
+        builtAt:
+          type: string
+          description: When the running server was built (ISO 8601), or "unknown".
+      required: [status, commit, builtAt]
     Cat:
       type: object
       properties:

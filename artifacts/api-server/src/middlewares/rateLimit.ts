@@ -69,8 +69,9 @@ export const handoffLimiter = rateLimit({
 //   stops one misbehaving device from using up a whole shared address's
 //   (a café's, a ferry terminal's) `aiLimiter` budget and throttling its
 //   neighbours. It does NOT replace `aiLimiter` — a device that mints fresh
-//   ids still hits the IP ceiling, same as before this PR. Closing the
-//   mint-a-fresh-device gap itself is SYC-195, deferred to before PR 6.
+//   ids still hits the IP ceiling, same as before this PR. The
+//   number of fresh devices one address can mint is capped by SYC-195
+//   (newDeviceLimit.ts).
 //
 // Keyed on a device id ONLY after routes/sightings.ts has called
 // verifyDeviceSecret() (SYC-107) and gotten it back — never on the raw,

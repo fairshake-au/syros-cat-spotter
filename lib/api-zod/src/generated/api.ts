@@ -12,7 +12,9 @@ import * as zod from 'zod';
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
+  "status": zod.string(),
+  "commit": zod.string().describe('Short git commit the running server was built from, or \"unknown\" when the build couldn\'t read it (and in development).'),
+  "builtAt": zod.string().describe('When the running server was built (ISO 8601), or \"unknown\".')
 })
 
 
