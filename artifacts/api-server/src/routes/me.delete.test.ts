@@ -465,8 +465,15 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
           photoBase64: TINY_JPEG_B64,
         }),
     ];
-    for (const res of await Promise.all(withSecret)) {
-      expect(res.status, `${res.req.method} ${res.req.path}`).toBe(410);
+    const withSecretLabels = [
+      "GET profile",
+      "GET notifications",
+      "PUT push token",
+      "POST username",
+      "POST /sightings",
+    ];
+    for (const [i, res] of (await Promise.all(withSecret)).entries()) {
+      expect(res.status, withSecretLabels[i]).toBe(410);
       expect(res.body.code).toBe("IDENTITY_DELETED");
     }
     // The three cat routes, with the old id and no secret at all (§4.3).
@@ -488,8 +495,9 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
         .patch(`/api/cats/${w.claimed.id}`)
         .send({ deviceId: P.deviceId, name: "Ghost" }),
     ];
-    for (const res of await Promise.all(noSecret)) {
-      expect(res.status, `${res.req.method} ${res.req.path}`).toBe(410);
+    const noSecretLabels = ["POST /cats", "POST claim", "PATCH cat"];
+    for (const [i, res] of (await Promise.all(noSecret)).entries()) {
+      expect(res.status, noSecretLabels[i]).toBe(410);
     }
     const creds = await db
       .select()
