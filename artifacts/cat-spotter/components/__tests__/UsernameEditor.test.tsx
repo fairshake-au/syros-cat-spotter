@@ -47,6 +47,7 @@ vi.mock('@/hooks/useColors', () => ({
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 
 import { UsernameEditor } from '../UsernameEditor';
+import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 const never = () => new Promise<never>(() => {});
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
@@ -62,6 +63,7 @@ function setup(currentUsername: string | null = 'OldName') {
 }
 
 beforeEach(() => {
+  resetUsernameClaimStateForTests();
   vi.useFakeTimers();
   h.claim.mockReset();
   h.read.mockReset();
@@ -135,5 +137,28 @@ describe('UsernameEditor (SYC-211)', () => {
 
     expect(h.setUsername).toHaveBeenCalledWith('Cat Lover');
     expect(view.container.textContent).not.toContain(en.usernameClaimUncertain);
+  });
+});
+
+describe('UsernameEditor after leaving the Profile tab mid-rename (SYC-214)', () => {
+  it('on return, Edit reopens on the name still being saved, and a different name cannot be sent', async () => {
+    h.read.mockImplementation(never);
+    h.claim.mockImplementation(never);
+    const first = setup();
+    fireEvent.change(first.input, { target: { value: 'NameA' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(first.saveContainer()); });
+    await tick(1000);
+    first.view.unmount(); // left the Profile tab
+
+    const again = setup();
+    expect(again.input.value).toBe('NameA');
+    expect(again.input.readOnly).toBe(true);
+    fireEvent.change(again.input, { target: { value: 'NameB' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(again.saveContainer()); });
+
+    expect(h.claim).toHaveBeenCalledTimes(1);
+    expect(h.claim).toHaveBeenCalledWith('dev-1', { username: 'NameA' });
   });
 });

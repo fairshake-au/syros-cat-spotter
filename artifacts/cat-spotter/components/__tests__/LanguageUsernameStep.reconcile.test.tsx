@@ -73,6 +73,7 @@ vi.mock('@/components/purropolis', () => ({
 }));
 
 import { LanguageUsernameStep } from '../onboarding/LanguageUsernameStep';
+import { resetUsernameClaimStateForTests } from '@/hooks/useUsernameClaim';
 
 const never = () => new Promise<never>(() => {});
 async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
@@ -87,6 +88,7 @@ function setup() {
 }
 
 beforeEach(() => {
+  resetUsernameClaimStateForTests();
   vi.useFakeTimers();
   h.claim.mockReset();
   h.read.mockReset();
