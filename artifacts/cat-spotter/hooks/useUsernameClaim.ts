@@ -28,12 +28,14 @@ function rejectsTheName(error: unknown): boolean {
  */
 type SharedClaimState = {
   pending: boolean;
+  /** The name being sent while `pending`. */
+  claimingName: string | null;
   uncertainName: string | null;
   claimError: string | null;
   rejectedKey: string | null;
 };
 
-const IDLE: SharedClaimState = { pending: false, uncertainName: null, claimError: null, rejectedKey: null };
+const IDLE: SharedClaimState = { pending: false, claimingName: null, uncertainName: null, claimError: null, rejectedKey: null };
 
 const shared = {
   state: IDLE,
@@ -101,7 +103,7 @@ export function useUsernameClaim({
     mounted.current = true;
     if (!outstanding()) shared.state = IDLE;
   }
-  const { pending, uncertainName, claimError, rejectedKey } = useSyncExternalStore(subscribe, snapshot, snapshot);
+  const { pending, claimingName, uncertainName, claimError, rejectedKey } = useSyncExternalStore(subscribe, snapshot, snapshot);
 
   const started = useRef(false);
   const finished = useRef(false);
@@ -146,13 +148,13 @@ export function useUsernameClaim({
     const key = usernameKey(name);
     shared.open.set(key, (shared.open.get(key) ?? 0) + 1);
     shared.confirmedNotSaved.delete(key);
-    update({ claimError: null, pending: true });
+    update({ claimError: null, pending: true, claimingName: name });
     let outcome;
     try {
       outcome = await claimAndReconcile(deviceId, name, handleClaimed, (s) => handleSettled(key, s));
     } finally {
       shared.inFlight = false;
-      update({ pending: false });
+      update({ pending: false, claimingName: null });
     }
     if (finished.current || outcome.kind === 'claimed') return;
     if (outcome.kind === 'rejected') {
@@ -183,6 +185,8 @@ export function useUsernameClaim({
     submit,
     pending,
     uncertainName,
+    /** The name still being sent or awaiting confirmation, if any (SYC-214: also after leaving and returning). */
+    outstandingName: pending ? claimingName : uncertainName,
     claimError,
     setClaimError,
     /** True once the server firmly refused this exact name (409/400). */

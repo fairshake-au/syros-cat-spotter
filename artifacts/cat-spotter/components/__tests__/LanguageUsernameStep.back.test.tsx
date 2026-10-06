@@ -126,6 +126,9 @@ describe('Back mid-claim, then a different name (SYC-214)', () => {
 
     const again = mount();
     await tick(0);
+    expect(again.input().value).toBe('NameA');
+    expect(again.input().readOnly).toBe(true);
+    expect(again.continueBtn().textContent).toBe(en.usernameClaiming);
     await typeAndContinue(again, 'NameB');
     // Whatever was sent lands, the newest first, the old NameA claim last.
     for (const request of [...sent].reverse()) await request.land();
@@ -148,6 +151,7 @@ describe('Back mid-claim, then a different name (SYC-214)', () => {
     await tick(0);
     expect(again.view.container.textContent).toContain(en.usernameClaimUncertain);
     expect(again.input().readOnly).toBe(true);
+    expect(again.input().value).toBe('NameA');
     expect(again.continueBtn().textContent).toBe(en.usernameRetryClaim);
 
     await typeAndContinue(again, 'NameB'); // typing is ignored; this retries NameA

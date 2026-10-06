@@ -84,6 +84,7 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
     submit: claim,
     pending,
     uncertainName,
+    outstandingName,
     claimError,
     setClaimError,
     isRejectedName,
@@ -158,8 +159,8 @@ export function UsernameEditor({ currentUsername }: { currentUsername: string | 
           )}
           <Pressable
             onPress={() => {
-              // An uncertain rename stays locked to its name until resolved.
-              setDraft(uncertainName ?? currentUsername ?? '');
+              // An outstanding rename stays locked to its name until resolved.
+              setDraft(outstandingName ?? currentUsername ?? '');
               setClaimError(uncertainName ? t('usernameClaimUncertain') : null);
               setEditing(true);
             }}
