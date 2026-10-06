@@ -14,10 +14,10 @@ interface NavItem {
   href: string | null;
 }
 
-// Cats (PR 3) and Probably sterilised (PR 4) switch on by getting an href.
+// Probably sterilised (PR 4) switches on by getting an href, as Cats (PR 3) did.
 const NAV: NavItem[] = [
   { key: "queue", label: "Welfare queue", href: "/api/team" },
-  { key: "cats", label: "Cats", href: null },
+  { key: "cats", label: "Cats", href: "/api/team/cats" },
   { key: "likely", label: "Probably sterilised", href: null },
 ];
 
@@ -67,6 +67,34 @@ dd{margin:0}
 .actions button.save{margin-top:8px;background:#0b5c6b;color:#fff}
 .actions button.save:hover{background:#0b4553}
 textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;resize:vertical;min-height:84px}
+h3{font-size:16px;margin:16px 0 4px}
+.back{margin:4px 0 0;font-size:15px}
+.hint{color:#55524a;font-size:14px;margin:0 0 8px}
+.search{margin:8px 0 16px}
+.searchrow{display:flex;gap:8px}
+.searchrow input{flex:1;min-width:0;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px}
+.searchrow button,.search button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+ul.cats,ul.sightings,ol.history{list-style:none;margin:0;padding:0}
+.catrow{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;overflow-wrap:anywhere}
+.catrow:hover{border-color:#0b5c6b}
+.catrow strong{color:#0b5c6b;text-decoration:underline}
+.syr{color:#55524a;font-size:14px;font-variant-numeric:tabular-nums}
+.status{display:block;font-size:14px;color:#3b3930;margin-top:2px}
+.thumb{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
+.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}
+.public{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:0;font-weight:700}
+ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.gallery img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
+.statement{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;padding:10px 12px;margin:8px 0;overflow-wrap:anywhere}
+.statement p{margin:2px 0}
+.statement.replaced{border-left-color:#8a877e;background:#faf9f6}
+.statement del{color:#6b685f}
+.said{font-weight:700}
+.sid{font-weight:400;color:#6b685f;font-size:13px}
+.meta{color:#55524a;font-size:14px}
+.why{font-size:15px}
+.replacement{border-top:1px dashed #c9c4b6;margin-top:6px!important;padding-top:6px}
 @media (min-width:700px){
 main{padding-top:20px}
 .report.has-photo{display:grid;grid-template-columns:240px 1fr;gap:0 16px;align-items:start}
@@ -75,6 +103,8 @@ main{padding-top:20px}
 .states{grid-template-columns:repeat(4,1fr)}
 dl{grid-template-columns:150px 1fr;gap:4px 12px}
 dt{margin-top:0}
+.thumb{width:96px;height:96px}
+.gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 }
 `;
 
