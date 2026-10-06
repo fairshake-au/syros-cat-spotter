@@ -83,11 +83,17 @@ export async function severPerson(
   `);
 
   // 6. Everything that was only theirs.
-  await tx.execute(sql`delete from cat_subscriptions where device_id = ${deviceId}`);
-  await tx.execute(sql`delete from notifications where device_id = ${deviceId}`);
+  await tx.execute(
+    sql`delete from cat_subscriptions where device_id = ${deviceId}`,
+  );
+  await tx.execute(
+    sql`delete from notifications where device_id = ${deviceId}`,
+  );
   await tx.execute(sql`delete from push_tokens where device_id = ${deviceId}`);
   await tx.execute(sql`delete from profiles where device_id = ${deviceId}`);
-  await tx.execute(sql`delete from device_credentials where device_id = ${deviceId}`);
+  await tx.execute(
+    sql`delete from device_credentials where device_id = ${deviceId}`,
+  );
 
   // 7. The one-way marker, so the old id and secret can never bring the
   //    identity back (§4.3, decision D).

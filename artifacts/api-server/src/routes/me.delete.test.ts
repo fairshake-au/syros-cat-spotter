@@ -26,7 +26,11 @@ vi.mock("../lib/logger", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/logger")>();
   const { default: pino } = await import("pino");
   const logger = pino(
-    { level: "trace", redact: actual.REDACT_PATHS, serializers: actual.LOG_SERIALIZERS },
+    {
+      level: "trace",
+      redact: actual.REDACT_PATHS,
+      serializers: actual.LOG_SERIALIZERS,
+    },
     { write: (line: string) => void spies.logLines.push(line) },
   );
   return { ...actual, logger };
@@ -129,7 +133,11 @@ async function seedWorld() {
     })
     .returning();
 
-  const sighting = (deviceId: string, catId: number | null, status: string) => ({
+  const sighting = (
+    deviceId: string,
+    catId: number | null,
+    status: string,
+  ) => ({
     deviceId,
     catId,
     status,
@@ -154,25 +162,47 @@ async function seedWorld() {
     observedAt: new Date(),
     ...extra,
   });
-  await db.insert(observationsTable).values([
-    obs(discovered!.id, "note", { text: `I live at number 4, ${tag}` }),
-    obs(discovered!.id, "ear_tip", { clipped: true, side: "left" }),
-    obs(discovered!.id, "name", { name: discovered!.name, normalised: discovered!.name.toLowerCase() }),
-    obs(claimed!.id, "life_status", { status: "homed" }, { authorityScope: "owner_of_this_cat" }),
-  ]);
+  await db
+    .insert(observationsTable)
+    .values([
+      obs(discovered!.id, "note", { text: `I live at number 4, ${tag}` }),
+      obs(discovered!.id, "ear_tip", { clipped: true, side: "left" }),
+      obs(discovered!.id, "name", {
+        name: discovered!.name,
+        normalised: discovered!.name.toLowerCase(),
+      }),
+      obs(
+        claimed!.id,
+        "life_status",
+        { status: "homed" },
+        { authorityScope: "owner_of_this_cat" },
+      ),
+    ]);
 
-  await db.insert(catSubscriptionsTable).values({ deviceId: P.deviceId, catId: discovered!.id });
+  await db
+    .insert(catSubscriptionsTable)
+    .values({ deviceId: P.deviceId, catId: discovered!.id });
   const [update] = await db
     .insert(catUpdatesTable)
-    .values({ catId: discovered!.id, updateType: "general", message: "Fed today" })
+    .values({
+      catId: discovered!.id,
+      updateType: "general",
+      message: "Fed today",
+    })
     .returning();
   await db.insert(notificationsTable).values([
     { deviceId: P.deviceId, catUpdateId: update!.id },
     { deviceId: P.deviceId, catUpdateId: update!.id, read: true },
   ]);
-  await db.insert(pushTokensTable).values({ deviceId: P.deviceId, token: `token-${P.deviceId}` });
-  await db.insert(pushTokensTable).values({ deviceId: Q.deviceId, token: `token-${Q.deviceId}` });
-  await db.insert(catSubscriptionsTable).values({ deviceId: Q.deviceId, catId: discovered!.id });
+  await db
+    .insert(pushTokensTable)
+    .values({ deviceId: P.deviceId, token: `token-${P.deviceId}` });
+  await db
+    .insert(pushTokensTable)
+    .values({ deviceId: Q.deviceId, token: `token-${Q.deviceId}` });
+  await db
+    .insert(catSubscriptionsTable)
+    .values({ deviceId: Q.deviceId, catId: discovered!.id });
 
   const [report] = await db
     .insert(welfareReportsTable)
@@ -187,12 +217,22 @@ async function seedWorld() {
     })
     .returning();
 
-  return { P, Q, ownerName, discovered: discovered!, claimed: claimed!, report: report! };
+  return {
+    P,
+    Q,
+    ownerName,
+    discovered: discovered!,
+    claimed: claimed!,
+    report: report!,
+  };
 }
 
 /** Every text-like column of every public table, found afresh each time. */
 async function columnsHolding(needle: string): Promise<string[]> {
-  const cols = await db.execute<{ table_name: string; column_name: string }>(sql`
+  const cols = await db.execute<{
+    table_name: string;
+    column_name: string;
+  }>(sql`
     select c.table_name, c.column_name
       from information_schema.columns c
       join information_schema.tables t
@@ -241,14 +281,25 @@ beforeEach(() => {
 
 describe("DELETE /api/me: the cat's data survives and the person is gone", () => {
   let w: World;
-  let before: { discovered: Awaited<ReturnType<typeof catPage>>; claimed: Awaited<ReturnType<typeof catPage>> };
+  let before: {
+    discovered: Awaited<ReturnType<typeof catPage>>;
+    claimed: Awaited<ReturnType<typeof catPage>>;
+  };
   let obsCountBefore: number;
 
   it("deletes, with 204", async () => {
     w = await seedWorld();
-    before = { discovered: await catPage(w.discovered.id), claimed: await catPage(w.claimed.id) };
-    expect(before.claimed.cat).toMatchObject({ hasHome: true, lifeStatus: "homed" });
-    const [n] = await db.select({ n: sql<number>`count(*)::int` }).from(observationsTable);
+    before = {
+      discovered: await catPage(w.discovered.id),
+      claimed: await catPage(w.claimed.id),
+    };
+    expect(before.claimed.cat).toMatchObject({
+      hasHome: true,
+      lifeStatus: "homed",
+    });
+    const [n] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(observationsTable);
     obsCountBefore = n!.n;
     // Sanity: before deletion the scan does find P everywhere.
     expect(await columnsHolding(w.P.deviceId)).toContain("profiles.device_id");
@@ -258,7 +309,12 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
   });
 
   it("1. leaves no trace of P in any column of any table", async () => {
-    for (const needle of [w.P.deviceId, w.P.username, w.P.nickname, w.ownerName]) {
+    for (const needle of [
+      w.P.deviceId,
+      w.P.username,
+      w.P.nickname,
+      w.ownerName,
+    ]) {
       expect(await columnsHolding(needle), needle).toEqual([]);
     }
   });
@@ -274,10 +330,16 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       ownerName: null,
       homeDescription: "The blue house by the church",
     });
-    const [row] = await db.select().from(catsTable).where(eq(catsTable.id, w.claimed.id));
+    const [row] = await db
+      .select()
+      .from(catsTable)
+      .where(eq(catsTable.id, w.claimed.id));
     expect(row!.ownerDeviceId).toBeNull();
     expect(row!.ownerName).toBeNull();
-    const [found] = await db.select().from(catsTable).where(eq(catsTable.id, w.discovered.id));
+    const [found] = await db
+      .select()
+      .from(catsTable)
+      .where(eq(catsTable.id, w.discovered.id));
     expect(found).toMatchObject({
       discovererDeviceId: null,
       redactionReason: "deleted by the person",
@@ -287,7 +349,9 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
   });
 
   it("3. empties the note, keeps every observation row and every other value", async () => {
-    const [n] = await db.select({ n: sql<number>`count(*)::int` }).from(observationsTable);
+    const [n] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(observationsTable);
     expect(n!.n).toBe(obsCountBefore);
     const rows = await db
       .select()
@@ -304,12 +368,21 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
   });
 
   it("4. leaves Q untouched", async () => {
-    const [q] = await db.select().from(profilesTable).where(eq(profilesTable.deviceId, w.Q.deviceId));
+    const [q] = await db
+      .select()
+      .from(profilesTable)
+      .where(eq(profilesTable.deviceId, w.Q.deviceId));
     expect(q).toMatchObject({ username: w.Q.username, points: 7 });
-    const qs = await db.select().from(sightingsTable).where(eq(sightingsTable.deviceId, w.Q.deviceId));
+    const qs = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.deviceId, w.Q.deviceId));
     expect(qs).toHaveLength(1);
     expect(qs[0]!.redactedAt).toBeNull();
-    const [claimed] = await db.select().from(catsTable).where(eq(catsTable.id, w.claimed.id));
+    const [claimed] = await db
+      .select()
+      .from(catsTable)
+      .where(eq(catsTable.id, w.claimed.id));
     expect(claimed!.discovererDeviceId).toBe(w.Q.deviceId);
   });
 
@@ -320,9 +393,15 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       discovererUsername: null,
       discovererNickname: null,
     });
-    expect(page.careTimeline.find((e) => e.type === "discovered")!.message).toBe("a spotter");
-    expect(page.sightings.filter((s) => s.spotterCode === null)).toHaveLength(1);
-    expect(page.sightings.filter((s) => s.spotterCode !== null)).toHaveLength(1);
+    expect(
+      page.careTimeline.find((e) => e.type === "discovered")!.message,
+    ).toBe("a spotter");
+    expect(page.sightings.filter((s) => s.spotterCode === null)).toHaveLength(
+      1,
+    );
+    expect(page.sightings.filter((s) => s.spotterCode !== null)).toHaveLength(
+      1,
+    );
     // Decision C: P stops counting.
     expect(page.fansCount).toBe(before.discovered.fansCount - 1);
     const board = await request(app).get("/api/leaderboard");
@@ -334,26 +413,40 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       .select()
       .from(welfareReportsTable)
       .where(eq(welfareReportsTable.id, w.report.id));
-    expect(r).toMatchObject({ reporterDevice: null, catId: w.discovered.id, severity: "attention" });
+    expect(r).toMatchObject({
+      reporterDevice: null,
+      catId: w.discovered.id,
+      severity: "attention",
+    });
   });
 
   it("6. a second call returns 204 and changes nothing", async () => {
-    const snapshot = await db.select().from(sightingsTable).where(eq(sightingsTable.catId, w.discovered.id));
+    const snapshot = await db
+      .select()
+      .from(sightingsTable)
+      .where(eq(sightingsTable.catId, w.discovered.id));
     const res = await deleteMe(w.P);
     expect(res.status).toBe(204);
     // Even without the secret: the marker alone answers.
     expect((await deleteMe({ deviceId: w.P.deviceId })).status).toBe(204);
-    expect(await db.select().from(sightingsTable).where(eq(sightingsTable.catId, w.discovered.id))).toEqual(
-      snapshot,
-    );
+    expect(
+      await db
+        .select()
+        .from(sightingsTable)
+        .where(eq(sightingsTable.catId, w.discovered.id)),
+    ).toEqual(snapshot);
     expect(await columnsHolding(w.P.deviceId)).toEqual([]);
   });
 
   it("7. the old id gets 410 everywhere, with or without the secret, and nothing comes back", async () => {
     const P = w.P;
     const withSecret = [
-      request(app).get(`/api/profiles/${P.deviceId}`).set("X-Device-Secret", P.secret),
-      request(app).get(`/api/notifications/${P.deviceId}`).set("X-Device-Secret", P.secret),
+      request(app)
+        .get(`/api/profiles/${P.deviceId}`)
+        .set("X-Device-Secret", P.secret),
+      request(app)
+        .get(`/api/notifications/${P.deviceId}`)
+        .set("X-Device-Secret", P.secret),
       request(app)
         .put(`/api/profile/${P.deviceId}/push-token`)
         .set("X-Device-Secret", P.secret)
@@ -365,7 +458,12 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       request(app)
         .post("/api/sightings")
         .set("X-Device-Secret", P.secret)
-        .send({ deviceId: P.deviceId, lat: 37.44, lng: 24.9, photoBase64: TINY_JPEG_B64 }),
+        .send({
+          deviceId: P.deviceId,
+          lat: 37.44,
+          lng: 24.9,
+          photoBase64: TINY_JPEG_B64,
+        }),
     ];
     for (const res of await Promise.all(withSecret)) {
       expect(res.status, `${res.req.method} ${res.req.path}`).toBe(410);
@@ -386,7 +484,9 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       request(app)
         .post(`/api/cats/${w.discovered.id}/claim`)
         .send({ deviceId: P.deviceId, homeDescription: "" }),
-      request(app).patch(`/api/cats/${w.claimed.id}`).send({ deviceId: P.deviceId, name: "Ghost" }),
+      request(app)
+        .patch(`/api/cats/${w.claimed.id}`)
+        .send({ deviceId: P.deviceId, name: "Ghost" }),
     ];
     for (const res of await Promise.all(noSecret)) {
       expect(res.status, `${res.req.method} ${res.req.path}`).toBe(410);
@@ -406,10 +506,15 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
   });
 
   it("refuses an id that pretends to be a marker", async () => {
-    const res = await deleteMe({ deviceId: deletedMarkerKey(w.P.deviceId), secret: w.P.secret });
+    const res = await deleteMe({
+      deviceId: deletedMarkerKey(w.P.deviceId),
+      secret: w.P.secret,
+    });
     expect(res.status).toBe(400);
     const profile = await request(app)
-      .get(`/api/profiles/${encodeURIComponent(deletedMarkerKey(w.P.deviceId))}`)
+      .get(
+        `/api/profiles/${encodeURIComponent(deletedMarkerKey(w.P.deviceId))}`,
+      )
       .set("X-Device-Secret", w.P.secret);
     expect(profile.status).toBe(400);
   });
@@ -420,7 +525,10 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       updateType: "general",
       message: "Spotted again",
     });
-    await notifyCatSpotters(w.discovered.id, "someone-else", { title: "t", body: "b" });
+    await notifyCatSpotters(w.discovered.id, "someone-else", {
+      title: "t",
+      body: "b",
+    });
     const tokens = pushMock.mock.calls.map(([token]) => token);
     expect(tokens).toContain(`token-${w.Q.deviceId}`);
     expect(tokens).not.toContain(`token-${w.P.deviceId}`);
@@ -435,10 +543,17 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
 describe("DELETE /api/me: refusals", () => {
   it("8. a wrong secret gets 403 and deletes nothing", async () => {
     const w = await seedWorld();
-    const res = await deleteMe({ deviceId: w.P.deviceId, secret: "not-the-secret-at-all-xx" });
+    const res = await deleteMe({
+      deviceId: w.P.deviceId,
+      secret: "not-the-secret-at-all-xx",
+    });
     expect(res.status).toBe(403);
     expect(await columnsHolding(w.P.deviceId)).toEqual(
-      expect.arrayContaining(["profiles.device_id", "sightings.device_id", "observations.device_id"]),
+      expect.arrayContaining([
+        "profiles.device_id",
+        "sightings.device_id",
+        "observations.device_id",
+      ]),
     );
   });
 
@@ -461,7 +576,9 @@ describe("DELETE /api/me: refusals", () => {
       const res = await deleteMe(w.P);
       expect(res.status).toBe(500);
     } finally {
-      await db.execute(sql`drop trigger vitest_refuse_profile_delete on profiles`);
+      await db.execute(
+        sql`drop trigger vitest_refuse_profile_delete on profiles`,
+      );
       await db.execute(sql`drop function vitest_refuse_profile_delete()`);
     }
     const sightings = await db
@@ -472,9 +589,17 @@ describe("DELETE /api/me: refusals", () => {
     const redacted = await db
       .select({ n: sql<number>`count(*)::int` })
       .from(observationsTable)
-      .where(and(eq(observationsTable.catId, w.discovered.id), sql`${observationsTable.redactedAt} is not null`));
+      .where(
+        and(
+          eq(observationsTable.catId, w.discovered.id),
+          sql`${observationsTable.redactedAt} is not null`,
+        ),
+      );
     expect(redacted[0]!.n).toBe(0);
-    const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, w.claimed.id));
+    const [cat] = await db
+      .select()
+      .from(catsTable)
+      .where(eq(catsTable.id, w.claimed.id));
     expect(cat!.ownerName).toBe(w.ownerName);
     // And it then succeeds once the fault is gone.
     expect((await deleteMe(w.P)).status).toBe(204);
