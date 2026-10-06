@@ -24,13 +24,13 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-mark-left`, `people-remove`, `people-sign-out-everywhere`.
 
-## Adding people to the staff list (`people-add`, `people-list`)
+## The staff list (`people-add`, `people-list`, `people-mark-left`, `people-remove`, `people-sign-out-everywhere`)
 
-The list of people who can sign in to the staff dashboard (SYC-43) is managed through `db-ops` until the people screen exists (SYC-104). `people-add` and `people-list` run against `development` or `production` only.
+The list of people who can sign in to the staff dashboard (SYC-43) is managed through `db-ops` until the people screen exists (SYC-104). The `people-*` commands run against `development` or `production` only.
 
-**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in two short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`. They're set from a terminal tab just before the run and deleted straight after. The script masks both before doing anything else and refuses to show output that contains either. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions, who added each person, and, for anyone marked as left, `LEFT` with when and by whom. Never an address or a name. `people-add` for an address that has left brings back the same person (same id, history intact) and says "Rejoined".
+**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`, plus **`PEOPLE_EMAIL_CONFIRM`, the address typed a second time** (SYC-131, after a typo in a 3 Oct `people-add` went unnoticed). Every command that names a person refuses unless the two addresses match, ignoring case and surrounding spaces, and changes nothing. They're set from a terminal tab just before the run and deleted straight after. The script masks all three before doing anything else and refuses to show output that contains any of them. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions, who added each person, and, for anyone marked as left, `LEFT` with when and by whom. Never an address or a name. `people-add` for an address that has left brings back the same person (same id, history intact) and says "Rejoined".
 
 **Seeding Samuel and Jacky after the cutover — the post-go-live procedure for any production database change (SYC-121/SYC-178).** Since go-live, every production database change (this migration, then the seed) follows the same five steps, in order. **The old Replit project is retired and must never be published again** — all of this targets the EU (new) Replit project only.
 
@@ -48,12 +48,18 @@ Samuel (set `SEED_EMAIL` and `SEED_NAME` for Samuel first):
 cd /Users/samuelporter/Projects/syros-cat-spotter
 printf '%s' "$SEED_EMAIL" | gh secret set PEOPLE_EMAIL --env production
 printf '%s' "$SEED_NAME" | gh secret set PEOPLE_NAME --env production
+printf 'Type the address again: '; stty -echo; IFS= read -r SEED_EMAIL_CONFIRM; stty echo; echo
+test -n "$SEED_EMAIL_CONFIRM" && printf '%s' "$SEED_EMAIL_CONFIRM" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
+unset SEED_EMAIL_CONFIRM
 gh workflow run db-ops.yml --ref main -f target=production -f command=people-add -f people_role=staff
 sleep 5
 gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
 gh secret delete PEOPLE_EMAIL --env production
 gh secret delete PEOPLE_NAME --env production
+gh secret delete PEOPLE_EMAIL_CONFIRM --env production
 ```
+
+The confirmation is typed by hand, hidden, at the prompt (this works in zsh, macOS's default shell, and in bash). Don't copy it from `SEED_EMAIL`: a copy would repeat the same typo. If nothing was typed, the secret isn't set and db-ops refuses to run.
 
 Jacky: set `SEED_EMAIL` and `SEED_NAME` for Jacky in the tab, then run the same block again.
 
@@ -66,7 +72,30 @@ gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --
 gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --log
 ```
 
-To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Someone who leaves is **marked as left** (`people mark-left`), not removed (SYC-43 part 2, Decision 7): they can't sign in, their sessions end at their next request, and everything they did stays attributed to them. `people remove` is only for a mistaken add, and refuses anyone with history. Marking as left, removing and "sign out everywhere" aren't `db-ops` commands yet. They need the address typed twice; `people-mark-left` is SYC-131, and the people screen is SYC-104. **Rolling back the app to a build from before `0007_people_left` re-admits everyone marked as left**, because the old code ignores `left_at`. Fix forward instead; if you can't, follow the CAUTION in that migration first. For development, swap in `--env development` and `target=development`.
+To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Someone who leaves is **marked as left** (`people mark-left`), not removed (SYC-43 part 2, Decision 7): they can't sign in, their sessions end at their next request, and everything they did stays attributed to them. `people remove` is only for a mistaken add, and refuses anyone with history. **Rolling back the app to a build from before `0007_people_left` re-admits everyone marked as left**, because the old code ignores `left_at`. Fix forward instead; if you can't, follow the CAUTION in that migration first. For development, swap in `--env development` and `target=development`.
+
+### Someone leaves, a mistaken add, or a stolen session (SYC-131)
+
+- **`people-mark-left`**: for someone who leaves. They can't sign in, their open sessions end at their next request, and everything they did stays attributed to them. The output names their id and `left_by` is `cli:db-ops:<GitHub actor>`. Adding the same address again later brings back the same person.
+- **`people-remove`**: only for a mistaken add (a typo, say). It refuses anyone with history ("This person has history. Use mark-left instead.").
+- **`people-sign-out-everywhere`**: ends every open session for that person, for example after a lost phone. They can sign in again.
+
+Each needs `PEOPLE_EMAIL` and `PEOPLE_EMAIL_CONFIRM` (no name, no role). Set `SEED_EMAIL` in the tab, then:
+
+```bash
+cd /Users/samuelporter/Projects/syros-cat-spotter
+printf '%s' "$SEED_EMAIL" | gh secret set PEOPLE_EMAIL --env production
+printf 'Type the address again: '; stty -echo; IFS= read -r SEED_EMAIL_CONFIRM; stty echo; echo
+test -n "$SEED_EMAIL_CONFIRM" && printf '%s' "$SEED_EMAIL_CONFIRM" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
+unset SEED_EMAIL_CONFIRM
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-mark-left
+sleep 5
+gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh secret delete PEOPLE_EMAIL --env production
+gh secret delete PEOPLE_EMAIL_CONFIRM --env production
+```
+
+Swap `people-mark-left` for `people-remove` or `people-sign-out-everywhere` as needed. Then `people-list` to check: a left person shows `LEFT <when> by <who>`.
 
 The workflow never prints a connection string — only host names, counts and hashes. If a log ever shows one, that's a bug: stop and fix `scripts/db-ops.sh` before running it again.
 
