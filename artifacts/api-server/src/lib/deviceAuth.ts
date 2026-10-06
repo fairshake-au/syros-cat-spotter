@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { db, deviceCredentialsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { allowNewDevice, newDeviceResetAt } from "../middlewares/newDeviceLimit";
 
 const MIN_SECRET_LENGTH = 16;
 const MAX_SECRET_LENGTH = 256;
@@ -65,17 +66,38 @@ export async function verifyDeviceSecret(
 
   const secretHash = hashSecret(secret);
 
-  // Bind on first use; a concurrent first request loses the insert race
-  // and falls through to the comparison below.
-  await db
-    .insert(deviceCredentialsTable)
-    .values({ deviceId, secretHash })
-    .onConflictDoNothing({ target: deviceCredentialsTable.deviceId });
+  const storedHash = async () =>
+    (
+      await db
+        .select({ secretHash: deviceCredentialsTable.secretHash })
+        .from(deviceCredentialsTable)
+        .where(eq(deviceCredentialsTable.deviceId, deviceId))
+    )[0];
 
-  const [row] = await db
-    .select({ secretHash: deviceCredentialsTable.secretHash })
-    .from(deviceCredentialsTable)
-    .where(eq(deviceCredentialsTable.deviceId, deviceId));
+  let row = await storedHash();
+  if (!row) {
+    // A device we've never seen: registering it spends this address's
+    // new-device allowance (SYC-195). Refused, it stays unbound, so the
+    // same phone works once the window resets.
+    const address = req.ip ?? "unknown";
+    if (!allowNewDevice(address)) {
+      const resetAt = newDeviceResetAt(address);
+      if (resetAt) {
+        res.setHeader("Retry-After", String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
+      }
+      res.status(429).json({
+        error: "Too many new phones from this connection. Please try again later.",
+      });
+      return null;
+    }
+    // Bind on first use; a concurrent first request loses the insert race
+    // and falls through to the comparison below.
+    await db
+      .insert(deviceCredentialsTable)
+      .values({ deviceId, secretHash })
+      .onConflictDoNothing({ target: deviceCredentialsTable.deviceId });
+    row = await storedHash();
+  }
 
   if (!row || !hashesMatch(row.secretHash, secretHash)) {
     res.status(403).json({ error: "Device secret does not match" });
