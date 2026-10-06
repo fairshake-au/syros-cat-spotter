@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { claimAndReconcile, type ClaimSettlement } from '@/lib/usernameClaim';
 import { usernameKey } from '@/lib/usernameNormalize';
 
@@ -19,13 +19,69 @@ function rejectsTheName(error: unknown): boolean {
 }
 
 /**
+ * SYC-214: the claim lock lives outside the screen, for the life of the app.
+ * Back unmounts the name step; if the lock lived in the screen, a spotter
+ * could come back and send a different name while the first claim was still
+ * open, and the server would keep whichever landed last. Now, on return, the
+ * screen shows the claim still sending, or offers only the same-name retry,
+ * until the first claim settles (the transport timeout bounds this at 30 s).
+ */
+type SharedClaimState = {
+  pending: boolean;
+  /** The name being sent while `pending`. */
+  claimingName: string | null;
+  uncertainName: string | null;
+  claimError: string | null;
+  rejectedKey: string | null;
+};
+
+const IDLE: SharedClaimState = { pending: false, claimingName: null, uncertainName: null, claimError: null, rejectedKey: null };
+
+const shared = {
+  state: IDLE,
+  /** One request per tap (F5): a synchronous guard, not render state. */
+  inFlight: false,
+  /** Open requests per normalised name. */
+  open: new Map<string, number>(),
+  /** Names whose last open request ended confirming they were not saved. */
+  confirmedNotSaved: new Set<string>(),
+  listeners: new Set<() => void>(),
+};
+
+function update(patch: Partial<SharedClaimState>) {
+  shared.state = { ...shared.state, ...patch };
+  shared.listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  shared.listeners.add(listener);
+  return () => { shared.listeners.delete(listener); };
+}
+
+const snapshot = () => shared.state;
+
+/** A claim this phone sent is still open, or may have been saved. */
+function outstanding() {
+  return shared.state.pending || shared.state.uncertainName !== null;
+}
+
+/** Tests only: forget every claim, as a fresh app start would. */
+export function resetUsernameClaimStateForTests() {
+  shared.state = IDLE;
+  shared.inFlight = false;
+  shared.open.clear();
+  shared.confirmedNotSaved.clear();
+}
+
+/**
  * SYC-211: the claim state shared by onboarding and the Profile-tab editor.
  *
- * - One request per tap (F5): a synchronous ref guard, not render state.
+ * - One request per tap (F5).
  * - Never stuck (F1): every request settles (transport timeout); a firm
  *   server answer unlocks immediately, even with an older request still open.
  * - Phone and server agree (F3/F7): after an unclear failure the name stays
  *   locked (same-name retry only) until the server confirms it was not saved.
+ *   This holds across leaving and returning to the screen (SYC-214).
  *
  * `finishOnClaim` (onboarding): after the first success, ignore everything else.
  */
@@ -40,85 +96,87 @@ export function useUsernameClaim({
   t: Translate;
   finishOnClaim?: boolean;
 }) {
-  const [pending, setPending] = useState(false);
-  const [uncertainName, setUncertainNameState] = useState<string | null>(null);
-  const [claimError, setClaimError] = useState<string | null>(null);
-  const [rejectedKey, setRejectedKey] = useState<string | null>(null);
+  // A fresh screen starts without an earlier screen's error message, unless
+  // that screen's claim is still outstanding (then its state carries over).
+  const mounted = useRef(false);
+  if (!mounted.current) {
+    mounted.current = true;
+    if (!outstanding()) shared.state = IDLE;
+  }
+  const { pending, claimingName, uncertainName, claimError, rejectedKey } = useSyncExternalStore(subscribe, snapshot, snapshot);
 
-  const inFlight = useRef(false);
   const started = useRef(false);
   const finished = useRef(false);
-  const uncertainRef = useRef<string | null>(null);
-  /** Open requests per normalised name. */
-  const open = useRef(new Map<string, number>());
-  /** Names whose last open request ended confirming they were not saved. */
-  const confirmedNotSaved = useRef(new Set<string>());
   const onClaimedRef = useRef(onClaimed);
   onClaimedRef.current = onClaimed;
   const tRef = useRef(t);
   tRef.current = t;
 
-  const setUncertainName = useCallback((name: string | null) => {
-    uncertainRef.current = name;
-    setUncertainNameState(name);
-  }, []);
+  const setUncertainName = useCallback((name: string | null) => update({ uncertainName: name }), []);
+  const setClaimError = useCallback((message: string | null) => update({ claimError: message }), []);
 
   const handleClaimed = useCallback((username: string) => {
     if (finished.current) return;
     if (finishOnClaim) finished.current = true;
-    setUncertainName(null);
-    setClaimError(null);
+    update({ uncertainName: null, claimError: null, rejectedKey: null });
     onClaimedRef.current(username);
-  }, [finishOnClaim, setUncertainName]);
+  }, [finishOnClaim]);
 
   /** A request for `key` ended for good after the screen stopped waiting. */
   const handleSettled = useCallback((key: string, settlement: ClaimSettlement) => {
-    const left = (open.current.get(key) ?? 1) - 1;
+    const left = (shared.open.get(key) ?? 1) - 1;
     if (left > 0) {
-      open.current.set(key, left);
+      shared.open.set(key, left);
       return;
     }
-    open.current.delete(key);
+    shared.open.delete(key);
     if (finished.current || settlement.kind === 'claimed' || settlement.kind === 'unknown') return;
-    confirmedNotSaved.current.add(key);
-    const locked = uncertainRef.current;
+    shared.confirmedNotSaved.add(key);
+    const locked = shared.state.uncertainName;
     if (locked && usernameKey(locked) === key) {
       setUncertainName(null);
       setClaimError(settlement.kind === 'rejected' ? rejectionMessage(settlement.error, tRef.current) : tRef.current('error'));
     }
-  }, [setUncertainName]);
+  }, [setUncertainName, setClaimError]);
 
   const submit = useCallback(async (typedName: string) => {
-    if (!deviceId || inFlight.current || finished.current) return;
-    inFlight.current = true;
+    if (!deviceId || shared.inFlight || finished.current) return;
+    shared.inFlight = true;
     started.current = true;
-    const name = uncertainRef.current ?? typedName;
+    const name = shared.state.uncertainName ?? typedName;
     const key = usernameKey(name);
-    open.current.set(key, (open.current.get(key) ?? 0) + 1);
-    confirmedNotSaved.current.delete(key);
-    setClaimError(null);
-    setPending(true);
+    shared.open.set(key, (shared.open.get(key) ?? 0) + 1);
+    shared.confirmedNotSaved.delete(key);
+    update({ claimError: null, pending: true, claimingName: name });
     let outcome;
     try {
       outcome = await claimAndReconcile(deviceId, name, handleClaimed, (s) => handleSettled(key, s));
     } finally {
-      inFlight.current = false;
-      setPending(false);
+      shared.inFlight = false;
+      update({ pending: false, claimingName: null });
     }
     if (finished.current || outcome.kind === 'claimed') return;
     if (outcome.kind === 'rejected') {
-      // A firm answer: this name was not saved. Unlock now, even if an older
-      // request is still open (it can only succeed for this same name).
-      setUncertainName(null);
-      if (rejectsTheName(outcome.error)) setRejectedKey(key);
+      // 409/400 are about the name itself: an older request for it cannot
+      // succeed either, so unlock now even if one is still open. Any other
+      // firm "no" (401, 403) says nothing about an older request, so keep
+      // the same-name lock until no request for it is open (SYC-214 review).
+      if (rejectsTheName(outcome.error)) {
+        setUncertainName(null);
+        update({ rejectedKey: key });
+      } else if (!shared.open.has(key)) {
+        setUncertainName(null);
+      } else {
+        setUncertainName(name);
+      }
       setClaimError(rejectionMessage(outcome.error, tRef.current));
       return;
     }
     // Unlock only when no request for this name is still open and the server
     // has confirmed it does not hold the name. (The settle callback may have
     // run before this point, hence the recorded confirmation.)
-    const nothingOpen = !open.current.has(key);
-    if (nothingOpen && (outcome.kind === 'notSaved' || confirmedNotSaved.current.has(key))) {
+    const nothingOpen = !shared.open.has(key);
+    if (nothingOpen && (outcome.kind === 'notSaved' || shared.confirmedNotSaved.has(key))) {
       setUncertainName(null);
       setClaimError(tRef.current('error'));
       return;
@@ -126,7 +184,7 @@ export function useUsernameClaim({
     // Unknown whether the server saved it: only the same name may be retried.
     setUncertainName(name);
     setClaimError(tRef.current('usernameClaimUncertain'));
-  }, [deviceId, handleClaimed, handleSettled, setUncertainName]);
+  }, [deviceId, handleClaimed, handleSettled, setUncertainName, setClaimError]);
 
   const hasStarted = useCallback(() => started.current, []);
 
@@ -134,6 +192,8 @@ export function useUsernameClaim({
     submit,
     pending,
     uncertainName,
+    /** The name still being sent or awaiting confirmation, if any (SYC-214: also after leaving and returning). */
+    outstandingName: pending ? claimingName : uncertainName,
     claimError,
     setClaimError,
     /** True once the server firmly refused this exact name (409/400). */
@@ -142,3 +202,4 @@ export function useUsernameClaim({
     hasStarted,
   };
 }
+

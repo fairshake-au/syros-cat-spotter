@@ -6,7 +6,7 @@ import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
   clearWelfareTables,
-  signInThroughHandoff,
+  sessionCookieFor,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/__fixtures__/queueKit";
 
@@ -101,7 +101,8 @@ beforeAll(async () => {
     addedBy: "cli:vitest",
     roles: ["volunteer"],
   });
-  volunteerCookie = await signInThroughHandoff(app, handoffKey, volunteer.id);
+  // A volunteer gets no session from the hand-off (SYC-188).
+  volunteerCookie = sessionCookieFor(volunteer.id);
 });
 
 beforeEach(() => {
