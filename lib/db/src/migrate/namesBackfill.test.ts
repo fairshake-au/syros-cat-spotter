@@ -10,7 +10,7 @@ import {
 } from "./runner";
 
 // Data spine PR 3b (docs/superpowers/plans/data-spine.md, "PR 3b"): the
-// current-names backfill (0010_data_spine_names_backfill), on a throwaway
+// current-names backfill (0011_data_spine_names_backfill), on a throwaway
 // database brought up to just before it and seeded like production (plain
 // English names) plus Greek and accented ones.
 
@@ -28,7 +28,7 @@ let c: pg.Client;
 
 const migrations = readMigrations(defaultMigrationsFolder());
 const BACKFILL = migrations.find(
-  (m) => m.tag === "0010_data_spine_names_backfill",
+  (m) => m.tag === "0011_data_spine_names_backfill",
 )!;
 const BEFORE = migrations.find((m) => m.idx === BACKFILL.idx - 1)!.idx;
 const runBackfill = () =>
@@ -107,7 +107,7 @@ async function nameRows(catId?: number): Promise<NameRow[]> {
 
 const day = (d: string) => new Date(`${d}T09:30:00.123456Z`);
 
-describe("0010_data_spine_names_backfill (data spine PR 3b)", () => {
+describe("0011_data_spine_names_backfill (data spine PR 3b)", () => {
   it("writes one name per cat: its current name, folded form copied from the cat, dated at created_at", async () => {
     const seeds: [string, Date][] = [
       ["Sunny Paws", day("2026-08-01")],
