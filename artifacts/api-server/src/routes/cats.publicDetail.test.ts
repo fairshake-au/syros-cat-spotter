@@ -19,6 +19,10 @@ import app from "../app";
 // exact positions or history leaked into this payload, the bytes would change
 // and this test would go red.
 //
+// Regenerated once, on purpose, by SYC-41 (data spine PR 6, #95): blurring
+// changed this payload (cell centre, locationPrecision/locationCellM, dates
+// not times, no sighting positions). Nothing else in it changed.
+//
 // Only the database's own serial ids are swapped for placeholders; every other
 // byte, including key order, is compared as sent.
 
