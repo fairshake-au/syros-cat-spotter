@@ -363,7 +363,7 @@ describe("cats_normalised_name_unique (SYC-101)", () => {
     ).rejects.toThrow(/non-DEFAULT value into column "normalised_name"/);
   });
 
-  it("does not fold Greek/Latin look-alike letters (deferred, Part 2j)", async () => {
+  it("does not fold Greek/Latin look-alike letters (Part 2m)", async () => {
     await addCat("ΑΓΑΘΗ");
     await expect(addCat("AΓAΘH")).resolves.toBeDefined();
   });

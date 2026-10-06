@@ -23,9 +23,9 @@
  * (including non-breaking space) collapsed to one plain space, trimmed.
  * **What it deliberately does NOT fold:** Greek/Latin look-alike letters
  * (`Α` vs `A`, `Η` vs `H`) — a mixed-keyboard name like `ΑΓΑΘΗ` typed as
- * `AΓAΘH` is a real, separate risk. SYC-101 kept them unfolded, as Part
- * 2g's folding specifies; whether to fold them is Samuel's decision,
- * ticketed separately.
+ * `AΓAΘH` stays a different name (Samuel, 6 Oct 2026, DECISIONS.md Part
+ * 2m): folding look-alikes would refuse real names. If it ever happens, the
+ * app warns instead (SYC-227).
  *
  * **Agreement with the app's own fold.** `artifacts/cat-spotter/lib/catPicker.ts`'s
  * `fold` folds the app's "find the cat" search the same way, for every case

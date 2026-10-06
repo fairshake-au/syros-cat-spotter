@@ -48,11 +48,11 @@ describe("foldName", () => {
     expect(foldName("Mimi Cat")).toBe(foldName("Mimi Cat"));
   });
 
-  // Deliberately NOT folded (deferred to SYC-101): Greek/Latin look-alike
-  // letters. "ΑΓΑΘΗ" typed with a mixed keyboard as "AΓAΘH" (Latin A, H)
-  // must stay a different folded form, or two differently-spelled cats
-  // would silently become "the same name" without Samuel deciding that.
-  it("does NOT fold Greek/Latin look-alike letters (SYC-101)", () => {
+  // Deliberately NOT folded (Samuel, 6 Oct 2026, DECISIONS.md Part 2m):
+  // Greek/Latin look-alike letters. "ΑΓΑΘΗ" typed with a mixed keyboard as
+  // "AΓAΘH" (Latin A, H) stays a different name; if it ever happens, the app
+  // warns instead (SYC-227).
+  it("does NOT fold Greek/Latin look-alike letters (Part 2m)", () => {
     expect(foldName("ΑΓΑΘΗ")).not.toBe(foldName("AΓAΘH"));
     expect(foldName("ΜΙΜΗ")).not.toBe(foldName("MIMH"));
   });
