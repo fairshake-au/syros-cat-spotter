@@ -196,7 +196,7 @@ Username (editable, with the same availability and moderation checks), optional 
 
 ### 5.8 Help tab — colony campaign
 
-A fundraising card for the charity: title, plain-language blurb ("€10 covers a rabies vaccine. €25 desexes one cat."), progress toward a goal in EUR, cats helped, donor count, days remaining, and suggested chip-in amounts (€5 / €10 / €25 / €50).
+A fundraising card for the charity: title, plain-language blurb ("€10 covers a rabies vaccine. €50–60 desexes one cat."), progress toward a goal in EUR, cats helped, donor count, days remaining, and suggested chip-in amounts (€5 / €10 / €25 / €50).
 
 **There is no payments backend.** The app opens an external `donateUrl` in a browser; no money moves through this codebase. The campaign is server-side configuration (environment variables) so figures can be corrected without shipping an App Store release. States exist for not-yet-open, no-donations-configured, offline, and error.
 
