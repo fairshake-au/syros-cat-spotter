@@ -134,6 +134,31 @@ export function isDeviceMovedError(error: unknown): boolean {
   return data?.error === "device_moved";
 }
 
+let _identityDeletedHandler: (() => void) | null = null;
+
+/**
+ * SYC-63: register what to do when the server says this device's spotter
+ * deleted their data (`410` with `code: "IDENTITY_DELETED"`). It happens when
+ * an old copy of the identity is still in use: a second tab, an upload that
+ * was in flight, or a phone killed after the server deleted but before it
+ * wiped itself. The app finishes the wipe and starts a fresh identity. The
+ * request still fails as usual; the handler is told as well.
+ *
+ * Pass `null` to clear it.
+ */
+export function setIdentityDeletedHandler(handler: (() => void) | null): void {
+  _identityDeletedHandler = handler;
+}
+
+function isIdentityDeleted(status: number, data: unknown): boolean {
+  return (
+    status === 410 &&
+    typeof data === "object" &&
+    data !== null &&
+    (data as { code?: unknown }).code === "IDENTITY_DELETED"
+  );
+}
+
 let _prelaunchKey: string | null = null;
 
 /**
@@ -521,6 +546,9 @@ async function send<T>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, requestInfo.method);
+    if (_identityDeletedHandler && isIdentityDeleted(response.status, errorData)) {
+      _identityDeletedHandler();
+    }
     const error = new ApiError(response, errorData, requestInfo);
     if (_deviceMovedListener && isDeviceMovedError(error)) _deviceMovedListener();
     throw error;

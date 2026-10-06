@@ -24,6 +24,21 @@ const STORAGE_KEY = 'cat-spotter/device-id';
 const SECRET_KEY = 'cat-spotter/device-secret';
 const USERNAME_KEY = 'cat-spotter/username';
 const OWNED_CATS_KEY = 'cat-spotter/owned-cat-ids';
+// Written by OwnershipNoticeBanner: which of "your" cats had a home, last seen.
+const OWNERSHIP_SNAPSHOT_KEY = 'cat-spotter/ownership-snapshot';
+
+/**
+ * Everything on the phone that is this spotter, as opposed to a preference
+ * (language, appearance) or the public cat list. "Delete my data" removes
+ * all of it (SYC-63 plan §6.2).
+ */
+export const IDENTITY_KEYS = [
+  STORAGE_KEY,
+  SECRET_KEY,
+  USERNAME_KEY,
+  OWNED_CATS_KEY,
+  OWNERSHIP_SNAPSHOT_KEY,
+] as const;
 
 const BASE64URL_CHARS =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -169,6 +184,12 @@ interface DeviceContextValue {
   /** SYC-3: whether "keep my spots safe" has been offered on this phone (lib/keepSafe.ts). */
   keepSafeOffer: KeepSafeOffer;
   setKeepSafeOffer: (value: Exclude<KeepSafeOffer, null>) => void;
+  /**
+   * SYC-63: forget this spotter and become a brand-new one — a new id and
+   * secret, made the same way as on first launch, with no username and no
+   * cats. Call only once the server has deleted the old identity.
+   */
+  resetIdentity: () => Promise<void>;
 }
 
 const DeviceContext = createContext<DeviceContextValue>({
@@ -184,6 +205,7 @@ const DeviceContext = createContext<DeviceContextValue>({
   adoptRestoredIdentity: async () => {},
   keepSafeOffer: null,
   setKeepSafeOffer: () => {},
+  resetIdentity: async () => {},
 });
 
 export function DeviceProvider({ children }: { children: React.ReactNode }) {
@@ -329,6 +351,26 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     setMoved(false);
   }, []);
 
+  const resetIdentity = useCallback(async () => {
+    // Removed first: if the app dies after this, the next launch makes a
+    // fresh identity anyway. If it dies before, the old id gets 410 and the
+    // wipe runs again (plan §6.4).
+    await AsyncStorage.multiRemove([...IDENTITY_KEYS, KEEP_SAFE_OFFER_KEY]);
+    const secret = await makeDeviceSecret();
+    const id = await makeDeviceId();
+    await AsyncStorage.setItem(SECRET_KEY, secret);
+    await AsyncStorage.setItem(STORAGE_KEY, id);
+    // The new secret is in place before anything can send the new id.
+    setDeviceSecretGetter(() => secret);
+    setUsernameState(null);
+    setOwnedCatIds([]);
+    // SYC-3: deletion removed the keep-safe address too, so the new spotter
+    // is offered "keep my spots safe" again, as after "start again".
+    setKeepSafeOfferState(null);
+    setMoved(false);
+    setDeviceId(id);
+  }, []);
+
   const value = useMemo(
     () => ({
       deviceId,
@@ -343,6 +385,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       adoptRestoredIdentity,
       keepSafeOffer,
       setKeepSafeOffer,
+      resetIdentity,
     }),
     [
       moved,
@@ -357,6 +400,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       setUsername,
       ownedCatIds,
       addOwnedCat,
+      resetIdentity,
     ],
   );
   return (

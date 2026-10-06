@@ -220,14 +220,16 @@ export default function CatDetailScreen() {
             </View>
             {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
             <NeedsHelpLink />
-            {!!cat.discovererSpotterCode && (
+            {(
               <View style={styles.metaRow}>
                 <Feather name="star" size={14} color={colors.mutedForeground} />
                 <Text style={[styles.meta, { color: colors.mutedForeground }]}>
                   {t('discoveredBy')}{' '}
                   {cat.discovererUsername ??
                     cat.discovererNickname ??
-                    `${t('spotter')} ${cat.discovererSpotterCode}`}
+                    (cat.discovererSpotterCode
+                  ? `${t('spotter')} ${cat.discovererSpotterCode}`
+                  : t('aSpotter'))}
                 </Text>
               </View>
             )}
@@ -323,7 +325,9 @@ export default function CatDetailScreen() {
                           <Text style={styles.careBold}>
                             {t('careTypeDiscoveredPrefix')}
                           </Text>{' '}
-                          {event.message}
+                          {/* SYC-63: the server's fixed marker for a
+                              discoverer who deleted their data. */}
+                          {event.message === 'a spotter' ? t('aSpotter') : event.message}
                         </>
                       ) : (
                         <>
@@ -409,7 +413,7 @@ export default function CatDetailScreen() {
                 >
                   {s.spotterUsername ??
                     s.spotterNickname ??
-                    `${t('spotter')} ${s.spotterCode}`}
+                    (s.spotterCode ? `${t('spotter')} ${s.spotterCode}` : t('aSpotter'))}
                 </Text>
               </View>
             ))}

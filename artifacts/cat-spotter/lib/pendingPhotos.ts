@@ -512,6 +512,44 @@ export async function cleanupOrphanPhotos(keepRefs: string[]): Promise<void> {
   }
 }
 
+/**
+ * "Delete my data" (SYC-63 plan §6.1): remove every sighting photo this
+ * module keeps — queued, replacement and review photos — and every queue
+ * backup, whatever the queue says. The backups hold a raw copy of the queue,
+ * photos and exact positions included, so they go too.
+ *
+ * Wholesale, by listing the store rather than following the queue, so an
+ * unreadable queue can't leave photos behind. Cat-report photos
+ * (`report-*`) belong to the report queue and are left alone.
+ *
+ * Throws if the store can't be listed: the person must be told it didn't
+ * finish, not shown "Done" over photos still on the phone.
+ */
+export async function deleteAllSightingPhotos(): Promise<void> {
+  if (!supportsPhotoFiles) {
+    const store = photoStore();
+    if (!store) return;
+    for (const id of await store.photoIds()) {
+      if (isReportPhoto(id)) continue;
+      await store.deletePhoto(id);
+    }
+    await store.deleteBackupsSavedBefore(Number.POSITIVE_INFINITY);
+    return;
+  }
+  let names: string[];
+  try {
+    names = await FileSystem.readDirectoryAsync(PHOTOS_DIR);
+  } catch {
+    const info = await FileSystem.getInfoAsync(PHOTOS_DIR);
+    if (!info.exists) return; // nothing was ever saved
+    throw new Error('Could not list the saved photos');
+  }
+  for (const name of names) {
+    if (isReportPhoto(name)) continue;
+    await FileSystem.deleteAsync(`${PHOTOS_DIR}/${name}`, { idempotent: true });
+  }
+}
+
 // ---- Showing and shrinking stored photos -------------------------------------
 
 export interface OpenedPhoto {

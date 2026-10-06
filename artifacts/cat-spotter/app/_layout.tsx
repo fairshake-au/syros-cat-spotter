@@ -27,6 +27,11 @@ import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
+import {
+  DeleteMyDataProvider,
+  useDeleteMyData,
+} from '@/context/DeleteMyDataContext';
+import { DeleteMyDataDone } from '@/components/DeleteMyDataDone';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { StartupErrorScreen } from '@/components/StartupErrorScreen';
 import { BannerStack } from '@/components/BannerStack';
@@ -70,6 +75,7 @@ function RootLayoutNav() {
       <Stack.Screen name="restore" options={{ headerShown: false }} />
       <Stack.Screen name="keep-safe" options={{ headerShown: false }} />
       <Stack.Screen name="get-spots-back" options={{ headerShown: false }} />
+      <Stack.Screen name="delete-my-data" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -110,12 +116,15 @@ function OnboardingGate() {
   // offer; a new one sees it as the last onboarding step.
   const startedWithName = useRef<boolean | null>(null);
   if (isReady && startedWithName.current === null) startedWithName.current = Boolean(username);
+  const { doneVisible } = useDeleteMyData();
   // SYC-136: a rejected promise inside DeviceProvider's setup effect isn't
   // caught by the top-level ErrorBoundary (render-only), so DeviceProvider
   // surfaces it here instead of leaving isReady false and this app stuck
   // on a blank screen forever.
   if (startupError) return <StartupErrorScreen />;
   if (!isReady) return null;
+  // SYC-63: "Done" comes before the new spotter's first-run step.
+  if (doneVisible) return <DeleteMyDataDone />;
   // SYC-3: this phone's spotter moved to a new phone.
   if (moved) return <MovedScreen />;
   // SYC-3: a restore link works on a phone that hasn't finished onboarding.
@@ -173,11 +182,13 @@ export default function RootLayout() {
                 <OfflineProvider>
                   <ReportQueueProvider>
                     <NotificationProvider>
-                      <GestureHandlerRootView>
-                        <KeyboardProvider>
-                          <OnboardingGate />
-                        </KeyboardProvider>
-                      </GestureHandlerRootView>
+                      <DeleteMyDataProvider>
+                        <GestureHandlerRootView>
+                          <KeyboardProvider>
+                            <OnboardingGate />
+                          </KeyboardProvider>
+                        </GestureHandlerRootView>
+                      </DeleteMyDataProvider>
                     </NotificationProvider>
                   </ReportQueueProvider>
                 </OfflineProvider>
