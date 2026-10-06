@@ -271,6 +271,29 @@ describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
     expect(r.called).toBe(true);
   });
 
+  it("refuses mismatched addresses itself, before calling the CLI (SYC-131)", () => {
+    for (const COMMAND of [
+      "people-add",
+      "people-mark-left",
+      "people-remove",
+      "people-sign-out-everywhere",
+    ]) {
+      for (const PEOPLE_EMAIL_CONFIRM of [
+        undefined,
+        "jacky.tset@example.com",
+      ]) {
+        const r = stubbedRun({
+          ...base,
+          COMMAND,
+          DATABASE_TARGET: "production",
+          PEOPLE_EMAIL_CONFIRM,
+        });
+        expect(r.code).not.toBe(0);
+        expect(r.called).toBe(false);
+      }
+    }
+  });
+
   it("refuses a missing or mismatched DATABASE_TARGET itself, before calling the CLI", () => {
     for (const DATABASE_TARGET of [undefined, "development", "rehearsal"]) {
       for (const COMMAND of [

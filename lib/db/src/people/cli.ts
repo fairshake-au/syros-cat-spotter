@@ -287,33 +287,47 @@ export async function runPeopleCommand(
 }
 
 /**
- * The first line of a piped stdin, read up front: db-ops pipes the
- * confirmation in (SYC-131), and stdin can close before the command gets as
- * far as asking.
+ * The first line of a piped stdin (db-ops pipes the confirmation in,
+ * SYC-131). Only read when the command actually asks: data already piped in
+ * stays buffered until then. Settles on the first newline or end of input,
+ * then lets go of stdin, so an open but idle stdin never holds the process.
  */
-async function firstLineOfStdin(): Promise<string> {
-  let data = "";
-  for await (const chunk of process.stdin) data += String(chunk);
-  return data.split("\n")[0] ?? "";
+function firstLineOfStdin(): Promise<string> {
+  return new Promise((resolve) => {
+    let data = "";
+    const finish = () => {
+      process.stdin.off("data", onData);
+      process.stdin.off("end", finish);
+      process.stdin.off("error", finish);
+      process.stdin.destroy();
+      resolve(data.split("\n")[0] ?? "");
+    };
+    const onData = (chunk: Buffer | string) => {
+      data += String(chunk);
+      if (data.includes("\n")) finish();
+    };
+    process.stdin.on("data", onData);
+    process.stdin.once("end", finish);
+    process.stdin.once("error", finish);
+  });
 }
 
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  // A terminal gets the interactive retype; anything else (db-ops) is read
-  // once, before connecting.
+  // A terminal gets the interactive retype; anything else (db-ops) has the
+  // answer read from stdin, and only by a command that asks.
   const rl = process.stdin.isTTY
     ? readline.createInterface({
         input: process.stdin,
         output: process.stdout,
       })
     : null;
-  const piped = rl ? null : firstLineOfStdin();
   runPeopleCommand(process.argv.slice(2), {
     env: process.env,
     out: (line) => console.log(line),
-    ask: (question) => (rl ? rl.question(question) : piped!),
+    ask: (question) => (rl ? rl.question(question) : firstLineOfStdin()),
   })
     .then((code) => {
       rl?.close();

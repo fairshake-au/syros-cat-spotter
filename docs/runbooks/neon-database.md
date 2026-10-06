@@ -48,8 +48,8 @@ Samuel (set `SEED_EMAIL` and `SEED_NAME` for Samuel first):
 cd /Users/samuelporter/Projects/syros-cat-spotter
 printf '%s' "$SEED_EMAIL" | gh secret set PEOPLE_EMAIL --env production
 printf '%s' "$SEED_NAME" | gh secret set PEOPLE_NAME --env production
-read -rs -p "Type the address again: " SEED_EMAIL_CONFIRM; echo
-printf '%s' "$SEED_EMAIL_CONFIRM" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
+printf 'Type the address again: '; stty -echo; IFS= read -r SEED_EMAIL_CONFIRM; stty echo; echo
+test -n "$SEED_EMAIL_CONFIRM" && printf '%s' "$SEED_EMAIL_CONFIRM" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
 unset SEED_EMAIL_CONFIRM
 gh workflow run db-ops.yml --ref main -f target=production -f command=people-add -f people_role=staff
 sleep 5
@@ -59,7 +59,7 @@ gh secret delete PEOPLE_NAME --env production
 gh secret delete PEOPLE_EMAIL_CONFIRM --env production
 ```
 
-The confirmation is typed by hand, hidden, at the prompt. Don't copy it from `SEED_EMAIL`: a copy would repeat the same typo.
+The confirmation is typed by hand, hidden, at the prompt (this works in zsh, macOS's default shell, and in bash). Don't copy it from `SEED_EMAIL`: a copy would repeat the same typo. If nothing was typed, the secret isn't set and db-ops refuses to run.
 
 Jacky: set `SEED_EMAIL` and `SEED_NAME` for Jacky in the tab, then run the same block again.
 
@@ -76,7 +76,7 @@ To check that an id belongs to the right person, use the Neon MCP's `run_sql` wi
 
 ### Someone leaves, a mistaken add, or a stolen session (SYC-131)
 
-- **`people-mark-left`**: for someone who leaves. They can't sign in, their open sessions end at their next request, and everything they did stays attributed to them. The output names their id and `left_by` is `db-ops:<GitHub actor>`. Adding the same address again later brings back the same person.
+- **`people-mark-left`**: for someone who leaves. They can't sign in, their open sessions end at their next request, and everything they did stays attributed to them. The output names their id and `left_by` is `cli:db-ops:<GitHub actor>`. Adding the same address again later brings back the same person.
 - **`people-remove`**: only for a mistaken add (a typo, say). It refuses anyone with history ("This person has history. Use mark-left instead.").
 - **`people-sign-out-everywhere`**: ends every open session for that person, for example after a lost phone. They can sign in again.
 
@@ -85,8 +85,8 @@ Each needs `PEOPLE_EMAIL` and `PEOPLE_EMAIL_CONFIRM` (no name, no role). Set `SE
 ```bash
 cd /Users/samuelporter/Projects/syros-cat-spotter
 printf '%s' "$SEED_EMAIL" | gh secret set PEOPLE_EMAIL --env production
-read -rs -p "Type the address again: " SEED_EMAIL_CONFIRM; echo
-printf '%s' "$SEED_EMAIL_CONFIRM" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
+printf 'Type the address again: '; stty -echo; IFS= read -r SEED_EMAIL_CONFIRM; stty echo; echo
+test -n "$SEED_EMAIL_CONFIRM" && printf '%s' "$SEED_EMAIL_CONFIRM" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
 unset SEED_EMAIL_CONFIRM
 gh workflow run db-ops.yml --ref main -f target=production -f command=people-mark-left
 sleep 5
