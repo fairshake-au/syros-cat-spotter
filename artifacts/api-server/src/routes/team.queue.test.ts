@@ -59,6 +59,27 @@ const getQueue = async () => {
   return res.body as WelfareQueue;
 };
 
+// Every key a report carries. Adding one is a privacy decision (P1-4), so it
+// has to be added here too.
+const EXPECTED_REPORT_KEYS = [
+  "at",
+  "contactLeft",
+  "emailToTeam",
+  "id",
+  "isLitter",
+  "lat",
+  "lng",
+  "note",
+  "photo",
+  "severity",
+  "state",
+  "stateChangedAt",
+  "stateChangedBy",
+  "teamNote",
+  "teamNoteAt",
+  "teamNoteBy",
+];
+
 describe("P1-2: order and sections", () => {
   it("puts urgent above attention, then newest first; closed ones apart and newest first; drafts apart", async () => {
     await seedReport({ publicId: "attn-old", sentMinutesAgo: 300 });
@@ -162,6 +183,20 @@ describe("P1-2: order and sections", () => {
 });
 
 describe("P1-4: nothing private leaves the queue", () => {
+  it("returns exactly these keys for a report, so a new field is a decision", async () => {
+    await seedReport({ publicId: "keys-check" });
+    const q = await getQueue();
+    expect(Object.keys(q).sort()).toEqual([
+      "closed",
+      "closedTotal",
+      "drafts",
+      "draftsTotal",
+      "mail",
+      "open",
+    ]);
+    expect(Object.keys(q.open[0]!).sort()).toEqual(EXPECTED_REPORT_KEYS);
+  });
+
   it("selects neither the reporter's device nor the reporter's contact", () => {
     const columns = Object.keys(QUEUE_COLUMNS);
     expect(columns).not.toContain("reporterDevice");

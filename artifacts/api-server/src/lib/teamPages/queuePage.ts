@@ -168,7 +168,10 @@ export function renderQueuePage(
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
       '<p class="empty">Someone began a report and did not send it. They may still be worried about a cat here.</p>' +
-      queue.drafts.map((d) => draftCard(d, now)).join("")
+      queue.drafts.map((d) => draftCard(d, now)).join("") +
+      (queue.draftsTotal > queue.drafts.length
+        ? `<p class="empty">Showing the newest ${queue.drafts.length} of ${queue.draftsTotal}.</p>`
+        : "")
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +

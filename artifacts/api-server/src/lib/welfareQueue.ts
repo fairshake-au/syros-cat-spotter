@@ -96,7 +96,11 @@ export interface QueueDraft {
 }
 
 export interface MailHealth {
-  /** Alerts the mail system gave up on. */
+  /**
+   * Alerts the mail system gave up on, for reports still open. Once a report
+   * is closed the team has dealt with it, so its old failure no longer keeps
+   * the banner up.
+   */
   failed: number;
   /** Alerts still unsent an hour after they were queued. */
   late: number;
@@ -108,6 +112,8 @@ export interface WelfareQueue {
   /** How many closed reports exist; `closed` holds the newest few. */
   closedTotal: number;
   drafts: QueueDraft[];
+  /** How many drafts exist; `drafts` holds the newest few. */
+  draftsTotal: number;
   mail: MailHealth;
 }
 
@@ -166,7 +172,15 @@ function reportsQuery() {
 export async function mailHealth(): Promise<MailHealth> {
   const result = await db.execute(sql`
     select
-      count(*) filter (where state = 'failed')::int as failed,
+      count(*) filter (
+        where state = 'failed'
+          and exists (
+            select 1 from welfare_reports r
+            where r.id = mail_outbox.report_id
+              and r.is_draft = false
+              and r.state in ('new', 'looking')
+          )
+      )::int as failed,
       count(*) filter (
         where state in ('queued', 'sending')
           and created_at < now() - make_interval(mins => ${OVERDUE_MINUTES})
@@ -185,7 +199,7 @@ export async function mailHealth(): Promise<MailHealth> {
  */
 export async function listWelfareQueue(): Promise<WelfareQueue> {
   const sent = eq(welfareReportsTable.isDraft, false);
-  const [openRows, closedRows, closedCount, draftRows, mail] =
+  const [openRows, closedRows, closedCount, draftRows, draftCount, mail] =
     await Promise.all([
       reportsQuery()
         .where(and(sent, inArray(welfareReportsTable.state, [...OPEN_STATES])))
@@ -221,6 +235,10 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
           desc(welfareReportsTable.id),
         )
         .limit(DRAFT_LIMIT),
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(welfareReportsTable)
+        .where(eq(welfareReportsTable.isDraft, true)),
       mailHealth(),
     ]);
 
@@ -259,6 +277,7 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
       lng: d.lng,
       startedAt: d.createdAt.toISOString(),
     })),
+    draftsTotal: Number(draftCount[0]?.n ?? 0),
     mail,
   };
 }

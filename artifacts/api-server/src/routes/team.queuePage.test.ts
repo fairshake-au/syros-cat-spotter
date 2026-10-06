@@ -239,11 +239,25 @@ describe("P1-7: the mail banner", () => {
     expect(html).toContain("more than an hour late");
   });
 
-  it("is shown with no reports at all showing, if mail is broken", async () => {
-    // The report is closed and the failed row belongs to it: the banner is
-    // about the mail system, not about what is on screen.
-    await seedReport({ state: "done", mail: { state: "failed" } });
+  it("is shown for a failed alert on a report someone is looking at", async () => {
+    await seedReport({ state: "looking", mail: { state: "failed" } });
     expect(await getPage()).toContain('class="banner"');
+  });
+
+  it("clears once the report the failed alert was for is closed", async () => {
+    // Review of PR 1: one old failure must not keep the banner up for ever,
+    // or staff learn to ignore it. A closed report has been dealt with.
+    await seedReport({ state: "done", mail: { state: "failed" } });
+    await seedReport({ state: "nothing_needed", mail: { state: "failed" } });
+    expect(await getPage()).not.toContain('class="banner"');
+  });
+
+  it("still shows a late alert whatever its report's state", async () => {
+    await seedReport({
+      state: "done",
+      mail: { state: "queued", minutesAgo: 90 },
+    });
+    expect(await getPage()).toContain("more than an hour late");
   });
 });
 
@@ -297,5 +311,14 @@ describe("timeAgo", () => {
     expect(timeAgo(ago(26 * 3600_000), now)).toBe("1 day ago");
     expect(timeAgo(ago(45 * 86_400_000), now)).toBe("22 Aug 2026");
     expect(timeAgo(ago(-5000), now)).toBe("just now");
+  });
+});
+
+describe("drafts beyond the newest 50", () => {
+  it("are counted, and the page says only the newest are shown", async () => {
+    for (let i = 0; i < 51; i++) await seedReport({ isDraft: true });
+    const html = await getPage();
+    expect(html).toContain("Showing the newest 50 of 51.");
+    expect(html.match(/id="d-/g)).toHaveLength(50);
   });
 });

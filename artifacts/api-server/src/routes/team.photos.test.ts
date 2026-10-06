@@ -132,3 +132,44 @@ describe("the team catalogue-photo route", () => {
     expect((await get(`/api/team/photos/${reportPhotoId}`)).status).toBe(404);
   });
 });
+
+// Review of PR 1: ids are checked before Postgres sees them, and only the
+// image types uploads produce are ever served.
+describe("photo ids and stored types the routes refuse", () => {
+  const odd = ["a%00b", "a.b", "..%2F..%2Fetc", "x".repeat(65)];
+
+  for (const route of ["report-photos", "photos"]) {
+    it(`/api/team/${route}: an id that can't be a photo id is a 404, not a 500`, async () => {
+      for (const id of odd) {
+        const res = await get(`/api/team/${route}/${id}`);
+        expect([400, 404]).toContain(res.status);
+        expect(res.headers["cache-control"]).toBe("no-store");
+      }
+      const nul = await get(`/api/team/${route}/a%00b`);
+      expect(nul.status).toBe(404);
+    });
+  }
+
+  it("serves nothing for a stored type that isn't a JPEG or PNG", async () => {
+    const r = await seedReport({
+      photo: { mime: "text/html", bytes: Buffer.from("<script>x</script>") },
+    });
+    const res = await get(`/api/team/report-photos/${r.photoPublicId}`);
+    expect(res.status).toBe(404);
+    expect(res.headers["content-type"]).not.toMatch(/text\/html/);
+    const [cat] = await db
+      .insert(photosTable)
+      .values({
+        data: Buffer.from("<b>x</b>").toString("base64"),
+        mime: "text/html",
+      })
+      .returning({ publicId: photosTable.publicId });
+    try {
+      expect((await get(`/api/team/photos/${cat!.publicId}`)).status).toBe(404);
+    } finally {
+      await db
+        .delete(photosTable)
+        .where(eq(photosTable.publicId, cat!.publicId));
+    }
+  });
+});
