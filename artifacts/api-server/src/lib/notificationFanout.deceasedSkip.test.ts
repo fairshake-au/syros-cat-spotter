@@ -12,6 +12,7 @@
  * which `resolve.test.ts` and `sightings.deceasedGuard.test.ts` already
  * cover.
  */
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   db,
@@ -108,7 +109,7 @@ async function cleanup() {
     }
     await db.delete(catUpdatesTable).where(inArray(catUpdatesTable.catId, catIds));
     await db.delete(catSubscriptionsTable).where(inArray(catSubscriptionsTable.catId, catIds));
-    await db.delete(sightingsTable).where(inArray(sightingsTable.catId, catIds));
+    await deleteTestSightings(inArray(sightingsTable.catId, catIds));
     await db.delete(catsTable).where(inArray(catsTable.id, catIds));
     await db.delete(photosTable).where(inArray(photosTable.id, cats.map((c) => c.photoId)));
   }

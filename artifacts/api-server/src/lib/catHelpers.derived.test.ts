@@ -1,3 +1,4 @@
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   db,
@@ -91,11 +92,9 @@ function localDayOffset(daysAgo: number): string {
 }
 
 async function cleanup(): Promise<void> {
-  await db
-    .delete(sightingsTable)
-    .where(inArray(sightingsTable.deviceId, [DEVICE_A, DEVICE_B, DEVICE_EMPTY]));
+  await deleteTestSightings(inArray(sightingsTable.deviceId, [DEVICE_A, DEVICE_B, DEVICE_EMPTY]));
   if (catIds.length) {
-    await db.delete(sightingsTable).where(inArray(sightingsTable.catId, catIds));
+    await deleteTestSightings(inArray(sightingsTable.catId, catIds));
     await db.delete(catsTable).where(inArray(catsTable.id, catIds));
   }
   await db.delete(catsTable).where(like(catsTable.name, `${CAT_PREFIX}%`));
@@ -156,9 +155,7 @@ describe("computeStreak", () => {
       status: "pending",
     });
     expect(await computeStreak(DEVICE_EMPTY)).toBe(0);
-    await db
-      .delete(sightingsTable)
-      .where(eq(sightingsTable.deviceId, DEVICE_EMPTY));
+    await deleteTestSightings(eq(sightingsTable.deviceId, DEVICE_EMPTY));
   });
 });
 
