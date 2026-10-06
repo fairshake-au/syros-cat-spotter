@@ -58,8 +58,9 @@ export async function insertCatUpdate(
 /**
  * Fan out notifications (in-app rows + Expo push, fire-and-forget) to every
  * subscriber of the cat, excluding `excludeDeviceId` (e.g. the spotter who
- * triggered the update). For a sighting, only the cat's owner gets the push
- * now; the other followers' pushes wait for the evening round-up (§6.4.4).
+ * triggered the update). For a sighting, only the cat's owner is notified
+ * now; the other followers' in-app rows and pushes wait for the evening
+ * round-up (§6.4.4).
  *
  * Always runs on the plain pool, never inside a caller's transaction: a
  * caller that writes the `cat_updates` row (and any observation alongside
@@ -91,9 +92,21 @@ export async function fanOutNotifications(opts: {
     .from(catSubscriptionsTable)
     .where(eq(catSubscriptionsTable.catId, opts.cat.id));
 
-  const recipients = subscribers
+  const followers = subscribers
     .map((s) => s.deviceId)
     .filter((d) => d !== opts.excludeDeviceId);
+
+  // §6.4.4 (data-spine.md PR 9, Q4 = A): a live sighting notification would
+  // give anyone who once spotted this cat a to-the-minute record of when
+  // it's seen. So only the cat's owner hears about a sighting straight away,
+  // in the app and by push; everyone else's in-app row and push come in the
+  // evening round-up (`sightingRoundUp.ts`), which never carries a time.
+  // Care updates (sterilised, adopted, general) say nothing about when or
+  // where a cat is, so they stay live for every follower.
+  const recipients =
+    opts.update.updateType === "sighting"
+      ? followers.filter((d) => d === opts.cat.ownerDeviceId)
+      : followers;
 
   if (recipients.length === 0) return;
 
@@ -101,24 +114,11 @@ export async function fanOutNotifications(opts: {
     .insert(notificationsTable)
     .values(recipients.map((deviceId) => ({ deviceId, catUpdateId: opts.update.id })));
 
-  // §6.4.4 (data-spine.md PR 9, Q4 = A): a live sighting push would give
-  // anyone who once spotted this cat a to-the-minute record of when it's
-  // seen. So only the cat's owner hears about a sighting straight away;
-  // everyone else keeps the in-app row above, and their push waits for the
-  // evening round-up (`sightingRoundUp.ts`), which never carries a time.
-  // Care updates (sterilised, adopted, general) say nothing about when or
-  // where a cat is, so they stay live for every follower.
-  const pushRecipients =
-    opts.update.updateType === "sighting"
-      ? recipients.filter((d) => d === opts.cat.ownerDeviceId)
-      : recipients;
-  if (pushRecipients.length === 0) return;
-
   // Push delivery is best-effort and must not block or fail the request.
   void db
     .select()
     .from(pushTokensTable)
-    .where(inArray(pushTokensTable.deviceId, pushRecipients))
+    .where(inArray(pushTokensTable.deviceId, recipients))
     .then((tokens) => {
       for (const t of tokens) {
         void sendPushNotification(t.token, opts.cat.name, opts.update.message, {

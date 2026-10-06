@@ -18,7 +18,8 @@ import { safeError } from "../lib/logger";
  *
  * The same call also sends the evening sighting round-up when it's due
  * (data-spine.md PR 9, `lib/sightingRoundUp.ts`), so it rides on this
- * schedule rather than needing one of its own. It sends once per evening
+ * schedule (and on any API request in the evening, `opportunisticRoundUp`)
+ * rather than needing one of its own. It sends once per evening
  * whoever calls, so the token still can't make the server send anything
  * that wasn't already due. A round-up failure is logged and never changes
  * the status code: that stays about welfare alerts only.
@@ -37,6 +38,8 @@ router.post("/internal/mail/drain", async (req, res) => {
     return;
   }
   const result = await drainDue(25);
+  const overdue = await overdueWelfareAlerts();
+  // After the welfare check, so a slow push service can't delay it.
   let roundUp: RoundUpResult | { status: "error" };
   try {
     roundUp = await sendDailyRoundUp();
@@ -44,7 +47,6 @@ router.post("/internal/mail/drain", async (req, res) => {
     req.log.error({ err: safeError(err) }, "sighting round-up failed");
     roundUp = { status: "error" };
   }
-  const overdue = await overdueWelfareAlerts();
   if (overdue > 0) {
     req.log.error(
       { overdue, ...result },

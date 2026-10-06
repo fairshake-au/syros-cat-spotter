@@ -17,6 +17,9 @@ export async function sendPushNotification(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ to: token, title, body, data, sound: "default" }),
+      // Review of #89, finding 6: a hung Expo call must not hold up the
+      // mail drain (or anything else that awaits a push).
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       logger.warn(
