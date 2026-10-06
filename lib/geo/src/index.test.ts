@@ -48,6 +48,15 @@ function elsewhereInSquare(r: () => number, p: LatLng): LatLng {
   };
 }
 
+/**
+ * What the server does before a cat reaches the phone: snap its exact
+ * position to a cell centre (data spine PR 6). The real grid's origin is
+ * secret (blur.ts); squareCentre is a deterministic stand-in for it.
+ */
+function publish<T extends LatLng>(cat: T): T {
+  return { ...cat, ...squareCentre(cat) };
+}
+
 /** A point exactly `km` due north of `p`. */
 function northOf(p: LatLng, km: number): LatLng {
   return { lat: p.lat + ((km / 6371) * 180) / Math.PI, lng: p.lng };
@@ -82,10 +91,13 @@ describe('squareCentre', () => {
 });
 
 describe('publishedPosition', () => {
-  it('is the centre of the cat\'s 250 m square, never its exact position', () => {
-    const cat = { lat: 37.44123, lng: 24.94567 };
-    expect(publishedPosition(cat)).toEqual(squareCentre(cat));
-    expect(publishedPosition(cat)).not.toEqual({ lat: cat.lat, lng: cat.lng });
+  it('reads the payload\'s cell centre as it is, never snapping it again (data spine PR 6)', () => {
+    // The server's grid has a secret origin, so its cell centres are not on
+    // squareCentre's lattice. Snapping them again here would move every cat.
+    const fromPayload = { lat: 37.441234, lng: 24.945678 };
+    expect(publishedPosition(fromPayload)).toEqual(fromPayload);
+    const cell = squareCentre(fromPayload);
+    expect(publishedPosition(cell)).toEqual(cell);
   });
 });
 
@@ -109,7 +121,7 @@ describe('isNearby (spec §4.8)', () => {
       const sighting = around(r, ERMOUPOLI, 6);
       let cat = around(r, sighting, 0.5);
       if (haversineKm(sighting, cat) > 0.5) continue;
-      expect(isNearby(sighting, publishedPosition(cat))).toBe(true);
+      expect(isNearby(sighting, publishedPosition(publish(cat)))).toBe(true);
     }
   });
 
@@ -130,8 +142,8 @@ describe('isNearby (spec §4.8)', () => {
             (6371 * Math.cos((centre.lat * Math.PI) / 180))) *
             (180 / Math.PI),
       };
-      expect(isNearby(sighting, publishedPosition(moved))).toBe(
-        isNearby(sighting, publishedPosition(cat)),
+      expect(isNearby(sighting, publishedPosition(publish(moved)))).toBe(
+        isNearby(sighting, publishedPosition(publish(cat))),
       );
     }
   });
@@ -183,7 +195,7 @@ describe('nearbyOrder (spec §4.4)', () => {
       { id: 9, ...ERMOUPOLI },
       { id: 3, ...elsewhereInSquare(r, square) },
       { id: 5, ...elsewhereInSquare(r, square) },
-    ];
+    ].map(publish);
     expect(nearbyOrder(ERMOUPOLI, cats).map((c) => c.id)).toEqual([3, 5, 9]);
   });
 
@@ -194,8 +206,8 @@ describe('nearbyOrder (spec §4.4)', () => {
       const moved = cats.map((c) => ({ ...c, ...elsewhereInSquare(r, c) }));
       for (let s = 0; s < 10; s++) {
         const sighting = around(r, ERMOUPOLI, 1.5);
-        expect(nearbyOrder(sighting, moved).map((c) => c.id)).toEqual(
-          nearbyOrder(sighting, cats).map((c) => c.id),
+        expect(nearbyOrder(sighting, moved.map(publish)).map((c) => c.id)).toEqual(
+          nearbyOrder(sighting, cats.map(publish)).map((c) => c.id),
         );
       }
     }

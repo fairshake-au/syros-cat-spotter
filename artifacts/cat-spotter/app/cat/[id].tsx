@@ -28,7 +28,8 @@ import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { MoreToAdd } from '@/components/MoreToAdd';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
-import { lifeLine, parseDateOnly, sterilisedLineKey } from '@/lib/catStatusLines';
+import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
+import { DEFAULT_CELL_M } from '@/lib/cellShape';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
 
@@ -54,7 +55,7 @@ export default function CatDetailScreen() {
   const params = useLocalSearchParams<{ id: string; updateId?: string }>();
   const catId = Number(params.id);
   const updateId = Number(params.updateId);
-  const { ownedCatIds } = useDevice();
+  const { ownedCatIds, deviceId } = useDevice();
   const { notifications, markRead } = useNotifications();
   const [sheet, setSheet] = React.useState<'claim' | 'edit' | null>(null);
 
@@ -78,8 +79,13 @@ export default function CatDetailScreen() {
     }
   }, [highlighted, markRead]);
 
+  // §10.6 Option B: on its own cat's page, the owner's device says who it
+  // is (its secret goes with every request), and the server answers with
+  // the exact position. Everyone else, and every list, gets the cell.
+  const asOwner = deviceId !== null && ownedCatIds.includes(catId);
   const query = useGetCat(catId, {
     query: { enabled: Number.isFinite(catId), queryKey: getGetCatQueryKey(catId) },
+    request: asOwner ? { headers: { 'X-Device-Id': deviceId } } : undefined,
   });
 
   const close = () => {
@@ -209,7 +215,7 @@ export default function CatDetailScreen() {
               <Feather name="eye" size={14} color={colors.mutedForeground} />
               <Text style={[styles.meta, { color: colors.mutedForeground }]}>
                 {cat.sightingsCount} · {t('lastSeen')}{' '}
-                {new Date(cat.lastSeenAt).toLocaleDateString()}
+                {parsePublicDate(cat.lastSeenAt).toLocaleDateString()}
               </Text>
             </View>
             {/* SYC-42: quiet, never the biggest thing on screen (spec §4.1). */}
@@ -335,7 +341,7 @@ export default function CatDetailScreen() {
                       )}
                     </Text>
                     <Text style={[styles.careDate, { color: colors.mutedForeground }]}>
-                      {new Date(event.at).toLocaleDateString(undefined, {
+                      {parsePublicDate(event.at).toLocaleDateString(undefined, {
                         month: 'short',
                         year: '2-digit',
                       })}
@@ -350,21 +356,36 @@ export default function CatDetailScreen() {
             <AppMap
               latitude={cat.lat}
               longitude={cat.lng}
-              latitudeDelta={0.02}
-              longitudeDelta={0.02}
+              latitudeDelta={0.008}
+              longitudeDelta={0.008}
               interactive={false}
               markerBorderColor={colors.primary}
-              markers={[
-                { id: 'cat', latitude: cat.lat, longitude: cat.lng },
-                ...sightings.slice(0, 20).map((s) => ({
-                  id: String(s.id),
-                  latitude: s.lat,
-                  longitude: s.lng,
-                  pinColor: colors.accent,
-                })),
-              ]}
+              // Data spine PR 6 (spec §6.2, §6.6): the cat is somewhere in
+              // its published cell, drawn as that cell, never a pin. Only
+              // its owner gets the exact spot. Sightings carry no position.
+              markers={
+                cat.locationPrecision === 'exact'
+                  ? [{ id: 'cat', latitude: cat.lat, longitude: cat.lng }]
+                  : []
+              }
+              areas={
+                cat.locationPrecision === 'exact'
+                  ? []
+                  : [
+                      {
+                        id: 'cat',
+                        latitude: cat.lat,
+                        longitude: cat.lng,
+                        sizeMetres: cat.locationCellM ?? DEFAULT_CELL_M,
+                        label: t('somewhereInHere'),
+                      },
+                    ]
+              }
             />
           </View>
+          <Text style={[styles.mapCaption, { color: colors.mutedForeground }]}>
+            {t(cat.locationPrecision === 'exact' ? 'firstSpottedHereOwner' : 'firstSpottedAroundHere')}
+          </Text>
 
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
             {t('sightingsHistory')}
@@ -378,7 +399,7 @@ export default function CatDetailScreen() {
                   contentFit="cover"
                 />
                 <Text style={[styles.sightingDate, { color: colors.mutedForeground }]}>
-                  {new Date(s.createdAt).toLocaleDateString()}
+                  {parsePublicDate(s.createdAt).toLocaleDateString()}
                 </Text>
                 <Text
                   style={[styles.sightingSpotter, { color: colors.mutedForeground }]}
@@ -496,6 +517,7 @@ const styles = StyleSheet.create({
     height: 180,
   },
   map: { flex: 1 },
+  mapCaption: { fontSize: 12, fontFamily: 'Inter_500Medium', marginTop: -6 },
   sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold' },
   sightingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   sightingItem: { width: '30.5%', gap: 4 },

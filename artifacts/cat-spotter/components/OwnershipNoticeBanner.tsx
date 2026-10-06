@@ -3,11 +3,9 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import {
-  useListCats,
-  getListCatsQueryKey,
-  type Cat,
-} from '@workspace/api-client-react';
+import { useQuery } from '@tanstack/react-query';
+import { type Cat } from '@workspace/api-client-react';
+import { catalogueQueryKey, fetchWholeCatalogue } from '@/lib/catalogue';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
@@ -46,12 +44,13 @@ export function OwnershipNoticeBanner() {
   );
   const [checked, setChecked] = useState(false);
 
-  const query = useListCats(undefined, {
-    query: {
-      enabled: isOnline && isReady && !checked,
-      queryKey: getListCatsQueryKey(),
-      staleTime: 30_000,
-    },
+  // The whole catalogue, every page (lib/catalogue.ts), under the same key
+  // as useCatsWithCache() so the two share one fetch.
+  const query = useQuery({
+    queryKey: catalogueQueryKey(),
+    queryFn: () => fetchWholeCatalogue(),
+    enabled: isOnline && isReady && !checked,
+    staleTime: 30_000,
   });
 
   useEffect(() => {

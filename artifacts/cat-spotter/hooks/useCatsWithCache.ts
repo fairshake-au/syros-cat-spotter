@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useListCats, getListCatsQueryKey, type Cat } from '@workspace/api-client-react';
+import { useQuery } from '@tanstack/react-query';
+import { type Cat } from '@workspace/api-client-react';
 import { useOffline } from '@/context/OfflineContext';
-
-const CACHE_KEY = 'cat-spotter/cats-cache';
+import {
+  catalogueParams,
+  catalogueQueryKey,
+  fetchWholeCatalogue,
+  forgetRetiredCatalogues,
+  readCachedCatalogue,
+  writeCachedCatalogue,
+} from '@/lib/catalogue';
 
 /**
- * Cats list backed by the API when online and AsyncStorage when offline.
+ * The whole public cats list (every page, lib/catalogue.ts), backed by the
+ * API when online and AsyncStorage when offline.
  */
 export function useCatsWithCache(lat?: number, lng?: number): {
   cats: Cat[];
@@ -17,36 +25,36 @@ export function useCatsWithCache(lat?: number, lng?: number): {
   const { isOnline } = useOffline();
   const [cached, setCached] = useState<Cat[] | null>(null);
 
-  const params =
-    lat !== undefined && lng !== undefined ? { lat, lng } : undefined;
+  const params = catalogueParams(lat, lng);
 
-  const query = useListCats(params, {
-    query: {
-      enabled: isOnline,
-      queryKey: getListCatsQueryKey(params),
-      staleTime: 30_000,
-    },
+  const query = useQuery({
+    queryKey: catalogueQueryKey(params),
+    queryFn: () => fetchWholeCatalogue(params),
+    enabled: isOnline,
+    staleTime: 30_000,
   });
+
+  // Earlier builds cached exact positions under the old key (data spine
+  // PR 6): delete them once, never read them.
+  useEffect(() => {
+    void forgetRetiredCatalogues(AsyncStorage).catch(() => {});
+  }, []);
 
   // Persist fresh results for offline use.
   useEffect(() => {
     if (query.data) {
-      AsyncStorage.setItem(CACHE_KEY, JSON.stringify(query.data));
+      void writeCachedCatalogue(AsyncStorage, query.data).catch(() => {});
     }
   }, [query.data]);
 
   // Load the cache when offline (or before the first fetch resolves).
   useEffect(() => {
     if (!query.data) {
-      AsyncStorage.getItem(CACHE_KEY).then((raw) => {
-        if (raw) {
-          try {
-            setCached(JSON.parse(raw) as Cat[]);
-          } catch {
-            // ignore corrupt cache
-          }
-        }
-      });
+      void readCachedCatalogue(AsyncStorage)
+        .then((cats) => {
+          if (cats) setCached(cats);
+        })
+        .catch(() => {});
     }
   }, [query.data, isOnline]);
 
@@ -54,6 +62,6 @@ export function useCatsWithCache(lat?: number, lng?: number): {
     cats: query.data ?? cached ?? [],
     isLoading: isOnline && query.isLoading && !cached,
     isOffline: !isOnline,
-    refetch: query.refetch,
+    refetch: () => void query.refetch(),
   };
 }

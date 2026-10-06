@@ -96,3 +96,13 @@ export function parseDateOnly(dateOnly: string): Date {
   const [, year, month, day] = match;
   return new Date(Number(year), Number(month) - 1, Number(day));
 }
+
+/**
+ * A public date from the API: last seen, a sighting, a care event. Since
+ * data spine PR 6 these are bare YYYY-MM-DD dates (spec §6.4.4), read as
+ * the same calendar day in any timezone (see parseDateOnly). Anything else
+ * (an older server's full timestamp) is read as before.
+ */
+export function parsePublicDate(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseDateOnly(value) : new Date(value);
+}

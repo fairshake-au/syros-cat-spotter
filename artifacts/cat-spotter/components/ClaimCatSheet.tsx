@@ -17,9 +17,9 @@ import {
   useClaimCat,
   useUpdateCat,
   getGetCatQueryKey,
-  getListCatsQueryKey,
   type Cat,
 } from '@workspace/api-client-react';
+import { CATALOGUE_QUERY_ROOT } from '@/lib/catalogue';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
@@ -77,7 +77,7 @@ export function ClaimCatSheet({
         prev ? { ...prev, cat: { ...prev.cat, ...updated } } : prev,
     );
     queryClient.invalidateQueries({ queryKey: getGetCatQueryKey(updated.id) });
-    queryClient.invalidateQueries({ queryKey: getListCatsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: CATALOGUE_QUERY_ROOT });
     onClose();
   };
 
