@@ -1,12 +1,13 @@
 /**
- * data-spine.md PR 9, spec §6.4.4 (Q4 = A): "Agatha was spotted again!"
- * reaches the cat's owner live, and everyone else at most once a day, in an
- * evening round-up whose words never carry a time.
+ * data-spine.md PR 9, spec §6.4.4 (Q4 = A): news of a sighting reaches the
+ * cat's owner live, and everyone else at most once a day, in an evening
+ * round-up (in-app row and push together) whose words never carry a time.
  *
- * The plan's three tests: a non-owner gets no push inside the window; an
- * owner still does; no text contains a time. Plus: the round-up sends once
- * per evening even under parallel drains, and skips deleted devices (no push
- * token, SYC-63) and cats recorded as dead (§3.3).
+ * The plan's three tests: a non-owner gets nothing inside the window; an
+ * owner still does; no text contains a time. Plus the review of #89: once
+ * per evening under parallel triggers, a failed run leaves the evening
+ * unclaimed, the window's upper edge, the spotter and later followers left
+ * out, deleted devices and dead cats skipped, and the request trigger.
  *
  * Round-up dates are in 2031 so they never meet a real evening's claim row.
  */
@@ -21,6 +22,7 @@ import {
   catUpdatesTable,
   notificationsTable,
   pushRoundupRunsTable,
+  sightingsTable,
 } from "@workspace/db";
 import { and, eq, gte, inArray, like, lte } from "drizzle-orm";
 import { writeObservation } from "./observations";
@@ -30,8 +32,24 @@ const sendPushNotificationMock = vi.hoisted(() =>
 );
 vi.mock("./push", () => ({ sendPushNotification: sendPushNotificationMock }));
 
+// The real deceased check, wrapped so one test can make the run fail midway.
+const deceasedSpy = vi.hoisted(() => ({ failNext: false }));
+vi.mock("./catHelpers", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./catHelpers")>();
+  return {
+    ...real,
+    isResolvedDeceased: async (catId: number) => {
+      if (deceasedSpy.failNext) {
+        deceasedSpy.failNext = false;
+        throw new Error("database went away");
+      }
+      return real.isResolvedDeceased(catId);
+    },
+  };
+});
+
 import { createUpdateAndFanOut, fanOutNotifications, insertCatUpdate } from "./notificationFanout";
-import { roundUpText, sendDailyRoundUp } from "./sightingRoundUp";
+import { opportunisticRoundUp, roundUpText, sendDailyRoundUp } from "./sightingRoundUp";
 
 const NAME_PREFIX = "VitestRoundUp";
 const DEVICE_PREFIX = "vitest-roundup";
@@ -49,7 +67,9 @@ const letters = () =>
   Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
 const device = (role: string) => `${DEVICE_PREFIX}-${role}-${letters()}`;
 
-async function seedCat(opts: { owner?: string; name?: string } = {}) {
+type Cat = typeof catsTable.$inferSelect;
+
+async function seedCat(opts: { owner?: string; name?: string } = {}): Promise<Cat> {
   const [p] = await db
     .insert(photosTable)
     .values({ data: TINY_JPEG_B64, mime: "image/jpeg" })
@@ -69,30 +89,58 @@ async function seedCat(opts: { owner?: string; name?: string } = {}) {
   return c!;
 }
 
-async function follow(deviceId: string, catId: number, token = true) {
-  await db.insert(catSubscriptionsTable).values({ deviceId, catId });
-  if (token) {
+const tokenOf = (deviceId: string) => `ExponentPushToken[${deviceId}]`;
+
+/** Follow a cat from `since` (default: long before any 2031 sighting). */
+async function follow(
+  deviceId: string,
+  catId: number,
+  opts: { token?: boolean; since?: Date } = {},
+) {
+  await db.insert(catSubscriptionsTable).values({
+    deviceId,
+    catId,
+    createdAt: opts.since ?? new Date("2030-01-01T00:00:00Z"),
+  });
+  if (opts.token ?? true) {
     await db
       .insert(pushTokensTable)
-      .values({ deviceId, token: `ExponentPushToken[${deviceId}]` })
+      .values({ deviceId, token: tokenOf(deviceId) })
       .onConflictDoNothing();
   }
 }
 
 /** A sighting of `cat` at `at`, fanned out exactly as resolve does. */
-async function sighting(cat: typeof catsTable.$inferSelect, at: Date) {
+async function sighting(cat: Cat, at: Date, spotter = `${DEVICE_PREFIX}-spotter`) {
+  const [s] = await db
+    .insert(sightingsTable)
+    .values({
+      deviceId: spotter,
+      photoId: cat.primaryPhotoId,
+      catId: cat.id,
+      lat: 37.4448,
+      lng: 24.9425,
+      status: "resolved",
+    })
+    .returning();
   const update = await insertCatUpdate(db, {
     cat,
     updateType: "sighting",
     message: `${cat.name} was spotted again!`,
+    triggerSightingId: s!.id,
     createdAt: at,
   });
-  await fanOutNotifications({ cat, update, excludeDeviceId: `${DEVICE_PREFIX}-spotter` });
+  await fanOutNotifications({ cat, update, excludeDeviceId: spotter });
+  return update;
 }
 
-const tokenOf = (deviceId: string) => `ExponentPushToken[${deviceId}]`;
 const pushesTo = (deviceId: string) =>
   sendPushNotificationMock.mock.calls.filter((c) => c[0] === tokenOf(deviceId));
+const inAppRows = (deviceId: string) =>
+  db
+    .select({ catUpdateId: notificationsTable.catUpdateId })
+    .from(notificationsTable)
+    .where(eq(notificationsTable.deviceId, deviceId));
 
 /** Lets the fan-out's fire-and-forget token lookup finish. */
 const settle = () => new Promise((r) => setTimeout(r, 150));
@@ -115,6 +163,7 @@ async function cleanup() {
     }
     await db.delete(catUpdatesTable).where(inArray(catUpdatesTable.catId, catIds));
     await db.delete(catSubscriptionsTable).where(inArray(catSubscriptionsTable.catId, catIds));
+    await db.delete(sightingsTable).where(inArray(sightingsTable.catId, catIds));
     await db.delete(catsTable).where(inArray(catsTable.id, catIds));
     await db.delete(photosTable).where(inArray(photosTable.id, cats.map((c) => c.photoId)));
   }
@@ -133,14 +182,17 @@ async function cleanup() {
 const athens = (day: string, hhmm: string) => new Date(`2031-${day}T${hhmm}:00+02:00`);
 
 beforeAll(cleanup);
-beforeEach(() => sendPushNotificationMock.mockClear());
+beforeEach(() => {
+  sendPushNotificationMock.mockClear();
+  deceasedSpy.failNext = false;
+});
 afterAll(async () => {
   await cleanup();
   await pool.end();
 });
 
-describe("live sighting pushes go to the cat's owner only (§6.4.4)", () => {
-  it("a non-owner follower gets no live push for a sighting, but keeps the in-app row; the owner gets the push", async () => {
+describe("a sighting reaches only the cat's owner straight away (§6.4.4)", () => {
+  it("a non-owner follower gets no push and no in-app row; the owner gets both", async () => {
     const owner = device("owner");
     const watcher = device("watcher");
     const cat = await seedCat({ owner });
@@ -163,10 +215,10 @@ describe("live sighting pushes go to the cat's owner only (§6.4.4)", () => {
       .select({ deviceId: notificationsTable.deviceId })
       .from(notificationsTable)
       .where(eq(notificationsTable.catUpdateId, update.id));
-    expect(rows.map((r) => r.deviceId).sort()).toEqual([owner, watcher].sort());
+    expect(rows.map((r) => r.deviceId)).toEqual([owner]);
   });
 
-  it("a cat with no owner: no follower gets a live sighting push", async () => {
+  it("a cat with no owner: no follower hears anything straight away", async () => {
     const a = device("a");
     const b = device("b");
     const cat = await seedCat();
@@ -177,6 +229,8 @@ describe("live sighting pushes go to the cat's owner only (§6.4.4)", () => {
     await settle();
 
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
+    expect(await inAppRows(a)).toHaveLength(0);
+    expect(await inAppRows(b)).toHaveLength(0);
   });
 
   it("care updates (not sightings) still reach every follower live", async () => {
@@ -191,11 +245,12 @@ describe("live sighting pushes go to the cat's owner only (§6.4.4)", () => {
 
     expect(pushesTo(owner)).toHaveLength(1);
     expect(pushesTo(watcher)).toHaveLength(1);
+    expect(await inAppRows(watcher)).toHaveLength(1);
   });
 });
 
 describe("the evening round-up", () => {
-  it("nothing before 20:00 Athens time; at 20:30 one push per non-owner naming every cat; never twice", async () => {
+  it("nothing before 20:00 Athens time; at 20:30 one push and the in-app rows per non-owner; never twice", async () => {
     const owner = device("owner");
     const watcher = device("watcher");
     const street = await seedCat({ name: "Agatha" });
@@ -205,45 +260,52 @@ describe("the evening round-up", () => {
     await follow(owner, homed.id);
 
     await sighting(street, athens("03-10", "09:15"));
-    await sighting(homed, athens("03-10", "18:42"));
+    const milo1 = await sighting(homed, athens("03-10", "11:00"));
+    const milo2 = await sighting(homed, athens("03-10", "18:42"));
     await settle();
-    // The owner had their live push about Milo; the watcher had nothing.
-    expect(pushesTo(owner)).toHaveLength(1);
+    // The owner heard about Milo twice, live; the watcher heard nothing.
+    expect(pushesTo(owner)).toHaveLength(2);
     expect(pushesTo(watcher)).toHaveLength(0);
+    expect(await inAppRows(watcher)).toHaveLength(0);
     sendPushNotificationMock.mockClear();
 
     // Inside the window: still nothing for anyone.
     expect(await sendDailyRoundUp(athens("03-10", "19:59"))).toEqual({ status: "not_due" });
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
+    expect(await inAppRows(watcher)).toHaveLength(0);
 
     const result = await sendDailyRoundUp(athens("03-10", "20:30"));
-    expect(result).toMatchObject({ status: "sent" });
+    expect(result).toMatchObject({ status: "sent", devices: 1, pushes: 1 });
 
     expect(pushesTo(watcher)).toHaveLength(1);
     const [, title, body, data] = pushesTo(watcher)[0]!;
-    expect(body).toContain(homed.name);
-    expect(body).toContain(street.name);
+    // Most recently seen first.
+    expect(body).toBe(`${homed.name} and ${street.name} were spotted again.`);
     expect(`${title} ${body}`).not.toMatch(TIME_RE);
-    expect(data).toEqual({
-      type: "sighting_round_up",
-      catIds: expect.arrayContaining([street.id, homed.id]),
-    });
+    expect(data).toEqual({ type: "sighting_round_up", catIds: [homed.id, street.id] });
+
+    // One in-app row per cat (Milo's latest sighting, not both), written now.
+    const rows = (await inAppRows(watcher)).map((r) => r.catUpdateId);
+    expect(rows).toHaveLength(2);
+    expect(rows).toContain(milo2.id);
+    expect(rows).not.toContain(milo1.id);
+
     // The owner isn't sent their own cat again.
     expect(pushesTo(owner)).toHaveLength(0);
 
-    // Later drains the same evening send nothing more.
+    // Later triggers the same evening send nothing more.
     sendPushNotificationMock.mockClear();
     expect(await sendDailyRoundUp(athens("03-10", "21:00"))).toEqual({ status: "already_sent" });
     expect(await sendDailyRoundUp(athens("03-10", "23:50"))).toEqual({ status: "already_sent" });
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
+    expect(await inAppRows(watcher)).toHaveLength(2);
   });
 
-  it("parallel drains send each evening's round-up exactly once", async () => {
+  it("parallel triggers send each evening's round-up exactly once", async () => {
     const watcher = device("watcher");
     const cat = await seedCat();
     await follow(watcher, cat.id);
     await sighting(cat, athens("03-14", "10:00"));
-    await settle();
 
     const results = await Promise.all(
       [0, 1, 2, 3].map(() => sendDailyRoundUp(athens("03-14", "20:05"))),
@@ -251,17 +313,40 @@ describe("the evening round-up", () => {
     expect(results.filter((r) => r.status === "sent")).toHaveLength(1);
     expect(results.filter((r) => r.status === "already_sent")).toHaveLength(3);
     expect(pushesTo(watcher)).toHaveLength(1);
+    expect(await inAppRows(watcher)).toHaveLength(1);
   });
 
-  it("a deleted device (no push token, SYC-63) and a cat recorded as dead get nothing", async () => {
-    const gone = device("deleted");
+  it("a run that fails midway leaves the evening unclaimed, and the next trigger sends it", async () => {
+    const watcher = device("watcher");
+    const cat = await seedCat();
+    await follow(watcher, cat.id);
+    await sighting(cat, athens("03-16", "10:00"));
+
+    deceasedSpy.failNext = true;
+    await expect(sendDailyRoundUp(athens("03-16", "20:05"))).rejects.toThrow("database went away");
+    expect(pushesTo(watcher)).toHaveLength(0);
+    expect(await inAppRows(watcher)).toHaveLength(0);
+
+    expect(await sendDailyRoundUp(athens("03-16", "20:15"))).toMatchObject({ status: "sent" });
+    expect(pushesTo(watcher)).toHaveLength(1);
+    expect(await inAppRows(watcher)).toHaveLength(1);
+  });
+
+  it("deleted devices, the spotter themself, later followers and dead cats get nothing; no token still gets the in-app row", async () => {
+    const deleted = device("deleted");
+    const spotter = device("spotter");
+    const latecomer = device("late");
+    const noToken = device("notoken");
     const watcher = device("watcher");
     const alive = await seedCat({ name: "Agatha" });
     const dead = await seedCat({ name: "Bramble" });
-    await follow(gone, alive.id, false);
+    await follow(deleted, alive.id);
+    await follow(spotter, alive.id);
+    await follow(latecomer, alive.id, { since: athens("03-18", "12:00") });
+    await follow(noToken, alive.id, { token: false });
     await follow(watcher, alive.id);
     await follow(watcher, dead.id);
-    await sighting(alive, athens("03-18", "08:00"));
+    await sighting(alive, athens("03-18", "08:00"), spotter);
     await sighting(dead, athens("03-18", "08:30"));
     await writeObservation(db, {
       catId: dead.id,
@@ -271,28 +356,77 @@ describe("the evening round-up", () => {
       roleAtTime: "staff",
       observedAt: new Date(),
     });
+    // SYC-63's deletion removes the follow and the push token.
+    await db.delete(catSubscriptionsTable).where(eq(catSubscriptionsTable.deviceId, deleted));
+    await db.delete(pushTokensTable).where(eq(pushTokensTable.deviceId, deleted));
 
     await sendDailyRoundUp(athens("03-18", "20:10"));
 
-    expect(sendPushNotificationMock.mock.calls.every((c) => !String(c[0]).includes(gone))).toBe(true);
+    for (const d of [deleted, spotter, latecomer]) {
+      expect(pushesTo(d)).toHaveLength(0);
+      expect(await inAppRows(d)).toHaveLength(0);
+    }
+    expect(await inAppRows(noToken)).toHaveLength(1);
     expect(pushesTo(watcher)).toHaveLength(1);
-    const body = pushesTo(watcher)[0]![2];
-    expect(body).toContain(alive.name);
-    expect(body).not.toContain(dead.name);
+    expect(pushesTo(watcher)[0]![2]).toBe(`${alive.name} was spotted again.`);
+    expect(await inAppRows(watcher)).toHaveLength(1);
   });
 
-  it("a sighting from an earlier evening's window is not repeated", async () => {
+  it("a sighting after tonight's round-up waits for tomorrow's; one already sent isn't repeated", async () => {
     const watcher = device("watcher");
     const cat = await seedCat();
     await follow(watcher, cat.id);
     await sighting(cat, athens("03-22", "11:00"));
+    await sighting(cat, athens("03-22", "21:30"));
     await sendDailyRoundUp(athens("03-22", "20:00"));
     expect(pushesTo(watcher)).toHaveLength(1);
+    expect(await inAppRows(watcher)).toHaveLength(1);
 
     sendPushNotificationMock.mockClear();
-    const next = await sendDailyRoundUp(athens("03-23", "20:00"));
-    expect(next).toEqual({ status: "sent", devices: 0, pushes: 0 });
-    expect(pushesTo(watcher)).toHaveLength(0);
+    expect(await sendDailyRoundUp(athens("03-23", "20:00"))).toEqual({
+      status: "sent",
+      devices: 1,
+      pushes: 1,
+    });
+    expect(pushesTo(watcher)).toHaveLength(1);
+    expect(await inAppRows(watcher)).toHaveLength(2);
+
+    sendPushNotificationMock.mockClear();
+    expect(await sendDailyRoundUp(athens("03-24", "20:00"))).toEqual({
+      status: "sent",
+      devices: 0,
+      pushes: 0,
+    });
+  });
+
+  it("any API request in the evening triggers it (the schedule can't be relied on)", async () => {
+    const watcher = device("watcher");
+    const cat = await seedCat();
+    await follow(watcher, cat.id);
+    await sighting(cat, athens("03-26", "10:00"));
+
+    const saved = process.env["ROUND_UP_ON_REQUEST"];
+    process.env["ROUND_UP_ON_REQUEST"] = "on";
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const finishAt = (at: Date) => {
+        vi.setSystemTime(at);
+        let onFinish: () => void = () => {};
+        opportunisticRoundUp(null, { on: (_e, cb) => (onFinish = cb) }, () => {});
+        onFinish();
+      };
+      finishAt(athens("03-26", "18:00"));
+      await new Promise((r) => setTimeout(r, 200));
+      expect(pushesTo(watcher)).toHaveLength(0);
+
+      finishAt(athens("03-26", "20:40"));
+      await vi.waitFor(async () => expect(await inAppRows(watcher)).toHaveLength(1));
+      await vi.waitFor(() => expect(pushesTo(watcher)).toHaveLength(1));
+    } finally {
+      vi.useRealTimers();
+      if (saved === undefined) delete process.env["ROUND_UP_ON_REQUEST"];
+      else process.env["ROUND_UP_ON_REQUEST"] = saved;
+    }
   });
 });
 

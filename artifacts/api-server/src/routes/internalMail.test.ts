@@ -14,7 +14,10 @@ import { eq, inArray, like, sql } from "drizzle-orm";
 const sendDailyRoundUpMock = vi.hoisted(() =>
   vi.fn(async () => ({ status: "not_due" as const })),
 );
-vi.mock("../lib/sightingRoundUp", () => ({ sendDailyRoundUp: sendDailyRoundUpMock }));
+vi.mock("../lib/sightingRoundUp", () => ({
+  sendDailyRoundUp: sendDailyRoundUpMock,
+  opportunisticRoundUp: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 
 import app from "../app";
 import { drainDue, settleOutbox } from "../lib/mail/outbox";
