@@ -1,13 +1,22 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, photosTable, welfareReportPhotosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { listWelfareQueue } from "../lib/welfareQueue";
-import { setTeamHeaders } from "../lib/teamAuth/refuse";
-import { requireTeam } from "../middlewares/requireTeam";
+import { z } from "zod";
+import { getQueueReport, listWelfareQueue } from "../lib/welfareQueue";
+import {
+  moveReportState,
+  NOTE_MAX,
+  REPORT_STATES,
+  writeTeamNote,
+} from "../lib/welfareActions";
+import { TEAM_ORIGIN } from "../lib/teamAuth/config";
+import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
+import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 
 // The welfare queue's data and photos for the staff dashboard (SYC-43 part 2
-// plan, PR 1). No CORS headers: app.ts skips /api/team/. Every route here
-// uses requireTeam("view_exact_location"): it shows exact positions.
+// plan, PR 1 and PR 2). No CORS headers: app.ts skips /api/team/. The reading
+// routes use requireTeam("view_exact_location"): they show exact positions.
+// The two POST routes at the end check Origin first, then their capability.
 
 const router: IRouter = Router();
 
@@ -82,6 +91,110 @@ router.get(
     if (!photo || !IMAGE_TYPES.has(photo.mime)) return notFound(res);
     res.setHeader("Content-Type", photo.mime);
     res.send(Buffer.from(photo.data, "base64"));
+  },
+);
+
+// ── PR 2: moving a report and the team note ────────────────────────────────
+
+export const CHANGED_MESSAGE =
+  "Someone else changed this report a moment ago. Here's where it is now.";
+
+const PUBLIC_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+const StateBody = z.object({
+  from: z.enum(REPORT_STATES),
+  to: z.enum(REPORT_STATES),
+});
+const NoteBody = z.object({ note: z.string().max(NOTE_MAX) });
+
+/** A browser form post gets a redirect; anything else gets JSON. */
+const isFormPost = (req: Request) =>
+  Boolean(req.is("application/x-www-form-urlencoded"));
+
+/** Where a browser goes next: the queue, with this report in view. */
+const backToReport = (publicId: string, changed = false) =>
+  `/api/team${changed ? `?changed=${encodeURIComponent(publicId)}` : ""}#r-${encodeURIComponent(publicId)}`;
+
+/** 400 with field names only: never the values, which can include the note. */
+function badRequest(res: Response, fields: string[]) {
+  setTeamHeaders(res);
+  res.status(400).json({ error: "Invalid request", fields });
+}
+
+const fieldsOf = (err: z.ZodError) => [
+  ...new Set(err.issues.map((i) => i.path.join("."))),
+];
+
+/**
+ * POST /api/team/reports/:publicId/state: move a sent report to one of the
+ * four states. `from` is the state the page showed; if the report is no
+ * longer there, someone else moved it first and nothing is written. Sends
+ * nothing to anyone (reporter email is Slice 3).
+ */
+router.post(
+  "/team/reports/:publicId/state",
+  requireOrigin(TEAM_ORIGIN),
+  requireTeam("change_report_state"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const person = teamPerson(res);
+    const publicId = String(req.params["publicId"]);
+    const parsed = StateBody.safeParse(req.body ?? {});
+    if (!parsed.success) return badRequest(res, fieldsOf(parsed.error));
+    const { from, to } = parsed.data;
+    // "Move" to where it already is: nothing to record.
+    if (from === to) return badRequest(res, ["to"]);
+    if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
+
+    const outcome = await moveReportState({
+      publicId,
+      from,
+      to,
+      personId: person.id,
+    });
+    if (outcome === "not_found") return notFound(res);
+    if (isFormPost(req)) {
+      return void res.redirect(
+        303,
+        backToReport(publicId, outcome === "changed"),
+      );
+    }
+    const report = await getQueueReport(publicId);
+    if (outcome === "changed") {
+      return void res.status(409).json({
+        error: "changed_by_someone_else",
+        message: CHANGED_MESSAGE,
+        report,
+      });
+    }
+    res.json(report);
+  },
+);
+
+/**
+ * POST /api/team/reports/:publicId/note: the team note, up to 2,000
+ * characters. Team only: it is never shown to the reporter (spec §8.5).
+ */
+router.post(
+  "/team/reports/:publicId/note",
+  requireOrigin(TEAM_ORIGIN),
+  requireTeam("add_team_note"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const person = teamPerson(res);
+    const publicId = String(req.params["publicId"]);
+    const parsed = NoteBody.safeParse(req.body ?? {});
+    if (!parsed.success) return badRequest(res, fieldsOf(parsed.error));
+    if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
+
+    const written = await writeTeamNote({
+      publicId,
+      note: parsed.data.note,
+      personId: person.id,
+    });
+    if (!written) return notFound(res);
+    if (isFormPost(req)) return void res.redirect(303, backToReport(publicId));
+    res.json(await getQueueReport(publicId));
   },
 );
 
