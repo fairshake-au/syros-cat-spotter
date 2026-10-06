@@ -7,6 +7,7 @@ import {
   doublePrecision,
   timestamp,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
 import { foldNameSql } from "../foldSql";
 
@@ -27,18 +28,27 @@ export const catsTable = pgTable(
     primaryPhotoId: integer("primary_photo_id").notNull(),
     lat: doublePrecision("lat").notNull(),
     lng: doublePrecision("lng").notNull(),
-    discovererDeviceId: text("discoverer_device_id").notNull(),
+    // Null only once deletion has unlinked the discoverer (SYC-63); the cat
+    // then credits "a spotter". The check below refuses an unstamped null.
+    discovererDeviceId: text("discoverer_device_id"),
     ownerDeviceId: text("owner_device_id"),
     ownerName: text("owner_name"),
     homeDescription: text("home_description"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // When deletion unlinked this cat's discoverer, and why (§8.5).
+    redactedAt: timestamp("redacted_at", { withTimezone: true }),
+    redactionReason: text("redaction_reason"),
   },
   (table) => [
     // One cat per folded name: "ΜΙΜΗ" and "Μιμή", "ΣΟΦΊΑΣ" and "Σοφίας",
     // "Zoë" and "Zoe" are each one name. Replaces cats_name_lower_unique.
     uniqueIndex("cats_normalised_name_unique").on(table.normalisedName),
+    check(
+      "cats_discoverer_ck",
+      sql`${table.discovererDeviceId} is not null or ${table.redactedAt} is not null`,
+    ),
   ],
 );
 
