@@ -124,7 +124,12 @@ describe("SYC-188: only a role that grants something is let in", () => {
     expect((await me(p.id, p.sessionVersion)).status).toBe(200);
   });
 
-  for (const roles of [["guardian"], ["volunteer"], ["vet"], ["volunteer", "vet"]]) {
+  for (const roles of [
+    ["guardian"],
+    ["volunteer"],
+    ["vet"],
+    ["volunteer", "vet"],
+  ]) {
     it(`${roles.join(" + ")} only: kept out at every door, like a stranger`, async () => {
       const p = await add(roles);
       await expectKeptOut(p.id, p.sessionVersion);
@@ -133,7 +138,9 @@ describe("SYC-188: only a role that grants something is let in", () => {
 
   it("someone in the table with no roles at all is kept out", async () => {
     const p = await add(["staff"]);
-    await db.delete(personScopesTable).where(eq(personScopesTable.personId, p.id));
+    await db
+      .delete(personScopesTable)
+      .where(eq(personScopesTable.personId, p.id));
     await expectKeptOut(p.id, p.sessionVersion);
   });
 

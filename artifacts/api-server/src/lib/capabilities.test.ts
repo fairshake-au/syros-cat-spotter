@@ -55,9 +55,9 @@ describe("can()", () => {
 describe("mayEnter() (SYC-188)", () => {
   it("lets staff in, including staff who also hold another role", () => {
     expect(mayEnter(staff)).toBe(true);
-    expect(
-      mayEnter({ scopes: [...guardian.scopes, ...staff.scopes] }),
-    ).toBe(true);
+    expect(mayEnter({ scopes: [...guardian.scopes, ...staff.scopes] })).toBe(
+      true,
+    );
   });
 
   it("keeps out guardian, volunteer, vet and no role, while those grant nothing", () => {
