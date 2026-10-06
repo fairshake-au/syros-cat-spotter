@@ -16,6 +16,7 @@ set -euo pipefail
 # later line (an error included) can print them. GitHub consumes these lines.
 if [ -n "${PEOPLE_EMAIL:-}" ]; then echo "::add-mask::${PEOPLE_EMAIL}"; fi
 if [ -n "${PEOPLE_NAME:-}" ]; then echo "::add-mask::${PEOPLE_NAME}"; fi
+if [ -n "${PEOPLE_EMAIL_CONFIRM:-}" ]; then echo "::add-mask::${PEOPLE_EMAIL_CONFIRM}"; fi
 
 COMMAND="${COMMAND:?COMMAND must be set}"
 TARGET="${TARGET:?TARGET must be set}"
@@ -323,37 +324,68 @@ NODE
   log "verify: done."
 }
 
-# --- people-add / people-list (SYC-43 part 1; SYC-121 plan H.1(b)) --------
+# --- people-* (SYC-43 part 1; SYC-131; SYC-121 plan H.1(b)) ---------------
 # The staff email and name arrive only as short-lived Environment secrets
-# (PEOPLE_EMAIL, PEOPLE_NAME), never as workflow inputs. They're masked at the
-# top of this script and never echoed. The people CLI checks DATABASE_TARGET
-# against --target itself and picks NEON_*_URL by target, the same way this
-# script does; it prints the person's id and role only.
+# (PEOPLE_EMAIL, PEOPLE_NAME, PEOPLE_EMAIL_CONFIRM), never as workflow inputs.
+# They're masked at the top of this script and never echoed. The people CLI
+# checks DATABASE_TARGET against --target itself and picks NEON_*_URL by
+# target, the same way this script does; it prints the person's id and role
+# only.
+#
+# Every command that names a person needs the address twice (SYC-131):
+# PEOPLE_EMAIL_CONFIRM must equal PEOPLE_EMAIL, compared the way the people
+# CLI normalises addresses (trimmed, lower-case). This stands in for the CLI's
+# interactive retype, which a workflow can't do; for mark-left, remove and
+# sign-out-everywhere the confirmation is also fed to that retype, so the CLI
+# checks it a second time.
+
+# Trimmed and lower-cased, as normaliseEmail() does.
+normalise_email() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
 run_people() {
-  local sub="$1" # add | list
+  local sub="$1" # add | list | mark-left | remove | sign-out-everywhere
   local out="$WORKDIR/people.log"
   local status=0
   local args=(--target "$TARGET")
-  if [ "$sub" = "add" ]; then
+  local confirm=""
+  if [ "$sub" != "list" ]; then
     require PEOPLE_EMAIL
-    require PEOPLE_NAME
-    # A fixed list, validated here and again by the CLI and the database.
-    case "${PEOPLE_ROLE:-}" in
-      staff|guardian|volunteer|vet) ;;
-      *)
-        echo "db-ops: people_role must be staff, guardian, volunteer or vet." >&2
-        exit 1
-        ;;
-    esac
-    args+=(--role "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
+    require PEOPLE_EMAIL_CONFIRM
+    if [ "$(normalise_email "$PEOPLE_EMAIL")" != "$(normalise_email "$PEOPLE_EMAIL_CONFIRM")" ]; then
+      echo "db-ops: PEOPLE_EMAIL and PEOPLE_EMAIL_CONFIRM don't match. Nothing was changed." >&2
+      exit 1
+    fi
+    confirm="$PEOPLE_EMAIL_CONFIRM"
   fi
-  (cd "$ROOT" && pnpm --silent --filter @workspace/db run people -- "$sub" "${args[@]}") \
+  case "$sub" in
+    add)
+      require PEOPLE_NAME
+      # A fixed list, validated here and again by the CLI and the database.
+      case "${PEOPLE_ROLE:-}" in
+        staff|guardian|volunteer|vet) ;;
+        *)
+          echo "db-ops: people_role must be staff, guardian, volunteer or vet." >&2
+          exit 1
+          ;;
+      esac
+      args+=(--role "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
+      ;;
+    mark-left)
+      args+=(--by "db-ops:${GITHUB_ACTOR:-unknown}")
+      ;;
+  esac
+  # The CLI reads the address from PEOPLE_EMAIL itself; the confirmation goes
+  # to its retype prompt on stdin (add and list don't ask).
+  (cd "$ROOT" && printf '%s\n' "$confirm" \
+    | pnpm --silent --filter @workspace/db run people -- "$sub" "${args[@]}") \
     >"$out" 2>&1 || status=$?
-  # Check the output before showing it: no connection string, and neither
-  # secret (whatever GitHub's own masking does).
+  # Check the output before showing it: no connection string, and no secret
+  # (whatever GitHub's own masking does).
   grep_no_urls "$out"
   local secret
-  for secret in "${PEOPLE_EMAIL:-}" "${PEOPLE_NAME:-}"; do
+  for secret in "${PEOPLE_EMAIL:-}" "${PEOPLE_NAME:-}" "${PEOPLE_EMAIL_CONFIRM:-}"; do
     if [ -n "$secret" ] && grep -Fqi -- "$secret" "$out"; then
       echo "db-ops: a people secret appeared in output — refusing to show it." >&2
       exit 1
@@ -401,7 +433,7 @@ case "$COMMAND" in
     (cd "$ROOT" && pnpm --filter @workspace/db run smoke "$BASE_URL")
     ;;
 
-  people-add|people-list)
+  people-add|people-list|people-mark-left|people-remove|people-sign-out-everywhere)
     if [ "$TARGET" = "rehearsal" ]; then
       echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
       exit 1
