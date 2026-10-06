@@ -64,7 +64,7 @@ The MVP is the **app as already built** (spotting with AI matching, catalogue, m
 - Capacity messaging built into the flow, based on Syros Cats' standard reply: go to a vet directly (the vet will likely charge), contact Syros Cats first rather than turning up. The same messaging appears on litter-related reports.
 
 ### 2.6 Team access (minimal)
-- One Syros Cats staff sign-in (email based) opening a simple web dashboard: welfare/report queue, feeding-site map (private by default, per-site public toggle), record corrections, colony naming (location + carer).
+- One Syros Cats staff sign-in (email based) opening a simple web dashboard: welfare/report queue, feeding-site map (private by default, per-site public toggle), record corrections, colony naming (location + cat guardian).
 - "Report an issue" on every cat and photo, routed to admin@syroscats and the queue.
 - Full invited-role system (guardians, volunteers, vets) is MLP.
 
