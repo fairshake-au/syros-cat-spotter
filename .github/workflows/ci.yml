@@ -55,6 +55,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Security patches are applied (braces, node-forge)
+        run: pnpm run test:dependency-security
+
       - name: Migrations match the schema code, and each has a rollback
         run: pnpm --filter @workspace/db run migrate:check
 
