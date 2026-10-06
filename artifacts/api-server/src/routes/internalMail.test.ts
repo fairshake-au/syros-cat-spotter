@@ -8,6 +8,14 @@ import {
   welfareReportsTable,
 } from "@workspace/db";
 import { eq, inArray, like, sql } from "drizzle-orm";
+// The drain also sends the evening sighting round-up (data-spine.md PR 9).
+// Stubbed here so a run after 20:00 Athens time can't push through this
+// file's fake Resend `fetch`; sightingRoundUp.test.ts covers the real thing.
+const sendDailyRoundUpMock = vi.hoisted(() =>
+  vi.fn(async () => ({ status: "not_due" as const })),
+);
+vi.mock("../lib/sightingRoundUp", () => ({ sendDailyRoundUp: sendDailyRoundUpMock }));
+
 import app from "../app";
 import { drainDue, settleOutbox } from "../lib/mail/outbox";
 
@@ -188,6 +196,24 @@ describe("test 15: the drain path and its narrow token", () => {
     expect(res.status).toBe(200);
     expect(res.body.sent).toBeGreaterThanOrEqual(1);
     expect(sentIds).toContain(report.publicId);
+  });
+
+  it("also runs the evening sighting round-up, and its failure doesn't fail the drain", async () => {
+    sendDailyRoundUpMock.mockClear();
+    let res = await drain(DRAIN_TOKEN);
+    expect(sendDailyRoundUpMock).toHaveBeenCalledTimes(1);
+    expect(res.body.roundUp).toBe("not_due");
+
+    sendDailyRoundUpMock.mockRejectedValueOnce(new Error("push service down"));
+    res = await drain(DRAIN_TOKEN);
+    expect(res.status).toBe(200);
+    expect(res.body.roundUp).toBe("error");
+  });
+
+  it("the round-up never runs for a caller without the drain token", async () => {
+    sendDailyRoundUpMock.mockClear();
+    expect((await drain("not-the-token")).status).toBe(401);
+    expect(sendDailyRoundUpMock).not.toHaveBeenCalled();
   });
 
   it("answers 503 not_configured when the server has no drain token", async () => {
