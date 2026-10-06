@@ -51,7 +51,8 @@ const time = (iso: string, text = when(iso)) =>
   `<time datetime="${esc(iso)}">${esc(text)}</time>`;
 
 const place = (lat: number, lng: number) => {
-  const here = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  // Exact: the stored numbers as they are, never rounded.
+  const here = `${lat}, ${lng}`;
   // A plain link: leaving the dashboard sends nothing until it is tapped.
   const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   return `${esc(here)} &middot; <a href="${esc(map)}" rel="noopener noreferrer">Open map</a>`;
