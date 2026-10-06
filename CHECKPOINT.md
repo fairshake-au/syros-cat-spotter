@@ -10,8 +10,10 @@ Baseline before any change: db 226 tests, api-server 732 tests, typechecks and m
 
 3. Mutation probes (P2-2, P2-3, P2-6) done, recorded below.
 
+4. Browser check done (Playwright, Chromium, real API server on a throwaway local database, real hand-off pass minted with a test key). Chromium's cookie jar took the Secure `__Host-` cookie on http://localhost with no help. A browser on http://localhost sends `Origin: http://localhost:3999`, which `requireOrigin` rightly refuses, so form POSTs to `/api/team/reports/**` had the Origin header rewritten to `https://team.catspotters.com` by a Playwright route; nothing else was changed, so the app code ran unmodified. Done through the forms: Looking at it, a note containing `<b>` (shown as text), and a stale press after another move (notice shown). Screenshots in `docs/screenshots/syc-43-pr2/` (390 and 1280 px). Layout looked right; no fixes needed.
+
 ## Next
-4. Browser check with Playwright, screenshots in `docs/screenshots/syc-43-pr2/`.
+Full suites, prettier, final push. CHECKPOINT.md to be removed before merge, as in PR 1.
 
 ## How to test
 Local Postgres: `service postgresql start`; env `DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres AI_INTEGRATIONS_OPENAI_BASE_URL=http://127.0.0.1:9 AI_INTEGRATIONS_OPENAI_API_KEY=ci-dummy-not-a-key`.
