@@ -77,6 +77,8 @@ onlyBuiltDependencies:
 overrides:
   # Metro's 1.x range is vulnerable; safe 2.x receives file bytes via patches below.
   image-size: "2.0.4"
+  # GHSA-jqcg-44mw-7w3h (critical, IPv4-mapped IPv6 trust-subnet spoofing); Replit's deploy gate blocks 2.0.7.
+  proxy-addr: "2.0.8"
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"
