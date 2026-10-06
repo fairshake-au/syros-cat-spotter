@@ -20,6 +20,7 @@ import {
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { capabilitiesOf } from "../lib/capabilities";
+import { renderPage } from "../lib/teamPages/layout";
 
 // The staff dashboard on team.catspotters.com (team-access spec §2.4, §2.6,
 // §8.2; SYC-43 part 1 plan §5, §6). No CORS headers: app.ts skips /api/team/.
@@ -92,34 +93,26 @@ router.post(
   },
 );
 
-const escapeHtml = (value: string) =>
-  value.replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ]!,
-  );
-
 /**
- * GET /api/team/: the one-line signed-in page, until the welfare queue
- * replaces it. Plain server-rendered HTML with no scripts.
+ * GET /api/team/: the welfare queue (SYC-43 part 2, PR 1). Plain
+ * server-rendered HTML with no scripts.
  */
-router.get("/team", requireTeam(), (_req: Request, res: Response) => {
-  const person = teamPerson(res);
-  setTeamHeaders(res);
-  res
-    .type("html")
-    .send(
-      "<!doctype html>" +
-        '<html lang="en"><head><meta charset="utf-8">' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-        "<title>Cat Spotters dashboard</title></head><body>" +
-        `<p>You're signed in as ${escapeHtml(person.name)}. The welfare queue is coming soon.</p>` +
-        '<form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form>' +
-        "</body></html>",
+router.get(
+  "/team",
+  requireTeam("view_exact_location"),
+  (_req: Request, res: Response) => {
+    const person = teamPerson(res);
+    setTeamHeaders(res);
+    res.type("html").send(
+      renderPage({
+        title: "Welfare queue",
+        active: "queue",
+        personName: person.name,
+        body: "",
+      }),
     );
-});
+  },
+);
 
 /** GET /api/team/me: who is signed in, for the future screens. */
 router.get("/team/me", requireTeam(), (_req: Request, res: Response) => {
