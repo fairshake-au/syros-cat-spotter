@@ -162,6 +162,23 @@ describe("0010_data_spine_names_backfill (data spine PR 3b)", () => {
     ]);
   });
 
+  it("a cat created before PR 2 and renamed after it keeps only its rename: the lost original is not invented", async () => {
+    // The realistic case (review of #94): PR 2 never wrote a name row for a
+    // cat that already existed, so its only row is the rename. The original
+    // name was never stored; the backfill must not paper over that by
+    // writing the current name at created_at.
+    const created = day("2026-08-01");
+    const catId = await seedCat("Ρούλα", created);
+    await c.query(`update cats set name = 'Λίλη' where id = $1`, [catId]);
+    await pr2Name(catId, "Λίλη", day("2026-10-02"));
+
+    await runBackfill();
+
+    expect((await nameRows(catId)).map((r) => [r.name, r.observed_at, r.suggestion_source])).toEqual([
+      ["Λίλη", day("2026-10-02"), null],
+    ]);
+  });
+
   it("up-down-up leaves the same rows, and the rollback removes only its own", async () => {
     const named = await seedCat("Ρούλα", day("2026-09-01"));
     await pr2Name(named, "Ρούλα", day("2026-10-02"));

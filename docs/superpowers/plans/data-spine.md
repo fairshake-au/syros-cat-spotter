@@ -188,7 +188,8 @@ Step 4, for names. Split from PR 3 in this refresh so that the cat page doesn't 
 
 - **What's written:** each cat → one `name` observation with its current name and folded form, `provenance: legacy`, author `system:legacy-backfill`, `observedAt` = the cat's `created_at`, `suggestion_source = 'backfill:data-spine-names'`.
 - **The folded form is copied from the column SYC-101 adds to `cats`**, because a SQL migration can't call PR 1's TypeScript `foldName`. SYC-101 has the same problem filling that column: it needs either a SQL folding that a test proves matches `foldName` on the Greek and Latin cases, or a data step run from TypeScript. (Flagged on SYC-101.)
-- **Match key:** **skip any cat that already has any `name` observation.** Such a cat was named or renamed after PR 2 went live, so PR 2 already recorded its names in order. Writing its *current* name dated at `created_at` would backdate the rename and lose the original, which §10.3 forbids.
+- **Match key:** **skip any cat that already has any `name` observation.** Such a cat was named or renamed after PR 2 went live. Writing its *current* name dated at `created_at` would backdate the rename, which §10.3 forbids.
+- **Accepted gap (review of #94, 6 Oct 2026):** a cat created *before* PR 2 and renamed *after* it keeps only its rename. Its original name was never stored, so nothing can recover it, and the backfill doesn't invent it. Production had no name observations on 6 Oct 2026, so no cat has hit this. **Migrate PR 3b in the same `db-ops` run as SYC-101's migration** to keep the window shut.
 - **Tests:** as PR 3's, plus *a cat renamed after PR 2 went live keeps both names in order, and gains no backdated name row*.
 - **Nothing reads names from observations yet**, so PR 3b changes nothing anyone sees. It must land before the records import (SYC-49) or duplicate merge (SYC-59), which do.
 - **Rollback block:** as PR 3's, for `backfill:data-spine-names` rows only.
