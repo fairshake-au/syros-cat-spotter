@@ -116,7 +116,7 @@ describe("0011_data_spine_names_backfill (data spine PR 3b)", () => {
       ["ΣΟΦΊΑΣ", day("2026-09-22")],
       ["Zoë", day("2026-09-23")],
     ];
-    const ids = [];
+    const ids: number[] = [];
     for (const [n, at] of seeds) ids.push(await seedCat(n, at));
     await runBackfill();
     const rows = await nameRows();
