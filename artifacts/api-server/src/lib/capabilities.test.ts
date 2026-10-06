@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAPABILITIES, can, capabilitiesOf } from "./capabilities";
+import { CAPABILITIES, can, capabilitiesOf, mayEnter } from "./capabilities";
 
 // can() is the only place a permission is decided (SYC-43 part 1 plan §7,
 // test 19; spec §7.1, §7.3).
@@ -49,5 +49,20 @@ describe("can()", () => {
   it("refuses a capability name that isn't on the list, and tsc refuses it too", () => {
     // @ts-expect-error: an unknown capability name is a type error.
     expect(can(staff, "be_staff")).toBe(false);
+  });
+});
+
+describe("mayEnter() (SYC-188)", () => {
+  it("lets staff in, including staff who also hold another role", () => {
+    expect(mayEnter(staff)).toBe(true);
+    expect(
+      mayEnter({ scopes: [...guardian.scopes, ...staff.scopes] }),
+    ).toBe(true);
+  });
+
+  it("keeps out guardian, volunteer, vet and no role, while those grant nothing", () => {
+    for (const person of [guardian, volunteerAndVet, nobody]) {
+      expect(mayEnter(person)).toBe(false);
+    }
   });
 });
