@@ -118,10 +118,9 @@ export function useUsernameClaim({
   const handleClaimed = useCallback((username: string) => {
     if (finished.current) return;
     if (finishOnClaim) finished.current = true;
-    setUncertainName(null);
-    setClaimError(null);
+    update({ uncertainName: null, claimError: null, rejectedKey: null });
     onClaimedRef.current(username);
-  }, [finishOnClaim, setUncertainName, setClaimError]);
+  }, [finishOnClaim]);
 
   /** A request for `key` ended for good after the screen stopped waiting. */
   const handleSettled = useCallback((key: string, settlement: ClaimSettlement) => {
@@ -158,10 +157,18 @@ export function useUsernameClaim({
     }
     if (finished.current || outcome.kind === 'claimed') return;
     if (outcome.kind === 'rejected') {
-      // A firm answer: this name was not saved. Unlock now, even if an older
-      // request is still open (it can only succeed for this same name).
-      setUncertainName(null);
-      if (rejectsTheName(outcome.error)) update({ rejectedKey: key });
+      // 409/400 are about the name itself: an older request for it cannot
+      // succeed either, so unlock now even if one is still open. Any other
+      // firm "no" (401, 403) says nothing about an older request, so keep
+      // the same-name lock until no request for it is open (SYC-214 review).
+      if (rejectsTheName(outcome.error)) {
+        setUncertainName(null);
+        update({ rejectedKey: key });
+      } else if (!shared.open.has(key)) {
+        setUncertainName(null);
+      } else {
+        setUncertainName(name);
+      }
       setClaimError(rejectionMessage(outcome.error, tRef.current));
       return;
     }

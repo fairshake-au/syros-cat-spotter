@@ -183,4 +183,25 @@ describe('Back mid-claim, then a different name (SYC-214)', () => {
     expect(serverName).toBe('NameB');
     expect(phoneName()).toBe('NameB');
   });
+
+  it('a retry refused for a reason that is not about the name (403) keeps the lock while the first claim is still open', async () => {
+    const s = mount();
+    await tick(0);
+    await typeAndContinue(s, 'NameA');
+    await tick(12010); // not sure it saved; NameA locked
+    await act(async () => { fireEvent.click(s.continueBtn()); }); // retry NameA
+    await sent[1].refuse(403);
+    await tick(10);
+
+    expect(s.input().readOnly).toBe(true);
+    expect(s.input().value).toBe('NameA');
+    await typeAndContinue(s, 'NameB'); // still only the same-name retry
+    for (const request of [...sent].slice(2).reverse()) await request.land();
+    await sent[0].land(); // the first NameA claim lands last
+    await tick(10);
+
+    expect(sent.map((r) => r.name)).not.toContain('NameB');
+    expect(serverName).toBe('NameA');
+    expect(phoneName()).toBe(serverName);
+  });
 });
