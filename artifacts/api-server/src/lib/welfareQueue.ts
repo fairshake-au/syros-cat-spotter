@@ -192,6 +192,49 @@ export async function mailHealth(): Promise<MailHealth> {
   return { failed: Number(row?.failed ?? 0), late: Number(row?.late ?? 0) };
 }
 
+/** The alert emails' states for these reports, keyed by report row id. */
+async function mailStatesFor(ids: number[]): Promise<Map<number, string[]>> {
+  const mailByReport = new Map<number, string[]>();
+  if (!ids.length) return mailByReport;
+  const mailRows = await db
+    .select({
+      reportId: mailOutboxTable.reportId,
+      state: mailOutboxTable.state,
+    })
+    .from(mailOutboxTable)
+    .where(
+      and(
+        eq(mailOutboxTable.purpose, "welfare_alert"),
+        inArray(mailOutboxTable.reportId, ids),
+      ),
+    );
+  for (const m of mailRows) {
+    if (m.reportId === null) continue;
+    mailByReport.set(m.reportId, [
+      ...(mailByReport.get(m.reportId) ?? []),
+      m.state,
+    ]);
+  }
+  return mailByReport;
+}
+
+/**
+ * One sent report, as the queue shows it (the new row, for the state and note
+ * routes' JSON answers). Null for an unknown id or a draft.
+ */
+export async function getQueueReport(
+  publicId: string,
+): Promise<QueueReport | null> {
+  const [row] = await reportsQuery().where(
+    and(
+      eq(welfareReportsTable.publicId, publicId),
+      eq(welfareReportsTable.isDraft, false),
+    ),
+  );
+  if (!row) return null;
+  return toReport(row, await mailStatesFor([row.id]));
+}
+
 /**
  * Sent reports, urgent first and then newest; the closed ones below, newest
  * first; the drafts apart (spec §3.1, §4.2). Never throws on mail trouble:
@@ -242,29 +285,9 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
       mailHealth(),
     ]);
 
-  const ids = [...openRows, ...closedRows].map((r) => r.id);
-  const mailByReport = new Map<number, string[]>();
-  if (ids.length) {
-    const mailRows = await db
-      .select({
-        reportId: mailOutboxTable.reportId,
-        state: mailOutboxTable.state,
-      })
-      .from(mailOutboxTable)
-      .where(
-        and(
-          eq(mailOutboxTable.purpose, "welfare_alert"),
-          inArray(mailOutboxTable.reportId, ids),
-        ),
-      );
-    for (const m of mailRows) {
-      if (m.reportId === null) continue;
-      mailByReport.set(m.reportId, [
-        ...(mailByReport.get(m.reportId) ?? []),
-        m.state,
-      ]);
-    }
-  }
+  const mailByReport = await mailStatesFor(
+    [...openRows, ...closedRows].map((r) => r.id),
+  );
 
   return {
     open: openRows.map((r) => toReport(r, mailByReport)),

@@ -101,11 +101,19 @@ router.post(
 router.get(
   "/team",
   requireTeam("view_exact_location"),
-  async (_req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
     const queue = await listWelfareQueue();
-    res.type("html").send(renderQueuePage(queue, person.name));
+    // ?changed=<publicId>: the state route's 303 after someone else moved
+    // that report first. Only a string is used, and only to pick a card.
+    const changed =
+      typeof req.query["changed"] === "string"
+        ? req.query["changed"]
+        : undefined;
+    res
+      .type("html")
+      .send(renderQueuePage(queue, person.name, new Date(), changed));
   },
 );
 
