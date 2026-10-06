@@ -212,7 +212,11 @@ describe("the people operations", () => {
       addedBy: "cli:test",
     });
     expect(rejoined).toBe(false);
-    expect(await store.findAllowedPerson("SUSAN@example.com")).toEqual(p);
+    // With their roles, so the caller can decide through can() (SYC-188).
+    expect(await store.findAllowedPerson("SUSAN@example.com")).toEqual({
+      ...p,
+      scopes: [{ role: "staff", colonyId: null }],
+    });
     expect(await store.signOutEverywhere("susan@example.com")).toBe(2);
     const byId = await store.findPersonById(p.id);
     expect(byId).toMatchObject({
