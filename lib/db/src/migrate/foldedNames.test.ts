@@ -12,7 +12,7 @@ import {
 } from "./runner";
 
 // SYC-101 (DECISIONS.md Part 2g): the migration that moves cat-name
-// uniqueness onto a folded form (0009_cats_folded_name), on a throwaway
+// uniqueness onto a folded form (0010_cats_folded_name), on a throwaway
 // database brought up to just before it and seeded first.
 
 const baseUrl = process.env.DATABASE_URL;
@@ -28,7 +28,7 @@ const admin = new pg.Client({ connectionString: url("postgres") });
 let c: pg.Client;
 
 const migrations = readMigrations(defaultMigrationsFolder());
-const FOLDED = migrations.find((m) => m.tag === "0009_cats_folded_name")!;
+const FOLDED = migrations.find((m) => m.tag === "0010_cats_folded_name")!;
 const BEFORE = migrations.find((m) => m.idx === FOLDED.idx - 1)!.idx;
 const upToFolded = () => migrateUp(c, migrations, { throughIdx: FOLDED.idx });
 
@@ -76,7 +76,7 @@ async function indexes(): Promise<string[]> {
   return r.rows.map((row) => row.indexname);
 }
 
-describe("0009_cats_folded_name (SYC-101)", () => {
+describe("0010_cats_folded_name (SYC-101)", () => {
   it("fills the folded name for every existing cat, exactly as foldName folds it", async () => {
     // Production's names on 6 Oct 2026 were all plain Latin; the Greek and
     // accented ones are what the island will add.
