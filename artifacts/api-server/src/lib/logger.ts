@@ -34,6 +34,23 @@ export function safeError(err: unknown): Record<string, unknown> {
   return out;
 }
 
+/**
+ * The request URL as it goes into the request log (SYC-109). A device id is a
+ * credential, and it must not outlive a "Delete my data" request in the logs,
+ * so every route that carries one in its path has it replaced:
+ * `/profiles/:deviceId…`, `/notifications/:deviceId…` and
+ * `/profile/:deviceId/push-token`. The line is still logged, with the id
+ * swapped for a placeholder. Query strings (which can hold a username being
+ * checked) are dropped. The two static `/profiles/username-*` routes keep
+ * their real path. Case-insensitive, because Express routes are.
+ */
+const DEVICE_ID_IN_PATH =
+  /\/(profiles|notifications|profile)\/(?!(?:username-availability|username-suggestions)(?:\/|$))[^/]+/i;
+
+export function redactRequestUrl(url: string | undefined): string | undefined {
+  return url?.split("?")[0].replace(DEVICE_ID_IN_PATH, "/$1/:deviceId");
+}
+
 // Exported so the capturing loggers in tests use exactly these serializers.
 export const LOG_SERIALIZERS = { err: safeError, error: safeError };
 

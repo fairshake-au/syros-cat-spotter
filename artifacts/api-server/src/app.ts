@@ -7,7 +7,7 @@ import express, {
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
-import { logger, safeError } from "./lib/logger";
+import { logger, redactRequestUrl, safeError } from "./lib/logger";
 import { photoCors } from "./middlewares/photoCors";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
 import { opportunisticDrain } from "./lib/mail/outbox";
@@ -34,12 +34,8 @@ app.use(
         return {
           id: req.id,
           method: req.method,
-          // The URL contains a private device id on profile routes. Strip
-          // query strings (including availability names) and path identifiers.
-          url: req.url?.split("?")[0].replace(
-            /\/profiles\/(?!username-availability(?:\/|$)|username-suggestions(?:\/|$))[^/]+/,
-            "/profiles/:deviceId",
-          ),
+          // Device ids in the path are swapped for a placeholder (SYC-109).
+          url: redactRequestUrl(req.url),
         };
       },
       res(res) {
