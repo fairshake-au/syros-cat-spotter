@@ -218,7 +218,7 @@ Every member of the team holds every team capability, including adding and remov
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
 | **A. ✅ Two tiers, with nothing taken away on day one.** *Staff* do the cat work. *Management* additionally manage people, action deletion requests and approve access changes (§8.3). Everyone who is staff when roles go live is given both. | The sensitive powers sit with a few named people from the moment the charity chooses. No one loses anything on the day it ships. The people screen (SYC-104) can narrow it later. | One more thing to explain. Until someone is demoted to staff-only, the tier changes nothing in practice. The charity must actually choose who is management, or the split is decoration. |
-| **B. One tier, as today.** All staff can invite, place and remove. | Nothing new to explain. | Any team member, or anyone who gets into a team member's mailbox, can create more accounts and widen who can see exact positions. The second-pair-of-eyes rule in §8.3 has no one to be the second pair. |
+| **B. One tier.** Every team member can invite, place and remove. | Nothing new to explain. | Any team member, or anyone who gets into a team member's mailbox, can create more accounts and widen who can see exact positions. The second-pair-of-eyes rule in §8.3 has no one to be the second pair. |
 | **C. Three tiers** (read-only team members as well). | Finer control. | Nobody has asked for it. A system with more tiers than the charity has people is a system the charity stops maintaining. |
 
 **What people notice.** Nothing on day one for anyone. Later, a staff-only member no longer sees the People screen, and a management member is asked to OK another person's invitation.
@@ -482,7 +482,7 @@ SYC-2 (coat, markings and health) lets someone state, confirm or correct a cat's
 |---|---|---|---|
 | **A. ✅ A guardian's statement about her own colony's cats stands directly; a volunteer can only confirm, and the confirmation counts as evidence, not as the answer.** Guardian changes appear in the team's feed of recent guardian changes. | Matches SYC-2's wording ("their word is authoritative"). No queue for something low-stakes. Guardians do the work they know best. | A guardian's mistake is public until the team notices; it is easy to reverse and visible in the feed. What a volunteer's confirmation does to the displayed answer is SYC-2's to specify; this spec fixes only that it never replaces a team or guardian statement. |
 | **B. Everything goes through "Needs an OK".** | Nothing changes without a second person. | A lot of queue traffic for low-stakes facts; the team stops reading the queue. |
-| **C. Only the team sets colour and markings.** | Simplest. | Guardians' knowledge doesn't reach the record, as with sterilisation today. |
+| **C. Only the team sets colour and markings.** | Simplest. | Guardians' colour knowledge doesn't reach the record. |
 
 **What people notice.** A guardian corrects a cat's colour and sees it change; a volunteer taps *Yes, that's right* and sees "thanks". The team sees the guardian's change in their feed.
 
@@ -964,11 +964,11 @@ Named here so they appear in the implementation plan:
 
 | Slice | What | Visible to whom |
 |---|---|---|
-| **0. Foundations** | SYC-213 (`person_events`); SYC-222 (doors, strict `can`, 403 page, route walk); one list of team roles and the `admin` → `management` rename; the migration (§15.2); the Worker's version-2 answer. | **Nobody.** Everyone is staff and management; nothing changes |
+| **0. Foundations** | SYC-213 (`person_events`); SYC-222 (doors, strict `can`, 403 page, route walk); the capability catalogue (§6.2) in code with its test, including `view_welfare_queue` on the welfare and report-photo routes; one list of team roles and the `admin` → `management` rename; the migration (§15.2); the Worker's version-2 answer. | **Nobody.** Everyone is staff and management; nothing changes |
 | **1. Invitations and "My colonies"** | The invite, accept, withdraw and leave flows; the people screen (SYC-104); a guardian's own page: her colonies, exact positions, feeding sites, life status for her cats; the pages in en/el/fr. | Management, then the first guardians |
-| **2. Field checks and the queue** | Field checks, "Needs a look", "Needs an OK", colony proposals, second-OK invitations. | Guardians, volunteers, the team |
-| **3. The volunteer colony view** | SYC-54: the offline saved page, the round sheet, the narrow script and cache exception (§3, §12). | Volunteers |
-| **4. The small things** | Reading counters and the banner; hand-pick review for guardians once the "Matched by hand" list (SYC-152) exists; the colony-rename nudge. | Management |
+| **2. Field checks and the queue** | Field checks, "Needs a look", "Needs an OK", colony changes, site-public requests, and second-OK access changes (`approve_access`). | Guardians, volunteers, the team |
+| **3. The volunteer colony view** | SYC-54: the offline saved page, the round sheet, the narrowly scoped script and service worker (§3, §12). | Volunteers |
+| **4. The small things** | Round-sheet counters and the banner; hand-pick review for guardians once the "Matched by hand" list (SYC-152) exists; the colony-rename nudge. | Management |
 
 Slice 0 must land before any non-staff role holds any capability, as SYC-222 already says. Slices 1 to 3 can each be a separate plan; the plan for slice 1 should come to Samuel after this spec is approved.
 
