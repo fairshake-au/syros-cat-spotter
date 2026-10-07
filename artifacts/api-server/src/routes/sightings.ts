@@ -51,8 +51,8 @@ import {
 } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
 
-export const POINTS_CONFIRM = 10;
-const POINTS_NEW_CAT = 50;
+export const POINTS_CONFIRM = 15;
+export const POINTS_NEW_CAT = 25;
 
 // SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
 // cat that isn't nearby. It is identical whatever the reason (too far, or no

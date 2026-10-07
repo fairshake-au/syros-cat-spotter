@@ -199,7 +199,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     expect(sightings.filter((s) => s.status === "pending")).toHaveLength(1);
   });
 
-  it("awards 10 points when resolving to an existing cat", async () => {
+  it("awards 15 points when resolving to an existing cat", async () => {
     const device = `${DEVICE}-confirm`;
     const catId = await seedCat(`${CAT_PREFIX}-Existing`);
     const sightingId = await insertSighting(device);
@@ -210,16 +210,16 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .send({ deviceId: device, catId });
 
     expect(res.status).toBe(200);
-    expect(res.body.pointsAwarded).toBe(10);
+    expect(res.body.pointsAwarded).toBe(15);
     expect(res.body.isNewCat).toBe(false);
     expect(res.body.cat.id).toBe(catId);
-    expect(res.body.profile.points).toBe(10);
+    expect(res.body.profile.points).toBe(15);
 
     const [profile] = await db
       .select()
       .from(profilesTable)
       .where(eq(profilesTable.deviceId, device));
-    expect(profile!.points).toBe(10);
+    expect(profile!.points).toBe(15);
 
     const [sighting] = await db
       .select()
@@ -229,7 +229,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
     expect(sighting!.catId).toBe(catId);
   });
 
-  it("awards 50 points and sets the discoverer when creating a new cat", async () => {
+  it("awards 25 points and sets the discoverer when creating a new cat", async () => {
     const device = `${DEVICE}-newcat`;
     const sightingId = await insertSighting(device);
     const name = `${CAT_PREFIX}-Freshly Found`;
@@ -240,10 +240,10 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .send({ deviceId: device, newCatName: name });
 
     expect(res.status).toBe(200);
-    expect(res.body.pointsAwarded).toBe(50);
+    expect(res.body.pointsAwarded).toBe(25);
     expect(res.body.isNewCat).toBe(true);
     expect(res.body.cat.name).toBe(name);
-    expect(res.body.profile.points).toBe(50);
+    expect(res.body.profile.points).toBe(25);
 
     const [cat] = await db
       .select()
@@ -400,7 +400,7 @@ describe("POST /api/sightings/:sightingId/resolve", () => {
       .select()
       .from(profilesTable)
       .where(eq(profilesTable.deviceId, device));
-    expect(profile!.points).toBe(10);
+    expect(profile!.points).toBe(15);
   });
 
   it("returns 404 for an unknown sighting, and the NOT_NEARBY refusal for an unknown cat", async () => {
