@@ -18,6 +18,10 @@ const h = vi.hoisted(() => ({
   },
   resetIdentity: vi.fn(async () => {}),
   clear: vi.fn(),
+  reports: {
+    sendAllNow: vi.fn(async () => true),
+    wipeReports: vi.fn(async () => {}),
+  },
 }));
 
 vi.mock('@workspace/api-client-react', () => ({
@@ -35,6 +39,9 @@ vi.mock('../DeviceContext', () => ({
 }));
 vi.mock('../OfflineContext', () => ({
   useOffline: () => h.offline,
+}));
+vi.mock('../ReportQueueContext', () => ({
+  useReportQueue: () => h.reports,
 }));
 
 import { DeleteMyDataProvider, useDeleteMyData } from '../DeleteMyDataContext';
@@ -123,5 +130,46 @@ describe('DeleteMyDataProvider', () => {
       await running;
     });
     expect(h.resetIdentity).toHaveBeenCalledTimes(1);
+  });
+
+  it('send: sends waiting cat reports before asking the server', async () => {
+    const order: string[] = [];
+    h.reports.sendAllNow.mockImplementationOnce(async () => {
+      order.push('reports');
+      return true;
+    });
+    h.deleteRequest.mockImplementationOnce(async () => {
+      order.push('server');
+      return undefined;
+    });
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteNow('send');
+    });
+    expect(outcome).toBe('done');
+    expect(order).toEqual(['reports', 'server']);
+    expect(h.reports.wipeReports).not.toHaveBeenCalled();
+  });
+
+  it('send: deletes nothing when a report will not send', async () => {
+    h.reports.sendAllNow.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteNow('send');
+    });
+    expect(outcome).toBe('reports_unsent');
+    expect(h.deleteRequest).not.toHaveBeenCalled();
+    expect(h.offline.wipeQueue).not.toHaveBeenCalled();
+  });
+
+  it('delete: wipes the cat reports along with everything else', async () => {
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.deleteNow('delete');
+    });
+    expect(h.reports.sendAllNow).not.toHaveBeenCalled();
+    expect(h.reports.wipeReports).toHaveBeenCalled();
   });
 });

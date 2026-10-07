@@ -41,6 +41,10 @@ vi.mock('@/context/OfflineContext', () => ({
 vi.mock('@/components/purropolis', async () => ({
   Button: (await import('@/components/purropolis/Button')).Button,
 }));
+const reportQueue = vi.hoisted(() => ({ reports: [] as unknown[] }));
+vi.mock('@/context/ReportQueueContext', () => ({
+  useReportQueue: () => reportQueue,
+}));
 const deleteNow = vi.hoisted(() => vi.fn(async () => 'failed'));
 vi.mock('@/context/DeleteMyDataContext', () => ({
   useDeleteMyData: () => ({ deleteNow }),
@@ -53,6 +57,7 @@ afterEach(() => {
   vi.clearAllMocks();
   state.isOnline = true;
   state.unsentCount = 0;
+  reportQueue.reports = [];
 });
 
 function deleteButton(utils: ReturnType<typeof render>) {
@@ -99,5 +104,27 @@ describe('Delete my data screen', () => {
     fireEvent.click(utils.getByText(en.deleteKeep!));
     expect(router.back).toHaveBeenCalled();
     expect(deleteNow).not.toHaveBeenCalled();
+  });
+
+  it('with a waiting cat report: says so and offers the two approved choices', async () => {
+    reportQueue.reports = [{}];
+    const utils = render(<DeleteMyDataScreen />);
+    expect(utils.getByTestId('delete-reports-block').textContent).toBe(
+      en.deleteReportsOne! + en.deleteReportsExplainOne!,
+    );
+    expect(utils.queryByLabelText(en.deleteConfirm!)).toBeNull();
+    fireEvent.click(utils.getByLabelText(en.deleteSendReportsOne!));
+    await waitFor(() => expect(deleteNow).toHaveBeenCalledWith('send'));
+  });
+
+  it('says nothing was deleted when a report would not send', async () => {
+    reportQueue.reports = [{}, {}];
+    deleteNow.mockResolvedValueOnce('reports_unsent');
+    const utils = render(<DeleteMyDataScreen />);
+    expect(utils.getByText('You have 2 cat reports that haven’t been sent yet.')).toBeTruthy();
+    fireEvent.click(utils.getByLabelText(en.deleteSendReportsMany!));
+    await waitFor(() => expect(utils.getByText(en.deleteReportsUnsentMany!)).toBeTruthy());
+    fireEvent.click(utils.getByLabelText(en.deleteReportsTooMany!));
+    await waitFor(() => expect(deleteNow).toHaveBeenLastCalledWith('delete'));
   });
 });

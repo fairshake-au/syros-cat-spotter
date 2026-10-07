@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   deleteMyData,
+  deleteMyDataWithReports,
   finishAfterServerDeleted,
   isIdentityDeletedError,
   type DeleteMyDataSteps,
@@ -122,5 +123,61 @@ describe('isIdentityDeletedError', () => {
     expect(isIdentityDeletedError({ status: 410, data: {} })).toBe(false);
     expect(isIdentityDeletedError({ status: 404, data: { code: 'IDENTITY_DELETED' } })).toBe(false);
     expect(isIdentityDeletedError(null)).toBe(false);
+  });
+});
+
+describe('deleteMyDataWithReports (SYC-234: the person chooses)', () => {
+  function withReports(sent = true, overrides: Partial<DeleteMyDataSteps> = {}) {
+    const { s, calls } = steps(overrides);
+    const r = {
+      ...s,
+      sendReports: vi.fn(async () => {
+        calls.push('send-reports');
+        return sent;
+      }),
+      wipeReports: vi.fn(async () => {
+        calls.push('wipe-reports');
+      }),
+    };
+    return { r, calls };
+  }
+
+  it('send: sends the reports before anything else, then deletes as normal', async () => {
+    const { r, calls } = withReports(true);
+    expect(await deleteMyDataWithReports(r, 'send')).toBe('done');
+    expect(calls[0]).toBe('send-reports');
+    expect(calls).toContain('server');
+    expect(r.wipeReports).not.toHaveBeenCalled();
+  });
+
+  it('send: if a report won\'t go, nothing is paused, deleted or wiped', async () => {
+    const { r, calls } = withReports(false);
+    expect(await deleteMyDataWithReports(r, 'send')).toBe('reports_unsent');
+    expect(calls).toEqual(['send-reports']);
+  });
+
+  it('delete: wipes the reports with the phone, after the server has deleted', async () => {
+    const { r, calls } = withReports();
+    expect(await deleteMyDataWithReports(r, 'delete')).toBe('done');
+    expect(r.sendReports).not.toHaveBeenCalled();
+    expect(calls.indexOf('server')).toBeLessThan(calls.indexOf('wipe-reports'));
+    expect(calls.indexOf('wipe')).toBeLessThan(calls.indexOf('wipe-reports'));
+  });
+
+  it('delete: keeps the reports when the server call fails', async () => {
+    const { r } = withReports(true, {
+      deleteOnServer: vi.fn(async () => {
+        throw new TypeError('offline');
+      }),
+    });
+    expect(await deleteMyDataWithReports(r, 'delete')).toBe('failed');
+    expect(r.wipeReports).not.toHaveBeenCalled();
+  });
+
+  it('none: touches no report', async () => {
+    const { r } = withReports();
+    expect(await deleteMyDataWithReports(r, 'none')).toBe('done');
+    expect(r.sendReports).not.toHaveBeenCalled();
+    expect(r.wipeReports).not.toHaveBeenCalled();
   });
 });
