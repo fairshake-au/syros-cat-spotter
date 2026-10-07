@@ -732,9 +732,9 @@ SYC-213 specifies an add-only table with kinds `added`, `left`, `rejoined`, `rol
 | Kind | When | `detail` holds (ids and role names only) |
 |---|---|---|
 | `invited` | An invitation is created | roles and colony ids intended; language |
-| `invite_approved` | A second management member OKs an invitation to staff or management | the confirmation item id |
+| `access_approved` | A second management member OKs an access change (§8.3) | the confirmation item id |
 | `invite_sent` · `invite_resent` | The message went out | |
-| `invite_expired` · `invite_withdrawn` | | |
+| `invite_withdrawn` | Management withdraws, the person declines, or the person who sent it has left | who, and why |
 | `accepted` | The person tapped *Yes, join* | the version of the four promises they accepted |
 | `added` | A person is added without an invitation (the `people` command, break-glass) | |
 | `roles_changed` | A placement is added, removed or edited | before and after, as role and colony ids |
@@ -743,7 +743,7 @@ SYC-213 specifies an add-only table with kinds `added`, `left`, `rejoined`, `rol
 | `signed_out_everywhere` | | by whom |
 | `anonymised` | SYC-208 runs | by whom |
 
-`by` is a person id, `self`, `cli:<operator>` or `system:expiry`. Each operation in `lib/db/src/people.ts` writes its event **in the same transaction** as the change (SYC-213's test: drop the insert and a test goes red). A database trigger refuses updates and deletes, as for observations.
+`by` is a person id, `self` or `cli:<operator>`. There is no expiry event: an invitation's expiry is worked out when read (§10.1). Each operation in `lib/db/src/people.ts` writes its event **in the same transaction** as the change (SYC-213's test: drop the insert and a test goes red). A database trigger refuses updates and deletes, as for observations.
 
 ### 11.2 Everything else that records who
 
@@ -758,27 +758,67 @@ SYC-213 specifies an add-only table with kinds `added`, `left`, `rejoined`, `rol
 
 ### 11.3 Reading is audited lightly, not row by row
 
-A row for every colony page view would be mostly noise and itself a record of where cats are. Instead: a **counter per person per day** (how many cat detail pages and round sheets they opened), and a banner for management when a guardian or volunteer opens far more than their colonies hold (for example, more than twice the cats in their scope in one day). It is a prompt to ask a question, not an accusation, and not a block. Counts live in a small table with no cat ids in it (§14, case 8).
+A row for every colony page view would be mostly noise and itself a record of where cats are. Instead: a **counter per person per day** of the things that can carry a whole colony away in one request: **round-sheet downloads and prints, and refreshes of the saved list**. A guardian can only open cats in her own colonies anyway, so counting cat pages would mostly measure her reloading. Management sees a banner when a person's round-sheet count in one day is well above what a colony needs (for example, more than five). It is a prompt to ask a question, not an accusation, and not a block. Counts live in a small table with no cat ids in it (§14, case 8).
+
+Separately, the people screen's **Joined in the last 7 days** list (§8.2) is the check that a new account is the person who was meant. It does not depend on anybody reading an email.
 
 ---
 
-## 12. What a phone may keep, if Decision 1 goes with the web page
+## 12. Decision 12: what a phone may keep (SYC-257)
 
-Decision 1 recommends the offline view be a saved web page on `team.catspotters.com`. Anything saved on a phone can outlive a sign-out, a loss or a departure, so the page is built to **forget**:
+Decision 1 recommends the offline view be a saved web page on `team.catspotters.com`. That recommendation and the feeding-sites spec (SYC-209) disagreed: this spec would keep exact feeding-site positions on a phone for up to a week, while SYC-209 says private positions appear only on the dashboard map, which has no offline copy. This section settles it, in terms SYC-209 can copy.
+
+**The question.** A guardian or volunteer on a hillside with no signal needs something to work from. Anything saved on a phone can outlive a sign-out, a loss or a departure, and the charity cannot wipe a web page from a distance. What exactly may the phone hold, for how long, and how is it deleted?
+
+**The facts that shape the answer.**
+
+- A web page's saved data is deleted by the page's own script when the page is next opened, or by the browser if it chooses to. A phone that is **never opened again keeps its list until the browser clears it**. On a page saved to the Home Screen that may be never.
+- The people who most need this view are the people who are on a hillside with no signal, so "nothing saved" has a real cost.
+- A cat's stored position is its discovery position, one reading frozen in time (`cat-record-data-spine.md` §6.6). A better "usual spot" is deferred (SYC-80). Per-sighting positions and times are a disclosure about the tourists who stood there, and never go to a guardian or volunteer.
+- A feeding site is the single most sensitive position the app holds: the data spine's only honest privacy setting for a private site is absence.
+
+| Option | What the phone holds | Benefits | Risks |
+|---|---|---|---|
+| **A. Nothing saved. A printed or downloaded round sheet only.** | Paper, or a file the person chooses to keep. | The safest: nothing persists in a browser. | Goes stale the moment it is printed. Field checks can't be queued. Not what SYC-54 asked for. A printed sheet is itself a record of exact places, and cannot be deleted at all. |
+| **B. Cats' exact positions *and* private feeding sites' exact positions, for 7 days.** (The earlier draft.) | Everything a round needs, including coordinates for each site. | Most useful on a hillside. | A lost phone carries exact coordinates of private feeding sites for up to a week, which contradicts SYC-209's rule that those appear only on the dashboard map. |
+| **C. The same as B, for 72 hours.** | As B. | Shorter window. | Still puts private-site coordinates on a phone. |
+| **D. ✅ Cats' discovery positions, plus each feeding site's name and a short line of directions written by the team (no site coordinates), for 72 hours.** | For each placed colony: cat name and SYR number, sterilisation answer, last-seen date, discovery position, her usual feeding site, a thumbnail photo, and each feeding site's name with a "how to find it" line. | Enough to find the cats and the places on a round. Exact private-site coordinates stay on the online dashboard map only, as SYC-209 says. A phone that is lost holds less, and for a shorter time. | A volunteer needs the team to have written directions. The discovery position of a cat sits close to its feeding site, so a lost phone does still hint at where a site is; D narrows the disclosure, it does not remove it. Seventy-two hours means a volunteer opens the page online the evening before a round to refresh it. |
+
+**What people notice.** D: a volunteer opens the saved page the night before, sees her cats and the words describing each feeding place, and on the hillside with no signal sees the same list. Open the page on a Friday, still fine on Saturday and Sunday; the following Monday it asks her to connect and shows no cats. On a map, she can open a site's exact position only when she has signal. A: she prints a list. B: she sees every coordinate but the phone carries them for a week.
+
+**Recommendation: D.** It gives a volunteer something to carry, keeps the most sensitive position (the private feeding site) off phones, and makes the window short and honest. If Syros Cats find the directions lines too much to write, C is the next choice; B is not recommended.
+
+### 12.1 Exactly what is kept, and what is never kept
+
+| Kept, for the person's placed colonies only | Never kept on a phone |
+|---|---|
+| Cat name and SYR number; sterilisation answer with how sure we are; last-seen date; life status; discovery position; the feeding site she is usually found at; a small thumbnail photo (a cat only) | Per-sighting positions or times; welfare reports; reporters' details; hidden photos; other colonies; health notes; team members' names; exact private feeding-site coordinates |
+| Each feeding site's name and "how to find it" line | A map of any kind. **The live map does not work offline.** A small fixed map image may be added later; it is not part of this decision |
+| The person's own queued field checks (§12.3) | |
+
+### 12.2 For how long, and how it is deleted
 
 | Rule | Why |
 |---|---|
-| **Only what the round needs**, for the person's placed colonies: cat name and SYR number, sterilisation answer with how sure we are, usual spots (exact), feeding site name and position, when last seen. **No photos of people or property; cat photos are the small thumbnail only.** | Less on the phone is less to lose |
-| **A saved list is valid for 7 days from the last time the phone was online.** After that the page shows *"Connect to refresh this list"* and no cats | A phone that is lost, or belongs to someone who has left, stops being useful on a known day |
-| **Each online load re-checks the person.** If she is no longer on the list or no longer holds the placement, the server says so and the page **erases the saved list at once** | Removal reaches phones at their next connection |
-| **Sign out erases it.** So does "sign out everywhere" at the next connection | |
-| **Stored under the dashboard's own origin**, never in the public app's storage, and never under the public catalogue's cache key | The data spine's rule that exact positions must never share a key with the public cache (`cat-record-data-spine.md` §6.5) |
-| **Field checks made offline wait in the page's own queue** (up to 20, each with its photo), and are sent on the next connection under the person's signed-in session | If the session or the person is gone, they are refused (§9.2) |
-| **A round sheet, printed or saved as a file, is stamped with the person's name and the date**, and says *"These are exact places. Please don't share them."* | A person who shares a printout can be asked about it; a stamp is a reminder, not a lock |
+| **Valid for 72 hours from the last time the phone was online.** The server stamps each load with its own time and the expiry. The page also remembers the latest phone time it has ever seen: if the phone's clock goes backwards, the list counts as expired. | Winding the phone's clock back cannot make an old list young |
+| **Expired means deleted, not hidden.** When the page opens (online or not) and the list is past its time, the saved data is deleted before anything is drawn. The page then shows *"Connect to refresh this list."* | A hidden list can still be read from the phone's storage tools |
+| **Each online load re-checks the person.** If she is no longer on the list or no longer holds the placement, the server says so, the page deletes the saved list at once, and the response carries `Clear-Site-Data: "cache", "storage"`. | Removal reaches a phone at its next connection |
+| **Sign out deletes it** and sends `Clear-Site-Data`. So does a "sign out everywhere" at the next connection | |
+| **`no-store` stays on every response, including the colony data.** The list is saved only by the page's own script, in the page's own storage under the dashboard's origin, never in the public app's storage or under the public catalogue's cache key. | The data spine's rule that exact positions must never share a key with the public cache (`cat-record-data-spine.md` §6.5), and nothing lands in the browser's ordinary web cache where the page's script cannot clear it |
+| **The page's script is confined.** A service worker is registered only for the field pages' own path (for example `/api/team/field/`), never for the whole dashboard, so it cannot serve old staff pages after sign-out. Scripts are allowed only by fixed hash: nothing inline, `connect-src 'self'`. Every name drawn into the page is escaped. | Cat names are typed by tourists; a script that could read the list could send every position away |
+| **A round sheet, printed or saved as a file, is stamped with the person's name and the date** and says *"These are exact places. Please don't share them."* Downloads and prints are counted per person per day (§11.3). | A person who shares a printout can be asked about it; a stamp is a reminder, not a lock |
 
-**What can't be promised, and is said plainly on the accept page:** a phone that never reconnects keeps its saved list until the 7 days run out; the charity cannot wipe it from a distance. The accept page therefore asks everyone to keep a lock on their phone, and the people screen's *sign out everywhere* is the first thing to do about a lost phone.
+**What can't be promised, and is said plainly on the accept page and to Syros Cats (Question Q1):** a phone that is never opened again keeps its saved list until the browser clears it; on a page saved to the Home Screen, that may be never. The charity cannot wipe it from a distance. The design relies on the list being short-lived and on the page deleting it whenever it is opened, not on the browser. The page does **not** nudge people to add it to the Home Screen (the old nudge text is about keeping *spots* safe, and a Home Screen page escapes the one automatic clean-up Safari does). The accept page asks everyone to keep a lock on their phone, and *sign out everywhere* is the first thing to do about a lost phone. Someone determined, holding an unlocked phone and a cable, can read what is on it; that is the residual risk Question Q1 asks Syros Cats to accept.
 
-**The web storage caveat.** iPhones may clear a saved web page's storage if the page isn't opened for about a week unless it has been added to the Home Screen. The app already shows a nudge for exactly this (`homeScreenNudgeText`); the colony view reuses it. A cleared list is a failure that is visible ("Connect to refresh"), not silent.
+### 12.3 Field checks made with no signal
+
+- They wait in the page's own queue: up to 20, each with its photo, kept only until sent.
+- They are sent on the next connection under the person's signed-in session. If the session or the person is gone, they are **refused** (§9.2); they can tell the team what they saw.
+- The date a field check says it was made is limited the way public answers are: no more than 30 days back, never in the future.
+
+### 12.4 What the feeding-sites spec should say (SYC-209)
+
+SYC-209 should change its sentence from "positions only ever appear on the dashboard map" to: **exact positions of private feeding sites appear only on the dashboard map, which has no offline copy. The one saved list a phone may hold (guardians' and volunteers', this spec §12) contains each site's name and a line of directions, never its coordinates, for 72 hours. The app's own offline list of public sites (its Decision 8) is unaffected and holds only public sites.** The "how to find it" line is a small text field on the feeding site, written by the team or the guardian of that colony; it is public to no one and is listed with the proposed amendments in §16.5.
 
 **If Decision 1 chooses the app (B)**, every rule above applies to app storage with a distinct cache key, and `cat-record-data-spine.md` §6.5 needs an approved amendment first.
 
