@@ -1,6 +1,6 @@
-# SYC-3: "Keep my spots safe" — implementation plan (awaiting Samuel's approval)
+# SYC-3: "Keep my spots safe" — implementation plan (approved by Samuel, 6 Oct 2026)
 
-**Linear:** SYC-3. **Status:** plan only. Nothing here is built, published or configured.
+**Linear:** SYC-3. **Status:** **approved by Samuel on 6 Oct 2026**, with Decisions 1–7 as recorded below. Nothing here is built, published or configured yet.
 **Design (approved, not reopened here):** `docs/specs/email-capture.md` §3.0, §4, §5.1, §8 · `docs/specs/DECISIONS.md` Part 2d · `docs/specs/privacy-policy.md` ("Keep my spots safe") · the safeguards in `docs/specs/team-access-and-welfare-queue.md` §2.4–2.6, §8.1.
 **Checked against:** `origin/main` at `d2b9ca1` (29 Sep 2026) for the first draft. **Refreshed 6 Oct 2026 against `origin/main` at `d10e5c3`**, open PRs #87, #89, #90 and #91, the SYC-63 plan branch (`origin/claude/syc-63-deletion-plan`), the SYC-42 plan, and Linear SYC-3, 42, 45, 134, 135 and 179. Every "exists today" claim below names the file, commit or PR it was read in.
 
@@ -24,7 +24,7 @@
 
 ## Decisions for Samuel
 
-Decisions 1–5 were **decided by Samuel on 30 Sep 2026, each as recommended**. **Reconfirmed by Samuel, 6 Oct 2026:** all five stand after the refresh. The 6 Oct refresh found that none of them needs reopening, but it raised two new ones, **Decisions 6 and 7**. The plan as a whole is still awaiting his approval.
+Decisions 1–5 were **decided by Samuel on 30 Sep 2026, each as recommended**. **Reconfirmed by Samuel, 6 Oct 2026:** all five stand after the refresh. The 6 Oct refresh found that none of them needs reopening, but it raised two new ones, **Decisions 6 and 7**. **The plan as a whole was approved by Samuel on 6 Oct 2026.**
 
 ### Decision 1 — What do we do for testers before this ships?
 
