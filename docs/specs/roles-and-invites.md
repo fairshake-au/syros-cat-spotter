@@ -124,6 +124,8 @@ This is the question that decides most of the build, so it comes first.
 | **C. Paper and files only.** The dashboard produces a round sheet (a printable list or a downloaded file), and that is the "offline view". | The safest: nothing sensitive persists on a device the charity does not control. Works with no signal because it is already on the page. | It goes stale the moment it is printed. Field checks can't be queued; the volunteer remembers and enters them later. Not what SYC-54 asked for. |
 | **D. Both A and C.** | The round sheet is a by-product of A (it is the same data, printed). | Two things to look after. | None beyond A's. |
 
+**What people notice.** A (and D): a volunteer opens a link on her phone, saves it to the Home Screen once, and sees her list; with no signal she sees the last list she loaded, and a printed sheet if she wants paper. B: she opens the app, signs in once, and everything is in one place, but every tourist's app now contains a sign-in door. C: she prints a list before she goes out and writes down what she finds.
+
 **Recommendation: A, with the round sheet from C as part of it (so, D).** It keeps the rule that the app never holds exact positions, keeps one sign-in, and still gives a volunteer something to carry when there is no signal. The browser-storage weakness is real; §12 says how the stored list is limited and expires so that it fails safe rather than silently.
 
 **If B is chosen instead**, §7 to §11 are unchanged (identity, capabilities, invitations, the queue). What changes is §12 and `cat-record-data-spine.md` §6.5, which would need an approved amendment first.
@@ -164,6 +166,8 @@ The old design (health-record spec §6.1, repeated in the SYC-53 ticket) said to
 | **C. Clerk, as the health-record design said.** | Invitations, roles and sessions come ready-made. | A second list of people; two places to remove someone; the dashboard session, the hand-off and the sign-in Worker would all have to be reworked or doubled; a new supplier holding the names and emails of a small charity's volunteers, and a price to confirm (the old design's own open item). It also contradicts the decision already built (D3, F5). |
 | **D. Self-service sign-up with approval.** A person asks to join; management approves. | No typing of addresses by management. | An open door on the sign-in page, which today deliberately reveals nothing about who has access. Invitations are the whole point (§7.3: "invitation is the only way in, at every tier"). |
 
+**What people notice.** A: two emails and one extra tap, the first time only. B: one email, but a link that can be forwarded or opened by a mail scanner and then doesn't work, which is the failure staff sign-in already had to fix. C: a new sign-up screen to learn. D: nothing for the invitee, and a door on the sign-in page.
+
 **Recommendation: A.** It is the least new surface. The cost, two messages, is a small friction paid once per person. Wrong-address risk is handled in Decision 7.
 
 ### 4.4 Expiry, resend, withdraw
@@ -198,6 +202,8 @@ Today every person on the list is staff and holds every capability, including ad
 | **A. ✅ Two tiers, with nothing taken away on day one.** *Staff* do the cat work. *Management* additionally manage people, action deletion requests and approve the invitation of other staff and management. The migration gives every existing staff member both. | The sensitive powers sit with a few named people from the moment the charity chooses. No one loses anything on the day it ships. The people screen (SYC-104) can narrow it later. | One more thing to explain. Until someone is demoted to staff-only, the tier changes nothing in practice. The charity must actually choose who is management, or the split is decoration. |
 | **B. One tier, as today.** All staff can invite, place and remove. | Nothing new to explain. | Any team member, or anyone who gets into a team member's mailbox, can create more accounts and widen who can see exact positions. The second-pair-of-eyes rule in §8.3 has no one to be the second pair. |
 | **C. Three tiers** (read-only team members as well). | Finer control. | Nobody has asked for it. A system with more tiers than the charity has people is a system the charity stops maintaining. |
+
+**What people notice.** Nothing on day one for anyone. Later, a staff-only member no longer sees the People screen, and a management member is asked to OK another person's invitation.
 
 **Recommendation: A.** The cost is a label and a migration row; the benefit is that the single most dangerous power (making new accounts) has a short, named list of holders.
 
@@ -272,6 +278,8 @@ SYC-222 asks that `can()` called with no colony answer "does she hold this for a
 | **B. One function, as SYC-222 words it.** No target means "any colony". | One function, one answer. | The failure mode is a silent over-grant, discovered only when someone notices a guardian reading the welfare queue. |
 | **C. Separate capability names for island and placed** (`view_exact_location_anywhere` and `view_exact_location_here`). | Impossible to confuse. | Twice as many names; every future check picks one and a wrong pick still compiles. |
 
+**What people notice.** Almost nothing, if it works: a guardian sees only her own pages and the occasional polite *"that part is for the team"* page. Under B the thing people would notice is the one nobody should: a guardian seeing the whole island.
+
 **Recommendation: A.** The failure mode of the alternative is silent and the failure mode of this is a refusal. It is also checkable: a test walks **every** route under `/api/team` and `/api/internal`, each with a signed-in person of every role, and compares the result with a table of what that role should get. A route that isn't in the table fails the test, so a new route cannot ship unguarded (the same idea as the test that walks routes with no session, `docs/superpowers/plans/syc-113-pre-launch-gates.md`, test 12a).
 
 **A refusal for a signed-in person is not "sign in again".** Today every failure, including "signed in but lacking the capability", gets the same 401 and a redirect to the sign-in page (`requireTeam.ts` does this for `missing_capability`). With only staff that was harmless. With guardians it is a trap: a guardian who follows a link to a staff page is sent to sign in, which signs her straight back in and lands her on the same refusal. So: **not signed in** keeps today's answer; **signed in but not allowed** gets a quiet 403 page that says *"That part of the dashboard is for the Syros Cats team. Your colonies are here,"* with a link to her home. It reveals only that the page exists, which is no secret.
@@ -284,6 +292,8 @@ SYC-222 asks that `can()` called with no colony answer "does she hold this for a
 | **B. The whole island by default.** | Nothing to set up per volunteer. | A volunteer who signed up last week can read the position of every unsterilised cat on the island. That is the most sensitive list the app can make. |
 | **C. Only unsterilised cats, in assigned colonies.** | Smallest possible reach. | Hides the sterilised cats a volunteer needs to recognise in order to skip them. The "go and look" list (Likely cats) is by definition not yet confirmed. |
 
+**What people notice.** A volunteer on one hillside sees one hillside. A volunteer who helps everywhere sees everything because someone chose that, and the people screen says so.
+
 **Recommendation: A.**
 
 ### 6.6 Decision 9: temporary roles, and the guardian's relationship to a colony
@@ -295,6 +305,8 @@ The old design lists three relationships: feeder, owner, temporary carer.
 | **A. ✅ One guardian role. Each placement can carry an optional end date and an optional label** (*feeds*, *owns a cat here*, *covering temporarily*). An end date turns the placement off by itself. The label is for the team's records and the colony page; it changes no capability. | A holiday cover is a placement that ends on the day the regular guardian returns, without anyone remembering to remove her. Simple to explain. | The label can be wrong or out of date. It must never be used to grant anything. |
 | **B. No end dates.** Remove by hand. | Simplest. | The colony view stays open to a holiday cover for ever, if nobody remembers. |
 | **C. Three roles with different powers.** | Fine-grained. | Nobody has said a temporary carer needs different powers. More tiers than people. |
+
+**What people notice.** A holiday cover's colony simply disappears from her page on the day she's due to stop. The label shows as a small tag on the colony and changes nothing she can do.
 
 **Recommendation: A.** Expiry is checked at the moment of each request, not by a nightly job, so a placement ends at midnight Athens time on its end date even if a job is late.
 
@@ -347,6 +359,8 @@ A guardian or volunteer looks at a cat's ear in person, perhaps with a close pho
 | **B. ✅ The field check is recorded straight away, as evidence, and moves the cat only after one team member's OK.** It sits in "Needs an OK" with its photo. "Yes" writes the team's own statement; "Not enough" leaves the field check as evidence only. | Keeps the rule that *Confirmed* comes from the team or a vet. A close, in-person look is far stronger evidence than a tourist's photo and is shown that way to the approver. One tap. | A backlog if the team is busy; the cat stays at *Likely* in the meantime, which is accurate. Adds a step. |
 | **C. Field people can't record sterilisation at all.** They tell the team on WhatsApp. | No new feature. | That is the current state: what guardians know never reaches the record (`add-details-later.md` §2.1). |
 
+**What people notice.** A guardian taps *I looked at her ear*, adds a photo, and sees her answer count as evidence at once; a day or so later she sees *"Syros Cats confirmed Mimi is sterilised. Thank you."* A team member sees a photo and three buttons. Under A the guardian sees the answer change immediately; under C she sees nothing.
+
 **Recommendation: B.** It is cheap for the team (look at a photo, tap), keeps *Confirmed* meaning one thing, and makes the guardian's knowledge count.
 
 **Both directions need an OK.** A guardian who looks at a spotter's "clipped" and says "that's a torn ear, not a clip" is also making a statement that moves the answer (it can clear a wrong *Likely*, `cat-record-data-spine.md` §4.5). It goes to the same queue. The team's "that's not a clip" is the statement that clears it.
@@ -376,6 +390,8 @@ A guardian can see exact positions of cats in her colony (§2.2). If she could s
 | **A. ✅ She proposes; a team member OKs.** The proposal waits in "Needs an OK". Until it is OK'd she sees the cat only at the public level. | Closes the walk-around-the-island hole. The team, who know the colonies, confirm in a tap. It also gives them a natural moment to notice a cat that belongs in two colonies. | A small wait for a legitimate guardian who has just found a cat of hers the team hadn't recorded. |
 | **B. She adds directly.** | No wait. | The scraping route above, and a guardian can pull in another guardian's cats by mistake with no one to notice. |
 | **C. Only the team ever assigns cats.** | Strictest. | Every new cat in an existing colony needs a message to the team; guardians would go back to WhatsApp, which is the current problem. |
+
+**What people notice.** A guardian who finds a cat of hers the team hadn't recorded taps *This cat is one of mine* and sees a note that Syros Cats will check; the cat appears in her colony once they have. A team member gets a one-tap item with the cat's photo.
 
 **Recommendation: A.** The first population of colonies is done by the team from what they already hold (the records import, `records-import.md`, and their own knowledge), so a guardian arrives to a colony that already has most of her cats in it.
 
@@ -419,6 +435,8 @@ Inviting a guardian gives someone sight of one colony. Inviting a staff member o
 | **B. Any management member alone, for every role.** | Fastest. | One stolen management session mints unlimited high-access accounts. |
 | **C. Second OK for every invitation.** | Most careful. | Guardian and volunteer invitations, the common case, all wait for someone: the friction the charity will notice first. |
 
+**What people notice.** Inviting a guardian is one form and done. Inviting a team member shows *"Waiting for Jacky to OK this"*, and Jacky sees a one-tap item.
+
 **Recommendation: A.** The request appears in "Needs an OK" as an item of kind *invitation*, for any management member other than the one who made it. The invitation message is sent only when it is OK'd.
 
 ### 8.4 Decision 7: protecting against an invitation to the wrong mailbox
@@ -430,6 +448,8 @@ Nothing stops Susan mistyping a letter and inviting a stranger. The invitation n
 | **A. ✅ Make mistakes unlikely and loud.** The address is typed twice. The accept page asks the invitee to type their own name; the inviter sees it in the people screen the moment she accepts, and for guardian and volunteer roles gets an email: *"Eleni P. accepted your invitation."* Management can withdraw her in one tap. | No extra step for the right person. A mistake is visible within the day. The damage is limited: a stranger could see **one colony**. | There is a window in which a mistaken stranger holds one colony's view. |
 | **B. Hold access until the inviter confirms.** The invitee accepts; her access starts when the inviter taps *Yes, that's Eleni*. | A mistaken stranger sees nothing. | A real guardian waits, perhaps a day, perhaps until Susan next opens the screen. That is the first impression of the whole system for someone who agreed to help. |
 | **C. A code the inviter reads out.** The invitation shows a 6-digit code Susan gives her on the phone; the accept page asks for it. | Defeats a mistyped address entirely. | The guardian must have the code, find it and type it in. The people most likely to be put off are the people this system most needs. |
+
+**What people notice.** A: nothing extra for the right person; the inviter gets an email when they accept. B: the new guardian sees *"Thanks. Susan will confirm you shortly"* instead of her colony. C: she has to find a six-digit code.
 
 **Recommendation: A for guardians and volunteers.** The blast radius is one colony, and the inviter learns of a mistake within the day. Staff and management invitations already get Decision 11's second OK. If Syros Cats would rather have B for guardians, it is a one-line change: a new guardian's placement starts inactive until the inviter's confirmation.
 
@@ -564,6 +584,7 @@ Two small, deliberate changes to the record's vocabulary, both for the data spin
 
 - **`roleAtTime`** gains the live values `guardian` and `volunteer` (it is already allowed in the vocabulary and refused by `writeObservation` until now) and renames the never-written `admin` to `management`. There is **one** list of team roles in code, used by the resolver, the *Probably sterilised* list and the correction routes, replacing the three copies (`resolve.ts`, `likelyReview.ts` via `teamCorrections.ts`, and the hand-written `"staff"` in each correction).
 - **Which role is written** is decided by the server from the person and the action: the role under which the capability was granted for that target. A person who is staff and also a guardian, using a staff capability, writes `staff`; using a guardian-only capability on her colony, writes `guardian`. It is never read from the request. Today `teamCorrections.ts` and `routes/notifications.ts` write the string `"staff"` directly; they change to ask for it.
+- **`ear_tip` observations may carry an "in person" marker.** The data spine owns the shape; the resolver ignores the marker, the team's screens show it, and it is what separates a field check from a tourist's answer on the cat's page (proposed in §16.5).
 - **Authority does not grow.** The resolver's list of authoritative roles stays staff, management and vet. A `guardian` or `volunteer` observation is evidence. It is the team's reading of it that settles a sterilisation answer (§7).
 
 ### 10.5 What this does not touch
@@ -659,6 +680,8 @@ Guardians are, in large part, Greek speakers; some volunteers will be French or 
 | **A. ✅ Everything a guardian or volunteer sees is en/el/fr; management and staff screens stay English.** | The people who may not read English comfortably can use the work; the team's own tools stay cheap to change. | A bounded amount of text to translate and review. | The team's screens remain English-only, which would be a problem if Syros Cats take on a Greek-speaking staff member. The fix then is the same mechanism applied to more pages. |
 | **B. Everything en/el/fr.** | Consistent. | Much more text, nearly all of it read by two or three people. Every change to a screen now costs three translations and a review. |
 | **C. English only, translated later.** | Fastest. | A Greek guardian is handed an English page and a legal-sounding promise she can't read. The invitation is the first thing she sees; it fails on the first step. |
+
+**What people notice.** A Greek-speaking guardian receives Greek from the first message to the last. A team member sees English on the team screens, as now.
 
 **Recommendation: A.**
 
@@ -833,6 +856,7 @@ Comments, not new tickets: SYC-104 (what the people screen must do: §8), SYC-21
 - **`can()` is strict; entry and menus use a separate `canSomewhere()`.** *(Decision 4. This differs from SYC-222 point 3's wording on purpose.)* A signed-in person who lacks a capability gets a 403 page, not the sign-in redirect.
 - **A guardian's or volunteer's in-person look at a cat is recorded at once as evidence and moves the sterilisation answer only after one team member's OK; the person who made the statement can never settle it.** Colony membership proposed by a guardian waits for the team in the same way. Statements by staff and management are not queued. *(Decisions 5 and 6.)* This fills the gap `cat-record-data-spine.md` §4.5 calls "the full confirmation queue (still deferred)".
 - **Where guardians and volunteers work.** *(Decision 1, as chosen.)* If the web page is chosen, `cat-record-data-spine.md` §6.5 stands unchanged and gains a line saying the volunteer view is a dashboard page with its own storage; if the app is chosen, §6.5 is amended first.
+- **An `ear_tip` observation may carry an in-person marker**, added to the data spine's shape (§10.4). It changes no rule in the resolver.
 - **Guardians do not make a feeding site public, ever; that stays a team step.** *(§6.7.)*
 - **Guardians see the exact positions of cats in their own colonies only; volunteers see those of the colonies they are assigned.** Both accept the plain-words disclosure (Q1), which Syros Cats record. *(Decisions 6 and 8; F2's family of risk.)*
 
