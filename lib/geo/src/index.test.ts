@@ -50,8 +50,7 @@ function elsewhereInSquare(r: () => number, p: LatLng): LatLng {
 
 /**
  * What the server does before a cat reaches the phone: snap its exact
- * position to a cell centre (data spine PR 6). The real grid's origin is
- * secret (blur.ts); squareCentre is a deterministic stand-in for it.
+ * position to a cell centre (data spine PR 6, blur.ts).
  */
 function publish<T extends LatLng>(cat: T): T {
   return { ...cat, ...squareCentre(cat) };
@@ -92,8 +91,8 @@ describe('squareCentre', () => {
 
 describe('publishedPosition', () => {
   it('reads the payload\'s cell centre as it is, never snapping it again (data spine PR 6)', () => {
-    // The server's grid has a secret origin, so its cell centres are not on
-    // squareCentre's lattice. Snapping them again here would move every cat.
+    // The payload is the source of truth: whatever centre it carries is
+    // used as it is, never re-derived on the phone.
     const fromPayload = { lat: 37.441234, lng: 24.945678 };
     expect(publishedPosition(fromPayload)).toEqual(fromPayload);
     const cell = squareCentre(fromPayload);

@@ -44,8 +44,7 @@ const NAMES = ['Agatha', 'Krispy', 'Savma', 'Αγάθη', 'Μπέμπα', 'Zoé'
 
 /**
  * A public catalogue as the phone receives it: every position is already a
- * cell centre (data spine PR 6). squareCentre stands in for the server's
- * secret-origin grid.
+ * cell centre (data spine PR 6).
  */
 function catalogue(seed: number, n: number): PickerCat[] {
   const r = rng(seed);

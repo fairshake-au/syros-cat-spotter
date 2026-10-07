@@ -10,10 +10,11 @@
  * different places.
  *
  * Data spine PR 6 (blurring) has landed: the public payload itself carries
- * each cat's cell centre, snapped on the server's secret-origin grid
- * (artifacts/api-server/src/lib/blur.ts), which the phone can't reproduce.
- * So `publishedPosition` reads that position as it is and never snaps again.
- * The server's hand-pick check passes it the same cell centre.
+ * each cat's cell centre (artifacts/api-server/src/lib/blur.ts, on this
+ * file's grid). So `publishedPosition` reads that position as it is and never
+ * snaps again, and the server's hand-pick check passes it the same centre.
+ * The payload is the one source of truth for where the public thinks a cat
+ * is.
  */
 
 export type LatLng = { lat: number; lng: number };
@@ -52,9 +53,9 @@ export function haversineKm(a: LatLng, b: LatLng): number {
 
 /**
  * The centre of the 250 m square a point falls in, on a public grid with its
- * origin at 0°, 0°. Not how the server publishes cats: that grid's origin is
- * secret (blur.ts). Kept as a deterministic stand-in for "a published cell"
- * in tests.
+ * origin at 0°, 0°. The server's blurPosition (blur.ts) publishes on this
+ * grid. The grid is public on purpose: a secret origin was dropped because
+ * any one published centre gives it away (Samuel, 6 Oct 2026).
  */
 export function squareCentre(p: LatLng): LatLng {
   return {

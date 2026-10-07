@@ -25,7 +25,7 @@ import { eq, ilike, inArray, like } from "drizzle-orm";
 import { type LatLng } from "@workspace/geo";
 import { blurPosition } from "../lib/blur";
 
-/** The published cell centre: the server's secret-origin grid (data spine PR 6). */
+/** The published cell centre, as the server publishes it (data spine PR 6). */
 const squareCentre = (p: LatLng): LatLng => blurPosition(p.lat, p.lng);
 
 const { matchCatPhoto } = vi.hoisted(() => ({

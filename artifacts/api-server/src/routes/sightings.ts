@@ -681,8 +681,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     // sighting, or one whose PUBLISHED square is within 1.5 km of the
     // sighting's stored location, the same shared rule the phone's list uses
     // (lib/geo). The published square is the one in the public payload: the
-    // secret-origin cell centre from blur.ts (data spine PR 6), which the
-    // phone receives as the cat's lat/lng and lib/geo reads as-is. Never measured on exact positions: a refusal worked out from
+    // cell centre from blur.ts (data spine PR 6), which the phone receives
+    // as the cat's lat/lng and lib/geo reads as-is. Never measured on exact positions: a refusal worked out from
     // them would answer "is this cat within 1.5 km of here?" about where it
     // really is. Every suggestion passes the distance rule anyway (500 m
     // exactly, plus at most ~177 m of snapping); the stored set is belt and

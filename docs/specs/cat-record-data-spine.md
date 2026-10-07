@@ -280,6 +280,8 @@ It was also misleading in the other direction for honest users: a cat sitting at
 
 #### One improvement worth taking
 
+> **Withdrawn (Samuel, 6 Oct 2026, on the adversarial review of PR #95).** A secret origin can't hide the grid while each published point is a cell centre: one published point gives the offset away (`offset = (published − half a cell) mod cell`). The grid is public, and the honest guarantee is the 250 m square. Original text kept below for the record.
+
 The grid origin is derived from a **server-held secret** — one fixed sub-cell offset applied to the whole island, `HMAC(secret) → offset`. This stays entirely deterministic: a thousand requests still return one identical answer, there is no per-cat secret, and no averaging attack is opened. What it buys is that the cell boundaries are not reconstructable by reading the source, so an attacker knows the cat is within 250 m of the published point rather than knowing precisely which box. If the offset ever leaked, the guarantee degrades to exactly what it is today — which is why it is worth doing and not worth worrying about.
 
 ### 6.3 The nearest-cat oracle on `POST /sightings` — fixed, not accepted

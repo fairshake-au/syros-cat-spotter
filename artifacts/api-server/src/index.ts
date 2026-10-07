@@ -4,7 +4,6 @@ import { logDatabaseTarget } from "./lib/databaseStartup";
 import { logger } from "./lib/logger";
 import { describeGate } from "./lib/prelaunch";
 import { describeMail } from "./lib/mail/send";
-import { assertBlurConfigured, describeBlur } from "./lib/blur";
 
 const rawPort = process.env["PORT"];
 
@@ -25,10 +24,6 @@ if (Number.isNaN(port) || port <= 0) {
 for (const line of describeGate()) logger.info(line);
 // SYC-42: say whether the mail key is present (never its value).
 for (const { level, line } of describeMail()) logger[level](line);
-// SYC-41 (data spine PR 6): refuse to start in production without the blur
-// grid secret, rather than publish cat positions on the public grid.
-assertBlurConfigured();
-logger.info(describeBlur());
 
 app.listen(port, (err) => {
   if (err) {

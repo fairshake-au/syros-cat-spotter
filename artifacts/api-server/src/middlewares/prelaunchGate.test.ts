@@ -92,7 +92,6 @@ const SETTINGS = [
   "PRELAUNCH_SESSION_KEYS",
   "PRELAUNCH_TESTER_KEYS",
   "INTERNAL_PEOPLE_TOKEN",
-  "BLUR_GRID_SECRET",
 ] as const;
 const saved: Record<string, string | undefined> = {};
 
@@ -103,9 +102,6 @@ beforeEach(() => {
   process.env["PRELAUNCH_SESSION_KEYS"] = SESSION_KEY;
   process.env["PRELAUNCH_TESTER_KEYS"] = TESTER_KEY;
   process.env["INTERNAL_PEOPLE_TOKEN"] = INTERNAL_TOKEN;
-  // SYC-41: the tests that switch NODE_ENV to production still serve
-  // /api/cats, which needs the blur grid secret outside development/test.
-  process.env["BLUR_GRID_SECRET"] = randomBytes(32).toString("base64url");
 });
 
 afterEach(() => {
