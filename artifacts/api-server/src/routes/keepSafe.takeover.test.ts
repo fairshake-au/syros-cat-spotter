@@ -80,6 +80,10 @@ afterEach(async () => {
   process.env = { ...saved };
 });
 afterAll(async () => {
+  // Leave no named spotters or cats behind: later files read the leaderboard.
+  await db.execute(sql`delete from cats where discoverer_device_id like ${P + "%"} or owner_device_id like ${P + "%"}`);
+  await db.execute(sql`delete from profiles where device_id like ${P + "%"}`);
+  await db.execute(sql`delete from push_tokens where device_id like ${P + "%"}`);
   await pool.end();
 });
 
