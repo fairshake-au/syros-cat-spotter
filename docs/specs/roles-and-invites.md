@@ -760,3 +760,83 @@ Slice 0 must land before any non-staff role holds any capability, as SYC-222 alr
 
 ---
 
+## 16. Decisions, questions, findings, follow-ups
+
+### 16.1 The decisions Samuel is asked to make
+
+Each is set out in full where it arises; this is the list.
+
+| # | Question | Section | Recommendation |
+|---|---|---|---|
+| **1** | Where do guardians and volunteers do their work: the dashboard as an installable, partly offline web page, a sign-in inside the app, paper and files only, or the first and last together? | §3 | **The dashboard page, plus a printable round sheet.** The app stays a public reader |
+| **2** | How is someone invited: a pending person plus a plain message, a single-use link, Clerk, or open sign-up with approval? | §4.3 | **Pending person plus a plain message.** Builds on the sign-in that exists; the message holds no secret |
+| **3** | Split staff and management? | §5 | **Yes, with every current staff member also made management on day one** |
+| **4** | How does a permission check answer when no colony is named? | §6.4 | **Strict by default; a separate "anywhere" question for menus and entry.** Differs from SYC-222's wording; same purpose |
+| **5** | What can a guardian's or volunteer's in-person look do to a cat's sterilisation answer? | §7.2 | **Record it at once as evidence; it moves the answer only after one team member's OK** |
+| **6** | Who decides which cats are in a colony? | §7.4 | **The guardian proposes, a team member OKs** |
+| **7** | How do we protect against an invitation to the wrong mailbox? | §8.4 | **Make mistakes unlikely and loud, for guardians and volunteers** (address typed twice; the inviter sees and is emailed on acceptance; one-tap withdrawal) |
+| **8** | How far does a volunteer see? | §6.5 | **Only the colonies they're assigned** |
+| **9** | Temporary guardians and the feeder/owner/carer labels? | §6.6 | **One role; optional end date and label per placement; the label grants nothing** |
+| **10** | How far does translation go? | §13.2 | **Everything a guardian or volunteer sees in en/el/fr; management and staff screens stay English** |
+| **11** | Do invitations to staff and management need a second management member's OK? | §8.3 | **Yes. Guardian and volunteer invitations don't** |
+
+### 16.2 Questions for Syros Cats
+
+| # | Question | Why it matters | Our suggestion |
+|---|---|---|---|
+| **Q1** | **Who is management on the first day, and are they comfortable that a guardian sees the exact positions of cats in her own colony?** (The same family of risk as the colony-averaging disclosure in F2.) | It is the one residual risk software can't remove (§14 case 8): trusting people with places. They should hear it in these words and accept it knowingly | Management: the people who are staff today. Put the plain sentence on the accept page and record their acceptance |
+| **Q2** | **Should a guardian see welfare reports for cats in her colony?** | She would hear first of a hurt cat on her patch, but the report holds a reporter's photograph and exact location, and showing it widens the circle that holds it | **Not yet.** Revisit when guardians exist and the team has seen how the queue is used |
+| **Q3** | **May a guardian mark her own cat as deceased without a team confirmation?** (The data spine's open question 5.) | It's reversible by any later sighting; the data spine recommended yes | **Yes.** Shown to the team as a feed of recent guardian changes, not queued |
+| **Q4** | **Do guardians want an email when the team decides on something they sent?** | A decision in the dashboard is only seen on her next visit | **No email at first.** Quiet, consistent with nothing paging anyone; add a weekly summary if guardians ask |
+| **Q5** | **The four promises on the accept page (§4.1): are these the right four, in the right words?** | It is the moment a person is told what they are trusted with | Syros Cats edit the English; a named local reviewer confirms Greek and French |
+| **Q6** | **Who is the named local reviewer for the Greek and French of the invitation and promises, and by when?** | Blocks those languages going live (§13.3) | A person, not a role |
+
+### 16.3 Self-review against the code (pass 1)
+
+Done by reading the code on `main` on 7 October 2026, before the independent review. Each finding is already folded into the section named.
+
+| # | Finding | Where in the code | Folded into |
+|---|---|---|---|
+| S1 | **The team's roles are listed in three places** that must agree: `AUTHORITATIVE_ROLES` (`vet`, `staff`, `admin`) in `lib/resolve.ts`, `TEAM_ROLES` (the same three) in `lib/teamCorrections.ts` which `lib/likelyReview.ts` imports. Adding `management` to one and not the others would make a management member's correction non-authoritative with no error | `resolve.ts:132`, `teamCorrections.ts:196` | §5, §10.4 |
+| S2 | **`writeObservation` refuses `guardian`, `volunteer` and `vet`** on purpose ("unreachable in phase 1"). The list must be opened exactly when the matching routes ship, and the role must come from the signed-in person | `lib/observations.ts:51` | §7.3, §10.4 |
+| S3 | **Every correction writes the string `"staff"`** straight into `roleAtTime`, in four places in `teamCorrections.ts` (and twice in `routes/notifications.ts`, the owner-key admin route, which has no signed-in person and is out of scope here). With a second kind of author this must be asked for, not hard-coded | `teamCorrections.ts:101,175,282,373`; `notifications.ts:79,90` | §10.4 |
+| S4 | **Island-wide pages are guarded by a capability a guardian would hold for one colony.** `GET /api/team` (the welfare queue) and the cat list and detail routes use `requireTeam("view_exact_location")`. Under SYC-222's wording of `can()` with no target, a guardian holding it for one colony would pass and be shown the whole island | `routes/team.ts:105`, `routes/teamCats.ts:25,42` | §6.4 (the reason for Decision 4) |
+| S5 | **A refusal for a signed-in person is the sign-in redirect.** `requireTeam` answers `missing_capability` with the same 401-and-redirect as "not signed in". With guardians this sends her to sign in again and straight back to the refusal | `middlewares/requireTeam.ts` | §6.4 |
+| S6 | **`removePerson` stops being usable.** It deletes someone only if they have no history. SYC-213 gives every person an `added` event with a strict link, and this spec adds more, so no one will ever qualify. A withdrawn invitation therefore marks the person as left; for a wrong mailbox the address then needs SYC-208's anonymising | `lib/db/src/people.ts` (`removePerson`) | §9.6, §15.1 |
+| S7 | **The hand-off and the allow-list refuse anyone who can't "enter"**, so a pending invitee could not even reach an accept page | `routes/team.ts` hand-off step 6, `routes/internal.ts` | §4.5, §6.3 |
+| S8 | **The `people` command accepts `--role guardian` with no colony**, which produces a guardian row that means nothing today and would mean "island-wide" under a careless reading of the new rules | `lib/db/src/people/cli.ts`, `people.ts` `addPerson` | §10.1, §15.1 |
+| S9 | **A rejoin keeps the old `added_by` and replaces roles immediately**, with the same session-version bump. Right for the break-glass command; for a returning guardian it must go back through acceptance | `people.ts` `addPerson` | §9.4 |
+| S10 | **The dashboard forbids scripts and caching on every response**, so the offline view needs a deliberate, narrow exception | `lib/teamAuth/refuse.ts` `setTeamHeaders` | §3, §12 |
+| S11 | **Dashboard pages are English with `en-GB` dates fixed in the page code** | `lib/teamPages/*` | §13 |
+| S12 | **The people list has no language and no "accepted" state**, and the Worker's allow-list answer has no way to carry either | `schema/people.ts`, `routes/internal.ts` | §4.5, §10.1 |
+| S13 | **`GET /api/team/me` lists capabilities but not where they apply**, which a guardian's own page needs | `routes/team.ts` | §15.1 |
+| S14 | **Look-alike letters and dotted addresses in the staff email deny-list are an open ticket (SYC-123).** It matters more once management types the addresses of guardians who may use Gmail-style variants | `ROLE_MAILBOX_LOCAL_PARTS` | §16.4 |
+
+### 16.4 Follow-ups
+
+Filed to Linear (SYC) from this spec, in addition to the comments on the tickets it touches:
+
+- **Server-side en/el/fr catalogue for the dashboard**, with key-parity test and per-language dates (§13.3). Blocks slice 1 in Greek and French.
+- **One list of team roles, and the `admin` to `management` rename** across the resolver, the correction routes and the data spine's text (§5, §10.4). Slice 0.
+- **Reading counters and the management banner** for colony views (§11.3). Slice 4.
+- **Decide whether guardians see welfare reports near their colony** (Q2). Parked until guardians exist.
+
+Comments, not new tickets: SYC-104 (what the people screen must do: §8), SYC-213 (the fuller list of event kinds, and the `removePerson` conflict: §11.1, §9.6), SYC-222 (strict `can()` and the old-request compatibility rule: §6.4, §4.5), SYC-208 (guardian names in colonies, free-text notes, withdrawn invitations: §9.6, §9.7), SYC-54 (who may open the view, what a phone may keep, the cache and script exception: §3, §12), SYC-209 (the four capability names: §6.7), SYC-123 (relevance to invitations).
+
+### 16.5 Proposed DECISIONS.md entries
+
+*For Samuel to adopt, edit or reject when he approves this spec. This document does not edit `DECISIONS.md`. If adopted, these become a new Part, to be dated on approval.*
+
+- **Roles are `staff`, `management`, `guardian`, `volunteer`, and `vet` (reserved, grants nothing).** Management additionally manages people, actions deletion requests and approves the invitation of staff and management. Everyone who is staff on the day this ships is also made management. *(Decision 3.)* **This amends `team-access-and-welfare-queue.md` §7.1–7.2, and renames the observation vocabulary's never-written `admin` to `management`, which amends `cat-record-data-spine.md` §10.1 and §10.4.**
+- **A person is invited by management, who creates them as pending with their roles; they get a plain message with no secret, sign in as staff do, and accept.** Invitations expire after 14 days. No Clerk, no second sign-in mechanism. *(Decision 2.)* This amends `team-access-and-welfare-queue.md` §7.3 by adding the *pending* state to `people`.
+- **The workspace documents are their own capability, `use_workspace`, held by staff and management only.** The sign-in check answers two doors, and answers the old request shape with yes only where the workspace is allowed. *(SYC-222 points 1 and 2.)*
+- **`can()` is strict; entry and menus use a separate `canSomewhere()`.** *(Decision 4. This differs from SYC-222 point 3's wording on purpose.)* A signed-in person who lacks a capability gets a 403 page, not the sign-in redirect.
+- **A guardian's or volunteer's in-person look at a cat is recorded at once as evidence and moves the sterilisation answer only after one team member's OK; the person who made the statement can never settle it.** Colony membership proposed by a guardian waits for the team in the same way. Statements by staff and management are not queued. *(Decisions 5 and 6.)* This fills the gap `cat-record-data-spine.md` §4.5 calls "the full confirmation queue (still deferred)".
+- **Where guardians and volunteers work.** *(Decision 1, as chosen.)* If the web page is chosen, `cat-record-data-spine.md` §6.5 stands unchanged and gains a line saying the volunteer view is a dashboard page with its own storage; if the app is chosen, §6.5 is amended first.
+- **Guardians do not make a feeding site public, ever; that stays a team step.** *(§6.7.)*
+- **Guardians see the exact positions of cats in their own colonies only; volunteers see those of the colonies they are assigned.** Both accept the plain-words disclosure (Q1), which Syros Cats record. *(Decisions 6 and 8; F2's family of risk.)*
+
+### 16.6 Review findings
+
+*To be added after the independent adversarial review.*
+
