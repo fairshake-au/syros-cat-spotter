@@ -1,7 +1,7 @@
 # Syros Cat Spotter
 
 ## Overview
-A mobile app (Expo) for tourists and residents of Syros, Greece to identify and catalog unique street cats. Users photograph cats; AI vision matching compares the photo against known cats and returns likelihood scores. Users confirm a match or name/register a new cat. Gamified with points (10 per confirmed sighting, 50 per new cat) and badges. Anonymous per-device identity (no accounts). Trilingual UI: English, Greek, French. Works offline: cats catalog is cached and sightings are queued, then matched on reconnect.
+A mobile app (Expo) for tourists and residents of Syros, Greece to identify and catalog unique street cats. Users photograph cats; AI vision matching compares the photo against known cats and returns likelihood scores. Users confirm a match or name/register a new cat. Gamified with points (15 per confirmed sighting, 25 per new cat) and badges. Anonymous per-device identity (no accounts). Trilingual UI: English, Greek, French. Works offline: cats catalog is cached and sightings are queued, then matched on reconnect.
 
 ## Design system — Purropolis
 - Sun-bleached Cycladic look: Aegean blue primary, whitewash/stone neutrals, bougainvillea/sun/terracotta/olive accents; Poppins (display) / Nunito (body) / Space Mono (IDs), Google Fonts with Greek subset. Wordmark set in type: 🐾 Purr·opolis ("opolis" in bougainvillea) — no logo binary.
