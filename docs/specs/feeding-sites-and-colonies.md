@@ -552,15 +552,23 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | D. No map in v1: a list only, coordinates typed or pasted from a phone's map app | A sortable list and a form | Quick to build | Placing a feeding spot by typing numbers is error-prone and puts exact feeding-site coordinates through a third-party maps app on someone's phone. The word "map" in the ticket is not met |
 | E. A hosted admin tool (SYC-207) | Whatever it offers | Possibly less to build | Sends the most sensitive data in the app to another company, which becomes a new processor to name in the privacy policy. Not ruled out for other screens, but not for exact feeding-site positions without a deliberate decision |
 
-**Recommendation: A, with C as the upgrade if Syros Cats mind the map company seeing the areas.** It is the only option that keeps the dashboard's header unchanged and still gives a tap-to-place map. If SYC-207 finds a tool, it must pass the test in E before it touches sites.
+**Changed after review (conditions added).** A holds only if: tiles are drawn at a fixed size and never shrunk (otherwise the tap point is read in the wrong scale); the tap point is checked in Safari on iPhone, Chrome on Android and Firefox before the plan is approved; tile addresses are kept out of the logs (SYC-255); tiles get an explicit private cache exception to the dashboard's no-store rule; and typed coordinates are offered as a second way in. If the real-browser check fails, the fallback is C plus typed coordinates, before B is considered.
+
+**What people notice.** The team taps a map picture, sees a confirmation page with a marker, and saves. Panning is by buttons, not dragging.
+
+**Recommendation: A, with those conditions, and C as the upgrade if Syros Cats mind the map company seeing the areas.** It is the only option that keeps the dashboard's header unchanged and still gives a tap-to-place map. If SYC-207 finds a tool, it must pass the test in E before it touches sites.
 
 ### Decision 2. Keep this in the MVP, or move it after launch (SYC-209's own question; SYC-73)
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. Split it: the team's half before launch, the public half after (recommended)** | Before launch: colonies (create, rename, guardian, cats in colonies), the private site map, history. After launch: the public switch, the public endpoint and the app layer | Colony names are what the charity already speaks in and what guardian roles and any import hang off. A private map of sites has real value from day one. The riskiest piece, the one that exposes locations, waits until nobody is rushing | The public half is in PRODUCT-SPEC's MVP list and would slip. Nothing breaks: everything is private by default and the list of public sites "never blocks" (team-access §5.5) |
-| B. All of it before launch | As the MVP list says | Matches the plan; launches with the Kini feeding spots visible | Adds the public endpoint and the app layer inside the store-submission window, on top of the dashboard work; this is the piece with the most ways to go wrong in public |
+| **A. Split it: the team's half before launch, the public half after (recommended)** | Before launch: colonies (create, rename, guardian, cats in colonies), the private site map, history. After launch: the public switch, the public endpoint and the app layer | Colony names are what the charity already speaks in and what guardian roles and any import hang off. A private map of sites has real value from day one. The riskiest piece, the one that exposes locations, waits until nobody is rushing, and until SYC-67's acceptance is recorded | The public half is in PRODUCT-SPEC's MVP list and would slip. Nothing breaks: everything is private by default and the list of public sites "never blocks" (team-access §5.5) |
+| B. All of it before launch | As the MVP list says | Matches the plan; launches with the Kini feeding spots visible | Adds the public endpoint and the app layer inside the store-submission window, on top of the dashboard work; the piece with the most ways to go wrong in public. **Cannot ship before SYC-67's acceptance is recorded (§11.6), so it risks quietly getting round F2** |
 | C. All of it after launch | Descope per SYC-73 | Smallest launch | The team has no way to name colonies or record sites at launch; colony names and sites stay in WhatsApp |
+
+**Changed after review (one gate, one ordering).** (1) Whichever option is chosen, **the public half does not ship until SYC-67's acceptance is recorded**, and the SYC-67 briefing includes a paragraph on public sites (§11.6). (2) Within the team half, colonies come first (§16). The tile map is the riskiest piece of engineering, so it is the first thing to slip, ahead of colony naming.
+
+**What people notice.** The team gets named colonies and a private map at launch; tourists see no feeding spots until the public half ships.
 
 **Recommendation: A.** It keeps what the team need and defers what only matters once Syros Cats have chosen sites to show. The team-access spec already names the map and colony naming as the first things to slip to hardening (its §9.3); this is a more careful cut line than all-or-nothing. **Samuel's call.**
 
@@ -568,7 +576,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 | Option | What a visitor sees | Benefits | Risks |
 |---|---|---|---|
-| **A. Nothing about cats or the colony (recommended)** | A marker, a label, a short note | Cannot weaken the cat blurring. Smallest thing that serves "come and help" | Less to engage a visitor, and not the "land on that colony's cats" Kini experience |
+| **A. Nothing about cats or the colony (recommended)** | A marker, a label, a short note | Weakens the cat blurring least of the three (it still weakens it a little, see §4.6: the matching service and photos tie cats to an exact bowl). Smallest thing that serves "come and help" | Less to engage a visitor, and not the "land on that colony's cats" Kini experience |
 | B. A count ("about 12 cats use this spot") | A number | Gives a sense of scale | A number plus an exact place is a statement of how many animals are at one door. It also invites a visitor to look for them |
 | C. A list of the colony's cats with photos | Faces and names | The Kini QR experience; very engaging | Ties named cats to an exact place, making their blurring pointless for those cats. Reopens the F2 acceptance (SYC-67) |
 
@@ -584,36 +592,52 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 **Recommendation: A.**
 
-### Decision 5. How hard it is to make a site public
+### Decision 5. How hard it is to make a site public, and what happens when the guardian changes
 
 | Option | Benefits | Risks |
 |---|---|---|
 | A. One confirmation tap | Quick | The most consequential click in the dashboard gets the least thought |
-| **B. A confirmation page with a preview and a recorded "the guardian knows" tick (recommended)** | The person sees exactly what goes out, the guardian's agreement is recorded, and the team is protected by its own habit | A minute's friction per site, for a thing done a few times a year |
+| **B. A confirmation page with a preview and a recorded "the guardian knows" tick, and a re-confirmation when the guardian or the colony changes (recommended)** | The person sees exactly what goes out, the guardian's agreement is recorded, and the agreement cannot go stale unnoticed | A minute's friction per site, for a thing done a few times a year. A guardian change makes the site vanish from the public map until someone re-confirms it |
+| B2. As B, but a guardian change only shows a banner on the public site ("Public since 14 Oct with Eleni's agreement. The guardian is now Nikos. Check with him.") | The site stays visible | A banner can be ignored; the site stays public under a consent the new guardian never gave |
 | C. B plus a second team member must approve | Strongest | With a team of two or three the second person may not be around, and a delayed approval is quietly worked around. Not proportionate yet |
+
+**Changed after review (conditions added).** The tick was recorded once. It now has to be asked again when a colony's guardian changes or a public site moves to another colony (§4.7), and **no site goes public without a named guardian**. A site with no colony or no guardian name cannot be made public.
+
+**What people notice.** When Nikos takes over from Eleni and the team updates the colony, the public sites of that colony quietly go private with a note, and the page asks the team to check with Nikos.
 
 **Recommendation: B.** Revisit C if the team grows or a site is ever made public by mistake.
 
-### Decision 6. What moving a public site does
+### Decision 6. What moving a public site does, and whether it keeps its public code
 
 | Option | Benefits | Risks |
 |---|---|---|
-| **A. It becomes private until reconfirmed (recommended)** | A wrong pin never sits publicly even briefly | One extra confirmation after a deliberate move |
-| B. It stays public at the new position | Fewer steps | A slip sends visitors to the wrong door, and nobody is looking at the live public view |
+| **A. It becomes private until reconfirmed, and when it is made public again at a new place it gets a new public code; the old code stops working (recommended)** | A wrong pin never sits publicly even briefly, and a person watching the public list cannot follow a spot that moved (for example away from a hostile neighbour). An old QR sticker at the old place no longer leads to the new one | One extra confirmation after a deliberate move. A printed sticker has to be replaced. The team must take down old stickers |
+| A2. As A, but the code is kept if the site is made private and public again without moving | Fewer replaced stickers | A site that disappears and comes back with the same code tells a watcher "same feeding spot, quiet for a while, now back" |
+| A3. As A, and a new code every time a site is made public again, moved or not | Nothing links one public showing to another | More stickers to replace; every pause becomes a printing job |
+| B. It stays public at the new position, with the same code | Fewer steps | A slip sends visitors to the wrong door; nobody is looking at the live public view; the same code ties the old and new places together |
 | C. Ask each time | Flexible | A choice nobody wants to make; the safe default is better |
 
-**Recommendation: A.**
+**Changed after review.** Without a new code, A protected against a wrong pin but not against a watcher. The code now changes when the position changes (more than 10 metres from where it last stood in public) and always after a retire (§4.5, §11.1).
 
-### Decision 7. What a cat guardian can do with sites (dependency on SYC-53)
+**What people notice.** After a move the team sees "Old QR stickers for this place will stop working. Take them down." A visitor who scans an old sticker sees "This feeding spot isn't on the map any more."
+
+**Recommendation: A, with A2's rule (keep the code after a plain private-and-public cycle with no move)**, because it spares stickers and the leak is small. **This is a choice for Samuel**: A3 is the strictest.
+
+### Decision 7. What a cat guardian can do with sites (settled with SYC-53)
 
 | Option | Benefits | Risks |
 |---|---|---|
-| **A. A guardian sees and edits only their own sites; cannot make them public; asks the team to (recommended)** | The most affected person is never surprised, and the record stays accurate with less phone traffic | A guardian who wants a site public has to ask |
-| B. A guardian may also request "make public" in the app, which queues for the team | Closes the loop for guardians | A second queue to build and watch; better done with SYC-53's queue work |
-| C. A guardian can make their own sites public | Least team work | The guardian cannot judge the wider picture, and one hasty tap is a public location |
+| **A. Follow the roles spec: a guardian sees only her own colonies' sites; may add sites to her own colonies (always private) and edit, move, retire and bring back her own sites (`add_feeding_site`, `edit_feeding_site`); cannot change which colony a site belongs to; cannot make a site public but can ask (`request_site_public`); cannot put cats in colonies but can propose (`propose_colony_change`) (recommended)** | One rule across both specs. The most affected person is never surprised, the record stays accurate with less phone traffic, and a guardian can ask for a public site without a second queue (it uses SYC-53's "Needs an OK") | A guardian who wants a site public has to ask and wait. A guardian who finds a cat of hers waits for the team's OK |
+| B. As A, but a guardian may also assign cats to her own colony directly | No wait | She can read the exact position of any cat on the island by adding them one by one; a guardian can pull another guardian's cats in by mistake |
+| C. A guardian can make her own sites public | Least team work | She cannot judge the wider picture, and one hasty tap is a public location |
 | D. A guardian sees other colonies' sites approximately | Matches the wording used for cats | A private site is meant to be absent, not blurred (spine §6.7); an approximate marker still says "there is a feeding spot around here" |
+| E. A guardian may assign "unassigned cats near her sites" (the earlier draft) | Quicker for her | "Near" is measured with exact positions she is not meant to see; it reopens the escalation SYC-53 closed |
 
-**Recommendation: A for the first release of guardian accounts; B when SYC-53 builds its queue. Reject D.** SYC-53 may decide differently; this is flagged to it.
+**Changed after review.** The earlier draft recommended "A now, B later" with its own capability names and a guardian power over unassigned cats. The roles spec was written the same week with different rules; it is the source of truth. Settled once, there. **Reject B, C, D and E.**
+
+**What people notice.** A guardian opens her colony and sees her own sites; she can fix a pin or retire a closed spot. A button on each of her sites says "Ask the team to make this public". Nothing else on the island is visible to her.
+
+**Recommendation: A.**
 
 ### Decision 8. How long a phone keeps the list of public sites for offline use
 
@@ -634,7 +658,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | B. English and Greek | Friendlier for the team | A second set of dashboard words to maintain and a language switch on server-drawn pages, where none exists |
 | C. Greek only | Natural for the island | Breaks the build already made |
 
-**Recommendation: A.** Ask Syros Cats whether anyone on the team finds it hard; if so, file B as its own ticket.
+**Recommendation: A for the team's own pages.** Ask Syros Cats whether anyone on the team finds it hard; if so, file B as its own ticket. SYC-53 already plans English, Greek and French for the pages guardians use, so if guardians use these screens (their own sites and colony), those pages get the three languages with SYC-53, not with this spec.
 
 ### Decision 10. Whether a site has a Greek label and an English one
 
@@ -649,11 +673,16 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 | Option | Benefits | Risks |
 |---|---|---|
-| **A. We load the list Syros Cats give us as private sites, once, then the team maintains it (recommended)** | Day-one usefulness; no hundred forms to fill | Needs the list, positions included, which Syros Cats must send; mistakes are loaded in bulk (the history shows `system:seed`, and each is fixed with Move) |
-| B. The team adds them one at a time | No script | Slow; the team may never finish, and the map stays empty |
+| **A. Syros Cats place their own sites on the dashboard, or send names plus rough areas only and the team places them; we load nothing with exact positions (recommended)** | The most sensitive list in the app never travels outside it. No file to leak, commit or forget | Slower; the team may take weeks to finish |
+| A2. We load the list Syros Cats send, positions included, with a one-off script | Day-one usefulness; no hundred forms to fill | The list will most likely arrive as a WhatsApp message, an email attachment or a Google My Maps link: a complete map of every feeding spot, handled by third parties. It could be committed beside the script and stay in git history for ever, or be pasted into an agent session. Mistakes are loaded in bulk (the history shows `system:seed`, each is fixed with Move) |
+| B. The team adds them one at a time, from scratch | No script | Slow; the team may never finish, and the map stays empty |
 | C. Import from the WhatsApp history (`records-import.md`) | Uses existing material | That spec is optional and after the MVP, and its data has scant detail. Not a dependency of this one |
 
-**Recommendation: A**, as soon as Syros Cats supply the list. It never sets visibility. **Syros Cats to supply the list.**
+**Changed after review (conditions added).** A2 is acceptable only with a stated safe route: the file is never committed (a `.gitignore` rule and a check in the seed script, §11.8), it is loaded from a scratch location, deleted after loading, never pasted into an agent session, and the history records `system:seed` with no copy of the file. Its risk, in plain words: the list travels outside the system on the way in.
+
+**What people notice.** The team sees a populated map sooner under A2; under A they build it themselves, starting with the sites they know best.
+
+**Recommendation: A**, falling back to A2 only with the safe route above if the slow route proves too slow. Neither ever sets visibility. **Syros Cats to say which they prefer.**
 
 ### Decision 12. What a colony's name form looks like
 
