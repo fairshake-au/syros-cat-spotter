@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { clearExpiredKeepSafePayloads } from "../mail/outbox";
+import { MOVED_DAYS } from "../deviceAuth";
 
 /**
  * The keep-safe sweep (SYC-3 plan, Slice 1 step 2; review A5; email-capture.md
@@ -23,7 +24,6 @@ import { clearExpiredKeepSafePayloads } from "../mail/outbox";
 
 export const PENDING_DAYS = 7;
 export const TOKEN_KEEP_DAYS = 30;
-export const MOVED_DAYS = 90;
 export const REQUEST_KEEP_HOURS = 24;
 
 export type SweepResult = {

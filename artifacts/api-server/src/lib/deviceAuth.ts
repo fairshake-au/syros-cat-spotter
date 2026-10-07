@@ -1,13 +1,13 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { db, deviceCredentialsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { allowNewDevice, newDeviceResetAt } from "../middlewares/newDeviceLimit";
 
 const MIN_SECRET_LENGTH = 16;
 const MAX_SECRET_LENGTH = 256;
 
-function hashSecret(secret: string): string {
+export function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
 }
 
@@ -29,7 +29,8 @@ function hashesMatch(a: string, b: string): boolean {
  * traffic) cannot bind or replace the credential.
  *
  * Returns the verified device id, or `null` after writing an error
- * response (401 missing/invalid header, 403 wrong secret).
+ * response (401 missing/invalid header, 403 wrong secret, 403 `device_moved`
+ * when the secret is one a restore replaced: SYC-3).
  */
 export async function requireDeviceAuth(
   req: Request,
@@ -100,6 +101,10 @@ export async function verifyDeviceSecret(
   }
 
   if (!row || !hashesMatch(row.secretHash, secretHash)) {
+    if (row && (await wasMovedAway(deviceId, secretHash))) {
+      res.status(403).json({ error: "device_moved" });
+      return null;
+    }
     res.status(403).json({ error: "Device secret does not match" });
     return null;
   }
@@ -125,4 +130,25 @@ export async function deviceSecretMatches(req: Request, deviceId: string): Promi
     .from(deviceCredentialsTable)
     .where(eq(deviceCredentialsTable.deviceId, deviceId));
   return !!row && hashesMatch(row.secretHash, hashSecret(secret));
+}
+
+/** How long the old phone is told "moved" after a restore (SYC-3 plan, step 2). */
+export const MOVED_DAYS = 90;
+
+/**
+ * SYC-3 plan, Slice 1 step 7: was this exact secret replaced by a restore of
+ * this exact id, in the last 90 days? Only then is the answer `device_moved`
+ * (the app shows "Your spots moved to a new phone"). A wrong guess, or the
+ * same secret presented for some other id, still gets the ordinary 403.
+ */
+async function wasMovedAway(deviceId: string, secretHash: string): Promise<boolean> {
+  const result = await db.execute(sql`
+    select 1 from mail_tokens
+     where purpose = 'restore'
+       and replaced_secret_hash = ${secretHash}
+       and restored_device_id = ${deviceId}
+       and used_at > now() - make_interval(days => ${MOVED_DAYS})
+     limit 1
+  `);
+  return result.rows.length > 0;
 }
