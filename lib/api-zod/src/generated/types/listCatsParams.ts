@@ -9,4 +9,15 @@
 export type ListCatsParams = {
 lat?: number;
 lng?: number;
+/**
+ * 1-based page number. Defaults to 1.
+ * @minimum 1
+ */
+page?: number;
+/**
+ * Cats per page. Defaults to 100; at most 200.
+ * @minimum 1
+ * @maximum 200
+ */
+pageSize?: number;
 };

@@ -51,7 +51,12 @@ function startStubApi(): Promise<string> {
     server = http.createServer((req, res) => {
       if (req.url === "/api/healthz" || req.url === "/api/cats") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(req.url === "/api/cats" ? "[]" : JSON.stringify({ ok: true }));
+        // GET /api/cats is paged since SYC-41 (data spine PR 6).
+        res.end(
+          req.url === "/api/cats"
+            ? JSON.stringify({ cats: [], page: 1, pageSize: 100, total: 0, nextPage: null })
+            : JSON.stringify({ ok: true }),
+        );
         return;
       }
       res.writeHead(404);

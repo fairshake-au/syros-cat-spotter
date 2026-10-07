@@ -10,7 +10,7 @@ import {
 /**
  * OpenStreetMap tile layer that automatically switches to the preloaded
  * offline Syros tiles once they are downloaded. Native only — the web
- * AppMap fallback uses an OSM iframe instead.
+ * AppMap draws OpenStreetMap tiles itself instead.
  */
 export function OsmTiles() {
   const { ready } = useOfflineTiles();

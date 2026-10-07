@@ -279,7 +279,7 @@ describe("11. passes", () => {
     expect(res.status).toBe(200);
     const cats = await request(app).get("/api/cats").set("X-Prelaunch-Key", TESTER_KEY);
     expect(cats.status).toBe(200);
-    expect(Array.isArray(cats.body)).toBe(true);
+    expect(Array.isArray(cats.body.cats)).toBe(true);
   });
 
   it("the second tester key passes during a change", async () => {
@@ -550,7 +550,7 @@ describe("15. when the gate is on", () => {
     process.env["PRELAUNCH_GATE"] = "off";
     const res = await send("get", "/api/cats");
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(Array.isArray(res.body.cats)).toBe(true);
   });
 
   it("PRELAUNCH_GATE=off with the secrets missing → still off (a deliberate launch needs no secrets)", async () => {

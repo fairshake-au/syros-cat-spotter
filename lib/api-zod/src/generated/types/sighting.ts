@@ -6,14 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * A sighting in a cat's public history: photo, spotter and date. No
+ * position and no sighting id, which would give away upload order
+ * (cat-record-data-spine.md §6.4).
+ */
 export interface Sighting {
-  id: number;
   catId?: number | null;
   spotterCode: string;
   spotterUsername?: string | null;
   spotterNickname?: string | null;
   photoUrl: string | null;
-  lat: number;
-  lng: number;
+  /** A UTC calendar date (YYYY-MM-DD). A public sighting never carries a position (§6.4.1). */
   createdAt: string;
 }

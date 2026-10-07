@@ -16,12 +16,15 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import {
+  PUBLIC_VIEWER,
   deriveCatStatuses,
   isResolvedDeceased,
   photoUrl,
   getProfileStats,
   profilePayload,
+  serialiseCat,
 } from "../lib/catHelpers";
+import { blurPosition } from "../lib/blur";
 import { badgesFor } from "../lib/badges";
 import { clampCaptureTime } from "../lib/captureTime";
 import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
@@ -654,7 +657,9 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     // SYC-119: a spotter may only choose a cat the server suggested for this
     // sighting, or one whose PUBLISHED square is within 1.5 km of the
     // sighting's stored location, the same shared rule the phone's list uses
-    // (lib/geo). Never measured on exact positions: a refusal worked out from
+    // (lib/geo). The published square is the one in the public payload: the
+    // cell centre from blur.ts (data spine PR 6), which the phone receives
+    // as the cat's lat/lng and lib/geo reads as-is. Never measured on exact positions: a refusal worked out from
     // them would answer "is this cat within 1.5 km of here?" about where it
     // really is. Every suggestion passes the distance rule anyway (500 m
     // exactly, plus at most ~177 m of snapping); the stored set is belt and
@@ -674,7 +679,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       (isHandPick &&
         !isNearby(
           { lat: sighting.lat, lng: sighting.lng },
-          publishedPosition({ lat: existing.lat, lng: existing.lng }),
+          publishedPosition(blurPosition(existing.lat, existing.lng)),
         ))
     ) {
       res.status(NOT_NEARBY.status).json(NOT_NEARBY.body);
@@ -833,26 +838,39 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     .where(eq(sightingsTable.catId, cat.id));
 
   // data-spine.md PR 4: hasHome is lifeStatus === "homed", derived, behind
-  // the PR 3 gate (catHelpers.ts's deriveCatStatuses doc comment) — not the
-  // legacy owner_device_id check this response used before. §10.6 also
-  // means this response carries no cat coordinates beyond lat/lng, which
-  // stay as before (blurring is PR 6's).
+  // the PR 3 gate (catHelpers.ts's deriveCatStatuses doc comment).
   const derivedStatus = (
     await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
   ).get(cat.id)!;
+  const [discoverer] = await db
+    .select({ nickname: profilesTable.nickname, username: profilesTable.username })
+    .from(profilesTable)
+    .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
 
+  // §10.6, emitter 3: this response used to hand any spotter who confirmed
+  // a match the cat's exact stored position. It goes through the one
+  // serialiser, public tier, like every other cat the app receives.
   res.json({
-    cat: {
-      id: cat.id,
-      name: cat.name,
-      description: cat.description,
-      photoUrl: await photoUrl(cat.primaryPhotoId),
-      lat: cat.lat,
-      lng: cat.lng,
-      sightingsCount: countRow?.n ?? 1,
-      lastSeenAt: new Date().toISOString(),
-      ...derivedStatus,
-    },
+    cat: serialiseCat(
+      {
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        photoUrl: await photoUrl(cat.primaryPhotoId),
+        lat: cat.lat,
+        lng: cat.lng,
+        ownerDeviceId: cat.ownerDeviceId,
+        sightingsCount: countRow?.n ?? 1,
+        lastSeenAt: sighting.createdAt,
+        discovererDeviceId: cat.discovererDeviceId,
+        discovererNickname: discoverer?.nickname ?? null,
+        discovererUsername: discoverer?.username ?? null,
+        ownerName: cat.ownerName,
+        homeDescription: cat.homeDescription,
+        derived: derivedStatus,
+      },
+      PUBLIC_VIEWER,
+    ),
     pointsAwarded,
     isNewCat,
     newBadges,

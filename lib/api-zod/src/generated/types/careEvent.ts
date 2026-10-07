@@ -15,5 +15,6 @@ export interface CareEvent {
      */
   type: CareEventType;
   message: string;
+  /** A UTC calendar date (YYYY-MM-DD). */
   at: string;
 }

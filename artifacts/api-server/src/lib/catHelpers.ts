@@ -18,6 +18,7 @@ import { loadCatRecords } from "./observations";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
+import { BLUR_CELL_METRES, blurPosition, publicDistanceKm } from "./blur";
 
 export function haversineKm(
   lat1: number,
@@ -74,6 +75,11 @@ export interface DerivedCatStatus {
   sterilised: SterilisedStatus;
 }
 
+/**
+ * A cat as it leaves the server (cat-record-data-spine.md §10.6–10.7).
+ * `lat`/`lng` keep their meaning, "where this cat is"; `locationPrecision`
+ * says how to draw it. Only {@link serialiseCat} builds one.
+ */
 export interface CatWithStats extends DerivedCatStatus {
   id: number;
   name: string;
@@ -81,7 +87,10 @@ export interface CatWithStats extends DerivedCatStatus {
   photoUrl: string | null;
   lat: number;
   lng: number;
+  locationPrecision: "exact" | "approximate";
+  locationCellM: number | null;
   sightingsCount: number;
+  /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
   distanceKm?: number;
   discovererSpotterCode: string;
@@ -89,6 +98,128 @@ export interface CatWithStats extends DerivedCatStatus {
   ownerName: string | null;
   homeDescription: string | null;
   discovererUsername: string | null;
+}
+
+/**
+ * Who is asking (§6.5, §10.6). Every user of the mobile app is `public`. The
+ * one exception is Option B: a device that has proved it holds its secret,
+ * looking at the detail page of a cat it owns, sees that cat exactly. The
+ * list is always public, so the offline cache only ever holds one precision.
+ * Team pages never use this serialiser; they read exact positions directly
+ * behind requireTeam.
+ */
+export type Viewer =
+  | { tier: "public"; from?: { lat: number; lng: number } }
+  | { tier: "owner"; deviceId: string; from?: { lat: number; lng: number } };
+
+export const PUBLIC_VIEWER: Viewer = { tier: "public" };
+
+/** Everything the serialiser needs to know about one cat, exact position included. */
+export interface CatSource {
+  id: number;
+  name: string;
+  description: string;
+  photoUrl: string | null;
+  /** Exact, as stored. Never copied to the output for a public viewer. */
+  lat: number;
+  lng: number;
+  ownerDeviceId: string | null;
+  sightingsCount: number;
+  lastSeenAt: Date | string;
+  discovererDeviceId: string;
+  discovererNickname: string | null;
+  discovererUsername: string | null;
+  ownerName: string | null;
+  homeDescription: string | null;
+  derived: DerivedCatStatus;
+}
+
+/** An ISO timestamp or Date, cut to its UTC calendar date. */
+export function toPublicDay(at: Date | string): string {
+  return (typeof at === "string" ? at : at.toISOString()).slice(0, 10);
+}
+
+/**
+ * **The one serialiser** (§10.6). Every route that sends a cat to the app
+ * builds it here: `GET /cats`, `catPayload` (`GET /cats/:id`, `POST /cats`,
+ * claim, `PATCH`), and the resolve response. Built field by field from an
+ * allow-list, never by spreading a row, so a new column can't leak.
+ *
+ * Public: the centre of the cat's 250 m cell (secret grid origin, blur.ts),
+ * `locationPrecision: "approximate"`, `locationCellM: 250`, distance to the
+ * cell centre rounded to 100 m, last seen as a date. An owner viewing their
+ * own cat gets its exact position and `locationPrecision: "exact"`.
+ */
+export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
+  const exact =
+    viewer.tier === "owner" && cat.ownerDeviceId !== null && cat.ownerDeviceId === viewer.deviceId;
+  const position = exact ? { lat: cat.lat, lng: cat.lng } : blurPosition(cat.lat, cat.lng);
+  const out: CatWithStats = {
+    id: cat.id,
+    name: cat.name,
+    description: cat.description,
+    photoUrl: cat.photoUrl,
+    lat: position.lat,
+    lng: position.lng,
+    locationPrecision: exact ? "exact" : "approximate",
+    locationCellM: exact ? null : BLUR_CELL_METRES,
+    sightingsCount: cat.sightingsCount,
+    lastSeenAt: toPublicDay(cat.lastSeenAt),
+    discovererSpotterCode: spotterCode(cat.discovererDeviceId),
+    discovererNickname: cat.discovererNickname,
+    discovererUsername: cat.discovererUsername,
+    ownerName: cat.ownerName,
+    homeDescription: cat.homeDescription,
+    hasHome: cat.derived.hasHome,
+    lifeStatus: cat.derived.lifeStatus,
+    notSeenSince: cat.derived.notSeenSince,
+    sterilised: {
+      value: cat.derived.sterilised.value,
+      confidence: cat.derived.sterilised.confidence,
+      clippedTipSightings: cat.derived.sterilised.clippedTipSightings,
+    },
+  };
+  if (viewer.from) {
+    // Always to the published cell centre, even for an owner: the list
+    // sorts on this and must agree with what everyone else sees (§6.4.3).
+    out.distanceKm = publicDistanceKm(viewer.from.lat, viewer.from.lng, cat.lat, cat.lng);
+  }
+  return out;
+}
+
+/**
+ * A sighting in a cat's public history (§6.4.1): photo, spotter and date. No
+ * position, and no sighting id: ids are handed out in upload order, so
+ * anyone who uploads their own sightings and notes the times could read the
+ * time of day of every public one back from its id (review of #95, finding
+ * 4; the same clock §6.4.4 names for photo ids).
+ */
+export interface PublicSighting {
+  catId: number | null;
+  spotterCode: string;
+  spotterUsername: string | null;
+  spotterNickname: string | null;
+  photoUrl: string | null;
+  createdAt: string;
+}
+
+export function serialiseSighting(s: {
+  id: number;
+  catId: number | null;
+  deviceId: string;
+  createdAt: Date;
+  spotterUsername: string | null;
+  spotterNickname: string | null;
+  photoUrl: string | null;
+}): PublicSighting {
+  return {
+    catId: s.catId,
+    spotterCode: spotterCode(s.deviceId),
+    spotterUsername: s.spotterUsername,
+    spotterNickname: s.spotterNickname,
+    photoUrl: s.photoUrl,
+    createdAt: toPublicDay(s.createdAt),
+  };
 }
 
 const UNKNOWN_STERILISED: SterilisedStatus = {
@@ -238,17 +369,70 @@ export async function isResolvedDeceased(catId: number): Promise<boolean> {
   return snapshot.lifeStatus === "deceased";
 }
 
+/** `GET /cats` pages (§2.3). The app walks every page to fill its offline cache. */
+export const CATS_PAGE_SIZE_DEFAULT = 100;
+export const CATS_PAGE_SIZE_MAX = 200;
+
+export interface CatsPage {
+  cats: CatWithStats[];
+  page: number;
+  pageSize: number;
+  total: number;
+  nextPage: number | null;
+}
+
+/**
+ * One page of the public catalogue (§2.3, §6.4.3). Always the public tier:
+ * the list is the payload that lands in every phone's offline cache, so it
+ * never carries an exact position (§10.6 Option B).
+ *
+ * Order, stable and coarse: with a viewer position, by distance to each
+ * cat's published cell centre, rounded to 100 m; otherwise by last-seen
+ * date, newest first. Ties always break on cat id, never on anything
+ * exact. Two queries whatever the page size: a light one that orders every
+ * cat, then the full rows and their derived status for this page only.
+ */
 export async function listCatsWithStats(
-  lat?: number,
-  lng?: number,
-): Promise<CatWithStats[]> {
+  opts: { from?: { lat: number; lng: number }; page?: number; pageSize?: number } = {},
+): Promise<CatsPage> {
+  const pageSize = Math.min(
+    Math.max(1, Math.floor(opts.pageSize ?? CATS_PAGE_SIZE_DEFAULT)),
+    CATS_PAGE_SIZE_MAX,
+  );
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const viewer: Viewer = { tier: "public", from: opts.from };
+
+  const order = await db
+    .select({
+      id: catsTable.id,
+      lat: catsTable.lat,
+      lng: catsTable.lng,
+      lastSeenDay: sql<string>`to_char(coalesce(max(${sightingsTable.createdAt}), ${catsTable.createdAt}) at time zone 'UTC', 'YYYY-MM-DD')`,
+    })
+    .from(catsTable)
+    .leftJoin(
+      sightingsTable,
+      and(eq(sightingsTable.catId, catsTable.id), eq(sightingsTable.status, "resolved")),
+    )
+    .groupBy(catsTable.id);
+
+  const from = opts.from;
+  const ranked = from
+    ? order
+        .map((o) => ({ id: o.id, km: publicDistanceKm(from.lat, from.lng, o.lat, o.lng) }))
+        .sort((a, b) => a.km - b.km || a.id - b.id)
+    : [...order].sort(
+        (a, b) => b.lastSeenDay.localeCompare(a.lastSeenDay) || a.id - b.id,
+      );
+  const total = ranked.length;
+  const pageIds = ranked.slice((page - 1) * pageSize, page * pageSize).map((r) => r.id);
+  const nextPage = page * pageSize < total ? page + 1 : null;
+  if (pageIds.length === 0) return { cats: [], page, pageSize, total, nextPage };
+
   // SYC-98 Fable review, finding 7: photosTable is joined here rather than
-  // calling photoUrl(r.cat.primaryPhotoId) per cat (an N+1 — one round trip
-  // to Neon per row, serialised 5 at a time behind the pool's default
-  // max: 10) — 50 cats would otherwise cost 50 extra round trips to
-  // Frankfurt from Replit EU on every /api/cats call. The join is 1:1
-  // (primaryPhotoId -> photos.id, the real primary key), so it can't
-  // multiply the sightings aggregate rows the groupBy depends on.
+  // calling photoUrl(r.cat.primaryPhotoId) per cat (an N+1). The join is
+  // 1:1 (primaryPhotoId -> photos.id), so it can't multiply the sightings
+  // aggregate rows the groupBy depends on.
   const rows = await db
     .select({
       cat: catsTable,
@@ -273,44 +457,45 @@ export async function listCatsWithStats(
       ),
     )
     .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
+    .where(inArray(catsTable.id, pageIds))
     .groupBy(catsTable.id, photosTable.publicId);
 
-  // §2.3: every cat's derived status loaded in one batch (loadCatRecords'
-  // own fixed query count), never one query per cat.
+  // §2.3: this page's derived status in one batch, never one query per cat.
   const derived = await deriveCatStatuses(
     rows.map((r) => ({ id: r.cat.id, ownerDeviceId: r.cat.ownerDeviceId })),
   );
 
-  const cats = rows.map((r) => {
-    const status = derived.get(r.cat.id)!;
-    const c: CatWithStats = {
-      id: r.cat.id,
-      name: r.cat.name,
-      description: r.cat.description,
-      photoUrl: r.photoPublicId ? `/api/photos/${r.photoPublicId}` : null,
-      lat: r.cat.lat,
-      lng: r.cat.lng,
-      sightingsCount: r.sightingsCount,
-      lastSeenAt: r.lastSeenAt ?? r.cat.createdAt.toISOString(),
-      discovererSpotterCode: spotterCode(r.cat.discovererDeviceId),
-      discovererNickname: r.discovererNickname ?? null,
-      ownerName: r.cat.ownerName,
-      homeDescription: r.cat.homeDescription,
-      discovererUsername: r.discovererUsername ?? null,
-      ...status,
-    };
-    if (lat !== undefined && lng !== undefined) {
-      c.distanceKm = haversineKm(lat, lng, c.lat, c.lng);
-    }
-    return c;
+  const byId = new Map(
+    rows.map((r) => [
+      r.cat.id,
+      serialiseCat(
+        {
+          id: r.cat.id,
+          name: r.cat.name,
+          description: r.cat.description,
+          photoUrl: r.photoPublicId ? `/api/photos/${r.photoPublicId}` : null,
+          lat: r.cat.lat,
+          lng: r.cat.lng,
+          ownerDeviceId: r.cat.ownerDeviceId,
+          sightingsCount: r.sightingsCount,
+          lastSeenAt: r.lastSeenAt ?? r.cat.createdAt,
+          discovererDeviceId: r.cat.discovererDeviceId,
+          discovererNickname: r.discovererNickname ?? null,
+          discovererUsername: r.discovererUsername ?? null,
+          ownerName: r.cat.ownerName,
+          homeDescription: r.cat.homeDescription,
+          derived: derived.get(r.cat.id)!,
+        },
+        viewer,
+      ),
+    ]),
+  );
+  // A cat deleted between the two queries simply drops out of this page.
+  const cats = pageIds.flatMap((id) => {
+    const c = byId.get(id);
+    return c ? [c] : [];
   });
-
-  if (lat !== undefined && lng !== undefined) {
-    cats.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
-  } else {
-    cats.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
-  }
-  return cats;
+  return { cats, page, pageSize, total, nextPage };
 }
 
 export async function getProfileStats(deviceId: string): Promise<ProfileStats> {

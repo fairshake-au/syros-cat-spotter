@@ -24,6 +24,7 @@ import { useCatsWithCache } from '@/hooks/useCatsWithCache';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { CatCard } from '@/components/CatCard';
 import { AppMap } from '@/components/AppMap';
+import { DEFAULT_CELL_M, groupByCell } from '@/lib/cellShape';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Chip } from '@/components/purropolis';
@@ -220,7 +221,25 @@ export default function CatalogScreen() {
             longitudeDelta={initialRegion.longitudeDelta}
             showsUserLocation
             markerBorderColor={colors.primary}
-            markers={filtered.map((cat) => ({
+            // Data spine PR 6 (spec §6.2): each cat is somewhere in its
+            // published cell, drawn as that cell. Cats sharing a cell share
+            // one drawn area; tapping it opens the first of them.
+            areas={groupByCell(filtered).map((group) => ({
+              id: `${group[0]!.lat},${group[0]!.lng}`,
+              latitude: group[0]!.lat,
+              longitude: group[0]!.lng,
+              sizeMetres: group[0]!.locationCellM ?? DEFAULT_CELL_M,
+              onPress: () =>
+                router.push({
+                  pathname: '/cat/[id]',
+                  params: { id: String(group[0]!.id) },
+                }),
+            }))}
+            // On web, markers are the tappable strip under the map. On native
+            // they would be photo pins at the cell centre, which the cell
+            // replaces (spec §10.7: "drawn as that cell, never as a pin";
+            // review of #95, finding 6), so native shows the cells only.
+            markers={Platform.OS !== 'web' ? [] : filtered.map((cat) => ({
               id: String(cat.id),
               latitude: cat.lat,
               longitude: cat.lng,

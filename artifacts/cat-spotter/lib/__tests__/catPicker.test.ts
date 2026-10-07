@@ -43,12 +43,16 @@ function around(r: () => number, c: LatLng, km: number): LatLng {
 
 const NAMES = ['Agatha', 'Krispy', 'Savma', 'Αγάθη', 'Μπέμπα', 'Zoé', 'Tigré', 'Ούζο'];
 
+/**
+ * A public catalogue as the phone receives it: every position is already a
+ * cell centre (data spine PR 6).
+ */
 function catalogue(seed: number, n: number): PickerCat[] {
   const r = rng(seed);
   return Array.from({ length: n }, (_, i) => ({
     id: i + 1,
     name: `${NAMES[i % NAMES.length]}${i >= NAMES.length ? ` ${i}` : ''}`,
-    ...around(r, ERMOUPOLI, 3),
+    ...squareCentre(around(r, ERMOUPOLI, 3)),
   }));
 }
 
@@ -148,14 +152,17 @@ describe('pickerList', () => {
   it('test 2 (phone side): moving cats within their squares changes nothing on screen', () => {
     const cats = catalogue(7, 150);
     const r = rng(8);
-    const moved = cats.map((c) => {
-      const centre = squareCentre(c);
-      return {
+    // Each cat's exact position moves somewhere else in its square; the
+    // server publishes the same cell centre, so the phone sees no change.
+    const moved = cats.map((c) =>
+      ({
         ...c,
-        lat: centre.lat + (r() * 2 - 1) * 0.0011,
-        lng: centre.lng + (r() * 2 - 1) * 0.0014,
-      };
-    });
+        ...squareCentre({
+          lat: c.lat + (r() * 2 - 1) * 0.0011,
+          lng: c.lng + (r() * 2 - 1) * 0.0014,
+        }),
+      }),
+    );
     for (let i = 0; i < 20; i++) {
       const from = around(r, ERMOUPOLI, 1.5);
       expect(pickerList(from, moved, '').map((c) => c.id)).toEqual(

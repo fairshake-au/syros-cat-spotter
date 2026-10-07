@@ -49,6 +49,7 @@ The build work fits the window. The things that can sink October are all **lead 
 - [ ] **Never approve a Replit database review (SYC-121, rule R3).** After the SYC-121 move, Replit's publish has nothing of ours to compare — the app never uses Replit's own managed database (`lib/db/src/url.ts` refuses `DATABASE_URL` inside a Replit workspace and in production). If Publish ever shows a database review, especially one with `TRUNCATE` or `DROP` on a table with rows, **cancel it** and treat it as a sign something is wrongly pointed at Replit's own database.
 - [ ] **One instance while the Postgres rate-limit store doesn't exist (SYC-105).** The live deployment is capped at **Max instances: 1**, so the in-memory rate limiter stays correct. Raise this only after SYC-105 moves rate limiting to Postgres.
 - [ ] Environment: `OWNER_SECRET` set, `CAMPAIGN_*` set with corrected €50–60 copy (SYC-14), log level
+- [x] ~~`BLUR_GRID_SECRET`~~ **Not needed (Samuel, 6 Oct 2026).** Data spine PR 6 publishes every cat on a plain public 250 m grid. A secret grid origin was dropped: any one published cell centre gives it away, so it protected nothing (review of #95).
 - [x] Confirm `trust proxy` matches Replit's production proxy chain (rate limiting depends on it). **Done 3 Oct 2026 (SYC-100): the visitor is 4 hops from the server, so `trust proxy` is 4.** Measured with the token-gated `/api/healthz` probe (now removed under SYC-187 — see `docs/runbooks/proxy-probe.md` for the historical record, run 37091945054). If Replit's proxy chain could have changed, restore the probe from PRs #57/#60 and re-run it.
 - [ ] Outbound email for welfare/report notifications to admin@syroscats via Resend on the new domain (SPF/DKIM so Google Workspace doesn't junk it)
 - [ ] Uptime monitor on `/api/healthz` + error alerting to Samuel
@@ -59,7 +60,7 @@ Until launch, the test deployment is kept private by two gates we own, instead o
 
 - `/api/healthz` stays open for Replit's health check. Everything else in `/api` needs the website cookie, the tester key (`X-Prelaunch-Key`), or, on `/api/internal/*`, the sign-in Worker's bearer.
 - **Anyone calling the API by hand while the gate is on adds the tester key header.** That includes owner updates (`POST /api/cats/:id/updates` with `OWNER_SECRET`) and `scripts/security-check.mjs`, which sends it when `PRELAUNCH_KEY` is set in the terminal's environment.
-- **Launch day starts with a check, not the switch:** confirm location blurring is live (data spine PR 6) before `PRELAUNCH_GATE=off`. See the runbook.
+- **Launch day starts with a check, not the switch:** confirm location blurring is live (data spine PR 6) before `PRELAUNCH_GATE=off`. See the runbook. The check: a public `GET /api/cats` returns `locationPrecision: "approximate"` with `locationCellM: 250` on every cat, and `GET /api/cats/{id}` has no `lat`/`lng` on any sighting.
 
 ## D. Product changes (spec §2)
 
