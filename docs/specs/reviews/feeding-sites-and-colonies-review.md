@@ -166,3 +166,64 @@ There is also a mismatch inside the spec: §4.6 bullet 3 says "the confirmation 
 **Fix.** Add a precondition: the public half doesn't ship until SYC-67's acceptance is recorded, and the SYC-67 briefing includes a paragraph on public sites. Decision 2 option A already puts the public half after launch, so this costs nothing if A is chosen. It stops option B quietly getting round F2.
 
 ---
+
+## 13. Smaller gaps: Minor
+
+Each one is short. Carry them into the spec or the plan.
+
+| # | Section | What is wrong | Fix |
+|---|---|---|---|
+| 13.1 | §11.3, test 3 | The order of the public list isn't set. Ordered by internal id or creation date, it gives away which public site is older and when a new one was added, and "byte-identical" can't be tested. | Order by `public_id`. State it, and test it. |
+| 13.2 | §11.3 | The lookup by public code should filter `is_public AND retired_at IS NULL` **in the query**, as the list does, so a private row is never read and timing can't tell them apart. Rate-limit it like the list. | Say so. |
+| 13.3 | §4.4, test 8 | The address check looks for "a number following a street word". The usual Greek form is "Ερμού 12" with no street word, so it slips through. The guardian-name check has nothing to compare with on a site with no colony (§2.3 allows one), and it ignores earlier guardians in the name history. "Contains the internal name" needs defining: the whole string, or each word? If each word, "Vaporia seafront" fails because of "Vaporia". | Check against the site's own name minus place words, the current **and earlier** guardian names, and "a word followed by a number". Write the rule out so test 8 can be written. |
+| 13.4 | §6 | "Nothing from `colonies` is public … not that a colony exists". But the Help tab's campaign title defaults to "Help us desex the Vaporia colony" (`lib/campaign.ts`). It's config, not the table, but it is a public colony name. | Add: campaign copy must never use a colony's internal name or its guardian's name. |
+| 13.5 | §3, §2.3 | "Make a feeding site here" sits on the team cat page beside the existing Google Maps link to the same exact spot (`catPages.ts`; also `queuePage.ts` and the welfare alert email). The sighting being turned into a site has probably already been sent to Google. SYC-245 tracks this as "no urgency". | Make SYC-245 a precondition of the "Make a feeding site here" button, or drop the Google link on any sighting within 50 m of a site. |
+| 13.6 | §11.2 | "Someone already changed this" checks only `is_public`. Two people moving the same site, or one moving while another edits the label, both succeed. | Make the conditional write check `updated_at` (or a version number) for every write to a site. |
+| 13.7 | §11.1, test 11 | Nothing says whether `made_public_by`/`made_public_at` are cleared on "make private", and both are a copy of state the history already holds. | Say they hold the **latest** publish and are kept on make private, or drop them and read from history. |
+| 13.8 | §4.3, §10 | The preview "in English, Greek and French" is drawn by the server, but the card's words live in the app (`artifacts/cat-spotter/lib/i18n.ts`). Two copies will drift. | One source: the server imports the strings, or the parity test covers both. |
+| 13.9 | §9, §11.7 | "Gone from a connected phone within minutes of the next refresh" doesn't say when the app refreshes. If only on cold start, a phone left open for a week never refreshes. | Say when it refreshes (each time the map is opened while online, at most every 5 minutes), and test it. |
+| 13.10 | §9 | "The layer and its cards still work … with no signal" is fine, but "See how you can help" opens the Help tab, and its campaign content is fetched from the server. | Say the help link needs a connection. |
+| 13.11 | §11.4 | OpenStreetMap's tile policy allows light, cached proxy use with a real User-Agent. The comparison with "the app's own downloaded tiles" is weak: the policy discourages bulk downloads for offline use, which is what the app does (`lib/offlineTiles.ts`). | Don't use the app as the precedent. Budget the paid provider or option C from day one if volume is unclear. |
+| 13.12 | §8 | No record of who **looked at** private sites. For the most sensitive data in the app, a read log (person, site id, time, no position) is cheap and answers "who could have leaked this?". | Add one, or record the decision not to. |
+| 13.13 | §11.6 | Making a site private or retiring it doesn't take down a physical QR sticker. The Kini stickers already exist (SYC-22). | Add to the make-private/retire confirmation: "Remove any QR sticker at this place." |
+| 13.14 | §2.6 | "How many cats are in it" on the colonies list is worked out from the newest colony statements. It's fine for the team, but say it uses the same "newest active statement" rule as finding 7. | Point to finding 7's rule. |
+| 13.15 | §10 | Look-alike letters are cited as "`DECISIONS.md` Part 2j". The decision is **Part 2m** (SYC-223). | Fix the reference. |
+| 13.16 | Wording | §1 "where the real feeders are" and §4.6 "cat feeders" use *feeder* for a person. The charity's word is **cat guardian**. Keep "feeder" for the place or the bowl. §11.5 "currently shows" and §7.2's "(existing)" are build-state wording. They're acceptable in the technical notes, but keep them out of §1–§10. Sterilisation cost and "colony carer" don't appear: no violation. The offline claims are precise and don't say everything works with no signal. | Change "feeders" (people) to "cat guardians". |
+| 13.17 | §15 | Test 6's "a static check" isn't defined. | Say "a test that searches the public routes for `feedingSitesTable.lat`/`lng` outside `publishedSitePosition`". |
+
+---
+
+## 14. The 13 open decisions
+
+| # | Decision | Spec recommends | Verdict | Why |
+|---|---|---|---|---|
+| 1 | How the map is drawn with no scripts | A, with C as the upgrade | **Agree, with conditions** | It's the only option that keeps the header, and the technique does work under it. Conditions from finding 8: fixed tile size, a real-browser check of the tap point, tile paths kept out of logs, a cache exception. If the browser check fails, fall back to C plus typed coordinates before considering B. |
+| 2 | MVP or after launch | A: the team's half before launch, the public half after | **Agree, with one change** | Add finding 12's gate (no public half before SYC-67 is recorded). Within the team half, colonies come first (§16 already says so). The tile map is the riskiest piece of engineering, so it should be the first thing to slip, ahead of colony naming. |
+| 3 | What a public site shows about cats | A: nothing | **Agree** | But stop saying A "cannot weaken the cat blurring" (finding 4). It weakens it less than B or C. |
+| 4 | A separate public label | A | **Agree** | Tighten the checks (13.3). |
+| 5 | How hard it is to make a site public | B: confirmation page, preview, guardian tick | **Agree, with an addition** | Add re-confirmation when the guardian or colony changes (finding 6). C is rightly out of proportion for a team of two or three. |
+| 6 | What moving a public site does | A: becomes private until reconfirmed | **Agree, with a change** | And it gets a new public code (finding 1). Without that, A protects against a wrong pin but not against a watcher. |
+| 7 | What a guardian can do with sites | A now, B later, reject D | **Change** | Agree that guardians never make a site public and that D is rejected. But follow SYC-53's model rather than this spec's: guardians may add and edit sites in their own colonies (`add_feeding_site`/`edit_feeding_site`, placed), may **not** put cats in colonies (only propose them), and nothing applies to "unassigned cats near their sites" (finding 2). Settle it once, in SYC-53. |
+| 8 | How long the phone keeps the public list | C: seven days | **Agree** | It matches SYC-53's 7-day expiry for saved colony lists, so one number serves both. The cost is honestly stated. |
+| 9 | Dashboard in Greek | A: English only | **Agree** | Ask Syros Cats. SYC-53 already plans en/el/fr for guardians' pages, so if guardians use these screens, B arrives with SYC-53 anyway. Say so. |
+| 10 | One label or one per language | A: one | **Agree** | Place names are place names. |
+| 11 | How the first sites get in | A: we load Syros Cats' list | **Agree, with a condition** | Only with a stated, safe route for the list (finding 10). If no safe route exists, B with the team placing sites from names and areas is the better choice, slow or not. |
+| 12 | Colony name form | A: free-text name plus separate guardian | **Agree** | The point about the Greek possessive is right. Finding 6 deals with the drift risk where it matters (public sites). |
+| 13 | What the card asks of visitors | A: distance, no food, Help tab | **Agree** | It matches the onboarding lesson (`howStepDontFeedBody`). Syros Cats confirm. |
+
+Summary: I would **change Decision 7**, and attach conditions to **1, 2, 5, 6 and 11**. The rest stand as recommended.
+
+---
+
+## 15. What held up
+
+- **Absence, not blurring, for private sites**, filtered in the query, with "unknown, private and retired look the same" for codes. That's correct, and it follows spine §6.7 exactly.
+- **A random public code given only at first publish**, never derived from the internal number. It stops anyone counting or probing (but see finding 1 on moves).
+- **A separate public label.** It catches the most likely accident (a guardian's first name next to an exact place) and leaves it to people rather than automatic stripping.
+- **Moving makes a public site private.** Make-private is one tap and never harder. This is the right way round.
+- **No bulk publish, no import that sets visibility**, and the seed never sets visibility. This is consistent with team-access §3.2.
+- **No outbound map links for sites, and tiles fetched through our own server.** This is the right instinct, and it shows up SYC-245 as the next gap to close.
+- **Ownership.** It doesn't define tables a second time; it lists amendments for the spine and team-access to adopt (§12), as the DECISIONS Part 3 rule asks.
+- **The data spine's precision question (spine open question 3) is left with Syros Cats.** It is isolated in one function, `publishedSitePosition`, so changing the answer later is a one-line change.
+- **Offline claims are precise.** The dashboard doesn't work offline, the app layer has an expiry, and it doesn't claim that everything works with no signal.
+- **Tests name the canary**, private-then-public-then-private, against every public route.
