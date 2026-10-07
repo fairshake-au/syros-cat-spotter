@@ -839,10 +839,10 @@ Done by reading the code on `main` on 7 October 2026, before the independent rev
 
 Filed to Linear (SYC) from this spec, in addition to the comments on the tickets it touches:
 
-- **Server-side en/el/fr catalogue for the dashboard**, with key-parity test and per-language dates (§13.3). Blocks slice 1 in Greek and French.
-- **One list of team roles, and the `admin` to `management` rename** across the resolver, the correction routes and the data spine's text (§5, §10.4). Slice 0.
-- **Reading counters and the management banner** for colony views (§11.3). Slice 4.
-- **Decide whether guardians see welfare reports near their colony** (Q2). Parked until guardians exist.
+- **SYC-251: server-side en/el/fr catalogue for the dashboard**, with key-parity test and per-language dates (§13.3). Blocks slice 1 in Greek and French.
+- **SYC-252: one list of team roles, and the `admin` to `management` rename** across the resolver, the correction routes and the data spine's text (§5, §10.4). Slice 0.
+- **SYC-253: reading counters and the management banner** for colony views (§11.3). Slice 4.
+- **SYC-254: decide whether guardians see welfare reports near their colony** (Q2). Parked until guardians exist.
 
 Comments, not new tickets: SYC-104 (what the people screen must do: §8), SYC-213 (the fuller list of event kinds, and the `removePerson` conflict: §11.1, §9.6), SYC-222 (strict `can()` and the old-request compatibility rule: §6.4, §4.5), SYC-208 (guardian names in colonies, free-text notes, withdrawn invitations: §9.6, §9.7), SYC-54 (who may open the view, what a phone may keep, the cache and script exception: §3, §12), SYC-209 (the four capability names: §6.7), SYC-123 (relevance to invitations).
 
