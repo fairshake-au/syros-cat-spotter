@@ -100,3 +100,129 @@ So the same evidence gets two different results depending on which list the team
 
 **Fix.** A management-only capability, `approve_access`, that is the only thing able to settle access items. One item kind, `access_change`, covering every change that adds `staff`, `management` or an island reach: invitation, role change and rejoin. Its detail holds the before and after in ids. Access items appear only to management; staff never see them. Then add three tests: a staff-only member's approval is refused; a role change that adds staff writes an item and grants nothing until it's approved; a rejoin with a staff role does the same.
 
+---
+
+## M1. The wrong-mailbox safeguard doesn't work as written, and the invitation leaks a name and a place — Major — CONFIRMED
+
+**Where:** §4.1 steps 2 and 4, §8.4 (Decision 7), §14 case 1.
+
+**What is wrong.**
+
+- **The name check is switched off by the pre-fill.** Decision 7's main safeguard is that "the accept page asks the invitee to type their own name; the inviter sees it". But §4.1 step 4 says the name field is **"pre-filled with what Susan typed"**. A stranger who gets the invitation by mistake just taps **Yes, join**, and Susan sees the name she typed herself. Nothing tells her it went to the wrong person.
+- **The invitation tells a stranger something private.** Step 2's message reads *"…as a cat guardian for Vaporia — Eleni's"*. The colony's name follows the "place plus guardian's first name" convention. The SYC-209 spec (§6) says nothing from the `colonies` table is ever public, "not that a colony exists". A mistyped address hands a stranger a guardian's first name and her neighbourhood. That message then sits in their mailbox for good, whatever happens to the invitation.
+- **"One colony at most" isn't true.** §8.4 and §14 case 1 rest on that limit. A guardian invitation can carry several colonies (§2.2), and a volunteer one can carry "all colonies" (§6.5).
+
+**Fix.** Leave the accept-page name field **blank** ("Type your name as you'd like Syros Cats to see it"), and show the inviter what was typed next to what she expected. The invitation message names no colony and no guardian: *"Syros Cats has invited you to help. To see what you've been invited to, sign in at admin.catspotters.com."* The colonies are shown only on the accept page, after sign-in. Rewrite §14 case 1's limit as "the colonies on the invitation", and route any invitation with more than three colonies, or with island reach, through `approve_access` (B3).
+
+## M2. Nobody has said what a guardian sees on her own cat's page — Major — CONFIRMED
+
+**Where:** §2.2, §6.2 (`view_exact_location`), §15.3 test 3.
+
+**What is wrong.** Test 3 says that outside her colonies a guardian sees "the public view, field by field". **Inside** her colonies, nothing defines what she sees. The obvious build is the team's cat page (`lib/teamCatView.ts`, behind `GET /api/team/cats/:id`). Today that page shows:
+
+- the cat's welfare-report history ("Welfare report: urgent, kittens"), which §2.2 keeps from guardians;
+- hidden photos, so the team can restore them. A photo is usually hidden because it is upsetting or shows a person;
+- team members' names as authors, including people who have left ("Maria (left)");
+- whether a spotter answered each question, and the owner's link to the cat.
+
+**How it fails.** The guardian page gets built as "the team page with a filter on colonies", because that's the shortest route. Every one of the items above then reaches guardians without anyone choosing it.
+
+**Fix.** Add a table to §2.2 listing, field by field, what a guardian and a volunteer see for a cat **in** scope: exact discovery position, colony, feeding site, visible photos, sterilisation answer and confidence, life status, last-seen **date**. Explicitly **not** shown: welfare entries, hidden photos, team members' names (say "Syros Cats" instead), spotter identities, owner details, team notes. Build it as its own serialiser, not a filtered team view. Extend test 3 to check every one of those fields for the in-scope case.
+
+## M3. "Where each cat is usually seen" doesn't exist, and building it would show where tourists walked — Major — CONFIRMED
+
+**Where:** §2.3, §6.2 (`view_colony_targets`), §12 ("usual spots (exact)"), SYC-54.
+
+**What is wrong.** SYC-54 asks for "where each is usually seen", and §12 promises "usual spots (exact)". `cat-record-data-spine.md` §6.6 says a cat's stored position is the **discovery position**: one GPS reading, frozen. The derived position was **deferred** by Samuel on 28 September (SYC-80). So the only way to build "usual spots" today is from individual sighting positions. §6.4 point 1 of the data spine calls those "a disclosure about a person, not a cat": each one is a tourist's position and the time they stood there. A volunteer's list built that way shows where and when each tourist walked.
+
+On top of that, an exact position without a map is just numbers. §12 never says whether map tiles are kept offline. If they aren't, the offline list shows "37.4431, 24.9412", which nobody can use on a hillside.
+
+**Fix.** For now, say "usual spot" means the discovery position plus the feeding site. Add SYC-80 as a dependency for anything better, and state that per-sighting positions and times are never sent to guardians or volunteers. For offline, give each cat and feeding site a short line of directions the team writes ("behind the bakery steps"), plus either a small fixed map image or nothing. Say in §12 that the live map doesn't work offline.
+
+## M4. The offline list hides itself after 7 days rather than being deleted — Major — CONFIRMED / PLAUSIBLE
+
+**Where:** §3 (option A), §12, §14 cases 9 and 10.
+
+**What is wrong.** §12's protections are carried out by the page's own script, so they only work while the page is running and believes the phone's clock:
+
+1. **"Shows no cats after 7 days" hides the list; it doesn't delete it.** The list stays in the browser's storage on the phone. Anyone with the unlocked phone and a cable can read it with the browser's developer tools, and the page never has to open.
+2. **Turning the phone's clock back** makes a 10-day-old list look 2 days old, if expiry is checked against the device's date.
+3. **The Home Screen nudge removes the only automatic deletion.** §12 calls Safari clearing a page's storage after about a week "a caveat" and plans to nudge people away from it. For exact positions on a phone that might be lost, that clearing is the one thing that actually erases data with nobody involved. A page saved to the Home Screen doesn't get it.
+4. **"A deliberate cache"** (§3 option A) is unclear. If it means loosening today's `no-store` header on the colony JSON, the response also lands in the browser's normal web cache. The page's script can't clear that on sign-out.
+5. **Scripts on the dashboard origin.** Today the dashboard has `default-src 'none'`, so a cat name a tourist typed with markup in it can do no harm. The offline pages will show public text (cat names) and guardian text (site names, 200-character notes). If any of it is shown without escaping, a script there can read and send off every exact position. A service worker registered at too high a level could also serve old staff pages after sign-out.
+
+**Fix.** Keep `no-store` on **every** response, including the colony data. Store the data only through the page's own script, in its own storage. Save the "last online" time from the **server's** clock, and treat a phone clock earlier than that as expired. When the list expires, **delete** it as soon as the page opens. Send `Clear-Site-Data: "cache", "storage"` on sign-out and on every "you're no longer on the list" refusal. Register the service worker only for the field pages' own path (for example `/api/team/field/`), never for the whole dashboard. Allow scripts only from fixed hashes, with nothing inline and `connect-src 'self'`. Don't reuse the Home Screen nudge for this page. Then change §12's promise to say plainly: "a phone that is never opened again keeps its list until the browser clears it; on a Home Screen page that may be never". Make that the sentence Q1 puts to Syros Cats.
+
+## M5. Any volunteer can take cats out of a colony, and a proposal can move a cat out of someone else's — Major — CONFIRMED
+
+**Where:** §6.8, §7.4 (Decision 6), §6.2.
+
+**What is wrong.**
+
+- §6.8 says **"Anyone placed on a colony can say a cat is no longer in it… it takes away her own reach, so it needs no approval"**. That's wrong: a cat leaving a colony takes it out of **every** guardian's and volunteer's view of that colony, and off its round sheet. A volunteer placed last week can quietly remove the unsterilised cats from a trapping round. The capability isn't in the §6.2 table either. `assign_cat_to_colony` is island-only, and nothing placed covers "remove".
+- The data spine's `colony` observation is `{ colonyId }`, and there is no value meaning "in no colony". "No longer in it" needs a change to the data spine, and §10.4 doesn't list one.
+- A cat has one colony: the newest `colony` observation wins (§6.1). So when Eleni's "this cat is one of mine" is approved, the cat **leaves** Maria's colony and Maria isn't told. §7.4 mentions "a cat that belongs in two colonies" as something the team might notice, but the model can't hold that.
+- The answer to a proposal can tell her whether a cat is already in a colony, if "already in a colony" and "sent" read differently.
+
+**Fix.** Removing a cat from a colony becomes a proposal like adding one: it waits for the team's OK. The approval screen says, in words, "this moves Mimi out of Kini — Maria's". The proposal always gets the same answer ("Syros Cats will check"), whatever the cat's current colony. Add the "no colony" value to §10.4's list of data spine amendments.
+
+## M6. It contradicts four approved or parallel documents — Major — CONFIRMED
+
+**Where:** "What this document owns", §1 (Decision 1), §2.2, §6.7, §16.5.
+
+1. **`cat-record-data-spine.md` §6.5.** Its table says who sees exact positions: the public, a spotter on her own sightings, and the team. §16.5 says that if the web page is chosen, "§6.5 stands unchanged and gains a line". It doesn't stand unchanged: guardians and volunteers seeing exact positions is a **new row in that table**, and `DECISIONS.md` Part 3 makes the data spine the owner of "who sees exact positions". That amendment is needed whichever way Decision 1 goes.
+2. **`DECISIONS.md` Part 3 ownership.** "Sign-in, trust boundary, **roles**" belongs to `team-access-and-welfare-queue.md`. This spec says it owns "who may be on the list, what each kind of person can see and do". Add a Part 3 row moving roles, invitations and the confirmation queue to this document, or write it as an amendment of team-access §7.
+3. **`team-access-and-welfare-queue.md` §7.2** describes guardians as people who "**are authorised to arrange sterilisation the charity pays for**". That's the money side (€50–60 a cat), and this spec doesn't mention it anywhere. Either cover it (a request for a vet appointment, OK'd by the team) or record that it's out of scope and file a ticket for it.
+4. **The SYC-209 spec** (`feeding-sites-and-colonies.md` §7.2–7.3, being written in parallel) uses different capability names: `manage_feeding_sites`, `manage_colonies`, `set_cat_colony` against this spec's `add_feeding_site`, `edit_feeding_site`, `assign_cat_to_colony`. It also gives guardians more:
+   - `manage_colonies` for their own colonies (edit the guardian name, notes and centre);
+   - `set_cat_colony` for cats in their colonies **and for unassigned cats near their sites**, which is exactly the thing Decision 6 says needs an OK;
+   - `manage_feeding_sites`, which includes **editing a site's colony**. A guardian could move another colony's private site into her own and then read its position.
+
+   **Fix:** agree one set of names before either spec is approved. This spec's §6.7 should state that a guardian can't change which colony a site belongs to, and can only add sites in her own colonies.
+
+## M7. A field check changes the public answer before anyone OKs it — Major — CONFIRMED
+
+**Where:** §1 idea 3, §7.3 steps 1–2, §12.
+
+**What is wrong.** §1 promises that "anything a field person says that would change a cat's sterilisation answer waits for one team member's OK". But step 1 writes an `ear_tip` observation with a photo **straight away**, and in `lib/resolve.ts` step 3, any non-superseded photo-backed `clipped: true` makes the cat *Likely*. A guardian's "clipped" with a photo moves a cat from *Not known yet* to **"Probably sterilised"** in public at once. It also adds one to the public count of clipped-tip sightings (`clippedTipCount`) and puts the cat back on the team's *Probably sterilised* list (`lib/likelyReview.ts`), which uses the newest clipped answer that isn't from a team role. Step 2 admits it can raise the cat to *Likely*, so the spec contradicts itself.
+
+The spec also doesn't say **where the field-check photo lives**. The public `/api/photos/:id` route serves photos to anyone (F7a). A photo taken at a guardian's doorstep, at her feeding spot, must never be one of those.
+
+**Fix.** Either (a) the field check holds its photo on the confirmation item and writes its observation without a `photoId`, so the resolver ignores it until the team agrees; or (b) say honestly in §1 that a photo-backed field check raises a cat to *Likely* the moment it's sent. I recommend (a). Either way, field-check photos are served only through the team's photo route, with a target (B1, fix 3), and never by the public photo route.
+
+## M8. A person who leaves keeps their open invitations, and one manager can remove all the others — Major — CONFIRMED
+
+**Where:** §9.2, §8.1, §9.5, §14 case 3.
+
+**What is wrong.**
+
+- §9.2: "An invitation they sent **stays valid**." A person is often marked as left **because** their account was misused. The invitations and access requests they made while it was compromised should be treated as suspect, not kept.
+- §8.1 lets **one** management member mark anyone as left or sign them out everywhere, with only "never the last management person" as a limit. A stolen management session can mark every other manager as left, one after another, until it is the only one left. The break-glass command (Samuel, through db-ops) is then the only way back, and nobody has been told anything happened.
+
+**Fix.** When someone is marked as left, every pending invitation and open access request they made is **withdrawn**, and management sees a line saying so ("3 invitations from Susan were withdrawn when she left; re-send any you still want"). Marking a staff or management member as left, or signing them out everywhere, sends a short email to every other management member. Removing a management member needs `approve_access` (B3), except when the person removes themselves.
+
+## M9. Pending, withdrawn and expired invitations are described three different ways — Major — CONFIRMED
+
+**Where:** §4.1, §4.4, §9.6, §10.1, §10.2.
+
+**What is wrong.**
+
+- §4.1 ("her row is deleted") and §4.4 ("the pending row is deleted; there is no history to keep") say a withdrawn or declined invitation is deleted. §9.6 says it **can never** be deleted, because the `invited` event has a strict link, so the person is marked as left instead. Only §9.6 works with SYC-213.
+- §10.1 widens "who is on the list" (`findAllowedPerson`, `findPersonById`) to include **pending** people, then relies on `can()` ignoring their placements. But `CapabilityHolder` today is only `{ scopes }`. It has no idea whether the person has accepted, so `can()` *can't* ignore pending placements unless that state is passed in. If someone forgets, a pending invitee gets in without accepting. The current default fails closed: pending people aren't on the list. The proposed default fails open.
+- The accept step has a race. Withdrawal or expiry happening at the same moment as **Yes, join** has no stated order.
+- §9.4 sends a returning person back through acceptance, but says nothing about resetting `accepted_at`. Today's rejoin code (`addPerson`) replaces the roles at once.
+
+**Fix.** Keep `findAllowedPerson` and `findPersonById` as "accepted and not left". Add a separate `findInvitee` used only by the hand-off and the accept page. Accepting is one conditional update: `where accepted_at is null and left_at is null and invite_expires_at > now()`. Withdraw and expire use the same kind of guard. Rejoining sets `accepted_at` to null and writes new placements as pending. Delete the "row is deleted" wording in §4.1 and §4.4.
+
+## M10. The migration as described would fail on rows that already exist — Major — CONFIRMED
+
+**Where:** §10.1, §15.2.
+
+**What is wrong.**
+
+- `reach` is "not null, default `island`", with a check that `reach = 'colony'` exactly when `colony_id` is set. Any existing row that has a colony gets the default `island` and breaks the check, so the migration fails partway. A `staff` row with a colony (the `people` command allows one) breaks the new "staff requires island" check the same way. §10.1 only says to list-and-stop for guardian and volunteer rows **without** a colony.
+- The `admin` → `management` rename assumes no observation has ever been written with `admin`. But `writeObservation` lists `admin` as a role it accepts (`REACHABLE_ROLES` in `lib/observations.ts`), so the assumption needs checking against the live database.
+- The `added` events that SYC-213 backfills, the new `management` rows and the backfilled `accepted_at` all have to land before the code that reads them. The spec doesn't give that order.
+
+**Fix.** Set `reach` from `colony_id` before adding the check. List and stop on **every** row that breaks the new checks, not only guardian and volunteer rows. Before the rename, add a step: a count of `role_at_time = 'admin'` observations that must be zero, with the migration stopping if it isn't. Write down the order: SYC-213's migration, then this one, then the code. Show Samuel the list of people who will become management before it runs. "Every current staff member" is right in principle, but test and seed accounts shouldn't come along.
+
