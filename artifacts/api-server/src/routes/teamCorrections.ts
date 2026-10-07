@@ -273,11 +273,10 @@ router.post(
       const row = await recordTeamStatement(teamPerson(res), {
         catId,
         kind: "sterilised",
-        value: {
-          sterilised: sterilised === "yes",
-          ...(date ? { date } : {}),
-          ...(clinic ? { clinic } : {}),
-        },
+        // The date is when it was true (observedAt), not a second copy in
+        // the value: the form and the JSON route then write identical rows
+        // for the same input (P4-6).
+        value: { sterilised: sterilised === "yes", ...(clinic ? { clinic } : {}) },
         reason,
         observedAt: observedAtFor(date),
       });
