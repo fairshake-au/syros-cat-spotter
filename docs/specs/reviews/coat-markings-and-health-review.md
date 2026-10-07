@@ -144,3 +144,80 @@ Three more problems:
 The legacy shared-password route `POST /cats/:catId/updates` (`routes/notifications.ts`) writes a `cat_updates` row that shows on the **public** care timeline and fans out **push notifications** to followers. SYC-5's ticket says a vaccination "can only be recorded as a `general` note" there today, and SYC-5's to-do is to add `vaccinated` to that enum. This spec's design (an observation, never notifiable) is the right one, but it doesn't close the old door.
 
 **Fix.** State that health and vaccination are never written through `cat_updates`. Retire the `general` type for team use when D7 retires the shared password, or sooner. Update SYC-5's description to point at this spec's approach. Note for the builder: old app builds map an unknown care-timeline type to `general` (`CARE_META[event.type] ?? CARE_META.general` in `app/cat/[id].tsx`) and show its message raw, so any new timeline row needs a message that reads well untranslated, or should be left out for old builds.
+
+---
+
+## Minor
+
+| # | Section | Finding | Fix |
+|---|---|---|---|
+| m1 | §4.2, §5.1 | Wrong references. "Data spine §5.2" (prompted taps aren't independent) is the **old draft's** §5.2; the data spine's §5 is the records-import pointer and has no subsections. "The data spine's guard (one person, one attribute, one cat counts once)" isn't a sentence in the data spine. The spec's own **D4** (markings by machine) collides with `DECISIONS.md` **D4** (public "not sterilised"), which §6.5 also cites as "D4". | Point at the data spine §10.1 `provenance` comment and the old draft §5.2 by name. Write the guard as this spec's own rule (moved to the data spine per M1). Number this spec's decisions SYC2-D1… or similar. |
+| m2 | §3.2, §10.1 | "At most four" marks refuses a true team statement: a cat with white paws, white chest, white face, long fur and a kinked tail has five. | Cap spotter answers at four if wanted; let team statements carry the whole list. |
+| m3 | §5.1 | "Anything that makes **her** easy to spot?" Sex isn't recorded (§13). In Greek and French the gender runs through the whole sentence. | Use the cat's name, or neutral wording, in all three languages. |
+| m4 | §10.2 | The reason given for `vaccinated` not being evidence of life is wrong. Its `observedAt` is the date of the vaccination, so a years-old import only says the cat was alive years ago, which is true and moves nothing. A vet handling the cat is *stronger* evidence than an ear-tip answer, which counts. | Either list `vaccinated` as evidence of life (a data-spine §3.4 amendment, per M1), or keep it out and give the honest reason ("not needed yet"). The loader is an allow-list, so leaving it out takes no code. |
+| m5 | §10.1 | "Refused from `system`, except the import": no `system:records-import` exists in `SYSTEM_AUTHORS`, and the import is optional and after MVP (Part 2c). | Say "and `provenance: import` once `records-import.md` is built". |
+| m6 | §5.1, §10.3 | The details card exists only for **the spotter's own sightings from the last 30 days** (`add-details-later.md` §6). §5.1's "a cat the person has spotted before" reads wider. The spec also doesn't say which photo sits beside the chips. | Say "an open sighting (last 30 days)". Show **the spotter's own sighting photo**, not the cat's main photo, so a wrong match describes what they saw and can be caught. |
+| m7 | §7.2 | "The sighting's photo was read as ginger" assumes the model reads **sighting** photos. `choose-a-different-cat.md` §4.7 reads only the main photo, "once per cat". That flag needs a new model call per hand pick, with its cost. | Either add the call and its cost explicitly, or compare against a spotter's own colour answer on that sighting when there is one. |
+| m8 | §10.6 | "Two prompted confirmations never beat the machine" is empty: a prompted tap agrees with the machine by definition. The tests that matter are missing: prompted taps on a *spotter-filled* value, concurrent writes from one device, a device superseding someone else's row, two devices with the same photo, a tie. | Add those (see M2, M3). |
+| m9 | §3.3, §5.1 | *Torn or notched ear* is to be "shown beside the ear-tip example photo", but the naming screen and the details card don't show that photo when appearance is asked. | Make the side-by-side image a required asset for the markings chips, as the data spine §4.4 did for the ear tip. |
+| m10 | §2, §4.3, §16 | Canonical fact: specs are aspirational, with no "built today vs proposed" split. §2's "What is true now" column, §4.3's "Held now by / Later", and §16's "inert until SYC-53" findings are that split. §1's "A cat's colour is **already** read automatically" is also untrue in code (SYC-161 is Backlog; nothing writes `coat`; `openapi.yaml` has no colour). | Rewrite §2 as "what changed from the July draft" without a now-column. Move §16 to the review trail or the plan. Say "each cat's colour is read automatically". Keep Slice 1's dependency on SYC-161 explicit, because D1's rules assume machine readings exist. |
+| m11 | §15 | The proposed DECISIONS entry "one device never overturns a real machine reading" should say what it amends (M1). §15 has no ownership row for Part 3. | Add both. |
+
+---
+
+## Is "no database migration" true?
+
+**Yes, as written.** `observations.kind` is free text, with no check constraint on its values (migration `0001` adds only an index). Capabilities are code (`capabilities.ts`), and the payload is built by `serialiseCat`. The B2 fix (a team-only note kind on the cat) also needs no migration. Two caveats:
+1. The care-timeline row (§6.3) needs an OpenAPI change to `CareEvent` and a client change, not a database one. SYC-5's own to-do (a new `cat_update_type` enum value) *would* be a migration, and this spec rightly replaces it. SYC-5 should say so (M9).
+2. The public-payload snapshot test (`routes/__snapshots__/cats.publicDetail.p3-2.txt`) changes. That is expected.
+
+## Offline claims
+
+§8 is accurate and properly modest (reading works from the cached catalogue, writing needs signal, nothing queues), **except** for the cache-key bump, which as written can empty the offline catalogue for anyone who updates without signal (M7). §8's line that naming "happens after matching" is right, but naming is also *before the points* (B1).
+
+## Health information that could leak
+
+- The public payload adds `coat`, `markings`, `vaccinated` only, and §10.4 commits to a test that confidence, author, counts and model version are absent. Good. Note that the public payload **already** carries `sterilised.confidence` and `clippedTipSightings` (`serialiseCat`), so the test must name the new fields specifically, not assert "no confidence anywhere".
+- Leaks found: the vaccination line (B3), injury markings (M6), and the legacy public care route (M9).
+- Nothing in §6 creates a public condition field, and "Needs vet" is refused outright. Good.
+
+## The welfare route
+
+Nothing in the spec *replaces* "This cat needs help", and the link stays on every cat page (`NeedsHelpLink` in `app/cat/[id].tsx`). Two things could *delay* it in practice: injury chips that a worried tourist uses instead of reporting (M6), and condition notes filed against welfare reports (B2). Both have fixes above.
+
+## Canonical facts
+
+- "Cat guardian" used throughout, never "colony carer". Met.
+- "Spotter" used correctly. "Snapper" doesn't appear, and doesn't need to. Met.
+- No sterilisation cost appears, so nothing contradicts €50–60. Met.
+- Precise about offline: met, apart from M7.
+- Aspirational, no built-vs-proposed split: **not met** (m10).
+- Plain English: the product sections (§1 to §9) read well. §4.2's numbered rules are clear but need the precision in M3.
+
+---
+
+## The decision recommendations (D1 to D9)
+
+| Decision | Spec recommends | Verdict | Why |
+|---|---|---|---|
+| **D1.** Do spotters' suggestions change what the public sees? | C: two people agreeing, plus gap-filling | **Agree, only with M2 and M3 fixed** | It is the right balance for a cosmetic fact. But as written, "two devices" is one person with two browsers, the tie and pair cases are undefined, and the one override it admits never reaches the team's list. With distinct photos on distinct days, per-device counting at read time, and spotter-versus-machine disagreements on the Colour check list, C is sound. |
+| **D2.** Where do we ask? | A: naming screen and details card | **Change: details card, plus one line on the new-cat result screen after the points** | The naming screen is before the points (B1). Option B's reason (don't overload the reward screen) still holds, so it is *one* line, only for a new cat. |
+| **D3.** Is the ear tip a marking? | A: no | **Agree** | Keeps the only route to the sterilised line guarded. *Torn or notched ear* is a good honest outlet, as long as the comparison picture really ships (m9). |
+| **D4.** Does the model read markings? | A: not yet | **Agree** | It hasn't been measured, and a wrong public mark under "only add" is sticky. SYC-243 holds the follow-up. |
+| **D5.** How much health do we record? | A: structured sterilised and vaccination, everything else as team notes | **Agree in substance; unbuildable as written** | Right not to invent a condition list. But "the existing team note" is a welfare-report note (B2). Amend to "a team-only note on the cat". |
+| **D6.** Is vaccination public? | B: positive and dated | **Disagree: A, team only, for launch** | A public rabies line steers bite decisions and can't be vouched for (B3). Donors are better served by an aggregate count. Revisit with Syros Cats and their vet, never naming the vaccine. |
+| **D7.** Which cat-alog filters? | A: colour only | **Agree** | "Needs vet" as a firm no is right. Deferring the sterilised filter behind its gate is right. |
+| **D8.** Does appearance help the matcher? | A: no | **Agree** | The circularity argument is correct. The hand-pick disagreement flag needs its model-call cost stated (m7). |
+| **D9.** Can appearance queue offline? | A: no | **Agree** | Matches the details card. A cosmetic fact doesn't justify replay ordering. |
+
+## What held up
+
+- "Health is three things, not one status", and no "Looks healthy" badge. Well argued, and the right call.
+- The ear tip kept out of the markings, with a reason that names the real-world failure (trapping cats already done).
+- Prompted vs volunteered taps used properly: a pre-filled "Yes" doesn't count as independent evidence.
+- Colour and markings are never evidence of life and never notifiable, consistent with data spine §3.4 and §9.3.
+- `vaccinated` refused from the public role, with no negative state and month-only dates. Right whatever D6 decides.
+- The colour list is not a second list: it is the exact eight from `choose-a-different-cat.md` §4.7, and the code's `COAT_COLOURS` matches.
+- The `coat` validator finding (§16.2) is real: today `modelVersion` is required on every `coat` value, so a person's statement would be refused.
+- The deletion problem (a redacted row has no device) is spotted and handled, though M2 shows what the handling still lets through.
+- Free text is excluded, and the reason (trilingual search) is right.
