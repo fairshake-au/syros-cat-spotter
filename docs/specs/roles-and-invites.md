@@ -443,3 +443,195 @@ Nothing stops Susan mistyping a letter and inviting a stranger. The invitation n
 
 ---
 
+## 9. Leaving and re-admitting
+
+This builds on what SYC-76 shipped ("mark people as left", `DECISIONS.md` Part 2k): a person who leaves is **marked as left, not deleted**, so everything they did stays attributed to them through a strict link, and their next request is refused in both systems.
+
+### 9.1 The ways someone stops
+
+| How | Who does it | Effect |
+|---|---|---|
+| **Marked as left** | Management | Immediately. The person is off the list, their sessions end at their next request |
+| **Stops helping herself** | The person, from "My page" | Same effect, recorded as her own choice |
+| **A placement ends** (end date, or management removes one colony) | Automatic, or management | Only that placement goes. She stays on the list if she holds anything else |
+| **An invitation expires or is withdrawn** | Automatic, or management | The pending person is treated as not on the list |
+
+### 9.2 What happens at once
+
+- `left_at` is set and `session_version` rises, so a stolen or forgotten cookie dies at its next request (as now).
+- **Everything they wrote stays**, attributed to them: observations, report state changes, team notes, photo hides, queue decisions, invitations they sent.
+- **Items they started stay open.** A field check they made waiting in "Needs an OK" is still evidence and can still be decided. It is marked *from someone who has since left*. An invitation they sent stays valid (someone else is shown as the one to approve anything further).
+- **A field check still queued on their phone** (§12) is refused when the phone next connects: the person isn't on the list any more. They can tell the team what they saw.
+- **The shared document password** is changed if they held `use_workspace` (§6.3).
+- **Their colony placements** are kept on their row as the record of what they held when they left, and ignored by `can()` because they are not on the list. The history entry (§11) also records which roles and colonies they held, in ids.
+
+### 9.3 When a colony changes guardian
+
+Colonies are named "Vaporia — Eleni's" and carry a guardian's name as free text (`colonies.guardian_name`). When a guardian leaves or hands over, the people screen offers: *"Vaporia — Eleni's still has Eleni's name on it. Rename it?"* with `rename_colony`'s screen one tap away. The colony keeps its old name in its name history, so searches and imports still find it (`team-access-and-welfare-queue.md` §3.4). **This is a nudge, not a rule**: nothing renames a colony automatically, because a colony's name is how the team talk about it on the phone.
+
+### 9.4 Bringing someone back
+
+Management finds the person under *Left* and taps **Bring back**. The screen shows what they held and when they left, and asks for roles to be chosen **afresh**: nothing is restored automatically. This is how the existing code already behaves (re-adding a left address clears `left_at`, raises the session version and replaces the roles). New in this spec:
+
+- It is the same flow as a first invitation: the person is pending again, gets the invitation message, signs in and **accepts again**. Someone who left a year ago re-reads the four promises before they see a colony.
+- It records a `rejoined` event with who brought them back (SYC-213).
+- Staff and management roles still need the second OK (Decision 11).
+
+### 9.5 Guards that stop the charity locking itself out
+
+- **The last management person can't be marked as left, demoted, or sign out everywhere through the screen**, because then nobody could invite anyone. The `people` command (run by Samuel through db-ops) remains the break-glass route.
+- **You can't change your own roles or mark yourself as left through the management route.** Use "stop helping" (§9.1), which is a different, plainly worded action.
+
+### 9.6 Taking back an invitation
+
+Withdrawing an invitation, or the person saying *No, this isn't for me*, ends the pending state. Because every addition now writes an event with a strict link (SYC-213), a pending person **can never be deleted afterwards**: `removePerson` today only refuses someone with history, and every person will have at least their `added` event. So withdrawal marks the pending person as left, as for anyone else. This leaves a stranger's email address in the table when the invitation went to the wrong mailbox. **Recommendation: SYC-208's anonymising routine runs in the same transaction for a person who never accepted**, replacing the address with its reserved placeholder and the name with "Withdrawn invitation". That belongs in SYC-208's design and is noted there (§16).
+
+### 9.7 Forgetting someone (SYC-208), and two places it must also reach
+
+SYC-208 anonymises a former team member's name and email while keeping the row and every link. Because this spec puts guardians on the list, it adds two places that routine has to reach:
+
+- **`colonies.guardian_name`** and the **colony's own name** (and `colony_name_history`) hold a guardian's first name as free text. Forgetting her without clearing those leaves her name on the map of the island.
+- **Free-text notes** on field checks, if the field-check form allows a note (it allows 200 characters, escaped; it is the one free-text box in this feature). The routine blanks a former person's notes or replaces them with "note removed".
+
+Everything else in this spec holds ids, not names (§11), so the audit trail survives anonymising untouched.
+
+A guardian's wish to be forgotten is separate from a spotter's "Delete my data" in the app (F3, SYC-63): the app deletion removes her anonymous *spotting* identity; her *account* is removed by the team through this route. The privacy policy (SYC-66) says both.
+
+---
+
+## 10. How it lands in the data model
+
+Extend what is there. The cat record (observations, colonies, feeding sites) is the data spine's and is **not** changed here, except for the vocabulary note in §10.4.
+
+### 10.1 `people` and `person_scopes`: what changes
+
+`people` (today: id, email, name, session_version, added_at, added_by, left_at, left_by) gains:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `accepted_at` | timestamptz, null | When the person tapped *Yes, join*. Null means invited but not yet accepted. **Backfilled to `added_at` for everyone already on the list.** |
+| `invite_sent_at` | timestamptz, null | When the invitation message went out. Null with `accepted_at` null means "waiting for a second OK" |
+| `invite_expires_at` | timestamptz, null | 14 days after `invite_sent_at`; null once accepted |
+| `language` | text, not null, default `en`, check in (`en`, `el`, `fr`) | For messages and the person's own pages |
+
+The rule "who is on the list" stays in the one place it lives now (`findAllowedPerson` and `findPersonById`), extended by one clause: **not left; and either accepted, or invited and not expired**. Callers that must reach a pending person (the hand-off and the accept page) ask for them explicitly. `can()` ignores a pending person's placements, so nothing is granted until acceptance.
+
+`person_scopes` (today: id, person_id, role, colony_id) gains:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `reach` | text, not null, default `island`, check in (`island`, `colony`) | Where this role applies. **A check requires `reach = 'colony'` exactly when `colony_id` is set** |
+| `expires_at` | timestamptz, null | When this placement turns itself off (Decision 9) |
+| `relationship` | text, null, check in (`feeds`, `owns_here`, `covering`) | A label for the team's records. Grants nothing |
+| `granted_by` | text | A person id or `cli:<operator>`; same convention as `added_by` |
+| `granted_at` | timestamptz, not null, default now | |
+
+Checks added to the table: `role = 'guardian'` requires `reach = 'colony'` (a guardian with no colony is refused by the database, not by a code path someone might skip); `role` in (`staff`, `management`) requires `reach = 'island'`. The role list gains `management`. The existing "unique person, role, colony" constraint stays, so a person can't hold the same placement twice.
+
+**Why an explicit `reach` rather than "colony is null means island".** Today a null colony means "not tied to a colony". If a guardian row were ever written with the colony left out, "null means island" would quietly turn her into an island-wide viewer. An explicit column and a check make the dangerous mistake impossible instead of merely unlikely.
+
+**The migration must not guess.** Rows with role `guardian` or `volunteer` and no colony could exist from earlier use of the `people` command. The migration lists any it finds and stops, so a person decides what each means. (The command's `--role guardian` option is also changed to require `--colony`, §15.)
+
+**Management for existing staff.** If Decision 3 is A, the migration adds a `management` row for every person who holds `staff` and has not left. They then hold exactly what they hold today.
+
+### 10.2 The invitation
+
+No separate invitations table. An invitation is a **pending person** (`accepted_at` null, `invite_sent_at` set, not expired) plus their placement rows plus an event. This is what lets removal, "sign out everywhere", expiry and the history work with code that already exists.
+
+### 10.3 `confirmation_items`
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | serial | |
+| `kind` | text, check in (`field_check`, `colony_member`, `invitation`) | What is being asked |
+| `state` | text, check in (`open`, `approved`, `declined`, `no_longer_needed`, `expired`, `withdrawn`) | |
+| `cat_id` | integer, null | For `field_check` and `colony_member` |
+| `colony_id` | integer, null → `colonies.id` | For `colony_member` |
+| `subject_person_id` | uuid, null → `people.id`, strict | For `invitation`: the pending person |
+| `proposed_by` | uuid → `people.id`, strict | Who asked |
+| `proposed_at` | timestamptz | |
+| `observation_id` | integer, null | The field check's own observation |
+| `decided_by` | uuid, null → `people.id`, strict | |
+| `decided_at` | timestamptz, null | |
+| `decision_reason` | text, null | One of a fixed list, never free text from the guardian into the cat's page |
+| `resulting_observation_id` | integer, null | The team's own statement, if approved |
+
+Checks: `decided_by` is not `proposed_by`; a decided item has both `decided_by` and `decided_at`; an `open` item has neither. Open items are unique per (kind, cat, proposer), which is how "one per cat" holds. Rows are never deleted. The strict links mean nobody who has proposed or decided anything can be hard-deleted, the same rule as for report changes (Decision 7).
+
+### 10.4 What is written on an observation
+
+Two small, deliberate changes to the record's vocabulary, both for the data spine's owner to confirm (proposed in §16):
+
+- **`roleAtTime`** gains the live values `guardian` and `volunteer` (it is already allowed in the vocabulary and refused by `writeObservation` until now) and renames the never-written `admin` to `management`. There is **one** list of team roles in code, used by the resolver, the *Probably sterilised* list and the correction routes, replacing the three copies (`resolve.ts`, `likelyReview.ts` via `teamCorrections.ts`, and the hand-written `"staff"` in each correction).
+- **Which role is written** is decided by the server from the person and the action: the role under which the capability was granted for that target. A person who is staff and also a guardian, using a staff capability, writes `staff`; using a guardian-only capability on her colony, writes `guardian`. It is never read from the request. Today `teamCorrections.ts` and `routes/notifications.ts` write the string `"staff"` directly; they change to ask for it.
+- **Authority does not grow.** The resolver's list of authoritative roles stays staff, management and vet. A `guardian` or `volunteer` observation is evidence. It is the team's reading of it that settles a sterilisation answer (§7).
+
+### 10.5 What this does not touch
+
+The observation table itself, colonies, feeding sites, the resolver's rules, welfare reports, photo storage, and the mobile app's tables. Deleting a spotter's data (F3) does not touch `people`.
+
+---
+
+## 11. What's audited (SYC-213)
+
+**Principle: every change to who is on the list, or to what they may do, is a row nobody can edit, and it records ids, never names or addresses.** Ids survive anonymising (SYC-208).
+
+### 11.1 `person_events` (SYC-213), extended
+
+SYC-213 specifies an add-only table with kinds `added`, `left`, `rejoined`, `roles_changed`, `signed_out_everywhere`. This spec needs more kinds and asks SYC-213 to land with the fuller list (they cost nothing extra to include at the start and a migration to add later):
+
+| Kind | When | `detail` holds (ids and role names only) |
+|---|---|---|
+| `invited` | An invitation is created | roles and colony ids intended; language |
+| `invite_approved` | A second management member OKs an invitation to staff or management | the confirmation item id |
+| `invite_sent` · `invite_resent` | The message went out | |
+| `invite_expired` · `invite_withdrawn` | | |
+| `accepted` | The person tapped *Yes, join* | the version of the four promises they accepted |
+| `added` | A person is added without an invitation (the `people` command, break-glass) | |
+| `roles_changed` | A placement is added, removed or edited | before and after, as role and colony ids |
+| `left` | | who (`self`, a person id, `cli:<operator>`), roles and colony ids held at the time |
+| `rejoined` | | |
+| `signed_out_everywhere` | | by whom |
+| `anonymised` | SYC-208 runs | by whom |
+
+`by` is a person id, `self`, `cli:<operator>` or `system:expiry`. Each operation in `lib/db/src/people.ts` writes its event **in the same transaction** as the change (SYC-213's test: drop the insert and a test goes red). A database trigger refuses updates and deletes, as for observations.
+
+### 11.2 Everything else that records who
+
+| What | Where it is recorded | Already exists? |
+|---|---|---|
+| What a person said about a cat | `observations`: author, `roleAtTime`, `authorityScope`, when | Yes |
+| Who decided a queue item, and on what basis | `confirmation_items.decided_by`, `resulting_observation_id` | New (§10.3) |
+| Who moved a report between states | `report_state_events` | Yes |
+| Who hid or restored a photo | `photo_visibility_events` | Yes |
+| Who made a feeding site public, and when | `feeding_sites.made_public_by` / `made_public_at` | Yes |
+| Who renamed a colony | `colony_name_history.replaced_by` | Yes |
+
+### 11.3 Reading is audited lightly, not row by row
+
+A row for every colony page view would be mostly noise and itself a record of where cats are. Instead: a **counter per person per day** (how many cat detail pages and round sheets they opened), and a banner for management when a guardian or volunteer opens far more than their colonies hold (for example, more than twice the cats in their scope in one day). It is a prompt to ask a question, not an accusation, and not a block. Counts live in a small table with no cat ids in it (§14, case 8).
+
+---
+
+## 12. What a phone may keep, if Decision 1 goes with the web page
+
+Decision 1 recommends the offline view be a saved web page on `team.catspotters.com`. Anything saved on a phone can outlive a sign-out, a loss or a departure, so the page is built to **forget**:
+
+| Rule | Why |
+|---|---|
+| **Only what the round needs**, for the person's placed colonies: cat name and SYR number, sterilisation answer with how sure we are, usual spots (exact), feeding site name and position, when last seen. **No photos of people or property; cat photos are the small thumbnail only.** | Less on the phone is less to lose |
+| **A saved list is valid for 7 days from the last time the phone was online.** After that the page shows *"Connect to refresh this list"* and no cats | A phone that is lost, or belongs to someone who has left, stops being useful on a known day |
+| **Each online load re-checks the person.** If she is no longer on the list or no longer holds the placement, the server says so and the page **erases the saved list at once** | Removal reaches phones at their next connection |
+| **Sign out erases it.** So does "sign out everywhere" at the next connection | |
+| **Stored under the dashboard's own origin**, never in the public app's storage, and never under the public catalogue's cache key | The data spine's rule that exact positions must never share a key with the public cache (`cat-record-data-spine.md` §6.5) |
+| **Field checks made offline wait in the page's own queue** (up to 20, each with its photo), and are sent on the next connection under the person's signed-in session | If the session or the person is gone, they are refused (§9.2) |
+| **A round sheet, printed or saved as a file, is stamped with the person's name and the date**, and says *"These are exact places. Please don't share them."* | A person who shares a printout can be asked about it; a stamp is a reminder, not a lock |
+
+**What can't be promised, and is said plainly on the accept page:** a phone that never reconnects keeps its saved list until the 7 days run out; the charity cannot wipe it from a distance. The accept page therefore asks everyone to keep a lock on their phone, and the people screen's *sign out everywhere* is the first thing to do about a lost phone.
+
+**The web storage caveat.** iPhones may clear a saved web page's storage if the page isn't opened for about a week unless it has been added to the Home Screen. The app already shows a nudge for exactly this (`homeScreenNudgeText`); the colony view reuses it. A cleared list is a failure that is visible ("Connect to refresh"), not silent.
+
+**If Decision 1 chooses the app (B)**, every rule above applies to app storage with a distinct cache key, and `cat-record-data-spine.md` §6.5 needs an approved amendment first.
+
+---
+
