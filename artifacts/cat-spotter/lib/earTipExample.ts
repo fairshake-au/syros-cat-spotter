@@ -1,15 +1,16 @@
 import type { ImageSourcePropType } from 'react-native';
+import earTipExample from '../assets/images/ear-tip-example.jpg';
 
 /**
- * The example photo shown with the ear-tip question: a clean clipped tip
- * beside a torn ear (cat-record-data-spine.md §4.4).
+ * The example shown with the ear-tip question (SYC-79,
+ * cat-record-data-spine.md §4.4): two of Jacky's photos of one Syros cat,
+ * side by side. On the left, her head: her right ear keeps its natural point.
+ * On the right, a close-up of her left ear, with the flat, straight top of a
+ * sterilisation clip. Taken by Jacky of Syros Cats, used with her permission
+ * (5–6 Oct 2026). The full-size originals are attached to SYC-79.
  *
- * Samuel decided on 5 October 2026 to ship the question without waiting for
- * Syros Cats' photo (SYC-79). Until it arrives this is null, and the question
- * shows only its written explanation ("A clip is a straight cut across the
- * tip of the ear…"). When the photo and Syros Cats' permission arrive, add it
- * under assets/images/ and set this to `require('@/assets/images/<file>')`;
- * the question then shows it with no other change. Never use a stock or
- * generated stand-in.
+ * Samuel decided on 6 Oct 2026 that no torn-ear photo is needed, and to show
+ * both photos: the head alone made the clipped tip hard to read at card size
+ * (PR #96 review). 800x400, matching the question's 2:1 frame.
  */
-export const EAR_TIP_EXAMPLE_PHOTO: ImageSourcePropType | null = null;
+export const EAR_TIP_EXAMPLE_PHOTO: ImageSourcePropType | null = earTipExample;
