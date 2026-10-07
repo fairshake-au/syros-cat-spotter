@@ -1,11 +1,11 @@
 # Roles and invites: guardians, volunteers, management and the confirmation queue
 
 **Feature spec · Cat Spotters (Syros)**
-**Status:** **Draft for Samuel's approval, 7 October 2026.** Not yet reviewed. An independent adversarial review follows; its findings are folded in before approval (§16).
+**Status:** **Revised after adversarial review, awaiting Samuel's approval.** The independent review of 7 October 2026 is in [`reviews/roles-and-invites-review.md`](./reviews/roles-and-invites-review.md); §16.6 says how each finding was handled.
 **Owner:** Samuel
 **Covers:** SYC-53 (roles, invitations, the confirmation queue). Written so that SYC-104 (the people screen), SYC-213 (`person_events`), SYC-54 (the volunteer colony view), SYC-222 (workspace documents versus dashboard) and SYC-208 (forgetting a former team member) can each be built from it without a rebuild.
 **Builds on:** [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §2 (sign-in), §2.7–2.9 (one list of people), §7 (roles later), §8.4 (tables) · [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2 (who can set what), §4.5 (fixing a wrong *Likely*), §6.5 (who sees exact locations), §10.1 (observations), §10.5 (colonies and feeding sites) · [`DECISIONS.md`](./DECISIONS.md) Parts 2i, 2k and 3 · the code on `main` as of 7 October 2026 (`lib/db/src/people.ts`, `lib/db/src/schema/people.ts`, `artifacts/api-server/src/lib/capabilities.ts`, `middlewares/requireTeam.ts`, `routes/team.ts`, `routes/internal.ts`).
-**Linear:** SYC-53 · SYC-104 · SYC-213 · SYC-54 · SYC-222 · SYC-208 · SYC-188 (done) · SYC-76 (done) · SYC-131 (done) · SYC-209 (will cite §6) · SYC-24 (vets, parked) · SYC-26 (Google sign-in).
+**Linear:** SYC-53 · SYC-104 · SYC-213 · SYC-54 · SYC-222 · SYC-208 · SYC-188 (done) · SYC-76 (done) · SYC-131 (done) · SYC-209 and SYC-2 (cite §6) · SYC-257 (settled in Decision 12) · SYC-24 (vets, parked) · SYC-26 (Google sign-in).
 
 ### What this document owns, and what it borrows
 
@@ -27,24 +27,25 @@ It borrows, and does not restate:
 
 ## 1. The short version
 
-Today the Syros Cats team has one kind of person: staff, who can do everything on the dashboard. That was right for a team of two or three. It cannot stay right once the people who actually know the cats are asked in.
+The island has two kinds of people who know the cats: the Syros Cats team, who can do everything on the dashboard, and the cat guardians and volunteers who see the cats every week. A team of two or three could be trusted with everything. A team that asks the people who actually know the cats to help cannot give each of them the keys to the whole island.
 
-This spec adds three more kinds of person, and keeps the public exactly as it is:
+The product has five kinds of person, and the public is exactly as it was:
 
-- **Cat guardians** who look after a colony. They see *their own* colonies in full: exact positions, feeding sites, which cats are done and which aren't. They can say a cat is homed, in care or has died, say where a cat lives, and tell the team "I've looked at her ear, it is clipped".
-- **Volunteers** who help with trapping rounds and field checks. They see the colonies they are assigned and the list that matters on a round: unsterilised cats, where each is usually seen, which feeding site, when last seen. They can tell the team what they found.
-- **Management**: the few people at Syros Cats who invite and remove others and make the decisions that affect everyone's access. Everyone who is staff today also becomes management on the day this ships, so nothing they can do today stops; the charity can narrow it later.
-- **Spotters and snappers**, everyone using the public app, keep what they have. They never need an account and are never asked for one.
+- **Staff**, the Syros Cats team, who do the cat work across the whole island.
+- **Cat guardians** who look after a colony. They see *their own* colonies in full: exact positions, feeding sites, which cats are done and which aren't. They can say a cat is homed, in care or has died, propose where a cat lives, look after their colony's feeding sites, and tell the team "I've looked at her ear, it is clipped".
+- **Volunteers** who help with trapping rounds and field checks. They see the colonies they are assigned and the list that matters on a round: unsterilised cats, where each was first found, which feeding site, how to find it, when last seen. They can tell the team what they found.
+- **Management**: the few people at Syros Cats who invite and remove others and make the decisions that affect everyone's access. The people who are staff when roles go live are also made management, so nothing any of them can do is taken away; the charity can narrow it afterwards.
+- **Spotters and snappers**, everyone using the public app. They never need an account and are never asked for one.
 
 Three ideas hold it together:
 
 1. **Invitation is the only way in, and it reuses the sign-in that already exists.** Management invites a person by their own email address. The person gets a plain message (it contains no secret), signs in the way staff already do, and taps "Yes, join". No second sign-in system, no new kind of link to protect.
 2. **What you can see and do depends on where you are placed.** A guardian's powers stop at the edge of her colonies. This is enforced where the data is read, not by hiding buttons.
-3. **Anything a field person says that would change a cat's sterilisation answer waits for one team member's OK.** That is the confirmation queue: tourists find the cats, guardians and volunteers look at them, and one tap from the team turns "probably" into "yes". The person who made the statement can never be the person who approves it.
+3. **Anything a field person says that would change a cat's sterilisation answer waits for one team member's OK, and changes nothing public until it gets one.** That is the confirmation queue: tourists find the cats, guardians and volunteers look at them, and one tap from the team records "checked in person". The team keeps "Confirmed sterilised" for its own records (a clinic receipt, a trapping log). The person who made the statement can never be the person who approves it, and changes that give someone more reach need a second *management* member.
 
 ### The one thing that surprised us, stated up front
 
-`cat-record-data-spine.md` §6.5 says the mobile app has no sign-in and never will, so that exact positions never reach a phone that every tourist installs. SYC-54 asks for a volunteer colony view that works offline. Those two cannot both be taken literally. §3 puts the choice to Samuel (Decision 1) and recommends keeping the app as a public reader and making the volunteer view an installable web page on the dashboard's own domain, with a printable round sheet as the fall-back that needs no phone at all. **The rest of this spec is written so it works whichever way Decision 1 goes.**
+`cat-record-data-spine.md` §6.5 says the mobile app has no sign-in and never will, so that exact positions never reach a phone that every tourist installs. SYC-54 asks for a volunteer colony view that works offline. Those two cannot both be taken literally. §3 puts the choice to Samuel (Decision 1) and recommends keeping the app as a public reader and making the volunteer view an installable web page on the dashboard's own domain, with a printable round sheet as the fall-back that needs no phone at all. What that page may keep on a phone, for how long and how it is deleted is Decision 12 (§12); it is the one place exact feeding-site positions are allowed to leave the dashboard map, and the feeding-sites spec (SYC-209) matches it. **The rest of this spec is written so it works whichever way Decision 1 goes.**
 
 ### The two audiences want the same thing from different angles
 
@@ -67,12 +68,27 @@ A person who looks after one or more colonies, endorsed by Syros Cats. In plain 
 | She can | She cannot |
 |---|---|
 | See, for **her own colonies only**, every cat's exact position, the colony's feeding sites, photos, and each cat's sterilisation answer with how sure we are | See exact positions anywhere else. Other colonies look to her exactly as they look to a tourist |
-| Say a cat in her colony is **homed**, **in care** or **has died**, with a short reason | Say a cat is sterilised "for certain". She can say what she saw; the team confirms (§7) |
-| Say "I looked at this cat's ear today" with an optional photo (a **field check**) | Rename cats, hide photos, change colony names, or make a feeding site public |
-| Add or correct a feeding site in her colony (always private, §6) | Invite or remove anybody |
-| Say "this cat is one of mine" for a cat not yet in her colony; the team decides (§7.4) | See the welfare queue, reporters' details, or anyone's data requests |
-| Check the **hand picks** in her own colonies, and pick a cat from anywhere on the island when matching a photo (the 30 September decision in `DECISIONS.md` Part 2i) | See the workspace documents and the shared document password |
+| Say a cat in her colony is **homed**, **in care** or **has died**, with a short reason, and put back the status she herself replaced in the last 30 days (so she can undo her own mistake) | Say a cat is sterilised "for certain". She can say what she saw; the team decides (§7) |
+| Say "I looked at this cat's ear today" with an optional photo (a **field check**) | Rename cats or colonies, hide photos, or make a feeding site public |
+| Add a feeding site to her colony, and rename, move, retire or bring back her colony's sites (always private, §6.7) | Move a feeding site to a different colony, or see any other colony's sites |
+| Say "this cat is one of mine", or "this cat is no longer in my colony"; the team decides (§7.4) | Invite or remove anybody |
+| State a cat's colour and markings, and add team-only health notes, for cats in her colonies (§6.7) | See the welfare queue, reporters' details, or anyone's data requests |
+| Check the **hand picks** in her own colonies (a hand-picked sighting's position shows only at the 250 m-square level) | See the workspace documents and the shared document password |
 | Stop being a guardian herself, at any time (§9) | |
+
+Picking a cat from anywhere on the island when matching a photo (the 30 September decision in `DECISIONS.md` Part 2i) is a reserved power, `match_cat_anywhere` (§6.2, note 3), because the dashboard has no screen for a guardian to upload her own sighting.
+
+**What a guardian or volunteer sees of a cat in her own colonies.** This is its own page, built from its own list of fields. It is **not** the team's cat page with a filter on it, because the team's page shows things she must not see.
+
+| She sees | She does not see |
+|---|---|
+| The cat's name, SYR number, exact discovery position, colony and feeding sites | Welfare reports about the cat |
+| Photos that are visible to the public | Hidden photos, or any photo a reporter or guardian sent privately |
+| The sterilisation answer and how sure we are, with "checked in person" where it applies | Team members' names: edits show as "Syros Cats" |
+| Life status and the date the cat was last seen | Who a spotter is, any owner details, or the team's notes (a guardian also sees health notes, §6.7) |
+| Colour and markings | Per-sighting positions or the times tourists stood there |
+
+A volunteer sees the same except health notes, and has no edit buttons. **For any cat outside her colonies, and for any cat in no colony, she sees exactly what the public sees.**
 
 A guardian can hold several colonies, and a guardian can also be staff (a team member who guards her own alley). Both are rows, so neither blocks the other.
 
@@ -84,8 +100,8 @@ A person who helps with field work: trapping rounds, checking ears, counting. Pl
 
 | They can | They cannot |
 |---|---|
-| Open the **colony view** for each colony they are assigned: unsterilised cats, where each is usually seen, which feeding site, when last seen | See any colony they aren't assigned |
-| Say what they found: "ear is clipped, here is the photo", "not a clip, torn ear" (a **field check**, §7) | Set a cat's life status, rename anything, or touch feeding sites |
+| Open the **colony view** for each colony they are assigned: unsterilised cats, where each was first found, which feeding site, how to find it, when last seen | See any colony they aren't assigned, or the places tourists have walked |
+| Say what they found: "ear is clipped, here is the photo", "not a clip, torn ear" (a **field check**, §7), and say "yes, that colour is right" | Set a cat's life status, change a cat's colony, rename anything, or touch feeding sites |
 | Print or save the **round sheet** for a trapping round | See the welfare queue or anyone's data |
 | Stop being a volunteer themselves | Invite anybody |
 
@@ -93,13 +109,13 @@ Volunteers see **less** than guardians on purpose. A guardian is endorsed for pa
 
 ### 2.4 Staff (the Syros Cats team)
 
-Unchanged from today: the dashboard as it exists, island-wide. Staff work the welfare queue, fix records, rename cats and colonies, make feeding sites public one at a time, and approve field checks (§7). New: staff approve field checks and colony proposals; staff **cannot** manage people (that moves to management, §2.5).
+The dashboard, island-wide. Staff work the welfare queue, fix records, rename cats and colonies, make feeding sites public one at a time, record sterilisations from the charity's records, and settle field checks, colony changes and site-public requests (§7). Staff **cannot** manage people (that is management, §2.5), and they never see or settle access changes (§8.3).
 
 ### 2.5 Management
 
-The few people who decide who is on the list. Everything staff can do, plus: invite, place, re-place, remove and re-admit people; sign somebody out everywhere; action data-deletion requests; and approve the invitation of other staff and management (§8.3).
+The few people who decide who is on the list. Everything staff can do, plus: invite, place, re-place, remove and re-admit people; sign somebody out everywhere; action data-deletion requests; and approve the access changes that give someone wide reach (§8.3).
 
-**On the day this ships, everyone who is staff becomes staff and management.** That means no capability anyone holds today is taken away, and management is narrowed afterwards by a person with the right to do it, in the people screen. Samuel decides whether to ship with the split switched on at all (Decision 3).
+**Everyone who is staff when roles go live is made staff and management.** No capability anyone holds is taken away, and management is narrowed afterwards by a person with the right to do it, in the people screen. Samuel decides whether to use the split at all (Decision 3).
 
 ### 2.6 Vets (reserved, not designed here)
 
@@ -119,14 +135,16 @@ This is the question that decides most of the build, so it comes first.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ The dashboard, made installable and partly offline.** Guardians and volunteers use `team.catspotters.com` on their phone. The colony view and round sheet are pages that can be saved on the home screen and that keep the last list they loaded. The app stays a public reader. | One sign-in, one session, one place their data comes from. The app never holds exact positions, so a tourist's phone cannot leak them. The data spine's rule stays true. | A web page's offline storage is weaker than an app's: the phone may clear it if the page isn't opened for a week (the app already warns about this for spots). The dashboard is "no scripts, for now" (`DECISIONS.md` Part 2k): every team response today carries a policy that forbids scripts (`default-src 'none'`) and a `no-store` cache header (`lib/teamAuth/refuse.ts`). An offline view needs a small amount of script and a deliberate cache, so this one set of pages gets its own narrow relaxation of both, and everything else keeps today's. Field checks made offline need a small queue of their own in the browser. |
+| **A. ✅ The dashboard, made installable and partly offline.** Guardians and volunteers use `team.catspotters.com` on their phone. The colony view and round sheet are pages that can be saved on the home screen and that keep the last list they loaded. The app stays a public reader. | One sign-in, one session, one place their data comes from. The app never holds exact positions, so a tourist's phone cannot leak them. The data spine's rule stays true. | A web page cannot be wiped from a distance: a phone that is lost and never opened again keeps its saved list until the browser clears it (§12 says this plainly). The dashboard is "no scripts, for now" (`DECISIONS.md` Part 2k): every team response carries a policy that forbids scripts (`default-src 'none'`) and a `no-store` cache header (`lib/teamAuth/refuse.ts`). An offline view needs a small amount of script, so this one set of pages under its own path gets a narrow relaxation of the script rule only (fixed script hashes, nothing inline, `connect-src 'self'`); **`no-store` stays on every response**, and the saved list lives in the page's own storage, not the browser's web cache. Field checks made offline need a small queue of their own in the browser. |
 | **B. Sign in inside the app.** A volunteer signs in to the app; the account becomes her identity and the phone credential stays as the session. | The offline machinery is already there. One app to install. | **Reverses a settled rule.** The app is what every tourist installs; with a sign-in, exact positions of cats in a colony would sit in app storage on volunteer phones, in an app whose cache code was written on the promise that exact positions never arrive. A lost phone then carries a map of where the island's unsterilised cats gather. The data spine's own warning (§6.5) is that such a mode "must use a distinct key"; that is doable but is a large new surface, and the app review process now has to consider it. |
 | **C. Paper and files only.** The dashboard produces a round sheet (a printable list or a downloaded file), and that is the "offline view". | The safest: nothing sensitive persists on a device the charity does not control. Works with no signal because it is already on the page. | It goes stale the moment it is printed. Field checks can't be queued; the volunteer remembers and enters them later. Not what SYC-54 asked for. |
 | **D. Both A and C.** | The round sheet is a by-product of A (it is the same data, printed). | Two things to look after. | None beyond A's. |
 
 **What people notice.** A (and D): a volunteer opens a link on her phone, saves it to the Home Screen once, and sees her list; with no signal she sees the last list she loaded, and a printed sheet if she wants paper. B: she opens the app, signs in once, and everything is in one place, but every tourist's app now contains a sign-in door. C: she prints a list before she goes out and writes down what she finds.
 
-**Recommendation: A, with the round sheet from C as part of it (so, D).** It keeps the rule that the app never holds exact positions, keeps one sign-in, and still gives a volunteer something to carry when there is no signal. The browser-storage weakness is real; §12 says how the stored list is limited and expires so that it fails safe rather than silently.
+**Recommendation: A, with the round sheet from C as part of it (so, D).** It keeps the rule that the app never holds exact positions, keeps one sign-in, and still gives a volunteer something to carry when there is no signal. The browser-storage weakness is real; Decision 12 (§12) says exactly what a phone may hold, for how long, and how it is deleted.
+
+**Conditions added after review** (the recommendation is unchanged): the saved list is deleted, not just hidden, when it expires; expiry uses the server's clock; the page's script is confined to its own path; and §12 states honestly that a phone never reopened keeps its list until the browser clears it. The data spine's §6.5 table needs a new row for guardians and volunteers whichever option is chosen (§16.5).
 
 **If B is chosen instead**, §7 to §11 are unchanged (identity, capabilities, invitations, the queue). What changes is §12 and `cat-record-data-spine.md` §6.5, which would need an approved amendment first.
 
@@ -137,12 +155,12 @@ This is the question that decides most of the build, so it comes first.
 ### 4.1 What the person experiences
 
 1. **Eleni is told.** Susan, in management, has asked her on the phone, and she has said yes. Susan opens the people screen (SYC-104), taps **Invite someone**, types Eleni's own email address and name, chooses **Cat guardian**, picks Vaporia — Eleni's, and chooses the language of the message (Greek). She types the address twice. She taps **Send invitation**.
-2. **Eleni gets a plain message**, in Greek, from `Cat Spotters <signin@mail.catspotters.com>`: *"Syros Cats has invited you to help as a cat guardian for Vaporia — Eleni's. To accept, go to admin.catspotters.com, type this address, and tap the link we send you."* It contains **no secret and no link she could be tricked with**; anyone who finds it learns only that an invitation exists.
+2. **Eleni gets a plain message**, in Greek, from `Cat Spotters <signin@mail.catspotters.com>`: *"Syros Cats has invited you to help. To see what you've been invited to, go to admin.catspotters.com, type this address, and tap the link we send you."* It contains **no secret, no link she could be tricked with, and no colony or guardian name** (a mistyped address would otherwise hand a stranger a guardian's first name and neighbourhood, for good). Anyone who finds it learns only that an invitation exists.
 3. **Eleni signs in** the way staff already do (§2.1 of the team-access spec): she types her address on `admin.catspotters.com`, gets the emailed link, taps it, taps **Yes, sign me in**.
-4. **She lands on one page:** *"Susan from Syros Cats invited you as a cat guardian for Vaporia — Eleni's. Here is what you'll be able to see and do. Here is what we ask of you."* Four short promises (below). A name field, pre-filled with what Susan typed, that she can correct. Two buttons: **Yes, join** and **No, this isn't for me.**
+4. **She lands on one page:** *"Susan from Syros Cats invited you as a cat guardian for Vaporia — Eleni's. Here is what you'll be able to see and do. Here is what we ask of you."* The colonies are named here for the first time, after sign-in. Four short promises (below). A **blank** name field (*"Type your name as you'd like Syros Cats to see it"*): it is not pre-filled, so that Susan can see whether the person who arrived is the person she meant. Two buttons: **Yes, join** and **No, this isn't for me.**
 5. **She taps Yes, join** and arrives on **My colonies**. From then on she signs in exactly like staff: type address, tap link. Her session lasts thirty days on that phone.
 
-If she taps **No**, the invitation is withdrawn and, since she has no history, her row is deleted. If she does nothing, the invitation stops working after **14 days** (§4.4) and Susan sees "expired" next to her name.
+If she taps **No**, the invitation is withdrawn: she is marked as left, as for anyone else (a person is never deleted once they have a history, §9.6). If she does nothing, the invitation stops working after **14 days** (§4.4) and Susan sees "expired" next to her name.
 
 **The four promises on the accept page** (wording for Syros Cats and native review, §13):
 
@@ -161,7 +179,7 @@ The old design (health-record spec §6.1, repeated in the SYC-53 ticket) said to
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ A pending person row plus a plain invitation message.** Inviting creates the person in a "not yet accepted" state with the roles intended for them. They sign in the usual way. Roles grant nothing until they accept. | Builds on what exists: no new kind of link, no new token. The invitation message holds no secret, so a mail scanner or a forwarded message can do no harm. Expiry, revoke and resend are just changes to a row. Removal, "sign out everywhere" and `session_version` already work. | Two messages arrive (the invitation, then the sign-in link). The sign-in Worker has to say yes to a person who isn't yet accepted, so that she can receive her link; the API decides what she may then do. A mistyped address that belongs to a stranger lets that stranger accept (§14, case 1). |
+| **A. ✅ A pending person row plus a plain invitation message.** Inviting creates the person in a "not yet accepted" state with the roles intended for them. They sign in the usual way. Roles grant nothing until they accept. | Builds on what exists: no new kind of link, no new token. The invitation message holds no secret, so a mail scanner or a forwarded message can do no harm. Expiry, revoke and resend are just changes to a row. Removal, "sign out everywhere" and `session_version` already work. | Two messages arrive (the invitation, then the sign-in link). The sign-in Worker has to say yes to a person who isn't yet accepted, so that she can receive her link; the API decides what she may then do. A mistyped address that belongs to a stranger lets that stranger accept (§8.4, §14 case 1). |
 | **B. A single-use invitation link.** The invitation message carries a token; following it signs her in and accepts. | One message instead of two. Matches the old design's "single-use, tied to an email, expiring". | A new kind of secret in a mailbox, to be protected from mail scanners (the same fix as sign-in links needs, §2.5 of the team-access spec) and from forwarding. The Worker has to redeem it, so a new Worker route in the other repository. A second sign-in mechanism, which §7.3 of the team-access spec rules out ("no second sign-in mechanism gets built for the second role"). |
 | **C. Clerk, as the health-record design said.** | Invitations, roles and sessions come ready-made. | A second list of people; two places to remove someone; the dashboard session, the hand-off and the sign-in Worker would all have to be reworked or doubled; a new supplier holding the names and emails of a small charity's volunteers, and a price to confirm (the old design's own open item). It also contradicts the decision already built (D3, F5). |
 | **D. Self-service sign-up with approval.** A person asks to join; management approves. | No typing of addresses by management. | An open door on the sign-in page, which today deliberately reveals nothing about who has access. Invitations are the whole point (§7.3: "invitation is the only way in, at every tier"). |
@@ -173,7 +191,7 @@ The old design (health-record spec §6.1, repeated in the SYC-53 ticket) said to
 ### 4.4 Expiry, resend, withdraw
 
 - An invitation is valid for **14 days** from when it is sent. After that the person is treated as not on the list (the Worker answers "no", as for any unknown address) and management sees "expired".
-- Management can **resend** (a fresh 14 days; at most one invitation message per person per 24 hours) or **withdraw** (the pending row is deleted; there is no history to keep).
+- Management can **resend** (a fresh 14 days; at most one invitation message per person per 24 hours) or **withdraw** (the pending person is marked as left; §9.6 says why a row is never deleted).
 - Fourteen days is long enough for a guardian who checks mail on Sundays and short enough that an invitation to a mistyped address stops being a standing hole.
 
 ### 4.5 What the Worker has to learn (and the order it ships in)
@@ -195,11 +213,11 @@ No email, no account (§2.1). This is deliberate, not a gap. The team records wh
 
 ## 5. Decision 3: should staff and management be two tiers?
 
-Today every person on the list is staff and holds every capability, including adding and removing people and actioning data-deletion requests. That is fine while the list is Samuel, Jacky and a few colleagues. It is a real exposure once the list grows to guardians and volunteers, because **whoever can invite can create a person who sees where cats gather.** The question is whether the power to change the list should sit with everyone on the team or with a few.
+Every member of the team holds every team capability, including adding and removing people and actioning data-deletion requests. That is fine while the list is Samuel, Jacky and a few colleagues. It is a real exposure once the list includes guardians and volunteers, because **whoever can invite can create a person who sees where cats gather.** The question is whether the power to change the list should sit with everyone on the team or with a few.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ Two tiers, with nothing taken away on day one.** *Staff* do the cat work. *Management* additionally manage people, action deletion requests and approve the invitation of other staff and management. The migration gives every existing staff member both. | The sensitive powers sit with a few named people from the moment the charity chooses. No one loses anything on the day it ships. The people screen (SYC-104) can narrow it later. | One more thing to explain. Until someone is demoted to staff-only, the tier changes nothing in practice. The charity must actually choose who is management, or the split is decoration. |
+| **A. ✅ Two tiers, with nothing taken away on day one.** *Staff* do the cat work. *Management* additionally manage people, action deletion requests and approve access changes (§8.3). Everyone who is staff when roles go live is given both. | The sensitive powers sit with a few named people from the moment the charity chooses. No one loses anything on the day it ships. The people screen (SYC-104) can narrow it later. | One more thing to explain. Until someone is demoted to staff-only, the tier changes nothing in practice. The charity must actually choose who is management, or the split is decoration. |
 | **B. One tier, as today.** All staff can invite, place and remove. | Nothing new to explain. | Any team member, or anyone who gets into a team member's mailbox, can create more accounts and widen who can see exact positions. The second-pair-of-eyes rule in §8.3 has no one to be the second pair. |
 | **C. Three tiers** (read-only team members as well). | Finer control. | Nobody has asked for it. A system with more tiers than the charity has people is a system the charity stops maintaining. |
 
@@ -207,7 +225,7 @@ Today every person on the list is staff and holds every capability, including ad
 
 **Recommendation: A.** The cost is a label and a migration row; the benefit is that the single most dangerous power (making new accounts) has a short, named list of holders.
 
-**Which capabilities move.** `manage_people` and `action_deletion_request` become management-only. Everything else a staff member holds today they keep. §6.2 has the whole table.
+**Which capabilities are management-only.** `manage_people`, `action_deletion_request` and `approve_access`. Everything else a staff member holds, they keep. §6.2 has the whole catalogue.
 
 **The word in the database.** The value stored is `management`. The record of who said what (`observations.role_at_time`) already reserves the word `admin` for the same idea, and nothing has ever written it. **Proposal:** rename the reserved `admin` to `management` in the data spine's vocabulary and in the resolver's list of authoritative roles, in the same change that adds the role. Two names for one thing is how a permissions list drifts, and `staff`, `admin` and `management` would be three. The one place that maps a person's role to what is written on an observation is §10.4.
 
@@ -555,7 +573,8 @@ This builds on what SYC-76 shipped ("mark people as left", `DECISIONS.md` Part 2
 
 - `left_at` is set and `session_version` rises, so a stolen or forgotten cookie dies at its next request (as now).
 - **Everything they wrote stays**, attributed to them: observations, report state changes, team notes, photo hides, queue decisions, invitations they sent.
-- **Items they started stay open.** A field check they made waiting in "Needs an OK" is still evidence and can still be decided. It is marked *from someone who has since left*. An invitation they sent stays valid (someone else is shown as the one to approve anything further).
+- **Field checks they started stay open.** A field check they made waiting in "Needs an OK" is still evidence and can still be decided. It is marked *from someone who has since left*.
+- **Invitations and access requests they started are withdrawn.** A person is often marked as left *because* their account was misused, so anything they set in motion while it might have been compromised is not kept. Every pending invitation they sent, and every open access change they proposed, is withdrawn in the same transaction, and management sees a line: *"3 invitations from Susan were withdrawn when she left. Re-send any you still want."*
 - **A field check still queued on their phone** (§12) is refused when the phone next connects: the person isn't on the list any more. They can tell the team what they saw.
 - **The shared document password** is changed if they held `use_workspace` (§6.3).
 - **Their colony placements** are kept on their row as the record of what they held when they left, and ignored by `can()` because they are not on the list. The history entry (§11) also records which roles and colonies they held, in ids.
@@ -568,13 +587,14 @@ Colonies are named "Vaporia — Eleni's" and carry a guardian's name as free tex
 
 Management finds the person under *Left* and taps **Bring back**. The screen shows what they held and when they left, and asks for roles to be chosen **afresh**: nothing is restored automatically. This is how the existing code already behaves (re-adding a left address clears `left_at`, raises the session version and replaces the roles). New in this spec:
 
-- It is the same flow as a first invitation: the person is pending again, gets the invitation message, signs in and **accepts again**. Someone who left a year ago re-reads the four promises before they see a colony.
+- It is the same flow as a first invitation: `accepted_at` is set back to null, the new placements are written, the person is pending again, gets the invitation message, signs in and **accepts again**. Someone who left a year ago re-reads the four promises before they see a colony.
 - It records a `rejoined` event with who brought them back (SYC-213).
-- Staff and management roles still need the second OK (Decision 11).
+- A return with staff or management roles is an access change and needs the second OK (Decision 11).
 
 ### 9.5 Guards that stop the charity locking itself out
 
-- **The last management person can't be marked as left, demoted, or sign out everywhere through the screen**, because then nobody could invite anyone. The `people` command (run by Samuel through db-ops) remains the break-glass route.
+- **The last management person can't be marked as left, demoted, or sign out everywhere through the screen**, because then nobody could invite anyone. The `people` command (run by Samuel through db-ops) remains the break-glass route. The check and the change run in one transaction that locks the management rows, so two managers marking each other as left at the same moment cannot both succeed; a test runs both at once.
+- **One manager alone cannot remove the others.** Marking a management member as left is an access change that needs a second management member (§8.3), unless the person is leaving themselves. Marking any staff or management member as left, or signing them out everywhere, also sends a short email to every other management member, so a stolen management session cannot quietly remove people.
 - **You can't change your own roles or mark yourself as left through the management route.** Use "stop helping" (§9.1), which is a different, plainly worded action.
 
 ### 9.6 Taking back an invitation
