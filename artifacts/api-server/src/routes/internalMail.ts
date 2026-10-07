@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { checkMailDrainToken } from "../lib/internalAuth";
 import { drainDue, overdueWelfareAlerts, OVERDUE_MINUTES } from "../lib/mail/outbox";
+import { sendDailyRoundUp, type RoundUpResult } from "../lib/sightingRoundUp";
+import { safeError } from "../lib/logger";
 
 /**
  * POST /api/internal/mail/drain (SYC-42 plan, Slice 1 item 1.6, layer 3).
@@ -13,6 +15,14 @@ import { drainDue, overdueWelfareAlerts, OVERDUE_MINUTES } from "../lib/mail/out
  *
  * The token is checked here as well as in the pre-launch gate, so it still
  * holds after the gate is switched off at launch.
+ *
+ * The same call also sends the evening sighting round-up when it's due
+ * (data-spine.md PR 9, `lib/sightingRoundUp.ts`), so it rides on this
+ * schedule (and on any API request in the evening, `opportunisticRoundUp`)
+ * rather than needing one of its own. It sends once per evening
+ * whoever calls, so the token still can't make the server send anything
+ * that wasn't already due. A round-up failure is logged and never changes
+ * the status code: that stays about welfare alerts only.
  */
 const router: IRouter = Router();
 
@@ -29,15 +39,23 @@ router.post("/internal/mail/drain", async (req, res) => {
   }
   const result = await drainDue(25);
   const overdue = await overdueWelfareAlerts();
+  // After the welfare check, so a slow push service can't delay it.
+  let roundUp: RoundUpResult | { status: "error" };
+  try {
+    roundUp = await sendDailyRoundUp();
+  } catch (err) {
+    req.log.error({ err: safeError(err) }, "sighting round-up failed");
+    roundUp = { status: "error" };
+  }
   if (overdue > 0) {
     req.log.error(
       { overdue, ...result },
       `mail drain: ${overdue} welfare alert(s) unsent for over ${OVERDUE_MINUTES} minutes`,
     );
-    res.status(500).json({ error: "welfare_alert_overdue", overdue, ...result });
+    res.status(500).json({ error: "welfare_alert_overdue", overdue, ...result, roundUp: roundUp.status });
     return;
   }
-  res.status(200).json({ overdue: 0, ...result });
+  res.status(200).json({ overdue: 0, ...result, roundUp: roundUp.status });
 });
 
 export default router;

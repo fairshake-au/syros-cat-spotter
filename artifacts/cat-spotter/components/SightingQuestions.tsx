@@ -17,7 +17,7 @@ interface SightingQuestionsProps {
    * two quick taps can never overwrite each other with a stale copy. */
   onChange: (patch: Partial<SightingAnswers>) => void;
   t: (key: string) => string;
-  /** Defaults to Syros Cats' example photo, once it exists (SYC-79). */
+  /** Defaults to Syros Cats' example photo (SYC-79). */
   examplePhoto?: ImageSourcePropType | null;
   /** SYC-117 part 2, on the cat's page: which of the other two to ask. */
   show?: { foodAndWater: boolean; note: boolean };
@@ -88,16 +88,14 @@ export function SightingQuestions({
           </Text>
 
           <View testID="ear-tip-example" style={styles.example}>
-            {/* Samuel, 5 Oct 2026: ship without waiting for Syros Cats'
-                photo (SYC-79). Until it arrives, the written line below is the
-                whole explanation; the photo appears here once
-                EAR_TIP_EXAMPLE_PHOTO is set. Never a stand-in photo. */}
+            {/* Syros Cats' example photo (SYC-79). The written line below
+                stays: it explains what the photo shows. */}
             {examplePhoto ? (
               <Image
                 source={examplePhoto}
                 style={[styles.examplePhoto, { borderColor: colors.border }]}
                 contentFit="cover"
-                accessibilityLabel={t('earTipExampleCaption')}
+                accessibilityLabel={t('earTipExampleAlt')}
               />
             ) : null}
             <Text style={[styles.caption, { color: colors.mutedForeground }]}>

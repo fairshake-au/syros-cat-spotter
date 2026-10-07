@@ -38,6 +38,15 @@ function fold(text: string): string {
     .trim();
 }
 
+/**
+ * Nothing left once folded: empty, spaces, or only invisible characters
+ * (a zero-width space survives `trim()`). The server refuses such a name
+ * (EMPTY_NAME, SYC-101), so the app doesn't offer to send it.
+ */
+export function isBlankName(text: string): boolean {
+  return fold(text) === '';
+}
+
 /** "SYR-0042", "syr 42", "0042" and "42" all mean cat 42 (spec §9, test 12). */
 function syrNumber(query: string): number | null {
   const m = /^\s*(?:syr)?[\s-]*0*(\d+)\s*$/i.exec(query);

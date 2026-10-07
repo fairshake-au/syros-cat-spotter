@@ -54,6 +54,10 @@ async function seedSubscribedCat(): Promise<number> {
       lat: 37.4448,
       lng: 24.9425,
       discovererDeviceId: "vitest-fanoutdeceased-seed",
+      // The subscriber owns the cat: since data-spine.md PR 9 only the
+      // owner is notified of a sighting straight away (everyone else in
+      // the evening round-up), so the "alive" control needs the owner.
+      ownerDeviceId: SUBSCRIBER,
     })
     .returning();
   await db

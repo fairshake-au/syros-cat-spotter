@@ -10,6 +10,7 @@ import { logger, redactRequestUrl, safeError } from "./lib/logger";
 import { apiCors } from "./middlewares/apiCors";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
 import { opportunisticDrain } from "./lib/mail/outbox";
+import { opportunisticRoundUp } from "./lib/sightingRoundUp";
 
 const app: Express = express();
 
@@ -76,6 +77,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // SYC-42 item 1.6, layer 2: after any API response, check for due mail.
 app.use("/api", opportunisticDrain);
+// data-spine.md PR 9: the evening sighting round-up's second trigger.
+app.use("/api", opportunisticRoundUp);
 app.use("/api", router);
 
 // JSON 404 for any unmatched /api route: without this, requests fall through

@@ -29,6 +29,7 @@ import { CatPicker } from "@/components/CatPicker";
 import { useCatsWithCache } from "@/hooks/useCatsWithCache";
 import {
   classifyResolveError,
+  isBlankName,
   newCatRequest,
   noSignalMessage,
   pickerList,
@@ -184,7 +185,7 @@ export default function ReviewScreen() {
   };
 
   const registerNew = async () => {
-    if (!newName.trim() || !deviceId) return;
+    if (isBlankName(newName) || !deviceId) return;
     setBusy(true);
     setNameError(null);
     setSendMessage(null);
@@ -634,7 +635,7 @@ export default function ReviewScreen() {
             variant="primary"
             size="lg"
             block
-            disabled={busy || !newName.trim()}
+            disabled={busy || isBlankName(newName)}
             onPress={registerNew}
             style={{ marginTop: 8 }}
           >

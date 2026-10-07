@@ -300,20 +300,15 @@ describe("colonies and feeding sites", () => {
   });
 });
 
-// §10.3 asks for what cats_name_lower_unique actually does with Greek names
-// under this database's collation to be written down. The answer:
-//  - lower() folds case under a UTF-8 ctype (C.UTF-8 locally and on Neon,
-//    en_US.utf8 in CI's postgres image), but only letter for letter: ΜΙΜΉ
-//    collides with Μιμή.
-//  - It does NOT fold accents. Greek capitals are normally written without
-//    them, so ΜΙΜΗ lowers to μιμη and is accepted beside Μιμή.
-//  - It does NOT produce final sigma: ΣΟΦΊΑΣ lowers to σοφίασ and is accepted
-//    beside Σοφίας.
-//  - It does NOT normalise: the NFD spelling of Μιμή is a second cat.
-// So the index is not the uniqueness guarantee records-import.md §2.4 leans
-// on. That needs an accent-, case- and sigma-folded normalised name, as
-// colonies already have (§10.3); these tests pin today's behaviour until then.
-describe("cats_name_lower_unique with Greek names", () => {
+// §10.3 asked for what cats_name_lower_unique did with Greek names under this
+// database's collation. It folded case letter for letter and nothing else:
+// ΜΙΜΗ beside Μιμή, ΣΟΦΊΑΣ beside Σοφίας and the NFD spelling of any name were
+// all accepted as separate cats, so records-import.md §2.4's "unique by
+// construction" was false. SYC-101 (DECISIONS.md Part 2g) replaced it with
+// cats_normalised_name_unique on a generated, foldName-folded column. These
+// tests pin the new behaviour; foldSql.test.ts proves the column folds
+// exactly as foldName does.
+describe("cats_normalised_name_unique (SYC-101)", () => {
   beforeEach(async () => {
     await c.query(`truncate cats restart identity`);
   });
@@ -322,30 +317,54 @@ describe("cats_name_lower_unique with Greek names", () => {
       `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id) values ($1, 0, 37.44, 24.94, 'd')`,
       [n],
     );
+  const clash = /cats_normalised_name_unique/;
 
-  it("folds case letter for letter under this database's ctype", async () => {
-    const ctype = await c.query<{ datctype: string }>(
-      `select datctype from pg_database where datname = current_database()`,
+  it("drops the old lower(name) index", async () => {
+    const r = await c.query(
+      `select 1 from pg_indexes where indexname = 'cats_name_lower_unique'`,
     );
-    expect(ctype.rows[0]!.datctype).toMatch(/utf-?8/i);
-    await addCat("Μιμή".normalize("NFC"));
-    await expect(addCat("ΜΙΜΉ".normalize("NFC"))).rejects.toThrow(
-      /cats_name_lower_unique/,
-    );
+    expect(r.rowCount).toBe(0);
   });
 
-  it("does not fold accents: unaccented capitals are a second name", async () => {
+  it("folds accents: unaccented capitals are the same name", async () => {
     await addCat("Μιμή".normalize("NFC"));
-    await expect(addCat("ΜΙΜΗ")).resolves.toBeDefined();
+    await expect(addCat("ΜΙΜΗ")).rejects.toThrow(clash);
   });
 
-  it("does not produce final sigma", async () => {
+  it("folds final sigma", async () => {
     await addCat("Σοφίας".normalize("NFC"));
-    await expect(addCat("ΣΟΦΊΑΣ".normalize("NFC"))).resolves.toBeDefined();
+    await expect(addCat("ΣΟΦΊΑΣ".normalize("NFC"))).rejects.toThrow(clash);
   });
 
-  it("does not normalise: NFC and NFD spellings are two different names", async () => {
+  it("normalises: NFC and NFD spellings are the same name", async () => {
     await addCat("Μιμή".normalize("NFC"));
-    await expect(addCat("Μιμή".normalize("NFD"))).resolves.toBeDefined();
+    await expect(addCat("Μιμή".normalize("NFD"))).rejects.toThrow(clash);
+  });
+
+  it("folds Latin accents: Zoë and Zoe are the same name", async () => {
+    await addCat("Zoë");
+    await expect(addCat("zoe")).rejects.toThrow(clash);
+  });
+
+  it("keeps the name as typed and refreshes the folded form on a rename", async () => {
+    await addCat("ΣΟΦΊΑΣ");
+    let r = await c.query(`select name, normalised_name from cats`);
+    expect(r.rows[0]).toEqual({ name: "ΣΟΦΊΑΣ", normalised_name: "σοφιασ" });
+    await c.query(`update cats set name = 'Zoë'`);
+    r = await c.query(`select name, normalised_name from cats`);
+    expect(r.rows[0]).toEqual({ name: "Zoë", normalised_name: "zoe" });
+  });
+
+  it("refuses a writer that sets the folded form itself", async () => {
+    await expect(
+      c.query(
+        `insert into cats (name, normalised_name, primary_photo_id, lat, lng, discoverer_device_id) values ('Mimi', 'other', 0, 37.44, 24.94, 'd')`,
+      ),
+    ).rejects.toThrow(/non-DEFAULT value into column "normalised_name"/);
+  });
+
+  it("does not fold Greek/Latin look-alike letters (Part 2m)", async () => {
+    await addCat("ΑΓΑΘΗ");
+    await expect(addCat("AΓAΘH")).resolves.toBeDefined();
   });
 });
