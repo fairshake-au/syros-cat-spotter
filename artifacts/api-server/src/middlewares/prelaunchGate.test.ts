@@ -432,7 +432,7 @@ describe("12b. SYC-3: /api/mail/* skips the pass (Decision 5) and refuses withou
           status: 410,
         });
         expect(res.body).not.toEqual(REFUSAL);
-        expect(res.headers["referrer-policy"]).toBe("no-referrer");
+        expect(res.headers["referrer-policy"]).toBe("same-origin");
       }
     }
   });

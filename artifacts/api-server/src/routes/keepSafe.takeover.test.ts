@@ -36,7 +36,7 @@ import {
 import { eq, sql } from "drizzle-orm";
 import app from "../app";
 import { settleOutbox } from "../lib/mail/outbox";
-import { normaliseAddress } from "../lib/mail/fingerprint";
+import { addressFingerprint, normaliseAddress } from "../lib/mail/fingerprint";
 import { __setMoveHookForTest } from "../lib/keepSafe/move";
 import { severKeepSafe } from "../lib/keepSafe/sever";
 import { hashSecret } from "../lib/deviceAuth";
@@ -467,7 +467,8 @@ describe("7. opening a link changes nothing", () => {
     for (const [p, t] of [["confirm", confirm], ["forget", forget]] as const) {
       const page = await request(app).get(`/api/mail/${p}`).query({ t });
       expect(page.status).toBe(200);
-      expect(page.headers["referrer-policy"]).toBe("no-referrer");
+      // same-origin, not no-referrer: no-referrer makes browsers send Origin: null on the POST.
+      expect(page.headers["referrer-policy"]).toBe("same-origin");
       expect(page.text).toContain('<form method="post">');
     }
     expect(await snapshot()).toBe(before);
@@ -634,23 +635,21 @@ describe("9. expiry", () => {
 });
 
 describe("10. limits", () => {
-  it("3 restore requests per address per 15 minutes, counted in Postgres across two server instances", async () => {
+  it("3 restore requests per address per 15 minutes, counted in Postgres, so another server's requests count too", async () => {
     const email = newAddress();
     await keptSafe(email);
     const phone = newPhone();
     await bind(phone);
-    vi.resetModules();
-    const second = (await import("../app")).default;
-    const askOn = (a: typeof app) =>
-      request(a).post("/api/restore/request").set("X-Device-Secret", phone.secret).set("X-Forwarded-For", freshIp()).send({ deviceId: phone.id, email });
-    await askOn(app);
-    await askOn(second);
-    await askOn(app);
-    await askOn(second);
+    // Another server took two requests for this address (rows in the shared table).
+    const hmac = addressFingerprint("keep_safe", email);
+    await db.execute(sql`
+      insert into mail_requests (kind, address_hmac, ip_hash)
+      values ('restore', ${hmac}, 'another-server'), ('restore', ${hmac}, 'another-server')
+    `);
+    for (let i = 0; i < 3; i++) expect((await ask(phone, email)).status).toBe(202);
     await settleOutbox();
-    const secondOutbox = await import("../lib/mail/outbox");
-    await secondOutbox.settleOutbox();
-    expect(mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(3);
+    // Only one more fits in this server's share of the three.
+    expect(mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
   });
 
   it("at most 3 live links per address: the oldest expires to make room", async () => {

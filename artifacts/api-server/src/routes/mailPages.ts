@@ -46,8 +46,12 @@ function setHeaders(res: Response): void {
     "Content-Security-Policy",
     "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
   );
-  // The token must never travel on in a Referer.
-  res.setHeader("Referrer-Policy", "no-referrer");
+  // The token must never travel on in a Referer to anyone else. Not
+  // `no-referrer`: under it, browsers send `Origin: null` on the button's
+  // POST, and the Origin check below would refuse every real press (found in
+  // the browser round trip). The page loads nothing from anywhere else
+  // (CSP default-src 'none'), so `same-origin` keeps the token on this site.
+  res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader("X-Content-Type-Options", "nosniff");
 }
 
@@ -59,7 +63,7 @@ function page(title: string, body: string): string {
   return (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<meta name="referrer" content="no-referrer">' +
+    '<meta name="referrer" content="same-origin">' +
     `<title>${esc(title)} — Cat Spotters</title>` +
     "<style>body{font-family:-apple-system,system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;line-height:1.5;color:#222}" +
     "button{font:inherit;font-weight:600;background:#1f6f5c;color:#fff;border:0;border-radius:8px;padding:12px 20px;cursor:pointer}</style>" +
