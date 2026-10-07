@@ -226,3 +226,88 @@ The spec also doesn't say **where the field-check photo lives**. The public `/ap
 
 **Fix.** Set `reach` from `colony_id` before adding the check. List and stop on **every** row that breaks the new checks, not only guardian and volunteer rows. Before the rename, add a step: a count of `role_at_time = 'admin'` observations that must be zero, with the migration stopping if it isn't. Write down the order: SYC-213's migration, then this one, then the code. Show Samuel the list of people who will become management before it runs. "Every current staff member" is right in principle, but test and seed accounts shouldn't come along.
 
+---
+
+## m1. A guardian's life-status powers cut both ways — Minor — CONFIRMED
+
+**Where:** §2.2, §6.2 (`set_life_status`), §7.2, Q3.
+
+- `resolveLifeStatus` doesn't look at roles: the newest statement wins, and "any non-superseded write is as good as confirmed". A guardian's "homed" overrides an older team "street" with no review. Q3 accepts that, but the spec should say so in those words.
+- She can say *homed*, *in care* or *deceased*, but not *street*. If she marks the wrong cat as deceased, she can't undo it. Only a later sighting or the team can.
+- **She can take cats off a trapping round.** A feeder who doesn't want her cats trapped (some don't) can mark the unsterilised ones *homed*, and nobody approves it. If the round sheet leaves out homed or deceased cats, they disappear from the round. **Fix:** the round sheet and "Needs a look" keep any cat whose life status a guardian changed in the last 30 days, flagged "recently marked homed by the guardian". The team's feed of guardian changes (§7.2) shows them.
+- When guardians and volunteers write offline, the date they send should be limited the way public answers are (no more than 30 days back, never in the future). The spec doesn't say so; staff can backdate without limit.
+
+## m2. "Pick a cat from anywhere" has nowhere for a guardian to do it — Minor — CONFIRMED
+
+**Where:** §6.2 (`match_cat_anywhere`), `DECISIONS.md` Part 2i.
+
+A guardian takes photos in the public app, under its anonymous phone identity. The dashboard has no way to upload a sighting. So there is no screen where she would match a photo with "pick from anywhere", and the capability can't be tested. Part 2i says guardians do this "in the staff dashboard", which assumes something that doesn't exist. **Fix:** either specify a dashboard upload of a guardian's own sighting, or record that this capability waits for one. Also say that the "Ask Syros Cats to match it" list stays team-only: it holds tourists' exact sighting positions from anywhere on the island. When a guardian checks the hand picks for her own cats (`review_hand_picks`), she should see the sighting's position only at the 250 m-square level, because a hand pick can come from up to 1.5 km outside her colony.
+
+## m3. Rules that can't be tested, or have nothing behind them — Minor — CONFIRMED
+
+- §14 case 3: guardian invitations "are visible as events within the hour". Nothing makes that happen, and nobody is notified.
+- §11.1 lists `invite_expired` events written by `system:expiry`. But §6.6 says expiry is checked when a request comes in, with no job running. So nothing ever writes those events. Either a job writes them, or the people screen works expiry out when it's drawn and the event kind is dropped.
+- §11.3's reading counter: a guardian can only open cats in her own colonies anyway, so "far more than her colonies hold" mostly measures her reloading the page. The real exfiltration risk is the round sheet, which is one request. Count round-sheet downloads and prints per person instead, and drop the "twice the cats" rule.
+- §8.4: "a mistake is visible within the day" depends on the inviter reading her email. Use the people screen's own "joined in the last 7 days" list as the check that doesn't depend on that.
+
+## m4. Two uniqueness rules don't fit what the text asks of them — Minor — CONFIRMED
+
+- `confirmation_items`: "open items are unique per (kind, cat, proposer)". For `invitation` items `cat_id` is null, so either a manager can have only one open invitation at a time, or the rule does nothing, depending on how nulls are treated. §7.3's "asking about a cat that already has an open item **adds to it**" doesn't say whether two volunteers asking about one cat share an item. Say which, and choose a key that does it.
+- `person_scopes` keeps the unique rule on (person, role, colony). §6.6 has placements that expire and §9.2 keeps rows as a record. A guardian whose holiday cover ended can't be placed on the same colony again without an update. Write that down as the expected path, or let `expires_at` take part in the rule.
+
+## m5. Mail details — Minor — CONFIRMED
+
+- §8.5: "shed before news". Under D2, news goes out on a **separate** identity with its own quota, so it never competes with the invitation. Say which identity invitations use (transactional, like sign-in links) and where they sit among transactional mail.
+- §8.4 adds a second message, the inviter's "Eleni P. accepted your invitation". That needs its own purpose, and it carries text the invitee typed, which contradicts §8.2's "no free-text box that ends up in an email". Escape it and limit its length, or leave the name out of the email ("Your invitation was accepted; see the people screen").
+- §12 reuses `homeScreenNudgeText`, whose words are about keeping *spots* safe. It needs its own string (and see M4 on whether to nudge at all).
+
+## m6. The last-manager guard has a race — Minor — PLAUSIBLE
+
+Two managers marking each other as left at the same moment each see one other manager still there, and both succeed. Lock the set of management rows (or one marker row) inside the same transaction. Add a test that runs two at once.
+
+## m7. Canonical facts and house rules — Minor — CONFIRMED
+
+- **€50–60 per cat:** correct (§7.2). **"Cat guardian":** used throughout; "colony carer" doesn't appear. **Offline:** mostly precise. §3's option table and §12 are honest. M3 and M4 list the two places it says too much ("usual spots (exact)" offline with no map; "erases").
+- **Spotter and snapper:** the project's canonical roles are "spotter" and "snapper". `docs/PRODUCT-SPEC.md` line 16 says **"Spotter, not snapper"**. The spec uses "spotters and snappers" and flags the conflict in §13.3, but §16.2 doesn't list it as a question. **Reported, not settled here:** add it as Q7 for Samuel.
+- **Aspirational wording:** the project rule is that a spec describes one vision and never separates "built today" from "proposed". The product sections do separate them: §1 "Today the Syros Cats team has one kind of person", §2.4 "Unchanged from today… New:", §5 "Today every person on the list is staff". The technical sections (§10, §15, §16.3) need to talk about the code. §1 to §9 should be reworded as the product as a whole.
+
+---
+
+## What is sound
+
+These parts hold up, and should be kept as they are:
+
+- **Invitation through the existing sign-in, with no secret in the message** (Decision 2 A). Mail scanners and forwarding can't do harm, and a new kind of link doesn't need protecting.
+- **An explicit `reach` column with a database check**, so a guardian with no colony is refused by the database itself. It needs B1's tightening, but the idea is right.
+- **Strict `can()` with a separate `canSomewhere()`** (Decision 4 A). A route that forgets its target refuses rather than over-shares. Walking every route, with a route missing from the table failing the test, is the right check.
+- **A 403 page for someone signed in who isn't allowed**, instead of today's 401 and sign-in loop.
+- **The Worker changeover order:** the old request gets `allowed: true` only for people with the workspace door. It fails closed, and test 6 pins it.
+- **The server decides `roleAtTime`, and there is one list of team roles.** S1 and S3 are real bugs waiting to happen and are worth fixing for their own sake.
+- **The database refuses `decided_by = proposed_by`**, and the item is checked again when the decision is written, not only when the page was drawn.
+- **Events hold ids, not names**, so SYC-208 can anonymise without breaking the history.
+- **§9.7 finds the guardian's name in colony names**, which SYC-208 would otherwise miss.
+
+---
+
+## The 11 decision recommendations, judged
+
+| # | Recommendation | Verdict | Reasons |
+|---|---|---|---|
+| **1** | D: the dashboard as a saved web page, plus a printable round sheet | **Agree, with conditions** | Keeping exact positions out of the app every tourist installs is the right line. But the page must follow M4 (delete rather than hide, server time, no relaxed `no-store`, a narrowly scoped service worker, scripts by fixed hash). §12's promise must be rewritten to say a phone that's never reconnected may keep its list. The data spine §6.5 amendment is needed either way (M6). Shipping the round sheet first and the saved list after is sensible, and slice 3 already allows it. |
+| **2** | A: a pending person plus a plain message | **Agree** | The smallest new surface. Fix the delete/mark-left contradiction and the fail-open finder (M9), and take the colony name out of the message (M1). |
+| **3** | A: split staff and management; everyone is both on day one | **Agree** | But the split only means something with B3's fix (`approve_access`, management-only). Show Samuel the day-one list (M10). |
+| **4** | A: strict `can()` plus `canSomewhere()` | **Agree, and it isn't enough on its own** | It doesn't close the gap for an island-wide volunteer (B1). Put the welfare and report routes on a team-only capability, give the photo routes targets, and add an island volunteer to the route walk. |
+| **5** | B: a field check is evidence; one team OK moves the answer | **Disagree as written** | "Yes" writes *Confirmed*, which breaks data spine §4.2 and Part 2k, and it sets off emails that can't be unsent (B2). The field check also moves the public answer to *Likely* before any OK (M7). **Change to:** "Yes" writes the team's `ear_tip { clipped: true }` with the in-person marker (the cat stays *Likely*, shown as checked in person). *Confirmed* comes only from the team's own records or a vet. The field check doesn't count toward the public answer until it's approved. If Samuel wants "Yes" to confirm, record it as an explicit amendment to §4.2. |
+| **6** | A: the guardian proposes, the team OKs | **Agree, and extend it** | Removing a cat also needs an OK. The approval screen shows that a cat is being moved out of another colony. The proposal's answer is the same whatever the cat's current colony (M5). Settle the clash with SYC-209's `set_cat_colony` for "unassigned cats near their sites" in this spec's favour (M6). |
+| **7** | A: make mistakes unlikely and loud | **Agree only with fixes** | As written, the main check is switched off by the pre-filled name (M1). **Change to:** a blank name field, no colony or guardian named in the email, and any invitation with island reach or more than three colonies goes to `approve_access`. With those, A is better than B. Making a real guardian wait for the inviter costs more than it saves. |
+| **8** | A: volunteers see only the colonies they're assigned | **Agree, and remove island reach for volunteers** | "All colonies" should be one row per current colony, never `reach = 'island'`. That closes B1 for volunteers without relying on route-by-route care. New colonies are not added automatically. |
+| **9** | A: one guardian role; optional end date and label | **Agree** | Note the uniqueness rule (m4), and that expiry is worked out when a request comes in, so no `system:expiry` events get written (m3). |
+| **10** | A: guardian and volunteer screens in three languages; team screens in English | **Agree** | Add the 403 page and the "accepted" email to the list (§13.1 has the 403 page; the email is missing). The named-reviewer gate is right. |
+| **11** | A: a second management OK for staff and management invitations | **Agree, and widen it** | It must also cover role changes that add staff or management, rejoins with those roles, island reach, and removing a manager (B3, M8). Only management may give the OK. |
+
+### On the questions for Syros Cats (§16.2)
+
+- **Q1** should carry M4's corrected sentence about phones that are never reconnected, and be asked together with SYC-67 (the F2 acceptance), as the spec suggests.
+- **Q3** (a guardian marks a cat deceased without review): yes is reasonable, given m1's 30-day flag on the round sheet.
+- **Add Q7:** spotter and snapper (m7). **Add Q8:** do guardians "arrange sterilisation the charity pays for" through this system, or not yet (M6 point 3)?
+
