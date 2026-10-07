@@ -94,6 +94,40 @@ export async function peekRestore(
   return { ok: true, spotters: spotters.map((s) => ({ deviceId: s.device_id, username: s.username })) };
 }
 
+/**
+ * A double tap or a back button (plan step 6): the same phone, asking for the
+ * same spotter, within 60 seconds of the move, gets the same answer, and
+ * nothing moves twice.
+ *
+ * By then the phone's starter id is retired, so it can't pass the ordinary
+ * device check. "The same phone" is proved instead by its secret: the
+ * restored spotter's credential now holds exactly that secret's fingerprint,
+ * and the token says this starter id asked for it. Anything else returns null
+ * and the request goes on to the ordinary checks (and their refusal).
+ */
+export async function replayAfterMove(input: {
+  raw: string;
+  callerDeviceId: string;
+  callerSecretHash: string;
+  spotterDeviceId: string;
+}): Promise<MoveResult | null> {
+  const result = await db.execute(sql`
+    select p.username
+      from mail_tokens t
+      join device_credentials c on c.device_id = t.restored_device_id
+      left join profiles p on p.device_id = t.restored_device_id
+     where t.token_hash = ${hashToken(input.raw)}
+       and t.purpose = 'restore'
+       and t.device_id = ${input.callerDeviceId}
+       and t.restored_device_id = ${input.spotterDeviceId}
+       and t.used_at > now() - make_interval(secs => ${SAME_ANSWER_SECONDS})
+       and c.secret_hash = ${input.callerSecretHash}
+  `);
+  const row = result.rows[0] as { username: string | null } | undefined;
+  if (!row) return null;
+  return { ok: true, deviceId: input.spotterDeviceId, username: row.username };
+}
+
 let moveHook: (() => Promise<void>) | null = null;
 
 /** Tests only (plan test 5): runs right after the credential is rewritten, inside the transaction. */
@@ -137,22 +171,11 @@ export async function redeemRestore(input: {
            and used_at is null and expires_at > now()
         returning token_hash
       `);
-      if (!spent.rows.length) {
-        // A double tap or a back button: the same phone, the same spotter,
-        // within 60 seconds, gets the same answer and nothing moves twice.
-        if (
-          token.used_at &&
-          token.used_seconds_ago !== null &&
-          token.used_seconds_ago < SAME_ANSWER_SECONDS &&
-          token.restored_device_id === spotterDeviceId
-        ) {
-          const [again] = (
-            await tx.execute(sql`select username from profiles where device_id = ${spotterDeviceId}`)
-          ).rows as { username: string | null }[];
-          return { ok: true as const, deviceId: spotterDeviceId, username: again?.username ?? null };
-        }
-        throw new Refused(token.used_at ? "used" : "expired");
-      }
+      // A token already spent (or spent by a request racing this one) is
+      // refused here; the same phone's own retry is answered by
+      // `replayAfterMove`, before the device check, because by then its
+      // starter id is retired.
+      if (!spent.rows.length) throw new Refused(token.used_at ? "used" : "expired");
 
       const chosen = (await keptSafeBy(tx, token.address_hmac)).find((s) => s.device_id === spotterDeviceId);
       if (!chosen) throw new Refused("spotter_not_kept_safe_by_this_address");

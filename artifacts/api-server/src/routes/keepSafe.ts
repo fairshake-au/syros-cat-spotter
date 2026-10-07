@@ -9,7 +9,7 @@ import {
   removeKeepSafeAddress,
   requestRestore,
 } from "../lib/keepSafe/service";
-import { peekRestore, redeemRestore } from "../lib/keepSafe/move";
+import { peekRestore, redeemRestore, replayAfterMove } from "../lib/keepSafe/move";
 import { isTokenShaped, tokenLogId } from "../lib/keepSafe/tokens";
 
 /**
@@ -161,15 +161,30 @@ router.post("/restore/peek", peekLimiter, async (req, res) => {
 router.post("/restore/redeem", redeemLimiter, async (req, res) => {
   noStore(res);
   const body = (req.body ?? {}) as Record<string, unknown>;
+  const raw = body["token"];
+  const spotterDeviceId = typeof body["spotterDeviceId"] === "string" ? body["spotterDeviceId"] : "";
+  const header = req.headers["x-device-secret"];
+  const secret = typeof header === "string" ? header : "";
+  // The same phone's retry within 60 s (its starter id is retired by then).
+  if (isTokenShaped(raw) && secret.length >= 16 && secret.length <= 256 && spotterDeviceId) {
+    const replay = await replayAfterMove({
+      raw,
+      callerDeviceId: String(body["deviceId"] ?? ""),
+      callerSecretHash: hashSecret(secret),
+      spotterDeviceId,
+    });
+    if (replay?.ok) {
+      res.json({ deviceId: replay.deviceId, username: replay.username });
+      return;
+    }
+  }
   const caller = await verifyDeviceSecret(req, res, String(body["deviceId"] ?? ""));
   if (!caller) return;
-  const raw = body["token"];
   if (!isTokenShaped(raw)) return refuseLink(req, res, "malformed", raw);
-  const spotterDeviceId = typeof body["spotterDeviceId"] === "string" ? body["spotterDeviceId"] : "";
   const result = await redeemRestore({
     raw,
     callerDeviceId: caller,
-    callerSecretHash: hashSecret(String(req.headers["x-device-secret"])),
+    callerSecretHash: hashSecret(secret),
     spotterDeviceId,
     abandonCurrent: body["abandonCurrent"] === true,
     ipHash: ipFingerprint(req.ip ?? "unknown"),
