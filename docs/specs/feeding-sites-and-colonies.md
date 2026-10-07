@@ -125,13 +125,17 @@ Two separate buttons, because they mean different things:
 
 ## 3. Picking a spot on the map
 
-Placing and moving sites is the one place the dashboard's plain-pages design strains, because a map normally needs scripts and the dashboard deliberately has none (`script-src` is absent from its security header, and pictures may come only from the dashboard's own address). This spec keeps both rules and makes the map out of ordinary pages:
+Placing and moving sites is the one place the dashboard's plain-pages design strains, because a map normally needs scripts and the dashboard deliberately has none (`script-src` is absent from its security header, and pictures may come only from the dashboard's own address). This spec keeps both rules and makes the map out of ordinary pages. The technique needs no change to the header: a picture button that posts to the same address needs only `img-src 'self'` and `form-action 'self'`, and markers placed by an inline style are allowed by the header's existing `style-src 'unsafe-inline'`.
 
 - **The map is a grid of map tile pictures**, fetched by the server on the dashboard's behalf and served from the dashboard's own address, so the browser never talks to a map company.
+- **Tiles are drawn at a fixed size and never shrunk.** A browser reports the tap point in the picture's *displayed* pixels, so if a phone shrank the picture the server would compute the wrong place. On a 390 px phone (358 px of room after margins) the map is therefore a single column of tiles, or 2x2 tiles of 179 px drawn from a server-made double-size mosaic at exactly that size, never a sideways-scrolling page and never a squeezed picture. The 390 px check (test 20) asserts the displayed size equals the server's assumed size.
 - **Markers are links** laid over the tiles. Tapping a marker opens that site.
-- **To place a spot, each tile is itself a button.** A browser sends the exact point you tapped within an image button. The server turns that point into a position. There is no script involved, and it works on any phone browser.
-- **Moving around is by links:** *Zoom in*, *Zoom out*, and the island's main areas as quick links (Ermoupoli, Vaporia, Kini, Galissas, Finikas, Posidonia, Azolimnos and so on; the list is configuration). Placing a pin needs a close zoom, where one tap on a phone lands within a few metres, and the page starts there when it is opened from a cat or a colony.
-- **No site page links out to another company's map.** Opening a feeding site's coordinates in a third-party maps service would tell that company where the site is. Positions are shown only on the dashboard's own map.
+- **To place a spot, each tile is itself a button.** A browser sends the exact point you tapped within an image button. The server turns that point into a position. There is no script involved. **Whether every phone browser sends that point the same way is checked before the plan is approved**, in Safari on iPhone, Chrome on Android and Firefox (test 17); this spec does not assume it.
+- **Tap accuracy, stated honestly.** A fingertip is about 40 CSS pixels wide; at the closest zoom on Syros that is roughly 10 metres. That is good enough to choose a spot, and the confirmation page lets the person nudge it. It is not "a few metres".
+- **A second way in for anyone who cannot tap:** typed coordinates, with a warning not to copy them from a third-party map. This also serves keyboard and screen-reader users, for whom tap-to-place is impossible.
+- **Moving around is by links:** *Zoom in*, *Zoom out*, and the island's main areas as quick links (Ermoupoli, Vaporia, Kini, Galissas, Finikas, Posidonia, Azolimnos and so on; the list is configuration). The page starts at a close zoom when it is opened from a cat or a colony.
+- **No site page links out to another company's map.** Opening a feeding site's coordinates in a third-party maps service would tell that company where the site is. Positions are shown only on the dashboard's own map. (The dashboard cat page does link sightings out today; SYC-245 removes that, and is a precondition of the "Make a feeding site here" button, §2.3.)
+- **Tile requests are kept out of the logs.** A tile address contains the position to within about 75 metres at the closest zoom, so logging it logs where a site is every time its page opens. The log rules log tile requests as `/api/team/map-tiles/:tile` and nothing more; this is **SYC-255**, which must be done before the map ships (§11.4).
 - **After a tap, a confirmation page** shows a marker on the tapped spot, a small map around it, and the name form. Nothing is saved until *Save* is pressed.
 
 **This is the cheapest correct answer, not the best-looking one.** It is slower to pan than a map people can drag. Decision 1 (§13) lists the alternatives and why this is recommended; the page the team sees is designed so a better map can be swapped in later without changing anything else in this spec.
@@ -184,7 +188,11 @@ Only someone who holds `set_site_public` (an island-wide team power, §7.2) can 
 A site's internal name follows the charity's own convention and so contains the guardian's name: "Vaporia — Eleni's". Publishing that would publish a private person's first name next to an exact place. So:
 
 - **A public site has a *public label*, a separate field, required before it can go public.** Examples: "Kini harbour feeding spot", "Vaporia seafront".
-- The confirmation page rejects a label that **contains the guardian's name or the internal name** (checked after folding accents and case), and a label that **looks like an address** (a number following a street word, in Latin or Greek letters). The check is a guard against accident, not a promise: the person is still responsible for what they type.
+- The confirmation page rejects a label that fails any of these rules, each written out so it can be tested. Names are compared after folding accents, case and the final sigma.
+  1. It contains the site's **own internal name minus the place words**: take the internal name, remove the words that name only a place ("Vaporia", "Kini"), and reject if what is left (normally a person's name) appears as a whole word in the label. So "Vaporia seafront" passes and "Eleni's corner" fails.
+  2. It contains **any word of the current guardian's name or of any earlier guardian's name** in the colony's name history. A site with no colony has no guardian to check, and cannot go public anyway (§4.7).
+  3. It **looks like an address**: a word and a number side by side ("Ermou 12", "Ερμού 12", "12 Ermou"), in Latin or Greek letters. The usual Greek form has no street word, so the rule is "a word and a number side by side", not "a street word followed by a number".
+  The check is a guard against accident, not a promise: the person is still responsible for what they type.
 - The label is the same in every language. It is a place name, like a colony name. If Syros Cats want a Greek and an English label for the same place, that is a later request (§13 Decision 10 notes it).
 
 ### 4.5 Switching off, moving, and retiring a public site
@@ -253,6 +261,8 @@ New strings in `artifacts/cat-spotter/lib/i18n.ts`, in all three languages with 
 ## 6. Colonies and the public
 
 **Nothing from the `colonies` table is public**: not the name, not the guardian, not the centre, not the notes, not the count of cats, not that a colony exists. The colony centre is team-only because publishing it would hand over for free the thing the spine's accepted colony-averaging limit is about (§6.2, §10.5). A public site's link to a colony is invisible to the public by the same rule.
+
+Public copy elsewhere follows the same rule: the Help tab's campaign text (`lib/campaign.ts`) must never use a colony's internal name or its guardian's name (its default title is a public colony name today and is changed in the same plan), and a test checks that no public string contains one.
 
 **One exception is waiting, and is not decided here:** SYC-22 wants a QR scan at a Kini feeding spot to land on "that colony's cats". That is a public page about a colony, with cats shown in relation to an exact place. It reopens the question Syros Cats accepted in F2. §11.6 lists what that ticket must settle first, and Decision 3 recommends nothing of the kind ships with the switch.
 
@@ -332,19 +342,19 @@ A guardian's first name next to a place is personal data about a person who is u
 
 ## 8. Audit: who changed what, and when
 
-Every change to a site or a colony is written as one row in a small add-only history, in the same transaction as the change, so the two always agree. Nothing in it is ever edited or deleted. It follows the pattern already chosen for hiding photos (`photo_visibility_events`, SYC-43 part 2 Decision 3): a history table, not an edited column, so "restore" never wipes "who hid it".
+Every change to a site or a colony is written as one row in a small add-only history, in the same transaction as the change, so the two always agree. Nothing in it is ever edited or deleted, with one exception: a redaction path that blanks a guardian's name when she asks to be forgotten (§7.4, SYC-256). It follows the pattern already chosen for hiding photos (`photo_visibility_events`, SYC-43 part 2 Decision 3): a history table, not an edited column, so "restore" never wipes "who hid it".
 
 **What is recorded**, one row each:
 
 | Event | Detail kept |
 |---|---|
-| Site created / seeded | Name, position, who (a person, or `system:seed` for the first load) |
+| Site created / seeded | Name, position, who (a person, or `system:seed` / `system:migration` for the first load and for sites that existed before this history did) |
 | Site renamed / notes edited / colony changed | Before and after |
 | Site moved | Old position and new position, and the reason |
-| Made public | The label, **whether the guardian was recorded as aware**, who |
-| Made private | Who, and whether it was automatic because the site was moved |
+| Made public | The label, the public code in force, **whether the guardian was recorded as aware** and which wording of the tick was used, who |
+| Made private | Who, and whether it was automatic (the site was moved, changed colony, or its colony's guardian changed) |
 | Public label changed | Before and after |
-| Retired / brought back | Reason |
+| Retired / brought back | Reason; the public code retired with it |
 | Colony created / renamed / guardian changed / notes or centre changed | Before and after |
 
 Cat membership changes need no extra table: each is a `colony` observation, already signed and dated, with `roleAtTime` and the person's id, and the cat's page already shows them.
@@ -355,7 +365,11 @@ Cat membership changes need no extra table: each is a `colony` observation, alre
 
 **What the dashboard shows from it:** a site's own history (§2.2), a colony's history (§2.6), and the "Recently changed" strip (§2.1). There is no separate audit screen.
 
-**What it does not do.** It records what the team did, not what the public saw. Whether anyone saw a site while it was public is not knowable and not recorded.
+**Who looked.** Opening a site's page writes a small read record: person, site number, time, and **no position**. For the most sensitive data in the app this answers "who could have leaked this?" cheaply. It is deliberately not a log of every map or list view (a row per view would mostly be noise, as `roles-and-invites.md` §11.3 says of cat pages); it is site pages only.
+
+**Guardian name in the history.** Every field in this table can hold a guardian's name, so the history has the redaction path of §7.4.
+
+**What it does not do.** It records what the team did and who opened a site page, not what the public saw. Whether anyone saw a site while it was public is not knowable and not recorded.
 
 ---
 
@@ -363,14 +377,17 @@ Cat membership changes need no extra table: each is a `colony` observation, alre
 
 Stated precisely, as the other specs do.
 
-**The dashboard.** Nothing on it works offline. Every page, including the map, is drawn by the server when opened, and every button sends a form. With no signal the page does not load, or a tap on *Save* fails with the browser's own "no connection" page, and nothing is recorded. There is no queue for team changes. In particular the map's tiles are fetched live. A volunteer on a hillside with no data cannot place a pin; they write it down and place it later. An offline volunteer view belongs with the volunteer role (`team-access-and-welfare-queue.md` §7.3) and SYC-54.
+**The dashboard.** Nothing on it works offline. Every page, including the map, is drawn by the server when opened, and every button sends a form. With no signal the page does not load, or a tap on *Save* fails with the browser's own "no connection" page, and nothing is recorded. There is no queue for team changes. In particular the map's tiles are fetched live. A person on a hillside with no data cannot place a pin; they write it down and place it later.
+
+**What a guardian's or volunteer's phone may hold (the roles spec, `roles-and-invites.md` §12, Decision 12, which settles SYC-257).** Exact positions of private feeding sites appear only on the dashboard map, which has no offline copy. The one saved list a phone may hold (guardians' and volunteers', that spec's §12) contains each site's name and a line of directions, never its coordinates, for 72 hours. The app's own offline list of public sites (this spec's Decision 8) is unaffected and holds only public sites. The "how to find it" line (§2.2) is what makes the first possible: it is a small text field on the site, written by the team or the guardian of that colony, and public to no one.
 
 **The app's feeding-spots layer.** The phone keeps the last list of public sites it fetched, so the layer and its cards still work on a hillside with no signal, **for a limited time**:
 
 - The list is stored under its own key, separate from the cats cache, with the time it was fetched.
 - The key and the shape are versioned, so a change forces a re-fetch.
-- A stored list older than the limit (Decision 8: seven days is recommended) is **not shown**; the layer quietly disappears until the phone is next online. A site that was made private is therefore gone from a connected phone within minutes of the next refresh, and from an offline phone within the limit.
-- If the phone has never fetched the list, there is nothing to show offline. The map tiles themselves are partly available offline (the app downloads Syros tiles), so the base map works; the markers need the list.
+- **The app refreshes the list each time the map is opened while the phone is online, at most once every five minutes.** (If it refreshed only on a cold start, a phone left open for a week would never refresh.) Test 18 covers this.
+- A stored list older than the limit (Decision 8: seven days is recommended) is **not shown**; the layer quietly disappears until the phone is next online. A site that was made private is therefore gone from a connected phone within five minutes of the next time the map is opened, and from an offline phone within the limit.
+- If the phone has never fetched the list, there is nothing to show offline. The map tiles themselves are partly available offline (the app downloads Syros tiles), so the base map works; the markers need the list. The card's **"See how you can help" link opens the Help tab, whose campaign content is fetched from the server, so that link needs a connection**; the rest of the card works without one.
 
 **What this does not claim.** It does not claim that the whole app works with no signal. A phone offline for longer than the limit shows no feeding spots, and a phone that already saw a site has already learned where it is; making it private afterwards cannot unlearn that (§4.5).
 
@@ -381,8 +398,8 @@ Stated precisely, as the other specs do.
 - **The public card and layer** (§5.2) are in all three languages, with the same key-parity test as the rest of the app and the same native-speaker review before launch.
 - **The public label** (§4.4) is a place name and the same in all languages (Decision 10).
 - **Colony and site names** are proper names, stored as typed and shown as typed everywhere.
-- **The dashboard is in English**, as every dashboard page already is (the page shell, the welfare queue and the correction forms are English text drawn by the server). Syros Cats staff read and write both Greek and English; names and notes they type can be in either, and search folds accents, case and the final sigma, so `ΜΙΜΗ` finds `Μιμή`. There is no Greek–Latin look-alike matching (`DECISIONS.md` Part 2j). Whether the dashboard should be offered in Greek is Decision 9.
-- **The confirmation page of §4.3 previews the card in all three languages** so that whoever presses the button sees exactly what a Greek or French visitor will see.
+- **The dashboard is in English**, as every dashboard page already is (the page shell, the welfare queue and the correction forms are English text drawn by the server). Syros Cats staff read and write both Greek and English; names and notes they type can be in either, and search folds accents, case and the final sigma, so `ΜΙΜΗ` finds `Μιμή`. There is no Greek–Latin look-alike matching (`DECISIONS.md` Part 2m, SYC-223). Whether the dashboard should be offered in Greek is Decision 9.
+- **The confirmation page of §4.3 previews the card in all three languages** so that whoever presses the button sees exactly what a Greek or French visitor will see. The card's words live in one place only: the server imports the app's string file (`artifacts/cat-spotter/lib/i18n.ts`) rather than keeping a second copy, and the parity test covers both uses.
 
 ---
 
