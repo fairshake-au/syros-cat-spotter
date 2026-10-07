@@ -56,7 +56,8 @@ const dateField = z.preprocess(
     // A real calendar day: 2026-02-31 would otherwise roll on to 3 March.
     .refine((s) => {
       const d = new Date(`${s}T12:00:00Z`);
-      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+      // From 2000: Postgres has no year 0, and no cat here predates the charity.
+      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s && s >= "2000-01-01";
     })
     .optional(),
 );

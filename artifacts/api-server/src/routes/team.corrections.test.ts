@@ -645,6 +645,8 @@ describe("a statement corrected twice", () => {
     expect(page.text).toContain("Someone already corrected this.");
     // Beside the statement the page lands on, not at the top out of sight.
     expect(page.text).toContain(`id="s-${observation.id}"><p class="notice" role="status">Someone already corrected this.`);
+    // Once only.
+    expect(page.text.split("Someone already corrected this.")).toHaveLength(2);
     // The corrected statement offers no second correction.
     expect(page.text).not.toContain(`action="/api/team/statements/${observation.id}/wrong"`);
 
@@ -670,6 +672,21 @@ describe("a statement corrected twice", () => {
     expect(already).toHaveLength(5);
     expect((await rowsFor(catId)).filter((r) => r.supersedesId === observation.id)).toHaveLength(1);
   });
+
+  it("a burst of Looks right taps on many cats doesn't exhaust the connection pool (pre-merge review, S1)", async () => {
+    const clips = [];
+    for (let i = 0; i < 14; i++) {
+      const catId = await newCat();
+      clips.push((await spotterClip(catId)).observation.id);
+    }
+    const results = await Promise.all(
+      clips.flatMap((id) => [
+        form(`/api/team/likely/${id}/looks-right`).send({}),
+        form(`/api/team/likely/${id}/looks-right`).send({}),
+      ]),
+    );
+    expect(results.every((r) => r.status === 303)).toBe(true);
+  }, 20_000);
 
   it("only one of several concurrent Looks right taps is written", async () => {
     const catId = await newCat();
@@ -701,7 +718,7 @@ describe("edges", () => {
       .insert(observationsTable)
       .values({ catId, kind: "life_status", value: { status: "street" }, deviceId: SPOTTER, roleAtTime: "public", observedAt: new Date() })
       .returning();
-    for (const date of ["2026-02-31", "2026-04-31", "2026-13-01"]) {
+    for (const date of ["2026-02-31", "2026-04-31", "2026-13-01", "0000-01-01", "1899-12-31"]) {
       const a = await form(`/api/team/cats/${catId}/life-status`).send({ status: "deceased", reason: "r", date });
       const b = await form(`/api/team/cats/${catId}/sterilisation`).send({ sterilised: "yes", reason: "r", date });
       const c = await form(`/api/team/statements/${life[0]!.id}/wrong`).send({ choice: "deceased", reason: "r", date });

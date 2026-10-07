@@ -1,13 +1,12 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { can, type Capability } from "./capabilities";
 import {
-  loadCatRecords,
   ObservationRefused,
   writeObservation,
   type ObservationKind,
 } from "./observations";
-import { resolveCat } from "./resolve";
+import { resolveSterilised } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 
@@ -249,23 +248,26 @@ export async function agreeWithClip(
       sql`select pg_advisory_xact_lock(hashtext('likely-review'), ${spotter.catId})`,
     );
 
+    // Everything below reads through `tx`, never the global `db`: a second
+    // pool connection taken while this transaction holds one (and others
+    // queue on the advisory lock holding theirs) can exhaust the pool and
+    // hang every request (pre-merge review of #99, S1).
     const catObservations = await tx
       .select()
       .from(observationsTable)
       .where(
-        and(eq(observationsTable.catId, spotter.catId), eq(observationsTable.kind, "ear_tip")),
+        and(
+          eq(observationsTable.catId, spotter.catId),
+          inArray(observationsTable.kind, ["ear_tip", "sterilised"]),
+        ),
       );
-    if (newestActiveClip(catObservations)?.id !== spotter.id) return "already";
+    const earTips = catObservations.filter((o) => o.kind === "ear_tip");
+    if (newestActiveClip(earTips)?.id !== spotter.id) return "already";
     // A stale list page: the cat may have been confirmed, or marked not
-    // clipped, since. Only a cat still at Likely is agreed with.
-    const record = (await loadCatRecords([spotter.catId])).get(spotter.catId);
-    if (
-      !record ||
-      resolveCat(record.observations, record.evidenceOfLife, new Date()).sterilised.confidence !==
-        "likely"
-    ) {
-      return "already";
-    }
+    // clipped, since. Only a cat still at Likely is agreed with. The
+    // sterilised answer needs only the cat's ear-tip and sterilised
+    // statements (resolveSterilised; no imports exist in phase 1).
+    if (resolveSterilised(catObservations, []).confidence !== "likely") return "already";
 
     return writeObservation(tx, {
       catId: spotter.catId,
