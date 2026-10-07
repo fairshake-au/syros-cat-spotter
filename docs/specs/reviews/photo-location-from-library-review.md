@@ -93,3 +93,66 @@ The effort claim is also wrong: option C says "new notification wording in three
 
 **Fix.** Split §7 by platform. **Phone apps:** reading the photo, the map (once the Syros map is downloaded) and saving for later all work without signal. **Website:** reading the photo and saving for later work. The map shows grey squares, the pin still starts at the photo's position and can be saved there, but it can't be checked against streets until signal returns (SYC-167). Matching and sending need a connection everywhere.
 
+---
+
+## Minor
+
+### m1 · §6's "no change needed" for last seen is not quite true (§6) — CONFIRMED
+The cat list's "last seen" uses the newest sighting date (`max(created_at)` in `catHelpers.ts`), so that is fine. But the resolve response builds the cat it returns with `lastSeenAt: sighting.createdAt` (`routes/sightings.ts`), i.e. *this* sighting's date. A spotter who logs a 10-day-old photo of a cat another spotter saw yesterday is told on the reward screen that the cat was last seen 10 days ago. **Fix:** use the newest of this date and the cat's stored last-seen date. Add a test.
+
+### m2 · Backdating becomes a two-tap job for anyone, so say what that means for streaks (§3.4, Decision 1)
+iPhone Photos has a built-in "Adjust Date & Time" (and "Adjust Location"). With this feature, any spotter can fill a missed streak day up to the age limit, with no modified app. It was already possible by changing the phone's clock, and `captureTime.ts` calls the streak "a vanity" prize, so this is acceptable. But Decision 1's risk cells only mention it for "no limit". **Fix:** one sentence in Decision 1 B's risks, and in the proposed DECISIONS entry: "a photo's date can be edited by its owner. We accept that this lets a spotter fill streak days within the limit."
+
+### m3 · Location switched off *and* a photo with no position is still a dead end (§3.1, §3.3, Decision 6)
+§3.1 fixes the "location permission is needed" screen only when the photo supplies a position. §3.3 starts in Ermoupoli only when the phone is "not on Syros". When the phone's location is refused or times out (`useLocation` sets `denied`) and the photo has no position (most website photos, all Android ones per M5), `pickedCoords` is never set and "Check for matches" stays disabled, as today. **Fix:** treat "no usable phone position" like "phone off-island": start in Ermoupoli with the `mapStartedInTown` line. Add the case to test 5.
+
+### m4 · "Read once … then forgotten" is too strong (§1, §5.1)
+The *parsed* position is forgotten, but the photo file still carries its location tags wherever the app keeps it: in the save-for-later queue (IndexedDB or phone storage), in the review photo store (`savePendingPhoto(review-<id>)`), and in the upload until the server strips it. That's unchanged and on-device only, but §5 should say so precisely, as it promises to make the claim "checkable". **Fix:** "the app never reads the position again and never stores it as its own field; the photo file itself keeps its tags on the phone until it is sent, and the server removes them before storing it or showing it to the AI (`validatePhotoBase64` → `normalizeToJpeg`, which is also what `matching.ts` receives)."
+
+### m5 · "Never sent anywhere new" misses the map tiles (§1, §5)
+On the website the map loads tiles straight from OpenStreetMap's servers, so starting the map at the photo tells OpenStreetMap which few hundred metres the visitor is looking at, together with their internet address. Today it learns the phone's area instead. This is small and of the same kind as today, but the claim should be accurate. **Fix:** a sentence in §5, and a pointer to SYC-167 (a tile cache would also reduce it).
+
+### m6 · Say which time zone "Photo taken 18:42" is shown in (§3.4, §8 `photoTakenAt`)
+A tourist's phone set to German time will format the instant as 17:42 if left to the device. Streak days are counted in Athens time. **Fix:** always show the time in Athens time, matching how the day is counted, and test it with the device time zone set to Europe/Berlin.
+
+### m7 · Test 6 can't be written as stated (§9.6)
+"A snapshot test fails if a photo-position field appears in … a log call" has no mechanical form: there are no log calls on the phone to snapshot, and a field-name check is beaten by M1. **Fix:** replace with value-based tests: (a) the queued item's keys equal today's key set exactly; (b) the serialised review route doesn't contain the fixture's full-precision coordinates (M1); (c) a source check that the module reading the tags is imported only by the spot screen's photo handling.
+
+### m8 · The EXIF test only checks for an EXIF block, not XMP (§5.3, data spine test 13)
+`imageValidation.exif.test.ts` asserts `exif` is undefined after re-encoding. Photos edited in Apple Photos (including "Adjust Location") can also carry position in an XMP block. `sharp` drops XMP by default too, so nothing leaks today, but the test wouldn't notice if that changed. This feature asks people to upload more library photos, which is where edited ones come from. **Fix:** add `expect(outputMeta.xmp).toBeUndefined()` to both cases. It's a one-line server test, against §5.3's "adds none to the server", and is worth it.
+
+### m9 · "Tens of metres" isn't always true; use the accuracy the photo records (§6)
+iPhones record the fix's own error (`GPSHPositioningError`). Indoors and in Ermoupoli's narrow streets it can be hundreds of metres, which matters against a 500 m matching edge. **Fix:** when that value is over 150 m, still start there, but use the "drag if it's not quite right" line more firmly ("This photo's location is approximate"). Or just state the limitation in §6.
+
+### m10 · The "needs help" link reuses the photo but not its time (§3.4)
+`NeedsHelpLink` hands the photo and the pin to a welfare report. With a library photo, the report reaches the team as "now" while the sighting says "3 October". **Fix:** say in §12 whether the handoff should carry the photo's time; if not, file it.
+
+### m11 · Canonical-facts and wording
+- **"Today" framing.** The spec uses "today"/"as today" about 15 times and has a "Nothing is built" status line. A change spec needs to describe the problem, so §2 and §13 may keep it, but §1, §3 and §5 should describe the product's behaviour on its own terms (e.g. "When a photo says nothing about where it was taken, the map starts near the spotter"), per the rule that specs don't split "built today" from "proposed".
+- **"This chip does not edit that file"** (§11) is internal jargon in a document Samuel and Syros Cats read. Say "this spec doesn't edit DECISIONS.md".
+- Terms are otherwise right: "spotter", "cat guardians and residents", no "colony carer", no money figures. The audiences are framed as complementary (§2 table). Offline is precise apart from M7.
+
+---
+
+## The six decisions — verdicts
+
+| # | Spec recommends | Verdict | Why |
+|---|---|---|---|
+| 1 · Age limit | B, 14 days | **Agree with a limit below 30; change the number to 21 days** | B's own benefit cell says it covers "home from holiday", but a two-week Syros holiday logged at home a few days later already has photos older than 14 days. 21 days covers that, still leaves 9 days of queue life before the 30-day stale mark, and leaves 9 days for the reward questions, which are almost always answered at once. It's still one constant. Add m2's sentence. |
+| 2 · Same second | B, build SYC-87 first | **Disagree; replace with the phone-side fix in M4** | The real harm is bigger (second photo discarded, dead 409 card), but the fix is client-only: make different photos' times unique by a millisecond, and catch the same photo twice on the phone. SYC-87 needs a migration behind 0012 and SYC-3, and on its own it opens double points for re-logging one photo. Keep SYC-87 Low and independent. |
+| 3 · "Spotted again" | A, suppress over 48 h | **Disagree; the premise is out of date (M6)** | Only the owner is told straight away; everyone else gets a timeless evening round-up. Leave the round-up alone. For the owner's push, say "seen on Tuesday" for photos over 24 h old. Never suppress the owner's push: they care most. It's one English server string, not three languages. |
+| 4 · Website reader | A, our own JPEG reader | **Agree, conditional on B1** | Small and dependency-free is right for a path that rarely pays off. If the device check shows phone browsers strip location, cut it to reading the time only. Keep the "never throws" tests, and also read the `OffsetTimeOriginal` tag (M3). |
+| 5 · Android permission | A, don't ask | **Agree with A, but the reason and option B are wrong (M5)** | The system photo picker removes location whatever the app asks for, so asking for the permission would add a frightening prompt for nothing. The real alternative is the old document picker plus the permission. Add C, "revisit when Google ships the in-picker location choice", as a dated ticket. |
+| 6 · Ermoupoli start | A | **Agree, and widen it** | Also start in Ermoupoli when the phone's location is refused or unavailable (m3). Don't use Ermoupoli to cover an off-island *photo* position: stop and say so (M2). |
+
+---
+
+## What held up
+
+- **No new public emitter.** The feature changes only where the map starts and which time is sent. The public serialiser (data spine §10.6) and the "no sighting coordinate in public" rule (§6.4.1, test 8) are untouched. Public "last seen" stays a date.
+- **The server strips location before anything else sees the photo.** `validatePhotoBase64` re-encodes through `sharp` without metadata, and both the stored photo *and* the copy sent to the AI matcher (`matching.ts`, which receives `normalizedBase64`) are the stripped version. The welfare report route (`routes/reports.ts`) goes through the same function. Server logs record no bodies or query strings (`logger.ts`), and errors are logged as name and code only.
+- **No new spoofing power.** A crafted photo position only moves where the map *starts*. Anyone could already drag the pin anywhere, and a modified app can send any position or any time within 30 days. The 500 m match and 1.5 km pick rules measure from the saved pin and the published square, as §6 says.
+- **True dates make the death rule work better.** Data spine §3.2 clears a `deceased` record only with a sighting dated *after* it. Today a 10-day-old library photo logged now would wrongly "revive" a cat recorded as dead last week; with the photo's real date, it correctly doesn't.
+- **The compression point is right.** `shrink` and `optimizePhotoForUpload` both re-encode, so reading the tags from the picker's answer before either step (§4) is the only reliable place.
+- **The §13 corrections are accurate.** The blurring/test section numbers, the 30-day clamp in `captureTime.ts`, the 30-day stale mark in `offlineQueue.ts`, the repeat-protection key, and the Android picker passing signed numbers and no time-zone offset all check out against the code.
+
