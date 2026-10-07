@@ -158,3 +158,160 @@ Until SYC-53 lands, staff hold all four, and "confirm" in this document means "s
 ### 4.4 Correcting a wrong colour or mark
 
 The team corrects from the cat's dashboard page, using the pattern PR #99 established for life status and sterilisation: every correction is a new signed statement with a required reason, nothing is overwritten, and "Mark wrong" on a standing statement writes a superseding one. A wrong colour reported by the public through "Report an issue" (SYC-44, *wrong information about this cat*) reaches the team the same way `choose-a-different-cat.md` §4.7 already describes. Spotters never edit colours or marks directly.
+
+---
+
+## 5. What people actually see and do
+
+### 5.1 A tourist or resident, spotting
+
+**Nothing changes before the points.** The spot flow and the reward screen are untouched; no appearance question appears between a spotter and their points (data spine §7).
+
+Appearance is asked in the two places where describing the cat feels like part of the fun, and nowhere else:
+
+1. **When naming a new cat.** The person is already looking at the cat and deciding what to call it. Below the name, one optional line, pre-filled where the matching model has already read the colour:
+
+   > *Agatha looks* **Ginger · Tabby** *— right?*
+   > `Yes` `Change` `Skip`
+
+   *Change* opens the colour chips (pick one or two, or *Not sure*). A second optional line, *"Anything that makes her easy to spot?"*, opens the marking chips with pictures. Both can be skipped, and skipping both costs nothing.
+
+2. **On the "add details later" card** (`add-details-later.md` §8 names this as the next kind of detail), for a cat the person has spotted before whose colour is unconfirmed or *Not sure*, or that has no markings recorded. The same two lines, one at a time, never more than one new question on the card per visit. It is hidden offline, like the rest of the card.
+
+Taking a pre-filled "Yes" is recorded as a **prompted** confirmation (it agrees with the machine); picking something different is recorded as a **volunteered** statement. The difference matters for §4.2, and it is how the record tells a considered answer from a tap-through.
+
+**No points for appearance.** The data spine's guard (one person, one attribute, one cat counts once) is satisfied by simply paying nothing here. If Samuel later wants a small reward, SYC-38 owns points and it is a one-line change; this spec does not create a way to farm points by tapping colours.
+
+### 5.2 On the cat's page
+
+The page shows what is known, quietly, next to the location label:
+
+> **Ginger tabby** · White paws · Kinked tail
+
+Nothing is shown for a cat whose colour is *Not sure* and has no markings. The page never says how sure the app is, and never shows "suggested by 1 person". Those belong to the team.
+
+### 5.3 The team
+
+On a cat's dashboard page, an **Appearance** section next to *Correct the record*:
+
+- the current colour and markings, with every statement beneath (the machine's reading, each spotter's suggestion, any team statement), who made it and when;
+- **Confirm** (one tap: *that's right*) and **Correct** (pick the right chips, with a short reason). Confirm writes a team statement with the same value; the history shows it linked to what it confirmed, as PR #99's *Looks right* does;
+- **Mark wrong** on any single statement.
+
+A small **"Colour check"** list in the top bar shows cats whose colour is the machine's alone, or *Not sure*, with the main photo, newest first, and the same Confirm / Correct buttons. It is low priority by design, a few minutes a week, and it is **not** the SYC-53 confirmation queue. When cat guardians have accounts, they see the same list for their own colonies.
+
+### 5.4 Cat guardians (once SYC-53 gives them accounts)
+
+A cat guardian sees the same Appearance section for cats in their own colonies, with `set_appearance` scoped to those colonies. They know their cats; their word is authoritative. Until then, a guardian who spots a wrong colour does what anyone does: "Report an issue".
+
+---
+
+## 6. Health: what it means, and what is public
+
+### 6.1 Why there is no "health status"
+
+The original design wanted a badge row: *Ear-tipped*, *Looks healthy*. Both halves have problems.
+
+- **"Looks healthy"** is a claim about a cat's body from a stranger's glance. Most illness in street cats is invisible in a photo. A green badge on a cat that is quietly unwell tells the next person not to worry, which is the opposite of what the app is for. And a status that is true on Tuesday is a falsehood by Friday.
+- **"Ear-tipped"** is already handled, and handled carefully. It is the sterilised line on the cat page (data spine §4.2), and nothing here repeats it as a badge.
+
+What remains is a set of different facts, with different audiences. Calling them all "health status" is what made SYC-2 look like one decision when it is really three.
+
+### 6.2 The three kinds of fact
+
+| Kind | Examples | Who can state it | Who sees it |
+|---|---|---|---|
+| **A. On the cat page already** | Sterilised; ear tip; life status (street, homed, in care, no longer with us) | As the data spine says (§3.2, §4.6) | Everyone, in the existing lines |
+| **B. Vaccination** | Rabies; the combination vaccine | Vet, staff. Never a spotter | Everyone, as a dated positive line, if D6 is approved; the team always |
+| **C. Condition** | Illness, injury, a long-term condition, treatment under way, pregnancy | Team (and later vet, and guardian for their cats), as a **team-only note** | **The team and the people with `view_health_notes`. Never the public, never in any public payload** |
+
+**Public rule, in one sentence: the public sees what helps them find, recognise or help a cat, and nothing about its medical history.**
+
+### 6.3 Vaccination (kind B)
+
+A vaccination is a clinical fact. A spotter cannot see it in a photo, so a spotter cannot state it, and there is no spotter question for it. This is the same logic as the old draft's "sterilised, vaccinated: not visible at all, so never machine-read and never crowd-stated" (§5.1 there), which is still right.
+
+- It is an observation of a new kind, `vaccinated` (§10), stated by a vet or the team, with the date it happened as the observation's date and the vaccine named from a short list (rabies, the combination vaccine, other).
+- The team and, later, vets enter it from the cat's dashboard page with `set_vaccination`. Syros Cats' existing records could populate it through the optional import (`records-import.md`) without any change here.
+- **There is no *Likely* level and no negative.** The state is either *a vet or the team has recorded a vaccination* (with its date) or *nothing recorded*. *Nothing recorded* is **not** "not vaccinated"; it means we do not know.
+- **It never claims protection.** The line says "Vaccinated against rabies, June 2026", never "up to date" or "protected". The team's own view shows how long ago, so a re-vaccination round can be planned.
+- It feeds the **Care timeline** that SYC-5 asked for: the timeline's "Vaccinated" row is read from these observations, not from a new `cat_updates` type. (The care timeline's existing sterilisation row reads from `cat_updates`; SYC-5's build should make both read from the same observations. That coordination is SYC-5's.)
+
+### 6.4 Conditions (kind C) and the urgent route
+
+This is the part that must not go wrong.
+
+**The urgent route is untouched and always first.** "This cat needs help" (`team-access-and-welfare-queue.md` §4) sits on every cat page, in the camera flow and on the map, and it points a worried person to a vet first (F1). The rules below keep it that way:
+
+1. **There is no condition control for the public, anywhere.** No "is this cat healthy?" question, no health chips, no free-text health box in the spot flow. A spotter who is worried about a cat uses the report route, or the optional note on the details card, which the team sees and highlights (data spine §7.1).
+2. **A recorded condition never replaces, hides or closes a welfare report**, and a welfare report never writes a condition. They are different records: the report is the queue's, the condition is the cat's. A team member can see both side by side.
+3. **A recorded condition never changes what the cat page offers.** The "needs help" link is on every page of a cat whatever the team has noted about it, including a cat noted as "treatment under way". Someone seeing a *new* problem on a cat already under treatment must still be able to say so.
+4. **Nothing on a public page implies the cat is well.** No "healthy", "fine" or "no known problems". A page that is silent about health says nothing, and says it equally for every cat.
+5. **Team notes about condition are plain, team-only text** (the existing team note, `add_team_note`), with `view_health_notes` controlling who reads them as roles arrive. They are not a structured status and nothing is derived from them (D5).
+
+Why not a structured, team-only condition list now: nobody has told us what Syros Cats track. The old draft invented the list; inventing it again repeats the mistake. A free-text team note costs nothing and loses nothing. Once Syros Cats say what they actually keep (§12, question 2), a small fixed list can be added the same way coat was, without changing anything here.
+
+### 6.5 What is public, in full
+
+| Fact | Public? | How |
+|---|---|---|
+| Colour | Yes | The resolved value only (one or two colours, or none) |
+| Markings | Yes | The resolved list only |
+| Sterilised | Yes | Existing four lines (D4 in `DECISIONS.md` shows a confirmed negative) |
+| Ear tip | Yes | Existing; not repeated as a marking |
+| Life status / not seen since | Yes | Existing lines |
+| Vaccinated | Yes, **positive and dated only**, if D6 is approved | "Vaccinated against rabies, June 2026" |
+| Not vaccinated / unknown | **No**, never shown | Absence is silent |
+| Condition, treatment, pregnancy, notes | **Never** | Team only |
+| Welfare reports and outcomes | **Never** | Team only (data spine §10.1) |
+| Who stated what, when, how many people | **Never** | Team only |
+
+Why vaccination gets a positive-only line while sterilised shows a confirmed negative (D4): the sterilisation status is the app's central purpose and Samuel decided honesty there outweighs the targeting risk. Vaccination has no such mission weight. A public "not vaccinated" would be a pure label on a cat that serves no donor, spotter or guardian, and would add to the same targeting signal D4 already worried about.
+
+---
+
+## 7. How this helps matching and finding a cat
+
+### 7.1 Matching is unchanged
+
+The photo decides. Colour is never used to pre-filter the matcher's suggestions, and `choose-a-different-cat.md` §4.7 already says so. This spec keeps that rule and adds nothing to the matching call. Neither colour nor markings are fed into the model's prompt (D8), because the model would then be partly agreeing with a reading it produced itself, and a wrong colour would quietly steer it away from the right cat.
+
+### 7.2 Finding a cat by hand
+
+- **The colour filter in "Find the cat"** now sits on top of the resolved colour: the machine's reading, improved by people's corrections. More cats have a colour, and the wrong ones get fixed. All the filter's protections stay exactly as specified: *All* by default, more than one colour allowed, *Colour not known* cats always stay visible, and the "N more cats in other colours. Show all colours." line sits above "Can't find it? Add it as a new cat".
+- **Markings show on each card** in the picker as one short line ("White paws · Kinked tail"). This lets a spotter compare in the moment, the way people actually say it: "the one with the missing eye". They are **not a filter**. A cat with no markings recorded is most cats, and a "Kinked tail" filter would hide cats that simply have not been described. If a marking filter is ever added it must keep the colour rule: cats with no marking recorded always stay in the list.
+- **A hand pick that disagrees with a confirmed colour** is flagged to the team in the "Matched by hand" review ("the cat picked is recorded as black; the sighting's photo was read as ginger"). The spotter sees nothing different. This extends the review flags in `choose-a-different-cat.md` §4.3 and is team-only.
+
+### 7.3 The cat-alog
+
+The ticket noted that colour data makes the design's "Needs vet" and "Desexed" filters possible. They are not equally good ideas.
+
+- **Colour** is added to the cat-alog's filters (the same chips, the same "Colour not known" rule).
+- **"Needs vet"** is not built, now or later. It would be a public list of cats marked as unwell, which is exactly the health information §6 keeps private, and it would invite people to treat the filter as a substitute for the urgent route. (D7)
+- **A sterilised / not-sterilised filter** is deferred. The public "Probably sterilised" line is still behind its gate (`add-details-later.md` §6, Q2), and a filter over a status that is not yet public would leak it. Revisit when that gate opens.
+
+---
+
+## 8. What works offline
+
+Being precise, because offline support in this app is partial:
+
+| Thing | Offline? |
+|---|---|
+| Seeing a cat's colour and markings on its page or card, for cats in the last catalogue the phone loaded | **Yes.** They ride in the cached public catalogue (§10.4). A stale cache can show an out-of-date colour; it corrects on the next fetch |
+| The colour filter in "Find the cat" | **Yes, over the cached catalogue.** The picker is built from the cached cats, so filtering needs no signal. A cat that arrived after the last load will not appear, as for the rest of the picker |
+| Saying a cat's colour or markings when naming a new cat | **No.** Naming a new cat happens after matching, which needs signal. A spot saved offline is matched and named when it syncs |
+| Suggesting colour or markings on the "add details later" card | **No.** The card is hidden offline, as it is now. Appearance suggestions are not added to the offline queue (D9) |
+| Team confirm / correct / vaccination | **No.** The dashboard is online only. A volunteer offline view is explicitly not built (team-access spec §7.3) |
+
+So: appearance **reading** works with the cached catalogue; appearance **writing** needs a connection. Nothing here queues, so nothing here can go stale in the queue or race a team correction.
+
+---
+
+## 9. English, Greek and French
+
+- Every label in §3 exists in all three languages, with the same code underneath, so a Greek spotter's *Τιγρέ* and a French spotter's *Tigré* are the same `tabby`, and one filter chip finds both.
+- **The labels in §3 are drafts for a local check before launch** (§12, question 1). The strings go in the existing translation files (`lib/i18n.ts`), with a test that every key exists in `en`, `el` and `fr`, as `catStatusLines` already has.
+- Chips carry **the word as well as a picture**, so they work for colour-blind people and in bright sun, as `choose-a-different-cat.md` §4.7 requires.
+- Wording for the questions, the "nothing special" and "can't tell" answers, the vaccination line and the team-only Appearance section is written once in plain English and translated in the same change; nothing ships in one language only.
+- Public copy never uses the words "healthy", "sick", "diseased" or "unvaccinated". The vaccination line is a statement of a fact that happened, in all three languages.
