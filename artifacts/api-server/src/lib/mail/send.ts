@@ -1,5 +1,6 @@
-import { createHash } from "node:crypto";
 import { logger } from "../logger";
+import { addressFingerprint, type FingerprintLabel } from "./fingerprint";
+import { KEEP_SAFE_TEMPLATES } from "./keepSafeTemplates";
 import { resendSend } from "./resend";
 
 /**
@@ -26,7 +27,9 @@ import { resendSend } from "./resend";
  *   mail (`mail.`) uses RESEND_API_KEY; news mail (`news.`) uses
  *   RESEND_NEWS_API_KEY (spec §2.10: separate keys, so either can be
  *   rotated or revoked alone).
- * - **Whether it's switched on.** Slice 1 switches on `welfare_alert` only.
+ * - **Whether it's switched on.** SYC-42 switched on `welfare_alert`; SYC-3
+ *   switches on `keep_safe_verify` and `restore_link`. `forget` stays off: the
+ *   build sends no "you've been forgotten" email (plan review A9).
  *   `urgent_alert` is reserved and OFF: Samuel kept F1 on 1 Oct 2026
  *   ("Nothing pages a human, by design"). Switching it on reverses F1 and
  *   needs his decision, not a code edit.
@@ -103,11 +106,27 @@ const IDENTITY_KEY: Record<MailIdentity, string> = {
   news: "RESEND_NEWS_API_KEY",
 };
 
-const DEFAULT_ENABLED: readonly MailPurpose[] = ["welfare_alert"];
+const DEFAULT_ENABLED: readonly MailPurpose[] = ["welfare_alert", "keep_safe_verify", "restore_link"];
 let enabledOverride: readonly MailPurpose[] | null = null;
 
-/** Never shed under the priority budget (spec §2.10). */
-export const NEVER_SHED_PURPOSES: readonly MailPurpose[] = ["welfare_alert"];
+/** Never shed under the priority budget (spec §2.10). A restore link is a sign-in (review A7). */
+export const NEVER_SHED_PURPOSES: readonly MailPurpose[] = ["welfare_alert", "restore_link"];
+
+/** Which fingerprint label a purpose's recipient is hashed under (fingerprint.ts). */
+export const PURPOSE_LABEL: Record<MailPurpose, Exclude<FingerprintLabel, "ip">> = {
+  welfare_alert: "team",
+  urgent_alert: "team",
+  public_verify: "news",
+  report_ack: "report",
+  report_outcome: "report",
+  cat_news: "news",
+  visit_summary: "news",
+  promise_withdrawn: "news",
+  donation_receipt: "all",
+  keep_safe_verify: "keep_safe",
+  restore_link: "keep_safe",
+  forget: "keep_safe",
+};
 
 /** `contentId` lets the HTML show the attachment inline with `cid:<contentId>`. */
 export type MailAttachment = { filename: string; content: Buffer; contentId?: string };
@@ -136,8 +155,8 @@ export type MailMessage = TeamMessage | PublicMessage;
 export type RenderedTemplate = { subject: string; text: string; html: string };
 export type FixedTemplate = (params: Record<string, string>) => RenderedTemplate;
 
-/** Fixed templates for public purposes. None yet: SYC-3 and Slice 3 add theirs. */
-const DEFAULT_TEMPLATES: Record<string, FixedTemplate> = {};
+/** Fixed templates for public purposes. SYC-42 Slice 3 adds the report ones. */
+const DEFAULT_TEMPLATES: Record<string, FixedTemplate> = { ...KEEP_SAFE_TEMPLATES };
 let templatesOverride: Record<string, FixedTemplate> | null = null;
 
 export type SendResult =
@@ -192,12 +211,16 @@ export function __setTemplatesForTest(templates: Record<string, FixedTemplate> |
 }
 
 /**
- * For logs only. Unsalted and truncated: good enough to tell two log lines
- * apart, not a privacy control. SYC-3's HMAC fingerprint key replaces it
- * (Linear follow-up).
+ * The recipient as it appears in logs and `mail_outbox.recipient_hash`: the
+ * same keyed fingerprint as `email_contacts.address_hmac`, under the
+ * purpose's label (SYC-179). Never an unkeyed hash: with no key it's `nokey`.
  */
-export function hashRecipient(address: string): string {
-  return createHash("sha256").update(address.trim().toLowerCase()).digest("hex").slice(0, 16);
+export function hashRecipient(address: string, purpose: MailPurpose = "welfare_alert"): string {
+  try {
+    return addressFingerprint(PURPOSE_LABEL[purpose], address);
+  } catch {
+    return "nokey";
+  }
 }
 
 export function escapeHtml(text: string): string {
@@ -298,11 +321,11 @@ export async function sendMail(message: MailMessage, deps: SendDeps = {}): Promi
       return { ok: false, reason: "unknown_template" };
     }
     if (await deps.isSuppressed(to)) {
-      log.warn({ purpose, recipientHash: hashRecipient(to) }, "mail: not sent, address is suppressed");
+      log.warn({ purpose, recipientHash: hashRecipient(to, purpose) }, "mail: not sent, address is suppressed");
       return { ok: false, reason: "suppressed" };
     }
     if (rule.recipient === "verified_public" && !(await deps.isVerified!(to))) {
-      log.warn({ purpose, recipientHash: hashRecipient(to) }, "mail: not sent, address is not verified (F7b)");
+      log.warn({ purpose, recipientHash: hashRecipient(to, purpose) }, "mail: not sent, address is not verified (F7b)");
       return { ok: false, reason: "unverified" };
     }
     content = template(pub.params ?? {});
@@ -315,7 +338,7 @@ export async function sendMail(message: MailMessage, deps: SendDeps = {}): Promi
     return { ok: false, reason: "not_configured" };
   }
 
-  const recipientHash = hashRecipient(to);
+  const recipientHash = hashRecipient(to, purpose);
   const result = await resendSend(
     apiKey,
     {

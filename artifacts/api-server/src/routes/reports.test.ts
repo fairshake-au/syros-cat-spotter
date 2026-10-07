@@ -178,7 +178,8 @@ describe("POST /api/reports", () => {
     expect(outbox).toHaveLength(1);
     expect(outbox[0]!.purpose).toBe("welfare_alert");
     expect(JSON.stringify(outbox[0]!.payload)).not.toContain("alerts@example.org");
-    expect(outbox[0]!.recipientHash).toMatch(/^[0-9a-f]{16}$/);
+    // SYC-179: the keyed fingerprint, never an unkeyed hash.
+    expect(outbox[0]!.recipientHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("test 7 [§8.6 #8]: a report submitted while every mail path fails still writes the row", async () => {
