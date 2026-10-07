@@ -96,7 +96,7 @@ A list of every colony by name, with its cat guardian's name, how many feeding s
 ### 2.7 Naming and renaming a colony
 
 - **Creating a colony:** a name and, optionally, the guardian's name and notes. The page shows the convention: *a place and the person who looks after it, like "Vaporia — Eleni's"*. It checks the name is not already taken, ignoring capitals, accents and the final-sigma difference, using the same folding as cat names. If it clashes, the page says which colony already has the name and links to it, as the cat rename does.
-- **Renaming:** same form. Everything points at a colony by its number, never its name, so renaming moves nothing: its cats, its sites, any QR code (§11) stay attached. The old name goes into the colony's name history, so searching for it still finds the colony, and so a future import (`records-import.md`) still matches.
+- **Renaming:** same form. Everything points at a colony by its number, never its name, so renaming moves nothing: its cats, its sites, any QR code (§11.6) stay attached. The old name goes into the colony's name history, so searching for it still finds the colony, and so a future import (`records-import.md`) still matches.
 - **Changing the guardian** is an edit of the guardian's name (and, normally, a rename to match). The two fields are separate on purpose: the name is how the colony is *spoken about*, the guardian's name is who to ring, and they do not always change together.
 - **Names are proper names.** They are stored once, as typed, and shown exactly like that in every language. "Vaporia — Eleni's" is never translated.
 
@@ -122,7 +122,8 @@ Placing and moving sites is the one place the dashboard's plain-pages design str
 - **The map is a grid of map tile pictures**, fetched by the server on the dashboard's behalf and served from the dashboard's own address, so the browser never talks to a map company.
 - **Markers are links** laid over the tiles. Tapping a marker opens that site.
 - **To place a spot, each tile is itself a button.** A browser sends the exact point you tapped within an image button. The server turns that point into a position. There is no script involved, and it works on any phone browser.
-- **Moving around is by links:** *Zoom in*, *Zoom out*, and the island's main areas as quick links (Ermoupoli, Vaporia, Kini, Galissas, Finikas, Posidonia, Azolimnos and so on; the list is configuration). Placing a pin needs a close zoom (about 10 metres to a tap on a phone), and the page starts there when it is opened from a cat or a colony.
+- **Moving around is by links:** *Zoom in*, *Zoom out*, and the island's main areas as quick links (Ermoupoli, Vaporia, Kini, Galissas, Finikas, Posidonia, Azolimnos and so on; the list is configuration). Placing a pin needs a close zoom, where one tap on a phone lands within a few metres, and the page starts there when it is opened from a cat or a colony.
+- **No site page links out to another company's map.** Opening a feeding site's coordinates in a third-party maps service would tell that company where the site is. Positions are shown only on the dashboard's own map.
 - **After a tap, a confirmation page** shows a marker on the tapped spot, a small map around it, and the name form. Nothing is saved until *Save* is pressed.
 
 **This is the cheapest correct answer, not the best-looking one.** It is slower to pan than a map people can drag. Decision 1 (§13) lists the alternatives and why this is recommended; the page the team sees is designed so a better map can be swapped in later without changing anything else in this spec.
