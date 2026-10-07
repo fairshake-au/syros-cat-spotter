@@ -53,8 +53,10 @@ router.get(
     // After a correction (PR 4) the form comes back here with ?done=<key>.
     // Only a fixed key is shown, never the query text itself.
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
+    const s = req.query["s"];
+    const at = typeof s === "string" && CAT_ID_RE.test(s) ? Number(s) : undefined;
     res.type("html").send(
-      renderCatPage(view, person.name, { may: (c) => can(person, c), done }),
+      renderCatPage(view, person.name, { may: (c) => can(person, c), done, at }),
     );
   },
 );

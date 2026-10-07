@@ -246,6 +246,7 @@ function statementItem(
   s: TeamStatement,
   byId: Map<number, TeamStatement>,
   may: (c: Capability) => boolean = () => false,
+  notice = "",
 ): string {
   const replaced = s.replacedBy.length > 0;
   const said = replaced ? `<del>${esc(s.said)}</del>` : esc(s.said);
@@ -265,6 +266,7 @@ function statementItem(
     .join("");
   return (
     `<li class="statement${replaced ? " replaced" : ""}" id="s-${s.id}">` +
+    notice +
     `<p class="said"><span class="sid">#${s.id}</span> ${said}</p>` +
     `<p class="meta">${meta}</p>` +
     (s.reason ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
@@ -291,10 +293,16 @@ export interface CatPageOptions {
   may?: (capability: Capability) => boolean;
   /** What was just done, from the redirect after a form (a fixed key). */
   done?: string;
+  /** The history row the page lands on after a correction. */
+  at?: number;
 }
 
 /** The four correction forms (PR 4), each shown only to someone who may. */
-function correctionForms(v: TeamCatView, may: (c: Capability) => boolean): string {
+function correctionForms(
+  v: TeamCatView,
+  may: (c: Capability) => boolean,
+  notice = "",
+): string {
   const base = `/api/team/cats/${v.cat.id}`;
   const forms: string[] = [];
   if (may("set_life_status")) {
@@ -332,10 +340,12 @@ function correctionForms(v: TeamCatView, may: (c: Capability) => boolean): strin
         '<button type="submit">Rename</button></form></details>',
     );
   }
-  if (forms.length === 0) return "";
+  if (forms.length === 0) return notice;
   return (
     '<h2 id="corrections">Correct the record</h2>' +
+    notice +
     '<p class="hint">Each change is added to the history below, signed with your name. Nothing is deleted: to undo one, mark it wrong.</p>' +
+    '<p class="hint">The statement with the latest “true on” date decides. If a statement below is simply wrong, use <strong>Mark wrong</strong> on it rather than adding a new one with an earlier date.</p>' +
     `<div class="fixes">${forms.join("")}</div>`
   );
 }
@@ -347,10 +357,14 @@ export function renderCatPage(
 ): string {
   const { cat, records } = v;
   const may = opts.may ?? (() => false);
+  // The message goes where the page lands: beside the statement after a
+  // correction, at the top of "Correct the record" after the other forms.
   const notice =
     opts.done && DONE[opts.done]
       ? `<p class="notice" role="status">${esc(DONE[opts.done])}</p>`
       : "";
+  const atStatement = opts.at !== undefined && v.history.some((h) => h.id === opts.at);
+  const formsNotice = atStatement ? "" : notice;
   const byId = new Map(v.history.map((s) => [s.id, s]));
   const main = cat.mainPhotoUrl
     ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="Main photo of ${esc(cat.name)}">`
@@ -431,7 +445,7 @@ export function renderCatPage(
     '<p class="hint">Newest first. Nothing is ever deleted: a statement that was corrected stays, struck through, with what replaced it.</p>' +
     (v.history.length === 0
       ? '<p class="empty">Nothing has been said about this cat yet.</p>'
-      : `<ol class="history">${v.history.map((s) => statementItem(s, byId, may)).join("")}</ol>`);
+      : `<ol class="history">${v.history.map((s) => statementItem(s, byId, may, atStatement && s.id === opts.at ? notice : "")).join("")}</ol>`);
 
   return renderPage({
     title: cat.name,
@@ -440,9 +454,8 @@ export function renderCatPage(
     beforeTitle: '<p class="back"><a href="/api/team/cats">&larr; Find another cat</a></p>',
     afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
     body:
-      notice +
       overview +
-      correctionForms(v, may) +
+      correctionForms(v, may, formsNotice) +
       sightings +
       photos +
       history,

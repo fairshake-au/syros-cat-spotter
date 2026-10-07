@@ -57,8 +57,14 @@ const dateField = z.preprocess(
     .optional(),
 );
 
-const catPage = (catId: number, done?: string, anchor = "corrections") =>
-  `/api/team/cats/${catId}${done ? `?done=${encodeURIComponent(done)}` : ""}#${anchor}`;
+/**
+ * Back to the cat page after a form. `statement`: the history row the page
+ * should land on (and show its message beside), after a correction.
+ */
+const catPage = (catId: number, done?: string, statement?: number) =>
+  `/api/team/cats/${catId}${done ? `?done=${encodeURIComponent(done)}` : ""}` +
+  `${statement != null ? `${done ? "&" : "?"}s=${statement}` : ""}` +
+  `#${statement != null ? `s-${statement}` : "corrections"}`;
 
 const fieldsOf = (err: z.ZodError) => [...new Set(err.issues.map((i) => i.path.join(".")))];
 
@@ -364,7 +370,7 @@ router.post(
       if (isFormPost(req)) {
         return void res.redirect(
           303,
-          toLikely ? "/api/team/likely?done=not_clipped" : catPage(row.catId, "wrong", `s-${row.id}`),
+          toLikely ? "/api/team/likely?done=not_clipped" : catPage(row.catId, "wrong", row.id),
         );
       }
       res.status(201).json({ id: row.id });
@@ -379,7 +385,7 @@ router.post(
         const catId = await catIdOfStatement(id);
         return void res.redirect(
           303,
-          catId === null ? "/api/team/cats" : catPage(catId, "already", `s-${id}`),
+          catId === null ? "/api/team/cats" : catPage(catId, "already", id),
         );
       }
       refusalFor(req, res, err, back, active);

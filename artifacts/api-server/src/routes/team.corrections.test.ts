@@ -224,7 +224,7 @@ describe("P4-1: each form appends exactly one signed observation, and changes no
     const lifeRow = seen.find((r) => r.kind === "life_status")!;
     const res = await form(`/api/team/statements/${lifeRow.id}/wrong`).send({ choice: "street", reason: "Back on the street", date: "" });
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toMatch(new RegExp(`^/api/team/cats/${catId}\\?done=wrong#s-\\d+$`));
+    expect(res.headers["location"]).toMatch(new RegExp(`^/api/team/cats/${catId}\\?done=wrong&s=\\d+#s-\\d+$`));
     const after = await rowsFor(catId);
     expect(after.slice(0, seen.length)).toEqual(seen);
     expect(after.slice(seen.length)).toHaveLength(1);
@@ -639,10 +639,12 @@ describe("a statement corrected twice", () => {
     expect(first.status).toBe(303);
     const second = await form(`/api/team/statements/${observation.id}/wrong`).send({ choice: "not_clipped", reason: "Also torn" });
     expect(second.status).toBe(303);
-    expect(second.headers["location"]).toBe(`/api/team/cats/${catId}?done=already#s-${observation.id}`);
+    expect(second.headers["location"]).toBe(`/api/team/cats/${catId}?done=already&s=${observation.id}#s-${observation.id}`);
     expect((await rowsFor(catId)).filter((r) => r.supersedesId === observation.id)).toHaveLength(1);
     const page = await request(app).get(second.headers["location"]!).set("Cookie", cookie);
     expect(page.text).toContain("Someone already corrected this.");
+    // Beside the statement the page lands on, not at the top out of sight.
+    expect(page.text).toContain(`id="s-${observation.id}"><p class="notice" role="status">Someone already corrected this.`);
     // The corrected statement offers no second correction.
     expect(page.text).not.toContain(`action="/api/team/statements/${observation.id}/wrong"`);
 
