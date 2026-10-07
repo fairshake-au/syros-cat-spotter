@@ -891,7 +891,14 @@ components:
             Care events recorded against the cat. `discovered` is synthesised
             from the cat's own creation, and its `message` is the discoverer's
             display name rather than free text.
-        message: { type: string }
+        message:
+          type: string
+          nullable: true
+          description: >-
+            Null only on a `discovered` event whose discoverer deleted their
+            data (SYC-63, SYC-235). The app shows "a spotter" in the reader's
+            language. A blank, never a stand-in word, so no username can be
+            mistaken for it.
         at:
           type: string
           description: A UTC calendar date (YYYY-MM-DD).

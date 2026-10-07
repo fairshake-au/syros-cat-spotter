@@ -25,7 +25,6 @@ import {
   serialiseSighting,
   spotterCode,
   toPublicDay,
-  UNLINKED_SPOTTER,
   type DerivedCatStatus,
   type Viewer,
 } from "../lib/catHelpers";
@@ -330,8 +329,9 @@ router.get("/cats/:catId", async (req, res) => {
         message:
           discovererProfile?.username ??
           discovererProfile?.nickname ??
-          spotterCode(cat.discovererDeviceId) ??
-          UNLINKED_SPOTTER,
+          // Null when the discoverer deleted their data: the app says "a
+          // spotter" in the reader's language (SYC-235).
+          spotterCode(cat.discovererDeviceId),
         // A date, never a time (§6.4.4): this is the first sighting's moment.
         at: toPublicDay(cat.createdAt),
       },

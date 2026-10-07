@@ -172,7 +172,7 @@ export const GetCatResponse = zod.object({
   "fansCount": zod.number().describe('Distinct devices that have spotted this cat'),
   "careTimeline": zod.array(zod.object({
   "type": zod.enum(['desexed', 'adopted', 'general', 'discovered']).describe('Care events recorded against the cat. `discovered` is synthesised\nfrom the cat\'s own creation, and its `message` is the discoverer\'s\ndisplay name rather than free text.\n'),
-  "message": zod.string(),
+  "message": zod.string().nullable().describe('Null only on a `discovered` event whose discoverer deleted their data (SYC-63, SYC-235). The app shows \"a spotter\" in the reader\'s language. A blank, never a stand-in word, so no username can be mistaken for it.'),
   "at": zod.string().describe('A UTC calendar date (YYYY-MM-DD).')
 })).describe('Care history, newest first, oldest entry always `discovered`')
 })

@@ -53,12 +53,6 @@ export function spotterCode(deviceId: string | null): string | null {
 }
 
 /**
- * The care timeline's "discovered" entry when the discoverer deleted their
- * data (SYC-63 plan §4.5). A fixed marker the app translates, never a name.
- */
-export const UNLINKED_SPOTTER = "a spotter";
-
-/**
  * The single place in the codebase that builds a photo URL
  * (hosting-and-photo-storage.md §6.2 item 1 / SYC-98). Looks up the
  * unguessable public_id for a photo row and returns null rather than

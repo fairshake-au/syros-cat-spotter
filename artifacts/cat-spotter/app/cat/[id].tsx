@@ -325,9 +325,9 @@ export default function CatDetailScreen() {
                           <Text style={styles.careBold}>
                             {t('careTypeDiscoveredPrefix')}
                           </Text>{' '}
-                          {/* SYC-63: the server's fixed marker for a
-                              discoverer who deleted their data. */}
-                          {event.message === 'a spotter' ? t('aSpotter') : event.message}
+                          {/* SYC-235: no name means the discoverer deleted
+                              their data. */}
+                          {event.message ?? t('aSpotter')}
                         </>
                       ) : (
                         <>

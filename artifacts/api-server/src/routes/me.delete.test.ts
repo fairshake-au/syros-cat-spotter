@@ -40,6 +40,13 @@ vi.mock("../lib/push", () => ({
   sendPushNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
+// The per-address cap on DELETE /me (10 per 15 min) isn't what these tests
+// are about, and this file deletes more often than that from one address.
+vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../middlewares/rateLimit")>()),
+  deleteMeLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
 vi.mock("../lib/matching", () => ({
   matchCatPhoto: vi.fn(async () => ({ isCatPhoto: true, matches: [] })),
 }));
@@ -49,6 +56,7 @@ import { sendPushNotification } from "../lib/push";
 import { notifyCatSpotters } from "../lib/notifications";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { deletedMarkerKey } from "../lib/deviceAuth";
+import { _resetNewDeviceLimitForTests } from "../middlewares/newDeviceLimit";
 
 const pushMock = vi.mocked(sendPushNotification);
 
@@ -277,6 +285,9 @@ function catOnly(page: Awaited<ReturnType<typeof catPage>>) {
 
 beforeEach(() => {
   pushMock.mockClear();
+  // Every seeded world registers new phones from one test address; the
+  // per-address cap (SYC-195) is not what these tests are about.
+  _resetNewDeviceLimitForTests();
 });
 
 describe("DELETE /api/me: the cat's data survives and the person is gone", () => {
@@ -395,7 +406,7 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
     });
     expect(
       page.careTimeline.find((e) => e.type === "discovered")!.message,
-    ).toBe("a spotter");
+    ).toBeNull();
     expect(page.sightings.filter((s) => s.spotterCode === null)).toHaveLength(
       1,
     );
@@ -611,6 +622,25 @@ describe("DELETE /api/me: refusals", () => {
     expect(cat!.ownerName).toBe(w.ownerName);
     // And it then succeeds once the fault is gone.
     expect((await deleteMe(w.P)).status).toBe(204);
+  });
+});
+
+describe("SYC-235: a deleted discoverer is a blank, never a stand-in word", () => {
+  it("a live spotter named \"a spotter\" is still shown by name", async () => {
+    const w = await seedWorld();
+    await db
+      .update(profilesTable)
+      .set({ username: "a spotter" })
+      .where(eq(profilesTable.deviceId, w.P.deviceId));
+    const before = await catPage(w.discovered.id);
+    expect(
+      before.careTimeline.find((e) => e.type === "discovered")!.message,
+    ).toBe("a spotter");
+    expect((await deleteMe(w.P)).status).toBe(204);
+    const after = await catPage(w.discovered.id);
+    expect(
+      after.careTimeline.find((e) => e.type === "discovered")!.message,
+    ).toBeNull();
   });
 });
 
