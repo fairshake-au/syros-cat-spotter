@@ -359,9 +359,10 @@ export function renderCatPage(
   const may = opts.may ?? (() => false);
   // The message goes where the page lands: beside the statement after a
   // correction, at the top of "Correct the record" after the other forms.
+  // Own keys only: ?done=constructor must not reach Object.prototype.
   const notice =
-    opts.done && DONE[opts.done]
-      ? `<p class="notice" role="status">${esc(DONE[opts.done])}</p>`
+    opts.done && Object.hasOwn(DONE, opts.done)
+      ? `<p class="notice" role="status">${esc(DONE[opts.done]!)}</p>`
       : "";
   const atStatement = opts.at !== undefined && v.history.some((h) => h.id === opts.at);
   const formsNotice = atStatement ? "" : notice;

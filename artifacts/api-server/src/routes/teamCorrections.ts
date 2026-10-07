@@ -53,7 +53,11 @@ const dateField = z.preprocess(
   z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .refine((s) => !Number.isNaN(Date.parse(`${s}T12:00:00Z`)))
+    // A real calendar day: 2026-02-31 would otherwise roll on to 3 March.
+    .refine((s) => {
+      const d = new Date(`${s}T12:00:00Z`);
+      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+    })
     .optional(),
 );
 

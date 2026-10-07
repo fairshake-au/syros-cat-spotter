@@ -182,6 +182,11 @@ describe("P4-1: each form appends exactly one signed observation, and changes no
         kind: "life_status",
       },
       {
+        post: () => form(`/api/team/likely/${clip.observation.id}/looks-right`).send({}),
+        reason: "Checked the photo on the Probably sterilised list",
+        kind: "ear_tip",
+      },
+      {
         post: () =>
           form(`/api/team/cats/${catId}/sterilisation`).send({ sterilised: "yes", reason: "Vet's record", date: "2026-09-14", clinic: "Ermoupoli vet" }),
         reason: "Vet's record",
@@ -191,11 +196,6 @@ describe("P4-1: each form appends exactly one signed observation, and changes no
         post: () => form(`/api/team/cats/${catId}/name`).send({ name: `${PREFIX}renamed`, reason: "What Syros Cats call her" }),
         reason: "What Syros Cats call her",
         kind: "name",
-      },
-      {
-        post: () => form(`/api/team/likely/${clip.observation.id}/looks-right`).send({}),
-        reason: "Checked the photo on the Probably sterilised list",
-        kind: "ear_tip",
       },
     ];
 
@@ -681,3 +681,90 @@ describe("a statement corrected twice", () => {
   });
 });
 
+// ── Edges the adversarial review found ─────────────────────────────────────
+
+describe("edges", () => {
+  it("?done= never reaches Object.prototype (constructor, __proto__, toString)", async () => {
+    const catId = await newCat();
+    for (const key of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      const page = await request(app).get(`/api/team/cats/${catId}?done=${key}`).set("Cookie", cookie);
+      expect(page.status, key).toBe(200);
+      expect(page.text).not.toContain('class="notice"');
+      const list = await request(app).get(`/api/team/likely?done=${key}`).set("Cookie", cookie);
+      expect(list.status, key).toBe(200);
+    }
+  });
+
+  it("refuses a date that isn't a real day, on every form that takes one", async () => {
+    const catId = await newCat();
+    const life = await db
+      .insert(observationsTable)
+      .values({ catId, kind: "life_status", value: { status: "street" }, deviceId: SPOTTER, roleAtTime: "public", observedAt: new Date() })
+      .returning();
+    for (const date of ["2026-02-31", "2026-04-31", "2026-13-01"]) {
+      const a = await form(`/api/team/cats/${catId}/life-status`).send({ status: "deceased", reason: "r", date });
+      const b = await form(`/api/team/cats/${catId}/sterilisation`).send({ sterilised: "yes", reason: "r", date });
+      const c = await form(`/api/team/statements/${life[0]!.id}/wrong`).send({ choice: "deceased", reason: "r", date });
+      expect([a.status, b.status, c.status], date).toEqual([400, 400, 400]);
+    }
+    expect(await rowsFor(catId)).toHaveLength(1);
+  });
+
+  it("refuses a future date on sterilisation and mark wrong, and deceased without a date on mark wrong", async () => {
+    const catId = await newCat();
+    const life = await db
+      .insert(observationsTable)
+      .values({ catId, kind: "life_status", value: { status: "street" }, deviceId: SPOTTER, roleAtTime: "public", observedAt: new Date() })
+      .returning();
+    const tomorrow = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+    const st = await form(`/api/team/cats/${catId}/sterilisation`).send({ sterilised: "yes", reason: "r", date: tomorrow });
+    const wr = await form(`/api/team/statements/${life[0]!.id}/wrong`).send({ choice: "homed", reason: "r", date: tomorrow });
+    const dead = await form(`/api/team/statements/${life[0]!.id}/wrong`).send({ choice: "deceased", reason: "r", date: "" });
+    expect([st.status, wr.status, dead.status]).toEqual([400, 400, 400]);
+    expect(dead.text).toContain("give the date");
+    expect(await rowsFor(catId)).toHaveLength(1);
+  });
+
+  it("dates are Syros dates: just after midnight in Athens, 'today' is already the next day", async () => {
+    const { athensToday, observedAtFor } = await import("./teamCorrections");
+    const lateUtc = new Date("2026-10-06T22:30:00Z"); // 01:30 on 7 Oct in Athens
+    expect(athensToday(lateUtc)).toBe("2026-10-07");
+    // Today's midday hasn't come yet: "now", never a time in the future.
+    expect(observedAtFor("2026-10-07", lateUtc)).toEqual(lateUtc);
+    expect(observedAtFor("2026-10-05", lateUtc).toISOString()).toBe("2026-10-05T12:00:00.000Z");
+  });
+
+  it("stores a reason's line breaks as LF", async () => {
+    const catId = await newCat();
+    await form(`/api/team/cats/${catId}/life-status`).send({ status: "homed", reason: "Adopted\r\nby the baker" });
+    const [row] = await rowsFor(catId);
+    expect((row!.value as { reason: string }).reason).toBe("Adopted\nby the baker");
+  });
+
+  it("the list orders answers by when they were recorded, not the date they claim", async () => {
+    const catId = await newCat();
+    const { observation } = await spotterClip(catId, 60);
+    await form(`/api/team/likely/${observation.id}/looks-right`).send({});
+    expect(await likelyIds()).not.toContain(catId);
+    // A late-synced spotter answer: recorded now, but dated before the first.
+    await spotterClip(catId, 600);
+    expect(await likelyIds()).toContain(catId);
+  });
+
+  it("Looks right on the team's own answer, or on a cat no longer Likely, writes nothing", async () => {
+    const catId = await newCat();
+    const { observation } = await spotterClip(catId);
+    await form(`/api/team/likely/${observation.id}/looks-right`).send({});
+    const agreement = (await rowsFor(catId)).at(-1)!;
+    const own = await form(`/api/team/likely/${agreement.id}/looks-right`).send({});
+    expect(own.headers["location"]).toBe("/api/team/likely?done=already");
+
+    const other = await newCat();
+    const { observation: clip } = await spotterClip(other);
+    await form(`/api/team/cats/${other}/sterilisation`).send({ sterilised: "yes", reason: "Vet's record" });
+    const stale = await form(`/api/team/likely/${clip.id}/looks-right`).send({});
+    expect(stale.headers["location"]).toBe("/api/team/likely?done=already");
+    expect((await rowsFor(other)).filter((r) => r.kind === "ear_tip" && r.roleAtTime === "staff")).toHaveLength(0);
+    expect((await rowsFor(catId)).filter((r) => r.roleAtTime === "staff")).toHaveLength(1);
+  });
+});

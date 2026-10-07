@@ -73,7 +73,8 @@ export function renderLikelyPage(
   personName: string,
   done?: string,
 ): string {
-  const notice = done && DONE[done] ? `<p class="notice" role="status">${esc(DONE[done])}</p>` : "";
+  const notice =
+    done && Object.hasOwn(DONE, done) ? `<p class="notice" role="status">${esc(DONE[done]!)}</p>` : "";
   const intro =
     "<p>These cats show as <strong>Probably sterilised</strong> only because a spotter said they saw a clipped ear. Look at each photo.</p>" +
     '<ul class="hintlist">' +

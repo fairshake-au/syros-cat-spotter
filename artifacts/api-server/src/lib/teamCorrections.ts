@@ -2,10 +2,12 @@ import { and, eq, sql } from "drizzle-orm";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { can, type Capability } from "./capabilities";
 import {
+  loadCatRecords,
   ObservationRefused,
   writeObservation,
   type ObservationKind,
 } from "./observations";
+import { resolveCat } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 
@@ -216,7 +218,8 @@ export const LOOKS_RIGHT_REASON = "Checked the photo on the Probably sterilised 
  * the moment a team member looked at a photo.
  *
  * Returns "already" when the newest active clipped answer is no longer this
- * one (someone agreed or a newer answer arrived since the page was drawn), and
+ * one (someone agreed or a newer answer arrived since the page was drawn), or
+ * the cat is no longer at Likely (confirmed, or marked not clipped, since), and
  * writes nothing.
  */
 export async function agreeWithClip(
@@ -253,6 +256,16 @@ export async function agreeWithClip(
         and(eq(observationsTable.catId, spotter.catId), eq(observationsTable.kind, "ear_tip")),
       );
     if (newestActiveClip(catObservations)?.id !== spotter.id) return "already";
+    // A stale list page: the cat may have been confirmed, or marked not
+    // clipped, since. Only a cat still at Likely is agreed with.
+    const record = (await loadCatRecords([spotter.catId])).get(spotter.catId);
+    if (
+      !record ||
+      resolveCat(record.observations, record.evidenceOfLife, new Date()).sterilised.confidence !==
+        "likely"
+    ) {
+      return "already";
+    }
 
     return writeObservation(tx, {
       catId: spotter.catId,
