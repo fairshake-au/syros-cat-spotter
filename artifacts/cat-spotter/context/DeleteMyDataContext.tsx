@@ -14,14 +14,16 @@ import {
   setIdentityDeletedHandler,
 } from '@workspace/api-client-react';
 import {
-  deleteMyData,
+  deleteMyDataWithReports,
   finishAfterServerDeleted,
   isIdentityDeletedError,
   type DeleteMyDataSteps,
   type DeleteOutcome,
+  type ReportChoice,
 } from '@/lib/deleteMyData';
 import { useDevice } from './DeviceContext';
 import { useOffline } from './OfflineContext';
+import { useReportQueue } from './ReportQueueContext';
 
 /**
  * "Delete my data" for the whole app (SYC-63). Owns the deletion itself, and
@@ -31,8 +33,11 @@ import { useOffline } from './OfflineContext';
  * screen before "Done" could appear.
  */
 interface DeleteMyDataValue {
-  /** Runs the whole flow. Never throws. */
-  deleteNow: () => Promise<DeleteOutcome>;
+  /**
+   * Runs the whole flow. Never throws. `reports` is the person's choice
+   * about cat reports still waiting on the phone (SYC-234).
+   */
+  deleteNow: (reports?: ReportChoice) => Promise<DeleteOutcome>;
   /** True from the moment the phone starts becoming a new spotter, until dismissed. */
   doneVisible: boolean;
   dismissDone: () => void;
@@ -48,6 +53,9 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
   const queryClient = useQueryClient();
   const device = useDevice();
   const offline = useOffline();
+  const reportQueue = useReportQueue();
+  const reportQueueRef = useRef(reportQueue);
+  reportQueueRef.current = reportQueue;
   const [doneVisible, setDoneVisible] = useState(false);
 
   // The latest values, for callbacks registered once (the 410 handler).
@@ -77,16 +85,21 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
     },
   };
 
-  const deleteNow = useCallback(async (): Promise<DeleteOutcome> => {
+  const deleteNow = useCallback(async (reports: ReportChoice = 'none'): Promise<DeleteOutcome> => {
     const deviceId = deviceIdRef.current;
     if (!deviceId || busyRef.current) return 'failed';
     busyRef.current = true;
     try {
-      return await deleteMyData({
-        ...stepsRef.current,
-        deleteOnServer: () =>
-          deleteMyDataRequest({ headers: { 'X-Device-Id': deviceId } }),
-      });
+      return await deleteMyDataWithReports(
+        {
+          ...stepsRef.current,
+          deleteOnServer: () =>
+            deleteMyDataRequest({ headers: { 'X-Device-Id': deviceId } }),
+          sendReports: () => reportQueueRef.current.sendAllNow(),
+          wipeReports: () => reportQueueRef.current.wipeReports(),
+        },
+        reports,
+      );
     } catch {
       return 'failed';
     } finally {

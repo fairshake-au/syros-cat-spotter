@@ -24,7 +24,24 @@ export type DeleteOutcome =
    * Syncing stays paused; trying again finishes the wipe (the server answers
    * 204 to a repeat).
    */
-  | 'wipe_failed';
+  | 'wipe_failed'
+  /**
+   * The person chose to send their waiting cat reports first, and at least
+   * one wouldn't send. Nothing was deleted (SYC-234).
+   */
+  | 'reports_unsent';
+
+/**
+ * What to do with cat reports still waiting on the phone (SYC-234, Samuel,
+ * 6 Oct 2026: the screen asks). 'none' when there aren't any.
+ */
+export type ReportChoice = 'none' | 'send' | 'delete';
+
+export interface ReportSteps {
+  /** True only once every waiting report has gone, text and photo. */
+  sendReports(): Promise<boolean>;
+  wipeReports(): Promise<void>;
+}
 
 export interface DeleteMyDataSteps {
   pauseSync(): Promise<void>;
@@ -83,4 +100,29 @@ export async function finishAfterServerDeleted(
   }
   steps.resumeSync();
   return 'done';
+}
+
+/**
+ * The tap, with the person's choice about waiting cat reports. "Send it,
+ * then delete" sends them before anything else happens, so they arrive like
+ * any report sent earlier and are then unlinked on the server like the rest;
+ * if one won't send, nothing is deleted. "Delete it too" wipes them with
+ * everything else, once the server has done its part.
+ */
+export async function deleteMyDataWithReports(
+  steps: DeleteMyDataSteps & ReportSteps,
+  choice: ReportChoice,
+): Promise<DeleteOutcome> {
+  if (choice === 'send' && !(await steps.sendReports())) return 'reports_unsent';
+  return deleteMyData(
+    choice === 'delete'
+      ? {
+          ...steps,
+          wipePhone: async () => {
+            await steps.wipePhone();
+            await steps.wipeReports();
+          },
+        }
+      : steps,
+  );
 }

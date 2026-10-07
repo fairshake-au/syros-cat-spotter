@@ -550,6 +550,34 @@ export async function deleteAllSightingPhotos(): Promise<void> {
   }
 }
 
+/**
+ * "Delete my data", when the person chose to delete their unsent cat reports
+ * too (SYC-234): remove every report photo (`report-*`). Throws if the store
+ * can't be listed, like {@link deleteAllSightingPhotos}.
+ */
+export async function deleteAllReportPhotos(): Promise<void> {
+  if (!supportsPhotoFiles) {
+    const store = photoStore();
+    if (!store) return;
+    for (const id of await store.photoIds()) {
+      if (isReportPhoto(id)) await store.deletePhoto(id);
+    }
+    return;
+  }
+  let names: string[];
+  try {
+    names = await FileSystem.readDirectoryAsync(PHOTOS_DIR);
+  } catch {
+    const info = await FileSystem.getInfoAsync(PHOTOS_DIR);
+    if (!info.exists) return;
+    throw new Error('Could not list the saved photos');
+  }
+  for (const name of names) {
+    if (!isReportPhoto(name)) continue;
+    await FileSystem.deleteAsync(`${PHOTOS_DIR}/${name}`, { idempotent: true });
+  }
+}
+
 // ---- Showing and shrinking stored photos -------------------------------------
 
 export interface OpenedPhoto {

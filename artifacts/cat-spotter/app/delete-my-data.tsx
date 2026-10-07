@@ -16,8 +16,9 @@ import { fonts, fontSizes, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useDeleteMyData } from '@/context/DeleteMyDataContext';
+import { useReportQueue } from '@/context/ReportQueueContext';
 import { Button } from '@/components/purropolis';
-import type { DeleteOutcome } from '@/lib/deleteMyData';
+import type { DeleteOutcome, ReportChoice } from '@/lib/deleteMyData';
 
 /**
  * "Delete my data" (SYC-63). The words are email-capture.md §6.3 exactly,
@@ -34,6 +35,11 @@ export default function DeleteMyDataScreen() {
   const insets = useSafeAreaInsets();
   const { isOnline, unsentCount } = useOffline();
   const { deleteNow } = useDeleteMyData();
+  // SYC-234: cat reports still waiting on the phone. The person chooses.
+  const reportCount = useReportQueue().reports.length;
+  const many = reportCount > 1;
+  const pick = (one: string, several: string) =>
+    many ? t(several).replace('{n}', String(reportCount)) : t(one);
   const [working, setWorking] = useState(false);
   const [outcome, setOutcome] = useState<DeleteOutcome | null>(null);
 
@@ -50,10 +56,10 @@ export default function DeleteMyDataScreen() {
     else router.replace('/(tabs)/profile');
   };
 
-  const onDelete = async () => {
+  const onDelete = async (reports: ReportChoice = 'none') => {
     setWorking(true);
     setOutcome(null);
-    const result = await deleteNow();
+    const result = await deleteNow(reports);
     // On 'done' the root gate has already moved to the Done screen.
     if (result !== 'done') {
       setOutcome(result);
@@ -111,20 +117,58 @@ export default function DeleteMyDataScreen() {
           </Text>
         </View>
 
+        {reportCount > 0 && (
+          <View style={styles.section} testID="delete-reports-block">
+            <Text style={[body, styles.bold]}>
+              {pick('deleteReportsOne', 'deleteReportsMany')}
+            </Text>
+            <Text style={body}>
+              {pick('deleteReportsExplainOne', 'deleteReportsExplainMany')}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.actions}>
           <Button variant="primary" size="lg" block onPress={close} disabled={working}>
             {t('deleteKeep')}
           </Button>
-          <Button
-            variant="ghost"
-            size="md"
-            block
-            onPress={onDelete}
-            disabled={working || !isOnline}
-            accessibilityLabel={t('deleteConfirm')}
-          >
-            {working ? t('deleteWorking') : t('deleteConfirm')}
-          </Button>
+          {reportCount === 0 ? (
+            <Button
+              variant="ghost"
+              size="md"
+              block
+              onPress={() => onDelete()}
+              disabled={working || !isOnline}
+              accessibilityLabel={t('deleteConfirm')}
+            >
+              {working ? t('deleteWorking') : t('deleteConfirm')}
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                size="md"
+                block
+                onPress={() => onDelete('send')}
+                disabled={working || !isOnline}
+                accessibilityLabel={pick('deleteSendReportsOne', 'deleteSendReportsMany')}
+              >
+                {working
+                  ? t('deleteWorking')
+                  : pick('deleteSendReportsOne', 'deleteSendReportsMany')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="md"
+                block
+                onPress={() => onDelete('delete')}
+                disabled={working || !isOnline}
+                accessibilityLabel={pick('deleteReportsTooOne', 'deleteReportsTooMany')}
+              >
+                {pick('deleteReportsTooOne', 'deleteReportsTooMany')}
+              </Button>
+            </>
+          )}
           {working && <ActivityIndicator color={colors.mutedForeground} />}
           {!isOnline && !working && (
             <Text style={[styles.note, muted]} testID="delete-offline-line">
@@ -134,6 +178,14 @@ export default function DeleteMyDataScreen() {
           {outcome === 'failed' && (
             <Text style={[styles.note, { color: colors.destructive }]} accessibilityRole="alert">
               {t('deleteFailed')}
+            </Text>
+          )}
+          {outcome === 'reports_unsent' && (
+            <Text
+              style={[styles.note, { color: colors.destructive }]}
+              accessibilityRole="alert"
+            >
+              {pick('deleteReportsUnsentOne', 'deleteReportsUnsentMany')}
             </Text>
           )}
           {outcome === 'wipe_failed' && (
