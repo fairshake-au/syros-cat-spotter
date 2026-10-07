@@ -96,7 +96,7 @@ See "The website password gate" below. **Recommendation:** these two small pages
 
 ### Decision 6 (new, 6 Oct) — One "is this you?" system for every email, or one just for keep-safe?
 
-**Awaiting Samuel.**
+**Decided by Samuel, 6 Oct 2026:** A, one shared system. Keep-safe rows never hold the address, and the database enforces it.
 
 **Why it's new.** The SYC-42 plan (approved 1 Oct) says the reporter's email in its Slice 3 reuses this plan's "is this you?" tables, and whichever of the two is built first creates them. SYC-3 will be first. But Decision 4 stores only a fingerprint of the address, and that can't work for a reporter: we have to write to them unprompted when the team acts on their report (`team-access…` §8.5 keeps their address for 90 days after the report closes). SYC-45's news emails need the real address too. `welfare_reports.reporter_contact_id` already exists on main, waiting for a table to point at (`0004_welfare_reports_and_mail_outbox.sql`).
 
@@ -185,7 +185,7 @@ Instead, **the new phone takes over the old device id, and the server replaces t
 
 ### Slice 1 — "keep my spots safe" on the website (what testers need)
 
-**One migration** (see "Migrations"). Built in this order, one commit each. The tables below are written for **Decision 6 option A** (one shared system). If Samuel picks B, `email_contacts` narrows to keep-safe rows only and SYC-42 Slice 3 builds its own.
+**One migration** (see "Migrations"). Built in this order, one commit each. The tables below follow **Decision 6 A** (one shared system, decided 6 Oct).
 
 1. **Tables** (one migration):
    - `email_contacts`: `id`, `purpose` (`keep_safe` | `report` | `news`), `address` (nullable), `address_hmac`, `address_mask`, `device_id` (nullable; the spotter, for keep-safe), `status` (`pending` | `confirmed`), `created_at`, `confirmed_at`. **A database check refuses any `keep_safe` row whose `address` isn't empty** (Decision 4). One keep-safe row per spotter. Index on `address_hmac`, not unique, because siblings can share one (Decision 3). `welfare_reports.reporter_contact_id` gains its foreign key here. This slice only writes `keep_safe` rows; the others are SYC-42 Slice 3's and SYC-45's.
@@ -250,7 +250,7 @@ No conflict was found between the approved spec and the code on `main` that stop
 
 ## Migrations
 
-**One is unavoidable**: there is nowhere to keep a restore address or a one-time link today. It's additive only: four new tables (`email_contacts`, `mail_tokens`, `email_consent_events`, `email_suppressions`), plus the foreign key on `welfare_reports.reporter_contact_id` (Decision 6 A only). No existing column changes.
+**One is unavoidable**: there is nowhere to keep a restore address or a one-time link today. It's additive only: four new tables (`email_contacts`, `mail_tokens`, `email_consent_events`, `email_suppressions`), plus the foreign key on `welfare_reports.reporter_contact_id` (Decision 6). No existing column changes.
 - **Its place in the queue:** after whatever merges first. Main has `0000`–`0008`, and open PR #89 takes `0009`, so this will be `0009` or later. It's generated with `pnpm --filter @workspace/db run generate --name keep_my_spots_safe` **on a rebase immediately before merge**. No test or document hard-codes its number; tests find it by the `_keep_my_spots_safe` suffix, as PR #28's do. It has a hand-written rollback block (drop the foreign key, then the four tables, with a warning that opt-ins are lost).
 - It reaches Neon only through the #13 runner, via `db-ops` (`-f target=development`, then `-f target=production -f command=migrate`), migrate before publish, as in `docs/runbooks/neon-database.md`. SYC-121's session owns `db-ops`. This work adds no command to it.
 
