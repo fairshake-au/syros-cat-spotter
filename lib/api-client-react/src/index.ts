@@ -5,6 +5,8 @@ export {
   setAuthTokenGetter,
   setDeviceSecretGetter,
   setPrelaunchKey,
+  setDeviceMovedListener,
+  isDeviceMovedError,
   ApiError,
   RequestTimeoutError,
   USERNAME_REQUEST_TIMEOUT_MS,

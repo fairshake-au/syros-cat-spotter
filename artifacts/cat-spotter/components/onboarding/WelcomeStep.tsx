@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
-import { notify } from '@/lib/notify';
 import { Button } from '@/components/purropolis';
 import { FairShakeMark } from '@/components/FairShakeMark';
 
@@ -12,16 +11,9 @@ import { FairShakeMark } from '@/components/FairShakeMark';
  * First-run hero. Deliberately renders on the Aegean gradient rather than the
  * page surface — it is the one screen in the app that is pure brand.
  */
-export function WelcomeStep({ onNext }: { onNext: () => void }) {
+export function WelcomeStep({ onNext, onRestore }: { onNext: () => void; onRestore: () => void }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-
-  // There are no accounts — identity is per-device and anonymous by design.
-  // The design asked for this entry point, so it is present and honest about
-  // its status rather than dead-ending. Restore across reinstall is ticketed.
-  const explainRestore = () => {
-    notify(t('welcomeRestoreTitle'), t('welcomeRestoreBody'));
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: palette.aegean600 }]}>
@@ -51,7 +43,8 @@ export function WelcomeStep({ onNext }: { onNext: () => void }) {
         <Button variant="accent" size="lg" block onPress={onNext}>
           {t('welcomeCta')}
         </Button>
-        <Pressable onPress={explainRestore} style={styles.restore}>
+        {/* SYC-3: "Already a spotter? Get your spots back". */}
+        <Pressable onPress={onRestore} accessibilityRole="button" style={styles.restore}>
           <Text style={styles.restoreText}>{t('welcomeHaveAccount')}</Text>
         </Pressable>
         <View style={styles.attribution}>

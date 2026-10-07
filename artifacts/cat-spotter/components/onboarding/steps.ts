@@ -1,10 +1,12 @@
 /**
  * The onboarding screens, in order. The progress dots count every entry
  * (Welcome shows none, but it holds the first dot), so adding a step here
- * updates every screen's dots at once. SYC-3 adds its "Don't lose your spots"
- * step at the end of this list.
+ * updates every screen's dots at once. SYC-3's "Don't lose your spots" is
+ * the last step: it shows once a username is claimed, from the root gate
+ * (app/_layout.tsx), because claiming the name is what moves the app past
+ * onboarding.
  */
-export const ONBOARDING_STEPS = ['welcome', 'how', 'safety', 'language'] as const;
+export const ONBOARDING_STEPS = ['welcome', 'how', 'safety', 'language', 'keepSafe'] as const;
 
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 

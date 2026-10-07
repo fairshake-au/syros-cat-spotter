@@ -621,6 +621,14 @@ describe('SYC-3: the restore link (/restore?t=…)', () => {
     expect(JSON.stringify(lines)).not.toContain(TOKEN);
   });
 
+  it('the page is sent with Referrer-Policy: no-referrer; other pages are not', async () => {
+    const req = await start({ PRELAUNCH_GATE: 'off' });
+    const page = await req('GET', `/restore?t=${TOKEN}`);
+    expect(page.status).toBe(200);
+    expect(page.headers['referrer-policy']).toBe('no-referrer');
+    expect((await req('GET', '/')).headers['referrer-policy']).toBeUndefined();
+  });
+
   it('the password page keeps t, and logging in returns the tester to the link intact (test 15)', async () => {
     const req = await start(gatedEnv());
     const page = await req('GET', `/restore?t=${TOKEN}`);

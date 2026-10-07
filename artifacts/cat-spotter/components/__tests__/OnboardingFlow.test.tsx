@@ -71,6 +71,16 @@ vi.mock('../onboarding/LanguageUsernameStep', async () => {
   };
 });
 
+// SYC-3: Welcome's "Already a spotter? Get your spots back" screen.
+vi.mock('../keepSafe/RestoreRequestScreen', async () => {
+  const { Text } = await import('react-native');
+  return {
+    RestoreRequestScreen: ({ onBack }: { onBack: () => void }) => (
+      <Text onPress={onBack}>STUB_RESTORE_REQUEST</Text>
+    ),
+  };
+});
+
 import { OnboardingFlow } from '../onboarding/OnboardingFlow';
 import { ONBOARDING_STEPS, ONBOARDING_DOT_COUNT, stepIndex } from '../onboarding/steps';
 
@@ -89,8 +99,8 @@ afterEach(() => {
 
 describe('onboarding step order (SYC-35)', () => {
   it('lists the safety screen straight after How it works and before Language & username', () => {
-    expect(ONBOARDING_STEPS).toEqual(['welcome', 'how', 'safety', 'language']);
-    expect(ONBOARDING_DOT_COUNT).toBe(4);
+    expect(ONBOARDING_STEPS).toEqual(['welcome', 'how', 'safety', 'language', 'keepSafe']);
+    expect(ONBOARDING_DOT_COUNT).toBe(5);
     expect(stepIndex('safety')).toBe(stepIndex('how') + 1);
     expect(stepIndex('language')).toBe(stepIndex('safety') + 1);
   });
@@ -102,12 +112,12 @@ describe('onboarding step order (SYC-35)', () => {
     expect(getByText(en.howTitle)).toBeTruthy();
     // Screen 2 is back to how it was: no safety box on it.
     expect(queryByText(en.howSafetyTitle)).toBeNull();
-    expect(dots(container)).toEqual({ total: 4, active: 1 });
+    expect(dots(container)).toEqual({ total: 5, active: 1 });
 
     fireEvent.click(getByText(en.howAllowContinue));
     await waitFor(() => expect(getByText(en.howSafetyTitle)).toBeTruthy());
     expect(requestPermission).toHaveBeenCalledTimes(1);
-    expect(dots(container)).toEqual({ total: 4, active: 2 });
+    expect(dots(container)).toEqual({ total: 5, active: 2 });
 
     fireEvent.click(getByText(en.continue));
     expect(getByText('STUB_LANGUAGE_BACK')).toBeTruthy();
@@ -125,7 +135,7 @@ describe('onboarding step order (SYC-35)', () => {
     expect(requestPermission).not.toHaveBeenCalled();
     // And the safety screen offers no Skip of its own.
     expect(queryByText(en.skip)).toBeNull();
-    expect(dots(container)).toEqual({ total: 4, active: 2 });
+    expect(dots(container)).toEqual({ total: 5, active: 2 });
   });
 
   it('Back from Language & username returns to the safety screen', () => {
