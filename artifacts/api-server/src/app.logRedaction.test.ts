@@ -27,7 +27,7 @@ const DEVICE = "vitest-logredact-0f3c9a7e2b";
 
 // No device secret is sent, so every route answers 401 before touching the
 // database: the request is still logged, which is all this test needs.
-const ROUTES: { method: "get" | "post" | "put" | "patch"; path: string }[] = [
+const ROUTES: { method: "get" | "post" | "put" | "patch" | "delete"; path: string }[] = [
   { method: "get", path: `/api/notifications/${DEVICE}` },
   { method: "post", path: `/api/notifications/${DEVICE}/read-all` },
   { method: "post", path: `/api/notifications/${DEVICE}/42/read` },
@@ -37,6 +37,10 @@ const ROUTES: { method: "get" | "post" | "put" | "patch"; path: string }[] = [
   { method: "get", path: `/api/profiles/${DEVICE}/username` },
   { method: "post", path: `/api/profiles/${DEVICE}/username` },
   { method: "get", path: `/api/profiles/${DEVICE}/cats/1/open-sightings` },
+  // SYC-3: keep my spots safe.
+  { method: "get", path: `/api/keep-safe/${DEVICE}` },
+  { method: "post", path: `/api/keep-safe/${DEVICE}` },
+  { method: "delete", path: `/api/keep-safe/${DEVICE}` },
   // Express matches routes case-insensitively, so the redaction must too.
   { method: "get", path: `/api/Notifications/${DEVICE}` },
 ];
