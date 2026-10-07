@@ -52,7 +52,7 @@ vi.mock('@/context/DeviceContext', () => ({ useDevice: () => h.device }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: h.online, pending: h.pending }) }));
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => h.params,
-  router: { replace: vi.fn(), back: vi.fn(), canGoBack: () => false, push: vi.fn() },
+  router: { replace: vi.fn(), back: vi.fn(), canGoBack: () => false, push: vi.fn(), setParams: vi.fn() },
 }));
 vi.mock('@workspace/api-client-react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@workspace/api-client-react')>();
@@ -79,8 +79,9 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
 
 import { KeepSafeScreen } from '../keepSafe/KeepSafeScreen';
 import { MovedScreen } from '../keepSafe/MovedScreen';
-import RestorePage from '../../app/restore';
+import RestorePage, { __resetHeldRestoreTokenForTests } from '../../app/restore';
 import * as keepSafe from '@/lib/keepSafe';
+import { router } from 'expo-router';
 
 const en = TRANSLATIONS.en;
 
@@ -178,6 +179,8 @@ describe('the /restore page', () => {
   let replace: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    __resetHeldRestoreTokenForTests();
+    vi.mocked(router.replace).mockClear();
     window.history.replaceState(null, '', `/restore?t=${TOKEN}`);
     h.params = { t: TOKEN };
     replace = vi.fn();
@@ -194,6 +197,8 @@ describe('the /restore page', () => {
     });
     h.device = { deviceId: 'dev-new', username: null, isReady: true, adoptRestoredIdentity: adopt };
     const { findByText } = render(<RestorePage />);
+    // Through the router (which owns the URL on web), and the history entry too.
+    expect(router.replace).toHaveBeenCalledWith('/restore');
     expect(spy.mock.calls.some((c) => c[1] === '' && c[2] === '/restore')).toBe(true);
     const button = await findByText('Move Lili’s spots to this phone');
     expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', TOKEN);

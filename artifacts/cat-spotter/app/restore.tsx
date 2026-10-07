@@ -24,8 +24,11 @@ import {
  * it can use this browser's own device id and secret: the link only works on
  * the phone that asked for it (Decision 2).
  *
- * 1. Takes `t` out of the address bar at once (`history.replaceState`), so it
- *    isn't left in history or sent on in a Referer.
+ * 1. Takes `t` out of the address bar at once, so it isn't left in history
+ *    or sent on in a Referer: the token is held in memory and the router
+ *    replaces the page with plain `/restore`. Expo Router keeps the URL in
+ *    step with its own params, so neither `history.replaceState` nor
+ *    `setParams({ t: undefined })` alone sticks (found in the browser check).
  * 2. `peek`s: lists the spotters this link can move (Decision 3), and changes
  *    nothing, so an email scanner opening the link burns nothing.
  * 3. One button per spotter. Pressing it waits for any open username claim
@@ -35,6 +38,14 @@ import {
  * for a link recently, the page says to open it where it was asked for, with
  * **Copy link**; otherwise it says the link has expired or been used.
  */
+/** The link's token, held in memory only, so the page can drop it from the URL. */
+let heldToken: string | null = null;
+
+/** Tests only. */
+export function __resetHeldRestoreTokenForTests(): void {
+  heldToken = null;
+}
+
 type State =
   | { kind: 'checking' }
   | { kind: 'offline' }
@@ -51,16 +62,20 @@ export default function RestorePage() {
   const { deviceId, username, isReady, adoptRestoredIdentity } = useDevice();
   const { isOnline } = useOffline();
   const params = useLocalSearchParams<{ t?: string }>();
-  const token = useRef<string | null>(typeof params.t === 'string' ? params.t : null);
+  if (typeof params.t === 'string' && params.t) heldToken = params.t;
+  const token = useRef<string | null>(heldToken);
+  token.current = heldToken;
   const [state, setState] = useState<State>({ kind: 'checking' });
   const [currentSpots, setCurrentSpots] = useState(0);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!params.t) return;
+    router.replace('/restore');
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.search) {
       window.history.replaceState(window.history.state, '', window.location.pathname);
     }
-  }, []);
+  }, [params.t]);
 
   useEffect(() => {
     if (!isReady || !deviceId) return;
@@ -108,6 +123,7 @@ export default function RestorePage() {
         abandonCurrent: Boolean(username),
       });
       await adoptRestoredIdentity(result.deviceId, result.username);
+      heldToken = null;
       token.current = null;
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         // A fresh page load: the app starts as the restored spotter.
