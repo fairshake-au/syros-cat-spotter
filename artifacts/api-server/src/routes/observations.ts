@@ -1,23 +1,13 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { and, eq, inArray, sql } from "drizzle-orm";
-import {
-  db,
-  catsTable,
-  observationsTable,
-  photosTable,
-  sightingMatchesTable,
-  type Observation,
-} from "@workspace/db";
+import { type Observation } from "@workspace/db";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
-import { can, type Capability } from "../lib/capabilities";
+import { ObservationRefused } from "../lib/observations";
 import {
-  writeObservation,
-  loadCatRecords,
-  ObservationRefused,
-  type ObservationKind,
-} from "../lib/observations";
-import { resolveCat } from "../lib/resolve";
+  recordTeamStatement,
+  supersedeStatement,
+} from "../lib/teamCorrections";
+import { listLikelyForReview } from "../lib/likelyReview";
 import {
   refuseNotSignedIn,
   requireOrigin,
@@ -43,10 +33,11 @@ import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 /**
  * The correction path (data-spine plan, PR 8; spec §4.5, §3.5).
  *
- * The endpoints only — there is no staff screen yet (SYC-43's later parts
- * build it); until then these are reachable only by tests and by anyone who
- * can sign in through the hand-off. Behind `requireTeam(capability)`
- * (`set_life_status`, `set_sterilisation`), merged in #28.
+ * The JSON endpoints. The dashboard's forms (routes/teamCorrections.ts,
+ * SYC-43 part 2 PR 4) write through the very same functions in
+ * lib/teamCorrections.ts, so a form and these routes can never write
+ * different rows for the same input (test P4-6). Behind
+ * `requireTeam(capability)` (`set_life_status`, `set_sterilisation`).
  *
  * Mounted under `/team/observations*`, like every other dashboard route
  * (team.ts, welfare.ts, reports.ts) — NOT at `/observations`. `/api/team/`
@@ -83,30 +74,6 @@ router.use("/team/observations", (_req: Request, res: Response, next) => {
   setTeamHeaders(res);
   next();
 });
-
-/** The two kinds a direct team statement may set (§4.5, §3.5). A staff
- * ear-tip correction ("that's not a clip") only ever happens through
- * supersede, never through a fresh `POST /team/observations` — see the
- * module doc comment and the plan's PR 8 section. */
-const DIRECT_KINDS = ["life_status", "sterilised"] as const;
-type DirectKind = (typeof DIRECT_KINDS)[number];
-
-/** Which capability gates writing or superseding a given kind. `ear_tip` has
- * no capability of its own — a clipped-tip correction feeds sterilised, so
- * it is gated the same way sterilised itself is. Any other kind (note,
- * colony, name, …) has no team capability at all and is refused. */
-function capabilityFor(kind: string): Capability | null {
-  if (kind === "life_status") return "set_life_status";
-  if (kind === "sterilised" || kind === "ear_tip") return "set_sterilisation";
-  return null;
-}
-
-/** Every capability a supersede could ever require, for the pre-lookup gate
- * below — see its doc comment. */
-const SUPERSEDE_CAPABILITIES: readonly Capability[] = [
-  "set_life_status",
-  "set_sterilisation",
-];
 
 const LifeStatusValue = z.object({
   status: z.enum(["street", "homed", "in_care", "deceased"]),
@@ -164,15 +131,12 @@ function serialise(o: Observation) {
   };
 }
 
-function observedAtOrNow(input?: string): Date {
-  return input ? new Date(input) : new Date();
-}
-
 /**
  * POST /team/observations — a fresh team statement of life status or
  * sterilisation, with a reason (§4.5, §3.5). `roleAtTime: "staff"`,
  * `accountId` is the signed-in person's `people.id`. Like every dashboard
- * POST, it must come from the dashboard's own origin (requireOrigin).
+ * POST, it must come from the dashboard's own origin (requireOrigin). The
+ * write itself is recordTeamStatement, shared with the dashboard's form.
  */
 router.post(
   "/team/observations",
@@ -183,44 +147,31 @@ router.post(
     if (!parsed.success) return badRequest(res, parsed.error);
     const body = parsed.data;
 
-    const person = teamPerson(res);
-    const capability = capabilityFor(body.kind);
-    if (!capability || !can(person, capability)) {
-      req.log.info(
-        { reason: "missing_capability", kind: body.kind },
-        "observation refused",
-      );
-      refuseNotSignedIn(req, res);
-      return;
-    }
-
-    const [cat] = await db
-      .select({ id: catsTable.id })
-      .from(catsTable)
-      .where(eq(catsTable.id, body.catId));
-    if (!cat) {
-      res.status(404).json({ error: "Not found" });
-      return;
-    }
-
     try {
-      const row = await db.transaction(async (tx) =>
-        writeObservation(tx, {
-          catId: body.catId,
-          kind: body.kind as DirectKind,
-          // There is no dedicated "reason" column for a plain statement
-          // (only a supersede carries `supersedeReason`); it travels inside
-          // the kind-specific value, exactly as `sterilised`'s own example
-          // in the spec already carries extra context fields (§10.1).
-          value: { ...body.value, reason: body.reason },
-          accountId: person.id,
-          roleAtTime: "staff",
-          observedAt: observedAtOrNow(body.observedAt),
-        }),
-      );
+      const row = await recordTeamStatement(teamPerson(res), {
+        catId: body.catId,
+        kind: body.kind,
+        value: body.value,
+        reason: body.reason,
+        // Absent: "now" is taken inside the write, after any lock wait, as
+        // before the extraction (Opus review, N1).
+        observedAt: body.observedAt ? new Date(body.observedAt) : undefined,
+      });
       res.status(201).json(serialise(row));
     } catch (err) {
       if (err instanceof ObservationRefused) {
+        if (err.code === "NOT_AUTHORISED") {
+          req.log.info(
+            { reason: "missing_capability", kind: body.kind },
+            "observation refused",
+          );
+          refuseNotSignedIn(req, res);
+          return;
+        }
+        if (err.code === "NOT_FOUND") {
+          res.status(404).json({ error: "Not found" });
+          return;
+        }
         res.status(400).json({ error: err.code, message: err.message });
         return;
       }
@@ -238,21 +189,10 @@ router.post(
  * derived status). Like every dashboard POST, it must come from the
  * dashboard's own origin (requireOrigin).
  *
- * Authorisation runs in two steps (review of #68, "authz-ordering-leak"):
- *
- * 1. Before touching the database at all: does the signed-in person hold
- *    *any* capability a supersede could ever require? Someone who holds
- *    neither `set_life_status` nor `set_sterilisation` gets the uniform
- *    401 straight away — they learn nothing about whether the target id
- *    exists or has already been corrected. (Today's role model grants
- *    staff every capability and guardian/volunteer/vet none, so this gate
- *    alone covers every reachable case; the kind-specific check below stays
- *    as defense in depth for when roles are split further, §7.2.)
- * 2. Only once that's passed does the row get locked, loaded, and checked
- *    for existence / already-superseded / the exact capability its kind
- *    needs — all inside one transaction, so a concurrent supersede against
- *    the same target can't race past the already-superseded check (see the
- *    lock below; "double-supersede-race").
+ * The write, its two-step authorisation (review of #68,
+ * "authz-ordering-leak") and its row lock ("double-supersede-race") are
+ * supersedeStatement in lib/teamCorrections.ts, shared with the dashboard's
+ * "Mark wrong" and "That's not a clip" forms.
  */
 router.post(
   "/team/observations/:id/supersede",
@@ -268,72 +208,14 @@ router.post(
     if (!parsed.success) return badRequest(res, parsed.error);
     const body = parsed.data;
 
-    const person = teamPerson(res);
-    if (!SUPERSEDE_CAPABILITIES.some((c) => can(person, c))) {
-      req.log.info(
-        { reason: "missing_capability" },
-        "supersede refused",
-      );
-      refuseNotSignedIn(req, res);
-      return;
-    }
-
     try {
-      const row = await db.transaction(async (tx) => {
-        // Locks the target row for the rest of this transaction. A second,
-        // concurrent supersede against the same id blocks here until this
-        // transaction commits or rolls back, instead of both passing the
-        // "already superseded?" check before either INSERT lands (the race
-        // the review's probe demonstrated). No migration: this is a
-        // transaction-scoped lock on an existing row, not a schema change
-        // (PR 3 holds migration 0006; a partial unique index on
-        // supersedes_id is a possible later belt-and-braces — filed as a
-        // Low follow-up, not needed for correctness here).
-        const lockedRows = await tx.execute<{ id: number }>(
-          sql`select id from observations where id = ${id} for update`,
-        );
-        if (lockedRows.rows.length === 0) {
-          throw new ObservationRefused("NOT_FOUND", "Not found");
-        }
-
-        const [original] = await tx
-          .select()
-          .from(observationsTable)
-          .where(eq(observationsTable.id, id));
-        if (!original) {
-          throw new ObservationRefused("NOT_FOUND", "Not found");
-        }
-
-        const [alreadySuperseded] = await tx
-          .select({ id: observationsTable.id })
-          .from(observationsTable)
-          .where(eq(observationsTable.supersedesId, id));
-        if (alreadySuperseded) {
-          throw new ObservationRefused(
-            "ALREADY_SUPERSEDED",
-            "Already superseded",
-          );
-        }
-
-        const capability = capabilityFor(original.kind);
-        if (!capability || !can(person, capability)) {
-          req.log.info(
-            { reason: "missing_capability", kind: original.kind },
-            "supersede refused",
-          );
-          throw new ObservationRefused("NOT_AUTHORISED", "Not authorised");
-        }
-
-        return writeObservation(tx, {
-          catId: original.catId,
-          kind: original.kind as ObservationKind,
-          value: body.value,
-          accountId: person.id,
-          roleAtTime: "staff",
-          observedAt: observedAtOrNow(body.observedAt),
-          supersedesId: original.id,
-          supersedeReason: body.reason,
-        });
+      const { row } = await supersedeStatement(teamPerson(res), {
+        id,
+        value: body.value,
+        reason: body.reason,
+        // Absent: "now" is taken inside the write, after any lock wait, as
+        // before the extraction (Opus review, N1).
+        observedAt: body.observedAt ? new Date(body.observedAt) : undefined,
       });
       res.status(201).json(serialise(row));
     } catch (err) {
@@ -350,6 +232,7 @@ router.post(
           return;
         }
         if (err.code === "NOT_AUTHORISED") {
+          req.log.info({ reason: "missing_capability" }, "supersede refused");
           refuseNotSignedIn(req, res);
           return;
         }
@@ -363,159 +246,18 @@ router.post(
 
 /**
  * GET /team/observations/review/likely — the *Likely* review list (§4.5
- * point 3): cats whose sterilised status is currently *Likely*, newest
- * evidence first, with the evidence photos so a team member can judge them
- * without leaving the list.
- *
- * Data spine PR 7 (SYC-119 hand-off, its Slice D): a "clipped" answer given
- * on a sighting the server recorded as a hand pick (`sighting_matches.choice
- * = 'hand_pick'`, SYC-151) is marked `matchedByHand`, and cats with such
- * evidence are sorted first. A spotter who picked the cat themselves may
- * have picked the wrong one, so their clipped tip is the one most worth a
- * second look. The match record is team-only, and so is this list.
- *
- * Only loads cats that actually have an `ear_tip` observation (review of
- * #68, "n-plus-one": the previous version loaded every cat in the corpus to
- * find the handful at Likely) and batches the evidence photo lookups into
- * one query, the same join `listCatsWithStats` uses, instead of one
- * `photoUrl()` round trip per photo.
+ * point 3) as JSON: cats waiting for the team to look at their clipped-ear
+ * evidence, with the evidence photos. The list and its rule live in
+ * lib/likelyReview.ts, shared with the dashboard's page at GET
+ * /api/team/likely (SYC-43 part 2, PR 4, which changed it in two ways: the
+ * photos are team photo URLs, and a cat whose newest clipped answer is the
+ * team's own "Looks right" is off the list).
  */
 router.get(
   "/team/observations/review/likely",
   requireTeam("set_sterilisation"),
   async (_req: Request, res: Response) => {
-    const earTipCats = await db
-      .selectDistinct({
-        id: catsTable.id,
-        name: catsTable.name,
-      })
-      .from(observationsTable)
-      .innerJoin(catsTable, eq(catsTable.id, observationsTable.catId))
-      .where(eq(observationsTable.kind, "ear_tip"));
-    if (earTipCats.length === 0) {
-      res.json({ cats: [] });
-      return;
-    }
-
-    const records = await loadCatRecords(earTipCats.map((c) => c.id));
-    const now = new Date();
-
-    // One batched lookup of which evidence sightings were hand picks.
-    const evidenceSightingIds = [
-      ...new Set(
-        [...records.values()].flatMap((r) =>
-          r.observations
-            .filter((o) => o.kind === "ear_tip" && o.sightingId != null)
-            .map((o) => o.sightingId!),
-        ),
-      ),
-    ];
-    const handPickRows =
-      evidenceSightingIds.length === 0
-        ? []
-        : await db
-            .select({ sightingId: sightingMatchesTable.sightingId })
-            .from(sightingMatchesTable)
-            .where(
-              and(
-                inArray(sightingMatchesTable.sightingId, evidenceSightingIds),
-                eq(sightingMatchesTable.choice, "hand_pick"),
-              ),
-            );
-    const handPickedSightings = new Set(handPickRows.map((r) => r.sightingId));
-
-    type EvidenceDraft = {
-      observationId: number;
-      photoId: number | null;
-      observedAt: string;
-      side: string | null;
-      matchedByHand: boolean;
-    };
-
-    const likelyDraft: {
-      catId: number;
-      name: string;
-      sterilisedAsOf: string;
-      matchedByHand: boolean;
-      evidence: EvidenceDraft[];
-    }[] = [];
-
-    for (const cat of earTipCats) {
-      const record = records.get(cat.id);
-      if (!record) continue;
-      const snapshot = resolveCat(record.observations, record.evidenceOfLife, now);
-      if (snapshot.sterilised.confidence !== "likely") continue;
-
-      const activeIds = new Set(
-        record.observations
-          .filter((o) => !record.observations.some((other) => other.supersedesId === o.id))
-          .map((o) => o.id),
-      );
-      const evidenceObservations = record.observations.filter((o) => {
-        if (o.kind !== "ear_tip" || !activeIds.has(o.id)) return false;
-        const v = o.value as { clipped?: unknown; side?: unknown };
-        return v?.clipped === true && o.photoId != null;
-      });
-
-      const evidence: EvidenceDraft[] = evidenceObservations
-        .sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime())
-        .map((o) => ({
-          observationId: o.id,
-          photoId: o.photoId,
-          observedAt: o.observedAt.toISOString(),
-          side:
-            typeof (o.value as { side?: unknown })?.side === "string"
-              ? ((o.value as { side: string }).side)
-              : null,
-          matchedByHand: o.sightingId != null && handPickedSightings.has(o.sightingId),
-        }));
-
-      likelyDraft.push({
-        catId: cat.id,
-        name: cat.name,
-        sterilisedAsOf: snapshot.sterilised.asOf,
-        matchedByHand: evidence.some((e) => e.matchedByHand),
-        evidence,
-      });
-    }
-
-    // One batched photo-id -> public-id lookup for every evidence photo
-    // across every cat, instead of one query per photo (listCatsWithStats's
-    // own pattern for exactly this join).
-    const photoIds = [
-      ...new Set(
-        likelyDraft.flatMap((c) =>
-          c.evidence.map((e) => e.photoId).filter((id): id is number => id != null),
-        ),
-      ),
-    ];
-    const photoRows =
-      photoIds.length === 0
-        ? []
-        : await db
-            .select({ id: photosTable.id, publicId: photosTable.publicId })
-            .from(photosTable)
-            .where(inArray(photosTable.id, photoIds));
-    const publicIdByPhotoId = new Map(photoRows.map((p) => [p.id, p.publicId]));
-
-    const likely = likelyDraft.map((c) => ({
-      ...c,
-      evidence: c.evidence.map((e) => ({
-        ...e,
-        photoUrl:
-          e.photoId != null && publicIdByPhotoId.has(e.photoId)
-            ? `/api/photos/${publicIdByPhotoId.get(e.photoId)}`
-            : null,
-      })),
-    }));
-
-    likely.sort(
-      (a, b) =>
-        Number(b.matchedByHand) - Number(a.matchedByHand) ||
-        new Date(b.sterilisedAsOf).getTime() - new Date(a.sterilisedAsOf).getTime(),
-    );
-
-    res.json({ cats: likely });
+    res.json({ cats: await listLikelyForReview() });
   },
 );
 

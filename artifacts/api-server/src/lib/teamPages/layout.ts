@@ -14,11 +14,10 @@ interface NavItem {
   href: string | null;
 }
 
-// Probably sterilised (PR 4) switches on by getting an href, as Cats (PR 3) did.
 const NAV: NavItem[] = [
   { key: "queue", label: "Welfare queue", href: "/api/team" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
-  { key: "likely", label: "Probably sterilised", href: null },
+  { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
 ];
 
 const STYLES = `
@@ -101,6 +100,29 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
 .refs{margin:0;padding:0;list-style:none}
 .refs li{margin:0 0 2px}
 .refs a{display:inline-block;padding:4px 0}
+.hintlist{margin:0 0 8px;padding-left:20px}
+.hintlist li{margin:4px 0}
+.evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 4px;max-width:520px}
+.evidence figure{margin:0}
+.evidence img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#ece8dc}
+.evidence figcaption{font-size:13px;color:#55524a;margin-top:2px}
+.likelyactions form{margin:12px 0 0}
+.likelyactions .save{width:100%}
+input.text,input[type=date]{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;margin:0 0 8px;background:#fff}
+input[type=date]{max-width:220px}
+.fixes details{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0;padding:0 12px}
+.fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
+.fixes details[open]{padding-bottom:12px}
+.fixes form,.statement form{margin:4px 0 0}
+fieldset{border:0;margin:0 0 8px;padding:0}
+legend{padding:0}
+.choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}
+.choice input{width:22px;height:22px;margin:0;flex:none}
+.warn{background:#fff3cd;border:1px solid #c9a227;border-radius:6px;padding:8px 10px;margin:8px 0}
+.statement details{margin-top:6px;border-top:1px dashed #c9c4b6}
+.statement summary{font-size:15px}
+.fixes button,.statement button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+.likelyactions button:not(.save){width:100%}
 @media (min-width:700px){
 main{padding-top:20px}
 .report.has-photo{display:grid;grid-template-columns:240px 1fr;gap:0 16px;align-items:start}

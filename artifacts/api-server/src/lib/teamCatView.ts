@@ -135,6 +135,9 @@ export function describeStatement(kind: string, raw: unknown): string {
     case "ear_tip": {
       if (v["clipped"] === true) {
         const side = v["side"] === "left" || v["side"] === "right" ? `, ${v["side"]} ear` : "";
+        // "Looks right" on the Probably sterilised list (PR 4, Decision 6).
+        if (typeof v["agreesWith"] === "number")
+          return `Agreed the ear tip is clipped${side}, in the photo of #${v["agreesWith"]}`;
         return `Ear tip clipped${side}`;
       }
       if (v["clipped"] === false) return "Ear tip not clipped";
@@ -196,6 +199,37 @@ export interface TeamStatement {
   /** Statements that correct this one. Empty while it stands. */
   replacedBy: number[];
   photoUrl: string | null;
+  /**
+   * How the team may mark it wrong (PR 4), or null. Only a standing
+   * statement of a kind with a team capability: a life status, a
+   * sterilisation, or a clipped ear tip ("That's not a clip").
+   */
+  correction: StatementCorrection | null;
+}
+
+export type StatementCorrection =
+  | { kind: "life_status"; now: LifeStatusValue | null }
+  | { kind: "sterilised"; now: boolean | null }
+  | { kind: "ear_tip_clipped" };
+
+function correctionOf(o: Observation, replaced: boolean): StatementCorrection | null {
+  if (replaced) return null;
+  const v = (o.value && typeof o.value === "object" ? o.value : {}) as Record<string, unknown>;
+  if (o.kind === "life_status") {
+    const now = v["status"];
+    return {
+      kind: "life_status",
+      now: typeof now === "string" && now in LIFE ? (now as LifeStatusValue) : null,
+    };
+  }
+  if (o.kind === "sterilised") {
+    return {
+      kind: "sterilised",
+      now: typeof v["sterilised"] === "boolean" ? (v["sterilised"] as boolean) : null,
+    };
+  }
+  if (o.kind === "ear_tip" && v["clipped"] === true) return { kind: "ear_tip_clipped" };
+  return null;
 }
 
 export interface TeamResolved<T> {
@@ -329,6 +363,7 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
       replaces: o.supersedesId ?? null,
       replacedBy: replacedBy.get(o.id) ?? [],
       photoUrl: urlFor(o.photoId),
+      correction: correctionOf(o, replacedBy.has(o.id)),
     }));
 
   const photos: TeamCatView["photos"] = [];
