@@ -1,10 +1,10 @@
 # Feeding sites and colonies on the dashboard
 
 **Feature spec · Cat Spotters (Syros)**
-**Version:** 1.0 draft · 7 October 2026
+**Version:** 1.1, revised after adversarial review · 7 October 2026
 **Covers:** PRODUCT-SPEC §2.6 (the feeding-site map, private by default with a per-site public toggle, and colony naming), and the part of §2.6's dashboard that `team-access-and-welfare-queue.md` §3.2 and §3.4 describe in a paragraph each.
-**Linear:** SYC-209 (this spec) · SYC-43 (the dashboard it belongs to) · SYC-53 (roles: a dependency, see §7) · SYC-22 and SYC-51 (QR codes that will point at sites, see §11) · SYC-67 (Syros Cats' acceptance of the location limits).
-**Status:** **Draft for Samuel's approval.** Not yet adversarially reviewed. Written against `docs/specs/DECISIONS.md`, which wins wherever they differ.
+**Linear:** SYC-209 (this spec) · SYC-43 (the dashboard it belongs to) · SYC-53 (roles: the source of truth for permissions, see §7) · SYC-22 and SYC-51 (QR codes that will point at sites, see §11) · SYC-67 (Syros Cats' acceptance of the location limits) · SYC-245 (Google Maps links, a precondition of §2.3) · SYC-255 (map-tile logging) · SYC-256 (erasing a guardian's name) · SYC-257 (what a phone may keep, settled in the roles spec).
+**Status:** **Revised after adversarial review, awaiting Samuel's approval.** The review is `docs/specs/reviews/feeding-sites-and-colonies-review.md`; section "Review outcome" at the end says how each finding was handled. Permissions follow `roles-and-invites.md` (SYC-53, §6.2 and §6.7), which wins on capability names. Written against `docs/specs/DECISIONS.md`, which wins wherever they differ.
 
 ### What this document owns, and what it borrows
 
@@ -16,7 +16,7 @@ This is the screen-and-behaviour spec for two things: the team's **feeding-site 
 | Feeding-site privacy: private by default, absent (never blurred) from public payloads, filtered in the query not the serialiser, **and the precision at which a public site is shown** | `cat-record-data-spine.md` §6.7 and its open question 3 |
 | Cat location blurring (250 m cells), the colony-averaging limit, the nearest-cat oracle | `cat-record-data-spine.md` §6 |
 | Staff sign-in, the dashboard shell, capabilities, `person_scopes` | `team-access-and-welfare-queue.md` §2, §7, §8 |
-| Which roles exist, and which capabilities a cat guardian holds | **SYC-53** (being specified in parallel) |
+| Which roles exist, the capability names, and which capabilities a cat guardian holds | **SYC-53**, `roles-and-invites.md` §6.2 (the catalogue) and §6.7 (what this spec cites) |
 
 **What this document adds** and proposes the owners adopt (§12): the screens; the rule about what a public site's label may contain; the safeguards around flipping a site public; the public site card and map layer in the app; an add-only history of every change to a site or colony; and a short list of columns the spine's records need to carry for all of that.
 
@@ -26,20 +26,20 @@ This is the screen-and-behaviour spec for two things: the team's **feeding-site 
 
 ## 1. The short version
 
-Syros Cats already know where every feeder is. That knowledge lives in people's heads, in WhatsApp groups, and in the names they use on the phone: "Vaporia, Eleni's". The app is collecting photographs of cats from all over the island, and the team has no place to say "this is a feeding spot, these cats belong to it, this is who looks after it".
+Syros Cats already know where every feeding spot is. That knowledge lives in people's heads, in WhatsApp groups, and in the names they use on the phone: "Vaporia, Eleni's". The app is collecting photographs of cats from all over the island, and the team has no place to say "this is a feeding spot, these cats belong to it, this is who looks after it".
 
 This spec gives them one:
 
-1. **A map of every feeding site on the island, seen only by signed-in Syros Cats people.** They add sites, move them when they were put in the wrong place, and retire them when a feeder closes. Nothing is deleted.
+1. **A map of every feeding site on the island, seen only by signed-in Syros Cats people** (and, once cat guardians have accounts, each guardian sees only her own colonies' sites). They add sites, move them when they were put in the wrong place, and retire them when a spot closes. Nothing is deleted.
 2. **Colonies with the names they already use**, a place plus the cat guardian who looks after it, renamable whenever a guardian changes, with a way to say which cats belong to which colony.
 3. **One switch per site: private or public.** Private is the default, and it is how every site starts. A site goes public only when somebody on the team decides it should, one site at a time, after a screen that shows exactly what a tourist will see and reminds them why this matters. Making it public puts a bowl-shaped marker at its exact position on the map in the app, with a short note asking people to keep their distance. It does not publish the cats, the colony, the guardian's name or any note.
 4. **A record of every change**: who moved, renamed, hid or exposed what, and when, so "how did that become public?" always has an answer.
 
-**The thing that matters most is the one-sentence reason from the spine:** cat feeders face hostility from some neighbours, and known feeding sites attract people who abandon animals. The location of a feeding site is among the most sensitive facts in the whole app, because it leads people straight to cats. Everything below is shaped by that.
+**The thing that matters most is the one-sentence reason from the spine:** cat guardians face hostility from some neighbours, and known feeding sites attract people who abandon animals. The location of a feeding site is among the most sensitive facts in the whole app, because it leads people straight to cats. Everything below is shaped by that.
 
 ### The two audiences want the same thing from different angles
 
-A cat guardian who has fed the same alley for nine years wants the charity to know that place exists, and to keep it quiet. A tourist standing in Kini wants to see where the real feeders are and help without doing harm. These needs are complementary, and the switch is where they meet: the guardian's quiet places stay quiet, and the places Syros Cats choose to be seen become a way for visitors to find the charity's work.
+A cat guardian who has fed the same alley for nine years wants the charity to know that place exists, and to keep it quiet. A tourist standing in Kini wants to see where the real feeding spots are and help without doing harm. These needs are complementary, and the switch is where they meet: the guardian's quiet places stay quiet, and the places Syros Cats choose to be seen become a way for visitors to find the charity's work.
 
 ---
 
@@ -51,6 +51,7 @@ Everything here is a page on the existing staff dashboard (`team.catspotters.com
 
 The top of the page is a map of the island with a marker on every site. Below it is the same information as a list, because a list is faster when you already know the name.
 
+- **Who sees what.** The text here describes the team's view. A cat guardian with an account sees only her own colonies' sites, counts and changes; §7.3 lists every item.
 - **Markers show state at a glance.** A filled marker is a public site; an outlined one is private; a grey one is retired (hidden unless "Show retired" is ticked). There is a count above the map: "31 sites: 2 public, 28 private, 1 retired".
 - **The list is sorted by name** and each row says: the site's name, its colony (or "no colony yet"), private or public, and the date it was last changed.
 - **A "Recently changed" strip** under the count shows the last five changes to any site, with the person's name and the day. It is the quickest way to answer "did someone just change this?".
@@ -63,53 +64,60 @@ A site's page shows, in this order:
 1. **Its name**, and a small map centred on it.
 2. **Visibility**: a plain sentence ("Private. Only Syros Cats people signed in here can see this place.") and the button to change it (§4.3).
 3. **Its colony**, with a link, or a button to pick one.
-4. **Its notes**, which are for the team only ("the gate is round the back", "Maria goes on Tuesdays").
+4. **Its notes**, which are for the team only ("the gate is round the back"). Under the box: "Don't write when people come and go." And **"How to find it"**, a short line of directions in words, with no coordinates ("down the steps by the blue gate, behind the bakery wall"). It is for the team and the colony's guardian only; a guardian's or volunteer's saved phone list shows it in place of coordinates (§9).
 5. **History**: everything that has been done to this site, newest first, each line with the person and the date (§8).
-6. **Actions**: *Edit details*, *Move on the map*, *Retire this site*.
+6. **Actions**: *Edit details*, *Move on the map*, *Retire this site*. A team member also gets *Change colony* (island-wide power); a guardian instead gets *Ask the team to make this public* (§7.3).
 
 ### 2.3 Adding a site
 
-A team member can start in three places, because people think about feeders in three ways:
+A team member can start in three places, because people think about feeding spots in three ways:
 
 - **From the Feeding sites page: "Add a site".** Pick the spot on the map (§3).
-- **From a cat's page: "Make a feeding site here".** The cat's page already shows its sightings with exact positions to the team. A sighting is often the moment someone says "that's where she's fed". The button starts a new site pre-placed at that sighting, and the team member can nudge it before saving.
+- **From a cat's page: "Make a feeding site here".** The cat's page already shows its sightings with exact positions to the team. A sighting is often the moment someone says "that's where she's fed". The button starts a new site pre-placed at that sighting, and the team member can nudge it before saving. **Precondition: SYC-245 must be done first.** Today the same cat page, the welfare queue and the welfare alert email link the exact sighting position out to Google Maps, so the spot has probably already been sent to Google before anyone makes a site of it. The button does not ship until those links are gone (or, as a fallback, are dropped for any sighting within 50 m of a site).
 - **From a colony's page: "Add a feeding site to this colony".** The new site arrives already linked.
 
-The form asks for: **a name** (the convention is a place plus the guardian, "Vaporia — Eleni's", the same as colonies), **which colony** (optional; it can be added later), and **notes** (optional). It does not ask for anything public. A new site is always private. There is no way to create a site as public.
+The form asks for: **a name** (the convention is a place plus the guardian, "Vaporia — Eleni's", the same as colonies), **which colony** (optional for the team; it can be added later; a guardian's is always her own), **how to find it** (optional) and **notes** (optional). It does not ask for anything public. A new site is always private. There is no way to create a site as public. A second way to place a site, for anyone who cannot use a tap (a keyboard or screen-reader user): type coordinates, with a warning "Don't copy these from a map company's site; ask a colleague who has been there" (§3).
 
 ### 2.4 Moving a site
 
-"Move on the map" opens the same picker as adding, starting from where the site is now. Moving is for correcting a pin placed in the wrong spot, or for a feeder that really moved a few metres. The page asks for a short reason ("pin was on the wrong side of the road"). The old position stays in the site's history, readable by the team.
+"Move on the map" opens the same picker as adding, starting from where the site is now. Moving is for correcting a pin placed in the wrong spot, or for a feeding spot that really moved a few metres. The page asks for a short reason ("pin was on the wrong side of the road"). The old position stays in the site's history, readable by the team. If the site is in a guardian's colony she can move it too (`edit_feeding_site`); she cannot change its colony.
 
 **If the site is public, moving it also makes it private again** until someone confirms the new position (§4.5). A wrong pin on a public site would point visitors at somebody's front door.
 
 ### 2.5 Retiring a site, and bringing it back
 
-A feeder closes, a guardian stops, a spot is no longer used. **Retire this site** takes it off the map and out of every public view at once, whatever it was before. It asks for a reason, and the site stays in the list under "Show retired", with its full history. **Bring back** puts it back **as private**, never as public. Sites are never deleted from the dashboard, because the history of where the island has been fed is part of the charity's record.
+A feeding spot closes, a guardian stops, a spot is no longer used. **Retire this site** takes it off the map and out of every public view at once, whatever it was before. It asks for a reason, and the site stays in the list under "Show retired", with its full history. **Bring back** puts it back **as private**, never as public. Sites are never deleted from the dashboard, because the history of where the island has been fed is part of the charity's record.
 
 ### 2.6 The Colonies page
 
-A list of every colony by name, with its cat guardian's name, how many feeding sites it has, and how many cats are in it. A search box finds a colony by any name it has ever had, so typing "Eleni" or an old name works.
+A list of every colony by name, with its cat guardian's name, how many feeding sites it has, and how many cats are in it (worked out by the same "newest active statement stands" rule as §2.8, so a cat marked "in no colony" is not counted). A search box finds a colony by any name it has ever had, so typing "Eleni" or an old name works.
 
 **One colony** shows: its name; the guardian's name; how many sites and cats; its sites (with links); its cats (with photos); its team-only notes; and its history (renames, guardian changes, cats added and removed).
 
 ### 2.7 Naming and renaming a colony
 
-- **Creating a colony:** a name and, optionally, the guardian's name and notes. The page shows the convention: *a place and the person who looks after it, like "Vaporia — Eleni's"*. It checks the name is not already taken, ignoring capitals, accents and the final-sigma difference, using the same folding as cat names. If it clashes, the page says which colony already has the name and links to it, as the cat rename does.
+- **Creating a colony:** a name and, optionally, the guardian's name and notes. The page shows the convention: *a place and the person who looks after it, like "Vaporia — Eleni's"*. It checks the name is not already taken, ignoring capitals, accents and the final-sigma difference, using the same folding as cat names. If it clashes, a team member's page says which colony already has the name and links to it, as the cat rename does. Anyone whose rights do not cover that colony only gets "That name can't be used", with no link and no colony named (§7.3).
 - **Renaming:** same form. Everything points at a colony by its number, never its name, so renaming moves nothing: its cats, its sites, any QR code (§11.6) stay attached. The old name goes into the colony's name history, so searching for it still finds the colony, and so a future import (`records-import.md`) still matches.
-- **Changing the guardian** is an edit of the guardian's name (and, normally, a rename to match). The two fields are separate on purpose: the name is how the colony is *spoken about*, the guardian's name is who to ring, and they do not always change together.
+- **Changing the guardian** is an edit of the guardian's name (`edit_colony`) and, normally, a rename to match (`rename_colony`). **If any of the colony's sites is public, changing the guardian makes those sites private until someone re-confirms them** (§4.7). The two fields are separate on purpose: the name is how the colony is *spoken about*, the guardian's name is who to ring, and they do not always change together.
 - **Names are proper names.** They are stored once, as typed, and shown exactly like that in every language. "Vaporia — Eleni's" is never translated.
 
 ### 2.8 Putting cats in a colony
 
-A cat belongs to a colony because the team said so. That statement is a `colony` observation on the cat, written by the same rules as every other statement (`cat-record-data-spine.md` §10.5, §10.1): signed, dated, attributed, never edited, never deleted.
+A cat belongs to a colony because the team said so. That statement is a `colony` observation on the cat, written by the same rules as every other statement (`cat-record-data-spine.md` §10.5, §10.1): signed, dated, attributed, never edited, never deleted. Only the team writes them (`assign_cat_to_colony`). A cat guardian can only propose (`propose_colony_change`, §7.3).
 
 Two ways in, because there are two jobs:
 
 - **From the colony page, "Add cats":** a search box that finds cats by name or SYR number; each result has a tick box and shows which colony, if any, the cat is in now. Tick several and press *Add the ticked cats*. Each cat gets its own statement. (This is not a bulk privacy action; it changes only which cats are listed together on the team's side.)
 - **From a cat's page, "Colony":** choose one from a list of all colonies. One tap, one statement.
 
-**Moving a cat between colonies** writes a new statement; the cat's page then shows both, with the newest standing. **Taking a cat out of a colony** is "Mark wrong" on the colony statement, with a reason, exactly as the correction forms already work for life status and sterilisation (the cat is then in no colony). The history keeps the earlier claim.
+**The rule for "which colony is a cat in".** The newest active colony statement stands. A statement may name a colony, or it may say **"in no colony"** (an explicit value, `colony { colonyId: null }`, which the data spine's `colony` observation gains; `roles-and-invites.md` §17.1 point 4 asks for the same amendment). "In no colony" is an ordinary new statement, not an erasure.
+
+Two separate buttons, because they mean different things:
+
+- **Take out of this colony** writes a new "in no colony" statement. The cat's earlier colony stays in its history as true-at-the-time.
+- **Mark wrong** (with a reason, exactly as the correction forms already work for life status and sterilisation) means "this was never true". The marked statement stops counting, and **the next newest active statement stands**. So if a cat was moved from colony A to colony B and the team marks the B statement wrong, the cat is back in A. If there is no earlier statement, it is in no colony.
+
+**Moving a cat between colonies** writes a new statement; the cat's page then shows both, with the newest standing.
 
 **A colony statement is not evidence of life** and moves no derived status (`cat-record-data-spine.md` §10.5). Putting a cat in a colony never changes whether it is shown as alive, sterilised or anything else.
 
@@ -138,7 +146,7 @@ Every feeding site is created private. A site is public only after a named team 
 
 ### 4.2 What "public" exposes, and to whom
 
-*To whom:* to **everyone**. The app has no sign-in, and its public data is also available to anyone who asks the server directly, with or without the app. A public site can be seen by a tourist, a local, a journalist, a neighbour who dislikes the feeders, and a person who wants to leave a box of kittens somewhere. There is no "just to app users" setting, and the screen says so.
+*To whom:* to **everyone**. The app has no sign-in, and its public data is also available to anyone who asks the server directly, with or without the app. A public site can be seen by a tourist, a local, a journalist, a neighbour who dislikes the cat guardians, and a person who wants to leave a box of kittens somewhere. There is no "just to app users" setting, and the screen says so.
 
 *What:* exactly the fields in this table, and nothing else.
 
@@ -161,7 +169,7 @@ The button on a site's page says **Make public…**. It does not make it public.
 1. **A preview of exactly what visitors will see:** the marker on a small map, and the card that opens when it is tapped, in English, Greek and French, built from the real public label.
 2. **A plain list of what this will do:** "Anyone in the world will be able to see where this feeding spot is, to the metre, from today."
 3. **The reason, in one line:** "Cat guardians can face hostility from neighbours, and places where cats are fed are where people sometimes leave animals they don't want."
-4. **What it will not do**, because people will assume: "It will not make the cats' own pins exact. Cats near this spot stay blurred. It does not hide or reveal anything else about this place."
+4. **What it will and will not do**, because people will assume the cats stay hidden: "The cats here stay as blurred squares on the map, but anyone who knows this spot can match photos of cats to it. Treat a public spot as telling people that cats live here. It does not reveal anything else about this place." (§4.6 explains the two ways this happens.)
 5. **One honest caveat, from the spine:** "Switching this off later stops new people from seeing it. It cannot take it back from anyone who has already looked."
 6. **A tick box the person must tick:** *"The cat guardian for this place knows, and is happy for it to be public."* (Decision 5, §13.)
 7. **The public label field**, which must be filled in and is checked against §4.4.
@@ -169,22 +177,23 @@ The button on a site's page says **Make public…**. It does not make it public.
 
 Pressing it records the change and who made it; the site's page then says "Public since 14 October, by Maria."
 
-Anyone who has `set_site_public` (§7) can do this. There is no second-person approval (Decision 5 considers one).
+Only someone who holds `set_site_public` (an island-wide team power, §7.2) can do this. There is no second-person approval (Decision 5 considers one).
 
 ### 4.4 The public label is written separately
 
 A site's internal name follows the charity's own convention and so contains the guardian's name: "Vaporia — Eleni's". Publishing that would publish a private person's first name next to an exact place. So:
 
-- **A public site has a *public label*, a separate field, required before it can go public.** Examples: "Kini harbour feeders", "Vaporia seafront".
+- **A public site has a *public label*, a separate field, required before it can go public.** Examples: "Kini harbour feeding spot", "Vaporia seafront".
 - The confirmation page rejects a label that **contains the guardian's name or the internal name** (checked after folding accents and case), and a label that **looks like an address** (a number following a street word, in Latin or Greek letters). The check is a guard against accident, not a promise: the person is still responsible for what they type.
 - The label is the same in every language. It is a place name, like a colony name. If Syros Cats want a Greek and an English label for the same place, that is a later request (§13 Decision 10 notes it).
 
 ### 4.5 Switching off, moving, and retiring a public site
 
-- **Make private** is one tap, with a one-line confirmation, no preview and no tick box. It is the safe direction and is never made harder. It takes effect for new requests immediately (the public list is not cached for more than five minutes, §11).
+- **Make private** is one tap, with a one-line confirmation, no preview and no tick box. It is the safe direction and is never made harder. It takes effect for new requests immediately (the public list is not cached for more than five minutes, §11). The confirmation adds: "Take down any QR sticker at this place."
 - **Moving a public site makes it private** and says so on the form ("You've moved a public site, so it is private again until you confirm the new position."). The team member sees the confirmation page of §4.3 again to put it back. This costs a minute and prevents a typo from sending visitors to a stranger's door.
-- **Retiring a public site** removes it from the public view at once.
-- **Renaming a site, changing its notes or its colony** do not change visibility. Changing the **public label** of a public site is treated like a fresh public decision: the confirmation page appears again, because the label is the one thing a visitor reads.
+- **A new public code after a move or a retire.** A site gets a **new public code** whenever it is made public at a position more than 10 metres from where it last stood in public, and always when it is made public again after being retired. Without that, a watcher saving the public list every few minutes would see one code vanish from spot A and return at spot B, and learn where a harassed cat guardian's feeding spot went. The old code (or codes) are kept in a team-only list so the history can show them. **An old code answers exactly like a code that never existed** (`feedingSpotGone`, §11.3), so a printed sticker at the old spot no longer finds the new one. The confirmation page for any re-publish after a move says: "Old QR stickers for this place will stop working. Take them down." A site made private and public again **with no move** keeps its code; this is a choice, set out in Decision 6, because it tells a watcher "the same spot, quiet for a while, now back".
+- **Retiring a public site** removes it from the public view at once, and the retire confirmation adds: "Take down any QR sticker at this place."
+- **Renaming a site, changing its notes** do not change visibility. Changing the **public label** of a public site is treated like a fresh public decision: the confirmation page appears again, because the label is the one thing a visitor reads. **Changing a site's colony, or the guardian of its colony, while it is public** also forces the confirmation page again (§4.7).
 
 ### 4.6 What the switch does not protect against
 
@@ -192,7 +201,18 @@ Stated here because the charity should hear it from this document and not discov
 
 - **Cats cluster at feeding sites.** Averaging the blurred positions of the cats in a colony recovers its feeding site to about the width of a street, whether or not the site is public. Hiding the site row does not hide the cats. The switch is worth having and is never described as a guarantee, in the dashboard, the app or the privacy policy.
 - **Making a site public does not make the colony public**, and this spec keeps it that way (§4.2). But the reverse is also true: nothing in this spec makes a private colony *safe*.
-- **A public site and the app's own cats-near-me view sit close together on the map.** The cats are shown as blurred 250 m squares, and the site as an exact bowl. That reads correctly ("the cats are around here, the feeder is exactly there") but it also tells a watcher which of the nearby squares to walk to. This is a consequence of Syros Cats choosing to make a site public, and the confirmation page's line 4 says so in plain words.
+- **A public site and the app's own cats-near-me view sit close together on the map.** The cats are shown as blurred 250 m squares, and the site as an exact bowl. That reads correctly ("the cats are around here, the bowl is exactly there") but it also tells a watcher which of the nearby squares to walk to.
+- **Two channels tie named cats to an exact bowl, and the blurred squares do not stop them.** (1) *The matching service.* When someone submits a sighting, the app picks match candidates by exact distance within 500 m and sends back the cat's number, name and photo (`DECISIONS.md` Part 2h, accepted as Samuel's risk when no public sites existed). With a public exact bowl, a hostile person no longer needs to guess where to probe: he can submit a cat's public photo at the bowl's exact spot and read back which named cats live within 500 m. (2) *The photos.* The background of a photo is never blurred (spine §6.4.5). Once the bowl is public at its exact spot, any public photo taken at that bowl (the wall, the gate, the bowl itself) has an exact place. So the honest statement is that **a public spot tells people that cats live here and lets them match photos of cats to it**. It is a consequence of Syros Cats choosing to make a site public, and the confirmation page's line 4 says so in plain words (§4.3). The Part 2h risk acceptance was made before public sites existed; whether it still stands now belongs in the SYC-67 conversation with Syros Cats (§11.6, Decision 2), together with a paragraph on public sites.
+
+### 4.7 When the guardian or the colony changes under a public site
+
+The "cat guardian knows" tick (§4.3) is a statement about a particular person and a particular place. So it goes stale when either changes.
+
+- **If a colony's guardian name changes while any of its sites is public, those sites go private at once** until someone re-confirms on the §4.3 page, with the new guardian named. The history records "made private automatically: guardian changed". (Chosen over a warning banner because a banner can be ignored; Decision 5 weighs the two.)
+- **If a public site is moved to another colony** (which only the team can do, `reassign_feeding_site`), it goes private in the same way.
+- **No site goes public without a named guardian.** A site with no colony, or whose colony has no guardian name, cannot be made public. If Syros Cats are themselves responsible for a place and no guardian exists, that is a later request, not a loophole: the tick would have to read "Syros Cats are responsible for this place", and the history would record which wording was used.
+
+
 
 ---
 
@@ -234,7 +254,7 @@ New strings in `artifacts/cat-spotter/lib/i18n.ts`, in all three languages with 
 
 **Nothing from the `colonies` table is public**: not the name, not the guardian, not the centre, not the notes, not the count of cats, not that a colony exists. The colony centre is team-only because publishing it would hand over for free the thing the spine's accepted colony-averaging limit is about (§6.2, §10.5). A public site's link to a colony is invisible to the public by the same rule.
 
-**One exception is waiting, and is not decided here:** SYC-22 wants a QR scan at a Kini feeder to land on "that colony's cats". That is a public page about a colony, with cats shown in relation to an exact place. It reopens the question Syros Cats accepted in F2. §11.6 lists what that ticket must settle first, and Decision 3 recommends nothing of the kind ships with the switch.
+**One exception is waiting, and is not decided here:** SYC-22 wants a QR scan at a Kini feeding spot to land on "that colony's cats". That is a public page about a colony, with cats shown in relation to an exact place. It reopens the question Syros Cats accepted in F2. §11.6 lists what that ticket must settle first, and Decision 3 recommends nothing of the kind ships with the switch.
 
 ---
 
@@ -244,36 +264,69 @@ A cat guardian is the person a colony and its sites are named after. Most have n
 
 ### 7.1 Without an account
 
-A guardian with no account appears as **text**: the `guardian_name` on a colony (the spine's deliberate choice, §10.5). The team keeps it up to date. Nothing sends them mail, shows them anything or makes them accountable for anything. Their consent to a site going public is recorded by the team ticking the box in §4.3, which is how the charity would naturally ask ("Eleni, are you happy for the Kini feeder to be on the app?").
+A guardian with no account appears as **text**: the `guardian_name` on a colony (the spine's deliberate choice, §10.5). The team keeps it up to date. Nothing sends them mail, shows them anything or makes them accountable for anything. Their consent to a site going public is recorded by the team ticking the box in §4.3, which is how the charity would naturally ask ("Eleni, are you happy for the Kini feeding spot to be on the app?").
 
 ### 7.2 With an account (SYC-53)
 
-SYC-53 is being specified in parallel and decides which roles exist. **This spec does not invent roles.** It names the capabilities the feeding-site and colony screens call, so that SYC-53 can assign them, and it states what it needs from them.
+`roles-and-invites.md` (SYC-53) decides which roles exist and is the **single list of capability names** (its §6.2). **This spec adds no capability of its own.** Its screens call the catalogue names below. The working names an earlier draft of this spec used map onto them as SYC-53 §6.7 says: `manage_feeding_sites` is `add_feeding_site`, `edit_feeding_site` and `reassign_feeding_site`; `manage_colonies` is `create_colony`, `edit_colony` and `rename_colony`; `set_cat_colony` is `assign_cat_to_colony` (team) and `propose_colony_change` (guardian).
 
-The existing capabilities `view_exact_location`, `rename_colony` and `set_site_public` (`team-access-and-welfare-queue.md` §7.3) are used as named. Three more are needed, all checked through the one `can()` function with the colony as the target, as §7.3 of that spec already promises:
+"Placed" means the check is made against one colony (for a site, the site's own colony, read from the record and never from the request). "Island-only" means only the team, whose roles cover the whole island, holds it.
 
-| Capability | What it allows | Needed by |
+| Capability (SYC-53 §6.2) | Kind | Staff and management | Cat guardian | What it allows here | Screens |
+|---|---|---|---|---|---|
+| `view_exact_location` | Placed | All | Own colonies | See sites (private ones included) and their exact positions; the map | Feeding sites page, site page, colony pages, map |
+| `add_feeding_site` | Placed | All | Own colonies | Add a site to a colony. Always private | §2.3 |
+| `edit_feeding_site` | Placed | All | Own colonies | Rename, change notes, change the "how to find it" line, move, retire, bring back. **Cannot change which colony the site belongs to** | §2.2, 2.4, 2.5 |
+| `reassign_feeding_site` | Island-only | Yes | No | Change which colony a site belongs to | §2.2 |
+| `set_site_public` | Island-only | Yes | No | Make a site public or private; change a public label | §4 |
+| `request_site_public` | Placed | No | Own colonies | Ask the team to make a site public. Changes nothing by itself: it adds a "site-public request" to the team's "Needs an OK" list (SYC-53 §7) | §7.3 |
+| `create_colony` | Island-only | Yes | No | Create a colony | §2.7 |
+| `edit_colony` | Placed | All | Own colonies | Edit the guardian's name text, notes and centre. Not the name | §2.7 |
+| `rename_colony` | Island-only | Yes | No | Change a colony's name | §2.7 |
+| `assign_cat_to_colony` | Island-only | Yes | No | Put a cat in a colony, move it, take it out | §2.8 |
+| `propose_colony_change` | Placed | No | Own colonies | "This cat is one of mine" / "this cat is no longer in my colony"; waits for the team (SYC-53 §7.4) | §2.8 |
+
+Until SYC-53 is approved and built, every one of these checks behaves as "staff", which is what `can()` does today, so nothing in the team's half waits for it. A person who is signed in but lacks the capability gets the SYC-53 refusal: a quiet **403** page ("That part of the dashboard is for the Syros Cats team"), not the sign-in redirect. A person who is not signed in still gets the 401 and the sign-in page.
+
+### 7.3 What a guardian sees and can do (agreed with SYC-53 §6.7)
+
+Four rules, taken from SYC-53 §6.7:
+
+1. **A guardian sees only her own colonies' sites.** Other sites are **absent**, not approximate, and the filtering is done **in the query**, not on the page. A guardian is a member of the public as far as other people's feeding spots go.
+2. **A guardian can add a site only to a colony she holds, and it is always private.** She can correct a pin, change notes and the "how to find it" line, retire a closed spot and bring it back. **She cannot change which colony a site belongs to** (`reassign_feeding_site` is island-only): moving a private site into her own colony would let her read its position.
+3. **No guardian can ever make a site public.** She uses `request_site_public`; the team decides. The recorded consent in §4.3 is how her voice enters.
+4. **A guardian does not put cats in colonies.** She proposes (`propose_colony_change`); the team approves. Being "near" a site gives her no reach over any cat. (The earlier draft let a guardian assign "unassigned cats near their sites"; that is dropped.)
+
+**Everything that must be filtered for a guardian.** The risk is not only lists of sites. Every screen below is entered with SYC-53's "held for any colony of hers" check (`canSomewhere`), and then **filtered by her colonies in the query**. A route that forgets to filter fails closed (SYC-53 §6.4).
+
+| Screen or item | What a team member sees | What a guardian sees |
 |---|---|---|
-| `view_exact_location` (existing) | See private sites and their exact positions | Feeding sites page, site page, maps |
-| `manage_feeding_sites` (**new**) | Add a site, edit its name, notes and colony, move it, retire it, bring it back | §2.2–2.5 |
-| `manage_colonies` (**new**) | Create a colony, edit its guardian's name, notes and centre | §2.6–2.7 |
-| `set_cat_colony` (**new**) | Put a cat in a colony, move it, mark the statement wrong | §2.8 |
-| `rename_colony` (existing) | Change a colony's name | §2.7 |
-| `set_site_public` (existing) | Make a site public or private, change a public label | §4 |
+| Count above the map ("31 sites: 2 public, 28 private, 1 retired") | Island totals | Counts of her own colonies' sites only |
+| Map and its markers | Every site | Her own colonies' sites only |
+| Map tiles route | Any tile | Any tile (a tile reveals nothing; it still needs a session and the capability) |
+| Feeding sites list and "Show retired" | Every site | Her own colonies' sites only |
+| "Recently changed" strip | Last five changes anywhere, with names | Last five changes to her own sites only, and no other person's name beyond her colony's team members |
+| Site page | Any site | Her own colonies' sites; any other id answers the same 403/"not found" page as an id that does not exist |
+| Colonies page and search | Every colony, with guardian, counts | Her own colonies only. Other colonies' names, guardians and counts never appear |
+| "Add a feeding site to this colony" | Any colony | Only a colony she holds |
+| Pick-a-colony lists (a site's colony, a cat's colony) | All colonies | Not shown: she cannot reassign or assign. Her own colony appears as fixed text |
+| Name clash when creating or renaming a colony | "Already used by [colony]", with a link | She cannot create or rename. Anyone else without island-wide rights gets only "That name can't be used", with no link |
+| "Add cats" search, with "which colony the cat is in now" | Shown | Not available. She uses "This cat is one of mine", which always answers "Syros Cats will check", whether or not the cat is in another colony |
+| Cat page colony line | Current colony name | Her own colony's name only; another colony shows as "another colony" |
+| History on a site or colony | Full history | The history of her own sites and colonies, with positions (they are hers) |
+| Public-site request button | Not needed | On her own sites, until the site is public |
 
-### 7.3 What this asks of SYC-53
+A test for this is in §15 (test 21): a guardian of colony 1 never sees colony 2's name, guardian, count, sites, or even a message that distinguishes it from a colony that does not exist, on any page.
 
-**Marked as a dependency, not decided here.** The recommendation below is what this spec needs; SYC-53 may reach a different answer for its own reasons, and Decision 7 (§13) is where it is settled.
-
-1. **A guardian sees only their own colonies' sites.** Other sites are **absent**, not approximate. The team-access spec says a guardian sees "other people's [cats] approximately", which is right for cats (they are already blurred). For feeding sites the spine says absence is the only honest privacy setting, and a guardian is a member of the public as far as other people's feeders go. If `view_exact_location` is ever scoped to a colony, it must filter sites by the same scope **in the query**, not on the page.
-2. **A guardian may `manage_feeding_sites` and `manage_colonies` for their own colonies only**: correct a pin, update notes, retire a closed feeder. These are low-risk and keep the team's record accurate without a phone call.
-3. **A guardian does not hold `set_site_public`.** A guardian may be the person with most to lose from a site going public, and the least able to see the wider picture. The recorded consent in §4.3 is how their voice enters; a guardian who wants a site public asks the team. A request button for guardians is deliberately left to SYC-53 (Decision 7).
-4. **`set_cat_colony` for a guardian** applies to cats already in their own colonies, and to unassigned cats near their sites, which SYC-53 and the confirmation queue define together.
-5. **Revoking a guardian keeps every record they wrote**, as SYC-53 states. Their sites and colonies stay; the guardian's name text is a team edit.
+5. **Revoking a guardian keeps every record she wrote**, as SYC-53 states. Her sites and colonies stay; the guardian's name text is a team edit (§7.4).
 
 ### 7.4 A guardian's name is personal data
 
-A guardian's first name next to a place is personal data about a person who is usually not a user of the app. It is held for the charity's own work, kept in the colony record and its name history, never public (§6), and never in any export without the team choosing to include it. If a guardian asks to be removed from the record, the team can blank the guardian's name, but the earlier names in the history would still carry it. The spine's `colony_name_history` has no way to redact an entry, and this spec asks for one (§12, ask 3) so a request like that has an answer. `privacy-policy.md` should mention that the charity keeps the first names of the people who look after colonies.
+A guardian's first name next to a place is personal data about a person who is usually not a user of the app. It is held for the charity's own work, never public (§6), and never in any export without the team choosing to include it.
+
+**It is stored in more places than the colony record.** The guardian's name appears in: the colony's `guardian_name` and its name history; site names that follow the same convention ("Vaporia — Eleni's"); the before and after of the `mapping_events` history (§8); and free-text notes, whose own example is "Maria goes on Tuesdays", a named person's routine at an exact place. And as drafted, the history table's trigger refused every update, so none of it could ever be erased.
+
+**What this spec requires.** (1) The `mapping_events` history gets a redaction path like the one on observations: `redacted_at` and `redaction_reason`, with the trigger allowed to blank `before`, `after` and `note` and nothing else. (2) `colony_name_history` gets the same. (3) One "forget this guardian" action reaches all of these stores (colony, name history, site names, events, notes), with its own event. (4) A hint under every notes box: "Don't write when people come and go." (5) `privacy-policy.md` lists all of these stores. This work is tracked as **SYC-256** and is covered by SYC-208's anonymising; the plan for this spec must not ship `mapping_events` without the redaction path in it, because adding it afterwards means changing a trigger on a table that already holds names.
 
 ---
 
@@ -457,7 +510,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | **A. Server-fetched tile pictures, markers as links, each tile a button for placing (recommended)** (§3) | A map they can tap on, panned by zoom and area links | No change to the security header, no map company in the browser, works on any phone, consistent with every other page | Panning is clumsier than dragging. The map provider sees which areas the server asks for. Needs a tile cache and a tile-provider policy |
 | B. A real interactive map: allow one script on the map pages, load a map library and tiles from outside | Drag, pinch, smooth zoom | Best experience | Adds `script-src` and an outside tile address on the one page that shows the most sensitive data in the app, and the map company sees every browser's view. The biggest change to the security posture of any option |
 | C. Our own island tile set, built once from OpenStreetMap data and served by us | As A, with no third party asked per tap | No outside party sees anything; works the same as A for the team | A one-off build job and storage. More work than A. Needs updating when the island changes |
-| D. No map in v1: a list only, coordinates typed or pasted from a phone's map app | A sortable list and a form | Quick to build | Placing a feeder by typing numbers is error-prone and puts exact feeding-site coordinates through a third-party maps app on someone's phone. The word "map" in the ticket is not met |
+| D. No map in v1: a list only, coordinates typed or pasted from a phone's map app | A sortable list and a form | Quick to build | Placing a feeding spot by typing numbers is error-prone and puts exact feeding-site coordinates through a third-party maps app on someone's phone. The word "map" in the ticket is not met |
 | E. A hosted admin tool (SYC-207) | Whatever it offers | Possibly less to build | Sends the most sensitive data in the app to another company, which becomes a new processor to name in the privacy policy. Not ruled out for other screens, but not for exact feeding-site positions without a deliberate decision |
 
 **Recommendation: A, with C as the upgrade if Syros Cats mind the map company seeing the areas.** It is the only option that keeps the dashboard's header unchanged and still gives a tap-to-place map. If SYC-207 finds a tool, it must pass the test in E before it touches sites.
@@ -467,7 +520,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
 | **A. Split it: the team's half before launch, the public half after (recommended)** | Before launch: colonies (create, rename, guardian, cats in colonies), the private site map, history. After launch: the public switch, the public endpoint and the app layer | Colony names are what the charity already speaks in and what guardian roles and any import hang off. A private map of sites has real value from day one. The riskiest piece, the one that exposes locations, waits until nobody is rushing | The public half is in PRODUCT-SPEC's MVP list and would slip. Nothing breaks: everything is private by default and the list of public sites "never blocks" (team-access §5.5) |
-| B. All of it before launch | As the MVP list says | Matches the plan; launches with the Kini feeders visible | Adds the public endpoint and the app layer inside the store-submission window, on top of the dashboard work; this is the piece with the most ways to go wrong in public |
+| B. All of it before launch | As the MVP list says | Matches the plan; launches with the Kini feeding spots visible | Adds the public endpoint and the app layer inside the store-submission window, on top of the dashboard work; this is the piece with the most ways to go wrong in public |
 | C. All of it after launch | Descope per SYC-73 | Smallest launch | The team has no way to name colonies or record sites at launch; colony names and sites stay in WhatsApp |
 
 **Recommendation: A.** It keeps what the team need and defers what only matters once Syros Cats have chosen sites to show. The team-access spec already names the map and colony naming as the first things to slip to hardening (its §9.3); this is a more careful cut line than all-or-nothing. **Samuel's call.**
@@ -519,7 +572,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | **A. A guardian sees and edits only their own sites; cannot make them public; asks the team to (recommended)** | The most affected person is never surprised, and the record stays accurate with less phone traffic | A guardian who wants a site public has to ask |
 | B. A guardian may also request "make public" in the app, which queues for the team | Closes the loop for guardians | A second queue to build and watch; better done with SYC-53's queue work |
 | C. A guardian can make their own sites public | Least team work | The guardian cannot judge the wider picture, and one hasty tap is a public location |
-| D. A guardian sees other colonies' sites approximately | Matches the wording used for cats | A private site is meant to be absent, not blurred (spine §6.7); an approximate marker still says "there is a feeder around here" |
+| D. A guardian sees other colonies' sites approximately | Matches the wording used for cats | A private site is meant to be absent, not blurred (spine §6.7); an approximate marker still says "there is a feeding spot around here" |
 
 **Recommendation: A for the first release of guardian accounts; B when SYC-53 builds its queue. Reject D.** SYC-53 may decide differently; this is flagged to it.
 
