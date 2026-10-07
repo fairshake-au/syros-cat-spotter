@@ -845,10 +845,14 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   const derivedStatus = (
     await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
   ).get(cat.id)!;
-  const [discoverer] = await db
-    .select({ nickname: profilesTable.nickname, username: profilesTable.username })
-    .from(profilesTable)
-    .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
+  // A cat whose discoverer deleted their data has nobody to look up (SYC-63).
+  const [discoverer] =
+    cat.discovererDeviceId === null
+      ? []
+      : await db
+          .select({ nickname: profilesTable.nickname, username: profilesTable.username })
+          .from(profilesTable)
+          .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
 
   // §10.6, emitter 3: this response used to hand any spotter who confirmed
   // a match the cat's exact stored position. It goes through the one

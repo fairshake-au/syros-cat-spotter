@@ -133,7 +133,8 @@ export interface CatSource {
   ownerDeviceId: string | null;
   sightingsCount: number;
   lastSeenAt: Date | string;
-  discovererDeviceId: string;
+  // Null once the discoverer has deleted their data (SYC-63).
+  discovererDeviceId: string | null;
   discovererNickname: string | null;
   discovererUsername: string | null;
   ownerName: string | null;
@@ -203,7 +204,7 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
  */
 export interface PublicSighting {
   catId: number | null;
-  spotterCode: string;
+  spotterCode: string | null;
   spotterUsername: string | null;
   spotterNickname: string | null;
   photoUrl: string | null;
@@ -213,7 +214,8 @@ export interface PublicSighting {
 export function serialiseSighting(s: {
   id: number;
   catId: number | null;
-  deviceId: string;
+  // Null once the spotter has deleted their data (SYC-63).
+  deviceId: string | null;
   createdAt: Date;
   spotterUsername: string | null;
   spotterNickname: string | null;
