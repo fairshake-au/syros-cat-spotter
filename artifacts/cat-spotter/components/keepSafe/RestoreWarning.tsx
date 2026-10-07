@@ -15,7 +15,8 @@ export function restoreWarningText(
   current: string,
   spots: number,
 ): string {
-  const text = spots === 1 ? t('restoreWarningOne') : t('restoreWarningMany');
+  const text =
+    spots <= 0 ? t('restoreWarningNone') : spots === 1 ? t('restoreWarningOne') : t('restoreWarningMany');
   return text.replace(/\{current\}/g, current).replace('{n}', String(spots));
 }
 
