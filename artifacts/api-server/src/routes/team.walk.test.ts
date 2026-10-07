@@ -59,12 +59,13 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * The fewest routes a correct walk can find: the part 1 routes (hand-off, the
  * page, /me, sign-out), PR 8's three observation routes, and this part's
  * three (queue JSON, report photo, catalogue photo), PR 2's two (a
- * report's state, a report's team note), and PR 3's two (finding a cat, a
- * cat's page). If an Express upgrade
+ * report's state, a report's team note), PR 3's two (finding a cat, a
+ * cat's page), and PR 4's six (life status, sterilisation, rename, mark a
+ * statement wrong, the Probably sterilised list, Looks right). If an Express upgrade
  * changes `router.stack` and the walk finds fewer, the test fails rather than
  * passing on an empty list. Raise this when a PR adds routes.
  */
-const MINIMUM_ROUTES = 14;
+const MINIMUM_ROUTES = 20;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -145,6 +146,12 @@ describe("P1-1: every /api/team route refuses the unauthorised the same way", ()
       "POST /api/team/reports/:publicId/note",
       "GET /api/team/cats",
       "GET /api/team/cats/:id",
+      "POST /api/team/cats/:id/life-status",
+      "POST /api/team/cats/:id/sterilisation",
+      "POST /api/team/cats/:id/name",
+      "POST /api/team/statements/:id/wrong",
+      "GET /api/team/likely",
+      "POST /api/team/likely/:id/looks-right",
     ]) {
       expect(routes).toContain(known);
     }

@@ -2,13 +2,15 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { searchTeamCats, teamCatView } from "../lib/teamCatView";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { can } from "../lib/capabilities";
 import {
   renderCatPage,
   renderCatSearchPage,
   renderNoSuchCat,
 } from "../lib/teamPages/catPages";
 
-// The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only.
+// The staff dashboard's "Cats" screens (SYC-43 part 2 plan, PR 3). Read-only;
+// the correction forms on the cat page post to routes/teamCorrections.ts (PR 4).
 // Both show exact positions, so both need view_exact_location. A browser gets
 // the page; a caller asking for JSON (Accept: application/json) gets the same
 // data as JSON. Neither ever goes through the public cat serialiser.
@@ -48,7 +50,12 @@ router.get(
       return void res.status(404).type("html").send(renderNoSuchCat(person.name));
     }
     if (wantsJson(req)) return void res.json(view);
-    res.type("html").send(renderCatPage(view, person.name));
+    // After a correction (PR 4) the form comes back here with ?done=<key>.
+    // Only a fixed key is shown, never the query text itself.
+    const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
+    res.type("html").send(
+      renderCatPage(view, person.name, { may: (c) => can(person, c), done }),
+    );
   },
 );
 

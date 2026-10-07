@@ -7,6 +7,7 @@ import type {
   TeamStatement,
 } from "../teamCatView";
 import { QUERY_MAX } from "../teamCatView";
+import type { Capability } from "../capabilities";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 
@@ -180,7 +181,72 @@ function recordBlock<T>(
   );
 }
 
-function statementItem(s: TeamStatement, byId: Map<number, TeamStatement>): string {
+/** Today on Syros, for a date box's max. */
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
+
+const LIFE_ORDER: LifeStatusValue[] = ["street", "homed", "in_care", "deceased"];
+
+const reasonInput = (id: string, label = "Why") =>
+  `<label class="label" for="${id}">${esc(label)}</label>` +
+  `<input class="text" id="${id}" name="reason" required maxlength="500" autocomplete="off">`;
+
+const dateInput = (id: string, label: string, hint: string) =>
+  `<label class="label" for="${id}">${esc(label)} <span class="hint">${esc(hint)}</span></label>` +
+  `<input id="${id}" name="date" type="date" max="${today()}">`;
+
+const lifeChoices = (name: string, idBase: string, skip: LifeStatusValue | null) =>
+  LIFE_ORDER.filter((l) => l !== skip)
+    .map(
+      (l) =>
+        `<label class="choice" for="${idBase}-${l}"><input type="radio" id="${idBase}-${l}" name="${name}" value="${l}" required> ${esc(LIFE[l])}</label>`,
+    )
+    .join("");
+
+/** "Mark wrong" under a standing statement (PR 4), when this person may. */
+function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
+  const c = s.correction;
+  if (!c) return "";
+  const action = `/api/team/statements/${s.id}/wrong`;
+  const id = `w${s.id}`;
+  if (c.kind === "ear_tip_clipped") {
+    if (!may("set_sterilisation")) return "";
+    return (
+      `<details><summary>That's not a clip</summary><form method="post" action="${action}">` +
+      '<input type="hidden" name="choice" value="not_clipped">' +
+      '<p class="hint">The cat goes back to Not known yet, unless something else says otherwise.</p>' +
+      reasonInput(`${id}-why`, "Why it isn't a clip") +
+      "<button type=\"submit\">That's not a clip</button></form></details>"
+    );
+  }
+  if (c.kind === "sterilised") {
+    if (!may("set_sterilisation")) return "";
+    const to = c.now === true ? "sterilised_no" : "sterilised_yes";
+    const toText = c.now === true ? "Not sterilised" : "Sterilised";
+    return (
+      `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
+      `<input type="hidden" name="choice" value="${to}">` +
+      `<p>It should say: <strong>${esc(toText)}</strong></p>` +
+      reasonInput(`${id}-why`) +
+      '<button type="submit">Save the correction</button></form></details>'
+    );
+  }
+  if (!may("set_life_status")) return "";
+  return (
+    `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
+    '<fieldset><legend class="label">It should say</legend>' +
+    lifeChoices("choice", `${id}-to`, c.now) +
+    "</fieldset>" +
+    dateInput(`${id}-date`, "Date the team knows of", "(needed for “No longer with us”)") +
+    reasonInput(`${id}-why`) +
+    '<button type="submit">Save the correction</button></form></details>'
+  );
+}
+
+function statementItem(
+  s: TeamStatement,
+  byId: Map<number, TeamStatement>,
+  may: (c: Capability) => boolean = () => false,
+): string {
   const replaced = s.replacedBy.length > 0;
   const said = replaced ? `<del>${esc(s.said)}</del>` : esc(s.said);
   const differs = Math.abs(Date.parse(s.observedAt) - Date.parse(s.createdAt)) > 60_000;
@@ -205,12 +271,86 @@ function statementItem(s: TeamStatement, byId: Map<number, TeamStatement>): stri
     (s.replaces != null ? `<p class="meta">Corrects ${statementLink(s.replaces)}</p>` : "") +
     (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
+    wrongForm(s, may) +
     "</li>"
   );
 }
 
-export function renderCatPage(v: TeamCatView, personName: string): string {
+/** What the page says after a correction, by the `done` the form sent back. */
+const DONE: Record<string, string> = {
+  life: "Saved. The life status is added to the history below.",
+  sterilised: "Saved. The sterilisation is added to the history below.",
+  wrong: "Saved. The correction is in the history below, with the statement it replaces.",
+  renamed: "Saved. The new name is in the history below.",
+  unchanged: "That is already the cat's name. Nothing was changed.",
+  already: "Someone already corrected this. Here's what replaced it.",
+};
+
+export interface CatPageOptions {
+  /** May the signed-in person do this? Decides which forms are shown. */
+  may?: (capability: Capability) => boolean;
+  /** What was just done, from the redirect after a form (a fixed key). */
+  done?: string;
+}
+
+/** The four correction forms (PR 4), each shown only to someone who may. */
+function correctionForms(v: TeamCatView, may: (c: Capability) => boolean): string {
+  const base = `/api/team/cats/${v.cat.id}`;
+  const forms: string[] = [];
+  if (may("set_life_status")) {
+    forms.push(
+      `<details><summary>Say the life status</summary><form method="post" action="${base}/life-status">` +
+        '<fieldset><legend class="label">The cat…</legend>' +
+        lifeChoices("status", "ls", null) +
+        "</fieldset>" +
+        dateInput("ls-date", "Date the team knows of", "(needed for “No longer with us”; leave empty for today)") +
+        reasonInput("ls-why") +
+        '<button type="submit">Save</button></form></details>',
+    );
+  }
+  if (may("set_sterilisation")) {
+    forms.push(
+      `<details><summary>Say whether sterilised</summary><form method="post" action="${base}/sterilisation">` +
+        '<p class="warn">A clipped ear seen in a photo is never proof. Use this only when Syros Cats or a vet knows.</p>' +
+        '<fieldset><legend class="label">The cat is…</legend>' +
+        '<label class="choice" for="st-yes"><input type="radio" id="st-yes" name="sterilised" value="yes" required> Sterilised</label>' +
+        '<label class="choice" for="st-no"><input type="radio" id="st-no" name="sterilised" value="no" required> Not sterilised</label>' +
+        "</fieldset>" +
+        dateInput("st-date", "When it was done", "(optional)") +
+        '<label class="label" for="st-clinic">Clinic or vet <span class="hint">(optional)</span></label>' +
+        '<input class="text" id="st-clinic" name="clinic" maxlength="100" autocomplete="off">' +
+        reasonInput("st-why", "How the team knows") +
+        '<button type="submit">Save</button></form></details>',
+    );
+  }
+  if (may("rename_cat")) {
+    forms.push(
+      `<details><summary>Rename the cat</summary><form method="post" action="${base}/name">` +
+        '<label class="label" for="rn-name">New name</label>' +
+        `<input class="text" id="rn-name" name="name" required maxlength="60" value="${esc(v.cat.name)}" autocomplete="off" spellcheck="false">` +
+        reasonInput("rn-why") +
+        '<button type="submit">Rename</button></form></details>',
+    );
+  }
+  if (forms.length === 0) return "";
+  return (
+    '<h2 id="corrections">Correct the record</h2>' +
+    '<p class="hint">Each change is added to the history below, signed with your name. Nothing is deleted: to undo one, mark it wrong.</p>' +
+    `<div class="fixes">${forms.join("")}</div>`
+  );
+}
+
+export function renderCatPage(
+  v: TeamCatView,
+  personName: string,
+  opts: CatPageOptions = {},
+): string {
   const { cat, records } = v;
+  const may = opts.may ?? (() => false);
+  const notice =
+    opts.done && DONE[opts.done]
+      ? `<p class="notice" role="status">${esc(DONE[opts.done])}</p>`
+      : "";
   const byId = new Map(v.history.map((s) => [s.id, s]));
   const main = cat.mainPhotoUrl
     ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="Main photo of ${esc(cat.name)}">`
@@ -291,7 +431,7 @@ export function renderCatPage(v: TeamCatView, personName: string): string {
     '<p class="hint">Newest first. Nothing is ever deleted: a statement that was corrected stays, struck through, with what replaced it.</p>' +
     (v.history.length === 0
       ? '<p class="empty">Nothing has been said about this cat yet.</p>'
-      : `<ol class="history">${v.history.map((s) => statementItem(s, byId)).join("")}</ol>`);
+      : `<ol class="history">${v.history.map((s) => statementItem(s, byId, may)).join("")}</ol>`);
 
   return renderPage({
     title: cat.name,
@@ -300,7 +440,9 @@ export function renderCatPage(v: TeamCatView, personName: string): string {
     beforeTitle: '<p class="back"><a href="/api/team/cats">&larr; Find another cat</a></p>',
     afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
     body:
+      notice +
       overview +
+      correctionForms(v, may) +
       sightings +
       photos +
       history,

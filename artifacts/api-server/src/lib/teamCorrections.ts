@@ -180,6 +180,15 @@ export async function supersedeStatement(
   });
 }
 
+/** The cat a statement is about, or null if there is no such statement. */
+export async function catIdOfStatement(id: number): Promise<number | null> {
+  const [row] = await db
+    .select({ catId: observationsTable.catId })
+    .from(observationsTable)
+    .where(eq(observationsTable.id, id));
+  return row?.catId ?? null;
+}
+
 // ── "Looks right" on the Probably sterilised list ─────────────────────────
 
 /** Roles whose clipped-ear answer is the team's, not a spotter's. */
