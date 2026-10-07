@@ -556,17 +556,33 @@ describe("8. the form reveals nothing", () => {
     expect(mailTo(known).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
   });
 
-  it("8c. three \"is this you?\" emails caused by a stranger leave a confirmed address's restore link working (M)", async () => {
+  it("8c. a stranger using up an address's three \"is this you?\" emails can't stop its restore link (M)", async () => {
     const email = newAddress();
-    const owner = await keptSafe(email);
-    // A stranger adds the same address from three phones, a day apart each.
-    for (let i = 0; i < 4; i++) {
+    // The owner adds their address; the first "is this you?" arrives.
+    const owner = newPhone();
+    await bind(owner);
+    await claim(owner, `Own${RUN}${++n}`);
+    await ageVerifyEmails();
+    await add(owner, email);
+    await settleOutbox();
+    const ownersEmail = mailTo(email).at(-1)!;
+    // Before they tap it, a stranger adds the same address from more phones,
+    // until the lifetime cap suppresses further "is this you?" emails.
+    for (let i = 0; i < 3; i++) {
+      await ageVerifyEmails();
       const stranger = newPhone();
       await bind(stranger);
       await add(stranger, email);
-      await ageVerifyEmails();
     }
     await settleOutbox();
+    expect(mailTo(email).filter((m) => m.subject.startsWith("Is this you?"))).toHaveLength(3);
+    const [contact] = await db.select().from(emailContactsTable).where(eq(emailContactsTable.deviceId, owner.id));
+    const caps = await db.execute(
+      sql`select 1 from email_suppressions where reason = 'verify_cap' and address_hmac = ${contact!.addressHmac}`,
+    );
+    expect(caps.rows).toHaveLength(1);
+    // The owner confirms with their own email, and can still get their spots back.
+    expect((await postMailPage("confirm", tokenFrom(ownersEmail, "/api/mail/confirm"))).status).toBe(200);
     const { phone, token } = await newPhoneWithLink(email);
     expect((await redeem(phone, token, owner.id)).status).toBe(200);
   });
