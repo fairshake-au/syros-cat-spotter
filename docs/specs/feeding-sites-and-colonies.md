@@ -192,3 +192,451 @@ Stated here because the charity should hear it from this document and not discov
 - **Cats cluster at feeding sites.** Averaging the blurred positions of the cats in a colony recovers its feeding site to about the width of a street, whether or not the site is public. Hiding the site row does not hide the cats. The switch is worth having and is never described as a guarantee, in the dashboard, the app or the privacy policy.
 - **Making a site public does not make the colony public**, and this spec keeps it that way (§4.2). But the reverse is also true: nothing in this spec makes a private colony *safe*.
 - **A public site and the app's own cats-near-me view sit close together on the map.** The cats are shown as blurred 250 m squares, and the site as an exact bowl. That reads correctly ("the cats are around here, the feeder is exactly there") but it also tells a watcher which of the nearby squares to walk to. This is a consequence of Syros Cats choosing to make a site public, and the confirmation page's line 4 says so in plain words.
+
+---
+
+## 5. What spotters and tourists see when a site is public
+
+The app has no sign-in and no roles. A tourist, a spotter and a local resident are the same reader (`cat-record-data-spine.md` §6.5), and they all see the same thing.
+
+- **A "Feeding spots" layer on the map**, on by default, with a switch to hide it. Each public site is a bowl-shaped marker at its exact position. Cats are still drawn as their blurred 250 m squares, and the two are visibly different things.
+- **Tapping a marker opens a small card** with the public label and four short lines: who looks after the cats here, give them room, please don't leave food, and a link to "See how you can help" that opens the Help tab. The card never says when anyone feeds, never lists cats, never names a person.
+- **Distance is worked out on the phone**, from the phone's own location and the public position, so the server never learns where a visitor stood.
+- **The spot flow is unchanged.** A sighting made near a public site is matched and recorded exactly like any other. No screen says "you are near feeding spot X", and a public site is never used to decide which cat a photo shows.
+- **A site made private or retired disappears from the layer** the next time the phone is online (§9 gives the exact rule).
+
+### 5.1 What the card asks of visitors
+
+The card must not contradict the app's existing first lesson, which tells every new user that scraps make cats sick and that the local cat guardians feed them properly. A marker that quietly invites people to bring food to a feeding spot would undo it, and would also crowd the colony. So the card says to give the cats room and not to leave food, and offers help in the ways the charity actually wants (the Help tab). Decision 13 (§13) asks Syros Cats to confirm that is what they want visitors to do.
+
+### 5.2 The words, in three languages
+
+New strings in `artifacts/cat-spotter/lib/i18n.ts`, in all three languages with the usual parity test. The Greek and French are drafted by us and go to the native-speaker review that already exists for the other new strings (SYC-4); they use the app's existing words for "cat guardian" in each language and the same friendly "you" the rest of the app uses.
+
+| Key | English | Greek | French |
+|---|---|---|---|
+| `feedingSpotsLayer` | Feeding spots | Σημεία σίτισης | Points de nourrissage |
+| `feedingSpotMarkerLabel` | Syros Cats feeding spot: {label} | Σημείο σίτισης της Syros Cats: {label} | Point de nourrissage de Syros Cats : {label} |
+| `feedingSpotBody` | Cat guardians look after the cats here. | Οι κηδεμόνες γατών φροντίζουν τις γάτες εδώ. | Des gardiens de chats s'occupent des chats ici. |
+| `feedingSpotSpace` | Keep a step or two back and let them come to you if they want to. | Κράτα ένα-δυο βήματα απόσταση και άσε τες να έρθουν σ' εσένα, αν το θέλουν. | Reste à un pas ou deux et laisse-les venir à toi s'ils en ont envie. |
+| `feedingSpotNoFood` | Please don't leave food. Scraps make cats sick, and the cat guardians feed them properly. | Μην αφήνεις φαγητό. Τα αποφάγια αρρωσταίνουν τις γάτες, και οι κηδεμόνες γατών τις ταΐζουν σωστά. | Ne laisse pas de nourriture. Les restes rendent les chats malades, et les gardiens de chats les nourrissent correctement. |
+| `feedingSpotHelp` | See how you can help | Δες πώς μπορείς να βοηθήσεις | Vois comment tu peux aider |
+| `feedingSpotGone` | This feeding spot isn't on the map any more. | Αυτό το σημείο σίτισης δεν υπάρχει πια στον χάρτη. | Ce point de nourrissage n'est plus sur la carte. |
+
+`feedingSpotGone` is what a QR scan or an old link shows for any code that is not currently public. It is identical for a site that is private, retired or never existed (§11).
+
+**Nothing on the card is claimed beyond what is true of every public site by definition.** It says cat guardians look after the cats *here*, which is why Syros Cats listed the place. It does not say all the cats are fed, watched or known (that sentence was cut from onboarding for being not necessarily true).
+
+---
+
+## 6. Colonies and the public
+
+**Nothing from the `colonies` table is public**: not the name, not the guardian, not the centre, not the notes, not the count of cats, not that a colony exists. The colony centre is team-only because publishing it would hand over for free the thing the spine's accepted colony-averaging limit is about (§6.2, §10.5). A public site's link to a colony is invisible to the public by the same rule.
+
+**One exception is waiting, and is not decided here:** SYC-22 wants a QR scan at a Kini feeder to land on "that colony's cats". That is a public page about a colony, with cats shown in relation to an exact place. It reopens the question Syros Cats accepted in F2. §11.6 lists what that ticket must settle first, and Decision 3 recommends nothing of the kind ships with the switch.
+
+---
+
+## 7. The cat guardian and their sites
+
+A cat guardian is the person a colony and its sites are named after. Most have no account and never will; some will have a dashboard account when invited roles exist. This spec treats both.
+
+### 7.1 Without an account
+
+A guardian with no account appears as **text**: the `guardian_name` on a colony (the spine's deliberate choice, §10.5). The team keeps it up to date. Nothing sends them mail, shows them anything or makes them accountable for anything. Their consent to a site going public is recorded by the team ticking the box in §4.3, which is how the charity would naturally ask ("Eleni, are you happy for the Kini feeder to be on the app?").
+
+### 7.2 With an account (SYC-53)
+
+SYC-53 is being specified in parallel and decides which roles exist. **This spec does not invent roles.** It names the capabilities the feeding-site and colony screens call, so that SYC-53 can assign them, and it states what it needs from them.
+
+The existing capabilities `view_exact_location`, `rename_colony` and `set_site_public` (`team-access-and-welfare-queue.md` §7.3) are used as named. Three more are needed, all checked through the one `can()` function with the colony as the target, as §7.3 of that spec already promises:
+
+| Capability | What it allows | Needed by |
+|---|---|---|
+| `view_exact_location` (existing) | See private sites and their exact positions | Feeding sites page, site page, maps |
+| `manage_feeding_sites` (**new**) | Add a site, edit its name, notes and colony, move it, retire it, bring it back | §2.2–2.5 |
+| `manage_colonies` (**new**) | Create a colony, edit its guardian's name, notes and centre | §2.6–2.7 |
+| `set_cat_colony` (**new**) | Put a cat in a colony, move it, mark the statement wrong | §2.8 |
+| `rename_colony` (existing) | Change a colony's name | §2.7 |
+| `set_site_public` (existing) | Make a site public or private, change a public label | §4 |
+
+### 7.3 What this asks of SYC-53
+
+**Marked as a dependency, not decided here.** The recommendation below is what this spec needs; SYC-53 may reach a different answer for its own reasons, and Decision 7 (§13) is where it is settled.
+
+1. **A guardian sees only their own colonies' sites.** Other sites are **absent**, not approximate. The team-access spec says a guardian sees "other people's [cats] approximately", which is right for cats (they are already blurred). For feeding sites the spine says absence is the only honest privacy setting, and a guardian is a member of the public as far as other people's feeders go. If `view_exact_location` is ever scoped to a colony, it must filter sites by the same scope **in the query**, not on the page.
+2. **A guardian may `manage_feeding_sites` and `manage_colonies` for their own colonies only**: correct a pin, update notes, retire a closed feeder. These are low-risk and keep the team's record accurate without a phone call.
+3. **A guardian does not hold `set_site_public`.** A guardian may be the person with most to lose from a site going public, and the least able to see the wider picture. The recorded consent in §4.3 is how their voice enters; a guardian who wants a site public asks the team. A request button for guardians is deliberately left to SYC-53 (Decision 7).
+4. **`set_cat_colony` for a guardian** applies to cats already in their own colonies, and to unassigned cats near their sites, which SYC-53 and the confirmation queue define together.
+5. **Revoking a guardian keeps every record they wrote**, as SYC-53 states. Their sites and colonies stay; the guardian's name text is a team edit.
+
+### 7.4 A guardian's name is personal data
+
+A guardian's first name next to a place is personal data about a person who is usually not a user of the app. It is held for the charity's own work, kept in the colony record and its name history, never public (§6), and never in any export without the team choosing to include it. If a guardian asks to be removed from the record, the team can blank the guardian's name, but the earlier names in the history would still carry it. The spine's `colony_name_history` has no way to redact an entry, and this spec asks for one (§12, ask 3) so a request like that has an answer. `privacy-policy.md` should mention that the charity keeps the first names of the people who look after colonies.
+
+---
+
+## 8. Audit: who changed what, and when
+
+Every change to a site or a colony is written as one row in a small add-only history, in the same transaction as the change, so the two always agree. Nothing in it is ever edited or deleted. It follows the pattern already chosen for hiding photos (`photo_visibility_events`, SYC-43 part 2 Decision 3): a history table, not an edited column, so "restore" never wipes "who hid it".
+
+**What is recorded**, one row each:
+
+| Event | Detail kept |
+|---|---|
+| Site created / seeded | Name, position, who (a person, or `system:seed` for the first load) |
+| Site renamed / notes edited / colony changed | Before and after |
+| Site moved | Old position and new position, and the reason |
+| Made public | The label, **whether the guardian was recorded as aware**, who |
+| Made private | Who, and whether it was automatic because the site was moved |
+| Public label changed | Before and after |
+| Retired / brought back | Reason |
+| Colony created / renamed / guardian changed / notes or centre changed | Before and after |
+
+Cat membership changes need no extra table: each is a `colony` observation, already signed and dated, with `roleAtTime` and the person's id, and the cat's page already shows them.
+
+**Who did it** is the person's id, linked strictly to the people list, and a person who has left stays in the history shown as "Maria (left)", exactly as welfare actions already do (SYC-43 part 2, Decision 7).
+
+**Who can read it:** anyone with `view_exact_location`, because positions are inside it. The history holds exact positions, including positions of sites that are now private, and is therefore as sensitive as the sites. It is never in a public payload, a log line or an email.
+
+**What the dashboard shows from it:** a site's own history (§2.2), a colony's history (§2.6), and the "Recently changed" strip (§2.1). There is no separate audit screen.
+
+**What it does not do.** It records what the team did, not what the public saw. Whether anyone saw a site while it was public is not knowable and not recorded.
+
+---
+
+## 9. What works with no signal
+
+Stated precisely, as the other specs do.
+
+**The dashboard.** Nothing on it works offline. Every page, including the map, is drawn by the server when opened, and every button sends a form. With no signal the page does not load, or a tap on *Save* fails with the browser's own "no connection" page, and nothing is recorded. There is no queue for team changes. In particular the map's tiles are fetched live. A volunteer on a hillside with no data cannot place a pin; they write it down and place it later. An offline volunteer view belongs with the volunteer role (`team-access-and-welfare-queue.md` §7.3) and SYC-54.
+
+**The app's feeding-spots layer.** The phone keeps the last list of public sites it fetched, so the layer and its cards still work on a hillside with no signal, **for a limited time**:
+
+- The list is stored under its own key, separate from the cats cache, with the time it was fetched.
+- The key and the shape are versioned, so a change forces a re-fetch.
+- A stored list older than the limit (Decision 8: seven days is recommended) is **not shown**; the layer quietly disappears until the phone is next online. A site that was made private is therefore gone from a connected phone within minutes of the next refresh, and from an offline phone within the limit.
+- If the phone has never fetched the list, there is nothing to show offline. The map tiles themselves are partly available offline (the app downloads Syros tiles), so the base map works; the markers need the list.
+
+**What this does not claim.** It does not claim that the whole app works with no signal. A phone offline for longer than the limit shows no feeding spots, and a phone that already saw a site has already learned where it is; making it private afterwards cannot unlearn that (§4.5).
+
+---
+
+## 10. Languages: English, Greek and French
+
+- **The public card and layer** (§5.2) are in all three languages, with the same key-parity test as the rest of the app and the same native-speaker review before launch.
+- **The public label** (§4.4) is a place name and the same in all languages (Decision 10).
+- **Colony and site names** are proper names, stored as typed and shown as typed everywhere.
+- **The dashboard is in English**, as every dashboard page already is (the page shell, the welfare queue and the correction forms are English text drawn by the server). Syros Cats staff read and write both Greek and English; names and notes they type can be in either, and search folds accents, case and the final sigma, so `ΜΙΜΗ` finds `Μιμή`. There is no Greek–Latin look-alike matching (`DECISIONS.md` Part 2j). Whether the dashboard should be offered in Greek is Decision 9.
+- **The confirmation page of §4.3 previews the card in all three languages** so that whoever presses the button sees exactly what a Greek or French visitor will see.
+
+---
+
+## 11. Technical notes
+
+*For whoever writes the plan. Everything above is the product; this is the wiring.* Checked against `origin/main` at `c5ee36c`.
+
+### 11.1 Columns and one table the feature relies on
+
+The spine owns `feeding_sites` and `colonies`; the following are what this feature needs those records to carry. They are listed here so the spine's definition can be amended once (§12), not defined a second time.
+
+**`feeding_sites`** (beyond the spine's §10.5 columns):
+- `public_label` text, null until set; required before `is_public` can be true (check constraint).
+- `public_id` text, unique, null until the **first** time the site is made public: a random 128-bit value. A site that has never been public has no public identifier at all, and the identifier is never derived from the internal number, so the public list and any QR code cannot be used to count or probe private sites. It stays the same if the site is later made private and public again.
+- `guardian_aware` boolean null: the last value of the §4.3 tick box.
+- `retired_at`, `retired_by`: set when retired, cleared when brought back. A retired site is never public (check constraint).
+- `updated_at`.
+- `made_public_by` should be a link to the people list, not free text, to match the audit trail and the "(left)" display.
+
+**`colonies`**: no new columns are required. `colony_name_history` gains an optional `redacted_at` (§7.4).
+
+**`mapping_events`** (new, add-only): `id`, `subject_kind` (`site` or `colony`), `subject_id`, `kind`, `person_id` (strict link to `people`; null only for `system:` writers), `at`, `before` json, `after` json, `note`, `guardian_aware` boolean null. The same kind of database trigger that protects `observations` refuses updates and deletes.
+
+One migration. All additive. Existing rows are valid unchanged: every existing site stays private, with no label and no public code.
+
+### 11.2 Routes (all under `/api/team/`, server-drawn pages, no scripts)
+
+Each follows the PR 4 pattern: a POST first runs `requireOrigin(TEAM_ORIGIN)`, then `requireTeam(<capability>)`, then checks the body. A browser gets a `303` back to the page it came from with a message shown there, and anything else gets JSON. A bad form answers `400` naming fields only, never echoing what was typed. Every value drawn into a page passes `escapeHtml`. The shared walk test (every `/api/team/*` route without a session returns the same `401 not_signed_in`) gets the new routes added to its minimum.
+
+| Route | Capability |
+|---|---|
+| `GET /api/team/sites` (list and map), `GET /api/team/sites/:id` | `view_exact_location` |
+| `GET /api/team/sites/new`, `POST /api/team/sites`, `GET/POST /api/team/sites/:id/move` | `manage_feeding_sites` |
+| `POST /api/team/sites/:id` (edit), `…/retire`, `…/restore` | `manage_feeding_sites` |
+| `GET /api/team/sites/:id/publish` (the §4.3 page), `POST …/publish`, `POST …/unpublish` | `set_site_public` |
+| `GET /api/team/colonies`, `GET /api/team/colonies/:id` | `view_exact_location` (a colony's page lists its sites) |
+| `POST /api/team/colonies`, `POST /api/team/colonies/:id` | `manage_colonies`; the name field also needs `rename_colony` |
+| `POST /api/team/colonies/:id/cats`, `POST /api/team/cats/:id/colony` | `set_cat_colony` |
+| `GET /api/team/map-tiles/:z/:x/:y.png` | `view_exact_location` |
+
+**Concurrent edits.** Flipping visibility, moving and retiring each use a conditional write on the state the page showed (`WHERE is_public = <what the page saw>`), and answer "Someone already changed this." like the corrections do, so two people cannot both believe they set the same site.
+
+### 11.3 The public endpoint
+
+`GET /api/feeding-sites`, unauthenticated, no query parameters.
+
+- **Filters in the query, not the serialiser**: `WHERE is_public = true AND retired_at IS NULL`, with an explicit column list. Private rows never enter a response object (`cat-record-data-spine.md` §10.5).
+- **Returns only** `{ id: <public_id>, label, position }`. No internal number, no colony, no notes, no person, no timestamps, no counts.
+- **Identical for every caller.** No ordering by distance, no filter by area or distance, no parameter that reaches into the data. A site's position comes from one function, `publishedSitePosition(site)`, which returns the exact position (the spine's §6.7) and is the single place to change if Syros Cats choose a blurred position (the spine's open question 3). A test fails if the endpoint reads latitude or longitude any other way.
+- **Cache headers short and public**: at most five minutes at any shared cache, so "make private" reaches new requests within five minutes at the outside.
+- **Rate-limited like the other public reads.**
+- **A lookup by public code** (for QR codes and shared links) answers `404` with the same body for a site that is private, retired, never existed or has a wrong code. Nobody can tell a private site from no site.
+
+### 11.4 The map tiles
+
+Served through `GET /api/team/map-tiles/…`, so the security header (`img-src 'self'`, no `script-src`) is unchanged and the browser never contacts a map company. The server fetches each tile from the map provider once, caches it (Postgres or disk, with a size cap), and sends it with a long browser cache and a valid identifying `User-Agent`, as the provider's policy asks. The attribution line the provider requires is printed on every map page. Volume is a few staff using it a few times a week, which is within the provider's fair use; the app's own downloaded tiles already use the same provider, and `DEPLOYMENT.md` already budgets a paid provider if usage grows.
+
+The provider's servers see the tile areas the server asks for, which are the areas staff look at. It is tied to the dashboard server's address, not to a person, but it is a small leak of "somebody is looking closely at these streets". Decision 1 lists the alternative (an island map set we host ourselves) that avoids it.
+
+### 11.5 Writes to cats
+
+`colony` is a known observation kind with a number-only value check. Three things the plan must handle:
+
+- The team correction layer (`lib/teamCorrections.ts`) refuses any kind that has no capability (`capabilityFor` returns nothing for `colony`), so `colony` needs a team writer gated by `set_cat_colony`, sharing code with the JSON route as the other corrections do.
+- The value check does not confirm the colony exists, so the writer must.
+- "Take a cat out of a colony" uses the existing mark-wrong path on the `colony` statement. The plan confirms that path supports a statement with no replacement; if not, `{ colonyId: null }` is accepted for that purpose.
+
+The team cat page currently shows a colony statement as "Put in colony 12". It should show the colony's current name (and its older name if it has been renamed since).
+
+### 11.6 Hooks for SYC-22 and SYC-51
+
+Printed codes should carry the **public code** of a site (§11.1) or, later, of a colony page, never an internal number, so a printed sticker survives a rename and cannot be used to count private records. A code for a site that is not currently public lands on `feedingSpotGone` (§5.2) and nothing else. SYC-51's launch materials point at the app and need none of this. SYC-22 must settle, before it builds a colony page: what such a page shows about cats at an exact place (Decision 3), whether the colony needs its own public code, and Syros Cats' acceptance of F2 (SYC-67), because it is the first public thing that ties cats to a specific spot.
+
+### 11.7 Phone cache
+
+A new key alongside `cat-spotter/cats-cache/public/v2`, for example `cat-spotter/feeding-sites-cache/public/v1`, storing `{ fetchedAt, sites }`, with the age check of §9.
+
+### 11.8 The seed
+
+The first load of sites, if Decision 11 goes the recommended way, is a one-off script run by us with the list Syros Cats supply. Every site is private; each gets a `mapping_events` row with `system:seed` (added to the app-written authors list, as the other system writers are). It never sets visibility.
+
+---
+
+## 12. Proposed `DECISIONS.md` entries, and asks of the other specs
+
+Nobody edits `DECISIONS.md` from this branch. For Samuel to carry across on approval:
+
+**Proposed DECISIONS.md entries**
+
+1. **Feeding-site map and colony screens are specified in `feeding-sites-and-colonies.md`.** Ownership table: that document owns the screens and the public site card; the data spine still owns the records, privacy and precision.
+2. **A public site has a separate, required public label.** The internal name (which follows the "place — guardian" convention) is never published.
+3. **Making a site public takes a confirmation page, a preview of what visitors see, and a recorded "the cat guardian knows" tick.** There is no bulk action and no import that sets visibility.
+4. **Moving a public site makes it private until reconfirmed. Retiring removes it from public view.**
+5. **Nothing from `colonies` is public.** Not names, guardians, centres, notes or counts.
+6. **Every change to a site or colony is recorded in an add-only history** (`mapping_events`), linked to the people list.
+7. **The public sites endpoint returns an opaque code, label and position only**, identical for every caller, with a short shared-cache lifetime. A lookup for anything not currently public answers identically to an unknown code.
+8. **New team capabilities:** `manage_feeding_sites`, `manage_colonies`, `set_cat_colony`.
+
+**Asks of `cat-record-data-spine.md` (to be amended on approval)**
+
+1. §10.5: the `feeding_sites` columns in §11.1 here (`public_label`, `public_id`, `guardian_aware`, `retired_at`, `retired_by`, `updated_at`, and `made_public_by` as a link to people).
+2. §10.5: the public sites endpoint of §11.3 here as the definition of "the public sites endpoint filters `isPublic = true` in the query".
+3. §10.5: `colony_name_history.redacted_at`.
+4. §6.7: add that a public site's label must not contain the guardian's name, and that a private site is indistinguishable from an unknown code.
+
+**Asks of `team-access-and-welfare-queue.md`**
+
+1. §7.3: add the three capabilities to the named list.
+2. §3.2: "one switch per site" gains the confirmation page of §4.3 here. Its "there is no bulk action" stands.
+
+**Asks of SYC-53:** §7.3 here.
+
+---
+
+## 13. Open decisions
+
+Each lists every realistic option, what it costs and gives, and a recommendation. The ones that belong to Syros Cats are marked. Everything is private until they decide, so none of them blocks the team's half.
+
+### Decision 1. How the map is drawn on a dashboard with no scripts
+
+*The question.* The dashboard deliberately has no scripts (Samuel's Decision 1 on the dashboard, 5 Oct 2026, "plain server-drawn pages, for now"; SYC-207 is exploring ready-made tools). A map where you tap a spot is where that hurts most.
+
+| Option | What the team gets | Benefits | Risks |
+|---|---|---|---|
+| **A. Server-fetched tile pictures, markers as links, each tile a button for placing (recommended)** (§3) | A map they can tap on, panned by zoom and area links | No change to the security header, no map company in the browser, works on any phone, consistent with every other page | Panning is clumsier than dragging. The map provider sees which areas the server asks for. Needs a tile cache and a tile-provider policy |
+| B. A real interactive map: allow one script on the map pages, load a map library and tiles from outside | Drag, pinch, smooth zoom | Best experience | Adds `script-src` and an outside tile address on the one page that shows the most sensitive data in the app, and the map company sees every browser's view. The biggest change to the security posture of any option |
+| C. Our own island tile set, built once from OpenStreetMap data and served by us | As A, with no third party asked per tap | No outside party sees anything; works the same as A for the team | A one-off build job and storage. More work than A. Needs updating when the island changes |
+| D. No map in v1: a list only, coordinates typed or pasted from a phone's map app | A sortable list and a form | Quick to build | Placing a feeder by typing numbers is error-prone and puts exact feeding-site coordinates through a third-party maps app on someone's phone. The word "map" in the ticket is not met |
+| E. A hosted admin tool (SYC-207) | Whatever it offers | Possibly less to build | Sends the most sensitive data in the app to another company, which becomes a new processor to name in the privacy policy. Not ruled out for other screens, but not for exact feeding-site positions without a deliberate decision |
+
+**Recommendation: A, with C as the upgrade if Syros Cats mind the map company seeing the areas.** It is the only option that keeps the dashboard's header unchanged and still gives a tap-to-place map. If SYC-207 finds a tool, it must pass the test in E before it touches sites.
+
+### Decision 2. Keep this in the MVP, or move it after launch (SYC-209's own question; SYC-73)
+
+| Option | What it means | Benefits | Risks |
+|---|---|---|---|
+| **A. Split it: the team's half before launch, the public half after (recommended)** | Before launch: colonies (create, rename, guardian, cats in colonies), the private site map, history. After launch: the public switch, the public endpoint and the app layer | Colony names are what the charity already speaks in and what guardian roles and any import hang off. A private map of sites has real value from day one. The riskiest piece, the one that exposes locations, waits until nobody is rushing | The public half is in PRODUCT-SPEC's MVP list and would slip. Nothing breaks: everything is private by default and the list of public sites "never blocks" (team-access §5.5) |
+| B. All of it before launch | As the MVP list says | Matches the plan; launches with the Kini feeders visible | Adds the public endpoint and the app layer inside the store-submission window, on top of the dashboard work; this is the piece with the most ways to go wrong in public |
+| C. All of it after launch | Descope per SYC-73 | Smallest launch | The team has no way to name colonies or record sites at launch; colony names and sites stay in WhatsApp |
+
+**Recommendation: A.** It keeps what the team need and defers what only matters once Syros Cats have chosen sites to show. The team-access spec already names the map and colony naming as the first things to slip to hardening (its §9.3); this is a more careful cut line than all-or-nothing. **Samuel's call.**
+
+### Decision 3. What a public site shows about the cats and the colony
+
+| Option | What a visitor sees | Benefits | Risks |
+|---|---|---|---|
+| **A. Nothing about cats or the colony (recommended)** | A marker, a label, a short note | Cannot weaken the cat blurring. Smallest thing that serves "come and help" | Less to engage a visitor, and not the "land on that colony's cats" Kini experience |
+| B. A count ("about 12 cats use this spot") | A number | Gives a sense of scale | A number plus an exact place is a statement of how many animals are at one door. It also invites a visitor to look for them |
+| C. A list of the colony's cats with photos | Faces and names | The Kini QR experience; very engaging | Ties named cats to an exact place, making their blurring pointless for those cats. Reopens the F2 acceptance (SYC-67) |
+
+**Recommendation: A for the switch.** C belongs to SYC-22, which must make this decision with Syros Cats and not slip in via a card. **Syros Cats to confirm.**
+
+### Decision 4. Whether the public label is separate, or the internal name is used
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. A separate, required public label, checked for the guardian's name (recommended)** | The guardian's first name never reaches the public by accident; the team writes what the visitor reads | One more field to fill in; the check is a guard, not a guarantee |
+| B. Use the internal name | No extra field | Publishes a private person's first name next to an exact place |
+| C. Strip the guardian from the name automatically | No extra field | Names are free text; stripping fails silently on "Eleni's" versus "Ελένης" and leaves a mangled label |
+
+**Recommendation: A.**
+
+### Decision 5. How hard it is to make a site public
+
+| Option | Benefits | Risks |
+|---|---|---|
+| A. One confirmation tap | Quick | The most consequential click in the dashboard gets the least thought |
+| **B. A confirmation page with a preview and a recorded "the guardian knows" tick (recommended)** | The person sees exactly what goes out, the guardian's agreement is recorded, and the team is protected by its own habit | A minute's friction per site, for a thing done a few times a year |
+| C. B plus a second team member must approve | Strongest | With a team of two or three the second person may not be around, and a delayed approval is quietly worked around. Not proportionate yet |
+
+**Recommendation: B.** Revisit C if the team grows or a site is ever made public by mistake.
+
+### Decision 6. What moving a public site does
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. It becomes private until reconfirmed (recommended)** | A wrong pin never sits publicly even briefly | One extra confirmation after a deliberate move |
+| B. It stays public at the new position | Fewer steps | A slip sends visitors to the wrong door, and nobody is looking at the live public view |
+| C. Ask each time | Flexible | A choice nobody wants to make; the safe default is better |
+
+**Recommendation: A.**
+
+### Decision 7. What a cat guardian can do with sites (dependency on SYC-53)
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. A guardian sees and edits only their own sites; cannot make them public; asks the team to (recommended)** | The most affected person is never surprised, and the record stays accurate with less phone traffic | A guardian who wants a site public has to ask |
+| B. A guardian may also request "make public" in the app, which queues for the team | Closes the loop for guardians | A second queue to build and watch; better done with SYC-53's queue work |
+| C. A guardian can make their own sites public | Least team work | The guardian cannot judge the wider picture, and one hasty tap is a public location |
+| D. A guardian sees other colonies' sites approximately | Matches the wording used for cats | A private site is meant to be absent, not blurred (spine §6.7); an approximate marker still says "there is a feeder around here" |
+
+**Recommendation: A for the first release of guardian accounts; B when SYC-53 builds its queue. Reject D.** SYC-53 may decide differently; this is flagged to it.
+
+### Decision 8. How long a phone keeps the list of public sites for offline use
+
+| Option | Benefits | Risks |
+|---|---|---|
+| A. No offline copy | Simplest, and nothing stale | Walkers on the hills with patchy signal never see the layer |
+| B. One day | Quick to follow a change | Offline overnight and the layer vanishes |
+| **C. Seven days (recommended)** | Covers a holiday week of patchy signal | A site made private stays visible to an offline phone for up to a week. That phone already saw where it is, so the exposure was already made |
+| D. Indefinite, like the cat cache | Always works | An old list outliving the site's own change; the failure the spine warns about (§6.5) |
+
+**Recommendation: C.**
+
+### Decision 9. Whether the dashboard is offered in Greek
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. English only (recommended)** | Matches every page already built; no translation of an internal tool | A team member who prefers Greek reads English labels |
+| B. English and Greek | Friendlier for the team | A second set of dashboard words to maintain and a language switch on server-drawn pages, where none exists |
+| C. Greek only | Natural for the island | Breaks the build already made |
+
+**Recommendation: A.** Ask Syros Cats whether anyone on the team finds it hard; if so, file B as its own ticket.
+
+### Decision 10. Whether a site has a Greek label and an English one
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. One label, same in every language (recommended)** | Simple; place names are place names | Reads slightly less natural in one language |
+| B. A label per language | Natural everywhere | Three fields to fill and keep matching, and a gap if one is empty |
+
+**Recommendation: A**, and revisit if Syros Cats ask.
+
+### Decision 11. How the first sites get into the system
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. We load the list Syros Cats give us as private sites, once, then the team maintains it (recommended)** | Day-one usefulness; no hundred forms to fill | Needs the list, positions included, which Syros Cats must send; mistakes are loaded in bulk (the history shows `system:seed`, and each is fixed with Move) |
+| B. The team adds them one at a time | No script | Slow; the team may never finish, and the map stays empty |
+| C. Import from the WhatsApp history (`records-import.md`) | Uses existing material | That spec is optional and after the MVP, and its data has scant detail. Not a dependency of this one |
+
+**Recommendation: A**, as soon as Syros Cats supply the list. It never sets visibility. **Syros Cats to supply the list.**
+
+### Decision 12. What a colony's name form looks like
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. One free-text name plus a separate guardian name, with the convention shown as a hint (recommended)** | Matches how the charity speaks; handles names that don't fit a pattern ("Kini harbour") | The two can drift apart when a guardian changes |
+| B. Two boxes (place, guardian) that build the name | Always consistent | Cannot name a colony without a guardian; in Greek the possessive changes the word ("Ελένης"), which a simple join gets wrong |
+
+**Recommendation: A.**
+
+### Decision 13. What the public card asks visitors to do (Syros Cats)
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. Keep your distance, don't leave food, find the Help tab (recommended)** | Agrees with the app's first lesson and with the charity's own guidance | Gives visitors nothing to "do" at the spot except spot and donate |
+| B. Say nothing about food | Shorter | The card and onboarding disagree by omission |
+| C. Invite visitors to bring food | Feels welcoming | Reverses the app's teaching, crowds the colony and draws cats to a spot |
+
+**Recommendation: A.** **Syros Cats confirm, or say what they want instead.**
+
+---
+
+## 14. Risks
+
+| # | Risk | Why it matters | Mitigation |
+|---|---|---|---|
+| 1 | **A site becomes public by accident or by a wrong pin.** | It is a published list of where to find cats. | Private by default; per-site; no bulk; confirmation page; preview; moving a public site makes it private; short cache so a mistake is fixed in minutes. |
+| 2 | **The guardian's name or a house number reaches the public label.** | Identifies a person next to an exact place. | Separate required label; checked for the guardian and for address-shaped text; shown in a preview. |
+| 3 | **Private sites are counted or probed through the public interface.** | Site numbers and ids leak how many private sites exist. | Random public code assigned only at first publish; no internal number in any public response; unknown, private and retired are indistinguishable. |
+| 4 | **The map tile provider learns which streets staff study.** | A faint pattern of "somebody is looking here". | Tiles come through our server and are cached; the provider sees only the server; Decision 1 option C removes it. |
+| 5 | **The team's exact positions leak through the history, logs or an email.** | The history holds every old position. | Same capability as the sites; not in logs or mail; tests assert it. |
+| 6 | **A phone keeps showing a site long after it went private.** | Perceived as the charity "still advertising" it. | Server cache five minutes; the phone's copy expires (Decision 8); honest statement that sight cannot be taken back. |
+| 7 | **Colony averaging still finds the colony.** | The spine's accepted limit. | Unchanged and not oversold: the dashboard, app and privacy policy never describe the switch as protection. |
+| 8 | **A guardian is named on a public screen.** | They never agreed. | Nothing from colonies is public; the label check; the guardian tick. |
+| 9 | **The pin-by-tapping page is awkward on a phone.** | Wrong pins, abandoned adds. | Starts from a cat's sighting or a colony; a confirmation page before saving; Move is always available; checked at 390 px and desktop before the PR opens. |
+
+---
+
+## 15. Tests that must exist
+
+Named here so they appear in the plan. API tests use supertest against the real app and a real Postgres, as the existing dashboard tests do. Mutation checks (M) are done once by hand before merge, as the other plans do.
+
+1. **Public isolation (the canary).** Seed a private site with a distinctive name, label, notes and coordinates; call every public route (`GET /api/feeding-sites`, `/api/cats`, `/api/cats/:id`, the resolve and sighting responses, notification payloads, the health route) and assert the strings and the coordinates appear in none of them, including after the site has been public and made private again. **M:** drop `is_public = true` from the query → red. (The existing public-payload test already proves a private site is absent from the cat payloads; this extends it to the new endpoint.)
+2. **Only listed fields.** The public endpoint's items have exactly the keys `id`, `label`, `position`, and a snapshot fails on any new key. **M:** add `notes` to the select → red.
+3. **Identical for every caller.** Calls with different headers, query strings, device ids and positions return byte-identical bodies.
+4. **Not distinguishable.** A lookup by public code for a private site, a retired site, a site that was never public and a random code returns the same status and body.
+5. **Opaque code.** A never-public site has no `public_id`; `public_id` is not derivable from the internal number; making a site public, private, public again keeps one code.
+6. **One position function.** The endpoint is the only reader of site coordinates in public code, and goes through `publishedSitePosition`; a static check fails otherwise.
+7. **Never created public.** No route or script can create a site as public; no route sets visibility on more than one site per request; the seed sets none.
+8. **Make public needs everything.** No label → refused. Label containing the guardian's name (also in a different case or accent) → refused. Address-shaped label → refused. No guardian tick → refused. Each refusal writes nothing.
+9. **Moving a public site makes it private**, writes both events, and the public list no longer has it; re-confirming puts it back.
+10. **Retired is never public**, by the database check and by the route; bringing a site back never makes it public.
+11. **Every change writes exactly one history row in the same transaction.** A forced failure in the history write leaves the site unchanged. The history table refuses update and delete. The site's `made_public_by/at` agree with the newest "made public" event.
+12. **Capabilities.** A session lacking exactly one capability gets the identical `401 not_signed_in` on that capability's routes and nothing is written; the pages hide controls the person cannot use; a foreign or missing `Origin` is refused on every POST. **M:** a route asking for the wrong capability → red.
+13. **Concurrent flips.** Two simultaneous "make public" and "make private" presses leave one definite state, and the loser sees "Someone already changed this."
+14. **Colony names.** A name clashing under folding (case, accents, final sigma, NFD) is refused with a link to the holder; a rename keeps every cat and site attached; the old name still finds the colony; two simultaneous creates of the same name produce one.
+15. **Cats in colonies.** Adding cats writes one signed `colony` statement each and moves no derived status (snapshot before and after); a colony that does not exist is refused; moving a cat writes a new statement and the newest stands; taking a cat out keeps the earlier statement visible.
+16. **Escaping.** A site or colony name containing markup is shown as text on every page.
+17. **Map.** Tiles are only reachable with a session and the right capability; the page's security header is byte-identical to the existing expected header (no `script-src`); a tap on a tile button yields the position it should (checked at several zooms, including a position on a tile boundary); tapping outside the island's limits is refused.
+18. **Phone cache.** A stored list older than the limit is not shown; a list of an older shape is dropped; the key differs from the cats cache.
+19. **Language parity.** The new strings exist in all three languages with no empty values (the existing parity suite).
+20. **Looks right in a browser.** At 390 px and desktop widths: the Feeding sites page, a site, the make-public page with its preview, the colony page, and the app card, with real-looking data, not just an empty page.
+
+---
+
+## 16. The cut line, and what "done" looks like
+
+**If the window bites** (see Decision 2): the order of value is (1) colonies and cats in colonies, (2) the private site map and history, (3) the public switch, endpoint and app layer. Each is useful alone; none requires the next.
+
+**Done looks like:**
+
+- A Syros Cats person can add a feeding site from a cat's sighting in under a minute, and see it on the map.
+- A colony called "Vaporia — Eleni's" can be renamed when Eleni stops, and nothing attached to it moves.
+- Every site is private until a named person has deliberately made it public, one at a time, after seeing what visitors will see.
+- Making a site private is one tap and cannot be made harder.
+- No private site, colony name, guardian name, note or cat count is in any public response, and a test proves it.
+- A tourist in Kini sees a bowl marker at the exact spot, taps it, and is told in their own language to give the cats room and not to leave food.
+- "How did this become public?" has an answer in the site's history.
+- Nothing here has to be unpicked when cat guardians get their own accounts.
