@@ -119,7 +119,7 @@ This is the question that decides most of the build, so it comes first.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ The dashboard, made installable and partly offline.** Guardians and volunteers use `team.catspotters.com` on their phone. The colony view and round sheet are pages that can be saved on the home screen and that keep the last list they loaded. The app stays a public reader. | One sign-in, one session, one place their data comes from. The app never holds exact positions, so a tourist's phone cannot leak them. The data spine's rule stays true. | A web page's offline storage is weaker than an app's: the phone may clear it if the page isn't opened for a week (the app already warns about this for spots). The dashboard is "no scripts, for now" (`DECISIONS.md` Part 2k), and an offline view needs a small amount of script, so this one view is an exception to that. Field checks made offline need a small queue of their own in the browser. |
+| **A. ✅ The dashboard, made installable and partly offline.** Guardians and volunteers use `team.catspotters.com` on their phone. The colony view and round sheet are pages that can be saved on the home screen and that keep the last list they loaded. The app stays a public reader. | One sign-in, one session, one place their data comes from. The app never holds exact positions, so a tourist's phone cannot leak them. The data spine's rule stays true. | A web page's offline storage is weaker than an app's: the phone may clear it if the page isn't opened for a week (the app already warns about this for spots). The dashboard is "no scripts, for now" (`DECISIONS.md` Part 2k): every team response today carries a policy that forbids scripts (`default-src 'none'`) and a `no-store` cache header (`lib/teamAuth/refuse.ts`). An offline view needs a small amount of script and a deliberate cache, so this one set of pages gets its own narrow relaxation of both, and everything else keeps today's. Field checks made offline need a small queue of their own in the browser. |
 | **B. Sign in inside the app.** A volunteer signs in to the app; the account becomes her identity and the phone credential stays as the session. | The offline machinery is already there. One app to install. | **Reverses a settled rule.** The app is what every tourist installs; with a sign-in, exact positions of cats in a colony would sit in app storage on volunteer phones, in an app whose cache code was written on the promise that exact positions never arrive. A lost phone then carries a map of where the island's unsterilised cats gather. The data spine's own warning (§6.5) is that such a mode "must use a distinct key"; that is doable but is a large new surface, and the app review process now has to consider it. |
 | **C. Paper and files only.** The dashboard produces a round sheet (a printable list or a downloaded file), and that is the "offline view". | The safest: nothing sensitive persists on a device the charity does not control. Works with no signal because it is already on the page. | It goes stale the moment it is printed. Field checks can't be queued; the volunteer remembers and enters them later. Not what SYC-54 asked for. |
 | **D. Both A and C.** | The round sheet is a by-product of A (it is the same data, printed). | Two things to look after. | None beyond A's. |
@@ -632,6 +632,131 @@ Decision 1 recommends the offline view be a saved web page on `team.catspotters.
 **The web storage caveat.** iPhones may clear a saved web page's storage if the page isn't opened for about a week unless it has been added to the Home Screen. The app already shows a nudge for exactly this (`homeScreenNudgeText`); the colony view reuses it. A cleared list is a failure that is visible ("Connect to refresh"), not silent.
 
 **If Decision 1 chooses the app (B)**, every rule above applies to app storage with a distinct cache key, and `cat-record-data-spine.md` §6.5 needs an approved amendment first.
+
+---
+
+## 13. English, Greek and French
+
+Guardians are, in large part, Greek speakers; some volunteers will be French or English; the team works mainly in English. The public app is already trilingual (`artifacts/cat-spotter/lib/i18n.ts`). The dashboard is not: every page is English, with dates formatted `en-GB`. This spec makes the pages **guardians and volunteers use** trilingual, and leaves the pages only the team uses in English for now (Decision 10).
+
+### 13.1 What needs three languages
+
+| Surface | Language is decided by | Notes |
+|---|---|---|
+| The **invitation message** | The inviter's choice when inviting, saved as the person's language | Wrong language here means the invitation is ignored |
+| The **sign-in link message** from the Worker | `people.language`, returned by the allow-list check (§4.5) | The Worker's own message today is English only; this is a change in the other repository |
+| The **accept page** and the four promises | Same | The promises are the one piece of text where a mistranslation matters most; see below |
+| **My colonies, the colony view, the round sheet, field-check and proposal forms, "Needs a look", the outcome lines** | Same; changeable by the person on their own page | |
+| The **403 page** ("that part is for the team") | Same | |
+| **Role names and the one-sentence description of oneself** (§2.7) | Same | |
+| The people screen, "Needs an OK", management and staff pages | English | Decision 10 |
+| Dates | The person's language (`el-GR`, `fr-FR`, `en-GB`), Athens time | Existing pages hard-code `en-GB` |
+
+### 13.2 Decision 10: how far the translation goes
+
+| Option | What it means | Benefits | Risks |
+|---|---|---|---|
+| **A. ✅ Everything a guardian or volunteer sees is en/el/fr; management and staff screens stay English.** | The people who may not read English comfortably can use the work; the team's own tools stay cheap to change. | A bounded amount of text to translate and review. | The team's screens remain English-only, which would be a problem if Syros Cats take on a Greek-speaking staff member. The fix then is the same mechanism applied to more pages. |
+| **B. Everything en/el/fr.** | Consistent. | Much more text, nearly all of it read by two or three people. Every change to a screen now costs three translations and a review. |
+| **C. English only, translated later.** | Fastest. | A Greek guardian is handed an English page and a legal-sounding promise she can't read. The invitation is the first thing she sees; it fails on the first step. |
+
+**Recommendation: A.**
+
+### 13.3 How the words get made and checked
+
+- **One string catalogue for the dashboard on the server**, with the same shape and key-parity test as the app's (`lib/__tests__/i18n.test.ts`): every key in every language, none empty. A missing key fails the build, not the page.
+- **Machine-drafted first, then a named local reviewer.** The same process as SYC-4 for the app's strings: Fair Shake drafts Greek and French, and a local speaker confirms them. This spec needs a **named reviewer and a date**, and the invitation and accept page do not go live in a language until that reviewer has signed it off. English alone may go first.
+- **The agreed word for the role is "cat guardian"**, and the term already settled for the app in all three languages (SYC-156) is the one to use; this spec does not invent a second Greek or French word for it. *Spotter* and *snapper* follow the app's existing wording. (`docs/PRODUCT-SPEC.md` says the role word is *spotter, not snapper*; this spec uses "spotters and snappers" for everyone using the public app because the ticket does, and flags the difference for Samuel to settle once, §16.)
+- **Names are never translated or transliterated.** A Greek name is stored and shown as typed. A person's name field accepts any letters, and email addresses are lower-cased the same way in the database and in code (a test uses a Greek local part, because lower-casing Greek capitals can differ between Postgres and JavaScript, the same trap SYC-101 found for cat names).
+
+### 13.4 The four promises, and why they get extra care
+
+They are short on purpose, and each is written to be read aloud on the phone by the person doing the inviting. Syros Cats review the English words; the Greek and French versions are checked by the named local reviewer against the English **and read back to Syros Cats**, because "I will keep the exact places of cats to myself" is the sentence a guardian is trusted on. Which version of the promises a person accepted is recorded with the acceptance (§11.1), so wording can be improved later without losing what earlier people agreed to.
+
+---
+
+## 14. Security and abuse cases
+
+| # | Case | What stops it, or what we accept |
+|---|---|---|
+| **1** | **An invitation goes to a mistyped address belonging to a stranger.** | Address typed twice; invitation names the colony and the inviter, and holds no secret; the accept page asks for the invitee's own name, which the inviter sees; the inviter is emailed on acceptance; 14-day expiry; one-tap withdrawal. Blast radius: one colony (Decision 7). A wrongly invited stranger's address is anonymised on withdrawal (§9.6). |
+| **2** | **The invitation message is used for phishing, or to mail-bomb a stranger.** | A closed template; no inviter free text; escaped, length-limited names; the caller names a person, not an address; per-inviter, per-address and per-IP limits; counted in the mail budget (§8.5). |
+| **3** | **A management session is stolen and used to make accounts.** | Staff and management invitations need a second management member's OK (Decision 11). Guardian and volunteer invitations are limited to 10 a day per inviter, are visible as events within the hour, and can each be withdrawn in a tap. A stolen session is ended with *sign out everywhere*. |
+| **4** | **Someone grants themselves more.** | Role changes to your own row are refused; adding staff or management needs the second OK; every grant records who made it (`granted_by`) and writes a `roles_changed` event. The database refuses a guardian placement with no colony. |
+| **5** | **Approving your own item**, including from a second account. | The database refuses `decided_by = proposed_by`. **A person with two accounts (two addresses) is not something software can detect.** The control is social: one row per human, management knows its people, and the people screen shows every address. Accepted. |
+| **6** | **A guardian reads cats outside her colonies**, by adding them to it. | Colony membership proposals wait for the team (Decision 6); a cat joins a colony only by a `colony` observation written by the team or approved by the team; her reach is read from the record at each request, never from the request. |
+| **7** | **Access changes lag behind decisions.** | Placements and the person's standing are re-read on every request (as now); a placement's end date is checked at request time; `session_version` kills sessions at the next request; saved colony lists on phones expire in 7 days and erase on the next online load (§12). A phone that stays offline is the one gap, stated on the accept page. |
+| **8** | **A trusted guardian shares exact places.** | Not preventable by software; she is trusted with those places because it is her job. The controls are the promises (read, accepted and recorded), reach limited to her colonies, round sheets stamped with her name, and a reading counter that prompts a question when opening far exceeds her scope (§11.3). **This is the residual risk of giving anyone exact positions at all**, in the same family as the colony-averaging disclosure that `DECISIONS.md` F2 asks Syros Cats to accept; it should be put to Syros Cats in the same plain words and recorded (Question Q1). |
+| **9** | **A phone is lost or shared.** | A lock on the phone is asked for; saved lists expire; sign out everywhere ends the session at the next connection; a family member using the phone sees her colony until she signs out — accepted, with *Sign out* always one tap away. Sessions stay thirty days: shortening them for older, less technical guardians would trade a small risk for a daily failure. |
+| **10** | **A departed person's phone still holds their last list.** | §9.2 and §12. |
+| **11** | **The changeover gives a guardian the workspace** (the Worker deployed today treats any yes as the workspace). | The allow-list answers the old request shape with yes only for people who hold the workspace door; the new Worker sends a version marker (§4.5). Until it ships, guardians cannot sign in; they can't be locked into something unsafe. A test pins this: *a guardian's address gets `allowed: false` from the old request shape*. |
+| **12** | **A volunteer floods the team with field checks.** | Twenty open items per person; one item per cat; items can be declined in a tap; nobody is paged. |
+| **13** | **The people screen or the allow-list is used to learn who has access.** | The allow-list check stays bearer-token only and answers identically for "unknown", "left", "expired" and "no door". The sign-in page still says the same thing for every address. The people screen is behind `manage_people`. |
+| **14** | **Forged or replayed accept, decide or leave requests.** | Every form POST goes through the existing Origin check (`requireOrigin`) and a fresh session lookup; an item can be decided once (a conditional update, like report states); *accept* can be pressed twice without effect. |
+| **15** | **The charity locks itself out** (the last management person leaves, or a mail outage blocks sign-in). | The last-management guard (§9.5); the `people` command via db-ops as break-glass (Samuel); the workspace break-glass row in `admins`. A mail outage still blocks sign-in for everyone, as the team-access spec already accepts, until Google sign-in (SYC-26) adds a second door. |
+| **16** | **A stranger asks to be made a guardian** (email, in person, in a convincing story). | There is no self-service route, deliberately. A request is a person asking the team, who know their colonies. Nothing in the app invites anyone to apply, so there is nothing to automate or abuse. |
+
+---
+
+## 15. Technical notes
+
+*For whoever implements it. Everything above is the product; this is the wiring.*
+
+### 15.1 Where the code changes
+
+- `lib/db/src/schema/people.ts`: the new columns and checks (§10.1), `management` in `PERSON_ROLES`, `confirmationItemsTable`.
+- `lib/db/src/people.ts`: `addPerson`, `markLeft`, `signOutEverywhere`, and the finders learn "accepted or invited and unexpired". New: `invitePerson`, `acceptInvitation`, `withdrawInvitation`, `setRoles`, `rejoinPerson`, each writing its `person_events` row in the same transaction (SYC-213). `removePerson` (hard delete) is retired for anyone with an event, which is everyone (§9.6, §16 finding S6).
+- `artifacts/api-server/src/lib/capabilities.ts`: the role-to-capability map (§6.2), `can()` strict with an optional target, `canSomewhere()`, `actingRole()` (§10.4), expiry filtering. `mayEnter()` stays for the dashboard door; `mayUseWorkspace()` is new.
+- `middlewares/requireTeam.ts`: takes an optional target resolver for placed routes; `requireInvitee` for the accept page; a signed-in refusal that is a 403 page, not the 401 (§6.4).
+- `routes/internal.ts`: `POST /api/internal/people/allowed` returns `doors` and `language`; old request shape handled as in §4.5.
+- `routes/team.ts`: the hand-off allows a pending invitee to reach the accept page and nothing else.
+- New dashboard routes under `/api/team`: `people` (list, invite, resend, withdraw, roles, leave, rejoin, sign-out), `accept` and `decline`, `me/language`, `me/leave`, `colonies` (mine), `colonies/:id/targets`, `needs-a-look`, `needs-an-ok`, `field-checks`, `colony-proposals`, `confirmations/:id/decide`. These are server-drawn pages and forms like the others (Part 2k); the JSON ones used by the saved colony page are added to the OpenAPI file and the generated clients.
+- `lib/mail/send.ts`: purpose `person_invite` (closed template, person id in, address looked up inside).
+- `lib/db/src/people/cli.ts` and the db-ops `people-*` commands: `add` takes `--colony` (required for guardian), `--language`, and `--accepted` for break-glass staff seeding; `list` shows ids and placements only, never addresses.
+- `lib/teamPages` and a new server-side string catalogue (§13.3).
+
+### 15.2 The migration
+
+One migration, named for what it does, generated after rebasing on the latest `main` and numbered then, never by hand; the number is the next free one at merge time (`0012` is taken by SYC-63, and others are queued). It adds the columns and checks, backfills `accepted_at`, adds the `management` rows if Decision 3 is A, creates `confirmation_items`, and stops with a list if any guardian or volunteer placement has no colony (§10.1). It touches no cat data. `person_events` is SYC-213's migration; this one does not create it.
+
+### 15.3 Tests that must exist
+
+Named here so they appear in the implementation plan:
+
+1. **The route walk.** Every `/api/team/*` and `/api/internal/*` route, called by a signed-in person of each role (staff, management, guardian, volunteer, pending invitee, left person, someone with no scopes), returns exactly what a table says. A route missing from the table fails (§6.4, SYC-222 point 4).
+2. A **guardian who may enter but lacks a capability** gets the 403 page, not the sign-in page, on each capability-gated route (SYC-222's "in, but not allowed to do this").
+3. **A guardian's view of a cat outside her colony is the public view**, field by field, for every route that returns a cat; and a cat with no colony is public for her.
+4. **The target is read from the record, not the request:** a request that names her colony but a cat from another gets the other cat's public view.
+5. **An expired placement stops working at the request after its end date**, with no job having run.
+6. **A guardian's address gets `allowed: false`** from the old request shape and the full answer from the new (§14 case 11); a guardian's `doors.workspace` is false.
+7. **Doors:** a staff address gets both doors; a pending invitee gets only the dashboard door; an expired invitation, a left person and an unknown address get identical answers.
+8. **A pending invitee's session reaches the accept page and nothing else.**
+9. **A field check writes its observation and its item in one transaction**; killing the second write leaves neither.
+10. **A field check does not move a cat's answer**; the team's approval does; "not enough" does not.
+11. **The database refuses an item decided by its proposer**, and the route refuses when the decider has lost the capability since the page was drawn.
+12. **The first decision wins; the second sees "already decided".**
+13. **A guardian's colony proposal gives her no extra view until approved.**
+14. **A guardian placement with no colony is refused by the database**; a staff row with a colony is too.
+15. **The last management person cannot be marked as left, demoted or have their sessions ended through the screen.**
+16. **Withdrawing an invitation** leaves no readable address when SYC-208's routine is in place, and never deletes a row that has an event.
+17. **Every operation writes exactly one event, in its own transaction** (SYC-213's mutation test, extended to the new kinds).
+18. **Invitation mail:** the caller cannot name an address; a name containing markup or a link is escaped; limits hold; a failed send is not shown as sent.
+19. **`roleAtTime` is derived on the server:** a guardian cannot write `staff` by sending it; a staff member who is also a guardian writes the role that authorised the action.
+20. **Key parity** for the dashboard catalogue in all three languages; **a Greek local part** survives lower-casing the same way in database and code.
+21. **A saved colony list is refused after 7 days offline and erased when the server says the person is gone** (a test on the page's script).
+22. **The workspace is refused to every role without `use_workspace`**, including with a valid dashboard session.
+
+### 15.4 How it ships, in order
+
+| Slice | What | Visible to whom |
+|---|---|---|
+| **0. Foundations** | SYC-213 (`person_events`); SYC-222 (doors, strict `can`, 403 page, route walk); one list of team roles and the `admin` → `management` rename; the migration (§15.2); the Worker's version-2 answer. | **Nobody.** Everyone is staff and management; nothing changes |
+| **1. Invitations and "My colonies"** | The invite, accept, withdraw and leave flows; the people screen (SYC-104); a guardian's own page: her colonies, exact positions, feeding sites, life status for her cats; the pages in en/el/fr. | Management, then the first guardians |
+| **2. Field checks and the queue** | Field checks, "Needs a look", "Needs an OK", colony proposals, second-OK invitations. | Guardians, volunteers, the team |
+| **3. The volunteer colony view** | SYC-54: the offline saved page, the round sheet, the narrow script and cache exception (§3, §12). | Volunteers |
+| **4. The small things** | Reading counters and the banner; hand-pick review for guardians once the "Matched by hand" list (SYC-152) exists; the colony-rename nudge. | Management |
+
+Slice 0 must land before any non-staff role holds any capability, as SYC-222 already says. Slices 1 to 3 can each be a separate plan; the plan for slice 1 should come to Samuel after this spec is approved.
 
 ---
 
