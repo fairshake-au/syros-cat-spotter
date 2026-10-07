@@ -269,7 +269,7 @@ How B works: when a library photo's time equals the time of a sighting this devi
 
 ### Decision 3 · Telling people about a sighting from a photo taken days ago
 
-Resolving a sighting reaches **only the cat's owner** straight away ("Agatha was spotted again!", `lib/notificationFanout.ts`). Everyone else who follows the cat gets an evening round-up (`lib/sightingRoundUp.ts`) that never says a time, a clock reading or even "today". The round-up is keyed to when the update was *written*, not to the sighting's date, so a backdated sighting appears in that evening's round-up as "Agatha was spotted again.", which is true and timeless.
+Resolving a sighting reaches **only the cat's owner** straight away ("Agatha was spotted again!", `lib/notificationFanout.ts`). Everyone else who follows the cat gets an evening round-up (`lib/sightingRoundUp.ts`) that never says a time, a clock reading or even the day. The round-up is keyed to when the update was *written*, not to the sighting's date, so a backdated sighting appears in that evening's round-up as "Agatha was spotted again.", which is true and timeless.
 
 | | **A. Owner's push says the day when the photo is over 24 hours old; round-up unchanged (recommended)** | **B. Suppress the push for photos over 48 hours old** | **C. Send everything unchanged** |
 |---|---|---|---|
@@ -376,7 +376,7 @@ How each finding in the [adversarial review](./reviews/photo-location-from-libra
 | **m8** XMP in the server test | §5.5 and test 8; SYC-260. |
 | **m9** accuracy | §3.1, §6 and `mapStartedApprox`. |
 | **m10** "needs help" time | §12; SYC-260. |
-| **m11** wording | "Today" and "built versus proposed" framing and the internal jargon removed; the spec describes the whole product as one vision. |
+| **m11** wording | The "built versus proposed" framing and the internal jargon removed; the spec describes the whole product as one vision. |
 | **Decisions 1, 2, 3, 5, 6** | Recommendations updated, each with a "Changed after review" note (Decisions 1 → 21 days, 2 → phone-side fix, 3 → owner push with the day, 5 reworded, 6 widened). Decision 4 agreed, made conditional on the device check. Decision 7 added. |
 | **What held up** | Kept: no new public emitter, server stripping, no new spoofing power, true dates helping the death rule, reading tags before compression. |
 
