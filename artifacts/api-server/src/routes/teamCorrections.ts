@@ -439,7 +439,7 @@ router.post(
             return void res.status(409).json({
               error: "Cat name already taken",
               code: "NAME_TAKEN",
-              cat: { id: holder.id, name: holder.name },
+              ...(holder ? { cat: { id: holder.id, name: holder.name } } : {}),
             });
           }
           return void res
@@ -451,8 +451,10 @@ router.post(
                 active: "cats",
                 personName: teamPerson(res).name,
                 body:
-                  `<p>Another cat is already called <strong>${esc(holder.name)}</strong>` +
-                  (holder.id ? ` (<a href="/api/team/cats/${holder.id}">${esc(syrNumber(holder.id))}</a>)` : "") +
+                  (holder
+                    ? `<p>Another cat is already called <strong>${esc(holder.name)}</strong>` +
+                      ` (<a href="/api/team/cats/${holder.id}">${esc(syrNumber(holder.id))}</a>)`
+                    : "<p>Another cat already has that name") +
                   ". Names count as the same whatever the accents or capitals. Nothing was changed.</p>" +
                   `<p><a class="tap" href="${esc(back)}">Back to the cat</a></p>`,
               }),

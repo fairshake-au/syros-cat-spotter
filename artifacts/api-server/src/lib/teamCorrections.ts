@@ -284,7 +284,12 @@ export function newestActiveClip(observations: readonly Observation[]): Observat
   let newest: Observation | null = null;
   for (const o of observations) {
     if (o.kind !== "ear_tip" || replaced.has(o.id)) continue;
-    if ((o.value as { clipped?: unknown } | null)?.clipped !== true) continue;
+    const v = o.value as { clipped?: unknown; agreesWith?: unknown } | null;
+    if (v?.clipped !== true) continue;
+    // An agreement with an answer that has since been replaced (the spotter
+    // changed it, or the team marked it wrong) agrees with nothing that
+    // stands, so it doesn't keep the cat off the list (Opus review, S1).
+    if (typeof v.agreesWith === "number" && replaced.has(v.agreesWith)) continue;
     if (
       !newest ||
       o.createdAt.getTime() > newest.createdAt.getTime() ||
@@ -305,7 +310,7 @@ export type RenameOutcome =
   | { kind: "unchanged" }
   | { kind: "blank" }
   | { kind: "offensive" }
-  | { kind: "taken"; holder: { id: number; name: string } };
+  | { kind: "taken"; holder: { id: number; name: string } | null };
 
 /**
  * Renames a cat (Decision 5, the routes/cats.ts pattern): `cats.name` and a
@@ -362,9 +367,7 @@ export async function renameCat(
   if (renamed === null) {
     // Another cat took the name between the check above and this write.
     const taker = await catNamed(name);
-    return taker
-      ? { kind: "taken", holder: { id: taker.id, name: taker.name } }
-      : { kind: "taken", holder: { id: 0, name } };
+    return { kind: "taken", holder: taker ? { id: taker.id, name: taker.name } : null };
   }
   return { kind: "renamed", name: renamed };
 }

@@ -131,10 +131,6 @@ function serialise(o: Observation) {
   };
 }
 
-function observedAtOrNow(input?: string): Date {
-  return input ? new Date(input) : new Date();
-}
-
 /**
  * POST /team/observations — a fresh team statement of life status or
  * sterilisation, with a reason (§4.5, §3.5). `roleAtTime: "staff"`,
@@ -157,7 +153,9 @@ router.post(
         kind: body.kind,
         value: body.value,
         reason: body.reason,
-        observedAt: observedAtOrNow(body.observedAt),
+        // Absent: "now" is taken inside the write, after any lock wait, as
+        // before the extraction (Opus review, N1).
+        observedAt: body.observedAt ? new Date(body.observedAt) : undefined,
       });
       res.status(201).json(serialise(row));
     } catch (err) {
@@ -215,7 +213,9 @@ router.post(
         id,
         value: body.value,
         reason: body.reason,
-        observedAt: observedAtOrNow(body.observedAt),
+        // Absent: "now" is taken inside the write, after any lock wait, as
+        // before the extraction (Opus review, N1).
+        observedAt: body.observedAt ? new Date(body.observedAt) : undefined,
       });
       res.status(201).json(serialise(row));
     } catch (err) {

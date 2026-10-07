@@ -349,6 +349,28 @@ describe("P4-2: the Probably sterilised list", () => {
     expect(page.text).toContain("Not known yet");
   });
 
+  it("an agreement with an answer that has since been replaced no longer keeps the cat off the list (Opus review, S1)", async () => {
+    const catId = await newCat();
+    await spotterClip(catId, 120);
+    const newer = await spotterClip(catId, 60);
+    await form(`/api/team/likely/${newer.observation.id}/looks-right`).send({});
+    expect(await likelyIds()).not.toContain(catId);
+    // The spotter changes their own answer to "looks whole".
+    await db.insert(observationsTable).values({
+      catId,
+      kind: "ear_tip",
+      value: { clipped: false },
+      deviceId: SPOTTER,
+      roleAtTime: "public",
+      observedAt: new Date(),
+      supersedesId: newer.observation.id,
+      supersedeReason: "changed my answer",
+    });
+    // The older spotter photo still makes it Likely, and nobody has agreed with that one.
+    expect((await snapshot(catId)).sterilised.confidence).toBe("likely");
+    expect(await likelyIds()).toContain(catId);
+  });
+
   it("the page shows the two buttons and the notice after an action", async () => {
     const catId = await newCat();
     const { observation } = await spotterClip(catId);
