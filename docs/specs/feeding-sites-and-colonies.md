@@ -407,79 +407,96 @@ Stated precisely, as the other specs do.
 
 *For whoever writes the plan. Everything above is the product; this is the wiring.* Checked against `origin/main` at `c5ee36c`.
 
-### 11.1 Columns and one table the feature relies on
+### 11.1 Columns and tables the feature relies on
 
 The spine owns `feeding_sites` and `colonies`; the following are what this feature needs those records to carry. They are listed here so the spine's definition can be amended once (§12), not defined a second time.
 
 **`feeding_sites`** (beyond the spine's §10.5 columns):
 - `public_label` text, null until set; required before `is_public` can be true (check constraint).
-- `public_id` text, unique, null until the **first** time the site is made public: a random 128-bit value. A site that has never been public has no public identifier at all, and the identifier is never derived from the internal number, so the public list and any QR code cannot be used to count or probe private sites. It stays the same if the site is later made private and public again.
+- `directions` text, null: the "how to find it" line (§2.2). Words only, never coordinates.
+- `public_id` text, unique, null until the site is first made public: a random 128-bit value. A site that has never been public has no public identifier at all, and the identifier is never derived from the internal number, so the public list and any QR code cannot be used to count or probe private sites. **A new `public_id` is issued whenever the site is made public at a position more than 10 metres from where it last stood in public, and always when it is made public again after being retired** (§4.5). A plain private-then-public cycle with no move keeps its code (Decision 6). Superseded codes go to `feeding_site_old_codes` (`site_id`, `public_id`, `retired_at`, `reason`), team-only, kept so the history can show them and so the public lookup can refuse them.
+- `last_public_position` (lat, lng), team-only: where the site last stood in public, used to decide whether a re-publish needs a new code.
 - `guardian_aware` boolean null: the last value of the §4.3 tick box.
 - `retired_at`, `retired_by`: set when retired, cleared when brought back. A retired site is never public (check constraint).
-- `updated_at`.
-- `made_public_by` should be a link to the people list, not free text, to match the audit trail and the "(left)" display.
+- `updated_at`, used as the version for every write (§11.2).
+- `made_public_by` and `made_public_at` hold the **latest** publish and are kept (not cleared) on make private; the history is the full record, and a test checks they agree with the newest "made public" event. `made_public_by` is `text` today and `people.id` is a `uuid`, so linking it to the people list is a **separate, checked migration step** (below), not an additive column.
 
 **`colonies`**: no new columns are required. `colony_name_history` gains an optional `redacted_at` (§7.4).
 
-**`mapping_events`** (new, add-only): `id`, `subject_kind` (`site` or `colony`), `subject_id`, `kind`, `person_id` (strict link to `people`; null only for `system:` writers), `at`, `before` json, `after` json, `note`, `guardian_aware` boolean null. The same kind of database trigger that protects `observations` refuses updates and deletes.
+**`mapping_events`** (new, add-only): `id`, `subject_kind` (`site` or `colony`), `subject_id`, `kind`, `person_id` (strict link to `people`), `actor_system` text (for `system:seed` and `system:migration`), `at`, `before` json, `after` json, `note`, `guardian_aware` boolean null, `redacted_at`, `redaction_reason`. **Exactly one of `person_id` and `actor_system` is set** (check constraint). A database trigger refuses updates and deletes, with one allowed update: a redaction that sets `redacted_at`/`redaction_reason` and blanks `before`, `after` and `note` only, as the `observations` trigger allows for redaction. (§7.4, SYC-256.)
 
-One migration. All additive. Existing rows are valid unchanged: every existing site stays private, with no label and no public code.
+**`site_page_reads`** (new, small): person, site number, time. No position (§8).
+
+**The migration is not all additive, and the plan's first step is a count.** Before anything else, count `feeding_sites` rows on production: all of them, any with `is_public = true`, and any `made_public_by` that is not a valid uuid. The new rules ("public needs a label", "retired is never public") fail on deploy if a public row already exists, so any such row is made private (or labelled) by hand first. Changing `made_public_by` from text to a link is its own step, with a check that every value converts. Existing sites have no "created" event, so the migration writes one `system:migration` "existing" event per existing site, so "how did this become public?" has an answer for them too. Every existing site stays private, with no label and no public code.
 
 ### 11.2 Routes (all under `/api/team/`, server-drawn pages, no scripts)
 
-Each follows the PR 4 pattern: a POST first runs `requireOrigin(TEAM_ORIGIN)`, then `requireTeam(<capability>)`, then checks the body. A browser gets a `303` back to the page it came from with a message shown there, and anything else gets JSON. A bad form answers `400` naming fields only, never echoing what was typed. Every value drawn into a page passes `escapeHtml`. The shared walk test (every `/api/team/*` route without a session returns the same `401 not_signed_in`) gets the new routes added to its minimum.
+Each follows the PR 4 pattern: a POST first runs `requireOrigin(TEAM_ORIGIN)`, then the capability check, then checks the body. A browser gets a `303` back to the page it came from with a message shown there, and anything else gets JSON. A bad form answers `400` naming fields only, never echoing what was typed. Every value drawn into a page passes `escapeHtml`. **Not signed in** answers `401 not_signed_in`; **signed in but lacking the capability** answers `403`, per `roles-and-invites.md` §6.4, because a 401 would send a guardian round a sign-in loop. The shared walk test (every `/api/team/*` route without a session returns the same `401`) gets the new routes added; SYC-53's walk test (every route, every role, compared with a table) covers the 403s.
 
-| Route | Capability |
+**Entry versus filtering.** The existing `requireTeam(capability)` takes no colony. Placed capabilities are therefore checked in two parts: SYC-53's `canSomewhere` to get into a list page, and the colony taken **from the record** (never from the request) for anything that acts on one site or colony. List queries filter by the person's colonies **in the query** (§7.3).
+
+| Route | Capability (SYC-53 §6.2) |
 |---|---|
-| `GET /api/team/sites` (list and map), `GET /api/team/sites/:id` | `view_exact_location` |
-| `GET /api/team/sites/new`, `POST /api/team/sites`, `GET/POST /api/team/sites/:id/move` | `manage_feeding_sites` |
-| `POST /api/team/sites/:id` (edit), `…/retire`, `…/restore` | `manage_feeding_sites` |
-| `GET /api/team/sites/:id/publish` (the §4.3 page), `POST …/publish`, `POST …/unpublish` | `set_site_public` |
-| `GET /api/team/colonies`, `GET /api/team/colonies/:id` | `view_exact_location` (a colony's page lists its sites) |
-| `POST /api/team/colonies`, `POST /api/team/colonies/:id` | `manage_colonies`; the name field also needs `rename_colony` |
-| `POST /api/team/colonies/:id/cats`, `POST /api/team/cats/:id/colony` | `set_cat_colony` |
-| `GET /api/team/map-tiles/:z/:x/:y.png` | `view_exact_location` |
+| `GET /api/team/sites` (list and map), `GET /api/team/sites/:id` | `view_exact_location` (placed) |
+| `GET /api/team/sites/new`, `POST /api/team/sites` | `add_feeding_site` (placed; the colony named in the form must be one she holds) |
+| `GET/POST /api/team/sites/:id/move`, `POST /api/team/sites/:id` (edit), `…/retire`, `…/restore` | `edit_feeding_site` (placed; target is the site's colony) |
+| `POST /api/team/sites/:id/colony` | `reassign_feeding_site` (island-only) |
+| `GET /api/team/sites/:id/publish` (the §4.3 page), `POST …/publish`, `POST …/unpublish` | `set_site_public` (island-only) |
+| `POST /api/team/sites/:id/request-public` | `request_site_public` (placed) |
+| `GET /api/team/colonies`, `GET /api/team/colonies/:id` | `view_exact_location` (placed; list filtered in the query) |
+| `POST /api/team/colonies` | `create_colony` (island-only) |
+| `POST /api/team/colonies/:id` | `edit_colony` (placed) for guardian name, notes, centre; `rename_colony` (island-only) for the name |
+| `POST /api/team/colonies/:id/cats`, `POST /api/team/cats/:id/colony` | `assign_cat_to_colony` (island-only) |
+| `POST /api/team/cats/:id/colony-proposal` | `propose_colony_change` (placed) |
+| `GET /api/team/map-tiles/:z/:x/:y.png` | `view_exact_location` via `canSomewhere` |
 
-**Concurrent edits.** Flipping visibility, moving and retiring each use a conditional write on the state the page showed (`WHERE is_public = <what the page saw>`), and answer "Someone already changed this." like the corrections do, so two people cannot both believe they set the same site.
+**Concurrent edits.** Every write to a site (visibility, move, retire, rename, label, notes, colony) is a conditional write on the `updated_at` the page showed (`WHERE id = … AND updated_at = <what the page saw>`), and answers "Someone already changed this." like the corrections do. Checking only `is_public` would let two people moving the same site, or one moving while another edits the label, both succeed.
 
 ### 11.3 The public endpoint
 
 `GET /api/feeding-sites`, unauthenticated, no query parameters.
 
 - **Filters in the query, not the serialiser**: `WHERE is_public = true AND retired_at IS NULL`, with an explicit column list. Private rows never enter a response object (`cat-record-data-spine.md` §10.5).
-- **Returns only** `{ id: <public_id>, label, position }`. No internal number, no colony, no notes, no person, no timestamps, no counts.
-- **Identical for every caller.** No ordering by distance, no filter by area or distance, no parameter that reaches into the data. A site's position comes from one function, `publishedSitePosition(site)`, which returns the exact position (the spine's §6.7) and is the single place to change if Syros Cats choose a blurred position (the spine's open question 3). A test fails if the endpoint reads latitude or longitude any other way.
+- **Returns only** `{ id: <public_id>, label, position }`, **ordered by `public_id`**. The order is stated and tested: an order by internal number or creation date would reveal which public site is older and when a new one was added, and "byte-identical" could not be tested.
+- **Identical for every caller.** No ordering by distance, no filter by area or distance, no parameter that reaches into the data. A site's position comes from one function, `publishedSitePosition(site)`, which returns the exact position (the spine's §6.7) and is the single place to change if Syros Cats choose a blurred position (the spine's open question 3). A test fails if public code reads the site's latitude or longitude any other way (the test searches the public routes for `feedingSitesTable.lat` and `.lng` outside `publishedSitePosition`).
 - **Cache headers short and public**: at most five minutes at any shared cache, so "make private" reaches new requests within five minutes at the outside.
 - **Rate-limited like the other public reads.**
-- **A lookup by public code** (for QR codes and shared links) answers `404` with the same body for a site that is private, retired, never existed or has a wrong code. Nobody can tell a private site from no site.
+- **A lookup by public code** (for QR codes and shared links) filters `is_public AND retired_at IS NULL AND public_id = :code` **in the query**, so a private row is never read and timing cannot tell a private site from no site, and is rate-limited like the list. It answers `404` with the same body for a site that is private, retired, never existed, has a wrong code, **or has a superseded code** (a site moved or retired and re-published has a new code, and the old one answers exactly like an unknown one). Nobody can tell a private site from no site, and nobody can follow a feeding spot from its old code to its new one.
 
 ### 11.4 The map tiles
 
-Served through `GET /api/team/map-tiles/…`, so the security header (`img-src 'self'`, no `script-src`) is unchanged and the browser never contacts a map company. The server fetches each tile from the map provider once, caches it (Postgres or disk, with a size cap), and sends it with a long browser cache and a valid identifying `User-Agent`, as the provider's policy asks. The attribution line the provider requires is printed on every map page. Volume is a few staff using it a few times a week, which is within the provider's fair use; the app's own downloaded tiles already use the same provider, and `DEPLOYMENT.md` already budgets a paid provider if usage grows.
+Served through `GET /api/team/map-tiles/…`, so the security header (`img-src 'self'`, no `script-src`) is unchanged and the browser never contacts a map company. The server fetches each tile from the map provider once, caches it (Postgres or disk, with a size cap), and sends it with a valid identifying `User-Agent`, as the provider's policy asks. The attribution line the provider requires is printed on every map page.
+
+- **Cache headers.** Every dashboard response is `Cache-Control: no-store` today. Tiles are the one stated exception: `private, max-age=…`, never `public`, so a shared cache in front of the dashboard can never serve a session-gated route to someone else.
+- **Logs.** The request logger removes query strings but keeps paths, so every tile address would be logged, and at the closest zoom a tile address is a position to within about 75 metres. Tile requests are logged as `/api/team/map-tiles/:tile` only. This is **SYC-255** and is done before the map ships.
+- **Provider policy.** OpenStreetMap's tile policy allows light, cached use with a real identifying User-Agent and discourages bulk downloading. The app's own downloaded tiles (`lib/offlineTiles.ts`) are not a precedent, because bulk offline download is what the policy discourages. Volume here is a few staff a few times a week, which is within fair use; if volume is unclear, the paid provider `DEPLOYMENT.md` already budgets, or Decision 1 option C, is chosen from day one rather than later.
 
 The provider's servers see the tile areas the server asks for, which are the areas staff look at. It is tied to the dashboard server's address, not to a person, but it is a small leak of "somebody is looking closely at these streets". Decision 1 lists the alternative (an island map set we host ourselves) that avoids it.
 
 ### 11.5 Writes to cats
 
-`colony` is a known observation kind with a number-only value check. Three things the plan must handle:
+`colony` is a known observation kind with a number-only value check. What the plan must handle:
 
-- The team correction layer (`lib/teamCorrections.ts`) refuses any kind that has no capability (`capabilityFor` returns nothing for `colony`), so `colony` needs a team writer gated by `set_cat_colony`, sharing code with the JSON route as the other corrections do.
+- **The spine gains an explicit "in no colony" value** (`colony { colonyId: null }`), as the roles spec §17.1 also asks. Today `writeObservation` rejects a `colony` value unless `colonyId` is a number, so this is a change to the spine's value check, and the spine owns it (§12).
+- The team correction layer (`lib/teamCorrections.ts`) refuses any kind that has no capability. `colony` must be added to **both** `capabilityFor` and the first, pre-lookup gate (`SUPERSEDE_CAPABILITIES`), or a person whose only power is assigning cats is refused before the lookup. It is gated by `assign_cat_to_colony`, sharing code with the JSON route as the other corrections do. `supersedeStatement` always writes a replacement of the same kind, so "Take out" writes the "in no colony" statement and "Mark wrong" supersedes with the previous active value; the rule is §2.8's.
+- `teamCorrections.ts` hard-codes `roleAtTime: "staff"`; once a guardian's proposal is approved the record must carry the approver's real role.
 - The value check does not confirm the colony exists, so the writer must.
-- "Take a cat out of a colony" uses the existing mark-wrong path on the `colony` statement. The plan confirms that path supports a statement with no replacement; if not, `{ colonyId: null }` is accepted for that purpose.
 
 The team cat page currently shows a colony statement as "Put in colony 12". It should show the colony's current name (and its older name if it has been renamed since).
 
-### 11.6 Hooks for SYC-22 and SYC-51
+### 11.6 Hooks for SYC-22 and SYC-51, and the gate on the public half
 
-Printed codes should carry the **public code** of a site (§11.1) or, later, of a colony page, never an internal number, so a printed sticker survives a rename and cannot be used to count private records. A code for a site that is not currently public lands on `feedingSpotGone` (§5.2) and nothing else. SYC-51's launch materials point at the app and need none of this. SYC-22 must settle, before it builds a colony page: what such a page shows about cats at an exact place (Decision 3), whether the colony needs its own public code, and Syros Cats' acceptance of F2 (SYC-67), because it is the first public thing that ties cats to a specific spot.
+Printed codes should carry the **public code** of a site (§11.1) or, later, of a colony page, never an internal number, so a printed sticker survives a rename and cannot be used to count private records. A code for a site that is not currently public, **or whose code has been superseded**, lands on `feedingSpotGone` (§5.2) and nothing else. A move or a retire therefore also means taking the old sticker down (§4.5). SYC-51's launch materials point at the app and need none of this. SYC-22 must settle, before it builds a colony page: what such a page shows about cats at an exact place (Decision 3), whether the colony needs its own public code, and Syros Cats' acceptance of F2 (SYC-67), because it is the first public thing that ties cats to a specific spot.
+
+**The public half does not ship until SYC-67's acceptance is recorded.** F2 and spine §6.2 require Syros Cats' acceptance of colony averaging to be recorded before launch. A public exact bowl, plus nearby blurred squares, plus the matching service (§4.6), sharpens that risk. So the public switch, the public endpoint and the app layer are gated on the recorded SYC-67 acceptance, and the SYC-67 briefing includes a paragraph on public sites and the matching channel. This costs nothing under Decision 2 option A, and stops option B quietly getting round F2.
 
 ### 11.7 Phone cache
 
-A new key alongside `cat-spotter/cats-cache/public/v2`, for example `cat-spotter/feeding-sites-cache/public/v1`, storing `{ fetchedAt, sites }`, with the age check of §9.
+A new key alongside `cat-spotter/cats-cache/public/v2`, for example `cat-spotter/feeding-sites-cache/public/v1`, storing `{ fetchedAt, sites }`, with the age check of §9 and the refresh rule of §9 (each time the map is opened while online, at most every five minutes).
 
 ### 11.8 The seed
 
-The first load of sites, if Decision 11 goes the recommended way, is a one-off script run by us with the list Syros Cats supply. Every site is private; each gets a `mapping_events` row with `system:seed` (added to the app-written authors list, as the other system writers are). It never sets visibility.
+The first load of sites, if Decision 11 goes the recommended way, runs by the safe route in Decision 11: the sites are placed on the dashboard by Syros Cats themselves, or sent as names and rough areas only. If a file of positions turns out to be unavoidable: it is **never committed** (a `.gitignore` rule and a check in the seed script that refuses a file inside the repository), it is loaded from a scratch location, it is deleted after loading, and it is never pasted into an agent session. Every site is private; each gets a `mapping_events` row with `actor_system = 'system:seed'` (added to the app-written authors list, as the other system writers are), with no copy of the file. It never sets visibility.
 
 ---
 
@@ -489,28 +506,33 @@ Nobody edits `DECISIONS.md` from this branch. For Samuel to carry across on appr
 
 **Proposed DECISIONS.md entries**
 
-1. **Feeding-site map and colony screens are specified in `feeding-sites-and-colonies.md`.** Ownership table: that document owns the screens and the public site card; the data spine still owns the records, privacy and precision.
+1. **Feeding-site map and colony screens are specified in `feeding-sites-and-colonies.md`.** Ownership table: that document owns the screens and the public site card; the data spine still owns the records, privacy and precision; `roles-and-invites.md` owns the capability names.
 2. **A public site has a separate, required public label.** The internal name (which follows the "place — guardian" convention) is never published.
-3. **Making a site public takes a confirmation page, a preview of what visitors see, and a recorded "the cat guardian knows" tick.** There is no bulk action and no import that sets visibility.
-4. **Moving a public site makes it private until reconfirmed. Retiring removes it from public view.**
+3. **Making a site public takes a confirmation page, a preview of what visitors see, and a recorded "the cat guardian knows" tick.** There is no bulk action and no import that sets visibility. It needs a named guardian, and is re-confirmed when the guardian or the colony changes.
+4. **Moving a public site makes it private until reconfirmed, and gives it a new public code. Retiring removes it from public view and retires its code.**
 5. **Nothing from `colonies` is public.** Not names, guardians, centres, notes or counts.
-6. **Every change to a site or colony is recorded in an add-only history** (`mapping_events`), linked to the people list.
-7. **The public sites endpoint returns an opaque code, label and position only**, identical for every caller, with a short shared-cache lifetime. A lookup for anything not currently public answers identically to an unknown code.
-8. **New team capabilities:** `manage_feeding_sites`, `manage_colonies`, `set_cat_colony`.
+6. **Every change to a site or colony is recorded in an add-only history** (`mapping_events`), linked to the people list, with a redaction path for a guardian's name.
+7. **The public sites endpoint returns an opaque code, label and position only**, ordered by code, identical for every caller, with a short shared-cache lifetime. A lookup for anything not currently public, or for a superseded code, answers identically to an unknown code.
+
+(An earlier draft's entry 8, new team capabilities, is withdrawn: the capability names are in `roles-and-invites.md` §6.2.)
 
 **Asks of `cat-record-data-spine.md` (to be amended on approval)**
 
-1. §10.5: the `feeding_sites` columns in §11.1 here (`public_label`, `public_id`, `guardian_aware`, `retired_at`, `retired_by`, `updated_at`, and `made_public_by` as a link to people).
+1. §10.5: the `feeding_sites` columns in §11.1 here (`public_label`, `directions`, `public_id`, `last_public_position`, `guardian_aware`, `retired_at`, `retired_by`, `updated_at`, and `made_public_by` as a link to people), and `feeding_site_old_codes`.
 2. §10.5: the public sites endpoint of §11.3 here as the definition of "the public sites endpoint filters `isPublic = true` in the query".
 3. §10.5: `colony_name_history.redacted_at`.
-4. §6.7: add that a public site's label must not contain the guardian's name, and that a private site is indistinguishable from an unknown code.
+4. §10.5: **the `colony` observation gains an explicit "in no colony" value** (`colonyId: null`), with the rule "the newest active statement stands" (the same amendment as `roles-and-invites.md` §17.1 point 4).
+5. §6.7: add that a public site's label must not contain the guardian's name, that a private site is indistinguishable from an unknown code, and that a guardian sees only her own colonies' sites, filtered in the query (the same as `roles-and-invites.md` §17.1 point 7).
 
 **Asks of `team-access-and-welfare-queue.md`**
 
-1. §7.3: add the three capabilities to the named list.
+1. §7.3: use the catalogue in `roles-and-invites.md` §6.2 (that spec's §17.2 point 2 already asks for it); this spec adds no names.
 2. §3.2: "one switch per site" gains the confirmation page of §4.3 here. Its "there is no bulk action" stands.
+3. §2 and §8: a signed-in person lacking a capability gets a 403 page (that spec's §17.2 point 4).
 
-**Asks of SYC-53:** §7.3 here.
+**Asks of `roles-and-invites.md`:** none beyond what its §17.4 point 1 already lists. It must also keep the "how to find it" field (`directions`) and the `site-public request` queue item it already describes.
+
+**Asks of Syros Cats (SYC-67):** a paragraph on public sites and the matching channel (§4.6, §11.6).
 
 ---
 
