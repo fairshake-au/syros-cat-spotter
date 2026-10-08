@@ -126,11 +126,15 @@ export const mailRequestsTable = pgTable(
     kind: text("kind").notNull(),
     addressHmac: text("address_hmac").notNull(),
     ipHash: text("ip_hash").notNull(),
+    // Restore requests: a keyed fingerprint of the asking phone (never its id),
+    // so "3 every 15 minutes" is counted per phone (Samuel, 8 Oct 2026).
+    requesterHash: text("requester_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("mail_requests_kind_ck", sql`${t.kind} in (${sqlList(MAIL_REQUEST_KINDS)})`),
     index("mail_requests_address_idx").on(t.kind, t.addressHmac, t.createdAt),
+    index("mail_requests_requester_idx").on(t.kind, t.addressHmac, t.requesterHash, t.createdAt),
     index("mail_requests_ip_idx").on(t.kind, t.ipHash, t.createdAt),
     index("mail_requests_created_idx").on(t.kind, t.createdAt),
   ],

@@ -46,6 +46,7 @@ CREATE TABLE "mail_requests" (
 	"kind" text NOT NULL,
 	"address_hmac" text NOT NULL,
 	"ip_hash" text NOT NULL,
+	"requester_hash" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "mail_requests_kind_ck" CHECK ("mail_requests"."kind" in ('add', 'restore'))
 );
@@ -72,6 +73,7 @@ CREATE UNIQUE INDEX "email_contacts_keep_safe_device_unique" ON "email_contacts"
 CREATE INDEX "email_contacts_hmac_idx" ON "email_contacts" USING btree ("address_hmac");--> statement-breakpoint
 CREATE UNIQUE INDEX "email_suppressions_unique" ON "email_suppressions" USING btree ("address_hmac","scope","reason");--> statement-breakpoint
 CREATE INDEX "mail_requests_address_idx" ON "mail_requests" USING btree ("kind","address_hmac","created_at");--> statement-breakpoint
+CREATE INDEX "mail_requests_requester_idx" ON "mail_requests" USING btree ("kind","address_hmac","requester_hash","created_at");--> statement-breakpoint
 CREATE INDEX "mail_requests_ip_idx" ON "mail_requests" USING btree ("kind","ip_hash","created_at");--> statement-breakpoint
 CREATE INDEX "mail_requests_created_idx" ON "mail_requests" USING btree ("kind","created_at");--> statement-breakpoint
 CREATE INDEX "mail_tokens_hmac_idx" ON "mail_tokens" USING btree ("address_hmac","purpose","expires_at");--> statement-breakpoint

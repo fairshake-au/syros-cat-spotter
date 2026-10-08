@@ -19,12 +19,13 @@ import { createHmac } from "node:crypto";
  *   email me").
  * - `team`: the staff alert mailbox, for logs.
  * - `ip`: a requester's IP address, for the limits.
+ * - `device`: the phone asking for a restore link, for the per-phone limit.
  *
  * If the key is missing, nothing is fingerprinted: callers that need one fail
  * closed, and logs say `nokey` rather than fall back to an unkeyed hash.
  */
 
-export type FingerprintLabel = "keep_safe" | "report" | "news" | "all" | "team" | "ip";
+export type FingerprintLabel = "keep_safe" | "report" | "news" | "all" | "team" | "ip" | "device";
 
 const MIN_KEY_LENGTH = 32;
 
@@ -60,6 +61,10 @@ export function addressFingerprint(label: Exclude<FingerprintLabel, "ip">, addre
 
 export function ipFingerprint(ip: string): string {
   return fingerprint("ip", ip);
+}
+
+export function deviceFingerprint(deviceId: string): string {
+  return fingerprint("device", deviceId);
 }
 
 /** `samuel@gmail.com` → `s•••@gmail.com`: the only form ever shown back. */

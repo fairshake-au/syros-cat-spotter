@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { addressFingerprint, ipFingerprint, maskAddress, normaliseAddress } from "../mail/fingerprint";
+import { addressFingerprint, deviceFingerprint, ipFingerprint, maskAddress, normaliseAddress } from "../mail/fingerprint";
 import { enqueueKeepSafeMail } from "../mail/outbox";
 import { isKeepSafeSuppressed } from "../mail/suppression";
 import { hashToken, newToken, RESTORE_TOKEN_MINUTES, VERIFY_TOKEN_DAYS } from "./tokens";
@@ -30,8 +30,14 @@ export const LIMITS = {
   verifyLifetime: 3,
   /** §4.4 (2): per IP, on adding an address. */
   addPerIpPerHour: 20,
-  /** team-access §2.6: 3 restore requests per address per 15 minutes. */
-  restorePerAddressPer15Min: 3,
+  /**
+   * 3 restore requests per address per 15 minutes, counted **per asking
+   * phone** (Samuel, 8 Oct 2026, adversarial review finding 2): a shared
+   * count let a stranger keep a family from ever getting their own link.
+   */
+  restorePerPhonePer15Min: 3,
+  /** A confirmed address gets at most 3 "is this you?" emails a day (Samuel, 8 Oct 2026). */
+  verifyConfirmedPerDay: 3,
   /** 20 per IP per hour. */
   restorePerIpPerHour: 20,
   /** At most 3 unexpired links per address; the oldest expires to make room. */
@@ -187,6 +193,16 @@ export async function addKeepSafeAddress(input: AddInput, log: Log): Promise<{ s
     // confirmed for a spotter isn't a stranger's: a parent adding a second
     // child the same evening gets the email (Samuel, 8 Oct 2026, SYC-261).
     // The per-IP limit and the daily ceiling below still apply.
+    if (confirmedSomewhere) {
+      // Siblings still set up in one sitting, but a stranger who knows a
+      // confirmed parent's address can't flood it (Samuel, 8 Oct 2026).
+      const today = await count(tx, sql`
+        select count(*)::int as n from email_consent_events
+         where purpose = 'keep_safe' and event = 'verify_sent' and address_hmac = ${hmac}
+           and occurred_at > now() - interval '1 day'
+      `);
+      if (today >= LIMITS.verifyConfirmedPerDay) return skip("confirmed_daily_cap");
+    }
     if (!confirmedSomewhere) {
       const recentToAddress = await count(tx, sql`
         select count(*)::int as n from email_consent_events
@@ -354,21 +370,26 @@ export async function requestRestore(
   const to = normaliseAddress(input.email);
   const hmac = addressFingerprint("keep_safe", to);
   const ipHash = ipFingerprint(input.ip);
+  const requester = deviceFingerprint(input.askingDeviceId);
 
   return db.transaction(async (tx) => {
     await lockAddress(tx, hmac);
-    await tx.execute(sql`insert into mail_requests (kind, address_hmac, ip_hash) values ('restore', ${hmac}, ${ipHash})`);
+    await tx.execute(sql`
+      insert into mail_requests (kind, address_hmac, ip_hash, requester_hash)
+      values ('restore', ${hmac}, ${ipHash}, ${requester})
+    `);
     const skip = (reason: string, level: "info" | "warn" | "error" = "info") => {
       log[level]({ reason, addressHmac: hmac.slice(0, 10) }, "restore: no link sent");
       return null;
     };
 
     // Limits first, for known and unknown addresses alike (A1).
-    const toAddress = await count(tx, sql`
+    const fromThisPhone = await count(tx, sql`
       select count(*)::int as n from mail_requests
-       where kind = 'restore' and address_hmac = ${hmac} and created_at > now() - interval '15 minutes'
+       where kind = 'restore' and address_hmac = ${hmac} and requester_hash = ${requester}
+         and created_at > now() - interval '15 minutes'
     `);
-    if (toAddress > LIMITS.restorePerAddressPer15Min) return skip("per_address");
+    if (fromThisPhone > LIMITS.restorePerPhonePer15Min) return skip("per_phone");
     const fromIp = await count(tx, sql`
       select count(*)::int as n from mail_requests
        where kind = 'restore' and ip_hash = ${ipHash} and created_at > now() - interval '1 hour'

@@ -1,5 +1,5 @@
 {
-  "id": "712ad1e9-5518-460d-9b40-de7f83edd1f1",
+  "id": "13fc93c3-b553-43c9-89cc-6714df5eec40",
   "prevId": "02e10886-f31d-420a-80ab-10ac629a00d9",
   "version": "7",
   "dialect": "postgresql",
@@ -2372,6 +2372,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "requester_hash": {
+          "name": "requester_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2392,6 +2398,39 @@
             },
             {
               "expression": "address_hmac",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mail_requests_requester_idx": {
+          "name": "mail_requests_requester_idx",
+          "columns": [
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "address_hmac",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "requester_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -130,6 +130,14 @@ See "The website password gate" below. **Recommendation:** these two small pages
 
 **Decided by Samuel, 8 Oct 2026 (SYC-262): B.** If the address already keeps another spotter safe, "Forget this address" cancels only that request and stops further "is this you?" emails (suppression reason `forget_verify`). The family's own restore links keep working, so one reflex tap can't lock a child out of their spots. Otherwise, Forget is a full forget, as in A10.
 
+### Decision 10 (new, 8 Oct, from the adversarial review of #106) — Restore limit per phone
+
+**Decided by Samuel, 8 Oct 2026: C.** "3 restore requests every 15 minutes" is counted per address **and asking phone** (a keyed fingerprint of the phone, never its id, in `mail_requests.requester_hash`). There's no other per-address cap. A shared count let a stranger keep a family from ever getting their own link. The worst a stranger can now do is send roughly 20 ignorable link emails an hour to one inbox (the per-IP limit). The global ceiling counts links issued, not requests.
+
+### Decision 11 (new, 8 Oct, from the adversarial review of #106) — A daily cap for confirmed addresses
+
+**Decided by Samuel, 8 Oct 2026: B.** A confirmed address gets at most 3 "is this you?" emails a day. Siblings still set up in one sitting (Decision 8), but a stranger can't flood a confirmed parent or drain the app-wide daily allowance through one address.
+
 ---
 
 ## What exists today, and what has to be built first

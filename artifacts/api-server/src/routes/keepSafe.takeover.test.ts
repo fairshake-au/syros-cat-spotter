@@ -36,7 +36,7 @@ import {
 import { eq, sql } from "drizzle-orm";
 import app from "../app";
 import { settleOutbox } from "../lib/mail/outbox";
-import { addressFingerprint, normaliseAddress } from "../lib/mail/fingerprint";
+import { addressFingerprint, deviceFingerprint, normaliseAddress } from "../lib/mail/fingerprint";
 import { __setMoveHookForTest } from "../lib/keepSafe/move";
 import { severKeepSafe } from "../lib/keepSafe/sever";
 import { hashSecret } from "../lib/deviceAuth";
@@ -635,21 +635,32 @@ describe("9. expiry", () => {
 });
 
 describe("10. limits", () => {
-  it("3 restore requests per address per 15 minutes, counted in Postgres, so another server's requests count too", async () => {
+  it("3 restore requests per phone per 15 minutes, counted in Postgres, so the same phone's requests to another server count too", async () => {
     const email = newAddress();
     await keptSafe(email);
     const phone = newPhone();
     await bind(phone);
-    // Another server took two requests for this address (rows in the shared table).
+    // Another server took two requests from this phone for this address.
     const hmac = addressFingerprint("keep_safe", email);
+    const requester = deviceFingerprint(phone.id);
     await db.execute(sql`
-      insert into mail_requests (kind, address_hmac, ip_hash)
-      values ('restore', ${hmac}, 'another-server'), ('restore', ${hmac}, 'another-server')
+      insert into mail_requests (kind, address_hmac, ip_hash, requester_hash)
+      values ('restore', ${hmac}, 'another-server', ${requester}), ('restore', ${hmac}, 'another-server', ${requester})
     `);
     for (let i = 0; i < 3; i++) expect((await ask(phone, email)).status).toBe(202);
     await settleOutbox();
-    // Only one more fits in this server's share of the three.
     expect(mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"))).toHaveLength(1);
+  });
+
+  it("finding 2 (Samuel, 8 Oct: per phone): a stranger asking again and again can't stop the family's own phone getting its link (M)", async () => {
+    const email = newAddress();
+    const lili = await keptSafe(email);
+    const stranger = newPhone();
+    await bind(stranger);
+    for (let i = 0; i < 6; i++) await ask(stranger, email);
+    await settleOutbox();
+    const { phone, token } = await newPhoneWithLink(email);
+    expect((await redeem(phone, token, lili.id)).status).toBe(200);
   });
 
   it("at most 3 live links per address: the oldest expires to make room", async () => {
@@ -824,6 +835,20 @@ describe("Samuel's decisions, 8 Oct 2026", () => {
     }
     await settleOutbox();
     expect(verifies(email)).toHaveLength(1);
+  });
+
+  it("Samuel, 8 Oct: a confirmed address gets at most 3 \"is this you?\" emails a day (M)", async () => {
+    const email = newAddress();
+    await keptSafe(email);
+    await ageVerifyEmails();
+    for (let i = 0; i < 5; i++) {
+      const p = newPhone();
+      await bind(p);
+      await add(p, email);
+    }
+    await settleOutbox();
+    const today = verifies(email).length - 1; // minus the first child's own email
+    expect(today).toBe(3);
   });
 
   it("SYC-261: once confirmed, the automatic three-email cap no longer blocks a sibling's email", async () => {
