@@ -20,6 +20,9 @@ const events = vi.hoisted(() => [] as string[]);
 vi.mock('@workspace/api-client-react', () => ({
   setBaseUrl: (url: string | null) => events.push(`setBaseUrl:${url}`),
   setPrelaunchKey: (key: string | null) => events.push(`setPrelaunchKey:${key}`),
+  // SYC-3: the root gate's first-badge offer reads the profile.
+  useGetProfile: () => ({ data: undefined }),
+  getGetProfileQueryKey: (id: string) => ['profile', id],
 }));
 vi.mock('@/lib/prelaunch', () => ({ prelaunchKey: () => 'tester-key' }));
 vi.mock('@/lib/urls', () => ({ apiOrigin: () => 'https://apptest.example' }));
@@ -47,6 +50,7 @@ vi.mock('@expo-google-fonts/inter', () => ({
 vi.mock('@expo-google-fonts/space-mono', () => ({ SpaceMono_400Regular: 1, SpaceMono_700Bold: 1 }));
 vi.mock('expo-router', () => ({
   Stack: Object.assign(stubComponent('Stack'), { Screen: stubComponent('Stack.Screen') }),
+  usePathname: () => '/',
 }));
 vi.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: () => Promise.resolve(true),
@@ -70,6 +74,9 @@ vi.mock('@/components/onboarding/OnboardingFlow', () => ({ OnboardingFlow: stubC
 // three banners individually (see components/BannerStack.tsx) — stub the
 // stack itself rather than each banner.
 vi.mock('@/components/BannerStack', () => ({ BannerStack: stubComponent('BannerStack') }));
+// SYC-3: the keep-safe step and the "moved" screen.
+vi.mock('@/components/keepSafe/KeepSafeScreen', () => ({ KeepSafeScreen: stubComponent('KeepSafeScreen') }));
+vi.mock('@/components/keepSafe/MovedScreen', () => ({ MovedScreen: stubComponent('MovedScreen') }));
 
 afterEach(cleanup);
 

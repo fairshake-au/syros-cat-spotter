@@ -15,6 +15,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { peopleTable } from "./people";
+import { emailContactsTable } from "./email";
 
 /**
  * "This cat needs help" (SYC-42 plan, Slice 1 item 1.1; spec §4, §8.4).
@@ -54,8 +55,11 @@ export const welfareReportsTable = pgTable(
     reporterLanguage: text("reporter_language").notNull().default("en"),
     // Nullable so SYC-63's deletion can clear it; the report stays.
     reporterDevice: text("reporter_device"),
-    // Unused until Slice 3 (the address lives in the verified-contact model).
-    reporterContactId: integer("reporter_contact_id"),
+    // Unused until Slice 3: the address lives in the shared verified-contact
+    // model (SYC-3 Decision 6). Set null when that contact row is deleted.
+    reporterContactId: integer("reporter_contact_id").references(() => emailContactsTable.id, {
+      onDelete: "set null",
+    }),
     catId: integer("cat_id"),
     // new | looking | done | nothing_needed (spec §3.1). Slice 2 moves it.
     state: text("state").notNull().default("new"),

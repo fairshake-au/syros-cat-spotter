@@ -24,6 +24,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { UsernameEditor } from '@/components/UsernameEditor';
+import { KeepSafeSettings } from '@/components/keepSafe/KeepSafeSettings';
 import { Avatar, Card, StatTile } from '@/components/purropolis';
 import { BADGE_IDS, BADGE_ICONS, LANGUAGES } from '@/lib/i18n';
 
@@ -262,6 +263,9 @@ export default function ProfileScreen() {
               })}
             </View>
           )}
+
+          {/* SYC-3: Keep my spots safe, and Get your spots back */}
+          <KeepSafeSettings />
 
           {/* Language */}
           <View style={{ gap: 10 }}>

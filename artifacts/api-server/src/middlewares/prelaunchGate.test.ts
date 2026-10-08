@@ -168,6 +168,8 @@ describe("9. gate on, no pass: every route refuses", () => {
       const isHealth = url === "/api/healthz";
       // /api/team/* skips the pass (Decision 1); test 12a walks those routes.
       if (url === "/api/team" || url.startsWith("/api/team/")) continue;
+      // /api/mail/* skips the pass too (SYC-3 Decision 5); test 12b walks those.
+      if (url.startsWith("/api/mail/")) continue;
       if (!isHealth) {
         const res = await send(route.method, url);
         expect({ route: `${route.method} ${url}`, status: res.status }).toEqual({
@@ -408,6 +410,48 @@ describe("12a. /api/team/* skips the pass (Decision 1), and its own sign-in refu
     // A doubled slash is still the team area to the gate; no route matches it.
     const doubled = await send("get", "/api//team/handoff");
     expect(doubled.status).toBe(404);
+  });
+});
+
+describe("12b. SYC-3: /api/mail/* skips the pass (Decision 5) and refuses without a live token; /api/restore/* doesn't skip it", () => {
+  it("walks every /api/mail route: no pass, no token → refused by the route, never the gate", async () => {
+    const mailRoutes = registeredRoutes().filter((r) => r.path.startsWith("/api/mail/"));
+    expect(mailRoutes).toEqual(
+      expect.arrayContaining([
+        { method: "get", path: "/api/mail/confirm" },
+        { method: "post", path: "/api/mail/confirm" },
+        { method: "get", path: "/api/mail/forget" },
+        { method: "post", path: "/api/mail/forget" },
+      ]),
+    );
+    for (const route of mailRoutes) {
+      for (const query of ["", "?t=", `?t=${"A".repeat(43)}`]) {
+        const res = await send(route.method, route.path + query).set("Origin", "https://apptest.catspotters.com");
+        expect({ route: `${route.method} ${route.path}${query}`, status: res.status }).toEqual({
+          route: `${route.method} ${route.path}${query}`,
+          status: 410,
+        });
+        expect(res.body).not.toEqual(REFUSAL);
+        expect(res.headers["referrer-policy"]).toBe("same-origin");
+      }
+    }
+  });
+
+  it("the restore and keep-safe API still needs the pass", async () => {
+    for (const [method, url] of [
+      ["post", "/api/restore/request"],
+      ["post", "/api/restore/peek"],
+      ["post", "/api/restore/redeem"],
+      ["get", "/api/keep-safe/abc"],
+      ["post", "/api/keep-safe/abc"],
+      ["delete", "/api/keep-safe/abc"],
+      ["get", "/api/mailx/confirm"],
+      ["get", "/api/mail-confirm"],
+    ] as [Method, string][]) {
+      const res = await send(method, url);
+      expect({ url, status: res.status }).toEqual({ url, status: 401 });
+      expect(res.body).toEqual(REFUSAL);
+    }
   });
 });
 

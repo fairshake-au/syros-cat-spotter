@@ -65,6 +65,31 @@ function outstanding() {
   return shared.state.pending || shared.state.uncertainName !== null;
 }
 
+/** SYC-3: is a username claim still open on this phone? */
+export function usernameClaimOpen(): boolean {
+  return outstanding() || shared.inFlight;
+}
+
+/**
+ * SYC-3: wait for an open username claim to settle before pressing "Get my
+ * spots back", so a half-finished claim on this phone can't race the move.
+ * Resolves at once when nothing is open; never waits longer than `maxMs`.
+ */
+export function waitForUsernameClaimToSettle(maxMs = 35_000): Promise<void> {
+  if (!usernameClaimOpen()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      unsubscribe();
+      resolve();
+    };
+    const timer = setTimeout(done, maxMs);
+    const unsubscribe = subscribe(() => {
+      if (!usernameClaimOpen()) done();
+    });
+  });
+}
+
 /** Tests only: forget every claim, as a fresh app start would. */
 export function resetUsernameClaimStateForTests() {
   shared.state = IDLE;
