@@ -1,6 +1,6 @@
 # Saying a cat lives with you ("This is my cat")
 
-**Status:** **Approved by Samuel, 8 October 2026**: decisions (§15) and wording. One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
+**Status:** **Approved by Samuel, 8 October 2026**: decisions D1–D9 and their wording. **Three extra steps added the same day at Samuel's request (D10–D12, §4.2): their wording awaits approval.** One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
 **Owner:** Samuel
 **Covers:** SYC-130, as directed by Samuel on 7 October 2026 (Linear SYC-130).
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2 (who may state a life status), §6.4 (item 4, who hears about sightings straight away), §8 (deletion), §10.1 (observations), §10.2 (life status), §10.3 (merged cats), §10.6 (Option B: an owner sees their cat's exact spot) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3 (fixing what is wrong), §7.3 (capabilities) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 (how a sighting was matched), §8.2 (moving a sighting) · [`privacy-policy.md`](./privacy-policy.md) · [`DECISIONS.md`](./DECISIONS.md) Part 3 (spec ownership) · SYC-41 (blurring), SYC-218 (spine PR 9, the round-up), SYC-63 (deletion), SYC-232 (the "has a home" push), SYC-59 (duplicate cats), SYC-52 (confidence engine), SYC-4 (native-speaker review).
@@ -19,6 +19,8 @@ Dashboard actions belong to `team-access-and-welfare-queue.md`. Where this spec 
 A cat's page offers **"This is my cat"** only to someone who has **met the cat**: their phone found it, or has photographed it and confirmed the app's suggestion that it was this cat. Tapping it asks plainly, **"Is Agatha your cat?"**, and says what saying yes will do. Someone who hasn't met the cat sees a quiet line saying how. The server checks the same rule, so it holds outside the app too.
 
 Only a cat recorded as **living on the street** can be claimed. A cat that already has a home, is in care or has died can't be.
+
+Saying yes takes three short steps: **"Do you live on Syros?"**, a plain **"only if this cat lives in your home"** confirmation, and **a pin on the map where the cat lives**, which must be near where the cat is actually seen (D10–D12).
 
 Nobody approves a claim. Syros Cats don't have the people to vet owners, and genuine owners shouldn't wait. A claim ends in one of two ways:
 - the owner says the cat **doesn't live with them any more**;
@@ -72,7 +74,11 @@ A phone can claim a cat when **all** of these hold.
 
 **No time or distance limit.** A qualifying sighting from any date counts.
 
-**3. The same owner asking again is not a new claim.** If this phone is already the cat's owner, the claim succeeds again quietly: no new record and no new message. This keeps a retry safe after a lost reply or a double tap.
+**3. The person says they live on Syros, and puts a pin on their home near where the cat is seen.**
+- They answer "Yes" to "Do you live on Syros?". This is self-declared: there is no public way to check residency in Greece, and no staff to check by hand (D10).
+- They put a pin on the map where the cat lives. It must be **within 1 km** of the cat's recorded position or of any of its resolved sightings (D11). Cats on Syros live close to where they're seen; 1 km leaves room for one that wanders.
+
+**4. The same owner asking again is not a new claim.** If this phone is already the cat's owner, the claim succeeds again quietly: no new record and no new message. This keeps a retry safe after a lost reply or a double tap.
 
 Only the claim is checked. Renaming and editing the home note follow from being the owner, as the data spine defines.
 
@@ -96,17 +102,39 @@ The wording uses the cat's name rather than "he" or "she", so it never guesses.
 
 ### 4.2 Saying yes
 
+Three short steps, one screen each. Cancel is on every step, is the safe default, and carries the visual weight.
+
+**Step 1: do they live here?**
+
+> **Do you live on Syros?**
+>
+> **[ Yes, I live on Syros ]** · **[ No ]**
+
+"No" ends it kindly: *"Only people who live on Syros can say a cat lives with them. You can still spot Agatha whenever you see her."*
+
+**Step 2: is it really theirs?**
+
 > **Is Agatha your cat?**
 >
-> Only say yes if Agatha lives with you. Everyone using the app will see that Agatha has a home.
+> Only say yes if Agatha lives in your home on Syros. Not for cats you feed, visit or have spotted.
 >
-> **Where does Agatha live?** *(e.g. "the blue house by the church")*
->
-> *Only you and Syros Cats will see this.*
+> Everyone using the app will see that Agatha has a home. We trust our community: if Agatha turns out not to be yours, Syros Cats will take this off.
 >
 > **[ Yes, Agatha lives with me ]** · **[ Cancel ]**
 
-Cancel is the safe default and carries the visual weight. All wording in this spec is a **draft for Samuel's approval**.
+**Step 3: where?**
+
+> **Where does Agatha live?**
+>
+> Put the pin on your home. *(a map, starting where Agatha is usually seen)*
+>
+> Anything that helps find her? *(optional, e.g. "the blue house by the church")*
+>
+> *Only you and Syros Cats will see this.*
+>
+> **[ Done ]** · **[ Cancel ]**
+
+If the pin is too far from where Agatha is seen, the app says so before sending: *"That's a long way from where Agatha is usually seen. Move the pin to where Agatha lives."* The server checks the same distance.
 
 ### 4.3 After saying yes
 
@@ -123,6 +151,8 @@ The page can be out of date: another phone may have claimed the cat a moment ear
 | 403 | `NOT_MET` | This phone hasn't met the cat | *"Spot Agatha with the camera first, then you can say Agatha lives with you."* |
 | 409 | `ALREADY_HOMED` | It has a home or an owner | *"Agatha already has a home."* The page refreshes |
 | 409 | `NOT_ON_STREET` | It is in care or has died | *"Agatha can't be marked as yours right now."* The page refreshes |
+| 422 | `PIN_TOO_FAR` | The home pin is more than 1 km from the cat's position and sightings | *"That's a long way from where Agatha is usually seen. Move the pin to where Agatha lives."* |
+| 422 | `NOT_RESIDENT` | "Lives on Syros" wasn't confirmed (only outside the app) | *"Only people who live on Syros can say a cat lives with them."* |
 | 429 | (rate limit) | Too many claims from this phone | *"Please try again later."* |
 | — | — | No connection | *"You need a connection to do this."* A claim is never saved to send later |
 
@@ -132,7 +162,9 @@ The page can be out of date: another phone may have claimed the cat a moment ear
 
 This is owned by the data spine. A claim writes `life_status: homed` with `authority_scope: owner_of_this_cat` and links the owner, in one transaction (§10.1, §10.2). The rule in §3 is checked **inside that transaction**, which locks the cat's row and reads the cat's status through the same transaction, so two phones can't both win. A claim can't race a team statement either.
 
-The rule needs no new column. It is answered from records that already exist: the sightings, their match records, and merged cats.
+The "met the cat" rule needs no new column. It is answered from records that already exist: the sightings, their match records, and merged cats.
+
+**The home pin is new.** The data spine stores it with the owner link: a latitude and longitude seen only by the owner and Syros Cats, never in the public cat payload, never in a message, and cleared whenever the owner link is cleared (let go, Remove owner, deletion). It is the most precise thing the app holds about anyone, so it's handled like the owner link itself. The "lives on Syros" answer isn't stored: a claim can't be made without it.
 
 ---
 
@@ -143,7 +175,7 @@ At the foot of the owner's edit sheet: **"Agatha doesn't live with me any more"*
 Saying yes, in one transaction:
 - **withdraws the owner's own statement.** It supersedes this owner's newest `homed` observation for the cat (data spine §10.1). The cat's status then falls back to whatever stood before the claim: usually "street", or whatever the team had recorded. An owner never writes a new status of their own. That respects spine §3.2, which lets an owner state `homed` only, and team-access §3.3, which says a team statement is never overwritten. See §12 for the one-line addition to spine §3.2;
 - **clears the owner link.** The exact spot, live alerts and renaming stop at once;
-- **clears the home note**;
+- **clears the home note and the home pin**;
 - **tells nobody.**
 
 On this phone the cat leaves the list of cats it owns straight away. The server's list is the one that counts whenever there's a connection, so a phone never keeps owner controls for a cat it no longer owns.
@@ -159,7 +191,7 @@ The team corrects a cat's life status from the dashboard (`team-access-and-welfa
 So:
 - **The team's cat page shows whether a cat has an owner.** It shows only that it does, never who: no device id and no name.
 - **"Remove owner"** is an action on a cat that has one. In one transaction it:
-  - clears the owner link (all owner abilities stop at once) and the home note;
+  - clears the owner link (all owner abilities stop at once), the home note and the home pin;
   - supersedes the owner's newest active `homed` observation. If there isn't one, for example a claim made before these observations were kept, it records a plain team `street` statement instead;
   - asks, in the same step, what the cat's status should be now, with "Lives on the street" pre-selected, and records the team's choice as an ordinary team correction;
   - is recorded with who did it and when, like every team action;
@@ -196,6 +228,7 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 - **Faking a meeting from a distance.** The app trusts the location a phone sends, and every cat's photo is public. So someone could save Agatha's photo, upload it as if they were at Agatha's public map position, confirm "That's the one", and claim her. **Accepted by Samuel, 8 Oct 2026 (D8).**
 - **Any cat photo, within 1.5 km.** Because hand picks count (D1), someone near a cat could photograph any cat and pick this one from the nearby list. Accepted with D1.
 - **Someone who really goes and spots the cat.** A person who photographs a street cat once can claim it. Samuel accepted this on 7 Oct 2026.
+- **Someone who lies.** A person can say they live on Syros and that the cat is theirs, and put the pin near where it's seen. The three steps stop honest mistakes and casual tries, not a determined liar. Odyspace's resident rate works the same way (a self-declaration and an address) and adds a manual check by staff, which Syros Cats can't do.
 - **Two people at the same cat.** The first wins, and the second sees "Agatha already has a home". The team removes a wrong owner (§7).
 - **A mistake nobody notices.** Nothing routinely asks the team to look. Later, the confidence engine (SYC-52) could flag a cat whose owner and recent sightings disagree.
 
@@ -210,6 +243,8 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 - **Letting go** needs the device secret, and only the current owner can do it.
 - **"Remove owner"** is team-only. It needs `remove_owner` and `set_life_status`, and only works from the dashboard's own origin.
 - **The home note** is moderated like names, at claim and at every edit. It appears only in the owner's view of their cat and on the team's dashboard, never in the public cat payload or in any message (D9).
+- **"Lives on Syros"** must be confirmed in the claim, or it's refused `NOT_RESIDENT` (422).
+- **The home pin** is required and must be within 1 km of the cat's recorded position or one of its resolved sightings, or it's refused `PIN_TOO_FAR` (422). It's visible only to the owner and the team, like the note.
 
 ---
 
@@ -218,6 +253,7 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 Made with this spec's approval:
 - **`cat-record-data-spine.md` §3.2:** an owner may also *withdraw* their own `homed` statement (§6). §11 row 4 notes that `POST /cats` is removed (§9).
 - **`team-access-and-welfare-queue.md` §3.3 and §7.3:** the "has an owner" indicator, "Remove owner", and the `remove_owner` capability (§7).
+- **`cat-record-data-spine.md` (with D10–D12's approval):** the owner-only home pin stored with the owner link (§5), and deletion (§8.3) clearing it along with the owner link.
 - **`DECISIONS.md` Part 3:** this document owns who may claim a cat, the claim and let-go screens, and removing an owner.
 
 Needs its own approval, because the privacy policy's text is approved separately (`DECISIONS.md` Part 3):
@@ -271,8 +307,11 @@ The button and sheet are rewritten in all three languages. English has said "Cla
 | D7 | Remove the register-without-spotting route | **Yes** (§9). |
 | D8 | How hard to make faking a meeting from a distance | **Accept it.** Nothing built against it; recorded in §10. The options considered were refusing copies of the cat's own photos, requiring sightings on two days, and owner abilities switching on over time. |
 | D9 | Who sees where an owned cat lives | **The owner and Syros Cats only.** Everyone else sees "Has a home" (§4.2, §11). |
+| D10 | Proof of living on Syros | **Self-declared** "Do you live on Syros?" (Samuel, 8 Oct). Uploading a residence certificate was considered and rejected: it needs staff or a paid service to check, is heavy personal data, and shuts out owners who aren't registered residents. Typed addresses were rejected too: nothing in Greece lets an app check one. |
+| D11 | A pin where the cat lives, checked against where it's seen | **Yes** (Samuel, 8 Oct). Threshold **1 km** from the cat's position or any resolved sighting, *recommended*, awaiting confirmation (500 m was the stricter alternative: more genuine owners refused). |
+| D12 | A plain "only if it lives in your home" confirmation | **Yes** (Samuel, 8 Oct). Wording in §4.2, awaiting approval. |
 
-**Copy.** The wording in §4, §6 and §7 is approved (8 Oct 2026). Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
+**Copy.** The wording in §4, §6 and §7 is approved (8 Oct 2026), except §4.2's three steps and the two new refusals in §4.4, which await approval. Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
 
 ---
 
@@ -290,6 +329,8 @@ The button and sheet are rewritten in all three languages. English has said "Cla
   - on an owner from before these statements were kept;
   - and in every case the exact spot and live alerts stop for the old owner, and the action records who did it.
 - **The home note:** it is moderated; it is absent from the public cat payload and every message, present for the owner and on the team's page; and it is cleared on let-go and removal.
+- **Lives on Syros:** a claim without it is refused `NOT_RESIDENT`.
+- **The home pin:** 999 m from a sighting succeeds, 1,001 m from everything is refused `PIN_TOO_FAR`; the pin is absent from the public payload and messages; it is cleared on let-go, Remove owner and deletion.
 
 **App tests:**
 - the button and the line show to the right phones;
