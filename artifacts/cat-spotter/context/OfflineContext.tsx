@@ -266,7 +266,7 @@ function markStatus(localId: string, patch: Partial<PendingSighting>) {
     );
 }
 
-type SyncOutcome = 'synced' | 'network' | 'needs_sign_in' | 'done';
+type SyncOutcome = 'synced' | 'network' | 'needs_sign_in' | 'moved' | 'done';
 
 /**
  * What a failed photo save means for a sighting the user is saving now.
@@ -284,7 +284,7 @@ function keepInlineUnlessBroken(saved: SavePhotoResult): SavePhotoResult {
 }
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
-  const { deviceId } = useDevice();
+  const { deviceId, username, moved } = useDevice();
   const [isOnline, setIsOnline] = useState(true);
   const [networkState, setNetworkState] = useState<UploadNetworkState | null>(
     null,
@@ -392,6 +392,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           // since this says nothing about the sighting itself.
           return 'needs_sign_in';
         }
+        if (decision.kind === 'moved') return 'moved';
         if (decision.kind === 'server') {
           // The server responded but rejected the sighting — count the
           // failure and flag the item once it keeps failing.
@@ -418,6 +419,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       // Nothing is known about the queue until it has loaded.
       await store.ready;
       if (syncingRef.current || !deviceId) return;
+      // SYC-3: nothing is sent while this phone's spotter has moved away, or
+      // before a fresh spotter (after "Start again") has picked a name
+      // (`null` is DeviceContext's "not chosen yet").
+      if (moved || username === null) return;
       // Paused after a gate 401 (needs_sign_in) until retryAfterSignIn
       // clears it — otherwise every reconnect/foreground event would hammer
       // the gate with the same doomed request.
@@ -443,7 +448,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
               outcome = 'done';
             }
             if (outcome === 'synced') syncedAny = true;
-            if (outcome === 'network') break;
+            if (outcome === 'network' || outcome === 'moved') break;
             if (outcome === 'needs_sign_in') {
               if (Platform.OS === 'web') {
                 // Web has a sign-in flow (the website's session cookie) —
@@ -473,7 +478,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Callers (NetInfo) do not await this; never leave a rejection behind.
     }
-  }, [deviceId, setNeedsSignIn, store, syncOne]);
+  }, [deviceId, username, moved, setNeedsSignIn, store, syncOne]);
 
   const syncNowRef = useRef(syncNow);
   syncNowRef.current = syncNow;

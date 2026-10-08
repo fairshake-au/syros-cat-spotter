@@ -599,3 +599,42 @@ describe('SYC-133: files are sent compressed', () => {
     expect(zlib.brotliDecompressSync(open.raw).toString('utf8')).toBe(BIG_JS);
   });
 });
+
+describe('SYC-3: the restore link (/restore?t=…)', () => {
+  const TOKEN = 'QmV5LXJlc3RvcmUtdG9rZW4tcGluLTAxMjM0NTY3ODlhYmM';
+
+  it('serving it writes nothing to the logs, so the token never reaches them (Slice 0.3)', async () => {
+    const lines: unknown[] = [];
+    const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => {
+      const original = console[m];
+      console[m] = (...args: unknown[]) => void lines.push(args);
+      return () => (console[m] = original);
+    });
+    try {
+      for (const env of [{}, gatedEnv()]) {
+        const req = await start(env);
+        await req('GET', `/restore?t=${TOKEN}`);
+      }
+    } finally {
+      spies.forEach((restore) => restore());
+    }
+    expect(JSON.stringify(lines)).not.toContain(TOKEN);
+  });
+
+  it('the page is sent with Referrer-Policy: no-referrer; other pages are not', async () => {
+    const req = await start({ PRELAUNCH_GATE: 'off' });
+    const page = await req('GET', `/restore?t=${TOKEN}`);
+    expect(page.status).toBe(200);
+    expect(page.headers['referrer-policy']).toBe('no-referrer');
+    expect((await req('GET', '/')).headers['referrer-policy']).toBeUndefined();
+  });
+
+  it('the password page keeps t, and logging in returns the tester to the link intact (test 15)', async () => {
+    const req = await start(gatedEnv());
+    const page = await req('GET', `/restore?t=${TOKEN}`);
+    expect(page.body).toContain(`value="/restore?t=${TOKEN}"`);
+    const res = await req('POST', '/_gate/login', form({ password: PASSWORD, next: `/restore?t=${TOKEN}` }));
+    expect(res.status).toBe(303);
+    expect(res.headers.location).toBe(`/restore?t=${TOKEN}`);
+  });
+});

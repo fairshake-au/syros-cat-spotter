@@ -113,6 +113,27 @@ export function setDeviceSecretGetter(getter: AuthTokenGetter | null): void {
   _deviceSecretGetter = getter;
 }
 
+let _deviceMovedListener: (() => void) | null = null;
+
+/**
+ * SYC-3: called whenever the API answers `403 {"error":"device_moved"}`: this
+ * phone's spotter was moved to a new phone with "Get your spots back", and the
+ * secret it holds no longer works. The app shows "Your spots moved to a new
+ * phone" and stops sending. The request still fails as usual.
+ *
+ * Pass `null` to clear it.
+ */
+export function setDeviceMovedListener(listener: (() => void) | null): void {
+  _deviceMovedListener = listener;
+}
+
+/** True for the API's `device_moved` refusal (SYC-3). */
+export function isDeviceMovedError(error: unknown): boolean {
+  if (!(error instanceof ApiError) || error.status !== 403) return false;
+  const data = error.data as { error?: unknown } | null;
+  return data?.error === "device_moved";
+}
+
 let _prelaunchKey: string | null = null;
 
 /**
@@ -500,7 +521,9 @@ async function send<T>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, requestInfo.method);
-    throw new ApiError(response, errorData, requestInfo);
+    const error = new ApiError(response, errorData, requestInfo);
+    if (_deviceMovedListener && isDeviceMovedError(error)) _deviceMovedListener();
+    throw error;
   }
 
   return (await parseSuccessBody(response, responseType, requestInfo)) as T;

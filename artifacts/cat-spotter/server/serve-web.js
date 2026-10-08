@@ -311,10 +311,15 @@ function createHandler(env = process.env, options = {}) {
     // SYC-133: the page carries its own loading screen. Small, so it is
     // compressed per request rather than cached.
     const page = Buffer.from(injectLoadingScreen(fs.readFileSync(html, 'utf8')), 'utf8');
+    const headers = { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' };
+    // SYC-3: the restore link carries a one-time token in ?t=. The page takes
+    // it out of the address bar at once; this makes sure it never travels on
+    // in a Referer (to the map tile server, say) before that.
+    if (pathname.replace(/\/+$/, '') === '/restore') headers['referrer-policy'] = 'no-referrer';
     return sendMaybeCompressed(
       req,
       res,
-      { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' },
+      headers,
       '.html',
       () => page,
       (encoding) => (page.length < MIN_COMPRESS_BYTES ? null : compressBuffer(page, encoding)),

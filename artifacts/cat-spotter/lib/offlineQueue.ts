@@ -6,6 +6,7 @@
  * without React Native.
  */
 import type { MatchCandidate } from '@workspace/api-client-react';
+import { isDeviceMovedError } from './deviceMoved';
 
 /** Server-error retries before an item is marked failed. */
 export const MAX_SYNC_ATTEMPTS = 3;
@@ -70,6 +71,7 @@ export function markStaleItems(
 export type SyncFailureDecision =
   | { kind: 'network' }
   | { kind: 'needs_sign_in' }
+  | { kind: 'moved' }
   | { kind: 'server'; permanent: boolean; failCount: number };
 
 /**
@@ -115,6 +117,10 @@ export function classifySyncFailure(
   const isServerError = err instanceof Error && err.name === 'ApiError';
   if (!isServerError) return { kind: 'network' };
   if (isPrelaunchGateFailure(err)) return { kind: 'needs_sign_in' };
+  // SYC-3: this phone's spotter moved to a new phone. Says nothing about the
+  // sighting: it stays queued, untouched, and goes under the new spotter
+  // after "Start again".
+  if (isDeviceMovedError(err)) return { kind: 'moved' };
   const failCount = (previousFailCount ?? 0) + 1;
   const status =
     err !== null &&

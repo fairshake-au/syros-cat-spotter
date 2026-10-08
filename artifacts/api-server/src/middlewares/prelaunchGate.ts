@@ -25,7 +25,9 @@ import {
  *    Any other /api/internal/* → only `Authorization: Bearer
  *    <INTERNAL_PEOPLE_TOKEN>`. Neither token opens the other's paths.
  * 4. /api/team/* → next() (Decision 1, Samuel, 29 Sep 2026: its own staff
- *    sign-in is the stronger door).
+ *    sign-in is the stronger door). /api/mail/* → next() (SYC-3 Decision 5:
+ *    the keep-safe confirm and forget pages, each protected by its own
+ *    one-time token; a parent confirming an address may not be a tester).
  * 5. Anything else → a valid website cookie OR a matching X-Prelaunch-Key.
  * 6. No pass → 401 prelaunch_pass_required.
  *
@@ -117,7 +119,7 @@ export function prelaunchGate(
     return;
   }
 
-  if (isUnder(path, "/api/team")) {
+  if (isUnder(path, "/api/team") || isUnder(path, "/api/mail")) {
     next();
     return;
   }
