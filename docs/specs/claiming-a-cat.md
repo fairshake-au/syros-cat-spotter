@@ -1,6 +1,6 @@
 # Saying a cat lives with you ("This is my cat")
 
-**Status:** **Draft for Samuel's review.** One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md). Two new decisions came out of it (D8, D9).
+**Status:** **Decisions made by Samuel, 8 October 2026 (§15). Copy still awaiting approval.** One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
 **Owner:** Samuel
 **Covers:** SYC-130, as directed by Samuel on 7 October 2026 (Linear SYC-130).
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2 (who may state a life status), §6.4 (item 4, who hears about sightings straight away), §8 (deletion), §10.1 (observations), §10.2 (life status), §10.3 (merged cats), §10.6 (Option B: an owner sees their cat's exact spot) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3 (fixing what is wrong), §7.3 (capabilities) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 (how a sighting was matched), §8.2 (moving a sighting) · [`privacy-policy.md`](./privacy-policy.md) · [`DECISIONS.md`](./DECISIONS.md) Part 3 (spec ownership) · SYC-41 (blurring), SYC-218 (spine PR 9, the round-up), SYC-63 (deletion), SYC-232 (the "has a home" push), SYC-59 (duplicate cats), SYC-52 (confidence engine), SYC-4 (native-speaker review).
@@ -26,9 +26,9 @@ Nobody approves a claim. Syros Cats don't have the people to vet owners, and gen
 
 Either way the owner's abilities stop at once.
 
-**Two open questions came out of review.**
-- **D8: the rule can be faked from a distance.** Someone could upload the cat's own public photo with a made-up location. D8 asks how hard to make that.
-- **D9: where the cat lives.** The owner's note about where the cat lives is shown to everyone. D9 asks who should see it.
+The owner's note about where the cat lives is seen only by the owner and Syros Cats (D9).
+
+The rule stops careless and casual claims. Someone determined could still fake a meeting from a distance. That is accepted (D8, §10).
 
 ---
 
@@ -46,7 +46,7 @@ So a claim is worth a lot to the wrong person, and does real harm when made care
 
 **Why not have Syros Cats approve claims.** It isn't workable for the team (Samuel, 7 Oct 2026), and it makes genuine owners wait for something that is theirs. Every guard here works without the team doing anything routinely.
 
-**What the guard is.** You can only say a cat lives with you once you have met it. A genuine owner meets their cat every day. Someone who has never been near the cat can't claim it. That stops the tourist, the careless tap and most mischief. §10 is honest about what it doesn't stop, and D8 decides how much further to go.
+**What the guard is.** You can only say a cat lives with you once you have met it. A genuine owner meets their cat every day. Someone who has never been near the cat can't claim it. That stops the tourist, the careless tap and most mischief. §10 is honest about what it doesn't stop.
 
 ---
 
@@ -62,14 +62,15 @@ A phone can claim a cat when **all** of these hold.
 - from this phone, and not unlinked by "Delete my data" (data spine §8);
 - resolved to this cat, or to a cat merged into it (data spine §10.3);
 - still resolved to the cat that was chosen when it was matched. A sighting the team later moved to a different cat (`choose-a-different-cat.md` §8.2) doesn't count for the new one;
-- matched **by photo**. Either the spotter confirmed the app's suggestion ("That's the one", `choice: suggested`), or the sighting was the one that started the cat (`choice: new_cat`).
+- matched to this cat by the spotter, in any of the ways the app allows:
+  - confirming the app's suggestion ("That's the one", `choice: suggested`);
+  - choosing it from the nearby list (`choice: hand_pick`; D1);
+  - being the sighting that started the cat (`choice: new_cat`);
+  - an older sighting from before match records were kept (`choice: unlabelled`).
 
-**What does not count:**
-- **A hand pick** from "Choose a different cat" (`choice: hand_pick`). Anyone within 1.5 km can photograph any cat and pick another from the list (D1).
-- **A sighting with no record of how it was matched** (`choice: unlabelled`). Older sightings were matched before suggestions were enforced, and a failed record also reads this way. Neither proves anything.
-- **A sighting not yet matched to any cat**, including one waiting for Syros Cats to match it.
+**What does not count:** a sighting not yet matched to any cat, including one waiting for Syros Cats to match it.
 
-**No time or distance limit, unless D8 adds one.** A qualifying sighting from any date counts.
+**No time or distance limit.** A qualifying sighting from any date counts.
 
 **3. The same owner asking again is not a new claim.** If this phone is already the cat's owner, the claim succeeds again quietly: no new record and no new message. This keeps a retry safe after a lost reply or a double tap.
 
@@ -99,7 +100,9 @@ The wording uses the cat's name rather than "he" or "she", so it never guesses.
 >
 > Only say yes if Agatha lives with you. Everyone using the app will see that Agatha has a home.
 >
-> **Where does Agatha live?** *(e.g. "the blue house by the church". Who sees this is D9)*
+> **Where does Agatha live?** *(e.g. "the blue house by the church")*
+>
+> *Only you and Syros Cats will see this.*
 >
 > **[ Yes, Agatha lives with me ]** · **[ Cancel ]**
 
@@ -140,7 +143,7 @@ At the foot of the owner's edit sheet: **"Agatha doesn't live with me any more"*
 Saying yes, in one transaction:
 - **withdraws the owner's own statement.** It supersedes this owner's newest `homed` observation for the cat (data spine §10.1). The cat's status then falls back to whatever stood before the claim: usually "street", or whatever the team had recorded. An owner never writes a new status of their own. That respects spine §3.2, which lets an owner state `homed` only, and team-access §3.3, which says a team statement is never overwritten. See §12 for the one-line addition to spine §3.2;
 - **clears the owner link.** The exact spot, live alerts and renaming stop at once;
-- **clears the home note** (D9);
+- **clears the home note**;
 - **tells nobody.**
 
 On this phone the cat leaves the list of cats it owns straight away. The server's list is the one that counts whenever there's a connection, so a phone never keeps owner controls for a cat it no longer owns.
@@ -156,7 +159,7 @@ The team corrects a cat's life status from the dashboard (`team-access-and-welfa
 So:
 - **The team's cat page shows whether a cat has an owner.** It shows only that it does, never who: no device id and no name.
 - **"Remove owner"** is an action on a cat that has one. In one transaction it:
-  - clears the owner link (all owner abilities stop at once) and the home note (D9);
+  - clears the owner link (all owner abilities stop at once) and the home note;
   - supersedes the owner's newest active `homed` observation. If there isn't one, for example a claim made before these observations were kept, it records a plain team `street` statement instead;
   - asks, in the same step, what the cat's status should be now, with "Lives on the street" pre-selected, and records the team's choice as an ordinary team correction;
   - is recorded with who did it and when, like every team action;
@@ -190,7 +193,8 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 
 ## 10. What this does not stop
 
-- **Faking a meeting from a distance.** The app trusts the location a phone sends, and every cat's photo is public. So someone could save Agatha's photo, upload it as if they were at Agatha's public map position, confirm "That's the one", and claim her. **D8 decides how far to go against this.**
+- **Faking a meeting from a distance.** The app trusts the location a phone sends, and every cat's photo is public. So someone could save Agatha's photo, upload it as if they were at Agatha's public map position, confirm "That's the one", and claim her. **Accepted by Samuel, 8 Oct 2026 (D8).**
+- **Any cat photo, within 1.5 km.** Because hand picks count (D1), someone near a cat could photograph any cat and pick this one from the nearby list. Accepted with D1.
 - **Someone who really goes and spots the cat.** A person who photographs a street cat once can claim it. Samuel accepted this on 7 Oct 2026.
 - **Two people at the same cat.** The first wins, and the second sees "Agatha already has a home". The team removes a wrong owner (§7).
 - **A mistake nobody notices.** Nothing routinely asks the team to look. Later, the confidence engine (SYC-52) could flag a cat whose owner and recent sightings disagree.
@@ -205,7 +209,7 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 - **The "may claim" field** on a cat's detail comes from the same function, only for a phone that has proved it is that device.
 - **Letting go** needs the device secret, and only the current owner can do it.
 - **"Remove owner"** is team-only. It needs `remove_owner` and `set_life_status`, and only works from the dashboard's own origin.
-- **The home note** is moderated like names, at claim and at every edit (D9).
+- **The home note** is moderated like names, at claim and at every edit. It appears only in the owner's view of their cat and on the team's dashboard, never in the public cat payload or in any message (D9).
 
 ---
 
@@ -214,7 +218,7 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 These follow from this spec, and are made once it's approved:
 - **`cat-record-data-spine.md` §3.2:** an owner may also *withdraw* their own `homed` statement (§6). §11 row 4 loses `POST /cats` (§9).
 - **`team-access-and-welfare-queue.md` §3.3 and §7.3:** the "has an owner" indicator, "Remove owner", and the `remove_owner` capability (§7).
-- **`privacy-policy.md`:** say plainly that an owner sees their cat's exact spot and hears about its sightings, who sees where an owned cat lives (D9), and that letting go or deletion ends it.
+- **`privacy-policy.md`:** say plainly that an owner sees their cat's exact spot and hears about its sightings, that where an owned cat lives is seen only by the owner and Syros Cats (D9), and that letting go or deletion ends it.
 - **`DECISIONS.md` Part 3:** this document owns "who may claim a cat, the claim and let-go screens, and removing an owner".
 
 ---
@@ -225,9 +229,9 @@ One Sonnet critic reviewed the first draft against the code (`reviews/claiming-a
 
 | Finding | Severity | What we did |
 |---|---|---|
-| The "met the cat" rule can be faked from a distance with the cat's public photo and a made-up location | Blocker | **Raised as D8.** §10 now says so plainly. |
-| `unlabelled` doesn't mean "confirmed a suggestion" | High | **Accepted.** It no longer counts (§3). |
-| The home note is public, unmoderated, pushed to everyone, and kept after removal | High | **Raised as D9.** It's moderated, never pushed, and cleared on let-go and removal (§6, §7, §8). |
+| The "met the cat" rule can be faked from a distance with the cat's public photo and a made-up location | Blocker | **Raised as D8; Samuel accepted the gap** (§10). |
+| `unlabelled` doesn't mean "confirmed a suggestion" | High | **Superseded by D1.** Hand picks count, so `unlabelled` counts too (§3). |
+| The home note is public, unmoderated, pushed to everyone, and kept after removal | High | **Raised as D9: owner and team only.** It's also moderated, never pushed, and cleared on let-go and removal (§6, §7, §8, §11). |
 | "Let go" wrote a `street` status from an owner, which could overwrite the team's statements | High | **Accepted.** Let-go now withdraws the owner's own statement (§6). |
 | Refusing homed cats broke a safe retry by the real owner | High | **Accepted.** Same-owner retry rule (§3 rule 3). |
 | A cat that's in care or has died could be claimed | Medium | **Accepted.** Only `street` cats can be claimed (§3 rule 1). |
@@ -252,59 +256,29 @@ The button and sheet are rewritten in all three languages. English has said "Cla
 
 ---
 
-## 15. Decisions for Samuel
+## 15. Decisions (Samuel, 8 October 2026)
 
-**D1. Does a hand pick count as having met the cat?**
-- *No (recommended).* A hand pick can be made by photographing any cat within 1.5 km and picking another. *Risk:* an owner whose cat the app never suggests has to keep spotting until it does. That should be rare, because owners spot their cats at home, well inside the 500 m the matcher looks within.
-- *Yes.* *Risk:* anyone within 1.5 km can claim any cat with one stray photo.
+| | Question | Decided |
+|---|---|---|
+| D1 | Does a hand pick count as having met the cat? | **Yes.** Hand picks count, and so do older `unlabelled` sightings. The 1.5 km gap this opens is accepted (§10). |
+| D2 | What does someone who hasn't met the cat see? | **A quiet line saying how** (§4.1). |
+| D3 | Which cats can be claimed? | **Only a cat recorded as living on the street** (§3). |
+| D4 | Can an owner let go of a cat themselves? | **Yes.** It withdraws only their own statement (§6). |
+| D5 | Claims made before this rule | **Not applicable.** No real person has claimed a cat yet. Any test claims left on the live site are cleared before launch, as housekeeping. |
+| D6 | "Remove owner" and a "has an owner" indicator on the team dashboard | **Yes** (§7). |
+| D7 | Remove the register-without-spotting route | **Yes** (§9). |
+| D8 | How hard to make faking a meeting from a distance | **Accept it.** Nothing built against it; recorded in §10. The options considered were refusing copies of the cat's own photos, requiring sightings on two days, and owner abilities switching on over time. |
+| D9 | Who sees where an owned cat lives | **The owner and Syros Cats only.** Everyone else sees "Has a home" (§4.2, §11). |
 
-**D2. What does someone who hasn't met the cat see?**
-- *A quiet line saying how (recommended).* Genuine owners learn what to do.
-- *Nothing.* *Risk:* owners don't know claiming exists.
-
-**D3. Which cats can be claimed?**
-- *Only a cat recorded as living on the street (recommended).* A home, care or death recorded by someone else is never overwritten by a claim. *Risk:* a genuine new owner of a cat the team recorded as adopted waits for the team to set it back to street.
-- *Any cat with no owner.* *Risk:* a cat in care or recorded as dead is claimed over the team's statement, and pushes restart for a dead cat.
-
-**D4. Can an owner let go of a cat themselves (§6)?**
-- *Yes (recommended).* It withdraws only their own statement, so it can't hide a cat the team recorded.
-- *No, team only.* *Risk:* wrong or out-of-date claims stay until someone emails.
-
-**D5. Claims made before this rule.**
-- *Keep them (recommended).* The team can remove any wrong one (§7). *Note:* some may belong to phones that no longer exist (§6).
-- *Remove any whose owner hasn't met the cat by this rule.* Stricter, but removes genuine owners without telling them.
-
-**D6. Add "Remove owner" and the "has an owner" indicator to the team dashboard (§7)?**
-- *Yes (recommended).* Without them, a wrong claim can't be fully undone, and the team can't see there is one.
-- *No.* *Risk:* a wrong claimer keeps the exact spot and live alerts for ever.
-
-**D7. Remove the register-without-spotting route (§9)?**
-- *Yes (recommended).* It's a second way into ownership and a source of photo-less cats, with no screen relying on it.
-- *Keep it.* *Risk:* an unguarded way into ownership stays open.
-
-**D8. How hard should it be to fake meeting a cat from a distance? (new, from review)**
-The app trusts the location a phone sends, and every cat's photo is public. So the "met it" rule stops careless and casual claims, but someone determined can fake one from their sofa.
-- *a. Accept it.* Say so here and in the ticket. Nothing to build. *Risk:* a determined stranger can claim a street cat and get its exact spot and live alerts without ever going there.
-- *b. Refuse a suggested match whose photo is a copy of one already on the cat.* The server compares the new photo against the cat's stored photos and refuses a near-copy. *Risk:* someone could photograph a screen or edit the copy, though that is far more effort. Small and invisible to genuine spotters.
-- *c. Require two qualifying sightings, on two different days.* Owners see their cats daily, so the cost to them is small. *Risk:* a forger can repeat the fake on another day unless (b) stops copies.
-- *d. Owner abilities switch on over time.* The exact spot and live alerts start only after the owner has spotted the cat on several days.
-- *Recommended: b + c together.* (b) removes the easy way to fake a photo, and (c) makes even an effortful fake take days. Neither involves the team, and genuine owners barely notice.
-
-**D9. Who sees where an owned cat lives? (new, from review)**
-The note ("the blue house by the church") describes someone's home.
-- *a. The owner and the team only (recommended).* Everyone else sees "Has a home" and nothing more. Nobody can read a stranger's home from the app.
-- *b. Everyone, as now, but moderated and never pushed.* Keeps the friendly detail. *Risk:* it publicly describes where someone lives, which undoes the 250 m blur for homed cats.
-- *Either way:* moderated at claim and edit, never in a message, and cleared on let-go and removal.
-
-**Copy.** All wording in §4, §6 and §7 is a draft for approval.
+**Copy.** All wording in §4, §6 and §7 is still a draft for approval.
 
 ---
 
 ## 16. How we'll know it works
 
 **Server tests:**
-- **Refused `NOT_MET`:** a phone with only a hand pick, only an `unlabelled` sighting, an unmatched sighting or none.
-- **Succeeds:** a phone whose sighting was confirmed from a suggestion, or which started the cat.
+- **Refused `NOT_MET`:** a phone with only an unmatched sighting, a sighting of a different cat, or none.
+- **Succeeds:** a phone whose sighting was confirmed from a suggestion, hand-picked, started the cat, or is an older `unlabelled` one.
 - **Refused for the cat's status:** a homed cat with no owner (after deletion) gets `ALREADY_HOMED`; an in-care or dead cat gets `NOT_ON_STREET`.
 - **Moved and merged sightings:** a sighting later moved to a different cat doesn't qualify for the new cat; a sighting of a cat merged into this one does.
 - **Repeat claims:** the same owner claiming again gets 200, with no new record and no message. Two simultaneous claims by different phones give exactly one owner. A second claim of the same cat sends no message.
@@ -313,8 +287,7 @@ The note ("the blue house by the church") describes someone's home.
   - on a cat with two `homed` statements;
   - on an owner from before these statements were kept;
   - and in every case the exact spot and live alerts stop for the old owner, and the action records who did it.
-- **The home note:** it is moderated, and cleared on let-go and removal.
-- **D8:** whichever outcome is decided, probed with the cat's own photo uploaded at its public position.
+- **The home note:** it is moderated; it is absent from the public cat payload and every message, present for the owner and on the team's page; and it is cleared on let-go and removal.
 
 **App tests:**
 - the button and the line show to the right phones;
@@ -326,7 +299,7 @@ The note ("the blue house by the church") describes someone's home.
 **Mutation probes:**
 - remove the "met it" check;
 - check only the owner link instead of the derived status;
-- let `unlabelled` count;
+- put the home note back in the public payload;
 - remove the link-clearing from "Remove owner".
 
 Each must make a named test fail.
