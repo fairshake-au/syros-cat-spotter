@@ -539,6 +539,12 @@ describe("the queue row and the tie-mode search", () => {
     const junk = await request(app).get("/api/team?tied=%3Cscript%3E&r=%3Cscript%3E").set("Cookie", cookie);
     expect(junk.status).toBe(200);
     expect(junk.text).not.toContain("<script>");
+    // Inherited keys on a real row say nothing either (not a 500).
+    for (const key of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      const proto = await request(app).get(`/api/team?tied=${key}&r=${r.publicId}`).set("Cookie", cookie);
+      expect(proto.status, key).toBe(200);
+      expect(rowHtml(proto.text, r.publicId), key).not.toContain('<p class="notice"');
+    }
   });
 
   it("each result in tie mode has a plain 'This is the cat' form carrying what the page showed", async () => {

@@ -186,7 +186,8 @@ function reportCard(
     (r.id === changedId
       ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>`
       : "") +
-    (tied && r.id === tied.id && TIED_TEXT[tied.key]
+    // Own keys only: ?tied=constructor must not reach Object.prototype.
+    (tied && r.id === tied.id && Object.hasOwn(TIED_TEXT, tied.key)
       ? `<p class="notice" role="status">${esc(TIED_TEXT[tied.key]!)}</p>`
       : "") +
     `<div class="head">${tags}</div>` +
