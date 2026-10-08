@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { DELETED_SECRET_HASH, deletedMarkerKey } from "./deviceAuth";
+import { severKeepSafe } from "./keepSafe/sever";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -81,6 +82,11 @@ export async function severPerson(
        set reporter_device = null
      where reporter_device = ${deviceId}
   `);
+
+  // 5b. "Keep my spots safe" (SYC-3): the keep-safe row, its queued emails
+  //     and link tokens go, and its consent events are redacted in place.
+  //     SYC-3 built this to run inside deletion's transaction.
+  await severKeepSafe(tx, deviceId, reason);
 
   // 6. Everything that was only theirs.
   await tx.execute(

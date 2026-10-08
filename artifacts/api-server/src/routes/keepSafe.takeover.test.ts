@@ -324,6 +324,9 @@ const PROBES: Probe[] = [
   { name: "PATCH /profiles/:id", file: "profiles.ts", call: (id, s) => request(app).patch(`/api/profiles/${id}`).set("X-Device-Secret", s).send({ nickname: "x" }) },
   { name: "GET /profiles/:id/username", file: "profiles.ts", call: (id, s) => request(app).get(`/api/profiles/${id}/username`).set("X-Device-Secret", s) },
   { name: "POST /profiles/:id/username", file: "profiles.ts", call: (id, s) => request(app).post(`/api/profiles/${id}/username`).set("X-Device-Secret", s).send({ username: "Anything" }) },
+  // SYC-63: an old phone whose spotter moved can't delete the spotter who now
+  // lives on the new phone; it gets device_moved like every other route.
+  { name: "DELETE /me", file: "profiles.ts", call: (id, s) => request(app).delete("/api/me").set("X-Device-Id", id).set("X-Device-Secret", s) },
   { name: "GET /notifications/:id", file: "notifications.ts", call: (id, s) => request(app).get(`/api/notifications/${id}`).set("X-Device-Secret", s) },
   { name: "POST /notifications/:id/read-all", file: "notifications.ts", call: (id, s) => request(app).post(`/api/notifications/${id}/read-all`).set("X-Device-Secret", s) },
   { name: "POST /notifications/:id/:n/read", file: "notifications.ts", call: (id, s) => request(app).post(`/api/notifications/${id}/1/read`).set("X-Device-Secret", s) },

@@ -25,6 +25,7 @@ const { setDeviceSecretGetter } = vi.hoisted(() => ({
 
 vi.mock('@workspace/api-client-react', () => ({
   setDeviceSecretGetter,
+  setDeviceMovedListener: vi.fn(),
   getProfile: vi.fn(async () => ({ ownedCatIds: [7] })),
 }));
 
@@ -49,6 +50,7 @@ describe('resetIdentity', () => {
     storage.set('cat-spotter/language', 'el');
     storage.set('cat-spotter/appearance', 'dark');
     storage.set('cat-spotter/cats-cache', '[{"id":7}]');
+    storage.set('cat-spotter/keep-safe-offer', 'done');
 
     const { result } = renderHook(() => useDevice(), { wrapper });
     await waitFor(() => expect(result.current.username).toBe('OldName'));
@@ -69,6 +71,9 @@ describe('resetIdentity', () => {
     expect(storage.has('cat-spotter/username')).toBe(false);
     expect(storage.has('cat-spotter/owned-cat-ids')).toBe(false);
     expect(storage.has('cat-spotter/ownership-snapshot')).toBe(false);
+    // SYC-3: deletion removed the keep-safe address, so it's offered again.
+    expect(storage.has('cat-spotter/keep-safe-offer')).toBe(false);
+    expect(result.current.keepSafeOffer).toBeNull();
     // Preferences and the public cat list stay.
     expect(storage.get('cat-spotter/language')).toBe('el');
     expect(storage.get('cat-spotter/appearance')).toBe('dark');

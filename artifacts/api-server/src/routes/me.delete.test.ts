@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import {
@@ -14,6 +14,10 @@ import {
   pushTokensTable,
   sightingsTable,
   welfareReportsTable,
+  emailContactsTable,
+  mailTokensTable,
+  emailConsentEventsTable,
+  mailOutboxTable,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -56,6 +60,7 @@ import { sendPushNotification } from "../lib/push";
 import { notifyCatSpotters } from "../lib/notifications";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { deletedMarkerKey } from "../lib/deviceAuth";
+import { enqueueKeepSafeMail } from "../lib/mail/outbox";
 import { _resetNewDeviceLimitForTests } from "../middlewares/newDeviceLimit";
 
 const pushMock = vi.mocked(sendPushNotification);
@@ -225,9 +230,37 @@ async function seedWorld() {
     })
     .returning();
 
+  // "Keep my spots safe" (SYC-3): a confirmed keep-safe contact, its verify
+  // and forget link tokens, a used restore token that moved P, consent
+  // events, and a queued verify email that still holds the address.
+  const email = `p-${tag}@example.com`;
+  const hmac = `hmac-${tag}`;
+  const token = `tok-${tag}`;
+  const forgetToken = `fgt-${tag}`;
+  const sha = (t: string) => createHash("sha256").update(t).digest("hex");
+  const [contact] = await db
+    .insert(emailContactsTable)
+    .values({ purpose: "keep_safe", addressHmac: hmac, addressMask: "p•••@example.com", deviceId: P.deviceId, status: "confirmed", confirmedAt: new Date() })
+    .returning();
+  const expiresAt = new Date(Date.now() + 15 * 60_000);
+  await db.insert(mailTokensTable).values([
+    { tokenHash: sha(token), purpose: "verify", contactId: contact!.id, addressHmac: hmac, deviceId: P.deviceId, expiresAt },
+    { tokenHash: sha(forgetToken), purpose: "forget", contactId: contact!.id, addressHmac: hmac, deviceId: P.deviceId, expiresAt },
+    { tokenHash: sha(`restore-${tag}`), purpose: "restore", addressHmac: hmac, deviceId: `asker-${tag}`, restoredDeviceId: P.deviceId, usedAt: new Date(), expiresAt },
+  ]);
+  await db.insert(emailConsentEventsTable).values([
+    { contactId: contact!.id, deviceId: P.deviceId, addressHmac: hmac, purpose: "keep_safe", event: "consented", surface: "onboarding", wordingVersion: "v1", language: "en" },
+    { contactId: contact!.id, deviceId: P.deviceId, addressHmac: hmac, purpose: "keep_safe", event: "verified" },
+  ]);
+  await db.transaction((tx) =>
+    enqueueKeepSafeMail(tx, { purpose: "keep_safe_verify", to: email, token, forgetToken, expiresAt }),
+  );
+
   return {
     P,
     Q,
+    email,
+    hmac,
     ownerName,
     discovered: discovered!,
     claimed: claimed!,
@@ -325,6 +358,10 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       w.P.username,
       w.P.nickname,
       w.ownerName,
+      // SYC-3: the keep-safe address (only ever in the queued email) and
+      // the address fingerprint on the contact, tokens and consent events.
+      w.email,
+      w.hmac,
     ]) {
       expect(await columnsHolding(needle), needle).toEqual([]);
     }
@@ -429,6 +466,23 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       catId: w.discovered.id,
       severity: "attention",
     });
+  });
+
+  it("5c. keeps P's consent records, with who they were about removed (SYC-3)", async () => {
+    const rows = await db
+      .select()
+      .from(emailConsentEventsTable)
+      .where(eq(emailConsentEventsTable.redactionReason, "deleted by the person"));
+    const ps = rows.filter((r) => r.wordingVersion === "v1" || r.event === "verified");
+    expect(ps.length).toBeGreaterThanOrEqual(2);
+    for (const r of ps) {
+      expect(r).toMatchObject({ deviceId: null, contactId: null, addressHmac: null });
+      expect(r.redactedAt).not.toBeNull();
+    }
+    const contacts = await db.select().from(emailContactsTable).where(eq(emailContactsTable.addressHmac, w.hmac));
+    expect(contacts).toEqual([]);
+    const tokens = await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, w.hmac));
+    expect(tokens).toEqual([]);
   });
 
   it("6. a second call returns 204 and changes nothing", async () => {
