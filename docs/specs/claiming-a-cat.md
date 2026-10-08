@@ -20,7 +20,7 @@ A cat's page offers **"This is my cat"** only to someone who has **met the cat**
 
 Only a cat recorded as **living on the street** can be claimed. A cat that already has a home, is in care or has died can't be.
 
-Saying yes takes three short steps: **"Do you live on Syros?"**, a plain **"only if this cat lives in your home"** confirmation, and **a pin on the map where the cat lives**, which must be within 1 km of where the app shows the cat (D10–D12).
+Saying yes takes two short screens. The first asks them to confirm they **live on Syros** and that the cat **is theirs: it lives with them, and they're the one who gives it food, water and care every day**. Cat guardians, who look after street cats, are asked not to say yes. The second asks for **a pin on the map where the cat lives**, which must be within 1 km of where the app shows the cat (D10–D12).
 
 Nobody approves a claim. Syros Cats don't have the people to vet owners, and genuine owners shouldn't wait. A claim ends in one of two ways:
 - the owner says the cat **doesn't live with them any more**;
@@ -76,7 +76,7 @@ A phone can claim a cat when **all** of these hold.
 
 **3. The person says they live on Syros, and puts a pin on their home near where the cat is seen.**
 - They answer "Yes" to "Do you live on Syros?". This is self-declared: there is no public way to check residency in Greece, and no staff to check by hand (D10).
-- They confirm the cat **lives in their home**, not just that they feed or visit it (D12).
+- They confirm the cat **is theirs**: it lives with them, and they give it food, water and care every day. Looking after street cats makes someone a cat guardian, not an owner, and the screen says so (D12).
 - They put a pin on the map where the cat lives. It must be **within 1 km of the cat's public position**: the centre of the 250 m area everyone sees on the map (data spine §10.6) (D11). The check uses only what the map already shows. A check against the cat's exact stored position, or its sightings, would let someone move the pin back and forth until "too far" flipped, and so find the exact spot the blur hides. Cats on Syros live close to where they're seen, and 1 km leaves room for one that wanders.
 
 **Order of checks.** The server checks rules 1 and 2 first, then rule 3, and refuses at the first that fails. Its refusals never say how far or in which direction the pin is out.
@@ -111,7 +111,9 @@ Three short steps, one screen each. Cancel is on every step, is the safe default
 
 > **Is Agatha your cat?**
 >
-> Only say yes if you live on Syros and Agatha lives in your home. Not for cats you feed, visit or have spotted.
+> Only say yes if you live on Syros and Agatha is yours: Agatha lives with you, and you're the one who gives Agatha food, water and care every day.
+>
+> Looking after street cats? That makes you a cat guardian, not an owner, so please don't say yes here.
 >
 > Everyone using the app will see that Agatha has a home. We trust our community: if Agatha turns out not to be yours, Syros Cats will take this off.
 >
@@ -335,7 +337,7 @@ The button and sheet are rewritten in all three languages. English has said "Cla
 | D9 | Who sees where an owned cat lives | **The owner and Syros Cats only.** Everyone else sees "Has a home" (§4.2, §11). |
 | D10 | Proof of living on Syros | **Self-declared** "Do you live on Syros?" (Samuel, 8 Oct). Uploading a residence certificate was considered and rejected: it needs staff or a paid service to check, is heavy personal data, and shuts out owners who aren't registered residents. Typed addresses were rejected too: nothing in Greece lets an app check one. |
 | D11 | A pin where the cat lives, checked against where it's seen | **Yes** (Samuel, 8 Oct). Checked against the cat's **public** (blurred) position, so it can't reveal the exact one. **1 km** (Samuel, 8 Oct; 500 m was considered and rejected, as it refuses more genuine owners). |
-| D12 | A plain "only if it lives in your home" confirmation | **Yes** (Samuel, 8 Oct). Combined with "I live on Syros" on one screen; wording in §4.2, approved. |
+| D12 | A plain confirmation that the cat is theirs | **Yes** (Samuel, 8 Oct). Combined with "I live on Syros" on one screen. The cat lives with them and they give it food, water and care every day; cat guardians are asked not to say yes, because a guardian's colony cat marked as homed would drop out of the charity's welfare rounds. An earlier draft ("not for cats you feed") was dropped, because owners feed their cats too. Wording in §4.2, approved. |
 | D13 | What deletion does to the home note and the home pin | **Both stay, seen only by Syros Cats** (Samuel, 8 Oct). After deletion the cat still has a home (decision A, 29 Sep), so what helps the team find it stays. Clearing both was considered and not chosen. Letting go and Remove owner still clear both, because then the cat no longer has a home. |
 
 **Copy.** All wording in §4, §6 and §7 is approved (8 Oct 2026). Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
