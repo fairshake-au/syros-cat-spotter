@@ -37,7 +37,7 @@ CREATE TABLE "email_suppressions" (
 	"reason" text NOT NULL,
 	"scope" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "email_suppressions_reason_ck" CHECK ("email_suppressions"."reason" in ('forget', 'bounce', 'complaint', 'verify_cap', 'unsubscribe')),
+	CONSTRAINT "email_suppressions_reason_ck" CHECK ("email_suppressions"."reason" in ('forget', 'bounce', 'complaint', 'verify_cap', 'unsubscribe', 'forget_verify')),
 	CONSTRAINT "email_suppressions_scope_ck" CHECK ("email_suppressions"."scope" in ('keep_safe', 'report', 'news', 'all'))
 );
 --> statement-breakpoint

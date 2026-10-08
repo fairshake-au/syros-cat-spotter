@@ -794,3 +794,96 @@ describe("16. deletion (joint with SYC-63)", () => {
     expect(await storedHash(phone.id)).toBe(hashSecret(phone.secret));
   });
 });
+
+describe("Samuel's decisions, 8 Oct 2026", () => {
+  const verifies = (email: string) => mailTo(email).filter((m) => m.subject.startsWith("Is this you?"));
+
+  it("SYC-261: a parent adding a second child the same evening gets the email at once, and both can be restored (M)", async () => {
+    const email = newAddress();
+    const lili = await keptSafe(email);
+    const before = verifies(email).length;
+    // No waiting a day: the address is already confirmed for Lili.
+    const nikos = newPhone();
+    await bind(nikos);
+    await claim(nikos, `Nikos${RUN}${++n}`);
+    expect((await add(nikos, email)).status).toBe(200);
+    await settleOutbox();
+    expect(verifies(email)).toHaveLength(before + 1);
+    expect((await postMailPage("confirm", tokenFrom(verifies(email).at(-1)!, "/api/mail/confirm"))).status).toBe(200);
+    const { phone, token } = await newPhoneWithLink(email);
+    const p = await peek(phone, token);
+    expect(p.body.spotters.map((s: { deviceId: string }) => s.deviceId).sort()).toEqual([lili.id, nikos.id].sort());
+  });
+
+  it("SYC-261: an address nobody has confirmed still gets at most one \"is this you?\" a day", async () => {
+    const email = newAddress();
+    for (let i = 0; i < 2; i++) {
+      const p = newPhone();
+      await bind(p);
+      await add(p, email);
+    }
+    await settleOutbox();
+    expect(verifies(email)).toHaveLength(1);
+  });
+
+  it("SYC-261: once confirmed, the automatic three-email cap no longer blocks a sibling's email", async () => {
+    const email = newAddress();
+    const owner = newPhone();
+    await bind(owner);
+    await add(owner, email);
+    await settleOutbox();
+    const ownersEmail = verifies(email).at(-1)!;
+    for (let i = 0; i < 3; i++) {
+      await ageVerifyEmails();
+      const stranger = newPhone();
+      await bind(stranger);
+      await add(stranger, email);
+    }
+    await settleOutbox();
+    expect(verifies(email)).toHaveLength(3);
+    await postMailPage("confirm", tokenFrom(ownersEmail, "/api/mail/confirm"));
+    const sibling = newPhone();
+    await bind(sibling);
+    await add(sibling, email);
+    await settleOutbox();
+    expect(verifies(email)).toHaveLength(4);
+  });
+
+  it("SYC-262: \"Forget this address\" in a stranger-triggered email cancels only that request; the family's restore still works (M)", async () => {
+    const email = newAddress();
+    const lili = await keptSafe(email);
+    const stranger = newPhone();
+    await bind(stranger);
+    await add(stranger, email);
+    await settleOutbox();
+    const surprise = verifies(email).at(-1)!;
+    const page = await postMailPage("forget", tokenFrom(surprise, "/api/mail/forget"));
+    expect(page.status).toBe(200);
+    expect(page.text).toContain("cancelled that request");
+    expect(await db.select().from(emailContactsTable).where(eq(emailContactsTable.deviceId, stranger.id))).toHaveLength(0);
+    // No more "is this you?" emails to this address…
+    const before = verifies(email).length;
+    const another = newPhone();
+    await bind(another);
+    await add(another, email);
+    await settleOutbox();
+    expect(verifies(email)).toHaveLength(before);
+    // …but Lili's spots can still come back.
+    const { phone, token } = await newPhoneWithLink(email);
+    expect((await redeem(phone, token, lili.id)).status).toBe(200);
+  });
+
+  it("SYC-262: Forget on an address that keeps nobody else safe still forgets it fully", async () => {
+    const email = newAddress();
+    const p = newPhone();
+    await bind(p);
+    await add(p, email);
+    await settleOutbox();
+    const page = await postMailPage("forget", tokenFrom(verifies(email).at(-1)!, "/api/mail/forget"));
+    expect(page.text).toContain("We've forgotten this address");
+    const [row] = (
+      await db.execute(sql`select reason from email_suppressions where address_hmac = ${addressFingerprint("keep_safe", email)}`)
+    ).rows as { reason: string }[];
+    expect(row!.reason).toBe("forget");
+  });
+});

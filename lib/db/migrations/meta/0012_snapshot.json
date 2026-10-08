@@ -1,5 +1,5 @@
 {
-  "id": "4d7064c3-c994-4a47-b449-07819cff47cd",
+  "id": "712ad1e9-5518-460d-9b40-de7f83edd1f1",
   "prevId": "02e10886-f31d-420a-80ab-10ac629a00d9",
   "version": "7",
   "dialect": "postgresql",
@@ -2335,7 +2335,7 @@
       "checkConstraints": {
         "email_suppressions_reason_ck": {
           "name": "email_suppressions_reason_ck",
-          "value": "\"email_suppressions\".\"reason\" in ('forget', 'bounce', 'complaint', 'verify_cap', 'unsubscribe')"
+          "value": "\"email_suppressions\".\"reason\" in ('forget', 'bounce', 'complaint', 'verify_cap', 'unsubscribe', 'forget_verify')"
         },
         "email_suppressions_scope_ck": {
           "name": "email_suppressions_scope_ck",

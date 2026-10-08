@@ -51,6 +51,9 @@ export const SUPPRESSION_REASONS = [
   "complaint",
   "verify_cap",
   "unsubscribe",
+  // SYC-262: "Forget this address" pressed on an address that already keeps
+  // another spotter safe. Stops further "is this you?" emails only.
+  "forget_verify",
 ] as const;
 export const SUPPRESSION_SCOPES = ["keep_safe", "report", "news", "all"] as const;
 

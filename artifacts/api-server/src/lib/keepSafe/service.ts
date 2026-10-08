@@ -146,16 +146,22 @@ export async function addKeepSafeAddress(input: AddInput, log: Log): Promise<{ s
     };
 
     if (await isKeepSafeSuppressed("keep_safe_verify", to)) return skip("suppressed");
-    const recentToAddress = await count(tx, sql`
-      select count(*)::int as n from email_consent_events
-       where purpose = 'keep_safe' and event = 'verify_sent' and address_hmac = ${hmac}
-         and occurred_at > now() - make_interval(hours => ${LIMITS.verifyPerAddressHours})
-    `);
-    if (recentToAddress > 0) return skip("per_address_24h");
     const confirmedSomewhere = await count(tx, sql`
       select count(*)::int as n from email_contacts
        where purpose = 'keep_safe' and address_hmac = ${hmac} and status = 'confirmed'
     `);
+    // §4.4's one-per-24-hours protects a stranger's inbox. An address already
+    // confirmed for a spotter isn't a stranger's: a parent adding a second
+    // child the same evening gets the email (Samuel, 8 Oct 2026, SYC-261).
+    // The per-IP limit and the daily ceiling below still apply.
+    if (!confirmedSomewhere) {
+      const recentToAddress = await count(tx, sql`
+        select count(*)::int as n from email_consent_events
+         where purpose = 'keep_safe' and event = 'verify_sent' and address_hmac = ${hmac}
+           and occurred_at > now() - make_interval(hours => ${LIMITS.verifyPerAddressHours})
+      `);
+      if (recentToAddress > 0) return skip("per_address_24h");
+    }
     if (!confirmedSomewhere) {
       const lifetime = await count(tx, sql`
         select count(*)::int as n from email_consent_events
@@ -251,11 +257,21 @@ export async function confirmAddress(raw: string): Promise<boolean> {
   });
 }
 
+export type ForgetOutcome = false | "forgotten" | "request_cancelled";
+
 /**
- * "Forget this address": the row and its tokens go, and the keep-safe
- * fingerprint goes on the suppression list for keep-safe mail (A10).
+ * "Forget this address" (A10; SYC-262).
+ *
+ * - Usually: the row and its tokens go, and the keep-safe fingerprint goes on
+ *   the suppression list for all keep-safe mail.
+ * - When the address already keeps **another** spotter safe (a stranger, or a
+ *   typo, used a family's address): only this request is cancelled, and
+ *   further "is this you?" emails stop (`forget_verify`). The family's own
+ *   restore links keep working, so one reflex tap can't lock a child out of
+ *   their spots (Samuel, 8 Oct 2026). A family that wants no keep-safe mail at
+ *   all uses Remove in the app.
  */
-export async function forgetAddress(raw: string): Promise<boolean> {
+export async function forgetAddress(raw: string): Promise<ForgetOutcome> {
   return db.transaction(async (tx) => {
     const used = await tx.execute(sql`
       update mail_tokens set used_at = now()
@@ -265,18 +281,24 @@ export async function forgetAddress(raw: string): Promise<boolean> {
     `);
     const token = used.rows[0] as { contact_id: number | null; device_id: string; address_hmac: string } | undefined;
     if (!token) return false;
+    const keepsAnotherSafe = await count(tx, sql`
+      select count(*)::int as n from email_contacts
+       where purpose = 'keep_safe' and address_hmac = ${token.address_hmac} and status = 'confirmed'
+         and id is distinct from ${token.contact_id}
+    `);
     if (token.contact_id) {
       await tx.execute(sql`delete from email_contacts where id = ${token.contact_id}`);
     }
+    const reason = keepsAnotherSafe ? "forget_verify" : "forget";
     await tx.execute(sql`
       insert into email_suppressions (address_hmac, reason, scope)
-      values (${token.address_hmac}, 'forget', 'keep_safe') on conflict do nothing
+      values (${token.address_hmac}, ${reason}, 'keep_safe') on conflict do nothing
     `);
     await tx.execute(sql`
       insert into email_consent_events (contact_id, device_id, address_hmac, purpose, event, surface)
       values (${token.contact_id}, ${token.device_id}, ${token.address_hmac}, 'keep_safe', 'withdrawn', 'email')
     `);
-    return true;
+    return keepsAnotherSafe ? "request_cancelled" : "forgotten";
   });
 }
 

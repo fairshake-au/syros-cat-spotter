@@ -1,5 +1,5 @@
 import { db, emailContactsTable, emailSuppressionsTable } from "@workspace/db";
-import { and, eq, inArray, ne, or } from "drizzle-orm";
+import { and, eq, inArray, ne, notInArray, or } from "drizzle-orm";
 import { addressFingerprint } from "./fingerprint";
 
 /**
@@ -16,7 +16,13 @@ import { addressFingerprint } from "./fingerprint";
  * - `verify_cap` blocks **only further "is this you?" emails**, never a
  *   restore link to an address that's already confirmed. Otherwise a stranger
  *   could add a victim's address from three phones and silently stop the
- *   victim ever getting their spots back.
+ *   victim ever getting their spots back. And once the address is confirmed
+ *   for a spotter, the automatic cap no longer applies at all (Samuel,
+ *   8 Oct 2026, SYC-261): a parent adding a second child gets the email.
+ * - `forget_verify` (SYC-262, Samuel 8 Oct 2026): "Forget this address" pressed
+ *   in an "is this you?" email for an address that already keeps another
+ *   spotter safe. The person chose it, so it blocks further "is this you?"
+ *   emails, but never that family's own restore links.
  */
 
 export type KeepSafeMail = "keep_safe_verify" | "restore_link";
@@ -24,10 +30,14 @@ export type KeepSafeMail = "keep_safe_verify" | "restore_link";
 export async function isKeepSafeSuppressed(mail: KeepSafeMail, address: string): Promise<boolean> {
   const own = addressFingerprint("keep_safe", address);
   const all = addressFingerprint("all", address);
-  const ownReasons =
-    mail === "keep_safe_verify"
-      ? undefined
-      : ne(emailSuppressionsTable.reason, "verify_cap");
+  let ownReasons;
+  if (mail === "restore_link") {
+    // Only an explicit, full "forget" stops a restore link.
+    ownReasons = notInArray(emailSuppressionsTable.reason, ["verify_cap", "forget_verify"]);
+  } else if (await isKeepSafeConfirmed(address)) {
+    // Confirmed somewhere: the automatic cap no longer applies (SYC-261).
+    ownReasons = ne(emailSuppressionsTable.reason, "verify_cap");
+  }
   const rows = await db
     .select({ id: emailSuppressionsTable.id })
     .from(emailSuppressionsTable)

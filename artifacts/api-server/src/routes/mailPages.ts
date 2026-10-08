@@ -23,6 +23,10 @@ const router: IRouter = Router();
 
 type Action = "confirm" | "forget";
 
+/** SYC-262: Forget on an address that already keeps another spotter safe. */
+const REQUEST_CANCELLED =
+  "Done. We've cancelled that request, and we won't send this address any more \"Is this you?\" emails. Any spotter this address already keeps safe stays safe.";
+
 const COPY: Record<Action, { title: string; ask: string; button: string; done: string }> = {
   confirm: {
     title: "Keep my spots safe",
@@ -112,8 +116,8 @@ function mount(action: Action) {
       send(res, 410, copy.title, NOT_VALID);
       return;
     }
-    req.log.info({ action, token: tokenLogId(raw) }, "mail page: done");
-    send(res, 200, copy.title, copy.done);
+    req.log.info({ action, outcome: done, token: tokenLogId(raw) }, "mail page: done");
+    send(res, 200, copy.title, done === "request_cancelled" ? REQUEST_CANCELLED : copy.done);
   });
 }
 
