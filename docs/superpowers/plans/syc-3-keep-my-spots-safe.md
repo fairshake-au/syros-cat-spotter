@@ -122,6 +122,14 @@ See "The website password gate" below. **Recommendation:** these two small pages
 
 **Recommendation: A.** It covers the common mistake without merging anyone. The decision on merging (B) can be revisited after launch if people ask for it.
 
+### Decision 8 (new, 8 Oct, found in the build) — A parent adding a second child on the same day
+
+**Decided by Samuel, 8 Oct 2026 (SYC-261): B.** Once an address is confirmed for a spotter, §4.4's one-per-24-hours limit and the automatic three-email cap no longer stop a sibling's "is this you?" email. The cap and the daily limit protect a stranger's inbox, and a confirmed address isn't a stranger's. Unconfirmed addresses are unchanged, and the per-IP limit and the daily ceiling still apply.
+
+### Decision 9 (new, 8 Oct, found in the build) — "Forget this address" in a stranger-triggered email
+
+**Decided by Samuel, 8 Oct 2026 (SYC-262): B.** If the address already keeps another spotter safe, "Forget this address" cancels only that request and stops further "is this you?" emails (suppression reason `forget_verify`). The family's own restore links keep working, so one reflex tap can't lock a child out of their spots. Otherwise, Forget is a full forget, as in A10.
+
 ---
 
 ## What exists today, and what has to be built first
