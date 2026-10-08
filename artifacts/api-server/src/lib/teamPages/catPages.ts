@@ -264,15 +264,28 @@ function statementItem(
         ` <span class="meta">(${esc(r.author.label)}, ${time(r.createdAt)})</span></p>`,
     )
     .join("");
+  const moved = s.movedTo
+    ? `<p class="replacement">Moved to <a href="${esc(catHref(s.movedTo.cat.id))}">${esc(s.movedTo.cat.name)}</a> ` +
+      `<span class="syr">${esc(s.movedTo.cat.syr)}</span>` +
+      (s.movedTo.reason ? `. Why: ${esc(s.movedTo.reason)}` : "") +
+      ` <span class="meta">(${time(s.movedTo.at)})</span></p>`
+    : "";
+  const corrects = s.movedFrom
+    ? `<p class="meta">Moved here from <a href="${esc(catHref(s.movedFrom.cat.id))}">${esc(s.movedFrom.cat.name)}</a> ` +
+      `<span class="syr">${esc(s.movedFrom.cat.syr)}</span></p>`
+    : s.replaces != null
+      ? `<p class="meta">Corrects ${statementLink(s.replaces)}</p>`
+      : "";
   return (
     `<li class="statement${replaced ? " replaced" : ""}" id="s-${s.id}">` +
     notice +
     `<p class="said"><span class="sid">#${s.id}</span> ${said}</p>` +
     `<p class="meta">${meta}</p>` +
     (s.reason ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
-    (s.replaces != null ? `<p class="meta">Corrects ${statementLink(s.replaces)}</p>` : "") +
+    corrects +
     (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
+    moved +
     wrongForm(s, may) +
     "</li>"
   );
