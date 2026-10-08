@@ -291,6 +291,7 @@ git commit -am "SYC-130: a life_status withdrawal supersedes a homed and asserts
   - `CLAIM_PIN_REACH_M = 1000`
   - `newestActiveOwnerHomed(exec, catId, deviceId | null): Promise<number | null>` (the observation id)
   - `clearOwner(exec, catId): Promise<void>` (owner link, owner name, home note, pin)
+  - `letGoWithinDays(exec, catId, deviceId, days): Promise<boolean>` (this phone withdrew its own claim on this cat within `days`)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -433,6 +434,16 @@ export async function newestActiveOwnerHomed(exec: DbOrTx, catId: number, device
   return r.rows[0]?.id ?? null;
 }
 
+/** §11: re-claiming the same cat within `days` of letting it go is refused. */
+export async function letGoWithinDays(exec: DbOrTx, catId: number, deviceId: string, days: number): Promise<boolean> {
+  const r = await exec.execute<{ n: number }>(sql`
+    select count(*)::int as n from observations
+     where cat_id = ${catId} and kind = 'life_status' and device_id = ${deviceId}
+       and value = '{"withdrawn": true}'::jsonb
+       and created_at > now() - make_interval(days => ${days})`);
+  return (r.rows[0]?.n ?? 0) > 0;
+}
+
 /** Clears everything that made someone this cat's owner (§6, §7). */
 export async function clearOwner(exec: DbOrTx, catId: number): Promise<void> {
   await exec.update(catsTable).set({
@@ -555,7 +566,9 @@ Expected: FAIL, because the old body schema is still in place.
      res.json(await catPayload(result.row, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId: body.deviceId }));
    });
    ```
-   `letGoWithinDays(exec, catId, deviceId, days)` lives in `claiming.ts`. It looks for a `life_status` withdrawal row by this `device_id` for this cat with `created_at > now() - days`. `REFUSAL_TEXT` holds the English fallbacks from spec §4.4; the app shows its own translated line, chosen by `code`.
+   `letGoWithinDays` comes from Task 3. `REFUSAL_TEXT` holds the English fallbacks from spec §4.4; the app shows its own translated line, chosen by `code`.
+
+   **The owner's later edits to the note (PATCH).** Today `PATCH /cats/:catId` stores `homeDescription` without the offensive-language check. Add it (`containsOffensiveLanguage`, 400 `OFFENSIVE_NOTE`), and keep its push free of the note; it already is ("home details were updated"). Test both in `cats.claim.test.ts`'s PATCH cases.
 5. **`canClaim`.** In `GET /cats/:catId`, read `X-Device-Id`. If `deviceSecretMatches(req, id)`, set `canClaim = (await claimEligibility(db, { catId, deviceId: id })).ok === true`; otherwise `false`. Add it to the response.
 6. **Logging.** Confirm the request logger never logs bodies (`app.ts` `pinoHttp` `serializers.req`). The log test locks this in.
 
@@ -829,7 +842,7 @@ This session runs on Opus. Each package below runs as a subagent in its own work
 4. `listCatsWithStats`, which uses the same serialiser at the public tier (Task 4's public-payload test covers the list too: add a `GET /cats` assertion);
 5. the resolve response's inline cat, which is the public tier (same test, via a resolve);
 6. the claim push (Task 4);
-7. the PATCH owner edit, which must keep moderating the note and never push it (Task 4: add an assertion to `cats.claim.test.ts`'s PATCH case);
+7. the PATCH owner edit, which gains the note check it lacks today and must never push the note (Task 4);
 8. the team cat view and page (Task 6);
 9. `severPerson` (Task 9);
 10. the request logs (Task 4).
