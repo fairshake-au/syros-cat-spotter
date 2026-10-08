@@ -10,6 +10,7 @@ import {
   markLeft,
   observationsTable,
   photosTable,
+  sightingsTable,
   pool,
   welfareReportsTable,
   type Observation,
@@ -55,6 +56,7 @@ let susanId: string;
 let n = 0;
 
 async function cleanup() {
+  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(welfareReportsTable).where(like(welfareReportsTable.publicId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${PREFIX}%`));
   await db.delete(photosTable).where(like(photosTable.publicId, `${PREFIX}%`));
@@ -584,5 +586,103 @@ describe("the queue row and the tie-mode search", () => {
     const draft = await newReport({ isDraft: true });
     const d = await request(app).get(`/api/team/cats?tie=${draft.publicId}`).set("Cookie", cookie);
     expect(d.text).toContain("That report couldn't be found.");
+  });
+});
+
+// ── The close follows the report ───────────────────────────────────────────
+
+describe("a closed report's outcome moves with it", () => {
+  const standing = async (catId: number) => {
+    const rows = (await rowsFor(catId)).filter((o) => o.kind === "welfare_outcome");
+    const replaced = new Set(
+      (await db.select({ s: observationsTable.supersedesId }).from(observationsTable)).map((r) => r.s),
+    );
+    return rows.filter((o) => !replaced.has(o.id));
+  };
+
+  it("tie, close, re-tie: one standing outcome, on the new cat; the old cat shows it moved", async () => {
+    const a = await newCat(`${PREFIX}Outa`);
+    const b = await newCat(`${PREFIX}Outb`);
+    const r = await newReport();
+    await tie(r.publicId, a, null);
+    await moveState(r.publicId, "new", "done");
+    const [old] = await standing(a);
+    expect(old).toBeDefined();
+
+    expect((await tie(r.publicId, b, a)).headers["location"]).toContain("tied=ok");
+    expect(await standing(a)).toHaveLength(0);
+    const onB = await standing(b);
+    expect(onB).toHaveLength(1);
+    expect(onB[0]).toMatchObject({
+      supersedesId: old!.id,
+      supersedeReason: "tied to the wrong cat",
+      accountId: susanId,
+      roleAtTime: "staff",
+      value: { state: "done", reportId: r.id },
+    });
+    expect(onB[0]!.observedAt.getTime()).toBe(old!.observedAt.getTime());
+
+    const json = await request(app).get(`/api/team/cats/${a}`).set("Cookie", cookie).set("Accept", "application/json");
+    const struck = (json.body.history as { id: number; kind: string; movedTo: { cat: { id: number } } | null }[]).find((h) => h.id === old!.id)!;
+    expect(struck.movedTo!.cat.id).toBe(b);
+    const pageA = await request(app).get(`/api/team/cats/${a}`).set("Cookie", cookie);
+    expect(pageA.text).toContain("<del>Welfare report closed: done</del>");
+    const pageB = await request(app).get(`/api/team/cats/${b}`).set("Cookie", cookie);
+    expect(pageB.text).toContain(`Moved here from <a href="/api/team/cats/${a}">${PREFIX}Outa</a>`);
+  });
+
+  it("tying a report that was already closed writes the outcome, by the person who closed it", async () => {
+    const catId = await newCat();
+    const r = await newReport({ state: "nothing_needed", stateChangedBy: susanId });
+    const closedAt = (await reportRow(r.publicId)).stateChangedAt!;
+    await tie(r.publicId, catId, null);
+    const [o] = await standing(catId);
+    expect(o).toMatchObject({ accountId: susanId, roleAtTime: "staff", value: { state: "nothing_needed", reportId: r.id } });
+    expect(o!.observedAt.getTime()).toBe(closedAt.getTime());
+    // Closed with nobody on record: the person tying, now.
+    const anon = await newReport({ state: "done" });
+    const c2 = await newCat();
+    await tie(anon.publicId, c2, null);
+    const [o2] = await standing(c2);
+    expect(o2).toMatchObject({ accountId: susanId, roleAtTime: "staff" });
+  });
+
+  it("reopen, re-tie, close: one standing outcome per close, all on the new cat", async () => {
+    const a = await newCat();
+    const b = await newCat();
+    const r = await newReport();
+    await tie(r.publicId, a, null);
+    await moveState(r.publicId, "new", "done");
+    await moveState(r.publicId, "done", "new");
+    await tie(r.publicId, b, a);
+    await moveState(r.publicId, "new", "nothing_needed");
+    expect(await standing(a)).toHaveLength(0);
+    const onB = await standing(b);
+    expect(onB.map((o) => (o.value as { state: string }).state)).toEqual(["done", "nothing_needed"]);
+  });
+});
+
+// ── The public answer does not move ────────────────────────────────────────
+
+describe("tying changes nothing the public sees", () => {
+  it("GET /api/cats/:id is byte-identical before and after the first tie", async () => {
+    const catId = await newCat();
+    const [p] = await db.select({ id: photosTable.id }).from(photosTable).where(like(photosTable.publicId, `${PREFIX}photo-%`)).limit(1);
+    await db.insert(sightingsTable).values({
+      catId,
+      deviceId: `${PREFIX}spotter`,
+      photoId: p!.id,
+      lat: 37.4451,
+      lng: 24.9421,
+      status: "resolved",
+      createdAt: new Date(Date.now() - 3_600_000),
+    });
+    const r = await newReport({ severity: "urgent", isLitter: true });
+    const before = await request(app).get(`/api/cats/${catId}`);
+    expect(before.status).toBe(200);
+    expect((await tie(r.publicId, catId, null)).headers["location"]).toContain("tied=ok");
+    await moveState(r.publicId, "new", "done");
+    const after = await request(app).get(`/api/cats/${catId}`);
+    expect(after.text).toBe(before.text);
   });
 });

@@ -80,6 +80,11 @@ export async function tieReportToCat(input: {
 
   try {
     return await db.transaction(async (tx): Promise<TieOutcome> => {
+      // The two locks: the report-row lock below serialises EVERY tie (the
+      // burst test pins it). The observation locks are defence in depth for
+      // any future path that supersedes a welfare_report or welfare_outcome;
+      // no current path can (capabilityFor returns null for them), so no
+      // black-box test can pin them alone.
       // 1. The report row. A draft is not a report yet.
       const locked = await tx.execute<{ id: number }>(
         sql`select id from welfare_reports
@@ -105,6 +110,21 @@ export async function tieReportToCat(input: {
         standing.rows.length > 0
           ? await lockActiveObservation(tx, standing.rows[0]!.id)
           : null;
+
+      // The standing welfare_outcome rows (one per close, so reopening and
+      // closing again leaves several). They move with the report: on a
+      // re-tie each is carried to the new cat as one linked entry, so the
+      // old cat does not keep a live "closed" for a report it no longer owns.
+      const outcomeIds = await tx.execute<{ id: number }>(sql`
+        select o.id from observations o
+        where o.kind = 'welfare_outcome'
+          and o.value->>'reportId' = ${String(report.id)}
+          and not exists (select 1 from observations s where s.supersedes_id = o.id)
+        order by o.id`);
+      const outcomes: Observation[] = [];
+      for (const row of outcomeIds.rows) {
+        outcomes.push(await lockActiveObservation(tx, row.id));
+      }
 
       // 3. Is it still what the page showed?
       if ((report.catId ?? null) !== input.expectedCatId) return { kind: "changed" };
@@ -143,6 +163,32 @@ export async function tieReportToCat(input: {
           ? { supersedesId: previous.id, supersedeReason: TIE_REASON }
           : {}),
       });
+
+      if (outcomes.length > 0) {
+        for (const old of outcomes) {
+          await writeObservation(tx, {
+            catId: input.catId,
+            kind: "welfare_outcome",
+            value: old.value,
+            accountId: old.accountId,
+            roleAtTime: old.roleAtTime,
+            observedAt: old.observedAt,
+            supersedesId: old.id,
+            supersedeReason: TIE_REASON,
+          });
+        }
+      } else if (report.state === "done" || report.state === "nothing_needed") {
+        // Tying a report that was closed before it had a cat: the close
+        // belongs in the cat's history too, by whoever closed it.
+        await writeObservation(tx, {
+          catId: input.catId,
+          kind: "welfare_outcome",
+          value: { state: report.state, reportId: report.id },
+          accountId: report.stateChangedBy ?? input.person.id,
+          roleAtTime: "staff",
+          observedAt: report.stateChangedAt ?? new Date(),
+        });
+      }
       return { kind: "tied", catId: input.catId, observation };
     });
   } catch (err) {
