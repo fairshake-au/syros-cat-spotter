@@ -229,7 +229,7 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 
 ## 10. What this does not stop
 
-- **Faking a meeting from a distance.** The app trusts the location a phone sends, and every cat's photo is public. So someone could save Agatha's photo, upload it as if they were at Agatha's public map position, confirm "That's the one", and claim her. **Accepted by Samuel, 8 Oct 2026 (D8).**
+- **Faking a meeting from a distance.** The app trusts the location a phone sends, and every cat's photo is public. So someone could save Agatha's photo, upload it as if they were at Agatha's public map position, confirm "That's the one", and claim Agatha. **Accepted by Samuel, 8 Oct 2026 (D8).**
 - **Any cat photo, within 1.5 km.** Because hand picks count (D1), someone near a cat could photograph any cat and pick this one from the nearby list. Accepted with D1.
 - **Someone who really goes and spots the cat.** A person who photographs a street cat once can claim it. Samuel accepted this on 7 Oct 2026.
 - **Someone who lies.** A person can say they live on Syros and that the cat is theirs, and put the pin near where the map shows it. The three steps stop honest mistakes and casual tries, not a determined liar. Odyspace's resident rate works the same way (a self-declaration and an address) and adds a manual check by staff, which Syros Cats can't do.
