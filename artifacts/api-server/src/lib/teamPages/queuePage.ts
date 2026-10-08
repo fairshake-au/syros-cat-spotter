@@ -134,8 +134,8 @@ function catRow(r: QueueReport): string {
   if (r.cat) {
     return row(
       "Which cat",
-      `<a class="tap" href="/api/team/cats/${r.cat.id}">${esc(r.cat.name)}</a> ` +
-        `<a class="tap" href="${esc(search)}">Wrong cat? Choose another</a>`,
+      `<a class="tap catlink" href="/api/team/cats/${r.cat.id}">${esc(r.cat.name)}</a>` +
+        `<a class="tap sublink" href="${esc(search)}">Wrong cat? Choose another</a>`,
     );
   }
   return row(

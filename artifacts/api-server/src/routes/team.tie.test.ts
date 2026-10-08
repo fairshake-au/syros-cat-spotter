@@ -528,7 +528,7 @@ describe("the queue row and the tie-mode search", () => {
     expect(page.text).toContain(`<a class="tap" href="/api/team/cats?tie=${r.publicId}">This is a cat we know</a>`);
     await tie(r.publicId, catId, null);
     const tied = await request(app).get("/api/team").set("Cookie", cookie);
-    expect(tied.text).toContain(`<a class="tap" href="/api/team/cats/${catId}">${PREFIX}Tigger &lt;i&gt;</a>`);
+    expect(tied.text).toContain(`<a class="tap catlink" href="/api/team/cats/${catId}">${PREFIX}Tigger &lt;i&gt;</a>`);
     expect(tied.text).toContain(`href="/api/team/cats?tie=${r.publicId}">Wrong cat? Choose another</a>`);
     expect(tied.text).not.toContain(`/api/team/cats?tie=${r.publicId}">This is a cat we know`);
     expect(tied.text).not.toContain("Tigger <i>");
