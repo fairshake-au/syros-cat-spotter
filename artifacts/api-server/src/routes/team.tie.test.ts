@@ -632,12 +632,14 @@ describe("a closed report's outcome moves with it", () => {
   });
 
   it("tying a report that was already closed writes the outcome, by the person who closed it", async () => {
+    // Closed by Nikos, tied by Susan: the outcome is Nikos's, not the tier's.
+    const nikosId = (await addPerson({ email: `${PREFIX}nikos@example.com`, name: "Nikos", addedBy: "cli:vitest", roles: ["staff"] })).id;
     const catId = await newCat();
-    const r = await newReport({ state: "nothing_needed", stateChangedBy: susanId });
+    const r = await newReport({ state: "nothing_needed", stateChangedBy: nikosId });
     const closedAt = (await reportRow(r.publicId)).stateChangedAt!;
     await tie(r.publicId, catId, null);
     const [o] = await standing(catId);
-    expect(o).toMatchObject({ accountId: susanId, roleAtTime: "staff", value: { state: "nothing_needed", reportId: r.id } });
+    expect(o).toMatchObject({ accountId: nikosId, roleAtTime: "staff", value: { state: "nothing_needed", reportId: r.id } });
     expect(o!.observedAt.getTime()).toBe(closedAt.getTime());
     // Closed with nobody on record: the person tying, now.
     const anon = await newReport({ state: "done" });
