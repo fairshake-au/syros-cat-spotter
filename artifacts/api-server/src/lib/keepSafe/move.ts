@@ -158,6 +158,13 @@ export async function redeemRestore(input: {
   if (!spotterDeviceId || spotterDeviceId === callerDeviceId) return { ok: false, reason: "bad_spotter" };
   try {
     return await db.transaction(async (tx) => {
+      // Lock the calling phone's credential first: two links redeemed by one
+      // phone at the same moment queue up, and the second finds it retired
+      // (review of #106).
+      const [self] = (
+        await tx.execute(sql`select secret_hash from device_credentials where device_id = ${callerDeviceId} for update`)
+      ).rows as { secret_hash: string }[];
+      if (!self || self.secret_hash !== input.callerSecretHash) throw new Refused("caller_changed");
       const token = await readToken(tx, raw);
       if (!token) throw new Refused("no_such_token");
       if (token.purpose !== "restore") throw new Refused("wrong_purpose");

@@ -887,3 +887,103 @@ describe("Samuel's decisions, 8 Oct 2026", () => {
     expect(row!.reason).toBe("forget");
   });
 });
+
+describe("adversarial review of #106: fixes", () => {
+  const links = (email: string) => mailTo(email).filter((m) => m.subject.startsWith("Get your spots back"));
+
+  it("finding 1: requests for made-up addresses can't use up the daily restore ceiling (M)", async () => {
+    const [{ n: issued }] = (
+      await db.execute(sql`select count(*)::int as n from mail_tokens where purpose = 'restore' and created_at > now() - interval '1 day'`)
+    ).rows as { n: number }[];
+    process.env["KEEP_SAFE_RESTORE_DAILY_CEILING"] = String(issued + 1);
+    const email = newAddress();
+    await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    for (let i = 0; i < 6; i++) await ask(phone, newAddress(), freshIp());
+    await ask(phone, email, freshIp());
+    await settleOutbox();
+    expect(links(email)).toHaveLength(1);
+    // The ceiling itself still holds: the next real link is refused.
+    await ask(phone, email, freshIp());
+    await settleOutbox();
+    expect(links(email)).toHaveLength(1);
+  });
+
+  it("finding 4: a pending address changed before it's confirmed keeps no trace of the spotter", async () => {
+    const phone = newPhone();
+    await bind(phone);
+    const typo = newAddress();
+    await add(phone, typo);
+    await ageVerifyEmails();
+    await add(phone, newAddress());
+    const typoEvents = await db
+      .select()
+      .from(emailConsentEventsTable)
+      .where(eq(emailConsentEventsTable.addressHmac, addressFingerprint("keep_safe", typo)));
+    expect(typoEvents.length).toBeGreaterThan(0);
+    for (const e of typoEvents) {
+      expect(e.deviceId).toBeNull();
+      expect(e.contactId).toBeNull();
+    }
+  });
+
+  it("finding 5: deletion also drops the spotter's queued keep-safe email (address and token)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const fail = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    vi.stubGlobal("fetch", fail);
+    const p = newPhone();
+    await bind(p);
+    await ask(p, email);
+    await settleOutbox();
+    const queued = async () =>
+      (
+        await db.execute(sql`select count(*)::int as n from mail_outbox where purpose = 'restore_link' and payload ? 'to'`)
+      ).rows[0] as { n: number };
+    expect((await queued()).n).toBeGreaterThan(0);
+    await db.transaction((tx) => severKeepSafe(tx, p.id, "deleted by the person"));
+    await db.transaction((tx) => severKeepSafe(tx, old.id, "deleted by the person"));
+    expect((await queued()).n).toBe(0);
+  });
+
+  it("finding 6: the same-phone replay needs the phone's secret, not just the ids (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    expect((await redeem(phone, token, old.id)).status).toBe(200);
+    const imposter = { id: phone.id, secret: randomBytes(24).toString("hex") };
+    const r = await redeem(imposter, token, old.id);
+    expect(r.status).not.toBe(200);
+    expect(JSON.stringify(r.body)).not.toContain(old.username);
+  });
+
+  it("one phone redeeming two links for two spotters at the same moment becomes only one of them", async () => {
+    const email = newAddress();
+    const one = await keptSafe(email);
+    const two = await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    const t1 = await askAndGetToken(phone, email);
+    const t2 = await askAndGetToken(phone, email);
+    const results = await Promise.all([redeem(phone, t1, one.id), redeem(phone, t2, two.id)]);
+    expect(results.filter((r) => r.status === 200)).toHaveLength(1);
+    const moved = [await storedHash(one.id), await storedHash(two.id)].filter((h) => h === hashSecret(phone.secret));
+    expect(moved).toHaveLength(1);
+  });
+
+  it("a provider 4xx gives the email up at once and clears the address", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ message: "invalid" }), { status: 422 })));
+    const p = newPhone();
+    await bind(p);
+    await add(p, newAddress());
+    await settleOutbox();
+    const [row] = (
+      await db.execute(sql`select state, payload from mail_outbox where purpose = 'keep_safe_verify' order by id desc limit 1`)
+    ).rows as { state: string; payload: Record<string, unknown> }[];
+    expect(row!.state).toBe("failed");
+    expect(row!.payload["to"]).toBeUndefined();
+  });
+});

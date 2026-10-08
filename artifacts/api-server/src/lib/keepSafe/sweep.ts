@@ -19,7 +19,7 @@ import { MOVED_DAYS } from "../deviceAuth";
  *   that long (`device_moved` itself also stops at 90 days, in deviceAuth.ts).
  * - Request rows (the limits) go after 24 hours.
  * - Any outbox row still holding an address or a token past its link's expiry
- *   is cleared.
+ *   is cleared, and settled keep-safe outbox rows go after 30 days.
  */
 
 export const PENDING_DAYS = 7;
@@ -69,6 +69,14 @@ export async function sweepKeepSafe(): Promise<SweepResult> {
      where created_at < now() - make_interval(hours => ${REQUEST_KEEP_HOURS})
   `);
   const outboxCleared = await clearExpiredKeepSafePayloads();
+  // Settled keep-safe outbox rows carry the address fingerprint; they go
+  // with the tokens (review of #106, finding 5).
+  await db.execute(sql`
+    delete from mail_outbox
+     where purpose in ('keep_safe_verify', 'restore_link')
+       and state in ('sent', 'failed')
+       and created_at < now() - make_interval(days => ${TOKEN_KEEP_DAYS})
+  `);
   return {
     pendingExpired,
     tokensDeleted: tokens.rowCount ?? 0,

@@ -35,11 +35,20 @@ const LANGUAGES = new Set(["en", "el", "fr"]);
 const WORDING = /^[a-z0-9._-]{1,40}$/;
 
 let restorePadMs = 800;
+// Adding an address does a little more work when the address is already
+// confirmed somewhere (SYC-261), so its reply is padded too (review of #106,
+// finding 3). The email itself goes after the reply.
+let addPadMs = 300;
 
-/** Tests only: the deadline pad (plan step 5; test 8 measures the real one). */
+/** Tests only: the deadline pads (plan step 5; test 8 measures the real one). */
 export function __setRestorePadForTest(ms: number | null): void {
   if (process.env["NODE_ENV"] !== "test") throw new Error("test only");
   restorePadMs = ms ?? 800;
+  addPadMs = ms ?? 300;
+}
+
+async function padTo(started: number, ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, Math.max(0, ms - (Date.now() - started))));
 }
 
 // Plan step 6: 30 per IP per hour, each. A courtesy cap: the token itself is
@@ -77,6 +86,7 @@ router.get("/keep-safe/:deviceId", async (req, res) => {
 });
 
 router.post("/keep-safe/:deviceId", async (req, res) => {
+  const started = Date.now();
   noStore(res);
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
@@ -98,6 +108,7 @@ router.post("/keep-safe/:deviceId", async (req, res) => {
     { deviceId, email, surface, language, wordingVersion, ip: req.ip ?? "unknown" },
     req.log,
   );
+  await padTo(started, addPadMs);
   sendAfterReply(res, outboxId);
   res.json(state);
 });

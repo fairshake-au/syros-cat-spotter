@@ -233,7 +233,11 @@ async function processKeepSafe(row: MailOutboxRow, mail: KeepSafeMail): Promise<
     keepSafeSendDeps(mail),
   );
   if (!result.ok) {
-    if (FINAL.has(result.reason)) {
+    // A provider 4xx (except 429) is about this message, not a passing fault.
+    const refusedByProvider =
+      result.reason === "provider_error" && typeof result.status === "number" &&
+      result.status >= 400 && result.status < 500 && result.status !== 429;
+    if (FINAL.has(result.reason) || refusedByProvider) {
       await giveUpKeepSafe(row, result.reason);
       return "failed";
     }

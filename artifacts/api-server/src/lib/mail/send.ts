@@ -176,6 +176,8 @@ export type SendResult =
         | "not_configured"
         | "provider_error";
       detail?: string;
+      /** The provider's HTTP status, when it answered. */
+      status?: number | null;
     };
 
 type Log = Pick<typeof logger, "error" | "info" | "warn">;
@@ -360,7 +362,7 @@ export async function sendMail(message: MailMessage, deps: SendDeps = {}): Promi
   if (!result.ok) {
     const error = redactAddresses(result.error);
     log.error({ purpose, recipientHash, status: result.status, error }, "mail: SEND FAILED");
-    return { ok: false, reason: "provider_error", detail: error };
+    return { ok: false, reason: "provider_error", detail: error, status: result.status };
   }
   log.info({ purpose, recipientHash, providerMessageId: result.id }, "mail: sent");
   return { ok: true, providerMessageId: result.id };

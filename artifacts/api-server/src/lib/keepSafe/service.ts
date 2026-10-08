@@ -62,6 +62,42 @@ async function count(tx: Tx, query: ReturnType<typeof sql>): Promise<number> {
   return Number((result.rows[0] as { n: number | string } | undefined)?.n ?? 0);
 }
 
+/**
+ * An address nobody confirmed, deleted before the sweep (changed, removed or
+ * forgotten): its consent record keeps only that an unconfirmed attempt was
+ * withdrawn, as the 7-day sweep does (email-capture.md §5.5; review of #106,
+ * finding 4). The keyed fingerprint stays, for the lifetime cap.
+ */
+async function redactUnconfirmed(tx: Tx, contactId: number): Promise<void> {
+  await tx.execute(sql`
+    update email_consent_events
+       set contact_id = null, device_id = null,
+           redacted_at = now(), redaction_reason = 'unconfirmed address withdrawn'
+     where contact_id = ${contactId} and redacted_at is null
+  `);
+}
+
+/** The "withdrawn" event: identifying only when a confirmed address is withdrawn. */
+async function withdrawnEvent(
+  tx: Tx,
+  row: { id: number; address_hmac: string; status: string },
+  deviceId: string,
+  surface: string,
+): Promise<void> {
+  if (row.status === "confirmed") {
+    await tx.execute(sql`
+      insert into email_consent_events (contact_id, device_id, address_hmac, purpose, event, surface)
+      values (${row.id}, ${deviceId}, ${row.address_hmac}, 'keep_safe', 'withdrawn', ${surface})
+    `);
+    return;
+  }
+  await redactUnconfirmed(tx, row.id);
+  await tx.execute(sql`
+    insert into email_consent_events (address_hmac, purpose, event, surface)
+    values (${row.address_hmac}, 'keep_safe', 'withdrawn', ${surface})
+  `);
+}
+
 // ── Adding an address (step 3) ─────────────────────────────────────────────
 
 export type KeepSafeState =
@@ -122,10 +158,7 @@ export async function addKeepSafeAddress(input: AddInput, log: Log): Promise<{ s
       if (existing) {
         // Changing the address replaces the row and needs confirming again.
         await tx.execute(sql`delete from email_contacts where id = ${existing.id}`);
-        await tx.execute(sql`
-          insert into email_consent_events (contact_id, device_id, address_hmac, purpose, event, surface, wording_version, language)
-          values (${existing.id}, ${input.deviceId}, ${existing.address_hmac}, 'keep_safe', 'withdrawn', ${input.surface}, ${input.wordingVersion}, ${input.language})
-        `);
+        await withdrawnEvent(tx, existing, input.deviceId, input.surface);
       }
       const inserted = await tx.execute(sql`
         insert into email_contacts (purpose, address_hmac, address_mask, device_id, status)
@@ -209,13 +242,10 @@ export async function removeKeepSafeAddress(deviceId: string): Promise<void> {
   await db.transaction(async (tx) => {
     const removed = await tx.execute(sql`
       delete from email_contacts where purpose = 'keep_safe' and device_id = ${deviceId}
-      returning id, address_hmac
+      returning id, address_hmac, status
     `);
-    for (const row of removed.rows as { id: number; address_hmac: string }[]) {
-      await tx.execute(sql`
-        insert into email_consent_events (contact_id, device_id, address_hmac, purpose, event, surface)
-        values (${row.id}, ${deviceId}, ${row.address_hmac}, 'keep_safe', 'withdrawn', 'settings')
-      `);
+    for (const row of removed.rows as { id: number; address_hmac: string; status: string }[]) {
+      await withdrawnEvent(tx, row, deviceId, "settings");
     }
   });
 }
@@ -286,18 +316,25 @@ export async function forgetAddress(raw: string): Promise<ForgetOutcome> {
        where purpose = 'keep_safe' and address_hmac = ${token.address_hmac} and status = 'confirmed'
          and id is distinct from ${token.contact_id}
     `);
+    let forgotten: { id: number; address_hmac: string; status: string } | undefined;
     if (token.contact_id) {
-      await tx.execute(sql`delete from email_contacts where id = ${token.contact_id}`);
+      forgotten = (
+        await tx.execute(sql`delete from email_contacts where id = ${token.contact_id} returning id, address_hmac, status`)
+      ).rows[0] as typeof forgotten;
     }
     const reason = keepsAnotherSafe ? "forget_verify" : "forget";
     await tx.execute(sql`
       insert into email_suppressions (address_hmac, reason, scope)
       values (${token.address_hmac}, ${reason}, 'keep_safe') on conflict do nothing
     `);
-    await tx.execute(sql`
-      insert into email_consent_events (contact_id, device_id, address_hmac, purpose, event, surface)
-      values (${token.contact_id}, ${token.device_id}, ${token.address_hmac}, 'keep_safe', 'withdrawn', 'email')
-    `);
+    if (forgotten) {
+      await withdrawnEvent(tx, forgotten, token.device_id, "email");
+    } else {
+      await tx.execute(sql`
+        insert into email_consent_events (address_hmac, purpose, event, surface)
+        values (${token.address_hmac}, 'keep_safe', 'withdrawn', 'email')
+      `);
+    }
     return keepsAnotherSafe ? "request_cancelled" : "forgotten";
   });
 }
@@ -337,17 +374,21 @@ export async function requestRestore(
        where kind = 'restore' and ip_hash = ${ipHash} and created_at > now() - interval '1 hour'
     `);
     if (fromIp > LIMITS.restorePerIpPerHour) return skip("per_ip");
-    const today = await count(tx, sql`
-      select count(*)::int as n from mail_requests
-       where kind = 'restore' and created_at > now() - interval '1 day'
-    `);
-    if (today > dailyCeilings().restore) return skip("global_ceiling", "error");
 
     const known = await count(tx, sql`
       select count(*)::int as n from email_contacts
        where purpose = 'keep_safe' and address_hmac = ${hmac} and status = 'confirmed'
     `);
     if (!known) return skip("not_known");
+    // The global ceiling counts links actually issued, not requests: otherwise
+    // one phone asking for made-up addresses could switch restore off for
+    // everyone for a day (adversarial review of #106, finding 1). It's global
+    // and invisible to the caller, so it reveals nothing about any address.
+    const issuedToday = await count(tx, sql`
+      select count(*)::int as n from mail_tokens
+       where purpose = 'restore' and created_at > now() - interval '1 day'
+    `);
+    if (issuedToday >= dailyCeilings().restore) return skip("global_ceiling", "error");
 
     // At most three live links per address: the oldest expires to make room.
     await tx.execute(sql`
