@@ -302,6 +302,7 @@ Every action below is a form on the team cat page. Each is `requireOrigin(TEAM_O
   The second person gets *"Someone else tied this report a moment ago."* The lock shape is extracted from the supersede route into one shared helper rather than copied. SYC-199's database index stays the later backstop.
 - **Closing a tied report** (PR 2's route) also writes `welfare_outcome { state, reportId }` authored by the staff member, in the same transaction as the state change. Reopening and closing again writes a second outcome. That is history, and nothing is emailed (Slice 3).
 - **Neither kind changes a derived status** (§8.4). A test pins that.
+- **As built (8 Oct 2026, Samuel's decision on re-tying):** a re-tie is one linked entry. The new `welfare_report` on the right cat carries `supersedesId` pointing at the old one, with the reason "tied to the wrong cat". The team cat page and "last seen alive" honour a correction that sits on another cat. Any standing `welfare_outcome` moves the same way. A report that was already closed before its first tie gets its outcome at tie time, authored by whoever closed it and dated when they closed it.
 - The queue row then links to the team cat page, and the cat's history shows the report (§3.1).
 
 ### PR 6: Hiding and restoring a photo (migration `photo_visibility`)
