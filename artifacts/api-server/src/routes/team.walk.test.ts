@@ -61,11 +61,12 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * three (queue JSON, report photo, catalogue photo), PR 2's two (a
  * report's state, a report's team note), PR 3's two (finding a cat, a
  * cat's page), and PR 4's six (life status, sterilisation, rename, mark a
- * statement wrong, the Probably sterilised list, Looks right). If an Express upgrade
+ * statement wrong, the Probably sterilised list, Looks right), and PR 5's
+ * one (tying a report to a cat). If an Express upgrade
  * changes `router.stack` and the walk finds fewer, the test fails rather than
  * passing on an empty list. Raise this when a PR adds routes.
  */
-const MINIMUM_ROUTES = 20;
+const MINIMUM_ROUTES = 21;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -144,6 +145,7 @@ describe("P1-1: every /api/team route refuses the unauthorised the same way", ()
       "GET /api/team/photos/:publicId",
       "POST /api/team/reports/:publicId/state",
       "POST /api/team/reports/:publicId/note",
+      "POST /api/team/reports/:publicId/cat",
       "GET /api/team/cats",
       "GET /api/team/cats/:id",
       "POST /api/team/cats/:id/life-status",
