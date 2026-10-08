@@ -8,6 +8,8 @@ import type {
 } from "../teamCatView";
 import { QUERY_MAX } from "../teamCatView";
 import type { Capability } from "../capabilities";
+import type { QueueReport } from "../welfareQueue";
+import { timeAgo } from "./queuePage";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 
@@ -108,13 +110,51 @@ function resultCard(c: TeamCatSearchResult): string {
   );
 }
 
+/**
+ * The search when it is choosing a cat for a welfare report (PR 5): the same
+ * results, each with a plain "This is the cat" form posting to the tie route.
+ * `report` is null when the id in the link matches no sent report.
+ */
+export interface TieMode {
+  publicId: string;
+  report: QueueReport | null;
+  /** May this person tie? Without it the results are only for looking. */
+  canTie: boolean;
+}
+
+function tieResultCard(c: TeamCatSearchResult, tie: TieMode & { report: QueueReport }): string {
+  const thumb = c.thumbnailUrl
+    ? `<img class="thumb" src="${esc(c.thumbnailUrl)}" alt="" loading="lazy">`
+    : '<span class="thumb nothumb">No photo</span>';
+  const current = tie.report.cat?.id === c.id;
+  const action = current
+    ? '<p class="hint">This report is already tied to this cat.</p>'
+    : tie.canTie
+      ? `<form method="post" action="/api/team/reports/${esc(encodeURIComponent(tie.publicId))}/cat">` +
+        `<input type="hidden" name="catId" value="${c.id}">` +
+        `<input type="hidden" name="expectedCatId" value="${tie.report.cat ? tie.report.cat.id : ""}">` +
+        `<button type="submit" class="tiebtn">This is the cat</button></form>`
+      : "";
+  return (
+    `<li class="tiecard"><div class="catrow">${thumb}` +
+    `<span><a class="tap" href="${esc(catHref(c.id))}"><strong>${esc(c.name)}</strong></a> <span class="syr">${esc(c.syr)}</span>` +
+    `<span class="status">${esc(publicStatusText(c.status))}</span></span></div>${action}</li>`
+  );
+}
+
 export function renderCatSearchPage(
   query: string,
   results: TeamCatSearchResult[],
   personName: string,
+  tie?: TieMode,
+  now: Date = new Date(),
 ): string {
+  const tieField = tie
+    ? `<input type="hidden" name="tie" value="${esc(tie.publicId)}">`
+    : "";
   const form =
     '<form class="search" method="get" action="/api/team/cats" role="search">' +
+    tieField +
     '<label class="label" for="q">Name or SYR number</label>' +
     `<div class="searchrow"><input id="q" name="q" type="search" value="${esc(query)}" maxlength="${QUERY_MAX}"${query.trim() === "" ? " autofocus" : ""} autocomplete="off" autocapitalize="none" spellcheck="false">` +
     '<button type="submit">Find</button></div></form>';
@@ -130,9 +170,42 @@ export function renderCatSearchPage(
       results.length >= 30
         ? '<p class="empty">Showing the first 30. Type more of the name to narrow it.</p>'
         : "";
-    body = `<ul class="cats">${results.map(resultCard).join("")}</ul>${more}`;
+    const items =
+      tie && tie.report
+        ? results.map((c) => tieResultCard(c, { ...tie, report: tie.report! })).join("")
+        : results.map(resultCard).join("");
+    body = `<ul class="cats">${items}</ul>${more}`;
   }
-  return renderPage({ title: "Cats", active: "cats", personName, body: form + body });
+  if (!tie) {
+    return renderPage({ title: "Cats", active: "cats", personName, body: form + body });
+  }
+  const back = `/api/team#r-${encodeURIComponent(tie.publicId)}`;
+  if (!tie.report) {
+    return renderPage({
+      title: "Which cat is this?",
+      active: "queue",
+      personName,
+      body:
+        '<p class="notice" role="status">That report couldn\'t be found.</p>' +
+        '<p><a class="tap" href="/api/team">Back to the welfare queue</a></p>',
+    });
+  }
+  const r = tie.report;
+  const sev = r.severity === "urgent" ? "Urgent" : "Needs attention";
+  const intro =
+    `<p class="hint">Report: ${esc(sev)}${r.isLitter ? ", kittens" : ""}, sent ` +
+    `${esc(timeAgo(r.at, now))}. ` +
+    (r.cat
+      ? `Now tied to ${esc(r.cat.name)}. Pick the right cat below.`
+      : "Find the cat it is about, then tap “This is the cat”.") +
+    " Nothing is sent to anyone.</p>";
+  return renderPage({
+    title: "Which cat is this?",
+    active: "queue",
+    personName,
+    beforeTitle: `<p class="back"><a class="tap" href="${esc(back)}">Back to the report</a></p>`,
+    body: intro + form + body,
+  });
 }
 
 // ── The team's cat page ────────────────────────────────────────────────────

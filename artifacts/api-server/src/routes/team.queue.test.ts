@@ -63,6 +63,9 @@ const getQueue = async () => {
 // has to be added here too.
 const EXPECTED_REPORT_KEYS = [
   "at",
+  // PR 5: the cat the team tied the report to ({ id, name } or null). Its
+  // name is a catalogue name, not a private field.
+  "cat",
   "contactLeft",
   "emailToTeam",
   "id",

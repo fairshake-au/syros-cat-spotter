@@ -123,8 +123,14 @@ legend{padding:0}
 .statement summary{font-size:15px}
 .fixes button,.statement button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
 .likelyactions button:not(.save){width:100%}
+.tiecard{margin:8px 0}
+.tiecard .catrow{margin:0}
+.tiecard form{margin:6px 0 0}
+.tiecard .hint{margin:6px 0 0}
+.tiecard button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
 @media (min-width:700px){
 main{padding-top:20px}
+.tiecard button{width:auto}
 .report.has-photo{display:grid;grid-template-columns:240px 1fr;gap:0 16px;align-items:start}
 .report.has-photo .photo,.report.has-photo .nophoto{grid-column:1;grid-row:1 / span 2}
 .report.has-photo>.head,.report.has-photo>dl,.report.has-photo>.actions,.report.has-photo>.notice{grid-column:2}

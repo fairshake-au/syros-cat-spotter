@@ -7,6 +7,7 @@ import type {
   WelfareQueue,
 } from "../welfareQueue";
 import { CHANGED_MESSAGE, NOTE_MAX, REPORT_STATES } from "../welfareActions";
+import { TIE_CHANGED_MESSAGE, TIE_SAME_MESSAGE } from "../welfareTie";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 
@@ -113,11 +114,42 @@ function actionForms(r: QueueReport): string {
   );
 }
 
+/** What happened to a tie, by the fixed key the tie route sent back. */
+export type TiedNotice = { id: string; key: string };
+
+const TIED_TEXT: Record<string, string> = {
+  ok: "Saved. This report is now tied to the cat shown below.",
+  changed: TIE_CHANGED_MESSAGE,
+  same: TIE_SAME_MESSAGE,
+};
+
+/**
+ * Which cat this is (PR 5): the cat's name linking to the team's cat page
+ * with a way to choose another, or a plain link into the cat search.
+ * Plain links only: the search carries the report's public id and shows a
+ * "This is the cat" form beside each result.
+ */
+function catRow(r: QueueReport): string {
+  const search = `/api/team/cats?tie=${encodeURIComponent(r.id)}`;
+  if (r.cat) {
+    return row(
+      "Which cat",
+      `<a class="tap" href="/api/team/cats/${r.cat.id}">${esc(r.cat.name)}</a> ` +
+        `<a class="tap" href="${esc(search)}">Wrong cat? Choose another</a>`,
+    );
+  }
+  return row(
+    "Which cat",
+    `<a class="tap" href="${esc(search)}">This is a cat we know</a>`,
+  );
+}
+
 function reportCard(
   r: QueueReport,
   now: Date,
   closed: boolean,
   changedId?: string,
+  tied?: TiedNotice,
 ): string {
   const classes = [
     "report",
@@ -154,6 +186,9 @@ function reportCard(
     (r.id === changedId
       ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>`
       : "") +
+    (tied && r.id === tied.id && TIED_TEXT[tied.key]
+      ? `<p class="notice" role="status">${esc(TIED_TEXT[tied.key]!)}</p>`
+      : "") +
     `<div class="head">${tags}</div>` +
     "<dl>" +
     row("Where", place(r.lat, r.lng)) +
@@ -163,6 +198,7 @@ function reportCard(
         ? `<span class="note">${esc(r.note)}</span>`
         : '<span class="ago">Nothing written</span>',
     ) +
+    catRow(r) +
     row("Contact left", "No") +
     row("Team note", note) +
     moved +
@@ -203,9 +239,10 @@ export function renderQueuePage(
   personName: string,
   now: Date = new Date(),
   changedId?: string,
+  tied?: TiedNotice,
 ): string {
   const open = queue.open.length
-    ? queue.open.map((r) => reportCard(r, now, false, changedId)).join("")
+    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied)).join("")
     : '<p class="empty">No reports are waiting for the team.</p>';
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
@@ -217,7 +254,7 @@ export function renderQueuePage(
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +
-      queue.closed.map((r) => reportCard(r, now, true, changedId)).join("") +
+      queue.closed.map((r) => reportCard(r, now, true, changedId, tied)).join("") +
       (queue.closedTotal > queue.closed.length
         ? `<p class="empty">Showing the newest ${queue.closed.length} of ${queue.closedTotal}.</p>`
         : "")
