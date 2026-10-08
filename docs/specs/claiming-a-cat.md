@@ -1,6 +1,6 @@
 # Saying a cat lives with you ("This is my cat")
 
-**Status:** **Decisions made by Samuel, 8 October 2026 (§15). Copy still awaiting approval.** One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
+**Status:** **Approved by Samuel, 8 October 2026**: decisions (§15) and wording. One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
 **Owner:** Samuel
 **Covers:** SYC-130, as directed by Samuel on 7 October 2026 (Linear SYC-130).
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2 (who may state a life status), §6.4 (item 4, who hears about sightings straight away), §8 (deletion), §10.1 (observations), §10.2 (life status), §10.3 (merged cats), §10.6 (Option B: an owner sees their cat's exact spot) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3 (fixing what is wrong), §7.3 (capabilities) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 (how a sighting was matched), §8.2 (moving a sighting) · [`privacy-policy.md`](./privacy-policy.md) · [`DECISIONS.md`](./DECISIONS.md) Part 3 (spec ownership) · SYC-41 (blurring), SYC-218 (spine PR 9, the round-up), SYC-63 (deletion), SYC-232 (the "has a home" push), SYC-59 (duplicate cats), SYC-52 (confidence engine), SYC-4 (native-speaker review).
@@ -122,7 +122,7 @@ The page can be out of date: another phone may have claimed the cat a moment ear
 |---|---|---|---|
 | 403 | `NOT_MET` | This phone hasn't met the cat | *"Spot Agatha with the camera first, then you can say Agatha lives with you."* |
 | 409 | `ALREADY_HOMED` | It has a home or an owner | *"Agatha already has a home."* The page refreshes |
-| 409 | `NOT_ON_STREET` | It is in care or has died | *"Agatha can't be claimed right now."* The page refreshes |
+| 409 | `NOT_ON_STREET` | It is in care or has died | *"Agatha can't be marked as yours right now."* The page refreshes |
 | 429 | (rate limit) | Too many claims from this phone | *"Please try again later."* |
 | — | — | No connection | *"You need a connection to do this."* A claim is never saved to send later |
 
@@ -215,11 +215,13 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 
 ## 12. Edits to other documents
 
-These follow from this spec, and are made once it's approved:
-- **`cat-record-data-spine.md` §3.2:** an owner may also *withdraw* their own `homed` statement (§6). §11 row 4 loses `POST /cats` (§9).
+Made with this spec's approval:
+- **`cat-record-data-spine.md` §3.2:** an owner may also *withdraw* their own `homed` statement (§6). §11 row 4 notes that `POST /cats` is removed (§9).
 - **`team-access-and-welfare-queue.md` §3.3 and §7.3:** the "has an owner" indicator, "Remove owner", and the `remove_owner` capability (§7).
+- **`DECISIONS.md` Part 3:** this document owns who may claim a cat, the claim and let-go screens, and removing an owner.
+
+Needs its own approval, because the privacy policy's text is approved separately (`DECISIONS.md` Part 3):
 - **`privacy-policy.md`:** say plainly that an owner sees their cat's exact spot and hears about its sightings, that where an owned cat lives is seen only by the owner and Syros Cats (D9), and that letting go or deletion ends it.
-- **`DECISIONS.md` Part 3:** this document owns "who may claim a cat, the claim and let-go screens, and removing an owner".
 
 ---
 
@@ -270,7 +272,7 @@ The button and sheet are rewritten in all three languages. English has said "Cla
 | D8 | How hard to make faking a meeting from a distance | **Accept it.** Nothing built against it; recorded in §10. The options considered were refusing copies of the cat's own photos, requiring sightings on two days, and owner abilities switching on over time. |
 | D9 | Who sees where an owned cat lives | **The owner and Syros Cats only.** Everyone else sees "Has a home" (§4.2, §11). |
 
-**Copy.** All wording in §4, §6 and §7 is still a draft for approval.
+**Copy.** The wording in §4, §6 and §7 is approved (8 Oct 2026). Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
 
 ---
 
