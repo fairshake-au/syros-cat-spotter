@@ -6,9 +6,10 @@ import {
   peopleTable,
   photosTable,
   sightingsTable,
+  observationsTable,
   type Observation,
 } from "@workspace/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { loadCatRecords } from "./observations";
 import {
@@ -196,8 +197,17 @@ export interface TeamStatement {
   createdAt: string;
   /** The statement this one corrects, if any. */
   replaces: number | null;
-  /** Statements that correct this one. Empty while it stands. */
+  /** Statements that correct this one. Empty while it stands. Includes a
+   * replacement written on another cat (see `movedTo`). */
   replacedBy: number[];
+  /**
+   * Set when this statement was replaced by a row on a DIFFERENT cat: a
+   * welfare report that was re-tied ("tied to the wrong cat", PR 5). The old
+   * cat shows it struck through, with where it went and why. Null otherwise.
+   */
+  movedTo: { statementId: number; cat: TeamCatRef; reason: string | null; at: string } | null;
+  /** Set when this statement replaced one on a different cat: where it came from. */
+  movedFrom: { statementId: number; cat: TeamCatRef } | null;
   photoUrl: string | null;
   /**
    * How the team may mark it wrong (PR 4), or null. Only a standing
@@ -230,6 +240,12 @@ function correctionOf(o: Observation, replaced: boolean): StatementCorrection | 
   }
   if (o.kind === "ear_tip" && v["clipped"] === true) return { kind: "ear_tip_clipped" };
   return null;
+}
+
+export interface TeamCatRef {
+  id: number;
+  syr: string;
+  name: string;
 }
 
 export interface TeamResolved<T> {
@@ -300,6 +316,78 @@ async function photoPublicIds(ids: readonly number[]): Promise<Map<number, strin
   return out;
 }
 
+/**
+ * Replacements that live on a different cat than the statement they replace
+ * (PR 5, Samuel 8 Oct 2026: re-tying a welfare report writes ONE row on the
+ * new cat that supersedes the old cat's). Read-only. `movedTo`: for each of
+ * this cat's statements replaced elsewhere. `movedFrom`: for each of this
+ * cat's statements that replaced one elsewhere.
+ */
+async function crossCatLinks(observations: readonly Observation[]) {
+  const movedTo = new Map<number, NonNullable<TeamStatement["movedTo"]>>();
+  const movedFrom = new Map<number, NonNullable<TeamStatement["movedFrom"]>>();
+  const ownIds = observations.map((o) => o.id);
+  if (ownIds.length === 0) return { movedTo, movedFrom };
+  const ref = (id: number, name: string | null): TeamCatRef => ({
+    id,
+    syr: syrNumber(id),
+    name: name ?? syrNumber(id),
+  });
+
+  const foreignTargets = [
+    ...new Set(
+      observations
+        .map((o) => o.supersedesId)
+        .filter((id): id is number => id != null && !ownIds.includes(id)),
+    ),
+  ];
+  const [replacers, targets] = await Promise.all([
+    db
+      .select({
+        id: observationsTable.id,
+        supersedesId: observationsTable.supersedesId,
+        catId: observationsTable.catId,
+        reason: observationsTable.supersedeReason,
+        createdAt: observationsTable.createdAt,
+        catName: catsTable.name,
+      })
+      .from(observationsTable)
+      .leftJoin(catsTable, eq(catsTable.id, observationsTable.catId))
+      .where(
+        and(
+          inArray(observationsTable.supersedesId, ownIds),
+          notInArray(observationsTable.id, ownIds),
+        ),
+      ),
+    foreignTargets.length === 0
+      ? Promise.resolve([] as { id: number; catId: number; catName: string | null }[])
+      : db
+          .select({
+            id: observationsTable.id,
+            catId: observationsTable.catId,
+            catName: catsTable.name,
+          })
+          .from(observationsTable)
+          .leftJoin(catsTable, eq(catsTable.id, observationsTable.catId))
+          .where(inArray(observationsTable.id, foreignTargets)),
+  ]);
+  for (const r of replacers) {
+    if (r.supersedesId == null) continue;
+    movedTo.set(r.supersedesId, {
+      statementId: r.id,
+      cat: ref(r.catId, r.catName),
+      reason: str(r.reason),
+      at: r.createdAt.toISOString(),
+    });
+  }
+  const targetById = new Map(targets.map((t) => [t.id, t]));
+  for (const o of observations) {
+    const t = o.supersedesId != null ? targetById.get(o.supersedesId) : undefined;
+    if (t) movedFrom.set(o.id, { statementId: t.id, cat: ref(t.catId, t.catName) });
+  }
+  return { movedTo, movedFrom };
+}
+
 /** The team's view of one cat, or null if there is no such cat. */
 export async function teamCatView(catId: number, now = new Date()): Promise<TeamCatView | null> {
   const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
@@ -327,13 +415,14 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
   const observations = rec?.observations ?? [];
   const evidence = rec?.evidenceOfLife ?? null;
 
-  const [people, photoIds] = await Promise.all([
+  const [people, photoIds, crossCat] = await Promise.all([
     peopleNames(observations),
     photoPublicIds([
       cat.primaryPhotoId,
       ...sightings.map((s) => s.photoId),
       ...observations.map((o) => o.photoId).filter((p): p is number => p != null),
     ]),
+    crossCatLinks(observations),
   ]);
   const urlFor = (photoId: number | null) => {
     const publicId = photoId == null ? undefined : photoIds.get(photoId);
@@ -347,6 +436,9 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
   for (const o of observations) {
     if (o.supersedesId == null) continue;
     replacedBy.set(o.supersedesId, [...(replacedBy.get(o.supersedesId) ?? []), o.id]);
+  }
+  for (const [oldId, moved] of crossCat.movedTo) {
+    replacedBy.set(oldId, [...(replacedBy.get(oldId) ?? []), moved.statementId]);
   }
   const history: TeamStatement[] = [...observations]
     .sort(
@@ -362,6 +454,8 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
       createdAt: o.createdAt.toISOString(),
       replaces: o.supersedesId ?? null,
       replacedBy: replacedBy.get(o.id) ?? [],
+      movedTo: crossCat.movedTo.get(o.id) ?? null,
+      movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
       correction: correctionOf(o, replacedBy.has(o.id)),
     }));
