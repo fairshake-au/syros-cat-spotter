@@ -1,6 +1,6 @@
 # Saying a cat lives with you ("This is my cat")
 
-**Status:** **Approved by Samuel, 8 October 2026**: decisions D1–D9 and their wording. **Extra steps added the same day at Samuel's request (D10–D13, §4.2), reviewed a second time (§13) and decided; their wording awaits approval.** One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
+**Status:** **Approved by Samuel, 8 October 2026**: all thirteen decisions (§15) and all the wording, including the extra steps he asked for the same day (D10–D13, §4.2). Two adversarial reviews folded in (§13). One adversarial review pass done and folded in (§13); its report is [`reviews/claiming-a-cat-review.md`](./reviews/claiming-a-cat-review.md).
 **Owner:** Samuel
 **Covers:** SYC-130, as directed by Samuel on 7 October 2026 (Linear SYC-130).
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §3.2 (who may state a life status), §6.4 (item 4, who hears about sightings straight away), §8 (deletion), §10.1 (observations), §10.2 (life status), §10.3 (merged cats), §10.6 (Option B: an owner sees their cat's exact spot) · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §3.3 (fixing what is wrong), §7.3 (capabilities) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 (how a sighting was matched), §8.2 (moving a sighting) · [`privacy-policy.md`](./privacy-policy.md) · [`DECISIONS.md`](./DECISIONS.md) Part 3 (spec ownership) · SYC-41 (blurring), SYC-218 (spine PR 9, the round-up), SYC-63 (deletion), SYC-232 (the "has a home" push), SYC-59 (duplicate cats), SYC-52 (confidence engine), SYC-4 (native-speaker review).
@@ -335,10 +335,10 @@ The button and sheet are rewritten in all three languages. English has said "Cla
 | D9 | Who sees where an owned cat lives | **The owner and Syros Cats only.** Everyone else sees "Has a home" (§4.2, §11). |
 | D10 | Proof of living on Syros | **Self-declared** "Do you live on Syros?" (Samuel, 8 Oct). Uploading a residence certificate was considered and rejected: it needs staff or a paid service to check, is heavy personal data, and shuts out owners who aren't registered residents. Typed addresses were rejected too: nothing in Greece lets an app check one. |
 | D11 | A pin where the cat lives, checked against where it's seen | **Yes** (Samuel, 8 Oct). Checked against the cat's **public** (blurred) position, so it can't reveal the exact one. **1 km** (Samuel, 8 Oct; 500 m was considered and rejected, as it refuses more genuine owners). |
-| D12 | A plain "only if it lives in your home" confirmation | **Yes** (Samuel, 8 Oct). Combined with "I live on Syros" on one screen; wording in §4.2, awaiting approval. |
+| D12 | A plain "only if it lives in your home" confirmation | **Yes** (Samuel, 8 Oct). Combined with "I live on Syros" on one screen; wording in §4.2, approved. |
 | D13 | What deletion does to the home note and the home pin | **Both stay, seen only by Syros Cats** (Samuel, 8 Oct). After deletion the cat still has a home (decision A, 29 Sep), so what helps the team find it stays. Clearing both was considered and not chosen. Letting go and Remove owner still clear both, because then the cat no longer has a home. |
 
-**Copy.** The wording in §4, §6 and §7 is approved (8 Oct 2026), except §4.2's two steps and the new refusals in §4.4, which await approval. Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
+**Copy.** All wording in §4, §6 and §7 is approved (8 Oct 2026). Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
 
 ---
 
