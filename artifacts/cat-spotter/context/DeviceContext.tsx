@@ -32,6 +32,15 @@ const OWNERSHIP_SNAPSHOT_KEY = 'cat-spotter/ownership-snapshot';
  * (language, appearance) or the public cat list. "Delete my data" removes
  * all of it (SYC-63 plan §6.2).
  */
+/**
+ * The id this phone has saved, which every tab on the web shares. The 410
+ * handler checks it, because a tab's own copy can be out of date (#97
+ * review, finding 4).
+ */
+export function readStoredDeviceId(): Promise<string | null> {
+  return AsyncStorage.getItem(STORAGE_KEY);
+}
+
 export const IDENTITY_KEYS = [
   STORAGE_KEY,
   SECRET_KEY,

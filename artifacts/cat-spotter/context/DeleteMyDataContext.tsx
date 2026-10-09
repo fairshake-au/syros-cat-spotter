@@ -7,6 +7,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   deleteMyData as deleteMyDataRequest,
@@ -21,7 +23,7 @@ import {
   type DeleteOutcome,
   type ReportChoice,
 } from '@/lib/deleteMyData';
-import { useDevice } from './DeviceContext';
+import { readStoredDeviceId, useDevice } from './DeviceContext';
 import { useOffline } from './OfflineContext';
 import { useReportQueue } from './ReportQueueContext';
 
@@ -42,6 +44,14 @@ interface DeleteMyDataValue {
   doneVisible: boolean;
   dismissDone: () => void;
 }
+
+/**
+ * "Delete it too", saved before the server is asked, so a finish that
+ * happens later (the app killed after the server's answer, plan §6.4) still
+ * deletes the waiting cat reports the person chose to delete, instead of
+ * sending them under the new spotter (#97 review, finding 5).
+ */
+const DELETE_REPORTS_KEY = 'cat-spotter/delete-my-data-reports';
 
 const DeleteMyDataContext = createContext<DeleteMyDataValue>({
   deleteNow: async () => 'failed',
@@ -69,6 +79,9 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
     resumeSync: offline.resumeSync,
     wipePhone: async () => {
       await offline.wipeQueue();
+      if ((await AsyncStorage.getItem(DELETE_REPORTS_KEY)) === 'delete') {
+        await reportQueueRef.current.wipeReports();
+      }
       // Profile, notifications, anything fetched with the old id.
       queryClient.clear();
     },
@@ -89,8 +102,10 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
     const deviceId = deviceIdRef.current;
     if (!deviceId || busyRef.current) return 'failed';
     busyRef.current = true;
+    let outcome: DeleteOutcome = 'failed';
     try {
-      return await deleteMyDataWithReports(
+      if (reports === 'delete') await AsyncStorage.setItem(DELETE_REPORTS_KEY, 'delete');
+      outcome = await deleteMyDataWithReports(
         {
           ...stepsRef.current,
           deleteOnServer: () =>
@@ -100,9 +115,12 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
         },
         reports,
       );
+      return outcome;
     } catch {
       return 'failed';
     } finally {
+      // Kept only while a retry still has to finish the wipe.
+      if (outcome !== 'wipe_failed') await AsyncStorage.removeItem(DELETE_REPORTS_KEY).catch(() => {});
       busyRef.current = false;
     }
   }, []);
@@ -123,7 +141,16 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
           // The current identity is fine: the 410 was about an old one.
         } catch (err) {
           if (isIdentityDeletedError(err) && deviceIdRef.current === deviceId) {
-            await finishAfterServerDeleted(stepsRef.current);
+            // On the web every tab shares one saved identity. If another tab
+            // already became a new spotter, wiping here would erase that
+            // spotter's new spots and replace it: take it up instead.
+            const stored = await readStoredDeviceId();
+            if (stored && stored !== deviceId) {
+              if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.reload();
+              return;
+            }
+            const outcome = await finishAfterServerDeleted(stepsRef.current);
+            if (outcome === 'done') await AsyncStorage.removeItem(DELETE_REPORTS_KEY);
           }
         } finally {
           busyRef.current = false;

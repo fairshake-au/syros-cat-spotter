@@ -36,7 +36,11 @@ export default function DeleteMyDataScreen() {
   const { isOnline, unsentCount } = useOffline();
   const { deleteNow } = useDeleteMyData();
   // SYC-234: cat reports still waiting on the phone. The person chooses.
-  const reportCount = useReportQueue().reports.length;
+  // Not before the report store has loaded: a 0 that's really "not read
+  // yet" would skip the question (#97 review, finding 9).
+  const reportQueue = useReportQueue();
+  const reportCount = reportQueue.reports.length;
+  const reportsReady = reportQueue.ready;
   const many = reportCount > 1;
   const pick = (one: string, several: string) =>
     many ? t(several).replace('{n}', String(reportCount)) : t(one);
@@ -138,7 +142,7 @@ export default function DeleteMyDataScreen() {
               size="md"
               block
               onPress={() => onDelete()}
-              disabled={working || !isOnline}
+              disabled={working || !isOnline || !reportsReady}
               accessibilityLabel={t('deleteConfirm')}
             >
               {working ? t('deleteWorking') : t('deleteConfirm')}
@@ -150,7 +154,7 @@ export default function DeleteMyDataScreen() {
                 size="md"
                 block
                 onPress={() => onDelete('send')}
-                disabled={working || !isOnline}
+                disabled={working || !isOnline || !reportsReady}
                 accessibilityLabel={pick('deleteSendReportsOne', 'deleteSendReportsMany')}
               >
                 {working
@@ -162,7 +166,7 @@ export default function DeleteMyDataScreen() {
                 size="md"
                 block
                 onPress={() => onDelete('delete')}
-                disabled={working || !isOnline}
+                disabled={working || !isOnline || !reportsReady}
                 accessibilityLabel={pick('deleteReportsTooOne', 'deleteReportsTooMany')}
               >
                 {pick('deleteReportsTooOne', 'deleteReportsTooMany')}

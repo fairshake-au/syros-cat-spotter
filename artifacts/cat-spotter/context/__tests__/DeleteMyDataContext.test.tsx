@@ -9,6 +9,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   handler: null as null | (() => void),
+  deviceId: 'dev-current',
+  storage: new Map<string, string>(),
   deleteRequest: vi.fn(async (_opts?: RequestInit) => undefined),
   getClaimedUsername: vi.fn(),
   offline: {
@@ -35,7 +37,19 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ clear: h.clear }),
 }));
 vi.mock('../DeviceContext', () => ({
-  useDevice: () => ({ deviceId: 'dev-current', resetIdentity: h.resetIdentity }),
+  useDevice: () => ({ deviceId: h.deviceId, resetIdentity: h.resetIdentity }),
+  readStoredDeviceId: async () => h.storage.get('cat-spotter/device-id') ?? null,
+}));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (key: string) => h.storage.get(key) ?? null,
+    setItem: async (key: string, value: string) => {
+      h.storage.set(key, value);
+    },
+    removeItem: async (key: string) => {
+      h.storage.delete(key);
+    },
+  },
 }));
 vi.mock('../OfflineContext', () => ({
   useOffline: () => h.offline,
@@ -57,6 +71,9 @@ const gone = Object.assign(new Error('HTTP 410'), {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.deviceId = 'dev-current';
+  h.storage.clear();
+  h.storage.set('cat-spotter/device-id', 'dev-current');
 });
 
 describe('DeleteMyDataProvider', () => {
@@ -162,6 +179,66 @@ describe('DeleteMyDataProvider', () => {
     expect(outcome).toBe('reports_unsent');
     expect(h.deleteRequest).not.toHaveBeenCalled();
     expect(h.offline.wipeQueue).not.toHaveBeenCalled();
+  });
+
+  // #97 review, finding 6: the handler's "is it still the current
+  // identity?" check, when the id changes while the server is being asked.
+  it('does not wipe when the identity changes while the 410 is being checked', async () => {
+    let answer!: (err: unknown) => void;
+    h.getClaimedUsername.mockImplementationOnce(
+      () => new Promise((_, reject) => (answer = reject)),
+    );
+    const { rerender } = renderHook(() => useDeleteMyData(), { wrapper });
+    act(() => h.handler!());
+    await waitFor(() => expect(h.getClaimedUsername).toHaveBeenCalledWith('dev-current'));
+    h.deviceId = 'dev-newer';
+    rerender();
+    await act(async () => {
+      answer(gone);
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(h.offline.wipeQueue).not.toHaveBeenCalled();
+    expect(h.resetIdentity).not.toHaveBeenCalled();
+  });
+
+  // Finding 4: another tab on the web already became a new spotter.
+  it('does not wipe when the saved identity is already a different one', async () => {
+    h.storage.set('cat-spotter/device-id', 'dev-other-tab');
+    h.getClaimedUsername.mockRejectedValueOnce(gone);
+    renderHook(() => useDeleteMyData(), { wrapper });
+    act(() => h.handler!());
+    await waitFor(() => expect(h.getClaimedUsername).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(h.offline.wipeQueue).not.toHaveBeenCalled();
+    expect(h.resetIdentity).not.toHaveBeenCalled();
+  });
+
+  // Finding 5: "Delete it too", then the wipe didn't finish; the finish that
+  // a later 410 triggers still deletes the reports.
+  it('delete: a finish after an interrupted wipe still deletes the cat reports', async () => {
+    h.offline.wipeQueue.mockRejectedValueOnce(new Error('disk'));
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    let outcome: string | undefined;
+    await act(async () => {
+      outcome = await result.current.deleteNow('delete');
+    });
+    expect(outcome).toBe('wipe_failed');
+    expect(h.reports.wipeReports).not.toHaveBeenCalled();
+    h.reports.wipeReports.mockClear();
+    h.getClaimedUsername.mockRejectedValueOnce(gone);
+    act(() => h.handler!());
+    await waitFor(() => expect(h.resetIdentity).toHaveBeenCalled());
+    expect(h.reports.wipeReports).toHaveBeenCalled();
+    expect(h.storage.has('cat-spotter/delete-my-data-reports')).toBe(false);
+  });
+
+  it('send: a later finish leaves cat reports alone', async () => {
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.deleteNow('send');
+    });
+    expect(h.storage.has('cat-spotter/delete-my-data-reports')).toBe(false);
+    expect(h.reports.wipeReports).not.toHaveBeenCalled();
   });
 
   it('delete: wipes the cat reports along with everything else', async () => {

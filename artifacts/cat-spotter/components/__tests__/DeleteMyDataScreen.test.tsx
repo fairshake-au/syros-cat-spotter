@@ -41,7 +41,7 @@ vi.mock('@/context/OfflineContext', () => ({
 vi.mock('@/components/purropolis', async () => ({
   Button: (await import('@/components/purropolis/Button')).Button,
 }));
-const reportQueue = vi.hoisted(() => ({ reports: [] as unknown[] }));
+const reportQueue = vi.hoisted(() => ({ reports: [] as unknown[], ready: true }));
 vi.mock('@/context/ReportQueueContext', () => ({
   useReportQueue: () => reportQueue,
 }));
@@ -58,6 +58,7 @@ afterEach(() => {
   state.isOnline = true;
   state.unsentCount = 0;
   reportQueue.reports = [];
+  reportQueue.ready = true;
 });
 
 function deleteButton(utils: ReturnType<typeof render>) {
@@ -126,5 +127,14 @@ describe('Delete my data screen', () => {
     await waitFor(() => expect(utils.getByText(en.deleteReportsUnsentMany!)).toBeTruthy());
     fireEvent.click(utils.getByLabelText(en.deleteReportsTooMany!));
     await waitFor(() => expect(deleteNow).toHaveBeenLastCalledWith('delete'));
+  });
+
+  // #97 review, finding 9: a 0 that's really "not loaded yet" mustn't skip
+  // the cat-report question.
+  it('offers nothing until the waiting cat reports have loaded', () => {
+    reportQueue.ready = false;
+    const utils = render(<DeleteMyDataScreen />);
+    fireEvent.click(deleteButton(utils));
+    expect(deleteNow).not.toHaveBeenCalled();
   });
 });
