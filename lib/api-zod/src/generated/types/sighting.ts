@@ -13,7 +13,8 @@
  */
 export interface Sighting {
   catId?: number | null;
-  spotterCode: string;
+  /** Null once the spotter has deleted their data; the app shows "a spotter" */
+  spotterCode: string | null;
   spotterUsername?: string | null;
   spotterNickname?: string | null;
   photoUrl: string | null;

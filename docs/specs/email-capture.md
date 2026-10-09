@@ -447,8 +447,17 @@ The **mechanism** — how a row is redacted in an append-only store, and the gua
 > **What stays**
 > The sightings themselves, with your name off them. Which cat was seen, roughly where, and when — that belongs to the island's record of its cats, and taking it out would put holes in the history of cats that have nothing to do with you.
 > Names you gave cats stay too. Other people call Agatha "Agatha" now.
+> If you told us a cat lives with you, it still shows as having a home, and the note about where it lives stays. Your name and your link to it come off.
 >
 > **[ Delete my data ]**  ·  **[ Keep my data ]**
+
+Two lines appear only when they apply (approved by Samuel, 29 Sep 2026, SYC-63 plan §9 B and E):
+
+- When spots on the phone haven't been sent yet, under **What goes**: *"You have 3 spots that haven't been sent yet. They'll be deleted too."* (the real count).
+- With no connection, the delete button is disabled, with: *"You need a connection to delete your data."*
+- When cat reports on the phone haven't been sent yet (approved by Samuel, 7 Oct 2026, SYC-234), above the buttons: *"You have 1 cat report that hasn't been sent yet. We can send it to Syros Cats first, so they still hear about the cat, and then delete your data. Or we can delete it along with everything else."* The delete button becomes two: **[ Send it, then delete my data ]** · **[ Delete it too ]** (plural: "them"). If a report won't send, nothing is deleted: *"We couldn't send your cat report, so nothing was deleted. You can try again, or delete it too."*
+
+A report already sent keeps its note when its reporter deletes their data; only the link to them goes (SYC-234).
 
 And afterwards:
 

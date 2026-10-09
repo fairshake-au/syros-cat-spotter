@@ -11,6 +11,36 @@ export function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
 }
 
+/**
+ * The key of the one-way "deleted device" marker (SYC-63 plan §4.3, decision
+ * D). After deletion, `device_credentials` holds this instead of the device
+ * id: a sha256 that can't be turned back into the id and that nothing else
+ * links to. Real ids start `dev-`, so a real id never collides with it.
+ */
+export const DELETED_PREFIX = "deleted:";
+export function deletedMarkerKey(deviceId: string): string {
+  return DELETED_PREFIX + createHash("sha256").update(deviceId).digest("hex");
+}
+/** Not hex, so it can never equal a secret's hash. */
+export const DELETED_SECRET_HASH = "deleted";
+
+/** Has this device id been deleted by its person (SYC-63)? */
+export async function isDeletedDevice(deviceId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ deviceId: deviceCredentialsTable.deviceId })
+    .from(deviceCredentialsTable)
+    .where(eq(deviceCredentialsTable.deviceId, deletedMarkerKey(deviceId)));
+  return row !== undefined;
+}
+
+/** What a deleted identity gets from every device-authenticated route. */
+export function sendIdentityDeleted(res: Response): void {
+  res.status(410).json({
+    error: "This spotter's data was deleted",
+    code: "IDENTITY_DELETED",
+  });
+}
+
 function hashesMatch(a: string, b: string): boolean {
   const bufA = Buffer.from(a, "hex");
   const bufB = Buffer.from(b, "hex");
@@ -30,7 +60,8 @@ function hashesMatch(a: string, b: string): boolean {
  *
  * Returns the verified device id, or `null` after writing an error
  * response (401 missing/invalid header, 403 wrong secret, 403 `device_moved`
- * when the secret is one a restore replaced: SYC-3).
+ * when the secret is one a restore replaced: SYC-3, 410 the person deleted
+ * their data: SYC-63).
  */
 export async function requireDeviceAuth(
   req: Request,
@@ -52,9 +83,25 @@ export async function verifyDeviceSecret(
   req: Request,
   res: Response,
   deviceId: string,
+  // `bind: false`: an id with no credential gets 403 instead of binding this
+  // secret. For irreversible routes (DELETE /me), whose request must never be
+  // the one that first ties a secret to an id (#97 review, finding 10).
+  { bind = true }: { bind?: boolean } = {},
 ): Promise<string | null> {
-  if (!deviceId || deviceId.length > 128) {
+  if (!deviceId || deviceId.length > 128 || deviceId.startsWith(DELETED_PREFIX)) {
     res.status(400).json({ error: "Invalid device id" });
+    return null;
+  }
+
+  // SYC-63: this MUST come before the bind-on-first-use insert below. A
+  // deleted id has no credential row, so the insert would quietly recreate
+  // the identity for whoever still holds the old id (a second tab, an upload
+  // that was mid-flight, a phone killed before it wiped itself). The marker
+  // answers 410 instead, and the phone finishes wiping and starts fresh.
+  // It also comes before the secret check, so a deleted id gets 410 whether
+  // or not a secret came with it (plan §8.1 item 7).
+  if (await isDeletedDevice(deviceId)) {
+    sendIdentityDeleted(res);
     return null;
   }
 
@@ -76,7 +123,7 @@ export async function verifyDeviceSecret(
     )[0];
 
   let row = await storedHash();
-  if (!row) {
+  if (!row && bind) {
     // A device we've never seen: registering it spends this address's
     // new-device allowance (SYC-195). Refused, it stays unbound, so the
     // same phone works once the window resets.

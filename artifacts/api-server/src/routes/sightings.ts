@@ -617,8 +617,11 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     return;
   }
   if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
+  // Narrowed by the check above: an unlinked sighting (SYC-63) has no spotter,
+  // so no device id matches it and nobody can resolve it from the app.
+  const spotterId: string = sighting.deviceId;
 
-  const statsBefore = await getProfileStats(sighting.deviceId);
+  const statsBefore = await getProfileStats(spotterId);
   const badgesBefore = badgesFor(statsBefore);
 
   let existingCat: typeof catsTable.$inferSelect | undefined;
@@ -762,7 +765,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 
       await tx
         .insert(profilesTable)
-        .values({ deviceId: sighting.deviceId, points: pointsAwarded })
+        .values({ deviceId: spotterId, points: pointsAwarded })
         .onConflictDoUpdate({
           target: profilesTable.deviceId,
           set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
@@ -770,7 +773,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 
       await tx
         .insert(catSubscriptionsTable)
-        .values({ deviceId: sighting.deviceId, catId: cat!.id })
+        .values({ deviceId: spotterId, catId: cat!.id })
         .onConflictDoNothing();
 
       return { cat: cat!, pointsAwarded, isNewCat };
@@ -842,10 +845,14 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   const derivedStatus = (
     await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
   ).get(cat.id)!;
-  const [discoverer] = await db
-    .select({ nickname: profilesTable.nickname, username: profilesTable.username })
-    .from(profilesTable)
-    .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
+  // A cat whose discoverer deleted their data has nobody to look up (SYC-63).
+  const [discoverer] =
+    cat.discovererDeviceId === null
+      ? []
+      : await db
+          .select({ nickname: profilesTable.nickname, username: profilesTable.username })
+          .from(profilesTable)
+          .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
 
   // §10.6, emitter 3: this response used to hand any spotter who confirmed
   // a match the cat's exact stored position. It goes through the one
@@ -921,6 +928,8 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
     return;
   }
   if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
+  // Narrowed by the check above, as in resolve (SYC-63).
+  const spotterId: string = sighting.deviceId;
 
   if (sighting.status !== "resolved" || sighting.catId == null) {
     res.status(409).json({
@@ -992,7 +1001,7 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       const ear = toWrite.find((a) => a.kind === "ear_tip");
       if (ear) {
         const keep = await (async (): Promise<boolean> => {
-          const state = await earTipStateFor(tx, sighting.deviceId, catId);
+          const state = await earTipStateFor(tx, spotterId, catId);
           if (state.state === "open") return true;
           // Without changeEarTip a second answer is left out, as PR 7 did, so
           // the reward screen can never change an answer by accident.

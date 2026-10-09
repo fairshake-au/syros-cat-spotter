@@ -16,6 +16,7 @@
  * says to: "until the team can record a death (PR 8), this is a no-op,
  * which is fine."
  */
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import {
@@ -153,7 +154,7 @@ async function cleanup() {
       .delete(sightingMatchesTable)
       .where(inArray(sightingMatchesTable.sightingId, rows.map((r) => r.id)));
   }
-  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${DEVICE}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${DEVICE}%`));
   const photoIds = [...rows.map((r) => r.photoId), ...cats.map((c) => c.photoId)];
   if (catIds.length > 0) await db.delete(catsTable).where(inArray(catsTable.id, catIds));
   if (photoIds.length > 0) await db.delete(photosTable).where(inArray(photosTable.id, photoIds));

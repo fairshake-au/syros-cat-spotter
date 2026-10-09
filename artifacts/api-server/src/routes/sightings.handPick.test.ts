@@ -6,6 +6,7 @@
  * Distances are built with lib/geo so the geometry here is the same geometry
  * the phone uses (test 25 lives on the phone side and in lib/geo).
  */
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import {
@@ -133,7 +134,7 @@ async function cleanup() {
     .select({ photoId: sightingsTable.photoId })
     .from(sightingsTable)
     .where(like(sightingsTable.deviceId, `${DEVICE}%`));
-  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${DEVICE}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${DEVICE}%`));
   const photoIds = [...rows.map((r) => r.photoId), ...cats.map((c) => c.photoId)];
   if (catIds.length > 0) await db.delete(catsTable).where(inArray(catsTable.id, catIds));
   if (photoIds.length > 0) await db.delete(photosTable).where(inArray(photosTable.id, photoIds));

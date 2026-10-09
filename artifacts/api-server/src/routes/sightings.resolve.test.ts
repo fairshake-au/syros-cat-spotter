@@ -1,3 +1,4 @@
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import {
@@ -100,9 +101,7 @@ async function cleanup() {
     .select({ photoId: sightingsTable.photoId })
     .from(sightingsTable)
     .where(like(sightingsTable.deviceId, `${DEVICE}%`));
-  await db
-    .delete(sightingsTable)
-    .where(like(sightingsTable.deviceId, `${DEVICE}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${DEVICE}%`));
   for (const r of rows) {
     await db.delete(photosTable).where(eq(photosTable.id, r.photoId));
   }

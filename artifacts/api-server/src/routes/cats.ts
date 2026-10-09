@@ -62,6 +62,24 @@ router.post("/cats/name-suggestions", aiLimiter, async (req, res) => {
 });
 
 /**
+ * The discoverer's public name, or nothing once they've deleted their data
+ * (SYC-63): an unlinked cat has no discoverer to look up.
+ */
+async function lookupDiscoverer(
+  discovererDeviceId: string | null,
+): Promise<{ nickname: string | null; username: string | null } | undefined> {
+  if (discovererDeviceId === null) return undefined;
+  const [profile] = await db
+    .select({
+      nickname: profilesTable.nickname,
+      username: profilesTable.username,
+    })
+    .from(profilesTable)
+    .where(eq(profilesTable.deviceId, discovererDeviceId));
+  return profile;
+}
+
+/**
  * A cat for the app, through the one serialiser (catHelpers.serialiseCat,
  * §10.6). `viewer` is public unless the route has proved the caller is this
  * cat's owner.
@@ -74,14 +92,7 @@ async function catPayload(
   derived?: DerivedCatStatus,
 ) {
   const [profile, status] = await Promise.all([
-    db
-      .select({
-        nickname: profilesTable.nickname,
-        username: profilesTable.username,
-      })
-      .from(profilesTable)
-      .where(eq(profilesTable.deviceId, cat.discovererDeviceId))
-      .then((r) => r[0]),
+    lookupDiscoverer(cat.discovererDeviceId),
     derived
       ? Promise.resolve(derived)
       : deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }]).then(
@@ -293,14 +304,7 @@ router.get("/cats/:catId", async (req, res) => {
 
   const [fans, discovererProfile] = await Promise.all([
     fansCount(catId),
-    db
-      .select({
-        username: profilesTable.username,
-        nickname: profilesTable.nickname,
-      })
-      .from(profilesTable)
-      .where(eq(profilesTable.deviceId, cat.discovererDeviceId))
-      .then((r) => r[0]),
+    lookupDiscoverer(cat.discovererDeviceId),
   ]);
 
   const catBody = await catPayload(
@@ -325,6 +329,8 @@ router.get("/cats/:catId", async (req, res) => {
         message:
           discovererProfile?.username ??
           discovererProfile?.nickname ??
+          // Null when the discoverer deleted their data: the app says "a
+          // spotter" in the reader's language (SYC-235).
           spotterCode(cat.discovererDeviceId),
         // A date, never a time (§6.4.4): this is the first sighting's moment.
         at: toPublicDay(cat.createdAt),

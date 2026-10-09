@@ -1,5 +1,5 @@
 import { db, pushTokensTable, sightingsTable } from "@workspace/db";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendPushNotification } from "./push";
 import { isResolvedDeceased } from "./catHelpers";
@@ -75,6 +75,9 @@ export async function notifyCatSpotters(
         and(
           eq(sightingsTable.catId, catId),
           eq(sightingsTable.status, "resolved"),
+          // A spotter who deleted their data (SYC-63) is never sent
+          // anything: their sightings stay, but with nobody on them.
+          isNotNull(sightingsTable.deviceId),
           ne(sightingsTable.deviceId, actingDeviceId),
         ),
       );

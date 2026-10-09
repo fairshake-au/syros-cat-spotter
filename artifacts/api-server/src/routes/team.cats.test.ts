@@ -1,3 +1,4 @@
+import { deleteTestSightings } from "../test/sightings";
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
@@ -46,7 +47,7 @@ const SIGHTINGS = [
 ];
 
 async function cleanup() {
-  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db
     .delete(catsTable)
     .where(

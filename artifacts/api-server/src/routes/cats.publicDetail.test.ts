@@ -1,3 +1,4 @@
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { like } from "drizzle-orm";
@@ -36,7 +37,7 @@ const photoIds: number[] = [];
 // Observations are append-only (a database trigger), so they stay behind in
 // the throwaway test database; everything else this file seeds is removed.
 async function cleanup() {
-  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${PREFIX}%`));
   await db.delete(photosTable).where(like(photosTable.publicId, `${PREFIX}%`));
 }

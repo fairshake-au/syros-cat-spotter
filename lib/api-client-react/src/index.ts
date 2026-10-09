@@ -4,6 +4,7 @@ export {
   setBaseUrl,
   setAuthTokenGetter,
   setDeviceSecretGetter,
+  setIdentityDeletedHandler,
   setPrelaunchKey,
   setDeviceMovedListener,
   isDeviceMovedError,

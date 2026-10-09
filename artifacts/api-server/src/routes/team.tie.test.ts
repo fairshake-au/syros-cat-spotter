@@ -26,6 +26,7 @@ import {
 import { loadCatRecords, ObservationRefused, writeObservation } from "../lib/observations";
 import { resolveCat } from "../lib/resolve";
 import { tieReportToCat } from "../lib/welfareTie";
+import { deleteTestSightings } from "../test/sightings";
 
 // SYC-43 part 2 plan, PR 5: "Which cat is this?" on a welfare report.
 // Tests P5-1 to P5-4 (and the edges around them).
@@ -56,7 +57,7 @@ let susanId: string;
 let n = 0;
 
 async function cleanup() {
-  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(welfareReportsTable).where(like(welfareReportsTable.publicId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${PREFIX}%`));
   await db.delete(photosTable).where(like(photosTable.publicId, `${PREFIX}%`));
