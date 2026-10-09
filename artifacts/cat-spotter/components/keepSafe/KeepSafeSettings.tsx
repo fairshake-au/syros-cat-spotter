@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
-import { getKeepSafe, removeKeepSafe } from '@/lib/keepSafe';
+import { removeKeepSafe } from '@/lib/keepSafe';
+import { KEEP_SAFE_QUERY_ROOT, useKeepSafeState } from '@/hooks/useKeepSafeState';
 
-export const KEEP_SAFE_QUERY_ROOT = ['keep-safe'] as const;
+export { KEEP_SAFE_QUERY_ROOT };
 
 /**
  * Settings (SYC-3 plan, Slice 1 step 8):
@@ -28,11 +29,7 @@ export function KeepSafeSettings() {
   const queryClient = useQueryClient();
   const [removing, setRemoving] = useState(false);
 
-  const state = useQuery({
-    queryKey: [...KEEP_SAFE_QUERY_ROOT, deviceId],
-    queryFn: () => getKeepSafe(deviceId!),
-    enabled: !!deviceId && isOnline,
-  });
+  const state = useKeepSafeState();
 
   const remove = async () => {
     if (!deviceId || removing) return;
