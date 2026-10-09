@@ -527,6 +527,18 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
     await db.delete(mailOutboxTable).where(eq(mailOutboxTable.id, siblingId));
   });
 
+  it("5e. never binds: an id with no secret yet gets 403 and keeps its data", async () => {
+    const s = await seedWorld();
+    // An old spotter whose phone never sent a secret: no credential row.
+    await db.delete(deviceCredentialsTable).where(eq(deviceCredentialsTable.deviceId, s.P.deviceId));
+    const res = await deleteMe(s.P);
+    expect(res.status).toBe(403);
+    const creds = await db.select().from(deviceCredentialsTable).where(eq(deviceCredentialsTable.deviceId, s.P.deviceId));
+    expect(creds).toEqual([]);
+    const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.deviceId, s.P.deviceId));
+    expect(profile).toBeTruthy();
+  });
+
   it("6. a second call returns 204 and changes nothing", async () => {
     const snapshot = await db
       .select()

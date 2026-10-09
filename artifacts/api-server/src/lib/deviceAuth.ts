@@ -83,6 +83,10 @@ export async function verifyDeviceSecret(
   req: Request,
   res: Response,
   deviceId: string,
+  // `bind: false`: an id with no credential gets 403 instead of binding this
+  // secret. For irreversible routes (DELETE /me), whose request must never be
+  // the one that first ties a secret to an id (#97 review, finding 10).
+  { bind = true }: { bind?: boolean } = {},
 ): Promise<string | null> {
   if (!deviceId || deviceId.length > 128 || deviceId.startsWith(DELETED_PREFIX)) {
     res.status(400).json({ error: "Invalid device id" });
@@ -119,7 +123,7 @@ export async function verifyDeviceSecret(
     )[0];
 
   let row = await storedHash();
-  if (!row) {
+  if (!row && bind) {
     // A device we've never seen: registering it spends this address's
     // new-device allowance (SYC-195). Refused, it stays unbound, so the
     // same phone works once the window resets.

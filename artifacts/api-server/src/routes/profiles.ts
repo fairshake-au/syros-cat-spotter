@@ -48,7 +48,9 @@ router.delete("/me", deleteMeLimiter, async (req, res) => {
     res.status(204).end();
     return;
   }
-  const verified = await verifyDeviceSecret(req, res, deviceId);
+  // Never binds: an id that has no secret yet can't be deleted by whoever
+  // sends one first. The app always binds on its first call, long before.
+  const verified = await verifyDeviceSecret(req, res, deviceId, { bind: false });
   if (!verified) return;
 
   await db.transaction((tx) =>
