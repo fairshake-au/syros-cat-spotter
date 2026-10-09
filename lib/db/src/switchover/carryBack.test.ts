@@ -231,7 +231,8 @@ describe("carry-back, end to end (test 4)", () => {
       { table: "photos", columns: ["public_id"] },
       // SYC-101's generated folded name: the old database has no such
       // column, and recomputes nothing it needs from it.
-      { table: "cats", columns: ["normalised_name"] },
+      // SYC-63's deletion stamps live on Neon only, like the sightings ones.
+      { table: "cats", columns: ["normalised_name", "redacted_at", "redaction_reason"] },
       { table: "sightings", columns: ["redacted_at", "redaction_reason"] },
     ]);
     expect(dry.baseline).toEqual({ status: "ok", changedTables: [] });
