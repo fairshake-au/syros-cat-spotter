@@ -19,7 +19,7 @@ import {
   emailConsentEventsTable,
   mailOutboxTable,
 } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 // SYC-63 plan §8.1: "the cat's data survives and the person is gone".
 
@@ -74,7 +74,15 @@ const TINY_JPEG_B64 =
 const savedFingerprintKey = process.env["EMAIL_FINGERPRINT_KEY"];
 process.env["EMAIL_FINGERPRINT_KEY"] = randomBytes(32).toString("base64url");
 
+// Keep-safe emails this file queued. Tests that delete nothing (a wrong
+// secret, an unbound id) leave theirs queued, and the outbox drain in other
+// files (reports.test.ts) would pick them up.
+const seededFingerprints: string[] = [];
+
 afterAll(async () => {
+  if (seededFingerprints.length) {
+    await db.delete(mailOutboxTable).where(inArray(mailOutboxTable.recipientHash, seededFingerprints));
+  }
   if (savedFingerprintKey === undefined) delete process.env["EMAIL_FINGERPRINT_KEY"];
   else process.env["EMAIL_FINGERPRINT_KEY"] = savedFingerprintKey;
   await pool.end();
@@ -245,6 +253,7 @@ async function seedWorld() {
   // #97 review: contacts of any purpose can name the device).
   const email = `p-${tag}@example.com`;
   const hmac = addressFingerprint("keep_safe", email);
+  seededFingerprints.push(hmac);
   const token = `tok-${tag}`;
   const forgetToken = `fgt-${tag}`;
   const sha = (t: string) => createHash("sha256").update(t).digest("hex");
