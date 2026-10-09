@@ -9,7 +9,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
  * deletion's own transaction; SYC-63's `severPerson` calls it.
  *
  * - The keep-safe row goes (its verify and forget tokens go with it).
- * - Its queued keep-safe emails go (they hold the address and a raw token).
+ * - Its keep-safe emails go: queued ones hold the address and a raw token,
+ *   sent ones still hold the address's fingerprint.
  * - Every link token naming the spotter goes: ones it asked for, and used
  *   restore tokens that moved it (they hold its id, for `device_moved`).
  * - Its consent events are redacted in place: who they were about (device,
@@ -33,7 +34,21 @@ export async function severKeepSafe(tx: Tx, deviceId: string, reason: string): P
            select token_hash from mail_tokens where device_id = ${deviceId})
        )
   `);
-  await tx.execute(sql`delete from email_contacts where purpose = 'keep_safe' and device_id = ${deviceId}`);
+  // Sent or given-up keep-safe emails have their payload cleared, so no token
+  // matches them, but `recipient_hash` is still the address's keep-safe
+  // fingerprint (send.ts hashRecipient): matched by the contact's fingerprint,
+  // before the contact goes (review of #97, finding 2). Only finished rows: a
+  // sibling sharing the address may have its own email still queued.
+  await tx.execute(sql`
+    delete from mail_outbox
+     where purpose in ('keep_safe_verify', 'restore_link')
+       and state <> 'queued'
+       and recipient_hash in (
+         select address_hmac from email_contacts where purpose = 'keep_safe' and device_id = ${deviceId})
+  `);
+  // Every contact row naming the spotter, whatever its purpose: report and
+  // news contacts can carry a device id too (review of #97, finding 7).
+  await tx.execute(sql`delete from email_contacts where device_id = ${deviceId}`);
   await tx.execute(sql`
     delete from mail_tokens where device_id = ${deviceId} or restored_device_id = ${deviceId}
   `);

@@ -61,6 +61,7 @@ import { notifyCatSpotters } from "../lib/notifications";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { deletedMarkerKey } from "../lib/deviceAuth";
 import { enqueueKeepSafeMail } from "../lib/mail/outbox";
+import { addressFingerprint } from "../lib/mail/fingerprint";
 import { _resetNewDeviceLimitForTests } from "../middlewares/newDeviceLimit";
 
 const pushMock = vi.mocked(sendPushNotification);
@@ -68,7 +69,14 @@ const pushMock = vi.mocked(sendPushNotification);
 const TINY_JPEG_B64 =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 
+// The real keyed fingerprint, so sent emails (payload cleared, only
+// recipient_hash left) are matched the way production matches them.
+const savedFingerprintKey = process.env["EMAIL_FINGERPRINT_KEY"];
+process.env["EMAIL_FINGERPRINT_KEY"] = randomBytes(32).toString("base64url");
+
 afterAll(async () => {
+  if (savedFingerprintKey === undefined) delete process.env["EMAIL_FINGERPRINT_KEY"];
+  else process.env["EMAIL_FINGERPRINT_KEY"] = savedFingerprintKey;
   await pool.end();
 });
 
@@ -232,9 +240,11 @@ async function seedWorld() {
 
   // "Keep my spots safe" (SYC-3): a confirmed keep-safe contact, its verify
   // and forget link tokens, a used restore token that moved P, consent
-  // events, and a queued verify email that still holds the address.
+  // events, a queued verify email that still holds the address, a sent one
+  // that holds only its fingerprint, and a report contact (finding 7 of the
+  // #97 review: contacts of any purpose can name the device).
   const email = `p-${tag}@example.com`;
-  const hmac = `hmac-${tag}`;
+  const hmac = addressFingerprint("keep_safe", email);
   const token = `tok-${tag}`;
   const forgetToken = `fgt-${tag}`;
   const sha = (t: string) => createHash("sha256").update(t).digest("hex");
@@ -255,6 +265,18 @@ async function seedWorld() {
   await db.transaction((tx) =>
     enqueueKeepSafeMail(tx, { purpose: "keep_safe_verify", to: email, token, forgetToken, expiresAt }),
   );
+  const sentId = await db.transaction((tx) =>
+    enqueueKeepSafeMail(tx, { purpose: "keep_safe_verify", to: email, token: `old-${tag}`, forgetToken: `oldf-${tag}`, expiresAt }),
+  );
+  // As the outbox leaves it once sent (outbox.ts markSent): payload cleared.
+  await db
+    .update(mailOutboxTable)
+    .set({ state: "sent", payload: { expiresAt: expiresAt.toISOString(), cleared: true } })
+    .where(eq(mailOutboxTable.id, sentId));
+  await db.insert(emailContactsTable).values({
+    purpose: "report", address: email, addressHmac: addressFingerprint("report", email),
+    addressMask: "p•••@example.com", deviceId: P.deviceId, status: "confirmed", confirmedAt: new Date(),
+  });
 
   return {
     P,
@@ -483,6 +505,26 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
     expect(contacts).toEqual([]);
     const tokens = await db.select().from(mailTokensTable).where(eq(mailTokensTable.addressHmac, w.hmac));
     expect(tokens).toEqual([]);
+    // The sent email kept only the fingerprint: it goes too (#97 review, finding 2).
+    const mail = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.recipientHash, w.hmac));
+    expect(mail).toEqual([]);
+  });
+
+  it("5d. leaves a sibling's queued email to the same address alone", async () => {
+    // Siblings can share a parent's address (SYC-3 Decision 3): only P's own
+    // tokens and P's finished emails are matched, never a queued one by address.
+    const s = await seedWorld();
+    const siblingId = await db.transaction((tx) =>
+      enqueueKeepSafeMail(tx, {
+        purpose: "keep_safe_verify", to: s.email, token: `sib-${s.hmac.slice(0, 8)}`,
+        expiresAt: new Date(Date.now() + 15 * 60_000),
+      }),
+    );
+    const res = await deleteMe(s.P);
+    expect(res.status).toBe(204);
+    const left = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.recipientHash, s.hmac));
+    expect(left.map((r) => r.id)).toEqual([siblingId]);
+    await db.delete(mailOutboxTable).where(eq(mailOutboxTable.id, siblingId));
   });
 
   it("6. a second call returns 204 and changes nothing", async () => {
