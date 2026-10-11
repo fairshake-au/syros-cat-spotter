@@ -43,6 +43,12 @@ interface DeleteMyDataValue {
   /** True from the moment the phone starts becoming a new spotter, until dismissed. */
   doneVisible: boolean;
   dismissDone: () => void;
+  /**
+   * Runs `work` with 410 handling held: a 410 arriving meanwhile is ignored,
+   * not acted on. For a move that deletes the phone's current spotter on
+   * purpose (SYC-266), so it can't wipe the spotter the phone is becoming.
+   */
+  holdIdentityDeleted: <T>(work: () => Promise<T>) => Promise<T>;
 }
 
 /**
@@ -57,6 +63,7 @@ const DeleteMyDataContext = createContext<DeleteMyDataValue>({
   deleteNow: async () => 'failed',
   doneVisible: false,
   dismissDone: () => {},
+  holdIdentityDeleted: (work) => work(),
 });
 
 export function DeleteMyDataProvider({ children }: { children: React.ReactNode }) {
@@ -72,6 +79,7 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
   const deviceIdRef = useRef(device.deviceId);
   deviceIdRef.current = device.deviceId;
   const busyRef = useRef(false);
+  const holdsRef = useRef(0);
 
   const stepsRef = useRef<Omit<DeleteMyDataSteps, 'deleteOnServer'>>(null!);
   stepsRef.current = {
@@ -133,7 +141,7 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     setIdentityDeletedHandler(() => {
       const deviceId = deviceIdRef.current;
-      if (!deviceId || busyRef.current) return;
+      if (!deviceId || busyRef.current || holdsRef.current > 0) return;
       busyRef.current = true;
       void (async () => {
         try {
@@ -162,9 +170,18 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
 
   const dismissDone = useCallback(() => setDoneVisible(false), []);
 
+  const holdIdentityDeleted = useCallback(async <T,>(work: () => Promise<T>): Promise<T> => {
+    holdsRef.current += 1;
+    try {
+      return await work();
+    } finally {
+      holdsRef.current -= 1;
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ deleteNow, doneVisible, dismissDone }),
-    [deleteNow, doneVisible, dismissDone],
+    () => ({ deleteNow, doneVisible, dismissDone, holdIdentityDeleted }),
+    [deleteNow, doneVisible, dismissDone, holdIdentityDeleted],
   );
   return (
     <DeleteMyDataContext.Provider value={value}>{children}</DeleteMyDataContext.Provider>

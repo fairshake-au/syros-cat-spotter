@@ -241,6 +241,24 @@ describe('DeleteMyDataProvider', () => {
     expect(h.reports.wipeReports).not.toHaveBeenCalled();
   });
 
+  // SYC-266: "Delete Nikos" makes the current id answer 410 on purpose. A
+  // 410 during the move must not wipe the phone over the restored spotter.
+  it('ignores a 410 while held, and acts on one again afterwards', async () => {
+    h.getClaimedUsername.mockRejectedValue(gone);
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.holdIdentityDeleted(async () => {
+        h.handler!();
+        await new Promise((r) => setTimeout(r, 20));
+      });
+    });
+    expect(h.getClaimedUsername).not.toHaveBeenCalled();
+    expect(h.offline.wipeQueue).not.toHaveBeenCalled();
+    act(() => h.handler!());
+    await waitFor(() => expect(h.resetIdentity).toHaveBeenCalled());
+    h.getClaimedUsername.mockReset();
+  });
+
   it('delete: wipes the cat reports along with everything else', async () => {
     const { result } = renderHook(() => useDeleteMyData(), { wrapper });
     await act(async () => {

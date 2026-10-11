@@ -65,7 +65,7 @@ export function peekRestore(deviceId: string, token: string): Promise<{ spotters
 
 export function redeemRestore(
   deviceId: string,
-  input: { token: string; spotterDeviceId: string; abandonCurrent: boolean },
+  input: { token: string; spotterDeviceId: string; abandonCurrent: boolean; deleteCurrent?: boolean },
 ): Promise<{ deviceId: string; username: string | null }> {
   return customFetch(`/api/restore/redeem`, {
     method: 'POST',
