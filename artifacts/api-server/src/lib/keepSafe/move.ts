@@ -1,6 +1,8 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { hashToken } from "./tokens";
+import { deletedMarkerKey } from "../deviceAuth";
+import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
 
 /**
  * Pressing the button: moving a spotter to the phone that asked (SYC-3 plan,
@@ -27,6 +29,12 @@ import { hashToken } from "./tokens";
  * 8. the calling phone's own (starter or abandoned) credential is retired
  *    with a value no secret can match, never deleted (review A6), and its
  *    push token goes. Whatever that id owns stays under it, untouched.
+ *    **Or**, when the person chose "Delete Nikos" (`deleteCurrent`, SYC-266,
+ *    Samuel 10 Oct 2026), the abandoned spotter is deleted exactly as "Delete
+ *    my data" would (SYC-63 `severPerson`), in this same transaction. The link
+ *    being spent first swaps the abandoned id for its one-way `deleted:` key,
+ *    so it survives the deletion (the old phone's `device_moved` and the
+ *    60-second replay still read it) without keeping the raw id.
  *
  * A deleted spotter (SYC-63) has no credential row under its id, so step 5
  * finds nothing and the whole thing rolls back.
@@ -118,7 +126,8 @@ export async function replayAfterMove(input: {
       left join profiles p on p.device_id = t.restored_device_id
      where t.token_hash = ${hashToken(input.raw)}
        and t.purpose = 'restore'
-       and t.device_id = ${input.callerDeviceId}
+       -- After "Delete Nikos" the link holds the abandoned id's one-way key.
+       and t.device_id in (${input.callerDeviceId}, ${deletedMarkerKey(input.callerDeviceId)})
        and t.restored_device_id = ${input.spotterDeviceId}
        and t.used_at > now() - make_interval(secs => ${SAME_ANSWER_SECONDS})
        and c.secret_hash = ${input.callerSecretHash}
@@ -152,10 +161,13 @@ export async function redeemRestore(input: {
   callerSecretHash: string;
   spotterDeviceId: string;
   abandonCurrent: boolean;
+  /** SYC-266: delete the spotter being left behind. Only with `abandonCurrent`. */
+  deleteCurrent?: boolean;
   ipHash: string;
 }): Promise<MoveResult> {
   const { raw, callerDeviceId, spotterDeviceId } = input;
   if (!spotterDeviceId || spotterDeviceId === callerDeviceId) return { ok: false, reason: "bad_spotter" };
+  if (input.deleteCurrent && !input.abandonCurrent) return { ok: false, reason: "delete_without_abandon" };
   try {
     return await db.transaction(async (tx) => {
       // Lock the calling phone's credential first: two links redeemed by one
@@ -208,6 +220,20 @@ export async function redeemRestore(input: {
         update mail_tokens set replaced_secret_hash = ${old.secret_hash} where token_hash = ${hashToken(raw)}
       `);
       await tx.execute(sql`delete from push_tokens where device_id = ${spotterDeviceId}`);
+
+      if (input.deleteCurrent) {
+        // "Delete Nikos": the link names the abandoned id as the phone that
+        // asked; swap it for the one-way key first, or the deletion below
+        // would remove the link with everything else naming that id.
+        await tx.execute(sql`
+          update mail_tokens set device_id = ${deletedMarkerKey(callerDeviceId)}
+           where token_hash = ${hashToken(raw)}
+        `);
+        // Its credential becomes the `deleted:` marker, so the id answers 410
+        // for ever and can't be re-bound on first use either.
+        await severPerson(tx, { deviceId: callerDeviceId, reason: DELETED_BY_THE_PERSON });
+        return { ok: true as const, deviceId: spotterDeviceId, username: chosen.username };
+      }
 
       // Retire the calling phone's own id: never deleted, so it can't be re-bound on first use.
       const retired = await tx.execute(sql`
