@@ -259,6 +259,22 @@ describe('DeleteMyDataProvider', () => {
     h.getClaimedUsername.mockReset();
   });
 
+  // #110 review, F6: a hold whose work fails is still released.
+  it('releases a hold whose work fails, so a later 410 is acted on', async () => {
+    h.getClaimedUsername.mockRejectedValue(gone);
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await expect(
+        result.current.holdIdentityDeleted(async () => {
+          throw new Error('redeem failed');
+        }),
+      ).rejects.toThrow('redeem failed');
+    });
+    act(() => h.handler!());
+    await waitFor(() => expect(h.resetIdentity).toHaveBeenCalled());
+    h.getClaimedUsername.mockReset();
+  });
+
   it('delete: wipes the cat reports along with everything else', async () => {
     const { result } = renderHook(() => useDeleteMyData(), { wrapper });
     await act(async () => {

@@ -61,7 +61,7 @@ export default function RestorePage() {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const { deviceId, username, isReady, adoptRestoredIdentity } = useDevice();
-  const { isOnline } = useOffline();
+  const { isOnline, pauseSync, resumeSync } = useOffline();
   const params = useLocalSearchParams<{ t?: string }>();
   if (typeof params.t === 'string' && params.t) heldToken = params.t;
   const token = useRef<string | null>(heldToken);
@@ -118,6 +118,9 @@ export default function RestorePage() {
   const move = async (spotter: RestoreSpotter) => {
     const raw = token.current;
     if (!raw || !deviceId) return;
+    // Never a silent "Keep": the person must have said (SYC-266).
+    if (username && !choice) return;
+    const deleting = Boolean(username) && choice === 'delete';
     setState({ kind: 'moving' });
     try {
       await waitForUsernameClaimToSettle();
@@ -125,13 +128,34 @@ export default function RestorePage() {
       // sent as Nikos must not wipe the phone and make a new spotter over the
       // one coming back (SYC-266). Held until the phone has become it.
       await holdIdentityDeleted(async () => {
-        const result = await redeemRestore(deviceId, {
-          token: raw,
-          spotterDeviceId: spotter.deviceId,
-          abandonCurrent: Boolean(username),
-          ...(username && choice === 'delete' ? { deleteCurrent: true } : {}),
-        });
-        await adoptRestoredIdentity(result.deviceId, result.username);
+        // No upload as Nikos may land after the deletion and put Nikos back
+        // (as "Delete my data" pauses first: #110 review, F1).
+        if (deleting) await pauseSync();
+        try {
+          const request = () =>
+            redeemRestore(deviceId, {
+              token: raw,
+              spotterDeviceId: spotter.deviceId,
+              abandonCurrent: Boolean(username),
+              ...(deleting ? { deleteCurrent: true } : {}),
+            });
+          let result: Awaited<ReturnType<typeof request>>;
+          try {
+            result = await request();
+          } catch (err) {
+            // A lost answer after a Delete has committed would leave this
+            // phone on Nikos's deleted id: the next 410 would wipe it and the
+            // spotter coming back would be lost. Ask again: within 60 s the
+            // server gives the same answer and moves nothing twice (#110
+            // review, F2).
+            if (!deleting || isLinkNotValid(err)) throw err;
+            await new Promise((r) => setTimeout(r, 1500));
+            result = await request();
+          }
+          await adoptRestoredIdentity(result.deviceId, result.username);
+        } finally {
+          if (deleting) resumeSync();
+        }
       });
       heldToken = null;
       token.current = null;

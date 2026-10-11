@@ -36,7 +36,8 @@ export function RestoreWarning({
   onChoose,
 }: {
   current: string;
-  spots: number;
+  /** Only the choice uses it; the warning on its own names no count. */
+  spots?: number;
   /**
    * Neither is chosen until the person picks one. Without `onChoose` only the
    * warning shows (the "Get your spots back" email screen: the choice comes
@@ -73,7 +74,7 @@ export function RestoreWarning({
       >
         <Text style={[styles.optionTitle, { color: colors.foreground }]}>{label}</Text>
         <Text style={[styles.optionText, { color: colors.mutedForeground }]}>
-          {restoreChoiceText(t, value, current, spots)}
+          {restoreChoiceText(t, value, current, spots ?? 0)}
         </Text>
       </Pressable>
     );
