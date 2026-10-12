@@ -129,3 +129,55 @@ The spec (§3, Decision 1) makes the whole map depend on one browser behaviour: 
 
 **Not yet tested: Safari (WebKit) and Firefox (Gecko).** This machine has no Xcode simulator and no WebKit or Firefox test browser, so those two engines need a download (Decision 3). Chrome on Android is the same engine as tested, with touch emulation. Real phones are checked again on the development site in PR 3.1, as test 17 requires.
 
+---
+
+## Decisions for Samuel
+
+Three, all about *how* or *when* to build what is approved. None reopens a decision in the spec.
+
+### Decision 1: do the team's colonies and private map wait for the roles foundations?
+
+**The question.** The team's half (Slices 2 and 3) uses capability names that don't exist yet, such as `create_colony` and `add_feeding_site`. The roles plan creates them, with strict checks, in its PR 0.5, which comes after four other roles PRs and a change to the sign-in Worker. Should colonies and the private map wait for that?
+
+| Option | What it means | Benefits | Risks |
+|---|---|---|---|
+| **1A. Don't wait (recommended)** | Slices 2 and 3 add the names they use to today's list, held by the team only, exactly as `can()` works today ("does this person hold the team role?"). Each route already looks up its colony from the record and passes it to `can()`, so when PR 0.5 makes `can()` strict, the routes are already right | The spec says so (§7.2: "nothing in the team's half waits for it"). Colonies are ready for launch even if roles slip. **Safe:** until the roles PRs 0.3, 0.4, 0.5 and the Worker change are live, nobody but the team can sign in at all | Two plans edit `capabilities.ts`: whichever merges second rebases (a few lines). PR 0.5's route walk must list this plan's routes; if they merged first, 0.5 adds their rows |
+| 1B. Wait for PR 0.5 | Slices 2 and 3 start after the roles foundations are live | One way of checking permissions from the start; no rebase | Colonies and the map wait on six roles PRs and the Worker. If roles slip, the team launches with no colonies and no map, which spec Decision 2 put before launch |
+
+**Recommendation: 1A.** Guardians (Slice 4) wait for the roles foundations either way.
+
+**What people notice.** With 1A, the team gets colonies and the map sooner. With 1B, they get them later. Nobody else notices either way.
+
+### Decision 2: removing the links that send exact positions to Google (SYC-245)
+
+**The question.** Today the team's cat page, the welfare queue and the welfare alert email each have an "Open map" link. It opens Google Maps (and in the email also Apple Maps) at the exact spot. Cats are mostly seen where they are fed, so these links tell Google where feeding spots are. The spec says "Make a feeding site here" can't ship until these links are gone, **or** until they are dropped for any position within 50 m of a feeding site (its fallback).
+
+| Option | What the team gets | Benefits | Risks |
+|---|---|---|---|
+| A. Remove all three links | Exact positions shown as plain text, and (from Slice 3) on our own map | Nothing exact goes to a map company, ever | Someone rushing to a cat in trouble loses one-tap directions in their phone's maps app. They can copy the numbers, which sends the same position to the same company anyway, just more slowly |
+| **B. Mixed (recommended):** remove the link on the cat page (replaced by our own map in Slice 3); keep it in the welfare queue and alert email, **except** within 50 m of any feeding site | Directions still work for welfare call-outs, which are about one cat in trouble, not about a feeding spot | The cat page, where sites are made, never leaks. A welfare report near a known feeding spot shows "Near a feeding site: see the dashboard map" instead of the link | A report away from a known site still goes to Google when tapped, including at a spot that *later* becomes a site. That is the spec's own accepted fallback |
+| C. The 50 m rule everywhere, including the cat page | Links stay for most positions | Least change for the team | A sighting is usually what *becomes* a site, so on the cat page the link has often already been tapped before anyone makes a site there. That is the leak the spec is about |
+
+**Recommendation: B.** It puts the strict rule where sites are created, and keeps directions for welfare call-outs, where a minute matters.
+
+**What people notice.** On a cat's page, "Open map" becomes "Show on our map" once Slice 3 is live (plain text until then). In the queue and the alert email, nothing changes except near a feeding site.
+
+### Decision 3: finishing the tap test in Safari and Firefox
+
+**The question.** The spec wants the tap behaviour checked in Safari on iPhone, Chrome on Android and Firefox **before this plan is approved**. Chrome is done (above). Safari and Firefox need test browsers this machine doesn't have.
+
+| Option | What it means | Benefits | Risks |
+|---|---|---|---|
+| **3A. Download Playwright's WebKit and Firefox test browsers and run the same check now (recommended)** | About 200 MB from Playwright's download server, into this machine's Playwright cache (not the repository). The same page and taps, in each engine, at 390 px and desktop | Closes the spec's condition before approval, with no phone and no one else involved. WebKit is the engine behind Safari on every iPhone | A desktop engine with touch emulation isn't a real phone. Real phones are still checked in PR 3.1 (test 17) |
+| 3B. Approve now; check on real phones in PR 3.1 | No download. Samuel (or a Syros Cats person) taps the development site's map once on an iPhone and once on Android, about two minutes | Real devices | Approval happens before the spec's condition is met. Needs a person with a phone |
+| 3C. Both | 3A now, real phones in PR 3.1 | Strongest | Both costs |
+
+**Recommendation: 3C**, which is 3A now plus the real-phone check PR 3.1 already includes. If either engine fails, the spec's fallback applies: our own tile set (Decision 1 option C) plus typed coordinates, before any script is considered.
+
+**What people notice.** Nothing.
+
+### Also needed from Samuel, not decisions
+
+- **Before each production migration** (PR 1.1, PR 1.2, PR 3.1): switch the session to **"ask" mode**, so Claude can take the Neon snapshot and run the read-only count. Auto mode blocks Neon snapshots. Claude says when.
+- **Before Slice 6 ships:** nothing. Samuel has accepted the matching and photo risk (spec §4.6), so the public half has no gate on SYC-67.
+
