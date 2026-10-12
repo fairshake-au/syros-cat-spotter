@@ -207,23 +207,25 @@ No email, no account (§2.1). This is deliberate, not a gap. The team records wh
 
 ---
 
-## 5. Decision 3: should staff and management be two tiers?
+## 5. Decision 3: should the team and management be two tiers?
+
+**Decided (Samuel, 12 October 2026): option A, two tiers, team and management.** Everyone on the team when roles go live is also made management, so nothing is taken away on day one; management alone holds `manage_people` and `action_deletion_request`.
 
 Every member of the team holds every team capability, including adding and removing people and actioning data-deletion requests. That is fine while the list is Samuel, Jacky and a few colleagues. It is a real exposure once the list includes guardians, because **whoever can invite can create a person who sees where cats gather.** The question is whether the power to change the list should sit with everyone on the team or with a few.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ Two tiers, with nothing taken away on day one.** *Staff* do the cat work. *Management* additionally manage people, action deletion requests and approve access changes (§8.3). Everyone who is staff when roles go live is given both. | The sensitive powers sit with a few named people from the moment the charity chooses. No one loses anything on the day it ships. The people screen (SYC-104) can narrow it later. | One more thing to explain. Until someone is demoted to staff-only, the tier changes nothing in practice. The charity must actually choose who is management, or the split is decoration. |
-| **B. One tier.** Every team member can invite, place and remove. | Nothing new to explain. | Any team member, or anyone who gets into a team member's mailbox, can create more accounts and widen who can see exact positions. The second-pair-of-eyes rule in §8.3 has no one to be the second pair. |
+| **A. ✅ Decided. Two tiers, with nothing taken away on day one.** The *team* does the cat work, including field work. *Management* additionally manages people and actions deletion requests. Everyone who is on the team when roles go live is given both. | The sensitive powers sit with a few named people from the moment the charity chooses. No one loses anything on the day it ships. The people screen (SYC-104) can narrow it later. | One more thing to explain. Until someone is demoted to team-only, the tier changes nothing in practice. The charity must actually choose who is management, or the split is decoration. |
+| **B. One tier.** Every team member can invite, place and remove. | Nothing new to explain. | Any team member, or anyone who gets into a team member's mailbox, can create more accounts and widen who can see exact positions. |
 | **C. Three tiers** (read-only team members as well). | Finer control. | Nobody has asked for it. A system with more tiers than the charity has people is a system the charity stops maintaining. |
 
-**What people notice.** Nothing on day one for anyone. Later, a staff-only member no longer sees the People screen, and a management member is asked to OK another person's invitation.
+**What this choice accepts.** The earlier recommendation was the same two tiers, with management also holding `approve_access` (a second management member's OK for access changes). Decision 11 removed that power, so management here holds two powers, not three, and nothing stops one management member alone from changing who is on the list (§8.3 says what that accepts).
 
-**Recommendation: A.** The cost is a label and a migration row; the benefit is that the single most dangerous power (making new accounts) has a short, named list of holders.
+**What people notice.** Nothing on day one for anyone. Later, a team-only member no longer sees the People screen.
 
-**Which capabilities are management-only.** `manage_people`, `action_deletion_request` and `approve_access`. Everything else a staff member holds, they keep. §6.2 has the whole catalogue.
+**Which capabilities are management-only.** `manage_people` and `action_deletion_request`. Everything else a team member holds, they keep. §6.2 has the whole catalogue.
 
-**The word in the database.** The value stored is `management`. The record of who said what (`observations.role_at_time`) already reserves the word `admin` for the same idea, and nothing has ever written it. **Proposal:** rename the reserved `admin` to `management` in the data spine's vocabulary and in the resolver's list of authoritative roles, in the same change that adds the role. Two names for one thing is how a permissions list drifts, and `staff`, `admin` and `management` would be three. The one place that maps a person's role to what is written on an observation is §10.4.
+**The word in the database.** The value stored is `management`. The record of who said what (`observations.role_at_time`) already reserves the word `admin` for the same idea, and nothing has ever written it. **Proposal:** rename the reserved `admin` to `management` in the data spine's vocabulary and in the resolver's list of authoritative roles, in the same change that adds the role. Two names for one thing is how a permissions list drifts, and `staff`, `admin` and `management` would be three. (The team's own stored value stays `staff`; on screen it is "the Syros Cats team".) The one place that maps a person's role to what is written on an observation is §10.4.
 
 ---
 
@@ -662,7 +664,7 @@ Checks added to the table:
 
 **The migration must not guess**, and must not fail halfway. §15.2 says how existing rows are set up and what stops it.
 
-**Management for existing staff.** If Decision 3 is A, the migration adds a `management` row for every real person who holds `staff` and has not left, from a list Samuel has seen and approved first. They then hold exactly what they hold now.
+**Management for existing team members.** Decision 3 is decided, so the migration adds a `management` row for every real person who holds `staff` and has not left, from a list Samuel has seen and approved first. They then hold exactly what they hold now.
 
 ### 10.2 The invitation
 
@@ -916,7 +918,7 @@ The steps, in order, inside one transaction, **stopping with a list and changing
 2. **Set `reach` from the data before adding any check.** For each existing `person_scopes` row, `reach` is `colony` when `colony_id` is set and `island` when it is null. The column is added nullable, filled, then made `not null` with no default.
 3. **List and stop on every row that would break a new check**, not only some: a `guardian` row with no colony, or any row whose role is `volunteer` (the value is retired); a `staff` row with a colony (the `people` command allows one); anything else the checks refuse. A person decides what each means, and the migration is run again.
 4. **Add the checks and the `management` role value**, and the `people` columns. Set `accepted_at = added_at` for every person already on the list, so nobody is suddenly "pending".
-5. **Add `management` rows**, if Decision 3 is A, for the real people who hold `staff` and have not left. **Show Samuel that list before the migration runs**; test and seed accounts are not carried over.
+5. **Add `management` rows** for the real people who hold `staff` and have not left. **Show Samuel that list before the migration runs**; test and seed accounts are not carried over.
 6. Create `confirmation_items` and its indexes.
 
 The `people` command's `--role guardian` option is changed to require `--colony` at the same time, and `--role volunteer` is removed (§15.1).
