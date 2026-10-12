@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
+import { hiddenDetails } from "./photoVisibility";
 import { loadCatRecords } from "./observations";
 import {
   clippedTipCount,
@@ -242,6 +243,16 @@ function correctionOf(o: Observation, replaced: boolean): StatementCorrection | 
   return null;
 }
 
+/** One photo in the team's gallery. Staff see hidden photos too (PR 6). */
+export interface TeamPhoto {
+  url: string;
+  /** What the hide and restore forms name the photo by. */
+  publicId: string;
+  source: "main" | "sighting" | "statement";
+  /** Set while the photo is hidden from the public: who hid it and when. */
+  hidden: { by: string; at: string; reason: string | null } | null;
+}
+
 export interface TeamCatRef {
   id: number;
   syr: string;
@@ -281,7 +292,7 @@ export interface TeamCatView {
   /** Every resolved sighting, newest first, at its exact position. */
   sightings: { id: number; lat: number; lng: number; at: string; photoUrl: string | null }[];
   /** Every photo of the cat, once each: main, then sightings, then statements. */
-  photos: { url: string; source: "main" | "sighting" | "statement" }[];
+  photos: TeamPhoto[];
   /** Every statement, newest first. Replaced ones stay, with what replaced them. */
   history: TeamStatement[];
 }
@@ -302,6 +313,37 @@ async function peopleNames(observations: readonly Observation[]) {
     .where(inArray(peopleTable.id, ids));
   for (const r of rows) names.set(r.id, { name: r.name, left: r.leftAt !== null });
   return names;
+}
+
+/**
+ * Who hid each hidden photo, for the label "Hidden from the public by Susan,
+ * 4 Oct". A team member by name, with "(left)" if they have; a public report
+ * (SYC-44's `report:<id>`) as "a public report".
+ */
+async function hiddenLabels(photoIds: readonly number[]) {
+  const details = await hiddenDetails(photoIds);
+  const ids = [...new Set([...details.values()].map((d) => d.personId).filter((p): p is string => p != null))];
+  const names = new Map<string, PersonName>();
+  if (ids.length > 0) {
+    // Read the list directly, as peopleNames does: a person who has left
+    // is still named.
+    const rows = await db
+      .select({ id: peopleTable.id, name: peopleTable.name, leftAt: peopleTable.leftAt })
+      .from(peopleTable)
+      .where(inArray(peopleTable.id, ids));
+    for (const r of rows) names.set(r.id, { name: r.name, left: r.leftAt !== null });
+  }
+  const out = new Map<number, NonNullable<TeamPhoto["hidden"]>>();
+  for (const [photoId, d] of details) {
+    const person = d.personId ? names.get(d.personId) : undefined;
+    const by = person
+      ? person.left ? `${person.name} (left)` : person.name
+      : d.author.startsWith("report:")
+        ? "a public report"
+        : "someone no longer on the team list";
+    out.set(photoId, { by, at: d.at.toISOString(), reason: d.reason });
+  }
+  return out;
 }
 
 async function photoPublicIds(ids: readonly number[]): Promise<Map<number, string>> {
@@ -415,14 +457,23 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
   const observations = rec?.observations ?? [];
   const evidence = rec?.evidenceOfLife ?? null;
 
-  const [people, photoIds, crossCat] = await Promise.all([
-    peopleNames(observations),
-    photoPublicIds([
+  // Every photo of the cat, once each: main, then sightings, then statements.
+  const galleryIds = [
+    ...new Set([
       cat.primaryPhotoId,
       ...sightings.map((s) => s.photoId),
-      ...observations.map((o) => o.photoId).filter((p): p is number => p != null),
+      // In the history's order: newest recorded first.
+      ...[...observations]
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id)
+        .map((o) => o.photoId)
+        .filter((p): p is number => p != null),
     ]),
+  ];
+  const [people, photoIds, crossCat, hidden] = await Promise.all([
+    peopleNames(observations),
+    photoPublicIds(galleryIds),
     crossCatLinks(observations),
+    hiddenLabels(galleryIds),
   ]);
   const urlFor = (photoId: number | null) => {
     const publicId = photoId == null ? undefined : photoIds.get(photoId);
@@ -460,17 +511,19 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
       correction: correctionOf(o, replacedBy.has(o.id)),
     }));
 
-  const photos: TeamCatView["photos"] = [];
-  const seen = new Set<string>();
-  const addPhoto = (url: string | null, source: TeamCatView["photos"][number]["source"]) => {
-    if (url && !seen.has(url)) {
-      seen.add(url);
-      photos.push({ url, source });
-    }
-  };
-  addPhoto(urlFor(cat.primaryPhotoId), "main");
-  for (const s of sightings) addPhoto(urlFor(s.photoId), "sighting");
-  for (const h of history) addPhoto(h.photoUrl, "statement");
+  const mainIds = new Set([cat.primaryPhotoId]);
+  const sightingIds = new Set(sightings.map((s) => s.photoId));
+  const photos: TeamPhoto[] = [];
+  for (const id of galleryIds) {
+    const publicId = photoIds.get(id);
+    if (!publicId) continue;
+    photos.push({
+      url: teamPhotoUrl(publicId),
+      publicId,
+      source: mainIds.has(id) ? "main" : sightingIds.has(id) ? "sighting" : "statement",
+      hidden: hidden.get(id) ?? null,
+    });
+  }
 
   return {
     cat: {

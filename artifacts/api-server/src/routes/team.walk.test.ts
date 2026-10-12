@@ -66,7 +66,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * changes `router.stack` and the walk finds fewer, the test fails rather than
  * passing on an empty list. Raise this when a PR adds routes.
  */
-const MINIMUM_ROUTES = 21;
+const MINIMUM_ROUTES = 23;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -154,6 +154,8 @@ describe("P1-1: every /api/team route refuses the unauthorised the same way", ()
       "POST /api/team/statements/:id/wrong",
       "GET /api/team/likely",
       "POST /api/team/likely/:id/looks-right",
+      "POST /api/team/photos/:publicId/hide",
+      "POST /api/team/photos/:publicId/restore",
     ]) {
       expect(routes).toContain(known);
     }

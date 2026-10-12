@@ -48,6 +48,7 @@ router.get(
 );
 
 const CAT_ID_RE = /^\d{1,9}$/;
+const PHOTO_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** GET /api/team/cats/:id: the team's page for one cat. */
 router.get(
@@ -68,8 +69,11 @@ router.get(
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     const s = req.query["s"];
     const at = typeof s === "string" && CAT_ID_RE.test(s) ? Number(s) : undefined;
+    // After Hide or Restore (PR 6): the photo the page lands on, by publicId.
+    const p = req.query["p"];
+    const photo = typeof p === "string" && PHOTO_ID_RE.test(p) ? p : undefined;
     res.type("html").send(
-      renderCatPage(view, person.name, { may: (c) => can(person, c), done, at }),
+      renderCatPage(view, person.name, { may: (c) => can(person, c), done, at, photo }),
     );
   },
 );
