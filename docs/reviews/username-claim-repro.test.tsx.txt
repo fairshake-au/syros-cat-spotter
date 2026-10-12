@@ -1,0 +1,133 @@
+// @vitest-environment jsdom
+// TEMPORARY review reproduction (not committed): drives the real LanguageUsernameStep.
+import React from 'react';
+import { render, cleanup, fireEvent, act } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TRANSLATIONS } from '@/lib/i18n';
+
+const en = TRANSLATIONS.en;
+
+const h = vi.hoisted(() => ({
+  claim: vi.fn(),
+  read: vi.fn(),
+  setUsername: vi.fn(),
+  availability: { data: { available: true } as any, isFetching: false, isError: false },
+}));
+
+vi.mock('@workspace/api-client-react', () => ({
+  useCheckUsernameAvailability: () => h.availability,
+  getCheckUsernameAvailabilityQueryKey: (p: unknown) => ['avail', p],
+  useGetUsernameSuggestions: () => ({ data: { suggestions: [] }, isFetching: false, refetch: vi.fn() }),
+  getGetUsernameSuggestionsQueryKey: () => ['sugg'],
+  checkUsernameAvailability: vi.fn(),
+  getClaimedUsername: (...a: unknown[]) => h.read(...a),
+  claimUsername: (...a: unknown[]) => h.claim(...a),
+}));
+vi.mock('@/context/LanguageContext', () => ({
+  useLanguage: () => ({ language: 'en', setLanguage: vi.fn(), t: (k: string) => (en as any)[k] ?? k }),
+}));
+vi.mock('@/context/DeviceContext', () => ({ useDevice: () => ({ deviceId: 'dev-1', setUsername: h.setUsername }) }));
+vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: true }) }));
+vi.mock('@/hooks/useColors', () => ({
+  useColors: () => ({ background: '#fff', foreground: '#000', mutedForeground: '#666', card: '#fff', border: '#ddd', primary: '#123', primaryForeground: '#fff', destructive: '#f00' }),
+}));
+vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
+vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
+vi.mock('@/components/KeyboardAwareScrollViewCompat', async () => {
+  const { View } = await import('react-native');
+  return { KeyboardAwareScrollViewCompat: ({ children }: any) => <View>{children}</View> };
+});
+vi.mock('@/components/purropolis', async () => {
+  const { Text } = await import('react-native');
+  return {
+    Button: ({ children, onPress, disabled }: any) => (
+      <Text role="button" aria-disabled={disabled ? 'true' : 'false'} onPress={disabled ? undefined : onPress}>{children}</Text>
+    ),
+    Tag: ({ children }: any) => <Text>{children}</Text>,
+  };
+});
+
+import { LanguageUsernameStep } from '../onboarding/LanguageUsernameStep';
+
+const never = () => new Promise<never>(() => {});
+async function tick(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  h.claim.mockReset(); h.read.mockReset(); h.setUsername.mockReset();
+  h.availability = { data: { available: true }, isFetching: false, isError: false };
+});
+afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+function setup() {
+  const view = render(<LanguageUsernameStep onBack={() => {}} />);
+  const input = view.container.querySelector('input')!;
+  const button = () => view.getAllByRole('button').find((b) => /Continue|Retry|Saving/.test(b.textContent ?? ''))!;
+  return { view, input, button };
+}
+
+describe('review repro', () => {
+  it('R1: hung first POST + a definitive 409 on retry leaves the spotter locked out of onboarding', async () => {
+    h.read.mockImplementation(() => Promise.resolve({ username: null }));
+    h.claim.mockImplementationOnce(never); // first POST never settles (Android OkHttp: no timeout)
+    const { view, input, button } = setup();
+    await tick(0);
+    fireEvent.change(input, { target: { value: 'SeaCat' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(button()); });
+    await tick(8000 + 4000 + 10);
+    expect(view.container.textContent).toContain(en.usernameClaimUncertain);
+    expect(button().textContent).toBe(en.usernameRetryClaim);
+    // Meanwhile someone else took the name: retry is refused with 409.
+    h.claim.mockImplementationOnce(() => Promise.reject({ status: 409 }));
+    await act(async () => { fireEvent.click(button()); });
+    await tick(10);
+    expect(view.container.textContent).toContain(en.landingTaken);
+    // Still locked: input read-only, only "Retry this name" offered, which can only 409 again.
+    expect(input.readOnly).toBe(true);
+    fireEvent.change(input, { target: { value: 'OtherName' } });
+    expect(input.value).toBe('SeaCat');
+    expect(button().textContent).toBe(en.usernameRetryClaim);
+    expect(h.setUsername).not.toHaveBeenCalled();
+  });
+
+  it('R2: a late network failure unlocks without reconciling; the next claim then reconciles to the OLD name', async () => {
+    let failA!: (e: unknown) => void;
+    h.claim.mockImplementationOnce(() => new Promise((_, rej) => { failA = rej; })); // POST A: server commits, response lost
+    h.read.mockImplementationOnce(never); // reconcile read #1 times out (slow link)
+    const { input, button } = setup();
+    await tick(0);
+    h.read.mockReset();
+    h.read.mockImplementationOnce(never); // reconcile read #1
+    fireEvent.change(input, { target: { value: 'NameA' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(button()); });
+    await tick(12010);
+    expect(input.readOnly).toBe(true); // locked on A, as intended
+    // Connection finally drops: fetch rejects with a network error. A *was* committed.
+    await act(async () => { failA(new TypeError('Network request failed')); });
+    await tick(0);
+    expect(input.readOnly).toBe(false); // unlocked with no reconciliation
+    // Spotter picks a new name B. POST B is slow; the reconcile read sees A (committed earlier).
+    h.claim.mockImplementationOnce(never);
+    h.read.mockImplementationOnce(() => Promise.resolve({ username: 'NameA' }));
+    fireEvent.change(input, { target: { value: 'NameB' } });
+    await tick(500);
+    await act(async () => { fireEvent.click(button()); });
+    await tick(8010);
+    // Onboarding accepts whatever name the server reports: the app opens as NameA while POST B may still commit.
+    expect(h.setUsername).toHaveBeenCalledWith('NameA');
+  });
+
+  it('R3: a double tap fires two claim POSTs', async () => {
+    h.read.mockImplementation(() => Promise.resolve({ username: null }));
+    h.claim.mockImplementation(never);
+    const { input, button } = setup();
+    await tick(0);
+    fireEvent.change(input, { target: { value: 'TapTap' } });
+    await tick(500);
+    const b = button();
+    await act(async () => { fireEvent.click(b); fireEvent.click(b); });
+    expect(h.claim).toHaveBeenCalledTimes(2);
+  });
+});
