@@ -119,7 +119,7 @@ Three consequences that need deciding rather than discovering:
 - a linked import record's operation date,
 - failing all of those, the date the cat record was created.
 
-That last clause is what stops a cat registered by a resident this afternoon — no photo, no sightings — being presumed deceased this afternoon, or the comparison blowing up against a null. A `deceased` observation is not evidence of life and overrides the derivation entirely; the cat shows §3.3's line instead.
+That last clause is what stops a cat registered by a resident this afternoon — no photo, no sightings — being presumed deceased this afternoon, or the comparison blowing up against a null. A `deceased` observation is not evidence of life and overrides the derivation entirely; the cat shows §3.3's line instead. Likewise `coat`, `markings`, `vaccinated` and `team_note` observations are not evidence of life (§10.1, amended 12 October 2026, SYC-2): a colour, a mark, a vaccination date or a team note does not show the cat was seen, and none of them moves the 36-month clock.
 
 **What it does and does not do.** A presumed-deceased cat leaves the active counts — colony coverage, "cats needing sterilisation", the targeting view. It stays fully in the record, keeps its page, keeps its history, and keeps counting toward the spotter's collection and the discoverer's credit.
 
