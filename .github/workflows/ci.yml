@@ -1,10 +1,36 @@
 name: CI
 
 on:
+  # A change that touches only documents (specs, plans, screenshots, notes)
+  # can't break the code, so it doesn't spend Actions minutes (the free plan's
+  # 2,000 a month ran out on 12 Oct 2026). A PR that changes any other file
+  # still runs everything.
+  #
+  # Except docs/specs/source/: welfareGuidance.test.ts reads
+  # safety-copy-translations.md there and checks the Greek and French urgent
+  # block against it, so a change to that folder must run the tests. The "!"
+  # line goes LAST: later patterns win, and "**/*.md" would re-ignore it. Any
+  # new test that reads a document needs the same exception here.
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "attached_assets/**"
+      - "**/*.md"
+      - "!docs/specs/source/**"
   push:
     branches:
       - main
+    paths-ignore:
+      - "docs/**"
+      - "attached_assets/**"
+      - "**/*.md"
+      - "!docs/specs/source/**"
+
+# A newer push to the same PR replaces the run still going for the older one.
+# Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
