@@ -110,6 +110,21 @@ export default function RestorePage() {
   const { holdIdentityDeleted } = useDeleteMyData();
   const [copied, setCopied] = useState(false);
 
+  // The fragment too, once the router has started: on web it writes the page's
+  // first address back as it starts, which would put `#t=` back in the
+  // address bar and history (found in the Decision 12 browser check).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const clear = () => {
+      if (/[#&]t=/.test(window.location.hash ?? '')) {
+        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+      }
+    };
+    clear();
+    const timers = [0, 50, 250].map((ms) => setTimeout(clear, ms));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   useEffect(() => {
     if (!params.t) return;
     router.replace('/restore');
