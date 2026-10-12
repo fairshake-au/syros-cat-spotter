@@ -99,6 +99,13 @@
       "when": 1791478666139,
       "tag": "0013_deletion_unlinks_people",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791777498034,
+      "tag": "0014_photo_visibility",
+      "breakpoints": true
     }
   ]
 }
