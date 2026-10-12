@@ -74,9 +74,11 @@ A cat has **one or two** colours. *Tabby* is a pattern rather than a colour, so 
 
 ### 3.2 Markings
 
-Markings are the things people use to tell two cats of the same colour apart. They are **additions**: a cat can have none, or several. The list is short on purpose; every entry has to be something a stranger can see in a normal photo and agree on, **except four that only the team or a cat guardian can state**, because a stranger cannot read them from a photo and some of them are, when fresh, injuries.
+Markings are the things people use to tell two cats of the same colour apart. They are **additions**: a cat can have none, or several. The list is short on purpose; every entry has to be something a stranger can see in a normal photo and agree on. **Anyone can state any of the eleven**, spotters included, under the same rules (§4.2).
 
-**Spotters can tick these seven** (plainly visible and cosmetic, or a ragged ear that needs somewhere honest to go):
+> **Updated after Samuel's decisions (12 Oct 2026).** The review (M6) had made four of these team-only. Samuel reversed that: they are ordinary recognition features and anyone can tick them, because they are exactly how people describe a cat ("the one with one eye"). The "This cat needs help" link now also appears when any of the four is ticked (§5.1).
+
+**The first seven** (plainly visible and cosmetic, or a ragged ear that needs somewhere honest to go):
 
 | Code | English | What the chip's picture shows | Greek (draft) | French (draft) |
 |---|---|---|---|---|
@@ -88,7 +90,7 @@ Markings are the things people use to tell two cats of the same colour apart. Th
 | `kinked_tail` | Kinked tail | A tail with a visible bend or break | Στραβή ουρά | Queue coudée |
 | `torn_ear` | Torn or notched ear | A ragged or notched ear (a fight scar), **not** a clean straight clip | Σκισμένο αυτί | Oreille déchirée ou entaillée |
 
-**Only the team or a cat guardian (`set_appearance`) can state these four.** A spotter never sees them as chips:
+**These four are also ticked by spotters, exactly like the seven above.** Updated after Samuel's decisions (12 Oct 2026): anyone can state them. Reason: they are the words people actually use to recognise a cat, and a spotter who can only add a mark (§4.2) cannot do lasting harm with them:
 
 | Code | English | What it means | Greek (draft) | French (draft) |
 |---|---|---|---|---|
@@ -97,7 +99,13 @@ Markings are the things people use to tell two cats of the same colour apart. Th
 | `three_legs` | Three legs | A cat that has lost a leg | Τρία πόδια | Trois pattes |
 | `odd_eyes` | Eyes of different colours | One blue, one green or gold | Μάτια διαφορετικού χρώματος | Yeux de couleurs différentes |
 
-Why those four. A sitting cat tucks a leg under (*three legs*), blinks or squints (*missing eye*), or curls its tail out of frame (*short tail*), and a photo cannot settle it. *Odd eyes* is a lasting feature the team knows, whereas ordinary eye colour looks different in every light (§3.3). And a tourist cannot tell a healed socket from last night's wound, so the chip is never a way to report an injury: a worried person who taps it would have told the app something urgent through a channel the team reads "a few minutes a week". Anyone worried about an injury uses "This cat needs help", and a spotter who ticks *torn ear* or *kinked tail* is shown that link on the spot (§5.1).
+**They are plain recognition features, never injuries.** The public wording is "One eye", "Three legs", "Short or missing tail", "Eyes of different colours". Nothing about them says hurt, lost or damaged.
+
+**Odd eyes.** Eye colour in general stays out of the vocabulary (§3.3), because it looks different in every light. Only *eyes of different colours* (one blue, one green or gold) is a marking.
+
+**Because a fresh injury can look like these,** a spotter who ticks *torn ear*, *kinked tail* or **any of these four** is shown the "This cat needs help" link on the spot (§5.1). The chip is never the way to report an injury, and a worried person must always have a route to help.
+
+**What this choice accepts.** A tourist may tick *three legs* for a cat that has only tucked a leg under, or *missing eye* for a squint, or *short tail* for a tail curled out of frame. Three things limit the harm: spotters can only add marks, and a mark is shown only once two independent voices (different devices, photos and days) agree, so one mistaken tap does not reach the page; the team (or a cat guardian for her own colonies) can retract a wrong mark, which removes it for good (§4.4); and the "needs help" link appears beside the chips, so a real injury still has a route to the team. (Updated after Samuel's decisions, 12 Oct 2026.)
 
 **How many.** A spotter's answer holds **at most four** marks, to keep the card short. A team or guardian statement carries **the whole list**, however long: a cat with white paws, white chest, white face, long fur and a kinked tail has five, and the record must be able to say so.
 
@@ -226,7 +234,9 @@ Appearance is asked in two places, both after the points:
 
 Taking a pre-filled "Yes" is recorded as a **prompted** confirmation (it agrees with the machine); picking something different is recorded as a **volunteered** statement. The difference matters for §4.2, and it is how the record tells a considered answer from a tap-through.
 
-**Does it look hurt?** Whenever a spotter ticks *Torn or notched ear* or *Kinked tail*, the screen shows, right there, the same "This cat needs help" link the cat page carries, with the words "Does it look hurt? Tell Syros Cats." Those two marks can be fresh injuries, a tourist cannot tell the difference, and the appearance question must never be the only place a worried person's attention lands. A test checks that the link renders whenever either chip is ticked.
+**Does it look hurt?** Whenever a spotter ticks *Torn or notched ear*, *Kinked tail*, or any of *Short or missing tail*, *Missing an eye*, *Three legs* or *Eyes of different colours*, the screen shows, right there, the same "This cat needs help" link the cat page carries, with the words "Does it look hurt? Tell Syros Cats." Any of these can be a fresh injury, a tourist cannot tell the difference, and the appearance question must never be the only place a worried person's attention lands. A test checks that the link renders whenever any of the six chips is ticked.
+
+> *Updated after Samuel's decisions (12 Oct 2026).* The first two triggers were in the reviewed draft. Showing the link for the four newly open marks is **added so an injury still reaches help; Samuel can drop it.**
 
 **No points for appearance.** The data spine's guard (one person, one attribute, one cat counts once) is satisfied by simply paying nothing here. If Samuel later wants a small reward, SYC-38 owns points and it is a one-line change; this spec does not create a way to farm points by tapping colours.
 
@@ -238,7 +248,7 @@ The page shows what is known, quietly, next to the location label:
 
 Nothing is shown for a cat whose colour is *Not sure* and has no markings. The page never says how sure the app is, and never shows "suggested by 1 person". Those belong to the team.
 
-Four marks can only be stated by the team or a cat guardian, not by a spotter (§3.2): *Missing an eye*, *Three legs*, *Short or missing tail* and *Eyes of different colours*. When one is stated, the page shows it as a plain recognition feature ("One eye", "Three legs"), never as an injury or a condition. Whether the public should see those four at all is a question for Syros Cats (§12, question 5).
+Four marks are shown like any other, whoever stated them (§3.2): *Missing an eye*, *Three legs*, *Short or missing tail* and *Eyes of different colours*. The page shows each as a plain recognition feature ("One eye", "Three legs"), never as an injury or a condition. Whether those words are right is a question for Syros Cats (§12, question 5).
 
 ### 5.3 The team
 
@@ -449,13 +459,13 @@ No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`,
 ### 10.6 Tests
 
 - **Colour:** each of the five rules in §4.2 in isolation and in conflict; a person's *Not sure* never wins; a prompted confirmation never counts as independent, **including a prompted tap on a spotter-filled value**; **two voices for *ginger* and two for *black* resolve to the camp with the newer support and land on the Colour check list**; *Ginger · Tabby* and *Ginger* agree on *Ginger*; *Black* plus *White* equals *Black and white*; **two single spotters filling a gap with different colours show the newest**; a later machine reading never beats a team or guardian statement; **one device counts once at read time even if two live rows exist**; **two concurrent writes from one device (a double tap) leave one voice**; **a device superseding someone else's row is refused**; **two devices uploading the same photo, or on the same day, count as one**; a deletion between two voices still leaves two; the team correcting after two spotters agree wins; a guardian's statement stands directly and a volunteer's confirmation never becomes the answer.
-- **Markings:** a mark held at one voice, shown at two; omissions never remove a mark; a device's later answer adds and never withdraws; *Can't tell* and "nothing special" withdraw nothing; only a team or guardian statement removes one; an empty team list clears the marks; **marking one of three spotters' marks wrong leaves the other two shown**; **two voices dated after the newest team statement show a mark and put the cat on the Colour check list**; the four team-only marks are refused from a spotter; a team list may hold more than four marks; `cantTell` changes nothing.
+- **Markings:** a mark held at one voice, shown at two; omissions never remove a mark; a device's later answer adds and never withdraws; *Can't tell* and "nothing special" withdraw nothing; only a team or guardian statement removes one; an empty team list clears the marks; **marking one of three spotters' marks wrong leaves the other two shown**; **two voices dated after the newest team statement show a mark and put the cat on the Colour check list**; each of the four marks (*short tail*, *missing eye*, *three legs*, *odd eyes*) is accepted from a spotter and follows the same two-voice and add-only rules as the other seven; a team list may hold more than four marks; `cantTell` changes nothing.
 - **Retraction:** the retraction removes only the statement it points at, and is refused from a volunteer and a spotter.
 - **Vaccinated:** refused from public, guardian and volunteer; no negative state exists; **absent from every public payload; the word "rabies" appears in no public payload or string**; not evidence of life.
 - **Health notes:** a `team_note` is refused from public, never in a public payload, readable only with `view_health_notes`, and survives deletion of a welfare report; a welfare-report note never becomes a cat note.
 - **Old care route:** nothing about health or vaccination is written to `cat_updates`.
 - **Privacy:** no health note, welfare report, confidence or author in any public payload (the public-payload leak list the data spine already tests, §10.8), checked against the new fields by name.
-- **Welfare separation:** a recorded team note never hides the "needs help" link on that cat's page; a welfare report writes no condition; **the "Does it look hurt?" link renders whenever *Torn or notched ear* or *Kinked tail* is ticked**.
+- **Welfare separation:** a recorded team note never hides the "needs help" link on that cat's page; a welfare report writes no condition; **the "Does it look hurt?" link renders whenever *Torn or notched ear*, *Kinked tail*, *Short or missing tail*, *Missing an eye*, *Three legs* or *Eyes of different colours* is ticked**.
 - **Cache:** a v2 cache written by today's build is read correctly by the new client, with no key change.
 - **Languages:** every chip label and line exists in `en`, `el` and `fr`; nothing renders a raw code; no question uses a gendered pronoun.
 - **Offline:** the colour filter works on a cached catalogue with no network; the appearance question never renders offline.
@@ -596,7 +606,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 2. **What health information do you actually keep about a cat?** If there is a spreadsheet or a WhatsApp convention, its headings beat our guesses (it decides SYC2-D5's option B).
 3. **Which vaccines do you give?** (It decides the vaccine list in the team's record. It would also matter if the public line were ever reconsidered, SYC2-D6 option B, in which case your vet must see the exact wording first.)
 4. **Is it right that a cat guardian's word on colour and markings stands straight away,** with the team seeing it in their feed of recent guardian changes, rather than waiting for the team's OK? (This is `roles-and-invites.md` Decision 13; this question asks whether Syros Cats are comfortable with it.)
-5. **Should the public see *Missing an eye*, *Three legs*, *Short or missing tail* and *Eyes of different colours* at all?** They are how people recognise a cat ("the one with one eye"), but on a public page they can also read as medical history. Our default is to show them as plain recognition features, never as injuries.
+5. **Are these words right?** Samuel has decided that anyone can tick *Short or missing tail*, *Missing an eye*, *Three legs* and *Eyes of different colours*, and that the public sees them as plain recognition features ("One eye", "Three legs"), never as injuries. Please check that the English, Greek and French wording is what your volunteers would say and would not read as medical history or as unkind. Also tell us if a tucked leg or a squint is often mistaken for one of these.
 6. **Would a single overall number ("142 cats vaccinated this year") on the donate screen or in your reports help donors who fund vaccines,** and who should compute it?
 
 ---
@@ -686,7 +696,7 @@ An independent adversarial review (`docs/specs/reviews/coat-markings-and-health-
 | M3 | Several rules cannot be tested | One sentence for each case: ties, per-colour agreement, black plus white, gap-fillers, additive markings, *Can't tell*, one question per sighting, no change after a team ruling, a device only supersedes its own row | §3.1, §4.2, §10.6 |
 | M4 | "Mark wrong" has no safe value | A `{ retracted: true }` value for colour and markings, written under `set_appearance`; the roles spec lets guardians remove too, so it is not staff-only (see below) | §4.4, §10.1 |
 | M5 | One team statement freezes the markings | Two voices dated after the newest team or guardian statement reopen the list and put the cat on the Colour check list; removals still need the team | §4.2, §5.3 |
-| M6 | Several markings are injuries, and some cannot be read from a photo | *Missing an eye*, *Three legs*, *Short or missing tail* and *Eyes of different colours* are team-or-guardian only; "Does it look hurt?" link whenever *Torn ear* or *Kinked tail* is ticked, with a test; public display of the four is a question for Syros Cats | §3.2, §5.1, §5.2, §12 |
+| M6 | Several markings are injuries, and some cannot be read from a photo | The review made *Missing an eye*, *Three legs*, *Short or missing tail* and *Eyes of different colours* team-or-guardian only, and added the "Does it look hurt?" link for *Torn ear* and *Kinked tail*, with a test. **Partly reversed by Samuel (12 Oct 2026):** the four are open to anyone, as plain recognition features; the link is kept and now also shows for the four ("added so an injury still reaches help; Samuel can drop it"); §3.2 says what this accepts; §12 question 5 becomes "are these words right?" | §3.2, §5.1, §5.2, §12 |
 | M7 | The cache-key bump can wipe the offline catalogue; two specs plan two bumps and two shapes | No key change; the old key stays; a missing field means "not known"; a v2-cache test; one wire shape `coat: []`; a safe fallback rule if a bump is ever needed | §8, §10.4, §10.7 |
 | M8 | The role assignments conflict with the roles spec | The five names and holders are the roles spec's (§6.2), appearance statements are not queued, volunteers add evidence only (Decision 13), vets reserved. The "Later" column is gone | §4.3, §5.4 |
 | M9 | The old shared-password care route can still publish health, with a push | Health and vaccination are never written through it; its `general` type is retired for team use with the route; the untranslated old-build note is recorded | §6.4 (rule 6), §10.7 |
