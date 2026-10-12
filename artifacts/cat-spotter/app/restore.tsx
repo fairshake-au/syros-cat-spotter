@@ -109,6 +109,8 @@ export default function RestorePage() {
   const [choice, setChoice] = useState<CurrentSpotterChoice | null>(null);
   const { holdIdentityDeleted } = useDeleteMyData();
   const [copied, setCopied] = useState(false);
+  // Some in-app browsers refuse the clipboard: never claim a copy that didn't happen.
+  const [copyFailed, setCopyFailed] = useState(false);
 
   // The fragment too, once the router has started: on web it writes the page's
   // first address back as it starts, which would put `#t=` back in the
@@ -120,9 +122,15 @@ export default function RestorePage() {
         window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
       }
     };
+    // Checked for a few seconds rather than at fixed moments, so a slow phone
+    // whose router starts late is covered too (review of #114).
     clear();
-    const timers = [0, 50, 250].map((ms) => setTimeout(clear, ms));
-    return () => timers.forEach(clearTimeout);
+    const started = Date.now();
+    const timer = setInterval(() => {
+      clear();
+      if (Date.now() - started > 5000) clearInterval(timer);
+    }, 100);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -240,13 +248,18 @@ export default function RestorePage() {
 
   /** The fragment form, like the email's (review finding 2): never `?t=`, which servers log. */
   const copyLink = async (): Promise<boolean> => {
-    if (!token.current || Platform.OS !== 'web' || typeof navigator === 'undefined') return false;
+    if (!token.current || Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.clipboard) {
+      setCopyFailed(true);
+      return false;
+    }
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/restore#t=${token.current}`);
       setCopied(true);
+      setCopyFailed(false);
       return true;
     } catch {
-      // Clipboard refused: nothing else to do; the email still holds the link.
+      // Clipboard refused: say so; the email still holds the link.
+      setCopyFailed(true);
       return false;
     }
   };
@@ -331,6 +344,11 @@ export default function RestorePage() {
           <Button variant="primary" size="lg" block onPress={() => void copyLink()}>
             {copied ? t('restorePageCopied') : t('restorePageCopyLink')}
           </Button>
+          {copyFailed ? (
+            <Text testID="restore-copy-failed" style={[styles.text, { color: colors.foreground }]}>
+              {t('restoreCopyFailed')}
+            </Text>
+          ) : null}
           <Button variant="ghost" size="sm" onPress={() => setState(afterInAppAdvice(state.peek))}>
             {t('restoreInAppAnyway')}
           </Button>
@@ -362,23 +380,32 @@ export default function RestorePage() {
                 size="lg"
                 block
                 onPress={async () => {
-                  await copyLink();
-                  setState({ kind: 'copied', peek: state.peek });
+                  if (await copyLink()) setState({ kind: 'copied', peek: state.peek });
                 }}
               >
                 {t('restoreDifferentNo')}
               </Button>
             </View>
           </View>
+          {copyFailed ? (
+            <Text testID="restore-copy-failed" style={[styles.text, { color: colors.foreground }]}>
+              {t('restoreCopyFailed')}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
       {state.kind === 'copied' ? (
-        <Text testID="restore-copied" style={[styles.text, { color: colors.foreground }]}>
-          {onlyName(state.peek)
-            ? t('restoreDifferentCopied').replace('{name}', onlyName(state.peek)!)
-            : t('restoreDifferentCopiedYou')}
-        </Text>
+        <View style={styles.choices}>
+          <Text testID="restore-copied" style={[styles.text, { color: colors.foreground }]}>
+            {onlyName(state.peek)
+              ? t('restoreDifferentCopied').replace('{name}', onlyName(state.peek)!)
+              : t('restoreDifferentCopiedYou')}
+          </Text>
+          <Button variant="secondary" size="md" onPress={() => setState({ kind: 'confirm-different', peek: state.peek })}>
+            {t('back')}
+          </Button>
+        </View>
       ) : null}
 
       {state.kind === 'not-valid' || state.kind === 'failed' ? (

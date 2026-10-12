@@ -354,6 +354,40 @@ describe("3. the link on a second device (Decision 12, Samuel 11–12 Oct 2026)"
     expect(p.body).toEqual({ error: "link_not_valid" });
   });
 
+  it("a picker choice moves exactly that spotter; a made-up choice, or one from another link, is refused without using the link up (M)", async () => {
+    const email = newAddress();
+    const lili = await keptSafe(email);
+    const nikos = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    const p = await peek(phone, token);
+    const pick = (name: string) => p.body.spotters.find((s: { username: string }) => s.username === name).choice as string;
+    // A choice from another link for the same address.
+    const other = await newPhoneWithLink(email);
+    const otherPick = (await peek(other.phone, other.token)).body.spotters.find((s: { username: string }) => s.username === nikos.username).choice;
+    for (const bad of ["0".repeat(24), otherPick]) {
+      const r = await redeem(phone, token, "", { choice: bad });
+      expect(r.status).toBe(401);
+    }
+    // The link still works, and moves exactly the spotter picked.
+    const r = await redeem(phone, token, "", { choice: pick(nikos.username) });
+    expect(r.status).toBe(200);
+    expect(r.body.deviceId).toBe(nikos.id);
+    expect(await storedHash(nikos.id)).toBe(hashSecret(phone.secret));
+    expect(await storedHash(lili.id)).toBe(hashSecret(lili.secret));
+  });
+
+  it("a phone can't \"restore\" onto itself, even saying abandonCurrent: refused, nothing changed (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { token } = await newPhoneWithLink(email);
+    const r = await redeem(old, token, old.id, { abandonCurrent: true });
+    expect(r.status).toBe(401);
+    expect(await storedHash(old.id)).toBe(hashSecret(old.secret));
+    // And the link wasn't used up.
+    const [tok] = (await db.execute(sql`select used_at from mail_tokens where token_hash = encode(sha256(${token}::bytea), 'hex')`)).rows as { used_at: Date | null }[];
+    expect(tok?.used_at ?? null).toBeNull();
+  });
+
   it("a third phone replaying a used link within 60 s gets link_not_valid and no name (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
@@ -858,7 +892,7 @@ describe("11b. \"Delete Nikos\" (SYC-266, Samuel 10 Oct 2026)", () => {
     return { phone, nikos, token };
   }
 
-  it("Decision 12: Nikos's phone opens a link another phone asked for, deletes Nikos, and the old phone is still told it moved; no trace of Nikos (M)", async () => {
+  it("Decision 12: Nikos's phone opens a link another phone asked for, deletes Nikos, and the old phone is still told it moved; no trace of Nikos", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
     const { token } = await newPhoneWithLink(email); // asked from a different phone

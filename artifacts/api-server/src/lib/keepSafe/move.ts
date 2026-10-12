@@ -5,15 +5,17 @@ import { hashToken } from "./tokens";
 import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
 
 /**
- * Pressing the button: moving a spotter to the phone that asked (SYC-3 plan,
- * "How moving a spotter works" and Slice 1 step 6).
+ * Pressing the button: moving a spotter to **the phone that presses it**
+ * (SYC-3 plan, "How moving a spotter works", Slice 1 step 6, and Decision 12,
+ * which replaced Decision 2's "only the phone that asked" on 12 Oct 2026).
  *
  * **Nothing is copied or re-keyed.** The phone takes over the spotter's device
  * id, and the server replaces the secret fingerprint that id accepts with the
  * fingerprint of the phone's own secret. In one transaction:
  *
  * 1. the token is checked: it exists, is a restore token, is unexpired and
- *    unused, **and was asked for by the phone that is calling** (Decision 2);
+ *    unused. Any phone that opens it may press (Decision 12): the spots go to
+ *    the caller, never to the phone that asked;
  * 2. the chosen spotter really is kept safe by that token's address, and is
  *    confirmed (a username, or any other public value, is never enough);
  * 3. the calling phone has no username, or it said `abandonCurrent` after the
@@ -31,10 +33,11 @@ import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
  *    push token goes. Whatever that id owns stays under it, untouched.
  *    **Or**, when the person chose "Delete Nikos" (`deleteCurrent`, SYC-266,
  *    Samuel 10 Oct 2026), the abandoned spotter is deleted exactly as "Delete
- *    my data" would (SYC-63 `severPerson`), in this same transaction. The link
- *    being spent first swaps the abandoned id for its one-way `deleted:` key,
- *    so it survives the deletion (the old phone's `device_moved` and the
- *    60-second replay still read it) without keeping the raw id.
+ *    my data" would (SYC-63 `severPerson`), in this same transaction. If the
+ *    abandoned id also asked for this link, `severKeepSafe` swaps it on the
+ *    spent link for its one-way `deleted:` key rather than deleting the link,
+ *    so the old phone's `device_moved` and the 60-second replay still work,
+ *    without keeping the raw id.
  *
  * A deleted spotter (SYC-63) has no credential row under its id, so step 5
  * finds nothing and the whole thing rolls back.

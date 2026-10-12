@@ -448,7 +448,7 @@ describe('the /restore page', () => {
     }
   });
 
-  it('Decision 12: on the phone that already is the spotter, it says so and offers nothing to press', async () => {
+  it('Decision 12: on the phone that already is the spotter, it says so and offers only Open Cat Spotters', async () => {
     vi.mocked(keepSafe.peekRestore).mockResolvedValue({ spotters: [], openedOnAskingPhone: false, alreadyHere: { username: 'Lili' } });
     h.device = { deviceId: 'dev-lili', username: 'Lili', isReady: true };
     const { findByTestId, queryByText } = render(<RestorePage />);
@@ -469,6 +469,68 @@ describe('the /restore page', () => {
     expect(spy.mock.calls.some((c) => c[1] === '' && c[2] === '/restore')).toBe(true);
     await findByText('Move Lili’s spots to this phone');
     expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', TOKEN);
+  });
+
+  it('Decision 12: if the router writes #t= back after starting, the page clears it again (M)', async () => {
+    h.params = {};
+    const loc = { ...window.location, replace, search: '', hash: `#t=${TOKEN}`, pathname: '/restore', origin: 'https://apptest.catspotters.com' };
+    Object.defineProperty(window, 'location', { configurable: true, value: loc });
+    const spy = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {
+      loc.hash = '';
+    });
+    spy.mockClear();
+    h.device = { deviceId: 'dev-new', username: null, isReady: true };
+    render(<RestorePage />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    // The router puts the first address back as it starts…
+    loc.hash = `#t=${TOKEN}`;
+    spy.mockClear();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300));
+    });
+    // …and the page takes it out again.
+    expect(loc.hash).toBe('');
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('Decision 12: "Yes" on a phone that already has a spotter goes on to the SYC-266 choice, never straight to a move', async () => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: false,
+      alreadyHere: null,
+    });
+    h.device = { deviceId: 'dev-other', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+    const { findByText, findByTestId } = render(<RestorePage />);
+    const yes = await findByText('Yes, move Lili’s spots here', undefined, { timeout: 3000 });
+    await act(async () => {
+      fireEvent.click(yes);
+    });
+    expect(await findByTestId('restore-warning')).toBeTruthy();
+    expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+  });
+
+  it('Decision 12: when copying fails, it says so and stays on the question (no false "Link copied")', async () => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: false,
+      alreadyHere: null,
+    });
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(async () => { throw new Error('denied'); }) },
+    });
+    h.device = { deviceId: 'dev-other', username: null, isReady: true };
+    const { findByText, findByTestId, queryByTestId } = render(<RestorePage />);
+    const no = await findByText(en.restoreDifferentNo, undefined, { timeout: 3000 });
+    await act(async () => {
+      fireEvent.click(no);
+    });
+    expect((await findByTestId('restore-copy-failed')).textContent).toBe(en.restoreCopyFailed);
+    expect(queryByTestId('restore-copied')).toBeNull();
+    expect(queryByTestId('restore-different')).toBeTruthy();
   });
 
   it('Decision 12: after a website sign-in, reads the token the password page kept, then deletes it', async () => {

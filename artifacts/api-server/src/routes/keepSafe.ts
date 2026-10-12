@@ -52,7 +52,7 @@ async function padTo(started: number, ms: number): Promise<void> {
 }
 
 // Plan step 6: 30 per IP per hour, each. A courtesy cap: the token itself is
-// the security (one use, 15 minutes, bound to the asking phone).
+// the security (one use, 15 minutes, 256 random bits, never in a server log).
 const linkLimiter = () =>
   rateLimit({
     windowMs: 60 * 60 * 1000,
