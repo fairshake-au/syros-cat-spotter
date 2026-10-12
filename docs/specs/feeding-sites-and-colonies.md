@@ -15,7 +15,7 @@ This is the screen-and-behaviour spec for two things: the team's **feeding-site 
 | The `feeding_sites` and `colonies` records, `colony_name_history`, the `colony` observation | `cat-record-data-spine.md` §10.5 |
 | Feeding-site privacy: private by default, absent (never blurred) from public payloads, filtered in the query not the serialiser, **and the precision at which a public site is shown** | `cat-record-data-spine.md` §6.7 and its open question 3 |
 | Cat location blurring (250 m cells), the colony-averaging limit, the nearest-cat oracle | `cat-record-data-spine.md` §6 |
-| Staff sign-in, the dashboard shell, capabilities, `person_scopes` | `team-access-and-welfare-queue.md` §2, §7, §8 |
+| Team sign-in, the dashboard shell, capabilities, `person_scopes` | `team-access-and-welfare-queue.md` §2, §7, §8 |
 | Which roles exist, the capability names, and which capabilities a cat guardian holds | **SYC-53**, `roles-and-invites.md` §6.2 (the catalogue) and §6.7 (what this spec cites) |
 
 **What this document adds** and proposes the owners adopt (§12): the screens; the rule about what a public site's label may contain; the safeguards around flipping a site public; the public site card and map layer in the app; an add-only history of every change to a site or colony; and a short list of columns the spine's records need to carry for all of that.
@@ -45,7 +45,7 @@ A cat guardian who has fed the same alley for nine years wants the charity to kn
 
 ## 2. What the team sees and does
 
-Everything here is a page on the existing staff dashboard (`team.catspotters.com`), in the same style as the welfare queue and the cat pages: ordinary pages with buttons, drawn by the server. The top bar gains two links, **Feeding sites** and **Colonies**.
+Everything here is a page on the existing team dashboard (`team.catspotters.com`), in the same style as the welfare queue and the cat pages: ordinary pages with buttons, drawn by the server. The top bar gains two links, **Feeding sites** and **Colonies**.
 
 ### 2.1 The Feeding sites page
 
@@ -64,7 +64,7 @@ A site's page shows, in this order:
 1. **Its name**, and a small map centred on it.
 2. **Visibility**: a plain sentence ("Private. Only Syros Cats people signed in here can see this place.") and the button to change it (§4.3).
 3. **Its colony**, with a link, or a button to pick one.
-4. **Its notes**, which are for the team only ("the gate is round the back"). Under the box: "Don't write when people come and go." And **"How to find it"**, a short line of directions in words, with no coordinates ("down the steps by the blue gate, behind the bakery wall"). It is for the team and the colony's guardian only; a guardian's or volunteer's saved phone list shows it in place of coordinates (§9).
+4. **Its notes**, which are for the team only ("the gate is round the back"). Under the box: "Don't write when people come and go." And **"How to find it"**, a short line of directions in words, with no coordinates ("down the steps by the blue gate, behind the bakery wall"). It is for the team and the colony's guardian only; a guardian's saved phone list shows it in place of coordinates (§9).
 5. **History**: everything that has been done to this site, newest first, each line with the person and the date (§8).
 6. **Actions**: *Edit details*, *Move on the map*, *Retire this site*. A team member also gets *Change colony* (island-wide power); a guardian instead gets *Ask the team to make this public* (§7.3).
 
@@ -282,9 +282,11 @@ A guardian with no account appears as **text**: the `guardian_name` on a colony 
 
 `roles-and-invites.md` (SYC-53) decides which roles exist and is the **single list of capability names** (its §6.2). **This spec adds no capability of its own.** Its screens call the catalogue names below. The working names an earlier draft of this spec used map onto them as SYC-53 §6.7 says: `manage_feeding_sites` is `add_feeding_site`, `edit_feeding_site` and `reassign_feeding_site`; `manage_colonies` is `create_colony`, `edit_colony` and `rename_colony`; `set_cat_colony` is `assign_cat_to_colony` (team) and `propose_colony_change` (guardian).
 
+*Updated after Samuel's roles decisions (12 Oct 2026): there is one team role, the Syros Cats team, covering the whole island. Volunteers and staff are the same role, so this spec has no volunteer-specific rule, screen or test. Below the team there is only the cat guardian, who holds her own colonies. Management is the team plus the power to manage people, which nothing in this spec needs (§7.5).*
+
 "Placed" means the check is made against one colony (for a site, the site's own colony, read from the record and never from the request). "Island-only" means only the team, whose roles cover the whole island, holds it.
 
-| Capability (SYC-53 §6.2) | Kind | Staff and management | Cat guardian | What it allows here | Screens |
+| Capability (SYC-53 §6.2) | Kind | The team (and management) | Cat guardian | What it allows here | Screens |
 |---|---|---|---|---|---|
 | `view_exact_location` | Placed | All | Own colonies | See sites (private ones included) and their exact positions; the map | Feeding sites page, site page, colony pages, map |
 | `add_feeding_site` | Placed | All | Own colonies | Add a site to a colony. Always private | §2.3 |
@@ -298,7 +300,7 @@ A guardian with no account appears as **text**: the `guardian_name` on a colony 
 | `assign_cat_to_colony` | Island-only | Yes | No | Put a cat in a colony, move it, take it out | §2.8 |
 | `propose_colony_change` | Placed | No | Own colonies | "This cat is one of mine" / "this cat is no longer in my colony"; waits for the team (SYC-53 §7.4) | §2.8 |
 
-Until SYC-53 is approved and built, every one of these checks behaves as "staff", which is what `can()` does today, so nothing in the team's half waits for it. A person who is signed in but lacks the capability gets the SYC-53 refusal: a quiet **403** page ("That part of the dashboard is for the Syros Cats team"), not the sign-in redirect. A person who is not signed in still gets the 401 and the sign-in page.
+Until SYC-53 is approved and built, every one of these checks behaves as "the team", which is what `can()` does today, so nothing in the team's half waits for it. A person who is signed in but lacks the capability gets the SYC-53 refusal: a quiet **403** page ("That part of the dashboard is for the Syros Cats team"), not the sign-in redirect. A person who is not signed in still gets the 401 and the sign-in page.
 
 ### 7.3 What a guardian sees and can do (agreed with SYC-53 §6.7)
 
@@ -385,7 +387,7 @@ Stated precisely, as the other specs do.
 
 **The dashboard.** Nothing on it works offline. Every page, including the map, is drawn by the server when opened, and every button sends a form. With no signal the page does not load, or a tap on *Save* fails with the browser's own "no connection" page, and nothing is recorded. There is no queue for team changes. In particular the map's tiles are fetched live. A person on a hillside with no data cannot place a pin; they write it down and place it later.
 
-**What a guardian's or volunteer's phone may hold (the roles spec, `roles-and-invites.md` §12, Decision 12, which settles SYC-257).** Exact positions of private feeding sites appear only on the dashboard map, which has no offline copy. The one saved list a phone may hold (guardians' and volunteers', that spec's §12) contains each site's name and a line of directions, never its coordinates, for 72 hours. The app's own offline list of public sites (this spec's Decision 8) is unaffected and holds only public sites. The "how to find it" line (§2.2) is what makes the first possible: it is a small text field on the site, written by the team or the guardian of that colony, and public to no one.
+**What a guardian's or volunteer's phone may hold (the roles spec, `roles-and-invites.md` §12, Decision 12, which settles SYC-257).** Exact positions of private feeding sites appear only on the dashboard map, which has no offline copy. The one saved list a phone may hold (guardians', that spec's §12) contains each site's name and a line of directions, never its coordinates, for 72 hours. The app's own offline list of public sites (this spec's Decision 8) is unaffected and holds only public sites. The "how to find it" line (§2.2) is what makes the first possible: it is a small text field on the site, written by the team or the guardian of that colony, and public to no one.
 
 **The app's feeding-spots layer.** The phone keeps the last list of public sites it fetched, so the layer and its cards still work on a hillside with no signal, **for a limited time**:
 
@@ -404,7 +406,7 @@ Stated precisely, as the other specs do.
 - **The public card and layer** (§5.2) are in all three languages, with the same key-parity test as the rest of the app and the same native-speaker review before launch.
 - **The public label** (§4.4) is a place name and the same in all languages (Decision 10).
 - **Colony and site names** are proper names, stored as typed and shown as typed everywhere.
-- **The dashboard is in English**, as every dashboard page already is (the page shell, the welfare queue and the correction forms are English text drawn by the server). Syros Cats staff read and write both Greek and English; names and notes they type can be in either, and search folds accents, case and the final sigma, so `ΜΙΜΗ` finds `Μιμή`. There is no Greek–Latin look-alike matching (`DECISIONS.md` Part 2m, SYC-223). Whether the dashboard should be offered in Greek is Decision 9.
+- **The dashboard is in English**, as every dashboard page already is (the page shell, the welfare queue and the correction forms are English text drawn by the server). Syros Cats team members read and write both Greek and English; names and notes they type can be in either, and search folds accents, case and the final sigma, so `ΜΙΜΗ` finds `Μιμή`. There is no Greek–Latin look-alike matching (`DECISIONS.md` Part 2m, SYC-223). Whether the dashboard should be offered in Greek is Decision 9.
 - **The confirmation page of §4.3 previews the card in all three languages** so that whoever presses the button sees exactly what a Greek or French visitor will see. The card's words live in one place only: the server imports the app's string file (`artifacts/cat-spotter/lib/i18n.ts`) rather than keeping a second copy, and the parity test covers both uses.
 
 ---
@@ -475,9 +477,9 @@ Served through `GET /api/team/map-tiles/…`, so the security header (`img-src '
 
 - **Cache headers.** Every dashboard response is `Cache-Control: no-store` today. Tiles are the one stated exception: `private, max-age=…`, never `public`, so a shared cache in front of the dashboard can never serve a session-gated route to someone else.
 - **Logs.** The request logger removes query strings but keeps paths, so every tile address would be logged, and at the closest zoom a tile address is a position to within about 75 metres. Tile requests are logged as `/api/team/map-tiles/:tile` only. This is **SYC-255** and is done before the map ships.
-- **Provider policy.** OpenStreetMap's tile policy allows light, cached use with a real identifying User-Agent and discourages bulk downloading. The app's own downloaded tiles (`lib/offlineTiles.ts`) are not a precedent, because bulk offline download is what the policy discourages. Volume here is a few staff a few times a week, which is within fair use; if volume is unclear, the paid provider `DEPLOYMENT.md` already budgets, or Decision 1 option C, is chosen from day one rather than later.
+- **Provider policy.** OpenStreetMap's tile policy allows light, cached use with a real identifying User-Agent and discourages bulk downloading. The app's own downloaded tiles (`lib/offlineTiles.ts`) are not a precedent, because bulk offline download is what the policy discourages. Volume here is a few team members a few times a week, which is within fair use; if volume is unclear, the paid provider `DEPLOYMENT.md` already budgets, or Decision 1 option C, is chosen from day one rather than later.
 
-The provider's servers see the tile areas the server asks for, which are the areas staff look at. It is tied to the dashboard server's address, not to a person, but it is a small leak of "somebody is looking closely at these streets". Decision 1 lists the alternative (an island map set we host ourselves) that avoids it.
+The provider's servers see the tile areas the server asks for, which are the areas the team look at. It is tied to the dashboard server's address, not to a person, but it is a small leak of "somebody is looking closely at these streets". Decision 1 lists the alternative (an island map set we host ourselves) that avoids it.
 
 ### 11.5 Writes to cats
 
@@ -485,7 +487,7 @@ The provider's servers see the tile areas the server asks for, which are the are
 
 - **The spine gains an explicit "in no colony" value** (`colony { colonyId: null }`), as the roles spec §17.1 also asks. Today `writeObservation` rejects a `colony` value unless `colonyId` is a number, so this is a change to the spine's value check, and the spine owns it (§12).
 - The team correction layer (`lib/teamCorrections.ts`) refuses any kind that has no capability. `colony` must be added to **both** `capabilityFor` and the first, pre-lookup gate (`SUPERSEDE_CAPABILITIES`), or a person whose only power is assigning cats is refused before the lookup. It is gated by `assign_cat_to_colony`, sharing code with the JSON route as the other corrections do. `supersedeStatement` always writes a replacement of the same kind, so "Take out" writes the "in no colony" statement and "Mark wrong" supersedes with the previous active value; the rule is §2.8's.
-- `teamCorrections.ts` hard-codes `roleAtTime: "staff"`; once a guardian's proposal is approved the record must carry the approver's real role.
+- `teamCorrections.ts` hard-codes `roleAtTime: "staff"` (the old name for the team's role; the code should say "team", and `roles-and-invites.md` decides the stored value); once a guardian's proposal is approved the record must carry the approver's real role.
 - The value check does not confirm the colony exists, so the writer must.
 
 The team cat page currently shows a colony statement as "Put in colony 12". It should show the colony's current name (and its older name if it has been renamed since).
@@ -721,7 +723,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | 1 | **A site becomes public by accident or by a wrong pin.** | It is a published list of where to find cats. | Private by default; per-site; no bulk; confirmation page; preview; moving a public site makes it private; short cache so a mistake is fixed in minutes. |
 | 2 | **The guardian's name or a house number reaches the public label.** | Identifies a person next to an exact place. | Separate required label; checked against the site's own name, current and earlier guardians, and "a word and a number" (§4.4); shown in a preview. |
 | 3 | **Private sites are counted or probed through the public interface.** | Site numbers and ids leak how many private sites exist. | Random public code assigned only at first publish; no internal number in any public response; unknown, private, retired and superseded codes are indistinguishable; public list ordered by code. |
-| 4 | **The map tile provider learns which streets staff study.** | A faint pattern of "somebody is looking here". | Tiles come through our server and are cached; the provider sees only the server; Decision 1 option C removes it. |
+| 4 | **The map tile provider learns which streets the team study.** | A faint pattern of "somebody is looking here". | Tiles come through our server and are cached; the provider sees only the server; Decision 1 option C removes it. |
 | 5 | **The team's exact positions leak through the history, logs or an email.** | The history holds every old position; a tile address is a position to about 75 m. | Same capability as the sites; tile addresses logged without their position (SYC-255); not in mail; tests assert it. |
 | 6 | **A phone keeps showing a site long after it went private.** | Perceived as the charity "still advertising" it. | Server cache five minutes; the app refreshes when the map is opened online; the phone's copy expires (Decision 8); honest statement that sight cannot be taken back. |
 | 7 | **Colony averaging, the matching service and photos still tie cats to a public bowl.** | The spine's accepted limit gets sharper once the bowl is exact. | Not oversold: the confirmation page and every description say a public spot tells people cats live here (§4.6). The public half waits for SYC-67's recorded acceptance (§11.6). |
