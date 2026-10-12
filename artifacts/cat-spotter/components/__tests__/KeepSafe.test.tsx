@@ -463,6 +463,7 @@ describe('the /restore page', () => {
       value: { ...window.location, replace, search: '', hash: `#t=${TOKEN}`, pathname: '/restore', origin: 'https://apptest.catspotters.com' },
     });
     const spy = vi.spyOn(window.history, 'replaceState');
+    spy.mockClear(); // only this page load's calls count
     h.device = { deviceId: 'dev-new', username: null, isReady: true };
     const { findByText } = render(<RestorePage />);
     expect(spy.mock.calls.some((c) => c[1] === '' && c[2] === '/restore')).toBe(true);
