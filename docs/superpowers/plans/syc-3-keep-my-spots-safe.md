@@ -209,6 +209,8 @@ Options considered (Samuel, 11 Oct):
 
 **Adversarial review of this amendment (Opus, its own worktree, 12 Oct).** It found no path to a spotter without the inbox. Findings 1–10 are folded in above. **Judgment call A** is in "The one risk this brings back" below.
 
+**The one risk this brings back (judgment call A): decided by Samuel on 12 Oct 2026, option 1.** A child who genuinely asked for their *own* link can be talked into forwarding it, and the person who receives it can then move the spots. The version where the schoolmate asks for the link themselves already worked under Decision 2, because the link was valid on their phone. Neither a code on other phones nor Option B stops a child reading out or forwarding their own key. So the change is the email wording: *"Never send this link to anyone, even a friend."* **Decision 12 approved by Samuel on 12 Oct 2026, with findings 1–10 and option 1 folded in.**
+
 **Model delegation:** Opus builds it, because it changes the takeover surface. An independent Opus adversarial review runs in its own worktree before merge.
 
 ---
