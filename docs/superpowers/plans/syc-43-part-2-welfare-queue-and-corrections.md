@@ -508,3 +508,4 @@ A Sonnet critic reviewed this plan in its own worktree, against the spec, `DECIS
 - the canonical facts and the offline section.
 
 It found no part of spec §3.1 or §3.3 dropped without being named in "What this part does not do".
+
