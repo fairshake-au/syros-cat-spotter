@@ -7,7 +7,7 @@ Linear team: SYC. Charity app for Syros Cats.
 Added 2026-08-29 from retro: each of these was corrected by Samuel at least once, some twice. Check here before writing spec/copy.
 
 - Sterilisation cost: **€50–60 per cat** (never €25).
-- Terminology: **"cat guardian"**, not "colony carer". Roles: **"spotter"** and **"snapper"**.
+- Terminology: **"cat guardian"**, not "colony carer". Role word: **"spotter"** only, never "snapper" (Samuel, 12 Oct 2026).
 - The spec is **aspirational**: never distinguish "built today" vs "proposed" in spec/proposal documents — describe the whole product as one vision.
 - The two audiences (locals/guardians and tourists) have **complementary** needs, not opposite ones.
 - Do not claim the app "all works with no signal" — offline support is partial; be precise about what works offline.
