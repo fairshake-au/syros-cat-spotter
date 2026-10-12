@@ -4,7 +4,7 @@
 **Version:** 1.1, revised after adversarial review · 7 October 2026
 **Covers:** PRODUCT-SPEC §2.6 (the feeding-site map, private by default with a per-site public toggle, and colony naming), and the part of §2.6's dashboard that `team-access-and-welfare-queue.md` §3.2 and §3.4 describe in a paragraph each.
 **Linear:** SYC-209 (this spec) · SYC-43 (the dashboard it belongs to) · SYC-53 (roles: the source of truth for permissions, see §7) · SYC-22 and SYC-51 (QR codes that will point at sites, see §11) · SYC-67 (Syros Cats' acceptance of the location limits) · SYC-245 (Google Maps links, a precondition of §2.3) · SYC-255 (map-tile logging) · SYC-256 (erasing a guardian's name) · SYC-257 (what a phone may keep, settled in the roles spec).
-**Status:** **Revised after adversarial review, and updated after Samuel's roles decisions of 12 October 2026 (see "Updated after the roles decisions" at the end); awaiting Samuel's approval.** The review is `docs/specs/reviews/feeding-sites-and-colonies-review.md`; section "Review outcome" at the end says how each finding was handled. Permissions follow `roles-and-invites.md` (SYC-53, §6.2 and §6.7), which wins on capability names. Written against `docs/specs/DECISIONS.md`, which wins wherever they differ.
+**Status:** **Revised after adversarial review, and updated after Samuel's roles decisions of 12 October 2026 (see "Updated after the roles decisions" at the end). Decisions made 12 October 2026; awaiting Samuel's final approval.** The review is `docs/specs/reviews/feeding-sites-and-colonies-review.md`; section "Review outcome" at the end says how each finding was handled. Permissions follow `roles-and-invites.md` (SYC-53, §6.2 and §6.7), which wins on capability names. Written against `docs/specs/DECISIONS.md`, which wins wherever they differ.
 
 ### What this document owns, and what it borrows
 
@@ -589,6 +589,8 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 ### Decision 2. Keep this in the MVP, or move it after launch (SYC-209's own question; SYC-73)
 
+**Decided (Samuel, 12 October 2026): option A, as recommended.** Build the team's private map and colonies before launch; the public half comes after, once SYC-67's acceptance is recorded.
+
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
 | **A. Split it: the team's half before launch, the public half after (recommended)** | Before launch: colonies (create, rename, guardian, cats in colonies), the private site map, history. After launch: the public switch, the public endpoint and the app layer | Colony names are what the charity already speaks in and what guardian roles and any import hang off. A private map of sites has real value from day one. The riskiest piece, the one that exposes locations, waits until nobody is rushing, and until SYC-67's acceptance is recorded | The public half is in PRODUCT-SPEC's MVP list and would slip. Nothing breaks: everything is private by default and the list of public sites "never blocks" (team-access §5.5) |
@@ -599,7 +601,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 **What people notice.** The team gets named colonies and a private map at launch; tourists see no feeding spots until the public half ships.
 
-**Recommendation: A.** It keeps what the team need and defers what only matters once Syros Cats have chosen sites to show. The team-access spec already names the map and colony naming as the first things to slip to hardening (its §9.3); this is a more careful cut line than all-or-nothing. **Samuel's call.**
+**Recommendation: A (decided).** It keeps what the team need and defers what only matters once Syros Cats have chosen sites to show. The team-access spec already names the map and colony naming as the first things to slip to hardening (its §9.3); this is a more careful cut line than all-or-nothing. **Decided by Samuel (12 October 2026).**
 
 ### Decision 3. What a public site shows about the cats and the colony
 
@@ -638,6 +640,8 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 ### Decision 6. What moving a public site does, and whether it keeps its public code
 
+**Decided (Samuel, 12 October 2026): option A with A2's rule, as recommended.** A site keeps its public code after a private-to-public cycle with no move. A move of more than 10 metres, or a retire, still gives a new code (§4.5).
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. It becomes private until reconfirmed, and when it is made public again at a new place it gets a new public code; the old code stops working (recommended)** | A wrong pin never sits publicly even briefly, and a person watching the public list cannot follow a spot that moved (for example away from a hostile neighbour). An old QR sticker at the old place no longer leads to the new one | One extra confirmation after a deliberate move. A printed sticker has to be replaced. The team must take down old stickers |
@@ -650,7 +654,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 **What people notice.** After a move the team sees "Old QR stickers for this place will stop working. Take them down." A visitor who scans an old sticker sees "This feeding spot isn't on the map any more."
 
-**Recommendation: A, with A2's rule (keep the code after a plain private-and-public cycle with no move)**, because it spares stickers and the leak is small. **This is a choice for Samuel**: A3 is the strictest.
+**Recommendation: A, with A2's rule (keep the code after a plain private-and-public cycle with no move)**, because it spares stickers and the leak is small. **Decided by Samuel (12 October 2026)**; A3, the strictest, was not chosen.
 
 ### Decision 7. What a cat guardian can do with sites (settled with SYC-53)
 
@@ -703,6 +707,8 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 ### Decision 11. How the first sites get into the system
 
+**Decided (Samuel, 12 October 2026): option A, as recommended.** Syros Cats place their own sites on the dashboard; loading a list under the safe route (A2, with the conditions below) is the fallback if the slow route proves too slow.
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Syros Cats place their own sites on the dashboard, or send names plus rough areas only and the team places them; we load nothing with exact positions (recommended)** | The most sensitive list in the app never travels outside it. No file to leak, commit or forget | Slower; the team may take weeks to finish |
@@ -714,7 +720,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 **What people notice.** The team sees a populated map sooner under A2; under A they build it themselves, starting with the sites they know best.
 
-**Recommendation: A**, falling back to A2 only with the safe route above if the slow route proves too slow. Neither ever sets visibility. **Syros Cats to say which they prefer.**
+**Recommendation: A**, falling back to A2 only with the safe route above if the slow route proves too slow. Neither ever sets visibility. **Decided by Samuel (12 October 2026).**
 
 ### Decision 12. What a colony's name form looks like
 
@@ -859,4 +865,4 @@ Samuel's roles decisions of 12 October change some of what the review settled. T
 | Two tiers | Checked: nothing here needs a management-only power | §7.5 |
 | Unchanged | Making a site public stays team-only (`set_site_public`); a guardian can ask (`request_site_public`); public codes, privacy, the SYC-67 gate and history rules stand | §4, §11 |
 
-**Decisions left for Samuel.** (1) Decision 6: whether a site keeps its public code after a private-and-public cycle with no move (recommended: yes, A2). (2) Decision 11: whether Syros Cats place the sites themselves (recommended) or send a list under the safe route. (3) Decision 2: the usual split (recommended: A). (4) Whether the Part 2h matching-service risk acceptance still stands now that public sites exist, to be raised in the SYC-67 conversation. (5) Decisions 3, 9 and 13 need Syros Cats' confirmation. (6) Decision 14 is decided: B, the other guardian is told (Samuel, 12 October 2026).
+**Decisions left for Samuel.** None of the decisions is now open for Samuel except one, which is a conversation rather than a choice. **Decided (Samuel, 12 October 2026):** Decision 2, option A (the team's private map and colonies before launch; the public half after, once SYC-67's acceptance is recorded); Decision 6, a site keeps its public code after a private-to-public cycle with no move (A with A2's rule); Decision 11, Syros Cats place their own sites on the dashboard, with loading a list under the safe route as the fallback; Decision 14, B (the cat moves and the other guardian is told). **Still open for Samuel:** whether the Part 2h matching-service risk acceptance still stands now that public sites exist, to be raised in the SYC-67 conversation. **Still questions for Syros Cats:** Decisions 3 (what a public site shows about the cats and the colony), 9 (whether the dashboard is offered in Greek) and 13 (what the public card asks visitors to do).
