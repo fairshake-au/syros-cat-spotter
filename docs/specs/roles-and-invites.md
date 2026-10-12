@@ -126,6 +126,8 @@ Never "role", "scope" or "capability" on screen. Each person sees one sentence a
 
 ## 3. Decision 1: where do guardians and the team do their work?
 
+**Decided (Samuel, 12 October 2026): option D, the dashboard page plus a printable round sheet, as recommended.** One sign-in, and the public app never holds exact positions.
+
 This is the question that decides most of the build, so it comes first.
 
 **The facts.** The dashboard is a plain web page on `team.catspotters.com`, signed in with the cookie the hand-off sets. The mobile app is a public reader with an anonymous device identity and, by design, no sign-in (`cat-record-data-spine.md` §6.5: "there is not going to be one"). SYC-54 wants a colony view that works with no mobile data, and says to reuse the existing offline queue. The old health-record design (§6.2) said "signing in upgrades the phone". Those three sentences disagree.
@@ -173,6 +175,8 @@ These are not a legal contract. They are the moment the person is told, in plain
 The old design (health-record spec §6.1, repeated in the SYC-53 ticket) said to use Clerk for accounts and invitations. That was written before staff sign-in existed. Today there is a working, reviewed sign-in, one list of people (`people`), a hand-off to the dashboard, and a mail path. Adding a second identity system would put every person on two lists again, which is the exact problem `team-access-and-welfare-queue.md` §2.7 spent a section removing, and would make "remove somebody in one place, effective at their next request in both systems" untrue. Option C below records why it is rejected.
 
 ### 4.3 The options
+
+**Decided (Samuel, 12 October 2026): option A, a pending person plus a plain invitation message, as recommended.** It builds on the sign-in that already exists and the message holds no secret.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
@@ -320,6 +324,8 @@ One yes from the sign-in page must not open two things at once: the workspace (s
 
 ### 6.4 Decision 4: how a check answers when nobody names a colony
 
+**Decided (Samuel, 12 October 2026): option A, as recommended.** A route that forgets to say where it applies refuses; it does not show everything.
+
 SYC-222 asks that `can()` called with no colony answer "does she hold this for any colony?". The reason is sound: the sign-in question ("may she in at all?") and the menu ("show the Colony view?") need exactly that answer. **But the same function guards every route.** A route written as `requireTeam("view_exact_location")`, like the welfare queue page and the all-cats list, would then let in a guardian who holds that capability for one colony, and show her the whole island.
 
 | Option | What it means | Benefits | Risks |
@@ -352,6 +358,8 @@ SYC-222 asks that `can()` called with no colony answer "does she hold this for a
 
 ### 6.6 Decision 9: temporary roles, and the guardian's relationship to a colony
 
+**Decided (Samuel, 12 October 2026): option A, as recommended.** A holiday cover ends by itself and the label changes nothing she can do.
+
 A guardian can look after a colony as a regular feeder, as the owner of a cat in it, or as a temporary cover.
 
 | Option | What it means | Benefits | Risks |
@@ -374,6 +382,8 @@ A guardian can look after a colony as a regular feeder, as the owner of a cat in
 | `manage_colonies` | `create_colony` (creates its own scope: the team and any guardian), `edit_colony` (placed), and `rename_colony` (team only) for a later change of name |
 | `set_cat_colony` | `assign_cat_to_colony` (placed: the team island-wide, a guardian for her own colonies) |
 | `view_exact_location`, `set_site_public` | The same names |
+
+**Names that changed on 12 October 2026, for SYC-209 and SYC-2 to match.** `create_colony` is of its own kind (creates its own scope: the team and any guardian; a guardian is placed on the new colony automatically). `assign_cat_to_colony` is placed (a guardian for her own colonies) and `propose_colony_change` no longer exists; there is no colony-change item in "Needs an OK", which keeps field checks and site-public requests. `view_guardian_changes` is new (the "recent guardian changes" list on the team's Colonies page). `confirm_appearance` and `approve_access` no longer exist. `set_sterilisation` is placed. `manage_people` covers forgetting a former guardian (SYC-256).
 
 Four rules for those screens:
 
@@ -506,6 +516,8 @@ No paging, no escalation, no assignment, no due date, no countdown. No exact pos
 It does not replace the *Probably sterilised* review list that already exists for the team (`cat-record-data-spine.md` §4.5 point 3, `lib/likelyReview.ts`): that list is for the team to check a **tourist's** evidence, and it keeps its two buttons (*looks right* / *that's not a clip*). Guardians add a second source of evidence for the same cats. The cat's page shows both, so nobody decides without seeing both, and an item decided on one list is closed on the other.
 
 ### 7.6 Decision 13: what a guardian's statement about colour and markings does
+
+**Decided (Samuel, 12 October 2026): option A, the guardian's statement stands.** The volunteer half of the earlier question is gone with the volunteer role (the volunteer "confirm" power, `confirm_appearance`, is removed).
 
 SYC-2 (coat, markings and health) lets someone state, confirm or correct a cat's colour and markings. Colour is also used to help people pick the right cat when matching a photo, so a wrong colour has a small cost. A guardian knows her cats.
 
@@ -752,7 +764,7 @@ Small, deliberate changes to the record's vocabulary, all for the data spine's o
 
 ### 10.5 What this does not touch
 
-The observation table itself, colonies, feeding sites, the resolver's rules, welfare reports, photo storage, and the mobile app's tables. Deleting a spotter's data (F3) does not touch `people`.
+The observation table itself, feeding sites, the resolver's rules, welfare reports, photo storage, and the mobile app's tables. Deleting a spotter's data (F3) does not touch `people`. One small addition to colonies, for the data spine's owner: `colonies` records who created each one (`created_by`, a person id, null for colonies that existed before; §6.9).
 
 ---
 
@@ -879,6 +891,8 @@ Guardians are, in large part, Greek speakers; some team members and guardians wi
 
 ### 13.2 Decision 10: how far the translation goes
 
+**Decided (Samuel, 12 October 2026): option A, as recommended.** Everything a guardian sees is in English, Greek and French; the team's screens stay English.
+
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
 | **A. ✅ Everything a guardian sees is en/el/fr; team and management screens stay English.** | The people who may not read English comfortably can use the work; the team's own tools stay cheap to change. | A bounded amount of text to translate and review. | The team's screens remain English-only, which would be a problem if Syros Cats take on a Greek-speaking staff member. The fix then is the same mechanism applied to more pages. |
@@ -903,6 +917,23 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 ---
 
 ## 14. Security and abuse cases
+
+### 14.1 Risks Samuel has accepted (12 October 2026)
+
+These are the plain risks behind the decisions of 12 October 2026. Each was an earlier recommendation that Samuel chose not to follow; the section it belongs to keeps the earlier option.
+
+| Decision | The risk, in plain words | What limits it |
+|---|---|---|
+| **5. Guardians, owners and vets confirm sterilisation** | A mistaken confirmation sets off the "sterilised" news email, which can't be unsent. A cat wrongly shown as sterilised may be skipped on a trapping round | Every confirmation is recorded with who said it; the team can mark it wrong |
+| **6. Guardians add and remove cats alone** | Adding a cat shows her its exact position, so a guardian could reveal any cat's location by adding it to her colony | Every change goes in the history; a "recent guardian changes" list sits on the team's Colonies page |
+| **7. Plain invitation** | A typo gives a stranger exact cat positions for that colony, and the email tells them whose colony it is | 14-day expiry; one-tap withdraw; the people screen shows who has joined |
+| **11. No second OK** | A stolen management login can create island-wide accounts or remove other managers | Every access change goes in the history and the other managers get an email; sign out everywhere; the `people` break-glass |
+| **12. Exact positions on the phone for 72 hours** | A lost phone shows exactly where the bowls are, for up to 72 hours (longer if never reopened, until the browser clears it) | Deleted on the next open by server time; `Clear-Site-Data` on sign-out and removal; sign out everywhere |
+| **14. Guardians create colonies** | A guardian could create a colony anywhere and add cats to it, which (with Decision 6) lets her see any cat's exact position | Every change is in the history; the team sees colonies created and cats added on the Colonies page |
+| **8. One team, no volunteer role** | A new field helper on the team sees the whole island, including the welfare queue | Management chooses who is on the team; every action is attributed to a named person |
+
+### 14.2 Cases
+
 
 | # | Case | What stops it, or what we accept |
 |---|---|---|
@@ -1015,33 +1046,35 @@ Slice 0 must land before any non-staff role holds any capability, as SYC-222 alr
 
 ## 16. Decisions, questions, findings, follow-ups
 
-### 16.1 The decisions Samuel is asked to make
+### 16.1 The decisions Samuel was asked to make
 
-Each is set out in full where it arises; this is the list. Those marked **changed** had their recommendation changed after the adversarial review (the earlier options are kept in the section).
+Each is set out in full where it arises; this is the list. All were decided by Samuel on 12 October 2026. Where the decision differs from the recommendation in the review version, the section keeps the earlier option and says what the choice accepts.
 
-| # | Question | Section | Recommendation |
-|---|---|---|---|
-| **1** | Where do guardians and volunteers do their work: the dashboard as an installable, partly offline web page, a sign-in inside the app, paper and files only, or the first and last together? | §3 | **The dashboard page, plus a printable round sheet.** The app stays a public reader. Conditions added after review (delete rather than hide, server time, narrow script scope) |
-| **2** | How is someone invited: a pending person plus a plain message, a single-use link, Clerk, or open sign-up with approval? | §4.3 | **Pending person plus a plain message.** Builds on the sign-in that exists; the message holds no secret |
-| **3** | Split staff and management? | §5 | **Yes, with every current staff member also made management on day one** |
-| **4** | How does a permission check answer when no colony is named? | §6.4 | **Strict by default; a separate "anywhere" question for menus and entry; the welfare queue gets its own team-only power; guardians and volunteers never get island-wide rows.** *Changed: the first two parts alone left a hole for a volunteer on all colonies* |
-| **5** | What can a guardian's or volunteer's in-person look do to a cat's sterilisation answer? | §7.2 | **Hold it as evidence; one team OK records "checked in person"; the cat stays Probably sterilised; Confirmed only from a team record or vet.** *Changed from "the OK makes it Confirmed", which breaks the data spine* |
-| **6** | Who decides which cats are in a colony, and which are taken out? | §7.4 | **The guardian proposes either way, a team member OKs; volunteers cannot propose** |
-| **7** | How do we protect against an invitation to the wrong mailbox? | §8.4 | **Make mistakes unlikely, quiet and visible:** blank name field, a message that names no colony, a plain "accepted" email, second OK for more than three colonies. *Changed: the earlier check was switched off by a pre-filled name* |
-| **8** | How far does a volunteer see? | §6.5 | **Only the colonies they're assigned, one row per colony, never island-wide.** *Changed from allowing an "all colonies" row* |
-| **9** | Temporary guardians and the feeder/owner/carer labels? | §6.6 | **One role; optional end date and label per placement; the label grants nothing** |
-| **10** | How far does translation go? | §13.2 | **Everything a guardian or volunteer sees in en/el/fr; management and staff screens stay English** |
-| **11** | Do invitations to staff and management need a second management member's OK? | §8.3 | **Yes, and the same for every access change** (role changes that add staff or management, rejoins, invitations over three colonies, removing a manager), settled only by management. Guardian and volunteer invitations of up to three colonies don't. *Changed: widened, and made management-only* |
-| **12** | What may a guardian's or volunteer's phone hold with no signal, for how long, and how is it deleted? (Settles SYC-257.) | §12 | **Cats' discovery positions and feeding-site directions in words (no site coordinates), for placed colonies, 72 hours, deleted on next open.** *New* |
-| **13** | Do a guardian's colour and markings statements wait for an OK, and what does a volunteer's "yes, that's right" count for? | §7.6 | **A guardian's stands; a volunteer's is evidence only.** *New, from the SYC-2 question on SYC-53* |
+| # | Question | Section | Earlier recommendation | Decided (Samuel, 12 October 2026) |
+|---|---|---|---|---|
+| **1** | Where do guardians and the team do their work: the dashboard as an installable, partly offline web page, a sign-in inside the app, paper and files only, or the first and last together? | §3 | The dashboard page, plus a printable round sheet. The app stays a public reader | **As recommended: the dashboard page plus a round sheet** |
+| **2** | How is someone invited: a pending person plus a plain message, a single-use link, Clerk, or open sign-up with approval? | §4.3 | Pending person plus a plain message | **As recommended** |
+| **3** | Split the team and management? | §5 | Yes, with every current team member also made management on day one | **Two tiers, team and management; everyone on the team at go-live is also management; management alone holds `manage_people` and `action_deletion_request`** |
+| **4** | How does a permission check answer when no colony is named? | §6.4 | Strict by default; a separate "anywhere" question for menus and entry; the welfare queue has its own team-only power; guardians never get island-wide rows | **As recommended** |
+| **5** | Who can confirm that a cat is sterilised? | §7.2 | A guardian's in-person look is evidence; one team OK records "checked in person"; the cat stays Probably sterilised; Confirmed only from a team record or a vet | **The team, vets, cat guardians and cat owners can confirm; their statement makes the cat Confirmed at once, recorded with who said it; the team can mark it wrong.** Amends data spine §4.2 and DECISIONS Part 2k. Owners follow SYC-130; vets wait for SYC-24 |
+| **6** | Who decides which cats are in a colony, and which are taken out? | §7.4 | The guardian proposes either way; a team member OKs | **The guardian decides alone, adding and taking out, at once.** Recent guardian changes go on the team's Colonies page |
+| **7** | How do we protect against an invitation to the wrong mailbox? | §8.4 | Typed twice, blank name field, a message that names no colony, an "accepted" email | **A plain invitation: address typed once, the email may name the colony. One-tap withdraw stays** |
+| **8** | How far does a volunteer see? | §6.5 | Only the colonies they are assigned, one row per colony | **Settled by the merge: there is no volunteer role** |
+| **9** | Temporary guardians and the feeder/owner/carer labels? | §6.6 | One role; optional end date and label per placement | **As recommended** |
+| **10** | How far does translation go? | §13.2 | Everything a guardian sees in en/el/fr; the team's screens stay English | **As recommended** |
+| **11** | Does an access change need a second management member's OK? | §8.3 | Yes, settled only by management (`approve_access`) | **No second OK: one management member is enough for every access change.** `approve_access` and the access-change item are removed; the other managers get an email; the `people` command stays as break-glass |
+| **12** | What may a guardian's phone hold with no signal, for how long, and how is it deleted? (Settles SYC-257.) | §12 | Cats' discovery positions and feeding-site directions in words, no site coordinates, 72 hours | **Everything, 72 hours: her colonies' cats and the exact feeding-site positions, deleted on the next open, `Clear-Site-Data` on sign-out and removal.** The "how to find it" field (SYC-263) is optional |
+| **13** | Do a guardian's colour and markings statements wait for an OK? | §7.6 | A guardian's stands; a volunteer's confirmation is evidence only | **A guardian's stands.** The volunteer half and `confirm_appearance` are removed |
+| **14** | Can a guardian create a colony? (Added 12 October 2026.) | §6.9 | Not raised | **Yes. She is placed on it automatically as its guardian; renaming afterwards stays with the team** |
+| **Q7** | Is the public role word "spotter" or "spotter and snapper"? | §16.2 | Open | **"Spotter" only** |
 
 ### 16.2 Questions for Syros Cats
 
 | # | Question | Why it matters | Our suggestion |
 |---|---|---|---|
-| **Q1** | **Who is management on the first day, and are they comfortable that a guardian sees the exact positions of cats in her own colony, and that a phone which is lost and never reopened keeps its saved list until the browser clears it?** (The same family of risk as the colony-averaging disclosure in F2; ask together with SYC-67, the F2 acceptance.) | It is the one residual risk software can't remove (§14 case 8, §12.2): trusting people with places. They should hear it in these words and accept it knowingly | Management: the people who are staff now. Put the plain sentence on the accept page and record their acceptance |
+| **Q1** | **Who is management on the first day, and are they comfortable with the risks Samuel accepted on 12 October 2026 (§14.1): that a guardian sees the exact positions of cats in her own colony and can add any cat to it, that a lost phone shows exactly where the bowls are for up to 72 hours (and, if never reopened, until the browser clears it), that a typo in an invitation gives a stranger a colony's cat positions, and that one stolen management login can change who is on the list?** (The same family of risk as the colony-averaging disclosure in F2; ask together with SYC-67, the F2 acceptance.) | It is the one residual risk software can't remove (§14 case 8, §12.2): trusting people with places. They should hear it in these words and accept it knowingly | Management: the people who are on the team now. Put the plain sentence on the accept page and record their acceptance |
 | **Q2** | **Should a guardian see welfare reports for cats in her colony?** | She would hear first of a hurt cat on her patch, but the report holds a reporter's photograph and exact location, and showing it widens the circle that holds it | **Not yet.** Revisit when guardians exist and the team has seen how the queue is used |
-| **Q3** | **May a guardian mark her own cat as deceased without a team confirmation?** (The data spine's open question 5.) | It's reversible by any later sighting; the data spine recommended yes | **Yes**, with the two safeguards in §2.2 and §7.2 (a feed of recent guardian changes; the cat stays on the round sheet for 30 days, flagged) |
+| **Q3** | **May a guardian mark her own cat as deceased without a team confirmation?** (The data spine's open question 5.) | It's reversible by any later sighting; the data spine recommended yes | **Yes**, with the two safeguards in §2.2 and §7.2 (the team's recent-guardian-changes list on the Colonies page; the cat stays on the round sheet for 30 days, flagged) |
 | **Q4** | **Do guardians want an email when the team decides on something they sent?** | A decision in the dashboard is only seen on her next visit | **No email at first.** Quiet, consistent with nothing paging anyone; add a weekly summary if guardians ask |
 | **Q5** | **The four promises on the accept page (§4.1): are these the right four, in the right words?** | It is the moment a person is told what they are trusted with | Syros Cats edit the English; a named local reviewer confirms Greek and French |
 | **Q6** | **Who is the named local reviewer for the Greek and French of the invitation and promises, and by when?** | Blocks those languages going live (§13.3) | A person, not a role |
@@ -1080,7 +1113,7 @@ Filed to Linear (SYC) from this spec, in addition to the comments on the tickets
 
 To file when Samuel approves this spec:
 
-- **A "how to find it" line on feeding sites** (a short text field written by the team or the colony's guardian), which the saved list needs (§12). Belongs with SYC-209.
+- **A "how to find it" line on feeding sites** (a short, **optional** text field written by the team or the colony's guardian; SYC-263), which the saved list can show next to the exact position (§12). Belongs with SYC-209.
 - **A better "usual spot" for each cat** (SYC-80) is what the colony view really wants; until then it shows the discovery position and the usual feeding site.
 - **A dashboard upload of a guardian's own sighting**, if Syros Cats want guardians to match photos themselves; `match_cat_anywhere` waits for it (§6.2, note 3).
 
@@ -1088,22 +1121,25 @@ Comments, not new tickets: SYC-104 (what the people screen must do: §8), SYC-21
 
 ### 16.5 Proposed DECISIONS.md entries
 
-*For Samuel to adopt, edit or reject when he approves this spec. This document does not edit `DECISIONS.md`. If adopted, these become a new Part, to be dated on approval. The amendments they imply to approved documents are listed in §17.*
+*For Samuel to adopt, edit or reject when he approves this spec. This document does not edit `DECISIONS.md`. If adopted, these become a new Part, to be dated 12 October 2026. The amendments they imply to approved documents are listed in §17.*
 
-- **Roles are `staff`, `management`, `guardian`, `volunteer`, and `vet` (reserved, grants nothing).** Management additionally manages people, actions deletion requests and approves access changes. Everyone who is staff when roles go live is also made management. *(Decision 3.)* The observation vocabulary's never-written `admin` is renamed `management`.
+- **Roles are `staff` (shown as "the Syros Cats team", including people who help in the field), `management`, `guardian`, and `vet` (reserved, grants nothing). There is no volunteer role.** Management additionally manages people and actions deletion requests. Everyone who is on the team when roles go live is also made management. *(Decisions 3 and 8.)* The observation vocabulary's never-written `admin` is renamed `management`, and the never-written `volunteer` is retired.
 - **The capability catalogue in `roles-and-invites.md` §6.2 is the single list of capability names.** Other specs cite it and add none of their own. *(Decision 4, §6.7.)*
-- **A person is invited by management, who creates them as pending with their roles; they get a plain message with no secret and no colony in it, sign in as staff do, and accept.** Invitations expire after 14 days. No Clerk, no second sign-in mechanism. *(Decision 2.)*
-- **Access changes need a second management member.** Inviting staff or management, any role change adding them, a rejoin with those roles, an invitation over three colonies, and removing a manager are decided only by another management member, using a management-only power staff do not hold. *(Decision 11.)*
-- **The workspace documents are their own capability, `use_workspace`, held by staff and management only.** The sign-in check answers two doors, and answers the old request shape with yes only where the workspace is allowed. *(SYC-222 points 1 and 2.)*
-- **`can()` is strict; entry and menus use a separate `canSomewhere()`; guardians and volunteers never hold an island-wide row; the welfare queue needs its own team-only capability.** A signed-in person who lacks a capability gets a 403 page, not the sign-in redirect. *(Decision 4. This differs from SYC-222 point 3's wording on purpose.)*
-- **A guardian's or volunteer's in-person look at a cat is held as evidence, changes nothing public until one team member's OK, and then records "checked in person"; the cat stays *Probably sterilised*. *Confirmed* comes only from a team record or a vet.** The person who made the statement can never settle it. *(Decision 5.)* This fills the gap `cat-record-data-spine.md` §4.5 calls "the full confirmation queue (still deferred)".
-- **Which cats are in a colony is the team's to say; a guardian proposes both adding and removing, and a volunteer cannot propose.** *(Decision 6.)*
+- **A person is invited by management, who creates them as pending with their roles; they get a plain message with no secret (it may name the colony), sign in as the team does, and accept.** The address is typed once. Invitations expire after 14 days and can be withdrawn in one tap. No Clerk, no second sign-in mechanism. *(Decisions 2 and 7.)*
+- **One management member is enough for every access change**, including adding or removing team or management members. Every access change is in the history and the other managers are emailed. The `people` command stays as break-glass. *(Decision 11.)*
+- **The workspace documents are their own capability, `use_workspace`, held by the team and management only.** The sign-in check answers two doors, and answers the old request shape with yes only where the workspace is allowed. *(SYC-222 points 1 and 2.)*
+- **`can()` is strict; entry and menus use a separate `canSomewhere()`; guardians never hold an island-wide row; the welfare queue needs its own team-only capability.** A signed-in person who lacks a capability gets a 403 page, not the sign-in redirect. *(Decision 4.)*
+- **The team, vets, cat guardians and cat owners can confirm that a cat is sterilised, and their statement makes the cat Confirmed at once, recorded with who said it; the team can mark it wrong.** A clipped ear alone still never confirms. A guardian's look at an ear (a field check) waits for one team OK and records "checked in person". An owner's confirmation follows SYC-130; a vet's waits for SYC-24. *(Decision 5; amends the data spine §4.2 and Part 2k.)*
+- **A cat guardian decides alone which cats are in her colonies, adding and taking out, at once.** Every change is in the history and on the team's "recent guardian changes" list. A guardian can create a colony and is placed on it automatically. *(Decisions 6 and 14.)*
 - **A guardian does not make a feeding site public, ever, and cannot move a site between colonies.** She can request it; the team decides. *(§6.7.)*
-- **Guardians see the exact positions of cats and private feeding sites in their own colonies only; volunteers see those of the colonies they are placed on, one colony at a time.** Both accept the plain-words disclosure (Q1), which Syros Cats record. *(Decisions 6 and 8; F2's family of risk.)*
-- **What a phone may keep:** cats' discovery positions and feeding-site directions (no site coordinates), for placed colonies, for 72 hours from the last online load, deleted rather than hidden when the page next opens, with a stated residual risk for a phone never reopened. *(Decision 12, which settles SYC-257.)*
-- **A guardian's statement about colour and markings stands; a volunteer's confirmation is evidence only.** *(Decision 13.)*
+- **Guardians see the exact positions of cats and private feeding sites in their own colonies only.** Syros Cats record the plain-words disclosure and the risks in §14.1 (Q1). *(Decisions 6, 12 and 14; F2's family of risk.)*
+- **What a phone may keep:** a guardian's colonies' cats and the exact feeding-site positions, for 72 hours from the last online load by server time, deleted rather than hidden when the page next opens, `Clear-Site-Data` on sign-out and removal. *(Decision 12, which settles SYC-257.)*
+- **A guardian's statement about colour and markings stands.** *(Decision 13.)*
+- **The public role word is "spotter".** *(Q7.)*
 
 ### 16.6 Review findings
+
+*This table records the review of 7 October 2026 as it was written. Samuel's decisions of 12 October 2026 replaced several of its fixes (the volunteer role, the field-check-only route to a sterilisation answer, the colony-change and access-change approval items, the typed-twice and blank-name invitation checks, and the no-site-coordinates phone list). Where a row below names one of those, §16.7 says what replaced it.*
 
 The independent adversarial review of 7 October 2026 ([`reviews/roles-and-invites-review.md`](./reviews/roles-and-invites-review.md)) found three blockers, ten major and six minor problems, a note on canonical wording, and judged all eleven decision recommendations. Every objective finding is fixed in this version. Where the reviewer disagreed with a recommendation, the recommendation changed and the earlier option is kept so Samuel can still choose it. Nothing in the review is left unanswered; the items that need Samuel's judgement are listed at the end.
 
@@ -1135,6 +1171,28 @@ The independent adversarial review of 7 October 2026 ([`reviews/roles-and-invite
 **New decisions raised by folding the review:** Decision 12 (what a phone may keep, which settles SYC-257) and Decision 13 (colour and markings statements, from the SYC-2 question on SYC-53).
 
 **Left for Samuel (now all decided, §16.7):** whether Decision 5 should instead let the team's OK make a cat *Confirmed* (it needs an approved amendment first); Decision 12's 72-hour, no-site-coordinates choice; and the questions for Syros Cats in §16.2, including the new Q8.
+
+### 16.7 What the decisions of 12 October 2026 changed
+
+| Decision | What changed in this spec |
+|---|---|
+| **Volunteers and the team are one** (Decision 8, settled by the merge) | §2.3 merges volunteer and staff into "the Syros Cats team"; no volunteer role value, no placed volunteer rows, no per-colony placement for the team; `confirm_appearance` removed; the colony view and round sheet are for guardians and the team; field checks are recorded by guardians and team members |
+| **3. Two tiers** | Team and management; management holds `manage_people` and `action_deletion_request` only |
+| **5. Who can confirm sterilisation** | The team, vets (when they exist), guardians and owners (per SYC-130) confirm at once; `set_sterilisation` becomes placed (guardians for their own colonies); data spine §4.2 and Part 2k amended (§17) |
+| **6. Colony membership** | Guardians add and remove cats directly; `assign_cat_to_colony` becomes placed; `propose_colony_change` and the colony-change queue item are removed; `view_guardian_changes` added |
+| **7. Plain invitation** | Address typed once; the email may name the colony; blank-name and acceptance-email safeguards removed; withdraw kept |
+| **11. No second OK** | `approve_access`, the access-change item and the "waiting for a second OK" state removed; other managers are emailed on every access change |
+| **12. Phone** | Exact feeding-site positions are on the saved list for 72 hours; "how to find it" is optional |
+| **13. Colour** | The volunteer half dropped |
+| **14. Guardians create colonies** | `create_colony` gets its own kind, "creates its own scope" (§6.1); the guardian is placed automatically; renaming stays with the team |
+| **Q7** | "Spotter" only |
+
+**The capability catalogue, before and after.**
+
+- **Removed:** `confirm_appearance`; `propose_colony_change`; `approve_access`.
+- **Added:** `view_guardian_changes` (island-only: the team and management).
+- **Changed:** `set_sterilisation` (island-only to placed: team All, management All, guardian Own); `assign_cat_to_colony` (island-only to placed: same holders); `create_colony` (island-only to "creates its own scope": team, management, guardian); `record_field_check` (placed: team All, management All, guardian Own; the team's is recorded at once); `manage_people` (adds forgetting a former guardian or team member, SYC-208 and SYC-256).
+- **Unchanged in meaning, columns changed:** the Staff column is now "Team", the Volunteer column is gone, and every row's team and management entries are as before.
 
 ---
 
