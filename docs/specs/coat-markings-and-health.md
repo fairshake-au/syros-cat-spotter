@@ -20,7 +20,7 @@
 
 A cat on the Syros Cats map is more than a photo and a name. People describe cats to each other by what they look like ("the black-and-white one with the kinked tail by the bakery"). This spec gives the app that same language, and a careful rule for who gets to say it.
 
-**Appearance (coat and markings).** A short, fixed list of colours and markings, each with a picture and a name in English, Greek and French. A tourist can answer from a photo by tapping, never typing. A spotter's tap is a **suggestion**. The team (staff and management) and cat guardians (for cats in their own colonies) state a cat's colour and markings **directly**, and their word stands (roles spec, Decision 13). A volunteer can say "yes, that's right", which counts as **evidence only**: it never becomes the answer by itself. Each cat's colour is read automatically from its main photo (SYC-161). A person with authority beats the machine; two spotters who agree, on different days and from different photos, beat it too; one spotter alone never overturns it.
+**Appearance (coat and markings).** A short, fixed list of colours and markings, each with a picture and a name in English, Greek and French. A tourist can answer from a photo by tapping, never typing. A spotter's tap is a **suggestion**. The team (staff and management) and cat guardians (for cats in their own colonies) state a cat's colour and markings **directly**, and their word stands (roles spec, Decision 13). The Syros Cats team is one group (staff, management and the people who help in the field), so a team member's statement is a team statement. Each cat's colour is read automatically from its main photo (SYC-161). A person with authority beats the machine; two spotters who agree, on different days and from different photos, beat it too; one spotter alone never overturns it.
 
 **Health.** The app does **not** have a "health status" badge, and this spec argues it should never have one. What "health" means here is three separate things with three different audiences:
 
@@ -42,7 +42,7 @@ The 28 July draft was written before the cat record existed. Most of its ideas s
 |---|---|
 | Appearance "fills the `description` field that exists in the schema and is never written to". | `cats.description` is the cat's **location label** ("by the blue boat"), and the cat page shows it as such. Appearance does not go there. It is stored as observations. |
 | A health attribute table with sex, age class, pregnancy, condition (healthy / needs attention / urgent) and a "Condition: anyone can say it" rule. | Public free-for-all condition statements conflict with the urgent welfare route and with privacy (§6). The condition row is dropped. Sex, age and pregnancy are not part of this spec (§13). |
-| Roles: Admin, Staff, Volunteer, Partner vet, Cat guardian, built on Clerk. | The roles are `roles-and-invites.md`'s: staff, management, cat guardian, volunteer, and a reserved vet. This spec names which of that spec's capabilities it uses (§4.3) and adds none. |
+| Roles: Admin, Staff, Volunteer, Partner vet, Cat guardian, built on Clerk. | The roles are `roles-and-invites.md`'s: the Syros Cats team (staff and management; volunteers and staff are one role), cat guardian, and a reserved vet. This spec names which of that spec's capabilities it uses (§4.3) and adds none. |
 | A single `Observation.kind` table covering all of this in one phase. | Coat is a kind that already exists. This spec proposes two more (markings, vaccinated) and one team-only note kind on the cat (§10), and nothing else. |
 
 ---
@@ -114,11 +114,11 @@ Two more answers exist for every list and mean different things:
 - **"Nothing special"** is a real answer: *I looked, and there is nothing to note*. It is stored as an empty list.
 - **"Can't tell"** (photo too dark, wrong angle) is stored as such, stops the app asking this person about this cat again, and has **no effect on the record**, exactly as the ear-tip question treats it. It also withdraws nothing the same person ticked earlier (§4.2).
 
-**The Greek and French wording above is a first draft for a local check.** `choose-a-different-cat.md` §12 (C11) already flagged that tabby, tortoiseshell and calico have no agreed everyday word in Greek. The same applies to *colourpoint*. A Syros Cats volunteer or a Greek speaker has to confirm every label before launch (§12, question 1).
+**The Greek and French wording above is a first draft for a local check.** `choose-a-different-cat.md` §12 (C11) already flagged that tabby, tortoiseshell and calico have no agreed everyday word in Greek. The same applies to *colourpoint*. A Syros Cats team member or a Greek speaker has to confirm every label before launch (§12, question 1).
 
 ### 3.3 What is deliberately not on either list
 
-- **The ear tip.** A clipped ear tip is its own question with its own rules (data spine §4), and it stays that way. Putting "ear-tipped" in a list of markings would give the public a second, rules-free way to say it. It is also the one marking where a wrong answer sends a volunteer to trap a cat that was already done. *Torn or notched ear* is on the list precisely so a tourist who sees a ragged ear has somewhere honest to put it. **Whenever the markings chips are shown, the picture of *Torn or notched ear* is shown beside the ear-tip example photo from Syros Cats** (the one SYC-79 ships), so the two are never confused. That side-by-side image is a required asset for the markings chips, as the data spine §4.4 made it for the ear tip. (Decision SYC2-D3.)
+- **The ear tip.** A clipped ear tip is its own question with its own rules (data spine §4), and it stays that way. Putting "ear-tipped" in a list of markings would give the public a second, rules-free way to say it. It is also the one marking where a wrong answer sends someone to trap a cat that was already done. *Torn or notched ear* is on the list precisely so a tourist who sees a ragged ear has somewhere honest to put it. **Whenever the markings chips are shown, the picture of *Torn or notched ear* is shown beside the ear-tip example photo from Syros Cats** (the one SYC-79 ships), so the two are never confused. That side-by-side image is a required asset for the markings chips, as the data spine §4.4 made it for the ear tip. (Decision SYC2-D3.)
 - **Eye colour as a changing impression, breed, weight, temperament, age.** Eye colour shifts with light and phone cameras, and the others are guesses from a photo. If it would not change how someone finds or recognises the cat, it is not recorded. (*Eyes of different colours* is a lasting feature the team states, not a spotter's impression.)
 - **Injury, illness, eye discharge, limping.** These are conditions, not markings. A cat that has *lost* an eye is a marking, stated by someone who knows the cat. A cat whose eye looks sore is a welfare report (§6.4).
 - **Free text.** The app is trilingual; three words for one colour is three unsearchable strings.
@@ -129,7 +129,7 @@ Two more answers exist for every list and mean different things:
 
 ### 4.1 The principle
 
-**Spotters suggest. The team, and cat guardians for their own colonies, state. Volunteers add evidence.** A suggestion is a real record: it is dated, attributed to a device, kept, and visible to the team. It simply does not decide what the public sees on its own, with the one exception in §4.2 where it would otherwise leave a gap.
+**Spotters suggest. The team, and cat guardians for their own colonies, state.** A suggestion is a real record: it is dated, attributed to a device, kept, and visible to the team. It simply does not decide what the public sees on its own, with the one exception in §4.2 where it would otherwise leave a gap.
 
 This is the same shape as the ear-tip rule (data spine §4): the crowd supplies volume, a trusted person supplies certainty. The difference is that colour and markings are plainly visible and cosmetic when wrong, so the bar is lower, the rules are simpler, and a guardian's word stands directly instead of waiting in a queue (roles spec, Decision 13).
 
@@ -144,7 +144,7 @@ These are the rules the resolver applies. They are written here in plain terms s
 - **Black plus white means black and white.** A pair that is exactly black and white is stored as `black_and_white`. Colours are then compared one at a time as plain values, never as the order or the way someone tapped them.
 - **One voice per device, counted when the answer is worked out.** Whoever is the author of a statement is one *voice*. If several standing statements on one cat come from the same device, only the newest counts. This is checked every time the answer is worked out, so a mistake in any writing route cannot let one device count twice. (It is also enforced at writing time, §10.3.)
 - **A pair of voices only counts as two if they come from different photos and were written on different days** (Syros calendar days). A real user loses nothing by this; the "same photo from two browsers on one afternoon" trick now needs two visits.
-- A volunteer's "yes, that's right" is stored as a **prompted** confirmation, because it agrees with what the screen showed. It counts as evidence for the team and never as one of the two voices.
+- A team member's or guardian's "yes, that's right" is stored as a team (or guardian) statement that agrees with an earlier one, not as a separate kind of evidence (§4.4). There is no lesser "volunteer confirmation".
 
 **Colour**
 
@@ -175,17 +175,16 @@ A person saying *Not sure* or *Can't tell* is never a statement about colour and
 
 ### 4.3 What the team and guardians can do, by name
 
-`roles-and-invites.md` §6.2 is the single list of capability names. This spec uses five of them, with the holders that spec gives them, and adds none:
+`roles-and-invites.md` §6.2 is the single list of capability names. This spec uses four of them, with the holders that spec gives them, and adds none. *Updated after Samuel's decisions (12 Oct 2026): volunteers and staff are one role, so there is no volunteer column and no `confirm_appearance`; a team member's statement is a team statement.*
 
-| Capability | What it lets someone do | Kind | Staff | Management | Cat guardian | Volunteer |
-|---|---|---|---|---|---|---|
-| `set_appearance` | State, confirm, correct or remove a cat's colour and markings | Placed | All | All | Own colonies | — |
-| `confirm_appearance` | Say "yes, that colour is right" without being able to change it. **Evidence only** | Placed | — (uses `set_appearance`) | — (same) | — (uses `set_appearance`) | Assigned colonies |
-| `set_vaccination` | Record a vaccination | Island-only | ✓ | ✓ | — | — |
-| `view_health_notes` | Read team-only health notes on a cat | Placed | All | All | Own colonies | — |
-| `add_health_note` | Add a team-only health note on a cat | Placed | All | All | Own colonies | — |
+| Capability | What it lets someone do | Kind | Team (staff) | Management | Cat guardian |
+|---|---|---|---|---|---|
+| `set_appearance` | State, confirm, correct or remove a cat's colour and markings | Placed | All | All | Own colonies |
+| `set_vaccination` | Record a vaccination | Island-only | ✓ | ✓ | — |
+| `view_health_notes` | Read team-only health notes on a cat | Placed | All | All | Own colonies |
+| `add_health_note` | Add a team-only health note on a cat | Placed | All | All | Own colonies |
 
-"All" means the whole island, "Own colonies" the colonies she guards, "Assigned colonies" the colonies a volunteer is placed on. **Placed** capabilities need a target, and the target is looked up from the record, never from the request: a cat's colony is its newest colony observation, and a cat in no colony can only be touched by island-wide holders. Nothing in the app asks "is this person a guardian?" for any of these; every screen and route asks for the capability by name (roles spec §6.1).
+"All" means the whole island, "Own colonies" the colonies she guards. **Placed** capabilities need a target, and the target is looked up from the record, never from the request: a cat's colony is its newest colony observation, and a cat in no colony can only be touched by island-wide holders. Nothing in the app asks "is this person a guardian?" for any of these; every screen and route asks for the capability by name (roles spec §6.1).
 
 **Vets are reserved** (roles spec §2.6). A vet has no standing on appearance. When vets exist, `set_vaccination`, `view_health_notes` and `add_health_note` gain a vet column and nothing else changes.
 
@@ -193,13 +192,13 @@ A person saying *Not sure* or *Can't tell* is never a statement about colour and
 
 | Fact | Authoritative | Everyone else |
 |---|---|---|
-| Colour, markings | Staff and management; a cat guardian for cats in her own colonies (stands directly, not queued, Decision 13) | Spotters suggest; a volunteer's confirmation is evidence only |
-| Sterilised | Staff and management (`set_sterilisation`), import (unchanged, data spine §4.6). A guardian's or volunteer's statement is a field check that waits for the team (roles spec §7) | Ear-tip evidence only |
+| Colour, markings | Staff and management; a cat guardian for cats in her own colonies (stands directly, not queued, Decision 13) | Spotters suggest |
+| Sterilised | Not restated here. Who can confirm sterilisation is `roles-and-invites.md` §7.2 (Decision 5, decided 12 Oct 2026); how a statement is recorded and weighed is the data spine's (§4.6, and its amendment from the roles spec) | Ear-tip evidence only |
 | Vaccinated | Staff and management (`set_vaccination`) | Nothing. They cannot see it, so they cannot say it |
 | Condition notes | Anyone with `add_health_note` (team; guardians for their own colonies) | Cannot see or write them |
 | Life status | Unchanged (data spine §3.2; roles spec §6.2) | Unchanged |
 
-Appearance and health are not sterilisation, so nothing in them goes through the roles spec's field-check queue.
+Appearance and health are not sterilisation, so nothing in them goes through the roles spec's sterilisation routes or its field-check queue.
 
 ### 4.4 Correcting a wrong colour or mark
 
@@ -207,7 +206,7 @@ The team and guardians correct from the cat's dashboard page (a guardian from he
 
 - **Confirm.** A statement with the same value as the one it confirms, linked to it.
 - **Correct.** A real statement carrying the whole new value (for markings, the whole list). It becomes *Confirmed*.
-- **Mark wrong (retract).** A statement whose value is **retracted** (`{ retracted: true }`). It removes the statement it points at from the count and asserts nothing in its place. Marking one of three spotters' marks wrong leaves the other two marks shown; marking a spotter's colour wrong leaves the next rule to decide, rather than freezing whatever the team member happened to type. A retraction is a `set_appearance` act: accepted from staff, management, or a guardian on her own colonies, and refused from everyone else, including volunteers.
+- **Mark wrong (retract).** A statement whose value is **retracted** (`{ retracted: true }`). It removes the statement it points at from the count and asserts nothing in its place. Marking one of three spotters' marks wrong leaves the other two marks shown; marking a spotter's colour wrong leaves the next rule to decide, rather than freezing whatever the team member happened to type. A retraction is a `set_appearance` act: accepted from staff, management, or a guardian on her own colonies, and refused from everyone else, including spotters.
 
 The correction route is extended to accept `coat` and `markings` (including the retraction), gated by `set_appearance` (§10.3).
 
@@ -254,7 +253,7 @@ Four marks are shown like any other, whoever stated them (§3.2): *Missing an ey
 
 On a cat's dashboard page, an **Appearance** section next to *Correct the record*:
 
-- the current colour and markings, with every statement beneath (the machine's reading, each spotter's suggestion, each volunteer's confirmation, any guardian or team statement), who made it and when;
+- the current colour and markings, with every statement beneath (the machine's reading, each spotter's suggestion, any guardian or team statement), who made it and when;
 - **Confirm** (one tap: *that's right*) and **Correct** (pick the right chips, with a short reason). Confirm writes a team statement with the same value; the history shows it linked to what it confirmed, as PR #99's *Looks right* does;
 - **Mark wrong** on any single statement. This **retracts** that one statement: it removes it from the count and asserts nothing in its place. It does not make the team member re-type a list or pick a colour. If a replacement is wanted, the team member then uses **Correct** (§4.4).
 
@@ -268,10 +267,9 @@ A small **"Colour check"** list in the top bar is the team's low-priority list o
 
 It is low priority by design, a few minutes a week, and it is **not** the roles spec's "Needs an OK" confirmation queue. When cat guardians have accounts, they see the same list for their own colonies.
 
-### 5.4 Cat guardians and volunteers (once the roles spec is live)
+### 5.4 Cat guardians (once the roles spec is live)
 
 - **A cat guardian** sees the same Appearance section for cats in her own colonies, with `set_appearance` for those colonies only. What she states **stands directly**. It is not queued for an OK, because a wrong colour is cosmetic and easy to reverse (roles spec, Decision 13). The team sees it in their feed of recent guardian changes. She also reads and adds team-only health notes on cats in her colonies (`view_health_notes`, `add_health_note`, §6.4).
-- **A volunteer** assigned to a colony has `confirm_appearance`: a "Yes, that's right" button on the cat's colour and markings. It is **evidence only**: it is recorded, shown to the team, and counted as one more voice (§4.2), but it never replaces a team or guardian statement and never becomes the answer on its own. The volunteer sees "thanks", nothing else. A volunteer cannot correct, and has no health notes.
 - **Everyone else** who spots a wrong colour does what anyone does: "Report an issue", or the details-card suggestion if they have a recent sighting.
 
 ---
@@ -291,8 +289,8 @@ What remains is a set of different facts, with different audiences. Calling them
 
 | Kind | Examples | Who can state it | Who sees it |
 |---|---|---|---|
-| **A. On the cat page already** | Sterilised; ear tip; life status (street, homed, in care, no longer with us) | As the data spine says (§3.2, §4.6) | Everyone, in the existing lines |
-| **B. Vaccination** | Rabies; the combination vaccine | The team (`set_vaccination`, staff and management). Never a spotter, guardian or volunteer. A vet column is added when vets exist | **The team only**, at launch. The public sees at most an overall count, never a cat (§6.3) |
+| **A. On the cat page already** | Sterilised; ear tip; life status (street, homed, in care, no longer with us) | As the data spine says (§3.2, §4.6). For sterilisation, who may confirm it is `roles-and-invites.md` §7.2 (Decision 5), not restated here | Everyone, in the existing lines |
+| **B. Vaccination** | Rabies; the combination vaccine | The team (`set_vaccination`, staff and management). Never a spotter or a guardian. A vet column is added when vets exist | **The team only**, at launch. The public sees at most an overall count, never a cat (§6.3) |
 | **C. Condition** | Illness, injury, a long-term condition, treatment under way, pregnancy | The team, and cat guardians for cats in their own colonies, as a **team-only note on the cat** (`add_health_note`) | **The team, and cat guardians for their own colonies** (`view_health_notes`). Never the public, never in any public payload |
 
 **Public rule, in one sentence: the public sees what helps them find, recognise or help a cat, and nothing about its medical history.**
@@ -375,7 +373,7 @@ Being precise, because offline support in this app is partial:
 | The colour filter in "Find the cat" | **Yes, over the cached catalogue.** The picker is built from the cached cats, so filtering needs no signal. A cat that arrived after the last load will not appear, as for the rest of the picker |
 | Saying a cat's colour when a new cat is named | **No.** Naming a new cat happens after matching, which needs signal, and the colour line sits on the result screen after the points, which is already online. A spot saved offline is matched and named when it syncs |
 | Suggesting colour or markings on the "add details later" card | **No.** The card is hidden offline, as it is now. Appearance suggestions are not added to the offline queue (SYC2-D9) |
-| Team and guardian confirm / correct / vaccination / health notes | **No.** The dashboard is online only. A guardian's or volunteer's saved list on a phone (roles spec §12) does not include appearance writes |
+| Team and guardian confirm / correct / vaccination / health notes | **No.** The dashboard is online only. A guardian's saved list on a phone (roles spec §12) does not include appearance writes |
 
 So: appearance **reading** works with the cached catalogue; appearance **writing** needs a connection. Nothing here queues, so nothing here can go stale in the queue or race a team correction.
 
@@ -413,8 +411,8 @@ Everything above is the product; this is the record underneath. **No database mi
 ```
 
 - **`modelVersion` is required only on a machine reading.** The `coat` validator in `observations.ts` currently requires it on every `coat` value, which would refuse a person's statement. It becomes: required when `provenance` is `machine`, absent otherwise.
-- **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, `guardian` (with `authorityScope: guardian_of_this_cat`, her own colonies) and `volunteer` (a prompted confirmation only, with `agreesWith`, never a new value). `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public`, `guardian` and `volunteer`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` and `volunteer` values, are the roles spec's amendment to this section (`roles-and-invites.md` §17.1, item 3).
-- A prefilled "Yes" is `provenance: "prompted"`, with `suggestedValue` set to the machine's value and `suggestionSource` naming the reading. A different answer is `volunteered`. A team or guardian Confirm carries `agreesWith: <statement id>` and **no photo**, the PR #99 pattern, so it never counts as independent public evidence. A volunteer's "yes, that's right" is the same shape.
+- **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, and `guardian` (with `authorityScope: guardian_of_this_cat`, her own colonies). There is no `volunteer` value: volunteers are on the team. `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public` and `guardian`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` value, are the roles spec's amendment to this section (`roles-and-invites.md` §17.1, item 3).
+- A prefilled "Yes" is `provenance: "prompted"`, with `suggestedValue` set to the machine's value and `suggestionSource` naming the reading. A different answer is `volunteered`. A team or guardian Confirm carries `agreesWith: <statement id>` and **no photo**, the PR #99 pattern, so it never counts as independent public evidence.
 - A team or guardian statement on `markings` is the whole list; an empty list is meaningful.
 - **`coat`, `markings`, `vaccinated` and `team_note` are not evidence of life** (data spine §3.4). The honest reason for `vaccinated` is "not needed yet": a vaccination's `observedAt` is the date it happened, so an old import only says the cat was alive then, which moves nothing. A vet or team member who handles a cat is stronger evidence than an ear-tip answer; if Syros Cats begin recording vaccinations on the day, listing `vaccinated` as evidence of life is a one-line data-spine §3.4 amendment, and nothing here blocks it. The loader is an allow-list, so leaving it out takes no code.
 - **The `team_note` kind is how the cat gets a note** (B2 in the review). Welfare-report notes (`add_team_note`, `POST /api/team/reports/:id/note`) are unchanged and stay on the report. A `team_note` is never in any public payload and is not removed when a welfare report is deleted.
@@ -438,7 +436,7 @@ Three pure functions are added to `resolve.ts` and included in the cat snapshot:
 - **Spotter suggestions** are written through the post-points answers family that `add-details-later.md` already builds (`POST /sightings/{id}/answers` and its open-sightings read). That covers the colour line on the new-cat result screen and the details card alike. **The naming call carries no appearance data**: naming happens before the points, and no appearance question lives on that screen (§5.1). A device may only suggest for a cat it has a resolved sighting of, and only for an **open sighting (the last 30 days)**, so a stranger cannot tag cats they have never met. The write is per-device rate limited and refused for a deceased or merged cat.
 - **The lock.** A device's appearance write takes the same lock as the details-card writes, on (device, cat), and **re-checks under the lock** that it is not already counted, so a double tap, a retry, or the result-screen line and the details card sent together cannot both land as two voices. This is the class of bug the details-card spec's second-pass review found (its finding 1).
 - **A statement is refused after the team has ruled** where §4.2 says so (a changed answer from a device that had already answered; a new colour answer after a team or guardian statement).
-- **Team and guardian writes** go through `lib/teamCorrections.ts`'s existing statement function, behind `set_appearance` / `set_vaccination` / `add_health_note` and the same Origin, session and capability order PR #99 established, with a required reason. `capabilityFor()` in that file is extended, because it currently returns nothing for any kind except life status, sterilised and ear tip, to accept `coat` and `markings` (gated by `set_appearance`, including `{ retracted: true }`), `vaccinated` (gated by `set_vaccination`) and `team_note` (gated by `add_health_note`). JSON and form routes call the same function so they cannot write different rows. A volunteer's confirmation (`confirm_appearance`) is written through a narrower function that can only write a prompted `agreesWith` row.
+- **Team and guardian writes** go through `lib/teamCorrections.ts`'s existing statement function, behind `set_appearance` / `set_vaccination` / `add_health_note` and the same Origin, session and capability order PR #99 established, with a required reason. `capabilityFor()` in that file is extended, because it currently returns nothing for any kind except life status, sterilised and ear tip, to accept `coat` and `markings` (gated by `set_appearance`, including `{ retracted: true }`), `vaccinated` (gated by `set_vaccination`) and `team_note` (gated by `add_health_note`). JSON and form routes call the same function so they cannot write different rows.
 - **The "Colour check" list** is `GET /api/team/colour-check`, built like the Probably sterilised list: a cat is listed while any of the conditions in §5.3 holds. Guardians see the same list scoped to their own colonies.
 - **Reading health notes** goes through a route gated by `view_health_notes` with the cat as the target; the cat's colony is looked up from the record.
 - **No script on the dashboard pages** (DECISIONS Part 2k), so the chip pickers are plain checkboxes and radio buttons in a form.
@@ -454,14 +452,14 @@ Three pure functions are added to `resolve.ts` and included in the cat snapshot:
 
 ### 10.5 Capabilities
 
-No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`, `confirm_appearance`, `set_vaccination`, `view_health_notes` and `add_health_note`, and a test in that spec walks the catalogue so the document and the code cannot disagree. This spec asks only that the catalogue's holders (§4.3) are built as written. Until the roles spec ships, `can()` grants these to staff, exactly as for the existing twelve. `add_health_note` is **not** `add_team_note`: the first writes a note on a cat, the second a note on a welfare report, and they are held differently.
+No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`, `set_vaccination`, `view_health_notes` and `add_health_note`, and a test in that spec walks the catalogue so the document and the code cannot disagree. This spec asks only that the catalogue's holders (§4.3) are built as written. Until the roles spec ships, `can()` grants these to staff, exactly as for the existing twelve. `add_health_note` is **not** `add_team_note`: the first writes a note on a cat, the second a note on a welfare report, and they are held differently.
 
 ### 10.6 Tests
 
-- **Colour:** each of the five rules in §4.2 in isolation and in conflict; a person's *Not sure* never wins; a prompted confirmation never counts as independent, **including a prompted tap on a spotter-filled value**; **two voices for *ginger* and two for *black* resolve to the camp with the newer support and land on the Colour check list**; *Ginger · Tabby* and *Ginger* agree on *Ginger*; *Black* plus *White* equals *Black and white*; **two single spotters filling a gap with different colours show the newest**; a later machine reading never beats a team or guardian statement; **one device counts once at read time even if two live rows exist**; **two concurrent writes from one device (a double tap) leave one voice**; **a device superseding someone else's row is refused**; **two devices uploading the same photo, or on the same day, count as one**; a deletion between two voices still leaves two; the team correcting after two spotters agree wins; a guardian's statement stands directly and a volunteer's confirmation never becomes the answer.
+- **Colour:** each of the five rules in §4.2 in isolation and in conflict; a person's *Not sure* never wins; a prompted confirmation never counts as independent, **including a prompted tap on a spotter-filled value**; **two voices for *ginger* and two for *black* resolve to the camp with the newer support and land on the Colour check list**; *Ginger · Tabby* and *Ginger* agree on *Ginger*; *Black* plus *White* equals *Black and white*; **two single spotters filling a gap with different colours show the newest**; a later machine reading never beats a team or guardian statement; **one device counts once at read time even if two live rows exist**; **two concurrent writes from one device (a double tap) leave one voice**; **a device superseding someone else's row is refused**; **two devices uploading the same photo, or on the same day, count as one**; a deletion between two voices still leaves two; the team correcting after two spotters agree wins; a guardian's statement stands directly, and a team member's confirmation is a team statement.
 - **Markings:** a mark held at one voice, shown at two; omissions never remove a mark; a device's later answer adds and never withdraws; *Can't tell* and "nothing special" withdraw nothing; only a team or guardian statement removes one; an empty team list clears the marks; **marking one of three spotters' marks wrong leaves the other two shown**; **two voices dated after the newest team statement show a mark and put the cat on the Colour check list**; each of the four marks (*short tail*, *missing eye*, *three legs*, *odd eyes*) is accepted from a spotter and follows the same two-voice and add-only rules as the other seven; a team list may hold more than four marks; `cantTell` changes nothing.
-- **Retraction:** the retraction removes only the statement it points at, and is refused from a volunteer and a spotter.
-- **Vaccinated:** refused from public, guardian and volunteer; no negative state exists; **absent from every public payload; the word "rabies" appears in no public payload or string**; not evidence of life.
+- **Retraction:** the retraction removes only the statement it points at, and is refused from a spotter.
+- **Vaccinated:** refused from public and guardian; no negative state exists; **absent from every public payload; the word "rabies" appears in no public payload or string**; not evidence of life.
 - **Health notes:** a `team_note` is refused from public, never in a public payload, readable only with `view_health_notes`, and survives deletion of a welfare report; a welfare-report note never becomes a cat note.
 - **Old care route:** nothing about health or vaccination is written to `cat_updates`.
 - **Privacy:** no health note, welfare report, confidence or author in any public payload (the public-payload leak list the data spine already tests, §10.8), checked against the new fields by name.
@@ -475,7 +473,7 @@ No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`,
 
 - **SYC-161** (auto coat colour): drop "People outrank the machine" in favour of the narrowed rule (SYC2-D10), drop the cache-version bump, and use the single `coat: []` wire shape.
 - **SYC-5** (vaccination records): vaccination is team-only; the public Care timeline gets no vaccination row and no new `cat_update_type` enum value; donors see an overall count. Nothing about health is written through `POST /cats/:catId/updates` (§6.4, rule 6).
-- **`choose-a-different-cat.md` §8.4:** edited on approval of SYC2-D10. **`roles-and-invites.md` §17.4** already asks this spec to cite the five names and state that appearance is not queued and vets are reserved; both are done here.
+- **`choose-a-different-cat.md` §8.4:** edited on approval of SYC2-D10. **`roles-and-invites.md` §17.4** already asks this spec to cite the capability names and state that appearance is not queued and vets are reserved; both are done here.
 
 ---
 
@@ -518,7 +516,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. No: it stays its own question, with its own rules (recommended)** | No second, rules-free route into the sterilised line. "Torn or notched ear" gives people an honest place for a fight scar | Two places to describe an ear, and a person must know which is which. The example photo carries that, and is a required asset for the markings chips (§3.3) |
-| **B. Yes: add "ear-tipped" as a chip** | One place to describe a cat | A wrong chip becomes a claim that a cat is sterilised, without the notch-versus-clip guard. The failure is volunteers trapping cats already done |
+| **B. Yes: add "ear-tipped" as a chip** | One place to describe a cat | A wrong chip becomes a claim that a cat is sterilised, without the notch-versus-clip guard. The failure is people trapping cats already done |
 | **C. Show the sterilised line next to the markings, read-only** | The page reads as one description | It is what the cat page already does; this adds nothing and duplicates the line |
 
 **Recommendation: A**, and the cat page keeps showing sterilisation in its own line.
@@ -602,7 +600,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ## 12. Questions only Syros Cats can answer
 
-1. **Do these words match how your volunteers describe cats?** Please check every English, Greek and French label in §3 (especially *tortoiseshell or calico*, *colourpoint* and *kinked tail*), and tell us any marks you use that are missing or any here you would never use.
+1. **Do these words match how your team describes cats?** Please check every English, Greek and French label in §3 (especially *tortoiseshell or calico*, *colourpoint* and *kinked tail*), and tell us any marks you use that are missing or any here you would never use.
 2. **What health information do you actually keep about a cat?** If there is a spreadsheet or a WhatsApp convention, its headings beat our guesses (it decides SYC2-D5's option B).
 3. **Which vaccines do you give?** (It decides the vaccine list in the team's record. It would also matter if the public line were ever reconsidered, SYC2-D6 option B, in which case your vet must see the exact wording first.)
 4. **Is it right that a cat guardian's word on colour and markings stands straight away,** with the team seeing it in their feed of recent guardian changes, rather than waiting for the team's OK? (This is `roles-and-invites.md` Decision 13; this question asks whether Syros Cats are comfortable with it.)
@@ -621,7 +619,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 - **A public vaccination line** (SYC2-D6, options B and C).
 - **Reminders** for re-vaccination.
 - **Eye colour as an impression**, breed, weight, temperament.
-- **How roles, invitations and the confirmation queue work.** `roles-and-invites.md`'s. This spec only cites five of its capability names.
+- **How roles, invitations and the confirmation queue work.** `roles-and-invites.md`'s. This spec only cites four of its capability names.
 - **Points for appearance.** SYC-38's, if ever wanted.
 
 ---
@@ -634,7 +632,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 | **2. Team** | The Appearance section, Confirm / Correct / Mark wrong (retract), the Colour check list, vaccination entry, health notes on the cat | Slice 1; the SYC-43 dashboard (merged) |
 | **3. Spotters** | The colour line on the new-cat result screen, the chips on the details card, the three-language strings, the ear-tip side-by-side picture, the "Does it look hurt?" link, markings on picker cards, colour in the cat-alog filter | Slices 1 and 2 (so there is somebody to confirm), and `add-details-later.md`'s answers family |
 | **4. Vaccination count** | The overall "N cats vaccinated this year" figure, wherever SYC-5 places it | Slice 1; SYC-5 |
-| **5. Guardians and volunteers** | `set_appearance`, `view_health_notes`, `add_health_note` for cats in their own colonies; `confirm_appearance` for assigned volunteers; the Colour check list scoped to a colony | The roles spec (SYC-53) |
+| **5. Guardians** | `set_appearance`, `view_health_notes`, `add_health_note` for cats in their own colonies; the Colour check list scoped to a colony | The roles spec (SYC-53) |
 
 Rollback for slices 1 to 4 is a revert: observations already written remain valid and are simply not read.
 
@@ -646,13 +644,13 @@ For Samuel to approve (nobody has edited `DECISIONS.md`):
 
 - **Health is three things, not one status.** On the cat page: what the record already shows (sterilised, ear tip, life status), and nothing about vaccination or condition. Vaccination is team-only at launch; donors see an overall count, never a cat. Condition is a team-only note on the cat. There is no "Looks healthy" badge, ever.
 - **"Needs vet" is never a public filter or label.** The urgent route ("This cat needs help") is the only public way to say a cat is in trouble, and nothing replaces or delays it.
-- **Spotters suggest appearance; the team and cat guardians state it; volunteers add evidence.** This amends `choose-a-different-cat.md` §8.4: it said "a person's reading always beats the machine's"; it now says **a single spotter fills a gap but never overturns a machine reading; two independent spotters (different devices, photos and days), a cat guardian for her own cats, or the team do.** (SYC-161's wording is updated to match.)
+- **Spotters suggest appearance; the team and cat guardians state it.** This amends `choose-a-different-cat.md` §8.4: it said "a person's reading always beats the machine's"; it now says **a single spotter fills a gap but never overturns a machine reading; two independent spotters (different devices, photos and days), a cat guardian for her own cats, or the team do.** (SYC-161's wording is updated to match.)
 - **Markings and colour are never evidence of life and never notifiable.**
 - **The ear tip is not a marking.** It stays its own question with its own rules.
 - **Vaccination is stated only by the team (`set_vaccination`) and is not public per cat.** If it is ever made public: the vaccine is never named, and "If a cat bites or scratches you, see a doctor." sits beside it in all three languages.
 - **Health and vaccination are never written through the old shared-password care route** (`cat_updates`).
 - **A team-only note on the cat** (`team_note`) is a new observation kind in the data spine, gated by `view_health_notes` and `add_health_note`. Welfare-report notes are unchanged.
-- **The five capability names** (`set_appearance`, `confirm_appearance`, `set_vaccination`, `view_health_notes`, `add_health_note`) are the roles spec's. This spec adds none.
+- **The four capability names** (`set_appearance`, `set_vaccination`, `view_health_notes`, `add_health_note`) are the roles spec's. This spec adds none. Volunteers and staff are one role (the Syros Cats team), so there is no `confirm_appearance` and no volunteer rule.
 - **The colour and marking words are the fixed lists in `coat-markings-and-health.md` §3.** No free text.
 - **Part 3 ownership row (new):** *Coat and marking vocabulary, what "health" means and what is public* → `coat-markings-and-health.md`. *The observation kinds and the resolver rules for them* stay with `cat-record-data-spine.md`, which gains §10.1 and §10.2 of this spec on approval.
 
@@ -698,7 +696,7 @@ An independent adversarial review (`docs/specs/reviews/coat-markings-and-health-
 | M5 | One team statement freezes the markings | Two voices dated after the newest team or guardian statement reopen the list and put the cat on the Colour check list; removals still need the team | §4.2, §5.3 |
 | M6 | Several markings are injuries, and some cannot be read from a photo | The review made *Missing an eye*, *Three legs*, *Short or missing tail* and *Eyes of different colours* team-or-guardian only, and added the "Does it look hurt?" link for *Torn ear* and *Kinked tail*, with a test. **Partly reversed by Samuel (12 Oct 2026):** the four are open to anyone, as plain recognition features; the link is kept and now also shows for the four ("added so an injury still reaches help; Samuel can drop it"); §3.2 says what this accepts; §12 question 5 becomes "are these words right?" | §3.2, §5.1, §5.2, §12 |
 | M7 | The cache-key bump can wipe the offline catalogue; two specs plan two bumps and two shapes | No key change; the old key stays; a missing field means "not known"; a v2-cache test; one wire shape `coat: []`; a safe fallback rule if a bump is ever needed | §8, §10.4, §10.7 |
-| M8 | The role assignments conflict with the roles spec | The five names and holders are the roles spec's (§6.2), appearance statements are not queued, volunteers add evidence only (Decision 13), vets reserved. The "Later" column is gone | §4.3, §5.4 |
+| M8 | The role assignments conflict with the roles spec | The four names and holders are the roles spec's (§6.2), appearance statements are not queued (Decision 13), vets reserved. **Updated after Samuel's decisions (12 Oct 2026):** volunteers and staff are one role, so the volunteer column and `confirm_appearance` are gone. The "Later" column is gone | §4.3, §5.4 |
 | M9 | The old shared-password care route can still publish health, with a push | Health and vaccination are never written through it; its `general` type is retired for team use with the route; the untranslated old-build note is recorded | §6.4 (rule 6), §10.7 |
 
 ### Minor findings
@@ -723,6 +721,6 @@ SYC2-D1 and SYC2-D5 gained conditions; SYC2-D2 and SYC2-D6 changed their recomme
 
 ### Where this spec follows the roles spec rather than the review
 
-- The review said a retraction should be "staff only". The roles spec's `set_appearance` is "state, confirm, correct or remove", held by cat guardians for their own colonies, so a guardian may retract a statement on her own colonies. A volunteer or spotter cannot.
-- The review asked for a comment to SYC-53 about the four capabilities. The roles spec already added them (and `confirm_appearance`), so none is needed.
+- The review said a retraction should be "staff only". The roles spec's `set_appearance` is "state, confirm, correct or remove", held by cat guardians for their own colonies, so a guardian may retract a statement on her own colonies. A spotter cannot.
+- The review asked for a comment to SYC-53 about the four capabilities. The roles spec already added them, so none is needed. (`confirm_appearance` was later removed: volunteers and staff are one role.)
 
