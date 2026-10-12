@@ -1,6 +1,6 @@
 # Coat, markings and health on the cat record
 
-**Status:** **Revised after adversarial review, awaiting Samuel's approval** (7 October 2026). The independent review is `docs/specs/reviews/coat-markings-and-health-review.md`; §17 says how every finding was handled. **Supersedes** `docs/superpowers/specs/2026-07-28-cat-health-record-design.md` (the 28 July "For review" draft, which was never approved). That file is left as it is; where it and this document disagree, this one wins once approved.
+**Status:** **Revised after adversarial review and updated for Samuel's decisions of 12 October 2026, awaiting his approval of the whole.** (Reviewed 7 October 2026.) The independent review is `docs/specs/reviews/coat-markings-and-health-review.md`; §17 says how every finding was handled. **Supersedes** `docs/superpowers/specs/2026-07-28-cat-health-record-design.md` (the 28 July "For review" draft, which was never approved). That file is left as it is; where it and this document disagree, this one wins once approved.
 **Owner:** Samuel
 **Covers:** SYC-2 (coat and markings tags, and health status on cats). Also settles the trust question SYC-2 was parked on: who is allowed to assert a fact about a cat's body, and what the public sees of it.
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §2, §3.4, §4, §10.1, §10.2 · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.7, §8.4 · [`add-details-later.md`](./add-details-later.md) §6, §8 · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §4, §7 · [`roles-and-invites.md`](./roles-and-invites.md) §6.2, §6.7, §7.6 (Decision 13), §17.4 · [`DECISIONS.md`](./DECISIONS.md) Part 2g, 2i, 2k, 3 · tickets SYC-161 (auto coat colour), SYC-5 (vaccination records), SYC-52 (confidence engine), SYC-53 (roles), SYC-42 (welfare reports), SYC-75 (sterilisation status), SYC-43 (staff dashboard).
@@ -714,6 +714,12 @@ An independent adversarial review (`docs/specs/reviews/coat-markings-and-health-
 | m9 | The side-by-side picture of *Torn or notched ear* next to the ear-tip example is a required asset for the markings chips |
 | m10 | Every "built today vs proposed" framing is gone: §2 is "what changed from the July draft", the "held now by / later" column is gone, "inert until SYC-53" findings are replaced by §16, and "each cat's colour is read automatically" (Slice 1's dependency on SYC-161 is explicit in §14) |
 | m11 | The proposed DECISIONS entry names what it amends (`choose-a-different-cat.md` §8.4) and a Part 3 ownership row is added |
+
+### Updated after Samuel's decisions (12 Oct 2026)
+
+1. **The four marks are open to anyone.** *Short or missing tail*, *Missing an eye*, *Three legs* and *Eyes of different colours* can be ticked by spotters like any other mark. This **partly reverses M6**: the review's team-only change is gone; its "Does it look hurt?" link stays and now also shows for these four (added so an injury still reaches help; Samuel can drop it). §3.2 records what the choice accepts.
+2. **Roles.** Volunteers and staff are one role (the Syros Cats team). Every volunteer rule and `confirm_appearance` are removed. A cat guardian's colour and markings statement stands directly. Sterilisation is not restated here: roles spec Decision 5 and the data spine amendment own it.
+3. **The role word is "spotter"**, never "snapper" (the draft contained none).
 
 ### Decisions
 
