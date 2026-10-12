@@ -174,3 +174,4 @@ Three Greek business directories block automated access and could not be checked
 - `xo.gr` — bot challenge (this is the only source for Symviosis's opening hours, which is why that field is PARTIAL)
 
 Facebook pages could not be read without a login. Google Places was not available, which is the direct reason no clinic-door coordinates are in this document.
+
