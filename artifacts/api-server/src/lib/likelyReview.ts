@@ -23,7 +23,7 @@ import { newestActiveClip, TEAM_ROLES } from "./teamCorrections";
 // the list, not of the resolver, which is unchanged.
 //
 // Evidence photos are served by the team photo route (/api/team/photos/),
-// never the public one: /api/photos/ sits behind the pre-launch gate and
+// never the public photo route, which sits behind the pre-launch gate and
 // doesn't load on the team domain.
 
 const teamPhotoUrl = (publicId: string) =>

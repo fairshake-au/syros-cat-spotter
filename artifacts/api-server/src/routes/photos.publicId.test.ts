@@ -3,7 +3,7 @@ import request from "supertest";
 import { db, pool, photosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import app from "../app";
-import { photoUrl } from "../lib/catHelpers";
+import { catDisplayPhoto } from "../lib/photoVisibility";
 
 // hosting-and-photo-storage.md §6.2 item 1 / SYC-98: unguessable photo ids.
 const TINY_JPEG_B64 =
@@ -83,16 +83,17 @@ describe("GET /api/photos/:id — public_id vs the legacy numeric id", () => {
   });
 });
 
-describe("catHelpers.photoUrl", () => {
+// catHelpers.photoUrl() moved to lib/photoVisibility.ts in SYC-43 PR 6.
+describe("photoVisibility.catDisplayPhoto", () => {
   it("returns the public-id URL for a real photo", async () => {
-    expect(await photoUrl(photoId)).toBe(`/api/photos/${publicId}`);
+    expect(await catDisplayPhoto({ id: -1, primaryPhotoId: photoId })).toBe(`/api/photos/${publicId}`);
   });
 
   it("returns null for the primaryPhotoId: 0 sentinel without minting a token", async () => {
-    expect(await photoUrl(0)).toBeNull();
+    expect(await catDisplayPhoto({ id: -1, primaryPhotoId: 0 })).toBeNull();
   });
 
   it("returns null for a photo id that doesn't exist", async () => {
-    expect(await photoUrl(999999999)).toBeNull();
+    expect(await catDisplayPhoto({ id: -1, primaryPhotoId: 999999999 })).toBeNull();
   });
 });
