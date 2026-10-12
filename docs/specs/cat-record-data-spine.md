@@ -601,6 +601,30 @@ Rows are inserted and never updated or deleted, with one exception: the redactio
 
 **`observedAt` validation.** Team, vet and import writes may carry any past date — staff entering "sterilised on 3 March 2019" must work. Public writes are clamped by the existing capture-time rule (30 days back), which is the app's only precedent for a client-supplied date and would silently corrupt a historical import if applied to one. Future dates are rejected everywhere.
 
+#### Coat, markings, vaccination and team notes (amended 12 October 2026, SYC-2)
+
+Approved with `coat-markings-and-health.md` (SYC-2). That document owns the colour and marking words, what "health" means and what is public; this section owns the observation kinds. `OBSERVATION_KINDS` gains `markings`, `vaccinated` and `team_note`. `coat` already exists. Values:
+
+```ts
+//   coat        { colours: CoatColour[] }                        // 1–2 from the eight; ["not_sure"] alone
+//               { colours: CoatColour[], modelVersion: string }  // machine reading (system:vision)
+//               { retracted: true }                               // "mark wrong" (set_appearance only)
+//   markings    { marks: Mark[] }                                // from coat-markings-and-health.md §3.2; [] = "nothing special"; spotter answers hold at most 4, a team or guardian statement holds the whole list
+//               { cantTell: true }                               // recorded, no effect
+//               { retracted: true }                              // "mark wrong" (set_appearance only)
+//   vaccinated  { vaccines: ("rabies" | "cat_flu_enteritis" | { other: string })[], clinic?: string }  // 1–3 distinct; "other" is a name the team types (no brand); date = observedAt
+//   team_note   { text: string }                                 // a team-only note on the CAT; not a welfare-report note
+```
+
+- **`modelVersion` is required only on a machine reading.** The `coat` validator in `observations.ts` currently requires it on every `coat` value, which would refuse a person's statement. It becomes: required when `provenance` is `machine`, absent otherwise.
+- **One normaliser, used by every writer.** `black` + `white` is stored as `black_and_white`; every writer (the answers route, the team and guardian statement functions) calls the same `normaliseColours()`, and the validator's refusal of the raw pair is only the backstop.
+- **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, and `guardian` (with `authorityScope: guardian_of_this_cat`, her own colonies). The exact shape of a guardian's scope follows `roles-and-invites.md` Decision B in the SYC-53 plan, whichever is decided. There is no `volunteer` value: volunteers are on the team. `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public` and `guardian`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` value, are the roles spec's amendment to this section (`roles-and-invites.md` §17.1, item 3).
+- **A retraction may only target a row of the same kind, and only `coat` or `markings`.** `{ retracted: true }` is refused from `public`, refused unless `supersedesId` is set, and refused unless the row it supersedes is the same kind and that kind is `coat` or `markings`, for every role. A retraction can never remove a `sterilised`, `vaccinated`, `team_note` or any other row.
+- A prefilled "Yes" is `provenance: "prompted"`, with `suggestedValue` set to the machine's value and `suggestionSource` naming the reading. A different answer is `volunteered`. A team or guardian Confirm carries `agreesWith: <statement id>` and **no photo**, the PR #99 pattern, so it never counts as independent public evidence.
+- A team or guardian statement on `markings` is the whole list; an empty list is meaningful.
+- **`coat`, `markings`, `vaccinated` and `team_note` are not evidence of life** (§3.4). The honest reason for `vaccinated` is "not needed yet": a vaccination's `observedAt` is the date it happened, so an old import only says the cat was alive then, which moves nothing. A vet or team member who handles a cat is stronger evidence than an ear-tip answer; if Syros Cats begin recording vaccinations on the day, listing `vaccinated` as evidence of life is a one-line §3.4 amendment, and nothing here blocks it. The loader is an allow-list, so leaving it out takes no code.
+- **The `team_note` kind is how the cat gets a note.** Welfare-report notes (`add_team_note`, `POST /api/team/reports/:id/note`) are unchanged and stay on the report. A `team_note` is never in any public payload and is not removed when a welfare report is deleted.
+
 ### 10.2 The resolver
 
 ```ts
