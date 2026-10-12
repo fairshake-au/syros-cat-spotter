@@ -181,3 +181,102 @@ Three, all about *how* or *when* to build what is approved. None reopens a decis
 - **Before each production migration** (PR 1.1, PR 1.2, PR 3.1): switch the session to **"ask" mode**, so Claude can take the Neon snapshot and run the read-only count. Auto mode blocks Neon snapshots. Claude says when.
 - **Before Slice 6 ships:** nothing. Samuel has accepted the matching and photo risk (spec §4.6), so the public half has no gate on SYC-67.
 
+---
+
+## How it ships: the order
+
+Every PR is built in **its own worktree off fresh `origin/main`**, is **one PR**, and can merge alone, leaving `main` safe if the next one is late. "Review and merge" uses `/ship`: an independent adversarial review in **its own worktree** (never shared with the builder or another reviewer), findings folded in, CI green, merge, Linear synced, worktree removed.
+
+| Step | PRs | Needs first | Who notices |
+|---|---|---|---|
+| **Docs** | D209: spine and team-access amendments, `DECISIONS.md` entries | Samuel's approval of this plan | Nobody |
+| **Slice 0: preconditions** | 0.1 tile paths out of the logs (SYC-255) · 0.2 links out to map companies (SYC-245, Decision 2) | Nothing; both can start at once | The team, slightly |
+| **Slice 1: the records** | 1.1 site columns, history, read log (migration `feeding_sites_and_history`) · 1.2 strict links to people (migration `feeding_site_people_links`) | D209 merged | Nobody |
+| **Slice 2: colonies (before launch)** | 2.1 the Colonies pages · 2.2 cats in colonies | Slice 1; Decision 1 | The team |
+| **Slice 3: the private map (before launch)** | 3.1 tiles and the map (migration `map_tile_cache`) · 3.2 the Feeding sites pages, read-only · 3.3 add, move, retire, bring back, change colony · 3.4 "Make a feeding site here" and "Add a site to this colony" | Slice 2; 0.1 before 3.1; 0.2 before 3.4 | The team |
+| **Slice 4: guardians** | 4.1 what a guardian sees · 4.2 what a guardian does · 4.3 Recent guardian changes | Roles PRs 0.2, 0.3, 0.5, W1, 1.0, 1.1 (and 2.2 for 4.3) | Guardians and the team |
+| **Slice 5: forgetting a guardian's name** | 5.1 the redaction function (SYC-256's feeding-site half) | Slice 3 | Nobody (management's button is SYC-208's) |
+| **Slice 6: public sites (after launch)** | 6.1 the public endpoint, empty · 6.2 the make-public switch · 6.3 the app's layer and card | Launch; Slice 3 | Visitors, and the team |
+
+**If the window bites** (spec §16): colonies first, then the private map, then the public half. The tile map (3.1) is the riskiest piece and the first to slip, ahead of colony naming. Slices 2 and 3 are each useful alone.
+
+**The rule that orders all of it:** no site can be public until Slice 6, and no route in Slices 1–5 can set `is_public` (test 7 checks every route and the seed path).
+
+### Migrations
+
+Three migrations, in this order. **Each takes the next free number when it is generated after rebasing on the latest `main`, never by hand** (`lib/db/migrations/README.md`). The roles plan adds three of its own (`person_events`, `roles_and_invites`, `field_check_photos`) and SYC-44 may add one. They don't depend on each other's numbers: the roles plan's `confirmation_items` links to `feeding_sites.id`, which already exists. The highest on `main` today is `0014`.
+
+| Migration | PR | What it does | Additive? |
+|---|---|---|---|
+| `feeding_sites_and_history` | 1.1 | New `feeding_sites` columns and checks; `feeding_site_old_codes`; `mapping_events` with its redaction trigger; `site_page_reads`; redaction columns on `colony_name_history`; one `system:migration` event per existing site | **No:** the new checks fail if a public site already exists. The migration checks first and stops with a list |
+| `feeding_site_people_links` | 1.2 | `feeding_sites.made_public_by` and `colonies.created_by` from text to a strict link to `people.id` | **No:** a type change. Stops with a list if any value isn't a person's id |
+| `map_tile_cache` | 3.1 | One table of cached map pictures, with a size cap | Yes |
+
+Each migration's PR proves **up, down, up** with the repository's own commands (`migrate:cycle` locally, and CI's "Test migrations" step on the real history). Each has a commented rollback block. Rollback for 1.1 says in capitals that it **deletes the history**.
+
+---
+
+## Before any code: the docs PR (D209)
+
+One docs-only PR, built from the spec's §12 word for word. **Nobody edits `DECISIONS.md` from a spec branch**, so these entries have been waiting for this.
+
+| File | What changes |
+|---|---|
+| `cat-record-data-spine.md` §10.5 | The `feeding_sites` columns of spec §11.1, `feeding_site_old_codes`, `mapping_events`, `site_page_reads`, `colony_name_history`'s redaction columns, `made_public_by` and `created_by` as links to people (§12 asks 1, 3, 5); the public endpoint of §11.3 as the definition of "filters in the query" (ask 2) |
+| `cat-record-data-spine.md` §6.7 | A public label never contains the guardian's name; a private site is indistinguishable from an unknown code (ask 7, first half) |
+| `team-access-and-welfare-queue.md` §3.2 | "One switch per site" gains the confirmation page; "no bulk action" stands (team-access ask 2) |
+| `DECISIONS.md` | A new part, dated 12 October 2026, carrying spec §12 entries 1–13 as written |
+
+**Not in D209, because the roles plan's docs PRs carry them:** the "in no colony" value (spine ask 4), a guardian's saved list holding exact positions (ask 6), a guardian seeing only her own sites (ask 7, second half), and the team-access capability and 403 asks (team-access asks 1 and 3). Those are in the roles plan's D1 and D2, word for word the same. **Whichever docs PR merges second checks the other's text and rebases.** If the roles docs PRs haven't started when D209 is written, D209 carries those asks too, and the roles plan drops them.
+
+**Collision:** PR #107 (SYC-130) edits `DECISIONS.md` and the spine too. The sections don't overlap; whichever merges second rebases.
+
+---
+
+## Slice 0: preconditions (two small PRs, either order)
+
+**In plain English.** Two leaks have to close before the map exists. First, the server's logs would otherwise record roughly where every feeding site is whenever its page opens. Second, three "Open map" links send exact positions to Google. After this slice the logs never hold a map position, and the cat page no longer sends positions out.
+
+### PR 0.1: map tile addresses never reach the logs (SYC-255)
+
+- `redactRequestUrl` (`AS/lib/logger.ts`) rewrites any path under `/api/team/map-tiles/` to `/api/team/map-tiles/:tile`, before the existing device-id rule. The route doesn't exist yet, so nothing else changes.
+- **Tests.** A request to `/api/team/map-tiles/17/74000/50000.png` produces a log line containing `/api/team/map-tiles/:tile` and none of the three numbers (checked through the real `pino-http` serializer, as `app.logRedaction.test.ts` does). **Mutation probe:** remove the rule → red.
+
+### PR 0.2: no exact position goes to a map company from the cat page (SYC-245, Decision 2)
+
+Written for the recommended option B; if Samuel picks A or C, the same PR changes accordingly.
+
+- **Cat page** (`catPages.ts`, `place()`): the "Open map" link is removed. Positions show as text (`37.4452, 24.9423`, team-only as today). PR 3.4 adds "Show on our map".
+- **Welfare queue** (`queuePage.ts`) and **alert email** (`alertEmail.ts`): the Google and Apple links stay, except when the position is within 50 m of any feeding site, in which case the line reads "Near a feeding site: see the dashboard map". There are no sites until Slice 3, so nothing visible changes yet; the check is written now so it can't be forgotten. Distance is computed in the query against `feeding_sites` (retired sites included, since the spot is still a known place).
+- **Tests.** The cat page contains no `google.com/maps` and no `maps.apple.com` (a source test over `lib/teamPages` too, so a new page can't add one). With a site seeded 30 m from a report, the queue line and the email have no outbound link; at 80 m they do. The existing assertions in `team.queuePage.test.ts:148` and `reports.test.ts:501–502` are kept for the "far" case. **Mutation probes:** put the link back on the cat page → red; change 50 to 0 → red.
+
+---
+
+## Slice 1: the records (nobody sees anything)
+
+**In plain English.** The database learns to hold everything the screens will need: a site's public label and code, a "how to find it" line, whether it is retired, and a permanent history of every change, which can be blanked if a guardian asks to be forgotten. Every existing site stays private. Nobody sees any change.
+
+### PR 1.1: site columns, the history and the read log (migration `feeding_sites_and_history`)
+
+**The migration, in one transaction, stopping with a list and changing nothing if a check fails:**
+
+1. **Refuse** if any `feeding_sites` row has `is_public = true`, printing the ids (spec §11.1: the new rules would fail on deploy). A public row must be made private by hand first. Production is expected to have none (the count, Rollout step 1).
+2. Add to `feeding_sites`: `public_label` text; `directions` text; `public_id` text unique; `last_public_lat`, `last_public_lng`; `guardian_aware` boolean; `retired_at`, `retired_by` (uuid → `people.id`); `updated_at` (not null, default now). Checks: `is_public` needs `public_label` and `public_id`; `is_public` and `retired_at` never both set; the two `last_public_*` columns set together or not at all.
+3. Create `feeding_site_old_codes` (`site_id` → `feeding_sites.id`, `public_id` unique, `retired_at`, `reason` check in `moved`, `retired`). A code can never be in both tables (a trigger on insert into either refuses a code the other holds).
+4. Create `mapping_events` exactly as spec §11.1: `subject_kind` check `site`/`colony`, `subject_id`, `kind` (a check listing every event of spec §8), `person_id` (uuid, strict link), `actor_system` (check in `system:seed`, `system:migration`), `at`, `before` jsonb, `after` jsonb, `note`, `guardian_aware`, `redacted_at`, `redaction_reason`. **Exactly one of `person_id` and `actor_system` is set** (check). A trigger copied from the `observations` trigger: no insert may arrive redacted; no delete; the **only** update sets `redacted_at` and a non-empty `redaction_reason` and blanks `before`, `after` and `note` (to `{}`, `{}` and null), with every other column unchanged. A truncate guard uses the shared `append_only_no_truncate()`. Index on (`subject_kind`, `subject_id`, `id` desc).
+5. Create `site_page_reads` (`person_id` strict link, `site_id`, `at`). No position column.
+6. Add `redacted_at`, `redaction_reason` to `colony_name_history`, with the same one-update trigger (blanking `name` and `normalised_name` to a fixed placeholder; it has no other free text).
+7. Write one `mapping_events` row per existing site: `kind = 'existing'`, `actor_system = 'system:migration'`, `after` = name, position, colony. Every existing site stays private, with no label and no code.
+
+**Code.** The schema in `lib/db/src/schema/colonies.ts` (columns, checks, indexes; triggers live only in the migration, per the README). `system:seed` and `system:migration` join the app-written authors list. A small `lib/mappingEvents.ts` with one writer, `recordMappingEvent(tx, …)`, which **requires a transaction** (it takes the caller's `tx`, never the pool), so a change and its history row always commit together.
+
+**Tests.** Test 11 (the database half): the history trigger refuses delete, truncate, an insert already redacted, and every update except a redaction that blanks exactly `before`, `after` and `note`. **Mutation probe:** let the trigger allow `kind` to change → red. Test 10 (the database half): `is_public` with `retired_at` is refused. Test 24: on a seeded copy, a public row, a public row with no label and a retired-and-public row each stop the migration with the id listed; existing sites each get exactly one `system:migration` event; every event has exactly one of `person_id` and `actor_system`. Up/down/up passes.
+
+### PR 1.2: strict links to people (migration `feeding_site_people_links`)
+
+Its own step, as spec §11.1 asks, because it changes a column's type.
+
+- **Refuse with a list** if any `feeding_sites.made_public_by` or `colonies.created_by` is not null and isn't the id of a row in `people`.
+- Convert both to `uuid`, with a strict link to `people.id`. Rollback converts back to text.
+- **Tests.** Test 24 (rest): a non-uuid value, and a uuid that isn't a person, each stop the migration with the id listed; valid values convert unchanged. Up/down/up passes.
+
