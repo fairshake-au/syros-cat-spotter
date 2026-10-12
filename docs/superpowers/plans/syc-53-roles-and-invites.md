@@ -296,3 +296,168 @@ Each is a small docs-only PR, built from the spec's §17 text word for word, plu
 - **T15 (part).** A team-only member does not hold `manage_people` or `action_deletion_request`; a management member does.
 
 **After deploy (Claude):** `curl` every `/api/team/*` route without a session → 401; with a test guardian's session on development → the 403 page on team routes; `GET /api/team/me` for the test guardian lists only placed capabilities, with her colony.
+
+---
+
+## Slice 1: invitations, the people screen and "My page"
+
+**In plain English.** Management stops asking Claude to run commands. Susan opens a People screen, types someone's email address and name, picks what they'll be (team, management or cat guardian, with her colonies) and the language of the email, and taps *Send invitation*. The person gets a plain email with no secret in it, signs in the usual way, reads three short promises and taps *Yes, join*. If they do nothing for 14 days the invitation lapses. Every change is written down, and the other managers get a short email each time. A person who has joined has a page of their own where they can change their language, sign out everywhere, or stop helping. A guardian lands on "My colonies", which names her colonies; the cats arrive in Slice 2.
+
+**Route names.** SYC-209 owns `/api/team/colonies…` (Decision D). A person's own pages live under **`/api/team/my/…`**, and the people screen under `/api/team/people…`, so the two plans never write the same path.
+
+### PR 1.0: the dashboard speaks English, Greek and French (SYC-251; spec §13)
+
+- One server-side string catalogue for the dashboard (`lib/teamPages/strings/{en,el,fr}.ts`), the same shape as the app's (`artifacts/cat-spotter/lib/i18n.ts`). Dates in the person's language (`en-GB`, `el-GR`, `fr-FR`), Athens time.
+- Only the pages a guardian reads are translated (Decision 10): the 403 page now, and each later guardian page as it is built. Team and management screens stay English.
+- **A `LIVE_LANGUAGES` list in code, `en` only at first.** Greek and French strings exist and pass the parity test, but pages and emails fall back to English until Johnny has signed them off (SYC-283). Switching a language on is a one-line PR.
+- Greek and French are drafted by Sonnet, using the words already settled for the app (SYC-156: "cat guardian"; "spotter" only, never "snapper").
+- **Tests.** T25: every key in every language, none empty (a missing key fails the build); a Greek local part in an email address lower-cases identically in Postgres and in JavaScript (the SYC-101 trap). **Mutation probe:** delete one Greek key → red.
+
+### PR 1.1: inviting, accepting, withdrawing, leaving (spec §4, §8.3–8.5, §9, §10.1–10.2)
+
+**The people functions** (`lib/db/src/people.ts`), each writing its `person_events` row in the same transaction:
+- `invitePerson(by, { email, name, roles, colonies, relationship?, expiresAt?, language })`: a pending person (`accepted_at` null), their placements, an `invited` event. A guardian with no colony is refused (the database refuses it too).
+- `findInvitee(id)`: **invited and not expired**, no placements returned. Used only by the hand-off, the accept page and the decline route.
+- `acceptInvitation(id, name, promisesVersion)`: **one conditional update** (`where accepted_at is null and left_at is null and invite_expires_at > now()`), `accepted` event with the promises version (`promises-v1`). Pressing twice changes nothing the second time.
+- `declineInvitation`, `withdrawInvitation(by)`, `resendInvitation(by)`: the same kind of guarded update. Declining and withdrawing mark the pending person as left (`invite_withdrawn`); a row is never deleted (spec §9.6). Resend sets a fresh 14 days, at most once per person per 24 hours.
+- `setRoles(by, personId, placements)`: never your own (refused); writes `roles_changed` with before and after (role names and colony ids). Re-placing a guardian on a colony she once held **updates her old row** (clears the end date, records who and when).
+- `rejoinPerson(by, personId, placements, language)`: `accepted_at` back to null, new placements, `rejoined` then `invited`; she accepts again (spec §9.4).
+- `markLeft` gains: **every pending invitation the leaver sent is withdrawn in the same transaction**, with the count returned for the screen (spec §9.2); and **the last management person can't be marked as left, demoted or signed out everywhere**, checked with the management rows locked (`SELECT … FOR UPDATE`) so two managers removing each other at once can't both succeed (spec §9.5).
+- `createColonyWithPlacement(person, colony)`: for SYC-209's "create a colony" route (Decision D). For a guardian, writes the colony (`created_by` = her id), her placement (`reach = 'colony'`, `granted_by` = her own id) and a `roles_changed` event in one transaction; for a team member, the colony only (spec §6.1, §6.9). Built and tested here (T30's core) so SYC-209 only calls it.
+- `stopHelping(personId)`: the person's own "stop helping", recorded as `left` by `self`.
+
+**Two new mail purposes** (`lib/mail/send.ts`), both closed templates with no free text from anyone:
+- **`person_invite`**: from `Cat Spotters <signin@mail.catspotters.com>` (C8), on the transactional identity, shed after sign-in links and welfare mail when the quota is tight. A new recipient kind, **`person`**: **the caller passes a person id, not an address**; the function looks the address up and refuses unless that person is pending and unexpired (spec §8.5). The words that vary are the role and the colony name, from the person's own record, escaped and length-limited. English until Johnny signs off. `invite_sent_at` is set only when the outbox delivers it; **a failed send is shown as "Not sent yet", never "Invited"**, and retries like other mail.
+- **`access_change_notice`**: to every other management member who hasn't left, never the one who acted. It says who made which change to whom. Sent for every invitation, role change, return, person marked as left and sign-out-everywhere of a team or management member (spec §8.3, §9.5). Another new recipient kind, **`management`**.
+
+**Limits** (spec §8.5): 10 invitations per inviter per day, 1 per address per 24 hours, 30 per IP per hour.
+
+**The hand-off and the doors for a pending person.** The allow-list answers a pending, unexpired invitee `doors: { dashboard: true, workspace: false }` (spec §4.5). The hand-off gives her a session marked *pending*, and **`requireInvitee`** lets that session reach the accept page and the decline route and nothing else; `requireTeam` refuses it everywhere (it uses `findPersonById`, which never returns a pending person).
+
+**The accept page** (`GET /api/team/my/welcome`, `POST …/accept`, `POST …/decline`), in her language once it is live: who invited her and for what, the **three promises word for word** (spec §4.1), the name field pre-filled and editable, *Yes, join* and *No, this isn't for me*. Every POST passes `requireOrigin`. No email goes to the inviter when she accepts (Decision 7).
+
+**Tests.** T8 (complete) and T9: a pending invitee gets only the dashboard door; her session reaches the accept page and nothing else; her placements are never read by `can()`. **Mutation probe:** let `findPersonById` return pending people → red. T10: accept and withdraw at the same moment, and accept after expiry, each with exactly one winner; rejoining sets `accepted_at` to null. **Mutation probe:** drop the `invite_expires_at > now()` guard → red. T15: one management member alone can invite team or management, change roles, bring someone back and mark another manager as left, each at once, each with its event, each emailing every other manager and not the actor; there is no `approve_access` and no approval item anywhere (source test). T18: the last manager can't be removed, demoted or signed out through these functions, including two at once (a concurrent test). **Mutation probe:** drop the row lock → red. T19: leaving withdraws the leaver's pending invitations and emails the other managers. T20: withdrawing never deletes a row. T21 (extended to every new kind). T22: the invitation function can't be given an address; the text holds only the role and the colony name; a name with markup or a link is escaped; the limits hold; a failed send isn't shown as sent; no acceptance email exists. **Mutation probe:** let the caller pass `to` → red. T29d: exactly three promises, in all three languages with key parity, none about keeping places private, and the version recorded with the acceptance. T14: accept, decline and withdraw are Origin-checked and safe to press twice. T30 (core): `createColonyWithPlacement` writes all three rows or none (**mutation probe:** fail the placement insert → no colony left behind).
+
+### PR 1.2: the People screen (SYC-104; spec §8.1–8.2, §9.3, §6.3)
+
+Management only (`manage_people`), English (Decision 10), server-drawn like the rest of the dashboard.
+- **The list**: name, roles in plain words, colonies, and a chip: *Not sent yet · Invited · Joined · Expired · Left* (worked out when the page is drawn; nothing writes "expired"). Beneath each person, their history from `person_events`, ids turned into names on screen. **Joined in the last 7 days** beside the list. A **Left** tab with **Bring back** (roles chosen afresh).
+- **Invite someone**: address typed once (Decision 7), name, role, colonies (for a guardian), optional end date and label per placement (Decision 9), language. **Resend** and **Withdraw** on pending people.
+- **Change roles and placements**, **Mark as left**, **Sign out everywhere**. Marking as left someone who held the workspace reminds management to change the shared document password (spec §6.3). When a guardian leaves or hands over, the screen offers *"Vaporia — Eleni's still has Eleni's name on it. Rename it?"* with a link to SYC-209's rename (spec §9.3; a nudge, never automatic). After a departure, *"3 invitations from Susan were withdrawn when she left. Re-send any you still want."*
+- No free-text box on this screen ends up in an email.
+- **Tests.** T15 (screen half): a team-only member gets the 403 page on every People route. The chips match the state table in spec §10.1 for one seeded person in each state. **Browser check** at ~390 px and desktop with seeded people in every state, before the PR opens; screenshots in the PR.
+
+### PR 1.3: "My page" and "My colonies" (spec §2.6, §9.1, §13.1)
+
+- **`GET /api/team/my`**: the one sentence about yourself (*"You're a cat guardian for Vaporia — Eleni's and Kato Chora."*), change language, sign out, sign out everywhere, and **Stop helping** (plainly worded, different from management's route; spec §9.5). Any accepted person, no capability needed (spec §6.2 note 1).
+- **`GET /api/team/my/colonies`**: a guardian's colonies by name, with any placement label and end date; a team member sees a link to the island-wide pages instead. Cats arrive in PR 2.1.
+- The home a signed-in person lands on after the hand-off depends on what they hold: the welfare queue for the team, *My colonies* for someone who holds only placed capabilities.
+- Three-language for the person's own pages and the 403 page.
+- **Tests.** A guardian's home is *My colonies*; a team member's is the queue. *Stop helping* ends the session at the next request and writes `left` by `self`. **Browser check** at ~390 px and desktop, in English (and in Greek with `LIVE_LANGUAGES` switched on locally).
+
+**First real use.** Once Slice 1 is live, Samuel invites one team member through the screen as the acceptance test. The first guardian is invited once a colony can be created (Decision D).
+
+---
+
+## Slice 2: a guardian's own pages
+
+**In plain English.** Eleni opens *My colonies* and sees her cats: names, numbers, photos, exact positions, whether each one is done and how sure we are, when each was last seen. Any cat outside her colonies looks to her exactly as it does in the public app. She can say a cat has been homed, is in care or has died, and undo her own change within 30 days. She can say a cat is sterilised, and it shows as *Confirmed* straight away, with her name on it; followers of that cat get the usual news. The team sees *"Confirmed by Eleni, cat guardian, 14 October"* on the cat's page, with a *This is wrong* button.
+
+### PR 2.1: her cats, in full inside her colonies and public outside (spec §2.2, §6.1)
+
+- **`lib/guardianCatView.ts`, its own serialiser** built from its own list of fields (spec §2.2's table), **not** the team's cat view with a filter. It has no field for welfare entries, hidden photos, team members' names (edits show as "Syros Cats"), spotters, owners, team notes or per-sighting positions, so leaving them out doesn't depend on a filter.
+- **`GET /api/team/my/colonies/:id`** (her colony: cats, with exact discovery positions) and **`GET /api/team/my/cats/:id`** (one cat), both `view_exact_location` placed, with the target **read from the record** (the colony id in the path is checked against her placements; the cat's colony comes from its observations). A cat outside her colonies, or in none, is answered with **the public view** (`serialiseCat` with the public viewer), not a refusal. Photos go through the team photo route, whose target is the photo's cat.
+- The colony's feeding sites appear here once SYC-209's sites exist, filtered in the query to her colonies (spec §6.7).
+- **Tests.** T4: outside her colonies, every route that returns a cat gives exactly the public view, field by field; inside, exactly the fields in spec §2.2 and none of the excluded ones. **Mutation probe:** serialise through `teamCatView` → red. T5: a request naming her colony but a cat from another gets the other cat's public view. **Mutation probe:** trust the path's colony id for the cat → red. **Browser check** at ~390 px and desktop with a seeded colony of cats with photos.
+
+### PR 2.2: what she says about a cat: life status and "sterilised" (spec §7.2, §10.4, Decision 5, Q3)
+
+- **`writeObservation` accepts `guardian`.** `actingRole` now returns `guardian` when the capability was granted by a colony row for that cat's colony, and the team role when an island row granted it (a team member who also guards her own alley writes `staff` for a team action). **`authority_scope` = `colony:<id>`** (Decision B), fixed at the moment of the statement. Never read from the request.
+- **Life status** (`POST /api/team/my/cats/:id/life-status`, `set_life_status` placed): *homed*, *in care* and *deceased* only, plus putting back a status **she herself** replaced in the last 30 days. A cat she marks homed or deceased stays flagged for 30 days (*"recently marked homed by the guardian"*) on the round sheet when it exists (Slice 4) and on the team's view now. Any later sighting revives the cat, as now.
+- **Sterilised** (`POST /api/team/my/cats/:id/sterilisation`, `set_sterilisation` placed): one tap, no "from what record?". **The resolver counts a `sterilised` statement from `guardian` with a `colony:<id>` scope as authoritative** (spec §10.4), so the cat is *Confirmed* at once and the "sterilised" news email is queued exactly once, as for a team record. An ear tip alone still never confirms. Colour and markings authority for guardians is SYC-2's to build; its plan cites this one.
+- **Marking it wrong.** On the team's cat page, a guardian's statement shows *"Confirmed by Eleni, cat guardian, 14 October"* and *This is wrong*, which writes the team's later statement through the existing supersede (hers stays in the history). A guardian can correct **her own** statements only; the supersede layer checks the author, not just the capability. The guardian sees *"Syros Cats looked again…"* on her next visit; no push, no email (Q4).
+- **A guardian-changes reader** (`listGuardianChanges()`): every statement written as `guardian`, every colony a guardian created, every placement she gave herself, newest first. SYC-209's "Recent guardian changes" list on the Colonies page calls it, behind `view_guardian_changes` (Decision D).
+- **Tests.** T12a: her "sterilised" on a cat in her colony is *Confirmed*, with her id, `guardian` and `colony:<id>`, and queues the news email once; on a cat outside her colonies, or in none, it is refused; the team's later "this is wrong" supersedes it and both stay in the history. **Mutation probes:** drop the target check → red; queue the email on every write → red. T23: a guardian can't write `staff` by sending it; a person who is both writes the role that authorised the action. T28 and T29c: only the allowed life statuses; her own undo within 30 days and not after, and not someone else's; a later sighting revives a cat she marked deceased; the 30-day flag. A guardian can't supersede the team's statement or another guardian's. **Browser check** at ~390 px and desktop, including the news email in the outbox.
+
+---
+
+## Slice 3: what a guardian records
+
+**In plain English.** Standing next to a cat, Eleni taps *I looked at her ear*, chooses *it looks clipped*, *not a clip* or *can't tell*, and can take a photo. The cat shows *Probably sterilised, checked in person* at once (never *Confirmed*, and no "sterilised" email). The photo is seen only by the team and the colony's guardians. A short "Needs a look" list shows the cats in her colonies where one look would settle it. She can read the cat-in-trouble reports about her own cats, but never who sent them. And she can ask the team to make one of her feeding sites public, which the team decides in "Needs an OK".
+
+### PR 3.1: field checks (spec §7.2–7.3; migration `field_check_photos`, Decision C)
+
+- **Migration (next free number):** `field_check_photos (id, public_id unique, cat_id, bytes, mime, created_by → people.id strict, created_at)`, shaped like `welfare_report_photos`. Rollback: drop it (the rollback block says this deletes the photos).
+- **`POST /api/team/my/cats/:id/field-check`** for guardians (placed `record_field_check`, target the cat's colony) and the same form on the team's cat page (island). It writes **one `ear_tip` observation** with `seenInPerson: true`, the side if clipped, and the photo's `public_id` inside the value (never `photo_id`). *Can't tell* is kept as a note (200 characters, escaped) and writes no ear statement. No queue item.
+- **The resolver.** An in-person clipped ear raises the cat to *Probably sterilised*, shown as *"checked in person"*. A guardian's in-person *not a clip* on a cat in her colony clears a wrong *Likely* at once, like the team's (spec §7.2, "both directions count at once"); her authority for that is the same `colony:<id>` scope. It never makes a cat *Confirmed* and **never queues the "sterilised" email**.
+- **The team's Probably sterilised list** treats a guardian's in-person check like the team's *Looks right*: the cat leaves the list when the newest clipped statement is in person (spec §7.5).
+- **`GET /api/team/field-check-photos/:publicId`**, the only route that serves these photos: `view_exact_location` with the photo's cat as the target. A source test fails if any other file reads `field_check_photos` (the P6-0 pattern).
+- **Tests.** T11: one observation, no queue item; refused for a cat outside her colonies; *can't tell* writes no ear statement; the photo is served only by its team route, and `GET /api/photos/<that id>` and every public cat response refuse it. **Mutation probe:** serve it from the public route → red. T12: *Probably* and no further; no news email; *not a clip* clears a wrong *Likely*; a team "this is wrong" supersedes it. **Mutation probe:** make an in-person clip authoritative for `sterilised` → red (the cat becomes *Confirmed*). **Browser check** at ~390 px (a phone photo upload) and desktop.
+
+### PR 3.2: "Needs a look" (spec §7.1; Decision E)
+
+- **`GET /api/team/my/needs-a-look`** (`view_needs_a_look` placed; her colonies) and the team's island-wide version on the team pages. Cats at *Probably sterilised* only, never *Unknown*, worked out from the resolver when asked; nothing stored. **Grouped by colony name** until Slice 4's field page can sort by distance. No deadlines, counts or reminders, just how long each has waited, once.
+- **Tests.** Only cats in her colonies; no *Unknown* cats; a cat settled by a field check leaves the list. The words "due", "assign", "overdue" never appear.
+
+### PR 3.3: cat-in-trouble reports for her own cats (SYC-254; spec §6.2, Q2)
+
+- **`GET /api/team/my/colonies/:id/welfare-reports`** (the list and each report) and **`GET /api/team/my/report-photos/:publicId`**, gated by `view_colony_welfare_reports` with **the report's cat's colony, read from the record at each request**, as the target.
+- **Their own serialiser**, with no field for the reporter's contact, device or the team's note. A report tied to no cat, and every "Report an issue" report (SYC-44), has no route for her at all. Read only: no state or note route accepts her.
+- **Tests.** T29b (i)–(viii): sees reports tied to cats in her colony, with photo and location; refused (403) for another colony's report, a report tied to no cat, and a guessed number; no contact, device or team-note field in any response, checked field by field; can't change state or add a note; moving the cat out removes the report at the next request, and adding a cat adds its reports; the team-only routes still refuse her; the report is never in the saved list (checked again in Slice 4); the route walk has a row for each new route. **Mutation probes:** add `reporterContactId` to the serialiser → red; take the colony from the path instead of the report's cat → red.
+
+### PR 3.4: asking for a site to be made public, and "Needs an OK" (spec §7.1, §7.3, §10.3)
+
+**Needs SYC-209's feeding-site pages**, because a guardian asks about a site she can see there.
+- **`POST /api/team/my/sites/:id/ask-public`** (`request_site_public` placed, target the site's colony): an open `confirmation_items` row; asking again about the same site does nothing new; at most 20 open per person.
+- **`GET /api/team/needs-an-ok`** and **`POST /api/team/confirmations/:id/decide`** (`settle_confirmation`, island): approve (which calls SYC-209's make-public with its usual confirmation page) or decline with a fixed reason. **The capability is checked again when the decision is written.** The first decision wins; the second sees *"Already decided by Jacky."* A site made public some other way closes the item as *no longer needed* (a hook in SYC-209's make-public). The guardian sees the outcome on her next visit; no email (Q4).
+- **Tests.** T13: the database refuses an item decided by its proposer; the route refuses a decider who has lost the capability since the page was drawn. T14: the first decision wins. The 20-item cap and one-per-site rule hold. **Browser check** at ~390 px and desktop.
+
+**Colony membership and creating colonies** are built in SYC-209's PRs (Decision D), using Slice 0's targets and PR 1.1's `createColonyWithPlacement`. This spec's tests **T16** (a guardian's colony change is immediate, recorded, refused for a colony she doesn't hold, moves a cat out of another colony with a line for its guardian, and appears on the guardian-changes list) and **T30** (the rest: she holds placed powers for her new colony only, can't rename it, and the team member who creates a colony isn't placed on it) travel with those PRs, and SYC-209's plan must name them.
+
+---
+
+## Slice 4: the colony view that works with no signal (SYC-54)
+
+**In plain English.** The evening before a round, Eleni opens her colony view with signal. Her phone keeps her colonies' cats and the exact place of every bowl. On the hillside with no signal she sees the same list, and can record field checks that are sent when she's back in signal. After 72 hours the list deletes itself the next time she opens it, and asks her to connect. Signing out, or being removed, wipes it. A team member can carry the colonies she chooses. Anyone can print a round sheet, stamped with their name and the date.
+
+**Starts after the short SYC-54 screen spec is approved (Decision F).** The rules below are fixed by the roles spec §12 and don't wait for it.
+
+### PR 4.1: the field pages' own narrow script rule (spec §3, §12.2)
+
+- A separate set of pages under **`/api/team/field/`**. Only these responses relax the dashboard's no-scripts rule: scripts allowed **only by fixed hash**, nothing inline, `connect-src 'self'`, `worker-src 'self'`. **`no-store` stays on every response.** The service worker is registered with scope `/api/team/field/` only, so it can never serve an old staff page after sign-out.
+- `Clear-Site-Data: "cache", "storage"` on sign-out, on *sign out everywhere* reaching the phone, and on any field request refused because the person is gone or no longer holds the placement.
+- **Tests (T26, headers half).** Every other dashboard response still has `default-src 'none'` and no script source. **Mutation probe:** apply the field rule to `/api/team/` → red. The service worker's scope is the field path. Every response keeps `no-store`.
+
+### PR 4.2: the saved list and the round sheet (spec §12.1–12.2; Decision 12)
+
+- **`GET /api/team/field/list`** (`view_colony_targets` placed): for each of her colonies (for a team member, the colonies she picks), exactly spec §12.1's fields: cat name and SYR number, sterilisation answer and how sure, last seen, life status (with the 30-day flag), discovery position, usual feeding site, a thumbnail, and each site's name, **exact position** and optional "how to find it" line (SYC-263). Never per-sighting positions, welfare reports, reporters, hidden photos, health notes, other colonies or team names. Stamped with the server's time and the expiry.
+- The page saves it in its own storage. **On every open, before drawing anything, an expired list (72 hours by server time, or a phone clock that has gone backwards) is deleted, not hidden**, and the page says *"Connect to refresh this list."* An online load re-checks the person; a refusal deletes the list at once.
+- **Sorted by distance** when the person agrees to share her position (Decision E); the server sorts and neither stores nor logs it (the request logger redacts it).
+- **The round sheet**: a printable page stamped with her name and the date and *"These are exact places. Please don't share them."*
+- The JSON responses are added to the OpenAPI file and the generated clients (spec §15.1).
+- **Tests (T26, the rest).** Deleted on open after 72 hours; a backwards clock counts as expired; the server's refusal deletes it; only her colonies, with exact site positions, and none of the excluded fields (T29b vii). **Mutation probes:** hide instead of delete → red; trust the phone's clock → red. **Browser check** at ~390 px and desktop, including offline mode in the browser's developer tools, and a printed round sheet.
+
+### PR 4.3: field checks made with no signal (spec §12.3)
+
+- Up to 20 waiting, each with its photo, kept only until sent; sent under her signed-in session when she's back in signal; refused if the session or the person is gone (spec §9.2); a date more than 30 days back or in the future is refused.
+- **Tests.** T28 (offline dates); a queued check from a person marked as left is refused when it arrives. **Browser check** offline then online, at ~390 px.
+
+---
+
+## Slice 5: the small things
+
+**In plain English.** Management sees a gentle banner if someone prints or refreshes far more round sheets in a day than a colony needs: a prompt to ask a question, not a block. And once the "Matched by hand" list exists for the team, guardians can check the hand-picks in their own colonies.
+
+- **PR 5.1: round-sheet counts and the banner (SYC-253; spec §11.3).** A small table counting, per person per day, round-sheet prints and downloads and saved-list refreshes, with no cat ids in it. A banner on the People screen above five a day. **Tests:** the counts, the threshold, and that the table has no cat column.
+- **PR 5.2: hand-pick review for guardians (spec §6.2 `review_hand_picks`).** Waits for SYC-152's "Matched by hand" list. Her colonies only, positions at the 250 m level only. Planned in detail when SYC-152 is.
+
+**Not in this plan:** forgetting a former guardian or team member (SYC-208, and SYC-256's button). SYC-208's own plan must reach `colonies.guardian_name`, colony names and name history, field-check notes, and withdrawn invitations to a wrong address (spec §9.6–9.7). It is management only (`manage_people`).
+
+---
+
+## Slice 6: owners confirm sterilisation (after SYC-130)
+
+**In plain English.** A resident who has said in the app that a cat lives with her can say it has been sterilised, and it counts as *Confirmed*, with her as the source.
+
+- **Gated on SYC-130.** Its spec (PR #107) defines what a claim is, and so who counts as an owner. This slice is planned when SYC-130's plan is approved. What it adds is small: the resolver counts a `sterilised` statement with `authority_scope = owner_of_this_cat` as authoritative for that cat (spec §7.2, §10.4), written from the public app by the owner's device under SYC-130's claim. No dashboard door for owners (spec §7.2).
+- **Tests (then):** an owner's statement confirms only her own cat; anyone else's is refused; the team can mark it wrong.
