@@ -93,12 +93,15 @@ vi.mock('@/lib/keepSafe', async (importOriginal) => {
   return {
     ...actual,
     addKeepSafe: vi.fn(async () => ({ status: 'pending', addressMask: 'p•••@example.org' })),
-    peekRestore: vi.fn(async () => ({ spotters: [{ deviceId: 'dev-lili', username: 'Lili' }] })),
+    peekRestore: vi.fn(async () => ({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: true,
+      alreadyHere: null,
+    })),
     redeemRestore: vi.fn(async () => {
       h.calls.push('redeemed');
       return { deviceId: 'dev-lili', username: 'Lili' };
     }),
-    askedForRestoreRecently: vi.fn(async () => false),
   };
 });
 
@@ -203,7 +206,14 @@ describe('the /restore page', () => {
   const TOKEN = 'A'.repeat(43);
   let replace: ReturnType<typeof vi.fn>;
 
+  const DEFAULT_PEEK = {
+    spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+    openedOnAskingPhone: true,
+    alreadyHere: null,
+  };
+
   beforeEach(() => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue(DEFAULT_PEEK);
     __resetHeldRestoreTokenForTests();
     vi.mocked(router.replace).mockClear();
     window.history.replaceState(null, '', `/restore?t=${TOKEN}`);
@@ -232,7 +242,7 @@ describe('the /restore page', () => {
       fireEvent.click(button);
     });
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
-    expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', { token: TOKEN, spotterDeviceId: 'dev-lili', abandonCurrent: false });
+    expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', { token: TOKEN, choice: 'choice-lili', abandonCurrent: false });
     expect(h.calls).toEqual(['waited-for-claim', 'redeemed', 'adopted']);
     expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili');
   });
@@ -275,7 +285,7 @@ describe('the /restore page', () => {
     await waitFor(() =>
       expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', {
         token: TOKEN,
-        spotterDeviceId: 'dev-lili',
+        choice: 'choice-lili',
         abandonCurrent: true,
       }),
     );
@@ -302,7 +312,7 @@ describe('the /restore page', () => {
     await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
     expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', {
       token: TOKEN,
-      spotterDeviceId: 'dev-lili',
+      choice: 'choice-lili',
       abandonCurrent: true,
       deleteCurrent: true,
     });
@@ -361,15 +371,116 @@ describe('the /restore page', () => {
     }
   });
 
-  it('opened in a browser that never asked: says so, with Copy link, and moves nothing', async () => {
+  it('a link that is no longer valid says so, and moves nothing', async () => {
     const { ApiError } = await import('@workspace/api-client-react');
     vi.mocked(keepSafe.peekRestore).mockRejectedValueOnce(
       new ApiError(new Response(null, { status: 401 }), { error: 'link_not_valid' }, { method: 'POST', url: '/api/restore/peek' }),
     );
     h.device = { deviceId: 'dev-other', username: null, isReady: true };
-    const { findByTestId, getByText } = render(<RestorePage />);
-    expect((await findByTestId('restore-wrong-browser')).textContent).toBe(en.restorePageWrongBrowser);
-    expect(getByText(en.restorePageCopyLink)).toBeTruthy();
+    const { findByTestId } = render(<RestorePage />);
+    expect((await findByTestId('restore-not-valid')).textContent).toBe(en.restorePageNotValid);
     expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+  });
+
+  // ── Decision 12 (Samuel, 11–12 Oct 2026) ────────────────────────────────
+
+  it('Decision 12: on another phone or browser it asks first; "Yes" moves the spotter here', async () => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: false,
+      alreadyHere: null,
+    });
+    const adopt = vi.fn(async () => {});
+    h.device = { deviceId: 'dev-other', username: null, isReady: true, adoptRestoredIdentity: adopt };
+    const { findByTestId, getByText } = render(<RestorePage />);
+    expect((await findByTestId('restore-different')).textContent).toBe(en.restoreDifferentIntro);
+    expect(getByText('Is this the app or browser Lili uses for Cat Spotters?')).toBeTruthy();
+    expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(getByText('Yes, move Lili’s spots here'));
+    });
+    await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
+    expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-other', { token: TOKEN, choice: 'choice-lili', abandonCurrent: false });
+  });
+
+  it('Decision 12: "No, copy the link" copies the fragment form and moves nothing (M)', async () => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({
+      spotters: [{ choice: 'choice-lili', username: 'Lili' }],
+      openedOnAskingPhone: false,
+      alreadyHere: null,
+    });
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { writeText } });
+    h.device = { deviceId: 'dev-other', username: null, isReady: true };
+    const { findByText, findByTestId } = render(<RestorePage />);
+    const no = await findByText(en.restoreDifferentNo, undefined, { timeout: 3000 });
+    await act(async () => {
+      fireEvent.click(no);
+    });
+    expect(writeText).toHaveBeenCalledWith(`https://apptest.catspotters.com/restore#t=${TOKEN}`);
+    expect((await findByTestId('restore-copied')).textContent).toBe('Link copied. Paste it into the browser Lili uses for Cat Spotters.');
+    expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+  });
+
+  it('Decision 12: the phone that asked gets no question, just the button', async () => {
+    h.device = { deviceId: 'dev-new', username: null, isReady: true };
+    const { findByText, queryByTestId } = render(<RestorePage />);
+    await findByText('Move Lili’s spots to this phone');
+    expect(queryByTestId('restore-different')).toBeNull();
+  });
+
+  it('Decision 12: inside another app\'s built-in browser, it advises first; "anyway" goes on', async () => {
+    const ua = Object.getOwnPropertyDescriptor(window.navigator, 'userAgent');
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0',
+    });
+    try {
+      h.device = { deviceId: 'dev-new', username: null, isReady: true };
+      const { findByTestId, getByText, findByText } = render(<RestorePage />);
+      expect((await findByTestId('restore-in-app')).textContent).toBe(en.restoreInAppWarning);
+      expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+      fireEvent.click(getByText(en.restoreInAppAnyway));
+      await findByText('Move Lili’s spots to this phone');
+    } finally {
+      if (ua) Object.defineProperty(window.navigator, 'userAgent', ua);
+      else delete (window.navigator as unknown as Record<string, unknown>).userAgent;
+    }
+  });
+
+  it('Decision 12: on the phone that already is the spotter, it says so and offers nothing to press', async () => {
+    vi.mocked(keepSafe.peekRestore).mockResolvedValue({ spotters: [], openedOnAskingPhone: false, alreadyHere: { username: 'Lili' } });
+    h.device = { deviceId: 'dev-lili', username: 'Lili', isReady: true };
+    const { findByTestId, queryByText } = render(<RestorePage />);
+    expect((await findByTestId('restore-already-here')).textContent).toBe('Lili’s spots are already on this phone.');
+    expect(queryByText(/Move .* to this phone/)).toBeNull();
+  });
+
+  it('Decision 12: reads the token from the fragment and clears it from the address bar and history (M)', async () => {
+    h.params = {};
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, replace, search: '', hash: `#t=${TOKEN}`, pathname: '/restore', origin: 'https://apptest.catspotters.com' },
+    });
+    const spy = vi.spyOn(window.history, 'replaceState');
+    h.device = { deviceId: 'dev-new', username: null, isReady: true };
+    const { findByText } = render(<RestorePage />);
+    expect(spy.mock.calls.some((c) => c[1] === '' && c[2] === '/restore')).toBe(true);
+    await findByText('Move Lili’s spots to this phone');
+    expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', TOKEN);
+  });
+
+  it('Decision 12: after a website sign-in, reads the token the password page kept, then deletes it', async () => {
+    h.params = {};
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, replace, search: '', hash: '', pathname: '/restore', origin: 'https://apptest.catspotters.com' },
+    });
+    window.sessionStorage.setItem('cat-spotter/restore-token', TOKEN);
+    h.device = { deviceId: 'dev-new', username: null, isReady: true };
+    const { findByText } = render(<RestorePage />);
+    await findByText('Move Lili’s spots to this phone');
+    expect(keepSafe.peekRestore).toHaveBeenCalledWith('dev-new', TOKEN);
+    expect(window.sessionStorage.getItem('cat-spotter/restore-token')).toBeNull();
   });
 });

@@ -13,31 +13,38 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { waitForUsernameClaimToSettle } from '@/hooks/useUsernameClaim';
 import {
-  askedForRestoreRecently,
   isLinkNotValid,
   peekRestore,
   redeemRestore,
+  RESTORE_TOKEN_SESSION_KEY,
+  type RestorePeek,
   type RestoreSpotter,
 } from '@/lib/keepSafe';
+import { isInAppBrowser } from '@/lib/inAppBrowser';
 
 /**
  * The page a restore link opens (SYC-3 plan, Slice 1 step 8). An app route, so
- * it can use this browser's own device id and secret: the link only works on
- * the phone that asked for it (Decision 2).
+ * it uses this browser's own device id and secret: the spots move to the phone
+ * that presses the button.
  *
- * 1. Takes `t` out of the address bar at once, so it isn't left in history
- *    or sent on in a Referer: the token is held in memory and the router
- *    replaces the page with plain `/restore`. Expo Router keeps the URL in
- *    step with its own params, so neither `history.replaceState` nor
- *    `setParams({ t: undefined })` alone sticks (found in the browser check).
+ * SYC-3 Decision 12 (Samuel, 11–12 Oct 2026): the link works on whichever
+ * phone opens it, with advice so the spots land in the right place:
+ * - opened on the phone that asked: one tap, as before;
+ * - inside another app's built-in browser: a warning first (advice, never a
+ *   block);
+ * - on another phone or browser: "Is this the app or browser … uses for Cat
+ *   Spotters?" first;
+ * - on the phone that already is that spotter: "already on this phone".
+ *
+ * 1. The token arrives in the URL fragment (`#t=`), or after a website sign-in
+ *    from sessionStorage (the password page keeps it there), or as `?t=` from
+ *    a link sent before this change. It's held in memory and taken out of the
+ *    address bar and history at once (review finding 3). Through the router
+ *    too: Expo Router keeps the URL in step with its own params.
  * 2. `peek`s: lists the spotters this link can move (Decision 3), and changes
  *    nothing, so an email scanner opening the link burns nothing.
- * 3. One button per spotter. Pressing it waits for any open username claim
- *    (SYC-214), then `redeem`s, and this phone becomes that spotter.
- *
- * Every failure looks the same from the server. If this browser didn't ask
- * for a link recently, the page says to open it where it was asked for, with
- * **Copy link**; otherwise it says the link has expired or been used.
+ * 3. Pressing a spotter waits for any open username claim (SYC-214), then
+ *    `redeem`s, and this phone becomes that spotter.
  */
 /** The link's token, held in memory only, so the page can drop it from the URL. */
 let heldToken: string | null = null;
@@ -47,12 +54,36 @@ export function __resetHeldRestoreTokenForTests(): void {
   heldToken = null;
 }
 
+/** Take the token from wherever this page load carries it, and clear every trace of it. */
+function takeTokenFromPage(): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  let token: string | null = null;
+  const hash = /^#t=([A-Za-z0-9_-]{43})$/.exec(window.location.hash ?? '');
+  if (hash) token = hash[1]!;
+  try {
+    const saved = window.sessionStorage.getItem(RESTORE_TOKEN_SESSION_KEY);
+    if (saved) {
+      window.sessionStorage.removeItem(RESTORE_TOKEN_SESSION_KEY);
+      token = token ?? saved;
+    }
+  } catch {
+    // Storage refused (private mode on some browsers): the fragment still works.
+  }
+  if (window.location.hash || window.location.search) {
+    window.history.replaceState(window.history.state, '', window.location.pathname);
+  }
+  return token;
+}
+
 type State =
   | { kind: 'checking' }
   | { kind: 'offline' }
+  | { kind: 'already-here'; username: string | null }
+  | { kind: 'in-app'; peek: RestorePeek }
+  | { kind: 'confirm-different'; peek: RestorePeek }
+  | { kind: 'copied'; peek: RestorePeek }
   | { kind: 'choose'; spotters: RestoreSpotter[] }
   | { kind: 'moving' }
-  | { kind: 'wrong-browser' }
   | { kind: 'not-valid' }
   | { kind: 'failed' };
 
@@ -64,6 +95,12 @@ export default function RestorePage() {
   const { isOnline, pauseSync, resumeSync } = useOffline();
   const params = useLocalSearchParams<{ t?: string }>();
   if (typeof params.t === 'string' && params.t) heldToken = params.t;
+  const tookFromPage = useRef(false);
+  if (!tookFromPage.current) {
+    tookFromPage.current = true;
+    const fromPage = takeTokenFromPage();
+    if (fromPage) heldToken = fromPage;
+  }
   const token = useRef<string | null>(heldToken);
   token.current = heldToken;
   const [state, setState] = useState<State>({ kind: 'checking' });
@@ -76,7 +113,7 @@ export default function RestorePage() {
   useEffect(() => {
     if (!params.t) return;
     router.replace('/restore');
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.search) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && (window.location.search || window.location.hash)) {
       window.history.replaceState(window.history.state, '', window.location.pathname);
     }
   }, [params.t]);
@@ -92,20 +129,22 @@ export default function RestorePage() {
       const raw = token.current;
       try {
         if (!raw) throw new Error('no token');
-        const { spotters } = await peekRestore(deviceId, raw);
+        const peek = await peekRestore(deviceId, raw);
         if (cancelled) return;
+        if (peek.alreadyHere) {
+          setState({ kind: 'already-here', username: peek.alreadyHere.username });
+          return;
+        }
         if (username) {
           const profile = await getProfile(deviceId).catch(() => null);
           if (!cancelled) setCurrentSpots(profile?.totalSightings ?? 0);
         }
-        if (!cancelled) setState({ kind: 'choose', spotters });
+        if (cancelled) return;
+        const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+        setState(isInAppBrowser(ua) ? { kind: 'in-app', peek } : afterInAppAdvice(peek));
       } catch (err) {
         if (cancelled) return;
-        if (!raw || isLinkNotValid(err)) {
-          setState({ kind: (await askedForRestoreRecently()) ? 'not-valid' : 'wrong-browser' });
-        } else {
-          setState({ kind: 'failed' });
-        }
+        setState({ kind: !raw || isLinkNotValid(err) ? 'not-valid' : 'failed' });
       }
     })();
     return () => {
@@ -114,6 +153,20 @@ export default function RestorePage() {
     // `username` is read once: the warning names who this phone is now.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, deviceId, isOnline]);
+
+  /** After any in-app-browser advice: the different-browser question, or straight to the spotters. */
+  function afterInAppAdvice(peek: RestorePeek): State {
+    return peek.openedOnAskingPhone ? { kind: 'choose', spotters: peek.spotters } : { kind: 'confirm-different', peek };
+  }
+
+  /** "Yes, this is the one": one spotter and nothing to decide about this phone's own goes straight on. */
+  const confirmDifferent = (peek: RestorePeek) => {
+    if (peek.spotters.length === 1 && !username) {
+      void move(peek.spotters[0]!);
+      return;
+    }
+    setState({ kind: 'choose', spotters: peek.spotters });
+  };
 
   const move = async (spotter: RestoreSpotter) => {
     const raw = token.current;
@@ -135,7 +188,7 @@ export default function RestorePage() {
           const request = () =>
             redeemRestore(deviceId, {
               token: raw,
-              spotterDeviceId: spotter.deviceId,
+              choice: spotter.choice,
               abandonCurrent: Boolean(username),
               ...(deleting ? { deleteCurrent: true } : {}),
             });
@@ -170,15 +223,22 @@ export default function RestorePage() {
     }
   };
 
-  const copyLink = async () => {
-    if (!token.current || Platform.OS !== 'web' || typeof navigator === 'undefined') return;
+  /** The fragment form, like the email's (review finding 2): never `?t=`, which servers log. */
+  const copyLink = async (): Promise<boolean> => {
+    if (!token.current || Platform.OS !== 'web' || typeof navigator === 'undefined') return false;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/restore?t=${token.current}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/restore#t=${token.current}`);
       setCopied(true);
+      return true;
     } catch {
       // Clipboard refused: nothing else to do; the email still holds the link.
+      return false;
     }
   };
+
+  /** The one spotter's name when there's just one; otherwise the question is about "you". */
+  const onlyName = (peek: RestorePeek) =>
+    peek.spotters.length === 1 ? nameOf(peek.spotters[0]!) : null;
 
   const nameOf = (s: RestoreSpotter) => s.username ?? t('restorePageAnotherSpotter');
 
@@ -221,7 +281,7 @@ export default function RestorePage() {
           ) : null}
           {state.spotters.map((s) => (
             <Button
-              key={s.deviceId}
+              key={s.choice}
               variant="primary"
               size="lg"
               block
@@ -235,17 +295,70 @@ export default function RestorePage() {
         </View>
       ) : null}
 
-      {state.kind === 'wrong-browser' ? (
+      {state.kind === 'already-here' ? (
+        <Text testID="restore-already-here" style={[styles.text, { color: colors.foreground }]}>
+          {state.username
+            ? t('restoreAlreadyHere').replace('{name}', state.username)
+            : t('restoreAlreadyHereNoName')}
+        </Text>
+      ) : null}
+
+      {state.kind === 'in-app' ? (
         <View style={styles.choices}>
-          <Text testID="restore-wrong-browser" style={[styles.text, { color: colors.foreground }]}>
-            {t('restorePageWrongBrowser')}
+          <Text testID="restore-in-app" style={[styles.text, { color: colors.foreground }]}>
+            {t('restoreInAppWarning')}
           </Text>
-          {Platform.OS === 'web' && token.current ? (
-            <Button variant="secondary" size="lg" block onPress={copyLink}>
-              {copied ? t('restorePageCopied') : t('restorePageCopyLink')}
-            </Button>
-          ) : null}
+          <Button variant="primary" size="lg" block onPress={() => void copyLink()}>
+            {copied ? t('restorePageCopied') : t('restorePageCopyLink')}
+          </Button>
+          <Button variant="ghost" size="sm" onPress={() => setState(afterInAppAdvice(state.peek))}>
+            {t('restoreInAppAnyway')}
+          </Button>
         </View>
+      ) : null}
+
+      {state.kind === 'confirm-different' ? (
+        <View style={styles.choices}>
+          <Text testID="restore-different" style={[styles.text, { color: colors.foreground }]}>
+            {t('restoreDifferentIntro')}
+          </Text>
+          <Text style={[styles.text, styles.strong, { color: colors.foreground }]}>
+            {onlyName(state.peek)
+              ? t('restoreDifferentQuestion').replace('{name}', onlyName(state.peek)!)
+              : t('restoreDifferentQuestionYou')}
+          </Text>
+          {/* The same size: neither answer is the "right" one to tap through. */}
+          <View style={styles.pair}>
+            <View style={styles.pairItem}>
+              <Button variant="primary" size="lg" block onPress={() => confirmDifferent(state.peek)}>
+                {onlyName(state.peek)
+                  ? t('restoreDifferentYes').replace('{name}', onlyName(state.peek)!)
+                  : t('restoreDifferentYesYou')}
+              </Button>
+            </View>
+            <View style={styles.pairItem}>
+              <Button
+                variant="secondary"
+                size="lg"
+                block
+                onPress={async () => {
+                  await copyLink();
+                  setState({ kind: 'copied', peek: state.peek });
+                }}
+              >
+                {t('restoreDifferentNo')}
+              </Button>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {state.kind === 'copied' ? (
+        <Text testID="restore-copied" style={[styles.text, { color: colors.foreground }]}>
+          {onlyName(state.peek)
+            ? t('restoreDifferentCopied').replace('{name}', onlyName(state.peek)!)
+            : t('restoreDifferentCopiedYou')}
+        </Text>
       ) : null}
 
       {state.kind === 'not-valid' || state.kind === 'failed' ? (
@@ -273,4 +386,7 @@ const styles = StyleSheet.create({
   text: { fontFamily: fonts.body, fontSize: fontSizes.md, lineHeight: 23 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   choices: { gap: spacing[3] },
+  strong: { fontFamily: fonts.bodyBold },
+  pair: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
+  pairItem: { flexGrow: 1, flexBasis: 220 },
 });

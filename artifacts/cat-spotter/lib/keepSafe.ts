@@ -18,7 +18,16 @@ export type KeepSafeState =
   | { status: 'none' }
   | { status: 'pending' | 'confirmed'; addressMask: string };
 
-export type RestoreSpotter = { deviceId: string; username: string | null };
+/** One spotter on a restore link's picker: an opaque choice id, never a device id (Decision 12). */
+export type RestoreSpotter = { choice: string; username: string | null };
+
+export type RestorePeek = {
+  spotters: RestoreSpotter[];
+  /** False when this isn't the phone or browser that asked for the link (Decision 12). */
+  openedOnAskingPhone: boolean;
+  /** This phone already is the spotter the link would move. */
+  alreadyHere: { username: string | null } | null;
+};
 
 export function getKeepSafe(deviceId: string): Promise<KeepSafeState> {
   return customFetch<KeepSafeState>(`/api/keep-safe/${encodeURIComponent(deviceId)}`, {
@@ -51,10 +60,9 @@ export async function requestRestore(deviceId: string, email: string): Promise<v
     headers: { 'content-type': 'application/json' },
     responseType: 'json',
   });
-  await rememberRestoreAsked();
 }
 
-export function peekRestore(deviceId: string, token: string): Promise<{ spotters: RestoreSpotter[] }> {
+export function peekRestore(deviceId: string, token: string): Promise<RestorePeek> {
   return customFetch(`/api/restore/peek`, {
     method: 'POST',
     body: JSON.stringify({ deviceId, token }),
@@ -65,7 +73,7 @@ export function peekRestore(deviceId: string, token: string): Promise<{ spotters
 
 export function redeemRestore(
   deviceId: string,
-  input: { token: string; spotterDeviceId: string; abandonCurrent: boolean; deleteCurrent?: boolean },
+  input: { token: string; choice: string; abandonCurrent: boolean; deleteCurrent?: boolean },
 ): Promise<{ deviceId: string; username: string | null }> {
   return customFetch(`/api/restore/redeem`, {
     method: 'POST',
@@ -111,19 +119,8 @@ export async function writeKeepSafeOffer(value: Exclude<KeepSafeOffer, null>): P
 }
 
 /**
- * When this browser last asked for a restore link. The link only works on the
- * phone that asked (Decision 2), and the server answers every failure the same
- * way, so this is how the /restore page tells "wrong browser" apart from
- * "expired or used".
+ * Where the website's password page leaves a restore link's token when the
+ * tester has to sign in first (Decision 12, review finding 5): the token rides
+ * in the URL fragment, which a login POST can't carry. Read once, then deleted.
  */
-const RESTORE_ASKED_KEY = 'cat-spotter/restore-asked-at';
-const LINK_LIFE_MS = 15 * 60 * 1000;
-
-async function rememberRestoreAsked(): Promise<void> {
-  await AsyncStorage.setItem(RESTORE_ASKED_KEY, String(Date.now()));
-}
-
-export async function askedForRestoreRecently(): Promise<boolean> {
-  const value = Number(await AsyncStorage.getItem(RESTORE_ASKED_KEY));
-  return Number.isFinite(value) && value > 0 && Date.now() - value < LINK_LIFE_MS + 60_000;
-}
+export const RESTORE_TOKEN_SESSION_KEY = 'cat-spotter/restore-token';
