@@ -237,10 +237,11 @@ Every member of the team holds every team capability, including adding and remov
 Every check goes through one function, `can()` in `artifacts/api-server/src/lib/capabilities.ts`, and every screen and route asks for a capability **by name**. No code asks "is this person a guardian?". `team-access-and-welfare-queue.md` §7.3 set that rule; this section is the list it points at. What is added to that function:
 
 - A person's **roles** are rows (`person_scopes`), and each row says *where* it applies: the whole island, or one colony. Only team and management rows cover the whole island. **A guardian row always names one colony** (§10.1).
-- A capability is one of three kinds:
+- A capability is one of four kinds:
   - **Island-only.** Held only by someone whose row covers the whole island. Using it needs no target.
   - **Placed.** Held by someone for the colonies their rows cover. Using it needs a target, and the target is **never taken from the request**: for a cat, the server looks up the cat's colony from the record (the newest `colony` observation); for a photo, the photo's cat and then that cat's colony; for a feeding site, the site's colony. A cat in no colony can only be touched by island-wide holders. Where a form names a colony (for example, "add a feeding site to this colony"), the server checks that the person holds that colony for that capability; naming a colony she doesn't hold is refused.
   - **Role-wide.** Held by anyone with the role, whatever colony (for instance, picking a cat from anywhere when matching a photo, which uses only blurred positions).
+  - **Creates its own scope.** Used by `create_colony`. It fits none of the other three: there is no existing colony to name, so it is neither placed nor island-only, and a guardian holds it for a colony that does not exist yet. When a **guardian** uses it, the server writes, in one transaction, the colony and **her placement row** (below) and a `roles_changed` event; if either write fails, neither happens. When a **team member** uses it, only the colony is written and no placement is created. The placement row is a `person_scopes` row with `role` = `guardian`, `reach` = `colony`, `colony_id` = the new colony, `expires_at` null, `relationship` null (the team can add a label later), `granted_by` = her own person id, `granted_at` = now. From then on it is an ordinary guardian placement: it can be ended, edited or re-placed like any other (§6.6).
 - The catalogue below is **data in code** (a map from role to capability to kind), and a test walks it so the table in this document and the code cannot silently disagree (§15.3).
 
 ### 6.2 The catalogue
@@ -259,7 +260,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_health_notes` | Read team-only health notes on a cat (SYC-2) | Placed | All | All | Own |
 | `view_welfare_queue` | The welfare queue, welfare reports and reporters' photographs | Island-only | ✓ | ✓ | — |
 | `use_workspace` | See the workspace documents and the shared document password (§6.3) | Island-only | ✓ | ✓ | — |
-| `view_guardian_changes` | The "recent guardian changes" list on the team's dashboard: every cat a guardian added to or took out of a colony, every sterilisation, life-status and colour statement she made, and every colony she created, with who and when (§7.4, §6.9) | Island-only | ✓ | ✓ | — |
+| `view_guardian_changes` | The "recent guardian changes" list on the team's **Colonies page** (SYC-209 §2.6): every cat a guardian added to or took out of a colony, every sterilisation, life-status and colour statement she made, and every colony she created, with who and when (§7.4, §6.9) | Island-only | ✓ | ✓ | — |
 
 **Saying what you saw or know**
 
@@ -279,7 +280,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | Capability | What it lets you do | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
 | `assign_cat_to_colony` | Put a cat in a colony, move it, or take it out of one. A guardian does this alone, for her own colonies, with immediate effect and no team OK (§7.4). The target is the colony she is adding to, or the colony she is taking the cat out of; naming a colony she doesn't hold is refused | Placed | All | All | Own |
-| `create_colony` | Create a colony. A guardian who creates one names it at that moment and is placed on it automatically as its guardian, so she holds her usual placed powers for it (§6.9) | Role-wide | ✓ | ✓ | ✓ |
+| `create_colony` | Create a colony. A guardian who creates one names it at that moment and is placed on it automatically as its guardian, so she holds her usual placed powers for it (§6.9) | Creates its own scope | ✓ | ✓ | ✓ |
 | `edit_colony` | Edit a colony's guardian-name text, notes and centre point (not its name) | Placed | All | All | Own |
 | `rename_colony` | Change a colony's name. Team only: a guardian names her colony when she creates it, and asks the team to change it afterwards | Island-only | ✓ | ✓ | — |
 | `add_feeding_site` | Add a feeding site to a colony. Always private | Placed | All | All | Own |
@@ -297,7 +298,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | Capability | What it lets you do | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
 | `settle_confirmation` | Approve or decline an item in "Needs an OK" of kind field check or site-public request (§7) | Island-only | ✓ | ✓ | — |
-| `manage_people` | Invite, place, remove, re-admit, sign out everywhere. One management member is enough for every access change, including adding or removing team or management members (§8.3) | Island-only | — | ✓ | — |
+| `manage_people` | Invite, place, remove, re-admit, sign out everywhere, and **forget a former guardian or team member** (SYC-208; the "Forget this guardian" button on the colony page, SYC-256). One management member is enough for every access change, including adding or removing team or management members (§8.3) | Island-only | — | ✓ | — |
 | `action_deletion_request` | Delete a person's details on a data request | Island-only | — | ✓ | — |
 
 **Notes on the catalogue**
@@ -370,7 +371,7 @@ A guardian can look after a colony as a regular feeder, as the owner of a cat in
 | SYC-209's working name | The catalogue rows it means |
 |---|---|
 | `manage_feeding_sites` | `add_feeding_site` (placed), `edit_feeding_site` (placed), `reassign_feeding_site` (island-only) |
-| `manage_colonies` | `create_colony` (role-wide: the team and any guardian), `edit_colony` (placed), and `rename_colony` (team only) for a later change of name |
+| `manage_colonies` | `create_colony` (creates its own scope: the team and any guardian), `edit_colony` (placed), and `rename_colony` (team only) for a later change of name |
 | `set_cat_colony` | `assign_cat_to_colony` (placed: the team island-wide, a guardian for her own colonies) |
 | `view_exact_location`, `set_site_public` | The same names |
 
@@ -401,7 +402,7 @@ Placed capabilities on a cat depend on the cat's colony, so how a cat gets one m
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ Decided. A guardian can create a colony.** `create_colony` is role-wide: the team, management and guardians hold it. A guardian who creates a colony is placed on it automatically as its guardian. | No wait. A new guardian with a new patch can start the same day. | See "What this choice accepts". |
+| **A. ✅ Decided. A guardian can create a colony.** `create_colony` is held by the team, management and guardians, and is of its own kind, "creates its own scope" (§6.1). A guardian who creates a colony is placed on it automatically as its guardian; the placement row is defined in §6.1. | No wait. A new guardian with a new patch can start the same day. | See "What this choice accepts". |
 | **B. Only the team creates colonies.** | The team decides where colonies exist. | A guardian waits for the team before she can look after cats the team hasn't recorded. |
 
 **What this choice accepts.** A guardian could create a colony anywhere and then add cats to it (Decision 6, §7.4), which lets her see any cat's exact position. Every change is in the history: the colony row records who created it and when, her placement is a recorded `roles_changed` event with her own id as the granter, each cat added is a `colony` observation with her id, and the team's "recent guardian changes" list (`view_guardian_changes`) shows the colonies she created and the cats she added.
@@ -494,7 +495,7 @@ A guardian can see exact positions of cats in her colony (§2.2). That is the th
 
 - **Adding a cat shows her its exact position, so a guardian could reveal any cat's location by adding it to her colony.** One at a time she could walk through every cat on the island.
 - **Taking a cat out** removes it from the round sheet and from her view, and a cat added from another guardian's colony leaves that guardian's view.
-- **The mitigation** is a record, not a block: every change goes in the history (a `colony` observation with her id and the time), and a **"recent guardian changes" list** on the team's dashboard (`view_guardian_changes`) shows the team who added or removed which cat, in which colony, and when, so a pattern is easy to spot.
+- **The mitigation** is a record, not a block: every change goes in the history (a `colony` observation with her id and the time), and a **"recent guardian changes" list** on the team's Colonies page (`view_guardian_changes`; SYC-209 §2.6) shows the team who added or removed which cat, in which colony, and when, so a pattern is easy to spot.
 
 **What people notice.** A guardian who finds a cat of hers the team hadn't recorded taps *This cat is one of mine* and sees it in her colony straight away. A team member sees the change on the recent guardian changes list, with who made it, and can put the cat back with `assign_cat_to_colony`. The guardian of a colony a cat leaves sees a line that it moved.
 
@@ -641,6 +642,8 @@ Management finds the person under *Left* and taps **Bring back**. The screen sho
 Withdrawing an invitation, or the person saying *No, this isn't for me*, ends the pending state. Because every addition now writes an event with a strict link (SYC-213), a pending person **can never be deleted afterwards**: `removePerson` today only refuses someone with history, and every person will have at least their `added` event. So withdrawal marks the pending person as left, as for anyone else. This leaves a stranger's email address in the table when the invitation went to the wrong mailbox. **Recommendation: SYC-208's anonymising routine runs in the same transaction for a person who never accepted**, replacing the address with its reserved placeholder and the name with "Withdrawn invitation". That belongs in SYC-208's design and is noted there (§16).
 
 ### 9.7 Forgetting someone (SYC-208), and two places it must also reach
+
+**Who may forget someone: management only** (`manage_people`). "Forget this guardian" (SYC-256), shown on the team's Colonies page, is a people action like the others management holds; a team-only member does not see the button, and the route refuses them. It is not a data-deletion request (`action_deletion_request`), which stays with management too but is a separate action.
 
 SYC-208 anonymises a former team member's name and email while keeping the row and every link. Because this spec puts guardians on the list, it adds two places that routine has to reach:
 
