@@ -155,9 +155,9 @@ This is the question that decides most of the build, so it comes first.
 
 1. **Eleni is told.** Susan, in management, has asked her on the phone, and she has said yes. Susan opens the people screen (SYC-104), taps **Invite someone**, types Eleni's own email address and name, chooses **Cat guardian**, picks Vaporia — Eleni's, and chooses the language of the message (Greek). She types the address once. She taps **Send invitation**.
 2. **Eleni gets a plain message**, in Greek, from `Cat Spotters <signin@mail.catspotters.com>`: *"Syros Cats has invited you to help as a cat guardian for Vaporia — Eleni's. To get started, go to admin.catspotters.com, type this address, and tap the link we send you."* It contains **no secret and no link she could be tricked with**. It may name the colony, so anyone who finds it learns whose colony it is (§8.4 says what that accepts).
-3. **Eleni signs in** the way staff already do (§2.1 of the team-access spec): she types her address on `admin.catspotters.com`, gets the emailed link, taps it, taps **Yes, sign me in**.
+3. **Eleni signs in** the way the team already does (§2.1 of the team-access spec): she types her address on `admin.catspotters.com`, gets the emailed link, taps it, taps **Yes, sign me in**.
 4. **She lands on one page:** *"Susan from Syros Cats invited you as a cat guardian for Vaporia — Eleni's. Here is what you'll be able to see and do. Here is what we ask of you."* Four short promises (below). A name field, pre-filled with the name Susan typed, that she can change (*"Check your name as you'd like Syros Cats to see it"*). Two buttons: **Yes, join** and **No, this isn't for me.**
-5. **She taps Yes, join** and arrives on **My colonies**. From then on she signs in exactly like staff: type address, tap link. Her session lasts thirty days on that phone.
+5. **She taps Yes, join** and arrives on **My colonies**. From then on she signs in exactly like the team: type address, tap link. Her session lasts thirty days on that phone.
 
 If she taps **No**, the invitation is withdrawn: she is marked as left, as for anyone else (a person is never deleted once they have a history, §9.6). If she does nothing, the invitation stops working after **14 days** (§4.4) and Susan sees "expired" next to her name.
 
@@ -316,7 +316,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 
 One yes from the sign-in page must not open two things at once: the workspace (shared documents, the document password, the lock switches) and the dashboard.
 
-- **The workspace is its own capability, `use_workspace`**, held by staff and management only. Decided through `can()` like everything else; never "has any capability".
+- **The workspace is its own capability, `use_workspace`**, held by the team and management only. Decided through `can()` like everything else; never "has any capability".
 - **The dashboard door** is open to an accepted person who holds at least one dashboard capability (`canSomewhere`, §6.4), and to a pending invitee heading for the accept page, who reaches that page and nothing else.
 - **The Worker is asked both questions** (§4.5) and issues the workspace session only for the first. A guardian who signs in at `admin.catspotters.com` never gets a workspace session at all, and goes straight to the dashboard.
 - **The break-glass row in `admins`** (`team-access-and-welfare-queue.md` §2.7) grants the workspace only.
@@ -557,7 +557,7 @@ SYC-104 is the screen. This section says what it must allow and what it must ref
 
 A list of people with, for each: name, roles in plain words, colonies, and a chip (**Not sent yet · Invited · Joined · Expired · Left**). *Expired* is worked out when the page is drawn; nothing writes it. Beneath each, their history (§11). Beside the list: **Invite someone**, and **Joined in the last 7 days**. A tab for people who have left, with **Bring back**. Every change records who made it (SYC-104's own requirement); the screen has no free-text box that ends up in an email.
 
-### 8.3 Decision 11: one person alone, or a second pair of eyes, for staff and management
+### 8.3 Decision 11: one person alone, or a second pair of eyes, for the team and management
 
 **Decided (Samuel, 12 October 2026): option B, no second OK.** One management member is enough for every access change, including adding or removing team or management members. The charity is small, and a rule that needs two managers to be free at the same time would stall the one job that matters on the day somebody joins or leaves. The `people` command stays as the break-glass.
 
@@ -886,7 +886,7 @@ Guardians are, in large part, Greek speakers; some team members and guardians wi
 | **My colonies, the colony view, the round sheet, field-check and colony forms, "Needs a look", the outcome lines** | Same; changeable by the person on their own page | |
 | The **403 page** ("that part is for the team") | Same | |
 | **Role names and the one-sentence description of oneself** (§2.6) | Same | |
-| The people screen, "Needs an OK", management and staff pages | English | Decision 10 |
+| The people screen, "Needs an OK", management and team pages | English | Decision 10 |
 | Dates | The person's language (`el-GR`, `fr-FR`, `en-GB`), Athens time | Existing pages hard-code `en-GB` |
 
 ### 13.2 Decision 10: how far the translation goes
@@ -1036,7 +1036,7 @@ Named here so they appear in the implementation plan:
 |---|---|---|
 | **0. Foundations** | SYC-213 (`person_events`); SYC-222 (doors, strict `can`, 403 page, route walk); the capability catalogue (§6.2) in code with its test, including `view_welfare_queue` on the welfare and report-photo routes; one list of team roles and the `admin` → `management` rename; the migration (§15.2); the Worker's version-2 answer. | **Nobody.** Everyone is staff and management; nothing changes |
 | **1. Invitations and "My colonies"** | The invite, accept, withdraw and leave flows; the people screen (SYC-104); a guardian's own page: her colonies, exact positions, feeding sites, life status for her cats; the pages in en/el/fr. | Management, then the first guardians |
-| **2. Field checks and the queue** | Field checks, "Needs a look", "Needs an OK", colony changes, and site-public requests. | Guardians and the team |
+| **2. Field checks and the queue** | Field checks, "Needs a look", "Needs an OK" (field checks and site-public requests), direct colony changes by guardians, and the recent-guardian-changes list. | Guardians and the team |
 | **3. The colony view** | SYC-54: the offline saved page, the round sheet, the narrowly scoped script and service worker (§3, §12). | Guardians and the team |
 | **4. The small things** | Round-sheet counters and the banner; hand-pick review for guardians once the "Matched by hand" list (SYC-152) exists; the colony-rename nudge. | Management |
 
