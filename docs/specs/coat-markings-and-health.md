@@ -1,6 +1,6 @@
 # Coat, markings and health on the cat record
 
-**Status:** **Revised after adversarial review and updated for Samuel's decisions of 12 October 2026, awaiting his approval of the whole.** (Reviewed 7 October 2026.) The independent review is `docs/specs/reviews/coat-markings-and-health-review.md`; §17 says how every finding was handled. **Supersedes** `docs/superpowers/specs/2026-07-28-cat-health-record-design.md` (the 28 July "For review" draft, which was never approved). That file is left as it is; where it and this document disagree, this one wins once approved.
+**Status:** **Revised after adversarial review and updated for Samuel's decisions of 12 October 2026. Decisions made 12 October 2026; awaiting Samuel's final approval.** (Reviewed 7 October 2026.) The independent review is `docs/specs/reviews/coat-markings-and-health-review.md`; §17 says how every finding was handled. **Supersedes** `docs/superpowers/specs/2026-07-28-cat-health-record-design.md` (the 28 July "For review" draft, which was never approved). That file is left as it is; where it and this document disagree, this one wins once approved.
 **Owner:** Samuel
 **Covers:** SYC-2 (coat and markings tags, and health status on cats). Also settles the trust question SYC-2 was parked on: who is allowed to assert a fact about a cat's body, and what the public sees of it.
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §2, §3.4, §4, §10.1, §10.2 · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.7, §8.4 · [`add-details-later.md`](./add-details-later.md) §6, §8 · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §4, §7 · [`roles-and-invites.md`](./roles-and-invites.md) §6.2, §6.7, §7.6 (Decision 13), §17.4 · [`DECISIONS.md`](./DECISIONS.md) Part 2g, 2i, 2k, 3 · tickets SYC-161 (auto coat colour), SYC-5 (vaccination records), SYC-52 (confidence engine), SYC-53 (roles), SYC-42 (welfare reports), SYC-75 (sterilisation status), SYC-43 (staff dashboard).
@@ -76,6 +76,8 @@ A cat has **one or two** colours. *Tabby* is a pattern rather than a colour, so 
 
 Markings are the things people use to tell two cats of the same colour apart. They are **additions**: a cat can have none, or several. The list is short on purpose; every entry has to be something a stranger can see in a normal photo and agree on. **Anyone can state any of the eleven**, spotters included, under the same rules (§4.2).
 
+> **Decided (Samuel, 12 October 2026): the "This cat needs help" link shows when any of the four markings is ticked, as recommended.**
+>
 > **Updated after Samuel's decisions (12 Oct 2026).** The review (M6) had made four of these team-only. Samuel reversed that: they are ordinary recognition features and anyone can tick them, because they are exactly how people describe a cat ("the one with one eye"). The "This cat needs help" link now also appears when any of the four is ticked (§5.1).
 
 **The first seven** (plainly visible and cosmetic, or a ragged ear that needs somewhere honest to go):
@@ -483,6 +485,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ### SYC2-D1. Do a spotter's suggestions change what the public sees?
 
+**Decided (Samuel, 12 October 2026): option C, two people agreeing plus filling empty gaps, on its four conditions, as recommended.**
+
 *Changed after review: the review agreed with option C only on conditions, because "two devices" can be one person with two browsers and the case the rule admits was never shown to the team. The conditions are now part of the recommendation.*
 
 | Option | What it means | Benefits | Risks | Tourists | Guardians and the team |
@@ -500,6 +504,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ### SYC2-D2. Where do we ask people about appearance?
 
+**Decided (Samuel, 12 October 2026): option A, one optional colour line on the new-cat result screen after the points, plus the "add details later" card, as recommended.**
+
 *Changed after review: the naming screen comes before the points, so asking there put two questions between a spotter and their reward, which the data spine calls the fastest way to kill this project. The recommendation is now one optional line after the points, plus the details card.*
 
 | Option | Benefits | Risks | What people notice |
@@ -513,6 +519,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ### SYC2-D3. Is the ear tip one of the markings?
 
+**Decided (Samuel, 12 October 2026): option A, no: the ear tip stays its own question with its own rules, as recommended.**
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. No: it stays its own question, with its own rules (recommended)** | No second, rules-free route into the sterilised line. "Torn or notched ear" gives people an honest place for a fight scar | Two places to describe an ear, and a person must know which is which. The example photo carries that, and is a required asset for the markings chips (§3.3) |
@@ -523,6 +531,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ### SYC2-D4. Does the model also read markings from the photo?
 
+**Decided (Samuel, 12 October 2026): option A, not yet: people only, as recommended.**
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Not yet: people only (recommended)** | Honest from day one. Markings are small, often hidden by pose, and the model has not been measured on them | Fewer cats have markings recorded, so the card line is often empty |
@@ -532,6 +542,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 **Recommendation: A**, revisited when SYC-56's labelled set can measure it (SYC-243 holds the follow-up).
 
 ### SYC2-D5. How much health do we record at all?
+
+**Decided (Samuel, 12 October 2026): option A, sterilised and vaccination as structured facts with everything else as a team-only note on the cat, on its two conditions, as recommended.**
 
 *Changed after review: the original option A relied on "the existing team note", which turned out to be a note on a welfare report, not on a cat. It is now a team-only note on the cat itself, with its own read and write capabilities.*
 
@@ -545,6 +557,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ### SYC2-D6. Is vaccination shown to the public?
 
+**Decided (Samuel, 12 October 2026): option A, team only at launch with an overall count for donors, as recommended.**
+
 *Changed after review: from "public, positive and dated" to "team only for launch". A public line such as "Vaccinated against rabies" is a medical claim. Someone who has just been scratched would reasonably read it as "no need to see a doctor", on a record that may be years old or matched to the wrong cat.*
 
 | Option | Benefits | Risks | UX |
@@ -557,6 +571,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ### SYC2-D7. Which filters does the cat-alog get?
 
+**Decided (Samuel, 12 October 2026): option A, colour only for now, as recommended. "Needs vet" is not built.**
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Colour only, now (recommended)** | The one filter backed by data and harmless to publish | Fewer filters than the original design |
@@ -566,6 +582,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 **Recommendation: A.** "Needs vet" is not built, and this is the one recommendation here that is a firm no rather than a preference.
 
 ### SYC2-D8. Does appearance help the matcher?
+
+**Decided (Samuel, 12 October 2026): option A, no: the photo decides, as recommended.**
 
 | Option | Benefits | Risks |
 |---|---|---|
@@ -577,6 +595,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ### SYC2-D9. Can appearance suggestions queue offline?
 
+**Decided (Samuel, 12 October 2026): option A, no: online only, as recommended.**
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. No: online only, like the details card (recommended)** | No stale suggestions, no race with a team correction | A tourist offline cannot add a colour until they have signal |
@@ -585,6 +605,8 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 **Recommendation: A.**
 
 ### SYC2-D10. Does one spotter ever overturn the machine's colour? (a change to an approved sentence)
+
+**Decided (Samuel, 12 October 2026): option A, a spotter alone fills a gap but never overturns a real machine reading, as recommended. This narrows the approved sentence in `choose-a-different-cat.md` §8.4, as §15 records.**
 
 *New, from the review: the first draft changed an approved rule without saying so.* `choose-a-different-cat.md` §8.4 (approved) says "a person's reading always beats the machine's". This spec's colour rule is different: a spotter alone fills a gap but never overturns a real machine reading. SYC-161's ticket repeats the older wording. If Samuel approves option A, `DECISIONS.md` gets an entry that names the change (§15) and SYC-161's wording is updated.
 
@@ -717,7 +739,7 @@ An independent adversarial review (`docs/specs/reviews/coat-markings-and-health-
 
 ### Updated after Samuel's decisions (12 Oct 2026)
 
-1. **The four marks are open to anyone.** *Short or missing tail*, *Missing an eye*, *Three legs* and *Eyes of different colours* can be ticked by spotters like any other mark. This **partly reverses M6**: the review's team-only change is gone; its "Does it look hurt?" link stays and now also shows for these four (added so an injury still reaches help; Samuel can drop it). §3.2 records what the choice accepts.
+1. **The four marks are open to anyone.** *Short or missing tail*, *Missing an eye*, *Three legs* and *Eyes of different colours* can be ticked by spotters like any other mark. This **partly reverses M6**: the review's team-only change is gone; its "Does it look hurt?" link stays and now also shows for these four (added so an injury still reaches help). **Decided (Samuel, 12 October 2026): the "This cat needs help" link stays on all four markings, as recommended.**. §3.2 records what the choice accepts.
 2. **Roles.** Volunteers and staff are one role (the Syros Cats team). Every volunteer rule and `confirm_appearance` are removed. A cat guardian's colour and markings statement stands directly. Sterilisation is not restated here: roles spec Decision 5 and the data spine amendment own it.
 3. **The role word is "spotter"**, never "snapper" (the draft contained none).
 
