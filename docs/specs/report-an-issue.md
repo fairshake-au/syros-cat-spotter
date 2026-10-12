@@ -263,31 +263,36 @@ A public, unauthenticated write endpoint that can **take a photo off the site** 
 
 ### 8.1 What bears weight
 
-1. **Turnstile on every submit** (§9). It stops scripted floods and is required for a *hide* to happen (rule (i) below).
+1. **Turnstile on every submit** (§9). It stops scripted floods. A report with a missing, wrong, expired or reused token is **refused with a retryable answer and creates nothing** (§9.5). Only the single case where our own server cannot reach Cloudflare is accepted, and then only as an "unchecked" row that never hides.
 2. **Per-address limits.** Device identity is not an abuse control: `deviceAuth.ts` binds the first secret it sees, so an attacker mints a device per request (the new-device cap, SYC-195, limits that to 20 an hour per address). So the limits that count are per address:
 
 | Limit | Value | When it is hit |
 |---|---|---|
 | Issue reports per address | 20 an hour | `429`, "Too many requests. Please try again later." The phone keeps the report and retries later. |
-| **Hides per address** | **5 an hour, 15 a day** | The report is **accepted and queued but the photo is not hidden.** The team sees "hide limit reached" on the row. |
-| Reports about the same photo from one device | 1 every 24 hours per reason | Treated as already sent; same reply as a first report. |
+| **Hides per address** | **5 an hour, 15 a day** | The report is **accepted and queued but the photo is not hidden** (`hidden: false`). The team sees "hide limit reached" on the row. |
+| **Unchecked rows per address** (accepted while Cloudflare was unreachable, §9.5) | **3 an hour**, both forms together | `429`, same as above. Far lower than the checked limits, because the client cannot choose to be unchecked and this path exists only for outages. |
+| Reports about the same photo from one device | 1 every 24 hours per reason | Treated as already sent; the reply repeats what the first report did (`hidden` as it was). This is a courtesy only: anyone can create a new device identity for free, which is why the address limits above are the real controls. |
 | Welfare reports per address | 10 an hour (unchanged, spec §2.6) | As today. |
 
-3. **Three rules about hiding** (proposed, D3):
-   - **(i) A hide needs a verified Turnstile token.** No token, a failed token, or an offline-queued send with no fresh token still creates the queue row but does not hide.
-   - **(ii) A photo the team has restored is not hidden again by a report.** New reports on it queue and show in the team's list; only a team member can hide it again. One person cannot hide the same photo over and over, and a wrong hide costs the team one tap, once.
+The welfare and issue limiters stay separate, so one address can send 30 an hour across both forms. That is the real figure, stated openly. A single shared ceiling was considered and rejected: it would let a flood of issue reports stop a real hurt-cat report from the same address, which is the one thing that must not happen.
+
+3. **Four rules about hiding** (proposed, D3). These apply to `photo_private` and `photo_inappropriate`, the two reasons that hide.
+   - **(i) A hide needs a verified Turnstile token.** A refused token never reaches this point (it is a `428`); an unchecked row (Cloudflare unreachable) is queued and does not hide.
+   - **(ii) A photo the team has restored is not hidden again by a report.** Defined exactly: the photo has **any `restore` row, ever, in `photo_visibility_events`**. A later team hide followed by another restore still counts. New reports on it queue and show in the team's list; only a team member can hide it again. One person cannot hide the same photo over and over, and a wrong hide costs the team one tap, once.
    - **(iii) A daily volume banner.** More than 10 report-hides in 24 hours raises a dashboard banner. It never pages anybody (F1).
+   - **(iv) A global brake.** Once report-hides in any rolling 24 hours pass **20** (a number for Samuel to confirm), new hide-type reports are still queued but **do not hide**. The dashboard banner then carries a **"Resume automatic hiding"** button for a team member (`hide_photo`), which is recorded with who and when. Each such report keeps its place under "Hidden, waiting for you" so the team can hide the real ones by hand in one tap. Without this brake, 200 cheap home-connection addresses could hide 3,000 photos in a day, which is the whole catalogue; rules (ii) and (iii) only slow or announce it.
+4. **The reply says what happened.** Every report answer carries `hidden: true` or `hidden: false`, and the confirmation words are chosen from that field (§4.1). Rules (i), (ii), (iv), the hide limit and the unchecked path can each stop a hide, and a privacy reporter must never be told a photo is down when it is not.
 
-### 8.2 Where these are counted, and what is not true yet
+### 8.2 Where these are counted
 
-- **There is no Cloudflare Worker in front of the API.** The only `wrangler` file in the repo is `infra/proposals-site/wrangler.jsonc`, a static proposals site. The sign-in Worker (SYC-202 refers to its rate limits) lives in the separate `catspotters-website` repository and is not in the path of API calls. The API is Express on Replit behind Replit's proxy with `trust proxy` set to 4 (SYC-100). Whether `api.catspotters.com` goes through Cloudflare's proxy is not recorded in the repo, and SYC-229 is the ticket that checks every public address sees the same four hops.
+- The web app and the API are one deployment, served at `apptest.catspotters.com` (the separate `catspotters.com` site is the public website). There is no Cloudflare Worker in front of the API. The sign-in Worker (SYC-202 refers to its rate limits) lives in the separate `catspotters-website` repository and is not in the path of API calls. The API is Express behind Replit's proxy with `trust proxy` set to 4 (SYC-100). Whether `api.catspotters.com` goes through Cloudflare's proxy is not recorded in the repo, and SYC-229 is the ticket that checks every public address sees the same four hops.
 - So **Turnstile is verified inside Express** with a `fetch` to Cloudflare's siteverify endpoint (§9). No Worker is needed.
-- **Per-address limits are only real once SYC-105 lands.** Today `express-rate-limit` counts in memory per process, so limits multiply by the number of instances and reset on every deploy. SYC-170 already makes SYC-105 a precondition for taking the pre-launch pass off; this spec adds that **the hide limit must be in the shared store from the start**, because a hide limit that resets on deploy is not a limit.
-- Until launch, the pre-launch pass (SYC-113) limits `/api` to testers, which is the main control. That is why none of this is urgent for testers and all of it is a **precondition of SYC-114**.
+- **Per-address limits are only real once they are counted in a shared store.** `express-rate-limit` counts in memory per process, so limits multiply by the number of instances and reset on every deploy. SYC-105 moves them to a shared store. SYC-170 already makes SYC-105 a precondition for taking the pre-launch pass off, and **the hide limit, the unchecked-row limit and the global brake all count in the shared store**, because a hide limit that resets on deploy is not a limit. The store holds a hashed or truncated address, not the address.
+- The pre-launch pass (SYC-113) limits `/api` to testers, which is the main control before launch. The precondition belongs on **the launch-day step that sets `PRELAUNCH_GATE=off`**: Turnstile checked on both forms and the shared limits in place. SYC-114 is the later clean-up that deletes the pass's code and is not the gate itself.
 
 ### 8.3 What is accepted
 
-A determined vandal with many addresses can still hide photos once each (rule (ii) stops repeats) and the team restores them one tap at a time. That is the residual risk Samuel accepted on 28 September; the rules above narrow it from "unlimited" to "bounded by the number of different photos and addresses".
+A determined vandal with many addresses can hide up to the brake's threshold of photos once each in a day (rule (ii) stops repeats, rule (iv) stops the flood), and the team restores them one tap at a time. That is the residual risk Samuel accepted on 28 September, now bounded by a fixed daily number rather than by "the number of different photos and addresses".
 
 ---
 
@@ -297,23 +302,27 @@ A determined vandal with many addresses can still hide photos once each (rule (i
 
 - A widget runs a challenge in a visitor's **browser** and returns a **token**. The server then sends the token and its **secret key** to Cloudflare's *siteverify* endpoint, which says whether it is valid. Server-side validation is mandatory.
 - A token is **single-use and expires after 300 seconds.** An expired or already-used token must be replaced with a fresh challenge.
-- siteverify returns, on success, the `hostname` the widget ran on and the `action` label the page set. **We check both**, so a token earned on one form cannot be spent on another.
+- siteverify returns, on success, the `hostname` the widget ran on, the `action` label the page set and the `cdata` the page attached. **We check all three**, so a token earned on one form, or for one report, cannot be spent on another.
+- **A listed hostname authorises all of its subdomains.** This matters for §9.4.
 - Three widget modes: **managed** (Cloudflare decides whether a tap is needed; recommended), **non-interactive** (a visible spinner, no tap) and **invisible** (nothing shown).
 - **Turnstile does not run natively.** For a mobile app, Cloudflare's guidance is to load the widget in a **WebView** with JavaScript and DOM storage enabled, network access to `challenges.cloudflare.com`, `about:blank` and `about:srcdoc` allowed, and a user agent that stays the same through the session.
 
-### 9.2 What is built to carry it
+### 9.2 The shared server code
 
-Both forms share one small piece of server code, built once:
+Both forms share one small piece of server code:
 
-- `lib/turnstile.ts`: `verifyTurnstile(token, expectedAction, remoteIp)`. Calls siteverify with `TURNSTILE_SECRET_KEY`, a short timeout and one retry using an idempotency key. Returns `ok`, `failed` or `unavailable`, and checks `success`, `action` and `hostname`.
+- `lib/turnstile.ts`: `verifyTurnstile(token, expectedAction, expectedCdata, remoteIp?)`. Calls siteverify with `TURNSTILE_SECRET_KEY`, a short timeout and one retry using an idempotency key. It returns one of **three** answers, and the difference between the last two is the heart of this section:
+  - `ok`: success, and `action`, `cdata` and `hostname` all match.
+  - `rejected`: Cloudflare answered, and the token is not good. Missing, wrong, expired, reused, wrong action, wrong `cdata`, **a hostname not on our exact list (§9.6)**, or longer than 2,048 characters (rejected before it is ever sent to Cloudflare). The *sender* controls all of these.
+  - `unreachable`: our server could not get an answer: siteverify timed out or answered with a 5xx. Only *our server* can see this, so a sender cannot fake it.
 - A request field `turnstileToken` in the JSON body, never a query string and never logged (the request log records only method and path).
-- Actions: `welfare_report` and `report_issue`.
-- `TURNSTILE_SECRET_KEY` in the Replit deployment secrets, like the mail keys (spec §2.11). The sitekey is public and goes into the app and the website build. The widget is created through the Cloudflare API (the wrangler token exists; the `turnstile-spin` skill covers it), with its hostnames in §9.4.
-- Behaviour when there is no valid token differs by form (§9.5).
+- Actions: `welfare_report`, `welfare_draft` and `report_issue`. The `cdata` is the report's `clientRef`, so a token cannot be moved to a different report.
+- `TURNSTILE_SECRET_KEY` in the Replit deployment secrets, like the mail keys (spec §2.11). The sitekey is public and goes into the app and the website build. The widget is created through the Cloudflare API (the wrangler token exists; the `turnstile-spin` skill covers it), with its hostnames in §9.6.
+- **The visitor's address is not sent to Cloudflare** (`remoteip` is optional). Our own limits use it on our server; Cloudflare's check works without it. Recorded for the privacy policy under SYC-248 (§10).
 
 ### 9.3 The website
 
-The Expo web build loads Cloudflare's script and renders the widget in **managed** mode as soon as the report sheet opens, so a token is ready when the person taps send, and it fetches a new one if the first has expired. `serve-web.js` sets only `frame-ancestors 'none'` as a content-security policy today, so nothing blocks the script. The pre-launch password page (SYC-113) is unaffected: the widget runs inside the already-unlocked app.
+The Expo web build loads Cloudflare's script and renders the widget in **managed** mode as soon as the report sheet opens, so a token is ready when the person taps send. Because a token is single-use, the page runs a fresh challenge for each send, including each resend from the saved list. `serve-web.js` sets only `frame-ancestors 'none'` as a content-security policy today, so nothing blocks the script. The pre-launch password page (SYC-113) is unaffected: the widget runs inside the already-unlocked app.
 
 ### 9.4 The Expo phone apps (the question in SYC-170)
 
@@ -321,58 +330,65 @@ Turnstile is web-first and the phone apps have no browser page to run it in, so 
 
 | Option | What it is | Benefits | Risks | For the person |
 |---|---|---|---|---|
-| **A. A hidden WebView that loads a challenge page on our own domain (recommended)** | Add `react-native-webview`. The app opens a hidden WebView on `https://catspotters.com/_challenge?action=…`, a one-screen page we serve that renders the widget and hands the token back to the app. | Follows Cloudflare's own guidance. The widget sees a real hostname we control, so the widget can be locked to our hostnames and §9.2's hostname check can be strict. Same protection on web and native, for both forms. | A new native dependency, so it needs a new store build, not just a web publish. A WebView adds load time on a weak signal. Cloudflare warns that a changing user agent or blocked storage breaks it. While the pre-launch gate is on, the challenge page must be let through. | Invisible nearly always. When Cloudflare wants a tap, a small sheet appears. |
+| **A. A WebView that loads a challenge page on our own app host (recommended)** | Add `react-native-webview`. The app opens a WebView on `https://apptest.catspotters.com/_challenge?action=…` (the launch hostname once it is chosen), a one-screen page that `serve-web.js` serves, that renders the widget and hands the token back to the app. | Follows Cloudflare's own guidance. The widget sees a real hostname we control, so the server can check the hostname exactly (§9.6). Same protection on web and native, for both forms. | A new native dependency, so it needs a new store build, not just a web publish. A WebView adds load time on a weak signal. Cloudflare warns that a changing user agent or blocked storage breaks it. While the pre-launch gate is on, the challenge page must be let through. **In managed mode Turnstile sometimes needs a tap, so the WebView is not always hidden:** it is shown as a small sheet when Cloudflare asks for a tap, and a timeout (about 20 seconds) ends the wait. | Invisible nearly always. When Cloudflare wants a tap, a small sheet appears. If the check cannot finish in time the person sees *"We couldn't run the safety check. Your report is still saved and we'll try again."* and the report stays in the saved list (§9.5). |
 | B. Inline HTML inside a WebView | The same, but the HTML is bundled in the app. | No page to host. | Cloudflare's documentation does not say what hostname an inline page shows, so the strict hostname check may be impossible. That is a guess to test, not a fact. | Same as A. |
 | C. Open the phone's browser for the challenge and return by link | A challenge page opens in Safari or Chrome and returns the token by deep link. | No WebView. Uses a real browser. | Breaks the flow: the person leaves the app mid-report. Fragile on Android. Poor at the moment someone is upset about a photo. | Noticeably worse. |
 | D. App attestation instead (Apple App Attest and Google Play Integrity) | The phone proves the request comes from the genuine app on a real device. | Stronger against scripts that pretend to be the app. Invisible. | Two vendor integrations, Google Cloud setup and server checks against Apple and Google. The web would still need Turnstile. Large for a charity app. | Invisible. |
 | E. No challenge on native; Turnstile on web only | The app sends no token. | Nothing to build. | **Nothing stops a script from simply not sending a token and claiming to be the app, so the web protection is bypassed.** The API would accept tokenless requests forever. | None. |
 
-**Recommendation: A.** It is the approach Cloudflare documents, it keeps one rule for web and native, and it is the only option of the five that lets the hostname check be strict. Adopt D later if scripted abuse of the native path ever appears. Reject E, because it quietly makes the whole feature optional.
+**Recommendation: A.** It is the approach Cloudflare documents, it keeps one rule for web and native, and it is the only option of the five that lets the hostname check be exact. Adopt D later if scripted abuse of the native path ever appears. Reject E, because it quietly makes the whole feature optional.
 
-**Hostnames to allow on the production widget:** `catspotters.com` (the website and the challenge page). Replit preview domains and `localhost` get a separate **test** widget with Cloudflare's published test keys, so the production widget never lists a development host.
+### 9.5 When the token is not good, and when Cloudflare cannot be reached (decision D11)
 
-### 9.5 When there is no valid token (decision D11)
+Whether a token is present, correct or fresh is the **sender's** choice, so a missing token can never be treated as an excuse to accept. The earlier draft got this wrong: it would have accepted a tokenless welfare report as "unchecked", which means a script that never sends a token gets exactly what a real person gets, a place near the top of the welfare queue. The queue is the scarcest resource in the system. The rule is now the same for both forms and has two cases:
 
-A token can be missing for good reasons: the phone was offline and the report was sent hours later, Cloudflare was unreachable, a weak signal stopped the WebView loading. The two forms must treat that differently.
+| What happened | Who can cause it | What the server does | What the app does |
+|---|---|---|---|
+| **The token is missing, wrong, expired, reused, for the wrong report, from the wrong hostname, or too long** (`rejected`) | The sender | Answers **`428 challenge_required`** and **creates nothing**: no row, no hide, no email | **Keeps the report**, runs a fresh challenge and sends again. This answer does **not** count toward the "refused three times, so give up" rule in `reportQueue.ts`, which would otherwise mark the report `failed` and stop retrying. If the challenge never works on a phone, the existing 24-hour reminder still tells the person it has not been sent. |
+| **Our server could not reach Cloudflare** (`unreachable`: timeout or a 5xx) | Only our side | **Accepts the report** and marks it unchecked (`token_checked = false`). An issue report in this state is queued but **never hides**. A cat-in-trouble report in this state is queued and emailed, within the limits below. | Treats it as sent. |
 
-**Report an issue** is not an emergency. With no valid token: **the queue row is written and the team sees it, but nothing is hidden and no individual alert email is sent for that row.** Such rows appear under a counted "unchecked" line on the dashboard and in at most one daily digest. The reporter is told, truthfully, *"Thank you. Syros Cats will take a look"*, with no claim that anything is hidden. The price is some hours' delay for a privacy reporter on the worst path (offline, then no fresh token), in exchange for making a hide something an attacker cannot do tokenless.
+Why this is safe for real people: the person has already seen the vet-first advice before sending (§2), a refused send loses nothing because the app still holds the report, and a Cloudflare outage never costs a hurt-cat report.
 
-**The cat-in-trouble report** is the one place where a lost report could mean a hurt cat unseen. Options:
+**Unchecked rows are fenced in, because they are rare.**
+- They sit in **their own list below the checked ones** (§5.3), never in the urgent-first ordering of the welfare queue.
+- They have their **own, much lower per-address limit** (3 an hour, both forms together, §8.1).
+- Cat-in-trouble rows in this state still send their individual alert email, because a hurt cat must not wait, but with a safety net of 10 an hour in total, the rest rolled into one "N unchecked reports waiting" line.
+- Because the outage case is the only way to get here, and the sender cannot cause it, the unchecked list should be empty almost all the time. The dashboard shows its count, which is a handy early sign that the Cloudflare check is broken.
 
-| Option | Benefits | Risks | For the reporter | For the team |
-|---|---|---|---|---|
-| A. Refuse it (`403`) | Matches SYC-170's wording exactly: the form is protected before a report is accepted. | **A real report can be lost.** A tourist with one bar of signal and a failed WebView gets an error at the worst moment. | A sad failure. | Cleanest. |
-| **B. Accept it, mark it "unchecked", and cap the alert emails for unchecked rows (recommended)** | No real report is lost, ever (the promise the whole welfare design is built on). A flood is contained: unchecked rows send alert emails only up to a cap (say 10 an hour in total), the rest roll into a single "N unchecked reports waiting" line. The queue still shows every one. | It relaxes the ticket's wording ("checked before a report is accepted"): this checks, then accepts anyway. A scripted flood still fills the queue table, though not the inbox. | Nothing visible. | A small "unchecked" tag on the row. |
-| C. Accept it with no Turnstile on this form | Simplest. | Turns the check into decoration. The welfare spec's own §4.4 says Turnstile is there for exactly this. | Nothing. | A flood hits the inbox directly. |
+**The draft route is protected too.** `POST /api/reports/draft` writes the "Started but not sent" rows, and the first draft of this spec did not mention it. It needs a token like the final send (action `welfare_draft`; the widget re-runs silently, so the draft and the submit each get their own). The same two cases apply: a bad token is a `428` that creates nothing, and during a Cloudflare outage the draft is accepted, marked unchecked and shown collapsed. The photo upload (`PUT /reports/:publicId/photo`) needs no token of its own: it is tied to the device and to a report that has already passed the check.
 
-**Recommendation: B.** Samuel should know it relaxes SYC-170's wording; §12 asks him.
+**Sending from the saved list (a resend).** The duplicate check comes **before** the token check, because the resend key `(reporter_device, kind, client_ref)` would otherwise swallow a good resend:
+1. If no report with that reference exists, the token is checked as above.
+2. If one exists and is not an upgrade case, the reply repeats the first answer (including `hidden`).
+3. **The upgrade case.** If an existing issue report is *unchecked*, not yet decided by the team, and its photo has never been restored, a resend of the same reference **with a valid token upgrades it**: it is re-marked checked and, if rules (ii) to (iv) and the hide limits allow, it hides then. Without this, a Cloudflare blip on the first send would leave a real privacy report permanently unable to hide, with no way for the app to fix it.
 
-### 9.6 Order of work, and the precondition on the pre-launch pass
+### 9.6 The hostname check
 
-1. Spike A on a real iPhone and Android phone: the WebView loads the challenge page, a token arrives, siteverify returns the expected `action` and `hostname`.
-2. `lib/turnstile.ts` and the secret.
-3. The welfare form, then Report an issue.
-4. Shared rate limits (SYC-105), including the hide limit.
-5. Only then does SYC-114 remove the pre-launch pass.
+- The app is served from **`apptest.catspotters.com`** and the API is on the same deployment. `catspotters.com` is the separate public website. So the challenge page is `https://apptest.catspotters.com/_challenge`, not a page on `catspotters.com`.
+- Cloudflare authorises **all subdomains** of any hostname listed on the widget. Listing `catspotters.com` would also authorise `team.`, `admin.`, `api.` and any subdomain added later. So the **production widget lists only the exact app host** (`apptest.catspotters.com` now, plus the launch hostname once Samuel picks it; no document yet records what the web app's launch address will be, so it is recorded as a dependency).
+- **The server keeps its own exact list of accepted hostnames** and compares the `hostname` that siteverify returns against it. A strict check for `catspotters.com` would have refused every real token, because all of them come from `apptest.`. A token whose hostname is `team.catspotters.com` is refused.
+- Replit preview domains and `localhost` get a separate **test** widget with Cloudflare's published test keys, so the production widget never lists a development host.
+- The spike (§13) must check the exact hostname string that a token from the phone WebView reports.
 
 ---
 
 ## 10. Privacy of the reporter
 
 - **No account, no sign-in, no name.** A report carries the device identifier every report carries (trust-on-first-use, a courtesy check; welfare spec §4.4). It is stored on the row so the app's own resend is recognised, and is cleared by SYC-63's "delete my data" like the welfare reports' device ids. It is never shown on the queue or in the email.
-- **The IP address is not stored on the report.** It is used for limits and for Cloudflare's check and not kept. (The in-memory limit counters hold it for their window; SYC-105's shared store should hold a hashed or truncated key, not the address.)
-- **The note is team-only.** It never appears publicly, never reaches the cat's owner or other spotters, and is escaped everywhere it is shown.
+- **The IP address is not stored on the report, and is not sent to Cloudflare.** It is used on our own server for limits and not kept. (The limit counters hold it, hashed or truncated, for their window.) The privacy policy must say this precisely under SYC-248; Turnstile still sees what the visitor's own browser tells it.
+- **The note is team-only.** It never appears publicly, never reaches the cat's owner, a cat guardian or other spotters, and is escaped everywhere it is shown. This is enforced by the capability rules in §5.3, not by hoping nobody opens the page.
 - **The reporter's email, if any,** follows `email-capture.md`: held in the verified-contact model, not on the report row, deleted 90 days after the report reaches a final state, and an unverified address after 7 days.
-- **The team sees "reported by a spotter" and whether contact details were left, and nothing else.** A cat's owner, a guardian, or the person who took a hidden photo is never told who reported it. The person who took the photo sees only the neutral tile (D4).
-- **Retention of issue reports (proposed, D12):** the row and its note are kept **one year after the report is closed**, then the note is deleted and the bare record (reason, target, decision, dates) stays, so "have we been asked about this photo before?" still has an answer. This is shorter than the three years for welfare reports because an issue report is not part of a cat's welfare history. `privacy-policy.md` must carry it.
+- **The team sees "reported by a member of the public" and whether contact details were left, and nothing else.** A cat's owner, a guardian, or the person who took a hidden photo is never told who reported it. The person who took the photo sees only the neutral tile (D4).
+- **Retention of issue reports (proposed, D12):** the row and its note are kept **one year after the report is closed**, then the note is deleted and the bare record (reason, target, decision, dates) stays, so "have we been asked about this photo before?" still has an answer. This is shorter than the three years for welfare reports because an issue report is not part of a cat's welfare history. `privacy-policy.md` must carry it, **and** its present line that "the report and what you wrote in it stay with the cat's record" must change, because the note is deleted after a year (SYC-248).
 - **Cloudflare becomes a processor for this feature.** Turnstile sends a visitor's browser signals to Cloudflare. The privacy policy and the data agreement must name it (as SYC-124 does for Neon). `privacy-policy.md` owns the wording.
+- **Hidden photos and caches.** The policy must not imply that hiding recalls a copy already in someone's hands (§6), and must say what is done about addresses (D14).
 - **A report that says a photo shows a person describes an identifiable image,** which is one more reason the note is team-only and its retention is stated.
 
 ---
 
 ## 11. English, Greek and French
 
-- **Everything the reporter reads is a language string,** in the three dictionaries `lib/i18n.ts` already holds: the reasons, the first line about hurt cats, the confirm step, the confirmations (online, offline, hide, no hide), the tile that replaces a hidden photo, the closing email and the offline reminder.
+- **Everything the reporter reads is a language string,** in the three dictionaries `lib/i18n.ts` already holds: the reasons, the first line about hurt cats, the confirm step, the confirmations (online, offline, hidden, not hidden), the "safety check could not finish" message, the tile that replaces a hidden photo, the closing email and the offline reminder. On the web, strings that say "saved on your phone" say "saved in this browser" instead.
 - **The reporter's language is stored with the report** (`reporter_language`, already on the table), so the closing email goes out in it.
 - **The team side is English only** (the dashboard is English today). The reason shown to the team is the **key's English label**, never free text from the app, so a Greek speaker's `photo_private` reads the same as an English one's.
 - **The confirm step is the high-risk string.** The approved English wording is exact ("hide it from everyone until Syros Cats have reviewed it"). Its Greek and French must keep both halves (everyone, and until reviewed). **Native-speaker review is a launch blocker for this feature's three languages** and joins SYC-4, SYC-154 and SYC-172. Greek capitals drop accents (SYC-159); use `displayUpperCase`.
