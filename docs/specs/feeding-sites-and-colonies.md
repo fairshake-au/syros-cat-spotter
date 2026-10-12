@@ -64,7 +64,7 @@ A site's page shows, in this order:
 1. **Its name**, and a small map centred on it.
 2. **Visibility**: a plain sentence ("Private. Only Syros Cats people signed in here can see this place.") and the button to change it (§4.3).
 3. **Its colony**, with a link, or a button to pick one.
-4. **Its notes**, which are for the team only ("the gate is round the back"). Under the box: "Don't write when people come and go." And **"How to find it"**, a short line of directions in words, with no coordinates ("down the steps by the blue gate, behind the bakery wall"). It is for the team and the colony's guardian only; a guardian's saved phone list shows it in place of coordinates (§9).
+4. **Its notes**, which are for the team only ("the gate is round the back"). Under the box: "Don't write when people come and go." And **"How to find it"**, an **optional** short line of directions in words ("down the steps by the blue gate, behind the bakery wall"), useful as a human hint beside the exact position. It is for the team and the colony's guardian only (§9). *Updated after Samuel's roles decisions (12 Oct 2026): it is no longer required for offline use, because a guardian's phone may now hold the exact position (§9).*
 5. **History**: everything that has been done to this site, newest first, each line with the person and the date (§8).
 6. **Actions**: *Edit details*, *Move on the map*, *Retire this site*. A team member also gets *Change colony* (island-wide power); a guardian instead gets *Ask the team to make this public* (§7.3).
 
@@ -387,7 +387,16 @@ Stated precisely, as the other specs do.
 
 **The dashboard.** Nothing on it works offline. Every page, including the map, is drawn by the server when opened, and every button sends a form. With no signal the page does not load, or a tap on *Save* fails with the browser's own "no connection" page, and nothing is recorded. There is no queue for team changes. In particular the map's tiles are fetched live. A person on a hillside with no data cannot place a pin; they write it down and place it later.
 
-**What a guardian's or volunteer's phone may hold (the roles spec, `roles-and-invites.md` §12, Decision 12, which settles SYC-257).** Exact positions of private feeding sites appear only on the dashboard map, which has no offline copy. The one saved list a phone may hold (guardians', that spec's §12) contains each site's name and a line of directions, never its coordinates, for 72 hours. The app's own offline list of public sites (this spec's Decision 8) is unaffected and holds only public sites. The "how to find it" line (§2.2) is what makes the first possible: it is a small text field on the site, written by the team or the guardian of that colony, and public to no one.
+**What a cat guardian's phone may hold (the roles spec, `roles-and-invites.md` §12, Decision 12, which settles SYC-257). *Updated after Samuel's roles decisions (12 Oct 2026): this replaces the earlier "directions in words, no coordinates" rule.*** A guardian's phone may hold everything for her own colonies, **including the exact positions of her feeding sites**, and only for her colonies. The rules, which are the roles spec's:
+
+- **72 hours from her last online load, counted by the server's clock**, not the phone's. A phone whose clock is wound back counts as expired.
+- **Deleted, not hidden, the next time the page opens** after the 72 hours, or when the server says she is no longer a guardian of that colony.
+- **Cleared on sign-out and on removal:** the sign-out response, and the response to a removed person's next request, carry `Clear-Site-Data`, which makes the browser throw the saved copy away.
+- The saved copy lives on the dashboard's own web address (a saved page with its own storage), never in the public app. The app stays a public reader and never holds a private site.
+- **A phone that is never opened again keeps its copy until the browser clears it.** The 72 hours stops the copy being *used* after it is next opened; it cannot reach into a lost phone. This is the residual risk the roles spec states, and it is stated here too.
+- The team's own pages have no offline copy at all.
+
+The live map still does not work offline: the saved copy lists each site with its position as text (and the optional "how to find it" line), not as map tiles. The app's own offline list of public sites (this spec's Decision 8) is unaffected and holds only public sites. The "how to find it" line (§2.2) is optional: a small text field on the site, written by the team or the guardian of that colony, and public to no one.
 
 **The app's feeding-spots layer.** The phone keeps the last list of public sites it fetched, so the layer and its cards still work on a hillside with no signal, **for a limited time**:
 
@@ -421,7 +430,7 @@ The spine owns `feeding_sites` and `colonies`; the following are what this featu
 
 **`feeding_sites`** (beyond the spine's §10.5 columns):
 - `public_label` text, null until set; required before `is_public` can be true (check constraint).
-- `directions` text, null: the "how to find it" line (§2.2). Words only, never coordinates.
+- `directions` text, null: the optional "how to find it" line (§2.2). Words only; it is a hint, not a position, and nothing requires it (SYC-263).
 - `public_id` text, unique, null until the site is first made public: a random 128-bit value. A site that has never been public has no public identifier at all, and the identifier is never derived from the internal number, so the public list and any QR code cannot be used to count or probe private sites. **A new `public_id` is issued whenever the site is made public at a position more than 10 metres from where it last stood in public, and always when it is made public again after being retired** (§4.5). A plain private-then-public cycle with no move keeps its code (Decision 6). Superseded codes go to `feeding_site_old_codes` (`site_id`, `public_id`, `retired_at`, `reason`), team-only, kept so the history can show them and so the public lookup can refuse them.
 - `last_public_position` (lat, lng), team-only: where the site last stood in public, used to decide whether a re-publish needs a new code.
 - `guardian_aware` boolean null: the last value of the §4.3 tick box.
@@ -537,7 +546,7 @@ Nobody edits `DECISIONS.md` from this branch. For Samuel to carry across on appr
 2. §3.2: "one switch per site" gains the confirmation page of §4.3 here. Its "there is no bulk action" stands.
 3. §2 and §8: a signed-in person lacking a capability gets a 403 page (that spec's §17.2 point 4).
 
-**Asks of `roles-and-invites.md`:** none beyond what its §17.4 point 1 already lists. It must also keep the "how to find it" field (`directions`) and the `site-public request` queue item it already describes.
+**Asks of `roles-and-invites.md`:** none beyond what its §17.4 point 1 already lists. It must also keep the optional "how to find it" field (`directions`) and the `site-public request` queue item it already describes, and its Decision 12 text must say the saved list includes exact feeding-site positions for the guardian's own colonies (this spec now assumes that).
 
 **Asks of Syros Cats (SYC-67):** a paragraph on public sites and the matching channel (§4.6, §11.6).
 
@@ -724,6 +733,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | 3 | **Private sites are counted or probed through the public interface.** | Site numbers and ids leak how many private sites exist. | Random public code assigned only at first publish; no internal number in any public response; unknown, private, retired and superseded codes are indistinguishable; public list ordered by code. |
 | 4 | **The map tile provider learns which streets the team study.** | A faint pattern of "somebody is looking here". | Tiles come through our server and are cached; the provider sees only the server; Decision 1 option C removes it. |
 | 5 | **The team's exact positions leak through the history, logs or an email.** | The history holds every old position; a tile address is a position to about 75 m. | Same capability as the sites; tile addresses logged without their position (SYC-255); not in mail; tests assert it. |
+| 14 | **A guardian's phone holds the exact position of her feeding sites for 72 hours.** | A lost or shared phone could show where her sites are. *Accepted by Samuel, 12 Oct 2026 (roles Decision 12).* | Only her own colonies; 72 hours by server time; deleted on next open; `Clear-Site-Data` on sign-out and removal; honest statement that a phone never reopened keeps its copy until the browser clears it. |
 | 6 | **A phone keeps showing a site long after it went private.** | Perceived as the charity "still advertising" it. | Server cache five minutes; the app refreshes when the map is opened online; the phone's copy expires (Decision 8); honest statement that sight cannot be taken back. |
 | 7 | **Colony averaging, the matching service and photos still tie cats to a public bowl.** | The spine's accepted limit gets sharper once the bowl is exact. | Not oversold: the confirmation page and every description say a public spot tells people cats live here (§4.6). The public half waits for SYC-67's recorded acceptance (§11.6). |
 | 8 | **A guardian is named on a public screen.** | They never agreed. | Nothing from colonies is public; the label check; the guardian tick, asked again when the guardian changes (§4.7). |
@@ -764,6 +774,8 @@ Named here so they appear in the plan. API tests use supertest against the real 
 23. **Forgetting a guardian.** The "forget this guardian" action blanks her name in the colony, name history, site names, events and notes, writes its own event, and leaves every other field intact.
 24. **Migration.** On a copy of production data: a public row, a non-uuid `made_public_by` and a retired-and-public row each stop the migration with a clear message; existing sites each get one `system:migration` event; exactly one of `person_id` and `actor_system` is set on every event.
 25. **Public copy.** No public string (including the Help tab's campaign text) contains any colony's internal name or guardian name.
+
+26. **A guardian's saved copy.** It contains only her own colonies' sites, with their exact positions; a list older than 72 hours by the server's stamp is deleted (not hidden) when the page opens; a phone clock set backwards counts as expired; sign-out and removal both send `Clear-Site-Data`; no team page, and no response of the public app, ever carries a private site for offline use; the public app's cache holds only public sites. (Shares code with the roles spec's test 26.)
 
 ---
 
