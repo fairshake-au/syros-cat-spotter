@@ -1,5 +1,5 @@
 import { db, catsTable, foldName, foldedNameEquals } from "@workspace/db";
-import { catDisplayPhoto } from "./photoVisibility";
+import { catDisplayPhoto, type PublicPhotoUrl } from "./photoVisibility";
 
 /**
  * The cat that already holds `name`, if any: the same once folded (SYC-101,
@@ -29,7 +29,7 @@ export async function nameTakenBody(
 ): Promise<{
   error: string;
   code: "NAME_TAKEN";
-  cat?: { id: number; name: string; photoUrl: string | null };
+  cat?: { id: number; name: string; photoUrl: PublicPhotoUrl | null };
 }> {
   const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
   if (!cat) return body;

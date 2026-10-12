@@ -49,7 +49,13 @@ import {
   nameTakenBody,
 } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
-import { catDisplayPhoto, catDisplayPhotos, hiddenPhotoIds, publicPhotoUrl } from "../lib/photoVisibility";
+import {
+  catDisplayPhoto,
+  catDisplayPhotos,
+  hiddenPhotoIds,
+  publicPhotoUrl,
+  type PublicPhotoUrl,
+} from "../lib/photoVisibility";
 
 export const POINTS_CONFIRM = 15;
 export const POINTS_NEW_CAT = 25;
@@ -71,7 +77,7 @@ const NOT_NEARBY = {
 type Candidate = {
   catId: number;
   name: string;
-  photoUrl: string | null;
+  photoUrl: PublicPhotoUrl | null;
   confidence: number;
   reasoning: string;
 };

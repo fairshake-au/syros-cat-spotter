@@ -318,6 +318,26 @@ describe("P6-7b: what stands in for a hidden main photo (Decision 4)", () => {
     expect((await listed(cat.id)).photoUrl).toBe(url(cat.main));
   });
 
+  it("only a confirmed sighting's photo can stand in: never a pending or awaiting-team one (review, finding 1)", async () => {
+    const cat = await seedCat(1);
+    // Newer than the confirmed sighting, but not on the cat's public page.
+    for (const status of ["pending", "awaiting_team"] as const) {
+      const p = await photo();
+      await db.insert(sightingsTable).values({
+        catId: cat.id,
+        deviceId: `${PREFIX}spotter`,
+        photoId: p.id,
+        lat: ORIGIN.lat,
+        lng: ORIGIN.lng,
+        status,
+        createdAt: new Date(),
+      });
+    }
+    await hide(cat.main, cat.id);
+    expect((await detail(cat.id)).cat.photoUrl).toBe(url(cat.sightings[0]!));
+    expect((await listed(cat.id)).photoUrl).toBe(url(cat.sightings[0]!));
+  });
+
   it("a hidden sighting photo that isn't the main one never changes the cat's photo", async () => {
     const cat = await seedCat(2);
     await hide(cat.sightings[1]!, cat.id);

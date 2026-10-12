@@ -12,7 +12,9 @@ import { describe, expect, it } from "vitest";
 // a new reader can't build an address by hand and skip the check.
 
 const SRC = join(__dirname, "..");
-const PUBLIC_PATH = "/api/photos/";
+// Without the trailing slash, so "/api/photos" + "/" + id is caught too
+// (adversarial review, finding 3).
+const PUBLIC_PATH = "/api/photos";
 const ALLOWED = new Set(["lib/photoVisibility.ts", "routes/photos.ts"]);
 
 /** Test files and test support: they talk about the path, they don't serve it. */
