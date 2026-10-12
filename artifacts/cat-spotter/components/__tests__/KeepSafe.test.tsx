@@ -20,6 +20,8 @@ const h = vi.hoisted(() => ({
   buttons: [] as { label: string; size?: string; variant?: string }[],
   params: {} as { t?: string },
   calls: [] as string[],
+  holds: 0,
+  sync: [] as string[],
 }));
 
 vi.mock('@/context/LanguageContext', async () => {
@@ -49,7 +51,30 @@ vi.mock('@/components/purropolis', async () => {
   };
 });
 vi.mock('@/context/DeviceContext', () => ({ useDevice: () => h.device }));
-vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: h.online, pending: h.pending }) }));
+vi.mock('@/context/DeleteMyDataContext', () => ({
+  useDeleteMyData: () => ({
+    holdIdentityDeleted: async <T,>(work: () => Promise<T>) => {
+      h.holds += 1;
+      try {
+        return await work();
+      } finally {
+        h.holds -= 1;
+      }
+    },
+  }),
+}));
+vi.mock('@/context/OfflineContext', () => ({
+  useOffline: () => ({
+    isOnline: h.online,
+    pending: h.pending,
+    pauseSync: async () => {
+      h.sync.push('paused');
+    },
+    resumeSync: () => {
+      h.sync.push('resumed');
+    },
+  }),
+}));
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => h.params,
   router: { replace: vi.fn(), back: vi.fn(), canGoBack: () => false, push: vi.fn(), setParams: vi.fn() },
@@ -212,17 +237,128 @@ describe('the /restore page', () => {
     expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili');
   });
 
-  it('on a phone with a spotter, warns first (Decision 7) and sends abandonCurrent', async () => {
+  it('on a phone with a spotter, warns first (Decision 7) and asks what happens to it, neither chosen (SYC-266)', async () => {
     h.device = { deviceId: 'dev-new', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
     const { findByText, getByTestId } = render(<RestorePage />);
     const button = await findByText('Move Lili’s spots to this phone');
-    await waitFor(() => expect(getByTestId('restore-warning').textContent).toContain('Nikos’s 2 spots stay on the map'));
+    expect(getByTestId('restore-warning').textContent).toBe(
+      'This phone is spotting as Nikos. If you get your old spots back, this phone stops being Nikos.',
+    );
+    await waitFor(() =>
+      expect(getByTestId('restore-choice-delete').textContent).toContain(
+        'Nikos’s 2 spots stay on the map, without a name. This can’t be undone.',
+      ),
+    );
+    expect(getByTestId('restore-choice-keep').textContent).toContain(
+      'Nikos’s 2 spots stay on the map as “Discovered by Nikos”, but they won’t count towards your points. Nobody can use Nikos again, not even you, and you won’t be able to delete Nikos from the app later.',
+    );
+    expect(getByTestId('restore-choice-delete').getAttribute('aria-checked')).toBe('false');
+    expect(getByTestId('restore-choice-keep').getAttribute('aria-checked')).toBe('false');
+    // Nothing moves until the person has chosen.
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    expect(keepSafe.redeemRestore).not.toHaveBeenCalled();
+  });
+
+  it('"Keep Nikos" sends abandonCurrent only, as before', async () => {
+    h.device = { deviceId: 'dev-new', username: 'Nikos', isReady: true, adoptRestoredIdentity: vi.fn(async () => {}) };
+    const { findByText, getByTestId } = render(<RestorePage />);
+    const button = await findByText('Move Lili’s spots to this phone');
+    await act(async () => {
+      fireEvent.click(getByTestId('restore-choice-keep'));
+    });
+    expect(getByTestId('restore-choice-keep').getAttribute('aria-checked')).toBe('true');
     await act(async () => {
       fireEvent.click(button);
     });
     await waitFor(() =>
-      expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', expect.objectContaining({ abandonCurrent: true })),
+      expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', {
+        token: TOKEN,
+        spotterDeviceId: 'dev-lili',
+        abandonCurrent: true,
+      }),
     );
+  });
+
+  it('"Delete Nikos" sends deleteCurrent, with 410 handling held until the phone is the restored spotter', async () => {
+    let heldDuringAdopt = -1;
+    const adopt = vi.fn(async () => {
+      heldDuringAdopt = h.holds;
+    });
+    vi.mocked(keepSafe.redeemRestore).mockImplementationOnce(async () => {
+      expect(h.holds).toBe(1);
+      return { deviceId: 'dev-lili', username: 'Lili' };
+    });
+    h.device = { deviceId: 'dev-new', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt };
+    const { findByText, getByTestId } = render(<RestorePage />);
+    const button = await findByText('Move Lili’s spots to this phone');
+    await act(async () => {
+      fireEvent.click(getByTestId('restore-choice-delete'));
+    });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
+    expect(keepSafe.redeemRestore).toHaveBeenCalledWith('dev-new', {
+      token: TOKEN,
+      spotterDeviceId: 'dev-lili',
+      abandonCurrent: true,
+      deleteCurrent: true,
+    });
+    expect(heldDuringAdopt).toBe(1);
+    expect(h.holds).toBe(0);
+  });
+
+  // #110 review, F1: no upload as Nikos may land after the deletion.
+  it('"Delete Nikos" pauses the spot queue for the move and resumes it after', async () => {
+    h.sync = [];
+    vi.mocked(keepSafe.redeemRestore).mockImplementationOnce(async () => {
+      h.sync.push('redeemed');
+      return { deviceId: 'dev-lili', username: 'Lili' };
+    });
+    const adopt = vi.fn(async () => {
+      h.sync.push('adopted');
+    });
+    h.device = { deviceId: 'dev-new', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt };
+    const { findByText, getByTestId } = render(<RestorePage />);
+    const button = await findByText('Move Lili’s spots to this phone');
+    await act(async () => {
+      fireEvent.click(getByTestId('restore-choice-delete'));
+    });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await waitFor(() => expect(h.sync).toEqual(['paused', 'redeemed', 'adopted', 'resumed']));
+  });
+
+  // F2: a lost answer after the Delete committed is asked for again (the
+  // server's 60-second replay answers it), not left to the 410 wipe.
+  it('"Delete Nikos" asks again once when the answer is lost, then becomes the spotter', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(keepSafe.redeemRestore)
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce({ deviceId: 'dev-lili', username: 'Lili' });
+      const adopt = vi.fn(async () => {});
+      h.device = { deviceId: 'dev-new', username: 'Nikos', isReady: true, adoptRestoredIdentity: adopt };
+      const { findByText, getByTestId } = render(<RestorePage />);
+      const button = await findByText('Move Lili’s spots to this phone');
+      await act(async () => {
+        fireEvent.click(getByTestId('restore-choice-delete'));
+      });
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      await waitFor(() => expect(adopt).toHaveBeenCalledWith('dev-lili', 'Lili'));
+      expect(keepSafe.redeemRestore).toHaveBeenCalledTimes(2);
+      expect(h.holds).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opened in a browser that never asked: says so, with Copy link, and moves nothing', async () => {

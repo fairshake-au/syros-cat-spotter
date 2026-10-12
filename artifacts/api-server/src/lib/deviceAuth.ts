@@ -14,8 +14,11 @@ export function hashSecret(secret: string): string {
 /**
  * The key of the one-way "deleted device" marker (SYC-63 plan §4.3, decision
  * D). After deletion, `device_credentials` holds this instead of the device
- * id: a sha256 that can't be turned back into the id and that nothing else
- * links to. Real ids start `dev-`, so a real id never collides with it.
+ * id: a sha256 that can't be turned back into the id. Real ids start `dev-`,
+ * so a real id never collides with it. One thing else can name it: a spent
+ * restore link that deleted the spotter left behind (SYC-266) keeps it as
+ * "the phone that asked", next to the link's address and IP fingerprints and
+ * the spotter it moved to, until the link is swept (#110 review, F3).
  */
 export const DELETED_PREFIX = "deleted:";
 export function deletedMarkerKey(deviceId: string): string {

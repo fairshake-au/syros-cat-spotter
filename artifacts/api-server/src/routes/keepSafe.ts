@@ -198,6 +198,7 @@ router.post("/restore/redeem", redeemLimiter, async (req, res) => {
     callerSecretHash: hashSecret(secret),
     spotterDeviceId,
     abandonCurrent: body["abandonCurrent"] === true,
+    deleteCurrent: body["deleteCurrent"] === true,
     ipHash: ipFingerprint(req.ip ?? "unknown"),
   });
   if (!result.ok) return refuseLink(req, res, result.reason, raw);

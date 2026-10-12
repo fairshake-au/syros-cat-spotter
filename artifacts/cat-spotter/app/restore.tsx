@@ -4,7 +4,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProfile } from '@workspace/api-client-react';
 import { Button } from '@/components/purropolis';
-import { RestoreWarning } from '@/components/keepSafe/RestoreWarning';
+import { RestoreWarning, type CurrentSpotterChoice } from '@/components/keepSafe/RestoreWarning';
+import { useDeleteMyData } from '@/context/DeleteMyDataContext';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, spacing } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
@@ -60,13 +61,16 @@ export default function RestorePage() {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const { deviceId, username, isReady, adoptRestoredIdentity } = useDevice();
-  const { isOnline } = useOffline();
+  const { isOnline, pauseSync, resumeSync } = useOffline();
   const params = useLocalSearchParams<{ t?: string }>();
   if (typeof params.t === 'string' && params.t) heldToken = params.t;
   const token = useRef<string | null>(heldToken);
   token.current = heldToken;
   const [state, setState] = useState<State>({ kind: 'checking' });
   const [currentSpots, setCurrentSpots] = useState(0);
+  // SYC-266: what happens to the spotter being left. Neither is preselected.
+  const [choice, setChoice] = useState<CurrentSpotterChoice | null>(null);
+  const { holdIdentityDeleted } = useDeleteMyData();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -114,15 +118,45 @@ export default function RestorePage() {
   const move = async (spotter: RestoreSpotter) => {
     const raw = token.current;
     if (!raw || !deviceId) return;
+    // Never a silent "Keep": the person must have said (SYC-266).
+    if (username && !choice) return;
+    const deleting = Boolean(username) && choice === 'delete';
     setState({ kind: 'moving' });
     try {
       await waitForUsernameClaimToSettle();
-      const result = await redeemRestore(deviceId, {
-        token: raw,
-        spotterDeviceId: spotter.deviceId,
-        abandonCurrent: Boolean(username),
+      // "Delete Nikos" makes Nikos's id answer 410; a late reply to a request
+      // sent as Nikos must not wipe the phone and make a new spotter over the
+      // one coming back (SYC-266). Held until the phone has become it.
+      await holdIdentityDeleted(async () => {
+        // No upload as Nikos may land after the deletion and put Nikos back
+        // (as "Delete my data" pauses first: #110 review, F1).
+        if (deleting) await pauseSync();
+        try {
+          const request = () =>
+            redeemRestore(deviceId, {
+              token: raw,
+              spotterDeviceId: spotter.deviceId,
+              abandonCurrent: Boolean(username),
+              ...(deleting ? { deleteCurrent: true } : {}),
+            });
+          let result: Awaited<ReturnType<typeof request>>;
+          try {
+            result = await request();
+          } catch (err) {
+            // A lost answer after a Delete has committed would leave this
+            // phone on Nikos's deleted id: the next 410 would wipe it and the
+            // spotter coming back would be lost. Ask again: within 60 s the
+            // server gives the same answer and moves nothing twice (#110
+            // review, F2).
+            if (!deleting || isLinkNotValid(err)) throw err;
+            await new Promise((r) => setTimeout(r, 1500));
+            result = await request();
+          }
+          await adoptRestoredIdentity(result.deviceId, result.username);
+        } finally {
+          if (deleting) resumeSync();
+        }
       });
-      await adoptRestoredIdentity(result.deviceId, result.username);
       heldToken = null;
       token.current = null;
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -179,12 +213,22 @@ export default function RestorePage() {
 
       {state.kind === 'choose' ? (
         <View style={styles.choices}>
-          {username ? <RestoreWarning current={username} spots={currentSpots} /> : null}
+          {username ? (
+            <RestoreWarning current={username} spots={currentSpots} choice={choice} onChoose={setChoice} />
+          ) : null}
           {state.spotters.length > 1 ? (
             <Text style={[styles.text, { color: colors.foreground }]}>{t('restorePagePick')}</Text>
           ) : null}
           {state.spotters.map((s) => (
-            <Button key={s.deviceId} variant="primary" size="lg" block onPress={() => move(s)}>
+            <Button
+              key={s.deviceId}
+              variant="primary"
+              size="lg"
+              block
+              // Not until the person has said what happens to the spotter being left.
+              disabled={Boolean(username) && !choice}
+              onPress={() => move(s)}
+            >
               {t('restorePageMove').replace('{name}', nameOf(s))}
             </Button>
           ))}

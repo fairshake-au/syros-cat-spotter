@@ -753,6 +753,124 @@ describe("11. the target must be empty, unless the person chose to leave it (Dec
   });
 });
 
+describe("11b. \"Delete Nikos\" (SYC-266, Samuel 10 Oct 2026)", () => {
+  // Every text-like column of every public table, so tables added later are
+  // covered too (as in me.delete.test.ts).
+  async function columnsHolding(needle: string): Promise<string[]> {
+    const cols = (
+      await db.execute(sql`
+        select table_name, column_name from information_schema.columns
+         where table_schema = 'public'
+           and data_type in ('text', 'character varying', 'jsonb', 'json', 'ARRAY')
+      `)
+    ).rows as { table_name: string; column_name: string }[];
+    const hits: string[] = [];
+    for (const c of cols) {
+      const r = await db.execute(
+        sql`select 1 from ${sql.identifier(c.table_name)} where ${sql.identifier(c.column_name)}::text like ${`%${needle}%`} limit 1`,
+      );
+      if (r.rows.length) hits.push(`${c.table_name}.${c.column_name}`);
+    }
+    return hits;
+  }
+
+  // Its own address per call: redeem is limited to 30 per IP per hour, and
+  // the rest of this file leans on that allowance.
+  const redeemFrom = (phone: Phone, token: string, spotterDeviceId: string, extra: Record<string, unknown>) =>
+    redeem(phone, token, spotterDeviceId, extra).set("X-Forwarded-For", freshIp());
+
+  async function phoneWithNikos(email: string) {
+    const phone = newPhone();
+    await bind(phone);
+    const nikos = `Nikos${RUN}${++n}`;
+    await claim(phone, nikos);
+    await db.insert(sightingsTable).values({ deviceId: phone.id, photoId: 0, lat: 37.44, lng: 24.9 });
+    await db.insert(pushTokensTable).values({ deviceId: phone.id, token: "ExponentPushToken[nikos]" });
+    const token = await askAndGetToken(phone, email);
+    return { phone, nikos, token };
+  }
+
+  it("deletes Nikos in the move: no trace of Nikos anywhere, spots kept without a name, the name free (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, nikos, token } = await phoneWithNikos(email);
+    const r = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
+    expect(r.status).toBe(200);
+    expect(r.body.deviceId).toBe(old.id);
+    // The phone is the old spotter now.
+    expect(await storedHash(old.id)).toBe(hashSecret(phone.secret));
+    // Nikos is gone, as "Delete my data" would leave it.
+    expect(await columnsHolding(phone.id)).toEqual([]);
+    expect(await columnsHolding(nikos)).toEqual([]);
+    const spots = await db.execute(sql`select count(*)::int as c from sightings where device_id is null and redaction_reason = 'deleted by the person' and lat = 37.44 and lng = 24.9`);
+    expect((spots.rows[0] as { c: number }).c).toBeGreaterThanOrEqual(1);
+    const free = await request(app).get(`/api/profiles/username-availability?name=${encodeURIComponent(nikos)}`);
+    expect(free.body).toEqual({ available: true });
+    // Nikos's id answers 410 for ever, and can't be bound again.
+    const gone = await request(app).get(`/api/profiles/${phone.id}/username`).set("X-Device-Secret", randomBytes(24).toString("hex"));
+    expect(gone.status).toBe(410);
+  });
+
+  it("the link survives: the old phone is still told it moved, and a double tap gets the same answer (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await phoneWithNikos(email);
+    const first = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
+    expect(first.status).toBe(200);
+    const again = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
+    expect(again.status).toBe(200);
+    expect(again.body).toEqual(first.body);
+    const stale = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", old.secret);
+    expect(stale.status).toBe(403);
+    expect(stale.body).toEqual({ error: "device_moved" });
+  });
+
+  it("is refused without abandonCurrent, and nothing moves or is deleted", async () => {
+    // A phone with no name (so no warning, and no abandonCurrent) but a spot
+    // of its own: only the deleteCurrent guard stops it being deleted.
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const phone = newPhone();
+    await bind(phone);
+    await db.insert(sightingsTable).values({ deviceId: phone.id, photoId: 0, lat: 37.44, lng: 24.9 });
+    const token = await askAndGetToken(phone, email);
+    const r = await redeemFrom(phone, token, old.id, { deleteCurrent: true });
+    expect(r.status).toBe(401);
+    expect(await storedHash(old.id)).toBe(hashSecret(old.secret));
+    expect(await storedHash(phone.id)).toBe(hashSecret(phone.secret));
+    expect(await db.select().from(sightingsTable).where(eq(sightingsTable.deviceId, phone.id))).toHaveLength(1);
+  });
+
+  it("all or nothing: if deleting Nikos fails, the spotter doesn't move and Nikos is untouched", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, nikos, token } = await phoneWithNikos(email);
+    const fn = `refuse_nikos_${RUN}_${n}`.replace(/[^a-z0-9_]/gi, "_").toLowerCase();
+    await db.execute(sql.raw(`
+      create function ${fn}() returns trigger language plpgsql as $$
+      begin
+        if old.device_id = '${phone.id}' then raise exception 'refused for the test'; end if;
+        return old;
+      end $$;
+      create trigger ${fn} before delete on profiles for each row execute function ${fn}();
+    `));
+    try {
+      const r = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
+      expect(r.status).toBeGreaterThanOrEqual(400);
+    } finally {
+      await db.execute(sql.raw(`drop trigger ${fn} on profiles; drop function ${fn}();`));
+    }
+    expect(await storedHash(old.id)).toBe(hashSecret(old.secret));
+    expect(await storedHash(phone.id)).toBe(hashSecret(phone.secret));
+    const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.deviceId, phone.id));
+    expect(profile?.username).toBe(nikos);
+    const linked = await db.select().from(sightingsTable).where(eq(sightingsTable.deviceId, phone.id));
+    expect(linked).toHaveLength(1);
+    const [tok] = await db.select().from(mailTokensTable).where(eq(mailTokensTable.deviceId, phone.id));
+    expect(tok?.usedAt).toBeNull();
+  });
+});
+
 describe("12. links point at the right place", () => {
   it("a request with Host: evil.example still emails an apptest.catspotters.com link (M)", async () => {
     const email = newAddress();
