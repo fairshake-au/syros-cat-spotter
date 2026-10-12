@@ -211,6 +211,17 @@ Options considered (Samuel, 11 Oct):
 
 **The one risk this brings back (judgment call A): decided by Samuel on 12 Oct 2026, option 1.** A child who genuinely asked for their *own* link can be talked into forwarding it, and the person who receives it can then move the spots. The version where the schoolmate asks for the link themselves already worked under Decision 2, because the link was valid on their phone. Neither a code on other phones nor Option B stops a child reading out or forwarding their own key. So the change is the email wording: *"Never send this link to anyone, even a friend."* **Decision 12 approved by Samuel on 12 Oct 2026, with findings 1–10 and option 1 folded in.**
 
+**Code review of the build (Opus, its own worktree, 12 Oct; PR #114).** It found no path to a spotter without the inbox. Its fixes are folded in:
+- a failed copy is said honestly, never "Link copied";
+- the address-bar clean-up covers a slow router;
+- stale security comments are corrected;
+- six guards the tests didn't cover now have tests, each mutation-checked.
+
+Three further notes:
+- **"Already here" has an "Open Cat Spotters" button**, not "no button" as drafted above, so it isn't a dead end.
+- **Resend's click tracking is off.** Checked on 12 Oct: the link in the live restore email of 9 Oct points straight at `apptest.catspotters.com`, so a `#t=` link never passes through Resend's servers.
+- **Accepted risk, decided by Samuel on 12 Oct 2026 ("accept as-is").** The "push" trick: a stranger makes their own throwaway spotter and kept-safe address, then gets a child to open its link on a phone with no spotter. If the child taps through the different-browser screen, the stranger's spotter moves onto the child's phone, and the stranger can later pull it back and see what was spotted with it. Decision 2 made this impossible. It's accepted because it needs a deliberate trick against one child who taps through *"If you didn't ask for it, close this page"*, and the child's own collection is never at stake.
+
 **Model delegation:** Opus builds it, because it changes the takeover surface. An independent Opus adversarial review runs in its own worktree before merge.
 
 ---
