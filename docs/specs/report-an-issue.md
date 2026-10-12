@@ -1,23 +1,40 @@
 # "Report an issue" on every cat and photo
 
 **Feature spec · Cat Spotters (Syros)**
-**Version:** 1.0 draft · 7 October 2026
-**Covers:** `team-access-and-welfare-queue.md` §6 (which this spec fills out and, in four places, amends), and the Turnstile protection for both public report forms.
-**Linear:** SYC-44 (Report an issue) · SYC-170 (Turnstile on the welfare report and on Report an issue). Touches SYC-105 (shared rate limits), SYC-113 and SYC-114 (the pre-launch pass), SYC-150 (move a sighting to another cat) and SYC-232 (a real example of what people will report).
-**Status:** **Draft, awaiting an adversarial review and Samuel's approval.** Nothing here is built. The shape of §6 in the approved welfare spec is already decided; this document is about the details underneath it and the open choices in §12.
+**Version:** 1.1 · revised after adversarial review · 12 October 2026 (v1.0 draft was 7 October 2026)
+**Covers:** `team-access-and-welfare-queue.md` §6 (which this spec fills out and, in the places listed below, amends), and the Turnstile protection for both public report forms.
+**Linear:** SYC-44 (Report an issue) · SYC-170 (Turnstile on the welfare report and on Report an issue). Touches SYC-105 (shared rate limits), SYC-113 and SYC-114 (the pre-launch pass), SYC-130 (claiming a cat; the home description), SYC-150 (move a sighting to another cat), SYC-229 (which addresses sit behind Cloudflare), SYC-231 (the mail drain), SYC-232 (a real example of what people will report), SYC-248 (privacy policy updates) and SYC-279 (hidden photos and caches).
+**Status:** **Revised after adversarial review, awaiting Samuel's approval.** The review is `docs/specs/reviews/report-an-issue-review.md`; §17 says how each of its findings was handled. Permissions follow the approved roles spec (`roles-and-invites.md`, approved 12 October 2026, §6.2 catalogue), the source of truth for who may do what.
 
 ### What this document owns, and what it borrows
 
 | What | Owner |
 |---|---|
 | The reasons a person can give, the button, what the reporter sees, how an issue lands in the queue, what the team can do with it, and the Turnstile rules for **both** public report forms | **This document** |
-| The queue itself (four states, team note, state history), the team's sign-in, capability names, the alert email and the "photo pending" pattern | `team-access-and-welfare-queue.md` and the SYC-42 / SYC-43 plans |
-| The hide-and-restore log (`photo_visibility_events`) and the one function that builds public photo addresses (`publicPhotoUrl()`) | `docs/superpowers/plans/syc-43-part-2-welfare-queue-and-corrections.md`, PR 6 (not yet built) |
+| The queue itself (four states, team note, state history), the team's sign-in, the alert email and the "photo pending" pattern | `team-access-and-welfare-queue.md` and the SYC-42 / SYC-43 plans |
+| The names of every permission ("capability") and who holds it | `roles-and-invites.md` §6.2. This spec adds no name of its own; the two it needs are listed in §5.5 as additions to that catalogue |
+| The hide-and-restore log (`photo_visibility_events`) and the one function that builds public photo addresses (`publicPhotoUrl()`) | `docs/superpowers/plans/syc-43-part-2-welfare-queue-and-corrections.md`, PR 6 |
 | Email verification, consent wording, the closed list of email moments | `email-capture.md` |
 | Location blurring and feeding-site privacy | `cat-record-data-spine.md` |
+| Removing a photo's bytes: the contract | `hosting-and-photo-storage.md` §6.5 |
 | The pre-launch pass and its removal | `docs/superpowers/plans/syc-113-pre-launch-gates.md`, SYC-114 |
 
 Where this spec and `DECISIONS.md` differ, `DECISIONS.md` wins, except where a decision here is marked as **an amendment** and put to Samuel in §12.
+
+### Changes to approved text, all in one place
+
+Anything below that contradicts an approved document is listed here and in the decision that carries it. Nothing in this table takes effect until Samuel says yes to that decision.
+
+| # | What changes | Approved text it touches | Decision |
+|---|---|---|---|
+| 1 | A photo that shows a person or a private place also hides on one confirmed report | Welfare spec §6 and DECISIONS Part 2b (only "upsetting or inappropriate" hides) | D2 |
+| 2 | A hidden photo is hidden from everyone but staff, including its taker, who sees a neutral tile | Welfare spec §6 ("stays visible to staff and to whoever uploaded it") | D4 |
+| 3 | **Removal of a photo.** If Samuel keeps "hide only" (D5 option A), that amends `hosting-and-photo-storage.md` §6.5, which says the removal path arrives in the same window as this flow. The recommended option B adopts that contract instead and amends nothing | `hosting-and-photo-storage.md` §6.5 (approved 28 September) | D5 |
+| 4 | **An email box on Report an issue** is a new moment when people are asked for an email | `email-capture.md` (closed list of asks) and `privacy-policy.md` ("we ask at four moments: after you've spotted a cat, at the end of a visit, after you've reported a cat in trouble, and in Settings") | D9 |
+| 5 | **Closing email wording.** This spec now uses the approved Part 2b wording word for word, so it amends nothing. Different wording would be an amendment | DECISIONS Part 2b | D9 |
+| 6 | **The reason list.** This spec keeps the approved reason "wrong information about this cat" as its own reason (`wrong_info`), so `choose-a-different-cat.md`'s references to it still work, and gives its "Think this cat is alive?" link an entry point (§2). Dropping it would be an amendment to both documents | Welfare spec §6 and `choose-a-different-cat.md` | none (kept) |
+| 7 | The Turnstile check on the cat-in-trouble form is done before a report is accepted, with one exception: when our own server cannot reach Cloudflare. This relaxes SYC-170's wording only in that outage case | SYC-170 | D11 |
+| 8 | Retention of issue reports, the processors list (Cloudflare) and the line "the report … stay with the cat's record" in the privacy policy | `privacy-policy.md` (owned by SYC-248) | D12 |
 
 ---
 
@@ -30,11 +47,15 @@ Two kinds of report are treated differently from the rest:
 - **A photo that shows a person, a house number or anything private, or that is upsetting or offensive,** is hidden from everyone the moment the reporter confirms, and stays hidden until the team decides. One report is enough (decided 28 September). Hiding a good photo for a few days costs nothing; leaving a private one up costs a lot.
 - **A cat that has died, or a map spot or home description that shows where someone lives,** is never changed by the report alone. The team looks and the team decides. A stranger's report is a tip, not a fact about a cat's life.
 
-To keep the form from being used as a weapon, it is protected by Cloudflare Turnstile (a check, usually invisible, that the sender is a person using the real app or website), by per-address limits, and by three extra rules about hiding (§8). The same Turnstile check goes onto the cat-in-trouble form (SYC-170). Turnstile needs a web page to run in, which the phone apps do not have, so §9 spells out how the Expo apps cope and puts the choice to Samuel.
+To keep the form from being used as a weapon, it is protected by Cloudflare Turnstile (a check, usually invisible, that the sender is a person using the real app or website), by per-address limits, and by four extra rules about hiding (§8). The same Turnstile check goes onto the cat-in-trouble form (SYC-170). Turnstile needs a web page to run in, which the phone apps do not have, so §9 spells out how the Expo apps cope and puts the choice to Samuel.
+
+**Who sees these reports.** Only the Syros Cats team (volunteers and staff, and the management tier above them). They need the `view_welfare_queue` power. **Cat guardians never see "Report an issue" reports**, not even about cats in their own colonies (§5.3).
 
 ### The thing that matters most
 
 **Hiding must be quick, and a wrong hide must be cheap to undo.** A person whose child, front door or number plate is in a catalogue photo wants it gone now, not when somebody reads an email. So the hide happens on the server in the same step that records the report, and the email to the team is the notification, never the trigger. If every email fails, the photo is still hidden and the report is still in the queue.
+
+**And a real report is never lost.** A person who reports a hurt cat, or a private photo, on one bar of signal must never end up with a report that vanished. §9.5 is built around that.
 
 ### The two audiences want the same thing from different angles
 
@@ -44,26 +65,28 @@ A local who knows a cat's name is wrong, a cat guardian whose cat has died, and 
 
 ## 2. What someone can report
 
-Eight reasons, in the words the screen uses. English wording is final here; Greek and French follow §11.
+Nine reasons, in the words the screen uses. English wording is final here; Greek and French follow §11.
 
 | Key | What the person sees | Hides on one confirmed report? | What the team usually does |
 |---|---|---|---|
-| `photo_private` | **It shows a person or a private place** · "faces, house numbers, number plates, a doorway or the inside of a garden" | **Yes** (decision D2) | Look at the photo. Keep hidden, or restore if nothing private is in it. |
+| `photo_private` | **It shows a person or a private place** · "faces, house numbers, number plates, or the inside of a home or garden" | **Yes** (decision D2) | Look at the photo. Keep hidden, or restore if nothing private is in it. |
 | `photo_inappropriate` | **It's upsetting or offensive** | **Yes** (approved 28 Sep) | Same. |
 | `photo_not_cat` | **That's not a cat** · a picture that has nothing to do with cats | No | Hide the photo (one tap) if it is wrong. |
 | `wrong_cat` | **That's a different cat** · "this photo is of another cat" | No | Hide the photo for now. Moving it to the right cat is SYC-150. |
-| `wrong_name` | **The name is wrong, or not OK** | No | Rename the cat (live, SYC-43 PR 4). |
-| `location_revealing` | **The map spot or the words show where someone lives** | No (decision D6) | Look; clear the home text; see D6 for the map spot. |
-| `cat_died` | **This cat has died** | No, never | Look. If it is known, record "no longer with us" with a date (live, PR 4). |
+| `wrong_name` | **The name is wrong, or not OK** | No | Rename the cat. |
+| `wrong_info` | **Something else about this cat is wrong** · "the colours, the home, the ear tip" | No | Mark the wrong statement as wrong, with a reason, or add a note. |
+| `location_revealing` | **The map spot or the words show where someone lives** | No (decision D6) | Look; see D6 for what the team can change. |
+| `cat_died` | **This cat has died** | No, never | Look. If it is known, record "no longer with us" with a date. |
 | `other` | **Something else** | No | Whatever is right. |
 
 Notes on the list:
 
+- **The hint for `photo_private` is deliberately narrow.** The first draft listed "a doorway", but almost every street photo on Syros has one, which would turn the one reason that hides into the easiest one to misuse. The hint names faces, house numbers, number plates, and the inside of a home or garden.
 - **Nothing here replaces "This cat needs help."** A cat that is hurt now is a welfare report and gets the vet-first guidance, which is the most carefully written copy in the app. The first line of the reason sheet says so: *"Is a cat hurt or in trouble right now? Use 'This cat needs help' instead."*, as a link. Without that line, "Report an issue" becomes a way around the capacity messaging, and a worried tourist ends up in a queue that is read on Monday.
+- **`wrong_info` is the approved reason "wrong information about this cat".** `choose-a-different-cat.md` relies on it: wrong colours are corrected through it, and the "Think this cat is alive? Tell Syros Cats" link on a cat marked as no longer with us opens Report an issue on that cat's page with `wrong_info` already chosen and a note box that asks "What do you know?". The words of that link belong to `choose-a-different-cat.md`; this spec only provides the place it lands.
 - **`cat_died` is gently worded** and never promises a change: *"We're sorry. Syros Cats will check and update the cat's page."*
-- **`other` covers "something about this cat is wrong"**, such as a wrong home status or ear-tip answer. The team's "mark wrong" (PR 4) applies to the standing statement.
 - **A note is optional** (up to 1,000 characters, no counter shown) and is team-only text.
-- **A real example, SYC-232.** Today a "has a home" push can carry the owner's home description ("the blue house above the harbour") to every past spotter, and the cat page shows the same text publicly (`homeDescription` is in the public cat payload). A neighbour who sees their street named there would use `location_revealing`. Fixing the push is SYC-232; this report is the safety net for the text that remains on the page.
+- **A real example, SYC-232.** A "has a home" push can carry the owner's home description ("the blue house above the harbour") to every past spotter, and the cat page shows the same text publicly (`homeDescription` is in the public cat payload). A neighbour who sees their street named there would use `location_revealing`. Fixing the push is SYC-232; this report is the safety net for the text that remains on the page. Whether that text stays public at all is SYC-130's question (D6).
 
 ---
 
@@ -71,9 +94,9 @@ Notes on the list:
 
 A quiet text link, the same weight as "This cat needs help" and always below it. Never an icon-only control and never the biggest thing on the screen. Most photos are fine, and an app that puts a flag on every picture teaches people to feel watched.
 
-1. **On a cat's page** (`app/cat/[id].tsx`, beside the existing `NeedsHelpLink`): **Report an issue** about the cat. It offers the cat reasons: `wrong_name`, `location_revealing`, `cat_died`, `wrong_cat`, `other`.
-2. **On each photo.** Tapping a photo (the main photo or one in the sightings history) opens it larger in a new, simple full-screen view: the photo, the date, who spotted it, **Close**. Beneath it, **Report an issue with this photo**. It offers the photo reasons first: `photo_private`, `photo_inappropriate`, `photo_not_cat`, `wrong_cat`, then `other`. (Decision D8 sets out the alternatives.)
-3. **Not in v1:** the cat list cards, the map pins, push notifications and the "is this the cat?" picker. Each leads to the cat page in one tap, where the link is. A hidden photo disappears from all of them anyway, because every public photo address is built by `publicPhotoUrl()` (PR 6).
+1. **On a cat's page** (beside the `NeedsHelpLink`): **Report an issue** about the cat. It offers the cat reasons: `wrong_name`, `wrong_info`, `location_revealing`, `cat_died`, `wrong_cat`, `other`.
+2. **On each photo.** Tapping a photo (the main photo or one in the sightings history) opens it larger in a simple full-screen view: the photo, the date, who spotted it, **Close**. Beneath it, **Report an issue with this photo**. It offers the photo reasons first: `photo_private`, `photo_inappropriate`, `photo_not_cat`, `wrong_cat`, then `other`. (Decision D8 sets out the alternatives.)
+3. **Not on:** the cat list cards, the map pins, push notifications and the "is this the cat?" picker. Each leads to the cat page in one tap, where the link is. A hidden photo disappears from all of them anyway, because every public photo address is built by `publicPhotoUrl()`.
 
 The website and the phone apps get the same links. The web has no long-press, which is part of why a full-screen view beats a hidden gesture.
 
@@ -85,17 +108,22 @@ The website and the phone apps get the same links. The web has no long-press, wh
 
 1. **The reason sheet.** The reasons above as large, plain buttons, with the short first line about hurt cats.
 2. **One optional box:** "Anything we should know?"
-3. **Email, optional,** *only if* the email feature is live (§7, decision D9). The wording and the unticked news box are `email-capture.md`'s, verbatim.
+3. **Email, optional,** *only if* the email feature is switched on (§7, decision D9). The wording and the unticked news box are `email-capture.md`'s, verbatim.
 4. **For a hiding reason, the confirm step** (approved text, DECISIONS Part 2b): *"Are you sure? Reporting this will hide it from everyone until Syros Cats have reviewed it."* with **Report and hide** and **Cancel**. Nothing is hidden or sent until they tap **Report and hide**.
-5. **Send.** The Turnstile check runs in the background and the person sees nothing unless the widget needs a tap (§9).
-6. **The confirmation.** Plain and short. For a hide: *"Thank you. The photo is hidden while Syros Cats take a look."* For everything else: *"Thank you. Syros Cats will take a look."* Neither says when, because nobody is on duty (F1). Every message lives in the app's language files (§11).
+5. **Send.** The Turnstile check runs in the foreground at the moment of sending (§9.5) and the person sees nothing unless the widget needs a tap, in which case a small sheet appears (§9.4).
+6. **The confirmation.** Plain and short, and **chosen by what the server actually did**, not by the reason the person picked. The server's answer carries `hidden: true` or `hidden: false`:
+   - `hidden: true`: *"Thank you. The photo is hidden while Syros Cats take a look."*
+   - `hidden: false` on a reason that would normally hide: *"Thank you. Syros Cats will take a look as soon as they can. The photo is not hidden yet."* This is what a person sees if they hit the per-address limit, report a photo the team has already restored, send while the global brake is on (§8.1 rule (iv)), or send while our server could not reach Cloudflare. It never claims a hide that did not happen.
+   - Any other reason: *"Thank you. Syros Cats will take a look."*
+   
+   None of them says when, because nobody is on duty (F1). Every message lives in the app's language files (§11). Final wording belongs to Syros Cats and Samuel.
 
 ### 4.2 Offline and weak signal
 
-Be precise: **a report is saved on the phone first and reaches Syros Cats only when the phone has a connection.** It uses the same saved-on-the-device list as cat reports and sightings (`lib/queueStore.ts`, the cross-tab lock, the one reminder after 24 hours). On the web this applies when the browser reports no connection; with one weak bar of signal the send is attempted and, if it fails, the report is kept and retried (the same behaviour as cat reports).
+Be precise: **a report is saved on the phone first and reaches Syros Cats only when the phone has a connection.** On the website, "saved on the phone" reads **"saved in this browser"**, and the offline copy says both that and that a browser can clear what it has stored (welfare spec Part 2f R1). It uses the same saved list as cat reports and sightings (`lib/queueStore.ts`, the cross-tab lock, the one reminder after 24 hours). On the web this applies when the browser reports no connection; with one weak bar of signal the send is attempted and, if it fails, the report is kept and retried.
 
-- The offline confirmation says *"Saved on your phone. It will be sent when you have a connection."* It never says "hidden", because **nothing is hidden until the server has the report**. A person who reports a private photo while offline is told exactly that, so they do not assume the picture is already down.
-- A queued report does not hold a Turnstile token (a token lives five minutes). §9.5 says what happens at send time.
+- The offline confirmation says *"Saved on your phone. It will be sent when you have a connection."* (web: *"Saved in this browser. It will be sent when you have a connection."*). It never says "hidden", because **nothing is hidden until the server has the report**. A person who reports a private photo while offline is told exactly that, so they do not assume the picture is already down.
+- A saved report does not hold a Turnstile token (a token lives five minutes). **Each send from the saved list runs a fresh check in the foreground**, because the list only sends while the app or page is open (§9.5). So a report sent hours later can still hide the photo, as long as the check passes.
 - There is no photo to upload with an issue report, so it is tiny and survives a weak signal better than a cat-in-trouble report.
 - Opening the full-screen view of a photo needs that photo to have been loaded already. Nothing here changes what the app can show offline.
 
@@ -111,60 +139,88 @@ Who read it, what the team decided, whether anyone else reported the same thing 
 
 As with welfare reports (spec §4.3), **the queue row is written first, in the same database transaction as everything it causes**: the hide, the count and the queued alert email. Mail cannot lose a report and cannot delay a hide.
 
-**Where the row lives is decision D1.** The recommendation is the existing `welfare_reports` table with `kind = 'content'`. The column and its check already exist for exactly this (`lib/db/src/schema/welfare.ts` reserves it), and spec §8.4 already says so, so the dashboard has one queue, one set of four states, one team note, one history and one delivery-state column. That needs a small migration:
+**Where the row lives is decision D1.** The recommendation is the existing `welfare_reports` table with `kind = 'content'`. The column and its check already exist for exactly this (`lib/db/src/schema/welfare.ts` reserves it), and spec §8.4 already says so, so the dashboard has one queue, one set of four states, one team note, one history and one delivery-state column. Reuse is not free. The table was built around cats in trouble, and the plan lists and tests every one of these places:
 
-- `lat` and `lng` become optional for `content` rows (a check keeps them required for `welfare`);
-- new nullable columns: `reason` (the key from §2, checked), `photo_id` (→ `photos.id`), `hidden_by_report` (boolean) and `token_checked` (boolean, §9). `cat_id` is already there;
-- `severity` is set to `attention` for content rows (it is only used to order the welfare list) and `is_litter` stays false.
-
-Everything that reads `welfare_reports` today must learn to look at `kind`: the queue page and its JSON (`lib/welfareQueue.ts`), the alert email, "tie to a cat" (PR 5), and the `welfare_outcome` observation, which **must not** be written when an issue report closes (it is a statement about a cat's welfare, which an issue is not). The plan that follows approval lists each place and gives each a named test.
+- **The migration.** `lat` and `lng` become optional for `content` rows, with a new check that keeps them required for `welfare` rows. New nullable columns: `reason` (the key from §2, checked), `photo_id` (→ `photos.id`), `hidden_by_report` (boolean) and `token_checked` (boolean, §9). `cat_id` is already there. This is a change to a live table, so the plan includes a **rollback block** that keeps the welfare rows' guarantee that a position is always present.
+- **Severity.** `severity` is set to `attention` for content rows (it is only used to order the welfare list); `is_litter` stays false.
+- **Photo state.** `photo_state` defaults to `'pending'`, which would show "Photo still uploading" on the queue and make the alert email wait ten minutes for a photo that is not coming. **Content rows are always written with `photo_state = 'none'`.** (The reported catalogue photo is a `photos` row, a different thing from this column.)
+- **"Which cat is this?" must not be offered on content rows.** Tying a report to a cat writes a `welfare_report` observation, and the cat record counts those as **evidence of life** (`resolve.ts`, `EVIDENCE_SOURCES`). A `cat_died` row tied to a cat would push that cat's "last seen alive" date later, the opposite of what the report says. The tie control is not shown for `kind = 'content'`, the route refuses it, and a test proves **no `welfare_report` observation is ever written for a content row**.
+- **No `welfare_outcome` on close.** The existing close action writes a `welfare_outcome` whenever the report has a `cat_id`, and content rows have one from the start. The guard (`kind = 'welfare'` only) goes into that existing code in the first pull request, not a later one, with a named test, and a welfare closing still writes one.
+- **The resend key includes the kind.** Today a resend is recognised by `(reporter_device, client_ref)`. It becomes `(reporter_device, kind, client_ref)`, so an issue report can never be silently swallowed as "already sent" because a welfare report from the same phone happened to share a reference.
+- **The mail-failure banner** on the queue counts alert purposes; it counts both `welfare_alert` and `issue_alert` (§5.2).
+- **Retention.** The three-year welfare deletion job and D12's one-year issue rule are separate jobs, or one job that checks `kind`; it must not treat the two alike.
 
 ### 5.2 The email to the shared inbox
 
-A second alert type through the existing outbox and the one send function. It uses the `welfare_alert` team purpose, which already goes to `WELFARE_ALERT_TO`, with its own subject lines so the inbox can filter:
+A second alert type through the existing outbox and the one send function, under **its own purpose, `issue_alert`**, that goes to the same shared inbox as `WELFARE_ALERT_TO` but is **not** one of the never-shed purposes. The welfare alert purpose (`welfare_alert`) is never shed because a hurt cat's alert must get out even when the email account is nearly out of allowance. Resend's limit is shared across the whole account, so if issue alerts rode the same purpose, a flood of issue reports with valid tokens (paid solving services can get past Turnstile cheaply) could use up the allowance on the same day a real urgent cat report needs it.
+
+- `issue_alert` is placed in the shed order ahead of the reporter acknowledgements, so under pressure it is dropped first. The plan confirms the exact position against `send.ts`.
+- **Individual emails are sent only for "Photo hidden" alerts**, up to 10 an hour in total. Everything else (location, died, wrong name, wrong cat, other) is folded into **one digest** with a once-in-24-hours guard recorded by the mail drain, because the drain runs every few hours (SYC-231) and has no clock of its own. The dashboard always shows the live count whatever happens to email.
+- A test proves that 500 issue alerts in an hour cannot delay a `welfare_alert`.
 
 | Case | Subject starts |
 |---|---|
 | A photo was hidden | `Photo hidden: possible private or offensive content` |
-| Location or a home description reported | `Issue report: location may be revealing` |
-| A cat reported as died | `Issue report: cat reported as died` |
-| Everything else | `Issue report: wrong cat, name, photo or other` |
+| Daily digest of everything else | `Issue reports: N waiting` |
 
-The body carries the reason, the reporter's note (escaped), the cat's name with a team-page link, and for photo reports the photo **as an attachment** (the same rule as welfare photos: a team link fails in a mailbox, and a public link would be wrong for a photo that was just hidden). **No reporter contact details** (spec §3.1 and §4.3): "the reporter left contact details; reply from the dashboard."
+The body of a "Photo hidden" alert carries the reason, the reporter's note (escaped), the cat's name with a team-page link, and the photo **as an attachment** (the same rule as welfare photos: a team link fails in a mailbox, and a public link would be wrong for a photo that was just hidden). **No reporter contact details** (spec §3.1 and §4.3): "the reporter left contact details; reply from the dashboard." The digest lists reasons and cats with team links, no notes.
 
-**Latency, honestly.** Mail goes out right after the report and after any later API request, with the GitHub drain as a safety net that in practice runs every few hours (SYC-231). That is acceptable here **because the hide does not wait for mail**. It is not something to rely on for `location_revealing` or `cat_died`, which only a person can fix, and which is why the interface never implies they are urgent. SYC-231's fix (an external cron) helps this feature as much as the welfare one.
+**Latency, honestly.** Individual alerts go out right after the report and after any later request, with the scheduled drain as a safety net that in practice runs every few hours (SYC-231). That is acceptable here **because the hide does not wait for mail**. The interface never implies a report about location or a death is urgent. SYC-231's fix (an external cron) helps this feature as much as the welfare one.
 
-### 5.3 Where it lands in the dashboard
+### 5.3 Where it lands in the dashboard, and who can see it
 
-The queue page keeps its first section, **Waiting for the team** (welfare reports, urgent first, exactly as built). Below it, a second section, **Issues**, visually distinct (a different colour band and a type label on each row) and never above a welfare report (approved, §6).
+**Only people who hold `view_welfare_queue` see any of this.** The roles spec gives that power to the team and management, island-wide, and to nobody else. Cat guardians hold a separate, narrower power, `view_colony_welfare_reports`, which the roles spec defines as read-only reports of cats in trouble about cats in their own colonies, with no reporter details, and **explicitly never a "Report an issue" report**. This spec keeps to that. Concretely, each of these needs `view_welfare_queue` and is refused (not merely hidden) for anyone without it:
+
+- the **Issues** section of the queue page and its data;
+- the **"Reports about this cat" strip** on the team cat page. A guardian can open the team cat page for a cat in her own colony (she holds `view_exact_location` for it), so the strip is checked on its own and left out for her;
+- the **links in issue alerts**, which go to pages that need the power;
+- the **team route that serves a reported photo**. A hidden photo is additionally served only to someone who holds `hide_photo`, as the roles spec says.
+
+Why it matters: a neighbour reports `location_revealing` because a guardian's own home description names her house. If the guardian could then read the neighbour's note on the cat page, the promise in §10 that a cat's owner or guardian is never told who reported it would be false. A test in the roles spec's route walk (its §6.4) covers it: a guardian with that cat in her colony gets no strip, no Issues section and a refusal on the reported-photo route.
+
+**The page.** The queue page keeps its first section, **Waiting for the team** (welfare reports, urgent first, exactly as today). Below it, a second section, **Issues**, set apart by a different colour band **and** a text label "Issue" on each row (so it does not depend on colour alone), and never above a welfare report (approved, §6).
 
 Inside **Issues**, the order is:
 
 1. **Hidden, waiting for you.** Photos hidden by a report and not yet decided. The public is already safe, so these are ordered by how long they have waited, longest first, and the number shows in the dashboard's top bar.
 2. **Location, and cats reported as died.** Need a person.
 3. **Everything else,** newest first.
+4. **Unchecked** (reports accepted while our server could not reach Cloudflare, §9.5), in their own list at the bottom, never mixed into the order above.
 
-Each row shows the reason in plain words, the cat's name and the photo (served only through the team route, as hidden photos are), what the reporter wrote, how long ago, **"2 others reported this photo"** when the same photo or cat-and-reason has other open reports, whether the reporter left a way to be contacted, and the four states and team note the queue already has. Repeat reports stay separate rows (the record is add-only); only the count is shown.
+Each row shows the reason in plain words, the cat's name and the photo (served only through the team route, as hidden photos are), what the reporter wrote, how long ago, whether the reporter left a way to be contacted, and the four states and team note the queue already has. The reporter is described as **"a member of the public"**, not "a spotter", because many reporters are tourists with no account. **"2 others reported this"** counts other **open** reports in the same group, where a group is: the same photo and the same reason, or, for reports about a cat rather than a photo, the same cat and the same reason. Repeat reports stay separate rows (the record is add-only); only the count is shown.
 
 ### 5.4 What the team can do
 
-Everything here exists or is already planned. Each action names the capability that guards it (spec §7.3). Only the last three rows need anything new, and §12 puts those to Samuel.
+Each action names the capability that guards it, using the names in the roles spec §6.2. All are held by the team and management island-wide. Cat guardians hold none of them for issue reports.
 
-| Action | Where it comes from | Capability |
-|---|---|---|
-| **Keep it hidden** (closes the report as *Done*) | PR 6 hide/restore log | `hide_photo` |
-| **Restore the photo** (one tap, attributed; closes as *Nothing needed*) | PR 6 | `restore_photo` |
-| **Hide a photo** that a non-hiding report points at (`photo_not_cat`, `wrong_cat`) | PR 6 | `hide_photo` |
-| **Rename the cat** | PR 4, live | `rename_cat` |
-| **Say the cat is no longer with us** (reason, and the date the team knows of) | PR 4, live | `set_life_status` |
-| **Mark a statement wrong**, with a reason | PR 4, live | the statement's own capability |
-| **Open the cat's page** (exact location, full history) | PR 3, live | `view_exact_location` |
-| **Change state, add a team note** | PR 2, live | `change_report_state`, `add_team_note` |
-| **Move the photo to the right cat** | SYC-150, not built. Until then `wrong_cat` means "hide the photo and leave a note" | later |
-| **Clear a home description / hide a map spot** | Not built (decision D6) | new |
-| **Delete a hidden photo for good** | Not built (decision D5) | new |
+| Action | Capability |
+|---|---|
+| **See the Issues section, the strip on a cat's page, an issue's photo** | `view_welfare_queue` |
+| **Keep it hidden** (closes the report as *Done*) | `hide_photo` |
+| **Restore the photo** (one tap, attributed; closes as *Nothing needed*) | `restore_photo` |
+| **Hide a photo** that a non-hiding report points at (`photo_not_cat`, `wrong_cat`) | `hide_photo` |
+| **Resume automatic hiding** after the global brake (§8.1 rule (iv)) | `hide_photo` |
+| **Rename the cat** | `rename_cat` |
+| **Say the cat is no longer with us** (reason, and the date the team knows of) | `set_life_status` |
+| **Mark a statement wrong**, with a reason | the statement's own capability (`set_appearance` for colours) |
+| **Open the cat's page** (exact location, full history) | `view_exact_location` |
+| **Change state, add a team note** | `change_report_state`, `add_team_note` |
+| **Move the photo to the right cat** | SYC-150. Until it exists, `wrong_cat` means "hide the photo and leave a note". Moving a sighting must keep the photo's internal id, or rule (ii)'s restore history is lost |
+| **Clear a cat's home description** | `clear_home_description` (proposed addition, §5.5; decision D6) |
+| **Remove a hidden privacy photo for good** | `remove_photo` (proposed addition, §5.5; decision D5) |
 
 A report that hides a photo and is then closed records both: the original hide (author `report:<id>`) and, if the team restores, a restore (author a person id). The log is add-only, so "who hid this, and who put it back?" always has an answer.
+
+### 5.5 Proposed additions to the roles catalogue
+
+The roles spec says a spec that needs a power that is not in its §6.2 table "adds a row there first". This spec does not edit the roles spec. These are the rows to add if Samuel approves the matching decisions:
+
+| Capability | What it lets you do | Kind | Team | Management | Guardian | Needed by |
+|---|---|---|---|---|---|---|
+| `clear_home_description` | Clear (blank) the home description on a cat's page, with a reason, recorded who and when. Narrow on purpose: it does not edit any other cat text, so it cannot overlap `rename_cat` or SYC-2's `set_appearance` | Island-only | ✓ | ✓ | — | D6 (only if SYC-130 leaves the description public) |
+| `remove_photo` | Remove a hidden photo's bytes for good under `hosting-and-photo-storage.md` §6.5: one write, recorded who, when and why, irreversible. Only on a photo that is already hidden for a privacy reason; asks for a typed confirmation | Island-only | — | ✓ | — | D5 option B |
+
+The draft's name `edit_cat_text` is **not** proposed: as a name it suggested editing any text on a cat. The other powers this spec uses (`view_welfare_queue`, `hide_photo`, `restore_photo`, `rename_cat`, `set_life_status`, `view_exact_location`, `change_report_state`, `add_team_note`) are already in the catalogue.
 
 ---
 
@@ -174,13 +230,14 @@ The approved rule stands: one confirmed report hides a photo pending review. Thi
 
 **What makes it fast.**
 - The hide is part of the report's database transaction: a `hide` row in `photo_visibility_events` with author `report:<id>`, written with the queue row. Nothing is mailed, polled or approved first.
-- Every public place that shows a photo reads from `publicPhotoUrl()` and answers `404` for a hidden photo (PR 6). In the sightings list the tile reads "Photo hidden while Syros Cats take a look." (D4.)
+- Every public place that shows a photo reads from `publicPhotoUrl()` and answers `404` for a hidden photo. In the sightings list the tile reads "Photo hidden while Syros Cats take a look." (D4.)
 - If the hidden photo was the cat's main photo, the page shows the newest visible photo or the placeholder (PR 6, Decision 4). A restore brings the original back.
 
 **What stays slow, and is allowed to.** A person cannot be fetched at once. The team may read the report on Monday. That is fine for a hidden photo, because the harm has already stopped. It is **not** fine for a map spot or a home description (D6), which is why those get their own decision.
 
 **What hiding does not cover (said now, so nobody finds out later).**
-- A hidden photo is still in the database and still one of the matching model's reference images (PR 6's own note). For a photo that shows a face or a doorway, hiding is not erasure. Decision D5 asks Samuel whether v1 includes a real delete.
+- A hidden photo is still in the database and still one of the matching model's reference images (PR 6's own note). For a photo that shows a face or a doorway, hiding is not erasure. Decision D5 asks Samuel about a real removal.
+- **Caches.** Photos are served as `Cache-Control: public, max-age=31536000, immutable` (one year, never re-checked). A `404` from the server does not clear a copy that a browser, the app's image store or a shared cache such as Cloudflare's already holds. If the API sits behind Cloudflare's proxy (not recorded; SYC-229), the edge could keep serving a hidden photo to **anyone who has the address** for up to a year. Decision D14 asks Samuel how to close this, and recommends giving a photo a new public address whenever it is hidden or restored, so the old address is dead everywhere (SYC-279 tracks it).
 - A hidden photo may already be in someone's phone cache or screenshot. Nothing can fix that, and the privacy policy must not imply it can.
 - The offline cat list on a phone may keep showing the photo until its next refresh.
 
@@ -191,11 +248,12 @@ The approved rule stands: one confirmed report hides a photo pending review. Thi
 The default: **the person is told on screen that Syros Cats will take a look, and nothing else unless they gave a verified email.** The welfare spec already treats this as the rule, and no address ever receives mail from us that its holder has not confirmed (F7b).
 
 - **No email left:** the confirmation screen is all they get. No push, no list. (Alternatives in D9.)
-- **Email left and verified:** the same machinery as welfare reports: the one fixed "is this you?" message from the news identity, nothing else until confirmed, then **one** closing email when the team moves the report to *Done* or *Nothing needed*, from fixed copy, never free text. Suggested wording (final text belongs to Syros Cats and Samuel, and needs el and fr):
-  > "Syros Cats have looked at your report about [Agatha's photo] and taken appropriate action. Thank you for helping look after the cats of Syros."
+- **Email left and verified:** the same machinery as welfare reports: the one fixed "is this you?" message from the news identity, nothing else until confirmed, then **one** closing email when the team moves the report to *Done* or *Nothing needed*, from fixed copy, never free text. The wording is the one **approved in DECISIONS Part 2b**, unchanged, in en, el and fr:
+  > "Syros Cats has looked into this and taken appropriate action in response to your report. Thank you for taking action to help the cats of Syros to thrive."
+
   The closing email never says what the action was: a team decision about someone's photo is not the reporter's to know, and *Nothing needed* must not read as "you were wrong."
 - **Reply-To** is `admin@syroscats.com` on every reporter-facing message, as for welfare reports.
-- **This depends on SYC-42 Slice 3 and `email-capture.md`.** Until they are live the email box is not shown on this form (the ruling SYC-42's Decision 4 made for welfare reports). Nothing else in this spec waits for it.
+- **This depends on SYC-42 Slice 3 and `email-capture.md`.** The email box is shown on this form only when the email feature is switched on (the ruling SYC-42's Decision 4 made for welfare reports). Nothing else in this spec waits for it. **Adding the box here is an amendment** to `email-capture.md`'s list of asks and to the privacy policy's "four moments" line (decision D9).
 
 ---
 
