@@ -346,6 +346,12 @@ A guardian's first name next to a place is personal data about a person who is u
 
 **What this spec requires.** (1) The `mapping_events` history gets a redaction path like the one on observations: `redacted_at` and `redaction_reason`, with the trigger allowed to blank `before`, `after` and `note` and nothing else. (2) `colony_name_history` gets the same. (3) One "forget this guardian" action reaches all of these stores (colony, name history, site names, events, notes), with its own event. (4) A hint under every notes box: "Don't write when people come and go." (5) `privacy-policy.md` lists all of these stores. This work is tracked as **SYC-256** and is covered by SYC-208's anonymising; the plan for this spec must not ship `mapping_events` without the redaction path in it, because adding it afterwards means changing a trigger on a table that already holds names.
 
+### 7.5 Two tiers: nothing here needs management
+
+*Updated after Samuel's roles decisions (12 Oct 2026)*
+
+There are two tiers above the guardian: the team, and management (the team plus the power to manage people: invite, remove, change roles). Every capability this spec uses in §7.2 is held by the team, so **nothing in this spec needs a management-only power**. Specifically: making a site public, renaming a colony, reassigning a site, retiring and bringing back, the "forget this guardian" action (§7.4) and reading the history are all ordinary team powers. If the roles spec later decides that "forget this guardian" should be management-only (it is a privacy action on a person), that is a one-line change in §7.2 and §7.4 and does not alter any screen.
+
 ---
 
 ## 8. Audit: who changed what, and when
@@ -363,7 +369,8 @@ Every change to a site or a colony is written as one row in a small add-only his
 | Made private | Who, and whether it was automatic (the site was moved, changed colony, or its colony's guardian changed) |
 | Public label changed | Before and after |
 | Retired / brought back | Reason; the public code retired with it |
-| Colony created / renamed / guardian changed / notes or centre changed | Before and after |
+| Colony created / renamed / guardian changed / notes or centre changed | Before and after. For a colony a guardian created, "created by" is the guardian herself |
+| Cat added to or taken out of a colony | Already a signed `colony` statement on the cat (below); the colony's history and the team's "Recent guardian changes" list read from it |
 
 Cat membership changes need no extra table: each is a `colony` observation, already signed and dated, with `roleAtTime` and the person's id, and the cat's page already shows them.
 
@@ -530,7 +537,11 @@ Nobody edits `DECISIONS.md` from this branch. For Samuel to carry across on appr
 6. **Every change to a site or colony is recorded in an add-only history** (`mapping_events`), linked to the people list, with a redaction path for a guardian's name.
 7. **The public sites endpoint returns an opaque code, label and position only**, ordered by code, identical for every caller, with a short shared-cache lifetime. A lookup for anything not currently public, or for a superseded code, answers identically to an unknown code.
 
-(An earlier draft's entry 8, new team capabilities, is withdrawn: the capability names are in `roles-and-invites.md` §6.2.)
+8. **Cat guardians can create colonies and become their guardian automatically; renaming afterwards is the team's.** (*Updated after Samuel's roles decisions (12 Oct 2026)*, reason: a guardian who finds an unrecorded place should be able to record it. Accepted risk: she could create a colony anywhere and add cats to see their positions; every change is in the history and the team's dashboard lists recent guardian changes.)
+9. **A guardian decides alone which cats are in her colonies, adding and taking out, with immediate effect.** `assign_cat_to_colony` is held by guardians for their own colonies; `propose_colony_change` no longer exists. (*Updated after Samuel's roles decisions (12 Oct 2026)*, reason: the team should not be a queue for a guardian's own cats.)
+10. **A guardian's phone may hold her colonies' data, exact feeding-site positions included, for 72 hours from her last online load by server time, deleted on next open, with `Clear-Site-Data` on sign-out and removal.** This replaces "directions in words, no coordinates". The "how to find it" line is optional. (*Updated after Samuel's roles decisions (12 Oct 2026)*, roles Decision 12.)
+
+(An earlier draft's entry about new team capabilities is withdrawn: the capability names are in `roles-and-invites.md` §6.2. Volunteers and staff are one team role, so no entry mentions either word.)
 
 **Asks of `cat-record-data-spine.md` (to be amended on approval)**
 
@@ -538,7 +549,9 @@ Nobody edits `DECISIONS.md` from this branch. For Samuel to carry across on appr
 2. §10.5: the public sites endpoint of §11.3 here as the definition of "the public sites endpoint filters `isPublic = true` in the query".
 3. §10.5: `colony_name_history.redacted_at`.
 4. §10.5: **the `colony` observation gains an explicit "in no colony" value** (`colonyId: null`), with the rule "the newest active statement stands" (the same amendment as `roles-and-invites.md` §17.1 point 4).
-5. §6.7: add that a public site's label must not contain the guardian's name, that a private site is indistinguishable from an unknown code, and that a guardian sees only her own colonies' sites, filtered in the query (the same as `roles-and-invites.md` §17.1 point 7).
+5. §10.5: `colonies` records who created each colony (`created_by`, a link to people), since a guardian can now create one and becomes its guardian; and the `colony` observation may be written by a guardian for her own colonies (the observation's `roleAtTime` carries her real role). *Updated after Samuel's roles decisions (12 Oct 2026)*
+6. §6.5: the saved list on a guardian's phone includes the exact positions of her own colonies' feeding sites (72 hours, server time, deleted on open, `Clear-Site-Data`), replacing the amendment that said "no site coordinates". The app is unaffected and still holds only public sites. *Updated after Samuel's roles decisions (12 Oct 2026)*
+7. §6.7: add that a public site's label must not contain the guardian's name, that a private site is indistinguishable from an unknown code, and that a guardian sees only her own colonies' sites, filtered in the query (the same as `roles-and-invites.md` §17.1 point 7).
 
 **Asks of `team-access-and-welfare-queue.md`**
 
@@ -722,6 +735,18 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 **Recommendation: A.** **Syros Cats confirm, or say what they want instead.**
 
+### Decision 14. When a guardian adds a cat that is already in another guardian's colony (new, open for Samuel)
+
+*Updated after Samuel's roles decisions (12 Oct 2026): raised by the decision that a guardian adds cats alone, with no approval.*
+
+| Option | Benefits | Risks |
+|---|---|---|
+| **A. The cat moves to her colony at once; the other guardian is not asked; the move is in the history and in the team's "Recent guardian changes" list (what this draft does)** | Exactly as decided: no approval, no waiting. Simple | A guardian can take a cat out of another guardian's colony by adding it to hers, by mistake or on purpose. The other guardian only finds out when the cat vanishes from her list |
+| B. As A, but the other colony's guardian is told ("Mimi has moved to another colony"), without being told whose | She notices, can say "that's mine" to the team | A little more to build; a notice a guardian may not understand |
+| C. As A, but a cat already in another colony cannot be added by a guardian; the team moves it | No cat is taken from anyone by accident | Reintroduces a team step for exactly the cases most likely to be genuine disputes. Goes beyond what Samuel decided |
+
+**Recommendation: B.** It keeps "no approval" but means a mistake is noticed by the person it affects, not only by someone reading a list. Samuel's call; if he prefers A, nothing else in this spec changes.
+
 ---
 
 ## 14. Risks
@@ -792,6 +817,7 @@ Named here so they appear in the plan. API tests use supertest against the real 
 - No private site, colony name, guardian name, note or cat count is in any public response, and a test proves it.
 - A tourist in Kini sees a bowl marker at the exact spot, taps it, and is told in their own language to give the cats room and not to leave food.
 - "How did this become public?" has an answer in the site's history.
+- A cat guardian can create her own colony, put her own cats in it and take them out, and see her sites' exact positions on her phone for 72 hours with no signal; she still cannot see anything that is not hers or make a site public.
 - Nothing here has to be unpicked when cat guardians get their own accounts: a guardian sees only her own colonies' sites, and every power she holds is a row in `roles-and-invites.md` §6.2.
 
 ---
@@ -818,4 +844,17 @@ The adversarial review (`docs/specs/reviews/feeding-sites-and-colonies-review.md
 | 14 (decisions) | Agree 3, 4, 8, 9, 10, 12, 13; change 7; conditions on 1, 2, 5, 6, 11 | **Applied.** Each changed decision has a "Changed after review" note, with every option, benefits and risks kept. Decision 3's wording changed from "cannot weaken" to "weakens least" | §13 |
 | 15 | What held up | Kept as written | all |
 
-**Decisions left for Samuel.** (1) Decision 6: whether a site keeps its public code after a private-and-public cycle with no move (recommended: yes, A2). (2) Decision 11: whether Syros Cats place the sites themselves (recommended) or send a list under the safe route. (3) Decision 2: the usual split (recommended: A). (4) Whether the Part 2h matching-service risk acceptance still stands now that public sites exist, to be raised in the SYC-67 conversation. (5) Decisions 3, 9 and 13 need Syros Cats' confirmation.
+### Updated after the roles decisions (12 October 2026)
+
+Samuel's roles decisions of 12 October change some of what the review settled. The review findings are unchanged except where noted.
+
+| Decision | Effect on this spec | Where |
+|---|---|---|
+| Cat guardians can create colonies | New: she becomes its guardian automatically; renaming stays the team's; accepted risk stated; "Recent guardian changes" list for the team; tests 14 and 21 extended; Decision 7 option F; risk 13 | §2.6, §2.7, §7.2, §7.3, §11.2, Decision 7 |
+| Volunteers and staff are one role, the team | Every "staff" now says "the team"; no volunteer rule, view or test remains | throughout, §7.2 |
+| A guardian decides alone which cats are in her colonies | Review finding 2's "a guardian cannot assign cats" is reversed. `propose_colony_change` and the proposal route are removed; `assign_cat_to_colony` is placed; test 15 extended; Decision 7 option A updated and "propose and approve" withdrawn; new Decision 14 | §2.8, §7.2, §7.3, §11.2, §11.5, Decision 7, Decision 14 |
+| Offline (roles Decision 12) | Review finding 11's "names and directions, never coordinates" is replaced: a guardian's phone may hold exact site positions for her colonies for 72 hours by server time, deleted on open, `Clear-Site-Data`; `directions` becomes optional; test 26; risk 14 | §2.2, §9, §11.1, test 26 |
+| Two tiers | Checked: nothing here needs a management-only power | §7.5 |
+| Unchanged | Making a site public stays team-only (`set_site_public`); a guardian can ask (`request_site_public`); public codes, privacy, the SYC-67 gate and history rules stand | §4, §11 |
+
+**Decisions left for Samuel.** (1) Decision 6: whether a site keeps its public code after a private-and-public cycle with no move (recommended: yes, A2). (2) Decision 11: whether Syros Cats place the sites themselves (recommended) or send a list under the safe route. (3) Decision 2: the usual split (recommended: A). (4) Whether the Part 2h matching-service risk acceptance still stands now that public sites exist, to be raised in the SYC-67 conversation. (5) Decisions 3, 9 and 13 need Syros Cats' confirmation. (6) Decision 14: what happens when a guardian adds a cat already in another guardian's colony (recommended: B, tell the other guardian).
