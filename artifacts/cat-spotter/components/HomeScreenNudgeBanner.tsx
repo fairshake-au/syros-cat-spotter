@@ -8,6 +8,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useAnyModalOpen } from '@/lib/modalVisibility';
+import { useKeepSafeState } from '@/hooks/useKeepSafeState';
 import {
   HOME_SCREEN_DISMISSED_KEY,
   detectHomeScreenPlatform,
@@ -65,6 +66,11 @@ const TAB_BAR_CLEARANCE = 72;
  * SYC-134 review round 2, 30 Sep 2026: also hides while any modal/bottom
  * sheet (e.g. ClaimCatSheet) is open, via the tiny shared flag in
  * `lib/modalVisibility.ts`.
+ *
+ * SYC-274 (Samuel, 9 Oct 2026): hidden once this phone's "keep my spots
+ * safe" email is **confirmed**. Both exist so a web tester doesn't lose their
+ * spots, and a confirmed address already gets them back. A pending address
+ * restores nothing yet, so the card still shows until it's confirmed.
  */
 export function HomeScreenNudgeBanner() {
   const colors = useColors();
@@ -73,6 +79,14 @@ export function HomeScreenNudgeBanner() {
   const { needsSignIn } = useOffline();
   const insets = useSafeAreaInsets();
   const anyModalOpen = useAnyModalOpen();
+  // Only where the card can show (iPhone/iPad Safari, with a spotter), so no
+  // other browser makes the request just for this.
+  const couldShow =
+    Platform.OS === 'web' &&
+    Boolean(username) &&
+    typeof navigator !== 'undefined' &&
+    detectHomeScreenPlatform(navigator.userAgent, navigator.maxTouchPoints) === 'ios-safari';
+  const keepSafe = useKeepSafeState({ enabled: couldShow });
 
   const [standalone, setStandalone] = useState(true); // default hidden until checked
   const [snoozed, setSnoozed] = useState<boolean | null>(null); // null = not loaded yet
@@ -109,6 +123,8 @@ export function HomeScreenNudgeBanner() {
   if (needsSignIn) return null;
   // Don't overlap a modal/bottom sheet (e.g. ClaimCatSheet).
   if (anyModalOpen) return null;
+  // SYC-274: a confirmed keep-safe email already protects these spots.
+  if (keepSafe.data?.status === 'confirmed') return null;
 
   const platform = detectHomeScreenPlatform(
     typeof navigator !== 'undefined' ? navigator.userAgent : '',
