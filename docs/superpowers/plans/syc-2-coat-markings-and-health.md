@@ -1,6 +1,6 @@
 # SYC-2: coat, markings and health on cats
 
-**Status: draft for Samuel's approval. Nothing is built yet.** Five questions below need Samuel's answer before the build starts (see "Decisions for Samuel"). Each has a recommendation.
+**Status: approved by Samuel, 12 October 2026, with every recommendation taken (Decisions A1, B1, C1, D1, E1). SYC-161 is scheduled as urgent so the spotter slice is not held up. Nothing is built yet.**
 **Spec:** `docs/specs/coat-markings-and-health.md`, approved by Samuel on 12 October 2026 (PR #104, merged as `91b32be`). This plan builds it as written. Its decisions (SYC2-D1 to D10) are final and are not reopened here. Where the spec and the code on `main` disagree, "Where the spec and the code disagree" says so and either asks or names the fix.
 **Builds on:** `cat-record-data-spine.md` (observations, the resolver, the public payload), `choose-a-different-cat.md` (§4.7 the colour list and filter, §8.4 the sentence SYC2-D10 narrows), `add-details-later.md` (the answers endpoint and the details card), `roles-and-invites.md` (the four capability names and the guardian role), `team-access-and-welfare-queue.md` (the dashboard and the welfare route), and `DECISIONS.md`. The format follows `syc-119-choose-a-different-cat.md`, `data-spine.md` and the SYC-53 plan (`syc-53-roles-and-invites.md`, on branch `claude/syc-53-plan`, not yet merged).
 **Linear:** SYC-2 (this plan). Touches SYC-161, SYC-5, SYC-52, SYC-53, SYC-209, SYC-152, SYC-185, SYC-1, SYC-62, SYC-283, SYC-244, SYC-243, SYC-242, SYC-241 and SYC-42.
@@ -104,6 +104,8 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 
 ### Decision A: who builds the cat's colour first, this plan or the auto-colour work (SYC-161)?
 
+**Decided (Samuel, 12 October 2026): option A1, as recommended.**
+
 **The question.** Two pieces of approved work both touch "a cat's colour". The auto-colour work (SYC-161, Slice C of the approved SYC-119 plan) reads each cat's colour from its main photo and adds the colour chips to "Find the cat". This plan adds people's colours, the rules for which answer wins, and the colour on the cat's page. The SYC-2 spec assumed the machine readings would already exist. They don't, and SYC-119's plan for Slice C still describes the older rule ("people always win"), a second colour field and a cache-key change that would empty phones' offline catalogues. Somebody has to go first.
 
 | Option | What it means | Benefits | Risks | What people notice |
@@ -117,6 +119,8 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 
 ### Decision B: where the "N cats vaccinated this year" number goes before the donations work exists
 
+**Decided (Samuel, 12 October 2026): option B1, as recommended.**
+
 **The question.** The spec puts the number "on the donate screen" (SYC-1) and in the charity's reports (SYC-62). Neither exists yet. The Help tab already shows the campaign and the donate buttons.
 
 | Option | Benefits | Risks | What donors notice |
@@ -128,6 +132,8 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 **Recommendation: B1.** The rules (distinct cats, this calendar year, nothing below five, number and year only) are fixed by the spec and don't depend on where the sentence sits. The reports half waits for SYC-62, which gets a requirement comment.
 
 ### Decision C: closing the old care route to free-text notes
+
+**Decided (Samuel, 12 October 2026): option C1, as recommended.**
 
 **The question.** The old shared-password route (`POST /cats/:catId/updates`) can post a free-text `general` note onto a cat's **public** care timeline and push it to followers. The spec says no health or vaccination detail may ever go that way, and that `general` is retired "when the route is retired, or sooner". The whole route's retirement is already its own ticket (SYC-185), waiting until staff can record sterilisation and adoption on the dashboard. Software can't tell a health note from any other free text, so the only real guard is to stop accepting `general`.
 
@@ -141,6 +147,8 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 
 ### Decision D: the pictures on the colour and marking chips
 
+**Decided (Samuel, 12 October 2026): option D1, as recommended.**
+
 **The question.** The spec gives every chip "a small picture and the word", and requires a picture of *Torn or notched ear* beside Syros Cats' ear-tip photo, so nobody confuses the two. Nineteen pictures are needed (eight colours, eleven markings).
 
 | Option | Benefits | Risks | What people notice |
@@ -152,6 +160,8 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 **Recommendation: D1**, with the torn ear drawn and shown beside the real ear-tip photo. If Syros Cats later send photos, swapping a picture is a one-file change.
 
 ### Decision E: how two colours are written on the cat's page
+
+**Decided (Samuel, 12 October 2026): option E1, as recommended.**
 
 **The question.** English reads naturally as "Ginger tabby". Greek and French make colour words agree with the noun and often change their order, so a sentence-builder for every pair is a grammar engine in three languages.
 
