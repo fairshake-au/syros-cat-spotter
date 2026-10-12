@@ -674,6 +674,57 @@ A spotter's `clipped: false` or `"cant_tell"` is collected into `supportingObser
 
 **Never crosses attributes.** There is an explicit test that no quantity or authority of `ear_tip` observations can produce `confidence: "confirmed"` on sterilised.
 
+#### Colour and markings (amended 12 October 2026, SYC-2)
+
+Approved with `coat-markings-and-health.md` (SYC-2), which owns the colour and marking words and the plain-terms explanation; this subsection owns the rules for which reading wins. Three pure functions are added to `resolve.ts` and included in the cat snapshot: `resolveCoat`, `resolveMarkings`, `resolveVaccinated`. Colour and markings are worked out as follows.
+
+**Before any rule runs, tidy the statements:**
+
+- Throw out any statement that has been replaced or **retracted** (`coat-markings-and-health.md` §4.4).
+- Treat *Not sure*, *Can't tell* and any other answer that says nothing as no statement at all.
+- **Black plus white means black and white.** A pair that is exactly black and white is stored as `black_and_white`. Colours are then compared one at a time as plain values, never as the order or the way someone tapped them.
+- **One voice per device, counted when the answer is worked out.** Whoever is the author of a statement is one *voice*. If several standing statements on one cat come from the same device, only the newest counts. This is checked every time the answer is worked out, so a mistake in any writing route cannot let one device count twice. (It is also enforced at writing time, `coat-markings-and-health.md` §10.3.)
+- **A pair of voices only counts as two if they come from different photos and were written on different days** (Syros calendar days). A real user loses nothing by this; the "same photo from two browsers on one afternoon" trick now needs two visits.
+- A team member's or guardian's "yes, that's right" is stored as a team (or guardian) statement that agrees with an earlier one, not as a separate kind of evidence (`coat-markings-and-health.md` §4.4). There is no lesser "volunteer confirmation".
+
+**Colour**
+
+1. **A statement from the team or a cat guardian wins.** The newest standing statement from staff, management, or a cat guardian for a cat in her own colonies is the answer. This is the *Confirmed* level. A later machine reading is recorded but never overrides it, and a spotter whose answer is later cannot change it.
+2. **Otherwise, two spotters who agree, colour by colour.** A colour is *Likely* when two voices hold it (a colour a voice named as part of a pair counts for that colour). So *Ginger · Tabby* from one spotter and *Ginger* from another agree on *Ginger*; *Tabby* has only one voice and is not shown. At most two colours are shown.
+   - If more than two colours are agreed, the two with the most voices are shown; on a tie, the colours whose newest supporting statement is more recent.
+   - If two colours are agreed but **nobody ever named both** (two separate camps, such as two voices for *ginger* and two for *black*), only the camp with the **newer supporting statement** is shown, and the cat goes onto the team's Colour check list.
+   Taps that merely confirmed a pre-filled guess count as **prompted**, not independent, and do not count towards the two (the `provenance` comment in §10.1).
+3. **Otherwise, the machine's reading** (SYC-161), if it is not *Not sure*. This is *Reported*.
+4. **Otherwise, one spotter's word fills a gap.** If the machine said *Not sure* or never read the cat, the **newest** single spotter's suggestion is shown until something better arrives. A single spotter **never replaces a real machine reading by themselves.** (This is the change to an approved sentence; see SYC2-D10 in `coat-markings-and-health.md`.)
+5. **Otherwise, Not sure.**
+
+A person saying *Not sure* or *Can't tell* is never a statement about colour and never beats anything. If the answer came from spotters (rule 2 or 4) and the machine has a different real reading, the cat goes onto the team's Colour check list (`coat-markings-and-health.md` §5.3): the one case the review found a determined pair could use is the case the team is shown.
+
+**Markings** (no machine reading in this version, SYC2-D4 in `coat-markings-and-health.md`)
+
+1. **A statement from the team or a cat guardian is the whole list.** The newest standing statement is the cat's markings, including an empty list ("nothing special"). *Confirmed.* It cannot be gamed by a spotter changing their answer: once a team or guardian statement stands, a spotter who had already answered cannot change that answer (as `EAR_TIP_CHECKED` does for the ear tip), and a new spotter's colour answer is refused with a gentle "Syros Cats have checked this one."
+2. **Cats change, so the list can reopen.** A mark that **two voices** have ticked, whose sightings are **dated after** the newest team or guardian statement, is shown alongside that list, and the cat goes back onto the Colour check list for the team to confirm or reject. A cat loses an eye or tears an ear after the team wrote its list; this is how that reaches the page. Removals still need the team.
+3. **Otherwise each mark stands on its own:** a mark is shown once two voices (different devices, photos and days) have each ticked it. *Likely.* A mark only one person ticked is held, and is visible to the team as a suggestion.
+4. **Spotters can only add.** A spotter leaving a mark unticked is not evidence the cat lacks it (the cat may be photographed from the wrong side), so no number of omissions removes a mark. A device's later markings answer **adds to** what that device ticked before and never withdraws it. *Can't tell* is recorded and withdraws nothing, and so does "nothing special" from a device that had ticked marks earlier. Only the team (or a guardian) can remove one. This is the ear-tip rule applied to markings.
+
+**Four guards that apply to both**
+
+- **A new statement only ever replaces the same device's own earlier statement.** One device can never replace another's (the ownership rule in `add-details-later.md` §6), and there is a test for it.
+- **Colour and markings are never evidence of life** (§3.4) and never notifiable. A colour reading on an old photo says nothing about whether the cat is alive, and nobody gets a push because a cat's colour changed.
+- **The public sees the answer only.** Not how many people said it, who, when, or whether a person or the model said it. The team sees all of that.
+- **At most one appearance question per sighting.** The details card asks one thing at a time, and never again once answered or skipped.
+
+How the resolver counts and reports these, in detail:
+
+- **Counting voices.** The resolver counts **at most one voice per `deviceId`**, among standing rows that still have one, whatever the write path did. Two voices also need **different `photoId`s** and **different calendar days** (Syros time). A device's write that would supersede a row only supersedes **that device's own** row. All of this is checked at read time, so no write route (the answers endpoint, a backfill, a future route) can make one device count twice.
+- **Redacted rows.** After "Delete my data" a statement's device is cleared (§8, DECISIONS Part 2g). Each redacted row counts as one voice of its own. The limit is stated, not hidden: a deleted person's statement still counts, so someone who deletes their data and returns is a second voice. The photo-and-day rule above still applies where those fields survive redaction. SYC2-D1 in `coat-markings-and-health.md` accepts this.
+- **Retraction.** A `{ retracted: true }` row removes the statement it supersedes from the count and asserts nothing. The resolver treats it as a gap, not a value.
+- **Authoritative statements are compared by the date they describe** (`observedAt`), newest first, as the sterilised fold already does (§4.6). A later machine reading never beats an earlier authoritative statement.
+- **Confidence output** uses the existing ladder: authority `confirmed`; two voices `likely`; machine or a single gap-filling spotter `reported`. `reported` is the fourth rung the resolver already reserves; if SYC-52 has not made it reachable when this is built, this spec asks SYC-52 to make it so for these two attributes.
+- **Never crosses attributes.** A confirmed colour says nothing about sterilisation, life status or vaccination, and a `vaccinated` observation does not feed sterilised (no clinical inference in either direction).
+- **Not notifiable.** None of the four kinds is a derived-status change (§9.3).
+- **`vet` and `import` rows are excluded for colour and markings at read time.** Today's `isAuthoritative` in `resolve.ts` accepts both (it is written for sterilisation), so for colour and markings the resolver excludes `vet` rows and `provenance: import` rows at read time. They never count as authority or as a voice, whatever a writer let through. A team or guardian Confirm (`agreesWith`, no photo) is an authority statement with the same value.
+
 ### 10.3 Names, aliases and merges
 
 ```ts
