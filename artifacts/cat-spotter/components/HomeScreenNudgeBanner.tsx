@@ -79,7 +79,14 @@ export function HomeScreenNudgeBanner() {
   const { needsSignIn } = useOffline();
   const insets = useSafeAreaInsets();
   const anyModalOpen = useAnyModalOpen();
-  const keepSafe = useKeepSafeState({ enabled: Platform.OS === 'web' });
+  // Only where the card can show (iPhone/iPad Safari, with a spotter), so no
+  // other browser makes the request just for this.
+  const couldShow =
+    Platform.OS === 'web' &&
+    Boolean(username) &&
+    typeof navigator !== 'undefined' &&
+    detectHomeScreenPlatform(navigator.userAgent, navigator.maxTouchPoints) === 'ios-safari';
+  const keepSafe = useKeepSafeState({ enabled: couldShow });
 
   const [standalone, setStandalone] = useState(true); // default hidden until checked
   const [snoozed, setSnoozed] = useState<boolean | null>(null); // null = not loaded yet
