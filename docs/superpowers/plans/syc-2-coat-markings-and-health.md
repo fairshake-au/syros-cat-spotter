@@ -205,7 +205,7 @@ Slices 3.2, 6 and 7 do not depend on the colour rules and can be built in parall
 
 **Collisions, and how they are avoided.**
 - **The SYC-53 docs PRs** D1 (`cat-record-data-spine.md` §6.5, §4.2, §10.1 vocabulary, §10.5, §4.5, §3.2, §6.7) and D3 (`DECISIONS.md`, a new Part 2n). D-SYC2 touches §10.1 only by **appending its own paragraph** after the existing kinds comment, and does not touch the role vocabulary lines D1 rewrites. Its `DECISIONS.md` Part takes the next free letter when it merges, never a letter chosen in advance.
-- **The SYC-209 plan** (being written in another session) amends §10.5, §6.5 and §6.7. D-SYC2 touches none of them. The two sessions agreed by message on 12 October to keep two docs PRs in disjoint sections; whichever merges second rebases. If the SYC-209 session prefers one combined docs PR, that changes only who opens it.
+- **The SYC-209 plan** (being written in another session) amends §10.5 and §6.7 (and `team-access-and-welfare-queue.md` §3.2). D-SYC2 touches none of them. The two sessions agreed by message on 12 October to keep two docs PRs in disjoint sections; whichever merges second rebases. If the SYC-209 session prefers one combined docs PR, that changes only who opens it.
 - **PR #107** (SYC-130 "This is my cat") edits `DECISIONS.md` and the data spine's §4.2. No overlap with D-SYC2's sections.
 
 **Also in this step (Linear, not files):** SYC-161's and SYC-5's descriptions are updated as spec §10.7 asks, once the docs PR merges (the comments filed now point at it).
@@ -353,3 +353,62 @@ Plus the plain cases: each rule alone and in conflict; a person's *Not sure* nev
 - The chip component is shared so SYC-161's "Find the cat" chips reuse it (Decision A1).
 
 **Tests.** "Colour not known" cats stay visible under any filter (**mutation probe:** filter them out → red); several colours combine; the filter works with the network off over a cached catalogue; a source test fails if a filter key named for health or sterilisation is added. **Browser check** in all three languages.
+
+---
+
+## Slice 5: guardians (after the roles work)
+
+**In plain English.** A cat guardian, on her own cats' pages, sees the same Appearance section the team sees and can confirm, correct or mark wrong. What she says stands at once; it is not queued for anyone's OK, and the team sees it in their list of recent guardian changes. She can read and add the private health notes on cats in her colonies, including the notes spotters leave. She cannot record vaccinations, and she sees nothing of this for cats outside her colonies. Her Colour check list shows only her colonies' cats.
+
+**Needs first, from the SYC-53 plan (names as in that plan on branch `claude/syc-53-plan`):**
+
+| SYC-53 PR | What this slice uses from it |
+|---|---|
+| **0.2** one list of roles | `TEAM_ROLES` and `actingRole()`, so a guardian's statement is written with `roleAtTime: guardian` and a management member's with `management` |
+| **0.5** the capability catalogue | The four names with the holders in roles spec §6.2 (guardians: `set_appearance`, `view_health_notes`, `add_health_note` placed on their colonies; never `set_vaccination`); strict `can()` with a target; targets from the record (a cat's colony is its newest colony statement) |
+| **2.1** her cat pages | `GET /api/team/my/cats/:id` and `lib/guardianCatView.ts`, where her Appearance and health-note sections go |
+| **2.2** what she says about a cat | `guardian` made reachable in `writeObservation`; the colony scope on her statements (`colony:<id>` if Decision B1); `listGuardianChanges()`, which lists every statement written as `guardian`, so her appearance statements appear in "Recent guardian changes" with no extra code |
+
+The first **real** guardian also needs SYC-209's "create a colony" PR (SYC-53's Decision D). This slice can merge before that; it simply has nobody to serve.
+
+### PR 5.1: a guardian's appearance and health notes (spec §4.3, §5.4, §6.4)
+
+- **Routes** under `/api/team/my/cats/:id/…` (SYC-53's path rule for a person's own pages): `appearance/confirm`, `appearance/correct`, `observations/:obsId/retract`, `health-notes` (read and write). Each uses **the same functions as Slice 3**, behind `requireTeam(capability, catTarget)`, with the target looked up from the cat, never from the request.
+- **The resolver** counts a `guardian` `coat` or `markings` statement with a colony scope as authoritative (spec §4.2 rule 1). Her authority is checked **when she writes**, by the route; the colony is kept on the statement for ever, as SYC-53 decided for sterilisation. A later move of the cat to another colony does not unwrite what she said.
+- **Her cat page** (SYC-53's 2.1) gains the Appearance section and, **as a separate block behind `view_health_notes`, never through `guardianCatView`'s serialiser (C7)**, the cat's health notes and the spotters' "Anything you noticed?" notes on that cat.
+- **Her Colour check list**: `GET /api/team/my/colour-check`, the same list filtered in the query to cats whose newest colony statement is one of hers.
+- **Strings** in her language through SYC-53's PR 1.0 catalogue; Greek and French wait for Johnny (SYC-283) like the rest of her pages.
+
+**Tests.** A guardian's correction on her own cat stands at once (`confirmed`) and appears in `listGuardianChanges()`; on a cat outside her colonies, every route refuses (the quiet 403) and her page shows the public view only. **Mutation probe:** take the colony from the request path → red. She is refused `set_vaccination` at the route and at `writeObservation`. **Mutation probe:** grant guardians `set_vaccination` in the catalogue → red (SYC-53's T24 also catches it). Health notes: readable on her cat, not on another colony's cat, never on her public view. **Mutation probe:** render the block for any guardian → red. A cat in no colony is touched only by island-wide holders. The SYC-53 route walk (T1) gains the new routes. **Browser check** at ~390 px and desktop with a seeded colony.
+
+---
+
+## Slice 6: donors
+
+**In plain English.** Once Syros Cats have recorded vaccinations for at least five different cats this calendar year, the Help tab shows one sentence under the campaign: *"23 cats vaccinated this year"*. It counts each cat once, however many vaccines it had. It never names a cat, a colony or a vaccine. Below five, nothing is shown at all.
+
+### PR 6.1: the vaccinated-this-year number (spec §6.3, Decision B)
+
+- **`GET /api/stats/vaccinated`** → `{ year, count }`, with `count: null` below 5. The count is distinct canonical cats (a merged cat counts once, as its surviving cat) with at least one standing `vaccinated` observation whose `observedAt` falls in the current **Athens** calendar year. Superseded rows don't count. Deceased cats vaccinated this year still count (they were vaccinated). `Cache-Control: public, max-age=300`. No list, no dates, no colony, no vaccine.
+- **The Help tab** shows the sentence when `count` is not null; a key in all three languages with a `{count}` placeholder (the number is always five or more, so the plural form is fixed).
+- **Reports**: nothing built here. SYC-62 gets the requirement (one sentence, no breakdown by cat or colony) as a comment.
+
+**Tests (spec §10.6).** Distinct cats: a cat vaccinated twice, or against two diseases, counts once; a cat with nothing recorded doesn't count; a vaccination dated 31 December last year (Athens) doesn't count and 1 January does (**mutation probe:** compare UTC years → red); 4 cats → `null`, 5 → 5 (**mutation probe:** threshold `> 5` → red); the response has exactly the keys `year` and `count`; a superseded entry doesn't count; T-rabies holds over the new endpoint and string. **Browser check** of the Help tab at ~390 px and desktop, with the count above and below five.
+
+**After deploy (Claude):** `curl` the endpoint on production; with no vaccinations yet it must return `count: null`.
+
+---
+
+## Slice 7: the old care route (Decision C)
+
+**In plain English.** Nobody notices. The old shared-password route can still mark a cat as desexed or homed until the dashboard replaces it (SYC-185), but it can no longer post a free-text note to a cat's public timeline, so no health or vaccination detail can reach the public or a follower's phone that way.
+
+### PR 7.1: refuse `general` on `POST /cats/:catId/updates` (spec §6.4 rule 6)
+
+- **Before writing code (Claude, read-only):** count `cat_updates` rows of type `general` created in the last 90 days on production, through db-ops. If any exist, stop and show Samuel what they were before going further.
+- `CreateCatUpdateBody.updateType` becomes `desexed | adopted`; a `general` request gets a 422 with a plain message. The response enum keeps `general` and `sighting` so old timeline rows still read. No new `cat_update_type` value is added for vaccination, ever (spec §10.7).
+- `threat_model.md` and the route's comment say why.
+
+**Tests.** `general` is refused and writes no `cat_updates` row and sends no push (**mutation probe:** accept `general` again → red); `desexed` and `adopted` behave exactly as before (existing tests); a source test asserts no code path writes `vaccinated`, `team_note` or anything from `MARKS` into `cat_updates`.
+
+**After deploy (Claude):** `curl` the route on production with the secret and `general` → 422; no timeline row appears.
