@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { deletedMarkerKey } from "../deviceAuth";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -49,6 +50,15 @@ export async function severKeepSafe(tx: Tx, deviceId: string, reason: string): P
   // Every contact row naming the spotter, whatever its purpose: report and
   // news contacts can carry a device id too (review of #97, finding 7).
   await tx.execute(sql`delete from email_contacts where device_id = ${deviceId}`);
+  // A used restore link this spotter asked for, but that moved someone
+  // ELSE (Decision 12: any phone may press the button), still tells that
+  // someone's old phone "device_moved". Keep it, with this id swapped for its
+  // one-way key, rather than deleting it (Decision 12 review, finding 6).
+  await tx.execute(sql`
+    update mail_tokens set device_id = ${deletedMarkerKey(deviceId)}
+     where purpose = 'restore' and used_at is not null
+       and device_id = ${deviceId} and restored_device_id is distinct from ${deviceId}
+  `);
   await tx.execute(sql`
     delete from mail_tokens where device_id = ${deviceId} or restored_device_id = ${deviceId}
   `);

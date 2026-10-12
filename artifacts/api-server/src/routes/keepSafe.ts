@@ -52,7 +52,7 @@ async function padTo(started: number, ms: number): Promise<void> {
 }
 
 // Plan step 6: 30 per IP per hour, each. A courtesy cap: the token itself is
-// the security (one use, 15 minutes, bound to the asking phone).
+// the security (one use, 15 minutes, 256 random bits, never in a server log).
 const linkLimiter = () =>
   rateLimit({
     windowMs: 60 * 60 * 1000,
@@ -166,24 +166,28 @@ router.post("/restore/peek", peekLimiter, async (req, res) => {
   if (!isTokenShaped(raw)) return refuseLink(req, res, "malformed", raw);
   const result = await peekRestore(raw, caller);
   if (!result.ok) return refuseLink(req, res, result.reason, raw);
-  res.json({ spotters: result.spotters });
+  res.json({
+    spotters: result.spotters,
+    openedOnAskingPhone: result.openedOnAskingPhone,
+    alreadyHere: result.alreadyHere,
+  });
 });
 
 router.post("/restore/redeem", redeemLimiter, async (req, res) => {
   noStore(res);
   const body = (req.body ?? {}) as Record<string, unknown>;
   const raw = body["token"];
-  const spotterDeviceId = typeof body["spotterDeviceId"] === "string" ? body["spotterDeviceId"] : "";
+  // The picker's opaque choice (Decision 12, review finding 9); a device id
+  // is still accepted from a page loaded before this change.
+  const pick = {
+    choice: typeof body["choice"] === "string" ? body["choice"] : undefined,
+    spotterDeviceId: typeof body["spotterDeviceId"] === "string" ? body["spotterDeviceId"] : undefined,
+  };
   const header = req.headers["x-device-secret"];
   const secret = typeof header === "string" ? header : "";
   // The same phone's retry within 60 s (its starter id is retired by then).
-  if (isTokenShaped(raw) && secret.length >= 16 && secret.length <= 256 && spotterDeviceId) {
-    const replay = await replayAfterMove({
-      raw,
-      callerDeviceId: String(body["deviceId"] ?? ""),
-      callerSecretHash: hashSecret(secret),
-      spotterDeviceId,
-    });
+  if (isTokenShaped(raw) && secret.length >= 16 && secret.length <= 256 && (pick.choice || pick.spotterDeviceId)) {
+    const replay = await replayAfterMove({ raw, callerSecretHash: hashSecret(secret), pick });
     if (replay?.ok) {
       res.json({ deviceId: replay.deviceId, username: replay.username });
       return;
@@ -196,13 +200,13 @@ router.post("/restore/redeem", redeemLimiter, async (req, res) => {
     raw,
     callerDeviceId: caller,
     callerSecretHash: hashSecret(secret),
-    spotterDeviceId,
+    pick,
     abandonCurrent: body["abandonCurrent"] === true,
     deleteCurrent: body["deleteCurrent"] === true,
     ipHash: ipFingerprint(req.ip ?? "unknown"),
   });
   if (!result.ok) return refuseLink(req, res, result.reason, raw);
-  req.log.info({ token: tokenLogId(raw) }, "restore: spotter moved to the phone that asked");
+  req.log.info({ token: tokenLogId(raw) }, "restore: spotter moved to the phone that pressed the button");
   res.json({ deviceId: result.deviceId, username: result.username });
 });
 

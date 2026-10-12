@@ -1,19 +1,21 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { hashToken } from "./tokens";
-import { deletedMarkerKey } from "../deviceAuth";
 import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
 
 /**
- * Pressing the button: moving a spotter to the phone that asked (SYC-3 plan,
- * "How moving a spotter works" and Slice 1 step 6).
+ * Pressing the button: moving a spotter to **the phone that presses it**
+ * (SYC-3 plan, "How moving a spotter works", Slice 1 step 6, and Decision 12,
+ * which replaced Decision 2's "only the phone that asked" on 12 Oct 2026).
  *
  * **Nothing is copied or re-keyed.** The phone takes over the spotter's device
  * id, and the server replaces the secret fingerprint that id accepts with the
  * fingerprint of the phone's own secret. In one transaction:
  *
  * 1. the token is checked: it exists, is a restore token, is unexpired and
- *    unused, **and was asked for by the phone that is calling** (Decision 2);
+ *    unused. Any phone that opens it may press (Decision 12): the spots go to
+ *    the caller, never to the phone that asked;
  * 2. the chosen spotter really is kept safe by that token's address, and is
  *    confirmed (a username, or any other public value, is never enough);
  * 3. the calling phone has no username, or it said `abandonCurrent` after the
@@ -31,10 +33,11 @@ import { DELETED_BY_THE_PERSON, severPerson } from "../severPerson";
  *    push token goes. Whatever that id owns stays under it, untouched.
  *    **Or**, when the person chose "Delete Nikos" (`deleteCurrent`, SYC-266,
  *    Samuel 10 Oct 2026), the abandoned spotter is deleted exactly as "Delete
- *    my data" would (SYC-63 `severPerson`), in this same transaction. The link
- *    being spent first swaps the abandoned id for its one-way `deleted:` key,
- *    so it survives the deletion (the old phone's `device_moved` and the
- *    60-second replay still read it) without keeping the raw id.
+ *    my data" would (SYC-63 `severPerson`), in this same transaction. If the
+ *    abandoned id also asked for this link, `severKeepSafe` swaps it on the
+ *    spent link for its one-way `deleted:` key rather than deleting the link,
+ *    so the old phone's `device_moved` and the 60-second replay still work,
+ *    without keeping the raw id.
  *
  * A deleted spotter (SYC-63) has no credential row under its id, so step 5
  * finds nothing and the whole thing rolls back.
@@ -83,23 +86,64 @@ async function keptSafeBy(tx: Tx | typeof db, hmac: string) {
 }
 
 /**
- * `POST /api/restore/peek`: the same checks as redeem, read-only. Lists the
- * spotters this link can move, by username. Only the phone that asked, with
- * a live link, ever sees the list.
+ * An opaque id for one spotter on one link's picker (Decision 12, review
+ * finding 9): more people can open a page that peeks now, so the page never
+ * learns a spotter's device id. Stable for a token, meaningless without it.
  */
-export async function peekRestore(
-  raw: string,
-  callerDeviceId: string,
-): Promise<{ ok: true; spotters: { deviceId: string; username: string | null }[] } | MoveRefusal> {
+export function choiceId(raw: string, spotterDeviceId: string): string {
+  return createHash("sha256").update(`choice:${hashToken(raw)}:${spotterDeviceId}`).digest("hex").slice(0, 24);
+}
+
+export type PeekResult =
+  | {
+      ok: true;
+      spotters: { choice: string; username: string | null }[];
+      /** False when another phone or browser opened the link (Decision 12): the page asks first. */
+      openedOnAskingPhone: boolean;
+      /** The caller already is the spotter this link would move: nothing to do. */
+      alreadyHere: { username: string | null } | null;
+    }
+  | MoveRefusal;
+
+/**
+ * `POST /api/restore/peek`: the same checks as redeem, read-only. Lists the
+ * spotters this link can move, by username and an opaque choice id.
+ *
+ * Decision 12 (Samuel, 11–12 Oct 2026): the link works on whichever phone
+ * opens it, so peek no longer refuses another phone. It says whether this is
+ * the phone that asked, so the page can ask "is this the app or browser … uses
+ * for Cat Spotters?" first. It never changes what can move.
+ */
+export async function peekRestore(raw: string, callerDeviceId: string): Promise<PeekResult> {
   const token = await readToken(db, raw);
   if (!token) return { ok: false, reason: "no_such_token" };
   if (token.purpose !== "restore") return { ok: false, reason: "wrong_purpose" };
   if (token.expired) return { ok: false, reason: "expired" };
   if (token.used_at) return { ok: false, reason: "used" };
-  if (token.device_id !== callerDeviceId) return { ok: false, reason: "not_the_asking_phone" };
-  const spotters = (await keptSafeBy(db, token.address_hmac)).filter((s) => s.device_id !== callerDeviceId);
-  if (!spotters.length) return { ok: false, reason: "nobody_kept_safe" };
-  return { ok: true, spotters: spotters.map((s) => ({ deviceId: s.device_id, username: s.username })) };
+  const all = await keptSafeBy(db, token.address_hmac);
+  if (!all.length) return { ok: false, reason: "nobody_kept_safe" };
+  const others = all.filter((s) => s.device_id !== callerDeviceId);
+  const openedOnAskingPhone = token.device_id === callerDeviceId;
+  // "Already here" only when the list is empty because the caller IS the
+  // spotter (review finding 10); an address keeping nobody safe is refused above.
+  if (!others.length) {
+    const me = all.find((s) => s.device_id === callerDeviceId)!;
+    return { ok: true, spotters: [], openedOnAskingPhone, alreadyHere: { username: me.username } };
+  }
+  return {
+    ok: true,
+    spotters: others.map((s) => ({ choice: choiceId(raw, s.device_id), username: s.username })),
+    openedOnAskingPhone,
+    alreadyHere: null,
+  };
+}
+
+/** Which spotter a picker answer means: an opaque choice, or (older pages) a device id. */
+export type SpotterPick = { choice?: string; spotterDeviceId?: string };
+
+function matchesPick(raw: string, deviceId: string, pick: SpotterPick): boolean {
+  if (pick.choice) return choiceId(raw, deviceId) === pick.choice;
+  return Boolean(pick.spotterDeviceId) && pick.spotterDeviceId === deviceId;
 }
 
 /**
@@ -107,34 +151,31 @@ export async function peekRestore(
  * same spotter, within 60 seconds of the move, gets the same answer, and
  * nothing moves twice.
  *
- * By then the phone's starter id is retired, so it can't pass the ordinary
- * device check. "The same phone" is proved instead by its secret: the
+ * By then the phone's starter id is retired (or deleted), so it can't pass the
+ * ordinary device check. "The same phone" is proved by its secret alone: the
  * restored spotter's credential now holds exactly that secret's fingerprint,
- * and the token says this starter id asked for it. Anything else returns null
- * and the request goes on to the ordinary checks (and their refusal).
+ * which only the phone that pressed the button has (Decision 12: that may not
+ * be the phone that asked). Anything else returns null and the request goes on
+ * to the ordinary checks (and their refusal).
  */
 export async function replayAfterMove(input: {
   raw: string;
-  callerDeviceId: string;
   callerSecretHash: string;
-  spotterDeviceId: string;
+  pick: SpotterPick;
 }): Promise<MoveResult | null> {
   const result = await db.execute(sql`
-    select p.username
+    select t.restored_device_id, p.username
       from mail_tokens t
       join device_credentials c on c.device_id = t.restored_device_id
       left join profiles p on p.device_id = t.restored_device_id
      where t.token_hash = ${hashToken(input.raw)}
        and t.purpose = 'restore'
-       -- After "Delete Nikos" the link holds the abandoned id's one-way key.
-       and t.device_id in (${input.callerDeviceId}, ${deletedMarkerKey(input.callerDeviceId)})
-       and t.restored_device_id = ${input.spotterDeviceId}
        and t.used_at > now() - make_interval(secs => ${SAME_ANSWER_SECONDS})
        and c.secret_hash = ${input.callerSecretHash}
   `);
-  const row = result.rows[0] as { username: string | null } | undefined;
-  if (!row) return null;
-  return { ok: true, deviceId: input.spotterDeviceId, username: row.username };
+  const row = result.rows[0] as { restored_device_id: string; username: string | null } | undefined;
+  if (!row || !matchesPick(input.raw, row.restored_device_id, input.pick)) return null;
+  return { ok: true, deviceId: row.restored_device_id, username: row.username };
 }
 
 let moveHook: (() => Promise<void>) | null = null;
@@ -159,14 +200,14 @@ export async function redeemRestore(input: {
   raw: string;
   callerDeviceId: string;
   callerSecretHash: string;
-  spotterDeviceId: string;
+  pick: SpotterPick;
   abandonCurrent: boolean;
   /** SYC-266: delete the spotter being left behind. Only with `abandonCurrent`. */
   deleteCurrent?: boolean;
   ipHash: string;
 }): Promise<MoveResult> {
-  const { raw, callerDeviceId, spotterDeviceId } = input;
-  if (!spotterDeviceId || spotterDeviceId === callerDeviceId) return { ok: false, reason: "bad_spotter" };
+  const { raw, callerDeviceId } = input;
+  if (!input.pick.choice && !input.pick.spotterDeviceId) return { ok: false, reason: "bad_spotter" };
   if (input.deleteCurrent && !input.abandonCurrent) return { ok: false, reason: "delete_without_abandon" };
   try {
     return await db.transaction(async (tx) => {
@@ -180,7 +221,13 @@ export async function redeemRestore(input: {
       const token = await readToken(tx, raw);
       if (!token) throw new Refused("no_such_token");
       if (token.purpose !== "restore") throw new Refused("wrong_purpose");
-      if (token.device_id !== callerDeviceId) throw new Refused("not_the_asking_phone");
+      // Decision 12: any phone that opens the link may press the button; the
+      // spots go to the phone that presses it, never to the phone that asked.
+
+      const chosen = (await keptSafeBy(tx, token.address_hmac)).find((s) => matchesPick(raw, s.device_id, input.pick));
+      if (!chosen) throw new Refused("spotter_not_kept_safe_by_this_address");
+      const spotterDeviceId = chosen.device_id;
+      if (spotterDeviceId === callerDeviceId) throw new Refused("already_here");
 
       // The conditional write: only one request can spend the token.
       const spent = await tx.execute(sql`
@@ -195,9 +242,6 @@ export async function redeemRestore(input: {
       // `replayAfterMove`, before the device check, because by then its
       // starter id is retired.
       if (!spent.rows.length) throw new Refused(token.used_at ? "used" : "expired");
-
-      const chosen = (await keptSafeBy(tx, token.address_hmac)).find((s) => s.device_id === spotterDeviceId);
-      if (!chosen) throw new Refused("spotter_not_kept_safe_by_this_address");
 
       const [caller] = (
         await tx.execute(sql`select username from profiles where device_id = ${callerDeviceId}`)
@@ -222,13 +266,9 @@ export async function redeemRestore(input: {
       await tx.execute(sql`delete from push_tokens where device_id = ${spotterDeviceId}`);
 
       if (input.deleteCurrent) {
-        // "Delete Nikos": the link names the abandoned id as the phone that
-        // asked; swap it for the one-way key first, or the deletion below
-        // would remove the link with everything else naming that id.
-        await tx.execute(sql`
-          update mail_tokens set device_id = ${deletedMarkerKey(callerDeviceId)}
-           where token_hash = ${hashToken(raw)}
-        `);
+        // "Delete Nikos". If Nikos also asked for this link, the deletion keeps
+        // the spent link by swapping Nikos's id on it for the one-way key
+        // (severKeepSafe), so the old phone is still told device_moved.
         // Its credential becomes the `deleted:` marker, so the id answers 410
         // for ever and can't be re-bound on first use either.
         await severPerson(tx, { deviceId: callerDeviceId, reason: DELETED_BY_THE_PERSON });

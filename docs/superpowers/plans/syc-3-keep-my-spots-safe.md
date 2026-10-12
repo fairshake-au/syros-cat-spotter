@@ -53,7 +53,7 @@ Draft WhatsApp message for now (if you pick (a); fill in the iPhone line once it
 > • [iPhone: Add to Home Screen / Open it at least once a week.]
 > • If the app ever asks you to pick a username again, don't worry, your spots are safe with us. Message me with your old username and I'll note it down so we can bring them back.
 
-### Decision 2 — Only the phone that asked can use the link (a clarification)
+### Decision 2 — Only the phone that asked can use the link (a clarification) — **replaced by Decision 12 on 11 Oct 2026**
 
 **Decided by Samuel, 30 Sep 2026:** only the phone that asked can use the link.
 
@@ -137,6 +137,92 @@ See "The website password gate" below. **Recommendation:** these two small pages
 ### Decision 11 (new, 8 Oct, from the adversarial review of #106) — A daily cap for confirmed addresses
 
 **Decided by Samuel, 8 Oct 2026: B.** A confirmed address gets at most 3 "is this you?" emails a day. Siblings still set up in one sitting (Decision 8), but a stranger can't flood a confirmed parent or drain the app-wide daily allowance through one address.
+
+### Decision 12 (new, 11 Oct, from testing SYC-268 on a real iPhone) — The link works on whichever phone opens it, with advice so the spots land in the right place
+
+**Decided by Samuel, 11 Oct 2026: C, "but with advice to avoid the spots landing in the wrong place".** This **replaces Decision 2.**
+
+**Why it changed.** In the first live test, Samuel asked for a link from one Safari private tab and opened it in another. Every iOS private tab keeps its own storage, so the page said *"Open this link in the browser where you asked for it"*, a dead end with only **Copy link**. The same dead end hits real families: the Gmail app opens links in its own built-in browser, and a parent may read the email on their own phone. Samuel: *"the rough edge is really rough. I want the best UX."*
+
+Options considered (Samuel, 11 Oct):
+- **A.** Keep the rule and add "send a new link here". Still a dead end for a parent's phone or a private tab.
+- **B.** The link plus an 8-character code as a fallback. No dead ends, but means typing a code.
+- **C.** The link works wherever it's opened. **Chosen, with advice.**
+- **D.** "Approve" from the email, and the spots go to the phone that asked. **Unsafe**: it's the trick-a-click takeover Decision 2 was made to stop.
+
+**What a spotter experiences**
+1. **Opened on the phone that asked:** one tap, exactly as now.
+2. **Opened on a different phone or browser:** before the button, the page says *"This isn't the phone or browser that asked for this link. If you didn't ask for it, close this page."* Then it asks *"Is this the app or browser {name} uses for Cat Spotters?"*. The common mismatch is the right phone but the wrong browser, so the question asks about the browser, not the phone (review finding 4). There are two buttons of the same size:
+   - **Yes, move {name}'s spots here**, which goes on as normal;
+   - **No, copy the link**, which copies it and says *"Paste it into the browser {name} uses for Cat Spotters."*
+3. **Opened inside an email or social app's built-in browser** (detected from the browser's identifier, reusing `lib/homeScreenNudge.ts`'s detection): a warning comes first. *"You've opened this inside another app. If you move the spots here, you won't find them in the browser you normally use. Copy the link and paste it into the browser you use for Cat Spotters."* There are two options: **Copy link**, and a smaller **Move them here anyway**. It's advice, never a block.
+   - Detection can't be perfect: some iOS mail apps' built-in browsers look exactly like Safari. So case 2's question is the real safety net, and this warning is a bonus.
+   - The copy never says "Safari or Chrome": on an iPhone they keep separate storage (review finding 4).
+4. **Opened on the phone that already *is* that spotter:** *"{name}'s spots are already on this phone."* No error and no button.
+5. **The phone already has a different spotter:** Decision 7's warning and SYC-266's "What should happen to {current}?" choice apply, unchanged.
+
+**Security: what Decision 2 protected, and what replaces it**
+- **"A stranger asks, and the victim clicks."** Under this decision, the spots go to the phone that **presses the button**, never to the phone that asked. If a stranger asks for a link for your address and you press it, your spots land on *your* phone, so the stranger gets nothing. If your phone is already that spotter, nothing moves (case 4). If it has another spotter, case 5's warning and choice stand in the way. So there's still no takeover without the inbox: the inbox is the key, as §8.2 always said.
+- **A leaked link.** Decision 2 made a link useless to anyone but the phone that asked. Its replacement is that **the token moves into the URL fragment**: `https://apptest.catspotters.com/restore#t=…`. Browsers never send a fragment to any server, so it's never in Replit's access logs, our logs, or a `Referer`. That holds only if every place that builds or carries the link uses the fragment form:
+  - the email;
+  - **Copy link** (review finding 2);
+  - the password page, below.
+
+  The app reads `location.hash`, then **clears it** from the address bar and history with `replaceState` to a plain `/restore`, so it isn't left in history that syncs to the family's other devices (review finding 3).
+  - What's left is a forwarded email or a screenshot. That's someone handing over their own key, and the email still says *"Please don't forward this email."*
+  - Links already sent with `?t=` keep working for their 15 minutes; the page reads both forms.
+- **Link scanners that run JavaScript** (some corporate mail filters do). Opening the page only peeks; nothing moves without a button press. A scanner is always "a different browser", so it would also have to pass case 2's confirmation (and case 3's warning). If one ever did, the old phone gets `device_moved` and the family restores again.
+- **The password page** (review finding 5). The gate shows the password page in place (a 200 at `/restore`, no redirect), and a fragment doesn't survive the login form's POST. Copying it into `next` would send the token to the server.
+  - Instead, the page's script **saves the fragment in `sessionStorage`**, never in the form. After login, the app's `/restore` page reads it from there and deletes it.
+  - The page's CSP is only `frame-ancestors`, so inline script is allowed.
+  - A test pins three things: `/restore#t=…` works through a login, the login request carries no token, and the saved copy is deleted.
+
+**What changes in the build**
+- `peekRestore` no longer refuses another phone. It returns `{ spotters, openedOnAskingPhone }`, and `spotters` still leaves out the caller's own spotter. If that list is empty because the caller already *is* the spotter, it answers `{ alreadyHere: true, name }`.
+- `redeemRestore` drops the asking-phone check. The redeemer's starter id is retired, as now. The token keeps `device_id` = the phone that asked, for the record.
+- **The same-phone replay within 60 seconds** no longer needs `t.device_id = caller`. It is proved by the spotter's credential now holding exactly the presented secret, which is already a condition.
+- **SYC-266's delete-the-abandoned-spotter path** re-points the spent link only when the abandoned id is the token's `device_id`. Under this decision the abandoned id is the *caller's*, which may differ from the asker's. The build must keep the spent link (and `device_moved`) correct either way.
+- The restore email builds `…/restore#t=…`. **Copy link** copies the same form.
+- **Wording that would become untrue**, in English, Greek and French (review finding 1):
+  - The email: "Nothing moves unless the button is pressed on the phone that asked." becomes "Nothing moves until someone presses the button. Never send this link to anyone, even a friend."
+  - `restoreAskSent`: "Open it on this phone" becomes "Open it in the browser you use for Cat Spotters".
+  - `restorePageWrongBrowser` is retired.
+- **Deletion keeps the "moved" notice** (review finding 6). Now any phone may redeem, so the phone that asked may be a different live phone. `severKeepSafe` must not delete a **used** restore token just because the deleted spotter asked for it. It swaps that id for its one-way `deleted:` key, as SYC-266 does, so someone else's old phone is still told `device_moved`.
+- **The picker uses opaque choice ids**, not device ids (review finding 9): more people can open a page that peeks now.
+
+**Tests (replacing test 3)**
+- **3′.** A link opened on a phone other than the one that asked **moves the spotter to that phone**, and the asking phone gets nothing **(M: put back the asking-phone check → red)**.
+- **3″.** Peek tells the page whether it's the asking phone, which never changes what moves. A caller that already is the spotter gets "already here" and nothing moves.
+- **3‴.** The emailed link **and Copy link** use the fragment form, and no server log line ever contains it **(M: build either with `?t=` → red)**.
+- **3⁗.** After the page loads, the address bar and history hold no token **(M: leave the fragment → red)**.
+- **Replay** (review finding 7): a third phone holding a used token, replaying within 60 seconds, gets `link_not_valid` and no username **(M: drop the secret condition → red)**.
+- **"Already here"** (review finding 10) fires only when the caller *is* the spotter. A forgotten or unconfirmed address still gets `link_not_valid` **(M: "already here" on any empty list → red)**.
+- **"Delete Nikos" when Nikos isn't the phone that asked** (review finding 8): the old phone still gets `device_moved`, the replay still works, and the column scan stays clean **(M: never re-point → red)**.
+- **Deletion and the "moved" notice** (finding 6): deleting the phone that asked leaves someone else's old phone still told `device_moved`.
+- **15′.** `/restore#t=…` survives the website password page.
+- **App:**
+  - the confirmation shows only when `openedOnAskingPhone` is false;
+  - the in-app-browser warning shows for the listed identifiers and not for Safari, Chrome or Firefox;
+  - "already here" shows its message;
+  - `?t=` still works.
+- **18′.** In a real browser (390 px and desktop), the round trip with the link opened in a second browser: confirm → moved, and the old one shows "moved". **Plus on Samuel's real iPhone:** opening from Apple Mail, Gmail and Outlook. Note what each one's built-in browser does, and whether the warning shows. Check Resend's click tracking is off, so links aren't rewritten.
+
+**Adversarial review of this amendment (Opus, its own worktree, 12 Oct).** It found no path to a spotter without the inbox. Findings 1–10 are folded in above. **Judgment call A** is in "The one risk this brings back" below.
+
+**The one risk this brings back (judgment call A): decided by Samuel on 12 Oct 2026, option 1.** A child who genuinely asked for their *own* link can be talked into forwarding it, and the person who receives it can then move the spots. The version where the schoolmate asks for the link themselves already worked under Decision 2, because the link was valid on their phone. Neither a code on other phones nor Option B stops a child reading out or forwarding their own key. So the change is the email wording: *"Never send this link to anyone, even a friend."* **Decision 12 approved by Samuel on 12 Oct 2026, with findings 1–10 and option 1 folded in.**
+
+**Code review of the build (Opus, its own worktree, 12 Oct; PR #114).** It found no path to a spotter without the inbox. Its fixes are folded in:
+- a failed copy is said honestly, never "Link copied";
+- the address-bar clean-up covers a slow router;
+- stale security comments are corrected;
+- six guards the tests didn't cover now have tests, each mutation-checked.
+
+Three further notes:
+- **"Already here" has an "Open Cat Spotters" button**, not "no button" as drafted above, so it isn't a dead end.
+- **Resend's click tracking is off.** Checked on 12 Oct: the link in the live restore email of 9 Oct points straight at `apptest.catspotters.com`, so a `#t=` link never passes through Resend's servers.
+- **Accepted risk, decided by Samuel on 12 Oct 2026 ("accept as-is").** The "push" trick: a stranger makes their own throwaway spotter and kept-safe address, then gets a child to open its link on a phone with no spotter. If the child taps through the different-browser screen, the stranger's spotter moves onto the child's phone, and the stranger can later pull it back and see what was spotted with it. Decision 2 made this impossible. It's accepted because it needs a deliberate trick against one child who taps through *"If you didn't ask for it, close this page"*, and the child's own collection is never at stake.
+
+**Model delegation:** Opus builds it, because it changes the takeover surface. An independent Opus adversarial review runs in its own worktree before merge.
 
 ---
 
@@ -281,7 +367,7 @@ Following the repository's pattern: route tests with vitest and the `lib/db` thr
 **Takeover attempts, the ones that matter most:**
 1. **A guessed username restores nothing.** No restore route accepts a username. Sending one is ignored. A confirmed address for spotter A can't be used to move spotter B, even if B's username is typed into the picker **(M: let `redeem` accept any device id → red)**.
 2. **A replayed link.** A used link is refused after 60 seconds. Within 60 seconds, a second POST from the same phone returns the same result and moves nothing twice **(M: drop `used_at IS NULL` from the write → red)**. Two simultaneous redeems: exactly one wins.
-3. **The link on a second device.** A link used from a phone other than the one that asked gets `link_not_valid` and moves nothing **(M: skip the asking-phone check → red)**.
+3. ~~**The link on a second device.**~~ *Replaced by Decision 12 (11 Oct 2026): see tests 3′–3‴ there.*
 4. **The old phone carrying on.** After a move, **every** route that acts as a spotter, listed from `routes/*.ts` at build time (profiles ×4, notifications ×4, push token, sightings ×2, cats register/claim/rename, welfare reports and their photos, and anything added since), returns `403 device_moved` for the old secret **(M: return the generic 403 → red; M: skip SYC-107 on one cats route → red)**. The restored id's push token is gone, and a notification fan-out afterwards doesn't reach the old token.
 5. **No gap for "first use" binding.** A request from the old phone racing the move can never bind itself **(M: turn the `UPDATE` into delete + insert → red, using a test hook between the two statements)**.
 6. **Unconfirmed and forgotten addresses restore nothing.** `pending` → no email, and redeem refused. A suppressed address gets no email of any kind.

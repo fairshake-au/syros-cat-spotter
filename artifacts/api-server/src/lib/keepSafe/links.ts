@@ -25,8 +25,12 @@ export function publicAppOrigin(): string {
   return url.origin;
 }
 
+/**
+ * The token goes in the URL fragment (Decision 12): browsers never send a
+ * fragment to any server, so it never reaches an access log or a Referer.
+ */
 export function restoreUrl(token: string): string {
-  return `${publicAppOrigin()}/restore?t=${encodeURIComponent(token)}`;
+  return `${publicAppOrigin()}/restore#t=${encodeURIComponent(token)}`;
 }
 
 export function confirmUrl(token: string): string {

@@ -638,3 +638,23 @@ describe('SYC-3: the restore link (/restore?t=…)', () => {
     expect(res.headers.location).toBe(`/restore?t=${TOKEN}`);
   });
 });
+
+describe('SYC-3 Decision 12: a restore link carries its token in the fragment', () => {
+  it('the password page keeps a #t= token in sessionStorage for the app, never in the form or the request (test 15′)', async () => {
+    const req = await start(gatedEnv());
+    // A browser never sends the fragment, so the request is just /restore.
+    const page = await req('GET', '/restore');
+    expect(page.status).toBe(200);
+    // The script saves the token from location.hash and clears it from the address bar…
+    expect(page.body).toContain("sessionStorage.setItem('cat-spotter/restore-token',h.slice(3))");
+    expect(page.body).toContain('history.replaceState(null,"",location.pathname+location.search)');
+    // …only on /restore, and only for a well-formed token.
+    expect(page.body).toContain('/\\/restore\\/?$/.test(location.pathname)');
+    expect(page.body).toContain('/^#t=[A-Za-z0-9_-]{43}$/.test(h)');
+    // The form's `next` is the plain path: nothing about the token goes to the server.
+    expect(page.body).toContain('value="/restore"');
+    const res = await req('POST', '/_gate/login', form({ password: PASSWORD, next: '/restore' }));
+    expect(res.status).toBe(303);
+    expect(res.headers.location).toBe('/restore');
+  });
+});

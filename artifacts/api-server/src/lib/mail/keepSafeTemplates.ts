@@ -75,7 +75,7 @@ export const restoreLink: FixedTemplate = (params) => {
   const open = "Open this on the phone that's getting the spots back";
   const rest = ", then press the button. The link works once and lasts 15 minutes.";
   const ignore =
-    "If you didn't ask, ignore this. Nothing moves unless the button is pressed on the phone that asked. Please don't forward this email.";
+    "If you didn't ask, ignore this. Nothing moves until someone presses the button. Never send this link to anyone, even a friend.";
   return {
     subject: "Get your spots back — Cat Spotters",
     text: [intro, "", `${open}${rest}`, "", `Get my spots back: ${restoreUrl}`, "", ignore].join("\n"),
