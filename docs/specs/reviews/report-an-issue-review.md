@@ -163,3 +163,49 @@ Project rule: specs are aspirational, with no "built today vs proposed" split. T
 **Fix.** Describe the product as one whole. Move build order and dependencies (PR 6 first, SYC-105 before launch) into §13 and the implementation plan, phrased as order of work rather than "what exists".
 
 Checked and clean: "cat guardian" is used, never "colony carer". There is no sterilisation figure. "Spotter" is used correctly. The two audiences are described as complementary.
+
+## Minor
+
+- **m1.** D13 says "PRs 0 to 4 are on main". PR 5 is merged too (#108).
+- **m2.** The precondition belongs on the launch-day `PRELAUNCH_GATE=off` step. SYC-114 is the code deletion *after* launch (§9.6, §8.2, §16).
+- **m3.** "Hidden WebView": in managed mode Turnstile sometimes needs a tap. The spec must show the WebView when Cloudflare asks for one, and set a timeout and a fallback, or the send hangs.
+- **m4.** The Turnstile claims match Cloudflare's docs:
+  - tokens last 300 s and work once;
+  - siteverify returns `hostname` and `action`;
+  - the mobile requirements are as stated;
+  - the docs say nothing about inline HTML.
+
+  Missing: siteverify also returns `cdata`. Bind it to `clientRef` so a token can't be moved to another report. Also reject tokens longer than 2,048 characters.
+- **m5.** The "unchecked" daily digest needs a scheduler that doesn't exist, because the drain runs every 3–7 hours (SYC-231). Either show only a count on the dashboard, or add a once-in-24-hours guard to the drain.
+- **m6.** "One report per photo, per reason, per device, every 24 hours" is only a courtesy, because anyone can make a new device for free. Say so. Also define what a repeat sender is told when the first report hid the photo.
+- **m7.** Issue reports allow 20 an hour per address and welfare reports 10, on separate limiters, so one address gets 30 combined. Consider a shared ceiling.
+- **m8.** §10 says the IP is "used for Cloudflare's check". Sending `remoteip` to Cloudflare is optional, and it is personal data going to a processor. Decide whether to send it, and record the decision under SYC-248.
+- **m9.** "Reported by a spotter" is wrong for a tourist with no account. Use "reported by a member of the public".
+- **m10.** Some wording can't be tested:
+  - "2 others reported this photo" when "the same photo or cat-and-reason" has open reports (define what counts as the same group);
+  - "visually distinct";
+  - "some hours' delay".
+- **m11.** Moving a sighting to another cat (SYC-150) must keep the photo's id, or rule (ii)'s restore history is lost. (Noted on SYC-150.)
+- **m12.** The hint for `photo_private` lists "a doorway". Almost every street photo on Syros has one, so this widens the reason most likely to be abused. Consider "faces, house numbers, number plates, inside a home or garden".
+- **m13.** Privacy policy: the line "the report and what you wrote in it stay with the cat's record" conflicts with D12, which deletes the note after a year. Update it under SYC-248.
+- **m14.** On the website, "Saved on your phone" is wrong; it should say "saved in this browser". Browsers may also clear stored data (Part 2f R1). The offline copy should say both.
+
+## D1–D13: agree or disagree
+
+| Decision | Verdict |
+|---|---|
+| D1 (A, use the existing table) | **Agree**, provided every M8 item is done. |
+| D2 (B, privacy reports hide too) | **Agree**, but only together with M3's global brake and m12's narrower hint. |
+| D3 (B, three extra safeguards) | **Agree, and add rule (iv)**, the global brake. Define rule (ii) as "the photo has any restore row, ever". |
+| D4 (A, hidden for everyone but staff, with a neutral tile) | **Agree.** It matches PR 6. |
+| D5 | **Disagree as framed.** Approved hosting §6.5 already promises removal in this window and gives the contract. Recommend B, narrowly, before launch: on a hidden privacy photo only, a confirmed, management-only removal under hosting's contract, which also stops the photo being used as a matching reference. Or keep A, but mark it as an amendment to hosting §6.5 for Samuel's explicit yes. |
+| D6 (A, the team acts by hand) | **Agree with conditions.** Narrow the capability and add it to roles §6.2 first. Wait for SYC-130's decision on whether the home description is public at all. |
+| D7 (A, the team decides on deaths) | **Agree.** Also forbid tying a `cat_died` row to a cat (M8). |
+| D8 (B, a larger photo view with the link beneath) | **Agree.** |
+| D9 (A, closing email only to a verified address) | **Agree in substance.** Mark it as amending email-capture and privacy-policy, and use Part 2b's approved closing wording. |
+| D10 (A, a WebView on our own challenge page) | **Agree**, with M1's hostname correction, m3's visible sheet with a timeout and fallback, and a spike that checks the exact hostname. |
+| D11 | **Disagree.** Replace it with B1's split, for both forms: refuse and retry when the phone's token is bad, and mark "unchecked" only when our server couldn't reach Cloudflare. An unchecked issue report never hides. |
+| D12 (A, keep one year, then drop the note) | **Agree.** It needs a retention job that checks `kind`, and the policy line fixed (m13). |
+| D13 (A, build after PR 6) | **Agree.** Turnstile on the welfare form goes first, using the B1 design. |
+
+**Recommendation changes in short:** D5 (adopt hosting's removal contract, or mark it as an amendment), D11 (replace with B1's split), and D3 (add a global brake). Conditions attach to D1, D2, D6, D9, D10 and D12.
