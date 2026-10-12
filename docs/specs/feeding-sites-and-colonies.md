@@ -4,7 +4,7 @@
 **Version:** 1.1, revised after adversarial review · 7 October 2026
 **Covers:** PRODUCT-SPEC §2.6 (the feeding-site map, private by default with a per-site public toggle, and colony naming), and the part of §2.6's dashboard that `team-access-and-welfare-queue.md` §3.2 and §3.4 describe in a paragraph each.
 **Linear:** SYC-209 (this spec) · SYC-43 (the dashboard it belongs to) · SYC-53 (roles: the source of truth for permissions, see §7) · SYC-22 and SYC-51 (QR codes that will point at sites, see §11) · SYC-67 (Syros Cats' acceptance of the location limits; the public sites' matching and photo risk is accepted by Samuel and no longer gates this spec, §4.6) · SYC-245 (Google Maps links, a precondition of §2.3) · SYC-255 (map-tile logging) · SYC-256 (erasing a guardian's name) · SYC-257 (what a phone may keep, settled in the roles spec).
-**Status:** **Revised after adversarial review, and updated after Samuel's roles decisions of 12 October 2026 (see "Updated after the roles decisions" at the end). Decisions made and Syros Cats questions answered by Samuel, 12 October 2026; awaiting final approval.** The review is `docs/specs/reviews/feeding-sites-and-colonies-review.md`; section "Review outcome" at the end says how each finding was handled. Permissions follow `roles-and-invites.md` (SYC-53, §6.2 and §6.7), which wins on capability names. Written against `docs/specs/DECISIONS.md`, which wins wherever they differ.
+**Status:** **Approved by Samuel, 12 October 2026.** All decisions and questions are recorded in the sections below; the adversarial review and how each finding was handled are linked from this document.
 
 ### What this document owns, and what it borrows
 
