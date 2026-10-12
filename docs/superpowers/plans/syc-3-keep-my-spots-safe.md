@@ -152,39 +152,62 @@ Options considered (Samuel, 11 Oct):
 
 **What a spotter experiences**
 1. **Opened on the phone that asked:** one tap, exactly as now.
-2. **Opened on a different phone or browser:** before the button, the page asks *"This isn't the phone or browser that asked for this link. Is this the phone {name} will use?"* There are two buttons of the same size:
+2. **Opened on a different phone or browser:** before the button, the page says *"This isn't the phone or browser that asked for this link. If you didn't ask for it, close this page."* Then it asks *"Is this the app or browser {name} uses for Cat Spotters?"*. The common mismatch is the right phone but the wrong browser, so the question asks about the browser, not the phone (review finding 4). There are two buttons of the same size:
    - **Yes, move {name}'s spots here**, which goes on as normal;
-   - **No, I'll open it on {name}'s phone**, which shows **Copy link** and says *"Open the email on the phone that's getting the spots back, or paste this link into that phone's browser."*
-3. **Opened inside an email or social app's built-in browser** (Gmail, Outlook, Yahoo Mail, Instagram, Facebook, LinkedIn, Snapchat, TikTok and Android web views, detected from the browser's identifier): a warning comes first. *"You've opened this inside your email app. Spots moved here could be lost when you close it. Open it in Safari (or Chrome) instead: tap ••• or the share button and choose 'Open in browser', or copy the link."* There are two options: **Copy link**, and a smaller **Move them here anyway**. It's advice, never a block.
+   - **No, copy the link**, which copies it and says *"Paste it into the browser {name} uses for Cat Spotters."*
+3. **Opened inside an email or social app's built-in browser** (detected from the browser's identifier, reusing `lib/homeScreenNudge.ts`'s detection): a warning comes first. *"You've opened this inside another app. If you move the spots here, you won't find them in the browser you normally use. Copy the link and paste it into the browser you use for Cat Spotters."* There are two options: **Copy link**, and a smaller **Move them here anyway**. It's advice, never a block.
+   - Detection can't be perfect: some iOS mail apps' built-in browsers look exactly like Safari. So case 2's question is the real safety net, and this warning is a bonus.
+   - The copy never says "Safari or Chrome": on an iPhone they keep separate storage (review finding 4).
 4. **Opened on the phone that already *is* that spotter:** *"{name}'s spots are already on this phone."* No error and no button.
 5. **The phone already has a different spotter:** Decision 7's warning and SYC-266's "What should happen to {current}?" choice apply, unchanged.
 
 **Security: what Decision 2 protected, and what replaces it**
 - **"A stranger asks, and the victim clicks."** Under this decision, the spots go to the phone that **presses the button**, never to the phone that asked. If a stranger asks for a link for your address and you press it, your spots land on *your* phone, so the stranger gets nothing. If your phone is already that spotter, nothing moves (case 4). If it has another spotter, case 5's warning and choice stand in the way. So there's still no takeover without the inbox: the inbox is the key, as §8.2 always said.
-- **A leaked link.** Decision 2 made a link useless to anyone but the phone that asked. Its replacement is that **the token moves into the URL fragment**: `https://apptest.catspotters.com/restore#t=…`. Browsers never send a fragment to any server, so it's never in Replit's access logs, our logs, or a `Referer`.
+- **A leaked link.** Decision 2 made a link useless to anyone but the phone that asked. Its replacement is that **the token moves into the URL fragment**: `https://apptest.catspotters.com/restore#t=…`. Browsers never send a fragment to any server, so it's never in Replit's access logs, our logs, or a `Referer`. That holds only if every place that builds or carries the link uses the fragment form:
+  - the email;
+  - **Copy link** (review finding 2);
+  - the password page, below.
+
+  The app reads `location.hash`, then **clears it** from the address bar and history with `replaceState` to a plain `/restore`, so it isn't left in history that syncs to the family's other devices (review finding 3).
   - What's left is a forwarded email or a screenshot. That's someone handing over their own key, and the email still says *"Please don't forward this email."*
   - Links already sent with `?t=` keep working for their 15 minutes; the page reads both forms.
 - **Link scanners that run JavaScript** (some corporate mail filters do). Opening the page only peeks; nothing moves without a button press. A scanner is always "a different browser", so it would also have to pass case 2's confirmation (and case 3's warning). If one ever did, the old phone gets `device_moved` and the family restores again.
-- **The password page.** Browsers keep a fragment across the gate's redirects, but not through the login form's POST. So the password page gains a few lines of script that copy `location.hash` into the `next` field. `safeNext` already allows `#`. A test pins that `/restore#t=…` survives a login.
+- **The password page** (review finding 5). The gate shows the password page in place (a 200 at `/restore`, no redirect), and a fragment doesn't survive the login form's POST. Copying it into `next` would send the token to the server.
+  - Instead, the page's script **saves the fragment in `sessionStorage`**, never in the form. After login, the app's `/restore` page reads it from there and deletes it.
+  - The page's CSP is only `frame-ancestors`, so inline script is allowed.
+  - A test pins three things: `/restore#t=…` works through a login, the login request carries no token, and the saved copy is deleted.
 
 **What changes in the build**
 - `peekRestore` no longer refuses another phone. It returns `{ spotters, openedOnAskingPhone }`, and `spotters` still leaves out the caller's own spotter. If that list is empty because the caller already *is* the spotter, it answers `{ alreadyHere: true, name }`.
 - `redeemRestore` drops the asking-phone check. The redeemer's starter id is retired, as now. The token keeps `device_id` = the phone that asked, for the record.
 - **The same-phone replay within 60 seconds** no longer needs `t.device_id = caller`. It is proved by the spotter's credential now holding exactly the presented secret, which is already a condition.
 - **SYC-266's delete-the-abandoned-spotter path** re-points the spent link only when the abandoned id is the token's `device_id`. Under this decision the abandoned id is the *caller's*, which may differ from the asker's. The build must keep the spent link (and `device_moved`) correct either way.
-- The restore email builds `…/restore#t=…`.
+- The restore email builds `…/restore#t=…`. **Copy link** copies the same form.
+- **Wording that would become untrue**, in English, Greek and French (review finding 1):
+  - The email: "Nothing moves unless the button is pressed on the phone that asked." becomes "Nothing moves until someone presses the button. Never send this link to anyone, even a friend."
+  - `restoreAskSent`: "Open it on this phone" becomes "Open it in the browser you use for Cat Spotters".
+  - `restorePageWrongBrowser` is retired.
+- **Deletion keeps the "moved" notice** (review finding 6). Now any phone may redeem, so the phone that asked may be a different live phone. `severKeepSafe` must not delete a **used** restore token just because the deleted spotter asked for it. It swaps that id for its one-way `deleted:` key, as SYC-266 does, so someone else's old phone is still told `device_moved`.
+- **The picker uses opaque choice ids**, not device ids (review finding 9): more people can open a page that peeks now.
 
 **Tests (replacing test 3)**
 - **3′.** A link opened on a phone other than the one that asked **moves the spotter to that phone**, and the asking phone gets nothing **(M: put back the asking-phone check → red)**.
 - **3″.** Peek tells the page whether it's the asking phone, which never changes what moves. A caller that already is the spotter gets "already here" and nothing moves.
-- **3‴.** The emailed link uses the fragment form, and no server log line ever contains it **(M: build the link with `?t=` → red)**.
+- **3‴.** The emailed link **and Copy link** use the fragment form, and no server log line ever contains it **(M: build either with `?t=` → red)**.
+- **3⁗.** After the page loads, the address bar and history hold no token **(M: leave the fragment → red)**.
+- **Replay** (review finding 7): a third phone holding a used token, replaying within 60 seconds, gets `link_not_valid` and no username **(M: drop the secret condition → red)**.
+- **"Already here"** (review finding 10) fires only when the caller *is* the spotter. A forgotten or unconfirmed address still gets `link_not_valid` **(M: "already here" on any empty list → red)**.
+- **"Delete Nikos" when Nikos isn't the phone that asked** (review finding 8): the old phone still gets `device_moved`, the replay still works, and the column scan stays clean **(M: never re-point → red)**.
+- **Deletion and the "moved" notice** (finding 6): deleting the phone that asked leaves someone else's old phone still told `device_moved`.
 - **15′.** `/restore#t=…` survives the website password page.
 - **App:**
   - the confirmation shows only when `openedOnAskingPhone` is false;
   - the in-app-browser warning shows for the listed identifiers and not for Safari, Chrome or Firefox;
   - "already here" shows its message;
   - `?t=` still works.
-- **18′.** In a real browser (390 px and desktop), the round trip with the link opened in a second browser: confirm → moved, and the old one shows "moved".
+- **18′.** In a real browser (390 px and desktop), the round trip with the link opened in a second browser: confirm → moved, and the old one shows "moved". **Plus on Samuel's real iPhone:** opening from Apple Mail, Gmail and Outlook. Note what each one's built-in browser does, and whether the warning shows. Check Resend's click tracking is off, so links aren't rewritten.
+
+**Adversarial review of this amendment (Opus, its own worktree, 12 Oct).** It found no path to a spotter without the inbox. Findings 1–10 are folded in above. **Judgment call A** is in "The one risk this brings back" below.
 
 **Model delegation:** Opus builds it, because it changes the takeover surface. An independent Opus adversarial review runs in its own worktree before merge.
 
