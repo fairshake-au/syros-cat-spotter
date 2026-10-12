@@ -34,7 +34,7 @@ The product has four kinds of person, and the public is exactly as it was:
 - **The Syros Cats team**, who do the cat work across the whole island: the welfare queue, records, field work, trapping rounds. Everyone who helps Syros Cats in the field is on the team and sees and does the same island-wide.
 - **Cat guardians** who look after a colony. They see *their own* colonies in full: exact positions, feeding sites, which cats are done and which aren't. They can say a cat is homed, in care or has died, propose where a cat lives, look after their colony's feeding sites, and tell the team "I've looked at her ear, it is clipped".
 - **Management**: the few people on the team who invite and remove others. The people who are on the team when roles go live are also made management, so nothing any of them can do is taken away; the charity can narrow it afterwards.
-- **Spotters and snappers**, everyone using the public app. They never need an account and are never asked for one.
+- **Spotters**, everyone using the public app. They never need an account and are never asked for one.
 
 Three ideas hold it together:
 
@@ -54,7 +54,7 @@ A tourist supplies a photograph and attention at the moment it matters. A guardi
 
 ## 2. Each role, in plain terms
 
-### 2.1 Spotters and snappers (no account)
+### 2.1 Spotters (no account)
 
 Everyone with the app. They sign in to nothing, and that does not change. They see cats at the blurred, 250 m-square level the data spine promises. They add sightings, answer the ear-tip question, add details later to their own sightings, report a cat in trouble, and delete their own data. **Nothing in this spec asks a spotter to do anything differently, and no screen will ever put an account wall in front of one.**
 
@@ -867,7 +867,7 @@ Guardians are, in large part, Greek speakers; some team members and guardians wi
 
 - **One string catalogue for the dashboard on the server**, with the same shape and key-parity test as the app's (`lib/__tests__/i18n.test.ts`): every key in every language, none empty. A missing key fails the build, not the page.
 - **Machine-drafted first, then a named local reviewer.** The same process as SYC-4 for the app's strings: Fair Shake drafts Greek and French, and a local speaker confirms them. This spec needs a **named reviewer and a date**, and the invitation and accept page do not go live in a language until that reviewer has signed it off. English alone may go first.
-- **The agreed word for the role is "cat guardian"**, and the term already settled for the app in all three languages (SYC-156) is the one to use; this spec does not invent a second Greek or French word for it. *Spotter* and *snapper* follow the app's existing wording. (`docs/PRODUCT-SPEC.md` says the role word is *spotter, not snapper*; this spec uses "spotters and snappers" for everyone using the public app because the ticket does, and leaves the difference for Samuel to settle once: it is Question Q7 in §16.2, and nothing here depends on the answer.)
+- **The agreed word for the role is "cat guardian"**, and the term already settled for the app in all three languages (SYC-156) is the one to use; this spec does not invent a second Greek or French word for it. *Spotter* is the word for everyone using the public app (Q7, decided).
 - **Names are never translated or transliterated.** A Greek name is stored and shown as typed. A person's name field accepts any letters, and email addresses are lower-cased the same way in the database and in code (a test uses a Greek local part, because lower-casing Greek capitals can differ between Postgres and JavaScript, the same trap SYC-101 found for cat names).
 
 ### 13.4 The four promises, and why they get extra care
@@ -1017,7 +1017,7 @@ Each is set out in full where it arises; this is the list. Those marked **change
 | **Q4** | **Do guardians want an email when the team decides on something they sent?** | A decision in the dashboard is only seen on her next visit | **No email at first.** Quiet, consistent with nothing paging anyone; add a weekly summary if guardians ask |
 | **Q5** | **The four promises on the accept page (§4.1): are these the right four, in the right words?** | It is the moment a person is told what they are trusted with | Syros Cats edit the English; a named local reviewer confirms Greek and French |
 | **Q6** | **Who is the named local reviewer for the Greek and French of the invitation and promises, and by when?** | Blocks those languages going live (§13.3) | A person, not a role |
-| **Q7 (for Samuel, not Syros Cats)** | **Is the role word "spotter" or "spotter and snapper"?** The project instructions list the roles as "spotter" and "snapper"; `docs/PRODUCT-SPEC.md` line 16 says "Spotter, not snapper". | The accept page, the 403 page and the app copy name the people who use the public app | Not settled here. This spec uses "spotters and snappers" for everyone using the app because the ticket does; the choice changes words, not design |
+| **Q7 (for Samuel, not Syros Cats)** | **Is the role word "spotter" or "spotter and snapper"?** | The accept page, the 403 page and the app copy name the people who use the public app | **Decided (Samuel, 12 October 2026): "spotter" only.** Never "snapper" |
 | **Q8** | **Do guardians arrange paid sterilisation through this system?** The team-access spec (§7.2) describes guardians as people authorised to arrange sterilisation the charity pays for (€50–60 per cat). | This spec does not cover it. If yes, a guardian needs a way to ask for a vet appointment that the team approves, and a spending limit; that is a feature of its own | **Not yet.** Treat it as a separate piece of work once guardians exist; strike the sentence from the team-access spec until then (§17.2) |
 
 ### 16.3 Self-review against the code (pass 1)
@@ -1100,13 +1100,13 @@ The independent adversarial review of 7 October 2026 ([`reviews/roles-and-invite
 | **m4** | Two uniqueness rules that didn't fit | **Fixed.** Partial unique indexes per kind; re-placing updates the existing row | §6.6, §10.3 |
 | **m5** | Mail details | **Fixed.** Transactional identity; own template for the acceptance email, with no typed text; no Home Screen nudge | §8.5, §12.2 |
 | **m6** | Last-manager guard race | **Fixed.** One transaction locks the management rows; a test runs both at once | §9.5, test 18 |
-| **m7** | Canonical wording; spotter versus snapper | **Fixed / left for Samuel.** The product sections no longer split "today" from "new". Spotter versus snapper is Q7, for Samuel | §1–§5, §16.2 |
+| **m7** | Canonical wording; spotter versus snapper | **Fixed / left for Samuel.** The product sections no longer split "today" from "new". Spotter versus snapper was Q7, now decided: "spotter" only | §1–§5, §16.2 |
 
 **Where the recommendation changed after review** (the earlier options remain, with benefits and risks): Decision 4 (now also needs the welfare capability and no island rows), Decision 5 (option C, not B), Decision 7 (a blank name and a silent message), Decision 8 (one row per colony, never island-wide), Decision 11 (widened to every access change, management-only). Decision 1's recommendation stands with conditions added. Decisions 2, 3, 6, 9 and 10 stand.
 
 **New decisions raised by folding the review:** Decision 12 (what a phone may keep, which settles SYC-257) and Decision 13 (colour and markings statements, from the SYC-2 question on SYC-53).
 
-**Left for Samuel:** the spotter-or-snapper word (Q7); whether Decision 5 should instead let the team's OK make a cat *Confirmed* (it needs an approved amendment first); Decision 12's 72-hour, no-site-coordinates choice; and the questions for Syros Cats in §16.2, including the new Q8.
+**Left for Samuel (now all decided, §16.7):** whether Decision 5 should instead let the team's OK make a cat *Confirmed* (it needs an approved amendment first); Decision 12's 72-hour, no-site-coordinates choice; and the questions for Syros Cats in §16.2, including the new Q8.
 
 ---
 
