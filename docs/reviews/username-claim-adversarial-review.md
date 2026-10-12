@@ -1,5 +1,7 @@
 # Adversarial review: username claim speed-up (Replit commit 6f9dccf)
 
+> **Snapshot from 5 Oct 2026, saved 12 Oct.** Findings may since have been fixed. Open follow-ups are SYC-212 and SYC-215.
+
 Checkpoint: DONE. Code read, tests run, mutation experiments run and reverted, component repros written and run, typecheck run, findings written, verdict and real-network plan written. Nothing left.
 
 - Reviewed: the code as it stands on origin/main at `d2768cc` (5 Oct 2026). Intent taken from `git show 6f9dccf`.
