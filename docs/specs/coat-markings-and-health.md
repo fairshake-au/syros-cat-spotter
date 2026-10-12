@@ -245,7 +245,9 @@ Taking a pre-filled "Yes" is recorded as a **prompted** confirmation (it agrees 
 
 The page shows what is known, quietly, next to the location label:
 
-> **Ginger tabby** · White paws · Kinked tail
+> **Ginger · Tabby** · White paws · Kinked tail
+
+*(Updated 12 October 2026, plan decision E1: two colours are joined with " · " in every language, so there is no grammar to get wrong.)*
 
 Nothing is shown for a cat whose colour is *Not sure* and has no markings. The page never says how sure the app is, and never shows "suggested by 1 person". Those belong to the team.
 
@@ -660,7 +662,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 | Slice | Contains | Needs |
 |---|---|---|
-| **1. Record and resolver** | The `markings`, `vaccinated` and `team_note` kinds, the relaxed `coat` validator, the three resolver functions with their tests, the public payload fields (`coat`, `markings`), no cache-key change | The approved data-spine amendment (§10), and **SYC-161** for the machine's colour: the colour rules assume machine readings exist, so this dependency is explicit. Useful alone: team-entered colour and a richer resolved value |
+| **1. Record and resolver** | The `markings`, `vaccinated` and `team_note` kinds, the relaxed `coat` validator, the three resolver functions with their tests, the public payload fields (`coat`, `markings`), no cache-key change | The approved data-spine amendment (§10), and the colour rules, which handle a cat with no machine reading yet. **SYC-161 is no longer a prerequisite for the record and resolver**; spotters (slice 3 below) wait for SYC-161 (updated 12 October 2026, plan decision A1). Useful alone: team-entered colour and a richer resolved value |
 | **2. Team** | The Appearance section, Confirm / Correct / Mark wrong (retract), the Colour check list, vaccination entry, health notes on the cat | Slice 1; the SYC-43 dashboard (merged) |
 | **3. Spotters** | The colour line on the new-cat result screen, the chips on the details card, the three-language strings, the ear-tip side-by-side picture, the "Does it look hurt?" link, markings on picker cards, colour in the cat-alog filter | Slices 1 and 2 (so there is somebody to confirm), and `add-details-later.md`'s answers family |
 | **4. Vaccination count** | The overall "N cats vaccinated this year" figure, computed automatically (§6.3), on the donate screen (SYC-1) and in reports (SYC-62) | Slice 1; SYC-5, SYC-1, SYC-62 |
