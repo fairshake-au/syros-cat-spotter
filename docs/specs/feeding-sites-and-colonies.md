@@ -117,7 +117,7 @@ Two ways in, because there are two jobs:
 Two separate buttons, because they mean different things:
 
 - **Take out of this colony** writes a new "in no colony" statement. The cat's earlier colony stays in its history as true-at-the-time. A guardian can do this for a cat in her own colony, with immediate effect.
-- **A cat that is in somebody else's colony.** If a guardian adds a cat that another colony currently holds, the cat moves to hers at once (the newest statement stands) and the other colony's guardian is not asked; the cat simply stops appearing on her list, and the move is in the history and the team's "Recent guardian changes" list. Whether that is acceptable is one of the decisions left open (Decision 14).
+- **A cat that is in somebody else's colony.** If a guardian adds a cat that another colony currently holds, the cat moves to hers at once (the newest statement stands) and the other colony's guardian is not asked, but she is told ("Mimi has moved to another colony") without being told whose. The move is in the history and the team's "Recent guardian changes" list (Decision 14, decided).
 - **Mark wrong** (with a reason, exactly as the correction forms already work for life status and sterilisation) means "this was never true". It is a correction made by the team; a guardian who added a cat by mistake simply takes it out. The marked statement stops counting, and **the next newest active statement stands**. So if a cat was moved from colony A to colony B and the team marks the B statement wrong, the cat is back in A. If there is no earlier statement, it is in no colony.
 
 **Moving a cat between colonies** writes a new statement; the cat's page then shows both, with the newest standing.
@@ -735,17 +735,19 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 **Recommendation: A.** **Syros Cats confirm, or say what they want instead.**
 
-### Decision 14. When a guardian adds a cat that is already in another guardian's colony (new, open for Samuel)
+### Decision 14. When a guardian adds a cat that is already in another guardian's colony
+
+**Decided (Samuel, 12 October 2026): B.** The cat moves at once and the other guardian is told, without being told whose colony it went to.
 
 *Updated after Samuel's roles decisions (12 Oct 2026): raised by the decision that a guardian adds cats alone, with no approval.*
 
 | Option | Benefits | Risks |
 |---|---|---|
-| **A. The cat moves to her colony at once; the other guardian is not asked; the move is in the history and in the team's "Recent guardian changes" list (what this draft does)** | Exactly as decided: no approval, no waiting. Simple | A guardian can take a cat out of another guardian's colony by adding it to hers, by mistake or on purpose. The other guardian only finds out when the cat vanishes from her list |
-| B. As A, but the other colony's guardian is told ("Mimi has moved to another colony"), without being told whose | She notices, can say "that's mine" to the team | A little more to build; a notice a guardian may not understand |
+| A. The cat moves to her colony at once; the other guardian is not asked; the move is in the history and in the team's "Recent guardian changes" list | Exactly as decided: no approval, no waiting. Simple | A guardian can take a cat out of another guardian's colony by adding it to hers, by mistake or on purpose. The other guardian only finds out when the cat vanishes from her list |
+| **B. ✅ As A, but the other colony's guardian is told ("Mimi has moved to another colony"), without being told whose** | She notices, can say "that's mine" to the team | A little more to build; a notice a guardian may not understand |
 | C. As A, but a cat already in another colony cannot be added by a guardian; the team moves it | No cat is taken from anyone by accident | Reintroduces a team step for exactly the cases most likely to be genuine disputes. Goes beyond what Samuel decided |
 
-**Recommendation: B.** It keeps "no approval" but means a mistake is noticed by the person it affects, not only by someone reading a list. Samuel's call; if he prefers A, nothing else in this spec changes.
+It keeps "no approval" but means a mistake is noticed by the person it affects, not only by someone reading a list. The notice appears on her colony page next time she opens it, and on her saved list; it never names the other colony or its guardian. A test asserts the notice is shown to the losing guardian and carries no colony name or guardian name.
 
 ---
 
@@ -857,4 +859,4 @@ Samuel's roles decisions of 12 October change some of what the review settled. T
 | Two tiers | Checked: nothing here needs a management-only power | §7.5 |
 | Unchanged | Making a site public stays team-only (`set_site_public`); a guardian can ask (`request_site_public`); public codes, privacy, the SYC-67 gate and history rules stand | §4, §11 |
 
-**Decisions left for Samuel.** (1) Decision 6: whether a site keeps its public code after a private-and-public cycle with no move (recommended: yes, A2). (2) Decision 11: whether Syros Cats place the sites themselves (recommended) or send a list under the safe route. (3) Decision 2: the usual split (recommended: A). (4) Whether the Part 2h matching-service risk acceptance still stands now that public sites exist, to be raised in the SYC-67 conversation. (5) Decisions 3, 9 and 13 need Syros Cats' confirmation. (6) Decision 14: what happens when a guardian adds a cat already in another guardian's colony (recommended: B, tell the other guardian).
+**Decisions left for Samuel.** (1) Decision 6: whether a site keeps its public code after a private-and-public cycle with no move (recommended: yes, A2). (2) Decision 11: whether Syros Cats place the sites themselves (recommended) or send a list under the safe route. (3) Decision 2: the usual split (recommended: A). (4) Whether the Part 2h matching-service risk acceptance still stands now that public sites exist, to be raised in the SYC-67 conversation. (5) Decisions 3, 9 and 13 need Syros Cats' confirmation. (6) Decision 14 is decided: B, the other guardian is told (Samuel, 12 October 2026).
