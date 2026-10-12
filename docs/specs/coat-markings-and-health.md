@@ -1,6 +1,6 @@
 # Coat, markings and health on the cat record
 
-**Status:** **Revised after adversarial review and updated for Samuel's decisions of 12 October 2026. Decisions made 12 October 2026; awaiting Samuel's final approval.** (Reviewed 7 October 2026.) The independent review is `docs/specs/reviews/coat-markings-and-health-review.md`; §17 says how every finding was handled. **Supersedes** `docs/superpowers/specs/2026-07-28-cat-health-record-design.md` (the 28 July "For review" draft, which was never approved). That file is left as it is; where it and this document disagree, this one wins once approved.
+**Status:** **Revised after adversarial review and updated for Samuel's decisions of 12 October 2026. Decisions made and Syros Cats questions answered by Samuel, 12 October 2026; awaiting final approval.** No question is left open in this spec. (Reviewed 7 October 2026.) The independent review is `docs/specs/reviews/coat-markings-and-health-review.md`; §17 says how every finding was handled. **Supersedes** `docs/superpowers/specs/2026-07-28-cat-health-record-design.md` (the 28 July "For review" draft, which was never approved). That file is left as it is; where it and this document disagree, this one wins once approved.
 **Owner:** Samuel
 **Covers:** SYC-2 (coat and markings tags, and health status on cats). Also settles the trust question SYC-2 was parked on: who is allowed to assert a fact about a cat's body, and what the public sees of it.
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §2, §3.4, §4, §10.1, §10.2 · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.7, §8.4 · [`add-details-later.md`](./add-details-later.md) §6, §8 · [`team-access-and-welfare-queue.md`](./team-access-and-welfare-queue.md) §4, §7 · [`roles-and-invites.md`](./roles-and-invites.md) §6.2, §6.7, §7.6 (Decision 13), §17.4 · [`DECISIONS.md`](./DECISIONS.md) Part 2g, 2i, 2k, 3 · tickets SYC-161 (auto coat colour), SYC-5 (vaccination records), SYC-52 (confidence engine), SYC-53 (roles), SYC-42 (welfare reports), SYC-75 (sterilisation status), SYC-43 (staff dashboard).
@@ -25,7 +25,7 @@ A cat on the Syros Cats map is more than a photo and a name. People describe cat
 **Health.** The app does **not** have a "health status" badge, and this spec argues it should never have one. What "health" means here is three separate things with three different audiences:
 
 1. **Facts the cat page already shows**, with their own rules: sterilised, ear tip, and whether the cat is living on the street, homed, in care or gone.
-2. **Vaccination**, a clinical fact that only the team can state. At launch it is **team-only**: the public never sees it on a cat's page. Donors who fund vaccines see one overall number instead ("142 cats vaccinated this year"), which says nothing about any single cat (§6.3).
+2. **Vaccination**, a clinical fact that only the team can state. At launch it is **team-only**: the public never sees it on a cat's page. Donors who fund vaccines see one overall number instead ("142 cats vaccinated this year"), worked out automatically from the team's vaccination records, which says nothing about any single cat (§6.3).
 3. **Everything else about a cat's condition** (illness, injury, a long-term condition, pregnancy). This is sensitive, it changes, and it is **never shown publicly**. It lives in a team-only note on the cat itself, readable by the team and by cat guardians for their own colonies. A spotter who is worried about a cat uses the existing "This cat needs help" route. Nothing in this spec replaces it, delays it or sits in front of it.
 
 There is no "Looks healthy" badge. A tourist cannot see health from a photo, and a green label on a sick cat is worse than no label.
@@ -116,7 +116,7 @@ Two more answers exist for every list and mean different things:
 - **"Nothing special"** is a real answer: *I looked, and there is nothing to note*. It is stored as an empty list.
 - **"Can't tell"** (photo too dark, wrong angle) is stored as such, stops the app asking this person about this cat again, and has **no effect on the record**, exactly as the ear-tip question treats it. It also withdraws nothing the same person ticked earlier (§4.2).
 
-**The Greek and French wording above is a first draft for a local check.** `choose-a-different-cat.md` §12 (C11) already flagged that tabby, tortoiseshell and calico have no agreed everyday word in Greek. The same applies to *colourpoint*. A Syros Cats team member or a Greek speaker has to confirm every label before launch (§12, question 1).
+**The Greek and French wording above is a first draft for a local check.** `choose-a-different-cat.md` §12 (C11) already flagged that tabby, tortoiseshell and calico have no agreed everyday word in Greek. The same applies to *colourpoint*. Johnny checks every Greek and French label (SYC-283), and Syros Cats feed back during testing if any word is wrong (§12, question 1, answered).
 
 ### 3.3 What is deliberately not on either list
 
@@ -292,7 +292,7 @@ What remains is a set of different facts, with different audiences. Calling them
 | Kind | Examples | Who can state it | Who sees it |
 |---|---|---|---|
 | **A. On the cat page already** | Sterilised; ear tip; life status (street, homed, in care, no longer with us) | As the data spine says (§3.2, §4.6). For sterilisation, who may confirm it is `roles-and-invites.md` §7.2 (Decision 5), not restated here | Everyone, in the existing lines |
-| **B. Vaccination** | Rabies; the combination vaccine | The team (`set_vaccination`, staff and management). Never a spotter or a guardian. A vet column is added when vets exist | **The team only**, at launch. The public sees at most an overall count, never a cat (§6.3) |
+| **B. Vaccination** | Rabies; "cat flu and enteritis" (the standard core combination); another vaccine the team adds by name | The team (`set_vaccination`, staff and management). Never a spotter or a guardian. A vet column is added when vets exist | **The team only**, at launch. The public sees at most an overall count, never a cat (§6.3) |
 | **C. Condition** | Illness, injury, a long-term condition, treatment under way, pregnancy | The team, and cat guardians for cats in their own colonies, as a **team-only note on the cat** (`add_health_note`) | **The team, and cat guardians for their own colonies** (`view_health_notes`). Never the public, never in any public payload |
 
 **Public rule, in one sentence: the public sees what helps them find, recognise or help a cat, and nothing about its medical history.**
@@ -301,12 +301,16 @@ What remains is a set of different facts, with different audiences. Calling them
 
 A vaccination is a clinical fact. A spotter cannot see it in a photo, so a spotter cannot state it, and there is no spotter question for it. This is the same logic as the old draft's "sterilised, vaccinated: not visible at all, so never machine-read and never crowd-stated".
 
-- It is an observation of a new kind, `vaccinated` (§10), stated by the team with the date it happened as the observation's date and the vaccine named from a short list (rabies, the combination vaccine, other). The vaccine names are fine in the team's own record; they are the part that must never reach a public screen (below).
+- It is an observation of a new kind, `vaccinated` (§10), stated by the team with the date it happened as the observation's date and the vaccine named from a short list (**Answered, Samuel, 12 October 2026, Q3: rabies, and the core "cat flu and enteritis" combination**) or, for anything else, by a name the team types. No brand is named anywhere. The vaccine names are fine in the team's own record; they are the part that must never reach a public screen (below).
 - The team enters it from the cat's dashboard page with `set_vaccination`, which is island-only: staff and management hold it, a guardian does not (roles spec §6.2). Syros Cats' existing records could populate it through the optional import (`records-import.md`) without any change here.
 - **There is no *Likely* level and no negative.** The state is either *the team has recorded a vaccination* (with its date) or *nothing recorded*. *Nothing recorded* is **not** "not vaccinated"; it means we do not know.
 - **It is not on the public page, the public timeline or the public payload.** Why: a line like "Vaccinated against rabies" on a cat's page is a medical claim the charity cannot stand behind. A tourist who has just been scratched would reasonably read it as "I don't need to see a doctor", on the strength of a record that might be years old or matched to the wrong cat. It also sits badly beside the onboarding advice to keep your distance.
-- **Donors see an overall count instead.** SYC-5's need ("€10 covers a rabies vaccine") is better met by one number the charity reports, such as "142 cats vaccinated this year". It is a count of cats, with no cat identifiable and no vaccine named. Where it appears (the app's donate screen, the charity's own reporting) is SYC-5's to decide; this spec only says it is an aggregate computed on the server and that no per-cat vaccination ever leaves it.
-- **If it is ever made public** (SYC2-D6, option B), three things are required before it ships: Syros Cats and their vet have seen the exact wording; **the vaccine is never named** (no "rabies" anywhere); and beside it, in all three languages, a fixed line: **"If a cat bites or scratches you, see a doctor."** A test asserts that the word "rabies" appears in no public payload and no public string, in any language, whatever is decided.
+- **Donors see an overall count instead, worked out automatically (Answered, Samuel, 12 October 2026, Q6: yes).** SYC-5's need ("€10 covers a rabies vaccine") is better met by one number, "N cats vaccinated this year". The app computes it on the server from the team's `vaccinated` records; nobody types it. It is a count of **cats** (a cat vaccinated twice, or against two diseases, counts once), with no cat identifiable and no vaccine named. It appears on the **donate screen** and in the **charity's reports**.
+  - **What counts.** Distinct cats with at least one recorded vaccination dated in the current calendar year. *Nothing recorded* is not counted.
+  - **Small numbers.** Until the count reaches 5 the figure is not shown (a count of 1 or 2 near a named colony would point at a cat). This is a judgement call for Samuel to veto.
+  - **One endpoint, no detail.** A public read returns only the number and the year, with a short cache; it has no list, no date of any single vaccination, no colony.
+  - **Where it must fit.** The donate screen is part of the donation work (SYC-1) and the reports are SYC-62's; this spec supplies the figure and its rules, and those tickets must show it as a single sentence with no per-cat or per-colony breakdown. Checking that fit is a task for each of those specs when they are written. No SYC-62 document exists in the repo yet, so it is recorded here as a requirement on it.
+- **If it is ever made public** (SYC2-D6, option B), three things are required before it ships: Syros Cats and their vet have seen the exact wording; **the vaccine is never named** (no "rabies" and no "cat flu and enteritis" anywhere); and beside it, in all three languages, a fixed line: **"If a cat bites or scratches you, see a doctor."** A test asserts that the words "rabies", "cat flu" and "enteritis" appear in no public payload and no public string, in any language, whatever is decided.
 - It feeds the team's view of a cat's care history: the team can see how long ago, so a re-vaccination round can be planned. SYC-5's public **Care timeline** does not show it. SYC-5's description should be updated to point here (§10.7).
 
 ### 6.4 Conditions (kind C) and the urgent route
@@ -384,7 +388,7 @@ So: appearance **reading** works with the cached catalogue; appearance **writing
 ## 9. English, Greek and French
 
 - Every label in §3 exists in all three languages, with the same code underneath, so a Greek spotter's *Τιγρέ* and a French spotter's *Tigré* are the same `tabby`, and one filter chip finds both.
-- **The labels in §3 are drafts for a local check before launch** (§12, question 1). The strings go in the existing translation files (`lib/i18n.ts`), with a test that every key exists in `en`, `el` and `fr`, as `catStatusLines` already has.
+- **The labels in §3 are drafts: Johnny checks Greek and French (SYC-283) and Syros Cats say in testing if a word is wrong** (§12, question 1). The strings go in the existing translation files (`lib/i18n.ts`), with a test that every key exists in `en`, `el` and `fr`, as `catStatusLines` already has.
 - Chips carry **the word as well as a picture**, so they work for colour-blind people and in bright sun, as `choose-a-different-cat.md` §4.7 requires.
 - Wording for the questions, the "nothing special" and "can't tell" answers, the "Does it look hurt? Tell Syros Cats" line and the team-only Appearance section is written once in plain English and translated in the same change; nothing ships in one language only. **Questions use the cat's name or "this cat", never "her" or "him"** (sex is not recorded, and Greek and French carry gender through the whole sentence).
 - Public copy never uses the words "healthy", "sick", "diseased" or "unvaccinated", and no public string names a vaccine (see §6.3).
@@ -408,7 +412,7 @@ Everything above is the product; this is the record underneath. **No database mi
 //   markings    { marks: Mark[] }                                // from §3.2; [] = "nothing special"; spotter answers hold at most 4, a team or guardian statement holds the whole list
 //               { cantTell: true }                               // recorded, no effect
 //               { retracted: true }                              // "mark wrong" (set_appearance only)
-//   vaccinated  { vaccines: ("rabies" | "combination" | "other")[], clinic?: string }  // 1–3 distinct; date = observedAt
+//   vaccinated  { vaccines: ("rabies" | "cat_flu_enteritis" | { other: string })[], clinic?: string }  // 1–3 distinct; "other" is a name the team types (no brand); date = observedAt
 //   team_note   { text: string }                                 // a team-only note on the CAT; not a welfare-report note
 ```
 
@@ -461,7 +465,7 @@ No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`,
 - **Colour:** each of the five rules in §4.2 in isolation and in conflict; a person's *Not sure* never wins; a prompted confirmation never counts as independent, **including a prompted tap on a spotter-filled value**; **two voices for *ginger* and two for *black* resolve to the camp with the newer support and land on the Colour check list**; *Ginger · Tabby* and *Ginger* agree on *Ginger*; *Black* plus *White* equals *Black and white*; **two single spotters filling a gap with different colours show the newest**; a later machine reading never beats a team or guardian statement; **one device counts once at read time even if two live rows exist**; **two concurrent writes from one device (a double tap) leave one voice**; **a device superseding someone else's row is refused**; **two devices uploading the same photo, or on the same day, count as one**; a deletion between two voices still leaves two; the team correcting after two spotters agree wins; a guardian's statement stands directly, and a team member's confirmation is a team statement.
 - **Markings:** a mark held at one voice, shown at two; omissions never remove a mark; a device's later answer adds and never withdraws; *Can't tell* and "nothing special" withdraw nothing; only a team or guardian statement removes one; an empty team list clears the marks; **marking one of three spotters' marks wrong leaves the other two shown**; **two voices dated after the newest team statement show a mark and put the cat on the Colour check list**; each of the four marks (*short tail*, *missing eye*, *three legs*, *odd eyes*) is accepted from a spotter and follows the same two-voice and add-only rules as the other seven; a team list may hold more than four marks; `cantTell` changes nothing.
 - **Retraction:** the retraction removes only the statement it points at, and is refused from a spotter.
-- **Vaccinated:** refused from public and guardian; no negative state exists; **absent from every public payload; the word "rabies" appears in no public payload or string**; not evidence of life.
+- **Vaccinated:** refused from public and guardian; no negative state exists; **absent from every public payload; the word "rabies", "cat flu" and "enteritis" appear in no public payload or string**; not evidence of life; an "other" vaccine needs a typed name; **the donor count (§6.3) counts distinct cats vaccinated this calendar year, counts a twice-vaccinated cat once, ignores a cat with nothing recorded, shows nothing below 5, and the public response holds only the number and the year**.
 - **Health notes:** a `team_note` is refused from public, never in a public payload, readable only with `view_health_notes`, and survives deletion of a welfare report; a welfare-report note never becomes a cat note.
 - **Old care route:** nothing about health or vaccination is written to `cat_updates`.
 - **Privacy:** no health note, welfare report, confidence or author in any public payload (the public-payload leak list the data spine already tests, §10.8), checked against the new fields by name.
@@ -474,7 +478,7 @@ No names are added. `roles-and-invites.md` §6.2 already lists `set_appearance`,
 ### 10.7 Follow-ups for other tickets and specs (not edited here)
 
 - **SYC-161** (auto coat colour): drop "People outrank the machine" in favour of the narrowed rule (SYC2-D10), drop the cache-version bump, and use the single `coat: []` wire shape.
-- **SYC-5** (vaccination records): vaccination is team-only; the public Care timeline gets no vaccination row and no new `cat_update_type` enum value; donors see an overall count. Nothing about health is written through `POST /cats/:catId/updates` (§6.4, rule 6).
+- **SYC-5** (vaccination records): vaccination is team-only; the public Care timeline gets no vaccination row and no new `cat_update_type` enum value; donors see an overall count, computed automatically from the team's vaccination records (§6.3). Nothing about health is written through `POST /cats/:catId/updates` (§6.4, rule 6).
 - **`choose-a-different-cat.md` §8.4:** edited on approval of SYC2-D10. **`roles-and-invites.md` §17.4** already asks this spec to cite the capability names and state that appearance is not queued and vets are reserved; both are done here.
 
 ---
@@ -553,7 +557,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 | **B. Add a small fixed team-only condition list now** | Can be counted and listed | We would be guessing what Syros Cats track. Stale entries ("needs attention", set in July) read as current in October | None public. A new team form |
 | **C. The old draft's full record** (condition, pregnancy, sex, age, with spotter statements) | Rich data for targeting | Spotters assert health from a photo; free-for-all condition claims on a public page sit beside the urgent route and could stand in for it. Large build, thin evidence | A health question in front of the points |
 
-**Recommendation: A, on two conditions.** The note is a note on the cat (never on a welfare report) gated by `view_health_notes` and `add_health_note`; and B waits on Syros Cats' answer to §12 question 2.
+**Recommendation: A, on two conditions.** The note is a note on the cat (never on a welfare report) gated by `view_health_notes` and `add_health_note`; and **B is not needed now** (Answered, Samuel, 12 October 2026, Q2: free notes are enough). A structured condition list is left to SYC-242.
 
 ### SYC2-D6. Is vaccination shown to the public?
 
@@ -620,21 +624,27 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 
 ---
 
-## 12. Questions only Syros Cats can answer
+## 12. Questions for Syros Cats (all answered by Samuel, 12 October 2026)
 
 1. **Do these words match how your team describes cats?** Please check every English, Greek and French label in §3 (especially *tortoiseshell or calico*, *colourpoint* and *kinked tail*), and tell us any marks you use that are missing or any here you would never use.
-2. **What health information do you actually keep about a cat?** If there is a spreadsheet or a WhatsApp convention, its headings beat our guesses (it decides SYC2-D5's option B).
-3. **Which vaccines do you give?** (It decides the vaccine list in the team's record. It would also matter if the public line were ever reconsidered, SYC2-D6 option B, in which case your vet must see the exact wording first.)
-4. **Is it right that a cat guardian's word on colour and markings stands straight away,** with the team seeing it in their feed of recent guardian changes, rather than waiting for the team's OK? (This is `roles-and-invites.md` Decision 13; this question asks whether Syros Cats are comfortable with it.)
+   **Answered (Samuel, 12 October 2026): checked in testing.** Syros Cats will say during testing if any word is wrong; Johnny still checks the Greek and French (SYC-283).
+2. **What health information do you actually keep about a cat?**
+   **Answered (Samuel, 12 October 2026): free notes are enough.** Health stays as the sterilised and vaccinated facts plus a team-only note on the cat. SYC2-D5's option B (a structured condition list) is not needed now; it is left to SYC-242.
+3. **Which vaccines do you give?**
+   **Answered (Samuel, 12 October 2026): rabies, and the core "cat flu and enteritis" combination** (the standard core feline vaccine). The team can add another by name. No brand is named. If the public line were ever reconsidered (SYC2-D6 option B), your vet would still have to see the exact wording first.
+4. **Is a cat guardian's word on colour and markings final straight away,** with the team seeing it in their feed of recent guardian changes, rather than waiting for the team's OK?
+   **Answered (Samuel, 12 October 2026): yes, it stands.** This is `roles-and-invites.md` Decision 13, already decided by Samuel.
 5. **Are these words right?** Samuel has decided that anyone can tick *Short or missing tail*, *Missing an eye*, *Three legs* and *Eyes of different colours*, and that the public sees them as plain recognition features ("One eye", "Three legs"), never as injuries. Please check that the English, Greek and French wording is what your volunteers would say and would not read as medical history or as unkind. Also tell us if a tucked leg or a squint is often mistaken for one of these.
+   **Answered (Samuel, 12 October 2026): checked in testing**, as question 1; Johnny checks Greek and French (SYC-283).
 6. **Would a single overall number ("142 cats vaccinated this year") on the donate screen or in your reports help donors who fund vaccines,** and who should compute it?
+   **Answered (Samuel, 12 October 2026): yes.** The app computes it automatically from the team's vaccination records, with no individual cat identifiable. It goes on the donate screen and in reports (§6.3); it must fit SYC-1 and SYC-62.
 
 ---
 
 ## 13. Not in this spec
 
 - **Sex, age class and pregnancy or nursing.** Useful for targeting and for matching kittens to adults, but a spotter cannot reliably state them and they need their own expiry rules (a pregnancy ends). Their own spec, once Syros Cats say they matter.
-- **A structured team-only condition list** (SYC2-D5, option B).
+- **A structured team-only condition list** (SYC2-D5, option B): not needed now; left to SYC-242.
 - **A markings filter** in the picker or cat-alog (§7.2).
 - **Markings read by the model** (SYC2-D4).
 - **A sterilised / not-sterilised filter** (SYC2-D7).
@@ -653,7 +663,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 | **1. Record and resolver** | The `markings`, `vaccinated` and `team_note` kinds, the relaxed `coat` validator, the three resolver functions with their tests, the public payload fields (`coat`, `markings`), no cache-key change | The approved data-spine amendment (§10), and **SYC-161** for the machine's colour: the colour rules assume machine readings exist, so this dependency is explicit. Useful alone: team-entered colour and a richer resolved value |
 | **2. Team** | The Appearance section, Confirm / Correct / Mark wrong (retract), the Colour check list, vaccination entry, health notes on the cat | Slice 1; the SYC-43 dashboard (merged) |
 | **3. Spotters** | The colour line on the new-cat result screen, the chips on the details card, the three-language strings, the ear-tip side-by-side picture, the "Does it look hurt?" link, markings on picker cards, colour in the cat-alog filter | Slices 1 and 2 (so there is somebody to confirm), and `add-details-later.md`'s answers family |
-| **4. Vaccination count** | The overall "N cats vaccinated this year" figure, wherever SYC-5 places it | Slice 1; SYC-5 |
+| **4. Vaccination count** | The overall "N cats vaccinated this year" figure, computed automatically (§6.3), on the donate screen (SYC-1) and in reports (SYC-62) | Slice 1; SYC-5, SYC-1, SYC-62 |
 | **5. Guardians** | `set_appearance`, `view_health_notes`, `add_health_note` for cats in their own colonies; the Colour check list scoped to a colony | The roles spec (SYC-53) |
 
 Rollback for slices 1 to 4 is a revert: observations already written remain valid and are simply not read.
@@ -664,7 +674,7 @@ Rollback for slices 1 to 4 is a revert: observations already written remain vali
 
 For Samuel to approve (nobody has edited `DECISIONS.md`):
 
-- **Health is three things, not one status.** On the cat page: what the record already shows (sterilised, ear tip, life status), and nothing about vaccination or condition. Vaccination is team-only at launch; donors see an overall count, never a cat. Condition is a team-only note on the cat. There is no "Looks healthy" badge, ever.
+- **Health is three things, not one status.** On the cat page: what the record already shows (sterilised, ear tip, life status), and nothing about vaccination or condition. Vaccination is team-only at launch; donors see an overall count, computed automatically and never a cat. The vaccine list is rabies, the core cat flu and enteritis combination, and others by name (no brand). Condition is a team-only note on the cat. There is no "Looks healthy" badge, ever.
 - **"Needs vet" is never a public filter or label.** The urgent route ("This cat needs help") is the only public way to say a cat is in trouble, and nothing replaces or delays it.
 - **Spotters suggest appearance; the team and cat guardians state it.** This amends `choose-a-different-cat.md` §8.4: it said "a person's reading always beats the machine's"; it now says **a single spotter fills a gap but never overturns a machine reading; two independent spotters (different devices, photos and days), a cat guardian for her own cats, or the team do.** (SYC-161's wording is updated to match.)
 - **Markings and colour are never evidence of life and never notifiable.**
@@ -742,6 +752,7 @@ An independent adversarial review (`docs/specs/reviews/coat-markings-and-health-
 1. **The four marks are open to anyone.** *Short or missing tail*, *Missing an eye*, *Three legs* and *Eyes of different colours* can be ticked by spotters like any other mark. This **partly reverses M6**: the review's team-only change is gone; its "Does it look hurt?" link stays and now also shows for these four (added so an injury still reaches help). **Decided (Samuel, 12 October 2026): the "This cat needs help" link stays on all four markings, as recommended.**. §3.2 records what the choice accepts.
 2. **Roles.** Volunteers and staff are one role (the Syros Cats team). Every volunteer rule and `confirm_appearance` are removed. A cat guardian's colour and markings statement stands directly. Sterilisation is not restated here: roles spec Decision 5 and the data spine amendment own it.
 3. **The role word is "spotter"**, never "snapper" (the draft contained none).
+4. **Questions for Syros Cats answered by Samuel (12 October 2026), §12.** Q1 and Q5 (wording): checked in testing, Johnny for Greek and French (SYC-283). Q2: free notes are enough; option B left to SYC-242. Q3: vaccines are rabies and the core cat flu and enteritis combination, others by name, no brand (§6.3, §10.1). Q4: a guardian's colour statement stands. Q6: yes, the donor count is computed automatically (§6.3, §10.6, slice 4).
 
 ### Decisions
 
