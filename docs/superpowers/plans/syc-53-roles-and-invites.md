@@ -263,7 +263,7 @@ Each is a small docs-only PR, built from the spec's §17 text word for word, plu
 
 - **`use_workspace`** joins the capability list, and `mayUseWorkspace(person)` asks `can()` for it. `can()` is still staff-only at this point, so it is true for exactly the people who get the workspace today.
 - **`POST /api/internal/people/allowed`** reads an optional `version` field. With `version: 2` it answers `{ allowed, doors: { workspace, dashboard }, language, personId, name, sessionVersion }`. **The old request shape is answered `allowed: true` only for someone who holds the workspace door** (spec §14 case 11), so the Worker deployed today can never hand a guardian the workspace. Every "no" stays identical whatever the reason.
-- **Tests.** T7: a guardian test row (placed on one colony) gets `allowed: false` from the old shape and `doors.workspace: false` from the new; a staff address gets both doors. T8 (part) and T13: an unknown address, a left person and a person with no door get byte-identical answers. **Mutation probe:** answer the old shape with `mayEnter` instead of the workspace door → T7 red.
+- **Tests.** T7: a guardian test row (placed on one colony) gets `allowed: false` from the old shape and `doors.workspace: false` from the new; a staff address gets both doors. T8 (part), and spec §14 case 13: an unknown address, a left person and a person with no door get byte-identical answers. **Mutation probe:** answer the old shape with `mayEnter` instead of the workspace door → T7 red.
 
 ### PR W1: the sign-in Worker learns the two doors (`fairshake-au/catspotters-website`)
 
@@ -336,7 +336,7 @@ Each is a small docs-only PR, built from the spec's §17 text word for word, plu
 
 **The accept page** (`GET /api/team/my/welcome`, `POST …/accept`, `POST …/decline`), in her language once it is live: who invited her and for what, the **three promises word for word** (spec §4.1), the name field pre-filled and editable, *Yes, join* and *No, this isn't for me*. Every POST passes `requireOrigin`. No email goes to the inviter when she accepts (Decision 7).
 
-**Tests.** T8 (complete) and T9: a pending invitee gets only the dashboard door; her session reaches the accept page and nothing else; her placements are never read by `can()`. **Mutation probe:** let `findPersonById` return pending people → red. T10: accept and withdraw at the same moment, and accept after expiry, each with exactly one winner; rejoining sets `accepted_at` to null. **Mutation probe:** drop the `invite_expires_at > now()` guard → red. T15: one management member alone can invite team or management, change roles, bring someone back and mark another manager as left, each at once, each with its event, each emailing every other manager and not the actor; there is no `approve_access` and no approval item anywhere (source test). T18: the last manager can't be removed, demoted or signed out through these functions, including two at once (a concurrent test). **Mutation probe:** drop the row lock → red. T19: leaving withdraws the leaver's pending invitations and emails the other managers. T20: withdrawing never deletes a row. T21 (extended to every new kind). T22: the invitation function can't be given an address; the text holds only the role and the colony name; a name with markup or a link is escaped; the limits hold; a failed send isn't shown as sent; no acceptance email exists. **Mutation probe:** let the caller pass `to` → red. T29d: exactly three promises, in all three languages with key parity, none about keeping places private, and the version recorded with the acceptance. T14: accept, decline and withdraw are Origin-checked and safe to press twice. T30 (core): `createColonyWithPlacement` writes all three rows or none (**mutation probe:** fail the placement insert → no colony left behind).
+**Tests.** T8 (complete) and T9: a pending invitee gets only the dashboard door; her session reaches the accept page and nothing else; her placements are never read by `can()`. **Mutation probe:** let `findPersonById` return pending people → red. T10: accept and withdraw at the same moment, and accept after expiry, each with exactly one winner; rejoining sets `accepted_at` to null. **Mutation probe:** drop the `invite_expires_at > now()` guard → red. T15: one management member alone can invite team or management, change roles, bring someone back and mark another manager as left, each at once, each with its event, each emailing every other manager and not the actor; there is no `approve_access` and no approval item anywhere (source test). T18: the last manager can't be removed, demoted or signed out through these functions, including two at once (a concurrent test). **Mutation probe:** drop the row lock → red. T19: leaving withdraws the leaver's pending invitations and emails the other managers. T20: withdrawing never deletes a row. T21 (extended to every new kind). T22: the invitation function can't be given an address; the text holds only the role and the colony name; a name with markup or a link is escaped; the limits hold; a failed send isn't shown as sent; no acceptance email exists. **Mutation probe:** let the caller pass `to` → red. T29d: exactly three promises, in all three languages with key parity, none about keeping places private, and the version recorded with the acceptance. Spec §14 case 14: accept, decline and withdraw are Origin-checked and safe to press twice. T30 (core): `createColonyWithPlacement` writes all three rows or none (**mutation probe:** fail the placement insert → no colony left behind).
 
 ### PR 1.2: the People screen (SYC-104; spec §8.1–8.2, §9.3, §6.3)
 
@@ -461,3 +461,182 @@ Management only (`manage_people`), English (Decision 10), server-drawn like the 
 
 - **Gated on SYC-130.** Its spec (PR #107) defines what a claim is, and so who counts as an owner. This slice is planned when SYC-130's plan is approved. What it adds is small: the resolver counts a `sterilised` statement with `authority_scope = owner_of_this_cat` as authoritative for that cat (spec §7.2, §10.4), written from the public app by the owner's device under SYC-130's claim. No dashboard door for owners (spec §7.2).
 - **Tests (then):** an owner's statement confirms only her own cat; anyone else's is refused; the team can mark it wrong.
+
+---
+
+## Where each of the spec's tests is built
+
+Spec §15.3 names the tests that must exist. Each is built in exactly one place (some in two halves).
+
+| Spec test | PR | | Spec test | PR |
+|---|---|---|---|---|
+| 1 route walk | 0.5 (each later PR adds its routes' rows) | | 16 guardian colony change | SYC-209's PRs |
+| 2 403, not sign-in | 0.5 | | 17 guardian with no colony refused | 0.3 |
+| 3 guardian can't reach island pages | 0.3 (database), 0.5 (routes) | | 18 last manager | 1.1 |
+| 4 guardian's view, field by field | 2.1 | | 19 leaving withdraws invitations | 1.1 |
+| 5 target from the record | 0.5 (photos), 2.1 (cats) | | 20 withdrawing never deletes | 1.1 |
+| 6 placement expiry | 0.5 | | 21 one event per operation | 0.1, extended in 1.1 |
+| 7 old shape refuses a guardian | 0.4 | | 22 invitation mail | 1.1 |
+| 8 doors | 0.4, completed in 1.1 | | 23 `roleAtTime` from the server | 0.2, 2.2 |
+| 9 pending invitee reaches only the accept page | 0.3 (finders), 1.1 | | 24 catalogue equals §6.2 | 0.5 |
+| 10 accept is one conditional update | 1.1 | | 25 key parity, Greek local part | 1.0 |
+| 11 a field check writes one observation | 3.1 | | 26 the saved list | 4.1, 4.2 |
+| 12 field check: *Probably*, no email | 3.1 | | 27 workspace refused | 0.5 |
+| 12a guardian's "sterilised" | 2.2 | | 28 life-status limits, offline dates | 2.2, 4.3 |
+| 13 proposer can't decide | 3.4 | | 29 migration stops and lists | 0.3 |
+| 14 first decision wins | 3.4 | | 29a exactly three managers | 0.3 (probe in production, test on a seeded database) |
+| 15 management only, one manager enough | 0.5, 1.1, 1.2 | | 29b guardian's welfare reports | 3.3 (vii checked again in 4.2) |
+| | | | 29c guardian marks a cat died | 2.2 |
+| | | | 29d three promises | 1.1 |
+| | | | 30 guardian creates a colony | 1.1 (core), SYC-209's PRs (routes) |
+
+API tests use supertest against the real app and CI's Postgres, as the SYC-43 parts did; `lib/db` tests use the throwaway database built from the real migrations. Every **mutation probe** is done once by hand before merge: break the line, watch the named test go red, put it back, and say so in the PR.
+
+---
+
+## Every place the guard must hold
+
+A permission check that silently lets too much through leaves every test green. So, as the photo-hiding work did, this plan lists **every reader** of the two things that must never leak, and the route walk (T1) is the structural backstop: a new route that isn't in its table fails the build.
+
+**"Who is on the list, and what may they do"** is read in exactly these places, all of which go through `findPersonById`, `findAllowedPerson`, `findInvitee` and `can()`/`canSomewhere()`:
+1. the hand-off (`routes/team.ts`), which now also issues pending sessions (1.1);
+2. `requireTeam`, on every dashboard request, and `requireInvitee` (1.1);
+3. the Worker's question (`routes/internal.ts`), both request shapes (0.4);
+4. the Worker itself, which trusts the doors (W1);
+5. the invitation and access-change mail recipients (1.1), which look people up by id;
+6. the `people` command and db-ops (0.3);
+7. the saved list's re-check on every online load (4.2).
+
+**"Exact positions, and private things, reach only the people placed on them"** is served in exactly these places:
+1. the team's island pages: the queue, report list, cat list and cat page (island-only from 0.5);
+2. the catalogue photo route and the report photo route (0.5);
+3. a guardian's colony and cat pages (2.1), her field-check photos (3.1), her colony's welfare reports and their photos (3.3), "Needs a look" (3.2);
+4. SYC-209's feeding-site and colony pages (their own PRs, using 0.5's targets and filtering sites in the query);
+5. the saved list and the round sheet (4.2);
+6. the JSON responses added to the OpenAPI file for the field pages (4.2).
+Nothing in the public app changes. Push notifications, emails and the public catalogue carry no exact position and no field-check photo; PR 3.1's source test enforces the photo half.
+
+---
+
+## Rollout
+
+For each PR, in order, after its own review:
+1. **Merge** once CI is green (`migrate:check`, the migration tests, the API tests).
+2. **PRs with a migration (0.1, 0.3, 3.1):** db-ops `migrate` on development; a Neon snapshot of production (**Samuel switches the session to "ask" mode for this step**); db-ops `migrate` on production, then `verify`. **Migrate before publish**: each migration is additive and the running app ignores what it adds. Claude runs every production migration through db-ops; none is handed to Samuel. 0.3 has the extra steps in its section (Samuel approves the management list; `people-set-roles` after the migration).
+3. **Publish.** Samuel pulls into the EU Replit project and publishes. Claude waits until `/api/healthz` shows the new commit (the EU deploy can sit in "promoting"), then runs db-ops `smoke`.
+4. **Probe (Claude).** Every new route without a session → 401; with a test guardian session on development → what the route-walk table says. After 1.1: an invitation to a test address Claude controls on development shows "Not sent yet" when mail is off and "Invited" once delivered. After 3.1: a field-check photo's public URL → 404. After 4.1: the field pages' headers, and a non-field page still has no script source.
+5. **W1** is deployed by Claude with wrangler after 0.4 is live in production, and probed as in its section. **0.5 publishes only after W1 is live** and the three management rows exist.
+6. **First real use.** After Slice 1: Samuel invites one team member as the acceptance test. After SYC-209's colony PR and Slice 2: the first guardian, chosen by Samuel, ideally with Susan making the call so the invitation is read aloud on the phone first.
+
+**Up/down/up.** Every migration's commented rollback is proved by the runner's harness in CI (`pnpm --filter @workspace/db test`): up, down, up again, schema identical. **Rolling back in production:** app first, then the database, or not at all (`lib/db/migrations/README.md`). Rolling back 0.1 deletes the history and 3.1 deletes field-check photos; both rollback blocks say so, and the snapshot is taken first.
+
+---
+
+## Where this collides with other work
+
+| Other work | Where it meets this plan | What this plan does |
+|---|---|---|
+| **#102** (the spec) | Everything | The plan's PRs start once it merges |
+| **#103 SYC-209 spec** (approved, merging) | Colony and feeding-site routes; the Recent guardian changes list; site-public requests | Decision D: SYC-209 owns those screens. This plan delivers the capabilities (0.5), the targets (0.5), `createColonyWithPlacement` (1.1) and `listGuardianChanges` (2.2). SYC-209's plan is written next, against Slice 0, and names tests T16 and T30 |
+| **#104 SYC-2 spec** (approved, merging) | `set_appearance`, `set_vaccination`, `view_health_notes`, `add_health_note`; guardian authority for colour | In the catalogue from 0.5. SYC-2's build adds the resolver authority for colour and its own screens, citing this plan |
+| **#107 SYC-130 spec** | What an owner is; it edits the same three docs as D1–D3 | Slice 6 waits for it. Docs PRs rebase whichever merges second |
+| **#111 SYC-44 spec** (being revised) | "Report an issue" reports are team-only | PR 3.3's routes have no path to them. When SYC-44 is built, its reports stay behind `view_welfare_queue`, and the route walk catches any new route |
+| **#115 SYC-14, #109 SYC-274** | None (app and campaign code) | Nothing |
+| **Worktrees `syc-14-sixty`, `syc-nudge-kept-safe`, `mvp-progress-check`** | None of the files this plan touches | Not touched |
+| **SYC-26 Google sign-in** (a plan worktree in the Worker repository) | The Worker's `admin/src/index.js` | W1 goes first; SYC-26 rebases |
+| **SYC-185** (retire the owner-key route) | `routes/notifications.ts` writes `"staff"` | Left alone (0.2); retires with SYC-185 |
+
+---
+
+## What this plan does not do
+
+| Not here | Where it goes |
+|---|---|
+| Colony and feeding-site screens, creating colonies, moving cats between colonies, the Recent guardian changes page | SYC-209 (Decision D) |
+| Colour, markings and health screens | SYC-2 |
+| Forgetting a former guardian or team member; anonymising a wrongly invited stranger's address | SYC-208, SYC-256 |
+| HTML-formatted emails | SYC-278 |
+| Guardians requesting paid sterilisation (€50–60 per cat) in the app | SYC-284 (by phone or WhatsApp for now) |
+| A dashboard upload of a guardian's own sighting, and `match_cat_anywhere` | A follow-up, if Syros Cats want it (spec §6.2 note 3) |
+| A better "usual spot" for each cat | SYC-80 |
+| Vets | SYC-24 (parked) |
+| Google sign-in | SYC-26 |
+| The team's "delete this person's details" action (`action_deletion_request`) | With SYC-63's staff action; the capability exists from 0.5, management only |
+
+## What works with no signal
+
+Precisely: **only Slice 4's field pages.** Every other dashboard page, including everything in Slices 0 to 3, is drawn by the server when opened and needs signal; a button tapped with no signal fails with the browser's own "no connection" page and nothing is recorded. The field pages show the last saved list for up to 72 hours and queue up to 20 field checks; their live map does not work offline (spec §12.1). The public app is unchanged.
+
+---
+
+## Model delegation
+
+Session model for this plan: **Opus 5.5**, chosen by the brief because a wrong slice order or a missed route here is a permission hole across several PRs. For the build, each package goes to the cheapest tier that can do it safely; every step up is justified on its row. **No package uses Fable**: the design decisions are already made in the approved spec and this plan, and what remains is careful implementation and review, which Opus covers.
+
+| Work package | Model | Why this tier | Assurance |
+|---|---|---|---|
+| D1–D4 docs PRs | Sonnet | Transcribing approved text from spec §17 and this plan's decisions | Session model checks each line against §17 and the canonical facts in `CLAUDE.md` |
+| 0.1 `person_events` migration, backfill, events in `people.ts` | Sonnet | Clear spec (SYC-213), follows the `observations` trigger pattern | T21 with a **mutation probe on every insert**; up/down/up; session model reads the SQL line by line |
+| 0.2 one list of roles, `actingRole`, vocabulary | Sonnet | Mechanical consolidation with a source test | T23 part with **mutation probe**; source test; production `admin` count probe; Opus spot review of the resolver diff |
+| 0.3 the roles migration and the `people` command | **Opus** | *Escalated:* production data, list-and-stop logic, and the checks that make "guardian is never island-wide" true in the database | T17, T29, T9 with **mutation probe**; up/down/up; run against a copy of the production shape on development first; Opus adversarial review |
+| 0.4 two doors (API) | **Opus** | *Escalated:* the one change that could hand a guardian the document password through the old Worker | T7 with **mutation probe**; §14 case 13 identical answers; Opus adversarial review |
+| W1 the Worker | **Opus** | *Escalated:* a security boundary in another repository, with a fail-safe deploy order | That repo's tests with **mutation probe**; wrangler deploy and live probe of both kinds of person |
+| 0.5 catalogue, strict `can()`, targets, 403, route walk | **Opus** | *Escalated:* the permission core. A silent over-grant here shows a guardian the whole island with every test green | T1, T2, T5, T6, T24 each with **mutation probes**; the "every place the guard must hold" list above handed to the reviewer, who is told to hunt for readers not on it; Opus adversarial review in its own worktree |
+| 1.0 string catalogue and parity test | Sonnet | Follows the app's i18n shape | T25 with **mutation probe** |
+| 1.0 Greek and French drafts | Sonnet | Language quality matters more than for boilerplate | Johnny's review (SYC-283) before any language is switched on |
+| 1.1 invitations, accept, leave, mail purposes | **Opus** | *Escalated:* pending-state security (a pending person must never be a capability holder), conditional updates, the last-manager race, and a mail function that must not be usable to email a stranger | T8–T10, T15, T18–T22, T29d, T30 core, with **mutation probes** on T9, T10, T18, T22, T30; Opus adversarial review |
+| 1.2 the People screen | Sonnet | Forms over 1.1's reviewed functions | T15 screen half; chip-state test; browser check at ~390 px and desktop; Opus spot review |
+| 1.3 "My page" and "My colonies" | Sonnet | Simple pages over existing functions | Tests listed; browser check |
+| 2.1 guardian serialiser and pages | **Opus** for the serialiser and targets; Sonnet for page markup | *Escalated (serialiser):* a leaked field is silent | T4, T5 with **mutation probes**; browser check; Opus review of the serialiser |
+| 2.2 guardian statements and resolver authority | **Opus** | *Escalated:* a resolver change that makes cats *Confirmed* and sends an email that can't be unsent | T12a, T23, T28, T29c with **mutation probes**; Opus adversarial review |
+| 3.1 field checks and private photos | **Opus** for the photo store, route and resolver change; Sonnet for the forms | *Escalated (photos, resolver):* a public leak of a private photo, or a field check that confirms, is silent | T11, T12 with **mutation probes**; the source test that only one route reads `field_check_photos` |
+| 3.2 "Needs a look" | Sonnet | A read over the resolver | Tests listed; Opus spot review |
+| 3.3 guardians' welfare reports | **Opus** | *Escalated:* reporters' photos and locations; a leaked contact field is silent | T29b all parts with **mutation probes**; Opus adversarial review |
+| 3.4 site-public requests and "Needs an OK" | Sonnet | Follows the report-state conditional-update pattern | T13, T14; browser check; Opus spot review |
+| 4.1–4.3 field pages, saved list, offline queue | **Opus** | *Escalated:* the only scripts on the dashboard, a service worker, and exact positions on phones | T26 with **mutation probes**; offline browser checks at ~390 px; Opus adversarial review |
+| 5.1 counters and banner | Haiku | Mechanical: one table, one query, one banner | Tests listed; session model reviews the diff |
+| HTML row markup and seeded fixtures across slices | Haiku | Boilerplate against a fixed shape | Typecheck plus the PR's own tests; session model reviews the diff |
+| Adversarial review of each PR | Same tier as the builder (Sonnet for Sonnet-built, Opus for Opus-built), **each in its own worktree, never shared** | A reviewer proving a test can fail mutates the tree, so two reviewers can't share one | Findings folded in and listed in each PR; the session model checks each against the code |
+| Production steps: migrations, snapshots, `people-set-roles`, wrangler, probes | Session model | Production data and credentials; not delegated | Rollout step 4's probes |
+
+## Crash-proofing for the build
+
+Every PR is built in its own worktree off fresh `origin/main`, never the primary checkout. **Commit after each item**, and keep a `CHECKPOINT.md` in the worktree root (what's done, what's next), updated after each commit, so any session can resume from the last commit. Every agent prompt restates "commit after each item" word for word. Agents don't spawn nested agents. A progress note goes to Samuel at each merged PR.
+
+---
+
+## Linear
+
+**Each PR closes or advances:**
+
+| PR | Closes | Advances |
+|---|---|---|
+| D1–D4 | | SYC-53 |
+| 0.1 | **SYC-213** | SYC-53 |
+| 0.2 | **SYC-252** | SYC-53 |
+| 0.3 | | SYC-53, SYC-104 |
+| 0.4 + W1 + 0.5 | **SYC-222** | SYC-53 |
+| 1.0 | **SYC-251** | SYC-283 (strings ready for Johnny) |
+| 1.1 | | SYC-53, SYC-104 |
+| 1.2 | **SYC-104** | SYC-53 |
+| 1.3 | | SYC-53 |
+| 2.1, 2.2 | | SYC-53 |
+| 3.1–3.4 | **SYC-254** (3.3) | SYC-53, SYC-209 |
+| 4.1–4.3 | **SYC-54**, **SYC-257** | SYC-53, SYC-263 |
+| 5.1 | **SYC-253** | SYC-53 |
+| 5.2 | | SYC-53 (waits for SYC-152) |
+| 6.1 | **SYC-53** (the last piece) | SYC-130 |
+
+SYC-53 itself closes when Slice 6 merges, or earlier if Samuel prefers to close it after Slice 5 and track owners under SYC-130.
+
+**Follow-up tickets to file (not filed by this plan):**
+1. **SYC-54: a short screen spec for the saved colony view and round sheet**, before Slice 4 (Decision F). Also: rename the ticket away from "volunteer", and drop "reuse the existing offline queue" (the app's queue is ruled out by spec §3).
+2. **The sign-in Worker: two doors and a dashboard-only path** (W1), in `catspotters-website`, linked to SYC-222.
+3. **The sign-in email in Greek and French** in the Worker, switched on after Johnny signs off (SYC-283).
+4. **Switch on Greek and French on the dashboard** (`LIVE_LANGUAGES`), after SYC-283.
+5. **SYC-208 must also reach** `field_check_photos`' notes, and anonymise a never-accepted invitee on withdrawal (a comment on SYC-208, not a new ticket, if it already lists the spec's §9.6–9.7 points).
+6. **SYC-209's plan must use this plan's Slice 0** (targets, `createColonyWithPlacement`, `listGuardianChanges`) and name tests T16 and T30 (a comment on SYC-209).
+7. **SYC-2's plan: guardian authority for colour and markings in the resolver** (a comment on SYC-2).
+8. **Retire db-ops `people-remove`** in the runbook and docs once 0.1 removes it (folded into 0.1 if small).
+9. **"Needs a look" sorted by distance on the field page** (Decision E), if it doesn't fit in 4.2.
+10. **A dashboard upload of a guardian's own sighting**, to make `match_cat_anywhere` real (spec §16.4; may already be filed from the spec).
