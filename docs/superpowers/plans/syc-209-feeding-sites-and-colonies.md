@@ -518,7 +518,7 @@ The seed (spec Decision 11): **Syros Cats place their own sites on the dashboard
 | Work | Touches | What happens |
 |---|---|---|
 | **SYC-53 roles plan** (`claude/syc-53-plan`, draft) | `capabilities.ts`, `requireTeam`, the route walk, `teamCorrections.ts`, the docs PRs, `confirmation_items` → `feeding_sites` | The split is Decision D (roles plan) and Decision 1 (this plan). Whichever PR merges second rebases. K7 is raised on SYC-53 as a comment. This plan doesn't edit the roles plan |
-| **SYC-2 coat and health plan** (`claude/syc-2-plan`) | Spine §10.1, §10.2, §10.7, §3.4 and `DECISIONS.md` | Agreed with that session: separate docs PRs in disjoint sections (this plan: spine §6.7 and §10.5); whichever merges second rebases |
+| **SYC-2 coat and health plan** (`claude/syc-2-plan`) | Spine §10.1, §10.2, §10.7, §3.4 and `DECISIONS.md` | Agreed with that session: separate docs PRs in disjoint sections (this plan: spine §6.7 and §10.5); whichever merges second rebases. Its plan was approved and merged as PR #119. **Code:** its PRs 3.1 and 3.2 add Appearance, Vaccination and Health-notes sections to `AS/lib/teamPages/catPages.ts`, which this plan's PRs 0.2 and 3.4 also edit; whichever lands second rebases |
 | **PR #107 SYC-130** | `DECISIONS.md`, the spine, team-access | Different sections; second to merge rebases |
 | **PR #111 SYC-44** | Photos and reports, maybe a migration | No overlap except migration numbers, taken at rebase time |
 | **PR #101 SYC-166** | The app's location picker | No overlap; PR 6.3 touches `AppMap*.tsx`, not the picker |
