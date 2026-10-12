@@ -311,11 +311,16 @@ export default function RestorePage() {
       ) : null}
 
       {state.kind === 'already-here' ? (
-        <Text testID="restore-already-here" style={[styles.text, { color: colors.foreground }]}>
-          {state.username
-            ? t('restoreAlreadyHere').replace('{name}', state.username)
-            : t('restoreAlreadyHereNoName')}
-        </Text>
+        <View style={styles.choices}>
+          <Text testID="restore-already-here" style={[styles.text, { color: colors.foreground }]}>
+            {state.username
+              ? t('restoreAlreadyHere').replace('{name}', state.username)
+              : t('restoreAlreadyHereNoName')}
+          </Text>
+          <Button variant="primary" size="lg" block onPress={() => router.replace('/')}>
+            {t('restoreAlreadyHereOpen')}
+          </Button>
+        </View>
       ) : null}
 
       {state.kind === 'in-app' ? (
