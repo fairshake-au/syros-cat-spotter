@@ -157,14 +157,20 @@ async function askAndGetToken(phone: Phone, email: string): Promise<string> {
   return tokenFrom(mails.at(-1)!, "/restore");
 }
 
+// Each from its own address: peek and redeem are limited to 30 per IP per hour.
 function peek(phone: Phone, token: string) {
-  return request(app).post("/api/restore/peek").set("X-Device-Secret", phone.secret).send({ deviceId: phone.id, token });
+  return request(app)
+    .post("/api/restore/peek")
+    .set("X-Device-Secret", phone.secret)
+    .set("X-Forwarded-For", freshIp())
+    .send({ deviceId: phone.id, token });
 }
 
 function redeem(phone: Phone, token: string, spotterDeviceId: string, extra: Record<string, unknown> = {}) {
   return request(app)
     .post("/api/restore/redeem")
     .set("X-Device-Secret", phone.secret)
+    .set("X-Forwarded-For", freshIp())
     .send({ deviceId: phone.id, token, spotterDeviceId, ...extra });
 }
 
@@ -191,7 +197,13 @@ describe("the round trip", () => {
 
     const p = await peek(phone, token);
     expect(p.status).toBe(200);
-    expect(p.body).toEqual({ spotters: [{ deviceId: old.id, username: old.username }] });
+    // Decision 12: an opaque choice id, never the spotter's device id.
+    expect(p.body).toEqual({
+      spotters: [{ choice: expect.stringMatching(/^[0-9a-f]{24}$/), username: old.username }],
+      openedOnAskingPhone: true,
+      alreadyHere: null,
+    });
+    expect(JSON.stringify(p.body)).not.toContain(old.id);
 
     const r = await redeem(phone, token, old.id);
     expect(r.status).toBe(200);
@@ -298,19 +310,75 @@ describe("2. a replayed link", () => {
   });
 });
 
-describe("3. the link on a second device", () => {
-  it("a phone other than the one that asked gets link_not_valid, for peek and redeem, and nothing moves (M)", async () => {
+describe("3. the link on a second device (Decision 12, Samuel 11–12 Oct 2026)", () => {
+  it("3′. a phone other than the one that asked can use the link: the spots move to the phone that presses, never to the phone that asked (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone: asker, token } = await newPhoneWithLink(email);
+    const opener = newPhone();
+    await bind(opener);
+    const p = await peek(opener, token);
+    expect(p.status).toBe(200);
+    expect(p.body.openedOnAskingPhone).toBe(false);
+    const r = await redeem(opener, token, "", { choice: p.body.spotters[0].choice });
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ deviceId: old.id, username: old.username });
+    expect(await storedHash(old.id)).toBe(hashSecret(opener.secret));
+    // The phone that asked got nothing, and is untouched.
+    expect(await storedHash(asker.id)).toBe(hashSecret(asker.secret));
+    // The old phone is told it moved.
+    const stale = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", old.secret);
+    expect(stale.body).toEqual({ error: "device_moved" });
+  });
+
+  it("3″. a caller that already is the spotter is told it's already here, and nothing moves", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
     const { token } = await newPhoneWithLink(email);
-    const stranger = newPhone();
-    await bind(stranger);
-    expect((await peek(stranger, token)).status).toBe(401);
-    const r = await redeem(stranger, token, old.id);
+    const p = await peek(old, token);
+    expect(p.status).toBe(200);
+    expect(p.body).toEqual({ spotters: [], openedOnAskingPhone: false, alreadyHere: { username: old.username } });
+    const r = await redeem(old, token, old.id);
     expect(r.status).toBe(401);
-    expect(r.body).toEqual({ error: "link_not_valid" });
     expect(await storedHash(old.id)).toBe(hashSecret(old.secret));
-    expect(await storedHash(stranger.id)).toBe(hashSecret(stranger.secret));
+  });
+
+  it("3″. \"already here\" never masks an address that keeps nobody safe (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    // The address is forgotten after the link went out: nobody is kept safe now.
+    await db.execute(sql`delete from email_contacts where device_id = ${old.id}`);
+    const p = await peek(phone, token);
+    expect(p.status).toBe(401);
+    expect(p.body).toEqual({ error: "link_not_valid" });
+  });
+
+  it("a third phone replaying a used link within 60 s gets link_not_valid and no name (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    expect((await redeem(phone, token, old.id)).status).toBe(200);
+    const third = newPhone();
+    await bind(third);
+    const r = await redeem(third, token, old.id);
+    expect(r.status).toBe(401);
+    expect(JSON.stringify(r.body)).not.toContain(old.username);
+  });
+
+  it("deleting the phone that asked keeps someone else's old phone told \"moved\" (Decision 12 review, finding 6)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone: asker, token } = await newPhoneWithLink(email);
+    const opener = newPhone();
+    await bind(opener);
+    expect((await redeem(opener, token, old.id)).status).toBe(200);
+    await db.transaction((tx) => severKeepSafe(tx, asker.id, "deleted by the person"));
+    const stale = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", old.secret);
+    expect(stale.body).toEqual({ error: "device_moved" });
+    // And the asker's raw id survives nowhere on the link.
+    const rows = await db.execute(sql`select 1 from mail_tokens where device_id = ${asker.id}`);
+    expect(rows.rows).toHaveLength(0);
   });
 });
 
@@ -790,6 +858,26 @@ describe("11b. \"Delete Nikos\" (SYC-266, Samuel 10 Oct 2026)", () => {
     return { phone, nikos, token };
   }
 
+  it("Decision 12: Nikos's phone opens a link another phone asked for, deletes Nikos, and the old phone is still told it moved; no trace of Nikos (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { token } = await newPhoneWithLink(email); // asked from a different phone
+    const phone = newPhone();
+    await bind(phone);
+    const nikos = `Nikos${RUN}${++n}`;
+    await claim(phone, nikos);
+    const r = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
+    expect(r.status).toBe(200);
+    const stale = await request(app).get(`/api/profiles/${old.id}`).set("X-Device-Secret", old.secret);
+    expect(stale.body).toEqual({ error: "device_moved" });
+    // A double tap within 60 s gets the same answer.
+    const again = await redeemFrom(phone, token, old.id, { abandonCurrent: true, deleteCurrent: true });
+    expect(again.status).toBe(200);
+    expect(again.body.deviceId).toBe(old.id);
+    expect(await columnsHolding(phone.id)).toEqual([]);
+    expect(await columnsHolding(nikos)).toEqual([]);
+  });
+
   it("deletes Nikos in the move: no trace of Nikos anywhere, spots kept without a name, the name free (M)", async () => {
     const email = newAddress();
     const old = await keptSafe(email);
@@ -880,7 +968,9 @@ describe("12. links point at the right place", () => {
     await ask(phone, email, freshIp(), "evil.example");
     await settleOutbox();
     const mail = mailTo(email).at(-1)!;
-    expect(mail.text).toMatch(/https:\/\/apptest\.catspotters\.com\/restore\?t=/);
+    // The token rides in the fragment, which no browser sends to any server (Decision 12).
+    expect(mail.text).toMatch(/https:\/\/apptest\.catspotters\.com\/restore#t=[A-Za-z0-9_-]{43}/);
+    expect(mail.text + mail.html).not.toMatch(/restore\?t=/);
     expect(mail.text + mail.html).not.toContain("evil.example");
   });
 });
@@ -944,7 +1034,8 @@ describe("Samuel's decisions, 8 Oct 2026", () => {
     expect((await postMailPage("confirm", tokenFrom(verifies(email).at(-1)!, "/api/mail/confirm"))).status).toBe(200);
     const { phone, token } = await newPhoneWithLink(email);
     const p = await peek(phone, token);
-    expect(p.body.spotters.map((s: { deviceId: string }) => s.deviceId).sort()).toEqual([lili.id, nikos.id].sort());
+    const nikosName = (await db.select().from(profilesTable).where(eq(profilesTable.deviceId, nikos.id)))[0]!.username;
+    expect(p.body.spotters.map((s: { username: string }) => s.username).sort()).toEqual([lili.username, nikosName].sort());
   });
 
   it("SYC-261: an address nobody has confirmed still gets at most one \"is this you?\" a day", async () => {

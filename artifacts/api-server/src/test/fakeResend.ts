@@ -37,7 +37,9 @@ export function installFakeResend(opts: { fail?: () => boolean } = {}): SentMail
 
 /** The link token in a sent email, for the given path. */
 export function tokenFrom(mail: SentMail, path: "/restore" | "/api/mail/confirm" | "/api/mail/forget"): string {
-  const match = mail.text.match(new RegExp(`${path.replace(/\//g, "\\/")}\\?t=([A-Za-z0-9_-]+)`));
+  // Restore links carry the token in the fragment (#t=, Decision 12); the
+  // confirm and forget links in the query (?t=).
+  const match = mail.text.match(new RegExp(`${path.replace(/\//g, "\\/")}[?#]t=([A-Za-z0-9_-]+)`));
   if (!match) throw new Error(`no ${path} link in the email`);
   return match[1]!;
 }

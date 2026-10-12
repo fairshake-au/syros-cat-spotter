@@ -125,7 +125,8 @@ describe("the fixed templates (test 14)", () => {
     const out = restoreLink({ restoreUrl: "https://apptest.catspotters.com/restore?t=CCC" });
     expect(out.subject).toBe("Get your spots back — Cat Spotters");
     expect(out.text).toContain("Open this on the phone that's getting the spots back, then press the button. The link works once and lasts 15 minutes.");
-    expect(out.text).toContain("Please don't forward this email.");
+    // Decision 12 (and judgment call A): the link works on any phone, so the warning is stronger.
+    expect(out.text).toContain("Nothing moves until someone presses the button. Never send this link to anyone, even a friend.");
     expect(out.html).toContain(">Get my spots back</a>");
   });
 
@@ -173,7 +174,7 @@ describe("the outbox's keep-safe rows (review A4, R1, R2; test 16b)", () => {
     kickRow(id);
     await settleOutbox();
     expect(sent).toHaveLength(1);
-    expect(sent[0]!.text).toMatch(/https:\/\/apptest\.catspotters\.com\/restore\?t=[A-Za-z0-9_-]{43}/);
+    expect(sent[0]!.text).toMatch(/https:\/\/apptest\.catspotters\.com\/restore#t=[A-Za-z0-9_-]{43}/);
     expect((await outboxRow(id)).payload).toEqual({ expiresAt: expect.any(String), cleared: true });
   });
 
