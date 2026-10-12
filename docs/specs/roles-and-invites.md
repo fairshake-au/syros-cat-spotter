@@ -297,8 +297,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | Capability | What it lets you do | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
 | `settle_confirmation` | Approve or decline an item in "Needs an OK" of kind field check or site-public request (§7) | Island-only | ✓ | ✓ | — |
-| `approve_access` | Approve or decline an access change (§8.3). **The only capability that can settle one.** Access items are invisible to anyone without it | Island-only | — | ✓ | — |
-| `manage_people` | Invite, place, remove, re-admit, sign out everywhere | Island-only | — | ✓ | — |
+| `manage_people` | Invite, place, remove, re-admit, sign out everywhere. One management member is enough for every access change, including adding or removing team or management members (§8.3) | Island-only | — | ✓ | — |
 | `action_deletion_request` | Delete a person's details on a data request | Island-only | — | ✓ | — |
 
 **Notes on the catalogue**
@@ -422,7 +421,7 @@ The ticket calls it one queue. It is really two lists with one job: **turn what 
 | List | What it is | Where it comes from | Who sees it |
 |---|---|---|---|
 | **Needs a look** | Cats where the record says *Probably sterilised* (the *Likely* level) and one person standing next to the cat would settle it. Sorted by closeness. | **Worked out when asked**, from the record, by the same resolver as everything else. There is no stored list to go stale. | Placed roles, for their colonies; the team for the island |
-| **Needs an OK** | Things waiting for one other person to decide. Three kinds: a **field check** (what a guardian or volunteer saw of a cat's ear), a **site-public request**, and an **access change** (an invitation or role change that gives someone more reach, §8.3). | **Stored**, one row per item (§10.3). | Field checks and site-public requests: the team and management (`settle_confirmation`). **Access changes: management only** (`approve_access`). Staff never see them. A guardian sees the outcome of her own items |
+| **Needs an OK** | Things waiting for one other person to decide. Two kinds: a **field check** (what a guardian saw of a cat's ear) and a **site-public request**. | **Stored**, one row per item (§10.3). | Both kinds: the team and management (`settle_confirmation`). A guardian sees the outcome of her own items |
 
 Neither list pages anyone. There is no deadline, countdown, assignment or reminder, the same rule as the welfare queue (`team-access-and-welfare-queue.md` §3.1, F1): a list that implies someone is standing by is a promise nobody has made. A row shows how long it has been waiting, once, quietly.
 
@@ -529,37 +528,42 @@ SYC-104 is the screen. This section says what it must allow and what it must ref
 
 | Action | Who | Extra rule |
 |---|---|---|
-| Invite a guardian or volunteer | Management | Placement (colonies) is chosen at the same moment. A guardian or volunteer with no colony is refused by the database (§10.1). More than three colonies is an **access change** (below) |
-| Invite staff or management | Management | An **access change**: a second management member must OK it before the invitation is sent |
-| Change someone's roles or placements | Management | Never your own. Anything that adds staff or management, or takes a guardian or volunteer past three colonies, is an **access change** |
-| Bring someone back | Management | Roles are chosen afresh (§9.4). A return with staff or management roles is an **access change** |
+| Invite a guardian | Management | Placement (colonies) is chosen at the same moment. A guardian with no colony is refused by the database (§10.1). Takes effect at once |
+| Invite a team member or management | Management | One management member is enough (Decision 11). Takes effect at once |
+| Change someone's roles or placements | Management | Never your own. One management member is enough |
+| Bring someone back | Management | Roles are chosen afresh (§9.4). One management member is enough |
 | Resend, withdraw an invitation | Management | One invitation message per person per 24 hours |
-| Mark someone as left | Management | Never the last management person (§9.5). Marking a *management* member as left is an **access change** unless they are leaving themselves |
-| Sign someone out everywhere | Management, or the person themselves | Signing out a staff or management member sends an email to every other management member (§9.5) |
+| Mark someone as left | Management | Never the last management person (§9.5). One management member is enough, including to mark another management member as left |
+| Sign someone out everywhere | Management, or the person themselves | Signing out a team or management member sends an email to every other management member (§9.5) |
 | See who did what | Management | Ids resolved to names on screen; the history itself holds ids (§11) |
 | Stop helping, change my language, sign out | Any accepted person, for themselves | |
 
-**An access change** is the one idea behind every row above that says so: any change that gives someone more reach than a small guardian or volunteer placement, or takes reach away from a manager. It is written as an item of kind *access change* in "Needs an OK". Nothing is granted, sent or removed until it is decided. **Only a management member other than the one who proposed it can decide it, using `approve_access`.** Staff never see these items, not even the invitee's address.
+**An access change** is any of the first six rows above that gives someone a role or takes one away. Each is made by one management member, takes effect at once, goes in the history (§11), and **sends an email to every other management member** (§8.3). Nothing waits for a second person.
 
 ### 8.2 What the screen shows
 
-A list of people with, for each: name, roles in plain words, colonies, and a chip (**Waiting for an OK · Invited · Joined · Expired · Left**). *Expired* is worked out when the page is drawn; nothing writes it. Beneath each, their history (§11). Beside the list: **Invite someone**, and **Joined in the last 7 days**. A tab for people who have left, with **Bring back**. Every change records who made it (SYC-104's own requirement); the screen has no free-text box that ends up in an email.
+A list of people with, for each: name, roles in plain words, colonies, and a chip (**Not sent yet · Invited · Joined · Expired · Left**). *Expired* is worked out when the page is drawn; nothing writes it. Beneath each, their history (§11). Beside the list: **Invite someone**, and **Joined in the last 7 days**. A tab for people who have left, with **Bring back**. Every change records who made it (SYC-104's own requirement); the screen has no free-text box that ends up in an email.
 
 ### 8.3 Decision 11: one person alone, or a second pair of eyes, for staff and management
 
-Inviting a guardian gives someone sight of a colony. Inviting a staff member or management person gives sight of the island and, for management, the power to invite.
+**Decided (Samuel, 12 October 2026): option B, no second OK.** One management member is enough for every access change, including adding or removing team or management members. The charity is small, and a rule that needs two managers to be free at the same time would stall the one job that matters on the day somebody joins or leaves. The `people` command stays as the break-glass.
+
+Inviting a guardian gives someone sight of a colony. Inviting a team member or management person gives sight of the island and, for management, the power to invite.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ A second management member OKs every access change, using a management-only power.** That covers: inviting staff or management; any role change that adds staff or management; bringing someone back with those roles; a guardian or volunteer invitation with more than three colonies; and marking a management member as left. Ordinary guardian and volunteer invitations need no second OK. | The two most powerful roles can't be created, or removed, by one compromised mailbox or one mistake, and can't be OK'd by staff. | With only one management person the system can't make these changes. The `people` command stays for exactly this break-glass case, run by Samuel. |
-| **B. Any management member alone, for every role.** | Fastest. | One stolen management session mints unlimited high-access accounts, or removes every other manager. |
-| **C. Second OK for every invitation.** | Most careful. | Guardian and volunteer invitations, the common case, all wait for someone: the friction the charity will notice first. |
+| **A. (earlier recommendation) A second management member OKs every access change, using a management-only power (`approve_access`).** That covered: inviting team or management; any role change that adds them; bringing someone back with those roles; an invitation with more than three colonies; and marking a management member as left. | The two most powerful roles can't be created, or removed, by one compromised mailbox or one mistake. | With only one management person the system can't make these changes. |
+| **B. ✅ Decided. Any management member alone, for every role.** Each access change takes effect at once. | Fastest. Nothing waits. No item for a second person to find. | See "What this choice accepts". |
+| **C. Second OK for every invitation.** | Most careful. | Guardian invitations, the common case, all wait for someone: the friction the charity will notice first. |
 
-**Changed after review:** the earlier draft covered only the invitation, and let any staff member give the OK. The review showed three ways round it: staff could OK a management invitation; a role change on an accepted person went straight through; and an invitation could carry wide reach. All three are now closed by the one power, `approve_access`.
+**What this choice accepts.** A stolen management login can create island-wide accounts or remove the other managers. Nothing slows it down. What limits the harm:
 
-**What people notice.** Inviting a guardian is one form and done. Inviting a team member shows *"Waiting for Jacky to OK this"*, and Jacky sees a one-tap item.
+- **Every access change goes in the history** (`person_events`, §11), with the id of the manager who made it.
+- **The other managers get an email** for every access change (an invitation, a role change, a return, a person marked as left or signed out). The email says who made which change to whom; it is a closed template with no free text.
+- **A stolen session is ended** with *sign out everywhere*, and the `people` command (Samuel, through db-ops) can undo anything.
+- The last management person can still never be removed through the screen (§9.5).
 
-**Recommendation: A.** The request appears in "Needs an OK" as an item of kind *access change*, visible only to management other than the one who made it. The invitation message is sent only when it is OK'd; a role change takes effect only then. The item holds the before and after as ids. The first decision wins.
+**What people notice.** Inviting anyone is one form and done. The other managers get a short email saying so.
 
 ### 8.4 Decision 7: protecting against an invitation to the wrong mailbox
 
@@ -609,7 +613,7 @@ This builds on what SYC-76 shipped ("mark people as left", `DECISIONS.md` Part 2
 - `left_at` is set and `session_version` rises, so a stolen or forgotten cookie dies at its next request (as now).
 - **Everything they wrote stays**, attributed to them: observations, report state changes, team notes, photo hides, queue decisions, invitations they sent.
 - **Field checks they started stay open.** A field check they made waiting in "Needs an OK" is still evidence and can still be decided. It is marked *from someone who has since left*.
-- **Invitations and access requests they started are withdrawn.** A person is often marked as left *because* their account was misused, so anything they set in motion while it might have been compromised is not kept. Every pending invitation they sent, and every open access change they proposed, is withdrawn in the same transaction, and management sees a line: *"3 invitations from Susan were withdrawn when she left. Re-send any you still want."*
+- **Invitations they started are withdrawn.** A person is often marked as left *because* their account was misused, so anything they set in motion while it might have been compromised is not kept. Every pending invitation they sent is withdrawn in the same transaction, and management sees a line: *"3 invitations from Susan were withdrawn when she left. Re-send any you still want."*
 - **A field check still queued on their phone** (§12) is refused when the phone next connects: the person isn't on the list any more. They can tell the team what they saw.
 - **The shared document password** is changed if they held `use_workspace` (§6.3).
 - **Their colony placements** are kept on their row as the record of what they held when they left, and ignored by `can()` because they are not on the list. The history entry (§11) also records which roles and colonies they held, in ids.
@@ -624,12 +628,12 @@ Management finds the person under *Left* and taps **Bring back**. The screen sho
 
 - It is the same flow as a first invitation: `accepted_at` is set back to null, the new placements are written, the person is pending again, gets the invitation message, signs in and **accepts again**. Someone who left a year ago re-reads the four promises before they see a colony.
 - It records a `rejoined` event with who brought them back (SYC-213).
-- A return with staff or management roles is an access change and needs the second OK (Decision 11).
+- A return with team or management roles takes effect at once, on one management member's action, and the other managers are emailed (Decision 11).
 
 ### 9.5 Guards that stop the charity locking itself out
 
 - **The last management person can't be marked as left, demoted, or sign out everywhere through the screen**, because then nobody could invite anyone. The `people` command (run by Samuel through db-ops) remains the break-glass route. The check and the change run in one transaction that locks the management rows, so two managers marking each other as left at the same moment cannot both succeed; a test runs both at once.
-- **One manager alone cannot remove the others.** Marking a management member as left is an access change that needs a second management member (§8.3), unless the person is leaving themselves. Marking any staff or management member as left, or signing them out everywhere, also sends a short email to every other management member, so a stolen management session cannot quietly remove people.
+- **One manager alone can remove another** (Decision 11 accepts this, §8.3). So that it is never quiet, marking any team or management member as left, or signing them out everywhere, sends a short email to every other management member, and every access change does the same.
 - **You can't change your own roles or mark yourself as left through the management route.** Use "stop helping" (§9.1), which is a different, plainly worded action.
 
 ### 9.6 Taking back an invitation
@@ -660,7 +664,7 @@ Extend what is there. The cat record (observations, colonies, feeding sites) is 
 | Column | Type | Meaning |
 |---|---|---|
 | `accepted_at` | timestamptz, null | When the person tapped *Yes, join*. Null means not accepted. **Set to `added_at` for everyone on the list when this ships.** Set back to null when a person is brought back (§9.4) |
-| `invite_sent_at` | timestamptz, null | When the invitation message went out. Null with `accepted_at` null means "waiting for a second OK" |
+| `invite_sent_at` | timestamptz, null | When the invitation message went out. Null with `accepted_at` null means "not sent yet" (the mail path is down; §8.5) |
 | `invite_expires_at` | timestamptz, null | 14 days after `invite_sent_at`; null once accepted |
 | `language` | text, not null, default `en`, check in (`en`, `el`, `fr`) | For messages and the person's own pages |
 
@@ -672,7 +676,7 @@ Extend what is there. The cat record (observations, colonies, feeding sites) is 
 | **Joined** | not left, `accepted_at` set |
 | **Invited** | not left, not accepted, `invite_sent_at` set, `invite_expires_at` in the future |
 | **Expired** | not left, not accepted, `invite_sent_at` set, `invite_expires_at` in the past. Worked out when read; no job runs and no event is written |
-| **Waiting for an OK** | not left, not accepted, `invite_sent_at` null |
+| **Not sent yet** | not left, not accepted, `invite_sent_at` null. The invitation is saved and retries like other mail |
 
 **Who is "on the list" is two separate questions, with two separate finders:**
 
@@ -713,13 +717,10 @@ No separate invitations table. An invitation is a **pending person** plus their 
 | Column | Type | Meaning |
 |---|---|---|
 | `id` | serial | |
-| `kind` | text, check in (`field_check`, `site_public_request`, `access_change`) | What is being asked |
+| `kind` | text, check in (`field_check`, `site_public_request`) | What is being asked |
 | `state` | text, check in (`open`, `approved`, `declined`, `no_longer_needed`, `withdrawn`) | |
 | `cat_id` | integer, null | For `field_check` |
 | `feeding_site_id` | integer, null | For `site_public_request` |
-| `subject_person_id` | uuid, null → `people.id`, strict | For `access_change`: the person the change is about |
-| `change_kind` | text, null, check in (`invitation`, `roles_change`, `rejoin`, `remove_manager`) | For `access_change` |
-| `detail` | jsonb | For `access_change`: roles and colony ids before and after. Ids and role names only |
 | `proposed_by` | uuid → `people.id`, strict | Who asked |
 | `proposed_at` | timestamptz | |
 | `observation_id` | integer, null | The field check's own (pending) observation |
@@ -732,9 +733,8 @@ No separate invitations table. An invitation is a **pending person** plus their 
 Checks and indexes:
 
 - `decided_by` is not `proposed_by`; a decided item has both `decided_by` and `decided_at`; an `open` item has neither.
-- **Open items are unique by what they are about, and the rule is written so nulls don't defeat it:** a partial unique index per kind. `field_check`: (`kind`, `cat_id`, `proposed_by`). `site_public_request`: (`feeding_site_id`, `proposed_by`). `access_change`: (`subject_person_id`, `change_kind`). Each applies only while `state = 'open'`. So one person has at most one open item per cat, two different people asking about one cat each have their own, and a manager can have many open invitations, each for a different person.
-- **Visibility is part of the query, not the page.** Listing "Needs an OK" returns `access_change` rows only to a caller holding `approve_access`; for anyone else those rows are not in the result.
-- **The right capability decides the right kind**, checked when the decision is written: `field_check` and `site_public_request` need `settle_confirmation`; `access_change` needs `approve_access`. A staff-only member's attempt to decide an access change is refused.
+- **Open items are unique by what they are about, and the rule is written so nulls don't defeat it:** a partial unique index per kind. `field_check`: (`kind`, `cat_id`, `proposed_by`). `site_public_request`: (`feeding_site_id`, `proposed_by`). Each applies only while `state = 'open'`. So one person has at most one open item per cat, and two different people asking about one cat each have their own.
+- **The right capability decides the right kind**, checked when the decision is written: `field_check` and `site_public_request` need `settle_confirmation`.
 - Rows are never deleted. The strict links mean nobody who has proposed or decided anything can be hard-deleted, the same rule as for report changes (Decision 7).
 
 ### 10.4 What is written on an observation
@@ -764,7 +764,6 @@ SYC-213 specifies an add-only table with kinds `added`, `left`, `rejoined`, `rol
 | Kind | When | `detail` holds (ids and role names only) |
 |---|---|---|
 | `invited` | An invitation is created | roles and colony ids intended; language |
-| `access_approved` | A second management member OKs an access change (§8.3) | the confirmation item id |
 | `invite_sent` · `invite_resent` | The message went out | |
 | `invite_withdrawn` | Management withdraws, the person declines, or the person who sent it has left | who, and why |
 | `accepted` | The person tapped *Yes, join* | the version of the four promises they accepted |
@@ -904,8 +903,8 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 |---|---|---|
 | **1** | **An invitation goes to a mistyped address belonging to a stranger.** | **Accepted (Decision 7).** The address is typed once and the message may name the colony, so a stranger who gets it learns whose colony it is and, if they sign in and join, sees exact cat positions for that colony. What limits it: the message holds no secret; 14-day expiry; one-tap withdrawal; the people screen and the "joined in the last 7 days" list show who has joined; every invitation and acceptance is in the history; limits per inviter, address and IP (§8.5). A wrongly invited stranger's address is anonymised on withdrawal (§9.6). |
 | **2** | **The invitation message is used for phishing, or to mail-bomb a stranger.** | A closed template; no inviter free text; escaped, length-limited names; the caller names a person, not an address; per-inviter, per-address and per-IP limits; counted in the mail budget (§8.5). |
-| **3** | **A management session is stolen and used to make accounts or remove people.** | Every access change (staff or management invitations, role changes that add them, rejoins, invitations over three colonies, removing a manager) needs a second management member, using `approve_access`, which staff do not hold and cannot see. Guardian invitations are limited to 10 a day per inviter, appear at once on the people screen, and can each be withdrawn in a tap. Marking a staff or management member as left, or signing them out everywhere, emails every other management member. A stolen session is ended with *sign out everywhere*. |
-| **4** | **Someone grants themselves more.** | Role changes to your own row are refused; anything that adds staff or management is an access change that needs a second management member; every grant records who made it (`granted_by`) and writes a `roles_changed` event. The database refuses a guardian placement with no colony, and refuses an island-wide row for a guardian. |
+| **3** | **A management session is stolen and used to make accounts or remove people.** | **Accepted (Decision 11).** One management member is enough for every access change, so a stolen management login can create island-wide accounts or remove other managers. Every access change is in the history with the manager's id, and every other management member is emailed. Invitations are limited to 10 a day per inviter and can each be withdrawn in a tap. A stolen session is ended with *sign out everywhere*; the `people` command is the break-glass. |
+| **4** | **Someone grants themselves more.** | Role changes to your own row are refused; only management can change roles (`manage_people`); every grant records who made it (`granted_by`) and writes a `roles_changed` event. The database refuses a guardian placement with no colony, and refuses an island-wide row for a guardian. |
 | **5** | **Approving your own item**, including from a second account. | The database refuses `decided_by = proposed_by`. **A person with two accounts (two addresses) is not something software can detect.** The control is social: one row per human, management knows its people, and the people screen shows every address. Accepted. |
 | **6** | **A guardian reads cats outside her colonies**, by adding them to her colony. | **Accepted (Decision 6).** Adding a cat shows her its exact position, so a guardian could reveal any cat's location this way. Every change is a `colony` observation with her id, so it is in the history, and the team's "recent guardian changes" list shows who added or removed which cat and when. Her reach is still read from the record at each request, never from the request, and she can only add to a colony she holds. |
 | **7** | **Access changes lag behind decisions.** | Placements and the person's standing are re-read on every request; a placement's end date is checked at request time; `session_version` kills sessions at the next request; saved colony lists on phones expire in 72 hours and are deleted when the page next opens or the server says the person is gone (§12). A phone that is never opened again is the one gap, stated on the accept page and put to Syros Cats (Q1). |
@@ -939,8 +938,8 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 - `middlewares/requireTeam.ts`: takes an optional target resolver for placed routes; `requireInvitee` for the accept page; a signed-in refusal that is a 403 page, not the 401 (§6.4).
 - `routes/internal.ts`: `POST /api/internal/people/allowed` returns `doors` and `language`; old request shape handled as in §4.5.
 - `routes/team.ts` (the welfare queue page), `routes/teamReports.ts` (the report list and the reporter-photo route) move to `view_welfare_queue`; `routes/teamCats.ts` and the catalogue-photo route ask for `view_exact_location` with a target; the hand-off allows a pending invitee to reach the accept page and nothing else.
-- New dashboard routes under `/api/team`: `people` (list, invite, resend, withdraw, roles, leave, rejoin, sign-out), `accept` and `decline`, `me/language`, `me/leave`, `colonies` (mine), `colonies/:id/targets`, `needs-a-look`, `needs-an-ok`, `field-checks`, `colonies/:id/cats` (add or take out a cat), `guardian-changes`, `site-public-requests`, `confirmations/:id/decide` (settled by `settle_confirmation` or, for access changes, `approve_access`), and the `/api/team/field/` pages for the saved list. These are server-drawn pages and forms like the others (Part 2k); the JSON ones used by the saved colony page are added to the OpenAPI file and the generated clients.
-- `lib/mail/send.ts`: purpose `person_invite` (a closed template: role and colony name only; person id in, address looked up inside; transactional identity).
+- New dashboard routes under `/api/team`: `people` (list, invite, resend, withdraw, roles, leave, rejoin, sign-out), `accept` and `decline`, `me/language`, `me/leave`, `colonies` (mine), `colonies/:id/targets`, `needs-a-look`, `needs-an-ok`, `field-checks`, `colonies/:id/cats` (add or take out a cat), `guardian-changes`, `site-public-requests`, `confirmations/:id/decide` (settled by `settle_confirmation`), and the `/api/team/field/` pages for the saved list. These are server-drawn pages and forms like the others (Part 2k); the JSON ones used by the saved colony page are added to the OpenAPI file and the generated clients.
+- `lib/mail/send.ts`: purpose `access_change_notice` (a closed template to every other management member: who made which change to whom; no free text) and purpose `person_invite` (a closed template: role and colony name only; person id in, address looked up inside; transactional identity).
 - `lib/db/src/people/cli.ts` and the db-ops `people-*` commands: `add` takes `--colony` (required for guardian), `--language`, and `--accepted` for break-glass staff seeding; `list` shows ids and placements only, never addresses.
 - `lib/teamPages` and a new server-side string catalogue (§13.3).
 
@@ -978,11 +977,11 @@ Named here so they appear in the implementation plan:
 12a. **A guardian's sterilisation statement** on a cat in her colony makes it *Confirmed* at once, recorded with her id, `roleAtTime` = `guardian` and `authorityScope` = that colony, and queues the news email exactly once. The same request for a cat outside her colonies, or with no colony, is refused. A team member's later "this is wrong" statement supersedes it and both stay in the history. An ear tip on its own, from anyone, still never makes a cat *Confirmed*. A team member's field check writes the in-person statement at once and creates no item.
 13. **The database refuses an item decided by its proposer**, and the route refuses when the decider has lost the capability since the page was drawn.
 14. **The first decision wins; the second sees "already decided".**
-15. **A staff-only member cannot decide, or even see, an `access_change` item.** A role change that adds staff or management, and a rejoin with staff roles, each write an item and grant nothing until a different management member approves. A guardian invitation with four colonies does the same.
+15. **Access changes need management and nothing more.** A team-only member is refused every people route (`manage_people`). One management member alone can invite team or management, change roles, bring someone back and mark another manager as left, each taking effect at once, each writing its event in the same transaction, and each sending an email to every other management member (and not to the manager who acted). There is no approval item and no `approve_access` capability anywhere.
 16. **A guardian's colony change is immediate and recorded.** Adding a cat to a colony she holds writes a `colony` observation with her id and the cat then appears on her page; taking it out writes the "no colony" value; naming a colony she doesn't hold is refused; the change appears on the "recent guardian changes" list (`view_guardian_changes`, which a guardian does not hold). Adding a cat that is in another colony moves it and the other colony's guardian sees the line.
 17. **A guardian placement with no colony is refused by the database**; so is a staff row with a colony.
-18. **The last management person cannot be marked as left, demoted or have their sessions ended through the screen**, including when two managers try at once. Marking a management member as left needs a second manager.
-19. **Leaving withdraws** every pending invitation and open access change the person proposed, and emails the other managers when a staff or management member is marked left or signed out.
+18. **The last management person cannot be marked as left, demoted or have their sessions ended through the screen**, including when two managers try at once. One management member alone can mark another as left, and the other managers are emailed.
+19. **Leaving withdraws** every pending invitation the person sent, and emails the other managers when a team or management member is marked left or signed out.
 20. **Withdrawing an invitation** never deletes a row that has an event, and leaves no readable address once SYC-208's routine runs.
 21. **Every operation writes exactly one event, in its own transaction** (SYC-213's mutation test, extended to the new kinds).
 22. **Invitation mail:** the caller cannot name an address; the text carries only the role and the colony's name and no inviter free text; a name containing markup or a link is escaped; limits hold; a failed send is not shown as sent; there is no acceptance email to the inviter.
@@ -1001,7 +1000,7 @@ Named here so they appear in the implementation plan:
 |---|---|---|
 | **0. Foundations** | SYC-213 (`person_events`); SYC-222 (doors, strict `can`, 403 page, route walk); the capability catalogue (§6.2) in code with its test, including `view_welfare_queue` on the welfare and report-photo routes; one list of team roles and the `admin` → `management` rename; the migration (§15.2); the Worker's version-2 answer. | **Nobody.** Everyone is staff and management; nothing changes |
 | **1. Invitations and "My colonies"** | The invite, accept, withdraw and leave flows; the people screen (SYC-104); a guardian's own page: her colonies, exact positions, feeding sites, life status for her cats; the pages in en/el/fr. | Management, then the first guardians |
-| **2. Field checks and the queue** | Field checks, "Needs a look", "Needs an OK", colony changes, site-public requests, and second-OK access changes (`approve_access`). | Guardians and the team |
+| **2. Field checks and the queue** | Field checks, "Needs a look", "Needs an OK", colony changes, and site-public requests. | Guardians and the team |
 | **3. The colony view** | SYC-54: the offline saved page, the round sheet, the narrowly scoped script and service worker (§3, §12). | Guardians and the team |
 | **4. The small things** | Round-sheet counters and the banner; hand-pick review for guardians once the "Matched by hand" list (SYC-152) exists; the colony-rename nudge. | Management |
 
