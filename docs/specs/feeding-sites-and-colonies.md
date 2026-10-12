@@ -4,7 +4,7 @@
 **Version:** 1.1, revised after adversarial review · 7 October 2026
 **Covers:** PRODUCT-SPEC §2.6 (the feeding-site map, private by default with a per-site public toggle, and colony naming), and the part of §2.6's dashboard that `team-access-and-welfare-queue.md` §3.2 and §3.4 describe in a paragraph each.
 **Linear:** SYC-209 (this spec) · SYC-43 (the dashboard it belongs to) · SYC-53 (roles: the source of truth for permissions, see §7) · SYC-22 and SYC-51 (QR codes that will point at sites, see §11) · SYC-67 (Syros Cats' acceptance of the location limits) · SYC-245 (Google Maps links, a precondition of §2.3) · SYC-255 (map-tile logging) · SYC-256 (erasing a guardian's name) · SYC-257 (what a phone may keep, settled in the roles spec).
-**Status:** **Revised after adversarial review, awaiting Samuel's approval.** The review is `docs/specs/reviews/feeding-sites-and-colonies-review.md`; section "Review outcome" at the end says how each finding was handled. Permissions follow `roles-and-invites.md` (SYC-53, §6.2 and §6.7), which wins on capability names. Written against `docs/specs/DECISIONS.md`, which wins wherever they differ.
+**Status:** **Revised after adversarial review, and updated after Samuel's roles decisions of 12 October 2026 (see "Updated after the roles decisions" at the end); awaiting Samuel's approval.** The review is `docs/specs/reviews/feeding-sites-and-colonies-review.md`; section "Review outcome" at the end says how each finding was handled. Permissions follow `roles-and-invites.md` (SYC-53, §6.2 and §6.7), which wins on capability names. Written against `docs/specs/DECISIONS.md`, which wins wherever they differ.
 
 ### What this document owns, and what it borrows
 
@@ -31,7 +31,7 @@ Syros Cats already know where every feeding spot is. That knowledge lives in peo
 This spec gives them one:
 
 1. **A map of every feeding site on the island, seen only by signed-in Syros Cats people** (and, once cat guardians have accounts, each guardian sees only her own colonies' sites). They add sites, move them when they were put in the wrong place, and retire them when a spot closes. Nothing is deleted.
-2. **Colonies with the names they already use**, a place plus the cat guardian who looks after it, renamable whenever a guardian changes, with a way to say which cats belong to which colony.
+2. **Colonies with the names they already use**, a place plus the cat guardian who looks after it, renamable by the team whenever a guardian changes, with a way to say which cats belong to which colony. A cat guardian can create a colony herself and becomes its guardian.
 3. **One switch per site: private or public.** Private is the default, and it is how every site starts. A site goes public only when somebody on the team decides it should, one site at a time, after a screen that shows exactly what a tourist will see and reminds them why this matters. Making it public puts a bowl-shaped marker at its exact position on the map in the app, with a short note asking people to keep their distance. It does not publish the cats, the colony, the guardian's name or any note.
 4. **A record of every change**: who moved, renamed, hid or exposed what, and when, so "how did that become public?" always has an answer.
 
@@ -94,10 +94,12 @@ A list of every colony by name, with its cat guardian's name, how many feeding s
 
 **One colony** shows: its name; the guardian's name; how many sites and cats; its sites (with links); its cats (with photos); its team-only notes; and its history (renames, guardian changes, cats added and removed).
 
+**"Recent guardian changes"** sits at the top of the team's Colonies page: the last twenty things cat guardians did here (colonies they created, sites they added or moved, cats they added or took out), each with the guardian's name and the day, and a link to the colony. It exists so the team can notice anything odd quickly (see the accepted risk in §7.3).
+
 ### 2.7 Naming and renaming a colony
 
-- **Creating a colony:** a name and, optionally, the guardian's name and notes. The page shows the convention: *a place and the person who looks after it, like "Vaporia — Eleni's"*. It checks the name is not already taken, ignoring capitals, accents and the final-sigma difference, using the same folding as cat names. If it clashes, a team member's page says which colony already has the name and links to it, as the cat rename does. Anyone whose rights do not cover that colony only gets "That name can't be used", with no link and no colony named (§7.3).
-- **Renaming:** same form. Everything points at a colony by its number, never its name, so renaming moves nothing: its cats, its sites, any QR code (§11.6) stay attached. The old name goes into the colony's name history, so searching for it still finds the colony, and so a future import (`records-import.md`) still matches.
+- **Creating a colony** (*Updated after Samuel's roles decisions (12 Oct 2026): cat guardians can create colonies, because a guardian who finds a place nobody has recorded should be able to record it herself, without waiting for the team*). A team member gives a name and, optionally, the guardian's name and notes. A **cat guardian** gives a name and notes only: **she becomes the colony's guardian automatically**, her own name is filled in as the guardian's name, and the colony is hers from the moment she saves, with no step in between. She names it herself when she creates it. The page shows the convention: *a place and the person who looks after it, like "Vaporia — Eleni's"*. It checks the name is not already taken, ignoring capitals, accents and the final-sigma difference, using the same folding as cat names. If it clashes, a team member's page says which colony already has the name and links to it, as the cat rename does. Anyone whose rights do not cover that colony, a guardian included, only gets "That name can't be used", with no link and no colony named (§7.3).
+- **Renaming stays with the team** (`rename_colony`). A guardian names a colony once, when she creates it; if it later needs a different name she asks the team, who rename it (and the old name stays findable, below). Same form for the team. Everything points at a colony by its number, never its name, so renaming moves nothing: its cats, its sites, any QR code (§11.6) stay attached. The old name goes into the colony's name history, so searching for it still finds the colony, and so a future import (`records-import.md`) still matches.
 - **Changing the guardian** is an edit of the guardian's name (`edit_colony`) and, normally, a rename to match (`rename_colony`). **If any of the colony's sites is public, changing the guardian makes those sites private until someone re-confirms them** (§4.7). The two fields are separate on purpose: the name is how the colony is *spoken about*, the guardian's name is who to ring, and they do not always change together.
 - **Names are proper names.** They are stored once, as typed, and shown exactly like that in every language. "Vaporia — Eleni's" is never translated.
 
@@ -290,9 +292,9 @@ A guardian with no account appears as **text**: the `guardian_name` on a colony 
 | `reassign_feeding_site` | Island-only | Yes | No | Change which colony a site belongs to | §2.2 |
 | `set_site_public` | Island-only | Yes | No | Make a site public or private; change a public label | §4 |
 | `request_site_public` | Placed | No | Own colonies | Ask the team to make a site public. Changes nothing by itself: it adds a "site-public request" to the team's "Needs an OK" list (SYC-53 §7) | §7.3 |
-| `create_colony` | Island-only | Yes | No | Create a colony | §2.7 |
+| `create_colony` | Held by everyone listed (a new colony has no owner yet, so there is nothing to place the check against) | Yes | Yes. She becomes the new colony's guardian automatically | Create a colony, and name it at creation. *Updated after Samuel's roles decisions (12 Oct 2026)* | §2.7 |
 | `edit_colony` | Placed | All | Own colonies | Edit the guardian's name text, notes and centre. Not the name | §2.7 |
-| `rename_colony` | Island-only | Yes | No | Change a colony's name | §2.7 |
+| `rename_colony` | Island-only | Yes | No | Change a colony's name after it was created. A guardian names her colony when she creates it; renaming afterwards is the team's | §2.7 |
 | `assign_cat_to_colony` | Island-only | Yes | No | Put a cat in a colony, move it, take it out | §2.8 |
 | `propose_colony_change` | Placed | No | Own colonies | "This cat is one of mine" / "this cat is no longer in my colony"; waits for the team (SYC-53 §7.4) | §2.8 |
 
@@ -300,7 +302,7 @@ Until SYC-53 is approved and built, every one of these checks behaves as "staff"
 
 ### 7.3 What a guardian sees and can do (agreed with SYC-53 §6.7)
 
-Four rules, taken from SYC-53 §6.7:
+Five rules, taken from SYC-53 §6.7 and Samuel's roles decisions of 12 October 2026:
 
 1. **A guardian sees only her own colonies' sites.** Other sites are **absent**, not approximate, and the filtering is done **in the query**, not on the page. A guardian is a member of the public as far as other people's feeding spots go.
 2. **A guardian can add a site only to a colony she holds, and it is always private.** She can correct a pin, change notes and the "how to find it" line, retire a closed spot and bring it back. **She cannot change which colony a site belongs to** (`reassign_feeding_site` is island-only): moving a private site into her own colony would let her read its position.
@@ -319,8 +321,9 @@ Four rules, taken from SYC-53 §6.7:
 | Site page | Any site | Her own colonies' sites; any other id answers the same 403/"not found" page as an id that does not exist |
 | Colonies page and search | Every colony, with guardian, counts | Her own colonies only. Other colonies' names, guardians and counts never appear |
 | "Add a feeding site to this colony" | Any colony | Only a colony she holds |
-| Pick-a-colony lists (a site's colony, a cat's colony) | All colonies | Not shown: she cannot reassign or assign. Her own colony appears as fixed text |
-| Name clash when creating or renaming a colony | "Already used by [colony]", with a link | She cannot create or rename. Anyone whose rights do not cover that colony gets only "That name can't be used", with no link |
+| Pick-a-colony lists (a site's colony, a cat's colony) | All colonies | Her own colonies only, for putting a cat in one (§2.8). She cannot reassign a site to another colony. A colony she has just created is on the list at once |
+| "Create a colony" button on the Colonies page | Shown | Shown. The new colony is hers from the moment she saves |
+| Name clash when creating or renaming a colony | "Already used by [colony]", with a link | When she creates one, and for anyone whose rights do not cover that colony: only "That name can't be used", with no link and no colony named. She cannot rename |
 | "Add cats" search, with "which colony the cat is in now" | Shown | Not available. She uses "This cat is one of mine", which always answers "Syros Cats will check", whether or not the cat is in another colony |
 | Cat page colony line | Current colony name | Her own colony's name only; another colony shows as "another colony" |
 | History on a site or colony | Full history | The history of her own sites and colonies, with positions (they are hers) |
@@ -329,6 +332,9 @@ Four rules, taken from SYC-53 §6.7:
 A test for this is in §15 (test 21): a guardian of colony 1 never sees colony 2's name, guardian, count, sites, or even a message that distinguishes it from a colony that does not exist, on any page.
 
 5. **Revoking a guardian keeps every record she wrote**, as SYC-53 states. Her sites and colonies stay; the guardian's name text is a team edit (§7.4).
+6. **A guardian can create a colony** (*Updated after Samuel's roles decisions (12 Oct 2026)*), and becomes its guardian automatically. She cannot rename it afterwards (`rename_colony` is the team's) and cannot see or learn about any colony that is not hers.
+
+**The accepted risk of rule 6, in plain words.** A guardian could create a colony anywhere on the island and add cats to it, and doing so shows her those cats' exact positions. Samuel has accepted that, because the alternative (asking the team for every new colony) would leave real places unrecorded. What stands in its place: **every change is in the history** (§8), with her name on it, and **the team's dashboard lists recent guardian changes** (§2.6) so something unusual is noticed. Nothing here stops the misuse in advance; it makes it visible afterwards.
 
 ### 7.4 A guardian's name is personal data
 
@@ -444,7 +450,7 @@ Each follows the PR 4 pattern: a POST first runs `requireOrigin(TEAM_ORIGIN)`, t
 | `GET /api/team/sites/:id/publish` (the §4.3 page), `POST …/publish`, `POST …/unpublish` | `set_site_public` (island-only) |
 | `POST /api/team/sites/:id/request-public` | `request_site_public` (placed) |
 | `GET /api/team/colonies`, `GET /api/team/colonies/:id` | `view_exact_location` (placed; list filtered in the query) |
-| `POST /api/team/colonies` | `create_colony` (island-only) |
+| `POST /api/team/colonies` | `create_colony` (held by the team and by guardians; for a guardian the same call also gives her the new colony, in the same transaction) |
 | `POST /api/team/colonies/:id` | `edit_colony` (placed) for guardian name, notes, centre; `rename_colony` (island-only) for the name |
 | `POST /api/team/colonies/:id/cats`, `POST /api/team/cats/:id/colony` | `assign_cat_to_colony` (island-only) |
 | `POST /api/team/cats/:id/colony-proposal` | `propose_colony_change` (placed) |
@@ -625,6 +631,8 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 
 ### Decision 7. What a cat guardian can do with sites (settled with SYC-53)
 
+*Updated after Samuel's roles decisions (12 Oct 2026): guardians can create colonies (the new row F below). Options B and E stay rejected for the reason given.*
+
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Follow the roles spec: a guardian sees only her own colonies' sites; may add sites to her own colonies (always private) and edit, move, retire and bring back her own sites (`add_feeding_site`, `edit_feeding_site`); cannot change which colony a site belongs to; cannot make a site public but can ask (`request_site_public`); cannot put cats in colonies but can propose (`propose_colony_change`) (recommended)** | One rule across both specs. The most affected person is never surprised, the record stays accurate with less phone traffic, and a guardian can ask for a public site without a second queue (it uses SYC-53's "Needs an OK") | A guardian who wants a site public has to ask and wait. A guardian who finds a cat of hers waits for the team's OK |
@@ -632,6 +640,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | C. A guardian can make her own sites public | Least team work | She cannot judge the wider picture, and one hasty tap is a public location |
 | D. A guardian sees other colonies' sites approximately | Matches the wording used for cats | A private site is meant to be absent, not blurred (spine §6.7); an approximate marker still says "there is a feeding spot around here" |
 | E. A guardian may assign "unassigned cats near her sites" (the earlier draft) | Quicker for her | "Near" is measured with exact positions she is not meant to see; it reopens the escalation SYC-53 closed |
+| **F. A guardian can create a colony and becomes its guardian; renaming afterwards is the team's (Samuel's decision, 12 Oct 2026)** | She records a new place herself, the day she finds it. No queue for the team | She could create a colony anywhere and add cats to it, which shows her their exact positions. Accepted; the history and the team's "Recent guardian changes" list make it visible (§7.3) |
 
 **Changed after review.** The earlier draft recommended "A now, B later" with its own capability names and a guardian power over unassigned cats. The roles spec was written the same week with different rules; it is the source of truth. Settled once, there. **Reject B, C, D and E.**
 
@@ -720,6 +729,7 @@ Each lists every realistic option, what it costs and gives, and a recommendation
 | 9 | **The pin-by-tapping page is awkward on a phone, or reads the wrong place.** | Wrong pins, abandoned adds. | Fixed-size tiles; real-browser check of the tap point before the plan is approved; typed coordinates as a second way; confirmation page before saving; Move is always available; checked at 390 px and desktop before the PR opens. |
 | 10 | **A guardian cannot be forgotten.** | A lawful request cannot be honoured. | Redaction path on the history and one "forget this guardian" action (§7.4, SYC-256). |
 | 11 | **A moved spot can be followed by its public code.** | Undoes the reason for the move. | New code after a move or a retire; old codes answer as unknown (§4.5). |
+| 13 | **A guardian creates a colony somewhere and adds cats to it to see where they are.** | Exact positions of cats outside her real colonies. *Accepted by Samuel, 12 Oct 2026.* | Every change is in the history with her name; the team's dashboard lists recent guardian changes (§2.6, §7.3). |
 | 12 | **The list of every feeding spot travels outside the system on the way in.** | A complete map handled by third parties. | Decision 11: the team place sites themselves, or a never-committed, deleted-after-loading file (§11.8). |
 
 ---
@@ -741,14 +751,14 @@ Named here so they appear in the plan. API tests use supertest against the real 
 11. **Every change writes exactly one history row in the same transaction.** A forced failure in the history write leaves the site unchanged. The history table refuses delete and refuses every update except a redaction that blanks `before`, `after` and `note`. `made_public_by/at` agree with the newest "made public" event and are kept on make private.
 12. **Capabilities and refusals.** For each route in §11.2, a session lacking exactly that SYC-53 capability gets a **403** (not the sign-in redirect) and nothing is written; a request with no session gets the identical `401 not_signed_in`; the pages hide controls the person cannot use; a foreign or missing `Origin` is refused on every POST. The capability names in code equal `roles-and-invites.md` §6.2 (SYC-53's catalogue test). **M:** a route asking for the wrong capability -> red.
 13. **Concurrent writes.** Two simultaneous "make public" and "make private" presses, **two simultaneous moves of one site, and a move while another person edits the label,** each leave one definite state, and the loser sees "Someone already changed this."
-14. **Colony names.** A name clashing under folding (case, accents, final sigma, NFD) is refused (with a link to the holder for the team, without one for anyone else); a rename keeps every cat and site attached; the old name still finds the colony; two simultaneous creates of the same name produce one.
+14. **Colony names.** A name clashing under folding (case, accents, final sigma, NFD) is refused (with a link to the holder for the team, without one for anyone else); a rename keeps every cat and site attached; **a guardian creating a colony with a name that clashes gets "That name can't be used", with no link, exactly as for a name that fails any other way;** the old name still finds the colony; two simultaneous creates of the same name produce one.
 15. **Cats in colonies.** Adding cats writes one signed `colony` statement each and moves no derived status (snapshot before and after); a colony that does not exist is refused; moving a cat writes a new statement and the newest stands; "Take out" writes an "in no colony" statement and the earlier statement stays visible; **A -> B, then "Mark wrong" on B, puts the cat back in A;** "Mark wrong" with no earlier statement leaves the cat in no colony; the colonies list counts agree.
 16. **Escaping.** A site or colony name containing markup is shown as text on every page.
 17. **Map.** Tiles are only reachable with a session and the right capability; the page's security header is byte-identical to the existing expected header (no `script-src`); a tap on a tile button yields the position it should (checked at several zooms, including a tile boundary); tapping outside the island's limits is refused; **the tile route's cache header is `private`, never `public`; a tile request is logged as `/api/team/map-tiles/:tile` with no position; and a real-browser check (Safari on iPhone, Chrome on Android, Firefox) shows the tap point matches the server's assumption at the displayed size.**
 18. **Phone cache.** A stored list older than the limit is not shown; a list of an older shape is dropped; the key differs from the cats cache; **the app re-fetches when the map is opened online, at most every five minutes.**
 19. **Language parity.** The new strings exist in all three languages with no empty values (the existing parity suite), and the server preview and the app card use the same strings.
 20. **Looks right in a browser.** At 390 px and desktop widths: the Feeding sites page, a site, the make-public page with its preview, the colony page, and the app card, with real-looking data, not just an empty page. **At 390 px the map has no sideways scroll and each tile's displayed size equals the size the server assumes.**
-21. **A guardian sees only her own colonies.** With a guardian of colony 1: colony 2's name, guardian, counts and sites never appear on any page in the §7.3 table (including the count above the map, "Recently changed", the Colonies page, the name-clash message and the cat page); an id of another colony's site answers the same as an id that does not exist; she cannot create or rename a colony, change a site's colony, or assign a cat; she can add a site only to her own colony and it is private.
+21. **A guardian sees only her own colonies.** With a guardian of colony 1: colony 2's name, guardian, counts and sites never appear on any page in the §7.3 table (including the count above the map, "Recently changed", the Colonies page, the name-clash message and the cat page); an id of another colony's site answers the same as an id that does not exist; she **can** create a colony and it becomes hers in the same step (she sees it at once, with her own name as guardian, and a team member sees it too); she cannot rename it or any other colony, or change a site's colony; she can add a site only to her own colony and it is private. **After she creates a colony, colonies 1 and 2 are still invisible to each other, and her new colony appears in the team's "Recent guardian changes" list.**
 22. **Re-confirmation.** Changing a colony's guardian, or moving a public site to another colony, makes its public sites private and writes an automatic "made private" event; the §4.3 page then puts them back.
 23. **Forgetting a guardian.** The "forget this guardian" action blanks her name in the colony, name history, site names, events and notes, writes its own event, and leaves every other field intact.
 24. **Migration.** On a copy of production data: a public row, a non-uuid `made_public_by` and a retired-and-public row each stop the migration with a clear message; existing sites each get one `system:migration` event; exactly one of `person_id` and `actor_system` is set on every event.
