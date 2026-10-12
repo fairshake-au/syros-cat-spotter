@@ -179,3 +179,120 @@ Six, all about *how* to build what is approved. None reopens a decision in the s
 - **Before PR 0.3's production run:** approve the list of who becomes management and who becomes team-only (Decision A). Claude shows it from the live database.
 - **Before Neon production steps:** switch the session to "ask" mode, so Claude can take the Neon snapshot before each production migration (the auto mode blocks Neon snapshot writes).
 - **Johnny's date (SYC-283).** The plan proposes: Johnny gets the Greek and French of the invitation, accept page, 403 page and guardian pages on the day PR 1.1's English strings merge, and is asked to sign off within seven days. Target: **30 October 2026**. English can go live first.
+
+---
+
+## How it ships: the order
+
+Foundations first, then invitations, then the guardian's pages, then what she records, then the offline list. Every PR is built in **its own worktree off fresh `origin/main`**, is **one PR**, and can merge alone. "Review and merge" uses `/ship`: an independent adversarial review in **its own worktree** (never shared with the builder or another reviewer), findings folded in, CI green, merge, Linear synced, worktree removed.
+
+| Step | PRs | Needs first | Who notices |
+|---|---|---|---|
+| **Docs** | D1 data spine · D2 team-access · D3 `DECISIONS.md` · D4 roles-spec corrections from this plan's decisions | #102 merged; Samuel's answers to Decisions A–F | Nobody |
+| **Slice 0: foundations** | 0.1 `person_events` · 0.2 one list of roles and the vocabulary · 0.3 the roles migration and the `people` command · 0.4 two doors (API) · **W1** the sign-in Worker · 0.5 the capability catalogue, strict checks, the 403 page and the route walk | D1–D3 merged before 0.2 | Almost nobody |
+| **Slice 1: invitations** | 1.0 the dashboard's three-language strings · 1.1 inviting and accepting · 1.2 the people screen · 1.3 "My page" and "My colonies" | Slice 0 and W1 live | Management, then the first people they invite |
+| **Slice 2: a guardian's own pages** | 2.1 her cats, in full inside her colonies, public outside · 2.2 what she says about a cat (life status, sterilised) | Slice 1; SYC-209's colony PR for the first real guardian (Decision D) | Guardians and the team |
+| **Slice 3: what a guardian records** | 3.1 field checks (migration `field_check_photos`) · 3.2 "Needs a look" · 3.3 cat-in-trouble reports for her own cats · 3.4 asking for a site to be made public, and "Needs an OK" | Slice 2; 3.4 also needs SYC-209's feeding-site PRs | Guardians and the team |
+| **Slice 4: the colony view with no signal** | 4.1 the field pages' own narrow script rule · 4.2 the saved list and the round sheet · 4.3 field checks made with no signal | Slice 3; a short SYC-54 screen spec (Decision F) | Guardians and the team |
+| **Slice 5: the small things** | 5.1 round-sheet counts and the management banner · 5.2 hand-pick review for guardians | Slice 4; 5.2 waits for SYC-152 | Management |
+| **Slice 6: owners** | 6.1 a cat owner confirms a sterilisation | SYC-130's spec approved and its claim built | Residents who own a cat |
+
+**The rule from SYC-222 that orders all of this: no role other than the team holds any capability until Slice 0 has merged and is live.** PR 0.5 is where a guardian row first grants anything, and it can't merge before 0.3 (the database refuses an island-wide guardian) and 0.4 plus W1 (the old Worker can't hand a guardian the workspace).
+
+---
+
+## Before any code: the docs PRs (spec §17)
+
+Each is a small docs-only PR, built from the spec's §17 text word for word, plus this plan's decisions once Samuel has answered them. **They are written first, in parallel with PR 0.1, and D1–D3 must merge before PR 0.2**, because 0.2 changes the record's vocabulary and the code should never be ahead of the approved docs.
+
+**Collision:** PR #107 (SYC-130 "This is my cat") edits the same three files (`DECISIONS.md`, `cat-record-data-spine.md`, `team-access-and-welfare-queue.md`). Whichever merges second rebases. The sections don't overlap except the data spine's §4.2, where D1's sentence about owners must match what #107 says a claim is.
+
+| PR | File | What it changes (spec §17) |
+|---|---|---|
+| **D1** | `cat-record-data-spine.md` | §6.5 the guardian row and the saved list (17.1.1); §4.2 who can confirm sterilisation, and field checks (17.1.2); §10.1/§10.4 vocabulary: `admin` → `management`, `guardian` live, `volunteer` retired, the *seen in person* marker and private photo reference, the authoritative roles (17.1.3), **plus Decision B's `colony:<id>` shape for `authority_scope`**; §10.5 the "no colony" value (17.1.4; `created_by` already exists, C7); §4.5 point 3 pointer (17.1.5); §3.2 guardian life-status undo and direct statements (17.1.6); §6.7 guardians see only their own sites (17.1.7) |
+| **D2** | `team-access-and-welfare-queue.md` | §7.1–7.2 the roles (17.2.1); §7.3 the catalogue pointer, `view_welfare_queue`, `view_colony_welfare_reports` (17.2.2); §2.7–2.9 pending state, two doors, language (17.2.3); §2 and §8 the 403 page (17.2.4); §3 the welfare queue's capability and guardians' read-only reports (17.2.5) |
+| **D3** | `DECISIONS.md` | Part 3 split the "Sign-in, trust boundary, roles" row (17.3.1); Part 2k amended by Decision 5 (17.3.2); Part 2i `match_cat_anywhere` reserved (17.3.3); **a new Part 2n, dated 12 October 2026**, carrying the §16.5 entries, plus the answers to this plan's Decisions A–F (17.3.4) |
+| **D4** | `roles-and-invites.md` | The corrections this plan's decisions make to the roles spec itself: §15.2 step 5 (management added by the `people` command after the migration, Decision A); §7.3 and §10.4 (`authority_scope` = `colony:<id>`, Decision B); §7.3 point 3 and §10.5 (the `field_check_photos` table, Decision C); §15.1 (the colony routes belong to SYC-209, Decision D); §7.1 (grouped by colony until the field pages, Decision E); §10.5 (`created_by` exists, C7). Only the parts Samuel agrees to |
+
+**The sibling specs (§17.4).** SYC-209 (#103) already carries the 12 October names (checked: its §7.2 cites `create_colony`, `assign_cat_to_colony` and the removed `propose_colony_change`). SYC-2 (#104) is checked for the four names and the dropped `confirm_appearance` when D1 is written; any gap is a one-line edit on #104 itself, not a new PR. SYC-130 (#107): a comment on the PR asks it to say that an owner's confirmation of sterilisation follows its claim (§17.4.3), so it is fixed in that PR before it merges.
+
+---
+
+## Slice 0: foundations (nobody sees anything)
+
+**In plain English.** Before anyone who isn't on the team can get in, the app needs four things: a permanent record of every change to who can get in; one place that says what the team's roles are called; a database that refuses a guardian with no colony or an island-wide guardian; and permission checks that refuse, rather than allow, when a page forgets to say which colony it is about. This slice builds all four, and teaches the sign-in page to tell "the workspace documents" from "the dashboard". When it is live, Samuel, Jacky and Susan are management and everyone else on the team is team-only. Nobody else notices anything.
+
+### PR 0.1: `person_events`, the record of who changed what (SYC-213; migration `person_events`)
+
+- **Migration (next free number, expected `0015`).** `person_events (id serial, person_id uuid → people.id strict, kind text, by text, at timestamptz default now(), detail jsonb)`. The kind check holds **the fuller list from spec §11.1 from the start**: `invited`, `invite_sent`, `invite_resent`, `invite_withdrawn`, `accepted`, `added`, `roles_changed`, `left`, `rejoined`, `signed_out_everywhere`, `anonymised`. An append-only trigger refuses update and delete, written like the one on `observations`. Backfill: one `added` event per existing person (from `added_by`/`added_at`) and one `left` event for anyone with `left_at` set. Rollback: drop the table; the rollback block says in capitals that this deletes the history.
+- **`lib/db/src/people.ts`.** `addPerson` writes `added` (or `rejoined` for a left address), `markLeft` writes `left` with the roles and colony ids held at the time, `signOutEverywhere` writes `signed_out_everywhere`, each **in the same transaction** as the change. `detail` holds ids and role names only, never a name or an address.
+- **`removePerson` is retired** (spec §9.6, finding S6): every person now has an `added` event with a strict link, so a hard delete can never succeed. The function, the `people remove` subcommand and db-ops `people-remove` are removed; marking as left is the only way off the list. SYC-43 part 2's tests P0-4 and P1-10 are updated to say so.
+- **`people list`** shows each person's history (ids and kinds only).
+
+**Tests.** T21 (spec §15.3 test 21): every operation writes exactly one event, in its own transaction. **Mutation probe:** drop each insert in turn → red. The trigger refuses `UPDATE` and `DELETE`. The backfill gives each existing person exactly one `added` event and each left person one `left`. Up/down/up passes.
+
+### PR 0.2: one list of the team's roles, and the record's vocabulary (SYC-252)
+
+- **One module, `lib/teamRoles.ts`**: `TEAM_ROLES` = `staff`, `management`, `vet`. `lib/resolve.ts` (`AUTHORITATIVE_ROLES`), `lib/teamCorrections.ts` (`TEAM_ROLES`) and, through it, `lib/likelyReview.ts` import it. A source test fails if a role list is written anywhere else.
+- **`admin` becomes `management`** in `writeObservation`'s `REACHABLE_ROLES` and in the resolver. Before this merges, Claude runs a read-only count on production through db-ops (`observations` where `role_at_time = 'admin'`); it must be zero (spec §15.2 step 1). PR 0.3's migration checks it again.
+- **`actingRole(person, capability, target)`** in `lib/capabilities.ts` decides the `roleAtTime` written on a statement (spec §10.4). It replaces the hand-written `"staff"` in `lib/teamCorrections.ts` (4 places), `lib/welfareActions.ts:81` and `lib/welfareTie.ts:188`. Today it returns `staff` for every team member, so nothing written changes. The two in `routes/notifications.ts` belong to the owner-key route, which has no signed-in person; they stay, and retire with SYC-185.
+- **Vocabulary that later PRs need, accepted but not yet written by anyone:** the `colony` observation accepts `{ colonyId: null }` ("no colony", spec §6.8), so SYC-209's "take out" can use it; `authority_scope` accepts `colony:<id>` (Decision B). `guardian` stays refused until PR 2.2.
+
+**Tests.** T23 (part): a management member's correction is authoritative in the resolver, the review list and the correction routes. **Mutation probe:** revert one importer to its own list without `management` → red. A `colony` observation with `colonyId: null` is accepted; `colonyId: "x"` is still refused.
+
+### PR 0.3: the roles migration, and the `people` command (spec §10.1, §10.3, §15.2; migration `roles_and_invites`)
+
+**The migration (next free number, expected `0016`), in one transaction, stopping with a list and changing nothing if any check fails:**
+1. Refuse if any observation has `role_at_time = 'admin'`, printing the ids.
+2. Refuse, listing every offending row, if any `person_scopes` row is `volunteer`, a `guardian` with no colony, or a `staff` row with a colony.
+3. Add `people.accepted_at`, `invite_sent_at`, `invite_expires_at`, `language` (not null, default `en`, check `en`/`el`/`fr`). Set `accepted_at = added_at` for everyone.
+4. Add `person_scopes.reach` (nullable), fill it from `colony_id` (`colony` when set, `island` when null), then make it not null with no default. Add `expires_at`, `relationship` (check `feeds`/`owns_here`/`covering`), `granted_by`, `granted_at` (default now).
+5. Replace the role check with `staff`, `management`, `guardian`, `vet` (no `volunteer`). Add the checks: `reach = 'colony'` exactly when `colony_id` is set; `guardian` needs `reach = 'colony'`; `staff` and `management` need `reach = 'island'`. The unique (person, role, colony) constraint stays.
+6. Create `confirmation_items` (spec §10.3): the kind check (`site_public_request`), the state check, `decided_by <> proposed_by`, "decided has both, open has neither", the partial unique index on (`feeding_site_id`, `proposed_by`) while `state = 'open'`, strict links to `people` and to `feeding_sites`.
+7. **No management rows** (Decision A1). Rollback: drop `confirmation_items`, the new columns and checks, and restore the old role check.
+
+**Code.** The schema in `lib/db/src/schema/people.ts` (`PERSON_ROLES`, the columns, `confirmationItemsTable`). `findAllowedPerson` and `findPersonById` now also require `accepted_at` to be set, so **a pending person is never a `CapabilityHolder`** (spec §10.1); nobody is pending yet, so nothing changes. `scopesOf` returns `reach` and `expires_at`. The `people` command: `add` requires `--colony` for `guardian` and refuses `volunteer`; gains `--language` and `--accepted` (break-glass, for a team member added directly); a new **`set-roles`** subcommand replaces a person's roles and writes `roles_changed`; `list` shows placements (ids, never addresses). db-ops gains `people-set-roles` and the new role list (`scripts/db-ops.sh`).
+
+**Behaviour after it ships: unchanged.** `can()` still answers "holds `staff`?"; the three management rows sit beside their `staff` rows.
+
+**Tests.** T17 and the database half of T3: inserting a guardian with no colony, a guardian with `reach = 'island'`, a `staff` row with a colony, or any `volunteer` row is refused by the database. T29: on a database seeded with each kind of bad row, the migration stops and lists them (and an `admin` observation), and on a clean one it leaves every existing person with `accepted_at` set. T9 (part): a person with `accepted_at` null is found by neither finder. **Mutation probe:** drop that condition → red. Up/down/up passes.
+
+**Production (Claude, in this order):** db-ops `migrate` on development → Claude shows Samuel, from the live production list, the three who will be management and every other team member who will be team-only → Samuel says yes → Neon snapshot of production (**needs Samuel's "ask" mode**) → db-ops `migrate` on production, then `verify` → db-ops `people-set-roles` for Samuel, Jacky and Susan (each keeps `staff` and gains `management`) → `people-list` shows exactly three holding `management` (T29a, as a probe). Nobody adds people between the migration and the publish; db-ops runs `main`'s code, so its inserts already carry `reach`.
+
+### PR 0.4: two doors, on the app's side (SYC-222 points 1 and 2; spec §4.5, §6.3)
+
+- **`use_workspace`** joins the capability list, and `mayUseWorkspace(person)` asks `can()` for it. `can()` is still staff-only at this point, so it is true for exactly the people who get the workspace today.
+- **`POST /api/internal/people/allowed`** reads an optional `version` field. With `version: 2` it answers `{ allowed, doors: { workspace, dashboard }, language, personId, name, sessionVersion }`. **The old request shape is answered `allowed: true` only for someone who holds the workspace door** (spec §14 case 11), so the Worker deployed today can never hand a guardian the workspace. Every "no" stays identical whatever the reason.
+- **Tests.** T7: a guardian test row (placed on one colony) gets `allowed: false` from the old shape and `doors.workspace: false` from the new; a staff address gets both doors. T8 (part) and T13: an unknown address, a left person and a person with no door get byte-identical answers. **Mutation probe:** answer the old shape with `mayEnter` instead of the workspace door → T7 red.
+
+### PR W1: the sign-in Worker learns the two doors (`fairshake-au/catspotters-website`)
+
+- In the Worker's repository, in its own worktree there. It sends `version: 2`, issues a **workspace session only when `doors.workspace` is true**, and for a **dashboard-only** person shows one plain page, *"Open my colonies"*, whose button posts the usual one-minute hand-off pass to `team.catspotters.com` (C9). No workspace session, no document password, no lock switches. The sign-in email stays English for now; the person's `language` is read and used once Johnny has signed off Greek and French (SYC-283), by a one-line switch.
+- **Ships after PR 0.4 is live**, so the new request always gets the new answer. Until W1 ships, a guardian simply can't sign in, which fails safe (spec §4.5).
+- **Collision:** a SYC-26 (Google sign-in) plan is being written in that repository's `syc-26-plan` worktree and touches `admin/src/index.js`. W1 is small and goes first; SYC-26 rebases on it.
+- **Deploy:** Claude deploys with wrangler (the token exists) and probes: a staff test address still gets the workspace; a guardian test row gets the "Open my colonies" page and no workspace cookie.
+- **Tests (that repository's suite, with its mocked people list):** old-shape and new-shape answers; a dashboard-only answer never sets the workspace cookie. **Mutation probe:** grant on `allowed` alone → red.
+
+### PR 0.5: the capability catalogue, strict checks, the 403 page and the route walk (SYC-222 points 3 and 4; spec §6)
+
+**This is the PR where a guardian row first means something. It merges only after 0.3, 0.4 and W1 are live and the three management rows exist in production.**
+
+- **The catalogue as data** in `lib/capabilities.ts`: every name in spec §6.2, with its kind (island-only, placed, role-wide, creates its own scope) and the roles that hold it, including the reserved `match_cat_anywhere`. `manage_people` and `action_deletion_request` are **management only**; from this PR, team-only members lose them (no screen uses them yet).
+- **`can(person, capability, target?)` is strict.** Island-only: an unexpired island row of a role that holds it. Placed: with a target, an island row, or an unexpired colony row for exactly that colony; **with no target, island rows only** (Decision 4). Role-wide and "creates its own scope": any unexpired row of a role that holds it. Expiry is compared with the database's clock on every request; no job runs.
+- **`canSomewhere(person, capability)`** answers "for any colony?" and is used only by `mayEnter` (the dashboard door) and menus. `capabilitiesOf` now says *where* each capability applies, and `GET /api/team/me` returns that (finding S13).
+- **Targets come from the record, never the request** (`lib/capabilityTargets.ts`): a cat's colony is its newest active `colony` observation (superseded ones ignored, `colonyId: null` means none); a photo's colony is its cat's; a report's colony is its cat's; a feeding site's colony is its own column. A cat in no colony has no placed target, so only island holders pass.
+- **`requireTeam(capability, resolveTarget?)`.** Not signed in keeps today's 401 and redirect. **Signed in but not allowed gets a quiet 403 page**: *"That part of the dashboard is for the Syros Cats team. Your colonies are here,"* with a link home (spec §6.4). English here; PR 1.0 makes it three-language.
+- **Routes, moved as the spec's §6.2 note 4 says:** `GET /team` (the queue), `GET /team/reports` and `GET /team/report-photos/:publicId` → **`view_welfare_queue`** (island-only). `GET /team/cats` and `GET /team/cats/:id` → `view_exact_location` **with no target, so island-only**: the team's cat page shows things a guardian must not see, and she gets her own page in Slice 2. `GET /team/photos/:publicId` → `view_exact_location` **with the photo's cat as the target**, and a hidden photo is served only to a holder of `hide_photo`. Every correction and report route keeps its capability **with no target, so island-only**. Guardians get their own routes in Slices 2 and 3, each with its own target. Every existing route stays closed to guardians by construction.
+- **No guardian can do anything useful yet.** A guardian test row can pass the dashboard door and reach `GET /team/me` and the 403 page. That is the intended state.
+
+**Tests.**
+- **T1, the route walk.** Every route registered under `/api/team` and `/api/internal` (read from the router, with a minimum count so an empty walk fails), called by seven kinds of person: team, management, a guardian on one colony, a guardian on several, a pending invitee, a left person, someone whose roles grant nothing. Each answer is compared with a table in the test, and **a route not in the table fails**. It extends `team.walk.test.ts` and keeps its "not signed in" check. **Mutation probes:** register a route without `requireTeam` → red; make `can()` with no target answer "any colony" → red (the guardian reaches the queue).
+- **T2.** A person who may enter but lacks the capability gets the 403 page, not the sign-in redirect, on every capability-gated route. **Mutation probe:** send the 401 instead → red.
+- **T3 (the rest).** A guardian placed on every colony that exists can't reach the welfare queue, the report list, a reporter's photo or the cat list.
+- **T5 (part).** The catalogue photo route takes its target from the photo's cat, never from the request. **Mutation probe:** take the colony from a query parameter → red.
+- **T6.** A placement whose end date has passed stops working at the next request, with no job run.
+- **T24, the catalogue test.** The map in code is compared with the §6.2 tables **parsed from `docs/specs/roles-and-invites.md` itself**, so the document and the code can't drift; the names SYC-209 and SYC-2 cite must exist in it. **Mutation probe:** give guardians `set_site_public` in code → red.
+- **T27.** `use_workspace` is refused to every role but team and management, including with a valid dashboard session.
+- **T15 (part).** A team-only member does not hold `manage_people` or `action_deletion_request`; a management member does.
+
+**After deploy (Claude):** `curl` every `/api/team/*` route without a session → 401; with a test guardian's session on development → the 403 page on team routes; `GET /api/team/me` for the test guardian lists only placed capabilities, with her colony.
