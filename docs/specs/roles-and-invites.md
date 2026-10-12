@@ -70,7 +70,8 @@ A person who looks after one or more colonies, endorsed by Syros Cats. In plain 
 | Say a cat in her colony is **homed**, **in care** or **has died**, with a short reason, and put back the status she herself replaced in the last 30 days (so she can undo her own mistake) | Hide a cat's earlier sterilisation statement or delete another person's. Only the team can mark a confirmation wrong (§7.2) |
 | Say a cat in her colony **is sterilised**, or **isn't**, and see it *Confirmed* straight away, recorded as hers (§7.2). Say "I looked at this cat's ear today" with an optional photo (a **field check**, which waits for the team's OK) | Rename cats or colonies, hide photos, or make a feeding site public |
 | Add a feeding site to her colony, and rename, move, retire or bring back her colony's sites (always private, §6.7) | Move a feeding site to a different colony, or see any other colony's sites |
-| Say "this cat is one of mine", or "this cat is no longer in my colony"; the team decides (§7.4) | Invite or remove anybody |
+| Add a cat to her colony, or take one out, and it takes effect at once (§7.4) | Invite or remove anybody |
+| **Create a new colony** and name it. She is placed on it automatically as its guardian, so she then holds her usual powers for it (§6.9) | Rename a colony afterwards (that is the team's, `rename_colony`), or make herself the guardian of a colony someone else created |
 | State a cat's colour and markings, and add team-only health notes, for cats in her colonies (§6.7) | See the welfare queue, reporters' details, or anyone's data requests |
 | Check the **hand picks** in her own colonies (a hand-picked sighting's position shows only at the 250 m-square level) | See the workspace documents and the shared document password |
 | Stop being a guardian herself, at any time (§9) | |
@@ -258,7 +259,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_health_notes` | Read team-only health notes on a cat (SYC-2) | Placed | All | All | Own |
 | `view_welfare_queue` | The welfare queue, welfare reports and reporters' photographs | Island-only | ✓ | ✓ | — |
 | `use_workspace` | See the workspace documents and the shared document password (§6.3) | Island-only | ✓ | ✓ | — |
-| `view_guardian_changes` | The "recent guardian changes" list on the team's dashboard: every cat a guardian added to or took out of a colony, and every sterilisation, life-status and colour statement she made, with who and when (§7.4) | Island-only | ✓ | ✓ | — |
+| `view_guardian_changes` | The "recent guardian changes" list on the team's dashboard: every cat a guardian added to or took out of a colony, every sterilisation, life-status and colour statement she made, and every colony she created, with who and when (§7.4, §6.9) | Island-only | ✓ | ✓ | — |
 
 **Saying what you saw or know**
 
@@ -278,9 +279,9 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | Capability | What it lets you do | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
 | `assign_cat_to_colony` | Put a cat in a colony, move it, or take it out of one. A guardian does this alone, for her own colonies, with immediate effect and no team OK (§7.4). The target is the colony she is adding to, or the colony she is taking the cat out of; naming a colony she doesn't hold is refused | Placed | All | All | Own |
-| `create_colony` | Create a colony | Island-only | ✓ | ✓ | — |
+| `create_colony` | Create a colony. A guardian who creates one names it at that moment and is placed on it automatically as its guardian, so she holds her usual placed powers for it (§6.9) | Role-wide | ✓ | ✓ | ✓ |
 | `edit_colony` | Edit a colony's guardian-name text, notes and centre point (not its name) | Placed | All | All | Own |
-| `rename_colony` | Change a colony's name | Island-only | ✓ | ✓ | — |
+| `rename_colony` | Change a colony's name. Team only: a guardian names her colony when she creates it, and asks the team to change it afterwards | Island-only | ✓ | ✓ | — |
 | `add_feeding_site` | Add a feeding site to a colony. Always private | Placed | All | All | Own |
 | `edit_feeding_site` | Rename, re-describe, move, retire or bring back a feeding site. **Cannot change which colony it belongs to** | Placed | All | All | Own |
 | `reassign_feeding_site` | Change which colony a feeding site belongs to | Island-only | ✓ | ✓ | — |
@@ -370,7 +371,7 @@ A guardian can look after a colony as a regular feeder, as the owner of a cat in
 | SYC-209's working name | The catalogue rows it means |
 |---|---|
 | `manage_feeding_sites` | `add_feeding_site` (placed), `edit_feeding_site` (placed), `reassign_feeding_site` (island-only) |
-| `manage_colonies` | `create_colony` (island-only), `edit_colony` (placed), and `rename_colony` for the name |
+| `manage_colonies` | `create_colony` (role-wide: the team and any guardian), `edit_colony` (placed), and `rename_colony` (team only) for a later change of name |
 | `set_cat_colony` | `assign_cat_to_colony` (placed: the team island-wide, a guardian for her own colonies) |
 | `view_exact_location`, `set_site_public` | The same names |
 
@@ -385,6 +386,7 @@ Four rules for those screens:
 
 ### 6.8 How a cat comes to be "in a colony"
 
+
 Placed capabilities on a cat depend on the cat's colony, so how a cat gets one matters. A cat joins a colony through a `colony` observation (`cat-record-data-spine.md` §10.5), and the newest one wins. This spec adds only **who may write one**:
 
 - The team writes them directly (`assign_cat_to_colony`), island-wide. The data spine's `colony` observation gains one more value, **"no colony"**, so a cat can be taken out of a colony without putting it in another (§16.5).
@@ -393,6 +395,21 @@ Placed capabilities on a cat depend on the cat's colony, so how a cat gets one m
 - A guardian can only name a colony she holds (§6.1). She cannot take a cat out of a colony she doesn't hold.
 - Every change is a `colony` observation with her id, so it is in the cat's history, and it appears on the team's "recent guardian changes" list (§7.4).
 - A cat in no colony is visible to the placed roles only at the blurred, public level.
+
+### 6.9 Decision 14: can a guardian create a colony?
+
+**Decided (Samuel, 12 October 2026): option A, yes.** A guardian knows where her cats are and should not have to ask the team to open a colony before she can look after it.
+
+| Option | What it means | Benefits | Risks |
+|---|---|---|---|
+| **A. ✅ Decided. A guardian can create a colony.** `create_colony` is role-wide: the team, management and guardians hold it. A guardian who creates a colony is placed on it automatically as its guardian. | No wait. A new guardian with a new patch can start the same day. | See "What this choice accepts". |
+| **B. Only the team creates colonies.** | The team decides where colonies exist. | A guardian waits for the team before she can look after cats the team hasn't recorded. |
+
+**What this choice accepts.** A guardian could create a colony anywhere and then add cats to it (Decision 6, §7.4), which lets her see any cat's exact position. Every change is in the history: the colony row records who created it and when, her placement is a recorded `roles_changed` event with her own id as the granter, each cat added is a `colony` observation with her id, and the team's "recent guardian changes" list (`view_guardian_changes`) shows the colonies she created and the cats she added.
+
+**Naming.** A guardian names her colony when she creates it (the usual form is "Place — Her name's", as in "Vaporia — Eleni's"). Changing a colony's name afterwards stays with the team (`rename_colony`), because a colony's name is how the team talks about it on the phone (§9.3).
+
+**What people notice.** A guardian taps *Add a colony*, types a name, marks the place on a map, and arrives on her new colony with the usual buttons. The team sees it on the recent guardian changes list.
 
 ---
 
@@ -900,9 +917,10 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 | **16** | **A stranger asks to be made a guardian** (email, in person, in a convincing story). | There is no self-service route, deliberately. A request is a person asking the team, who know their colonies. Nothing in the app invites anyone to apply, so there is nothing to automate or abuse. |
 | **17** | **A guardian reaches an island-wide page** (the welfare queue, a reporter's photograph, the all-cats list). | Guardians never hold an island-wide row (database check). The welfare queue and its photographs need `view_welfare_queue`, which only the team (including management) holds. A strict `can()` refuses a placed capability asked for with no target. The route walk includes a guardian on one colony and on several. |
 | **18** | **A field check is a lie, or a mistake, and a busy approver taps Yes.** | A field check changes nothing public until approved; approval records "checked in person" and leaves the cat *Probably sterilised*; no news email is sent on approval. A wrong approval is therefore a wrong *Probably*, which costs a wasted trip, not a missed litter. |
-| **21** | **A guardian (or, later, an owner or vet) confirms a cat as sterilised by mistake, or untruthfully.** | **Accepted (Decision 5).** The cat becomes *Confirmed* at once and the "sterilised" news email goes out; it can't be unsent, and a cat wrongly shown as sterilised may be skipped on a trapping round. Every confirmation is stored with who said it, their role and the date; the team sees it on the cat's page and can mark it wrong with its own later statement; the earlier statement stays in the history. A guardian can only confirm cats in her own colonies. |
 | **19** | **The phone's clock is wound back to keep an old list alive.** | The page remembers the latest time it has seen and treats a clock that goes backwards as expired; the server stamps each list with its own time. |
 | **20** | **A guardian reads a private feeding site by moving it into her own colony.** | `edit_feeding_site` cannot change a site's colony; `reassign_feeding_site` is island-only. |
+| **21** | **A guardian (or, later, an owner or vet) confirms a cat as sterilised by mistake, or untruthfully.** | **Accepted (Decision 5).** The cat becomes *Confirmed* at once and the "sterilised" news email goes out; it can't be unsent, and a cat wrongly shown as sterilised may be skipped on a trapping round. Every confirmation is stored with who said it, their role and the date; the team sees it on the cat's page and can mark it wrong with its own later statement; the earlier statement stays in the history. A guardian can only confirm cats in her own colonies. |
+| **22** | **A guardian creates a colony anywhere and adds cats to it.** | **Accepted (Decision 14, with Decision 6).** Together they let her see any cat's exact position. Every change is in the history (the colony's creator, her placement event, each `colony` observation), and the team sees the colonies she created and the cats she added on the "recent guardian changes" list. |
 
 ---
 
@@ -972,6 +990,7 @@ Named here so they appear in the implementation plan:
 27. **The workspace is refused to every role without `use_workspace`**, including with a valid dashboard session.
 28. **A guardian's life-status change** is limited to the allowed values plus undoing her own last change within 30 days; a cat she marks homed or deceased stays on the round sheet for 30 days, flagged; dates sent offline are refused if more than 30 days old or in the future.
 29. **Migration:** run against a copy of live data; it stops and lists on any row breaking a check, and on any `role_at_time = 'admin'` observation; it leaves existing people with `accepted_at` set.
+30. **A guardian can create a colony and is placed on it.** Creating a colony as a guardian writes the colony, her `person_scopes` row (`reach = 'colony'`, that colony, `granted_by` = her own id) and a `roles_changed` event in one transaction; killing the second write leaves neither. She then holds her placed powers for that colony and no other. She cannot rename it afterwards (`rename_colony` is refused), and the creation and the cats she adds appear on the `view_guardian_changes` list, which a guardian cannot open. A team member who creates a colony is not placed on it.
 
 ### 15.4 How it ships, in order
 
