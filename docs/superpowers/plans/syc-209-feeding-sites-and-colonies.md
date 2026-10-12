@@ -357,3 +357,96 @@ Its own step, as spec §11.1 asks, because it changes a column's type.
 - On a colony page, **Add a feeding site to this colony** opens the picker with the colony filled in.
 - **Tests.** The cat page has no outbound map link (PR 0.2's source test); "Make a feeding site here" doesn't appear unless PR 0.2's change is present (a test fails if `catPages.ts` has both the button and a map-company link). Browser check at 390 px and desktop.
 
+---
+
+## Slice 4: cat guardians (after the roles foundations)
+
+**In plain English.** Once guardians can sign in (the roles plan), Eleni opens **Colonies** or **Feeding sites** and sees only her own: her colonies, their sites with exact positions, their cats. Anywhere else looks to her as if it doesn't exist. She can create a colony when she finds a place nobody has recorded, and it is hers at once, named by her. She can add her cats, take them out, add a site to her colony, fix a pin, change notes and the "how to find it" line, and retire a spot that has closed. She can't change which colony a site belongs to, can't rename a colony after creating it, and can never make a site public. If one of her cats is added to someone else's colony, her colony page tells her ("Mimi has moved to another colony"), without saying whose. The team sees everything guardians do in a **Recent guardian changes** list. Pages a guardian reads are in English, Greek or French, her choice.
+
+**Needs first (roles plan):** 0.2 (her real role on statements), 0.3 (placements), 0.5 (strict checks, `canSomewhere`, targets from the record, the 403 page, the route walk), W1 (she can sign in), 1.0 (three-language dashboard strings), 1.1 (`createColonyWithPlacement`), and 2.2 for PR 4.3.
+
+### PR 4.1: what a guardian sees (spec §7.3)
+
+- **Entry** to every list page with `canSomewhere(person, 'view_exact_location')`; then **every query is filtered by her colonies in SQL**, through one helper, `visibleColonyIds(person)`, which returns `null` ("all") only for an island-wide holder. A route that forgets to call it fails closed: the helper is the only way the list queries get a colony filter, and a source test fails if a sites or colonies query in `routes/teamSites*.ts` / `teamColonies*.ts` doesn't use it.
+- Every row of the spec's table (§7.3) is built: the count line, the map and markers, the list and *Show retired*, *Recently changed* (her sites only, and no other person's name beyond her colony's), the site page, the Colonies page and search, "Add a site to this colony", the colony pick lists, the name-clash message ("That name can't be used", no link, no colony named), "Add cats" ("in another colony", no name, no link), the cat page colony line ("another colony"), history (her own, with positions), and the *Ask the team to make this public* button (the roles plan's PR 3.4 builds what it does; see K7).
+- **Another colony's site or colony id** answers exactly what an id that doesn't exist answers: the same status, the same page, the same length.
+- **`sitesForPerson(person)`**, one query returning her sites with exact positions and the optional "how to find it" line. The roles plan's PR 2.1 ("My colonies") and PR 4.2 (the saved list with no signal) call it, so there is one filter, not three.
+- **Language.** Every string a guardian can see on these pages moves into the roles plan's dashboard catalogue (PR 1.0), with Greek and French. The team still reads English (spec Decision 9). Johnny checks the Greek and French (SYC-283) before guardians are invited.
+
+**Tests.** Test 21 (seeing): with a guardian of colony 1, colony 2's name, guardian, counts and sites appear on no page in the §7.3 table; an id of colony 2's site answers byte-for-byte like an id that doesn't exist. **Mutation probes:** drop the colony filter from the list query → red; from the count line → red; from *Recently changed* → red; from the "Add cats" colony label → red. The route walk (roles T1) gains a row per route here for all seven kinds of person.
+
+### PR 4.2: what a guardian does
+
+- **Create a colony** (`create_colony`): `POST /api/team/colonies` calls `createColonyWithPlacement`, which writes the colony (`created_by` = her), her placement and the history in one transaction. Her form has a name and notes only; her own name is filled in as the guardian. She sees it at once; the team sees it too.
+- **Sites** (`add_feeding_site`, `edit_feeding_site`, placed): add to a colony she holds (the colony is required and must be hers); edit, move, retire, bring back her own. **Change colony** isn't offered and is refused (`reassign_feeding_site` is island-only).
+- **Cats** (`assign_cat_to_colony`, placed): add to and take out of her own colonies, with immediate effect; checked against the colony the cat goes into and, for "take out", the colony it leaves, both read from the records. Her statements carry `roleAtTime = guardian` and `authority_scope = colony:<id>` (roles Decision B).
+- **When her cat moves to another colony** (spec Decision 14): her colony page shows "Mimi has moved to another colony", with the date, for 30 days after the move. It is worked out from the cat's statements (no new table): a cat whose previous standing statement was her colony and whose newest is another colony, written by someone else. It never names the other colony or its guardian. The roles plan's saved list shows the same line. *(The 30 days is this plan's choice; the spec says only "next time she opens it". Say if you want it longer.)*
+- **Not offered:** rename, make public, change a site's colony, mark wrong (a guardian takes out instead, spec §2.8).
+
+**Tests.** Test 15 (guardian half): she can add a cat to and take one out of her own colony, immediately, with her real role; she is refused (403, nothing written) for a colony that isn't hers; there is no `propose_colony_change` route and no pending state; adding a cat that is in another colony moves it and shows that colony's name nowhere on her pages. Test 21 (doing): she can create a colony and it is hers in the same step; she can't rename it or any other, or change a site's colony; she can add a site only to her own colony, and it is private. **Roles T16 and T30** (routes half), as named above. Decision 14: the losing guardian sees the line and it contains no colony name and no guardian name (checked against every name in the seed). **Mutation probes:** check "take out" against the colony it goes into instead of the one it leaves → red; show the notice for a move she made herself → red.
+
+### PR 4.3: Recent guardian changes (`view_guardian_changes`; needs roles PR 2.2)
+
+- At the top of the team's Colonies page: the last twenty things guardians did here (colonies created, sites added or moved, cats added or taken out), each with the guardian's name, the day and a link to the colony. Built from the roles plan's `listGuardianChanges()` plus this plan's history rows written by guardians.
+- **Tests.** Test 21's last part: after a guardian creates a colony, colonies 1 and 2 are still invisible to each other, and the new colony appears in this list. A guardian never sees the list (403).
+
+**With no signal.** This plan builds no offline PR. The roles plan's PR 4.2 (the saved list, 72 hours by server time, deleted on next open, `Clear-Site-Data` on sign-out and removal) shows her sites with their exact positions and "how to find it" line, from `sitesForPerson`. Spec test 26 is built there, with this plan's seed data. The team's own pages, including the map, have no offline copy.
+
+---
+
+## Slice 5: forgetting a guardian's name (SYC-256, the feeding-site half)
+
+**In plain English.** If a cat guardian asks to be forgotten, management needs one action that removes her name from every place this feature stores it: the colony's guardian line, its old names, site names ("Vaporia — Eleni's"), notes and the history. This slice builds the part that does the removing, and proves it reaches every place. The button management presses is built with SYC-208 (the roles spec makes it management-only). Nothing visible changes.
+
+### PR 5.1: `forgetGuardianName`
+
+- `forgetGuardianName(tx, { colonyId, name, by, reason })` in `lib/forgetGuardian.ts`. Matching is by whole word after `foldName`, so "Ελένης" and "eleni's" are both found when the name is "Eleni"/"Ελένη" (the caller passes every spelling the team knows).
+  - `colonies.guardian_name`: cleared. `colonies.name` and each site name: the matched word replaced with "(name removed)", which writes a normal rename and history row, so the colony and site stay findable by number and new name.
+  - `colony_name_history`: each row containing the name is redacted (the trigger from PR 1.1 allows only this).
+  - `feeding_sites.notes`, `directions`, `colonies.notes`: the matched words replaced.
+  - `mapping_events`: each row whose `before`, `after` or `note` contains the name is redacted (blanks all three; the trigger allows only this).
+  - One new event, `kind = 'guardian_forgotten'`, holding **no name**: who did it, when, which colony.
+- `privacy-policy.md` gains the list of these stores (spec §7.4 point 5), in the same PR.
+
+**Tests.** Test 23: after forgetting, the name (in any case, accent or sigma form) appears in no column of `colonies`, `colony_name_history`, `feeding_sites` or `mapping_events`, checked by a full-table text search; every other field is unchanged (a snapshot before and after); its own event exists and holds no name. **Mutation probes:** skip the history redaction → red; skip site notes → red. **Where else must this hold** (the question a mutation probe can't answer): the plan lists every store of a guardian's name, and the test searches all four tables in full rather than the columns the function touches, so a new column holding the name fails it too.
+
+---
+
+## Slice 6: public feeding sites (after launch)
+
+**In plain English.** The team can now choose a feeding site to show to visitors, one at a time. Pressing **Make public…** opens a page showing exactly what a visitor will see, in all three languages, explains in plain words what this will and won't do, and asks the team member to confirm that the guardian knows. In the app, a "Feeding spots" layer shows a bowl at that spot. Tapping it gives the label, roughly how many cats use the spot, and the request to give the cats room, not leave food, and see how to help. No private site, colony name, guardian, note or exact count ever leaves the server. Making a site private is one tap.
+
+**Needs first:** launch (spec Decision 2). No gate on SYC-67 (Samuel accepted the risk, 12 Oct 2026).
+
+### PR 6.1: the public endpoint, empty to start
+
+- `GET /api/feeding-sites`, no sign-in, no parameters. **Filtered in the query** (`WHERE is_public AND retired_at IS NULL`), with an explicit column list. Each item is exactly `{ id: public_id, label, position, cats? }`, **ordered by `public_id`**. `cats` is one of `few`, `about5`, `about10`, `about15`, `20plus`, worked out **in the same query** from the site's colony (alive cats seen in the last 12 months, by `currentColonyOf`'s rule), so the exact number never exists in application memory, a log or a cache. Absent when zero.
+- `GET /api/feeding-sites/:code`: filters `is_public AND retired_at IS NULL AND public_id = :code` in the query. A private, retired, superseded, unknown or malformed code all answer the same `404` with the same body.
+- **`publishedSitePosition(site)`** is the one place a published position comes from (exact today; the spine's open question 3 could make it blurred).
+- `Cache-Control: public, max-age=300`. `feedingSpotLimiter` on both (K9). Both routes added to the public allow-list of the pre-launch gate only if it is still on.
+- With no public site, the list is `[]`. Nothing else changes.
+
+**Tests.** Test 1 (the canary): a private site with distinctive name, label, notes, directions and coordinates, and a colony with exactly 13 qualifying cats; every public route (`/api/feeding-sites`, the code lookup, `/api/cats`, `/api/cats/:id`, the resolve and sighting responses, notification payloads, `/api/healthz`) contains none of those strings, coordinates or the number 13, including after the site has been public and made private again. **Mutation probe:** drop `is_public` from the query → red. Test 2 (exact keys, fixed order; **mutation:** add `notes` → red). Test 2a (the bands at 0, 1, 4, 5, 7, 8, 12, 13, 19, 20 and 40; what is not counted; **mutation:** return the number → red). Test 3 (byte-identical for different headers, query strings, device ids, positions). Test 4 (a private, retired, never-public, random and superseded code all answer identically, and the query reads no private row). Test 6 (a source search of the public routes finds no read of a site's `lat`/`lng` outside `publishedSitePosition`).
+
+### PR 6.2: the make-public switch
+
+- `GET /api/team/sites/:id/publish` (`set_site_public`): the spec's page, in order (§4.3): a **preview** of the marker and card in English, Greek and French, built from the real label and the **real band today**, from the shared strings module (K1); what this will do; the reason; what it won't do (the matching and photo line, and the count line); the honest caveat; the tick *"The cat guardian for this place knows, and is happy for it to be public."*; the public label; **Make public**.
+- `POST …/publish`: refused, writing nothing, without a label, with a label failing any of the three rules (§4.4: the site's own name minus place words; any word of the current or an earlier guardian's name; a word and a number side by side, Latin or Greek), without the tick, or for a site with no colony or whose colony has no guardian name. Otherwise, in one transaction, conditional on `updated_at`: a `public_id` (random 128-bit) is issued if the site has none, **or** if this position is more than 10 m from `last_public_*`, or after a retire (the old code goes to `feeding_site_old_codes`); `last_public_*`, `made_public_by/at`, `guardian_aware` set; one "made public" event with the label, the code, the tick and its wording. The page then reads "Public since 14 October, by Maria."
+- `POST …/unpublish`: one tap with a one-line confirmation, "Take down any QR sticker at this place." Never harder.
+- **Changing a public label** shows the confirmation page again. **Automatic make-private** (`makePrivateIfPublic`, from PR 3.3) now also runs when a colony's guardian name changes (`POST /api/team/colonies/:id`), for each of its public sites, with the event "made private automatically: guardian changed". **Retiring** a public site makes it private and retires its code at once.
+- The page for any re-publish after a move says "Old QR stickers for this place will stop working. Take them down."
+- **The roles plan's hook:** a site made public closes any open site-public request as "no longer needed" (its PR 3.4).
+
+**Tests.** Test 5 (opaque code: never-public has none; not derivable from the id; public → private → public at the same spot keeps one code; more than 10 m away, or after a retire, a new one, and the old answers "unknown"; the old is kept). **Mutation:** compare against 100 m → red. Test 8 (each refusal, writing nothing, including Greek address shapes and accent variants). Test 9 (moving a public site makes it private; re-confirming restores it). Test 10 (retired is never public by route or database; bringing back never makes it public; a retire retires the code). Test 11 (the "made public" event agrees with `made_public_by/at`, which are kept on make-private). Test 13 (two simultaneous make-public and make-private presses leave one definite state). Test 22 (a guardian change, or a move to another colony, makes the colony's public sites private with an automatic event; the confirmation page restores them). **Mutation:** skip the guardian-change hook → red. Test 2a (the preview shows the same band the endpoint will, in all three languages). Browser check of the make-public page at 390 px and desktop.
+
+### PR 6.3: the app's layer and card
+
+- **The strings.** The twelve keys of spec §5.2 live in `lib/feeding-spot-strings` (K1), spread into `APP/lib/i18n.ts`. Greek and French go to the native review (SYC-4, and Johnny for SYC-283).
+- **The layer.** "Feeding spots", on by default, with a switch; a bowl marker at each public position on the web map (`AppMap.web.tsx`) and the native map (`AppMap.tsx`), visibly different from the blurred cat cells. **Distance is worked out on the phone.**
+- **The card.** The label and the lines of §5 in the visitor's language; the count line only when `cats` is present; "See how you can help" opens the Help tab (which needs a connection; the rest of the card doesn't).
+- **The phone's copy.** Key `cat-spotter/feeding-sites-cache/public/v1`, storing `{ fetchedAt, sites }`, separate from the cats cache; refreshed each time the map opens while online, at most every five minutes; **not shown after seven days** (spec Decision 8); an older shape is dropped.
+- **Campaign copy** (K10): the default title in `AS/lib/campaign.ts` stops naming a colony.
+- **No change to spotting.** No "you are near feeding spot X", and sites play no part in matching.
+
+**Tests.** Test 18 (older than seven days not shown; old shape dropped; a key different from the cats cache; re-fetched when the map opens online, at most every five minutes). **Mutation:** skip the age check → red. Test 19 (the new strings exist in all three languages with no empty values; the server's preview and the app's card use the same object). Test 25 (no public string, campaign included, contains any colony name or guardian name from the database or the seed). Test 20 (the card, in a real browser, at 390 px and desktop, with real-looking data).
+
