@@ -2,7 +2,7 @@ import { deleteTestSightings } from "../test/sightings";
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { and, eq, inArray, like } from "drizzle-orm";
+import { and, eq, inArray, like, sql } from "drizzle-orm";
 import {
   addPerson,
   catsTable,
@@ -740,7 +740,19 @@ describe("each route is refused without its capability, in both layers", () => {
 describe("at the same moment", () => {
   it("six tabs hiding the same photo write one event; the rest are told someone already did", async () => {
     const cat = await seedCat(0);
-    const results = await Promise.all(Array.from({ length: 6 }, () => hide(cat.main, cat.id)));
+    // Widen the race: each insert waits 150 ms before it lands, so without
+    // the photo row lock every tab would read "not hidden" and write a hide.
+    await db.execute(sql`create or replace function vt_p6_slow_insert() returns trigger language plpgsql as $$
+      begin perform pg_sleep(0.15); return new; end $$`);
+    await db.execute(sql`create trigger vt_p6_slow_insert before insert on photo_visibility_events
+      for each row execute function vt_p6_slow_insert()`);
+    let results: request.Response[];
+    try {
+      results = await Promise.all(Array.from({ length: 6 }, () => hide(cat.main, cat.id)));
+    } finally {
+      await db.execute(sql`drop trigger if exists vt_p6_slow_insert on photo_visibility_events`);
+      await db.execute(sql`drop function if exists vt_p6_slow_insert()`);
+    }
     expect(results.every((r) => r.status === 303)).toBe(true);
     const already = results.filter((r) => String(r.headers["location"]).includes("done=already_hidden"));
     expect(already).toHaveLength(5);
