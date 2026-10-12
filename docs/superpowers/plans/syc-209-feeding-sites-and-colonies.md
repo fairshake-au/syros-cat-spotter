@@ -450,3 +450,139 @@ Its own step, as spec §11.1 asks, because it changes a column's type.
 
 **Tests.** Test 18 (older than seven days not shown; old shape dropped; a key different from the cats cache; re-fetched when the map opens online, at most every five minutes). **Mutation:** skip the age check → red. Test 19 (the new strings exist in all three languages with no empty values; the server's preview and the app's card use the same object). Test 25 (no public string, campaign included, contains any colony name or guardian name from the database or the seed). Test 20 (the card, in a real browser, at 390 px and desktop, with real-looking data).
 
+---
+
+## Where each of the spec's tests is built
+
+API tests use `supertest` against a throwaway real Postgres with every migration applied (`AS/test/globalSetup.ts`). Every "mutation probe" is done once by hand before merge: break the named line, see the named test go red, restore, and list it in the PR.
+
+| Spec test | PR | | Spec test | PR |
+|---|---|---|---|---|
+| 1 public isolation (canary) | 6.1 | | 14 colony names | 2.1 |
+| 2 listed fields, fixed order | 6.1 | | 15 cats in colonies | 2.2 (team), 4.2 (guardian) |
+| 2a the rough count | 6.1 (endpoint), 6.2 (preview), 6.3 (strings) | | 16 escaping | 2.1, 3.2 |
+| 3 identical for every caller | 6.1 | | 17 map | 3.1 (+ SYC-287 real phones) |
+| 4 not distinguishable | 6.1 | | 18 phone cache | 6.3 |
+| 5 opaque code, new after a move | 6.2 | | 19 language parity | 6.3 (+ 4.1 for guardian pages) |
+| 6 one position function | 6.1 | | 20 looks right in a browser | every UI PR |
+| 7 never created public | 3.3 | | 21 guardian sees only her own | 4.1, 4.2, 4.3 |
+| 8 make public needs everything | 6.2 | | 22 re-confirmation | 6.2 |
+| 9 moving a public site makes it private | 3.3 (hook), 6.2 | | 23 forgetting a guardian | 5.1 |
+| 10 retired is never public | 1.1 (database), 6.2 (routes) | | 24 migration | 1.1, 1.2 |
+| 11 one history row per change | 1.1 (trigger), every write PR | | 25 public copy | 6.3 |
+| 12 capabilities and refusals | every route PR; roles T1 route walk after 0.5 | | 26 a guardian's saved copy | roles plan PR 4.2, with this plan's seed |
+| 13 concurrent writes | 3.3 (moves), 6.2 (publish) | | roles T16, T30 | 4.2 |
+
+## Every place "a private site never leaves the team" must hold
+
+A mutation probe only proves a test guards a place someone already thought of. This is the list of places, so the question "where else?" has an answer. Each has a test; the canary (test 1) is told to search every public route the router knows, not just this list.
+
+1. `GET /api/feeding-sites` and the code lookup (6.1): filtered in the query.
+2. `/api/cats`, `/api/cats/:id`, and the public payload (`publicPayload.blur.test.ts` already asserts a private site is absent; kept).
+3. Sighting and resolve responses: sites play no part in matching (6.3), checked by test 1.
+4. Notification payloads and emails: no site, colony or position is ever put in one (test 1; the alert email's 50 m rule in 0.2).
+5. Request logs: tile paths redacted (0.1); a site page's address carries only its number; positions travel in hidden form fields, never in an address (3.3).
+6. Outbound links: none to a map company from any team page (0.2's source test).
+7. The tile provider: sees tile areas only, through our server (3.1; SYC-288 removes even that).
+8. Campaign and every public string (6.3, test 25).
+9. A guardian's view of other colonies (4.1, test 21).
+10. The phone: the app holds public sites only (6.3); a guardian's saved list holds her own only (roles 4.2, test 26).
+
+---
+
+## Rollout
+
+Production steps are Claude's, through db-ops and the Neon tools. **Samuel is never asked to run a command.** The order for any PR with a migration is always **migrate before publish**.
+
+1. **Before PR 1.1's production migration**, with Samuel's "ask" mode on: a read-only count on production through the Neon tools: all `feeding_sites`, those with `is_public = true`, `made_public_by` and `colonies.created_by` values that aren't people's ids. If any public row exists, stop and tell Samuel what it is before anything is changed (spec §11.1). Then a Neon snapshot of production.
+2. db-ops `migrate` on **development**, then on **production**, then read-only checks of the migration hashes and the new constraints and triggers (`verify` can't pass since the Neon move, SYC-178).
+3. Samuel's Replit publish. Wait until `/api/healthz` shows a commit containing the merge before probing (the EU deploy can sit in "promoting").
+4. db-ops `smoke`, then a no-session probe of every new route: each answers `401 not_signed_in`, compared with a made-up route's `404`, with HTML and JSON `Accept` headers, on `team.catspotters.com`.
+5. For UI PRs: a signed-in check in the browser of the live page at 390 px and desktop, **with real data**, before saying it's live.
+6. PR 1.2 and PR 3.1 repeat steps 1–4 with their own snapshot (ask mode again).
+7. **PR 6.1 after launch:** also `curl` `GET /api/feeding-sites` on production, expecting `[]` with `Cache-Control: public, max-age=300`, and a random code expecting the uniform `404`.
+8. **First public site (6.2):** chosen by Syros Cats. Claude checks the live endpoint returns exactly the four keys and the right band, and that making it private removes it within five minutes.
+
+The seed (spec Decision 11): **Syros Cats place their own sites on the dashboard.** No file of positions is loaded. If that proves too slow and Samuel asks for a list to be loaded, it follows spec §11.8 exactly (never committed, a `.gitignore` rule and a script check, loaded from a scratch folder, deleted afterwards, never pasted into a session, `system:seed` events, never public), as its own small PR.
+
+---
+
+## Where this collides with other work
+
+| Work | Touches | What happens |
+|---|---|---|
+| **SYC-53 roles plan** (`claude/syc-53-plan`, draft) | `capabilities.ts`, `requireTeam`, the route walk, `teamCorrections.ts`, the docs PRs, `confirmation_items` → `feeding_sites` | The split is Decision D (roles plan) and Decision 1 (this plan). Whichever PR merges second rebases. K7 is raised on SYC-53 as a comment. This plan doesn't edit the roles plan |
+| **SYC-2 coat and health plan** (`claude/syc-2-plan`) | Spine §10.1, §10.2, §10.7, §3.4 and `DECISIONS.md` | Agreed with that session: separate docs PRs in disjoint sections (this plan: spine §6.7 and §10.5); whichever merges second rebases |
+| **PR #107 SYC-130** | `DECISIONS.md`, the spine, team-access | Different sections; second to merge rebases |
+| **PR #111 SYC-44** | Photos and reports, maybe a migration | No overlap except migration numbers, taken at rebase time |
+| **PR #101 SYC-166** | The app's location picker | No overlap; PR 6.3 touches `AppMap*.tsx`, not the picker |
+| **SYC-208** | Forgetting people | Calls `forgetGuardianName` (5.1) from its management-only button |
+| **SYC-22, SYC-51** | QR codes | Printed codes carry the public code only; a superseded or private code lands on "This feeding spot isn't on the map any more". SYC-22 must settle its colony-page questions (spec §11.6) before building one |
+
+## What this plan does not do
+
+- **A colony page for the public, or QR codes that land on a colony's cats** (SYC-22).
+- **The management button for forgetting a guardian** (SYC-208); this plan builds what it calls.
+- **The saved list with no signal, and `Clear-Site-Data`** (roles plan PR 4.2, SYC-54); this plan provides the site query.
+- **"Needs an OK"** (roles plan PR 3.4).
+- **Greek or French for the team's own pages** (spec Decision 9).
+- **A label per language** (spec Decision 10).
+- **Our own tile set** (SYC-288), and **public sites with no named guardian** (SYC-289).
+
+## What works with no signal
+
+Exactly as spec §9. **The dashboard:** nothing; every page, including the map, is drawn by the server, and a press of *Save* with no signal fails with the browser's own page, recording nothing. **A guardian's phone:** her colonies' sites with exact positions as text, for 72 hours by server time (roles plan 4.2). **The app:** the last list of public sites for up to seven days, the map's offline tiles, and every line of the card except "See how you can help", which needs a connection.
+
+---
+
+## Model delegation
+
+Session model for this plan: **Opus 5.5** (the brief named Opus: the plan sequences privacy-critical work across PRs that depend on the roles foundation, and a wrong order means a privacy hole or rework). For the build, each package goes to the cheapest tier that can do it, with the reason stated wherever it goes up.
+
+| Work package | Model | Why this tier | Assurance |
+|---|---|---|---|
+| D209 docs PR | Sonnet | Copying spec §12 text into three files | Session model reads the diff against spec §12 line by line |
+| PR 0.1 log redaction | Haiku | One regex and one test, a known pattern (`app.logRedaction.test.ts`) | The test plus its **mutation probe**; session model reads the diff |
+| PR 0.2 outbound links | Sonnet | Three templates and a distance query | Source test plus the 30 m / 80 m tests, with **mutation probes**; browser check |
+| PR 1.1 migration (checks, history trigger with redaction, existing-site events) | **Opus** | *Escalated:* a trigger that allows the wrong update is a silent failure (history edited, every test green), and the first non-additive step on production data | Tests 10, 11, 24 with **mutation probes** on each trigger rule; up/down/up; session model reads the SQL line by line; adversarial review |
+| PR 1.2 type change | Sonnet | One checked conversion, following 1.1 | Test 24 (rest); up/down/up; Opus spot review of the SQL |
+| PR 2.1 Colonies pages | Sonnet | Server-drawn pages following SYC-43 part 2's pattern | Tests 11, 14, 16, 12 with **mutation probes**; browser check; Opus spot review |
+| PR 2.2 cats in colonies | Sonnet | Calls reviewed write paths; adds `colony` to two gates | Test 15 with **mutation probes** on both gates and on `currentColonyOf`; Opus spot review |
+| PR 3.1 tiles, cache, mosaic, tap conversion | **Opus** | *Escalated:* the tap-to-position maths and the size-per-form rule are where a wrong pin happens silently, and it adds the dashboard's first outbound fetch and first cache exception | Test 17 with **mutation probes** (scale, cache header); the header test unchanged; real-phone check (SYC-287); adversarial review |
+| PR 3.2 Feeding sites pages, read-only | Sonnet | Reads and pages | Tests 16, read-record test with **mutation probe**; browser check at 375, 390 px and desktop |
+| PR 3.3 add, move, retire, colony | Sonnet | Form routes with conditional updates, the PR 4 pattern | Tests 7, 9, 13 with **mutation probes**; Opus spot review of `makePrivateIfPublic` and the concurrency guard; browser check of an end-to-end add |
+| PR 3.4 entry points | Haiku | Two buttons on existing pages | Its tests; session model reads the diff; browser check |
+| PR 4.1 a guardian's view | **Opus** | *Escalated:* a missed filter leaks another guardian's sites with every test green; the work is finding every place, not writing the filter | Test 21 with a **mutation probe at every row of the §7.3 table**; the source test on `visibleColonyIds`; adversarial review told to hunt for screens not in the table |
+| PR 4.2 a guardian's actions | Sonnet | Calls roles helpers; placed checks | Tests 15, 21, T16, T30 with **mutation probes**; Opus spot review of the target lookups |
+| PR 4.3 Recent guardian changes | Haiku | One list from an existing reader | Its tests; session model reads the diff |
+| PR 5.1 forgetting a name | Sonnet | One function over four tables | Test 23's full-table search with **mutation probes**; Opus spot review |
+| PR 6.1 public endpoint | **Opus** | *Escalated:* the one public door to the most sensitive data; a leak is silent | Tests 1–4, 6 with **mutation probes**; the "every place" list above; adversarial review told to find a public route the canary missed |
+| PR 6.2 make public | **Opus** | *Escalated:* code issuing, the 10 m rule and the automatic make-private hooks are silent-failure sites | Tests 5, 8, 9, 10, 13, 22 with **mutation probes**; adversarial review |
+| PR 6.3 app layer and card | Sonnet | Standard React Native and web work against a fixed shape | Tests 18, 19, 25 with **mutation probes**; browser check at 390 px and desktop |
+| Repetitive HTML rows and seed fixtures | Haiku | Boilerplate against a fixed shape | Typecheck and the PR's own tests; session model reads the diff |
+| Adversarial review of each PR | Sonnet, in its own worktree, never shared; **Opus** for 1.1, 3.1, 4.1, 6.1, 6.2 | Equal tier to the builder | Findings folded in and listed in each PR; session model checks each against the code |
+| Production steps | Session model | Production data, not delegated | Rollout probes |
+
+## Crash-proofing for the build
+
+Each PR is built in its own worktree off fresh `origin/main`, with **one commit per numbered item** and a `CHECKPOINT.md` (what's done, what's next) updated after each commit. **Every agent prompt restates "commit after each item".** Agents never spawn nested agents. If a build is interrupted, where it got to is filed on SYC-209 before stopping.
+
+## Linear
+
+| Ticket | Where it is built |
+|---|---|
+| SYC-209 | This plan |
+| SYC-255 | PR 0.1 |
+| SYC-245 | PR 0.2 (Decision 2) |
+| SYC-263 | PR 1.1 (column), 3.3 (form), roles 4.2 (saved list). Comment added: now optional, positions allowed |
+| SYC-256 | PR 1.1 (redaction path), 5.1 (the function); the button is SYC-208's |
+| SYC-257 | Settled by roles Decision 12; comment added |
+| **SYC-287** (new) | Real-phone tap check, blocks PR 3.1 |
+| **SYC-288** (new) | Later: our own tile set |
+| **SYC-289** (new) | Later: public sites with no named guardian |
+| SYC-53 | Comment: K7 (its PR 3.4 should wait for PR 6.2), T16 and T30 named here |
+| SYC-4, SYC-283 | The card's and guardian pages' Greek and French |
+
+## Review
+
+*To be filled in after the independent adversarial review of this plan.*
