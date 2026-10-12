@@ -31,7 +31,7 @@ When this plan is built:
 | **Slice 1: the record** | Nothing visible. The record can hold colour, markings, vaccinations and health notes, and works out each cat's colour and markings |
 | **Slice 2: what the public sees** | Cats show their colour and markings on their page and in "Find the cat". At first only cats the team has described have any |
 | **Slice 3: the team** | The team describes cats, records vaccinations, writes health notes, and works through the Colour check list |
-| **Slice 4: spotters** | Spotters describe cats after their points and on the details card. The cat-alog gets its colour filter |
+| **Slice 4: spotters** (after SYC-161, Decision A) | Spotters confirm or correct colours after their points and on the details card. The cat-alog gets its colour filter |
 | **Slice 5: guardians** | Guardians describe cats in their colonies and read and write their health notes |
 | **Slice 6: donors** | The vaccinated-this-year number appears on the Help tab once it reaches five |
 | **Slice 7: the old care route** | Nobody notices. One way of writing free text to the public timeline is closed |
@@ -108,11 +108,12 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 
 | Option | What it means | Benefits | Risks | What people notice |
 |---|---|---|---|---|
-| **A1. This plan goes first; SYC-161 builds on it (recommended)** | This plan's Slices 1 and 2 build the colour rules and put `coat` and `markings` on every cat. SYC-161 then only adds the machine reading, the backfill and the "Find the cat" chips, using the rules and field already there | One set of rules and one field, built once by the work that owns them. No cache-key change ever ships. The team can describe cats straight away. SYC-161's own plan gets smaller | Until SYC-161 ships, the colour line after the points has no guess to offer, so it asks with empty chips ("This cat looks… Pick a colour") instead of "Ginger · Tabby, right?". "Find the cat" has no colour chips until then, though its cards show markings | Colours appear first for cats the team describes, then for spotters' answers, then for every cat once the machine reads them |
-| A2. SYC-161 goes first, as the spec's §14 assumed | Build SYC-119's Slice C (reader, backfill, chips), corrected to the SYC-2 rules, then this plan | Every cat has a colour from day one of this plan; the "right?" line always has a guess | SYC-161 has to build the colour rules itself, or ship an interim "the machine's word" rule that this plan then replaces. The two plans edit the same resolver function and the same payload field, so work is done twice or rebased twice | Colours appear for every cat first; people's corrections follow |
-| A3. Fold SYC-161 into this plan as one of its slices | This plan owns the reader and the chips too | One plan, one owner | SYC-119's approved plan loses a slice it already sequenced, and this plan grows by a model-calling background job with its own cost cap and tests | The same as A1, in one stream of work |
+| **A1. This plan's rules, public line and team screens first; then SYC-161; spotters' questions after SYC-161 (recommended)** | Slices 1–3 build the colour rules, put `coat` and `markings` on every cat and give the team their screens. SYC-161 then adds the machine reading, the backfill and the "Find the cat" chips on top. Slice 4 (spotters) waits until SYC-161 is live, as the spec's §14 order intended | One set of rules and one field, built once by the work that owns them. No cache-key change ever ships. The team can describe cats straight away. Spotters get the spec's one-tap "Ginger · Tabby, right?" from their first day, never an empty question | Slice 4 waits on SYC-161, which is not yet scheduled; if SYC-161 slips, spotters can't contribute until it lands | Colours appear first for cats the team describes, then for every cat once the machine reads them, then spotters confirm or correct |
+| A2. As A1, but spotters' questions ship without waiting for SYC-161 | Slice 4 ships as soon as the team slice is live | Spotters contribute sooner | Until SYC-161, the line after the points asks with empty chips instead of a one-tap Yes. Every public colour on an undescribed cat is one spotter's tap (rule 4 fills the gap), and none of those cats reach the Colour check list, because "spotters over the machine" needs a machine reading. When SYC-161 lands, the machine's reading outranks those single taps (rule 3), so many cats' public colours change at once, as the rules say they should | A question after the reward that needs several taps; then a wave of colour changes when the machine arrives |
+| A3. SYC-161 goes first | Build SYC-119's Slice C (reader, backfill, chips), corrected to the SYC-2 rules, then this plan | Every cat has a colour from day one of this plan | SYC-161 has to build the colour rules itself, or ship an interim rule this plan then replaces. Both plans edit the same resolver function and payload field, so work is done twice | Colours for every cat first; people's corrections follow |
+| A4. Fold SYC-161 into this plan as a slice | This plan owns the reader and the chips too | One plan, one owner | SYC-119's approved plan loses a slice it already sequenced, and this plan grows by a model-calling background job with its own cost cap | The same as A1, in one stream of work |
 
-**Recommendation: A1.** The rules for which colour wins are this spec's, and building them before anything writes machine readings means nothing is ever shown under the wrong rule. The cost is cosmetic and temporary: no pre-filled guess, and no colour chips in "Find the cat", until SYC-161 lands. If A1 is chosen, a comment on SYC-161 (filed by this plan, see "Linear") tells its builder to reuse `resolveCoat` and the `coat` field, drop the cache bump, and import `COAT_COLOURS`.
+**Recommendation: A1.** The rules for which colour wins are this spec's, so building them before anything writes machine readings means nothing is ever shown under the wrong rule, and holding the spotter questions until the machine has read colours keeps the spec's intended experience (a one-tap "right?") and its §14 order for spotters. The cost is time: spotters' questions wait for SYC-161. If A1 or A2 is chosen, a comment on SYC-161 (filed by this plan, see "Linear") tells its builder to reuse `resolveCoat` and the `coat` field, drop the cache bump, and import `COAT_COLOURS`.
 
 ### Decision B: where the "N cats vaccinated this year" number goes before the donations work exists
 
@@ -142,11 +143,11 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 
 **The question.** The spec gives every chip "a small picture and the word", and requires a picture of *Torn or notched ear* beside Syros Cats' ear-tip photo, so nobody confuses the two. Nineteen pictures are needed (eight colours, eleven markings).
 
-| Option | Benefits | Risks |
-|---|---|---|
-| **D1. Simple drawn pictures, one consistent set made by Claude as part of Slice 4, reviewed by Samuel in the browser check (recommended)** | Consistent, clear at chip size, no rights to clear, ready when the code is. Colours can be plain swatches (as `choose-a-different-cat.md` §4.7 already says) | Drawings are less vivid than photos; *colourpoint* and *odd eyes* need care to read at 40 px |
-| D2. Real photos from Syros Cats, as for the ear tip (SYC-79) | True to life | Nineteen good, consistent photos is a lot to ask a volunteer team; it blocks Slice 4 on their time |
-| D3. Words only, no pictures | Nothing to draw | Breaks the spec (§9) and works worse for tourists reading another language |
+| Option | Benefits | Risks | What people notice |
+|---|---|---|---|
+| **D1. Simple drawn pictures, one consistent set made by Claude as part of Slice 4, reviewed by Samuel in the browser check (recommended)** | Consistent, clear at chip size, no rights to clear, ready when the code is. Colours can be plain swatches (as `choose-a-different-cat.md` §4.7 already says) | Drawings are less vivid than photos; *colourpoint* and *odd eyes* need care to read at 40 px | Clean, matching little drawings on every chip |
+| D2. Real photos from Syros Cats, as for the ear tip (SYC-79) | True to life | Nineteen good, consistent photos is a lot to ask a volunteer team; it blocks Slice 4 on their time | Real cats on the chips, if the photos come |
+| D3. Words only, no pictures | Nothing to draw | Breaks the spec (§9) and works worse for tourists reading another language | Words only; harder for visitors in another language |
 
 **Recommendation: D1**, with the torn ear drawn and shown beside the real ear-tip photo. If Syros Cats later send photos, swapping a picture is a one-file change.
 
@@ -154,10 +155,10 @@ Five decisions. **A is the weighty one**; B to E are small and could be answered
 
 **The question.** English reads naturally as "Ginger tabby". Greek and French make colour words agree with the noun and often change their order, so a sentence-builder for every pair is a grammar engine in three languages.
 
-| Option | Benefits | Risks |
-|---|---|---|
-| **E1. Join with a dot in every language: "Ginger · Tabby · White paws" (recommended)** | No grammar to get wrong; the same shape in all three languages; matches the chips | Slightly less natural than "Ginger tabby" in English |
-| E2. Natural phrases, written out for each of the colour pairs in each language | Reads naturally | About twenty pairs × 3 languages, each needing Johnny's check (SYC-283); easy to get subtly wrong |
+| Option | Benefits | Risks | What people notice |
+|---|---|---|---|
+| **E1. Join with a dot in every language: "Ginger · Tabby · White paws" (recommended)** | No grammar to get wrong; the same shape in all three languages; matches the chips | Slightly less natural than "Ginger tabby" in English | "Ginger · Tabby · White paws", the same in every language |
+| E2. Natural phrases, written out for each of the colour pairs in each language | Reads naturally | About twenty pairs × 3 languages, each needing Johnny's check (SYC-283); easy to get subtly wrong | "Ginger tabby", or its natural Greek and French |
 
 **Recommendation: E1.** It is what the picker cards and the spec's §7.2 already use for markings.
 
@@ -177,13 +178,13 @@ Foundations first: the documents, then the record and its rules, then what the p
 | **Docs** | D-SYC2: the data spine, `choose-a-different-cat.md` §8.4, `DECISIONS.md` | PR #104 merged (done); Samuel's answers to Decisions A–E | Nobody |
 | **Slice 1: the record** | 1.1 the new kinds and the write rules · 1.2 the resolver | Docs merged | Nobody |
 | **Slice 2: what the public sees** | 2.1 the payload, the words, the cat page and picker cards | 1.2 | Everyone, once a cat has a colour or marks |
-| **Slice 3: the team** | 3.1 Appearance and the Colour check list · 3.2 vaccinations and health notes | 1.1 (3.2), 2.1 (3.1) | The team |
-| **Slice 4: spotters** | 4.1 the answers endpoint learns appearance · 4.2 the colour line after the points and the details card · 4.3 the cat-alog's colour filter | 3.1 live | Spotters |
+| **Slice 3: the team** | 3.1 Appearance and the Colour check list · 3.2 vaccinations and health notes | 2.1 (both: its leak tests must exist before any vaccination or note is stored) | The team |
+| **Slice 4: spotters** | 4.1 the answers endpoint learns appearance · 4.2 the colour line after the points and the details card · 4.3 the cat-alog's colour filter | 3.1 live; SYC-161 live (Decision A1) | Spotters |
 | **Slice 5: guardians** | 5.1 a guardian's appearance and health notes | 3.1, 3.2, and SYC-53's PRs 0.2, 0.5, 2.1 and 2.2 | Guardians and the team |
-| **Slice 6: donors** | 6.1 the vaccinated-this-year number | 3.2 | Donors |
+| **Slice 6: donors** | 6.1 the vaccinated-this-year number | 2.1, 3.2 | Donors |
 | **Slice 7: the old care route** | 7.1 refuse `general` (Decision C) | Nothing in this plan; can go any time after the docs | Nobody |
 
-Slices 3.2, 6 and 7 do not depend on the colour rules and can be built in parallel with Slices 2–4 once their own "needs first" are merged. SYC-161 (the machine reading and the "Find the cat" chips) slots in after 2.1 under Decision A1, and needs nothing from Slices 3–7.
+Slices 3.2, 6 and 7 do not depend on the colour rules and can be built in parallel with Slices 3.1 and 4 once their own "needs first" are merged. **Nothing that stores a vaccination or a note, or adds a public endpoint, merges before 2.1**, because 2.1 carries the named-field leak test and the "rabies" test. SYC-161 (the machine reading and the "Find the cat" chips) slots in after 2.1 under Decision A1 or A2, and needs nothing from Slices 3–7.
 
 **Rollback** for every slice is a revert. Observations already written stay valid and are simply not read (spec §14). Nothing is deleted and nothing needs a migration to undo.
 
@@ -202,7 +203,7 @@ Slices 3.2, 6 and 7 do not depend on the colour rules and can be built in parall
 | `choose-a-different-cat.md` §8.4 | "A person's reading always beats the machine's" becomes the narrowed sentence (SYC2-D10). "One or two values, or 'not sure'" becomes the `coat: []` shape |
 | `DECISIONS.md` | A new Part, dated 12 October 2026, carrying spec §15's entries, plus this plan's Decisions A–E as answered; a Part 3 ownership row (vocabulary and what is public: this spec; kinds and resolver: the data spine) |
 | `docs/superpowers/plans/syc-119-choose-a-different-cat.md` Slice C | Only if Decision A1: a note that the colour rules, the `coat` payload field and the chip component come from SYC-2, that "people beat the machine" is narrowed (SYC2-D10), and that the cache key is not bumped |
-| `coat-markings-and-health.md` | Only if Samuel's answers change something it says (Decision A changes §14's dependency on SYC-161; Decision E fixes §5.2's example) |
+| `coat-markings-and-health.md` | Only if Samuel's answers change something it says (Decision A narrows §14's dependency on SYC-161 to the spotter slice; Decision E fixes §5.2's example) |
 
 **Collisions, and how they are avoided.**
 - **The SYC-53 docs PRs** D1 (`cat-record-data-spine.md` §6.5, §4.2, §10.1 vocabulary, §10.5, §4.5, §3.2, §6.7) and D3 (`DECISIONS.md`, a new Part 2n). D-SYC2 touches §10.1 only by **appending its own paragraph** after the existing kinds comment, and does not touch the role vocabulary lines D1 rewrites. Its `DECISIONS.md` Part takes the next free letter when it merges, never a letter chosen in advance.
@@ -225,13 +226,14 @@ Slices 3.2, 6 and 7 do not depend on the colour rules and can be built in parall
   - `markings`: `{ marks }` (distinct codes from `MARKS`; at most 4 from `public`, any number otherwise; `[]` allowed); `{ cantTell: true }`; or `{ retracted: true }`.
   - `vaccinated`: `{ vaccines, clinic? }` with 1–3 distinct entries from `rabies`, `cat_flu_enteritis` or `{ other: name }` (a typed name, trimmed, 2–60 characters); `observedAt` is the date given.
   - `team_note`: `{ text }`, 1–2,000 characters (the welfare note's limit).
-  - `{ retracted: true }` is refused from `public`, and refused unless `supersedesId` is set.
+  - `{ retracted: true }` is refused from `public`, refused unless `supersedesId` is set, and **refused unless the row it supersedes is the same kind and that kind is `coat` or `markings`**, for every role. A retraction can never remove a `sterilised`, `vaccinated`, `team_note` or any other row.
+- **One normaliser, used by every writer.** `normaliseColours()` turns `black` + `white` into `black_and_white`; the answers route (4.1) and the team and guardian statement functions (3.1, 5.1) all call it, so a team Correct with both ticked is stored silently, as spec §4.2 says. The validator's refusal of the raw pair is only the backstop.
 - **Who may write which kind**, enforced in `writeObservation`, not left to callers: `coat` and `markings` from `public`, `staff`, `management` and (once SYC-53's PR 2.2 makes it reachable) `guardian`; `vaccinated` refused from `public`, `guardian` and `system` (the import exception is added when `records-import.md` is built, not now); `team_note` refused from `public` and `system`. `vet` is refused for `coat` and `markings`. `management` and `guardian` stay unreachable here until SYC-53's PRs 0.2 and 2.2 add them to `REACHABLE_ROLES`; this PR writes the rules against the role names so those PRs only flip reachability.
 - **A device only supersedes its own row (C2).** For `public` writes of `coat` and `markings`, `writeObservation` refuses a `supersedesId` that points at a row with a different `deviceId` or a different kind (`NOT_YOUR_ROW`). Team supersessions are unchanged (they go through `lockActiveObservation`).
 - **Not evidence of life.** The four kinds are added to the resolver's named exclusion comment, and a test asserts none of them moves `lastSeenAt` or life status.
 - **No route writes any of these yet.** The answers route, the team routes and the guardian routes come in Slices 3–5.
 
-**Tests.** Every validator branch, including: a person's `coat` with `modelVersion` refused, a machine `coat` without it refused; `black` + `white` refused; five marks from `public` refused, five from `staff` accepted; `[]` accepted; `vaccinated` from `public` and `guardian` refused; an `other` vaccine with no name refused; `team_note` from `public` refused; `{ retracted: true }` from `public` refused. **T-own-row:** device A's write superseding device B's `coat` row is refused. **Mutation probe:** delete the device comparison → red. **T-life:** a cat whose only recent rows are the four new kinds keeps its old `lastSeenAt` and life status. **Mutation probe:** add `markings` to the evidence list → red.
+**Tests.** Every validator branch, including: a person's `coat` with `modelVersion` refused, a machine `coat` without it refused; `black` + `white` refused; five marks from `public` refused, five from `staff` accepted; `[]` accepted; `vaccinated` from `public` and `guardian` refused; an `other` vaccine with no name refused; `team_note` from `public` refused; `{ retracted: true }` from `public` refused. **T-own-row:** device A's write superseding device B's `coat` row is refused. **Mutation probe:** delete the device comparison → red. **T-retract-kind:** a staff `{ retracted: true }` pointing at a `sterilised`, `vaccinated` or `team_note` row is refused. **Mutation probe:** drop the kind check → red. **T-life:** a cat whose only recent rows are the four new kinds keeps its old `lastSeenAt` and life status. **Mutation probe:** add `markings` to the evidence list → red.
 
 ### PR 1.2: the resolver (spec §4.2, §10.2)
 
@@ -241,7 +243,7 @@ Three pure functions in `resolve.ts`, added to `CatSnapshot` (which stays a team
 - **`resolveMarkings(rows)`** → `Resolved<Mark[]>` plus `checkReasons`. Authority is the whole list; marks with two voices dated after the newest authority statement are added and flagged; otherwise two voices per mark; spotters only add; `cantTell` and a later `[]` from a device that had ticked marks withdraw nothing.
 - **`resolveVaccinated(rows)`** → the dates and vaccines the team recorded, newest first, or nothing. No negative state. Team-only.
 - **One shared voice-counting helper** used by both: tidy (drop superseded, retracted and empty answers; normalise `black` + `white`); one voice per `deviceId` (newest row wins; a redacted row is a voice of its own); a cross-device supersession found in the data is ignored, so the row it pointed at still counts; two voices only count as two with **different `photoId`s and different Athens calendar days** (`Europe/Athens`, not UTC); `prompted` rows never count towards two.
-- **Authority** comes from the shared role list (`TEAM_ROLES` from SYC-53's PR 0.2 if merged; today's `AUTHORITATIVE_ROLES` otherwise), plus `guardian` rows with a colony scope once SYC-53's PR 2.2 is live. A team or guardian Confirm (`agreesWith`, no photo) is an authority statement with the same value.
+- **Authority** comes from the shared role list (`TEAM_ROLES` from SYC-53's PR 0.2 if merged; today's `AUTHORITATIVE_ROLES` otherwise), plus `guardian` rows with a colony scope once SYC-53's PR 2.2 is live. **For colour and markings the resolver excludes `vet` rows and `provenance: import` rows at read time** (today's `isAuthoritative` in `resolve.ts:132-139` accepts both, for sterilisation), so they never count as authority or as a voice, whatever a writer let through. A team or guardian Confirm (`agreesWith`, no photo) is an authority statement with the same value.
 - **Confidence (C5):** authority `confirmed`; two voices `likely`; the machine or a single gap-filling spotter `reported`. This is the first place `reported` is produced; nothing else changes rung.
 - **`checkReasons`**, the Colour check conditions (spec §5.3), as data so Slice 3 only reads them: `no_authority` (colour is the machine's alone or not sure), `spotters_over_machine`, `tied_camps`, `markings_reopened`, `markings_changed_recently` (spotter agreement in the last 30 days). The hand-pick reason is computed in Slice 3, because it needs `sighting_matches`.
 - **Not notifiable.** The email job's snapshot comparison (data spine §9.3) ignores the new snapshot fields; a test proves a colour change queues nothing.
@@ -257,6 +259,7 @@ Three pure functions in `resolve.ts`, added to `CatSnapshot` (which stays a team
 | A prompted "Yes" never counts towards two, including a prompted tap on a spotter-filled value | Treat `prompted` as `volunteered` → red |
 | One spotter never overturns a real machine reading (SYC2-D10) | Let rule 4 run before rule 3 → red |
 | A later machine reading never beats an earlier team or guardian statement | Order authority by `createdAt` against the machine → red |
+| A `vet` or `import` row on coat or markings counts for nothing | Reuse `isAuthoritative` unchanged → red |
 | Two camps (two for ginger, two for black, nobody named both) → the newer camp, with `tied_camps` | Return both colours → red |
 | *Ginger · Tabby* and *Ginger* agree on *Ginger*; *Tabby* not shown | Compare whole sets → red |
 | Spotters only add: an omission, a later `[]` and `cantTell` remove nothing | Let a device's newest row replace its marks → red |
@@ -282,7 +285,7 @@ Plus the plain cases: each rule alone and in conflict; a person's *Not sure* nev
 
 **Tests.**
 - **T-leak (C6), named fields.** `GET /cats` and `GET /cats/:id`: the `coat` and `markings` objects carry exactly a list each; no key named `vaccinated`, `vaccines`, `team_note`, `teamNote`, `healthNotes`, `checkReasons`, `modelVersion`, `confidence` (inside the new fields), `supportingObservationIds` or `conflicts` appears anywhere in the response. **Mutation probe:** serialise the whole `Resolved` object for coat → red.
-- **T-rabies.** The words "rabies", "cat flu" and "enteritis" (and their Greek and French) appear in no public payload and no string in `lib/i18n.ts`. **Mutation probe:** add `vaccinated` to `serialiseCat` → red.
+- **T-rabies.** The words "rabies", "cat flu" and "enteritis" (and their Greek and French) appear in no public payload, no string in `lib/i18n.ts`, and nothing in the generated client (`lib/api-client-react`, `lib/api-zod`). **Mutation probe:** add `vaccinated` to `serialiseCat` → red.
 - **T-cache.** A v2 cache written in the shape today's build writes (no `coat`, no `markings`) is read by the new client and every cat renders with no appearance line. **And a guard for the future:** a test fails if `CATS_CACHE_KEY` changes while `catalogue.ts` has no read of the previous key as a fallback (the spec's rule for any later bump). **Mutation probe:** change the key to v3 → red.
 - **T-words.** Every code in `COAT_COLOURS` and `MARKS` has a label in all three languages (the server lists are imported into the app test through the generated types, so a new code without a label fails); nothing renders a raw code; the existing parity test covers keys and placeholders.
 - **T-no-health-words.** No public string contains "healthy", "sick", "diseased" or "unvaccinated" in any language (spec §9).
@@ -305,16 +308,17 @@ Plus the plain cases: each rule alone and in conflict; a person's *Not sure* nev
   - **Mark wrong**: `{ retracted: true }` superseding exactly one row, through `lockActiveObservation`, with a required reason.
 - **Routes** (Origin, then session and `set_appearance`, then body, as PR #99 did): `POST /api/team/cats/:id/appearance/confirm`, `…/appearance/correct`, `POST /api/team/observations/:id/retract`. The chip pickers are plain checkboxes and radio buttons, no script (DECISIONS Part 2k).
 - **The Appearance section** on the team cat page, next to "Correct the record", drawn from the snapshot and the raw rows.
-- **The Colour check list.** `GET /api/team/colour-check` (HTML and JSON, like `/team/likely`), behind `set_appearance`: every cat with any `checkReasons`, plus the **hand-pick reason**: the cat chosen by hand is resolved to colours that share none with the spotter's own `coat` answer on that sighting (no spotter answer, no flag; no new model call). Main photo, newest first, Confirm and Correct on each row. A nav entry, "Colour check".
+- **The Colour check list.** `GET /api/team/colour-check` (HTML and JSON, like `/team/likely`), behind `set_appearance`: every cat with any `checkReasons`, plus the **hand-pick reason**: the cat chosen by hand is resolved to colours that share none with the spotter's own `coat` answer on that sighting (no spotter answer, no flag; no new model call). Main photo, newest first, Confirm and Correct on each row. A nav entry, "Colour check". **To keep it "a few minutes a week"** (spec §5.3), the page lists cats with any reason other than `no_authority` first, and puts the `no_authority` cats (colour only the machine's, or not known, and never described) in one collapsed group at the bottom with its count ("Not yet described by the team: 214 cats"). Before SYC-161 that group is most of the cat-alog; it is still listed, as the spec says, but never in the way of the cases that matter.
 - **Language.** The dashboard is English today; if SYC-53's PR 1.0 has merged, the new strings go into its three-language catalogue.
 
-**Tests.** A team member's Confirm writes one statement linked by `agreesWith` with no photo; Correct needs a reason; Mark wrong removes exactly one row from the count (re-using 1.2's probe); a non-holder gets refused at each route (today: anyone not `staff`); a second Mark wrong on the same row returns "already"; **form and JSON write identical rows**. Colour check: each reason puts a cat on the list and clearing it takes it off; a hand pick whose spotter said ginger on a cat resolved black is listed, and one with no spotter answer is not. **Mutation probe:** compare against the cat's machine reading instead of the spotter's answer → red. The existing route walk (`team.walk.test.ts`) gains the new routes. **Browser check** at ~390 px and desktop.
+**Tests.** A team member's Confirm writes one statement linked by `agreesWith` with no photo; Correct needs a reason; Mark wrong removes exactly one row from the count (re-using 1.2's probe); a non-holder gets refused at each route (today: anyone not `staff`); a second Mark wrong on the same row returns "already"; **form and JSON write identical rows**. Colour check: each reason puts a cat on the list and clearing it takes it off; `no_authority` cats sit in the collapsed group and never above a cat with another reason; a hand pick whose spotter said ginger on a cat resolved black is listed, and one with no spotter answer is not. **Mutation probe:** compare against the cat's machine reading instead of the spotter's answer → red. The existing route walk (`team.walk.test.ts`) gains the new routes. **Browser check** at ~390 px and desktop.
 
 ### PR 3.2: vaccinations and health notes on the cat (spec §6.3, §6.4)
 
 - `capabilityFor()` maps `vaccinated` to `set_vaccination` and `team_note` to `add_health_note`; both join `DIRECT_KINDS`.
 - **Vaccination** form on the team cat page (date, then rabies / cat flu and enteritis / another by name, no brand field), `POST /api/team/cats/:id/vaccinations`, behind `set_vaccination`. A wrong entry is corrected by the existing supersede route under `set_vaccination`. The page lists recorded vaccinations, newest first, with how long ago.
 - **Health notes**: `POST /api/team/cats/:id/health-notes` behind `add_health_note`; shown on the cat page only to holders of `view_health_notes`, newest first, with author and date. The spotters' own "Anything you noticed?" notes stay where they are.
+- **Not in the public API description.** The team routes are server-drawn forms; nothing about vaccination is added to `lib/api-spec/openapi.yaml`, so the generated public client never carries a vaccine name (T-rabies scans the generated client too).
 - **Welfare reports untouched.** The report note (`add_team_note`) stays on the report; a cat note never appears on a report and a report note never becomes a cat note.
 
 **Tests (spec §10.6 "Vaccinated", "Health notes", "Welfare separation").** A vaccination with no vaccine refused; an `other` with no name refused; recorded dates show; nothing about vaccination in any public payload (T-rabies re-run); a `team_note` is readable only with `view_health_notes` (**mutation probe:** gate the read on `view_exact_location` → red); a `team_note` survives deletion of a welfare report on the same cat; a welfare report writes no `team_note`; **the "needs help" link still renders on the public page of a cat with a health note** (**mutation probe:** hide the link when any note exists → red). **Browser check.**
@@ -323,7 +327,7 @@ Plus the plain cases: each rule alone and in conflict; a person's *Not sure* nev
 
 ## Slice 4: spotters
 
-**In plain English.** After the points for a new cat, a spotter sees one quiet line: *"Agatha looks Ginger · Tabby, right?"* (or, before the machine reads colours, *"This cat looks… Pick a colour"*), with Yes, Change and Skip. Skipping costs nothing. On the "add details" card for a cat they spotted in the last 30 days, they can be asked about the colour or the markings, beside their own photo, one question per sighting. Ticking a mark that could be an injury shows "Does it look hurt? Tell Syros Cats." The cat-alog gets a colour filter. Nothing is asked before the points, and nothing is saved for later when there's no signal: the line and the card only appear online.
+**In plain English.** After the points for a new cat, a spotter sees one quiet line: *"Agatha looks Ginger · Tabby, right?"* (or, when the machine couldn't tell, *"This cat looks… Pick a colour"*), with Yes, Change and Skip. Skipping costs nothing. On the "add details" card for a cat they spotted in the last 30 days, they can be asked about the colour or the markings, beside their own photo, one question per sighting. Ticking a mark that could be an injury shows "Does it look hurt? Tell Syros Cats." The cat-alog gets a colour filter. Nothing is asked before the points, and nothing is saved for later when there's no signal: the line and the card only appear online.
 
 ### PR 4.1: the answers endpoint learns appearance (spec §5.1, §10.3)
 
@@ -331,12 +335,13 @@ Plus the plain cases: each rule alone and in conflict; a person's *Not sure* nev
 - **Written as `public`**, `observedAt` the sighting's time, **`photoId` the sighting's photo** (so the different-photos rule has something to compare), `sightingId` set. `prefillAccepted` writes `provenance: prompted` with `suggestedValue` and `suggestionSource` (the reading it agreed with); anything else is `volunteered`. `black` + `white` is normalised before writing. `notSure` and `cantTell` are recorded and change nothing.
 - **Under the existing (device, cat) lock**, re-checked inside it: one appearance question per sighting (a second answer for the same sighting is refused, `ALREADY_ANSWERED`); a device's later `markings` answer on another sighting **adds** a new row and supersedes nothing; a changed `coat` answer supersedes only that device's own row (1.1's check is the backstop).
 - **Refused after the team has ruled** (`APPEARANCE_CHECKED`): a changed answer from a device that had already answered once an authority statement stands; a new `coat` answer once an authority colour stands. The app shows "Syros Cats have checked this one."
+- **An appearance refusal never loses the other answers.** Appearance is judged on its own: when it is refused (`APPEARANCE_CHECKED` or `ALREADY_ANSWERED` for appearance), the ear tip, food and water and note in the same request are still written, and the 200 response says `appearance: "checked" | "already" | "saved"`. Only a refusal of the whole request (device, window, unresolved sighting) fails it, as today.
 - **Refused** for a deceased or merged cat, outside the 30-day window, and for a sighting that isn't resolved (existing rules).
 - **Rate limit (C3).** A per-device limiter on the answers route (same pattern as `rateLimit.ts`'s limiters), covering all answers.
 - **Open sightings** gain `open.appearance: "coat" | "markings" | null`: colour if the cat's colour is not `confirmed`, else markings if it has none, else nothing; null once this sighting has an appearance answer.
 - **The naming call carries no appearance data** (unchanged; a test asserts it).
 
-**Tests.** A prompted Yes is stored `prompted` with its suggestion; a different answer `volunteered`; the photo id is the sighting's. **T-double-tap:** two concurrent writes from one device for one cat leave one voice. **Mutation probe:** drop the lock re-check → red. **T-checked:** a device's changed answer after a team statement is refused. **Mutation probe:** skip the check → red. Five marks refused; `nothingSpecial` from a device that ticked marks earlier withdraws nothing; the rate limiter returns 429 past its limit; the naming route rejects a `coat` field.
+**Tests.** A prompted Yes is stored `prompted` with its suggestion; a different answer `volunteered`; the photo id is the sighting's. **T-double-tap:** two concurrent writes from one device for one cat leave one voice. **Mutation probe:** drop the lock re-check → red. **T-checked:** a device's changed answer after a team statement is refused. **Mutation probe:** skip the check → red. **T-partial:** an appearance answer refused as `checked`, sent with an ear-tip answer, still stores the ear tip and returns `appearance: "checked"`. **Mutation probe:** throw on the appearance refusal → red. Five marks refused; `nothingSpecial` from a device that ticked marks earlier withdraws nothing; the rate limiter returns 429 past its limit; the naming route rejects a `coat` field.
 
 ### PR 4.2: the colour line and the details card (spec §5.1, §8, §9)
 
@@ -465,10 +470,10 @@ A mutation probe only proves a test guards a place someone already thought of. T
 2. **1.1 then 1.2** publish; nothing visible. After each, confirm `/api/healthz` shows the new commit before moving on (the EU deploy can sit in "promoting").
 3. **2.1** publishes. Probe a cat's payload on production (Slice 2's "After deploy"). Phones keep their cached catalogue.
 4. **3.1 and 3.2** publish. The team describes a handful of cats as an acceptance test, ideally Jacky or Susan, with Samuel checking the public page shows the line and nothing about health.
-5. **4.1, 4.2, 4.3** publish, in that order (the app must never send a field the server refuses). The app part ships with the next web publish and store build.
+5. **4.1, 4.2, 4.3** publish after SYC-161 is live (Decision A1), in that order (the app must never send a field the server refuses). The app part ships with the next web publish and store build.
 6. **6.1** and **7.1** publish whenever ready after their "needs first"; 7.1's production check runs first.
 7. **5.1** publishes after SYC-53's PRs 0.2, 0.5, 2.1 and 2.2 are live.
-8. **SYC-161** (Decision A1) can start any time after 2.1.
+8. **SYC-161** (Decision A1 or A2) can start any time after 2.1.
 
 Every probe is run by Claude, not Samuel.
 
@@ -570,3 +575,22 @@ Every PR is built in its own worktree off fresh `origin/main`, never the primary
 7. **SYC-185**: PR 7.1 removes `general` ahead of the route's retirement (Decision C).
 8. **SYC-49**: importing vaccinations needs `writeObservation` to accept `provenance: import` for `vaccinated`.
 9. **SYC-283** and **SYC-244**: the coat and marking strings land in PR 2.1.
+
+---
+
+## Review outcome
+
+An independent Sonnet critic checked this plan against the approved spec and the code on 12 October 2026, read-only. It found no blockers, four major findings and four minor ones. All eight were accepted and folded in:
+
+| # | Finding | How it was handled |
+|---|---|---|
+| 1 | A team or guardian retraction could supersede any row, including `sterilised`, `vaccinated` or `team_note` | PR 1.1: a retraction must target the same kind, and only `coat` or `markings`, for every role; T-retract-kind with a mutation probe |
+| 2 | Before SYC-161, the Colour check list's "no authority" reason would list nearly every cat | PR 3.1: those cats sit in one collapsed, counted group at the bottom; every other reason comes first |
+| 3 | Decision A1 understated what spotters would see without machine readings, and missed an option | Decision A rewritten: the recommendation now holds the spotter slice until SYC-161 is live, keeping the spec's one-tap "right?" and its §14 order; the old A1 is kept as A2 with its risks stated |
+| 4 | An appearance refusal could drop the ear-tip answer sent in the same request | PR 4.1: appearance is judged on its own and the other answers are still saved; T-partial with a mutation probe |
+| 5 | Today's authority check accepts `vet` and imported rows | PR 1.2: excluded at read time for colour and markings, with a mutation probe |
+| 6 | 3.2 and 6.1 could merge before 2.1's leak tests exist | Both now need 2.1 first, stated in the order table |
+| 7 | Only the answers route normalised black plus white | One `normaliseColours()` used by every writer (PR 1.1) |
+| 8 | Decisions D and E lacked a "what people notice" column | Added |
+
+The critic also noted that a team vaccination route described in the public API file would put "rabies" into the generated client; PR 3.2 keeps those routes out of `openapi.yaml`, and T-rabies scans the generated client.
