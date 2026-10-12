@@ -619,8 +619,8 @@ For each PR, in order, after its own review:
 3. **Publish.** Samuel pulls into the EU Replit project and publishes. Claude waits until `/api/healthz` shows the new commit (the EU deploy can sit in "promoting"), then runs db-ops `smoke`.
 4. **Probe (Claude).** Every new route without a session → 401; with a test guardian session on development → what the route-walk table says. After 1.1: an invitation to a test address Claude controls on development shows "Not sent yet" when mail is off and "Invited" once delivered. After 3.1: a field-check photo's public URL → 404. After 4.1: the field pages' headers, and a non-field page still has no script source.
 5. **W1** is deployed by Claude with wrangler after 0.4 is live in production, with the previous Worker version recorded first and rolled back on any failed probe (see W1). **0.5 publishes only after W1 is live** and the three management rows exist.
-7. **Progress notification (review minor 17).** After each PR merges and is verified live, **Claude sends Samuel a short progress note** (what shipped, what is next, anything waiting on him) before starting the next PR. A final note at the end of each slice.
-6. **First real use.** After Slice 1: Samuel invites one team member as the acceptance test. After SYC-209's colony PR and Slice 2: the first guardian, chosen by Samuel, ideally with Susan making the call so the invitation is read aloud on the phone first.
+6. **Progress notification (review minor 17).** After each PR merges and is verified live, **Claude sends Samuel a short progress note** (what shipped, what is next, anything waiting on him) before starting the next PR. A final note at the end of each slice.
+7. **First real use.** After Slice 1: Samuel invites one team member as the acceptance test. After SYC-209's colony PR and Slice 2: the first guardian, chosen by Samuel, ideally with Susan making the call so the invitation is read aloud on the phone first.
 
 **Up/down/up.** Every migration's commented rollback is proved by the runner's harness in CI (`pnpm --filter @workspace/db test`): up, down, up again, schema identical. **Rolling back in production:** app first, then the database, or not at all (`lib/db/migrations/README.md`). Rolling back 0.1 deletes the history, 3.1 deletes field-check photos and 3.4 deletes open requests; the rollback blocks say so, and the snapshot is taken first. **After `people-set-roles` has run in production, rolling back 0.3 is not offered: the production path is fix-forward** (its block refuses and lists the rows that would be lost). CI proves up, down, up on an empty database **and** on a seeded one (PR 0.3).
 
@@ -669,9 +669,9 @@ Session model for this plan: **Opus 5.5**, chosen by the brief because a wrong s
 
 | Work package | Model | Why this tier | Assurance |
 |---|---|---|---|
-| D1–D4 docs PRs | Sonnet | Transcribing approved text from spec §17 and this plan's decisions | Session model checks each line against §17 and the canonical facts in `CLAUDE.md` |
+| D1–D6 docs PRs | Sonnet | Transcribing approved text from spec §17 and this plan's decisions (D5 and D6 amend approved specs, so the session model reads them against Samuel's 12 October answers word by word) | Session model checks each line against §17, Samuel's answers and the canonical facts in `CLAUDE.md`; D6 is also read by the Opus reviewer of PR 0.2 before it merges |
 | 0.1 `person_events` migration, backfill, events in `people.ts` | Sonnet | Clear spec (SYC-213), follows the `observations` trigger pattern | T21 with a **mutation probe on every insert**; up/down/up; session model reads the SQL line by line |
-| 0.2 one list of roles, `actingRole`, vocabulary | Sonnet | Mechanical consolidation with a source test | T23 part with **mutation probe**; source test; production `admin` count probe; Opus spot review of the resolver diff |
+| 0.2 one list of roles, `actingRole`, vocabulary, `authorityLevel` (Decision G) | **Opus** | *Escalated (review M10):* it changes who the resolver treats as authoritative (`admin` to `management`, the precedence order) and introduces `actingRole`, which decides the role written on every statement; a slip silently de-authorises management or lets a role in | T23 and the precedence edges (vet vs guardian, vet vs owner, guardian vs team, owner vs team, guardian vs owner, same-level newest, stray `colony:` scope), each with its own **mutation probe**; source test; the production `admin` count probe done **before** merge; **Opus adversarial review in its own worktree** that re-runs the probes by hand |
 | 0.3 the roles migration and the `people` command | **Opus** | *Escalated:* production data, list-and-stop logic, and the checks that make "guardian is never island-wide" true in the database | T17, T29, T9 with **mutation probe**; up/down/up; run against a copy of the production shape on development first; Opus adversarial review |
 | 0.4 two doors (API) | **Opus** | *Escalated:* the one change that could hand a guardian the document password through the old Worker | T7 with **mutation probe**; §14 case 13 identical answers; Opus adversarial review |
 | W1 the Worker | **Opus** | *Escalated:* a security boundary in another repository, with a fail-safe deploy order | That repo's tests with **mutation probe**; wrangler deploy and live probe of both kinds of person |
@@ -679,19 +679,19 @@ Session model for this plan: **Opus 5.5**, chosen by the brief because a wrong s
 | 1.0 string catalogue and parity test | Sonnet | Follows the app's i18n shape | T25 with **mutation probe** |
 | 1.0 Greek and French drafts | Sonnet | Language quality matters more than for boilerplate | Johnny's review (SYC-283) before any language is switched on |
 | 1.1 invitations, accept, leave, mail purposes | **Opus** | *Escalated:* pending-state security (a pending person must never be a capability holder), conditional updates, the last-manager race, and a mail function that must not be usable to email a stranger | T8–T10, T15, T18–T22, T29d, T30 core, with **mutation probes** on T9, T10, T18, T22, T30; Opus adversarial review |
-| 1.2 the People screen | Sonnet | Forms over 1.1's reviewed functions | T15 screen half; chip-state test; browser check at ~390 px and desktop; Opus spot review |
+| 1.2 the People screen | Sonnet builds the markup; **Opus** reviews | Forms over 1.1's reviewed functions. *Escalated review (review M10):* this is the only place access is granted and removed, so `manage_people` gating, the Origin check, self-change refusal and "no free text reaches an email" get a full adversarial review, not a spot review | T15 screen half; chip-state test; a mutation probe per gate (drop `manage_people` from one route → that 403 test red; drop Origin → red; allow self-change → red); browser check at ~390 px and desktop; **Opus adversarial review** |
 | 1.3 "My page" and "My colonies" | Sonnet | Simple pages over existing functions | Tests listed; browser check |
 | 2.1 guardian serialiser and pages | **Opus** for the serialiser and targets; Sonnet for page markup | *Escalated (serialiser):* a leaked field is silent | T4, T5 with **mutation probes**; browser check; Opus review of the serialiser |
-| 2.2 guardian statements and resolver authority | **Opus** | *Escalated:* a resolver change that makes cats *Confirmed* and sends an email that can't be unsent | T12a, T23, T28, T29c with **mutation probes**; Opus adversarial review |
+| 2.2 guardian statements, resolver precedence and the one-time news | **Opus** | *Escalated:* a resolver change that makes cats *Confirmed* and sends news that can't be unsent | T12a-1 to 9, T12g-1 to 6, T23, T28, T29c with **mutation probes**; **Opus adversarial review** in its own worktree, which re-runs the precedence and news probes by hand |
 | 3.1 field checks and private photos | **Opus** for the photo store, route and resolver change; Sonnet for the forms | *Escalated (photos, resolver):* a public leak of a private photo, or a field check that confirms, is silent | T11, T12 with **mutation probes**; the source test that only one route reads `field_check_photos` |
-| 3.2 "Needs a look" | Sonnet | A read over the resolver | Tests listed; Opus spot review |
+| 3.2 "Needs a look" | Sonnet | A read over the resolver | Tests listed; mutation probes (include *Unknown* cats → red; drop the colony filter → red); **Opus reviewer** (it reads positions) |
 | 3.3 guardians' welfare reports | **Opus** | *Escalated:* reporters' photos and locations; a leaked contact field is silent | T29b all parts with **mutation probes**; Opus adversarial review |
-| 3.4 site-public requests and "Needs an OK" | Sonnet | Follows the report-state conditional-update pattern | T13, T14; browser check; Opus spot review |
+| 3.4 site-public requests and "Needs an OK" (migration `confirmation_items`) | **Opus** for the decide route and migration; Sonnet for the page markup | *Escalated (review M10):* approving makes a private feeding site public, the single most sensitive position in the app; the capability re-check at decision time and the first-decision-wins update are the safety | T13 and T14 with the separate **mutation probes** named in the PR; browser check; **Opus adversarial review** |
 | 4.1–4.3 field pages, saved list, offline queue | **Opus** | *Escalated:* the only scripts on the dashboard, a service worker, and exact positions on phones | T26 with **mutation probes**; offline browser checks at ~390 px; Opus adversarial review |
-| 5.1 counters and banner | Haiku | Mechanical: one table, one query, one banner | Tests listed; session model reviews the diff |
+| 5.1 counters and banner | Haiku | Mechanical: one table, one query, one banner | Tests listed; the three named mutation probes (cat column, threshold, banner visibility); session model reviews the diff; Opus reviewer for the `manage_people` gate on the banner |
 | HTML row markup and seeded fixtures across slices | Haiku | Boilerplate against a fixed shape | Typecheck plus the PR's own tests; session model reviews the diff |
-| Adversarial review of each PR | Same tier as the builder (Sonnet for Sonnet-built, Opus for Opus-built), **each in its own worktree, never shared** | A reviewer proving a test can fail mutates the tree, so two reviewers can't share one | Findings folded in and listed in each PR; the session model checks each against the code |
-| Production steps: migrations, snapshots, `people-set-roles`, wrangler, probes | Session model | Production data and credentials; not delegated | Rollout step 4's probes |
+| Adversarial review of each PR | **Opus for anything touching `manage_people`, the resolver or any exposure of positions** (0.2, 0.3, 0.4, W1, 0.5, 1.1, 1.2, 2.1, 2.2, 3.1 to 3.4, 4.x, 5.1's banner); otherwise the builder's tier. **Each in its own worktree, never shared** | A reviewer proving a test can fail mutates the tree, so two reviewers can't share one; a Sonnet reviewer is not adequate for the permission core | Findings folded in and listed in each PR; the session model checks each against the code |
+| Production steps: migrations, snapshots, `people-set-roles`, wrangler (with the recorded rollback version), probes, the read-only colony count | Session model | Production data and credentials; not delegated | Rollout step 4's probes |
 
 ## Crash-proofing for the build
 
@@ -705,7 +705,7 @@ Every PR is built in its own worktree off fresh `origin/main`, never the primary
 
 | PR | Closes | Advances |
 |---|---|---|
-| D1–D4 | | SYC-53 |
+| D1–D6 | | SYC-53 |
 | 0.1 | **SYC-213** | SYC-53 |
 | 0.2 | **SYC-252** | SYC-53 |
 | 0.3 | | SYC-53, SYC-104 |
@@ -724,13 +724,70 @@ Every PR is built in its own worktree off fresh `origin/main`, never the primary
 SYC-53 itself closes when Slice 6 merges, or earlier if Samuel prefers to close it after Slice 5 and track owners under SYC-130.
 
 **Follow-up tickets to file (not filed by this plan):**
+0. **Comments with binding acceptance criteria (review M3).** On SYC-209: T16, T30 (route half), the guardian-colony-page rule (`guardianCatView`), the moved-cat line is PR 2.1's reader, `colonies.created_by` written only by `createColonyWithPlacement`. On SYC-2: colour and markings use `authorityLevel` and the `colony:<id>` scope (D5). On SYC-44: reports of `kind = 'content'` must never be returned by a guardian query. On SYC-26: its decision function must carry `doors`; a Google sign-in for a dashboard-only person sets no workspace cookie.
 1. **SYC-54: a short screen spec for the saved colony view and round sheet**, before Slice 4 (Decision F). Also: rename the ticket away from "volunteer", and drop "reuse the existing offline queue" (the app's queue is ruled out by spec §3).
 2. **The sign-in Worker: two doors and a dashboard-only path** (W1), in `catspotters-website`, linked to SYC-222.
 3. **The sign-in email in Greek and French** in the Worker, switched on after Johnny signs off (SYC-283).
 4. **Switch on Greek and French on the dashboard** (`LIVE_LANGUAGES`), after SYC-283.
-5. **SYC-208 must also reach** `field_check_photos`' notes, and anonymise a never-accepted invitee on withdrawal (a comment on SYC-208, not a new ticket, if it already lists the spec's §9.6–9.7 points).
+5. **SYC-208 must also reach** `field_check_photos`' notes, and reuse PR 1.1's placeholder for anonymising (a comment on SYC-208; anonymising a never-accepted invitee on withdrawal is now built in PR 1.1, not deferred).
 6. **SYC-209's plan must use this plan's Slice 0** (targets, `createColonyWithPlacement`, `listGuardianChanges`) and name tests T16 and T30 (a comment on SYC-209).
 7. **SYC-2's plan: guardian authority for colour and markings in the resolver** (a comment on SYC-2).
 8. **Retire db-ops `people-remove`** in the runbook and docs once 0.1 removes it (folded into 0.1 if small).
 9. **"Needs a look" sorted by distance on the field page** (Decision E), if it doesn't fit in 4.2.
 10. **A dashboard upload of a guardian's own sighting**, to make `match_cat_anywhere` real (spec §16.4; may already be filed from the spec).
+11. **`db-ops colonies-count`** (and a generic read-only count), so Claude can re-run the Decision D production check without the Neon SQL tool.
+12. **Retire the owner-key route's `desexed` path** (SYC-185 already covers the route; add that PR 2.2's once-per-cat check counts its older updates as already announced).
+13. **SYC-130 (#107): confirm that an owner's statement ranks with a guardian's (level 2) and that claims are verified enough for an owner to outrank the team** (Decision G assumption 1).
+14. **A one-line Linear reminder to switch Greek and French on** is already item 4; add that the People screen's "will be sent in English" label disappears with it.
+
+---
+
+## Still needs Samuel
+
+Small points only; nothing blocks Slice 0 except the first.
+
+1. **Approve the list of who becomes management** before PR 0.3's production run (Decision A). Claude shows it from the live database; production holds 3 people today. *Recommendation: approve.*
+2. **Switch the session to "ask" mode** for the Neon snapshot step before each production migration (0.1, 0.3, 3.1, 3.4). Auto mode blocks Neon snapshot writes.
+3. **Confirm the Decision G assumptions** (listed under Decision G): a cat guardian and an owner sit at the same level, newest wins (*recommend: yes*); imported records and management rank with the team (*recommend: yes*); and the "sterilised" news goes **once per cat, ever**, even if a Confirmed answer is marked wrong and later confirmed again (*recommend: yes, once*). Also, an owner's word outranks the team's, so SYC-130's claim should be checked before an owner's statement can be written (*recommend: keep owners out of the writes until SYC-130 says how a claim is checked; Slice 6 already waits for it*).
+4. **Anonymise on withdrawal** now happens in PR 1.1 for anyone who never accepted, **including someone who taps "No, this isn't for me"**: their name and address are replaced by a placeholder and the row is kept. *Recommendation: yes; it is what the spec promised.* The alternative is to keep a declined person's real address, which keeps a stranger's address on file.
+5. **Dashboard-only sign-in** now goes straight to the dashboard (the spec's wording); the extra "Open my colonies" page is dropped. *Recommendation: yes.*
+6. **Johnny's date (SYC-283):** 30 October 2026, as before.
+7. **The SYC-54 screen spec** before Slice 4 (Decision F). *Recommendation: yes.*
+
+## Review outcome
+
+Every finding in `syc-53-roles-and-invites-review.md`, and where this plan handles it. "Settled" means Samuel decided on 12 October 2026.
+
+| Finding | Handled in |
+|---|---|
+| **B1** "sterilised" news mechanism does not exist | Settled: in the app and by push, no email, once per cat, anyone whose statement makes it Confirmed. PR 2.2 (`commitStatement`, `announceSterilised` logic, tests T12a-1 to 9 with named probes); gap C10; D4 corrects the spec; the owner-key route is explicitly not the path |
+| **M1** guardian can overwrite vet or team | Settled: Decision G (vet > cat guardian and owner > team, newest at the same level). PR 0.2 (`authorityLevel`, edge tests and probes), PR 2.2 (routes, T12g-1 to 6, client `observedAt` ignored, contradictions on the guardian-changes list), D6; `guardian` kept out of the shared role set |
+| **M2** "Report an issue" reports (`kind = 'content'`) | PR 3.3: `kind = 'welfare'` in SQL, seeded content row test, probe; "Where this collides" (SYC-44) |
+| **M3** orphaned spec items | Moved-cat reader: PR 2.1 (acceptance test). "From someone who has since left": PR 3.1. 30-day round-sheet flag: PR 4.2 acceptance test (and PR 2.2 for the team's view). T16 and T30: "Binding hand-offs to SYC-209 and SYC-2" table plus Linear comments; spec tests this plan does not deliver are named |
+| **M4** Decision B vs merged SYC-2 spec | Decision B verdict (strict pattern, server-written, guardian only); docs PR D5; header and collision table refreshed (#102 to #104 merged) |
+| **M5** accept page leaves out required text | PR 1.1: "what you'll be able to see and do", lock request, never-reopened-phone sentence; T29d now pins three promises and the extra text |
+| **M6** `Clear-Site-Data` untested | PR 4.1: T26-csd-1 to 4 with probes; header sent from `/api/team/signout` directly; PR 4.2: 71 h 59 min / 72 h 01 min boundary |
+| **M7** unrecoverable rollback; `confirmation_items` timing | PR 0.3: rollback block (refuse and list in production, delete with count in CI), fix-forward statement, seeded-database rollback test; `confirmation_items` moved to PR 3.4's migration; four migrations |
+| **M8** W1 under-specified | W1 section: recorded rollback version and probes; identity handled in one request, no stored state; fail closed when `doors` is missing; SYC-26 worktree read (plan only, shared decision function, "no Worker change" now out of date); follows the spec ("straight to the dashboard"), the extra page dropped as a flagged deviation |
+| **M9** wrong-mailbox mitigation deferred; drain-time check | PR 1.1: anonymise on withdrawal or decline for never-accepted people; drain-time re-check (pending, unexpired, not anonymised, address matches); drain change in scope; tests and probes; "Not in this plan" updated |
+| **M10** tiers, assurance, probes | Model delegation: 0.2, 3.4 (decide route) to Opus; 1.2 builds in Sonnet with a full Opus adversarial review and per-gate probes; Opus reviewers for `manage_people`, the resolver and positions; specific probes written for T6, T13, T14, T17 (PR 0.3: drop the `reach` check), T27, 3.2, 5.1 and T12 |
+| Minor 1 JSON routes answer 401 | PR 0.5: JSON 403 row; T2 probe |
+| Minor 2 all placements ended | PR 0.5: "Your access has ended" 403 page; eighth kind of person in T1 |
+| Minor 3 Athens midnight | T6 (25 October 2026 test, three probes); PR 1.2 date field and test |
+| Minor 4 `people-set-roles` replaces | PR 0.3: additive by default, before and after printed, refuses no island role |
+| Minor 5 `people add --role management` | PR 0.3: `add` refuses management; `set-roles --add` only |
+| Minor 6 `findInvitee` usage | PR 1.1 and the "places the list is read" inventory |
+| Minor 7 pending session after accept | PR 1.1: cookie replaced on accept; old pending cookie test and probe |
+| Minor 8 `access_change_notice` scope | PR 1.1: every access change, guardians included; T15 and T19 extended |
+| Minor 9 photo upload rules | PR 3.1: shared `validatePhotoBase64` (type by content, EXIF and GPS stripped by re-encode, size caps), rate limit, `private, no-store`, source test, probes |
+| Minor 10 Greek guardians get English | PR 1.1 records the language used; PR 1.2 shows "will be sent in English" |
+| Minor 11 `removePerson` and test harness | PR 0.1: TRUNCATE-guard step for every test that creates people |
+| Minor 12 distance sort position | Decision E verdict; PR 4.2: POST body |
+| Minor 13 T24 parser | PR 0.5: pinned table shape, row-naming failure, SYC-209 and SYC-2 specs parsed |
+| Minor 14 plan text slips | Route count 23 + 2; C7; header and collisions; migration list in rollout |
+| Minor 15 two guardian colony pages | PR 2.1; "Every place the guard must hold"; hand-off table |
+| Minor 16 check production before declaring Decision D | Decision D: read-only count run on 12 October 2026 (0 colonies, 0 sites, 0 guardian rows, 3 people) and how to re-check; PR 1.2 disables guardian invitations while none exist |
+| Minor 17 progress notification | Rollout step 6 |
+| **Decisions A to F** | Each carries the review's verdict and conditions in "Decisions for Samuel" |
+| Missing Decision G | Added and settled |
+| Order and safety between PRs | Reviewer's check upheld; D5 and D6 added before 0.2 and 2.2 |
