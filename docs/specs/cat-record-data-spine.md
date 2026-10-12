@@ -875,6 +875,10 @@ sterilised:
 
 `lat`/`lng` keep their names and meaning ("where this cat is") — clients do not branch on a different field. `locationPrecision` tells the map how to draw it. Public `CatDetail.sightings[]` drops `lat` and `lng` entirely; the team payload keeps them.
 
+*Amended 12 October 2026, SYC-2:* `Cat` and `CatDetail` also gain `coat` (a list of colours; `[]` means not known, never the string `not_sure`) and `markings` (a list). Not `vaccinated`, and nothing else about either field: not confidence, author, counts, model version or the date a colour was read. This is the single wire shape for "not known", used by every reader.
+
+**No cache-key change.** The new fields are additive: an old client ignores them and a new client treats a missing `coat` or `markings` as "not known". The reason for a bump in §6.5 (a *shape* change that could leak or break) does not apply, so `cats-cache/public/v2` stays. Retired cache keys are deleted without being read, so a bump would empty the offline catalogue for anyone who updates the app with no signal.
+
 New and changed endpoints:
 
 - `POST /sightings/{id}/resolve` accepts optional `earTip` (`clipped_left | clipped_right | clipped_unsure | looks_whole | cant_tell`), `foodAndWater` (`yes | no | cant_tell`), and `note` (string, ≤500 chars). Each written as its own observation with `provenance: "prompted"` when the app pre-filled the answer — recording `suggestedValue` and `suggestionSource` — and `"volunteered"` when it did not. **Its response no longer carries the cat's exact position.**
