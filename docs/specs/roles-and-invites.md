@@ -32,7 +32,7 @@ The island has two kinds of people who know the cats: the Syros Cats team, who c
 The product has four kinds of person, and the public is exactly as it was:
 
 - **The Syros Cats team**, who do the cat work across the whole island: the welfare queue, records, field work, trapping rounds. Everyone who helps Syros Cats in the field is on the team and sees and does the same island-wide.
-- **Cat guardians** who look after a colony. They see *their own* colonies in full: exact positions, feeding sites, which cats are done and which aren't. They can say a cat is homed, in care or has died, propose where a cat lives, look after their colony's feeding sites, and tell the team "I've looked at her ear, it is clipped".
+- **Cat guardians** who look after a colony. They see *their own* colonies in full: exact positions, feeding sites, which cats are done and which aren't. They can say a cat is homed, in care or has died, decide which cats are in her colonies, look after their colony's feeding sites, and tell the team "I've looked at her ear, it is clipped".
 - **Management**: the few people on the team who invite and remove others. The people who are on the team when roles go live are also made management, so nothing any of them can do is taken away; the charity can narrow it afterwards.
 - **Spotters**, everyone using the public app. They never need an account and are never asked for one.
 
@@ -258,6 +258,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `view_health_notes` | Read team-only health notes on a cat (SYC-2) | Placed | All | All | Own |
 | `view_welfare_queue` | The welfare queue, welfare reports and reporters' photographs | Island-only | ✓ | ✓ | — |
 | `use_workspace` | See the workspace documents and the shared document password (§6.3) | Island-only | ✓ | ✓ | — |
+| `view_guardian_changes` | The "recent guardian changes" list on the team's dashboard: every cat a guardian added to or took out of a colony, and every sterilisation, life-status and colour statement she made, with who and when (§7.4) | Island-only | ✓ | ✓ | — |
 
 **Saying what you saw or know**
 
@@ -276,8 +277,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 
 | Capability | What it lets you do | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
-| `assign_cat_to_colony` | Put a cat in a colony, move it, or take it out of one | Island-only | ✓ | ✓ | — |
-| `propose_colony_change` | "This cat is one of mine" or "this cat is no longer in my colony"; waits for the team (§7.4). The target is the colony she is adding to, or the colony she is taking the cat out of | Placed | — | — | Own |
+| `assign_cat_to_colony` | Put a cat in a colony, move it, or take it out of one. A guardian does this alone, for her own colonies, with immediate effect and no team OK (§7.4). The target is the colony she is adding to, or the colony she is taking the cat out of; naming a colony she doesn't hold is refused | Placed | All | All | Own |
 | `create_colony` | Create a colony | Island-only | ✓ | ✓ | — |
 | `edit_colony` | Edit a colony's guardian-name text, notes and centre point (not its name) | Placed | All | All | Own |
 | `rename_colony` | Change a colony's name | Island-only | ✓ | ✓ | — |
@@ -295,7 +295,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 
 | Capability | What it lets you do | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
-| `settle_confirmation` | Approve or decline an item in "Needs an OK" of kind field check, colony change or site-public request (§7) | Island-only | ✓ | ✓ | — |
+| `settle_confirmation` | Approve or decline an item in "Needs an OK" of kind field check or site-public request (§7) | Island-only | ✓ | ✓ | — |
 | `approve_access` | Approve or decline an access change (§8.3). **The only capability that can settle one.** Access items are invisible to anyone without it | Island-only | — | ✓ | — |
 | `manage_people` | Invite, place, remove, re-admit, sign out everywhere | Island-only | — | ✓ | — |
 | `action_deletion_request` | Delete a person's details on a data request | Island-only | — | ✓ | — |
@@ -371,7 +371,7 @@ A guardian can look after a colony as a regular feeder, as the owner of a cat in
 |---|---|
 | `manage_feeding_sites` | `add_feeding_site` (placed), `edit_feeding_site` (placed), `reassign_feeding_site` (island-only) |
 | `manage_colonies` | `create_colony` (island-only), `edit_colony` (placed), and `rename_colony` for the name |
-| `set_cat_colony` | `assign_cat_to_colony` (island-only) for the team; `propose_colony_change` (placed) for a guardian |
+| `set_cat_colony` | `assign_cat_to_colony` (placed: the team island-wide, a guardian for her own colonies) |
 | `view_exact_location`, `set_site_public` | The same names |
 
 Four rules for those screens:
@@ -379,7 +379,7 @@ Four rules for those screens:
 - **A guardian sees only her own colonies' feeding sites.** Other sites are absent from the answer, not approximate. The filter is applied in the query, not on the page.
 - **A guardian can add a site only to a colony she holds, and it is always private.** She can retire or bring back a site in her colony. **She cannot change which colony a site belongs to**; that is `reassign_feeding_site`, island-only, because moving a private site into her own colony would let her read its position.
 - **No guardian can ever make a site public** (`set_site_public` is island-only): "private by default, public one at a time, by the team" is a safety rule, `team-access-and-welfare-queue.md` §3.2. A guardian who wants a site public uses `request_site_public`, which adds an item of kind *site-public request* to "Needs an OK" for the team to close. It changes nothing by itself.
-- **"Unassigned cats near their sites" give a guardian no reach.** Being near a site is not a reason to see a cat's exact position. A guardian who finds a cat of hers uses `propose_colony_change` (§7.4).
+- **"Unassigned cats near their sites" give a guardian no reach.** Being near a site is not a reason to see a cat's exact position. A guardian who finds a cat of hers adds it to her colony herself, with `assign_cat_to_colony` (§7.4).
 
 **Coat, markings and health (SYC-2).** Its four names are in the catalogue: `set_appearance`, `set_vaccination`, `view_health_notes`, `add_health_note`. Its fifth name, `confirm_appearance`, for its "volunteers can confirm" rule, is **removed**: there is no volunteer role, and a guardian or team member who agrees with a colour uses `set_appearance`. One decision about them is made here (Decision 13, §7.6): a guardian's appearance statement is not queued. The vet role stays reserved (§2.5): when vets exist, `set_vaccination`, `view_health_notes` and `add_health_note` gain a vet column and nothing else changes. Appearance and health are not sterilisation, so nothing in them goes through the field-check queue.
 
@@ -387,10 +387,11 @@ Four rules for those screens:
 
 Placed capabilities on a cat depend on the cat's colony, so how a cat gets one matters. A cat joins a colony through a `colony` observation (`cat-record-data-spine.md` §10.5), and the newest one wins. This spec adds only **who may write one**:
 
-- The team writes them directly (`assign_cat_to_colony`). The data spine's `colony` observation gains one more value, **"no colony"**, so the team can take a cat out of a colony without putting it in another (§16.5).
-- A guardian can **propose** a change for her own colony (`propose_colony_change`): "add this cat" or "take this cat out". Both wait for a team member's OK (§7.4, Decision 6). Nobody else can change a cat's colony, because a cat leaving a colony removes it from every guardian's view and from the round sheet.
-- The approval screen says in words what will happen: *"This moves Mimi out of Kini — Maria's and into Vaporia — Eleni's."* The guardians of the colony the cat leaves see a line on their page that it moved to another colony (not which one).
-- The proposer always gets the same answer, *"Syros Cats will check"*, whether or not the cat is in another colony, so a proposal can't be used to find out where a cat lives.
+- The team writes them directly (`assign_cat_to_colony`), island-wide. The data spine's `colony` observation gains one more value, **"no colony"**, so a cat can be taken out of a colony without putting it in another (§16.5).
+- A guardian writes them herself, for her own colonies only (`assign_cat_to_colony`): "add this cat" or "take this cat out". It takes effect at once, with no team OK (§7.4, Decision 6). Nobody else can change a cat's colony.
+- Adding a cat that is in another colony **moves it**: a cat has one colony at a time (the newest observation wins). The guardians of the colony the cat leaves see a line on their page that it moved to another colony (not which one).
+- A guardian can only name a colony she holds (§6.1). She cannot take a cat out of a colony she doesn't hold.
+- Every change is a `colony` observation with her id, so it is in the cat's history, and it appears on the team's "recent guardian changes" list (§7.4).
 - A cat in no colony is visible to the placed roles only at the blurred, public level.
 
 ---
@@ -404,7 +405,7 @@ The ticket calls it one queue. It is really two lists with one job: **turn what 
 | List | What it is | Where it comes from | Who sees it |
 |---|---|---|---|
 | **Needs a look** | Cats where the record says *Probably sterilised* (the *Likely* level) and one person standing next to the cat would settle it. Sorted by closeness. | **Worked out when asked**, from the record, by the same resolver as everything else. There is no stored list to go stale. | Placed roles, for their colonies; the team for the island |
-| **Needs an OK** | Things waiting for one other person to decide. Four kinds: a **field check** (what a guardian or volunteer saw of a cat's ear), a **colony change** (a guardian's "this cat is, or is no longer, in my colony"), a **site-public request**, and an **access change** (an invitation or role change that gives someone more reach, §8.3). | **Stored**, one row per item (§10.3). | Field checks, colony changes and site-public requests: staff and management (`settle_confirmation`). **Access changes: management only** (`approve_access`). Staff never see them. A guardian sees the outcome of her own items |
+| **Needs an OK** | Things waiting for one other person to decide. Three kinds: a **field check** (what a guardian or volunteer saw of a cat's ear), a **site-public request**, and an **access change** (an invitation or role change that gives someone more reach, §8.3). | **Stored**, one row per item (§10.3). | Field checks and site-public requests: the team and management (`settle_confirmation`). **Access changes: management only** (`approve_access`). Staff never see them. A guardian sees the outcome of her own items |
 
 Neither list pages anyone. There is no deadline, countdown, assignment or reminder, the same rule as the welfare queue (`team-access-and-welfare-queue.md` §3.1, F1): a list that implies someone is standing by is a promise nobody has made. A row shows how long it has been waiting, once, quietly.
 
@@ -463,19 +464,23 @@ Neither list pages anyone. There is no deadline, countdown, assignment or remind
 
 ### 7.4 Decision 6: who decides which cats are in a colony, and which are taken out
 
-A guardian can see exact positions of cats in her colony (§2.2). If she could simply add any cat to it, she could read the exact position of any cat on the island by adding them one by one. If anyone placed on a colony could take a cat out, a guardian who would rather her cats were not trapped could quietly take them out of a trapping round, and a cat moved out of one guardian's colony would vanish from her view without her knowing.
+**Decided (Samuel, 12 October 2026): option B, a cat guardian decides alone** which cats are in her colonies, adding and taking out, with immediate effect and no team OK. The people who look after the colony know best which cats belong to it, and a wait for the team would send them back to WhatsApp.
+
+A guardian can see exact positions of cats in her colony (§2.2). That is the thing to keep in mind: adding a cat to her colony shows her that cat's exact position.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ She proposes, either way; a team member OKs.** "This cat is one of mine" and "this cat is no longer in my colony" both wait in "Needs an OK". Until it is OK'd she sees a cat she proposed to add only at the public level. The approval screen says in words if the cat is being moved out of another colony. Volunteers cannot propose changes. | Closes the walk-around-the-island hole and the quiet-removal hole. The team, who know the colonies, confirm in a tap, and notice a cat that might belong in two colonies. The guardian of a colony a cat leaves sees that it moved. | A small wait for a legitimate guardian who has just found a cat of hers the team hadn't recorded. |
-| **B. She adds and removes directly.** | No wait. | The scraping route above, and a guardian can pull in another guardian's cats by mistake with no one to notice. |
+| **A. (earlier recommendation) She proposes, either way; a team member OKs.** "This cat is one of mine" and "this cat is no longer in my colony" both wait in "Needs an OK". Until it is OK'd she sees a cat she proposed to add only at the public level. | Closes the walk-around-the-island hole and the quiet-removal hole. The team, who know the colonies, confirm in a tap, and notice a cat that might belong in two colonies. | A small wait for a legitimate guardian who has just found a cat of hers the team hadn't recorded. |
+| **B. ✅ Decided. She adds and removes directly.** | No wait. The colony is right the moment she knows it. | See "What this choice accepts". A guardian can pull in another guardian's cats by mistake with no one to notice at the time. |
 | **C. Only the team ever assigns cats.** | Strictest. | Every new cat in an existing colony needs a message to the team; guardians would go back to WhatsApp, which is the current problem. |
 
-**Changed after review:** removing a cat now needs an OK too (the earlier draft let anyone placed on a colony remove one freely).
+**What this choice accepts.** The earlier recommendation was A because of one hole:
 
-**What people notice.** A guardian who finds a cat of hers the team hadn't recorded taps *This cat is one of mine* and sees *"Syros Cats will check"* whether or not the cat is already in another colony; the cat appears in her colony once they have. A team member gets a one-tap item with the cat's photo and, if the cat is moving, the words *"This moves Mimi out of Kini — Maria's."*
+- **Adding a cat shows her its exact position, so a guardian could reveal any cat's location by adding it to her colony.** One at a time she could walk through every cat on the island.
+- **Taking a cat out** removes it from the round sheet and from her view, and a cat added from another guardian's colony leaves that guardian's view.
+- **The mitigation** is a record, not a block: every change goes in the history (a `colony` observation with her id and the time), and a **"recent guardian changes" list** on the team's dashboard (`view_guardian_changes`) shows the team who added or removed which cat, in which colony, and when, so a pattern is easy to spot.
 
-**Recommendation: A.** The first population of colonies is done by the team from what they already hold (the records import, `records-import.md`, and their own knowledge), so a guardian arrives to a colony that already has most of her cats in it.
+**What people notice.** A guardian who finds a cat of hers the team hadn't recorded taps *This cat is one of mine* and sees it in her colony straight away. A team member sees the change on the recent guardian changes list, with who made it, and can put the cat back with `assign_cat_to_colony`. The guardian of a colony a cat leaves sees a line that it moved.
 
 ### 7.5 What the queue never does
 
@@ -687,12 +692,9 @@ No separate invitations table. An invitation is a **pending person** plus their 
 | Column | Type | Meaning |
 |---|---|---|
 | `id` | serial | |
-| `kind` | text, check in (`field_check`, `colony_change`, `site_public_request`, `access_change`) | What is being asked |
+| `kind` | text, check in (`field_check`, `site_public_request`, `access_change`) | What is being asked |
 | `state` | text, check in (`open`, `approved`, `declined`, `no_longer_needed`, `withdrawn`) | |
-| `cat_id` | integer, null | For `field_check` and `colony_change` |
-| `colony_id` | integer, null → `colonies.id` | For `colony_change`: the colony the cat is proposed into. Null with `direction = 'remove'` |
-| `direction` | text, null, check in (`add`, `remove`) | For `colony_change` |
-| `from_colony_id` | integer, null → `colonies.id` | For `colony_change`: where the cat is at the moment of the request, so the approval screen can say "this moves Mimi out of…" |
+| `cat_id` | integer, null | For `field_check` |
 | `feeding_site_id` | integer, null | For `site_public_request` |
 | `subject_person_id` | uuid, null → `people.id`, strict | For `access_change`: the person the change is about |
 | `change_kind` | text, null, check in (`invitation`, `roles_change`, `rejoin`, `remove_manager`) | For `access_change` |
@@ -709,9 +711,9 @@ No separate invitations table. An invitation is a **pending person** plus their 
 Checks and indexes:
 
 - `decided_by` is not `proposed_by`; a decided item has both `decided_by` and `decided_at`; an `open` item has neither.
-- **Open items are unique by what they are about, and the rule is written so nulls don't defeat it:** a partial unique index per kind. `field_check` and `colony_change`: (`kind`, `cat_id`, `proposed_by`). `site_public_request`: (`feeding_site_id`, `proposed_by`). `access_change`: (`subject_person_id`, `change_kind`). Each applies only while `state = 'open'`. So one person has at most one open item per cat, two different people asking about one cat each have their own, and a manager can have many open invitations, each for a different person.
+- **Open items are unique by what they are about, and the rule is written so nulls don't defeat it:** a partial unique index per kind. `field_check`: (`kind`, `cat_id`, `proposed_by`). `site_public_request`: (`feeding_site_id`, `proposed_by`). `access_change`: (`subject_person_id`, `change_kind`). Each applies only while `state = 'open'`. So one person has at most one open item per cat, two different people asking about one cat each have their own, and a manager can have many open invitations, each for a different person.
 - **Visibility is part of the query, not the page.** Listing "Needs an OK" returns `access_change` rows only to a caller holding `approve_access`; for anyone else those rows are not in the result.
-- **The right capability decides the right kind**, checked when the decision is written: `field_check`, `colony_change` and `site_public_request` need `settle_confirmation`; `access_change` needs `approve_access`. A staff-only member's attempt to decide an access change is refused.
+- **The right capability decides the right kind**, checked when the decision is written: `field_check` and `site_public_request` need `settle_confirmation`; `access_change` needs `approve_access`. A staff-only member's attempt to decide an access change is refused.
 - Rows are never deleted. The strict links mean nobody who has proposed or decided anything can be hard-deleted, the same rule as for report changes (Decision 7).
 
 ### 10.4 What is written on an observation
@@ -844,7 +846,7 @@ Guardians are, in large part, Greek speakers; some team members and guardians wi
 | The **invitation message** | The inviter's choice when inviting, saved as the person's language | Wrong language here means the invitation is ignored |
 | The **sign-in link message** from the Worker | `people.language`, returned by the allow-list check (§4.5) | The Worker's own message today is English only; this is a change in the other repository |
 | The **accept page** and the four promises | Same | The promises are the one piece of text where a mistranslation matters most; see below |
-| **My colonies, the colony view, the round sheet, field-check and proposal forms, "Needs a look", the outcome lines** | Same; changeable by the person on their own page | |
+| **My colonies, the colony view, the round sheet, field-check and colony forms, "Needs a look", the outcome lines** | Same; changeable by the person on their own page | |
 | The **403 page** ("that part is for the team") | Same | |
 | The **"your invitation was accepted" email** to the inviter | The inviter's language (English) | Goes to management, so Decision 10 keeps it English |
 | **Role names and the one-sentence description of oneself** (§2.6) | Same | |
@@ -885,7 +887,7 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 | **3** | **A management session is stolen and used to make accounts or remove people.** | Every access change (staff or management invitations, role changes that add them, rejoins, invitations over three colonies, removing a manager) needs a second management member, using `approve_access`, which staff do not hold and cannot see. Guardian invitations are limited to 10 a day per inviter, appear at once on the people screen, and can each be withdrawn in a tap. Marking a staff or management member as left, or signing them out everywhere, emails every other management member. A stolen session is ended with *sign out everywhere*. |
 | **4** | **Someone grants themselves more.** | Role changes to your own row are refused; anything that adds staff or management is an access change that needs a second management member; every grant records who made it (`granted_by`) and writes a `roles_changed` event. The database refuses a guardian placement with no colony, and refuses an island-wide row for a guardian. |
 | **5** | **Approving your own item**, including from a second account. | The database refuses `decided_by = proposed_by`. **A person with two accounts (two addresses) is not something software can detect.** The control is social: one row per human, management knows its people, and the people screen shows every address. Accepted. |
-| **6** | **A guardian reads cats outside her colonies**, by adding them to it. | Colony membership proposals wait for the team (Decision 6); a cat joins a colony only by a `colony` observation written by the team or approved by the team; her reach is read from the record at each request, never from the request. |
+| **6** | **A guardian reads cats outside her colonies**, by adding them to her colony. | **Accepted (Decision 6).** Adding a cat shows her its exact position, so a guardian could reveal any cat's location this way. Every change is a `colony` observation with her id, so it is in the history, and the team's "recent guardian changes" list shows who added or removed which cat and when. Her reach is still read from the record at each request, never from the request, and she can only add to a colony she holds. |
 | **7** | **Access changes lag behind decisions.** | Placements and the person's standing are re-read on every request; a placement's end date is checked at request time; `session_version` kills sessions at the next request; saved colony lists on phones expire in 72 hours and are deleted when the page next opens or the server says the person is gone (§12). A phone that is never opened again is the one gap, stated on the accept page and put to Syros Cats (Q1). |
 | **8** | **A trusted guardian shares exact places.** | Not preventable by software; she is trusted with those places because it is her job. The controls are the promises (read, accepted and recorded), reach limited to her colonies, round sheets stamped with her name, and a per-person count of round-sheet downloads that prompts a question (§11.3). **This is the residual risk of giving anyone exact positions at all**, in the same family as the colony-averaging disclosure that `DECISIONS.md` F2 asks Syros Cats to accept; it is put to Syros Cats in the same plain words and recorded (Question Q1). |
 | **9** | **A phone is lost or shared.** | A lock on the phone is asked for; the saved list lasts 72 hours and holds no private-site coordinates (Decision 12); sign out everywhere ends the session at the next connection; a family member using the phone sees her colony until she signs out, which is accepted, with *Sign out* always one tap away. Sessions stay thirty days: shortening them for older, less technical guardians would trade a small risk for a daily failure. |
@@ -916,7 +918,7 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 - `middlewares/requireTeam.ts`: takes an optional target resolver for placed routes; `requireInvitee` for the accept page; a signed-in refusal that is a 403 page, not the 401 (§6.4).
 - `routes/internal.ts`: `POST /api/internal/people/allowed` returns `doors` and `language`; old request shape handled as in §4.5.
 - `routes/team.ts` (the welfare queue page), `routes/teamReports.ts` (the report list and the reporter-photo route) move to `view_welfare_queue`; `routes/teamCats.ts` and the catalogue-photo route ask for `view_exact_location` with a target; the hand-off allows a pending invitee to reach the accept page and nothing else.
-- New dashboard routes under `/api/team`: `people` (list, invite, resend, withdraw, roles, leave, rejoin, sign-out), `accept` and `decline`, `me/language`, `me/leave`, `colonies` (mine), `colonies/:id/targets`, `needs-a-look`, `needs-an-ok`, `field-checks`, `colony-changes`, `site-public-requests`, `confirmations/:id/decide` (settled by `settle_confirmation` or, for access changes, `approve_access`), and the `/api/team/field/` pages for the saved list. These are server-drawn pages and forms like the others (Part 2k); the JSON ones used by the saved colony page are added to the OpenAPI file and the generated clients.
+- New dashboard routes under `/api/team`: `people` (list, invite, resend, withdraw, roles, leave, rejoin, sign-out), `accept` and `decline`, `me/language`, `me/leave`, `colonies` (mine), `colonies/:id/targets`, `needs-a-look`, `needs-an-ok`, `field-checks`, `colonies/:id/cats` (add or take out a cat), `guardian-changes`, `site-public-requests`, `confirmations/:id/decide` (settled by `settle_confirmation` or, for access changes, `approve_access`), and the `/api/team/field/` pages for the saved list. These are server-drawn pages and forms like the others (Part 2k); the JSON ones used by the saved colony page are added to the OpenAPI file and the generated clients.
 - `lib/mail/send.ts`: purposes `person_invite` and `invite_accepted` (closed templates, person id in, address looked up inside; transactional identity).
 - `lib/db/src/people/cli.ts` and the db-ops `people-*` commands: `add` takes `--colony` (required for guardian), `--language`, and `--accepted` for break-glass staff seeding; `list` shows ids and placements only, never addresses.
 - `lib/teamPages` and a new server-side string catalogue (§13.3).
@@ -956,7 +958,7 @@ Named here so they appear in the implementation plan:
 13. **The database refuses an item decided by its proposer**, and the route refuses when the decider has lost the capability since the page was drawn.
 14. **The first decision wins; the second sees "already decided".**
 15. **A staff-only member cannot decide, or even see, an `access_change` item.** A role change that adds staff or management, and a rejoin with staff roles, each write an item and grant nothing until a different management member approves. A guardian invitation with four colonies does the same.
-16. **A guardian's colony proposal gives her no extra view until approved**, and the proposer gets the same answer whether or not the cat is in another colony. Approving a removal writes the "no colony" value.
+16. **A guardian's colony change is immediate and recorded.** Adding a cat to a colony she holds writes a `colony` observation with her id and the cat then appears on her page; taking it out writes the "no colony" value; naming a colony she doesn't hold is refused; the change appears on the "recent guardian changes" list (`view_guardian_changes`, which a guardian does not hold). Adding a cat that is in another colony moves it and the other colony's guardian sees the line.
 17. **A guardian placement with no colony is refused by the database**; so is a staff row with a colony.
 18. **The last management person cannot be marked as left, demoted or have their sessions ended through the screen**, including when two managers try at once. Marking a management member as left needs a second manager.
 19. **Leaving withdraws** every pending invitation and open access change the person proposed, and emails the other managers when a staff or management member is marked left or signed out.
