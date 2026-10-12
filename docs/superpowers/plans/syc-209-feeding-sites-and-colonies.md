@@ -280,3 +280,80 @@ Its own step, as spec §11.1 asks, because it changes a column's type.
 - Convert both to `uuid`, with a strict link to `people.id`. Rollback converts back to text.
 - **Tests.** Test 24 (rest): a non-uuid value, and a uuid that isn't a person, each stop the migration with the id listed; valid values convert unchanged. Up/down/up passes.
 
+---
+
+## Slice 2: colonies (the team, before launch)
+
+**In plain English.** The dashboard's top bar gains **Colonies**. The team can create a colony with the name they already use ("Vaporia — Eleni's"), write down who the guardian is, rename it when that changes (searching the old name still finds it), and keep team-only notes. They can put cats in a colony, move them, and take them out. The team's page for a cat says which colony it is in by name. Every change shows in the colony's history with the person's name and the date. Nothing about colonies is public, and no guardian can sign in yet.
+
+**Permissions in this slice (Decision 1A).** `create_colony`, `edit_colony` and `assign_cat_to_colony` join `capabilities.ts` (`rename_colony` exists already), held by the team only, as `can()` works today. Every route looks up the colony it acts on **from the record** and passes it to `can()` as the target, so the roles plan's PR 0.5 changes nothing here. If PR 0.5 has already merged, the routes use its catalogue and target helpers instead.
+
+**One rule for "which colony is a cat in", in one place.** The newest active `colony` statement stands; "in no colony" and "marked wrong" behave as spec §2.8 says. It lives in one function, `currentColonyOf(catIds)` in `lib/colonyMembership.ts`, used by the colony counts, the colony page, the cat page and (later) the roles plan's target lookup. If PR 0.5 already has one, this slice uses that instead of writing a second.
+
+### PR 2.1: the Colonies pages
+
+- **Routes** (each a server-drawn page, no scripts; POSTs run `requireOrigin(TEAM_ORIGIN)`, then the capability, then the body; a bad form answers `400` naming fields only; every value through `escapeHtml`):
+  - `GET /api/team/colonies`: every colony by name, with guardian, number of sites, number of cats (by `currentColonyOf`). A search box finds a colony by **any name it has ever had**, folded with `foldName` (so `ΜΙΜΗ` finds `Μιμή`), against `colonies.normalised_name` and `colony_name_history.normalised_name`. A **Create a colony** button.
+  - `GET /api/team/colonies/:id`: name, guardian, counts, its sites (empty until Slice 3), its cats with photos (through the team photo route), team-only notes, and its history, newest first, with "Maria (left)" for someone who has left.
+  - `POST /api/team/colonies` (`create_colony`): name, optional guardian name, notes. The page shows the convention *a place and the person who looks after it, like "Vaporia — Eleni's"*.
+  - `POST /api/team/colonies/:id`: guardian name, notes and centre (`edit_colony`); the name (`rename_colony`). A rename writes the old name to `colony_name_history`, in the same transaction.
+- **Name clash** (folded, using the existing unique index): a team member sees "Already used by [colony]" with a link, as the cat rename does. Two creates at once of the same name produce one colony; the loser sees the clash.
+- **History.** Create, rename, guardian change, notes or centre change each write one `mapping_events` row through `recordMappingEvent(tx, …)`, before and after, in the same transaction.
+- **Notes boxes** carry the hint "Don't write when people come and go."
+- **Guardian change while a site is public**: no site is public until Slice 6, so the "make private automatically" rule (spec §4.7) is written in PR 6.2 and tested there.
+
+**Tests.** Test 14 (colony names): a clash under case, accents, final sigma and NFD is refused, with a link for the team; a rename keeps every cat and site attached; the old name still finds the colony; two simultaneous creates produce one. Test 11 (part): every write here writes exactly one history row, and a forced failure in the history write leaves the colony unchanged. **Mutation probe:** write the history row outside the transaction → red. Test 16 (escaping): a colony name with markup shows as text on every page. Test 12 (part): each new route refuses a signed-in person without the team role, writes nothing, and refuses a foreign or missing `Origin`. The route walk's minimum count goes up and the new routes are listed. Browser check (test 20) at 390 px and desktop with seeded colonies and cats.
+
+### PR 2.2: cats in colonies
+
+- **Vocabulary.** `colony { colonyId: null }` is accepted by `writeObservation` (roles PR 0.2 does this; if 0.2 hasn't merged, this PR does it and 0.2 drops that bullet). The writer checks that a named colony exists (the value check doesn't).
+- **From a colony page, "Add cats":** search by name or SYR number; each result has a tick box and shows the cat's current colony by name. *Add the ticked cats* writes one signed `colony` statement per cat.
+- **From the team's cat page, "Colony":** pick one colony from a list; one statement. The colony line shows the current colony's name (and "was [old name]" if renamed since), replacing `Put in colony 12` (`teamCatView.ts:158`).
+- **"Take out of this colony"** writes an "in no colony" statement. **"Mark wrong"** uses the existing supersede route: `colony` joins `capabilityFor` **and** the pre-lookup gate `SUPERSEDE_CAPABILITIES` (`teamCorrections.ts:43, :51`) under `assign_cat_to_colony`, so the next newest active statement stands (spec §2.8).
+- `roleAtTime` comes from the roles plan's `actingRole()` if PR 0.2 has merged; otherwise `"staff"`, as every team write does today.
+- **A colony statement moves no derived status**: not life, not sterilisation, not "last seen".
+
+**Tests.** Test 15 (team half): adding cats writes one statement each and moves no derived status (a snapshot of the public cat before and after); a colony that doesn't exist is refused; moving writes a new statement and the newest stands; "Take out" writes "in no colony" and the earlier statement stays visible; A → B, then "Mark wrong" on B, puts the cat back in A; "Mark wrong" with no earlier statement leaves it in no colony; the colony counts agree with `currentColonyOf`. **Mutation probes:** drop `colony` from `SUPERSEDE_CAPABILITIES` → red (the "Mark wrong" test); make `currentColonyOf` ignore superseded statements → red. Browser check at 390 px and desktop.
+
+---
+
+## Slice 3: the private map (the team, before launch)
+
+**In plain English.** The top bar gains **Feeding sites**. It opens a map of Syros with a marker on every site and, below it, the same sites as a list. The team adds a site by tapping the map, checks the spot on a confirmation page and saves. They can fix the name, notes and an optional "how to find it" line, move a pin that is in the wrong place (saying why), retire a spot that has closed, and bring it back. Every site is private. The map is made of plain pictures served by our own server, so the browser never talks to a map company and the dashboard still runs no scripts. On a cat's page, "Make a feeding site here" turns a sighting into a site.
+
+### PR 3.1: map tiles and the map itself (migration `map_tile_cache`; needs PR 0.1 merged)
+
+- **The tile route**, `GET /api/team/map-tiles/:z/:x/:y.png` (`view_exact_location`; `canSomewhere` once roles PR 0.5 exists). It refuses any tile outside the island box (the app's own, 37.36–37.53 N, 24.85–25.01 E, `offlineTiles.ts`) or outside zooms 12–18, so it can't be used as a free map proxy. It fetches once from `tile.openstreetmap.org` with an identifying `User-Agent` (the first in the repository; `push.ts` sets none), and a 10-second timeout.
+- **The cache.** Table `map_tile_cache` (`z`, `x`, `y`, `bytes`, `fetched_at`, `size`), capped at 200 MB, oldest first out, refetched after 30 days. Postgres, because Replit's disk doesn't survive a restart and photos already live in Postgres. The whole island at the closest zoom is about 6,000 tiles; the team will touch a small fraction.
+- **Headers.** Tiles are the one stated exception to the dashboard's `no-store`: `Cache-Control: private, max-age=86400`, never `public`. The security header is otherwise unchanged; `team.headers.test.ts` still passes untouched.
+- **The phone mosaic (K4).** `sharp` (already a dependency, `imageValidation.ts`) builds the picture at **exactly** the size it is drawn: 2×2 at 179 px for phones of 390 px and up, 2×2 at 171 px below that, and 256 px tiles at desktop. A CSS width rule shows one set; **each form's address carries its own size and tile**, so the server always converts at the scale that was tapped.
+- **`lib/teamPages/map.ts`**, one function `renderMap({ centre, zoom, markers, mode })`. In `view` mode the tiles are plain pictures and the markers are links, placed with inline `style` (allowed by `style-src 'unsafe-inline'`). In `place` mode each tile is a picture button inside its own form. Zoom in and out, and quick links to the island's areas (Ermoupoli, Vaporia, Kini, Galissas, Finikas, Posidonia, Azolimnos; a configuration list). The attribution line ("© OpenStreetMap contributors") is printed under every map. Designed so a better map can replace it later without touching any other page (spec §3).
+- **From a tap to a position:** standard Web Mercator from (tile, displayed size, tapped point). Taps outside the island box are refused.
+
+**Tests.** Test 17: tiles need a session and the capability; the security header is byte-identical to `EXPECTED_CSP` (no `script-src`); a tap converts to the right position at zooms 13, 16 and 18, including a tap on a tile's edge and on the 171 px mosaic; a tap outside the island is refused; the tile route's cache header is `private`, never `public`; a tile request logs as `/api/team/map-tiles/:tile` (PR 0.1's test, extended to the real route); a tile outside the island box or the zoom range is refused without a fetch. **Mutation probes:** use the 179 px scale for a 171 px form → red; send `public` → red. **Real phones (test 17's last part):** on the development site, one tap at a marked point on an iPhone (Safari) and one on Android (Chrome), the posted point compared with the expected one and recorded in the PR (Decision 3).
+
+### PR 3.2: the Feeding sites pages, read-only
+
+- `GET /api/team/sites`: the count line ("31 sites: 2 public, 28 private, 1 retired"); a **Recently changed** strip (the last five site events, with the person and the day); the map with filled (public), outlined (private) and grey (retired, only with *Show retired*) markers; the list sorted by name, each row with its colony (or "no colony yet"), private or public, and the date last changed.
+- `GET /api/team/sites/:id`, in the spec's order (§2.2): name and a small map; visibility as a plain sentence; colony; notes and "How to find it"; history, newest first, with positions; actions. **Opening it writes one `site_page_reads` row** (person, site, time; no position).
+- No page links to any map company (the source test from PR 0.2 covers these pages).
+
+**Tests.** Test 16 (escaping) for site names, notes and directions. The read record is written once per site page and never for the list or the map. **Mutation probe:** write the read record from the list page → red. Test 5 (part): the history is visible only with `view_exact_location`. Browser check at 390 px and desktop with ten seeded sites, including a retired one, and the map with no sideways scroll at 375 px and 390 px.
+
+### PR 3.3: adding, moving, retiring and changing colony
+
+- **Add:** `GET /api/team/sites/new` shows the map in `place` mode. A tap posts to `POST /api/team/sites/pick`, which **answers with the confirmation page directly** (marker on the spot, a small map around it, and the form). The position travels in hidden fields, **never in a web address**, so it is in no browser history and no log. *Save* posts to `POST /api/team/sites` (`add_feeding_site`; the target is the colony picked in the form, read and checked to exist). Fields: name, colony (optional for the team), how to find it (optional), notes (optional). **No visibility field exists.**
+- **Typed coordinates:** a second form on the same page for keyboard and screen-reader users, with the warning "Don't copy these from a map company's site; ask a colleague who has been there." Same island-box check.
+- **Edit details** (`POST /api/team/sites/:id`): name, notes, how to find it. **Move** (`GET`/`POST /api/team/sites/:id/move`): the same picker, starting at the site, then a reason. **Retire** and **Bring back** (`…/retire`, `…/restore`), each with a reason; bringing back always leaves the site private. All `edit_feeding_site`, the target being **the site's own colony, read from the record**. **Change colony** (`POST /api/team/sites/:id/colony`, `reassign_feeding_site`).
+- **Every write is conditional on the `updated_at` the page showed**, answering "Someone already changed this." as the corrections do.
+- **Every write records one history row in the same transaction**, with before and after; a move keeps the old and new positions and the reason.
+- **Written now, live from Slice 6:** `makePrivateIfPublic(tx, site, why)`, called by move and change colony. It does nothing to a private site. It is here so the rule can't be forgotten when publishing arrives; its tests seed a public row directly in the database.
+
+**Tests.** Test 7: no route or script can create a site as public, and no route touches more than one site's visibility per request. **Mutation probe:** accept `is_public` from the add form → red. Test 13 (part): two simultaneous moves of one site, and a move while someone edits the name, each leave one definite state, and the loser sees "Someone already changed this." **Mutation probe:** drop the `updated_at` condition → red. Test 9 (early half): moving a public site (seeded) makes it private and writes both events. Test 11 (part) for every write. Test 12 (part): `edit_feeding_site` is checked against the site's colony **from the record**. **Mutation probe:** take the colony from the form → red (visible once PR 0.5's strict `can()` exists; until then the test asserts the target passed to `can()`). Browser check: add a site end to end by tapping, at 390 px and desktop.
+
+### PR 3.4: "Make a feeding site here", "Add a site to this colony" (needs PR 0.2 merged)
+
+- On the team's cat page, each sighting gets **Make a feeding site here**, which opens the PR 3.3 confirmation page placed at that sighting (the position in hidden fields), ready to nudge. And **Show on our map**, which replaces the removed Google link with our own map centred there.
+- On a colony page, **Add a feeding site to this colony** opens the picker with the colony filled in.
+- **Tests.** The cat page has no outbound map link (PR 0.2's source test); "Make a feeding site here" doesn't appear unless PR 0.2's change is present (a test fails if `catPages.ts` has both the button and a map-company link). Browser check at 390 px and desktop.
+
