@@ -556,7 +556,7 @@ See §9.5. The draft recommended accepting a welfare report with no valid token 
 
 **Changed after review:** replaced. The draft's recommendation (B) was a blocker.
 
-**Decided (Samuel, 12 October 2026): option A, as recommended.** A bad token from the phone gets a quiet retry (`428 challenge_required`, a fresh challenge, then the report is sent again). "Unchecked" is accepted only when Cloudflare is unreachable.**
+**Decided (Samuel, 12 October 2026): option A, as recommended.** A bad token from the phone gets a quiet retry (`428 challenge_required`, a fresh challenge, then the report is sent again). "Unchecked" is accepted only when Cloudflare is unreachable.
 
 ### D12. How long are issue reports kept?
 
@@ -716,13 +716,13 @@ The adversarial review of version 1.0 (`docs/specs/reviews/report-an-issue-revie
 | **B1** Unchecked fallback lets a script skip Turnstile; the draft route skips it too | Replaced by the split in §9.5 and D11: a bad or missing token gets a retryable `428` and creates nothing, only a Cloudflare outage is accepted (unchecked, never hides), unchecked rows are in their own list with a lower limit, and drafts need a token. Client change so a `428` is not a strike (§9.5, §13). Tests 2, 15, 16 |
 | **M1** Wrong hostname | §9.4 and §9.6: the app host `apptest.catspotters.com`, a widget that lists only that exact host, a server-side exact list, test 13, the spike, and the launch hostname recorded as a dependency |
 | **M2** Issue alerts share the never-shed purpose | §5.2: own purpose `issue_alert`, sheddable; individual emails only for "Photo hidden", the rest in a daily digest; test 12 |
-| **M3** No global brake; "hidden" message not tied to the server's answer | §8.1 rule (iv) and the `hidden` field (§4.1, §8.1); rule (ii) is "any restore row, ever"; D3; tests 3, 5, 6 |
+| **M3** No global brake; "hidden" message not tied to the server's answer | §8.1 rule (iv) and the `hidden` field (§4.1, §8.1); rule (ii) is "any restore row, ever"; D3 (Samuel set the brake at 5 report-hides in 24 hours); tests 3, 5, 6 |
 | **M4** A hidden photo is cached for a year | §6 and new decision D14, recommending a new public address on hide and restore (SYC-279) |
 | **M5** Guardians would see issue reports | §1, §5.3, §5.4, §10: everything needs `view_welfare_queue`; route-walk test 17; risk 10 |
 | **M6** Capability names | §5.4 uses the catalogue's names; §5.5 lists `clear_home_description` and `remove_photo` as additions; `edit_cat_text` dropped; D6 waits on SYC-130 |
 | **M7** Token at send time; resend after a blip | §4.2, §9.5: a fresh check on every send from the saved list; duplicate check before token; the upgrade case; test 14 |
 | **M8** Reusing `welfare_reports` breaks more than listed | §5.1 and D1: `photo_state = 'none'`, no tie and no observation on content rows, the close guard in existing code, the resend key with kind, the banner counts both purposes, retention by kind, a migration rollback; tests 8 to 10, 21 |
-| **M9** Unmarked amendments | The table near the top (rows 3 to 6) and D5, D9; closing wording now the approved text; `wrong_info` kept |
+| **M9** Unmarked amendments | The table near the top (rows 3 to 6) and D5, D9; `wrong_info` kept. Samuel's later choices (removal path, no email box and no closing email) mean rows 3, 4 and 5 now amend nothing |
 | **M10** "Built / not built" framing | Removed everywhere. The spec describes one whole product; order of work is in §13 only |
 | **m1** PRs 0 to 5 are merged | D13 |
 | **m2** Precondition belongs on the launch-day step | §8.2, §13 |
@@ -740,3 +740,17 @@ The adversarial review of version 1.0 (`docs/specs/reviews/report-an-issue-revie
 | **m14** "Saved in this browser" | §4.2, §11, test 19 |
 
 The review's verdict on D1 to D13: D1, D2, D6, D9, D10, D12 gained conditions; D3 gained rule (iv); D5 and D11 were changed (D5 now recommends the narrow removal, D11 is replaced); D4, D7 (with a small addition), D8 and D13 stand. D14 is new.
+
+### Samuel's decisions, 12 October 2026
+
+Samuel then decided D1, D2, D3, D5, D6, D9, D10, D11, D12, D13, D14 and the smaller calls. The decisions are marked "Decided" in §12. Where his choice differs from the recommendation, the spec carries a "What this choice accepts" line:
+
+| Decision | Outcome | Differs from the recommendation? | Where it landed |
+|---|---|---|---|
+| D1, D2, D6, D10, D11, D12, D13, D14 | As recommended | No | §12; the D2 hint reads "faces, house numbers, number plates, inside a home or garden" (§2) |
+| D3 | The global brake trips after **5** report-hides in 24 hours (recommended 20); reports then queue without hiding until a team member presses "Resume automatic hiding", with a dashboard banner | Yes (threshold) | §8.1 rules (iii) and (iv), D3, tests 4 and 5, risk 15, §15. The separate warning at 10 is dropped because the brake's banner comes first |
+| D5 | Any team member, not only management, can delete a hidden privacy photo for good | Yes (wider) | §5.4, §5.5 (`remove_photo` is island-only for team and management), D5, risk 13, §15 |
+| D9 | No email box on Report an issue; on-screen thank-you only | Yes (option D, not A) | §4.1, §4.3, §5.2, §5.3, §7, §10, §11, D9, risk 14, §15, and rows 4 and 5 of the table near the top (no amendment to `email-capture.md` or the privacy policy) |
+| Smaller calls | At most 10 individual "Photo hidden" alerts an hour, rest in a daily digest; 3 unchecked rows an hour per address; no visitor address sent to Cloudflare; no shared ceiling across the two forms | No | §5.2, §8.1, §9.2, §12 |
+
+D4, D7 and D8 were not part of this round of decisions and stand as recommended in version 1.1.
