@@ -1,10 +1,10 @@
 # SYC-53: roles and invites (guardians, the team, management)
 
-**Status: draft for Samuel's approval. Nothing is built yet.** Six questions below need Samuel's answer before the build starts (see "Decisions for Samuel"); each has a recommendation.
-**Spec:** `docs/specs/roles-and-invites.md`, approved by Samuel on 12 October 2026 (PR #102, merging once CI is green). This plan builds it as written. Where the spec and the code on `main` disagree, the plan says so in "Where the spec and the code disagree" and asks, rather than deciding quietly.
+**Status: revised after the adversarial review, for Samuel's approval of the changed parts. Nothing is built yet.** The review (`syc-53-roles-and-invites-review.md`) found one blocker, ten majors and seventeen minors; every one is mapped to where this plan handles it in "Review outcome" at the end. Samuel's answers of 12 October settled two of them: the "sterilised" news goes **in the app and by push, never by email**, and **who wins when two people disagree** is now **Decision G** (vet, then cat guardian and owner, then the team; newest wins at the same level). Decisions A to F are as before, with the review's conditions added. A short list of small points still needs Samuel (see "Still needs Samuel").
+**Spec:** `docs/specs/roles-and-invites.md`, approved by Samuel on 12 October 2026 (PR #102, merged). This plan builds it as written, except where Samuel's 12 October answers amend it (news channel, Decision G); those amendments go into the spec through docs PRs D4 and D6 before the code that depends on them. Where the spec and the code on `main` disagree, the plan says so in "Where the spec and the code disagree" and asks, rather than deciding quietly.
 **Builds on:** `team-access-and-welfare-queue.md` (sign-in, the people list, the welfare queue), `cat-record-data-spine.md` (observations, the resolver, colonies), `DECISIONS.md` Parts 2i, 2k and 3, and the two SYC-43 plans (`syc-43-part-1-people-and-staff-sign-in.md`, `syc-43-part-2-welfare-queue-and-corrections.md`), whose format this plan follows.
 **Linear:** SYC-53 (this plan). Builds SYC-213, SYC-222, SYC-252, SYC-251, SYC-104 and SYC-254, and the guardian half of SYC-54. Touches SYC-208, SYC-209, SYC-2, SYC-130, SYC-253, SYC-256, SYC-257, SYC-263, SYC-278, SYC-283, SYC-284. SYC-188 and SYC-131 are done and are built on.
-**Checked against:** `origin/main` at `00271a6` (12 October 2026), the open PRs (#102, #103, #104, #107, #109, #111, #115), the sign-in Worker in `fairshake-au/catspotters-website` (`admin/src/index.js`), and Linear SYC-53 with its comments and the tickets above. Every "exists today" claim names the file it was read in.
+**Checked against:** `origin/main` at `586763a` (12 October 2026), where #102 (this spec), #103 (SYC-209 spec) and #104 (SYC-2 spec) have **merged**; the open PRs (#107, #111); the sign-in Worker in `fairshake-au/catspotters-website` (`admin/src/index.js`), and Linear SYC-53 with its comments and the tickets above. Every "exists today" claim names the file it was read in.
 
 ---
 
@@ -29,7 +29,7 @@ Nothing changes for spotters. They never sign in, and never will.
 
 | After | What people notice |
 |---|---|
-| **The docs PRs** | Nothing. The approved specs agree with each other |
+| **The docs PRs** | Nothing. The approved specs agree with each other (including who wins when a vet, a cat guardian, an owner and the team disagree, Decision G) |
 | **Foundations (Slice 0)** | Almost nothing. Samuel, Jacky and Susan become management. Anyone else on the team no longer sees "manage people" in their capabilities (there is no people screen yet, so nothing visible moves). Guardians still can't sign in |
 | **The new sign-in Worker** | Nothing for the team. The sign-in page can now tell "workspace" from "dashboard", ready for guardians |
 | **Invitations and the people screen (Slice 1)** | Management can invite, change, bring back and remove people from the dashboard, and gets an email when another manager does. The first guardian can be invited, accept, and land on an empty "My colonies" page that names her colonies |
@@ -51,7 +51,7 @@ Nothing changes for spotters. They never sign in, and never will.
 | A capability check | **Yes, staff-only.** `can()` ignores its target and answers "holds `staff`?"; 12 capability names; `mayEnter()` = holds any capability | `artifacts/api-server/src/lib/capabilities.ts` |
 | Dashboard guard | **Yes.** `requireTeam(capability?)`. Every refusal, including "signed in but not allowed", is the same 401 and sign-in redirect | `middlewares/requireTeam.ts` |
 | Workspace and dashboard as separate doors | **No.** `POST /api/internal/people/allowed` answers one yes for `mayEnter`; the Worker turns any yes into a workspace session, and the dashboard is a button inside the workspace | `routes/internal.ts`; Worker `admin/src/index.js` lines 289–390 |
-| Team routes | 19 routes under `/api/team/` (list below). Welfare queue, report list, report photos, catalogue photos, cat search and cat page all use `requireTeam("view_exact_location")`; corrections use their own capability; two JSON observation routes use `requireTeam()` and call `can()` inside | `routes/team.ts`, `teamReports.ts`, `teamCats.ts`, `teamCorrections.ts`, `teamPhotos.ts`, `observations.ts` |
+| Team routes | 23 routes under `/api/team/` plus 2 under `/api/internal/` (list below). Welfare queue, report list, report photos, catalogue photos, cat search and cat page all use `requireTeam("view_exact_location")`; corrections use their own capability; two JSON observation routes use `requireTeam()` and call `can()` inside | `routes/team.ts`, `teamReports.ts`, `teamCats.ts`, `teamCorrections.ts`, `teamPhotos.ts`, `observations.ts` |
 | A route-walk test | **Yes, for "not signed in" only.** Walks the router and expects the same 401 | `routes/team.walk.test.ts` |
 | One list of team roles | **No, three.** `AUTHORITATIVE_ROLES` (`vet`, `staff`, `admin`) in `lib/resolve.ts:132`; `TEAM_ROLES` (same three) in `lib/teamCorrections.ts:214`, imported by `lib/likelyReview.ts`; `"staff"` hard-written into `roleAtTime` in `teamCorrections.ts` (4 places), `welfareActions.ts:81`, `welfareTie.ts:188` and `routes/notifications.ts` (2, the owner-key route) | as listed |
 | Observations can be written as `guardian` | **No, refused on purpose.** `REACHABLE_ROLES` is `public`, `staff`, `admin`, `system` | `lib/observations.ts:52` |
@@ -69,8 +69,8 @@ Nothing changes for spotters. They never sign in, and never will.
 ### Migrations, and what has merged
 
 - **On `main`: `0000`–`0014`.** `0012_keep_my_spots_safe` (**SYC-3 Slice 1 has merged**, #106, plus #114), `0013_deletion_unlinks_people` (**SYC-63 has merged**, #97), `0014_photo_visibility` (SYC-43 part 2 PR 6). Checked with `git log origin/main` and `lib/db/migrations/`.
-- **Open PRs add no migrations.** #115, #109 touch app and campaign code; #102, #103, #104, #107, #111 are docs only (checked with `gh pr view --json files`).
-- **This plan adds three migrations, in this order:** `person_events` (Slice 0, PR 0.1), `roles_and_invites` (Slice 0, PR 0.3), `field_check_photos` (Slice 3, PR 3.1). Each takes the next free number when it is generated after rebasing on the latest `main`, never by hand (`lib/db/migrations/README.md`). SYC-209's own migrations (retiring a site, the "how to find it" line) are SYC-209's and may land in between; nothing here depends on their numbers.
+- **Open PRs add no migrations.** #107 and #111 are docs only (checked with `gh pr view --json files`); #102, #103 and #104 have merged, also docs only. SYC-209 will add at least one migration, which is not additive.
+- **This plan adds four migrations, in this order:** `person_events` (Slice 0, PR 0.1), `roles_and_invites` (Slice 0, PR 0.3), `field_check_photos` (Slice 3, PR 3.1), `confirmation_items` (Slice 3, PR 3.4; moved out of 0.3 so it is created once SYC-209 has settled the shape of `feeding_sites`). Each takes the next free number when it is generated after rebasing on the latest `main`, never by hand (`lib/db/migrations/README.md`). SYC-209's own migrations (retiring a site, the "how to find it" line) are SYC-209's and may land in between; nothing here depends on their numbers.
 
 ---
 
@@ -86,15 +86,17 @@ The spec was written against `main` on 7 October. These are the places where bui
 | **C4** | §15.1 lists colony routes (`colonies/:id/cats`, `guardian-changes`, creating a colony) as this spec's routes | SYC-209's approved spec (PR #103, §11.2) lists the same routes as its own: `POST /api/team/colonies`, `POST /api/team/colonies/:id/cats`, the Colonies page and its "Recent guardian changes" list. And no route creates a colony today, so management has no colony to invite a guardian to | Decision D |
 | **C5** | §7.1: "Needs a look" is sorted by how close each cat is to where the phone is now | Dashboard pages have no scripts (`default-src 'none'`), and a page can't learn the phone's position without one | Decision E |
 | **C6** | §1 table: "The offline colony view itself (what is on the screen)" belongs to SYC-54, "to be specified" | SYC-54 has no spec; its ticket still says "volunteer" and "reuse the existing offline queue" (the app's, which this spec rules out) | Decision F |
-| **C7** | §10.5: "`colonies` records who created each one (`created_by`)" is a new column | `colonies.created_by` already exists (text, nullable) | None. No column to add; Slice 3 writes it with the creator's person id |
+| **C7** | §10.5: "`colonies` records who created each one (`created_by`)" is a new column. SYC-209's merged spec calls it "a link to people" | `colonies.created_by` already exists (text, nullable) | No column to add. PR 1.1's `createColonyWithPlacement` writes it with the creator's person id (as text; no foreign key, so no migration on a table SYC-209 reshapes). D5 aligns SYC-209's wording |
 | **C8** | §4.1: the invitation comes "from `Cat Spotters <signin@mail.catspotters.com>`" | The API's transactional sender is `Cat Spotters <hello@mail.catspotters.com>`; `signin@` is the Worker's. Both are on the verified `mail.catspotters.com` domain | None. Slice 1 adds `signin@` as the `person_invite` sender, as the spec says; the probe after deploy confirms Resend accepts it |
-| **C9** | §6.3: a guardian who signs in "goes straight to the dashboard" | The Worker's only way to the dashboard is a button inside the workspace. A dashboard-only person needs a new Worker path that mints the hand-off pass and sends her on without a workspace session | Built in the Worker PR (W1), in the other repository |
+| **C9** | §6.3: a guardian who signs in "goes straight to the dashboard" | The Worker's only way to the dashboard is a button inside the workspace. A dashboard-only person needs a new Worker path that mints the hand-off pass and sends her on without a workspace session | Built in the Worker PR (W1), in the other repository. W1 **follows the spec**: she goes straight on, with no extra page (the earlier "Open my colonies" page was a deviation and is dropped; see W1) |
+| **C10** | §7.2, §3: followers of a cat get "the usual news" when it is confirmed sterilised, described as an email | There is **no such path** for dashboard records. `recordTeamStatement` and the dashboard routes send nothing; the only place a "desexed" update is created and fanned out is the owner-key route `routes/notifications.ts`, which SYC-185 retires. `fanOutNotifications` writes in-app rows and Expo pushes and sends no email; the `cat_news` mail purpose exists but nothing calls it | **Settled by Samuel (12 Oct): in the app and by push, no email.** PR 2.2 builds `announceSterilised` (see there). D4 corrects the spec's word "email" |
+| **C11** | §7.2, §10.4: a guardian's statement is authoritative for sterilisation; silent on how it ranks against others | `resolve.ts` rule 2 is "newest authoritative statement wins, whatever sign", and `observedAt` can be sent by the client on the generic routes. A guardian's "isn't sterilised" could flip a vet's or the team's record merely by being later | **Settled by Samuel (12 Oct): Decision G.** Built in PR 0.2 (one `authorityLevel` function) and PR 2.2 (guardian writes); recorded by D6 |
 
 ---
 
 ## Decisions for Samuel
 
-Six, all about *how* to build what is approved. None reopens a decision in the spec.
+Six (A to F) about *how* to build what is approved, each now carrying the adversarial review's verdict and conditions, and one (G) that Samuel has already settled. None of A to F reopens a decision in the spec; G and the news channel amend it, on Samuel's say-so.
 
 ### Decision A: how Samuel, Jacky and Susan become management (C1)
 
@@ -106,6 +108,8 @@ Six, all about *how* to build what is approved. None reopens a decision in the s
 | A2. The migration adds the rows, matched by email address | One step | Addresses of three people in the repository and in its history. Does nothing on CI's database, so the test that "exactly three people hold management" can't run there |
 
 **Recommendation: A1.** The spec's intent (exactly three, from a list Samuel has seen) is kept exactly; only the tool changes.
+
+**Review verdict: agree, with conditions.** This is the only decision that departs from something Samuel answered (Q1), so D4 records it. Conditions, all built in: `people-set-roles` is **additive** (`--add` and `--remove`; it prints before and after, and refuses a result with no island role unless forced; see PR 0.3); spec test 29a becomes a **production probe plus a seeded-database test of the command**, not a test of the migration; PR 0.5 does not merge until the probe shows exactly three; the Neon snapshot step needs Samuel's "ask" mode.
 
 **What people notice.** Nothing either way.
 
@@ -121,6 +125,8 @@ Six, all about *how* to build what is approved. None reopens a decision in the s
 
 **Recommendation: B1.**
 
+**Review verdict: agree on the shape; the plan now finishes the job.** There is no database check on `authority_scope`, so B1 needs no migration. Conditions, all built in: a strict pattern, `^colony:[1-9][0-9]*$`; **written only by the server**, never read from a request; **only for the role `guardian`**, rejected for every other role in `writeObservation`; and the resolver never treats that scope as authority for a non-guardian role. B1 contradicts the **merged** SYC-2 spec (which says `guardian_of_this_cat`), so a small docs PR, **D5**, aligns it before PR 2.2.
+
 **What people notice.** Nothing. The team's cat page shows "Confirmed by Eleni, cat guardian, 14 October" either way.
 
 ### Decision C: where a field-check photo is kept (C3)
@@ -134,6 +140,8 @@ Six, all about *how* to build what is approved. None reopens a decision in the s
 | C3. No photo on field checks for now | Nothing to store | The spec offers the photo, and the team uses it to decide whether to mark a check wrong |
 
 **Recommendation: C1.**
+
+**Review verdict: agree.** It copies the one proven private pattern, and public readers cannot join to it. Added: the upload rules (PR 3.1) and SYC-208 must reach these rows (listed under "What this plan does not do").
 
 **What people notice.** Nothing different from the spec.
 
@@ -149,6 +157,10 @@ Six, all about *how* to build what is approved. None reopens a decision in the s
 
 **Recommendation: D1**, with D3 kept as a fallback only if Samuel wants a guardian in before SYC-209's colony PR is live. Either way, the plan for SYC-209 should be written next, against this plan's Slice 0.
 
+**Production check (12 October 2026, read-only).** Before saying the first guardian "waits on SYC-209", I counted what production holds: a read-only `SELECT count(*)` on `colonies`, `feeding_sites`, `person_scopes where role = 'guardian'` and `people`, through the Neon project's SQL tool. Result: **0 colonies, 0 feeding sites, 0 guardian rows, 3 people.** So the wait is real (there is no colony anyone could be invited onto), D3 is not needed, and nothing is enforcing the wait beyond that fact. Two things follow: PR 1.2's guardian invitation form shows "No colonies exist yet" and cannot send when the list is empty (so the gate is a behaviour, not a hope); and Claude re-runs the same count before Slice 2 goes live. *How to re-check:* the project's default branch was read (the plan assumes it is the production branch; Claude confirms the branch name at the snapshot step). db-ops has no read-only colony command today, so a follow-up ticket adds `db-ops colonies-count`.
+
+**Review verdict: agree, with conditions, all now binding.** (1) The hand-off to SYC-209 is written as **acceptance criteria**, not a promise in a comment: see "Binding hand-offs to SYC-209 and SYC-2" below. (2) Any placed holder who is not island-wide is rendered through `guardianCatView`, **never** the team's cat view, including on SYC-209's `GET /api/team/colonies/:id` (the second guardian colony page). (3) D3, if it were ever used, would give those colonies no SYC-209 history.
+
 **What people notice.** With D1, management can invite team members as soon as Slice 1 ships, and guardians once colonies can be created.
 
 ### Decision E: how "Needs a look" is sorted before the offline pages exist (C5)
@@ -163,6 +175,8 @@ Six, all about *how* to build what is approved. None reopens a decision in the s
 
 **Recommendation: E1.**
 
+**Review verdict: agree.** Condition: the phone's position is sent in a **POST body**, never a query string, so no proxy or access log keeps it, even though the app's logger already strips queries (PR 4.2).
+
 ### Decision F: does the saved colony view need its own short spec first? (C6)
 
 **The question.** The roles spec fixes who may open the saved colony view, what a phone may keep, and how it is deleted. It leaves "what is on the screen" to SYC-54, which has no spec.
@@ -173,6 +187,30 @@ Six, all about *how* to build what is approved. None reopens a decision in the s
 | F2. Build from the spec's §12.1 lists alone | Faster | Screen decisions made in code review |
 
 **Recommendation: F1.** Slices 0 to 3 don't wait for it.
+
+**Review verdict: agree.** Add to that screen spec: the accept-page wording about phone locks (PR 1.1), and the `Clear-Site-Data` behaviour on removal (PR 4.1).
+
+### Decision G: who wins when people disagree (settled by Samuel, 12 October 2026)
+
+**The question.** Several kinds of people can now say the same thing about a cat (sterilised, alive, ear clipped, colour). When two of them disagree, whose word stands? Today the newest statement wins, whoever said it. With guardians writing, that means a guardian who taps "isn't sterilised" on a cat the vet has recorded as done would quietly put the cat back on a trapping list.
+
+| Option | What it means | Benefits | Risks |
+|---|---|---|---|
+| **G1. By level, then newest (chosen).** Vet records win over everyone. A cat guardian's statement and an owner's statement win over the team's. Within the same level, the newest wins | A guardian who knows her cat beats a team entry made from a distant record, but never a vet | Uses the knowledge of the people closest to the cat, as Decision 5 intended; a vet's record can never be overturned by a casual tap | The team can no longer overwrite a guardian just by writing later. A guardian's wrong word stands until the team marks it wrong (the existing "This is wrong", which still works) or a vet speaks |
+| G2. Newest wins whatever role (today's rule) | No change | Simplest | A late tap overturns a vet record |
+| G3. The team always beats a guardian | | The team keeps control | Contradicts Decision 5: the guardian's word would count only when nobody on the team has spoken |
+
+**Decided: G1.** It amends the approved roles spec (§7.2, §10.4) and the data spine's resolver rules, so docs PR **D6** records it before PR 2.2.
+
+**How it is built** (PR 0.2 defines it, PR 2.2 uses it): one function, `authorityLevel(observation)`, in `lib/resolve.ts`. Level 3 is a vet; level 2 is a cat guardian (role `guardian` with a `colony:<id>` scope) or an owner (`authority_scope = owner_of_this_cat`); level 1 is the team (`staff`, `management`) and imported records; anything else counts for nothing. The resolver for the sterilisation answer, life status, ear tip, colour and markings picks the **highest level present, then the newest at that level** (ties by the later row). The server sets `observedAt` on every guardian route; a client-sent `observedAt` is ignored there. A guardian's statement that contradicts a team record still goes on the team's "recent guardian changes" list, marked as contradicting, and the team's record shows as a visible disagreement on the cat's page.
+
+**What Samuel should confirm (assumptions I made, none of which he ranked):**
+1. **A guardian and an owner are at the same level**, so the newest of the two wins. He ranked "cat guardian and owner" above the team but did not rank them against each other. Recommendation: keep it, since both are the person who knows the cat. (Slice 6 adds the owner's writes; the ranking function is built now.)
+2. **Imported records rank with the team** (level 1), as their authority is the team's today.
+3. **Management ranks with the team**, not above it.
+4. **The "sterilised" news goes once per cat, ever** (see PR 2.2): if a Confirmed answer is later marked wrong and then confirmed again, followers are not told a second time. Recommendation: once, since the news can't be unsent and a second message would read as confusing spam.
+
+**What people notice.** A guardian's "she's sterilised" or "she isn't" on her own cat now stays, even if the team entered the opposite earlier; a team member sees the disagreement on the cat's page and can mark the guardian's word wrong. A vet's record is never overturned by either.
 
 ### Also needed from Samuel, not decisions
 
@@ -188,11 +226,11 @@ Foundations first, then invitations, then the guardian's pages, then what she re
 
 | Step | PRs | Needs first | Who notices |
 |---|---|---|---|
-| **Docs** | D1 data spine · D2 team-access · D3 `DECISIONS.md` · D4 roles-spec corrections from this plan's decisions | #102 merged; Samuel's answers to Decisions A–F | Nobody |
-| **Slice 0: foundations** | 0.1 `person_events` · 0.2 one list of roles and the vocabulary · 0.3 the roles migration and the `people` command · 0.4 two doors (API) · **W1** the sign-in Worker · 0.5 the capability catalogue, strict checks, the 403 page and the route walk | D1–D3 merged before 0.2 | Almost nobody |
+| **Docs** | D1 data spine · D2 team-access · D3 `DECISIONS.md` · D4 roles-spec corrections from this plan's decisions · **D5** SYC-2 and SYC-209 wording aligned with Decision B · **D6** Decision G (who wins) in the roles spec and the data spine | #102, #103, #104 merged (done); Samuel's answers to Decisions A–F | Nobody |
+| **Slice 0: foundations** | 0.1 `person_events` · 0.2 one list of roles, the vocabulary and `authorityLevel` · 0.3 the roles migration and the `people` command · 0.4 two doors (API) · **W1** the sign-in Worker · 0.5 the capability catalogue, strict checks, the 403 page and the route walk | D1–D3 and D6 merged before 0.2 (0.2 builds `authorityLevel`); D5 before 2.2 | Almost nobody |
 | **Slice 1: invitations** | 1.0 the dashboard's three-language strings · 1.1 inviting and accepting · 1.2 the people screen · 1.3 "My page" and "My colonies" | Slice 0 and W1 live | Management, then the first people they invite |
-| **Slice 2: a guardian's own pages** | 2.1 her cats, in full inside her colonies, public outside · 2.2 what she says about a cat (life status, sterilised) | Slice 1; SYC-209's colony PR for the first real guardian (Decision D) | Guardians and the team |
-| **Slice 3: what a guardian records** | 3.1 field checks (migration `field_check_photos`) · 3.2 "Needs a look" · 3.3 cat-in-trouble reports for her own cats · 3.4 asking for a site to be made public, and "Needs an OK" | Slice 2; 3.4 also needs SYC-209's feeding-site PRs | Guardians and the team |
+| **Slice 2: a guardian's own pages** | 2.1 her cats, in full inside her colonies, public outside (and the "moved to another colony" line) · 2.2 what she says about a cat (life status, sterilised, and the one-time news) | Slice 1; D5 and D6 merged; SYC-209's colony PR for the first real guardian (Decision D; production holds no colony yet) | Guardians and the team |
+| **Slice 3: what a guardian records** | 3.1 field checks (migration `field_check_photos`) · 3.2 "Needs a look" · 3.3 cat-in-trouble reports for her own cats · 3.4 asking for a site to be made public, and "Needs an OK" (migration `confirmation_items`) | Slice 2; 3.4 also needs SYC-209's feeding-site PRs | Guardians and the team |
 | **Slice 4: the colony view with no signal** | 4.1 the field pages' own narrow script rule · 4.2 the saved list and the round sheet · 4.3 field checks made with no signal | Slice 3; a short SYC-54 screen spec (Decision F) | Guardians and the team |
 | **Slice 5: the small things** | 5.1 round-sheet counts and the management banner · 5.2 hand-pick review for guardians | Slice 4; 5.2 waits for SYC-152 | Management |
 | **Slice 6: owners** | 6.1 a cat owner confirms a sterilisation | SYC-130's spec approved and its claim built | Residents who own a cat |
@@ -203,18 +241,20 @@ Foundations first, then invitations, then the guardian's pages, then what she re
 
 ## Before any code: the docs PRs (spec §17)
 
-Each is a small docs-only PR, built from the spec's §17 text word for word, plus this plan's decisions once Samuel has answered them. **They are written first, in parallel with PR 0.1, and D1–D3 must merge before PR 0.2**, because 0.2 changes the record's vocabulary and the code should never be ahead of the approved docs.
+Each is a small docs-only PR, built from the spec's §17 text word for word, plus this plan's decisions once Samuel has answered them. **They are written first, in parallel with PR 0.1. D1–D3 and D6 must merge before PR 0.2, and D5 before PR 2.2**, because 0.2 changes the record's vocabulary (and builds the precedence function Decision G describes) and 2.2 is where the resolver learns the guardian's scope; the code should never be ahead of the approved docs.
 
-**Collision:** PR #107 (SYC-130 "This is my cat") edits the same three files (`DECISIONS.md`, `cat-record-data-spine.md`, `team-access-and-welfare-queue.md`). Whichever merges second rebases. The sections don't overlap except the data spine's §4.2, where D1's sentence about owners must match what #107 says a claim is.
+**Collision:** PR #107 (SYC-130 "This is my cat", still open) edits the same three files (`DECISIONS.md`, `cat-record-data-spine.md`, `team-access-and-welfare-queue.md`). Whichever merges second rebases. The sections don't overlap except the data spine's §4.2, where D1's sentence about owners must match what #107 says a claim is.
 
 | PR | File | What it changes (spec §17) |
 |---|---|---|
-| **D1** | `cat-record-data-spine.md` | §6.5 the guardian row and the saved list (17.1.1); §4.2 who can confirm sterilisation, and field checks (17.1.2); §10.1/§10.4 vocabulary: `admin` → `management`, `guardian` live, `volunteer` retired, the *seen in person* marker and private photo reference, the authoritative roles (17.1.3), **plus Decision B's `colony:<id>` shape for `authority_scope`**; §10.5 the "no colony" value (17.1.4; `created_by` already exists, C7); §4.5 point 3 pointer (17.1.5); §3.2 guardian life-status undo and direct statements (17.1.6); §6.7 guardians see only their own sites (17.1.7) |
+| **D1** | `cat-record-data-spine.md` | §6.5 the guardian row and the saved list (17.1.1); §4.2 who can confirm sterilisation, and field checks (17.1.2); the "sterilised" news goes in the app and by push (Samuel, 12 Oct), once per cat; §10.1/§10.4 vocabulary: `admin` → `management`, `guardian` live, `volunteer` retired, the *seen in person* marker and private photo reference, the authoritative roles (17.1.3), **plus Decision B's `colony:<id>` shape for `authority_scope`**; §10.5 the "no colony" value (17.1.4; `created_by` already exists, C7); §4.5 point 3 pointer (17.1.5); §3.2 guardian life-status undo and direct statements (17.1.6); §6.7 guardians see only their own sites (17.1.7) |
 | **D2** | `team-access-and-welfare-queue.md` | §7.1–7.2 the roles (17.2.1); §7.3 the catalogue pointer, `view_welfare_queue`, `view_colony_welfare_reports` (17.2.2); §2.7–2.9 pending state, two doors, language (17.2.3); §2 and §8 the 403 page (17.2.4); §3 the welfare queue's capability and guardians' read-only reports (17.2.5) |
 | **D3** | `DECISIONS.md` | Part 3 split the "Sign-in, trust boundary, roles" row (17.3.1); Part 2k amended by Decision 5 (17.3.2); Part 2i `match_cat_anywhere` reserved (17.3.3); **a new Part 2n, dated 12 October 2026**, carrying the §16.5 entries, plus the answers to this plan's Decisions A–F (17.3.4) |
-| **D4** | `roles-and-invites.md` | The corrections this plan's decisions make to the roles spec itself: §15.2 step 5 (management added by the `people` command after the migration, Decision A); §7.3 and §10.4 (`authority_scope` = `colony:<id>`, Decision B); §7.3 point 3 and §10.5 (the `field_check_photos` table, Decision C); §15.1 (the colony routes belong to SYC-209, Decision D); §7.1 (grouped by colony until the field pages, Decision E); §10.5 (`created_by` exists, C7). Only the parts Samuel agrees to |
+| **D4** | `roles-and-invites.md` | The corrections this plan's decisions make to the roles spec itself: §15.2 step 5 (management added by the `people` command after the migration, Decision A); §7.3 and §10.4 (`authority_scope` = `colony:<id>`, Decision B); §7.3 point 3 and §10.5 (the `field_check_photos` table, Decision C); §15.1 (the colony routes belong to SYC-209, Decision D); §7.1 (grouped by colony until the field pages, Decision E); §10.5 (`created_by` exists, C7); **§7.2 and §3: the "sterilised" news goes in the app and by push, with no email, once per cat, whoever's statement made it Confirmed.** Only the parts Samuel agrees to |
+| **D5** | `coat-markings-and-health.md` (SYC-2) and `feeding-sites-and-colonies.md` (SYC-209), both merged | **Aligns the merged specs with Decision B (review finding M4).** SYC-2's data-model line says coat and markings accept `guardian` "with `authorityScope: guardian_of_this_cat`"; it becomes "`authorityScope: colony:<id>` for her own colonies, written only by the server, only for the role `guardian`" (the strict pattern `^colony:[1-9][0-9]*$`). `guardian_of_this_cat` stays reserved for the claim feature. SYC-209's wording "`colonies.created_by` is a link to people" becomes "holds the creating person's id as text". A real PR on `main`, not an edit to a merged PR |
+| **D6** | `roles-and-invites.md`, and `cat-record-data-spine.md` (the resolver rules, §10.2 and §4.6) | **Records Decision G.** The order **vet > cat guardian and owner > team**, newest wins at the same level; guardian and owner at the same level (assumption, Samuel to confirm); imports and management rank with the team; the server sets `observedAt` on guardian routes; a guardian's statement contradicting a team record goes on the team's "recent guardian changes" list. Amends roles spec §7.2 and §10.4 and the data spine's "newest authoritative statement wins, whatever sign" rule. **Merges before PR 0.2 and so before PR 2.2** |
 
-**The sibling specs (§17.4).** SYC-209 (#103) already carries the 12 October names (checked: its §7.2 cites `create_colony`, `assign_cat_to_colony` and the removed `propose_colony_change`). SYC-2 (#104) is checked for the four names and the dropped `confirm_appearance` when D1 is written; any gap is a one-line edit on #104 itself, not a new PR. SYC-130 (#107): a comment on the PR asks it to say that an owner's confirmation of sterilisation follows its claim (§17.4.3), so it is fixed in that PR before it merges.
+**The sibling specs (§17.4).** SYC-209 (#103) and SYC-2 (#104) have **merged**, so any correction is a real small PR (D5), not an edit to the pull request. SYC-209 already carries the 12 October names (checked: its §7.2 cites `create_colony`, `assign_cat_to_colony` and the removed `propose_colony_change`); SYC-2 is checked for the four names and the dropped `confirm_appearance` when D1 is written. SYC-130 (#107): a comment on the PR asks it to say that an owner's confirmation of sterilisation follows its claim (§17.4.3), so it is fixed in that PR before it merges.
 
 ---
 
