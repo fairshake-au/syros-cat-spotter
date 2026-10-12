@@ -141,7 +141,7 @@ As with welfare reports (spec §4.3), **the queue row is written first, in the s
 
 **Where the row lives is decision D1.** The recommendation is the existing `welfare_reports` table with `kind = 'content'`. The column and its check already exist for exactly this (`lib/db/src/schema/welfare.ts` reserves it), and spec §8.4 already says so, so the dashboard has one queue, one set of four states, one team note, one history and one delivery-state column. Reuse is not free. The table was built around cats in trouble, and the plan lists and tests every one of these places:
 
-- **The migration.** `lat` and `lng` become optional for `content` rows, with a new check that keeps them required for `welfare` rows. New nullable columns: `reason` (the key from §2, checked), `photo_id` (→ `photos.id`), `hidden_by_report` (boolean) and `token_checked` (boolean, §9). `cat_id` is already there. This is a change to a live table, so the plan includes a **rollback block** that keeps the welfare rows' guarantee that a position is always present.
+- **The migration.** `lat` and `lng` become optional for `content` rows, with a new check that keeps them required for `welfare` rows. New nullable columns: `reason` (the key from §2, checked), `photo_id` (→ `photos.id`), `hidden_by_report` (boolean) and `token_checked` (boolean, §9). `cat_id` is already there. This changes a table already in use, so the plan includes a **rollback block** that keeps the welfare rows' guarantee that a position is always present.
 - **Severity.** `severity` is set to `attention` for content rows (it is only used to order the welfare list); `is_litter` stays false.
 - **Photo state.** `photo_state` defaults to `'pending'`, which would show "Photo still uploading" on the queue and make the alert email wait ten minutes for a photo that is not coming. **Content rows are always written with `photo_state = 'none'`.** (The reported catalogue photo is a `photos` row, a different thing from this column.)
 - **"Which cat is this?" must not be offered on content rows.** Tying a report to a cat writes a `welfare_report` observation, and the cat record counts those as **evidence of life** (`resolve.ts`, `EVIDENCE_SOURCES`). A `cat_died` row tied to a cat would push that cat's "last seen alive" date later, the opposite of what the report says. The tie control is not shown for `kind = 'content'`, the route refuses it, and a test proves **no `welfare_report` observation is ever written for a content row**.
@@ -398,17 +398,19 @@ Why this is safe for real people: the person has already seen the vet-first advi
 
 ## 12. Open decisions
 
-Each lists every realistic option, the benefits and risks, what changes for people, and a recommendation. **D2, D3, D4 and D11 touch things already decided and are marked as amendments or additions.** D1 and D2 gate the rest.
+Each lists every realistic option, the benefits and risks, what changes for people, and a recommendation. **D2, D3, D4, D5, D9 and D11 touch things already decided and are marked as amendments or additions** (the table near the top lists them all). D1 and D2 gate the rest. Where the adversarial review changed a decision, it carries a **"Changed after review"** note. D14 is new.
 
 ### D1. Where do "Report an issue" reports live?
 
 | Option | Benefits | Risks | UX | Team |
 |---|---|---|---|---|
-| **A. The same table as cat-in-trouble reports (`welfare_reports`, `kind = 'content'`) (recommended)** | One queue, one set of states, one note and history. `kind` and its check already exist for this, and spec §8.4 already says so. Reuses the outbox, delivery tracking and team page. | The table was built around cats in trouble: lat and lng are required, severity exists, and several code paths assume a welfare report. A migration and a careful sweep for `kind` are needed, or an issue report could write a `welfare_outcome` on a cat. | None. | One list to watch. |
+| **A. The same table as cat-in-trouble reports (`welfare_reports`, `kind = 'content'`) (recommended)** | One queue, one set of states, one note and history. `kind` and its check already exist for this, and spec §8.4 already says so. Reuses the outbox, delivery tracking and team page. | The table was built around cats in trouble, and several code paths assume a welfare report (§5.1 lists each). A careless reuse could write a `welfare_outcome` on a cat, show "Photo still uploading", or count a death report as proof the cat is alive. | None. | One list to watch. |
 | B. A sibling table, `issue_reports`, with its own state history | Welfare reports stay untouched. Cleaner types. | Two tables, two state histories and two sets of team pages for what the team sees as one inbox. This is the "second inbox" the brief says not to build. `report_state_events` has a foreign key to `welfare_reports`, so it would need a twin. | None. | Two lists, or one page stitching two sources. |
 | C. Email only, no queue row | Least to build. | Loses everything the queue exists for: states, notes, "did anyone handle this?". Reverses the approved "arrives in the queue". | None. | A shared inbox is not a record. |
 
-**Recommendation: A**, with the plan listing every reader of `welfare_reports` and a named test that closing an issue never writes a `welfare_outcome`.
+**Recommendation: A**, on the condition that every item in §5.1 is done and tested: `photo_state = 'none'` on content rows; no "which cat is this?" on them and no `welfare_report` observation ever written for them; no `welfare_outcome` on close; the resend key includes the kind; the mail-failure banner counts both alert purposes; a retention job that checks the kind; and a migration with a rollback.
+
+**Changed after review:** the recommendation stands, but the review found the reuse breaks more than the draft listed (the "which cat is this?" feature, evidence of life, the resend key, the banner, retention, the rollback), so those are now conditions.
 
 ### D2. Which reasons hide on one confirmed report? (amendment to §6)
 
@@ -420,19 +422,23 @@ The approved spec hides only for "upsetting or inappropriate". But "shows a pers
 | **B. `photo_inappropriate` and `photo_private` hide (recommended)** | Covers both cases where delay does real harm. The confirm step and D3's safeguards apply to both. | Slightly more room for vandalism (two reasons that hide, not one). | A privacy reporter gets immediate relief. | A few more hidden photos to review. |
 | C. All photo reasons hide (`photo_not_cat` and `wrong_cat` too) | Simplest rule: a photo report hides the photo. | Makes the least harmful reasons the easiest weapon. A tourist who disagrees about which cat it is would hide a good photo. | Over-hides. | Many more restores. |
 
-**Recommendation: B.**
+**Recommendation: B**, but only together with D3's global brake (rule (iv)) and the narrower `photo_private` hint (faces, house numbers, number plates, the inside of a home or garden; not "a doorway").
+
+**Changed after review:** the condition is new. Without the brake, making a second reason hide widens what a vandal can take down; without the narrower hint, the reason most likely to be misused becomes easier to pick by accident.
 
 ### D3. Safeguards on a one-report hide (additions)
 
-The approved mitigations are the confirm step, Turnstile, a volume alert and one-tap restore. Three more are proposed in §8.1: **(i)** a hide needs a verified Turnstile token; **(ii)** a photo the team has restored is not hidden by a later report; **(iii)** per-address hide limits (5 an hour, 15 a day).
+The approved mitigations are the confirm step, Turnstile, a volume alert and one-tap restore. Four more are proposed in §8.1: **(i)** a hide needs a verified Turnstile token; **(ii)** a photo the team has ever restored is not hidden by a later report; **(iii)** per-address hide limits (5 an hour, 15 a day); **(iv)** a global brake: once report-hides pass 20 in a rolling 24 hours, new ones queue without hiding until a team member presses "Resume automatic hiding".
 
 | Option | Benefits | Risks |
 |---|---|---|
-| A. Only the approved four | Matches what was signed off. | One person can re-hide a restored photo every day; a script on many addresses is only slowed by Turnstile. |
-| **B. All three additions (recommended)** | Bounds a vandal to one hide per photo and a handful per address. A real private-photo report on a fresh photo still hides at once. | Rule (ii) means a photo restored by mistake and then genuinely reported again stays up until a person looks. Rule (i) means a tokenless (offline) privacy report waits for a person. Both are small, and the confirmation copy does not over-promise. |
-| C. Only (i) | Smallest change. | Leaves repeat-hiding open. |
+| A. Only the approved four | Matches what was signed off. | One person can re-hide a restored photo every day; a script on many addresses is only slowed by Turnstile and could hide a large part of the catalogue in a day. |
+| **B. All four additions (recommended)** | Bounds a vandal to one hide per photo, a handful per address and about 20 photos a day in total. A real private-photo report on a fresh photo still hides at once, outside a flood. | Rule (ii) means a photo restored by mistake and then genuinely reported again stays up until a person looks. Rule (i) means an unchecked privacy report (Cloudflare unreachable) waits for a person. Rule (iv) means that during a real wave of reports, later ones wait for a person, so the team must watch the banner. The confirmation copy never over-promises (§4.1). |
+| C. Only (i) | Smallest change. | Leaves repeat-hiding and mass-hiding open. |
 
-**Recommendation: B.** If Samuel rejects (ii), repeat-hiding returns and the volume banner is the only defence.
+**Recommendation: B**, with rule (ii) meaning "the photo has any restore on record, ever". If Samuel rejects (ii), repeat-hiding returns; if he rejects (iv), a vandal with many addresses can hide the catalogue and the volume banner is the only defence. The threshold of 20 is for Samuel to confirm.
+
+**Changed after review:** rule (iv) is new, and rule (ii) is defined exactly so a later hide followed by a restore stays protected.
 
 ### D4. What do the public and the photo's taker see when a photo is hidden? (amendment)
 
@@ -444,39 +450,49 @@ The approved text says a hidden photo "stays visible to staff (and to whoever up
 | B. As approved: also visible to the uploader | Kind to a wrongly hidden photo's taker. | Photos would need device-authenticated reads, which changes the photo route, its caching and the pre-launch headers. The device is trust-on-first-use, so "the uploader" is a weak notion. A privacy-hidden photo would still be shown to some device. | Better for the taker, worse for the privacy case. |
 | C. The sighting is hidden too, with no tile | Nothing signals that anything was hidden. | The sighting count and points stay but the list shows less than the count says. | Confusing. |
 
-**Recommendation: A.**
+**Recommendation: A.** The review agrees; no change.
 
-### D5. Can the team delete a hidden photo for good?
+### D5. Can the team remove a hidden photo for good?
+
+The approved hosting spec (`hosting-and-photo-storage.md` §6.5, approved 28 September) already says a photo-removal path "arrives in the same window as" this flow, and gives its contract: removing is **one database write**; anything that referred to the photo **degrades gracefully** (a cat whose main photo is removed shows the placeholder); and removal is **recorded: who, when and why**. The draft treated deletion as new design and recommended leaving it out.
 
 | Option | Benefits | Risks | UX |
 |---|---|---|---|
-| **A. Hide only in v1; a ticket for a real delete, decided before launch (recommended)** | Reversible, simplest, matches PR 6. | A person whose face is in a photo gets restriction, not erasure, until the delete ships. The photo stays in the database and as a matching reference. The privacy policy must say so honestly. | The reporter gets hide-now. |
-| B. Add a `remove_photo` capability: a confirmed, irreversible delete on a hidden privacy photo | Matches what someone asking for erasure of their image expects. | The hard part is design: the photo may be a cat's main photo, a sighting's photo, a matching reference and an embedding source. It is the same family of work as SYC-63's severing. Irreversible with a one-tap team UI. | The strongest answer. |
-| C. Do not offer deletion at all | Nothing to build. | A person with a legal right to erasure of their image is turned away. | Poor. |
+| A. Hide only for now; a ticket for a real removal, decided before launch | Reversible, simplest, matches PR 6. | **This amends hosting §6.5** and needs Samuel's explicit yes. A person whose face is in a photo gets restriction, not erasure, until removal ships. The photo stays in the database and as a matching reference. The privacy policy must say so honestly. | The reporter gets hide-now only. |
+| **B. A narrow, management-only removal before launch, under hosting §6.5's contract (recommended)** | Honours what hosting already promised, so nothing approved is amended. Applies only to a photo that is **already hidden for a privacy reason**, and asks for a typed confirmation. Management only, because it cannot be undone. It also takes the photo out of matching, which hiding does not. Needs one new catalogue row, `remove_photo` (§5.5). | Irreversible, so a wrong removal cannot be fixed (the confirmation and the management-only rule are the guard). The photo may be a cat's main photo, a sighting's photo and a matching reference, so the plan must list each place and prove it degrades gracefully. It is the same family of work as SYC-63's severing. | The strongest answer to "please take my face out of your app". |
+| C. Do not offer removal at all | Nothing to build. | A person with a legal right to erasure of their image is turned away. Contradicts hosting §6.5. | Poor. |
 
-**Recommendation: A for v1**, with a ticket (filed) to settle the real delete before launch, because "hidden" is an interim state for a privacy photo.
+**Recommendation: B**, kept deliberately narrow. If Samuel prefers A, that is an amendment to hosting §6.5 and he should say so explicitly.
+
+**Changed after review:** the draft recommended A and called removal new. The review showed hosting §6.5 already commits to it, so B is now the recommendation and A is marked as an amendment.
 
 ### D6. What does "the map spot or the words show where someone lives" do?
 
-Positions are already blurred to a 250 m cell (data spine PR 6, live). What a report can touch is the home description (public text on the cat page, SYC-232's subject) and, for a feeding-site cat, the spot.
+Positions are already blurred to a 250 m cell (data spine PR 6). What a report can touch is the home description (public text on the cat page, SYC-232's subject) and, for a feeding-site cat, the spot.
+
+**A dependency to settle first.** The owner can rewrite `homeDescription` whenever they like (the claiming-a-cat review, SYC-130, finding F3), and that review recommends making the description visible only to the owner and the team. If SYC-130 adopts that, half of this problem disappears, the clear-the-text action may be unnecessary, and option A below shrinks to "the team looks". If SYC-130 leaves it public, clearing the text is undone the next time the owner edits it, so the plan must say what the team does about repeats. **D6 therefore waits on SYC-130's decision about the home description.**
 
 | Option | Benefits | Risks | UX |
 |---|---|---|---|
-| **A. The report goes to the queue as a distinct "location" issue and the team acts by hand; a small team action to clear the home description is added (recommended)** | No automatic change from one report. Clearing text is small, add-only and the text is the likelier problem. | Until a person reads it, the text stays up. Only the text can be fixed, not the map spot. | The reporter is told the truth: "Syros Cats will take a look." |
+| **A. The report goes to the queue as a distinct "location" issue and the team acts by hand; if the description stays public, a narrow team action clears it (recommended)** | No automatic change from one report. Clearing text is small, add-only and recorded, and the text is the likelier problem. | Until a person reads it, the text stays up. Only the text can be fixed, not the map spot. The action needs a catalogue row first: `clear_home_description` (§5.5), island-only, not `edit_cat_text`, which was too broad. | The reporter is told the truth: "Syros Cats will take a look." |
 | B. A single confirmed report also hides the cat's map spot and home text, pending review | Fast for the person it concerns, in line with photos. | Needs a new "position hidden" mechanism in the data spine, which does not exist. Easy to weaponise: one report removes a cat from the map. | Strong for the worried neighbour, poor for the cat's spotters. |
 | C. Nothing special: it is just `other` | No work. | Loses the one case where delay can expose where a person lives. | None. |
 
-**Recommendation: A**, with a ticket for B's mechanism, to be decided after launch with Syros Cats. The clear-home-text action needs a capability name, and `edit_cat_text` is proposed.
+**Recommendation: A**, with a ticket for B's mechanism, to be decided after launch with Syros Cats, and with the new catalogue row added to the roles spec first.
+
+**Changed after review:** the capability is renamed and narrowed (`clear_home_description`), it needs a roles-catalogue row first, and the whole decision waits on SYC-130.
 
 ### D7. A cat reported as died
 
 | Option | Benefits | Risks | UX |
 |---|---|---|---|
-| **A. The team decides; the report alone changes nothing (recommended)** | A false report cannot declare a living cat dead. PR 4's "no longer with us" already needs a reason and a date. | A real death waits for a person. | Respectful. The cat page never changes on a stranger's say-so. |
+| **A. The team decides; the report alone changes nothing (recommended)** | A false report cannot declare a living cat dead. The team's "no longer with us" action already needs a reason and a date. | A real death waits for a person. | Respectful. The cat page never changes on a stranger's say-so. |
 | B. Several independent reports flip the status | Faster for a well-known cat. | Easy to fake with many devices. A false "no longer with us" is cruel to show a cat's owner. | Risky. |
 | C. A public tag, "reported as died, being checked" | Honest in the open. | A public announcement of a possibly wrong death. | Upsetting. |
 
-**Recommendation: A.** A `cat_died` report also never triggers a push to the cat's spotters.
+**Recommendation: A.** A `cat_died` report also never triggers a push to the cat's spotters, and a `cat_died` row can never be tied to a cat in the "which cat is this?" step (§5.1), because that would be counted as proof of life.
+
+**Changed after review:** only the tie ban is added.
 
 ### D8. How does a person report one photo?
 
@@ -486,26 +502,41 @@ Positions are already blurred to a 250 m cell (data spine PR 6, live). What a re
 | **B. Tap a photo to see it larger, with "Report an issue with this photo" under it (recommended)** | Quiet, big tap target, no hidden gesture, same on the web. The full-screen view is useful on its own. | A new screen to build and an extra tap. | Calm. |
 | C. Only on the cat page, with a "which photo?" step | Least to build. | The reporter must find the photo again in a picker. | Clumsier. |
 
-**Recommendation: B.**
+**Recommendation: B.** The review agrees; no change.
 
 ### D9. What does the reporter get back?
 
 | Option | Benefits | Risks | UX | Team |
 |---|---|---|---|---|
-| **A. On-screen thanks; one closing email only if they left a verified address (recommended)** | Same as welfare reports. Needs nothing new. | Most reporters give no address and hear nothing. | Calm; no promise. | No mail work for most reports. |
+| **A. On-screen thanks; one closing email only if they left a verified address, in the approved Part 2b wording (recommended)** | Same as welfare reports. Needs nothing new in the closing mail. | Most reporters give no address and hear nothing. **The email box on this form is a new moment when people are asked for an email, so it amends `email-capture.md`'s closed list of asks and the privacy policy's "four moments" line.** | Calm; no promise. | No mail work for most reports. |
 | B. A, plus a push when the report is closed | Closes the loop for the majority at no sending allowance. | The push machinery targets cats and spotters, not reports. Tells people when a decision about their photo is made. | Nicer. | Extra build. |
 | C. A "my reports" list in the app | Always available. | A new screen. Raises expectations of a reply. | A promise. | More to answer. |
-| D. Nothing at all | Least. | A person who reported something private gets no closure. | Cold. | None. |
+| D. Nothing at all, and no email box | Least. Amends nothing. | A person who reported something private gets no closure. | Cold. | None. |
 
-**Recommendation: A.** It matches the open push question in the welfare spec (§9.2); revisit when Samuel decides that one.
+**Recommendation: A.** It matches the open push question in the welfare spec (§9.2); revisit when Samuel decides that one. Samuel is asked to approve the amendment to `email-capture.md` and `privacy-policy.md` explicitly (option D avoids it).
+
+**Changed after review:** the closing text is now the approved Part 2b wording rather than new wording (so it amends nothing), and the new email moment is flagged as an amendment.
 
 ### D10. How does Turnstile work in the phone apps?
 
-See §9.4. **Recommendation: A, a hidden WebView on our own challenge page,** proven first by the spike.
+See §9.4. **Recommendation: A, a WebView on our own challenge page,** proven first by the spike.
 
-### D11. What if there is no valid Turnstile token? (amendment to SYC-170's wording)
+**Changed after review:** three conditions. (1) The page is on the app's own host, `apptest.catspotters.com` for now, not `catspotters.com`, and the widget lists only that exact host (§9.6). (2) The WebView is shown as a small sheet when Cloudflare asks for a tap, with a timeout and a "safety check couldn't finish" fallback (§9.4). (3) The spike checks the exact hostname string a phone token reports.
 
-See §9.5. **Recommendation: for Report an issue, queue it but never hide it or email it individually; for the welfare form, option B (accept, mark unchecked, cap the alert emails).** This relaxes SYC-170's "checked before a report is accepted" and needs Samuel's explicit yes.
+### D11. What if the Turnstile token is missing or wrong, or Cloudflare can't be reached? (amendment to SYC-170's wording)
+
+See §9.5. The draft recommended accepting a welfare report with no valid token and marking it "unchecked" (option B below). The review showed that makes Turnstile decoration on the welfare queue: whether a token is present is the sender's choice, so a script that never sends one gets exactly what a real person gets, a place near the top of the queue, while using up the capped alert emails that a real tourist with a failed WebView needed.
+
+| Option | Benefits | Risks | For the reporter | For the team |
+|---|---|---|---|---|
+| **A. Split by cause (recommended).** If the token is missing, wrong, expired or reused, refuse with a retryable `428 challenge_required` and create nothing; the app keeps the report, runs a fresh check and resends, and this does not count toward the three-strikes "failed" rule. Accept as "unchecked" only when our own server cannot reach Cloudflare. Unchecked rows sit in their own list below the checked ones, with a much lower per-address limit. Drafts need a token too. | A real report about a hurt cat is never lost: the phone still holds it. A script that sends no token gets nothing, so the welfare queue is protected as well as the inbox. The only relaxation of SYC-170's wording is the Cloudflare outage case, which the sender cannot cause. | Needs a small client change so a `428` is retried instead of counted. A phone whose check never works keeps its report until the 24-hour reminder. A Cloudflare outage lets in a few unchecked rows (limited). | A short delay on a phone whose check fails, with an honest message. Nothing visible when it works. | A small "unchecked" list, normally empty. |
+| B. (the draft) Accept it, mark it "unchecked", cap the alert emails for unchecked rows | No refusal ever. | **Any script that sends no token is accepted into the queue, at the top of the urgent list.** The draft route would have skipped the check as well. The cap lets a script use up the alert emails a real tourist needs. | Nothing visible. | The scarcest resource (the queue) is unprotected. |
+| C. Refuse with a plain `403` (the original option A) | Matches SYC-170's wording exactly. | After three refusals the app marks the report `failed` and stops retrying, so a real report is lost. | A sad failure at the worst moment. | Cleanest queue. |
+| D. Accept it with no Turnstile on the welfare form | Simplest. | Turns the check into decoration; the welfare spec's own §4.4 says Turnstile is there for exactly this. | Nothing. | A flood hits the queue and inbox. |
+
+**Recommendation: A, for both forms.** An unchecked *issue* report never hides. This relaxes SYC-170's "checked before a report is accepted" only when our server cannot reach Cloudflare; Samuel is asked to say yes to that.
+
+**Changed after review:** replaced. The draft's recommendation (B) was a blocker.
 
 ### D12. How long are issue reports kept?
 
@@ -515,19 +546,40 @@ See §9.5. **Recommendation: for Report an issue, queue it but never hide it or 
 | B. Three years, like welfare reports | One rule. | Keeps a note about a stranger's photo longer than its purpose needs. |
 | C. Delete on closing | Least data. | "Have we been asked about this before?" cannot be answered. |
 
-**Recommendation: A.**
+**Recommendation: A**, with a retention job that checks the report's kind (it must not delete welfare notes at one year or keep issue notes for three), and with the privacy policy's line "the report and what you wrote in it stay with the cat's record" corrected under SYC-248.
+
+**Changed after review:** the two conditions are new.
 
 ### D13. When does this ship relative to the rest of the queue work?
 
-The hide needs SYC-43 part 2's **PR 6** (`photo_visibility_events`, `publicPhotoUrl()`), which is not built yet. PRs 0 to 4 are on `main`.
+The hide needs SYC-43 part 2's **PR 6** (`photo_visibility_events`, `publicPhotoUrl()`). The rest of that plan, up to and including "Which cat is this?" (PR 5), is already merged.
 
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Build it after PR 6 (recommended)** | One hiding mechanism and one inbox, as SYC-44's comment and the plan require. | Cannot ship ahead of PR 6. |
 | B. Ship the non-hiding reasons first (name, cat, died, other) and add hiding when PR 6 lands | Earlier value for corrections. | Two releases of the same sheet, and the privacy reasons, the point of the feature, arrive last. |
-| C. Build a temporary hide of its own | Ships now. | A second hiding mechanism, which the plan explicitly rejected. |
+| C. Build a temporary hide of its own | Ships sooner. | A second hiding mechanism, which the plan explicitly rejected. |
 
-**Recommendation: A.** Turnstile on the welfare form (SYC-170) does not wait for PR 6 and should go first, because it is the precondition for removing the pre-launch pass.
+**Recommendation: A.** Turnstile on the welfare form (SYC-170), with the split in D11, does not wait for PR 6 and goes first, because it is the precondition for the launch-day step that takes the pre-launch pass off.
+
+**Changed after review:** only a correction to the PR 5 fact and the D11 design.
+
+### D14. How do we stop a hidden photo living on in caches? (new, from the review; SYC-279)
+
+Photos are served with a one-year, never-re-check cache lifetime. When a photo is hidden, a `404` from our server does not remove a copy that a browser, the app or a shared cache has already stored. If the API sits behind Cloudflare's proxy (not recorded; SYC-229), the copy could be served to **anyone who has the address**, not only people who saw it before, for up to a year. For a face or a front door, that is the part that matters.
+
+| Option | Benefits | Risks | What people notice |
+|---|---|---|---|
+| A. A much shorter cache lifetime on public photos (say one day, no "never re-check") | Simple. A hidden photo is gone from shared caches within a day. | More load on the server and more data used; still up to a day of exposure. | Photos may load slightly slower on weak signal. |
+| B. If the API is behind Cloudflare's proxy, clear that photo's address from Cloudflare's cache when it is hidden | Immediate at the edge, no change to normal caching. | Only works if the proxy is in place (SYC-229 must confirm), needs a probe test, does nothing for phones and browsers that already hold the copy. | Nothing. |
+| **C. Give the photo a new public address whenever it is hidden or restored (recommended)** | The old address is dead everywhere at once: browser, app, shared cache. Most robust, and `publicPhotoUrl()` already owns building addresses. | A small change to PR 6's design (a rotating public id), and addresses saved elsewhere stop working, which is the point. | Nothing visible. |
+| D. Do nothing | Nothing to build. | A hidden private photo can stay reachable for a year. | A privacy reporter's photo may not really be gone. |
+
+**Recommendation: C**, whichever of the others is also chosen, and the privacy policy says what is and is not recalled. A moved sighting (SYC-150) keeps the photo's internal id, so rule (ii)'s restore history survives.
+
+### Smaller calls inside the decisions
+
+These have a proposed value and need only a nod from Samuel: the global brake threshold (20 report-hides in 24 hours, D3); the unchecked-row limit (3 an hour per address, D11); individual "Photo hidden" alert emails capped at 10 an hour, the rest in a daily digest (§5.2); and not sending the visitor's address to Cloudflare (§9.2).
 
 ---
 
@@ -535,27 +587,37 @@ The hide needs SYC-43 part 2's **PR 6** (`photo_visibility_events`, `publicPhoto
 
 *For whoever writes the implementation plan.*
 
-- **API:** `POST /api/issues` with `deviceId`, `clientRef`, `reason`, `catId`, `photoPublicId`, `note`, `language`, `turnstileToken`. The app already holds the public photo id inside `photoUrl`; the server maps it to `photos.id`. `lib/api-spec/openapi.yaml` and the generated clients gain the route. The plan decides whether `POST /api/reports` gains `turnstileToken` as an optional field (compatible with older builds in testers' hands).
-- **One transaction** writes the report row, the hide and the queued alert. A test proves a report on a hidden photo is still recorded and a tokenless report writes a row and no hide.
-- **`photo_visibility_events` author** is `report:<id>`; a restore is a person id (PR 6 already allows both).
-- **Team pages** extend `lib/teamPages/queuePage.ts` with an Issues section, and the team cat page with a "Reports about this cat" strip. Server-rendered HTML like the rest; no scripts.
-- **Mail:** a new alert builder beside `lib/welfare/alertEmail.ts`; same outbox, same send function, same attachments rule. `urgent_alert` stays OFF (F1).
-- **Rate limits** use `express-rate-limit` now and move to SYC-105's store; the hide limit is written against the shared store from the start.
-- **Native:** `react-native-webview`, a `/_challenge` route in `serve-web.js` (let through the pre-launch gate), and a client twin of `lib/turnstile.ts`. A separate test widget for development.
+- **API:** `POST /api/issues` with `deviceId`, `clientRef`, `reason`, `catId`, `photoPublicId`, `note`, `language`, `turnstileToken`. The reply carries `hidden: true|false`. The app already holds the public photo id inside `photoUrl`; the server maps it to `photos.id`. `lib/api-spec/openapi.yaml` and the generated clients gain the route. `POST /api/reports` and `POST /api/reports/draft` gain `turnstileToken` and the `428 challenge_required` answer; older builds in testers' hands get a plain refusal they already handle. Siteverify calls use `verifyTurnstile` with `cdata = clientRef`.
+- **One transaction** writes the report row, the hide and the queued alert. A test proves a report on a hidden photo is still recorded.
+- **Order inside the endpoint:** the duplicate check (by device, kind and `clientRef`) first, then the token, then the limits, then the rules (i) to (iv), then the write. The upgrade case (§9.5) runs inside this order.
+- **`photo_visibility_events` author** is `report:<id>`; a restore is a person id (PR 6 already allows both). If D14 option C is adopted, hide and restore also give the photo a new public id.
+- **Team pages** extend `lib/teamPages/queuePage.ts` with an Issues section (and the unchecked list) and the team cat page with a "Reports about this cat" strip, all gated by `view_welfare_queue` (§5.3). Server-rendered HTML like the rest; no scripts.
+- **Mail:** a new alert builder beside `lib/welfare/alertEmail.ts`; same outbox, same send function, same attachments rule, its own purpose `issue_alert` placed in the shed order (§5.2). The queue's mail-failure banner counts both purposes. `urgent_alert` stays OFF (F1).
+- **Rate limits** use `express-rate-limit` until SYC-105's shared store exists; the hide, unchecked and brake counters are written against the shared store from the start.
+- **Native:** `react-native-webview`, a `/_challenge` route in `serve-web.js` on the app host (let through the pre-launch gate), a client twin of `lib/turnstile.ts` and a change to `reportQueue.ts` so a `428` is retried with a fresh check and never counts toward the three-refusals rule. A separate test widget for development.
+- **Order of work.** (1) Add the two catalogue rows to the roles spec if D5 B and D6 A are approved. (2) Spike A on a real iPhone and Android phone: the WebView loads the challenge page, a token arrives, siteverify returns the expected `action`, `cdata` and the exact `hostname`. (3) `lib/turnstile.ts`, the secret and the exact-hostname list. (4) The welfare form and its draft route with D11's split, including the client change; this goes first and does not wait for PR 6. (5) PR 6 of the queue plan, then the migration and every guard in §5.1, then Report an issue. (6) Shared limits (SYC-105), including the hide limit and the brake. (7) The launch-day `PRELAUNCH_GATE=off` step is allowed only after (4) and (6); SYC-114 deletes the pass's code afterwards.
 - **Tests that must exist** (named so they appear in the plan):
-  1. A confirmed `photo_private` or `photo_inappropriate` report with a valid token hides the photo in the same transaction, and it then answers `404` on the public route and is absent from the cat list, cat detail, match candidates and notifications.
-  2. The same report with a missing, wrong, expired or reused token writes a row and does not hide.
-  3. A photo restored by the team is not hidden by a later report.
+  1. A confirmed `photo_private` or `photo_inappropriate` report with a valid token hides the photo in the same transaction (`hidden: true`), and it then answers `404` on the public route and is absent from the cat list, cat detail, match candidates and notifications.
+  2. The same report with a missing, wrong, expired, reused, wrong-`cdata` or over-long token gets `428 challenge_required` and creates no row and no hide. The same request when siteverify times out, or returns a 5xx, creates an **unchecked** row that does not hide.
+  3. A photo that has any `restore` row is not hidden by a later report, including one that was hidden again by the team and restored a second time (`hidden: false`).
   4. The 6th hide from one address in an hour does not hide and the row says so, across two processes.
-  5. A `cat_died`, `wrong_name` or `location_revealing` report changes nothing public.
-  6. Closing an issue never writes a `welfare_outcome`, and a welfare closing still does.
-  7. The queue and its JSON never carry the reporter's device id, address or IP, and a photo only as a team URL.
-  8. The alert email carries no reporter contact and attaches the photo; every typed string is escaped.
-  9. Turnstile: wrong `action`, wrong `hostname`, `success: false`, a timeout and a reused token are each handled as §9.5 says; the secret is never logged.
-  10. An offline-queued report never says "hidden" and is sent when the connection returns; a second send of the same `clientRef` makes one report.
-  11. The reason sheet's first line links to "This cat needs help".
-  12. Each of en, el and fr has every new key.
-  13. The source test PR 6 adds (no hand-built `/api/photos/` addresses) covers any place this feature adds.
+  5. With 20 report-hides in 24 hours, the 21st queues without hiding (`hidden: false`) and the banner offers "Resume automatic hiding"; pressing it (as someone with `hide_photo`) lets hiding resume and is recorded.
+  6. For each refusal reason (address limit, rule (ii), the brake, unchecked), the response says `hidden: false` and the shown confirmation is the "not hidden yet" text, never the hidden text.
+  7. A `cat_died`, `wrong_name`, `wrong_info` or `location_revealing` report changes nothing public.
+  8. Closing an issue never writes a `welfare_outcome`, and a welfare closing still does. **No `welfare_report` observation is ever written for a content row**, and the tie route refuses one.
+  9. A content row is written with `photo_state = 'none'` and never shows "Photo still uploading" or delays its alert.
+  10. An issue report and a welfare report from the same device with the same `clientRef` are two separate reports.
+  11. The queue and its JSON never carry the reporter's device id, address or IP, and a photo only as a team URL.
+  12. The alert email carries no reporter contact and attaches the photo; every typed string is escaped. 500 issue alerts in an hour cannot delay a `welfare_alert`.
+  13. Turnstile: wrong `action`, wrong `hostname` (a token reporting `team.catspotters.com`), wrong `cdata`, `success: false`, a reused token and a timeout are each handled as §9.5 says; the secret is never logged.
+  14. A saved report is sent with a fresh check and never says "hidden" before the server has answered; a second send of the same `clientRef` makes one report; **a resend with a valid token upgrades an unchecked, undecided, never-restored issue report to a hide**; a resend of a decided or restored one does not.
+  15. The cat-in-trouble draft route with no token gets `428` and writes nothing; with a Cloudflare outage it writes a collapsed unchecked draft.
+  16. In the app queue test, a `428` is not counted toward the three refusals and the report is kept and retried.
+  17. **Route walk (added to the roles spec's route-walk test):** a guardian whose colony holds a cat that has an issue report sees no "Reports about this cat" strip, no Issues section, and a refusal on the reported-photo route and the alert links; a team member sees all of them.
+  18. The reason sheet's first line links to "This cat needs help"; the "Think this cat is alive?" link opens the sheet with `wrong_info` chosen.
+  19. Each of en, el and fr has every new key; web strings say "saved in this browser".
+  20. The source test PR 6 adds (no hand-built `/api/photos/` addresses) covers any place this feature adds.
+  21. The retention job deletes an issue note at one year and a welfare note at three, and never the other way round.
 - **Browser check before the PR:** the reason sheet, confirm step and full-screen photo at 390 px and desktop, with data, in all three languages.
 
 ---
@@ -564,15 +626,18 @@ The hide needs SYC-43 part 2's **PR 6** (`photo_visibility_events`, `publicPhoto
 
 | # | Risk | What we do |
 |---|---|---|
-| 1 | **The hide is used to vandalise the catalogue.** | Accepted by Samuel (28 Sep). Narrowed by §8.1 (token, no re-hide after restore, per-address caps) and the volume banner. |
-| 2 | **A privacy report is slower than the person needs** (offline, no token, or the hide limit). | Honest copy; the queue row always exists; D5 keeps the question of true removal open rather than hiding it. |
+| 1 | **The hide is used to vandalise the catalogue.** | Accepted by Samuel (28 Sep). Narrowed by §8.1: token, no re-hide after any restore, per-address caps and the global brake. |
+| 2 | **A privacy report is slower than the person needs** (offline, Cloudflare unreachable, the hide limit or the brake). | Honest copy chosen from `hidden: true|false`; the queue row always exists; D5 and D14 keep true removal and cache exposure open rather than hiding them. |
 | 3 | **"Hidden" is mistaken for "erased".** | §6 says what it does not cover; the privacy policy must not overpromise. |
-| 4 | **Issue reports bury welfare reports.** | A separate section below, never above, with its own colour band; the first line of the reason sheet sends hurt cats to the right place. |
-| 5 | **A WebView-based check is brittle** (user-agent changes, blocked storage, a hostname mismatch). | The spike comes first; §9.5 means a failed check never loses a welfare report. |
-| 6 | **Limits are not real until SYC-105.** | A named precondition of SYC-114; the hide limit lives in the shared store from the start. |
-| 7 | **The welfare table is shared with a new kind of row**, so an old code path could treat an issue as a welfare report. | D1's sweep and test 6. |
-| 8 | **Cloudflare becomes a processor** without the privacy policy saying so. | Added to the list `privacy-policy.md` owns. |
+| 4 | **Issue reports bury welfare reports.** | A separate section below, never above, with its own colour band and label; the first line of the reason sheet sends hurt cats to the right place; the email allowance is protected by `issue_alert` being sheddable. |
+| 5 | **A WebView-based check is brittle** (user-agent changes, blocked storage, a hostname mismatch, a tap that never comes). | The spike comes first; a bad token is retried, never counted as a refusal; a timeout ends the wait; a Cloudflare outage lets welfare reports in as unchecked. |
+| 6 | **Limits are not real until SYC-105.** | A named precondition of the launch-day step; the hide limit, unchecked limit and brake live in the shared store from the start. |
+| 7 | **The welfare table is shared with a new kind of row**, so an old code path could treat an issue as a welfare report. | D1's list in §5.1 and tests 8 to 10. |
+| 8 | **Cloudflare becomes a processor** without the privacy policy saying so. | Added to the list `privacy-policy.md` owns (SYC-248). |
 | 9 | **The Greek and French confirm step loses half its meaning.** | Native review is a launch blocker for this feature. |
+| 10 | **A guardian reads a neighbour's report about her house.** | Everything issue-related needs `view_welfare_queue`, which guardians do not hold; test 17. |
+| 11 | **A hidden photo stays reachable through a cache.** | D14. |
+| 12 | **The Turnstile hostname plan breaks quietly** (a wrong host refuses every real token). | The exact-hostname list, a test for `team.catspotters.com`, and the spike. The unchecked list's count is an early warning. |
 
 ---
 
@@ -580,28 +645,67 @@ The hide needs SYC-43 part 2's **PR 6** (`photo_visibility_events`, `publicPhoto
 
 *Nobody edits `DECISIONS.md` from this branch. If Samuel approves, these are the entries for a new Part in the style of Part 2b. Numbers refer to §12.*
 
-- **"Report an issue" lives in the existing queue.** Reports use `welfare_reports` with `kind = 'content'`, shown in a second section under the welfare list, never above a welfare report. (D1.)
+- **"Report an issue" lives in the existing queue.** Reports use `welfare_reports` with `kind = 'content'`, shown in a second section under the welfare list, never above a welfare report, and visible only to people who hold `view_welfare_queue`; cat guardians never see them. (D1.)
 - **A privacy report hides, as an inappropriate-content report does.** One confirmed report about a photo that shows a person or a private place hides it pending review, on the approved confirm step. (D2; amends Part 2b.)
-- **Three safeguards on a one-report hide.** A hide needs a verified Turnstile token; a photo the team has restored is not hidden again by a report; hides per address are capped at 5 an hour and 15 a day. (D3.)
+- **Four safeguards on a one-report hide.** A hide needs a verified Turnstile token; a photo the team has ever restored is not hidden again by a report; hides per address are capped at 5 an hour and 15 a day; and a global brake stops automatic hiding after 20 report-hides in 24 hours until a team member resumes it. (D3.)
 - **A hidden photo is hidden from everyone but staff** and is replaced in the sightings list by a neutral tile. "Visible to whoever uploaded it" is dropped. (D4; amends §6.)
-- **Hiding is not erasure, and the team cannot yet delete a photo for good.** A real delete is a separate ticket, settled before launch. (D5.)
+- **A management-only removal of a hidden privacy photo exists before launch,** under the contract in `hosting-and-photo-storage.md` §6.5. (D5, if option B.) Or: hide only, which amends hosting §6.5. (D5, if option A.)
 - **A report about location or home text, or about a death, never changes anything by itself.** The team acts. (D6, D7.)
 - **A photo is reported from a larger view of that photo.** (D8.)
-- **The reporter hears back only through a verified closing email.** (D9.)
-- **Turnstile on both public report forms, in a WebView on our own challenge page on the phone apps.** Verified in Express; no Worker. (D10.)
-- **No valid token: an issue report is queued but never hides or emails; a welfare report is accepted, marked unchecked, and its alert emails capped.** This relaxes SYC-170's wording. (D11.)
+- **The reporter hears back only through a verified closing email,** in the Part 2b wording. The email box on this form is a new moment that amends `email-capture.md` and the privacy policy. (D9.)
+- **Turnstile on both public report forms, in a WebView on the app's own challenge page on the phone apps.** Verified in Express; no Worker; exact hostname list. (D10.)
+- **A bad or missing token is refused and retried; only a Cloudflare outage is accepted, as "unchecked".** An unchecked issue report never hides. Drafts need a token too. This relaxes SYC-170's wording only in the outage case. (D11.)
 - **Issue reports are kept one year after closing,** then the note is deleted. (D12.)
-- **Report an issue is built after PR 6 of the queue plan.** (D13.)
+- **Report an issue is built after PR 6 of the queue plan,** and Turnstile on the welfare form goes first. (D13.)
+- **A hidden photo's public address changes when it is hidden or restored.** (D14.)
 
 ---
 
 ## 16. What "done" looks like
 
 - A neighbour who sees their front door in a catalogue photo can hide that photo in about three taps, is told what happened, and the public no longer sees it, even if every email failed.
+- A neighbour whose report could not hide the photo (a limit, a recent restore, or the brake) is told so plainly, never that it is hidden.
 - A tourist who thinks a cat's name is rude can say so, and the name is changed by a person, not by the report.
 - Nobody can declare a living cat dead, or take a cat off the map, by sending a report.
-- A script that posts reports with no Turnstile token hides nothing and sends no alert flood.
+- A script that posts reports with no Turnstile token gets a "challenge required" answer and creates nothing: no row, no hide, no email.
+- A hurt cat reported on a weak signal, or during a Cloudflare outage, is never lost.
 - A hurt cat reported through "Report an issue" is pointed to "This cat needs help" before it is sent.
-- A volunteer opens the dashboard, sees welfare reports first and issues below them, with report-hidden photos at the top of the issues, and restores any of them in one tap.
-- The pre-launch pass can come off (SYC-114) with Turnstile checked on both forms and shared limits counted in Postgres.
+- A volunteer opens the dashboard, sees welfare reports first and issues below them, with report-hidden photos at the top of the issues, and restores any of them in one tap. A cat guardian sees none of the issue reports.
+- The pre-launch pass can come off on launch day with Turnstile checked on both forms and shared limits counted in Postgres.
 - Greek and French speakers read every word of it in their own language, and a native speaker has checked the confirm step.
+
+---
+
+## 17. Review outcome
+
+The adversarial review of version 1.0 (`docs/specs/reviews/report-an-issue-review.md`, 11 October 2026) found one blocker, ten major problems and fourteen minor ones. Every finding was accepted. Nothing was rejected. This table says where each landed.
+
+| Finding | Handled |
+|---|---|
+| **B1** Unchecked fallback lets a script skip Turnstile; the draft route skips it too | Replaced by the split in §9.5 and D11: a bad or missing token gets a retryable `428` and creates nothing, only a Cloudflare outage is accepted (unchecked, never hides), unchecked rows are in their own list with a lower limit, and drafts need a token. Client change so a `428` is not a strike (§9.5, §13). Tests 2, 15, 16 |
+| **M1** Wrong hostname | §9.4 and §9.6: the app host `apptest.catspotters.com`, a widget that lists only that exact host, a server-side exact list, test 13, the spike, and the launch hostname recorded as a dependency |
+| **M2** Issue alerts share the never-shed purpose | §5.2: own purpose `issue_alert`, sheddable; individual emails only for "Photo hidden", the rest in a daily digest; test 12 |
+| **M3** No global brake; "hidden" message not tied to the server's answer | §8.1 rule (iv) and the `hidden` field (§4.1, §8.1); rule (ii) is "any restore row, ever"; D3; tests 3, 5, 6 |
+| **M4** A hidden photo is cached for a year | §6 and new decision D14, recommending a new public address on hide and restore (SYC-279) |
+| **M5** Guardians would see issue reports | §1, §5.3, §5.4, §10: everything needs `view_welfare_queue`; route-walk test 17; risk 10 |
+| **M6** Capability names | §5.4 uses the catalogue's names; §5.5 lists `clear_home_description` and `remove_photo` as additions; `edit_cat_text` dropped; D6 waits on SYC-130 |
+| **M7** Token at send time; resend after a blip | §4.2, §9.5: a fresh check on every send from the saved list; duplicate check before token; the upgrade case; test 14 |
+| **M8** Reusing `welfare_reports` breaks more than listed | §5.1 and D1: `photo_state = 'none'`, no tie and no observation on content rows, the close guard in existing code, the resend key with kind, the banner counts both purposes, retention by kind, a migration rollback; tests 8 to 10, 21 |
+| **M9** Unmarked amendments | The table near the top (rows 3 to 6) and D5, D9; closing wording now the approved text; `wrong_info` kept |
+| **M10** "Built / not built" framing | Removed everywhere. The spec describes one whole product; order of work is in §13 only |
+| **m1** PRs 0 to 5 are merged | D13 |
+| **m2** Precondition belongs on the launch-day step | §8.2, §13 |
+| **m3** Visible sheet, timeout and fallback | §9.4 |
+| **m4** `cdata` and token length | §9.1, §9.2, test 13 |
+| **m5** Digest needs a scheduler | §5.2: dashboard count plus a once-in-24-hours guard in the drain |
+| **m6** Per-device limit is a courtesy; what a repeat sender is told | §8.1 |
+| **m7** Separate limiters give 30 an hour | §8.1: stated openly; a shared ceiling rejected with the reason |
+| **m8** Sending the address to Cloudflare | §9.2, §10: not sent; for SYC-248 |
+| **m9** "Reported by a spotter" | "a member of the public", §5.3, §10 |
+| **m10** Untestable wording | "Same group" defined (§5.3); "visually distinct" is a colour band plus a text label; "some hours' delay" removed (§5.2) |
+| **m11** Moving a sighting keeps the photo's id | §5.4, D14 |
+| **m12** The "doorway" hint | §2, D2 |
+| **m13** Privacy-policy line conflicts with D12 | §10, D12 |
+| **m14** "Saved in this browser" | §4.2, §11, test 19 |
+
+The review's verdict on D1 to D13: D1, D2, D6, D9, D10, D12 gained conditions; D3 gained rule (iv); D5 and D11 were changed (D5 now recommends the narrow removal, D11 is replaced); D4, D7 (with a small addition), D8 and D13 stand. D14 is new.
