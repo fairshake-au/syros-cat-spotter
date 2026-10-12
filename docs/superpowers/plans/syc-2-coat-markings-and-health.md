@@ -201,6 +201,7 @@ Slices 3.2, 6 and 7 do not depend on the colour rules and can be built in parall
 | `cat-record-data-spine.md` §10.7 | `Cat` and `CatDetail` gain `coat` (a list; `[]` means not known) and `markings` (a list). The single wire shape for "not known" |
 | `choose-a-different-cat.md` §8.4 | "A person's reading always beats the machine's" becomes the narrowed sentence (SYC2-D10). "One or two values, or 'not sure'" becomes the `coat: []` shape |
 | `DECISIONS.md` | A new Part, dated 12 October 2026, carrying spec §15's entries, plus this plan's Decisions A–E as answered; a Part 3 ownership row (vocabulary and what is public: this spec; kinds and resolver: the data spine) |
+| `docs/superpowers/plans/syc-119-choose-a-different-cat.md` Slice C | Only if Decision A1: a note that the colour rules, the `coat` payload field and the chip component come from SYC-2, that "people beat the machine" is narrowed (SYC2-D10), and that the cache key is not bumped |
 | `coat-markings-and-health.md` | Only if Samuel's answers change something it says (Decision A changes §14's dependency on SYC-161; Decision E fixes §5.2's example) |
 
 **Collisions, and how they are avoided.**
@@ -412,3 +413,160 @@ The first **real** guardian also needs SYC-209's "create a colony" PR (SYC-53's 
 **Tests.** `general` is refused and writes no `cat_updates` row and sends no push (**mutation probe:** accept `general` again → red); `desexed` and `adopted` behave exactly as before (existing tests); a source test asserts no code path writes `vaccinated`, `team_note` or anything from `MARKS` into `cat_updates`.
 
 **After deploy (Claude):** `curl` the route on production with the secret and `general` → 422; no timeline row appears.
+
+---
+
+## Where each of the spec's tests is built
+
+Spec §10.6, line by line.
+
+| Spec test group | PR | | Spec test group | PR |
+|---|---|---|---|---|
+| Colour: the five rules, ties, camps, normalising, voices, photos, days, prompted, machine order | 1.2 | | Health notes: refused from public, never public, read gate, survives report deletion | 1.1 (write), 3.2 (read), 5.1 (guardian) |
+| Colour: one device once at read time; device superseding another refused | 1.2 (read), 1.1 (write) | | Privacy: no note, report, confidence or author in any public payload, by name | 2.1 (T-leak) |
+| Colour: two concurrent writes from one device leave one voice | 4.1 | | Welfare separation: the "needs help" link survives a note; reports write no condition | 3.2 |
+| Colour: guardian statement stands; team confirmation is a team statement | 5.1, 3.1 | | Welfare separation: "Does it look hurt?" on each of the six chips | 4.2 (T-hurt) |
+| Markings: all of §10.6's list | 1.2 | | Old care route: nothing about health or vaccination in `cat_updates` | 7.1 |
+| Retraction: removes only its target; refused from a spotter | 1.1, 1.2, 3.1 | | Cache: a v2 cache read by the new client, no key change | 2.1 (T-cache) |
+| Vaccinated: refused from public and guardian; no negative; not evidence of life; `other` needs a name | 1.1, 1.2 | | Languages: every label in three languages; no raw code; no gendered pronoun | 2.1, 4.2 |
+| Vaccinated: absent from every public payload; "rabies", "cat flu", "enteritis" in no public string | 2.1 (T-rabies), re-run in 3.2 and 6.1 | | Offline: the colour filter on a cached catalogue; the question never offline | 4.3, 4.2 |
+| Vaccinated: the donor count rules | 6.1 | | Browser check at ~390 px and desktop, three languages | every UI PR |
+
+---
+
+## Every place the rules must hold
+
+A mutation probe only proves a test guards a place someone already thought of. These are **all** the readers of the two invariants, enumerated so each PR's reviewer can hunt for one that isn't listed.
+
+**Invariant 1: vaccinations and health notes never reach the public.** Every reader that could carry a cat's fields outside the team:
+1. `serialiseCat` and every route that calls it: `GET /cats`, `GET /cats/:id`, the paged catalogue the app caches (PR 2.1, T-leak).
+2. The sighting result returned to the review screen, and the open-sightings response (PR 4.1: a test that neither carries `vaccinated` or `team_note`).
+3. Push notifications (`lib/notificationFanout.ts`) and the evening round-up (data spine PR 9): they read the cat's name and status only; PR 1.2's "not notifiable" test plus a source test that neither file imports the new resolver fields.
+4. Emails (the sterilisation news job, data spine §9): PR 1.2's snapshot-comparison test.
+5. The old care timeline (`cat_updates`): PR 7.1.
+6. The guardian's view outside her colonies (SYC-53 PR 2.1's T4) and inside them except through the `view_health_notes` block (PR 5.1).
+7. The matching prompt (`lib/matching.ts`): **appearance never feeds the matcher (SYC2-D8)**; a source test in PR 1.2 fails if `matching.ts` reads `coat`, `markings` or the snapshot's new fields.
+8. The donor count endpoint (PR 6.1: keys `year` and `count` only).
+9. The public website and any server-drawn public page: none render cat fields today; the PR 2.1 reviewer confirms with a grep for `serialiseCat` and `CatWithStats` callers.
+
+**Invariant 2: only authority, or two independent spotters, can overturn a machine reading.** Every writer and reader:
+1. `writeObservation` (PR 1.1: roles per kind, own-row supersession).
+2. The answers route (PR 4.1: lock, re-check, refusal after a ruling).
+3. Team and guardian routes (PRs 3.1, 5.1: capability with a target from the record).
+4. `resolveCoat` and `resolveMarkings` (PR 1.2: the read-time voice rules, independent of every writer).
+5. Any future backfill or import: `writeObservation` refuses a `backfill:` suggestion source today, and the resolver counts voices at read time, so a new writer cannot make one device count twice.
+6. The Colour check list (PR 3.1) and the guardian changes list (SYC-53 PR 2.2), which show the team the cases the rules admit.
+
+---
+
+## Rollout
+
+1. **D-SYC2** merges (docs only).
+2. **1.1 then 1.2** publish; nothing visible. After each, confirm `/api/healthz` shows the new commit before moving on (the EU deploy can sit in "promoting").
+3. **2.1** publishes. Probe a cat's payload on production (Slice 2's "After deploy"). Phones keep their cached catalogue.
+4. **3.1 and 3.2** publish. The team describes a handful of cats as an acceptance test, ideally Jacky or Susan, with Samuel checking the public page shows the line and nothing about health.
+5. **4.1, 4.2, 4.3** publish, in that order (the app must never send a field the server refuses). The app part ships with the next web publish and store build.
+6. **6.1** and **7.1** publish whenever ready after their "needs first"; 7.1's production check runs first.
+7. **5.1** publishes after SYC-53's PRs 0.2, 0.5, 2.1 and 2.2 are live.
+8. **SYC-161** (Decision A1) can start any time after 2.1.
+
+Every probe is run by Claude, not Samuel.
+
+---
+
+## Where this collides with other work
+
+| Work | What overlaps | How it's handled |
+|---|---|---|
+| **SYC-53 plan** (branch `claude/syc-53-plan`, PR not yet open) | The four capability names (its PR 0.5); roles vocabulary (0.2); guardian pages and statements (2.1, 2.2); its docs PRs D1 and D3 edit the data spine and `DECISIONS.md` | Slice 5 waits for 0.2, 0.5, 2.1, 2.2. PR 3.1 adds the four names granted to staff; whichever of 3.1 and 0.5 merges second rebases. D-SYC2 appends to §10.1 without touching D1's vocabulary lines. C4 and C7 are raised on SYC-53 by comment. This plan does not edit the SYC-53 plan |
+| **SYC-209 plan** (another session) | The team cat page; data-spine amendments | Docs: agreed by message, two docs PRs in disjoint sections. Code: SYC-209 adds colony and feeding-site sections to the team cat page; PR 3.1 adds an Appearance section and 3.2 a Vaccination and Health notes section. Each is a separate `<section>` in `catPages.ts`; whichever merges second rebases |
+| **SYC-161 / SYC-119 Slice C** | `resolveCoat`, the `coat` field, the colour chips | Decision A |
+| **PR #111** (SYC-44 "Report an issue") | "Wrong information about this cat" reaches the team | No overlap in code; a wrong colour reported that way is corrected by the team in PR 3.1 |
+| **PR #107** (SYC-130 "This is my cat") | `DECISIONS.md`, the data spine §4.2, and the `guardian_of_this_cat` scope | Disjoint sections; C4 |
+| **SYC-43 part 2 PR 6** (hide and restore a photo, being built) | Hidden photos | The details card skips the appearance question for a sighting whose photo is hidden (PR 4.2); a hidden photo still counts as a `photoId` for voices |
+| **SYC-152** ("Matched by hand" list) | The hand-pick colour flag | On the Colour check list now (C10); SYC-152 gets a comment |
+| **SYC-185** (retire the care route) | `POST /cats/:catId/updates` | PR 7.1 removes only `general`; SYC-185 retires the rest |
+| **Code PRs #109 and #115** | None | — |
+
+---
+
+## What this plan does not do
+
+| Not here | Where it lives |
+|---|---|
+| Reading colour from photos, the backfill, the "Find the cat" colour chips | SYC-161 (Decision A) |
+| Markings read by the model; a markings filter | SYC-243 |
+| A structured condition list | SYC-242 |
+| Sex, age and pregnancy | SYC-241 |
+| A public vaccination line of any kind; "Needs vet"; a sterilised filter | Never (SYC2-D6, D7) / after SYC-198 |
+| Re-vaccination reminders | Not in the spec |
+| Importing vaccination records | SYC-49 and `records-import.md`, once approved; `writeObservation` then accepts `provenance: import` for `vaccinated` |
+| The donations backend and the funder reports | SYC-1, SYC-62 |
+| Points for appearance | SYC-38, if ever wanted |
+| Roles, invitations, colony screens | SYC-53, SYC-209 |
+
+---
+
+## What works with no signal
+
+Precisely, as spec §8 says: **reading** appearance works offline for cats in the last cached catalogue (the cat page line, the picker card line and the cat-alog colour filter); a stale cache can show an old colour until the next fetch. **Writing** never does: the colour line after the points only appears after an online naming, the details card is hidden offline, nothing is added to the offline queue, and every team and guardian screen is online only.
+
+---
+
+## Model delegation
+
+Session model for this plan: **Opus 5.5**, chosen by the brief because the plan changes how cat facts are trusted and touches the public payload and the offline cache, so a wrong order means rework across the data spine. For the build, each package goes to the cheapest tier that can do it safely; every step up is justified on its row. **No package uses Fable**: the design decisions are made in the approved spec and this plan; what remains is careful implementation and review, which Opus covers.
+
+| Work package | Model | Why this tier | Assurance |
+|---|---|---|---|
+| D-SYC2 docs PR | Sonnet | Transcribing approved spec text into named sections | Session model checks every line against spec §10, §15 and the canonical facts in `CLAUDE.md` ("cat guardian", "spotter", €50–60) |
+| 1.1 kinds, validators, write rules | Sonnet | Clear spec, an existing validator pattern | Every validator branch tested; **mutation probes** on own-row supersession and evidence of life; Opus spot review of `writeObservation` |
+| 1.2 the resolver | **Opus** | *Escalated:* counting voices, photos, Athens days, prompted taps and authority order is where a wrong-but-green answer hides, and it decides what everyone sees | The 13 **mutation probes** in PR 1.2's table; the "every place the rules must hold" list handed to the reviewer; Opus adversarial review in its own worktree |
+| 2.1 payload, words, display line | Sonnet | Field copy, codegen, strings, one small component | T-leak, T-rabies, T-cache each with a **mutation probe**; browser check; Opus spot review of `serialiseCat` |
+| 2.1 Greek and French drafts | Sonnet | Language quality matters more than for boilerplate | The spec's drafts used verbatim; Johnny's check (SYC-283) |
+| 3.1 Appearance, Confirm / Correct / Mark wrong, Colour check | Sonnet | Follows PR #99's correction pattern and the Likely list | Route tests incl. form/JSON parity; hand-pick **mutation probe**; browser check; Opus spot review of the retract path |
+| 3.2 vaccinations and health notes | Sonnet | Forms over 1.1's reviewed rules | Read-gate and needs-help **mutation probes**; T-rabies re-run; Opus spot review |
+| 4.1 answers endpoint | **Opus** | *Escalated:* concurrency under the (device, cat) lock and the refusal-after-ruling ordering; the details-card spec's own review found this class of bug | T-double-tap and T-checked **mutation probes**; Opus adversarial review in its own worktree |
+| 4.2 the colour line and details card | Sonnet | Standard UI on an existing component | T-hurt and T-offline with **mutation probes**; browser check in three languages at ~390 px and desktop |
+| 4.2 chip pictures (Decision D1) | Sonnet | Nineteen small consistent drawings | Samuel sees them in the browser check before the PR opens |
+| 4.3 cat-alog colour filter | Haiku | One filter over cached data, rules fixed | "Colour not known" **mutation probe**; offline test; session model reviews the diff |
+| 5.1 guardian routes and health-note block | **Opus** | *Escalated:* a placed capability with a record-derived target; a leaked note or a cross-colony write is silent | Target and health-block **mutation probes**; SYC-53's route walk; Opus adversarial review |
+| 6.1 donor count | Sonnet | One query, one sentence | Distinct-cat, Athens-year and threshold **mutation probes**; production probe |
+| 7.1 refuse `general` | Haiku | One enum change and a test | Production read-only count first; **mutation probe**; session model reviews the diff |
+| Seeded fixtures and HTML row markup across slices | Haiku | Boilerplate against a fixed shape | Typecheck plus the PR's own tests; session model reviews |
+| Adversarial review of each PR | Same tier as the builder (Sonnet for Sonnet-built, Opus for Opus-built), **each in its own worktree, never shared** | A reviewer proving a test can fail mutates the tree | Findings folded in and listed in each PR; the session model checks each against the code |
+| Production probes and the 7.1 read-only count | Session model | Production data and credentials; not delegated | The "After deploy" steps |
+
+## Crash-proofing for the build
+
+Every PR is built in its own worktree off fresh `origin/main`, never the primary checkout. **Commit after each item**, and keep a `CHECKPOINT.md` in the worktree root (what's done, what's next), updated after each commit, so any session can resume from the last commit. Every agent prompt restates "commit after each item" word for word. Agents don't spawn nested agents. A progress note goes to Samuel at each merged PR.
+
+---
+
+## Linear
+
+**Each PR closes or advances:**
+
+| PR | Closes | Advances |
+|---|---|---|
+| D-SYC2 | | SYC-2, SYC-161, SYC-5 (descriptions updated) |
+| 1.1, 1.2 | | SYC-2, SYC-52 (`reported` reachable for appearance) |
+| 2.1 | | SYC-2, SYC-283 and SYC-244 (strings ready to check) |
+| 3.1, 3.2 | **SYC-5** (vaccination records, team-only, as the spec re-scoped it) | SYC-2 |
+| 4.1–4.3 | | SYC-2 |
+| 5.1 | | SYC-2, SYC-53 |
+| 6.1 | | SYC-2, SYC-1, SYC-62 |
+| 7.1 | | SYC-185 |
+
+**SYC-2 closes when Slice 6 merges** (everything but the guardian slice), or when 5.1 merges if Samuel prefers to keep it open for guardians.
+
+**Filed by this plan (12 October 2026), as comments on existing tickets after deduping with `list_issues`.** No new tickets were needed: every follow-up the plan implies already has a ticket.
+1. **SYC-161**: under Decision A1, reuse `resolveCoat`, the `coat` field and the chip component; narrowed rule; no cache bump; import `COAT_COLOURS`.
+2. **SYC-5**: re-scoped by the spec (team-only, no `cat_update_type` value, no public timeline row); closed by PR 3.2.
+3. **SYC-53**: Slice 5's dependency on PRs 0.2, 0.5, 2.1, 2.2; C4 (scope shape follows Decision B); C7 (health notes as a separate block, so its T4 lists it as allowed).
+4. **SYC-52**: `reported` is produced for colour and markings only (C5).
+5. **SYC-152**: show the hand-pick colour flag in "Matched by hand" (C10).
+6. **SYC-1** and **SYC-62**: the donor count's rules and the one-sentence requirement (Decision B).
+7. **SYC-185**: PR 7.1 removes `general` ahead of the route's retirement (Decision C).
+8. **SYC-49**: importing vaccinations needs `writeObservation` to accept `provenance: import` for `vaccinated`.
+9. **SYC-283** and **SYC-244**: the coat and marking strings land in PR 2.1.
