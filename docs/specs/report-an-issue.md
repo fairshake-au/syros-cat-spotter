@@ -4,7 +4,7 @@
 **Version:** 1.2 · Samuel's decisions recorded · 12 October 2026 (v1.1 was revised after adversarial review; v1.0 draft was 7 October 2026)
 **Covers:** `team-access-and-welfare-queue.md` §6 (which this spec fills out and, in the places listed below, amends), and the Turnstile protection for both public report forms.
 **Linear:** SYC-44 (Report an issue) · SYC-170 (Turnstile on the welfare report and on Report an issue). Touches SYC-105 (shared rate limits), SYC-113 and SYC-114 (the pre-launch pass), SYC-130 (claiming a cat; the home description), SYC-150 (move a sighting to another cat), SYC-229 (which addresses sit behind Cloudflare), SYC-231 (the mail drain), SYC-232 (a real example of what people will report), SYC-248 (privacy policy updates) and SYC-279 (hidden photos and caches).
-**Status:** **Decisions made by Samuel, 12 October 2026; awaiting final approval.** The decisions are marked "Decided" in §12 and carried through the rest of the spec. The review is `docs/specs/reviews/report-an-issue-review.md`; §17 says how each of its findings was handled. Permissions follow the approved roles spec (`roles-and-invites.md`, approved 12 October 2026, §6.2 catalogue), the source of truth for who may do what.
+**Status:** **Approved by Samuel, 12 October 2026.** Every decision is marked "Decided" in §12 and carried through the rest of the spec. The adversarial review is `docs/specs/reviews/report-an-issue-review.md`, and §17 says how each finding was handled.
 
 ### What this document owns, and what it borrows
 
@@ -198,7 +198,6 @@ Each action names the capability that guards it, using the names in the roles sp
 | **Keep it hidden** (closes the report as *Done*) | `hide_photo` |
 | **Restore the photo** (one tap, attributed; closes as *Nothing needed*) | `restore_photo` |
 | **Hide a photo** that a non-hiding report points at (`photo_not_cat`, `wrong_cat`) | `hide_photo` |
-| **Resume automatic hiding** after the global brake (§8.1 rule (iv)) | `hide_photo` |
 | **Rename the cat** | `rename_cat` |
 | **Say the cat is no longer with us** (reason, and the date the team knows of) | `set_life_status` |
 | **Mark a statement wrong**, with a reason | the statement's own capability (`set_appearance` for colours) |
@@ -276,7 +275,7 @@ The welfare and issue limiters stay separate, so one address can send 30 an hour
    - **(i) A hide needs a verified Turnstile token.** A refused token never reaches this point (it is a `428`); an unchecked row (Cloudflare unreachable) is queued and does not hide.
    - **(ii) A photo the team has restored is not hidden again by a report.** Defined exactly: the photo has **any `restore` row, ever, in `photo_visibility_events`**. A later team hide followed by another restore still counts. New reports on it queue and show in the team's list; only a team member can hide it again. One person cannot hide the same photo over and over, and a wrong hide costs the team one tap, once.
    - **(iii) A volume banner.** The dashboard banner appears the moment the brake in rule (iv) trips. The earlier separate warning at 10 report-hides is dropped, because with the brake at 5 it could never fire first. It never pages anybody (F1).
-   - **(iv) A global brake.** Once there have been **5** report-hides in any rolling 24 hours (decided by Samuel, 12 October 2026), new hide-type reports are still queued but **do not hide**. The dashboard banner then carries a **"Resume automatic hiding"** button for a team member (`hide_photo`), which is recorded with who and when. Pressing it starts a fresh count of 5, so hiding is automatic again until the next 5. (This is also what keeps the per-address hide limit above meaningful: the brake would otherwise always trip first.) Each such report keeps its place under "Hidden, waiting for you" so the team can hide the real ones by hand in one tap. Without this brake, 200 cheap home-connection addresses could hide 3,000 photos in a day, which is the whole catalogue; rules (ii) and (iii) only slow or announce it. Five a day is a deliberately low number: on a day with several genuine privacy reports, the sixth waits for a person, and the reporter is told so honestly (§4.1).
+   - **(iv) A global brake.** Once there have been **5** report-hides in one calendar day (Athens time) (decided by Samuel, 12 October 2026), new hide-type reports are still queued but **do not hide** for the rest of that day. Automatic hiding comes back on its own at midnight Athens time; there is **no "resume" button** (Samuel, 12 October 2026: once tripped, the brake stays on until tomorrow). The dashboard shows a banner while the brake is on. Each such report keeps its place under "Hidden, waiting for you" so the team can hide the real ones by hand in one tap (`hide_photo`). Without this brake, 200 cheap home-connection addresses could hide 3,000 photos in a day, which is the whole catalogue; rules (ii) and (iii) only slow or announce it. Five a day is a deliberately low number: on a day with several genuine privacy reports, the sixth and later wait for a person until midnight, and each reporter is told so honestly (§4.1). Because the brake trips at 5 a day for everyone, the per-address limit (5 an hour, 15 a day) mostly matters for spreading load and is kept as a second line.
 4. **The reply says what happened.** Every report answer carries `hidden: true` or `hidden: false`, and the confirmation words are chosen from that field (§4.1). Rules (i), (ii), (iv), the hide limit and the unchecked path can each stop a hide, and a privacy reporter must never be told a photo is down when it is not.
 
 ### 8.2 Where these are counted
@@ -430,7 +429,7 @@ The approved spec hides only for "upsetting or inappropriate". But "shows a pers
 
 ### D3. Safeguards on a one-report hide (additions)
 
-The approved mitigations are the confirm step, Turnstile, a volume alert and one-tap restore. Four more are in §8.1: **(i)** a hide needs a verified Turnstile token; **(ii)** a photo the team has ever restored is not hidden by a later report; **(iii)** per-address hide limits (5 an hour, 15 a day); **(iv)** a global brake: after 5 report-hides in a rolling 24 hours, new ones queue without hiding until a team member presses "Resume automatic hiding", and a dashboard banner shows.
+The approved mitigations are the confirm step, Turnstile, a volume alert and one-tap restore. Four more are in §8.1: **(i)** a hide needs a verified Turnstile token; **(ii)** a photo the team has ever restored is not hidden by a later report; **(iii)** per-address hide limits (5 an hour, 15 a day); **(iv)** a global brake: after 5 report-hides in a calendar day (Athens time), new ones queue without hiding until midnight, with a dashboard banner and no resume button.
 
 | Option | Benefits | Risks |
 |---|---|---|
@@ -442,11 +441,13 @@ The approved mitigations are the confirm step, Turnstile, a volume alert and one
 
 **Changed after review:** rule (iv) is new, and rule (ii) is defined exactly so a later hide followed by a restore stays protected.
 
-**Decided (Samuel, 12 October 2026): option B, with the brake at 5 report-hides in 24 hours, not 20.** After that, reports queue but do not hide until a team member presses "Resume automatic hiding", and a dashboard banner shows.
+**Decided (Samuel, 12 October 2026): option B, with the brake at 5 report-hides in a calendar day (Athens time), not 20, and no "resume" button: once tripped, automatic hiding stays off until midnight.** The team can still hide photos by hand. **What this choice accepts:** on a day with several genuine privacy reports, the sixth and later wait for a person until midnight; each reporter is told the photo is not hidden yet.
 
 **What this choice accepts:** on a day with several genuine privacy reports, the sixth waits for a person. That is acceptable because the reporter is told honestly (the `hidden: false` words in §4.1). It also means the team must watch the banner on a busy day, and that the earlier separate banner at 10 report-hides is replaced by the brake's own banner.
 
 ### D4. What do the public and the photo's taker see when a photo is hidden? (amendment)
+
+**Decided (Samuel, 12 October 2026): as recommended (A for D4 and D7, B for D8).**
 
 The approved text says a hidden photo "stays visible to staff (and to whoever uploaded it)". The photo route is open and unauthenticated, so showing a hidden photo to its taker would need photo requests to carry a device secret, and PR 6's plan says a hidden photo answers `404` for everyone.
 
@@ -496,6 +497,8 @@ Positions are already blurred to a 250 m cell (data spine PR 6). What a report c
 
 ### D7. A cat reported as died
 
+**Decided (Samuel, 12 October 2026): as recommended (A for D4 and D7, B for D8).**
+
 | Option | Benefits | Risks | UX |
 |---|---|---|---|
 | **A. The team decides; the report alone changes nothing (recommended)** | A false report cannot declare a living cat dead. The team's "no longer with us" action already needs a reason and a date. | A real death waits for a person. | Respectful. The cat page never changes on a stranger's say-so. |
@@ -507,6 +510,8 @@ Positions are already blurred to a 250 m cell (data spine PR 6). What a report c
 **Changed after review:** only the tie ban is added.
 
 ### D8. How does a person report one photo?
+
+**Decided (Samuel, 12 October 2026): as recommended (A for D4 and D7, B for D8).**
 
 | Option | Benefits | Risks | UX |
 |---|---|---|---|
@@ -628,8 +633,8 @@ These had a proposed value and needed only a nod from Samuel: the global brake t
   1. A confirmed `photo_private` or `photo_inappropriate` report with a valid token hides the photo in the same transaction (`hidden: true`), and it then answers `404` on the public route and is absent from the cat list, cat detail, match candidates and notifications.
   2. The same report with a missing, wrong, expired, reused, wrong-`cdata` or over-long token gets `428 challenge_required` and creates no row and no hide. The same request when siteverify times out, or returns a 5xx, creates an **unchecked** row that does not hide.
   3. A photo that has any `restore` row is not hidden by a later report, including one that was hidden again by the team and restored a second time (`hidden: false`).
-  4. With automatic hiding resumed after the brake, the 6th hide from one address in an hour does not hide and the row says so, across two processes.
-  5. With 5 report-hides in 24 hours, the 6th queues without hiding (`hidden: false`) and the banner offers "Resume automatic hiding"; pressing it (as someone with `hide_photo`) lets hiding resume and is recorded.
+  4. The 6th hide from one address in an hour does not hide and the row says so, across two processes (tested on a day the global brake has not tripped).
+  5. With 5 report-hides in a calendar day (Athens time), the 6th queues without hiding (`hidden: false`) and the banner shows; there is no resume control; after midnight Athens time the next report hides again.
   6. For each refusal reason (address limit, rule (ii), the brake, unchecked), the response says `hidden: false` and the shown confirmation is the "not hidden yet" text, never the hidden text.
   7. A `cat_died`, `wrong_name`, `wrong_info` or `location_revealing` report changes nothing public.
   8. Closing an issue never writes a `welfare_outcome`, and a welfare closing still does. **No `welfare_report` observation is ever written for a content row**, and the tie route refuses one.
@@ -668,7 +673,7 @@ These had a proposed value and needed only a nod from Samuel: the global brake t
 | 12 | **The Turnstile hostname plan breaks quietly** (a wrong host refuses every real token). | The exact-hostname list, a test for `team.catspotters.com`, and the spike. The unchecked list's count is an early warning. |
 | 13 | **A removed photo cannot be brought back, and any team member can remove one** (D5). | Only on a photo already hidden for privacy; a typed confirmation; recorded with who, when and why; hosting §6.5's contract. Accepted by Samuel, 12 October 2026. |
 | 14 | **Reporters never hear the outcome** (D9). | Accepted by Samuel. The on-screen words are honest and complete on their own (§4.1, §7). |
-| 15 | **On a day with several genuine privacy reports, the sixth waits for a person** (D3: the brake is at 5). | Accepted by Samuel. The reporter is told it is not hidden yet; the dashboard banner shows; a team member presses "Resume automatic hiding" (§8.1). |
+| 15 | **On a day with several genuine privacy reports, the sixth waits for a person** (D3: the brake is at 5). | Accepted by Samuel. The brake stays on until midnight Athens time with no resume button. The reporter is told it is not hidden yet; the dashboard banner shows; a team member can hide any real one by hand. |
 
 ---
 
@@ -678,7 +683,7 @@ These had a proposed value and needed only a nod from Samuel: the global brake t
 
 - **"Report an issue" lives in the existing queue.** Reports use `welfare_reports` with `kind = 'content'`, shown in a second section under the welfare list, never above a welfare report, and visible only to people who hold `view_welfare_queue`; cat guardians never see them. (D1.)
 - **A privacy report hides, as an inappropriate-content report does.** One confirmed report about a photo that shows a person or a private place hides it pending review, on the approved confirm step. (D2; amends Part 2b.)
-- **Four safeguards on a one-report hide.** A hide needs a verified Turnstile token; a photo the team has ever restored is not hidden again by a report; hides per address are capped at 5 an hour and 15 a day; and a global brake stops automatic hiding after 5 report-hides in 24 hours, with a dashboard banner, until a team member resumes it. (D3.)
+- **Four safeguards on a one-report hide.** A hide needs a verified Turnstile token; a photo the team has ever restored is not hidden again by a report; hides per address are capped at 5 an hour and 15 a day; and a global brake stops automatic hiding after 5 report-hides in a calendar day (Athens time), with a dashboard banner, until midnight. (D3.)
 - **A hidden photo is hidden from everyone but staff** and is replaced in the sightings list by a neutral tile. "Visible to whoever uploaded it" is dropped. (D4; amends §6.)
 - **Any team member can delete a hidden privacy photo for good before launch,** with a typed confirmation, under the contract in `hosting-and-photo-storage.md` §6.5, recorded with who did it. (D5, option B widened from management-only; amends nothing.)
 - **A report about location or home text, or about a death, never changes anything by itself.** The team acts. (D6, D7.)
@@ -748,7 +753,7 @@ Samuel then decided D1, D2, D3, D5, D6, D9, D10, D11, D12, D13, D14 and the smal
 | Decision | Outcome | Differs from the recommendation? | Where it landed |
 |---|---|---|---|
 | D1, D2, D6, D10, D11, D12, D13, D14 | As recommended | No | §12; the D2 hint reads "faces, house numbers, number plates, inside a home or garden" (§2) |
-| D3 | The global brake trips after **5** report-hides in 24 hours (recommended 20); reports then queue without hiding until a team member presses "Resume automatic hiding", with a dashboard banner | Yes (threshold) | §8.1 rules (iii) and (iv), D3, tests 4 and 5, risk 15, §15. The separate warning at 10 is dropped because the brake's banner comes first |
+| D3 | The global brake trips after **5** report-hides in a calendar day (recommended 20); reports then queue without hiding until midnight Athens time, with a dashboard banner and no resume button | Yes (threshold) | §8.1 rules (iii) and (iv), D3, tests 4 and 5, risk 15, §15. The separate warning at 10 is dropped because the brake's banner comes first |
 | D5 | Any team member, not only management, can delete a hidden privacy photo for good | Yes (wider) | §5.4, §5.5 (`remove_photo` is island-only for team and management), D5, risk 13, §15 |
 | D9 | No email box on Report an issue; on-screen thank-you only | Yes (option D, not A) | §4.1, §4.3, §5.2, §5.3, §7, §10, §11, D9, risk 14, §15, and rows 4 and 5 of the table near the top (no amendment to `email-capture.md` or the privacy policy) |
 | Smaller calls | At most 10 individual "Photo hidden" alerts an hour, rest in a daily digest; 3 unchecked rows an hour per address; no visitor address sent to Cloudflare; no shared ceiling across the two forms | No | §5.2, §8.1, §9.2, §12 |
