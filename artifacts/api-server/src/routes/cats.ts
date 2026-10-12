@@ -20,7 +20,6 @@ import {
   deriveCatStatuses,
   fansCount,
   listCatsWithStats,
-  photoUrl,
   serialiseCat,
   serialiseSighting,
   spotterCode,
@@ -29,6 +28,7 @@ import {
   type Viewer,
 } from "../lib/catHelpers";
 import { notifyCatSpotters } from "../lib/notifications";
+import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -104,7 +104,8 @@ async function catPayload(
       id: cat.id,
       name: cat.name,
       description: cat.description,
-      photoUrl: await photoUrl(cat.primaryPhotoId),
+      // The main photo, or the stand-in if the team hid it (PR 6, Decision 4).
+      photoUrl: await catDisplayPhoto(cat),
       lat: cat.lat,
       lng: cat.lng,
       ownerDeviceId: cat.ownerDeviceId,
@@ -263,7 +264,7 @@ router.get("/cats/:catId", async (req, res) => {
     return;
   }
   // SYC-98 Fable review, finding 7: photosTable is joined here rather than
-  // calling photoUrl(s.photoId) per sighting (an N+1 — one round trip to
+  // looking each sighting's photo up on its own (an N+1 — one round trip to
   // Neon per row, serialised 5 at a time behind the pool's default max: 10)
   // — a cat page with 50 sightings would otherwise cost 50 extra round
   // trips to Frankfurt from Replit EU.
@@ -272,6 +273,7 @@ router.get("/cats/:catId", async (req, res) => {
       sighting: sightingsTable,
       spotterUsername: profilesTable.username,
       spotterNickname: profilesTable.nickname,
+      photoId: photosTable.id,
       photoPublicId: photosTable.publicId,
     })
     .from(sightingsTable)
@@ -287,6 +289,8 @@ router.get("/cats/:catId", async (req, res) => {
       ),
     )
     .orderBy(desc(sightingsTable.createdAt));
+  // A sighting whose photo the team hid stays in the list, with no photo (PR 6).
+  const hidden = await hiddenPhotoIds(sightings.map((r) => r.sighting.photoId));
 
   // Care timeline: the cat's own update history, newest first. Sighting-type
   // updates are excluded — the sightings list below already covers those, and
@@ -339,7 +343,7 @@ router.get("/cats/:catId", async (req, res) => {
     // §6.4.1: no sighting carries a position in public, not even for the
     // cat's owner. Photo, spotter and date only.
     sightings: sightings.map(
-      ({ sighting: s, spotterUsername, spotterNickname, photoPublicId }) =>
+      ({ sighting: s, spotterUsername, spotterNickname, photoId, photoPublicId }) =>
         serialiseSighting({
           id: s.id,
           catId: s.catId,
@@ -347,7 +351,10 @@ router.get("/cats/:catId", async (req, res) => {
           createdAt: s.createdAt,
           spotterUsername: spotterUsername ?? null,
           spotterNickname: spotterNickname ?? null,
-          photoUrl: photoPublicId ? `/api/photos/${photoPublicId}` : null,
+          photoUrl: publicPhotoUrl(
+            photoId != null && photoPublicId != null ? { id: photoId, publicId: photoPublicId } : null,
+            hidden,
+          ),
         }),
     ),
   });

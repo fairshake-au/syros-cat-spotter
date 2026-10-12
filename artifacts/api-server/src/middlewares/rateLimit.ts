@@ -26,7 +26,7 @@ export const aiLimiter = rateLimit({
   limit: 20,
 });
 
-// GET /api/photos/:photoId (hosting-and-photo-storage.md §6.2 item 2): the
+// The public photo route, routes/photos.ts (hosting-and-photo-storage.md §6.2 item 2): the
 // route serves usage-billed compute with no auth and, until unguessable ids
 // land (SYC-46/SYC-98), an enumerable integer id. This budget is generous
 // enough that a tourist browsing the whole catalogue in one sitting never

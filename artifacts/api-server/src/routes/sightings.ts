@@ -19,7 +19,6 @@ import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
   isResolvedDeceased,
-  photoUrl,
   getProfileStats,
   profilePayload,
   serialiseCat,
@@ -50,6 +49,13 @@ import {
   nameTakenBody,
 } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
+import {
+  catDisplayPhoto,
+  catDisplayPhotos,
+  hiddenPhotoIds,
+  publicPhotoUrl,
+  type PublicPhotoUrl,
+} from "../lib/photoVisibility";
 
 export const POINTS_CONFIRM = 15;
 export const POINTS_NEW_CAT = 25;
@@ -71,7 +77,7 @@ const NOT_NEARBY = {
 type Candidate = {
   catId: number;
   name: string;
-  photoUrl: string | null;
+  photoUrl: PublicPhotoUrl | null;
   confidence: number;
   reasoning: string;
 };
@@ -298,27 +304,18 @@ async function computeMatchCandidates(
     // `candidates` entirely (see the comment on CONFIDENCE_THRESHOLD) — only
     // `shown` ever reaches the public response.
     const shown = ranked.filter((m) => m.confidence >= CONFIDENCE_THRESHOLD);
-    // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
-    // shown cats' photo public ids, instead of a photoUrl() round trip per
-    // candidate. Only `shown` cats' photos are ever fetched — a withheld
-    // candidate's photo is never looked up, let alone returned.
-    const photoIds = [
-      ...new Set(shown.map((m) => byId.get(m.catId)!.primaryPhotoId)),
-    ];
-    const photoRows = photoIds.length
-      ? await db
-          .select({ id: photosTable.id, publicId: photosTable.publicId })
-          .from(photosTable)
-          .where(inArray(photosTable.id, photoIds))
-      : [];
-    const publicIdById = new Map(photoRows.map((p) => [p.id, p.publicId]));
+    // One batched lookup for the (at most 3) shown cats' photos (SYC-98 Fable
+    // review, finding 7: never a round trip per candidate). Only `shown` cats'
+    // photos are ever looked up: a withheld candidate's photo is never
+    // returned. A main photo the team hid is replaced as in the catalogue
+    // (PR 6, Decision 4): this is the photo a spotter matches against.
+    const shownPhotos = await catDisplayPhotos(shown.map((m) => byId.get(m.catId)!));
     candidates = shown.map((m) => {
       const cat = byId.get(m.catId)!;
-      const publicId = publicIdById.get(cat.primaryPhotoId);
       return {
         catId: cat.id,
         name: cat.name,
-        photoUrl: publicId ? `/api/photos/${publicId}` : null,
+        photoUrl: shownPhotos.get(cat.id) ?? null,
         confidence: m.confidence,
         reasoning: m.reasoning,
       };
@@ -863,7 +860,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         id: cat.id,
         name: cat.name,
         description: cat.description,
-        photoUrl: await photoUrl(cat.primaryPhotoId),
+        photoUrl: await catDisplayPhoto(cat),
         lat: cat.lat,
         lng: cat.lng,
         ownerDeviceId: cat.ownerDeviceId,
@@ -1094,6 +1091,7 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
     .select({
       id: sightingsTable.id,
       createdAt: sightingsTable.createdAt,
+      photoId: photosTable.id,
       publicId: photosTable.publicId,
     })
     .from(sightingsTable)
@@ -1120,6 +1118,10 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
         )
     : [];
   const ear = await earTipStateFor(db, deviceId, catId);
+  // A photo the team hid is gone here too, even for the spotter who took it;
+  // the card stays, so they can still add their note (PR 6, decided by
+  // Samuel, 11 Oct 2026).
+  const hidden = await hiddenPhotoIds(recent.map((r) => r.photoId ?? 0));
 
   const sightings = recent
     .map((r) => {
@@ -1127,7 +1129,10 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
       return {
         sightingId: r.id,
         takenAt: r.createdAt.toISOString(),
-        photoUrl: r.publicId ? `/api/photos/${r.publicId}` : null,
+        photoUrl: publicPhotoUrl(
+          r.photoId != null && r.publicId != null ? { id: r.photoId, publicId: r.publicId } : null,
+          hidden,
+        ),
         open: { foodAndWater: !kinds.has("food_and_water"), note: !kinds.has("note") },
       };
     })

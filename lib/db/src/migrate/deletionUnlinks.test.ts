@@ -307,9 +307,13 @@ describe("rollback", () => {
   it("refuses once anybody has been deleted, and leaves the schema alone", async () => {
     const id = await sighting();
     await c.query(REDACT, [id]);
-    await expect(
-      rollbackLast(c, readMigrations(defaultMigrationsFolder())),
-    ).rejects.toThrow(/somebody has been deleted/);
+    // Roll back anything newer first (0014 onwards), so 0013 is the newest.
+    const migrations = readMigrations(defaultMigrationsFolder());
+    const mine = migrations.find((m) => m.tag.endsWith("_deletion_unlinks_people"))!;
+    for (const m of migrations.filter((x) => x.idx > mine.idx).reverse()) {
+      expect(await rollbackLast(c, migrations)).toBe(m.tag);
+    }
+    await expect(rollbackLast(c, migrations)).rejects.toThrow(/somebody has been deleted/);
     const nullable = await c.query(
       `select is_nullable from information_schema.columns
        where table_name = 'sightings' and column_name = 'device_id'`,

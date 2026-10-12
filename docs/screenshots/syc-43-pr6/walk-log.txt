@@ -1,0 +1,36 @@
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/390-1-floka-hidden-by-maria-left.png
+390 Φλόκα label: Hidden from the public by Maria (left), 7 Oct 2026
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/390-2-mimi-before.png
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/390-3-mimi-after-hide.png
+390 after hide URL: http://localhost:8787/api/team/cats/1?done=hidden&p=p6-mimi-main#p-p6-mimi-main
+390 notice beside photo: Hidden. The public no longer sees this photo. Tap Restore to bring it back.
+390 label: Hidden from the public by Susan, 12 Oct 2026
+390 public cat photoUrl while main hidden: /api/photos/p6-mimi-s3
+390 public URL of hidden main photo: 404
+390 public URL of stand-in: 200
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/390-4-second-tab-already-hidden.png
+390 second tab says: Someone already hid this photo a moment ago. Nothing was changed.
+390 public cat photoUrl, main and newest sighting hidden: /api/photos/p6-mimi-s2
+390 public sightings photos: [null,"/api/photos/p6-mimi-s2","/api/photos/p6-mimi-s1"]
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/390-5-mimi-after-restore.png
+390 public cat photoUrl after restore: /api/photos/p6-mimi-main
+390 public URL of restored main photo: 200
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/390-6-floka-full.png
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/1280-1-floka-hidden-by-maria-left.png
+1280 Φλόκα label: Hidden from the public by Maria (left), 7 Oct 2026
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/1280-2-mimi-before.png
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/1280-3-mimi-after-hide.png
+1280 after hide URL: http://localhost:8787/api/team/cats/1?done=hidden&p=p6-mimi-main#p-p6-mimi-main
+1280 notice beside photo: Hidden. The public no longer sees this photo. Tap Restore to bring it back.
+1280 label: Hidden from the public by Susan, 12 Oct 2026
+1280 public cat photoUrl while main hidden: /api/photos/p6-mimi-s3
+1280 public URL of hidden main photo: 404
+1280 public URL of stand-in: 200
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/1280-4-second-tab-already-hidden.png
+1280 second tab says: Someone already hid this photo a moment ago. Nothing was changed.
+1280 public cat photoUrl, main and newest sighting hidden: /api/photos/p6-mimi-s2
+1280 public sightings photos: [null,"/api/photos/p6-mimi-s2","/api/photos/p6-mimi-s1"]
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/1280-5-mimi-after-restore.png
+1280 public cat photoUrl after restore: /api/photos/p6-mimi-main
+1280 public URL of restored main photo: 200
+screenshot /Users/samuelporter/Projects/syros-cat-spotter/.claude/worktrees/magical-archimedes-6dd2f5/docs/screenshots/syc-43-pr6/1280-6-floka-full.png

@@ -8,13 +8,13 @@ import {
   catsTable,
   catUpdatesTable,
   notificationsTable,
-  photosTable,
   pushTokensTable,
 } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { requireDeviceAuth } from "../lib/deviceAuth";
 import { insertCatUpdate, fanOutNotifications } from "../lib/notificationFanout";
 import { writeObservation } from "../lib/observations";
+import { catDisplayPhotos } from "../lib/photoVisibility";
 
 const router: IRouter = Router();
 
@@ -111,8 +111,6 @@ router.get("/notifications/:deviceId", async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
 
-  // SYC-98 Fable review, finding 7: photosTable is joined here rather than
-  // calling photoUrl(r.catPrimaryPhotoId) per notification (an N+1).
   const rows = await db
     .select({
       id: notificationsTable.id,
@@ -123,7 +121,7 @@ router.get("/notifications/:deviceId", async (req, res) => {
       message: catUpdatesTable.message,
       catId: catsTable.id,
       catName: catsTable.name,
-      catPhotoPublicId: photosTable.publicId,
+      catPrimaryPhotoId: catsTable.primaryPhotoId,
     })
     .from(notificationsTable)
     .innerJoin(
@@ -131,17 +129,22 @@ router.get("/notifications/:deviceId", async (req, res) => {
       eq(notificationsTable.catUpdateId, catUpdatesTable.id),
     )
     .innerJoin(catsTable, eq(catUpdatesTable.catId, catsTable.id))
-    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
     .where(eq(notificationsTable.deviceId, deviceId))
     .orderBy(desc(notificationsTable.createdAt), desc(notificationsTable.id));
 
+  // Each cat's photo as the catalogue shows it, in one batch (SYC-98 Fable
+  // review, finding 7: never one lookup per notification). A main photo the
+  // team hid is replaced by the newest visible one, or none (PR 6).
+  const photos = await catDisplayPhotos(
+    [...new Map(rows.map((r) => [r.catId, { id: r.catId, primaryPhotoId: r.catPrimaryPhotoId }])).values()],
+  );
   res.json(
     rows.map((r) => ({
       id: r.id,
       catId: r.catId,
       catUpdateId: r.catUpdateId,
       catName: r.catName,
-      catPhotoUrl: r.catPhotoPublicId ? `/api/photos/${r.catPhotoPublicId}` : null,
+      catPhotoUrl: photos.get(r.catId) ?? null,
       updateType: r.updateType,
       message: r.message,
       read: r.read,

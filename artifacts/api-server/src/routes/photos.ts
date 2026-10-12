@@ -3,6 +3,7 @@ import { db, photosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { photoLimiter } from "../middlewares/rateLimit";
 import { gateEnabled } from "../lib/prelaunch";
+import { hiddenPhotoIds } from "../lib/photoVisibility";
 
 const router: IRouter = Router();
 
@@ -43,7 +44,10 @@ router.get("/photos/:id", photoLimiter, async (req, res) => {
     .select()
     .from(photosTable)
     .where(eq(photosTable.publicId, id));
-  if (!photo) {
+  // A photo the team hid answers exactly as an unknown id does (SYC-43 part
+  // 2, PR 6): the same 404, so the answer never says a photo exists. Staff
+  // see hidden photos through the team photo route instead.
+  if (!photo || (await hiddenPhotoIds([photo.id])).has(photo.id)) {
     res.status(404).json({ error: "Not found" });
     return;
   }

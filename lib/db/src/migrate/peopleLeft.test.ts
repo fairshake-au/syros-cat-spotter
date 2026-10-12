@@ -50,9 +50,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await c.query(
-    `truncate report_state_events, welfare_reports, person_scopes, people cascade`,
-  );
+  // PR 6: the cascade reaches photo_visibility_events, whose TRUNCATE guard
+  // is switched off for this one statement, inside a transaction, as
+  // dataSpine.test.ts does for sightings.
+  await c.query("begin");
+  await c.query(`alter table photo_visibility_events disable trigger photo_visibility_events_no_truncate`);
+  await c.query(`truncate report_state_events, welfare_reports, person_scopes, people cascade`);
+  await c.query(`alter table photo_visibility_events enable trigger photo_visibility_events_no_truncate`);
+  await c.query("commit");
 });
 
 const SUSAN = "susan@example.com";
