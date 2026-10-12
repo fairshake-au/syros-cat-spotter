@@ -151,10 +151,10 @@ This is the question that decides most of the build, so it comes first.
 
 ### 4.1 What the person experiences
 
-1. **Eleni is told.** Susan, in management, has asked her on the phone, and she has said yes. Susan opens the people screen (SYC-104), taps **Invite someone**, types Eleni's own email address and name, chooses **Cat guardian**, picks Vaporia — Eleni's, and chooses the language of the message (Greek). She types the address twice. She taps **Send invitation**.
-2. **Eleni gets a plain message**, in Greek, from `Cat Spotters <signin@mail.catspotters.com>`: *"Syros Cats has invited you to help. To see what you've been invited to, go to admin.catspotters.com, type this address, and tap the link we send you."* It contains **no secret, no link she could be tricked with, and no colony or guardian name** (a mistyped address would otherwise hand a stranger a guardian's first name and neighbourhood, for good). Anyone who finds it learns only that an invitation exists.
+1. **Eleni is told.** Susan, in management, has asked her on the phone, and she has said yes. Susan opens the people screen (SYC-104), taps **Invite someone**, types Eleni's own email address and name, chooses **Cat guardian**, picks Vaporia — Eleni's, and chooses the language of the message (Greek). She types the address once. She taps **Send invitation**.
+2. **Eleni gets a plain message**, in Greek, from `Cat Spotters <signin@mail.catspotters.com>`: *"Syros Cats has invited you to help as a cat guardian for Vaporia — Eleni's. To get started, go to admin.catspotters.com, type this address, and tap the link we send you."* It contains **no secret and no link she could be tricked with**. It may name the colony, so anyone who finds it learns whose colony it is (§8.4 says what that accepts).
 3. **Eleni signs in** the way staff already do (§2.1 of the team-access spec): she types her address on `admin.catspotters.com`, gets the emailed link, taps it, taps **Yes, sign me in**.
-4. **She lands on one page:** *"Susan from Syros Cats invited you as a cat guardian for Vaporia — Eleni's. Here is what you'll be able to see and do. Here is what we ask of you."* The colonies are named here for the first time, after sign-in. Four short promises (below). A **blank** name field (*"Type your name as you'd like Syros Cats to see it"*): it is not pre-filled, so that Susan can see whether the person who arrived is the person she meant. Two buttons: **Yes, join** and **No, this isn't for me.**
+4. **She lands on one page:** *"Susan from Syros Cats invited you as a cat guardian for Vaporia — Eleni's. Here is what you'll be able to see and do. Here is what we ask of you."* Four short promises (below). A name field, pre-filled with the name Susan typed, that she can change (*"Check your name as you'd like Syros Cats to see it"*). Two buttons: **Yes, join** and **No, this isn't for me.**
 5. **She taps Yes, join** and arrives on **My colonies**. From then on she signs in exactly like staff: type address, tap link. Her session lasts thirty days on that phone.
 
 If she taps **No**, the invitation is withdrawn: she is marked as left, as for anyone else (a person is never deleted once they have a history, §9.6). If she does nothing, the invitation stops working after **14 days** (§4.4) and Susan sees "expired" next to her name.
@@ -183,7 +183,7 @@ The old design (health-record spec §6.1, repeated in the SYC-53 ticket) said to
 
 **What people notice.** A: two emails and one extra tap, the first time only. B: one email, but a link that can be forwarded or opened by a mail scanner and then doesn't work, which is the failure staff sign-in already had to fix. C: a new sign-up screen to learn. D: nothing for the invitee, and a door on the sign-in page.
 
-**Recommendation: A.** It is the least new surface. The cost, two messages, is a small friction paid once per person. Wrong-address risk is handled in Decision 7.
+**Recommendation: A.** It is the least new surface. The cost, two messages, is a small friction paid once per person. Wrong-address risk is the accepted risk of Decision 7.
 
 ### 4.4 Expiry, resend, withdraw
 
@@ -543,7 +543,7 @@ SYC-104 is the screen. This section says what it must allow and what it must ref
 
 ### 8.2 What the screen shows
 
-A list of people with, for each: name, roles in plain words, colonies, and a chip (**Waiting for an OK · Invited · Joined · Expired · Left**). *Expired* is worked out when the page is drawn; nothing writes it. Beneath each, their history (§11). Beside the list: **Invite someone**, and **Joined in the last 7 days** (with the name each person typed on the accept page beside the name the inviter expected). A tab for people who have left, with **Bring back**. Every change records who made it (SYC-104's own requirement); the screen has no free-text box that ends up in an email.
+A list of people with, for each: name, roles in plain words, colonies, and a chip (**Waiting for an OK · Invited · Joined · Expired · Left**). *Expired* is worked out when the page is drawn; nothing writes it. Beneath each, their history (§11). Beside the list: **Invite someone**, and **Joined in the last 7 days**. A tab for people who have left, with **Bring back**. Every change records who made it (SYC-104's own requirement); the screen has no free-text box that ends up in an email.
 
 ### 8.3 Decision 11: one person alone, or a second pair of eyes, for staff and management
 
@@ -563,27 +563,31 @@ Inviting a guardian gives someone sight of a colony. Inviting a staff member or 
 
 ### 8.4 Decision 7: protecting against an invitation to the wrong mailbox
 
+**Decided (Samuel, 12 October 2026): option D, a plain invitation.** The address is typed once and the invitation email may name the colony. The right person gets a clear message and nothing extra to do. One-tap withdrawal stays.
+
 Nothing stops Susan mistyping a letter and inviting a stranger. The sign-in then gets that stranger an accept page.
 
 | Option | What it means | Benefits | Risks |
 |---|---|---|---|
-| **A. ✅ Make mistakes unlikely, quiet and visible.** The address is typed twice. The invitation message names no colony and no guardian, only that Syros Cats has invited the person. The accept page leaves the name field **blank** ("type your name as you'd like Syros Cats to see it"), and shows the colonies only after sign-in. The inviter sees the name typed beside the name she expected, in the people screen and in a "joined in the last 7 days" list, and gets an email that says only that the invitation was accepted. Management can withdraw her in one tap. | No extra step for the right person. A mismatch is visible. The damage is limited to the colonies on the invitation (never more than three without a second OK). The mistaken stranger learns nothing private from the message. | There is a window in which a mistaken stranger holds a view of up to three colonies. |
-| **B. Hold access until the inviter confirms.** The invitee accepts; her access starts when the inviter taps *Yes, that's Eleni*. | A mistaken stranger sees nothing. | A real guardian waits, perhaps a day, perhaps until Susan next opens the screen. That is the first impression of the whole system for someone who agreed to help. |
+| **A. (earlier recommendation) Make mistakes unlikely, quiet and visible.** The address is typed twice. The invitation message names no colony and no guardian. The accept page leaves the name field **blank** and shows the colonies only after sign-in. The inviter sees the name typed beside the name she expected and gets an email that says only that the invitation was accepted. Management can withdraw her in one tap. | A mismatch is visible. A mistaken stranger learns nothing private from the message. | There is a window in which a mistaken stranger holds a view of the colonies on the invitation. More for the inviter to do and for the invitee to be asked. |
+| **B. Hold access until the inviter confirms.** The invitee accepts; her access starts when the inviter taps *Yes, that's Eleni*. | A mistaken stranger sees nothing. | A real guardian waits, perhaps a day. That is the first impression of the whole system for someone who agreed to help. |
 | **C. A code the inviter reads out.** The invitation shows a 6-digit code Susan gives her on the phone; the accept page asks for it. | Defeats a mistyped address entirely. | The guardian must have the code, find it and type it in. The people most likely to be put off are the people this system most needs. |
+| **D. ✅ Decided. A plain invitation.** The address is typed once. The invitation email may name the colony. The name field on the accept page is pre-filled and editable. There is no "accepted" email to the inviter. The inviter can withdraw the invitation in one tap. | Nothing extra for the right person: one form for Susan, one clear message for Eleni, who sees straight away what she has been asked to do. | See "What this choice accepts". |
 
-**Changed after review:** the earlier draft's main check did not work. The name field was pre-filled with what Susan typed, so a stranger who tapped *Yes, join* produced exactly the name Susan expected. And the invitation named the colony, which tells a mistaken stranger a guardian's first name and neighbourhood, and stays in their mailbox for ever. The recommendation is still A, but A now means a blank field, a message that names nothing, and a second OK for anything beyond three colonies.
+**What this choice accepts.** The earlier recommendation (A) guarded against exactly one thing, a typo:
 
-**What people notice.** A: nothing extra for the right person. The inviter sees, next to Eleni's name, what Eleni typed. B: the new guardian sees *"Thanks. Susan will confirm you shortly"* instead of her colony. C: she has to find a six-digit code.
+- **A typo in the address gives a stranger exact cat positions for that colony**, once they sign in and tap *Yes, join*.
+- **The email tells that stranger whose colony it is.** It stays in their mailbox.
+- **What is still in place:** the invitation expires in 14 days, Susan can withdraw it in one tap, a wrongly invited stranger's address is anonymised on withdrawal (§9.6), the people screen shows every pending and joined person, a **Joined in the last 7 days** list sits beside it, every invitation and acceptance is in the history (§11), and invitations are rate-limited (§8.5). Nothing tells Susan when someone accepts; she sees it on the people screen.
 
-**Recommendation: A for guardians and volunteers.** The blast radius is a few colonies and the inviter sees a mismatch on her screen. Staff and management invitations already get Decision 11's second OK. If Syros Cats would rather have B for guardians, it is a one-line change: a new guardian's placement starts inactive until the inviter's confirmation.
+**What people notice.** The right person sees the colony's name in her email and recognises it. The inviter types the address once and is done.
 
 ### 8.5 Limits on the invitation path
 
 - **10 invitations per inviter per day**, 1 per address per 24 hours, 30 per IP per hour.
-- The message is a closed template in the one send function with a new purpose, `person_invite`. **The caller names a person, not an address**: the function looks the address up itself and refuses unless that person is pending and unexpired, so it can't be used to email an arbitrary stranger. No free text from the inviter goes into it, and it names no colony or guardian.
-- The acceptance email to the inviter (`invite_accepted`) is also a closed template. It carries no text the invitee typed: *"Your invitation was accepted. See the people screen."*
+- The message is a closed template in the one send function with a new purpose, `person_invite`. **The caller names a person, not an address**: the function looks the address up itself and refuses unless that person is pending and unexpired, so it can't be used to email an arbitrary stranger. No free text from the inviter goes into it. The only words that vary are the role and the colony's name, taken from the pending person's own record; it names no other person.
 - If the mail path is down, the invitation is saved and visible as *Not sent yet*, and sending retries like other mail. **An invitation that failed to send is never shown as sent.**
-- Both messages travel on the same transactional identity as sign-in links and welfare mail (not the separate news identity, which has its own quota). They are shed after sign-in links and welfare mail when the quota is tight.
+- The invitation travels on the same transactional identity as sign-in links and welfare mail (not the separate news identity, which has its own quota). They are shed after sign-in links and welfare mail when the quota is tight.
 
 ---
 
@@ -865,7 +869,6 @@ Guardians are, in large part, Greek speakers; some team members and guardians wi
 | The **accept page** and the four promises | Same | The promises are the one piece of text where a mistranslation matters most; see below |
 | **My colonies, the colony view, the round sheet, field-check and colony forms, "Needs a look", the outcome lines** | Same; changeable by the person on their own page | |
 | The **403 page** ("that part is for the team") | Same | |
-| The **"your invitation was accepted" email** to the inviter | The inviter's language (English) | Goes to management, so Decision 10 keeps it English |
 | **Role names and the one-sentence description of oneself** (§2.6) | Same | |
 | The people screen, "Needs an OK", management and staff pages | English | Decision 10 |
 | Dates | The person's language (`el-GR`, `fr-FR`, `en-GB`), Athens time | Existing pages hard-code `en-GB` |
@@ -899,7 +902,7 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 
 | # | Case | What stops it, or what we accept |
 |---|---|---|
-| **1** | **An invitation goes to a mistyped address belonging to a stranger.** | Address typed twice; the message names no colony and no guardian and holds no secret; the accept page's name field is blank and the inviter sees what was typed beside what she expected, in the people screen and the "joined in the last 7 days" list; she gets a plain "accepted" email with no typed text; 14-day expiry; one-tap withdrawal. **Blast radius: the colonies on the invitation, never more than three without a second management OK (Decision 11).** A wrongly invited stranger's address is anonymised on withdrawal (§9.6). |
+| **1** | **An invitation goes to a mistyped address belonging to a stranger.** | **Accepted (Decision 7).** The address is typed once and the message may name the colony, so a stranger who gets it learns whose colony it is and, if they sign in and join, sees exact cat positions for that colony. What limits it: the message holds no secret; 14-day expiry; one-tap withdrawal; the people screen and the "joined in the last 7 days" list show who has joined; every invitation and acceptance is in the history; limits per inviter, address and IP (§8.5). A wrongly invited stranger's address is anonymised on withdrawal (§9.6). |
 | **2** | **The invitation message is used for phishing, or to mail-bomb a stranger.** | A closed template; no inviter free text; escaped, length-limited names; the caller names a person, not an address; per-inviter, per-address and per-IP limits; counted in the mail budget (§8.5). |
 | **3** | **A management session is stolen and used to make accounts or remove people.** | Every access change (staff or management invitations, role changes that add them, rejoins, invitations over three colonies, removing a manager) needs a second management member, using `approve_access`, which staff do not hold and cannot see. Guardian invitations are limited to 10 a day per inviter, appear at once on the people screen, and can each be withdrawn in a tap. Marking a staff or management member as left, or signing them out everywhere, emails every other management member. A stolen session is ended with *sign out everywhere*. |
 | **4** | **Someone grants themselves more.** | Role changes to your own row are refused; anything that adds staff or management is an access change that needs a second management member; every grant records who made it (`granted_by`) and writes a `roles_changed` event. The database refuses a guardian placement with no colony, and refuses an island-wide row for a guardian. |
@@ -937,7 +940,7 @@ They are short on purpose, and each is written to be read aloud on the phone by 
 - `routes/internal.ts`: `POST /api/internal/people/allowed` returns `doors` and `language`; old request shape handled as in §4.5.
 - `routes/team.ts` (the welfare queue page), `routes/teamReports.ts` (the report list and the reporter-photo route) move to `view_welfare_queue`; `routes/teamCats.ts` and the catalogue-photo route ask for `view_exact_location` with a target; the hand-off allows a pending invitee to reach the accept page and nothing else.
 - New dashboard routes under `/api/team`: `people` (list, invite, resend, withdraw, roles, leave, rejoin, sign-out), `accept` and `decline`, `me/language`, `me/leave`, `colonies` (mine), `colonies/:id/targets`, `needs-a-look`, `needs-an-ok`, `field-checks`, `colonies/:id/cats` (add or take out a cat), `guardian-changes`, `site-public-requests`, `confirmations/:id/decide` (settled by `settle_confirmation` or, for access changes, `approve_access`), and the `/api/team/field/` pages for the saved list. These are server-drawn pages and forms like the others (Part 2k); the JSON ones used by the saved colony page are added to the OpenAPI file and the generated clients.
-- `lib/mail/send.ts`: purposes `person_invite` and `invite_accepted` (closed templates, person id in, address looked up inside; transactional identity).
+- `lib/mail/send.ts`: purpose `person_invite` (a closed template: role and colony name only; person id in, address looked up inside; transactional identity).
 - `lib/db/src/people/cli.ts` and the db-ops `people-*` commands: `add` takes `--colony` (required for guardian), `--language`, and `--accepted` for break-glass staff seeding; `list` shows ids and placements only, never addresses.
 - `lib/teamPages` and a new server-side string catalogue (§13.3).
 
@@ -982,7 +985,7 @@ Named here so they appear in the implementation plan:
 19. **Leaving withdraws** every pending invitation and open access change the person proposed, and emails the other managers when a staff or management member is marked left or signed out.
 20. **Withdrawing an invitation** never deletes a row that has an event, and leaves no readable address once SYC-208's routine runs.
 21. **Every operation writes exactly one event, in its own transaction** (SYC-213's mutation test, extended to the new kinds).
-22. **Invitation mail:** the caller cannot name an address; the text names no colony or guardian; a name containing markup or a link is escaped; limits hold; a failed send is not shown as sent; the acceptance email carries no typed text.
+22. **Invitation mail:** the caller cannot name an address; the text carries only the role and the colony's name and no inviter free text; a name containing markup or a link is escaped; limits hold; a failed send is not shown as sent; there is no acceptance email to the inviter.
 23. **`roleAtTime` is derived on the server:** a guardian cannot write `staff` by sending it; a staff member who is also a guardian writes the role that authorised the action. The one list of team roles is used by the resolver, the review list and the correction routes.
 24. **The catalogue test:** the capability map in code equals the table in §6.2 (names, kinds, holders), and every name SYC-209 and SYC-2 cite exists in it.
 25. **Key parity** for the dashboard catalogue in all three languages; **a Greek local part** survives lower-casing the same way in database and code.
