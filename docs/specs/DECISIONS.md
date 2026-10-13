@@ -300,6 +300,24 @@ The plan's decisions, as answered:
 - **E1: two colours on the cat's page.** Joined with " · " in every language ("Ginger · Tabby · White paws"), with no grammar to get wrong.
 - **Who wins on colour and markings (13 October 2026).** Decision G from the roles plan (vet > owner > cat guardian > team) applies to appearance with one carve-out: vets, imported records and owners have no standing on colour or markings (owners until SYC-130 decides). So a cat guardian's statement outranks the team's whatever the dates, and the newest wins only within a level. The team overrules a guardian by pressing **Correct**, which marks her statement wrong and records the team's answer in one step, with a reason, on the recent guardian changes list. Samuel considered letting the photo-reading model referee guardian–team disagreements and chose not to: people decide, the machine stays below them (in keeping with §4.2 rule 1 of `coat-markings-and-health.md`, where a later machine reading never overrides a person's statement).
 
+## Part 2o — approval of `feeding-sites-and-colonies.md` (SYC-209), 12 October 2026
+
+Samuel **approved the spec on 12 October 2026**. It specifies the feeding-site map and the colony screens on the team dashboard, and the public site card. Where anything earlier in this document, `cat-record-data-spine.md` or `team-access-and-welfare-queue.md` says otherwise, these win.
+
+1. **Feeding-site map and colony screens are specified in `feeding-sites-and-colonies.md`.** Ownership table: that document owns the screens and the public site card; the data spine still owns the records, privacy and precision; `roles-and-invites.md` owns the capability names.
+2. **A public site has a separate, required public label.** The internal name (which follows the "place — guardian" convention) is never published.
+3. **Making a site public takes a confirmation page, a preview of what visitors see, and a recorded "the cat guardian knows" tick.** There is no bulk action and no import that sets visibility. It needs a named guardian, and is re-confirmed when the guardian or the colony changes.
+4. **Moving a public site makes it private until reconfirmed, and gives it a new public code. Retiring removes it from public view and retires its code.**
+5. **Nothing from `colonies` is public.** Not names, guardians, centres, notes or exact counts. (The one derived exception is the rough band on a public site's card, entry 11.)
+6. **Every change to a site or colony is recorded in an add-only history** (`mapping_events`), linked to the people list, with a redaction path for a guardian's name.
+7. **The public sites endpoint returns an opaque code, label and position only**, ordered by code, identical for every caller, with a short shared-cache lifetime. A lookup for anything not currently public, or for a superseded code, answers identically to an unknown code.
+8. **Cat guardians can create colonies and become their guardian automatically; renaming afterwards is the team's.** (*Updated after Samuel's roles decisions (12 Oct 2026)*, reason: a guardian who finds an unrecorded place should be able to record it. Accepted risk: she could create a colony anywhere and add cats to see their positions; every change is in the history and the team's dashboard lists recent guardian changes.)
+9. **A guardian decides alone which cats are in her colonies, adding and taking out, with immediate effect.** `assign_cat_to_colony` is held by guardians for their own colonies; `propose_colony_change` no longer exists. (*Updated after Samuel's roles decisions (12 Oct 2026)*, reason: the team should not be a queue for a guardian's own cats.)
+10. **A guardian's phone may hold her colonies' data, exact feeding-site positions included, for 72 hours from her last online load by server time, deleted on next open, with `Clear-Site-Data` on sign-out and removal.** This replaces "directions in words, no coordinates". The "how to find it" line is optional. (*Updated after Samuel's roles decisions (12 Oct 2026)*, roles Decision 12.)
+11. **A public site's card shows a rough count, "About N cats use this spot", in five bands, counting cats in the site's colony that are alive and seen in the last 12 months; never the exact number, never names, photos or a list.** (*Samuel, 12 October 2026, Decision 3.* Accepted: it tells anyone how many animals are at one exact place, and invites looking for them, §4.6.)
+12. **The team's own dashboard pages are English only.** (*Samuel, 12 October 2026, Decision 9.*)
+13. **The public card asks visitors to give the cats room, not leave food, and see how they can help.** (*Samuel, 12 October 2026, Decision 13.*)
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
@@ -317,6 +335,7 @@ The four specs were written independently and contradicted each other in fourtee
 | The nightly notify job (F4) | `email-capture.md` |
 | Privacy policy text (split out 28 Sep 2026, approved separately) | `privacy-policy.md` |
 | Controller, withdrawal route, the email facts the policy states | `email-capture.md` |
+| Feeding-site screens (the map, one site, adding, moving, retiring), the Colonies page, and the public site card (approved 12 Oct 2026). The records, privacy and precision stay with the data spine; the capability names stay with `roles-and-invites.md` | `feeding-sites-and-colonies.md` |
 | Hosting, photo storage, photo endpoint, migrations | `hosting-and-photo-storage.md` |
 | Offline queue writes on every build; web photo storage; review-route photo handoff; sighting dedupe (approved 28 Sep 2026) | `offline-queue-on-web.md` |
 | Picking a cat by hand when matching misses: the picker, its colour filter, hand-pick points, the "Matched by hand" review (approved 30 Sep 2026). The records it relies on (the match record, moving a sighting, the `coat` observation) stay with the data spine | `choose-a-different-cat.md` |
