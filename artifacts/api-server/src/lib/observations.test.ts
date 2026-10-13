@@ -962,3 +962,27 @@ describe("raw sizes (review fix 7)", () => {
     await writeAs(cat.id, "vaccinated", { vaccines: ["rabies"], clinic: "x".repeat(120) });
   });
 });
+
+describe("order of checks (review fix 8)", () => {
+  it("a public team_note with empty text is refused for its role first", async () => {
+    const cat = await insertCat();
+    await expect(writeAs(cat.id, "team_note", { text: "" }, "public")).rejects.toMatchObject(
+      refused("ROLE_NOT_ALLOWED_FOR_KIND"),
+    );
+  });
+  it("an unknown provenance is INVALID_PROVENANCE even with a malformed value", async () => {
+    const cat = await insertCat();
+    await expect(
+      writeAs(cat.id, "coat", { colours: [] }, "staff", { provenance: "bogus" }),
+    ).rejects.toMatchObject(refused("INVALID_PROVENANCE"));
+  });
+  it("the per-kind role rule runs before reachability", async () => {
+    const cat = await insertCat();
+    await expect(
+      writeAs(cat.id, "vaccinated", { vaccines: ["rabies"] }, "guardian"),
+    ).rejects.toMatchObject(refused("ROLE_NOT_ALLOWED_FOR_KIND"));
+    await expect(
+      writeAs(cat.id, "sterilised", { sterilised: true }, "guardian"),
+    ).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
+  });
+});

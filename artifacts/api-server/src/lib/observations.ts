@@ -595,26 +595,32 @@ export async function writeObservation(
     refuse("UNKNOWN_KIND", `Unknown observation kind: ${String(input.kind)}`);
   }
 
-  validateValue(input.kind, input.value, {
-    roleAtTime: input.roleAtTime,
-    provenance: input.provenance ?? "volunteered",
-  });
+  const provenance = input.provenance ?? "volunteered";
+  if (!PROVENANCES.has(provenance)) {
+    refuse("INVALID_PROVENANCE", `Unknown provenance: ${provenance}`);
+  }
 
-  // Per-kind role rule, BEFORE the reachability check: it is proven
-  // independently of reachability and still holds once SYC-53 makes
-  // `management` and `guardian` reachable.
+  // Per-kind role rule, BEFORE value validation (so a public team_note with
+  // empty text is refused for its role) and BEFORE the reachability check:
+  // it is proven independently of reachability and still holds once SYC-53
+  // makes `management` and `guardian` reachable.
   if (
     ROLES_REFUSED_FOR_KIND[input.kind]?.includes(input.roleAtTime) ||
     // `system` may write a coat only as the machine's reading.
     (input.kind === "coat" &&
       input.roleAtTime === "system" &&
-      (input.provenance ?? "volunteered") !== "machine")
+      provenance !== "machine")
   ) {
     refuse(
       "ROLE_NOT_ALLOWED_FOR_KIND",
       `roleAtTime "${input.roleAtTime}" may not write ${input.kind}`,
     );
   }
+
+  validateValue(input.kind, input.value, {
+    roleAtTime: input.roleAtTime,
+    provenance,
+  });
 
   if (!REACHABLE_ROLES.has(input.roleAtTime)) {
     refuse(
@@ -626,11 +632,6 @@ export async function writeObservation(
   const authorityScope = input.authorityScope ?? "none";
   if (!AUTHORITY_SCOPES.has(authorityScope)) {
     refuse("INVALID_AUTHORITY_SCOPE", `Unknown authorityScope: ${authorityScope}`);
-  }
-
-  const provenance = input.provenance ?? "volunteered";
-  if (!PROVENANCES.has(provenance)) {
-    refuse("INVALID_PROVENANCE", `Unknown provenance: ${provenance}`);
   }
 
   const deviceId = input.deviceId ?? null;
