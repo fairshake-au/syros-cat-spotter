@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Draft for Samuel's approval (8 Oct 2026). Nothing is built yet.
+**Status:** Approved by Samuel, 13 Oct 2026. Nothing is built yet.
 
 **Goal:** Only a person who has met a street cat, says they live on Syros, says the cat is theirs, and pins their home within 1 km of where the map shows the cat can claim it. Claims end by the owner letting go or the team removing the owner.
 
@@ -10,7 +10,7 @@
 
 **Tech Stack:** Express + drizzle (`artifacts/api-server`), Postgres migrations (`lib/db`), OpenAPI + orval (`lib/api-spec`), Expo/React Native + web (`artifacts/cat-spotter`), vitest + supertest.
 
-**Spec:** `docs/specs/claiming-a-cat.md` (approved 8 Oct 2026, D1–D13), with its reviews `docs/specs/reviews/claiming-a-cat-review.md` and `claiming-a-cat-review-2.md`.
+**Spec:** `docs/specs/claiming-a-cat.md` (approved by Samuel, 13 Oct 2026; decisions D1–D13 from 8 Oct 2026), with its reviews `docs/specs/reviews/claiming-a-cat-review.md` and `claiming-a-cat-review-2.md`.
 
 ## Global Constraints
 
