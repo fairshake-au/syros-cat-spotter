@@ -513,6 +513,59 @@ describe("public codes: never both current and superseded (spec §11.1)", () => 
     await c.query("commit");
   });
 
+  it("two transactions at once can't make one code both current and superseded (the advisory lock)", async () => {
+    // T1 retires R1's code race-cur (new code first, then the old one
+    // recorded) and holds its transaction open. T2 meanwhile gives R2 that
+    // same code. Without the lock, T2's check can't see T1's uncommitted old
+    // code, so both commit and race-cur ends up in both tables.
+    const r1 = await site();
+    const r2 = await site();
+    const cur = `race-cur-${r1}`;
+    await c.query(`update feeding_sites set public_id = $2 where id = $1`, [r1, cur]);
+    const t1 = new pg.Client({ connectionString: url(fullName) });
+    const t2 = new pg.Client({ connectionString: url(fullName) });
+    await t1.connect();
+    await t2.connect();
+    try {
+      await t1.query("begin");
+      await t1.query(`update feeding_sites set public_id = $2 where id = $1`, [r1, `race-new-${r1}`]);
+      await t1.query(
+        `insert into feeding_site_old_codes (site_id, public_id, reason) values ($1, $2, 'moved')`,
+        [r1, cur],
+      );
+      const t2pid = (await t2.query<{ pid: number }>(`select pg_backend_pid() as pid`)).rows[0]!.pid;
+      await t2.query("begin");
+      const t2result = t2
+        .query(`update feeding_sites set public_id = $2 where id = $1`, [r2, cur])
+        .then(
+          () => "committed" as const,
+          (err: Error) => err,
+        );
+      // Wait until T2 is actually blocked behind T1, then let T1 commit.
+      for (let i = 0; ; i++) {
+        const w = await c.query(
+          `select 1 from pg_stat_activity where pid = $1 and wait_event_type = 'Lock'`,
+          [t2pid],
+        );
+        if (w.rowCount) break;
+        if (i > 200) throw new Error("T2 never waited on T1");
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      await t1.query("commit");
+      const outcome = await t2result;
+      await t2.query(outcome === "committed" ? "commit" : "rollback");
+      expect(outcome).toBeInstanceOf(Error);
+      expect((outcome as Error).message).toMatch(/public_id is a superseded code/);
+      const both = await c.query(
+        `select count(*)::int as n from feeding_sites s join feeding_site_old_codes o using (public_id)`,
+      );
+      expect(both.rows[0].n).toBe(0);
+    } finally {
+      await t1.end();
+      await t2.end();
+    }
+  });
+
   it("refuses an unknown reason", async () => {
     const id = await site();
     await expect(
