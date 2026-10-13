@@ -367,6 +367,9 @@ Feeding sites are mapped in full, and are **private by default**. Syros Cats cho
 - **Public sites show their exact position.** Making a site public is a deliberate act with a purpose — directing people to somewhere they can help — and a blurred circle around a food bowl serves nobody. The team is choosing exposure knowingly, site by site.
 - The toggle is per site, on the team dashboard, defaulted to private, and shows a one-line reminder of why: cat feeders face neighbour hostility, and known feeding sites attract abandonment.
 - **Cat locations are still blurred near a public feeding site.** The two settings are independent; making a site public never publishes the exact position of a cat.
+- **A public site's label never contains the guardian's name.** The internal name follows the "place — guardian" convention and is never published; the public label is a separate field written for the public.
+- **A private site is indistinguishable from an unknown code.** A lookup by public code answers the same `404`, with the same body, for a site that is private, retired, never existed, has a wrong code, or has a superseded code. Nothing in a response, or in how long it takes, tells them apart.
+- **A guardian sees only her own colonies' sites**, filtered in the query, never in the page or the serialiser.
 - **And the honest caveat from §6.2:** suppressing the feeding-site row does not suppress the cats clustered on it. Anyone patient enough to average a colony's published positions gets the site's neighbourhood to about 45 m regardless of this toggle. The toggle is real and worth having; it is not a guarantee, and it is never described as one.
 
 ---
