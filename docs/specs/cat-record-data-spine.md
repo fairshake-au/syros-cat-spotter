@@ -779,6 +779,7 @@ export const coloniesTable = pgTable("colonies", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   notes: text("notes"),                  // team-only
+  // `peopleTable` is the people list (team-access-and-welfare-queue.md §2.9).
   // Who created the colony: a link to `people`, null for colonies that existed
   // before this was recorded. A cat guardian can create a colony and becomes
   // its guardian (roles-and-invites.md Decision 14).
@@ -810,7 +811,7 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
 //   colony  { colonyId: null }     // an explicit "in no colony"
 ```
 
-**The `colony` observation gains a "no colony" value.** `{ colonyId: null }` is an explicit statement that the cat is in no colony, so taking a cat out of a colony is a dated claim like putting one in. The rule is the same as everywhere else in §10.1: **the newest active statement stands**, whether it names a colony or says "in no colony".
+**The `colony` observation gains a "no colony" value.** `{ colonyId: null }` is an explicit statement that the cat is in no colony, so taking a cat out of a colony is a dated claim like putting one in. The rule is the one §10.2 uses for every kind: **the newest active (non-superseded) statement stands**, whether it names a colony or says "in no colony".
 
 `colony` joins `life_status`, `sterilised`, `ear_tip`, `food_and_water`, `note` and `name` in the phase-1 observation vocabulary. **A colony observation is not evidence of life** and does not feed §3.4's derivation — it says where a cat lives, not that it was seen.
 
@@ -1112,7 +1113,7 @@ So before any table below is created: switch to `drizzle-kit generate`, check in
 | Step | What happens | Risk handling |
 |---|---|---|
 | 0. Migration history | Baseline the current schema, switch to generated migrations, prove a rollback. | Nothing else in this table is safe without it. |
-| 1. Create the tables | `observations`, `cat_identity`, `colonies`, `feeding_sites` (plus `import_batches` and `import_records` only if the import goes ahead, `records-import.md`), plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). |
+| 1. Create the tables | `observations`, `cat_identity`, `colonies`, `feeding_sites` (plus `import_batches` and `import_records` only if the import goes ahead, `records-import.md`), plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). The later feeding-site additions (`feeding_site_old_codes`, `mapping_events`, `site_page_reads`, and the checked change of `made_public_by` to a link to people) are their own steps and not all additive (`feeding-sites-and-colonies.md` §11.1). |
 | 2. Backfill life status | Nothing is written. Every cat with no `life_status` observation resolves to **street**, which is correct for essentially every cat in the catalogue. | The default is the truth here, so an empty table is an accurate table. |
 | 3. Backfill from the care timeline | Existing `desexed` care updates become `sterilised` observations with `provenance: "legacy"`, `roleAtTime: "staff"` (they were written through the admin endpoint), and `observedAt` set to the update's date. Existing `adopted` updates become `life_status: homed`. | `legacy` provenance means these can be re-derived or discounted later. Runs as a bulk write, so it seeds the notification baseline rather than notifying (§9.2). |
 | 4. Claimed cats **are** made "homed" (Samuel, 28 September 2026) | An owner claiming a cat is evidence it is homed (§3.1), so every existing claim is backfilled as a `homed` observation from the claiming device, and from now on a claim writes one at the moment it is made. Cats registered through `POST /cats` (owner registration, no sighting) become **homed**, because that flow only exists for cats living with someone, and from now on that endpoint writes the observation at creation rather than relying on a backfill. *(`POST /cats` is later removed by `claiming-a-cat.md` §9; the backfill of cats it already registered stands.)* | Some claimed cats are really street cats a resident feeds; the team can set any of them back to Street (§3.2). Because a claim now changes what a cat's page says, securing the claim (row 5) matters more. |
