@@ -319,6 +319,7 @@ The four specs were written independently and contradicted each other in fourtee
 | Hosting, photo storage, photo endpoint, migrations | `hosting-and-photo-storage.md` |
 | Offline queue writes on every build; web photo storage; review-route photo handoff; sighting dedupe (approved 28 Sep 2026) | `offline-queue-on-web.md` |
 | Picking a cat by hand when matching misses: the picker, its colour filter, hand-pick points, the "Matched by hand" review (approved 30 Sep 2026). The records it relies on (the match record, moving a sighting, the `coat` observation) stay with the data spine | `choose-a-different-cat.md` |
+| Who may say a cat lives with them, the "This is my cat" and let-go screens, and removing an owner (approved 8 Oct 2026). What a claim records and what an owner sees stay with the data spine | `claiming-a-cat.md` |
 | Coat and marking vocabulary, what "health" means, what is public about it | `coat-markings-and-health.md`. The observation kinds and resolver rules for them stay with `cat-record-data-spine.md` |
 
 **Editorial correction, not a decision:** `team-access-and-welfare-queue.md` independently specified a status-column-plus-audit-log cat record — the exact model the data spine rejects by name. It is struck; the data spine owns the record.
