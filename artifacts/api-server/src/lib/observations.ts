@@ -85,6 +85,15 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
   team_note: ["public", "system"],
 };
 
+/** Only these roles may write a retraction (the team's set_appearance
+ * power). */
+const RETRACTING_ROLES: ReadonlySet<string> = new Set([
+  "staff",
+  "admin",
+  "management",
+  "guardian",
+]);
+
 const AUTHORITY_SCOPES: ReadonlySet<string> = new Set([
   "none",
   "guardian_of_this_cat",
@@ -538,11 +547,14 @@ export interface WriteObservationInput {
  * - `provenance: "machine"` from anyone but `system:vision` (the only
  *   machine-authored kind today is `coat`, SYC-119 §4.7);
  * - a future `observedAt` (refused for every role);
- * - a `{ retracted: true }` coat/markings value from `public`, without a
- *   `supersedesId`, or whose superseded row is missing or not the same kind
+ * - a `{ retracted: true }` coat/markings value from anyone but {staff,
+ *   admin, management, guardian}, without a `supersedesId`, or whose superseded row is missing or not the same kind
  *   (`INVALID_RETRACTION`, every role); or
- * - a `public` coat/markings write superseding a row that is not that
- *   device's own row of the same kind (`NOT_YOUR_ROW`, C2).
+ * - a `public` or `system` coat/markings write superseding a row that is not
+ *   its own (same device, or same system author) (`NOT_YOUR_ROW`, C2);
+ * - any supersession whose target is missing or of another kind
+ *   (`INVALID_SUPERSESSION`, or the rule's own code), or, for coat and
+ *   markings, on another cat;
  *
  * A `public`-role `observedAt` more than 30 days in the past is not
  * refused — it is clamped to that 30-day boundary, the same rule
@@ -658,16 +670,19 @@ export async function writeObservation(
   const isAppearanceKind = input.kind === "coat" || input.kind === "markings";
   const retracting = isAppearanceKind && isRetraction(input.value);
   const supersedesId = input.supersedesId ?? null;
-  if (retracting && (input.roleAtTime === "public" || supersedesId == null)) {
+  if (retracting && !RETRACTING_ROLES.has(input.roleAtTime)) {
     refuse(
       "INVALID_RETRACTION",
-      input.roleAtTime === "public"
-        ? "a public write cannot retract"
-        : "a retraction must supersede a row",
+      `roleAtTime "${input.roleAtTime}" may not retract`,
     );
   }
+  if (retracting && supersedesId == null) {
+    refuse("INVALID_RETRACTION", "a retraction must supersede a row");
+  }
   const needsOwnRow =
-    isAppearanceKind && input.roleAtTime === "public" && supersedesId != null;
+    isAppearanceKind &&
+    (input.roleAtTime === "public" || input.roleAtTime === "system") &&
+    supersedesId != null;
   if (supersedesId != null) {
     const [target] = await tx
       .select()
@@ -695,13 +710,17 @@ export async function writeObservation(
         "a retraction must supersede a row of the same kind (coat or markings)",
       );
     }
-    // C2: a device only supersedes its own row. Team supersessions are
-    // unchanged (they go through lockActiveObservation).
-    if (
-      needsOwnRow &&
-      !(target.deviceId != null && target.deviceId === input.deviceId)
-    ) {
-      refuse("NOT_YOUR_ROW", "a device can only supersede its own row");
+    // C2: a device (public) or a system author (machine) only supersedes
+    // its own row. Team supersessions are unchanged (they go through
+    // lockActiveObservation).
+    if (needsOwnRow) {
+      const own =
+        input.roleAtTime === "public"
+          ? target.deviceId != null && target.deviceId === input.deviceId
+          : target.accountId != null && target.accountId === input.accountId;
+      if (!own) {
+        refuse("NOT_YOUR_ROW", "you can only supersede your own row");
+      }
     }
   }
 

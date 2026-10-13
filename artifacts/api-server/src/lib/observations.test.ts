@@ -856,3 +856,33 @@ describe("same-cat supersession for coat and markings (review fix 2)", () => {
     ).rejects.toMatchObject(refused("INVALID_SUPERSESSION"));
   });
 });
+
+describe("retraction roles and system own-row (review fix 3)", () => {
+  const machine = { provenance: "machine" };
+  it("refuses system:vision retracting a staff coat row", async () => {
+    const cat = await insertCat();
+    const base = await writeAs(cat.id, "coat", { colours: ["ginger"] });
+    await expect(
+      writeAs(cat.id, "coat", { retracted: true }, "system", { ...machine, supersedesId: base.id }),
+    ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+  });
+  it("refuses system:vision superseding a device's coat row", async () => {
+    const cat = await insertCat();
+    const base = await writeAs(cat.id, "coat", { colours: ["ginger"] }, "public");
+    await expect(
+      writeAs(cat.id, "coat", { colours: ["grey"], modelVersion: "v1" }, "system", {
+        ...machine,
+        supersedesId: base.id,
+      }),
+    ).rejects.toMatchObject(refused("NOT_YOUR_ROW"));
+  });
+  it("accepts system:vision superseding its own earlier machine coat row", async () => {
+    const cat = await insertCat();
+    const first = await writeAs(cat.id, "coat", { colours: ["ginger"], modelVersion: "v1" }, "system", machine);
+    const second = await writeAs(cat.id, "coat", { colours: ["grey"], modelVersion: "v2" }, "system", {
+      ...machine,
+      supersedesId: first.id,
+    });
+    expect(second.supersedesId).toBe(first.id);
+  });
+});
