@@ -773,7 +773,10 @@ export const coloniesTable = pgTable("colonies", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   notes: text("notes"),                  // team-only
-  createdBy: text("created_by"),
+  // Who created the colony: a link to `people`, null for colonies that existed
+  // before this was recorded. A cat guardian can create a colony and becomes
+  // its guardian (roles-and-invites.md Decision 14).
+  createdBy: uuid("created_by").references(() => peopleTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("colonies_normalised_name_unique").on(t.normalisedName),
@@ -788,6 +791,11 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
   normalisedName: text("normalised_name").notNull(),
   replacedAt: timestamp("replaced_at", { withTimezone: true }).notNull().defaultNow(),
   replacedBy: text("replaced_by"),
+  // The redaction path for a cat guardian's name (feeding-sites-and-colonies.md
+  // §7.4): a name that contains a guardian's name can be blanked, and the row
+  // keeps its place in the history.
+  redactedAt: timestamp("redacted_at", { withTimezone: true }),
+  redactionReason: text("redaction_reason"),
 });
 
 // Cats belong to colonies through an append-only observation, not a column, so
@@ -802,19 +810,88 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
 ```ts
 export const feedingSitesTable = pgTable("feeding_sites", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),          // location + cat guardian, matching colony convention
+  name: text("name").notNull(),          // location + cat guardian, matching colony convention; team-only, never published
   colonyId: integer("colony_id"),        // → colonies.id; replaces the old free-text colonyName
   lat: doublePrecision("lat").notNull(),
   lng: doublePrecision("lng").notNull(),
   isPublic: boolean("is_public").notNull().default(false),
-  madePublicBy: text("made_public_by"),
+  // The latest publish, kept (not cleared) on make private; the history in
+  // mapping_events is the full record. A link to `people` (a separate, checked
+  // migration step: it was text, and people.id is a uuid).
+  madePublicBy: uuid("made_public_by").references(() => peopleTable.id),
   madePublicAt: timestamp("made_public_at", { withTimezone: true }),
   notes: text("notes"),                  // team-only
+  // What the public sees: a separate, required label. Null until set; required
+  // before isPublic can be true (check constraint). The internal name is never
+  // published, and the label never contains a guardian's name (§6.7).
+  publicLabel: text("public_label"),
+  // The optional "how to find it" line. Words only; a hint, not a position.
+  directions: text("directions"),
+  // A random 128-bit value, unique, null until the site is first made public.
+  // Never derived from `id`. A new one is issued when the site is made public
+  // at a position more than 10 m from where it last stood in public, and always
+  // when it is made public again after being retired; superseded codes go to
+  // feeding_site_old_codes.
+  publicId: text("public_id").unique(),
+  // Team-only: where the site last stood in public, used to decide whether a
+  // re-publish needs a new code.
+  lastPublicLat: doublePrecision("last_public_lat"),
+  lastPublicLng: doublePrecision("last_public_lng"),
+  // The last value of the "the cat guardian knows" tick box on the
+  // confirmation page.
+  guardianAware: boolean("guardian_aware"),
+  // Set when retired, cleared when brought back. A retired site is never public
+  // (check constraint).
+  retiredAt: timestamp("retired_at", { withTimezone: true }),
+  retiredBy: uuid("retired_by").references(() => peopleTable.id),
+  // The version for every write: a conditional write on the updated_at the page showed.
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Superseded public codes. Team-only: kept so the history can show them and so
+// the public lookup can refuse them.
+export const feedingSiteOldCodesTable = pgTable("feeding_site_old_codes", {
+  id: serial("id").primaryKey(),
+  siteId: integer("site_id").notNull().references(() => feedingSitesTable.id),
+  publicId: text("public_id").notNull(),
+  retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().defaultNow(),
+  reason: text("reason").notNull(),
+});
+
+// Every change to a site or colony, add-only (feeding-sites-and-colonies.md §8, §11.1).
+export const mappingEventsTable = pgTable("mapping_events", {
+  id: serial("id").primaryKey(),
+  subjectKind: text("subject_kind").notNull(),   // "site" | "colony"
+  subjectId: integer("subject_id").notNull(),
+  kind: text("kind").notNull(),
+  personId: uuid("person_id").references(() => peopleTable.id),  // strict link to people
+  actorSystem: text("actor_system"),             // "system:seed" | "system:migration"
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  note: text("note"),
+  guardianAware: boolean("guardian_aware"),
+  redactedAt: timestamp("redacted_at", { withTimezone: true }),
+  redactionReason: text("redaction_reason"),
+}, (t) => [
+  // Exactly one of personId and actorSystem is set.
+  check("mapping_events_one_actor", sql`(${t.personId} is null) <> (${t.actorSystem} is null)`),
+]);
+// A database trigger refuses updates and deletes, with one allowed update: a
+// redaction that sets redactedAt / redactionReason and blanks before, after
+// and note only (the same shape as the observations trigger, §8.5).
+
+// Who opened a site's page and when. No position.
+export const sitePageReadsTable = pgTable("site_page_reads", {
+  id: serial("id").primaryKey(),
+  personId: uuid("person_id").notNull().references(() => peopleTable.id),
+  siteId: integer("site_id").notNull().references(() => feedingSitesTable.id),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 });
 ```
 
-The public sites endpoint filters `isPublic = true` **in the query, not in the serialiser**. Private rows never enter a public response object.
+**The public sites endpoint filters `isPublic = true` in the query, not in the serialiser**, and "in the query" means the definition in `feeding-sites-and-colonies.md` §11.3. `GET /api/feeding-sites` is unauthenticated, takes no query parameters, and filters `WHERE is_public = true AND retired_at IS NULL` with an explicit column list, so private rows never enter a response object. It returns only `{ id: <public_id>, label, position, cats }`, where `cats` is one of five rough bands or absent, **ordered by `public_id`**, and is identical for every caller (no ordering by distance, no filter by area, no parameter that reaches into the data). A site's position comes from one function, `publishedSitePosition(site)`, which returns the exact position (§6.7). Cache headers are short and public (at most five minutes). A lookup by public code filters `is_public AND retired_at IS NULL AND public_id = :code` in the query, and answers `404` with the same body for a site that is private, retired, never existed, has a wrong code, or has a superseded code.
 
 ### 10.6 Location blurring, and where it is actually applied
 
