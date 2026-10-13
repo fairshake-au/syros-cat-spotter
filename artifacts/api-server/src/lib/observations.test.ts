@@ -816,3 +816,16 @@ describe("own-row rule (C2)", () => {
     expect(row.supersedesId).toBe(a.id);
   });
 });
+
+describe("same-kind supersession (review fix 1)", () => {
+  it("refuses a staff team_note superseding a sterilised row", async () => {
+    const cat = await insertCat();
+    const st = await writeAs(cat.id, "sterilised", { sterilised: true });
+    await expect(
+      writeAs(cat.id, "team_note", { text: "x" }, "staff", { supersedesId: st.id }),
+    ).rejects.toMatchObject(refused("INVALID_SUPERSESSION"));
+    await expect(
+      writeAs(cat.id, "team_note", { text: "x" }, "staff", { supersedesId: 2_000_000_000 }),
+    ).rejects.toMatchObject(refused("INVALID_SUPERSESSION"));
+  });
+});

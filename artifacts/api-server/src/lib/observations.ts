@@ -668,41 +668,36 @@ export async function writeObservation(
   }
   const needsOwnRow =
     isAppearanceKind && input.roleAtTime === "public" && supersedesId != null;
-  if (supersedesId != null && (retracting || needsOwnRow)) {
+  if (supersedesId != null) {
     const [target] = await tx
       .select()
       .from(observationsTable)
       .where(eq(observationsTable.id, supersedesId));
-    // Every role: a retraction removes only a coat or markings row of the
-    // same kind, never sterilised, vaccinated, team_note or anything else.
-    if (
-      retracting &&
-      !(
-        target &&
-        target.kind === input.kind &&
-        (target.kind === "coat" || target.kind === "markings")
-      )
-    ) {
+    // Every role, every kind: a supersession stays within one kind.
+    if (!(target && target.kind === input.kind)) {
+      refuse(
+        needsOwnRow
+          ? "NOT_YOUR_ROW"
+          : retracting
+            ? "INVALID_RETRACTION"
+            : "INVALID_SUPERSESSION",
+        "a supersession must target an existing row of the same kind",
+      );
+    }
+    // Every role: a retraction removes only a coat or markings row.
+    if (retracting && !(target.kind === "coat" || target.kind === "markings")) {
       refuse(
         "INVALID_RETRACTION",
         "a retraction must supersede a row of the same kind (coat or markings)",
       );
     }
-    // C2: a device only supersedes its own row, of the same kind. Team
-    // supersessions are unchanged (they go through lockActiveObservation).
+    // C2: a device only supersedes its own row. Team supersessions are
+    // unchanged (they go through lockActiveObservation).
     if (
       needsOwnRow &&
-      !(
-        target &&
-        target.deviceId != null &&
-        target.deviceId === input.deviceId &&
-        target.kind === input.kind
-      )
+      !(target.deviceId != null && target.deviceId === input.deviceId)
     ) {
-      refuse(
-        "NOT_YOUR_ROW",
-        "a device can only supersede its own row of the same kind",
-      );
+      refuse("NOT_YOUR_ROW", "a device can only supersede its own row");
     }
   }
 
