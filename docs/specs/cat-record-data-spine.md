@@ -331,9 +331,12 @@ Grid snapping handles the obvious attack. These close the rest.
 |---|---|
 | **The public — which is every user of the mobile app** | Cell centre, the 250 m cell drawn, coarse distance, no sighting positions |
 | A spotter, on their own sightings | The positions they themselves recorded — their own walk, on their own device |
+| A **cat guardian**, on the dashboard | Exact positions of cats, and of private feeding sites, in her own colonies, through dashboard pages only |
 | Syros Cats team, on the dashboard | Everything, exactly |
 
 **The mobile app is always a public reader.** There is no sign-in in the app and there is not going to be one: identity is an anonymous per-device id plus a device secret. The team dashboard is a separate web workspace with its own sign-in, specified in `team-access-and-welfare-queue.md`. Staff never sign in to the mobile app, so exact coordinates never reach it.
+
+**The saved list on a guardian's or team member's phone is a dashboard page with its own storage** (`roles-and-invites.md` §12), not the app's cache. It holds the exact positions of the colonies it carries, cats and feeding sites both (so a guardian's own colonies' feeding sites are included), and lasts 72 hours from her last online load, counted by server time. It is deleted the next time it is opened after that, and the dashboard sends `Clear-Site-Data` on sign-out and when her access is removed. The paragraph above is unchanged: the mobile app is always a public reader, and it still holds only public sites.
 
 This replaces the previous rule, which said "a device that signs out of a team account purges its cached catalogue". There is no team account in the app and no sign-out to hang that on; the mitigation was written for the wrong piece of software.
 
@@ -364,6 +367,9 @@ Feeding sites are mapped in full, and are **private by default**. Syros Cats cho
 - **Public sites show their exact position.** Making a site public is a deliberate act with a purpose — directing people to somewhere they can help — and a blurred circle around a food bowl serves nobody. The team is choosing exposure knowingly, site by site.
 - The toggle is per site, on the team dashboard, defaulted to private, and shows a one-line reminder of why: cat feeders face neighbour hostility, and known feeding sites attract abandonment.
 - **Cat locations are still blurred near a public feeding site.** The two settings are independent; making a site public never publishes the exact position of a cat.
+- **A public site's label never contains the guardian's name.** The internal name follows the "place — guardian" convention and is never published; the public label is a separate field written for the public.
+- **A private site is indistinguishable from an unknown code.** A lookup by public code answers the same `404`, with the same body, for a site that is private, retired, never existed, has a wrong code, or has a superseded code. Nothing in a response, or in how long it takes, tells them apart.
+- **A guardian sees only her own colonies' sites**, filtered in the query, never in the page or the serialiser.
 - **And the honest caveat from §6.2:** suppressing the feeding-site row does not suppress the cats clustered on it. Anyone patient enough to average a colony's published positions gets the site's neighbourhood to about 45 m regardless of this toggle. The toggle is real and worth having; it is not a guarantee, and it is never described as one.
 
 ---
@@ -773,7 +779,11 @@ export const coloniesTable = pgTable("colonies", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   notes: text("notes"),                  // team-only
-  createdBy: text("created_by"),
+  // `peopleTable` is the people list (team-access-and-welfare-queue.md §2.9).
+  // Who created the colony: a link to `people`, null for colonies that existed
+  // before this was recorded. A cat guardian can create a colony and becomes
+  // its guardian (roles-and-invites.md Decision 14).
+  createdBy: uuid("created_by").references(() => peopleTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("colonies_normalised_name_unique").on(t.normalisedName),
@@ -788,12 +798,20 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
   normalisedName: text("normalised_name").notNull(),
   replacedAt: timestamp("replaced_at", { withTimezone: true }).notNull().defaultNow(),
   replacedBy: text("replaced_by"),
+  // The redaction path for a cat guardian's name (feeding-sites-and-colonies.md
+  // §7.4): a name that contains a guardian's name can be blanked, and the row
+  // keeps its place in the history.
+  redactedAt: timestamp("redacted_at", { withTimezone: true }),
+  redactionReason: text("redaction_reason"),
 });
 
 // Cats belong to colonies through an append-only observation, not a column, so
 // a cat moving colony is a dated claim like everything else in §10.1:
 //   colony  { colonyId: 12 }
+//   colony  { colonyId: null }     // an explicit "in no colony"
 ```
+
+**The `colony` observation gains a "no colony" value.** `{ colonyId: null }` is an explicit statement that the cat is in no colony, so taking a cat out of a colony is a dated claim like putting one in. The rule is the one §10.2 uses for every kind: **the newest active (non-superseded) statement stands**, whether it names a colony or says "in no colony".
 
 `colony` joins `life_status`, `sterilised`, `ear_tip`, `food_and_water`, `note` and `name` in the phase-1 observation vocabulary. **A colony observation is not evidence of life** and does not feed §3.4's derivation — it says where a cat lives, not that it was seen.
 
@@ -802,19 +820,88 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
 ```ts
 export const feedingSitesTable = pgTable("feeding_sites", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),          // location + cat guardian, matching colony convention
+  name: text("name").notNull(),          // location + cat guardian, matching colony convention; team-only, never published
   colonyId: integer("colony_id"),        // → colonies.id; replaces the old free-text colonyName
   lat: doublePrecision("lat").notNull(),
   lng: doublePrecision("lng").notNull(),
   isPublic: boolean("is_public").notNull().default(false),
-  madePublicBy: text("made_public_by"),
+  // The latest publish, kept (not cleared) on make private; the history in
+  // mapping_events is the full record. A link to `people` (a separate, checked
+  // migration step: it was text, and people.id is a uuid).
+  madePublicBy: uuid("made_public_by").references(() => peopleTable.id),
   madePublicAt: timestamp("made_public_at", { withTimezone: true }),
   notes: text("notes"),                  // team-only
+  // What the public sees: a separate, required label. Null until set; required
+  // before isPublic can be true (check constraint). The internal name is never
+  // published, and the label never contains a guardian's name (§6.7).
+  publicLabel: text("public_label"),
+  // The optional "how to find it" line. Words only; a hint, not a position.
+  directions: text("directions"),
+  // A random 128-bit value, unique, null until the site is first made public.
+  // Never derived from `id`. A new one is issued when the site is made public
+  // at a position more than 10 m from where it last stood in public, and always
+  // when it is made public again after being retired; superseded codes go to
+  // feeding_site_old_codes.
+  publicId: text("public_id").unique(),
+  // Team-only: where the site last stood in public, used to decide whether a
+  // re-publish needs a new code.
+  lastPublicLat: doublePrecision("last_public_lat"),
+  lastPublicLng: doublePrecision("last_public_lng"),
+  // The last value of the "the cat guardian knows" tick box on the
+  // confirmation page.
+  guardianAware: boolean("guardian_aware"),
+  // Set when retired, cleared when brought back. A retired site is never public
+  // (check constraint).
+  retiredAt: timestamp("retired_at", { withTimezone: true }),
+  retiredBy: uuid("retired_by").references(() => peopleTable.id),
+  // The version for every write: a conditional write on the updated_at the page showed.
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Superseded public codes. Team-only: kept so the history can show them and so
+// the public lookup can refuse them.
+export const feedingSiteOldCodesTable = pgTable("feeding_site_old_codes", {
+  id: serial("id").primaryKey(),
+  siteId: integer("site_id").notNull().references(() => feedingSitesTable.id),
+  publicId: text("public_id").notNull(),
+  retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().defaultNow(),
+  reason: text("reason").notNull(),
+});
+
+// Every change to a site or colony, add-only (feeding-sites-and-colonies.md §8, §11.1).
+export const mappingEventsTable = pgTable("mapping_events", {
+  id: serial("id").primaryKey(),
+  subjectKind: text("subject_kind").notNull(),   // "site" | "colony"
+  subjectId: integer("subject_id").notNull(),
+  kind: text("kind").notNull(),
+  personId: uuid("person_id").references(() => peopleTable.id),  // strict link to people
+  actorSystem: text("actor_system"),             // "system:seed" | "system:migration"
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  note: text("note"),
+  guardianAware: boolean("guardian_aware"),
+  redactedAt: timestamp("redacted_at", { withTimezone: true }),
+  redactionReason: text("redaction_reason"),
+}, (t) => [
+  // Exactly one of personId and actorSystem is set.
+  check("mapping_events_one_actor", sql`(${t.personId} is null) <> (${t.actorSystem} is null)`),
+]);
+// A database trigger refuses updates and deletes, with one allowed update: a
+// redaction that sets redactedAt / redactionReason and blanks before, after
+// and note only (the same shape as the observations trigger, §8.5).
+
+// Who opened a site's page and when. No position.
+export const sitePageReadsTable = pgTable("site_page_reads", {
+  id: serial("id").primaryKey(),
+  personId: uuid("person_id").notNull().references(() => peopleTable.id),
+  siteId: integer("site_id").notNull().references(() => feedingSitesTable.id),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 });
 ```
 
-The public sites endpoint filters `isPublic = true` **in the query, not in the serialiser**. Private rows never enter a public response object.
+**The public sites endpoint filters `isPublic = true` in the query, not in the serialiser**, and "in the query" means the definition in `feeding-sites-and-colonies.md` §11.3. `GET /api/feeding-sites` is unauthenticated, takes no query parameters, and filters `WHERE is_public = true AND retired_at IS NULL` with an explicit column list, so private rows never enter a response object. It returns only `{ id: <public_id>, label, position, cats }`, where `cats` is one of five rough bands or absent, **ordered by `public_id`**, and is identical for every caller (no ordering by distance, no filter by area, no parameter that reaches into the data). A site's position comes from one function, `publishedSitePosition(site)`, which returns the exact position (§6.7). Cache headers are short and public (at most five minutes). A lookup by public code filters `is_public AND retired_at IS NULL AND public_id = :code` in the query, and answers `404` with the same body for a site that is private, retired, never existed, has a wrong code, or has a superseded code.
 
 ### 10.6 Location blurring, and where it is actually applied
 
@@ -1026,7 +1113,7 @@ So before any table below is created: switch to `drizzle-kit generate`, check in
 | Step | What happens | Risk handling |
 |---|---|---|
 | 0. Migration history | Baseline the current schema, switch to generated migrations, prove a rollback. | Nothing else in this table is safe without it. |
-| 1. Create the tables | `observations`, `cat_identity`, `colonies`, `feeding_sites` (plus `import_batches` and `import_records` only if the import goes ahead, `records-import.md`), plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). |
+| 1. Create the tables | `observations`, `cat_identity`, `colonies`, `feeding_sites` (plus `import_batches` and `import_records` only if the import goes ahead, `records-import.md`), plus `redactedAt` on the append-only tables. Nothing reads them yet. | Additive; no existing column touched. The redaction column is added now precisely so it is never a two-season migration later (§8.5). The later feeding-site additions (`feeding_site_old_codes`, `mapping_events`, `site_page_reads`, and the checked change of `made_public_by` to a link to people) are their own steps and not all additive (`feeding-sites-and-colonies.md` §11.1). |
 | 2. Backfill life status | Nothing is written. Every cat with no `life_status` observation resolves to **street**, which is correct for essentially every cat in the catalogue. | The default is the truth here, so an empty table is an accurate table. |
 | 3. Backfill from the care timeline | Existing `desexed` care updates become `sterilised` observations with `provenance: "legacy"`, `roleAtTime: "staff"` (they were written through the admin endpoint), and `observedAt` set to the update's date. Existing `adopted` updates become `life_status: homed`. | `legacy` provenance means these can be re-derived or discounted later. Runs as a bulk write, so it seeds the notification baseline rather than notifying (§9.2). |
 | 4. Claimed cats **are** made "homed" (Samuel, 28 September 2026) | An owner claiming a cat is evidence it is homed (§3.1), so every existing claim is backfilled as a `homed` observation from the claiming device, and from now on a claim writes one at the moment it is made. Cats registered through `POST /cats` (owner registration, no sighting) become **homed**, because that flow only exists for cats living with someone, and from now on that endpoint writes the observation at creation rather than relying on a backfill. *(`POST /cats` is later removed by `claiming-a-cat.md` §9; the backfill of cats it already registered stands.)* | Some claimed cats are really street cats a resident feeds; the team can set any of them back to Street (§3.2). Because a claim now changes what a cat's page says, securing the claim (row 5) matters more. |
