@@ -194,6 +194,20 @@ CREATE TRIGGER "feeding_site_old_codes_append_only" BEFORE UPDATE OR DELETE ON "
   FOR EACH ROW EXECUTE FUNCTION "feeding_site_old_codes_append_only"();--> statement-breakpoint
 CREATE TRIGGER "feeding_site_old_codes_no_truncate" BEFORE TRUNCATE ON "feeding_site_old_codes"
   FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();--> statement-breakpoint
+-- updated_at is the version every write to a site is conditional on (spec
+-- §11.2): the page carries the value it showed, and the write says
+-- `WHERE updated_at = $seen`. The database moves it on every update, so a
+-- writer that forgets to can't let a second, stale write through. (now() is
+-- the transaction's start time: two updates in one transaction share it.)
+-- Writers should compare it as text or timestamptz, never via a JavaScript
+-- Date, which drops the microseconds.
+CREATE FUNCTION "feeding_sites_touch_updated_at"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END $$;--> statement-breakpoint
+CREATE TRIGGER "feeding_sites_touch_updated_at" BEFORE UPDATE ON "feeding_sites"
+  FOR EACH ROW EXECUTE FUNCTION "feeding_sites_touch_updated_at"();--> statement-breakpoint
 -- Sites that existed before the history did get one "existing" event each,
 -- so "how did this become public?" always has an answer (spec §11.1). Every
 -- existing site stays private, with no label and no code.
@@ -211,6 +225,8 @@ SELECT 'site', id, 'existing', 'system:migration',
 -- fresh "existing" events; the lost history does not come back.
 -- rollback-begin
 -- DROP TRIGGER "feeding_sites_code_not_old" ON "feeding_sites";
+-- DROP TRIGGER "feeding_sites_touch_updated_at" ON "feeding_sites";
+-- DROP FUNCTION "feeding_sites_touch_updated_at"();
 -- DROP TRIGGER "colony_name_history_append_only" ON "colony_name_history";
 -- DROP TRIGGER "colony_name_history_no_truncate" ON "colony_name_history";
 -- DROP TABLE "mapping_events";

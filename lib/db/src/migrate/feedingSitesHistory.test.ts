@@ -459,6 +459,44 @@ describe("feeding_sites: public needs a label and a code; retired is never publi
     );
   });
 
+  it("moves updated_at on every update, so a conditional write on a stale version changes nothing (§11.2)", async () => {
+    const id = await site();
+    // Backdate it, as if the page was shown a while ago (the trigger runs on
+    // this update too, so set it with the trigger off for one statement).
+    await c.query("begin");
+    await c.query(`alter table feeding_sites disable trigger feeding_sites_touch_updated_at`);
+    await c.query(
+      `update feeding_sites set updated_at = now() - interval '1 hour' where id = $1`,
+      [id],
+    );
+    await c.query(`alter table feeding_sites enable trigger feeding_sites_touch_updated_at`);
+    await c.query("commit");
+    const seen = (
+      await c.query<{ v: string }>(`select updated_at::text as v from feeding_sites where id = $1`, [id])
+    ).rows[0]!.v;
+
+    // The writer's pattern: the change only if nobody changed it since.
+    const first = await c.query(
+      `update feeding_sites set notes = 'first' where id = $1 and updated_at = $2::timestamptz`,
+      [id, seen],
+    );
+    expect(first.rowCount).toBe(1);
+    // A second write carrying the same, now stale, version is a no-op, even
+    // though it never set updated_at itself.
+    const second = await c.query(
+      `update feeding_sites set notes = 'second' where id = $1 and updated_at = $2::timestamptz`,
+      [id, seen],
+    );
+    expect(second.rowCount).toBe(0);
+    const now = (
+      await c.query<{ notes: string; moved: boolean }>(
+        `select notes, updated_at > $2::timestamptz as moved from feeding_sites where id = $1`,
+        [id, seen],
+      )
+    ).rows[0]!;
+    expect(now).toEqual({ notes: "first", moved: true });
+  });
+
   it("refuses a retiring person who isn't on the people list", async () => {
     const id = await site();
     await expect(
