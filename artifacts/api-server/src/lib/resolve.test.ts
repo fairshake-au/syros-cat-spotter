@@ -770,12 +770,13 @@ describe("resolveLifeStatus", () => {
       ).presumedDeceased,
     ).toBe(false);
 
-    // colony, note, name, food_and_water and coat are never evidence of
+    // colony, note, name, food_and_water, coat, markings, vaccinated and
+    // team_note are never evidence of
     // life (§3.4) — a correct loader never promotes one of these into
     // evidenceOfLife, so a recent one changes nothing here: the resolver
     // has no special case for them at all, and the only genuine evidence
     // (the "created" fallback) is still old.
-    for (const kind of ["colony", "note", "name", "food_and_water", "coat"]) {
+    for (const kind of ["colony", "note", "name", "food_and_water", "coat", "markings", "vaccinated", "team_note"]) {
       const recentOther = obs({
         kind,
         value: kind === "colony" ? { colonyId: 1 } : { text: "x" },
