@@ -1,6 +1,6 @@
 # SYC-209: feeding sites and colonies on the dashboard
 
-**Status: draft for Samuel's approval. Nothing is built yet.** Three questions need Samuel's answer before the build starts (see "Decisions for Samuel"); each has a recommendation. Adversarially reviewed by an independent Sonnet critic on 12 Oct 2026: no blockers, ten majors and ten minors, all folded in (see "Review").
+**Status: draft for Samuel's approval. Nothing is built yet.** Samuel decided all three questions on 13 Oct 2026: 1A, 2B and 3C, each as recommended (see "Decisions for Samuel"). The Safari and Firefox tap check (3C) has been run and passes (see "The tap test"). Adversarially reviewed by an independent Sonnet critic on 12 Oct 2026: no blockers, ten majors and ten minors, all folded in (see "Review").
 **Spec:** `docs/specs/feeding-sites-and-colonies.md`, approved by Samuel on 12 October 2026 (PR #103, merged as `50c6262`). This plan builds it as written. Where the spec and the code on `main` disagree, the plan says so in "Where the spec and the code disagree" and does not decide quietly.
 **Builds on:** `roles-and-invites.md` (the capability names, approved 12 Oct 2026) and its plan in progress (`claude/syc-53-plan`, draft "SYC-53 plan: roles and invites", read at `e21a16e`); `cat-record-data-spine.md` §6.5, §6.7, §10.1, §10.5; `team-access-and-welfare-queue.md`; `DECISIONS.md` F2, Part 2h, Part 2m. Its format follows `syc-43-part-2-welfare-queue-and-corrections.md`.
 **Linear:** SYC-209 (this plan; parent SYC-43). Builds SYC-245, SYC-255 and SYC-263, and the feeding-site half of SYC-256. Touches SYC-53, SYC-22, SYC-51, SYC-54, SYC-67, SYC-208, SYC-257, SYC-283, SYC-4.
@@ -129,15 +129,33 @@ The spec (§3, Decision 1) makes the whole map depend on one browser behaviour: 
 
 **Result.** Every point arrived in displayed CSS pixels, within one pixel (the half-pixel offset of the grid's top edge), on a high-density screen, at both widths. The displayed size equalled the drawn size (179×179, no shrinking), and the page had no sideways scroll at 375 px or 390 px.
 
-**Not yet tested: Safari (WebKit) and Firefox (Gecko).** This machine has no Xcode simulator and no WebKit or Firefox test browser, so those two engines need a download (Decision 3). Chrome on Android is the same engine as tested, with touch emulation. Real phones are checked again on the development site in PR 3.1, as test 17 requires.
+**Safari's engine (WebKit) and Firefox (Gecko), 13 Oct 2026 (Decision 3C).** Playwright's WebKit and Firefox builds were downloaded to this machine's Playwright cache (not the repository) and driven with real touch taps (phones) and mouse clicks (desktop) on the same page. The script checked which picture received each tap as well as the point.
+
+| Engine | Widths | Taps | Result |
+|---|---|---|---|
+| WebKit (Safari), touch, pixel ratio 3 | 390 px, 360 px | 14 | All within 1 px and on the right picture, except one tap at the right edge at 360 px (below) |
+| WebKit, mouse, pixel ratio 2 | 1280 px | 7 | All within 1 px |
+| Firefox, touch, pixel ratio 3 | 390 px, 360 px | 14 | All within 1 px, except the same right-edge tap at 360 px |
+| Firefox, mouse, pixel ratio 2 | 1280 px | 7 | All within 1 px |
+| Both engines, **the 164 px map at 360 px** (K4) | 360 px | 12 | **All within 1 px**, including taps 1 px from every corner. The form's hidden size field arrived with each tap |
+
+Taps included points 1 px inside a picture's corners and a tap on the boundary between two pictures.
+
+**What the two failures were.** At 360 px, a 2×179 map is 374 px wide, wider than the screen. Its right edge is off-screen, so WebKit read the wrong point and Firefox sent nothing. This is K4's problem, and K4's fix (a 164 px map at that width) passed all 12 taps in both engines.
+
+**One new rule from the run.** On the first run, the test page's pictures started at a fractional position (59.44 px down the page), and WebKit read taps up to 1.5 px off and mishandled an exact-corner tap. Once the pictures started on a whole pixel, every tap was exact. So **PR 3.1 must lay the map out on whole pixels**: fixed-height elements above it, no fractional margins. Its browser test asserts each picture's top and left are whole numbers at every width.
+
+**Still to do:** a tap on a real iPhone and a real Android phone on the development site, in PR 3.1 (SYC-287), as test 17 requires.
 
 ---
 
 ## Decisions for Samuel
 
-Three, all about *how* or *when* to build what is approved. None reopens a decision in the spec.
+Three, all about *how* or *when* to build what is approved. None reopens a decision in the spec. **All three decided by Samuel on 13 Oct 2026, as recommended: 1A, 2B, 3C.**
 
 ### Decision 1: do the team's colonies and private map wait for the roles foundations?
+
+**Decided by Samuel, 13 Oct 2026: 1A, don't wait.**
 
 **The question.** The team's half (Slices 2 and 3) uses capability names that don't exist yet, such as `create_colony` and `add_feeding_site`. The roles plan creates them, with strict checks, in its PR 0.5, which comes after four other roles PRs and a change to the sign-in Worker. Should colonies and the private map wait for that?
 
@@ -152,6 +170,8 @@ Three, all about *how* or *when* to build what is approved. None reopens a decis
 
 ### Decision 2: removing the links that send exact positions to Google (SYC-245)
 
+**Decided by Samuel, 13 Oct 2026: B, mixed.**
+
 **The question.** Today the team's cat page, the welfare queue and the welfare alert email each have an "Open map" link. It opens Google Maps (and in the email also Apple Maps) at the exact spot. Cats are mostly seen where they are fed, so these links tell Google where feeding spots are. The spec says "Make a feeding site here" can't ship until these links are gone, **or** until they are dropped for any position within 50 m of a feeding site (its fallback).
 
 | Option | What the team gets | Benefits | Risks |
@@ -165,6 +185,8 @@ Three, all about *how* or *when* to build what is approved. None reopens a decis
 **What people notice.** On a cat's page, "Open map" becomes "Show on our map" once Slice 3 is live (plain text until then). In the queue and the alert email, nothing changes except near a feeding site.
 
 ### Decision 3: finishing the tap test in Safari and Firefox
+
+**Decided by Samuel, 13 Oct 2026: 3C. The WebKit and Firefox check ran the same day and passes (see "The tap test"); the real-phone check stays with PR 3.1 (SYC-287).**
 
 **The question.** The spec wants the tap behaviour checked in Safari on iPhone, Chrome on Android and Firefox **before this plan is approved**. Chrome is done (above). Safari and Firefox need test browsers this machine doesn't have.
 
@@ -246,7 +268,7 @@ One docs-only PR, built from the spec's §12 word for word. **Nobody edits `DECI
 
 ### PR 0.2: no exact position goes to a map company from the cat page (SYC-245, Decision 2)
 
-Written for the recommended option B; if Samuel picks A or C, the same PR changes accordingly.
+Option B, as decided by Samuel on 13 Oct 2026.
 
 - **Cat page** (`catPages.ts`, `place()`): the "Open map" link is removed. Positions show as text (`37.4452, 24.9423`, team-only as today). PR 3.4 adds "Show on our map".
 - **Welfare queue** (`queuePage.ts`) and **alert email** (`alertEmail.ts`): the Google and Apple links stay, except when the position is within 50 m of any feeding site. Then the queue line reads "Near a feeding site: see the dashboard map", and the email **silently leaves the links out** (no sentence that names a feeding site). `buildWelfareAlert` is a plain synchronous builder, so the distance check runs in the mail outbox (`AS/lib/mail/outbox.ts:292`) and is passed in as one yes/no. **If the check fails, the alert still sends, without map links**: an urgent alert is never held up, and a failure never adds a link. There are no sites until Slice 3, so nothing visible changes yet; the check is written now so it can't be forgotten. Distance is computed in the query against `feeding_sites` (retired sites included, since the spot is still a known place).
@@ -331,8 +353,9 @@ Its own step, as spec §11.1 asks, because it changes a column's type.
 - **The phone mosaic (K4).** `sharp` (already a dependency, `imageValidation.ts`) builds the picture at **exactly** the size it is drawn, one mosaic per width band (K4: 2×144, 2×164, 2×171, 2×179, then 256 px tiles from 600 px). A CSS width rule shows exactly one set; **each form carries its own size and tile in hidden fields**, so the server always converts at the scale that was tapped.
 - **`lib/teamPages/map.ts`**, one function `renderMap({ centre, zoom, markers, mode })`. In `view` mode the tiles are plain pictures and the markers are links, placed with inline `style` (allowed by `style-src 'unsafe-inline'`). In `place` mode each tile is a picture button inside its own form. Zoom in and out, and quick buttons for the island's areas (all POST forms, K13) (Ermoupoli, Vaporia, Kini, Galissas, Finikas, Posidonia, Azolimnos; a configuration list). The attribution line ("© OpenStreetMap contributors") is printed under every map. Designed so a better map can replace it later without touching any other page (spec §3).
 - **From a tap to a position:** standard Web Mercator from (tile, displayed size, tapped point). Taps outside the island box are refused.
+- **Whole pixels.** The map is laid out so every picture starts on a whole pixel (fixed heights above it, no fractional margins). The tap test showed Safari's engine reads taps up to 1.5 px off when a picture starts part-way through a pixel.
 
-**Tests.** Test 17: tiles need a session and the capability; the security header is byte-identical to `EXPECTED_CSP` (no `script-src`); a tap converts to the right position at zooms 13, 16 and 19, including a tap on a tile's edge and on every mosaic size; at 320, 360, 375 and 390 px and desktop, the shown mosaic's displayed size equals the size in its form, with no sideways scroll; no `href`, `action` or `src` on a map page holds a coordinate or z/x/y (K13); a tap outside the island is refused; the tile route's cache header is `private`, never `public`; a tile request logs as `/api/team/map-tiles/:tile` (PR 0.1's test, extended to the real route); a tile outside the island box or the zoom range is refused without a fetch. **Mutation probes:** use the 179 px scale for a 171 px form → red; send `public` → red; drop the island-box check → red; put z/x/y back in the tile address → red. **Real phones (test 17's last part):** on the development site, one tap at a marked point on an iPhone (Safari) and one on Android (Chrome), the posted point compared with the expected one and recorded in the PR (Decision 3).
+**Tests.** Test 17: tiles need a session and the capability; the security header is byte-identical to `EXPECTED_CSP` (no `script-src`); a tap converts to the right position at zooms 13, 16 and 19, including a tap on a tile's edge and on every mosaic size; at 320, 360, 375 and 390 px and desktop, the shown mosaic's displayed size equals the size in its form, each picture's top and left are whole pixels, and there's no sideways scroll; no `href`, `action` or `src` on a map page holds a coordinate or z/x/y (K13); a tap outside the island is refused; the tile route's cache header is `private`, never `public`; a tile request logs as `/api/team/map-tiles/:tile` (PR 0.1's test, extended to the real route); a tile outside the island box or the zoom range is refused without a fetch. **Mutation probes:** use the 179 px scale for a 171 px form → red; send `public` → red; drop the island-box check → red; put z/x/y back in the tile address → red. **Real phones (test 17's last part):** on the development site, one tap at a marked point on an iPhone (Safari) and one on Android (Chrome), the posted point compared with the expected one and recorded in the PR (Decision 3).
 
 ### PR 3.2: the Feeding sites pages, read-only
 
