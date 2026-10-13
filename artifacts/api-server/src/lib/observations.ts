@@ -543,7 +543,8 @@ export interface WriteObservationInput {
  * - an unknown `authorityScope` or `provenance`;
  * - not exactly one of `deviceId`/`accountId` set (the same rule the
  *   database's `observations_attribution_ck` enforces, checked here first
- *   for a clear refusal rather than a constraint-violation error);
+ *   for a clear refusal rather than a constraint-violation error), or a
+ *   `public` coat/markings write without a `deviceId`;
  * - an `accountId` starting `system:` that isn't on {@link SYSTEM_AUTHORS}
  *   (Part 2g: "real account ids ... never start with system:");
  * - `provenance: "machine"` from anyone but `system:vision` (the only
@@ -619,6 +620,15 @@ export async function writeObservation(
       "INVALID_AUTHOR",
       "Exactly one of deviceId or accountId must be set",
     );
+  }
+  // A public appearance write must carry a device: the own-row rule (C2) and
+  // the resolver's one-voice-per-device counting both hang off it.
+  if (
+    (input.kind === "coat" || input.kind === "markings") &&
+    input.roleAtTime === "public" &&
+    deviceId == null
+  ) {
+    refuse("INVALID_AUTHOR", "a public coat or markings write needs a deviceId");
   }
   if (
     accountId != null &&

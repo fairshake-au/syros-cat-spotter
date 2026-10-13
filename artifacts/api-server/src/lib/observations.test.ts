@@ -901,3 +901,24 @@ describe("system is narrowed for appearance (review fix 4)", () => {
     ).rejects.toMatchObject(refused("ROLE_NOT_ALLOWED_FOR_KIND"));
   });
 });
+
+describe("public appearance needs a device (review fix 5)", () => {
+  it("refuses a public coat or markings write with an accountId and no deviceId", async () => {
+    const cat = await insertCat();
+    for (const [kind, value] of [
+      ["coat", { colours: ["ginger"] }],
+      ["markings", { marks: [] }],
+    ] as const) {
+      await expect(
+        writeObservation(db, {
+          catId: cat.id,
+          kind,
+          value,
+          accountId: "someone",
+          roleAtTime: "public",
+          observedAt: new Date(),
+        }),
+      ).rejects.toMatchObject(refused("INVALID_AUTHOR"));
+    }
+  });
+});
