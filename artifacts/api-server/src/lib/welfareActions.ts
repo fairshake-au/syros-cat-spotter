@@ -1,5 +1,6 @@
 import { db, reportStateEventsTable, welfareReportsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
+import { writeObservation } from "./observations";
 
 /**
  * What the team does to a sent report (SYC-43 part 2 plan, PR 2; spec §3.1,
@@ -56,7 +57,7 @@ export async function moveReportState(input: {
           eq(welfareReportsTable.isDraft, false),
         ),
       )
-      .returning({ id: welfareReportsTable.id });
+      .returning({ id: welfareReportsTable.id, catId: welfareReportsTable.catId });
     if (updated.length === 1) {
       await tx.insert(reportStateEventsTable).values({
         reportId: updated[0]!.id,
@@ -64,6 +65,23 @@ export async function moveReportState(input: {
         toState: to,
         personId,
       });
+      // Closing a report that is tied to a cat leaves a mark on the cat's
+      // history (PR 5; spec §8.4): who closed it, and how. In this same
+      // transaction, so the move and its outcome stand or fall together.
+      // Reopening and closing again writes a second one: that is history.
+      // Nothing is emailed. `catId` comes from the UPDATE's own RETURNING,
+      // read through `tx`, so it is the cat the row had when it moved.
+      const catId = updated[0]!.catId;
+      if (catId !== null && (to === "done" || to === "nothing_needed")) {
+        await writeObservation(tx, {
+          catId,
+          kind: "welfare_outcome",
+          value: { state: to, reportId: updated[0]!.id },
+          accountId: personId,
+          roleAtTime: "staff",
+          observedAt: new Date(),
+        });
+      }
       return "moved";
     }
     const [exists] = await tx

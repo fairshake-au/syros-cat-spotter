@@ -85,6 +85,20 @@ ${body}
 }
 
 /**
+ * SYC-3 Decision 12 (review finding 5): a restore link carries its token in
+ * the URL fragment, which no browser sends to a server. The login form's POST
+ * can't carry a fragment either, and putting it in `next` would send the token
+ * to the server. So, on /restore only, the page keeps the token in this tab's
+ * sessionStorage and takes it out of the address bar; after login the app's
+ * /restore page reads it from there and deletes it.
+ */
+const RESTORE_TOKEN_SCRIPT =
+  '<script>try{var h=location.hash;' +
+  "if(/\\/restore\\/?$/.test(location.pathname)&&/^#t=[A-Za-z0-9_-]{43}$/.test(h)){" +
+  "sessionStorage.setItem('cat-spotter/restore-token',h.slice(3));" +
+  'history.replaceState(null,"",location.pathname+location.search)}}catch(e){}</script>';
+
+/**
  * The password page.
  * @param {{ action: string, next: string, error?: 'wrong' | 'tooMany' }} opts
  */
@@ -104,7 +118,8 @@ ${errorHtml}
 <label for="password">Password <span class="el" lang="el">· Κωδικός</span></label>
 <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
 <button type="submit">Continue <span lang="el">· Συνέχεια</span></button>
-</form>`,
+</form>
+${RESTORE_TOKEN_SCRIPT}`,
   );
 }
 

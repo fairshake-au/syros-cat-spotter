@@ -152,6 +152,8 @@ Checked against `origin/main` and the open PRs, not the tickets.
 
 ### Slice C — colours (SYC-161; no migration)
 
+> **Amended 12 October 2026 (SYC-2 plan, Decision A1).** The colour rules, the `coat` payload field and the chip component come from SYC-2 (`syc-2-coat-markings-and-health.md`), which is built first; this slice adds the machine reading, the backfill and the "Find the cat" chips on top. "A person's reading beats the machine's" below is narrowed by SYC2-D10 (a single spotter fills a gap but never overturns a machine reading; see `DECISIONS.md` Part 2n). The cache key is not bumped.
+
 - **Needs data spine PR 2** (the single observation write path). A `coat` observation is written only through it.
 - `lib/coat.ts`: asks the model for colour only, one or two of the fixed eight, or "not sure" (two cats, no cat, dark, or a failed call). Writes `coat` as `system:vision`, with `provenance: machine`, `photoId` and the model version.
 - **Resolver rule:** a person's reading beats the machine's; among people, the newest wins; among machine readings, the newest wins. If data spine PR 1 has landed, it goes in its resolver. If not, it's a small pure function that PR 1 adopts.

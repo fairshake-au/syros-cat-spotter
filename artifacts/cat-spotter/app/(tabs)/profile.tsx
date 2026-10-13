@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useGetProfile,
@@ -24,6 +25,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { UsernameEditor } from '@/components/UsernameEditor';
+import { KeepSafeSettings } from '@/components/keepSafe/KeepSafeSettings';
 import { Avatar, Card, StatTile } from '@/components/purropolis';
 import { BADGE_IDS, BADGE_ICONS, LANGUAGES } from '@/lib/i18n';
 
@@ -263,6 +265,9 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          {/* SYC-3: Keep my spots safe, and Get your spots back */}
+          <KeepSafeSettings />
+
           {/* Language */}
           <View style={{ gap: 10 }}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
@@ -363,6 +368,30 @@ export default function ProfileScreen() {
               })}
             </View>
           </View>
+
+          {/* SYC-63: always here, whether or not an email was ever given
+              (email-capture §3.5). Existing styles only. */}
+          <Pressable
+            testID="delete-my-data-row"
+            accessibilityRole="button"
+            accessibilityLabel={t('deleteMyDataRow')}
+            accessibilityHint={t('deleteMyDataRowHint')}
+            onPress={() => router.push('/delete-my-data')}
+            style={[
+              styles.deleteRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                {t('deleteMyDataRow')}
+              </Text>
+              <Text style={[styles.deleteRowHint, { color: colors.mutedForeground }]}>
+                {t('deleteMyDataRowHint')}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -474,6 +503,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   langText: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  deleteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing[3],
+    minHeight: 44,
+  },
+  deleteRowHint: { fontFamily: fonts.body, fontSize: fontSizes.xs },
   appearanceRow: {
     flexDirection: 'row',
     gap: spacing[1],

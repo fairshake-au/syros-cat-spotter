@@ -8,7 +8,9 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { logger, safeError } from "../logger";
 import { buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
-import { hashRecipient, sendMail } from "./send";
+import { hashRecipient, sendMail, type SendResult } from "./send";
+import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
+import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
 
 /**
  * The mail outbox (SYC-42 plan, Slice 1 items 1.5–1.6).
@@ -25,7 +27,7 @@ import { hashRecipient, sendMail } from "./send";
  *      (`opportunisticDrain`, at most two rows, throttled);
  *   3. a GitHub Actions schedule calls POST /api/internal/mail/drain every
  *      10 minutes with its own narrow token.
- * Retries back off 1, 5, 15, 60 minutes, then hourly, forever. If any
+ * Welfare alert retries back off 1, 5, 15, 60 minutes, then hourly, forever. If any
  * welfare alert is still unsent an hour after it was queued, the drain call
  * fails, and GitHub emails Samuel about the failed run: a delivery path that
  * doesn't depend on Resend. That is about the system being broken, not about
@@ -35,6 +37,16 @@ import { hashRecipient, sendMail } from "./send";
  * drains) never send the same alert. A claimed row holds a 5-minute lease in
  * `next_attempt_at`; if its server dies mid-send, the row is reclaimed after
  * that.
+ *
+ * **Keep-safe mail (SYC-3 plan, Slice 1 steps 2 and 5; review A4, R1, R2).**
+ * The "is this you?" email and the restore link ride the same outbox. Their
+ * payload has to carry the address and the raw link token, because the
+ * database keeps only their fingerprints. Both are cleared from the row the
+ * moment it's sent, given up on, or its token expires, whichever comes
+ * first, so Decision 4 holds at rest and no usable token sits in the table.
+ * Retries stop at the token's expiry, never "hourly, forever": the drain
+ * never sends a link that has already expired. The request kicks its own row
+ * straight away (`kickRow`); the 10-minute drain is only the retry.
  */
 
 export const PHOTO_WAIT_MINUTES = 10;
@@ -57,6 +69,17 @@ export function alertRecipientHash(): string {
 
 type Payload = { kind?: AlertKind; photoIncluded?: boolean };
 
+/** A keep-safe row's payload. `to` and the tokens are gone once it's settled. */
+export type KeepSafePayload = {
+  expiresAt: string;
+  to?: string;
+  token?: string;
+  forgetToken?: string;
+  cleared?: true;
+};
+
+export const KEEP_SAFE_OUTBOX_PURPOSES: readonly KeepSafeMail[] = ["keep_safe_verify", "restore_link"];
+
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** Queue a welfare alert inside the caller's transaction. */
@@ -75,7 +98,28 @@ export async function enqueueWelfareAlert(
   });
 }
 
-async function claimDue(limit: number): Promise<MailOutboxRow[]> {
+/**
+ * Queue a keep-safe email inside the caller's transaction. Returns the row id,
+ * for `kickRow` once the transaction has committed.
+ */
+export async function enqueueKeepSafeMail(
+  tx: Tx,
+  mail: { purpose: KeepSafeMail; to: string; token: string; forgetToken?: string; expiresAt: Date },
+): Promise<number> {
+  const payload: KeepSafePayload = {
+    expiresAt: mail.expiresAt.toISOString(),
+    to: mail.to,
+    token: mail.token,
+    ...(mail.forgetToken ? { forgetToken: mail.forgetToken } : {}),
+  };
+  const [row] = await tx
+    .insert(mailOutboxTable)
+    .values({ purpose: mail.purpose, recipientHash: hashRecipient(mail.to, mail.purpose), payload })
+    .returning({ id: mailOutboxTable.id });
+  return row!.id;
+}
+
+async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]> {
   const result = await db.execute(sql`
     update mail_outbox
        set state = 'sending',
@@ -85,6 +129,7 @@ async function claimDue(limit: number): Promise<MailOutboxRow[]> {
        select id from mail_outbox
         where state in ('queued', 'sending')
           and next_attempt_at <= now()
+          ${onlyId === undefined ? sql`` : sql`and id = ${onlyId}`}
         order by next_attempt_at
         limit ${limit}
         for update skip locked
@@ -136,8 +181,78 @@ async function markFailed(row: MailOutboxRow, error: string) {
   logger.error({ outboxId: row.id, error }, "mail outbox: given up (nothing left to send)");
 }
 
+/** Give up on a keep-safe row, clearing its address and tokens. */
+async function giveUpKeepSafe(row: MailOutboxRow, error: string) {
+  const payload = (row.payload ?? {}) as KeepSafePayload;
+  await db
+    .update(mailOutboxTable)
+    .set({ state: "failed", lastError: error, payload: { expiresAt: payload.expiresAt, cleared: true } })
+    .where(eq(mailOutboxTable.id, row.id));
+  logger.warn({ outboxId: row.id, purpose: row.purpose, error }, "mail outbox: keep-safe mail given up; address and link cleared");
+}
+
+/** Reasons a keep-safe send won't get better by trying again. */
+const FINAL: ReadonlySet<string> = new Set([
+  "unknown_purpose",
+  "purpose_disabled",
+  "recipient_not_allowed",
+  "bad_recipient",
+  "suppression_check_missing",
+  "verification_check_missing",
+  "suppressed",
+  "unverified",
+  "unknown_template",
+]);
+
+async function processKeepSafe(row: MailOutboxRow, mail: KeepSafeMail): Promise<"sent" | "retry" | "failed"> {
+  const payload = (row.payload ?? {}) as KeepSafePayload;
+  const expiresAt = Date.parse(payload.expiresAt ?? "");
+  if (!payload.to || !payload.token || !(expiresAt > Date.now())) {
+    await giveUpKeepSafe(row, payload.to && payload.token ? "token_expired" : "nothing_to_send");
+    return "failed";
+  }
+  let params: Record<string, string>;
+  if (mail === "restore_link") {
+    params = { restoreUrl: restoreUrl(payload.token) };
+  } else {
+    if (!payload.forgetToken) {
+      await giveUpKeepSafe(row, "nothing_to_send");
+      return "failed";
+    }
+    params = { confirmUrl: confirmUrl(payload.token), forgetUrl: forgetUrl(payload.forgetToken) };
+  }
+  const result: SendResult = await sendMail(
+    {
+      purpose: mail,
+      to: payload.to,
+      template: mail,
+      params,
+      // One per token: a retry after a lost response can't send a second email.
+      idempotencyKey: `${mail}-${row.recipientHash.slice(0, 12)}-${row.id}-${row.createdAt.getTime()}`,
+    },
+    keepSafeSendDeps(mail),
+  );
+  if (!result.ok) {
+    // A provider 4xx (except 429) is about this message, not a passing fault.
+    const refusedByProvider =
+      result.reason === "provider_error" && typeof result.status === "number" &&
+      result.status >= 400 && result.status < 500 && result.status !== 429;
+    if (FINAL.has(result.reason) || refusedByProvider) {
+      await giveUpKeepSafe(row, result.reason);
+      return "failed";
+    }
+    await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
+    return "retry";
+  }
+  await markSent(row, result.providerMessageId, { expiresAt: payload.expiresAt, cleared: true } as Payload);
+  return "sent";
+}
+
 async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
   try {
+    if ((KEEP_SAFE_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
+      return await processKeepSafe(row, row.purpose as KeepSafeMail);
+    }
     if (row.purpose !== "welfare_alert" || row.reportId === null) {
       await markFailed(row, row.reportId === null ? "report_gone" : "unknown_purpose");
       return "failed";
@@ -202,8 +317,8 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
 export type DrainResult = { claimed: number; sent: number; retry: number; failed: number };
 
 /** Send up to `limit` due rows. Safe to call from several servers at once. */
-export async function drainDue(limit: number): Promise<DrainResult> {
-  const rows = await claimDue(limit);
+export async function drainDue(limit: number, onlyId?: number): Promise<DrainResult> {
+  const rows = await claimDue(limit, onlyId);
   const out: DrainResult = { claimed: rows.length, sent: 0, retry: 0, failed: 0 };
   for (const row of rows) {
     out[await processRow(row)] += 1;
@@ -232,6 +347,31 @@ export function kick(limit = 2): void {
     .catch((err) => logger.error({ err }, "mail outbox: drain after commit failed"))
     .finally(() => inFlight.delete(p));
   inFlight.add(p);
+}
+
+/** Send one row now (a keep-safe email, right after its request commits). */
+export function kickRow(id: number): void {
+  const p = drainDue(1, id)
+    .catch((err) => logger.error({ err: safeError(err) }, "mail outbox: immediate send failed"))
+    .finally(() => inFlight.delete(p));
+  inFlight.add(p);
+}
+
+/**
+ * Clear the address and tokens from keep-safe rows whose link has expired but
+ * that no drain has settled (the sweep calls this).
+ */
+export async function clearExpiredKeepSafePayloads(): Promise<number> {
+  const result = await db.execute(sql`
+    update mail_outbox
+       set state = case when state = 'sent' then state else 'failed' end,
+           last_error = case when state = 'sent' then last_error else 'token_expired' end,
+           payload = jsonb_build_object('expiresAt', payload->>'expiresAt', 'cleared', true)
+     where purpose in ('keep_safe_verify', 'restore_link')
+       and (payload ? 'to' or payload ? 'token' or payload ? 'forgetToken')
+       and (payload->>'expiresAt')::timestamptz <= now()
+  `);
+  return result.rowCount ?? 0;
 }
 
 /** Tests: wait for every kicked drain to finish. */

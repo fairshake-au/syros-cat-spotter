@@ -11,10 +11,13 @@ import teamRouter from "./team";
 import teamReportsRouter from "./teamReports";
 import teamCatsRouter from "./teamCats";
 import teamCorrectionsRouter from "./teamCorrections";
+import teamPhotosRouter from "./teamPhotos";
 import welfareRouter from "./welfare";
 import reportsRouter from "./reports";
 import internalMailRouter from "./internalMail";
 import observationsRouter from "./observations";
+import keepSafeRouter from "./keepSafe";
+import mailPagesRouter from "./mailPages";
 
 const router: IRouter = Router();
 
@@ -30,9 +33,12 @@ router.use(teamRouter);
 router.use(teamReportsRouter);
 router.use(teamCatsRouter);
 router.use(teamCorrectionsRouter);
+router.use(teamPhotosRouter);
 router.use(welfareRouter);
 router.use(reportsRouter);
 router.use(internalMailRouter);
 router.use(observationsRouter);
+router.use(keepSafeRouter);
+router.use(mailPagesRouter);
 
 export default router;

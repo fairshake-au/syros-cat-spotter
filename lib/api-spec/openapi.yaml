@@ -580,6 +580,29 @@ paths:
                 properties:
                   ok: { type: boolean }
                 required: [ok]
+  /me:
+    delete:
+      operationId: deleteMyData
+      tags: [profiles]
+      summary: Delete everything that identifies this device's spotter (SYC-63)
+      description: >-
+        Removes the profile, points, follows, notifications and push token,
+        and unlinks every sighting and note from the spotter, in one
+        transaction. The cat records stay, credited to "a spotter". The
+        device id travels in a header so it never lands in a request log.
+        Running it again is safe and returns 204.
+      parameters:
+        - $ref: "#/components/parameters/DeviceIdHeader"
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      responses:
+        "204":
+          description: Deleted, or already deleted
+        "400":
+          description: Missing or invalid device id
+        "401":
+          description: Device secret missing
+        "403":
+          description: Device secret does not match; nothing was deleted
   /leaderboard:
     get:
       operationId: getLeaderboard
@@ -608,6 +631,14 @@ paths:
                 $ref: "#/components/schemas/Campaign"
 components:
   parameters:
+    DeviceIdHeader:
+      name: X-Device-Id
+      in: header
+      required: true
+      description: >-
+        The device id, for the one route that takes it in a header rather
+        than the path (DELETE /me), so it never appears in a request log.
+      schema: { type: string }
     DeviceSecretHeader:
       name: X-Device-Secret
       in: header
@@ -720,7 +751,10 @@ components:
           type: number
           nullable: true
           description: To the cat's published cell centre, rounded to 0.1 km (§6.4.2).
-        discovererSpotterCode: { type: string }
+        discovererSpotterCode:
+          type: string
+          nullable: true
+          description: Null once the discoverer has deleted their data; the app shows "a spotter"
         discovererNickname:
           type: string
           nullable: true
@@ -830,7 +864,10 @@ components:
         catId:
           type: integer
           nullable: true
-        spotterCode: { type: string }
+        spotterCode:
+          type: string
+          nullable: true
+          description: Null once the spotter has deleted their data; the app shows "a spotter"
         spotterUsername:
           type: string
           nullable: true
@@ -854,7 +891,14 @@ components:
             Care events recorded against the cat. `discovered` is synthesised
             from the cat's own creation, and its `message` is the discoverer's
             display name rather than free text.
-        message: { type: string }
+        message:
+          type: string
+          nullable: true
+          description: >-
+            Null only on a `discovered` event whose discoverer deleted their
+            data (SYC-63, SYC-235). The app shows "a spotter" in the reader's
+            language. A blank, never a stand-in word, so no username can be
+            mistaken for it.
         at:
           type: string
           description: A UTC calendar date (YYYY-MM-DD).

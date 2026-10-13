@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { searchTeamCats, teamCatView } from "../lib/teamCatView";
+import { getQueueReport } from "../lib/welfareQueue";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
@@ -19,6 +20,8 @@ const router: IRouter = Router();
 
 const wantsJson = (req: Request) => req.accepts(["html", "json"]) === "json";
 
+const TIE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
 /** GET /api/team/cats?q=: find a cat by name (folded) or SYR number. */
 router.get(
   "/team/cats",
@@ -30,11 +33,22 @@ router.get(
     const q = typeof req.query["q"] === "string" ? req.query["q"] : "";
     const results = await searchTeamCats(q);
     if (wantsJson(req)) return void res.json({ query: q, results });
-    res.type("html").send(renderCatSearchPage(q, results, person.name));
+    // ?tie=<publicId>: choosing a cat for that welfare report (PR 5). Only
+    // a well-formed id is used; it is escaped wherever it is drawn.
+    const tieId = typeof req.query["tie"] === "string" ? req.query["tie"] : "";
+    const tie = TIE_ID_RE.test(tieId)
+      ? {
+          publicId: tieId,
+          report: await getQueueReport(tieId),
+          canTie: can(person, "change_report_state"),
+        }
+      : undefined;
+    res.type("html").send(renderCatSearchPage(q, results, person.name, tie));
   },
 );
 
 const CAT_ID_RE = /^\d{1,9}$/;
+const PHOTO_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** GET /api/team/cats/:id: the team's page for one cat. */
 router.get(
@@ -55,8 +69,11 @@ router.get(
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     const s = req.query["s"];
     const at = typeof s === "string" && CAT_ID_RE.test(s) ? Number(s) : undefined;
+    // After Hide or Restore (PR 6): the photo the page lands on, by publicId.
+    const p = req.query["p"];
+    const photo = typeof p === "string" && PHOTO_ID_RE.test(p) ? p : undefined;
     res.type("html").send(
-      renderCatPage(view, person.name, { may: (c) => can(person, c), done, at }),
+      renderCatPage(view, person.name, { may: (c) => can(person, c), done, at, photo }),
     );
   },
 );

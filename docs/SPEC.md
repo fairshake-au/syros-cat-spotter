@@ -109,8 +109,8 @@ The Review screen shows the user's photo alongside candidates. Confidence is ban
 
 The user does exactly one of:
 
-- **Confirm a match** to an existing cat → **10 points**
-- **Name a new cat** → **50 points**, and they are recorded as its discoverer
+- **Confirm a match** to an existing cat → **15 points**
+- **Name a new cat** → **25 points**, and they are recorded as its discoverer
 
 New names must be unique across the catalogue (case-insensitive, enforced by a database index and handled for concurrent submissions) and pass the offensive-language filter. Rejections return `NAME_TAKEN` or `OFFENSIVE_NAME` and are shown inline. An AI "suggest names" button proposes playful, unused names in the user's language.
 
@@ -172,7 +172,7 @@ Ownership is remembered locally for a fast start and re-hydrated from the server
 
 ### 5.6 Gamification
 
-**Points:** 10 per confirmed sighting, 50 per newly discovered cat.
+**Points:** 15 per confirmed sighting, 25 per newly discovered cat.
 
 **Badges** (computed server-side from live stats, never stored, so they can never drift):
 

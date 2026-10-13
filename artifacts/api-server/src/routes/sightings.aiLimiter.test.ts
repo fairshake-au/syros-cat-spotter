@@ -14,6 +14,7 @@
  * restoration were ever reverted. This file exists so that *something*
  * would fail if it were.
  */
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import {
@@ -40,7 +41,7 @@ async function cleanup() {
     .select({ photoId: sightingsTable.photoId })
     .from(sightingsTable)
     .where(like(sightingsTable.deviceId, `${PREFIX}%`));
-  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   const photoIds = [...insertedPhotoIds, ...sightingRows.map((r) => r.photoId)];
   if (photoIds.length) {
     await db.delete(photosTable).where(inArray(photosTable.id, photoIds));

@@ -276,6 +276,29 @@ Samuel decided this after SYC-101 (#92), which left it open (Part 2j). It amends
 - **For launch, Greek and Latin look-alike letters stay separate in cat names.** `ΑΓΑΘΗ` and `AΓAΘH` (Latin `A` and `H` typed for Greek `Α` and `Η`) are two different names, and `cats_normalised_name_unique` accepts both. `foldName` and the database's folded column fold accents, case and final sigma only (Part 2g). **Why:** production has 28 cats, all with plain English names, so this hasn't happened; the SYR number already tells two cats apart; and silently merging look-alikes could refuse a genuinely different name, the surprise Part 2j decided against.
 - **If it ever happens, warn instead of refusing** (SYC-227): when a new name differs from an existing one only by look-alike letters, the app asks "There's already a cat called ΑΓΑΘΗ. Is this them?" (SYC-119's existing screen), and the spotter can still go ahead. **Rejected:** folding look-alikes into the unique index, which blocks real names a spotter never meant to copy.
 
+## Part 2n — approval of `coat-markings-and-health.md` (SYC-2) and its plan, 12 October 2026
+
+Samuel **approved `coat-markings-and-health.md` and its implementation plan (`docs/superpowers/plans/syc-2-coat-markings-and-health.md`) on 12 October 2026**, answering the plan's five decisions as recommended (A1, B1, C1, D1, E1). Where anything earlier in this document, `cat-record-data-spine.md` or `choose-a-different-cat.md` says otherwise, these win. The data spine's §3.4, §10.1, §10.2 and §10.7 and `choose-a-different-cat.md` §8.4 are amended to match.
+
+- **Health is three things, not one status.** On the cat page: what the record already shows (sterilised, ear tip, life status), and nothing about vaccination or condition. Vaccination is team-only at launch; donors see an overall count, computed automatically and never a cat. The vaccine list is rabies, the core cat flu and enteritis combination, and others by name (no brand). Condition is a team-only note on the cat. There is no "Looks healthy" badge, ever.
+- **"Needs vet" is never a public filter or label.** The urgent route ("This cat needs help") is the only public way to say a cat is in trouble, and nothing replaces or delays it.
+- **Spotters suggest appearance; the team and cat guardians state it.** This amends `choose-a-different-cat.md` §8.4: it said "a person's reading always beats the machine's"; it now says **a single spotter fills a gap but never overturns a machine reading; two independent spotters (different devices, photos and days), a cat guardian for her own cats, or the team do.** (SYC-161's wording is updated to match.)
+- **Markings and colour are never evidence of life and never notifiable.**
+- **The ear tip is not a marking.** It stays its own question with its own rules.
+- **Vaccination is stated only by the team (`set_vaccination`) and is not public per cat.** If it is ever made public: the vaccine is never named, and "If a cat bites or scratches you, see a doctor." sits beside it in all three languages.
+- **Health and vaccination are never written through the old shared-password care route** (`cat_updates`).
+- **A team-only note on the cat** (`team_note`) is a new observation kind in the data spine, gated by `view_health_notes` and `add_health_note`. Welfare-report notes are unchanged.
+- **The four capability names** (`set_appearance`, `set_vaccination`, `view_health_notes`, `add_health_note`) are the roles spec's. `coat-markings-and-health.md` adds none. Volunteers and staff are one role (the Syros Cats team), so there is no `confirm_appearance` and no volunteer rule.
+- **The colour and marking words are the fixed lists in `coat-markings-and-health.md` §3.** No free text.
+
+The plan's decisions, as answered:
+
+- **A1: order of work.** SYC-2's rules, the public `coat` and `markings` fields and the team's screens come first; then SYC-161 (the machine reading, which is urgent); the spotters' questions come after SYC-161.
+- **B1: the vaccinated count.** "N cats vaccinated this year" is built now and shown on the Help tab under the campaign, nothing below five cats, number and year only.
+- **C1: the old care route.** `POST /cats/:catId/updates` refuses `general` now; `desexed` and `adopted` stay until SYC-185 retires the route.
+- **D1: chip pictures.** One consistent set of simple drawn pictures for the colour and marking chips, reviewed by Samuel in the browser check; the torn ear is drawn and shown beside the real ear-tip photo.
+- **E1: two colours on the cat's page.** Joined with " · " in every language ("Ginger · Tabby · White paws"), with no grammar to get wrong.
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
@@ -297,6 +320,7 @@ The four specs were written independently and contradicted each other in fourtee
 | Offline queue writes on every build; web photo storage; review-route photo handoff; sighting dedupe (approved 28 Sep 2026) | `offline-queue-on-web.md` |
 | Picking a cat by hand when matching misses: the picker, its colour filter, hand-pick points, the "Matched by hand" review (approved 30 Sep 2026). The records it relies on (the match record, moving a sighting, the `coat` observation) stay with the data spine | `choose-a-different-cat.md` |
 | Who may say a cat lives with them, the "This is my cat" and let-go screens, and removing an owner (approved 8 Oct 2026). What a claim records and what an owner sees stay with the data spine | `claiming-a-cat.md` |
+| Coat and marking vocabulary, what "health" means, what is public about it | `coat-markings-and-health.md`. The observation kinds and resolver rules for them stay with `cat-record-data-spine.md` |
 
 **Editorial correction, not a decision:** `team-access-and-welfare-queue.md` independently specified a status-column-plus-audit-log cat record — the exact model the data spine rejects by name. It is struck; the data spine owns the record.
 

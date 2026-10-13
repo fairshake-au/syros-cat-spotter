@@ -4,10 +4,9 @@ import {
   catsTable,
   sightingsTable,
   profilesTable,
-  photosTable,
   catUpdatesTable,
 } from "@workspace/db";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, isNotNull, sql } from "drizzle-orm";
 import { badgesFor, type ProfileStats } from "./badges";
 import {
   STREAK_TIMEZONE,
@@ -19,6 +18,7 @@ import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
 import { BLUR_CELL_METRES, blurPosition, publicDistanceKm } from "./blur";
+import { catDisplayPhotos, type PublicPhotoUrl } from "./photoVisibility";
 
 export function haversineKm(
   lat1: number,
@@ -41,25 +41,15 @@ export function haversineKm(
  * Opaque public identifier for a device profile. Device IDs act as the
  * bearer credential in this anonymous-profile model, so they must never
  * appear in public API responses (leaderboard, cat credits, sightings).
+ *
+ * Null for nobody: a spotter who deleted their data (SYC-63). The app shows
+ * "a spotter".
  */
-export function spotterCode(deviceId: string): string {
+export function spotterCode(deviceId: string): string;
+export function spotterCode(deviceId: string | null): string | null;
+export function spotterCode(deviceId: string | null): string | null {
+  if (deviceId === null) return null;
   return createHash("sha256").update(deviceId).digest("hex").slice(0, 4).toUpperCase();
-}
-
-/**
- * The single place in the codebase that builds a photo URL
- * (hosting-and-photo-storage.md §6.2 item 1 / SYC-98). Looks up the
- * unguessable public_id for a photo row and returns null rather than
- * minting a link for `routes/cats.ts`'s `primaryPhotoId: 0` sentinel —
- * zero is not a real row, so there's nothing to look up.
- */
-export async function photoUrl(photoId: number): Promise<string | null> {
-  if (photoId === 0) return null;
-  const [photo] = await db
-    .select({ publicId: photosTable.publicId })
-    .from(photosTable)
-    .where(eq(photosTable.id, photoId));
-  return photo ? `/api/photos/${photo.publicId}` : null;
 }
 
 export interface SterilisedStatus {
@@ -93,7 +83,8 @@ export interface CatWithStats extends DerivedCatStatus {
   /** A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4). */
   lastSeenAt: string;
   distanceKm?: number;
-  discovererSpotterCode: string;
+  // Null once the discoverer has deleted their data (SYC-63).
+  discovererSpotterCode: string | null;
   discovererNickname: string | null;
   ownerName: string | null;
   homeDescription: string | null;
@@ -119,14 +110,16 @@ export interface CatSource {
   id: number;
   name: string;
   description: string;
-  photoUrl: string | null;
+  /** Only lib/photoVisibility.ts makes one: null when hidden (PR 6). */
+  photoUrl: PublicPhotoUrl | null;
   /** Exact, as stored. Never copied to the output for a public viewer. */
   lat: number;
   lng: number;
   ownerDeviceId: string | null;
   sightingsCount: number;
   lastSeenAt: Date | string;
-  discovererDeviceId: string;
+  // Null once the discoverer has deleted their data (SYC-63).
+  discovererDeviceId: string | null;
   discovererNickname: string | null;
   discovererUsername: string | null;
   ownerName: string | null;
@@ -196,7 +189,7 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
  */
 export interface PublicSighting {
   catId: number | null;
-  spotterCode: string;
+  spotterCode: string | null;
   spotterUsername: string | null;
   spotterNickname: string | null;
   photoUrl: string | null;
@@ -206,11 +199,13 @@ export interface PublicSighting {
 export function serialiseSighting(s: {
   id: number;
   catId: number | null;
-  deviceId: string;
+  // Null once the spotter has deleted their data (SYC-63).
+  deviceId: string | null;
   createdAt: Date;
   spotterUsername: string | null;
   spotterNickname: string | null;
-  photoUrl: string | null;
+  /** Only lib/photoVisibility.ts makes one: null when hidden (PR 6). */
+  photoUrl: PublicPhotoUrl | null;
 }): PublicSighting {
   return {
     catId: s.catId,
@@ -429,10 +424,6 @@ export async function listCatsWithStats(
   const nextPage = page * pageSize < total ? page + 1 : null;
   if (pageIds.length === 0) return { cats: [], page, pageSize, total, nextPage };
 
-  // SYC-98 Fable review, finding 7: photosTable is joined here rather than
-  // calling photoUrl(r.cat.primaryPhotoId) per cat (an N+1). The join is
-  // 1:1 (primaryPhotoId -> photos.id), so it can't multiply the sightings
-  // aggregate rows the groupBy depends on.
   const rows = await db
     .select({
       cat: catsTable,
@@ -446,7 +437,6 @@ export async function listCatsWithStats(
         select ${profilesTable.username} from ${profilesTable}
         where ${profilesTable.deviceId} = ${catsTable.discovererDeviceId}
       )`,
-      photoPublicId: photosTable.publicId,
     })
     .from(catsTable)
     .leftJoin(
@@ -456,14 +446,16 @@ export async function listCatsWithStats(
         eq(sightingsTable.status, "resolved"),
       ),
     )
-    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
     .where(inArray(catsTable.id, pageIds))
-    .groupBy(catsTable.id, photosTable.publicId);
+    .groupBy(catsTable.id);
 
-  // §2.3: this page's derived status in one batch, never one query per cat.
-  const derived = await deriveCatStatuses(
-    rows.map((r) => ({ id: r.cat.id, ownerDeviceId: r.cat.ownerDeviceId })),
-  );
+  // §2.3: this page's derived status and photos in one batch each, never one
+  // query per cat. A hidden main photo falls back to the cat's newest visible
+  // one, or none (PR 6, Decision 4).
+  const [derived, photos] = await Promise.all([
+    deriveCatStatuses(rows.map((r) => ({ id: r.cat.id, ownerDeviceId: r.cat.ownerDeviceId }))),
+    catDisplayPhotos(rows.map((r) => r.cat)),
+  ]);
 
   const byId = new Map(
     rows.map((r) => [
@@ -473,7 +465,7 @@ export async function listCatsWithStats(
           id: r.cat.id,
           name: r.cat.name,
           description: r.cat.description,
-          photoUrl: r.photoPublicId ? `/api/photos/${r.photoPublicId}` : null,
+          photoUrl: photos.get(r.cat.id) ?? null,
           lat: r.cat.lat,
           lng: r.cat.lng,
           ownerDeviceId: r.cat.ownerDeviceId,
@@ -583,7 +575,11 @@ export async function spottedCatIds(deviceId: string): Promise<number[]> {
     .sort((a, b) => a - b);
 }
 
-/** How many distinct devices have spotted this cat — the design's "Fans" tile. */
+/**
+ * How many distinct devices have spotted this cat — the design's "Fans" tile.
+ * A spotter who deleted their data stops counting (SYC-63 decision C), so
+ * unlinked sightings are left out rather than counted as one more fan.
+ */
 export async function fansCount(catId: number): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(distinct ${sightingsTable.deviceId})::int` })
@@ -592,6 +588,7 @@ export async function fansCount(catId: number): Promise<number> {
       and(
         eq(sightingsTable.catId, catId),
         eq(sightingsTable.status, "resolved"),
+        isNotNull(sightingsTable.deviceId),
       ),
     );
   return row?.n ?? 0;

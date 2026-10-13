@@ -113,9 +113,15 @@ router.get(
       typeof req.query["changed"] === "string"
         ? req.query["changed"]
         : undefined;
+    // ?tied=<ok|changed|same>&r=<publicId>: the tie route's 303. Both are
+    // only used to pick a card and a fixed sentence, never echoed.
+    const tied =
+      typeof req.query["tied"] === "string" && typeof req.query["r"] === "string"
+        ? { key: req.query["tied"], id: req.query["r"] }
+        : undefined;
     res
       .type("html")
-      .send(renderQueuePage(queue, person.name, new Date(), changed));
+      .send(renderQueuePage(queue, person.name, new Date(), changed, tied));
   },
 );
 

@@ -1,3 +1,4 @@
+import { deleteTestSightings } from "../test/sightings";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import {
@@ -49,7 +50,7 @@ const device = (suffix: string) => `${PREFIX}${suffix}`;
 const catName = (suffix: string) => `${NAME_PREFIX}${suffix}`;
 
 async function cleanup() {
-  await db.delete(sightingsTable).where(like(sightingsTable.deviceId, `${PREFIX}%`));
+  await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(pushTokensTable).where(like(pushTokensTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
   await db

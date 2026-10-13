@@ -1,4 +1,5 @@
 import {
+  catsTable,
   db,
   mailOutboxTable,
   peopleTable,
@@ -42,6 +43,7 @@ export const QUEUE_COLUMNS = {
   teamNote: welfareReportsTable.teamNote,
   teamNoteAt: welfareReportsTable.teamNoteAt,
   photoState: welfareReportsTable.photoState,
+  catId: welfareReportsTable.catId,
   submittedAt: welfareReportsTable.submittedAt,
   createdAt: welfareReportsTable.createdAt,
   id: welfareReportsTable.id,
@@ -50,6 +52,7 @@ export const QUEUE_COLUMNS = {
 const SELECT = {
   ...QUEUE_COLUMNS,
   photoPublicId: welfareReportPhotosTable.publicId,
+  catName: catsTable.name,
   changedByName: changedBy.name,
   changedByLeftAt: changedBy.leftAt,
   notedByName: notedBy.name,
@@ -78,6 +81,8 @@ export interface QueueReport {
   stateChangedAt: string | null;
   stateChangedBy: TeamPerson | null;
   photo: { status: PhotoStatus; url: string | null };
+  /** The cat the team tied this report to (SYC-43 part 2, PR 5), or null. */
+  cat: { id: number; name: string } | null;
   /** Always false until SYC-42 Slice 3 (the address is never shown). */
   contactLeft: false;
   teamNote: string | null;
@@ -147,6 +152,7 @@ function toReport(r: Row, mail: Map<number, string[]>): QueueReport {
       status: hasPhoto ? "attached" : status === "attached" ? "none" : status,
       url: hasPhoto ? `${TEAM_REPORT_PHOTO_PREFIX}${r.photoPublicId}` : null,
     },
+    cat: r.catId !== null && r.catName !== null ? { id: r.catId, name: r.catName } : null,
     contactLeft: false,
     teamNote: r.teamNote,
     teamNoteAt: r.teamNoteAt?.toISOString() ?? null,
@@ -165,6 +171,7 @@ function reportsQuery() {
       welfareReportPhotosTable,
       eq(welfareReportPhotosTable.reportId, welfareReportsTable.id),
     )
+    .leftJoin(catsTable, eq(catsTable.id, welfareReportsTable.catId))
     .leftJoin(changedBy, eq(changedBy.id, welfareReportsTable.stateChangedBy))
     .leftJoin(notedBy, eq(notedBy.id, welfareReportsTable.teamNoteBy));
 }

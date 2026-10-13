@@ -102,6 +102,9 @@ const resizeObserver = vi.hoisted(() => {
   return state;
 });
 
+// SYC-274: the Home Screen card reads the keep-safe state; nothing saved here.
+vi.mock('@/hooks/useKeepSafeState', () => ({ useKeepSafeState: () => ({ data: { status: 'none' } }) }));
+
 import { BannerStack } from '../BannerStack';
 import { getBannerAreaHeight, setBannerAreaHeight } from '@/lib/bannerArea';
 

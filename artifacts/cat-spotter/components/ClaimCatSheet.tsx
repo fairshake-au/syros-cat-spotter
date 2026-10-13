@@ -19,6 +19,7 @@ import {
   getGetCatQueryKey,
   type Cat,
 } from '@workspace/api-client-react';
+import { isDeviceMovedError } from '@/lib/deviceMoved';
 import { CATALOGUE_QUERY_ROOT } from '@/lib/catalogue';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
@@ -83,6 +84,13 @@ export function ClaimCatSheet({
   };
 
   const onError = (err: unknown) => {
+    // SYC-3: this phone's spotter moved to a new phone. The app shows "Your
+    // spots moved to a new phone" (the API client's device_moved listener);
+    // never "Only the owner of this cat can edit it".
+    if (isDeviceMovedError(err)) {
+      onClose();
+      return;
+    }
     const status = (err as { status?: number })?.status;
     const failure = classifyResolveError(err);
     // SYC-101: a rename to a name another cat already has (the same once

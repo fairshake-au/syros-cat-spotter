@@ -1,0 +1,213 @@
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import {
+  db,
+  photosTable,
+  photoVisibilityEventsTable,
+  sightingsTable,
+  type PhotoVisibilityEvent,
+} from "@workspace/db";
+import { can } from "./capabilities";
+
+// Hiding a photo from the public (SYC-43 part 2 plan, PR 6; Decision 3 and 4).
+//
+// **This file is the only place photo visibility is decided, and the only
+// place a public photo address is built.** Every public reader goes through
+// publicPhotoUrl() (or catDisplayPhotos(), which uses it), and the cat and
+// sighting serialisers in catHelpers.ts accept only the PublicPhotoUrl type
+// it returns. A source test (P6-0, photoVisibility.test.ts) fails if the
+// public photo path is written anywhere else under src/, apart from the photo
+// route itself and tests. A missed reader would otherwise be silent: a hidden
+// photo still public, with every test green.
+//
+// A photo is hidden while its newest event in photo_visibility_events (the
+// highest id) is "hide". Nothing is ever updated or deleted; a restore is one
+// more row. Staff still see hidden photos, through the team photo route.
+
+/** A public photo address. Only {@link publicPhotoUrl} makes one. */
+export type PublicPhotoUrl = string & { readonly __publicPhotoUrl: unique symbol };
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+/** The global pool, or a transaction: inside one, every read goes through it. */
+type Queryable = typeof db | Tx;
+
+/** The newest event for each of `ids` that has one. One query. */
+async function newestEvents(
+  ids: readonly number[],
+  q: Queryable,
+): Promise<Map<number, PhotoVisibilityEvent>> {
+  const unique = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+  const out = new Map<number, PhotoVisibilityEvent>();
+  if (unique.length === 0) return out;
+  const rows = await q
+    .selectDistinctOn([photoVisibilityEventsTable.photoId])
+    .from(photoVisibilityEventsTable)
+    .where(inArray(photoVisibilityEventsTable.photoId, unique))
+    .orderBy(photoVisibilityEventsTable.photoId, desc(photoVisibilityEventsTable.id));
+  for (const r of rows) out.set(r.photoId, r);
+  return out;
+}
+
+/** Which of these photos are hidden from the public. One batched query. */
+export async function hiddenPhotoIds(
+  ids: readonly number[],
+  q: Queryable = db,
+): Promise<Set<number>> {
+  const newest = await newestEvents(ids, q);
+  return new Set([...newest].filter(([, e]) => e.action === "hide").map(([id]) => id));
+}
+
+/**
+ * **The only builder of a public photo address.** Null for a hidden photo,
+ * and for a photo that isn't there (the `primaryPhotoId: 0` sentinel, or a
+ * row that has gone).
+ */
+export function publicPhotoUrl(
+  photo: { id: number; publicId: string } | null | undefined,
+  hidden: ReadonlySet<number>,
+): PublicPhotoUrl | null {
+  if (!photo || hidden.has(photo.id)) return null;
+  return `/api/photos/${photo.publicId}` as PublicPhotoUrl;
+}
+
+/**
+ * The photo the public sees for each cat (Decision 4): its main photo; if
+ * the team has hidden that, the newest photo of the cat that isn't hidden
+ * (from its resolved sightings, which are already public on its page); if
+ * every one is hidden, null, and the app shows its placeholder.
+ * `cats.primary_photo_id` is never changed, so a restore brings the main
+ * photo back on its own. SYC-163 replaces the stand-in rule when the team can
+ * choose a main photo.
+ *
+ * Batched: two queries for any number of cats, plus two more only when some
+ * main photo is hidden.
+ */
+export async function catDisplayPhotos(
+  cats: readonly { id: number; primaryPhotoId: number }[],
+  q: Queryable = db,
+): Promise<Map<number, PublicPhotoUrl | null>> {
+  const out = new Map<number, PublicPhotoUrl | null>();
+  const mainIds = [...new Set(cats.map((c) => c.primaryPhotoId).filter((id) => id > 0))];
+  const mains = mainIds.length
+    ? await q
+        .select({ id: photosTable.id, publicId: photosTable.publicId })
+        .from(photosTable)
+        .where(inArray(photosTable.id, mainIds))
+    : [];
+  const mainById = new Map(mains.map((p) => [p.id, p]));
+  const hidden = await hiddenPhotoIds(mains.map((p) => p.id), q);
+
+  const needStandIn: number[] = [];
+  for (const c of cats) {
+    const main = mainById.get(c.primaryPhotoId);
+    out.set(c.id, publicPhotoUrl(main, hidden));
+    if (main && hidden.has(main.id)) needStandIn.push(c.id);
+  }
+  if (needStandIn.length === 0) return out;
+
+  const candidates = await q
+    .select({
+      catId: sightingsTable.catId,
+      id: photosTable.id,
+      publicId: photosTable.publicId,
+    })
+    .from(sightingsTable)
+    .innerJoin(photosTable, eq(photosTable.id, sightingsTable.photoId))
+    .where(
+      and(inArray(sightingsTable.catId, needStandIn), eq(sightingsTable.status, "resolved")),
+    )
+    .orderBy(desc(sightingsTable.createdAt), desc(sightingsTable.id));
+  const hiddenCandidates = await hiddenPhotoIds(candidates.map((p) => p.id), q);
+  for (const p of candidates) {
+    if (p.catId == null || out.get(p.catId) != null) continue;
+    const url = publicPhotoUrl(p, hiddenCandidates);
+    if (url) out.set(p.catId, url);
+  }
+  return out;
+}
+
+/** {@link catDisplayPhotos} for one cat. */
+export async function catDisplayPhoto(
+  cat: { id: number; primaryPhotoId: number },
+  q: Queryable = db,
+): Promise<PublicPhotoUrl | null> {
+  return (await catDisplayPhotos([cat], q)).get(cat.id) ?? null;
+}
+
+// ── The team's side ────────────────────────────────────────────────────────
+
+/** Who hid a photo and when, for the team's pages. Null while it is public. */
+export interface PhotoHidden {
+  /** A team member's people.id, or `report:<id>` (SYC-44). */
+  author: string;
+  personId: string | null;
+  at: Date;
+  reason: string | null;
+}
+
+/** For each of `ids`: who hid it and when, or nothing if it is public. */
+export async function hiddenDetails(
+  ids: readonly number[],
+  q: Queryable = db,
+): Promise<Map<number, PhotoHidden>> {
+  const out = new Map<number, PhotoHidden>();
+  for (const [photoId, e] of await newestEvents(ids, q)) {
+    if (e.action !== "hide") continue;
+    out.set(photoId, { author: e.author, personId: e.personId, at: e.at, reason: e.reason });
+  }
+  return out;
+}
+
+type Person = { id: string; scopes: { role: string; colonyId: number | null }[] };
+
+export type VisibilityAction = "hide" | "restore";
+
+export type VisibilityOutcome =
+  | { kind: "changed"; event: PhotoVisibilityEvent }
+  /** Already in that state (a second tab, or a double tap): nothing written. */
+  | { kind: "already" }
+  | { kind: "not_found" }
+  | { kind: "not_authorised" };
+
+const CAPABILITY = { hide: "hide_photo", restore: "restore_photo" } as const;
+
+/**
+ * A team member hides or restores a photo (§3.3: one tap, reversible).
+ * Checked here as well as on the route, by capability name: hide_photo or
+ * restore_photo.
+ *
+ * In one transaction: lock the photo row, read its newest event through the
+ * transaction, and write one event only if that changes something. Two
+ * people (or two tabs) hiding the same photo at once queue on the lock; the
+ * second finds it already hidden and writes nothing. The lock is also what
+ * makes "newest = highest id" true (schema/photoVisibility.ts). SYC-44's
+ * report-author writer must take the same lock.
+ */
+export async function setPhotoVisibility(
+  person: Person,
+  input: { publicId: string; action: VisibilityAction; reason?: string | null },
+): Promise<VisibilityOutcome> {
+  if (!can(person, CAPABILITY[input.action])) return { kind: "not_authorised" };
+  return db.transaction(async (tx) => {
+    const locked = await tx.execute<{ id: number }>(
+      sql`select id from photos where public_id = ${input.publicId} for update`,
+    );
+    const photoId = locked.rows[0]?.id;
+    if (photoId === undefined) return { kind: "not_found" } as const;
+    const newest = (await newestEvents([photoId], tx)).get(photoId);
+    const hiddenNow = newest?.action === "hide";
+    if ((input.action === "hide") === hiddenNow) return { kind: "already" } as const;
+    const [event] = await tx
+      .insert(photoVisibilityEventsTable)
+      .values({
+        photoId,
+        action: input.action,
+        author: person.id,
+        personId: person.id,
+        reason: input.reason?.trim() || null,
+        // The moment of the write, not the transaction's start.
+        at: sql`clock_timestamp()`,
+      })
+      .returning();
+    return { kind: "changed", event: event! } as const;
+  });
+}

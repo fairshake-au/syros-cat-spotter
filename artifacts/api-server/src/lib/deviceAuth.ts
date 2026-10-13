@@ -1,14 +1,47 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { db, deviceCredentialsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { allowNewDevice, newDeviceResetAt } from "../middlewares/newDeviceLimit";
 
 const MIN_SECRET_LENGTH = 16;
 const MAX_SECRET_LENGTH = 256;
 
-function hashSecret(secret: string): string {
+export function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
+}
+
+/**
+ * The key of the one-way "deleted device" marker (SYC-63 plan §4.3, decision
+ * D). After deletion, `device_credentials` holds this instead of the device
+ * id: a sha256 that can't be turned back into the id. Real ids start `dev-`,
+ * so a real id never collides with it. One thing else can name it: a spent
+ * restore link that deleted the spotter left behind (SYC-266) keeps it as
+ * "the phone that asked", next to the link's address and IP fingerprints and
+ * the spotter it moved to, until the link is swept (#110 review, F3).
+ */
+export const DELETED_PREFIX = "deleted:";
+export function deletedMarkerKey(deviceId: string): string {
+  return DELETED_PREFIX + createHash("sha256").update(deviceId).digest("hex");
+}
+/** Not hex, so it can never equal a secret's hash. */
+export const DELETED_SECRET_HASH = "deleted";
+
+/** Has this device id been deleted by its person (SYC-63)? */
+export async function isDeletedDevice(deviceId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ deviceId: deviceCredentialsTable.deviceId })
+    .from(deviceCredentialsTable)
+    .where(eq(deviceCredentialsTable.deviceId, deletedMarkerKey(deviceId)));
+  return row !== undefined;
+}
+
+/** What a deleted identity gets from every device-authenticated route. */
+export function sendIdentityDeleted(res: Response): void {
+  res.status(410).json({
+    error: "This spotter's data was deleted",
+    code: "IDENTITY_DELETED",
+  });
 }
 
 function hashesMatch(a: string, b: string): boolean {
@@ -29,7 +62,9 @@ function hashesMatch(a: string, b: string): boolean {
  * traffic) cannot bind or replace the credential.
  *
  * Returns the verified device id, or `null` after writing an error
- * response (401 missing/invalid header, 403 wrong secret).
+ * response (401 missing/invalid header, 403 wrong secret, 403 `device_moved`
+ * when the secret is one a restore replaced: SYC-3, 410 the person deleted
+ * their data: SYC-63).
  */
 export async function requireDeviceAuth(
   req: Request,
@@ -51,9 +86,25 @@ export async function verifyDeviceSecret(
   req: Request,
   res: Response,
   deviceId: string,
+  // `bind: false`: an id with no credential gets 403 instead of binding this
+  // secret. For irreversible routes (DELETE /me), whose request must never be
+  // the one that first ties a secret to an id (#97 review, finding 10).
+  { bind = true }: { bind?: boolean } = {},
 ): Promise<string | null> {
-  if (!deviceId || deviceId.length > 128) {
+  if (!deviceId || deviceId.length > 128 || deviceId.startsWith(DELETED_PREFIX)) {
     res.status(400).json({ error: "Invalid device id" });
+    return null;
+  }
+
+  // SYC-63: this MUST come before the bind-on-first-use insert below. A
+  // deleted id has no credential row, so the insert would quietly recreate
+  // the identity for whoever still holds the old id (a second tab, an upload
+  // that was mid-flight, a phone killed before it wiped itself). The marker
+  // answers 410 instead, and the phone finishes wiping and starts fresh.
+  // It also comes before the secret check, so a deleted id gets 410 whether
+  // or not a secret came with it (plan §8.1 item 7).
+  if (await isDeletedDevice(deviceId)) {
+    sendIdentityDeleted(res);
     return null;
   }
 
@@ -75,7 +126,7 @@ export async function verifyDeviceSecret(
     )[0];
 
   let row = await storedHash();
-  if (!row) {
+  if (!row && bind) {
     // A device we've never seen: registering it spends this address's
     // new-device allowance (SYC-195). Refused, it stays unbound, so the
     // same phone works once the window resets.
@@ -100,6 +151,10 @@ export async function verifyDeviceSecret(
   }
 
   if (!row || !hashesMatch(row.secretHash, secretHash)) {
+    if (row && (await wasMovedAway(deviceId, secretHash))) {
+      res.status(403).json({ error: "device_moved" });
+      return null;
+    }
     res.status(403).json({ error: "Device secret does not match" });
     return null;
   }
@@ -125,4 +180,25 @@ export async function deviceSecretMatches(req: Request, deviceId: string): Promi
     .from(deviceCredentialsTable)
     .where(eq(deviceCredentialsTable.deviceId, deviceId));
   return !!row && hashesMatch(row.secretHash, hashSecret(secret));
+}
+
+/** How long the old phone is told "moved" after a restore (SYC-3 plan, step 2). */
+export const MOVED_DAYS = 90;
+
+/**
+ * SYC-3 plan, Slice 1 step 7: was this exact secret replaced by a restore of
+ * this exact id, in the last 90 days? Only then is the answer `device_moved`
+ * (the app shows "Your spots moved to a new phone"). A wrong guess, or the
+ * same secret presented for some other id, still gets the ordinary 403.
+ */
+async function wasMovedAway(deviceId: string, secretHash: string): Promise<boolean> {
+  const result = await db.execute(sql`
+    select 1 from mail_tokens
+     where purpose = 'restore'
+       and replaced_secret_hash = ${secretHash}
+       and restored_device_id = ${deviceId}
+       and used_at > now() - make_interval(days => ${MOVED_DAYS})
+     limit 1
+  `);
+  return result.rows.length > 0;
 }

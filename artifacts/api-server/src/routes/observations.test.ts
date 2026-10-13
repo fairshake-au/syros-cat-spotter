@@ -740,6 +740,10 @@ describe("GET /api/team/observations/review/likely", () => {
     // A fixed, small number of queries regardless of how many cats exist
     // with no ear-tip evidence at all (each used to cost a loadCatRecords
     // pass and, before that, a photoUrl() round trip per photo).
-    expect(queryCount).toBeLessThan(10);
+    //
+    // 11, not 10, since SYC-43 part 2 PR 5: loadCatRecords gained one batched
+    // query (welfare reports replaced by a row on another cat), a fixed cost
+    // that does not grow with the number of cats.
+    expect(queryCount).toBeLessThan(11);
   });
 });

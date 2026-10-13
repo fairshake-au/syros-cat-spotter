@@ -26,7 +26,7 @@ export const aiLimiter = rateLimit({
   limit: 20,
 });
 
-// GET /api/photos/:photoId (hosting-and-photo-storage.md §6.2 item 2): the
+// The public photo route, routes/photos.ts (hosting-and-photo-storage.md §6.2 item 2): the
 // route serves usage-billed compute with no auth and, until unguessable ids
 // land (SYC-46/SYC-98), an enumerable integer id. This budget is generous
 // enough that a tourist browsing the whole catalogue in one sitting never
@@ -53,6 +53,16 @@ export const handoffLimiter = rateLimit({
   ...common,
   windowMs: 15 * 60 * 1000,
   limit: 60,
+});
+
+// DELETE /api/me (SYC-63): a person deletes themselves once, and a retry
+// after a dropped connection is safe, so a handful is plenty. Per IP rather
+// than per device, because the device id here is unverified until the
+// secret check, and keying on it would let a caller pick a fresh bucket.
+export const deleteMeLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
 });
 
 // Data spine PR 5 (DECISIONS.md Part 2h; docs/superpowers/plans/data-spine.md

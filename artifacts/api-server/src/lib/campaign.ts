@@ -73,6 +73,8 @@ export function getCampaign(): Campaign {
     donors: intFromEnv("CAMPAIGN_DONORS", 0),
     endsAt: process.env.CAMPAIGN_ENDS_AT ?? "2026-12-31",
     donateUrl: sanitizeDonateUrl(process.env.CAMPAIGN_DONATE_URL),
-    suggestedAmountsCents: [500, 1000, 2500, 5000],
+    // 6000 = the top of the €50–60 sterilisation range, so one button pays
+    // for a whole cat (SYC-14; Samuel, 12 Oct 2026). Not 5000.
+    suggestedAmountsCents: [500, 1000, 2500, 6000],
   };
 }

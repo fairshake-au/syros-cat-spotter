@@ -239,7 +239,7 @@ The spot flow is the best thing in this app and the reason anyone returns. **The
 3. **Tap, never type.** Chips, pre-selected from machine suggestions.
 4. **Confirm rather than author.**
 
-> **+10 points** · Agatha spotted again
+> **+15 points** · Agatha spotted again
 >
 > *One quick thing — is Agatha's ear clipped?*
 > `Yes, clipped`  `No, looks whole`  `Can't tell`

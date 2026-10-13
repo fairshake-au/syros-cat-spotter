@@ -85,12 +85,16 @@ describe("sendMail", () => {
     expect(isPurposeEnabled("urgent_alert")).toBe(false);
   });
 
-  it("only welfare_alert is switched on in Slice 1", () => {
-    expect(MAIL_PURPOSES.filter((p) => isPurposeEnabled(p))).toEqual(["welfare_alert"]);
+  it("switched on: welfare_alert (SYC-42), and SYC-3's two keep-safe emails; forget stays off (A9)", () => {
+    expect(MAIL_PURPOSES.filter((p) => isPurposeEnabled(p))).toEqual([
+      "welfare_alert",
+      "keep_safe_verify",
+      "restore_link",
+    ]);
   });
 
-  it("welfare alerts are in the never-shed group (spec §2.10)", () => {
-    expect(NEVER_SHED_PURPOSES).toContain("welfare_alert");
+  it("welfare alerts and restore links are in the never-shed group (spec §2.10; SYC-3 A7)", () => {
+    expect(NEVER_SHED_PURPOSES).toEqual(["welfare_alert", "restore_link"]);
   });
 
   describe("recipients are decided by purpose (review fix 1)", () => {

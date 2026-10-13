@@ -94,6 +94,8 @@ export interface QueueStoreOptions<T extends QueueItem = PendingSighting> {
    * string localId", which is what the sighting queue has always checked.
    */
   isItem?: (value: unknown) => value is T;
+  /** Remove the saved list outright. Needed only by {@link QueueStore.wipe}. */
+  remove?: () => Promise<void>;
 }
 
 export interface LoadContext<T extends QueueItem = PendingSighting> {
@@ -129,6 +131,15 @@ export interface QueueStore<T extends QueueItem = PendingSighting> {
   mutate(change: QueueChange<T>, kind?: ChangeKind): Promise<T[]>;
   /** Re-read storage into memory (another tab may have changed it). */
   refresh(): Promise<void>;
+  /**
+   * Forget the whole list (SYC-63, "Delete my data"). The saved text is
+   * removed outright rather than written as an empty list through `mutate`,
+   * so it works even when the saved list is unreadable: the whole list is
+   * going, so there is nothing to merge, and a read-only queue must never
+   * stop a person deleting their data. Runs in the same chain as every other
+   * change, so anything queued before it is wiped with it.
+   */
+  wipe(): Promise<void>;
 }
 
 type Parsed<T> = { ok: true; items: T[] } | { ok: false };
@@ -311,6 +322,18 @@ export function createQueueStore<T extends QueueItem = PendingSighting>(
     async refresh() {
       await ready;
       return run(refreshNow);
+    },
+    async wipe() {
+      await ready;
+      return run(() =>
+        withLock(async () => {
+          if (!options.remove) throw new Error('queueStore: wipe() needs remove');
+          await options.remove();
+          unsaved = [];
+          readOnly = false;
+          setMemory([]);
+        }),
+      );
     },
   };
 }

@@ -42,6 +42,7 @@ const { setDeviceSecretGetter, getProfile } = vi.hoisted(() => ({
 vi.mock('@workspace/api-client-react', () => ({
   setDeviceSecretGetter,
   getProfile,
+  setDeviceMovedListener: () => undefined,
 }));
 
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';

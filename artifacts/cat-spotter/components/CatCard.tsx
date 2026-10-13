@@ -72,7 +72,7 @@ export function CatCard({ cat }: { cat: Cat }) {
             </>
           )}
         </View>
-        {!!cat.discovererSpotterCode && (
+        {(
           <View style={styles.metaRow}>
             <Feather name="star" size={12} color={colors.mutedForeground} />
             <Text
@@ -82,7 +82,9 @@ export function CatCard({ cat }: { cat: Cat }) {
               {t('discoveredBy')}{' '}
               {cat.discovererUsername ??
                 cat.discovererNickname ??
-                `${t('spotter')} ${cat.discovererSpotterCode}`}
+                (cat.discovererSpotterCode
+                  ? `${t('spotter')} ${cat.discovererSpotterCode}`
+                  : t('aSpotter'))}
             </Text>
           </View>
         )}

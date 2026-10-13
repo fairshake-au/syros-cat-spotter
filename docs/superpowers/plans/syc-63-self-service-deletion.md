@@ -1,6 +1,6 @@
 # SYC-63: "Delete my data", self-service in the app
 
-**Status:** plan only, **awaiting Samuel's approval**. Nothing here is built yet.
+**Status:** **approved by Samuel, 29 Sep 2026** (recorded on Linear SYC-63), and built on branch `claude/syc-63-delete-my-data` (Oct 2026). The §5 migration is `deletion_unlinks_people` (numbered at merge time); it also allows SYC-119's `awaiting_team` moves (Linear, 2 Oct).
 **Spec:** `docs/specs/cat-record-data-spine.md` §8 (the mechanism) and §11.2 step 8, `docs/specs/email-capture.md` §3.5 and §6 (where the button sits, and every word on the screens), `docs/specs/privacy-policy.md` ("Deleting yourself"), `docs/specs/team-access-and-welfare-queue.md` §3.5 (the staff fallback), `DECISIONS.md` F3, D6 and Part 2c.
 **Decision that overrides the spec:** Samuel's 29 September decision on SYC-63 ("DECISIONS.md Part 2g"), recorded as a Linear comment on SYC-63. The PR that would have added it to `DECISIONS.md` (#18) was **closed without merging**, so today it lives only in Linear. See "Things to flag" §1.
 **Linear:** SYC-63 (this), related SYC-45 (email), SYC-43 (staff dashboard), SYC-40 (data spine).

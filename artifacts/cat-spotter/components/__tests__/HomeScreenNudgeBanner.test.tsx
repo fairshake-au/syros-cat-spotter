@@ -41,6 +41,10 @@ vi.mock('@/context/OfflineContext', () => ({ useOffline }));
 const { useAnyModalOpen } = vi.hoisted(() => ({ useAnyModalOpen: vi.fn() }));
 vi.mock('@/lib/modalVisibility', () => ({ useAnyModalOpen }));
 
+// SYC-274: the keep-safe state (default: nothing saved).
+const { useKeepSafeState } = vi.hoisted(() => ({ useKeepSafeState: vi.fn() }));
+vi.mock('@/hooks/useKeepSafeState', () => ({ useKeepSafeState }));
+
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -103,6 +107,7 @@ beforeEach(() => {
   setStandalone(false);
   useOffline.mockReturnValue({ needsSignIn: false });
   useAnyModalOpen.mockReturnValue(false);
+  useKeepSafeState.mockReturnValue({ data: { status: 'none' } });
 });
 
 afterEach(() => {
@@ -142,6 +147,23 @@ describe('HomeScreenNudgeBanner', () => {
     await waitFor(() =>
       expect(getByText('homeScreenNudgeText')).toBeTruthy(),
     );
+  });
+
+  // SYC-274 (Samuel, 9 Oct 2026): a confirmed keep-safe email already
+  // protects the spots, so the card is redundant; a pending one doesn't yet.
+  it('stays hidden once a keep-safe email is confirmed', async () => {
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    useKeepSafeState.mockReturnValue({ data: { status: 'confirmed', addressMask: 's•••@gmail.com' } });
+    const { container } = render(<HomeScreenNudgeBanner />);
+    await flushEffects();
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('still shows while the keep-safe email is only pending', async () => {
+    useDevice.mockReturnValue({ username: 'lili', isReady: true });
+    useKeepSafeState.mockReturnValue({ data: { status: 'pending', addressMask: 's•••@gmail.com' } });
+    const { getByText } = render(<HomeScreenNudgeBanner />);
+    await waitFor(() => expect(getByText('homeScreenNudgeText')).toBeTruthy());
   });
 
   // SYC-134 review, 30 Sep 2026: the sign-in-required prompt matters more

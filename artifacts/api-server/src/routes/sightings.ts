@@ -19,7 +19,6 @@ import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
   isResolvedDeceased,
-  photoUrl,
   getProfileStats,
   profilePayload,
   serialiseCat,
@@ -50,9 +49,16 @@ import {
   nameTakenBody,
 } from "../lib/catNames";
 import { isNearby, publishedPosition } from "@workspace/geo";
+import {
+  catDisplayPhoto,
+  catDisplayPhotos,
+  hiddenPhotoIds,
+  publicPhotoUrl,
+  type PublicPhotoUrl,
+} from "../lib/photoVisibility";
 
-export const POINTS_CONFIRM = 10;
-const POINTS_NEW_CAT = 50;
+export const POINTS_CONFIRM = 15;
+export const POINTS_NEW_CAT = 25;
 
 // SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
 // cat that isn't nearby. It is identical whatever the reason (too far, or no
@@ -71,7 +77,7 @@ const NOT_NEARBY = {
 type Candidate = {
   catId: number;
   name: string;
-  photoUrl: string | null;
+  photoUrl: PublicPhotoUrl | null;
   confidence: number;
   reasoning: string;
 };
@@ -298,27 +304,18 @@ async function computeMatchCandidates(
     // `candidates` entirely (see the comment on CONFIDENCE_THRESHOLD) — only
     // `shown` ever reaches the public response.
     const shown = ranked.filter((m) => m.confidence >= CONFIDENCE_THRESHOLD);
-    // SYC-98 Fable review, finding 7: one batched select for the (at most 3)
-    // shown cats' photo public ids, instead of a photoUrl() round trip per
-    // candidate. Only `shown` cats' photos are ever fetched — a withheld
-    // candidate's photo is never looked up, let alone returned.
-    const photoIds = [
-      ...new Set(shown.map((m) => byId.get(m.catId)!.primaryPhotoId)),
-    ];
-    const photoRows = photoIds.length
-      ? await db
-          .select({ id: photosTable.id, publicId: photosTable.publicId })
-          .from(photosTable)
-          .where(inArray(photosTable.id, photoIds))
-      : [];
-    const publicIdById = new Map(photoRows.map((p) => [p.id, p.publicId]));
+    // One batched lookup for the (at most 3) shown cats' photos (SYC-98 Fable
+    // review, finding 7: never a round trip per candidate). Only `shown` cats'
+    // photos are ever looked up: a withheld candidate's photo is never
+    // returned. A main photo the team hid is replaced as in the catalogue
+    // (PR 6, Decision 4): this is the photo a spotter matches against.
+    const shownPhotos = await catDisplayPhotos(shown.map((m) => byId.get(m.catId)!));
     candidates = shown.map((m) => {
       const cat = byId.get(m.catId)!;
-      const publicId = publicIdById.get(cat.primaryPhotoId);
       return {
         catId: cat.id,
         name: cat.name,
-        photoUrl: publicId ? `/api/photos/${publicId}` : null,
+        photoUrl: shownPhotos.get(cat.id) ?? null,
         confidence: m.confidence,
         reasoning: m.reasoning,
       };
@@ -617,8 +614,11 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     return;
   }
   if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
+  // Narrowed by the check above: an unlinked sighting (SYC-63) has no spotter,
+  // so no device id matches it and nobody can resolve it from the app.
+  const spotterId: string = sighting.deviceId;
 
-  const statsBefore = await getProfileStats(sighting.deviceId);
+  const statsBefore = await getProfileStats(spotterId);
   const badgesBefore = badgesFor(statsBefore);
 
   let existingCat: typeof catsTable.$inferSelect | undefined;
@@ -762,7 +762,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 
       await tx
         .insert(profilesTable)
-        .values({ deviceId: sighting.deviceId, points: pointsAwarded })
+        .values({ deviceId: spotterId, points: pointsAwarded })
         .onConflictDoUpdate({
           target: profilesTable.deviceId,
           set: { points: sql`${profilesTable.points} + ${pointsAwarded}` },
@@ -770,7 +770,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 
       await tx
         .insert(catSubscriptionsTable)
-        .values({ deviceId: sighting.deviceId, catId: cat!.id })
+        .values({ deviceId: spotterId, catId: cat!.id })
         .onConflictDoNothing();
 
       return { cat: cat!, pointsAwarded, isNewCat };
@@ -842,10 +842,14 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   const derivedStatus = (
     await deriveCatStatuses([{ id: cat.id, ownerDeviceId: cat.ownerDeviceId }])
   ).get(cat.id)!;
-  const [discoverer] = await db
-    .select({ nickname: profilesTable.nickname, username: profilesTable.username })
-    .from(profilesTable)
-    .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
+  // A cat whose discoverer deleted their data has nobody to look up (SYC-63).
+  const [discoverer] =
+    cat.discovererDeviceId === null
+      ? []
+      : await db
+          .select({ nickname: profilesTable.nickname, username: profilesTable.username })
+          .from(profilesTable)
+          .where(eq(profilesTable.deviceId, cat.discovererDeviceId));
 
   // §10.6, emitter 3: this response used to hand any spotter who confirmed
   // a match the cat's exact stored position. It goes through the one
@@ -856,7 +860,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         id: cat.id,
         name: cat.name,
         description: cat.description,
-        photoUrl: await photoUrl(cat.primaryPhotoId),
+        photoUrl: await catDisplayPhoto(cat),
         lat: cat.lat,
         lng: cat.lng,
         ownerDeviceId: cat.ownerDeviceId,
@@ -921,6 +925,8 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
     return;
   }
   if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
+  // Narrowed by the check above, as in resolve (SYC-63).
+  const spotterId: string = sighting.deviceId;
 
   if (sighting.status !== "resolved" || sighting.catId == null) {
     res.status(409).json({
@@ -992,7 +998,7 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       const ear = toWrite.find((a) => a.kind === "ear_tip");
       if (ear) {
         const keep = await (async (): Promise<boolean> => {
-          const state = await earTipStateFor(tx, sighting.deviceId, catId);
+          const state = await earTipStateFor(tx, spotterId, catId);
           if (state.state === "open") return true;
           // Without changeEarTip a second answer is left out, as PR 7 did, so
           // the reward screen can never change an answer by accident.
@@ -1085,6 +1091,7 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
     .select({
       id: sightingsTable.id,
       createdAt: sightingsTable.createdAt,
+      photoId: photosTable.id,
       publicId: photosTable.publicId,
     })
     .from(sightingsTable)
@@ -1111,6 +1118,10 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
         )
     : [];
   const ear = await earTipStateFor(db, deviceId, catId);
+  // A photo the team hid is gone here too, even for the spotter who took it;
+  // the card stays, so they can still add their note (PR 6, decided by
+  // Samuel, 11 Oct 2026).
+  const hidden = await hiddenPhotoIds(recent.map((r) => r.photoId ?? 0));
 
   const sightings = recent
     .map((r) => {
@@ -1118,7 +1129,10 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
       return {
         sightingId: r.id,
         takenAt: r.createdAt.toISOString(),
-        photoUrl: r.publicId ? `/api/photos/${r.publicId}` : null,
+        photoUrl: publicPhotoUrl(
+          r.photoId != null && r.publicId != null ? { id: r.photoId, publicId: r.publicId } : null,
+          hidden,
+        ),
         open: { foodAndWater: !kinds.has("food_and_water"), note: !kinds.has("note") },
       };
     })

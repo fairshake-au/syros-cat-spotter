@@ -1,5 +1,5 @@
 import { db, catsTable, foldName, foldedNameEquals } from "@workspace/db";
-import { photoUrl } from "./catHelpers";
+import { catDisplayPhoto, type PublicPhotoUrl } from "./photoVisibility";
 
 /**
  * The cat that already holds `name`, if any: the same once folded (SYC-101,
@@ -20,19 +20,22 @@ export async function catNamed(name: string) {
 }
 
 // SYC-119 (choose-a-different-cat.md §3.1, §9): NAME_TAKEN names the cat that
-// has the name, so the phone can ask "Is this them?". Public details only.
+// has the name, so the phone can ask "Is this them?". Public details only:
+// the photo is the one the catalogue shows, so a main photo the team hid is
+// replaced by the newest visible one, or none (PR 6, decided by Samuel,
+// 11 Oct 2026).
 export async function nameTakenBody(
   cat: Awaited<ReturnType<typeof catNamed>>,
 ): Promise<{
   error: string;
   code: "NAME_TAKEN";
-  cat?: { id: number; name: string; photoUrl: string | null };
+  cat?: { id: number; name: string; photoUrl: PublicPhotoUrl | null };
 }> {
   const body = { error: "Cat name already taken", code: "NAME_TAKEN" as const };
   if (!cat) return body;
   return {
     ...body,
-    cat: { id: cat.id, name: cat.name, photoUrl: await photoUrl(cat.primaryPhotoId) },
+    cat: { id: cat.id, name: cat.name, photoUrl: await catDisplayPhoto(cat) },
   };
 }
 

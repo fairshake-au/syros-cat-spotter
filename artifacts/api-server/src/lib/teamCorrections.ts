@@ -57,6 +57,46 @@ const notAuthorised = () =>
   new ObservationRefused("NOT_AUTHORISED", "Not authorised");
 const notFound = () => new ObservationRefused("NOT_FOUND", "Not found");
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Locks one observation for the rest of the transaction and returns it,
+ * refusing NOT_FOUND if there is no such row and ALREADY_SUPERSEDED if
+ * something already points at it. The ONE place this shape lives: marking a
+ * statement wrong (supersedeStatement) and re-tying a welfare report to
+ * another cat (lib/welfareTie.ts) both go through it.
+ *
+ * A second, concurrent caller against the same id blocks on the `for update`
+ * until this transaction commits or rolls back, instead of both passing the
+ * "already superseded?" check before either INSERT lands. A partial unique
+ * index on supersedes_id is the later backstop (SYC-199).
+ *
+ * Everything reads through `tx`, never the global `db` (pre-merge review of
+ * #99: a second pool connection taken inside a transaction can exhaust the
+ * pool).
+ */
+export async function lockActiveObservation(tx: Tx, id: number): Promise<Observation> {
+  const locked = await tx.execute<{ id: number }>(
+    sql`select id from observations where id = ${id} for update`,
+  );
+  if (locked.rows.length === 0) throw notFound();
+
+  const [original] = await tx
+    .select()
+    .from(observationsTable)
+    .where(eq(observationsTable.id, id));
+  if (!original) throw notFound();
+
+  const [alreadySuperseded] = await tx
+    .select({ id: observationsTable.id })
+    .from(observationsTable)
+    .where(eq(observationsTable.supersedesId, id));
+  if (alreadySuperseded) {
+    throw new ObservationRefused("ALREADY_SUPERSEDED", "Already superseded");
+  }
+  return original;
+}
+
 // ── A fresh statement: life status or sterilisation ───────────────────────
 
 export interface TeamStatementInput {
@@ -140,29 +180,7 @@ export async function supersedeStatement(
   if (!SUPERSEDE_CAPABILITIES.some((c) => can(person, c))) throw notAuthorised();
 
   return db.transaction(async (tx) => {
-    // Locks the target row for the rest of this transaction. A second,
-    // concurrent supersede against the same id blocks here until this one
-    // commits or rolls back, instead of both passing the "already
-    // superseded?" check before either INSERT lands. A partial unique index
-    // on supersedes_id is the later backstop (SYC-199).
-    const locked = await tx.execute<{ id: number }>(
-      sql`select id from observations where id = ${input.id} for update`,
-    );
-    if (locked.rows.length === 0) throw notFound();
-
-    const [original] = await tx
-      .select()
-      .from(observationsTable)
-      .where(eq(observationsTable.id, input.id));
-    if (!original) throw notFound();
-
-    const [alreadySuperseded] = await tx
-      .select({ id: observationsTable.id })
-      .from(observationsTable)
-      .where(eq(observationsTable.supersedesId, input.id));
-    if (alreadySuperseded) {
-      throw new ObservationRefused("ALREADY_SUPERSEDED", "Already superseded");
-    }
+    const original = await lockActiveObservation(tx, input.id);
 
     const capability = capabilityFor(original.kind);
     if (!capability || !can(person, capability)) throw notAuthorised();

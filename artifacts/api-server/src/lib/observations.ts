@@ -9,6 +9,7 @@
  * `observationsTable` outside a migration's backfill.
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
   db,
   catsTable,
@@ -517,6 +518,25 @@ export async function loadCatRecords(
     .from(observationsTable)
     .where(inArray(observationsTable.catId, allCatIds));
 
+  // A welfare_report that has been replaced by a row on ANY cat (re-tying a
+  // report to a different cat writes the new row on the new cat, pointing
+  // back at the old one; SYC-43 part 2, PR 5) no longer says the old cat was
+  // alive. The replacing row is not among obsRows when it lives on another
+  // cat, so this reads it across cats: one more query, the same count
+  // whatever the number of cats.
+  const replacer = alias(observationsTable, "replacer");
+  const replacedWelfareRows = await db
+    .select({ id: observationsTable.id })
+    .from(observationsTable)
+    .innerJoin(replacer, eq(replacer.supersedesId, observationsTable.id))
+    .where(
+      and(
+        eq(observationsTable.kind, "welfare_report"),
+        inArray(observationsTable.catId, allCatIds),
+      ),
+    );
+  const replacedWelfare = new Set(replacedWelfareRows.map((r) => r.id));
+
   const sightingRows = await db
     .select({
       catId: sightingsTable.catId,
@@ -575,7 +595,8 @@ export async function loadCatRecords(
       // later still), pulling the cat's "last seen alive" forward with it.
       // Ear tips with no sighting (team entries) still count.
       else if (o.kind === "ear_tip" && o.sightingId == null) consider(o.observedAt, "ear_tip");
-      else if (o.kind === "welfare_report") consider(o.observedAt, "welfare_report");
+      else if (o.kind === "welfare_report" && !replacedWelfare.has(o.id))
+        consider(o.observedAt, "welfare_report");
     }
 
     let lastSightingAt: Date | null = null;

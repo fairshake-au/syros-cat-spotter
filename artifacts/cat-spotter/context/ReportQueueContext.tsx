@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { customFetch } from '@workspace/api-client-react';
 import {
+  deleteAllReportPhotos,
   deletePendingPhoto,
   readPendingPhoto,
   savePendingPhoto,
@@ -78,6 +79,14 @@ interface ReportQueueValue {
     isLitter: boolean;
     language: ReportLanguage;
   }) => void;
+  /**
+   * "Delete my data" (SYC-234): try to send every waiting report now,
+   * refused ones included, text and photo. True only once none is left on
+   * the phone.
+   */
+  sendAllNow: () => Promise<boolean>;
+  /** "Delete my data" with "Delete it too": forget every waiting report and its photo. */
+  wipeReports: () => Promise<void>;
 }
 
 const ReportQueueContext = createContext<ReportQueueValue | undefined>(undefined);
@@ -141,6 +150,7 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
     storeRef.current = createQueueStore<PendingReport>({
       read: () => AsyncStorage.getItem(REPORT_QUEUE_KEY),
       write: (raw) => AsyncStorage.setItem(REPORT_QUEUE_KEY, raw),
+      remove: () => AsyncStorage.removeItem(REPORT_QUEUE_KEY),
       withLock: (fn) => withLock(REPORT_QUEUE_LOCK, fn),
       publish: setReports,
       isItem: isPendingReport,
@@ -148,6 +158,8 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
   }
   const store = storeRef.current;
   const syncingRef = useRef(false);
+  // The sync in progress, so "send first" can wait for it (SYC-234).
+  const syncInFlightRef = useRef<Promise<void> | null>(null);
   const tRef = useRef(t);
   tRef.current = t;
 
@@ -165,6 +177,10 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
     if (!store.items().some((r) => r.status !== 'failed')) return;
     syncingRef.current = true;
     setSyncing(true);
+    let settle!: () => void;
+    syncInFlightRef.current = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
     try {
       await ifLockFree(REPORT_UPLOAD_LOCK, () =>
         syncReports(store, {
@@ -186,6 +202,8 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
       // Never leave a rejection behind; the next trigger tries again.
     } finally {
       syncingRef.current = false;
+      syncInFlightRef.current = null;
+      settle();
       setSyncing(false);
     }
     if (againRef.current) {
@@ -301,6 +319,25 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
     [deviceId],
   );
 
+  const sendAllNow = useCallback(async (): Promise<boolean> => {
+    await store.ready;
+    // Refused ones get another go: the person asked for them to be sent.
+    await store.mutate(requeueFailed, 'user').catch(() => undefined);
+    // A sync already running may have started before the requeue.
+    await syncInFlightRef.current;
+    await syncNow();
+    return store.items().length === 0;
+  }, [store, syncNow]);
+
+  const wipeReports = useCallback(async () => {
+    await store.ready;
+    const items = store.items();
+    await store.wipe();
+    await deleteAllReportPhotos();
+    await Promise.all(items.map((r) => cancelNativeReminder(r.nativeReminderId)));
+    setReminderVisible(false);
+  }, [store]);
+
   const value = useMemo<ReportQueueValue>(
     () => ({
       ready,
@@ -313,8 +350,22 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
       reminderVisible,
       dismissReminder: () => setReminderVisible(false),
       sendDraft,
+      sendAllNow,
+      wipeReports,
     }),
-    [ready, reports, acceptedIds, syncing, submitReport, syncNow, retryFailed, reminderVisible, sendDraft],
+    [
+      ready,
+      reports,
+      acceptedIds,
+      syncing,
+      submitReport,
+      syncNow,
+      retryFailed,
+      reminderVisible,
+      sendDraft,
+      sendAllNow,
+      wipeReports,
+    ],
   );
 
   return <ReportQueueContext.Provider value={value}>{children}</ReportQueueContext.Provider>;

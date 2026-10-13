@@ -1738,6 +1738,78 @@ export const useRegisterPushToken = <TError = ErrorType<unknown>,
       return useMutation(getRegisterPushTokenMutationOptions(options));
     }
 
+export const getDeleteMyDataUrl = () => {
+
+
+
+
+  return `/api/me`
+}
+
+/**
+ * Removes the profile, points, follows, notifications and push token, and unlinks every sighting and note from the spotter, in one transaction. The cat records stay, credited to "a spotter". The device id travels in a header so it never lands in a request log. Running it again is safe and returns 204.
+ * @summary Delete everything that identifies this device's spotter (SYC-63)
+ */
+export const deleteMyData = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteMyDataUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMyDataMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMyData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMyData>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteMyData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMyData>>, void> = () => {
+
+
+          return  deleteMyData(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMyDataMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMyData>>>
+
+    export type DeleteMyDataMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete everything that identifies this device's spotter (SYC-63)
+ */
+export const useDeleteMyData = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMyData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMyData>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteMyDataMutationOptions(options));
+    }
+
 export const getGetLeaderboardUrl = () => {
 
 

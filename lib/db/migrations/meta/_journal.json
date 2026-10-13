@@ -85,6 +85,27 @@
       "when": 1791300296511,
       "tag": "0011_data_spine_names_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791473215852,
+      "tag": "0012_keep_my_spots_safe",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791478666139,
+      "tag": "0013_deletion_unlinks_people",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791777498034,
+      "tag": "0014_photo_visibility",
+      "breakpoints": true
     }
   ]
 }

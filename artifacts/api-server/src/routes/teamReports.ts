@@ -10,8 +10,18 @@ import {
   REPORT_STATES,
   writeTeamNote,
 } from "../lib/welfareActions";
+import { ObservationRefused } from "../lib/observations";
+import {
+  TIE_CHANGED_MESSAGE,
+  TIE_SAME_MESSAGE,
+  tieReportToCat,
+} from "../lib/welfareTie";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
-import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
+import {
+  refuseNotSignedIn,
+  requireOrigin,
+  setTeamHeaders,
+} from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { renderPage } from "../lib/teamPages/layout";
 import { escapeHtml } from "../lib/teamPages/escape";
@@ -133,7 +143,9 @@ function badRequest(
   }
   const why = fields.includes("note")
     ? `A team note can be at most ${NOTE_MAX.toLocaleString("en-GB")} characters.`
-    : "Something in the form wasn't right.";
+    : fields.includes("catId")
+      ? "That cat couldn't be found."
+      : "Something in the form wasn't right.";
   const back = PUBLIC_ID_RE.test(publicId)
     ? backToReport(publicId)
     : "/api/team";
@@ -241,6 +253,83 @@ router.post(
     if (!written) return notFound(res);
     if (isFormPost(req)) return void res.redirect(303, backToReport(publicId));
     res.json(await getQueueReport(publicId));
+  },
+);
+
+// ── PR 5: which cat is this? ───────────────────────────────────────────────
+
+/** A cat id from a form (text) or JSON (number): a positive whole number. */
+const catIdField = z.preprocess(
+  (v) => (typeof v === "string" && /^\d{1,9}$/.test(v) ? Number(v) : v),
+  z.number().int().positive().max(999_999_999),
+);
+/** What the page showed: empty (or missing, or null) means "not tied". */
+const expectedCatField = z.preprocess(
+  (v) => (v === "" || v === undefined ? null : v),
+  catIdField.nullable(),
+);
+const TieBody = z.object({ catId: catIdField, expectedCatId: expectedCatField });
+
+/** Where a browser goes after a tie: the queue, this row, with what happened. */
+const backToTiedReport = (publicId: string, outcome: "ok" | "changed" | "same") =>
+  `/api/team?tied=${outcome}&r=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`;
+
+/**
+ * POST /api/team/reports/:publicId/cat: tie a sent report to a cat, or move
+ * it to another cat (lib/welfareTie.ts). `expectedCatId` is the cat the page
+ * showed (empty = not tied); if the report has moved on since, someone else
+ * tied it first and nothing is written. Two layers check the capability:
+ * requireTeam here, and the same check inside tieReportToCat. Copies no
+ * photo and never the reporter's note. Sends nothing to anyone.
+ */
+router.post(
+  "/team/reports/:publicId/cat",
+  requireOrigin(TEAM_ORIGIN),
+  requireTeam("change_report_state"),
+  async (req: Request, res: Response) => {
+    setTeamHeaders(res);
+    const person = teamPerson(res);
+    const publicId = String(req.params["publicId"]);
+    const parsed = TieBody.safeParse(req.body ?? {});
+    if (!parsed.success)
+      return badRequest(req, res, fieldsOf(parsed.error), publicId);
+    if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
+
+    let outcome;
+    try {
+      outcome = await tieReportToCat({
+        person,
+        publicId,
+        catId: parsed.data.catId,
+        expectedCatId: parsed.data.expectedCatId,
+      });
+    } catch (err) {
+      if (err instanceof ObservationRefused && err.code === "NOT_AUTHORISED") {
+        req.log.info({ reason: "missing_capability" }, "tie refused");
+        return refuseNotSignedIn(req, res);
+      }
+      throw err;
+    }
+    if (outcome.kind === "report_not_found") return notFound(res);
+    if (outcome.kind === "cat_not_found")
+      return badRequest(req, res, ["catId"], publicId);
+
+    const form = isFormPost(req);
+    if (outcome.kind === "tied") {
+      if (form) return void res.redirect(303, backToTiedReport(publicId, "ok"));
+      return void res.json(await getQueueReport(publicId));
+    }
+    const kind = outcome.kind; // "changed" | "same"
+    if (form) return void res.redirect(303, backToTiedReport(publicId, kind));
+    const report = await getQueueReport(publicId);
+    if (kind === "changed") {
+      return void res.status(409).json({
+        error: "changed_by_someone_else",
+        message: TIE_CHANGED_MESSAGE,
+        report,
+      });
+    }
+    res.json({ ...report, message: TIE_SAME_MESSAGE });
   },
 );
 

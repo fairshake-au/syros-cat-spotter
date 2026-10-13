@@ -22,6 +22,7 @@ import {
   cleanupOrphanPhotos,
   deletePendingPhoto,
   durablePhotos,
+  deleteAllSightingPhotos,
   isStoredPhotoRef,
   moveInlinePhotoToStore,
   openPhotoForUpload,
@@ -110,6 +111,26 @@ interface OfflineContextValue {
   needsSignIn: boolean;
   /** Clears `needsSignIn` and syncs again — call after the user signs in. */
   retryAfterSignIn: () => Promise<void>;
+  /**
+   * Spots on this phone the server has never seen: everything except those
+   * already uploaded and waiting for review. "Delete my data" says how many
+   * will go (SYC-63 decision B).
+   */
+  unsentCount: number;
+  /**
+   * SYC-63: stop syncing and wait until no upload is in flight, in this tab
+   * (the in-progress sync itself, since phones have no lock manager) and, on
+   * the web, in any other tab (the upload lock). Nothing syncs again until
+   * `resumeSync`.
+   */
+  pauseSync: () => Promise<void>;
+  resumeSync: () => void;
+  /**
+   * SYC-63: forget every queued spot, every sighting photo and every queue
+   * backup on this phone, even when the saved queue is unreadable. Throws if
+   * it couldn't finish.
+   */
+  wipeQueue: () => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextValue | undefined>(
@@ -266,7 +287,7 @@ function markStatus(localId: string, patch: Partial<PendingSighting>) {
     );
 }
 
-type SyncOutcome = 'synced' | 'network' | 'needs_sign_in' | 'done';
+type SyncOutcome = 'synced' | 'network' | 'needs_sign_in' | 'moved' | 'done';
 
 /**
  * What a failed photo save means for a sighting the user is saving now.
@@ -284,7 +305,7 @@ function keepInlineUnlessBroken(saved: SavePhotoResult): SavePhotoResult {
 }
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
-  const { deviceId } = useDevice();
+  const { deviceId, username, moved } = useDevice();
   const [isOnline, setIsOnline] = useState(true);
   const [networkState, setNetworkState] = useState<UploadNetworkState | null>(
     null,
@@ -296,6 +317,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [reviewPromptVisible, setReviewPromptVisible] = useState(false);
   const [needsSignIn, setNeedsSignInState] = useState(false);
   const syncingRef = useRef(false);
+  // SYC-63: "Delete my data" pauses syncing and must be able to wait for the
+  // sync in progress. A boolean can't be awaited, so the sync keeps a promise.
+  const pausedRef = useRef(false);
+  const syncInFlightRef = useRef<Promise<void> | null>(null);
   const networkStateRef = useRef<UploadNetworkState | null>(null);
   const needsSignInRef = useRef(false);
 
@@ -309,6 +334,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     storeRef.current = createQueueStore({
       read: () => AsyncStorage.getItem(QUEUE_KEY),
       write: (raw) => AsyncStorage.setItem(QUEUE_KEY, raw),
+      remove: () => AsyncStorage.removeItem(QUEUE_KEY),
       withLock: (fn) => withLock(QUEUE_LOCK, fn),
       publish: setPending,
     });
@@ -392,6 +418,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           // since this says nothing about the sighting itself.
           return 'needs_sign_in';
         }
+        if (decision.kind === 'moved') return 'moved';
         if (decision.kind === 'server') {
           // The server responded but rejected the sighting — count the
           // failure and flag the item once it keeps failing.
@@ -418,12 +445,24 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       // Nothing is known about the queue until it has loaded.
       await store.ready;
       if (syncingRef.current || !deviceId) return;
+      // SYC-3: nothing is sent while this phone's spotter has moved away, or
+      // before a fresh spotter (after "Start again") has picked a name
+      // (`null` is DeviceContext's "not chosen yet").
+      if (moved || username === null) return;
       // Paused after a gate 401 (needs_sign_in) until retryAfterSignIn
       // clears it — otherwise every reconnect/foreground event would hammer
       // the gate with the same doomed request.
       if (needsSignInRef.current) return;
+      // Paused while a person deletes their data (SYC-63).
+      if (pausedRef.current) return;
       syncingRef.current = true;
       let syncedAny = false;
+      // Set in the same tick as the checks above, so pauseSync either stops
+      // this sync before it starts or finds this promise to wait for.
+      let settle!: () => void;
+      syncInFlightRef.current = new Promise<void>((resolve) => {
+        settle = resolve;
+      });
       try {
         // Only one open tab uploads at a time.
         await ifLockFree(UPLOAD_LOCK, async () => {
@@ -435,6 +474,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           if (queued.length === 0) return;
           setSyncing(true);
           for (const localId of queued) {
+            // Pausing stops the sync between items, never mid-upload.
+            if (pausedRef.current) break;
             let outcome: SyncOutcome;
             try {
               outcome = await syncOne(localId, deviceId);
@@ -443,7 +484,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
               outcome = 'done';
             }
             if (outcome === 'synced') syncedAny = true;
-            if (outcome === 'network') break;
+            if (outcome === 'network' || outcome === 'moved') break;
             if (outcome === 'needs_sign_in') {
               if (Platform.OS === 'web') {
                 // Web has a sign-in flow (the website's session cookie) —
@@ -465,6 +506,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         });
       } finally {
         syncingRef.current = false;
+        syncInFlightRef.current = null;
+        settle();
         setSyncing(false);
         if (syncedAny) {
           setReviewPromptVisible(true);
@@ -473,7 +516,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Callers (NetInfo) do not await this; never leave a rejection behind.
     }
-  }, [deviceId, setNeedsSignIn, store, syncOne]);
+  }, [deviceId, username, moved, setNeedsSignIn, store, syncOne]);
 
   const syncNowRef = useRef(syncNow);
   syncNowRef.current = syncNow;
@@ -559,10 +602,14 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
             status: 'queued' as const,
           }
         : { ...item, status: 'queued' as const };
-      await store.mutate(
-        (list) => [...list.filter((p) => p.localId !== stored.localId), stored],
-        'user',
-      );
+      await store.mutate((list) => {
+        // SYC-63: nothing new joins the queue while "Delete my data" has
+        // syncing paused, or a spot whose photo was still saving could land
+        // after the wipe and survive it. Checked here, in the write itself,
+        // so it holds however long the photo took.
+        if (pausedRef.current) throw new QueueWriteError('failed');
+        return [...list.filter((p) => p.localId !== stored.localId), stored];
+      }, 'user');
     },
     [store],
   );
@@ -645,6 +692,32 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     [store],
   );
 
+  const pauseSync = useCallback(async () => {
+    pausedRef.current = true;
+    // This tab's own upload. On phones this is the only wait there is:
+    // withLock runs straight away without a lock manager (plan §6.2).
+    await syncInFlightRef.current;
+    // On the web, any other tab's upload holds this lock until it finishes.
+    await withLock(UPLOAD_LOCK, async () => undefined);
+  }, []);
+
+  const resumeSync = useCallback(() => {
+    pausedRef.current = false;
+    void syncNowRef.current();
+  }, []);
+
+  const wipeQueue = useCallback(async () => {
+    await store.wipe();
+    await deleteAllSightingPhotos();
+    setReadOnly(false);
+    setReviewPromptVisible(false);
+  }, [store]);
+
+  const unsentCount = useMemo(
+    () => pending.filter((p) => p.status !== 'review').length,
+    [pending],
+  );
+
   const dismissReviewPrompt = useCallback(() => {
     setReviewPromptVisible(false);
   }, []);
@@ -679,6 +752,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       dismissReviewPrompt,
       needsSignIn,
       retryAfterSignIn,
+      unsentCount,
+      pauseSync,
+      resumeSync,
+      wipeQueue,
     }),
     [
       isOnline,
@@ -697,6 +774,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       dismissReviewPrompt,
       needsSignIn,
       retryAfterSignIn,
+      unsentCount,
+      pauseSync,
+      resumeSync,
+      wipeQueue,
     ],
   );
 
