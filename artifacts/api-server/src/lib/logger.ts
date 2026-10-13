@@ -35,7 +35,7 @@ export function safeError(err: unknown): Record<string, unknown> {
 }
 
 /**
- * The request URL as it goes into the request log (SYC-109). A device id is a
+ * The request URL as it goes into the request log (SYC-109, SYC-255). A device id is a
  * credential, and it must not outlive a "Delete my data" request in the logs,
  * so every route that carries one in its path has it replaced:
  * `/profiles/:deviceId…`, `/notifications/:deviceId…` and
@@ -43,12 +43,18 @@ export function safeError(err: unknown): Record<string, unknown> {
  * swapped for a placeholder. Query strings (which can hold a username being
  * checked) are dropped. The two static `/profiles/username-*` routes keep
  * their real path. Case-insensitive, because Express routes are.
+ *
+ * Map tile addresses (SYC-255) are tile coordinates used for map rendering and
+ * are redacted from logs: `/api/team/map-tiles/17/74000/50000.png` becomes
+ * `/api/team/map-tiles/:tile`. This rule runs before the device-id rule.
  */
+const MAP_TILE_IN_PATH = /\/api\/team\/map-tiles\/[^?]+/i;
 const DEVICE_ID_IN_PATH =
   /\/(profiles|notifications|profile|keep-safe)\/(?!(?:username-availability|username-suggestions)(?:\/|$))[^/]+/i;
 
 export function redactRequestUrl(url: string | undefined): string | undefined {
-  return url?.split("?")[0].replace(DEVICE_ID_IN_PATH, "/$1/:deviceId");
+  const stripped = url?.split("?")[0];
+  return stripped?.replace(MAP_TILE_IN_PATH, "/api/team/map-tiles/:tile").replace(DEVICE_ID_IN_PATH, "/$1/:deviceId");
 }
 
 // Exported so the capturing loggers in tests use exactly these serializers.
