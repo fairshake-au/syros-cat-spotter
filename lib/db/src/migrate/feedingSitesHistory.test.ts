@@ -370,6 +370,24 @@ describe("colony_name_history: add-only, with one redaction", () => {
     ).rejects.toThrow(NAME_ONLY);
   });
 
+  it("refuses a redaction that blanks the name but leaves the folded name (which still holds it)", async () => {
+    const id = await oldName();
+    await expect(
+      c.query(
+        `update colony_name_history set name = '(name removed)',
+           redacted_at = now(), redaction_reason = 'guardian asked to be forgotten' where id = $1`,
+        [id],
+      ),
+    ).rejects.toThrow(NAME_ONLY);
+    await expect(
+      c.query(
+        `update colony_name_history set normalised_name = '(name removed)',
+           redacted_at = now(), redaction_reason = 'guardian asked to be forgotten' where id = $1`,
+        [id],
+      ),
+    ).rejects.toThrow(NAME_ONLY);
+  });
+
   it("allows a redaction to the placeholder, and keeps everything else", async () => {
     const id = await oldName();
     const was = await nameRow(id);
