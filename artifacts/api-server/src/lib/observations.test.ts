@@ -922,3 +922,15 @@ describe("public appearance needs a device (review fix 5)", () => {
     }
   });
 });
+
+describe("no stray retracted key (review fix 6)", () => {
+  it("refuses retracted on vaccinated and team_note", async () => {
+    const cat = await insertCat();
+    await expect(
+      writeAs(cat.id, "vaccinated", { vaccines: ["rabies"], retracted: true }),
+    ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    await expect(
+      writeAs(cat.id, "team_note", { text: "a", retracted: true }),
+    ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+  });
+});

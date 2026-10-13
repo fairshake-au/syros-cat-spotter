@@ -247,6 +247,16 @@ function validateValue(
   value: unknown,
   ctx: { roleAtTime: string; provenance: string },
 ): void {
+  // Only coat and markings have a retraction; a stray `retracted` key on any
+  // other kind is a malformed value, not an ignorable extra.
+  if (
+    kind !== "coat" &&
+    kind !== "markings" &&
+    isPlainObject(value) &&
+    "retracted" in value
+  ) {
+    refuse("MALFORMED_VALUE", `${kind} does not accept a retracted key`);
+  }
   switch (kind) {
     case "life_status": {
       const status = isPlainObject(value) ? value["status"] : undefined;
