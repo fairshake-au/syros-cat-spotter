@@ -8,6 +8,7 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { logger, safeError } from "../logger";
 import { buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
+import { isNearFeedingSite } from "../feedingSiteProximity";
 import { hashRecipient, sendMail, type SendResult } from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
 import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
@@ -289,7 +290,17 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
       }
     }
 
-    const message = buildWelfareAlert(report, photo ?? null, kind);
+    // Map links go in only when the position is NOT within 50 m of a feeding
+    // site (SYC-245, SYC-209 Decision 2B). If the check fails the alert still
+    // goes, without links: an urgent alert is never held up, and a failure
+    // never adds a link. The email says nothing about why.
+    let withMapLinks = false;
+    try {
+      withMapLinks = !(await isNearFeedingSite(report.lat, report.lng));
+    } catch (err) {
+      logger.error({ err: safeError(err) }, "feeding-site check failed; alert sent without map links");
+    }
+    const message = buildWelfareAlert(report, photo ?? null, kind, withMapLinks);
     // The recipient is WELFARE_ALERT_TO, resolved inside sendMail.
     const result = await sendMail({
       purpose: "welfare_alert",

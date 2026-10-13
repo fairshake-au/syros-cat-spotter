@@ -30,6 +30,8 @@ vi.mock("../lib/logger", async (importOriginal) => {
 });
 
 import app from "../app";
+import * as proximity from "../lib/feedingSiteProximity";
+import { deleteTestFeedingSites, northOf, seedFeedingSite } from "../test/feedingSites";
 import { drainDue, settleOutbox } from "../lib/mail/outbox";
 
 const DEVICE = `vitest-report-${randomBytes(4).toString("hex")}`;
@@ -136,6 +138,7 @@ async function makeAllDue() {
 }
 
 async function cleanup() {
+  await deleteTestFeedingSites();
   await db.execute(
     sql`delete from mail_outbox where report_id in (select id from welfare_reports where reporter_device like ${DEVICE + "%"})`,
   );
@@ -154,6 +157,7 @@ beforeEach(() => {
   installFakeResend();
 });
 afterEach(async () => {
+  await deleteTestFeedingSites();
   await settleOutbox();
   vi.unstubAllGlobals();
   process.env = { ...saved };
@@ -501,6 +505,54 @@ describe("the alert email (item 1.5)", () => {
     expect(text).toContain(`https://www.google.com/maps/search/?api=1&query=${LAT},${LNG}`);
     expect(text).toContain(`https://maps.apple.com/?ll=${LAT},${LNG}`);
     expect(text).toContain("No photo was taken.");
+  });
+
+  describe("SYC-245 (SYC-209 Decision 2B): map links near a feeding site", () => {
+    const everything = (id: string) => {
+      const mail = sent.find((s) => String(s.body["text"]).includes(id))!;
+      return `${mail.body["text"]}\n${mail.body["html"]}`;
+    };
+
+    it("30 m from a feeding site: no map link, no words about a feeding site, still the exact place", async () => {
+      await seedFeedingSite(northOf(LAT, 30), LNG);
+      const { body } = await submit({ hasPhoto: false });
+      await settleOutbox();
+      const all = everything(body.publicId);
+      expect(all).toContain(`${LAT}, ${LNG}`);
+      expect(all).not.toContain("google.com/maps");
+      expect(all).not.toContain("maps.apple.com");
+      expect(all).not.toMatch(/feeding|site\b/i);
+      expect(all).not.toContain("Open in Google Maps");
+    });
+
+    it("80 m from a feeding site: both links stay", async () => {
+      await seedFeedingSite(northOf(LAT, 80), LNG);
+      const { body } = await submit({ hasPhoto: false });
+      await settleOutbox();
+      const all = everything(body.publicId);
+      expect(all).toContain(`https://www.google.com/maps/search/?api=1&query=${LAT},${LNG}`);
+      expect(all).toContain(`https://maps.apple.com/?ll=${LAT},${LNG}`);
+    });
+
+    it("if the distance check throws, the alert still sends, without map links", async () => {
+      const spy = vi
+        .spyOn(proximity, "isNearFeedingSite")
+        .mockRejectedValue(new Error("db down"));
+      try {
+        const { body } = await submit({ hasPhoto: false });
+        await settleOutbox();
+        const all = everything(body.publicId);
+        expect(all).toContain(`${LAT}, ${LNG}`);
+        expect(all).not.toContain("google.com/maps");
+        expect(all).not.toContain("maps.apple.com");
+        expect(all).not.toMatch(/feeding/i);
+        const [alert] = await outboxFor((await reportRow(body.publicId)).id);
+        expect(alert!.state).toBe("sent");
+        expect(spy).toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   it("test 12: urgent and attention have different subjects; kittens add ' · kittens'", async () => {
