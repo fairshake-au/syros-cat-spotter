@@ -80,7 +80,8 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
   Partial<Record<ObservationKind, readonly string[]>>
 > = {
   coat: ["vet"],
-  markings: ["vet"],
+  // No machine markings (SYC2-D4), so `system` is refused outright.
+  markings: ["vet", "system"],
   vaccinated: ["public", "guardian", "system"],
   team_note: ["public", "system"],
 };
@@ -534,7 +535,8 @@ export interface WriteObservationInput {
  *
  * - an unknown `kind`, or a `value` that doesn't match its kind's shape;
  * - a role refused for that kind (`ROLE_NOT_ALLOWED_FOR_KIND`: `vet` for
- *   `coat`/`markings`; `public`, `guardian`, `system` for `vaccinated`;
+ *   `coat`/`markings`; `public`, `guardian`, `system` for `vaccinated`; `system` for `markings`
+ *   and for any `coat` that is not `provenance: "machine"`;
  *   `public`, `system` for `team_note`), checked before reachability;
  * - a `roleAtTime` unreachable in phase 1 (`guardian`, `volunteer`, `vet`,
  *   or anything else not in {public, staff, admin, system});
@@ -580,7 +582,13 @@ export async function writeObservation(
   // Per-kind role rule, BEFORE the reachability check: it is proven
   // independently of reachability and still holds once SYC-53 makes
   // `management` and `guardian` reachable.
-  if (ROLES_REFUSED_FOR_KIND[input.kind]?.includes(input.roleAtTime)) {
+  if (
+    ROLES_REFUSED_FOR_KIND[input.kind]?.includes(input.roleAtTime) ||
+    // `system` may write a coat only as the machine's reading.
+    (input.kind === "coat" &&
+      input.roleAtTime === "system" &&
+      (input.provenance ?? "volunteered") !== "machine")
+  ) {
     refuse(
       "ROLE_NOT_ALLOWED_FOR_KIND",
       `roleAtTime "${input.roleAtTime}" may not write ${input.kind}`,

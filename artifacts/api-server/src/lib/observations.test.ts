@@ -886,3 +886,18 @@ describe("retraction roles and system own-row (review fix 3)", () => {
     expect(second.supersedesId).toBe(first.id);
   });
 });
+
+describe("system is narrowed for appearance (review fix 4)", () => {
+  it("refuses system:vision markings", async () => {
+    const cat = await insertCat();
+    await expect(
+      writeAs(cat.id, "markings", { marks: [] }, "system", { provenance: "machine" }),
+    ).rejects.toMatchObject(refused("ROLE_NOT_ALLOWED_FOR_KIND"));
+  });
+  it("refuses a volunteered coat from system:admin-route", async () => {
+    const cat = await insertCat();
+    await expect(
+      writeAs(cat.id, "coat", { colours: ["ginger"] }, "system", { accountId: "system:admin-route", deviceId: undefined }),
+    ).rejects.toMatchObject(refused("ROLE_NOT_ALLOWED_FOR_KIND"));
+  });
+});
