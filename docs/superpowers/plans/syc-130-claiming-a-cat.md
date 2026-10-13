@@ -686,7 +686,7 @@ git commit -am "SYC-130: the claim checks who has met the cat, the confirmations
   - `artifacts/api-server/src/routes/cats.ts` (delete `router.post("/cats", …)`);
   - `lib/api-spec/openapi.yaml` (delete `registerCat` and `CatRegistration`), then regenerate;
   - `artifacts/cat-spotter/lib/i18n.ts` (delete the unused register keys at lines ~71, 460 and 837 in en, el and fr);
-  - the tests that use it as a fixture: `cats.register.test.ts` (delete), `cats.moderation.test.ts`, `cats.deviceAuth.test.ts`, `cats.foldedNames.test.ts`, `publicPayload.blur.test.ts`, and #97's `me.delete.test.ts` (it sends `POST /api/cats` in test 7, so change that to assert 404);
+  - the tests that use it as a fixture: `cats.register.test.ts` (delete), `cats.moderation.test.ts`, `cats.deviceAuth.test.ts`, `cats.foldedNames.test.ts`, `publicPayload.blur.test.ts`, #97's `me.delete.test.ts` (it sends `POST /api/cats` in test 7, so change that to assert 404), and SYC-3's `keepSafe.takeover.test.ts` (its moved-phone probe list has a `POST /cats` row; delete that row, because the list test checks every device-secret check in `routes/*.ts` has a probe and the route will be gone);
   - the docs: `docs/SPEC.md:159`, `threat_model.md:44`.
 
 **Interfaces:** none new. The fixtures switch to direct `db.insert(catsTable)`.
