@@ -77,4 +77,14 @@ describe("request log redaction (SYC-109)", () => {
     expect(redactRequestUrl("/api/cats/12/updates")).toBe("/api/cats/12/updates");
     expect(redactRequestUrl("/api/healthz")).toBe("/api/healthz");
   });
+
+  it("redacts map tile addresses from the request path (SYC-255)", () => {
+    expect(redactRequestUrl("/api/team/map-tiles/17/74000/50000.png")).toBe(
+      "/api/team/map-tiles/:tile",
+    );
+    expect(redactRequestUrl("/api/team/map-tiles/AbC123xyz")).toBe("/api/team/map-tiles/:tile");
+    expect(redactRequestUrl("/api/team/map-tiles/17/74000/50000.png?foo=bar&baz=qux")).toBe(
+      "/api/team/map-tiles/:tile",
+    );
+  });
 });
