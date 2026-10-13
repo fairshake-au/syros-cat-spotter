@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { addPerson, markLeft, pool, removePerson } from "@workspace/db";
 import app from "../app";
@@ -9,6 +9,12 @@ import {
   signInThroughHandoff,
 } from "../lib/teamAuth/__fixtures__/queueKit";
 import { timeAgo } from "../lib/teamPages/queuePage";
+import * as proximity from "../lib/feedingSiteProximity";
+import {
+  deleteTestFeedingSites,
+  northOf,
+  seedFeedingSite,
+} from "../test/feedingSites";
 
 // SYC-43 part 2 plan, PR 1: the queue page itself. P1-2 (HTML order), P1-6
 // (words that must not appear), P1-7 (the mail banner), P1-8 (escaping).
@@ -41,9 +47,11 @@ beforeEach(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
+  await deleteTestFeedingSites();
 });
 
 afterAll(async () => {
+  await deleteTestFeedingSites();
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
@@ -320,5 +328,75 @@ describe("drafts beyond the newest 50", () => {
     const html = await getPage();
     expect(html).toContain("Showing the newest 50 of 51.");
     expect(html.match(/id="d-/g)).toHaveLength(50);
+  });
+});
+
+describe("SYC-245 (SYC-209 Decision 2B): the map link near a feeding site", () => {
+  const LAT = 37.4441234;
+  const LNG = 24.9412345;
+  const GOOGLE = "google.com/maps";
+  const NEAR_TEXT = "Near a feeding site: see the dashboard map";
+
+  it("30 m from a site: the line says so and there is no outbound link, for a report and for a draft", async () => {
+    await seedFeedingSite(northOf(LAT, 30), LNG);
+    await seedReport({ publicId: "near-report" });
+    await seedReport({ publicId: "near-draft", isDraft: true });
+    const html = await getPage();
+    expect(html).toContain(NEAR_TEXT);
+    expect(html).not.toContain(GOOGLE);
+    expect(html).toContain("37.44412, 24.94123");
+  });
+
+  it("80 m from a site: the Google link stays", async () => {
+    await seedFeedingSite(northOf(LAT, 80), LNG);
+    await seedReport({ publicId: "far-report" });
+    const html = await getPage();
+    expect(html).toContain(GOOGLE);
+    expect(html).not.toContain("Near a feeding site");
+  });
+
+  it("only the report near a site loses its link", async () => {
+    await seedFeedingSite(northOf(LAT, 30), LNG);
+    await seedReport({ publicId: "near-one" });
+    await seedReport({ publicId: "far-one", lat: northOf(LAT, 2000), lng: LNG });
+    const html = await getPage();
+    const card = (id: string) => {
+      const start = html.indexOf(`id="r-${id}"`);
+      return html.slice(start, html.indexOf("</article>", start));
+    };
+    expect(card("near-one")).toContain(NEAR_TEXT);
+    expect(card("near-one")).not.toContain(GOOGLE);
+    expect(card("far-one")).toContain(GOOGLE);
+    expect(card("far-one")).not.toContain(NEAR_TEXT);
+  });
+
+  it("the whole page needs one distance query, not one per report", async () => {
+    const spy = vi.spyOn(proximity, "pointsNearFeedingSite");
+    try {
+      await seedReport({ publicId: "q1" });
+      await seedReport({ publicId: "q2" });
+      await seedReport({ publicId: "q3", isDraft: true });
+      await getPage();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0]![0]).toHaveLength(3);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("if the check fails, the page still loads and shows no link at all", async () => {
+    const spy = vi
+      .spyOn(proximity, "pointsNearFeedingSite")
+      .mockRejectedValue(new Error("db down"));
+    try {
+      await seedReport({ publicId: "check-fails" });
+      const html = await getPage();
+      expect(html).toContain('id="r-check-fails"');
+      expect(html).toContain("37.44412, 24.94123");
+      expect(html).not.toContain(GOOGLE);
+      expect(html).not.toContain("Near a feeding site");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

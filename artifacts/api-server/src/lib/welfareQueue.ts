@@ -9,6 +9,8 @@ import {
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { OVERDUE_MINUTES } from "./mail/outbox";
+import { logger, safeError } from "./logger";
+import { pointsNearFeedingSite } from "./feedingSiteProximity";
 
 /**
  * The welfare queue's data (SYC-43 part 2 plan, PR 1; spec §3.1, §4.2).
@@ -310,4 +312,27 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
     draftsTotal: Number(draftCount[0]?.n ?? 0),
     mail,
   };
+}
+
+/**
+ * Which of the queue's reports and drafts (by public id) are within 50 m of a
+ * feeding site, in ONE query (SYC-245, SYC-209 Decision 2B). The page shows no
+ * map link for these. Null when the check fails: the page then shows no link
+ * for any of them, because a failed check must never add a link.
+ */
+export async function queueNearFeedingSites(
+  queue: WelfareQueue,
+): Promise<Set<string> | null> {
+  try {
+    return await pointsNearFeedingSite(
+      [...queue.open, ...queue.closed, ...queue.drafts].map((r) => ({
+        key: r.id,
+        lat: r.lat,
+        lng: r.lng,
+      })),
+    );
+  } catch (err) {
+    logger.error({ err: safeError(err) }, "feeding-site check failed for the queue");
+    return null;
+  }
 }
