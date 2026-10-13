@@ -21,7 +21,7 @@ vi.mock("./lib/logger", async (importOriginal) => {
 
 import { pool } from "@workspace/db";
 import app from "./app";
-import { redactRequestUrl } from "./lib/logger";
+import { redactRequestUrl, safeError } from "./lib/logger";
 
 const DEVICE = "vitest-logredact-0f3c9a7e2b";
 
@@ -87,6 +87,30 @@ describe("request log redaction (SYC-109)", () => {
       expect(line).not.toContain("74000");
       expect(line).not.toContain("50000");
     }
+  });
+
+  it("redacts hand-made spellings of a map tile address (SYC-255)", () => {
+    for (const odd of [
+      "/API/Team/MAP-TILES/17/74000/50000.png",
+      "//api/team/map-tiles/17/74000/50000.png",
+      "/api/team//map-tiles/17/74000/50000.png",
+      "/api/team/./map-tiles/17/74000/50000.png",
+      "/api/team/map%2Dtiles/17/74000/50000.png",
+      "/api/team/map-tiles%2F17%2F74000%2F50000.png",
+      "/api/team/map-tiles/17/74000/50000.png/extra",
+    ]) {
+      const logged = redactRequestUrl(odd) ?? "";
+      expect(logged, odd).toContain(":tile");
+      expect(logged, odd).not.toMatch(/74000|50000/);
+    }
+    expect(redactRequestUrl("/api/team/map-tiles")).toBe("/api/team/map-tiles");
+  });
+
+  it("an error that quotes a request address is logged without its message (SYC-255)", () => {
+    const err = new URIError("Failed to decode param '17%zz'");
+    const logged = JSON.stringify(safeError(err));
+    expect(logged).not.toContain("17%zz");
+    expect(logged).toContain("URIError");
   });
 
   it("redacts map tile addresses from the request path (SYC-255)", () => {
