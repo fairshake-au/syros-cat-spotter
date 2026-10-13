@@ -298,6 +298,7 @@ The plan's decisions, as answered:
 - **C1: the old care route.** `POST /cats/:catId/updates` refuses `general` now; `desexed` and `adopted` stay until SYC-185 retires the route.
 - **D1: chip pictures.** One consistent set of simple drawn pictures for the colour and marking chips, reviewed by Samuel in the browser check; the torn ear is drawn and shown beside the real ear-tip photo.
 - **E1: two colours on the cat's page.** Joined with " · " in every language ("Ginger · Tabby · White paws"), with no grammar to get wrong.
+- **Who wins on colour and markings (13 October 2026).** Decision G from the roles plan (vet > owner > cat guardian > team) applies to appearance with one carve-out: vets, imported records and owners have no standing on colour or markings (owners until SYC-130 decides). So a cat guardian's statement outranks the team's whatever the dates, and the newest wins only within a level. The team overrules a guardian by pressing **Correct**, which marks her statement wrong and records the team's answer in one step, with a reason, on the recent guardian changes list. Samuel considered letting the photo-reading model referee guardian–team disagreements and chose not to: people decide, the machine stays below them (in keeping with §4.2 rule 1 of `coat-markings-and-health.md`, where a later machine reading never overrides a person's statement).
 
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
