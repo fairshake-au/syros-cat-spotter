@@ -534,6 +534,56 @@ describe("the alert email (item 1.5)", () => {
       expect(all).toContain(`https://maps.apple.com/?ll=${LAT},${LNG}`);
     });
 
+    it("if the distance check hangs, the alert still sends after about 2 s, without map links", async () => {
+      const spy = vi
+        .spyOn(proximity, "isNearFeedingSite")
+        .mockImplementation(() => new Promise<boolean>(() => {}));
+      try {
+        const { body } = await submit({ hasPhoto: false });
+        await settleOutbox();
+        const all = everything(body.publicId);
+        expect(all).toContain(`${LAT}, ${LNG}`);
+        expect(all).not.toContain("google.com/maps");
+        expect(all).not.toContain("maps.apple.com");
+        const [alert] = await outboxFor((await reportRow(body.publicId)).id);
+        expect(alert!.state).toBe("sent");
+      } finally {
+        spy.mockRestore();
+      }
+    }, 10_000);
+
+    it("a retry reuses the first attempt's decision: no links, even though the check now works", async () => {
+      // Attempt 1: the check fails and the send fails (response lost).
+      const spy = vi
+        .spyOn(proximity, "isNearFeedingSite")
+        .mockRejectedValue(new Error("db down"));
+      failMail = true;
+      let body: { publicId: string };
+      try {
+        ({ body } = await submit({ hasPhoto: false }));
+        await settleOutbox();
+      } finally {
+        spy.mockRestore();
+      }
+      const row = await reportRow(body.publicId);
+      const [queued] = await outboxFor(row.id);
+      expect(queued!.state).toBe("queued");
+      expect((queued!.payload as { withMapLinks?: boolean }).withMapLinks).toBe(false);
+      // Attempt 2: the check would now say "far from any site" (links yes).
+      failMail = false;
+      const check = vi.spyOn(proximity, "isNearFeedingSite").mockResolvedValue(false);
+      try {
+        await makeAllDue();
+        await drainAll();
+      } finally {
+        check.mockRestore();
+      }
+      const all = everything(body.publicId);
+      expect(all).not.toContain("google.com/maps");
+      expect(all).not.toContain("maps.apple.com");
+      expect(check).not.toHaveBeenCalled();
+    });
+
     it("if the distance check throws, the alert still sends, without map links", async () => {
       const spy = vi
         .spyOn(proximity, "isNearFeedingSite")

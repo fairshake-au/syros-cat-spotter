@@ -163,9 +163,9 @@ function reportCard(
   r: QueueReport,
   now: Date,
   closed: boolean,
-  changedId?: string,
-  tied?: TiedNotice,
-  near: NearSites = new Set(),
+  changedId: string | undefined,
+  tied: TiedNotice | undefined,
+  near: NearSites,
 ): string {
   const classes = [
     "report",
@@ -255,9 +255,9 @@ export function renderQueuePage(
   queue: WelfareQueue,
   personName: string,
   now: Date = new Date(),
-  changedId?: string,
-  tied?: TiedNotice,
-  near: NearSites = new Set(),
+  changedId: string | undefined,
+  tied: TiedNotice | undefined,
+  near: NearSites,
 ): string {
   const open = queue.open.length
     ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, near)).join("")

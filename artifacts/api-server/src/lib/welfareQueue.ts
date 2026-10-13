@@ -10,7 +10,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { OVERDUE_MINUTES } from "./mail/outbox";
 import { logger, safeError } from "./logger";
-import { pointsNearFeedingSite } from "./feedingSiteProximity";
+import { pointsNearFeedingSite, withCheckTimeout } from "./feedingSiteProximity";
 
 /**
  * The welfare queue's data (SYC-43 part 2 plan, PR 1; spec §3.1, §4.2).
@@ -324,12 +324,14 @@ export async function queueNearFeedingSites(
   queue: WelfareQueue,
 ): Promise<Set<string> | null> {
   try {
-    return await pointsNearFeedingSite(
-      [...queue.open, ...queue.closed, ...queue.drafts].map((r) => ({
-        key: r.id,
-        lat: r.lat,
-        lng: r.lng,
-      })),
+    return await withCheckTimeout(
+      pointsNearFeedingSite(
+        [...queue.open, ...queue.closed, ...queue.drafts].map((r) => ({
+          key: r.id,
+          lat: r.lat,
+          lng: r.lng,
+        })),
+      ),
     );
   } catch (err) {
     logger.error({ err: safeError(err) }, "feeding-site check failed for the queue");

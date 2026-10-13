@@ -399,4 +399,30 @@ describe("SYC-245 (SYC-209 Decision 2B): the map link near a feeding site", () =
       spy.mockRestore();
     }
   });
+
+  it("a distance check that never answers is given up on after 2 s, and the page shows no links", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const spy = vi
+      .spyOn(proximity, "pointsNearFeedingSite")
+      .mockImplementation(() => new Promise<Set<string>>(() => {}));
+    try {
+      const { queueNearFeedingSites } = await import("../lib/welfareQueue");
+      const queue = {
+        open: [{ id: "a", lat: 37.4, lng: 24.9 }],
+        closed: [],
+        drafts: [],
+      } as never;
+      const answer = queueNearFeedingSites(queue);
+      await vi.advanceTimersByTimeAsync(1999);
+      let settled = false;
+      void answer.then(() => (settled = true));
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await answer).toBeNull();
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

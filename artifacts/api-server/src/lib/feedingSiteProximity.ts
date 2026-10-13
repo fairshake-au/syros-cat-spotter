@@ -64,3 +64,25 @@ export async function isNearFeedingSite(
 ): Promise<boolean> {
   return (await pointsNearFeedingSite([{ key: "p", lat, lng }])).has("p");
 }
+
+/** How long a caller waits for the check before treating it as failed. */
+export const FEEDING_SITE_CHECK_TIMEOUT_MS = 2000;
+
+/**
+ * Bound the check. The database pool has no query timeout, and neither an
+ * urgent alert nor the queue page may wait on a hung query. A timeout rejects,
+ * which every caller treats as "the check failed": no map links.
+ */
+export function withCheckTimeout<T>(
+  work: Promise<T>,
+  ms: number = FEEDING_SITE_CHECK_TIMEOUT_MS,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error("feeding-site check timed out")),
+      ms,
+    );
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
