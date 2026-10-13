@@ -126,7 +126,7 @@ jti  "<16 random bytes, base64url>"         // single use, §2.4 replay
 6. Look `sub` up in `people`. Not on the list any more → refused. `sv` lower than the row's current session version → refused.
 7. Only now, issue the dashboard session.
 
-**When any of that fails**, the API does the same thing every time: **HTTP 401, a fixed body (`{"error":"not_signed_in"}`), no detail about which check failed, and a redirect for browsers back to `admin.catspotters.com`.** The real reason is logged server-side with the `jti` and the request id so a support question has an answer. There is no partial trust and no fallback path: a token that fails any check buys nothing at all. Explicitly, the API never accepts an unsigned identity header, never trusts an `X-User-Email`, and has no "development bypass" that could ship.
+**When any of that fails**, the API does the same thing every time: **HTTP 401, a fixed body (`{"error":"not_signed_in"}`), no detail about which check failed, and a redirect for browsers back to `admin.catspotters.com`.** The real reason is logged server-side with the `jti` and the request id so a support question has an answer. There is no partial trust and no fallback path: a token that fails any check buys nothing at all. **A person who is signed in but lacks the capability for what they asked for is a different case, and is not sent round the sign-in loop: they get a 403 page** saying they cannot do this, with a link back to what they can. Explicitly, the API never accepts an unsigned identity header, never trusts an `X-User-Email`, and has no "development bypass" that could ship.
 
 ### 2.5 The two confirmed bugs in the live flow, and the fixes
 
@@ -277,7 +277,7 @@ The queue is deliberately not a ticketing system. Four states, one note, no assi
 
 ### 3.2 The feeding-site map
 
-Every feeding site on the island, on a map, **visible only to Syros Cats by default**. Each site has one switch: *private* (the default) or *public*, flipped one site at a time, with who flipped it and when recorded — not to police anybody, but so "how did this become public?" always has an answer. There is no bulk action.
+Every feeding site on the island, on a map, **visible only to Syros Cats by default**. Each site has one switch: *private* (the default) or *public*, flipped one site at a time, with who flipped it and when recorded — not to police anybody, but so "how did this become public?" always has an answer. Flipping a site to public goes through the confirmation page of `feeding-sites-and-colonies.md` §4.3 (a preview of what visitors will see, and a recorded "the cat guardian knows" tick); there is no one-click switch. There is no bulk action.
 
 This is a safety feature, not a preference: a public list of where cats reliably gather is a public list of where to find cats.
 
@@ -711,12 +711,12 @@ The same access model later carries invited **cat guardians** (who look after sp
 
 - **People, not admins.** The access table is a table of *people* (§2.9), and it is the only one (§2.7).
 - **Roles and scopes are a join table from day one — not columns.** `person_scopes` (person id, role, colony id nullable). v1.0 put `role` and `scope` on the person as scalar columns, which is exactly the retrofit it claimed to be avoiding: a cat guardian looks after **several** colonies, and real people hold two roles at once — a staff member who is also the guardian of her own alley. A single column forces either a delimited string or the migration we said we would not do. The cost today is one small table.
-- **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. From the first commit the dashboard calls them by name: `view_exact_location` · `hide_photo` · `restore_photo` · `rename_cat` · `rename_colony` · `set_life_status` · `remove_owner` · `set_sterilisation` · `set_site_public` · `change_report_state` · `add_team_note` · `manage_people` · `action_deletion_request`. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
+- **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. The names are the catalogue in `roles-and-invites.md` §6.2, which owns them; this spec does not list them a second time. One name is not in that catalogue yet: `remove_owner`, added by the claim spec (SYC-130); the roles catalogue takes it in. From the first commit the dashboard calls them by name. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
 - **Invitation is the only way in, at every tier.** A guardian will use the same email-link flow. No second sign-in mechanism gets built for the second role.
 - **Every change is attributed from the first record**, as an observation carrying the person's id and `roleAtTime` (`cat-record-data-spine.md` §10.1). Attribution added later cannot describe the past — which is precisely why `roleAtTime` is recorded at write time and never looked up afterwards.
 - **Colony membership already exists** (§3.4), so "which colonies is this person a guardian of?" is a join, not a new concept.
 
-Explicitly **not** built now: an invitation interface, per-field permissions, approval workflows, or an offline volunteer view. Those belong with the roles they serve.
+Invitations, roles, per-person scopes and the confirmation queue are specified in `roles-and-invites.md`, which owns them.
 
 **The real rework risk was never the role column.** It was two people tables on two platforms (§2.7): guardians arriving into that split would break the "no rebuild" claim for reasons that have nothing to do with roles. That is why §2.7 is settled here rather than left open.
 
@@ -741,7 +741,7 @@ Explicitly **not** built now: an invitation interface, per-field permissions, ap
 ### 8.2 The dashboard session — Express
 
 - Hand-off validated exactly as §2.4 lists, then a **`__Host-cs_team` cookie** on `team.catspotters.com`: signed, `HttpOnly`, `Secure`, `SameSite=Lax`, thirty days, carrying person id and `session_version`.
-- **Every request re-checks** the person against `people` and compares `session_version`. Removal and forced sign-out both take effect at the next request.
+- **Every request re-checks** the person against `people` and compares `session_version`. Removal and forced sign-out both take effect at the next request. A signed-in person who lacks a capability gets a `403` (a page for a browser, JSON for anything else), never the `401` and the sign-in redirect, which would send them round a loop (§2).
 - **CORS:** replace `app.use(cors())` with an explicit allow-list and `credentials: true`. The dashboard itself is same-origin and needs none of it; the mobile app's origins are enumerated.
 - **Rate limiting:** a Postgres-backed store (§2.6), with the deployment pinned to one instance until it lands.
 
