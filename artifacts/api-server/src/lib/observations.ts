@@ -456,11 +456,12 @@ function validateValue(
         if (typeof v === "string" && VACCINE_CODES.has(v)) {
           key = `code:${v}`;
         } else if (isPlainObject(v) && typeof v["other"] === "string") {
-          const name = v["other"].trim();
-          if (name.length < 2 || name.length > 60) {
+          // Callers store the name already trimmed.
+          const name = v["other"];
+          if (name !== name.trim() || name.length < 2 || name.length > 60) {
             refuse(
               "MALFORMED_VALUE",
-              "an other vaccine name must be 2 to 60 characters",
+              "an other vaccine name must be trimmed and 2 to 60 characters",
             );
           }
           key = `other:${name.toLowerCase()}`;
@@ -475,8 +476,17 @@ function validateValue(
         }
         seen.add(key);
       }
-      if (value["clinic"] !== undefined && typeof value["clinic"] !== "string") {
-        refuse("MALFORMED_VALUE", "vaccinated.clinic must be a string");
+      const clinic = value["clinic"];
+      if (
+        clinic !== undefined &&
+        (typeof clinic !== "string" ||
+          clinic.trim().length < 1 ||
+          clinic.length > 120)
+      ) {
+        refuse(
+          "MALFORMED_VALUE",
+          "vaccinated.clinic must be a non-blank string of at most 120 characters",
+        );
       }
       return;
     }
@@ -485,7 +495,7 @@ function validateValue(
       if (
         typeof text !== "string" ||
         text.trim().length < 1 ||
-        text.trim().length > 2000
+        text.length > 2000
       ) {
         refuse("MALFORMED_VALUE", "team_note needs { text } of 1 to 2000 characters");
       }

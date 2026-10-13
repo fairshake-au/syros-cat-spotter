@@ -618,7 +618,7 @@ describe("vaccinated validator", () => {
   it("accepts codes, an other vaccine, and a clinic, from staff", async () => {
     const cat = await insertCat();
     await writeAs(cat.id, "vaccinated", {
-      vaccines: ["rabies", "cat_flu_enteritis", { other: "  FeLV " }],
+      vaccines: ["rabies", "cat_flu_enteritis", { other: "FeLV" }],
       clinic: "Ermoupoli Vets",
     });
   });
@@ -932,5 +932,33 @@ describe("no stray retracted key (review fix 6)", () => {
     await expect(
       writeAs(cat.id, "team_note", { text: "a", retracted: true }),
     ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+  });
+});
+
+describe("raw sizes (review fix 7)", () => {
+  it("team_note: raw length at most 2000 and not blank", async () => {
+    const cat = await insertCat();
+    await expect(
+      writeAs(cat.id, "team_note", { text: "a" + " ".repeat(2000) }),
+    ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    await writeAs(cat.id, "team_note", { text: "a" + " ".repeat(1999) });
+  });
+  it("other vaccine name must already be trimmed", async () => {
+    const cat = await insertCat();
+    for (const other of [" FeLV", "FeLV ", "\tFeLV"]) {
+      await expect(
+        writeAs(cat.id, "vaccinated", { vaccines: [{ other }] }),
+      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    }
+    await writeAs(cat.id, "vaccinated", { vaccines: [{ other: "FeLV" }] });
+  });
+  it("clinic: a non-blank string of at most 120 characters", async () => {
+    const cat = await insertCat();
+    for (const clinic of ["", "   ", "x".repeat(121)]) {
+      await expect(
+        writeAs(cat.id, "vaccinated", { vaccines: ["rabies"], clinic }),
+      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    }
+    await writeAs(cat.id, "vaccinated", { vaccines: ["rabies"], clinic: "x".repeat(120) });
   });
 });
