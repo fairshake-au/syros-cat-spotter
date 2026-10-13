@@ -566,6 +566,32 @@ describe("public codes: never both current and superseded (spec §11.1)", () => 
     }
   });
 
+  it("keeps superseded codes for good: update, delete and TRUNCATE are refused", async () => {
+    const id = await site();
+    const code = `kept-${id}`;
+    const r = await c.query<{ id: number }>(
+      `insert into feeding_site_old_codes (site_id, public_id, reason) values ($1, $2, 'retired') returning id`,
+      [id, code],
+    );
+    const oldId = r.rows[0]!.id;
+    await expect(
+      c.query(`update feeding_site_old_codes set reason = 'moved' where id = $1`, [oldId]),
+    ).rejects.toThrow(/feeding_site_old_codes is append-only: UPDATE is not allowed/);
+    await expect(
+      c.query(`update feeding_site_old_codes set public_id = $2 where id = $1`, [oldId, `other-${id}`]),
+    ).rejects.toThrow(/feeding_site_old_codes is append-only: UPDATE is not allowed/);
+    await expect(
+      c.query(`delete from feeding_site_old_codes where id = $1`, [oldId]),
+    ).rejects.toThrow(/feeding_site_old_codes is append-only: DELETE is not allowed/);
+    await expect(c.query(`truncate feeding_site_old_codes`)).rejects.toThrow(
+      /feeding_site_old_codes is append-only: TRUNCATE is not allowed/,
+    );
+    // Freed by nothing: the code stays superseded.
+    await expect(
+      c.query(`update feeding_sites set public_id = $2 where id = $1`, [id, code]),
+    ).rejects.toThrow(/public_id is a superseded code/);
+  });
+
   it("refuses an unknown reason", async () => {
     const id = await site();
     await expect(

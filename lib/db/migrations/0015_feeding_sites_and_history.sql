@@ -183,6 +183,17 @@ CREATE TRIGGER "feeding_sites_code_not_old" BEFORE INSERT OR UPDATE OF "public_i
   FOR EACH ROW WHEN (NEW.public_id IS NOT NULL) EXECUTE FUNCTION "feeding_site_codes_exclusive"();--> statement-breakpoint
 CREATE TRIGGER "feeding_site_old_codes_not_current" BEFORE INSERT OR UPDATE OF "public_id" ON "feeding_site_old_codes"
   FOR EACH ROW EXECUTE FUNCTION "feeding_site_codes_exclusive"();--> statement-breakpoint
+-- Superseded codes are kept for good (spec §11.1: the history shows them and
+-- the public lookup refuses them), so the list is add-only, as
+-- photo_visibility_events is (0014). TRUNCATE uses 0001's shared guard.
+CREATE FUNCTION "feeding_site_old_codes_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'feeding_site_old_codes is append-only: % is not allowed', TG_OP;
+END $$;--> statement-breakpoint
+CREATE TRIGGER "feeding_site_old_codes_append_only" BEFORE UPDATE OR DELETE ON "feeding_site_old_codes"
+  FOR EACH ROW EXECUTE FUNCTION "feeding_site_old_codes_append_only"();--> statement-breakpoint
+CREATE TRIGGER "feeding_site_old_codes_no_truncate" BEFORE TRUNCATE ON "feeding_site_old_codes"
+  FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();--> statement-breakpoint
 -- Sites that existed before the history did get one "existing" event each,
 -- so "how did this become public?" always has an answer (spec §11.1). Every
 -- existing site stays private, with no label and no code.
@@ -208,6 +219,7 @@ SELECT 'site', id, 'existing', 'system:migration',
 -- DROP FUNCTION "mapping_events_append_only"();
 -- DROP FUNCTION "colony_name_history_append_only"();
 -- DROP FUNCTION "feeding_site_codes_exclusive"();
+-- DROP FUNCTION "feeding_site_old_codes_append_only"();
 -- ALTER TABLE "feeding_sites" DROP CONSTRAINT "feeding_sites_public_needs_label_ck";
 -- ALTER TABLE "feeding_sites" DROP CONSTRAINT "feeding_sites_retired_never_public_ck";
 -- ALTER TABLE "feeding_sites" DROP CONSTRAINT "feeding_sites_last_public_pair_ck";
