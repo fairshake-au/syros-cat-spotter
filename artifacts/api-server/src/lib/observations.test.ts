@@ -986,3 +986,16 @@ describe("order of checks (review fix 8)", () => {
     ).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
   });
 });
+
+describe("no retraction of a retraction (review fix 9)", () => {
+  it("refuses a retraction superseding a retraction", async () => {
+    const cat = await insertCat();
+    const base = await writeAs(cat.id, "coat", { colours: ["ginger"] });
+    const retraction = await writeAs(cat.id, "coat", { retracted: true }, "staff", {
+      supersedesId: base.id,
+    });
+    await expect(
+      writeAs(cat.id, "coat", { retracted: true }, "staff", { supersedesId: retraction.id }),
+    ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+  });
+});

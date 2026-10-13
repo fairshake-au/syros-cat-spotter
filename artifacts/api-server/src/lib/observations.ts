@@ -578,6 +578,7 @@ export interface WriteObservationInput {
  * - any supersession whose target is missing or of another kind
  *   (`INVALID_SUPERSESSION`, or the rule's own code), or, for coat and
  *   markings, on another cat;
+ * - a retraction whose target is itself a retraction (`INVALID_RETRACTION`);
  *
  * A `public`-role `observedAt` more than 30 days in the past is not
  * refused — it is clamped to that 30-day boundary, the same rule
@@ -741,6 +742,14 @@ export async function writeObservation(
     // TODO(SYC-59): compare canonical cats through cat_identity once merges exist; today merged cats refuse writes, so this only ever refuses.
     if (isAppearanceKind && target.catId !== input.catId) {
       refuse(refusalCode, "a coat or markings supersession must stay on the same cat");
+    }
+    // A retraction cannot retract a retraction.
+    if (
+      retracting &&
+      isPlainObject(target.value) &&
+      target.value["retracted"] === true
+    ) {
+      refuse("INVALID_RETRACTION", "a retraction cannot supersede a retraction");
     }
     // Every role: a retraction removes only a coat or markings row.
     if (retracting && !(target.kind === "coat" || target.kind === "markings")) {
