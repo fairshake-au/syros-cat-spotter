@@ -331,9 +331,12 @@ Grid snapping handles the obvious attack. These close the rest.
 |---|---|
 | **The public — which is every user of the mobile app** | Cell centre, the 250 m cell drawn, coarse distance, no sighting positions |
 | A spotter, on their own sightings | The positions they themselves recorded — their own walk, on their own device |
+| A **cat guardian**, on the dashboard | Exact positions of cats, and of private feeding sites, in her own colonies, through dashboard pages only |
 | Syros Cats team, on the dashboard | Everything, exactly |
 
 **The mobile app is always a public reader.** There is no sign-in in the app and there is not going to be one: identity is an anonymous per-device id plus a device secret. The team dashboard is a separate web workspace with its own sign-in, specified in `team-access-and-welfare-queue.md`. Staff never sign in to the mobile app, so exact coordinates never reach it.
+
+**The saved list on a guardian's or team member's phone is a dashboard page with its own storage** (`roles-and-invites.md` §12), not the app's cache. It holds the exact positions of the colonies it carries, cats and feeding sites both (so a guardian's own colonies' feeding sites are included), and lasts 72 hours from her last online load, counted by server time. It is deleted the next time it is opened after that, and the dashboard sends `Clear-Site-Data` on sign-out and when her access is removed. The paragraph above is unchanged: the mobile app is always a public reader, and it still holds only public sites.
 
 This replaces the previous rule, which said "a device that signs out of a team account purges its cached catalogue". There is no team account in the app and no sign-out to hang that on; the mitigation was written for the wrong piece of software.
 
