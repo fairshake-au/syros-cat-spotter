@@ -829,3 +829,30 @@ describe("same-kind supersession (review fix 1)", () => {
     ).rejects.toMatchObject(refused("INVALID_SUPERSESSION"));
   });
 });
+
+describe("same-cat supersession for coat and markings (review fix 2)", () => {
+  it("refuses a staff retraction on cat Y pointing at cat X's coat row", async () => {
+    const x = await insertCat();
+    const y = await insertCat();
+    const row = await writeAs(x.id, "coat", { colours: ["ginger"] });
+    await expect(
+      writeAs(y.id, "coat", { retracted: true }, "staff", { supersedesId: row.id }),
+    ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+  });
+  it("refuses device A's coat on cat Y superseding A's own row on cat X", async () => {
+    const x = await insertCat();
+    const y = await insertCat();
+    const row = await writeAs(x.id, "coat", { colours: ["ginger"] }, "public", { deviceId: "dev-A" });
+    await expect(
+      writeAs(y.id, "coat", { colours: ["grey"] }, "public", { deviceId: "dev-A", supersedesId: row.id }),
+    ).rejects.toMatchObject(refused("NOT_YOUR_ROW"));
+  });
+  it("refuses a staff coat correction across cats", async () => {
+    const x = await insertCat();
+    const y = await insertCat();
+    const row = await writeAs(x.id, "coat", { colours: ["ginger"] });
+    await expect(
+      writeAs(y.id, "coat", { colours: ["grey"] }, "staff", { supersedesId: row.id }),
+    ).rejects.toMatchObject(refused("INVALID_SUPERSESSION"));
+  });
+});

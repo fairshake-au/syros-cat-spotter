@@ -673,16 +673,20 @@ export async function writeObservation(
       .select()
       .from(observationsTable)
       .where(eq(observationsTable.id, supersedesId));
+    const refusalCode = needsOwnRow
+      ? "NOT_YOUR_ROW"
+      : retracting
+        ? "INVALID_RETRACTION"
+        : "INVALID_SUPERSESSION";
     // Every role, every kind: a supersession stays within one kind.
     if (!(target && target.kind === input.kind)) {
-      refuse(
-        needsOwnRow
-          ? "NOT_YOUR_ROW"
-          : retracting
-            ? "INVALID_RETRACTION"
-            : "INVALID_SUPERSESSION",
-        "a supersession must target an existing row of the same kind",
-      );
+      refuse(refusalCode, "a supersession must target an existing row of the same kind");
+    }
+    // coat and markings only: the same cat. (Not other kinds: a welfare
+    // re-tie crosses cats on purpose.)
+    // TODO(SYC-59): compare canonical cats through cat_identity once merges exist; today merged cats refuse writes, so this only ever refuses.
+    if (isAppearanceKind && target.catId !== input.catId) {
+      refuse(refusalCode, "a coat or markings supersession must stay on the same cat");
     }
     // Every role: a retraction removes only a coat or markings row.
     if (retracting && !(target.kind === "coat" || target.kind === "markings")) {
