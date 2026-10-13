@@ -81,6 +81,11 @@ export const SYSTEM_AUTHORS = [
   "system:admin-route",
   "system:vision",
   "system:welfare-report",
+  // SYC-209 PR 1.1: the authors of feeding-site and colony history rows that
+  // no person wrote (mapping_events.actor_system; MAPPING_SYSTEM_ACTORS in
+  // @workspace/db). Listed here so the name is reserved everywhere.
+  "system:seed",
+  "system:migration",
 ] as const;
 export type SystemAuthor = (typeof SYSTEM_AUTHORS)[number];
 
