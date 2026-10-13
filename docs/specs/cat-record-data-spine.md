@@ -810,7 +810,7 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
 //   colony  { colonyId: null }     // an explicit "in no colony"
 ```
 
-**The `colony` observation gains a "no colony" value.** `{ colonyId: null }` is an explicit statement that the cat is in no colony, so taking a cat out of a colony is a dated claim like putting one in. The rule is the same as everywhere else in §10.1: **the newest active statement stands**, whether it names a colony or says "in no colony". A cat with no `colony` observation at all has never been placed, which is different from having been taken out.
+**The `colony` observation gains a "no colony" value.** `{ colonyId: null }` is an explicit statement that the cat is in no colony, so taking a cat out of a colony is a dated claim like putting one in. The rule is the same as everywhere else in §10.1: **the newest active statement stands**, whether it names a colony or says "in no colony".
 
 `colony` joins `life_status`, `sterilised`, `ear_tip`, `food_and_water`, `note` and `name` in the phase-1 observation vocabulary. **A colony observation is not evidence of life** and does not feed §3.4's derivation — it says where a cat lives, not that it was seen.
 
