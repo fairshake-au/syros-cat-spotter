@@ -6,7 +6,10 @@ import {
   loadCatRecords,
   ObservationRefused,
   SYSTEM_AUTHORS,
+  MARKS,
+  normaliseColours,
 } from "./observations";
+import { resolveLifeStatus } from "./resolve";
 
 // observations is append-only (cat-record-data-spine.md §10.1) — nothing in
 // this file ever deletes a row from it. Cleanup removes only the cat rows
@@ -465,5 +468,351 @@ describe("loadCatRecords", () => {
     expect(found).toBeDefined();
     expect(found!.redactedAt).not.toBeNull();
     expect((found!.value as { sterilised: boolean }).sterilised).toBe(true);
+  });
+
+  it("T-life: the four new kinds are never evidence of life (an old cat stays presumed deceased)", async () => {
+    const fourYearsAgo = new Date(Date.now() - 4 * 365 * 86_400_000);
+    const cat = await insertCat({ createdAt: fourYearsAgo });
+    const recent = new Date(Date.now() - 2 * 86_400_000);
+    const staff = { accountId: "staff-life", roleAtTime: "staff" as const, observedAt: recent };
+    await writeObservation(db, { ...staff, catId: cat.id, kind: "coat", value: { colours: ["ginger"] } });
+    await writeObservation(db, { ...staff, catId: cat.id, kind: "markings", value: { marks: ["white_paws"] } });
+    await writeObservation(db, { ...staff, catId: cat.id, kind: "vaccinated", value: { vaccines: ["rabies"] } });
+    await writeObservation(db, { ...staff, catId: cat.id, kind: "team_note", value: { text: "limping" } });
+    const rec = (await loadCatRecords([cat.id])).get(cat.id)!;
+    expect(rec.evidenceOfLife!.source).toBe("created");
+    expect(rec.evidenceOfLife!.at.toISOString()).toBe(fourYearsAgo.toISOString());
+    const life = resolveLifeStatus(rec.observations, rec.evidenceOfLife, new Date());
+    expect(life.presumedDeceased).toBe(true);
+    expect(life.value).toBe("street");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SYC-2 PR 1.1: coat, markings, vaccinated, team_note
+// ---------------------------------------------------------------------------
+
+type Kind = "coat" | "markings" | "vaccinated" | "team_note" | "sterilised";
+
+async function writeAs(
+  catId: number,
+  kind: Kind,
+  value: unknown,
+  who: "public" | "staff" | "guardian" | "system" | "vet" = "staff",
+  extra: Record<string, unknown> = {},
+) {
+  const author =
+    who === "public"
+      ? { deviceId: "dev-default" }
+      : { accountId: who === "system" ? "system:vision" : "staff-pr11" };
+  return writeObservation(db, {
+    catId,
+    kind,
+    value,
+    roleAtTime: who,
+    observedAt: new Date(),
+    ...author,
+    ...extra,
+  });
+}
+
+const refused = (code: string) => ({ code });
+
+describe("normaliseColours", () => {
+  it("turns black + white into black_and_white, in either order", () => {
+    expect(normaliseColours(["black", "white"])).toEqual(["black_and_white"]);
+    expect(normaliseColours(["white", "black"])).toEqual(["black_and_white"]);
+  });
+  it("de-duplicates, and leaves everything else in its original order", () => {
+    expect(normaliseColours(["ginger", "ginger"])).toEqual(["ginger"]);
+    expect(normaliseColours(["black", "black", "white"])).toEqual(["black_and_white"]);
+    expect(normaliseColours(["tabby", "ginger"])).toEqual(["tabby", "ginger"]);
+    expect(normaliseColours(["black", "ginger"])).toEqual(["black", "ginger"]);
+  });
+});
+
+describe("coat validator", () => {
+  it("accepts a person's coat pair from public", async () => {
+    const cat = await insertCat();
+    const row = await writeAs(cat.id, "coat", { colours: ["ginger", "tabby"] }, "public");
+    expect(row.kind).toBe("coat");
+  });
+  it("accepts black_and_white and not_sure alone, and tolerates extra keys", async () => {
+    const cat = await insertCat();
+    await writeAs(cat.id, "coat", { colours: ["black_and_white"] }, "staff");
+    await writeAs(cat.id, "coat", { colours: ["not_sure"], agreesWith: 1, reason: "x" }, "staff");
+  });
+  it("refuses a person's coat carrying modelVersion", async () => {
+    const cat = await insertCat();
+    await expect(
+      writeAs(cat.id, "coat", { colours: ["ginger"], modelVersion: "v1" }, "public"),
+    ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+  });
+  it("refuses a machine coat without modelVersion, or with an empty one", async () => {
+    const cat = await insertCat();
+    for (const value of [{ colours: ["ginger"] }, { colours: ["ginger"], modelVersion: "" }]) {
+      await expect(
+        writeAs(cat.id, "coat", value, "system", { provenance: "machine" }),
+      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    }
+  });
+  it("refuses the raw black + white pair, duplicates, not_sure combined, empty, three, unknown", async () => {
+    const cat = await insertCat();
+    for (const colours of [
+      ["black", "white"],
+      ["white", "black"],
+      ["ginger", "ginger"],
+      ["not_sure", "ginger"],
+      [],
+      ["ginger", "tabby", "grey"],
+      ["purple"],
+    ]) {
+      await expect(writeAs(cat.id, "coat", { colours }, "staff")).rejects.toMatchObject(
+        refused("MALFORMED_VALUE"),
+      );
+    }
+    await expect(writeAs(cat.id, "coat", { colours: "ginger" }, "staff")).rejects.toMatchObject(
+      refused("MALFORMED_VALUE"),
+    );
+  });
+});
+
+describe("markings validator", () => {
+  it("has the eleven codes in spec order", () => {
+    expect(MARKS).toHaveLength(11);
+    expect(MARKS[0]).toBe("white_paws");
+    expect(MARKS[10]).toBe("odd_eyes");
+  });
+  it("accepts [] and { cantTell: true }", async () => {
+    const cat = await insertCat();
+    await writeAs(cat.id, "markings", { marks: [] }, "public");
+    await writeAs(cat.id, "markings", { cantTell: true }, "public");
+  });
+  it("refuses five marks from public, accepts five from staff", async () => {
+    const cat = await insertCat();
+    const five = MARKS.slice(0, 5);
+    await expect(writeAs(cat.id, "markings", { marks: five }, "public")).rejects.toMatchObject(
+      refused("MALFORMED_VALUE"),
+    );
+    await writeAs(cat.id, "markings", { marks: MARKS.slice(0, 4) }, "public");
+    await writeAs(cat.id, "markings", { marks: five }, "staff");
+  });
+  it("refuses an unknown mark, duplicates, cantTell with marks, cantTell false, and a non-array", async () => {
+    const cat = await insertCat();
+    for (const value of [
+      { marks: ["not_a_mark"] },
+      { marks: ["torn_ear", "torn_ear"] },
+      { cantTell: true, marks: [] },
+      { cantTell: false },
+      { marks: "torn_ear" },
+      {},
+    ]) {
+      await expect(writeAs(cat.id, "markings", value, "staff")).rejects.toMatchObject(
+        refused("MALFORMED_VALUE"),
+      );
+    }
+  });
+});
+
+describe("vaccinated validator", () => {
+  it("accepts codes, an other vaccine, and a clinic, from staff", async () => {
+    const cat = await insertCat();
+    await writeAs(cat.id, "vaccinated", {
+      vaccines: ["rabies", "cat_flu_enteritis", { other: "  FeLV " }],
+      clinic: "Ermoupoli Vets",
+    });
+  });
+  it("refuses public, guardian and system with ROLE_NOT_ALLOWED_FOR_KIND", async () => {
+    const cat = await insertCat();
+    for (const who of ["public", "guardian", "system"] as const) {
+      await expect(
+        writeAs(cat.id, "vaccinated", { vaccines: ["rabies"] }, who),
+      ).rejects.toMatchObject(refused("ROLE_NOT_ALLOWED_FOR_KIND"));
+    }
+  });
+  it("refuses a bad other name (1 char, 61 chars, none, blank)", async () => {
+    const cat = await insertCat();
+    for (const other of ["a", "x".repeat(61), " a "]) {
+      await expect(
+        writeAs(cat.id, "vaccinated", { vaccines: [{ other }] }),
+      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    }
+    await expect(writeAs(cat.id, "vaccinated", { vaccines: [{}] })).rejects.toMatchObject(
+      refused("MALFORMED_VALUE"),
+    );
+    await writeAs(cat.id, "vaccinated", { vaccines: [{ other: "x".repeat(60) }] });
+  });
+  it("refuses 0 or 4 vaccines, unknown codes, duplicates and a non-string clinic", async () => {
+    const cat = await insertCat();
+    for (const value of [
+      { vaccines: [] },
+      { vaccines: ["rabies", "cat_flu_enteritis", { other: "aa" }, { other: "bb" }] },
+      { vaccines: ["measles"] },
+      { vaccines: ["rabies", "rabies"] },
+      { vaccines: [{ other: "FeLV" }, { other: " felv " }] },
+      { vaccines: ["rabies"], clinic: 5 },
+      { retracted: true },
+    ]) {
+      await expect(writeAs(cat.id, "vaccinated", value)).rejects.toMatchObject(
+        refused("MALFORMED_VALUE"),
+      );
+    }
+  });
+});
+
+describe("team_note validator", () => {
+  it("accepts staff, refuses public and system", async () => {
+    const cat = await insertCat();
+    await writeAs(cat.id, "team_note", { text: "limping on the left" });
+    for (const who of ["public", "system"] as const) {
+      await expect(writeAs(cat.id, "team_note", { text: "x" }, who)).rejects.toMatchObject(
+        refused("ROLE_NOT_ALLOWED_FOR_KIND"),
+      );
+    }
+  });
+  it("refuses empty, blank and 2001-character text; accepts 2000", async () => {
+    const cat = await insertCat();
+    for (const text of ["", "   ", "x".repeat(2001)]) {
+      await expect(writeAs(cat.id, "team_note", { text })).rejects.toMatchObject(
+        refused("MALFORMED_VALUE"),
+      );
+    }
+    await writeAs(cat.id, "team_note", { text: "x".repeat(2000) });
+  });
+});
+
+describe("per-kind role rules", () => {
+  it("refuses vet for coat and markings", async () => {
+    const cat = await insertCat();
+    for (const [kind, value] of [
+      ["coat", { colours: ["ginger"] }],
+      ["markings", { marks: [] }],
+    ] as const) {
+      await expect(writeAs(cat.id, kind, value, "vet")).rejects.toMatchObject(
+        refused("ROLE_NOT_ALLOWED_FOR_KIND"),
+      );
+    }
+  });
+});
+
+describe("retraction", () => {
+  it("refuses { retracted: true } from public", async () => {
+    const cat = await insertCat();
+    const base = await writeAs(cat.id, "coat", { colours: ["ginger"] }, "public");
+    await expect(
+      writeAs(cat.id, "coat", { retracted: true }, "public", { supersedesId: base.id }),
+    ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+  });
+  it("refuses a retraction with no supersedesId, or a missing target", async () => {
+    const cat = await insertCat();
+    await expect(writeAs(cat.id, "coat", { retracted: true })).rejects.toMatchObject(
+      refused("INVALID_RETRACTION"),
+    );
+    await expect(
+      writeAs(cat.id, "markings", { retracted: true }, "staff", { supersedesId: 2_000_000_000 }),
+    ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+  });
+  it("accepts staff retracting a staff coat row, tolerating a reason key", async () => {
+    const cat = await insertCat();
+    const base = await writeAs(cat.id, "coat", { colours: ["ginger"] });
+    const row = await writeAs(cat.id, "coat", { retracted: true, reason: "wrong cat" }, "staff", {
+      supersedesId: base.id,
+    });
+    expect(row.supersedesId).toBe(base.id);
+  });
+  it("refuses a malformed retraction (retracted not exactly true, or mixed with statement keys)", async () => {
+    const cat = await insertCat();
+    const base = await writeAs(cat.id, "coat", { colours: ["ginger"] });
+    for (const value of [
+      { retracted: false },
+      { retracted: "yes" },
+      { retracted: true, colours: ["ginger"] },
+      { retracted: true, modelVersion: "v1" },
+    ]) {
+      await expect(
+        writeAs(cat.id, "coat", value, "staff", { supersedesId: base.id }),
+      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    }
+    const m = await writeAs(cat.id, "markings", { marks: [] });
+    await expect(
+      writeAs(cat.id, "markings", { retracted: true, cantTell: true }, "staff", {
+        supersedesId: m.id,
+      }),
+    ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+  });
+  it("other kinds do not accept a retraction value", async () => {
+    const cat = await insertCat();
+    await expect(writeAs(cat.id, "sterilised", { retracted: true })).rejects.toMatchObject(
+      refused("MALFORMED_VALUE"),
+    );
+  });
+  it("T-retract-kind: a retraction can only supersede a row of its own kind (coat or markings)", async () => {
+    const cat = await insertCat();
+    const sterilised = await writeAs(cat.id, "sterilised", { sterilised: true });
+    const vaccinated = await writeAs(cat.id, "vaccinated", { vaccines: ["rabies"] });
+    const note = await writeAs(cat.id, "team_note", { text: "n" });
+    const coat = await writeAs(cat.id, "coat", { colours: ["ginger"] });
+    for (const kind of ["coat", "markings"] as const) {
+      for (const target of [sterilised, vaccinated, note]) {
+        await expect(
+          writeAs(cat.id, kind, { retracted: true }, "staff", { supersedesId: target.id }),
+        ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+      }
+    }
+    await expect(
+      writeAs(cat.id, "markings", { retracted: true }, "staff", { supersedesId: coat.id }),
+    ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
+  });
+});
+
+describe("own-row rule (C2)", () => {
+  it("T-own-row: a device cannot supersede another device's row, but can supersede its own", async () => {
+    const cat = await insertCat();
+    const a = await writeAs(cat.id, "coat", { colours: ["ginger"] }, "public", {
+      deviceId: "dev-A",
+    });
+    await expect(
+      writeAs(cat.id, "coat", { colours: ["grey"] }, "public", {
+        deviceId: "dev-B",
+        supersedesId: a.id,
+      }),
+    ).rejects.toMatchObject(refused("NOT_YOUR_ROW"));
+    const own = await writeAs(cat.id, "coat", { colours: ["grey"] }, "public", {
+      deviceId: "dev-A",
+      supersedesId: a.id,
+    });
+    expect(own.supersedesId).toBe(a.id);
+  });
+  it("T-own-row: a public markings write cannot supersede the device's own coat row", async () => {
+    const cat = await insertCat();
+    const a = await writeAs(cat.id, "coat", { colours: ["ginger"] }, "public", {
+      deviceId: "dev-A",
+    });
+    await expect(
+      writeAs(cat.id, "markings", { marks: [] }, "public", {
+        deviceId: "dev-A",
+        supersedesId: a.id,
+      }),
+    ).rejects.toMatchObject(refused("NOT_YOUR_ROW"));
+  });
+  it("T-own-row: a public write cannot supersede a team row or a missing row", async () => {
+    const cat = await insertCat();
+    const team = await writeAs(cat.id, "coat", { colours: ["ginger"] });
+    await expect(
+      writeAs(cat.id, "coat", { colours: ["grey"] }, "public", { supersedesId: team.id }),
+    ).rejects.toMatchObject(refused("NOT_YOUR_ROW"));
+    await expect(
+      writeAs(cat.id, "coat", { colours: ["grey"] }, "public", { supersedesId: 2_000_000_000 }),
+    ).rejects.toMatchObject(refused("NOT_YOUR_ROW"));
+  });
+  it("leaves team supersession of a device's row unchanged", async () => {
+    const cat = await insertCat();
+    const a = await writeAs(cat.id, "coat", { colours: ["ginger"] }, "public", {
+      deviceId: "dev-A",
+    });
+    const row = await writeAs(cat.id, "coat", { colours: ["grey"] }, "staff", {
+      supersedesId: a.id,
+    });
+    expect(row.supersedesId).toBe(a.id);
   });
 });
