@@ -9,7 +9,15 @@ import { describe, expect, it } from "vitest";
 // this test failing.
 
 const DIR = dirname(fileURLToPath(import.meta.url));
-const MAP_COMPANIES = ["google.com/maps", "maps.apple.com"];
+const MAP_COMPANIES = [
+  "google.com/maps",
+  "maps.apple.com",
+  "maps.google.",
+  "goo.gl/maps",
+  "geo:",
+  "waze.com",
+  "openstreetmap.org/?mlat",
+];
 
 // Decision 2B: the welfare queue keeps its Google link for positions far from
 // every feeding site (directions for a cat in trouble), and drops it within
@@ -40,8 +48,10 @@ describe("no link to a map company from the team's pages", () => {
     },
   );
 
-  it("the exemption is narrow: queuePage.ts has no Apple link", () => {
+  it("the exemption is narrow: queuePage.ts has exactly one Google maps address and no other map company", () => {
     const text = readFileSync(join(DIR, "queuePage.ts"), "utf8");
-    expect(text).not.toContain("maps.apple.com");
+    expect(text.split("google.com/maps")).toHaveLength(2);
+    for (const company of MAP_COMPANIES.filter((c) => c !== "google.com/maps"))
+      expect(text).not.toContain(company);
   });
 });
