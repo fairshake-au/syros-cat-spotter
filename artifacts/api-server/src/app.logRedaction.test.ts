@@ -78,6 +78,17 @@ describe("request log redaction (SYC-109)", () => {
     expect(redactRequestUrl("/api/healthz")).toBe("/api/healthz");
   });
 
+  it("logs a map tile request through the real app without its position (SYC-255)", async () => {
+    await request(app).get("/api/team/map-tiles/17/74000/50000.png").query({ z: "17" });
+    const completed = spies.logLines.filter((l) => l.includes('"request completed"'));
+    expect(completed).toHaveLength(1);
+    expect(completed[0]).toContain("/api/team/map-tiles/:tile");
+    for (const line of spies.logLines) {
+      expect(line).not.toContain("74000");
+      expect(line).not.toContain("50000");
+    }
+  });
+
   it("redacts map tile addresses from the request path (SYC-255)", () => {
     expect(redactRequestUrl("/api/team/map-tiles/17/74000/50000.png")).toBe(
       "/api/team/map-tiles/:tile",

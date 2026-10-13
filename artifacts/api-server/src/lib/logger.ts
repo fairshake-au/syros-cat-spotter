@@ -44,9 +44,11 @@ export function safeError(err: unknown): Record<string, unknown> {
  * checked) are dropped. The two static `/profiles/username-*` routes keep
  * their real path. Case-insensitive, because Express routes are.
  *
- * Map tile addresses (SYC-255) are tile coordinates used for map rendering and
- * are redacted from logs: `/api/team/map-tiles/17/74000/50000.png` becomes
- * `/api/team/map-tiles/:tile`. This rule runs before the device-id rule.
+ * Map tile addresses (SYC-255): at the closest zoom a tile's z/x/y pins a
+ * spot on Syros to about 75 m, and the team map's tiles are fetched whenever a
+ * private feeding site's page opens, so logging the path would log where the
+ * site is. Everything after `/api/team/map-tiles/` becomes `:tile`, e.g.
+ * `/api/team/map-tiles/17/74000/50000.png` → `/api/team/map-tiles/:tile`.
  */
 const MAP_TILE_IN_PATH = /\/api\/team\/map-tiles\/[^?]+/i;
 const DEVICE_ID_IN_PATH =
