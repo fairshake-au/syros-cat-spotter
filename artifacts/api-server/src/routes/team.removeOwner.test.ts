@@ -387,15 +387,16 @@ describe("Remove owner (spec §7)", () => {
     expect((await removeOwner("abc" as unknown as number)).status).toBe(404);
   });
 
-  it("afterwards the former owner's phone, and another phone that met the cat, can claim", async () => {
+  it("afterwards another phone that met the cat can claim; the removed phone waits 30 days", async () => {
     const { c, d } = await ownedCat("after");
     const other = phone("after-other");
     await met(c.id, other);
     await bind(other);
     expect((await detail(c.id, other)).body.canClaim).toBe(false);
     expect((await removeOwner(c.id)).status).toBe(303);
-    // A team removal starts no let-go cooldown: only the phone's own let-go does.
-    expect((await detail(c.id, d)).body.canClaim).toBe(true);
+    // A team removal blocks that phone for that cat for 30 days (Samuel, 14 Oct 2026).
+    expect((await detail(c.id, d)).body.canClaim).toBe(false);
+    expect((await claim(c.id, d)).status).toBe(429);
     expect((await detail(c.id, other)).body.canClaim).toBe(true);
     expect((await claim(c.id, other)).status).toBe(200);
     expect((await reload(c.id)).ownerDeviceId).toBe(other.id);

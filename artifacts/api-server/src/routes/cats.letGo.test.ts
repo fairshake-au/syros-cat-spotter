@@ -62,6 +62,7 @@ import app from "../app";
 import { sendPushNotification } from "../lib/push";
 import { notifyCatSpotters } from "../lib/notifications";
 import { WITHDRAWN, writeObservation } from "../lib/observations";
+import { clearOwner } from "../lib/claiming";
 import { blurPosition } from "../lib/blur";
 import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
 
@@ -510,5 +511,93 @@ describe("POST /api/cats/:catId/let-go (SYC-130 §6)", () => {
       expect(text).not.toContain(String(v));
       expect(text).not.toContain(v.toFixed(5));
     }
+  });
+});
+
+describe("after the team removes an owner: 30 days (Samuel, 14 Oct 2026)", () => {
+  /** What Remove owner writes: a staff withdrawal of the owner's homed, and
+   * the owner cleared. `ageDays` back-dates it (observations are append-only,
+   * so it is inserted that way, as the 'cooldown-old' case does). */
+  async function teamRemoves(catId: number, ageDays = 0) {
+    const [h] = await homed(catId);
+    if (ageDays === 0) {
+      await writeObservation(db, {
+        catId,
+        kind: "life_status",
+        value: WITHDRAWN,
+        allowWithdrawal: true,
+        accountId: "system:legacy-backfill",
+        roleAtTime: "staff",
+        observedAt: new Date(),
+        supersedesId: h!.id,
+      });
+    } else {
+      await db.insert(observationsTable).values({
+        catId,
+        kind: "life_status",
+        value: WITHDRAWN,
+        accountId: "system:legacy-backfill",
+        roleAtTime: "staff",
+        observedAt: daysAgo(ageDays),
+        createdAt: daysAgo(ageDays),
+        supersedesId: h!.id,
+      });
+    }
+    await clearOwner(db, catId);
+  }
+
+  it("the removed phone: canClaim false, claimCooldown true, claim 429 CLAIM_COOLDOWN, on the day and at 29 days", async () => {
+    for (const age of [0, 29]) {
+      const { c, d } = await ownedCat(`removed-${age}`);
+      await teamRemoves(c.id, age);
+      const page = await detail(c.id, d, d.secret);
+      expect(page.body.canClaim).toBe(false);
+      expect(page.body.claimCooldown).toBe(true);
+      const res = await claim(c.id, d);
+      expect(res.status).toBe(429);
+      expect(res.body).toEqual({ error: expect.any(String), code: "CLAIM_COOLDOWN" });
+      expect((await reload(c.id)).ownerDeviceId).toBeNull();
+    }
+  });
+
+  it("after 31 days it can claim again", async () => {
+    const { c, d } = await ownedCat("removed-31");
+    await teamRemoves(c.id, 31);
+    const page = await detail(c.id, d, d.secret);
+    expect(page.body.canClaim).toBe(true);
+    expect(page.body.claimCooldown).toBe(false);
+    expect((await claim(c.id, d)).status).toBe(200);
+  });
+
+  it("another phone that met the cat can claim straight away", async () => {
+    const { c } = await ownedCat("removed-other");
+    await teamRemoves(c.id);
+    const other = phone("removed-other2");
+    await met(c.id, other);
+    await bind(other);
+    expect((await detail(c.id, other, other.secret)).body.canClaim).toBe(true);
+    expect((await claim(c.id, other)).status).toBe(200);
+  });
+
+  it("the block is for that cat only", async () => {
+    const { c, d } = await ownedCat("removed-cat");
+    await teamRemoves(c.id);
+    const c2 = await streetCat();
+    await met(c2.id, d);
+    expect((await claim(c2.id, d)).status).toBe(200);
+  });
+
+  it("an owner's own let-go is still 7 days, not 30", async () => {
+    const { c, d } = await ownedCat("own-letgo");
+    expect((await letGo(c.id, d)).status).toBe(200);
+    // Back-date that let-go to 10 days: free again (a 30-day rule would still block).
+    const [w] = await withdrawals(c.id);
+    await db.execute(sql`alter table observations disable trigger user`);
+    try {
+      await db.update(observationsTable).set({ createdAt: daysAgo(10) }).where(eq(observationsTable.id, w!.id));
+    } finally {
+      await db.execute(sql`alter table observations enable trigger user`);
+    }
+    expect((await detail(c.id, d, d.secret)).body.canClaim).toBe(true);
   });
 });
