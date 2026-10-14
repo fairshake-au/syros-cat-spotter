@@ -56,7 +56,7 @@ export default function CatDetailScreen() {
   const params = useLocalSearchParams<{ id: string; updateId?: string }>();
   const catId = Number(params.id);
   const updateId = Number(params.updateId);
-  const { ownedCatIds, deviceId } = useDevice();
+  const { ownedCatIds, deviceId, isReady, startupError } = useDevice();
   const { notifications, markRead } = useNotifications();
   const [sheet, setSheet] = React.useState<'claim' | 'edit' | null>(null);
 
@@ -87,8 +87,18 @@ export default function CatDetailScreen() {
   // with the exact position, and tells a phone whether it may say "This is
   // my cat" (`canClaim`, claiming-a-cat.md §4.1). Everyone else, and every
   // list, gets the cell and `canClaim: false`.
+  //
+  // Ask only once the device id and secret are loaded: a request that leaves
+  // first is answered as the public, and an owner would not see Edit or "doesn't
+  // live with me" until a refetch. The device id is in the query key, so each
+  // phone has its own answer. If the device setup failed outright (isReady
+  // never comes), ask anyway as the public rather than spin forever.
+  const deviceKnown = isReady || startupError !== null;
   const query = useGetCat(catId, {
-    query: { enabled: Number.isFinite(catId), queryKey: getGetCatQueryKey(catId) },
+    query: {
+      enabled: Number.isFinite(catId) && deviceKnown,
+      queryKey: [...getGetCatQueryKey(catId), deviceId],
+    },
     request: deviceId !== null ? { headers: { 'X-Device-Id': deviceId } } : undefined,
   });
 
@@ -97,7 +107,7 @@ export default function CatDetailScreen() {
     else router.replace('/(tabs)/cats');
   };
 
-  if (query.isLoading) {
+  if (!deviceKnown || query.isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.primary} />
