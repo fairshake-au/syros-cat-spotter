@@ -4,6 +4,7 @@ import { getQueueReport } from "../lib/welfareQueue";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
+import { allColonyChoices } from "../lib/colonyCats";
 import {
   renderCatPage,
   renderCatSearchPage,
@@ -73,7 +74,13 @@ router.get(
     const p = req.query["p"];
     const photo = typeof p === "string" && PHOTO_ID_RE.test(p) ? p : undefined;
     res.type("html").send(
-      renderCatPage(view, person.name, { may: (c) => can(person, c), done, at, photo }),
+      renderCatPage(view, person.name, {
+        may: (c) => can(person, c),
+        done,
+        at,
+        photo,
+        colonies: can(person, "assign_cat_to_colony") ? await allColonyChoices() : undefined,
+      }),
     );
   },
 );

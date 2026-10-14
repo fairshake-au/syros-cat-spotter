@@ -221,7 +221,7 @@ describe("test 15 (team half): adding cats from a colony page", () => {
   it("a bad form is a 400 naming fields only, and writes nothing", async () => {
     const colony = await makeColony(unique("Bad"));
     const a = await seedCat("Bad-a");
-    for (const body of [{}, { catIds: "" }, { catIds: ["x"] }, { catIds: ["1e3"] }]) {
+    for (const body of [{} as Record<string, string | string[]>, { catIds: "" }, { catIds: ["x"] }, { catIds: ["1e3"] }]) {
       const res = await post(`/api/team/colonies/${colony}/cats`, body);
       expect([res.status, body]).toEqual([400, body]);
     }
@@ -292,6 +292,126 @@ describe("test 15 (team half): adding cats from a colony page", () => {
     const res = await get(`/api/team/colonies/999999999/cats`);
     expect(res.status).toBe(404);
     expect((await get(`/api/team/colonies/abc/cats`)).status).toBe(404);
+  });
+});
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+describe("test 15 (team half): the team's cat page and moving a cat", () => {
+  it("moving writes a new statement, the newest stands, and both stay in the history by name", async () => {
+    const a = await makeColony(unique("Alpha"));
+    const b = await makeColony(unique("Beta"));
+    const cat = await seedCat("Mover");
+    expect((await moveCat(cat, a)).status).toBe(303);
+    await sleep(5);
+    const res = await moveCat(cat, b);
+    expect(res.status, res.text).toBe(303);
+    expect(res.headers["location"]).toMatch(new RegExp(`^/api/team/cats/${cat}\\?done=colony&s=\\d+#s-\\d+$`));
+
+    const rows = await colonyStatements(cat);
+    expect(rows.map((r) => (r.value as { colonyId: number }).colonyId)).toEqual([a, b]);
+    expect(rows.every((r) => r.accountId === susan && r.roleAtTime === "staff")).toBe(true);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(b);
+
+    const page = decoded((await get(`/api/team/cats/${cat}`)).text);
+    expect(page).toContain(`<a href="/api/team/colonies/${b}">${P}Beta`);
+    expect(page).not.toContain("Put in colony ");
+    // Both statements are in the history, by name.
+    expect(page).toContain(`Put in the colony “${P}Alpha`);
+    expect(page).toContain(`Put in the colony “${P}Beta`);
+    // The picker lists every colony, with the current one chosen.
+    expect(page).toContain(`<option value="${b}" selected>`);
+    expect(page).toContain(`<option value="${a}">`);
+    expect(page).toContain("Take out of this colony");
+
+    const json = await request(app)
+      .get(`/api/team/cats/${cat}`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/json");
+    expect(json.body.colony).toEqual({ id: b, name: expect.stringContaining(`${P}Beta`), wasName: null });
+  });
+
+  it("a cat in no colony says so", async () => {
+    const cat = await seedCat("Loner");
+    const page = (await get(`/api/team/cats/${cat}`)).text;
+    expect(page).toContain("Not in a colony");
+    expect(page).not.toContain("Take out of this colony");
+  });
+
+  it("after a rename the cat page shows the new name with 'was' the old one, linked to the colony", async () => {
+    const old = unique("Vaporia");
+    const colony = await makeColony(old);
+    const cat = await seedCat("Renamed");
+    await moveCat(cat, colony);
+    await sleep(5);
+    const renamed = unique("Vaporia — Eleni's");
+    expect(
+      (await post(`/api/team/colonies/${colony}`, { name: renamed })).status,
+    ).toBe(303);
+
+    const html = decoded((await get(`/api/team/cats/${cat}`)).text);
+    expect(html).toContain(`<a href="/api/team/colonies/${colony}">${renamed}</a> <span class="meta">(was ${old})</span>`);
+    expect(html).toContain(`Put in the colony “${renamed} (was ${old})”`);
+
+    // A cat put there after the rename was never in the old one: no "was".
+    const later = await seedCat("Later");
+    await sleep(5);
+    await moveCat(later, colony);
+    const laterHtml = decoded((await get(`/api/team/cats/${later}`)).text);
+    expect(laterHtml).toContain(`${renamed}</a>`);
+    expect(laterHtml).not.toContain("(was");
+  });
+
+  it("the colony counts on the Colonies page agree with currentColonyOf", async () => {
+    const x = await makeColony(unique("CountX"));
+    const y = await makeColony(unique("CountY"));
+    const cats = [await seedCat("Count-1"), await seedCat("Count-2"), await seedCat("Count-3")];
+    await addCats(x, cats);
+    await moveCat(cats[2]!, y);
+    await moveCat(cats[1]!, "none");
+
+    const now = await currentColonyOf();
+    const expected = (id: number) => [...now.values()].filter((c) => c === id).length;
+    const res = await request(app)
+      .get(`/api/team/colonies?q=${encodeURIComponent(`${P}Count`)}`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/json");
+    const byId = new Map<number, number>(
+      (res.body.colonies as { id: number; catCount: number }[]).map((c) => [c.id, c.catCount]),
+    );
+    expect([byId.get(x), byId.get(y)]).toEqual([expected(x), expected(y)]);
+    expect([byId.get(x), byId.get(y)]).toEqual([1, 1]);
+  });
+
+  it("a colony that doesn't exist, or a bad form, writes nothing", async () => {
+    const cat = await seedCat("Nowhere");
+    expect((await moveCat(cat, 999_999_999)).status).toBe(404);
+    for (const body of [{}, { colonyId: "" }, { colonyId: "abc" }, { colonyId: "-1" }, { colonyId: "1\u0000" }]) {
+      expect(
+        [(await post(`/api/team/cats/${cat}/colony`, body as Record<string, string>)).status, body],
+      ).toEqual([400, body]);
+    }
+    expect((await moveCat(999_999_999, "none")).status).toBe(404);
+    expect(await colonyStatements(cat)).toHaveLength(0);
+  });
+
+  it("a person asking in JSON gets the id of the statement, or null if nothing was different", async () => {
+    const colony = await makeColony(unique("Json"));
+    const cat = await seedCat("Json-cat");
+    const send = (colonyId: unknown) =>
+      request(app)
+        .post(`/api/team/cats/${cat}/colony`)
+        .set("Cookie", cookie)
+        .set("Origin", TEAM_ORIGIN)
+        .send({ colonyId });
+    const first = await send(colony);
+    expect(first.status).toBe(201);
+    expect(typeof first.body.id).toBe("number");
+    const again = await send(colony);
+    expect([again.status, again.body]).toEqual([200, { id: null }]);
+    const out = await send(null);
+    expect(out.status).toBe(201);
+    expect(await colonyStatements(cat)).toHaveLength(2);
   });
 });
 

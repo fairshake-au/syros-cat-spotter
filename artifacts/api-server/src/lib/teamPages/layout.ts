@@ -78,6 +78,8 @@ h3{font-size:16px;margin:16px 0 4px}
 ul.cats,ul.sightings,ol.history{list-style:none;margin:0;padding:0}
 .catrow{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;overflow-wrap:anywhere}
 .catrow:hover{border-color:#0b5c6b}
+.catrow input[type=checkbox]{width:24px;height:24px;margin:0;flex:none}
+.catrow input[type=checkbox]:disabled+.thumb{opacity:.6}
 .catrow strong{color:#0b5c6b;text-decoration:underline}
 .syr{color:#55524a;font-size:14px;font-variant-numeric:tabular-nums}
 .status{display:block;font-size:14px;color:#3b3930;margin-top:2px}
@@ -119,7 +121,7 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
 .evidence figcaption{font-size:13px;color:#55524a;margin-top:2px}
 .likelyactions form{margin:12px 0 0}
 .likelyactions .save{width:100%}
-input.text,input[type=date]{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;margin:0 0 8px;background:#fff}
+input.text,input[type=date],select.text{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;margin:0 0 8px;background:#fff}
 input[type=date]{max-width:220px}
 .fixes details{background:#fff;border:1px solid #d9d5ca;border-radius:8px;margin:8px 0;padding:0 12px}
 .fixes summary,.statement summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}

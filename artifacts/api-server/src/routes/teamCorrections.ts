@@ -11,6 +11,7 @@ import {
   SUPERSEDE_CAPABILITIES,
   supersedeStatement,
 } from "../lib/teamCorrections";
+import { placeCats } from "../lib/colonyCats";
 import { listLikelyForReview } from "../lib/likelyReview";
 import { syrNumber } from "../lib/teamCatView";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
@@ -571,6 +572,89 @@ router.post(
                   `<p><a class="tap" href="${esc(back)}">Back to the cat</a></p>`,
               }),
             );
+        }
+      }
+    } catch (err) {
+      refusalFor(req, res, err, back);
+    }
+  },
+);
+
+// ── Colony ─────────────────────────────────────────────────────────────────
+
+/** Digits only, or the word "none" ("take out"); JSON may send a number or null. */
+const ColonyForm = z.object({
+  colonyId: z.preprocess(
+    (v) => (v === null ? "none" : typeof v === "number" ? String(v) : v),
+    z.union([z.literal("none"), z.string().regex(CAT_ID_RE)]),
+  ),
+  /**
+   * Set by "Take out of this colony" on a colony page: the colony the cat is
+   * being taken out of. A cat that has been moved since the page was drawn
+   * is left alone.
+   */
+  from: z.preprocess((v) => (v === "" ? undefined : v), z.string().regex(CAT_ID_RE).optional()),
+});
+
+/**
+ * POST /api/team/cats/:id/colony. Puts the cat in the colony picked
+ * (`colonyId`), or takes it out of its colony (`colonyId=none`), by writing
+ * one signed `colony` statement. Needs `assign_cat_to_colony`, with no
+ * colony target (plan Decision 1A).
+ */
+router.post(
+  "/team/cats/:id/colony",
+  ...formRoute("assign_cat_to_colony"),
+  async (req: Request, res: Response) => {
+    const catId = catIdOf(req);
+    if (catId === null) return notFound(req, res);
+    const back = catPage(catId);
+    const parsed = ColonyForm.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      const fields = fieldsOf(parsed.error);
+      return formProblem(req, res, 400, {
+        fields,
+        message: "Pick a colony, or take the cat out of its colony.",
+        back,
+        backLabel: "Back to the cat",
+      });
+    }
+    const colonyId = parsed.data.colonyId === "none" ? null : Number(parsed.data.colonyId);
+    const from = parsed.data.from === undefined ? undefined : Number(parsed.data.from);
+    try {
+      const out = await placeCats(
+        teamPerson(res),
+        colonyId,
+        [catId],
+        from === undefined ? {} : { onlyFrom: from },
+      );
+      switch (out.kind) {
+        case "no_cat":
+          return notFound(req, res);
+        case "no_colony":
+          return formProblem(req, res, 404, {
+            fields: ["colonyId"],
+            message: "That colony doesn't exist.",
+            back,
+            backLabel: "Back to the cat",
+          });
+        case "done": {
+          const wrote = out.written[0];
+          if (isFormPost(req)) {
+            if (from !== undefined) {
+              return void res.redirect(
+                303,
+                `/api/team/colonies/${from}?done=${wrote === undefined ? "notThere" : "takenOut"}`,
+              );
+            }
+            return void res.redirect(
+              303,
+              wrote === undefined
+                ? catPage(catId, "colonyAlready")
+                : catPage(catId, colonyId === null ? "colonyOut" : "colony", wrote),
+            );
+          }
+          return void res.status(wrote === undefined ? 200 : 201).json({ id: wrote ?? null });
         }
       }
     } catch (err) {

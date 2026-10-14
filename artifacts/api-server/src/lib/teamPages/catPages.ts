@@ -297,6 +297,17 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
       "<button type=\"submit\">That's not a clip</button></form></details>"
     );
   }
+  if (c.kind === "colony") {
+    if (!may("assign_cat_to_colony")) return "";
+    // No choice to make: the server works out what stands instead.
+    return (
+      `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
+      '<input type="hidden" name="choice" value="colony_previous">' +
+      '<p class="hint">The cat goes back to the colony it was in before this, or to no colony if there was none.</p>' +
+      reasonInput(`${id}-why`) +
+      '<button type="submit">Save the correction</button></form></details>'
+    );
+  }
   if (c.kind === "sterilised") {
     if (!may("set_sterilisation")) return "";
     const to = c.now === true ? "sterilised_no" : "sterilised_yes";
@@ -383,6 +394,9 @@ const DONE: Record<string, string> = {
   already: "Someone already corrected this. Here's what replaced it.",
   ownerRemoved: "Saved. The owner is removed and the cat's new status is in the history below. Nobody was told.",
   ownerGone: "This cat has no owner now, so there was nothing to remove. Nothing was changed.",
+  colony: "Saved. The colony is added to the history below.",
+  colonyOut: "Saved. The cat is out of its colony. This is added to the history below.",
+  colonyAlready: "The cat was already there, so nothing was changed.",
 };
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
@@ -402,6 +416,8 @@ export interface CatPageOptions {
   at?: number;
   /** The photo the page lands on after Hide or Restore (its publicId). */
   photo?: string;
+  /** Every colony, for the "Colony" list. Only asked for if the person may assign. */
+  colonies?: { id: number; name: string }[];
 }
 
 /**
@@ -438,11 +454,41 @@ function galleryItem(
   );
 }
 
+/** "Colony": pick one from the list of all colonies, or take the cat out of its colony. */
+function colonyForm(v: TeamCatView, colonies: { id: number; name: string }[]): string {
+  const base = `/api/team/cats/${v.cat.id}/colony`;
+  if (colonies.length === 0) {
+    return (
+      "<details><summary>Colony</summary>" +
+      '<p class="hint">There are no colonies yet. <a href="/api/team/colonies">Create one</a> first.</p></details>'
+    );
+  }
+  const options = colonies
+    .map(
+      (c) =>
+        `<option value="${c.id}"${c.id === v.colony?.id ? " selected" : ""}>${esc(c.name)}</option>`,
+    )
+    .join("");
+  return (
+    `<details><summary>Colony</summary><form method="post" action="${base}">` +
+    '<label class="label" for="co-pick">Put the cat in</label>' +
+    `<select class="text" id="co-pick" name="colonyId" required>${options}</select>` +
+    '<p class="hint">If the cat is in another colony now, it moves. Both are kept in the history below.</p>' +
+    '<button type="submit">Save</button></form>' +
+    (v.colony
+      ? `<form method="post" action="${base}"><input type="hidden" name="colonyId" value="none">` +
+        '<button type="submit">Take out of this colony</button></form>'
+      : "") +
+    "</details>"
+  );
+}
+
 /** The four correction forms (PR 4), each shown only to someone who may. */
 function correctionForms(
   v: TeamCatView,
   may: (c: Capability) => boolean,
   notice = "",
+  colonies: { id: number; name: string }[] = [],
 ): string {
   const base = `/api/team/cats/${v.cat.id}`;
   const forms: string[] = [];
@@ -478,6 +524,7 @@ function correctionForms(
         '<button type="submit">Save</button></form></details>',
     );
   }
+  if (may("assign_cat_to_colony")) forms.push(colonyForm(v, colonies));
   if (may("rename_cat")) {
     forms.push(
       `<details><summary>Rename the cat</summary><form method="post" action="${base}/name">` +
@@ -588,6 +635,15 @@ export function renderCatPage(
         ) + (v.owner.homePin ? row("Home pin", place(v.owner.homePin.lat, v.owner.homePin.lng)) : "")
       : "") +
     "</dl>" +
+    "<h3>Colony</h3><dl>" +
+    row(
+      "Colony",
+      v.colony
+        ? `<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>` +
+            (v.colony.wasName ? ` <span class="meta">(was ${esc(v.colony.wasName)})</span>` : "")
+        : "Not in a colony",
+    ) +
+    "</dl>" +
     "<h2>First recorded</h2><dl>" +
     row("Where", place(cat.lat, cat.lng)) +
     row("When", time(cat.createdAt)) +
@@ -649,7 +705,7 @@ export function renderCatPage(
     afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
     body:
       overview +
-      correctionForms(v, may, formsNotice) +
+      correctionForms(v, may, formsNotice, opts.colonies) +
       sightings +
       photos +
       history,
