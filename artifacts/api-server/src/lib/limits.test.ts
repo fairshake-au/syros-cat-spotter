@@ -347,6 +347,13 @@ describe("the claim limit is a sliding window (5 per 24 hours, not 5 per calenda
     expect(await checkClaimLimit("slide-b", earlyOnDay2)).toBe(false);
   });
 
+  it("a retry storm does not lock the phone out of the next day (the stored count stops at limit + 1)", async () => {
+    // 50 attempts at 10:00 on day 1; 45 are refused. The first claim was at 10:00.
+    for (let i = 0; i < 50; i++) await checkClaimLimit("slide-storm", day + 10 * HOUR);
+    // About 24 hours after the first attempt, the phone is free again.
+    expect(await checkClaimLimit("slide-storm", day + DAY + 10 * HOUR + 60_000)).toBe(true);
+  });
+
   it("holds across two app instances", async () => {
     vi.resetModules();
     const other = await import("../middlewares/rateLimit");

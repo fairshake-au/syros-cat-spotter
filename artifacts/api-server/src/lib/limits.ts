@@ -166,6 +166,10 @@ export async function consume(
     const hits = Number((res.rows[0] as { hits: number | string }).hits);
     return { hits, allowed: hits <= limit, resetAt: start + windowMs };
   }
+  // The stored count stops at limit + 1 (above): a refused retry storm can
+  // carry over into the next window as "one over", never as 50 over, so the
+  // phone is free about a window after its first attempts, as a plain
+  // rolling limit would leave it.
   // The previous window's key is hashed with ITS day's salt.
   const prevStart = start - windowMs;
   const prevHashed = await hashKey(key, prevStart);
