@@ -21,6 +21,7 @@ import {
 } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSighting } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
@@ -62,11 +63,31 @@ import {
   shutterKindFor,
 } from '@/lib/cameraMode';
 import { createSequencedRunner } from '@/lib/sequencedCall';
+import {
+  readPickedAsset,
+  type PhotoTimeInfo,
+  type PickedPhoto,
+} from '@/lib/pickedAsset';
+import {
+  MAX_PHOTO_AGE_DAYS,
+  formatPhotoDate,
+  formatPhotoTaken,
+} from '@/lib/photoClock';
+import {
+  alreadyLoggedDestination,
+  entryForOutcome,
+  findAlreadyLogged,
+  loadRecentPhotos,
+  recordRecentPhoto,
+  uniqueCaptureTime,
+  type AlreadyLoggedDestination,
+} from '@/lib/recentPhotos';
+import { queuedSighting, sightingRequest } from '@/lib/sightingPayload';
 
-interface PickedPhoto {
-  uri: string;
-  base64: string;
-}
+/** A library photo that can't be used, said in a card with the library offered again. */
+type PhotoProblem =
+  | { kind: 'tooOld'; instantMs: number }
+  | { kind: 'alreadyLogged'; destination: AlreadyLoggedDestination | null };
 
 // The server accepts native HEIC/HEIF (plus JPEG/PNG/WebP) and normalizes
 // everything to JPEG itself, so photos are uploaded as captured — no
@@ -98,19 +119,9 @@ function releasePhotoUri(uri: string | undefined | null) {
   }
 }
 
-async function toPickedPhoto(
-  asset: ImagePicker.ImagePickerAsset,
-): Promise<PickedPhoto> {
-  // base64 length * 3/4 ≈ decoded byte size.
-  if (asset.base64 && asset.base64.length * 0.75 <= MAX_UPLOAD_BYTES) {
-    return { uri: asset.uri, base64: asset.base64 };
-  }
-  return shrink(asset.uri);
-}
-
 export default function SpotScreen() {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { deviceId } = useDevice();
@@ -143,6 +154,13 @@ export default function SpotScreen() {
   // and across local midnight — so using submit time would put the sighting on
   // the wrong day for streak purposes.
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
+  // SYC-166: what the library photo said about its own time ('unread' when we
+  // did not read it: the camera, the website, an empty answer). Null with no
+  // photo.
+  const [photoTime, setPhotoTime] = useState<PhotoTimeInfo | null>(null);
+  // The picked photo's fingerprint, for "You've already logged this photo".
+  const photoFingerprintRef = React.useRef<string | undefined>(undefined);
+  const [photoProblem, setPhotoProblem] = useState<PhotoProblem | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [optimizingUpload, setOptimizingUpload] = useState(false);
   // One submit at a time, checked before any re-render could disable the
@@ -233,12 +251,15 @@ export default function SpotScreen() {
   const clearPhoto = () => {
     setPhoto(null);
     setCapturedAt(null);
+    setPhotoTime(null);
+    photoFingerprintRef.current = undefined;
+    setPhotoProblem(null);
     setPickedCoords(null);
   };
 
   const choosePhoto = async (
     fromCamera: boolean,
-  ): Promise<PickedPhoto | null> => {
+  ): Promise<Awaited<ReturnType<typeof readPickedAsset>> | null> => {
     try {
       if (fromCamera && Platform.OS !== 'web') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -277,9 +298,19 @@ export default function SpotScreen() {
             // (HEIC on iPhones) instead of transcoding to JPEG on-device.
             preferredAssetRepresentationMode:
               ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+            // SYC-166: the photo's own date and time. iPhone and Android only;
+            // the website's picker reads no tags (slice 2W is its own reader).
+            // The answer also holds the photo's position: only
+            // lib/pickedAsset.ts looks at it, and keeps the time alone.
+            exif: Platform.OS !== 'web',
           });
       if (!result.canceled && result.assets[0]) {
-        return await toPickedPhoto(result.assets[0]);
+        return await readPickedAsset(result.assets[0], {
+          readTime: !fromCamera && Platform.OS !== 'web',
+          now: Date.now(),
+          shrink,
+          maxUploadBytes: MAX_UPLOAD_BYTES,
+        });
       }
     } catch {
       notify(t('error'));
@@ -288,11 +319,39 @@ export default function SpotScreen() {
   };
 
   const pickPhoto = async (fromCamera: boolean) => {
+    setPhotoProblem(null);
     const picked = await choosePhoto(fromCamera);
-    if (picked) {
-      setPhoto(picked);
-      setCapturedAt(new Date().toISOString());
+    if (!picked) return;
+    const { photo: next, timeInfo, fingerprint } = picked;
+    if (!fromCamera) {
+      // More than 21 days old: not accepted, and the library offered again.
+      if (timeInfo.kind === 'tooOld') {
+        releasePhotoUri(next.uri);
+        setPhotoProblem({ kind: 'tooOld', instantMs: timeInfo.instantMs });
+        return;
+      }
+      const logged = findAlreadyLogged(
+        fingerprint,
+        await loadRecentPhotos(AsyncStorage, Date.now()),
+        new Set(pending.map((p) => p.localId)),
+      );
+      if (logged) {
+        releasePhotoUri(next.uri);
+        setPhotoProblem({
+          kind: 'alreadyLogged',
+          destination: alreadyLoggedDestination(logged, pending),
+        });
+        return;
+      }
     }
+    setPhoto(next);
+    setPhotoTime(timeInfo);
+    photoFingerprintRef.current = fromCamera ? undefined : fingerprint;
+    setCapturedAt(
+      timeInfo.kind === 'ok'
+        ? new Date(timeInfo.instantMs).toISOString()
+        : new Date().toISOString(),
+    );
   };
 
   const captureLivePhoto = async () => {
@@ -332,7 +391,10 @@ export default function SpotScreen() {
             // raw one is the whole image inlined as a data URL.
             await shrink(directPhoto?.uri ?? capture.uri);
       if (directPhoto && picked !== directPhoto) releasePhotoUri(directPhoto.uri);
+      setPhotoProblem(null);
       setPhoto(picked);
+      setPhotoTime({ kind: 'unread' });
+      photoFingerprintRef.current = undefined;
       setCapturedAt(new Date().toISOString());
     } catch {
       // Same as a failed capture: fall back to the system camera and let the
@@ -399,12 +461,15 @@ export default function SpotScreen() {
     localId: string,
     fromCamera: boolean,
   ) => {
+    // The replacement keeps the rejected item's own time on purpose: it is a
+    // new photo for the same sighting, so the photo's time is not used
+    // (SYC-311 decides whether it should be).
     const picked = await choosePhoto(fromCamera);
     if (!picked) return;
     try {
       await replacePhoto(localId, {
-        photoBase64: picked.base64,
-        photoUri: picked.uri,
+        photoBase64: picked.photo.base64,
+        photoUri: picked.photo.uri,
       });
     } catch (err) {
       reportSaveFailure(await describeSaveFailure(err, durablePhotos));
@@ -421,7 +486,17 @@ export default function SpotScreen() {
       // Require the explicitly confirmed location — never raw GPS.
       const finalCoords = pickedCoords;
       if (!photo || !finalCoords || !deviceId) return;
-      const sightingTime = capturedAt ?? new Date().toISOString();
+      // Two different photos from the same second would otherwise be one
+      // sighting to the server (SYC-166 Decision 2 B): move this one on by a
+      // millisecond. Same list, same answer, so a retry sends the same time.
+      const pickedMs = Date.parse(capturedAt ?? new Date().toISOString());
+      const sightingMs = uniqueCaptureTime(
+        pickedMs,
+        await loadRecentPhotos(AsyncStorage, Date.now()),
+      );
+      const sightingTime = new Date(sightingMs).toISOString();
+      const fingerprint = photoFingerprintRef.current;
+      const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       // The busy flag covers the offline branch too.
       setSubmitting(true);
       try {
@@ -438,26 +513,24 @@ export default function SpotScreen() {
               }
               setOptimizingUpload(false);
             }
-            return createSighting({
-              deviceId,
-              photoBase64: uploadPhoto.base64,
-              lat: finalCoords.latitude,
-              lng: finalCoords.longitude,
-              // Capture time, not submit time, and sent on the online path too
-              // so a sighting's day is decided the same way however it reached
-              // the server.
-              capturedAt: sightingTime,
-            });
+            return createSighting(
+              sightingRequest({
+                deviceId,
+                photoBase64: uploadPhoto.base64,
+                pin: finalCoords,
+                capturedAt: sightingTime,
+              }),
+            );
           },
           save: () =>
-            enqueue({
-              localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              photoBase64: photo.base64,
-              photoUri: photo.uri,
-              lat: finalCoords.latitude,
-              lng: finalCoords.longitude,
-              createdAt: sightingTime,
-            }),
+            enqueue(
+              queuedSighting({
+                localId,
+                photo,
+                pin: finalCoords,
+                capturedAt: sightingTime,
+              }),
+            ),
           // R5: one bar of signal — the send failed though the phone says
           // it is connected.
           offerSaveForLater: () =>
@@ -469,6 +542,22 @@ export default function SpotScreen() {
             }),
           photosKeepable: durablePhotos,
         });
+
+        // Only a send or a save that succeeded is remembered, and a photo
+        // the server said is not a cat keeps its time but not its
+        // fingerprint, so it can be picked again.
+        const remembered = entryForOutcome(
+          outcome.kind,
+          sightingMs,
+          fingerprint,
+          outcome.kind === 'sent'
+            ? {
+                sightingId: outcome.result.sightingId,
+                isCatPhoto: outcome.result.isCatPhoto,
+              }
+            : { localId },
+        );
+        if (remembered) await recordRecentPhoto(AsyncStorage, remembered, Date.now());
 
         switch (outcome.kind) {
           case 'sent': {
@@ -522,6 +611,16 @@ export default function SpotScreen() {
         setSubmitting(false);
       }
     });
+
+  const openAlreadyLogged = (destination: AlreadyLoggedDestination) => {
+    setPhotoProblem(null);
+    if (destination.kind === 'cat') {
+      router.push({ pathname: '/cat/[id]', params: { id: String(destination.catId) } });
+      return;
+    }
+    const item = pending.find((p) => p.localId === destination.localId);
+    if (item) reviewPending(item);
+  };
 
   const reviewPending = (item: (typeof pending)[number]) => {
     // Only the queued item's id: the review screen finds its photo through
@@ -820,6 +919,34 @@ export default function SpotScreen() {
           paddingBottom: insets.bottom + (Platform.OS === 'web' ? 110 : 100),
         }}
       >
+        {!photo && photoProblem && (
+          // SYC-166: a library photo we can't use. The library is offered from
+          // this card's own button: a browser only opens a file chooser from
+          // a direct tap, never after an awaited dialog.
+          <View testID="photo-problem">
+            <Card padding={spacing[4]} style={{ gap: spacing[3] }}>
+              <Text style={[styles.problemText, { color: colors.foreground }]}>
+                {photoProblem.kind === 'tooOld'
+                  ? t('photoTooOld')
+                      .replaceAll('{date}', formatPhotoDate(photoProblem.instantMs, language))
+                      .replaceAll('{days}', String(MAX_PHOTO_AGE_DAYS))
+                  : t('photoAlreadyLogged')}
+              </Text>
+              {photoProblem.kind === 'alreadyLogged' && photoProblem.destination && (
+                <Button
+                  variant="secondary"
+                  block
+                  onPress={() => openAlreadyLogged(photoProblem.destination!)}
+                >
+                  {t('photoAlreadyLoggedOpen')}
+                </Button>
+              )}
+              <Button variant="primary" block onPress={() => void pickPhoto(false)}>
+                {t('chooseFromLibrary')}
+              </Button>
+            </Card>
+          </View>
+        )}
         {photo ? (
           // ── Details state: captured photo, location confirm, submit ──
           <>
@@ -831,6 +958,26 @@ export default function SpotScreen() {
               onRetake={clearPhoto}
               disabled={submitting}
             />
+            {/* SYC-166: only what the photo itself said. Nothing when we did not
+                read it (the camera, the website, an empty answer). */}
+            {photoTime?.kind === 'ok' ? (
+              <Text
+                style={[styles.subtitle, { color: colors.mutedForeground }]}
+                testID="photo-taken-at"
+              >
+                {t('photoTakenAt').replace(
+                  '{when}',
+                  formatPhotoTaken(photoTime.instantMs, language),
+                )}
+              </Text>
+            ) : photoTime?.kind === 'none' ? (
+              <Text
+                style={[styles.subtitle, { color: colors.mutedForeground }]}
+                testID="photo-no-time"
+              >
+                {t('photoNoTime')}
+              </Text>
+            ) : null}
 
             <View style={{ gap: spacing[2] }}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
@@ -1022,6 +1169,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing[4], paddingBottom: spacing[2], gap: spacing[1] },
   title: { fontSize: fontSizes.xl, fontFamily: fonts.displayBold },
   subtitle: { fontSize: fontSizes.xs, fontFamily: fonts.body },
+  problemText: { fontSize: fontSizes.sm, fontFamily: fonts.body, lineHeight: 20 },
   detailsHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
 
   // Capture (viewfinder) state
