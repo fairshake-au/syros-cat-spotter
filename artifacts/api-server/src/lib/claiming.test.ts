@@ -364,6 +364,116 @@ describe("claimEligibility: a cat merged into another (critic HIGH-1)", () => {
   });
 });
 
+describe("deriveCatStatuses reads every record through the caller's transaction (critic LOW-2)", () => {
+  const ROLLBACK = new Error("rollback");
+  /** Runs `fn` in a transaction that is always rolled back, returning its result. */
+  async function inRolledBackTx<T>(fn: (tx: DbOrTx) => Promise<T>): Promise<T> {
+    let out: T | undefined;
+    await db
+      .transaction(async (tx) => {
+        out = await fn(tx);
+        throw ROLLBACK;
+      })
+      .catch((err) => {
+        if (err !== ROLLBACK) throw err;
+      });
+    return out as T;
+  }
+  const lifeStatus = async (tx: DbOrTx, id: number) =>
+    (await deriveCatStatuses([{ id, ownerDeviceId: null }], tx)).get(id)!;
+
+  it("an uncommitted merge: the merged cat's in_care folds in", async () => {
+    const canonical = await streetCat();
+    const merged = await streetCat();
+    await teamStatus(db, merged.id, "in_care");
+    const seen = await inRolledBackTx(async (tx) => {
+      await tx
+        .insert(catIdentityTable)
+        .values({ catId: merged.id, canonicalCatId: canonical.id, reason: "test" });
+      return (await lifeStatus(tx, canonical.id)).lifeStatus;
+    });
+    expect(seen).toBe("in_care");
+    expect((await lifeStatus(db, canonical.id)).lifeStatus).toBe("street");
+  });
+
+  it("an uncommitted later sighting clears a deceased", async () => {
+    const c = await streetCat();
+    await teamStatus(db, c.id, "deceased");
+    const seen = await inRolledBackTx(async (tx) => {
+      await tx.insert(sightingsTable).values({
+        catId: c.id,
+        deviceId: dev(),
+        photoId: 0,
+        lat: 37.44,
+        lng: 24.94,
+        status: "resolved",
+      });
+      return (await lifeStatus(tx, c.id)).lifeStatus;
+    });
+    expect(seen).toBe("street");
+    expect((await lifeStatus(db, c.id)).lifeStatus).toBe("deceased");
+  });
+
+  it("an uncommitted cat's creation date is its last resort evidence of life", async () => {
+    const seen = await inRolledBackTx(async (tx) => {
+      counter += 1;
+      const [c] = await tx
+        .insert(catsTable)
+        .values({
+          name: `${NAME_PREFIX}${counter}-tx`,
+          primaryPhotoId: 0,
+          lat: 37.44,
+          lng: 24.94,
+          discovererDeviceId: "dev-someone",
+          createdAt: daysAgo(365 * 10),
+        })
+        .returning();
+      return (await lifeStatus(tx, c!.id)).notSeenSince;
+    });
+    expect(seen).not.toBeNull();
+  });
+
+  it("an uncommitted replacement of a welfare report stops it counting as evidence of life", async () => {
+    counter += 1;
+    const [c] = await db
+      .insert(catsTable)
+      .values({
+        name: `${NAME_PREFIX}${counter}-welfare`,
+        primaryPhotoId: 0,
+        lat: 37.44,
+        lng: 24.94,
+        discovererDeviceId: "dev-someone",
+        createdAt: daysAgo(365 * 10),
+      })
+      .returning();
+    const elsewhere = await streetCat();
+    const [report] = await db
+      .insert(observationsTable)
+      .values({
+        catId: c!.id,
+        kind: "welfare_report",
+        value: {},
+        deviceId: dev(),
+        observedAt: daysAgo(10),
+      })
+      .returning();
+    expect((await lifeStatus(db, c!.id)).notSeenSince).toBeNull();
+    const seen = await inRolledBackTx(async (tx) => {
+      await tx.insert(observationsTable).values({
+        catId: elsewhere.id,
+        kind: "welfare_report",
+        value: {},
+        accountId: "system:legacy-backfill",
+        roleAtTime: "staff",
+        observedAt: daysAgo(10),
+        supersedesId: report!.id,
+      });
+      return (await lifeStatus(tx, c!.id)).notSeenSince;
+    });
+    expect(seen).not.toBeNull();
+  });
+});
+
 describe("pinWithinReach: measured from the public cell centre (D11, review 2 HIGH-1)", () => {
   // Metres along a meridian on haversineKm's sphere, so the distances below
   // are exact rather than an approximation of the conversion.
