@@ -141,11 +141,11 @@ describe("T7: the old request shape says yes only to the workspace door (§14 ca
     const res = await askDoors(GUARDIAN);
     expect(res.status).toBe(200);
     expect(res.body.doors.workspace).toBe(false);
-    // In this PR can() is still staff-only, so she holds no dashboard door
-    // either, and gets the one "no".
-    expect(res.body).toEqual({
-      allowed: false,
-      doors: { workspace: false, dashboard: false },
+    // Since PR 0.5 her placement holds placed capabilities on her colony, so
+    // the dashboard door is open to her; the workspace door never is.
+    expect(res.body).toMatchObject({
+      allowed: true,
+      doors: { workspace: false, dashboard: true },
     });
   });
 
@@ -183,8 +183,9 @@ describe("T7: the old request shape says yes only to the workspace door (§14 ca
 });
 
 describe("T8 (part), §14 case 13: every no is the same, byte for byte", () => {
-  // Unknown, left, not yet joined, and three kinds of "no door".
-  const NOES = [NEVER, LEFT, PENDING, GUARDIAN, VET, NO_ROLES];
+  // Unknown, left, not yet joined, and two kinds of "no door" (since PR 0.5
+  // a placed guardian holds the dashboard door, so she is no longer one).
+  const NOES = [NEVER, LEFT, PENDING, VET, NO_ROLES];
 
   for (const [shape, askIt, expected] of [
     ["old", askOld, { allowed: false }],

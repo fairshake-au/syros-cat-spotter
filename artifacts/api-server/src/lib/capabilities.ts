@@ -18,6 +18,7 @@
 // ended rows in SQL), never by this process's clock. So the holders passed in
 // here have already lost their ended rows; nothing in this file reads a clock.
 
+import { ISLAND_ROLES } from "@workspace/db/schema";
 import { TEAM_ROLE_NAMES, type TeamRole } from "./teamRoles";
 
 /**
@@ -39,8 +40,10 @@ interface CatalogueEntry {
   roles: readonly ("staff" | "management" | "guardian")[];
 }
 
-const TEAM = ["staff", "management"] as const;
-const EVERYONE = ["staff", "management", "guardian"] as const;
+// The roles whose rows cover the whole island (`ISLAND_ROLES`, the database's
+// own list, which its checks enforce), and those plus the cat guardian.
+const TEAM = ISLAND_ROLES;
+const EVERYONE = [...ISLAND_ROLES, "guardian"] as const;
 
 /**
  * The catalogue (roles-and-invites.md §6.2), in the spec's order. "All" and
@@ -118,7 +121,6 @@ export interface CapabilityTarget {
 
 type Scope = CapabilityHolder["scopes"][number];
 
-const ISLAND_ROLES: readonly string[] = TEAM;
 
 /**
  * A row that covers the whole island: a team or management row with no
@@ -127,7 +129,7 @@ const ISLAND_ROLES: readonly string[] = TEAM;
  */
 function isIslandRow(s: Scope): boolean {
   return (
-    ISLAND_ROLES.includes(s.role) &&
+    (ISLAND_ROLES as readonly string[]).includes(s.role) &&
     s.colonyId === null &&
     (s.reach === undefined || s.reach === "island")
   );
@@ -136,7 +138,7 @@ function isIslandRow(s: Scope): boolean {
 /** A placement on one colony: never a team or management row. */
 function isColonyRow(s: Scope): s is Scope & { colonyId: number } {
   return (
-    !ISLAND_ROLES.includes(s.role) &&
+    !(ISLAND_ROLES as readonly string[]).includes(s.role) &&
     typeof s.colonyId === "number" &&
     Number.isInteger(s.colonyId) &&
     s.colonyId > 0 &&

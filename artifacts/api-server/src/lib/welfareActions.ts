@@ -83,7 +83,7 @@ export async function moveReportState(input: {
           kind: "welfare_outcome",
           value: { state: to, reportId: updated[0]!.id },
           accountId: personId,
-          roleAtTime: actingRole(person, "change_report_state", await catTarget(catId)),
+          roleAtTime: actingRole(person, "change_report_state", await catTarget(catId, tx)),
           observedAt: new Date(),
         });
       }

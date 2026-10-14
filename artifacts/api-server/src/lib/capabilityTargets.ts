@@ -28,9 +28,14 @@ import { currentColonyOf } from "./colonyMembership";
 //
 // A cat in no colony has no placed target, so only island holders pass.
 
-/** The target for one cat. */
-export async function catTarget(catId: number): Promise<CapabilityTarget> {
-  const colonies = await currentColonyOf([catId]);
+type Reader = Parameters<typeof currentColonyOf>[1];
+
+/**
+ * The target for one cat. Inside a transaction, pass it: a second connection
+ * taken while the transaction holds one can starve the pool under a burst.
+ */
+export async function catTarget(catId: number, q?: Reader): Promise<CapabilityTarget> {
+  const colonies = await currentColonyOf([catId], q);
   return { colonyId: colonies.get(catId) ?? null };
 }
 
@@ -68,13 +73,20 @@ export async function catsOfPhoto(publicId: string): Promise<number[]> {
     .filter((id): id is number => typeof id === "number");
 }
 
+// The only shape a photo's public id takes (base64url or a uuid). Anything
+// else is not a photo, and is never sent to Postgres (which refuses some
+// bytes, a NUL say, with an error): it has no cats, so no colony.
+const PHOTO_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
 /** Every target a catalogue photo must pass: one per cat it is tied to. */
 export async function photoTargets(publicId: string): Promise<CapabilityTarget[]> {
+  if (!PHOTO_ID_RE.test(publicId)) return [{ colonyId: null }];
   return catTargets(await catsOfPhoto(publicId));
 }
 
 /** A welfare report's target: its cat's colony, or none. */
 export async function reportTarget(publicId: string): Promise<CapabilityTarget> {
+  if (!PHOTO_ID_RE.test(publicId)) return { colonyId: null };
   const [report] = await db
     .select({ catId: welfareReportsTable.catId })
     .from(welfareReportsTable)
