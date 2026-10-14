@@ -10,6 +10,7 @@ import {
   resolveVaccinated,
   standingAppearanceRows,
   twoVoicesSince,
+  TEAM_APPEARANCE_RANKING,
   type AppearanceRanking,
 } from "./resolve";
 
@@ -214,7 +215,7 @@ describe("the shared voice-counting helper", () => {
     const b = spotterCoat("b", ["black"], "2026-01-02");
     const hijack = spotterCoat("c", ["grey"], "2026-01-03", { supersedesId: a.id });
     const retraction = team("coat", { retracted: true }, "2026-01-04", { supersedesId: b.id });
-    const standing = standingAppearanceRows([a, b, hijack, retraction], "coat", false);
+    const standing = standingAppearanceRows([a, b, hijack, retraction], "coat", false, TEAM_APPEARANCE_RANKING);
     expect(standing.map((o) => o.id).sort()).toEqual([a.id, hijack.id].sort());
   });
 
@@ -224,7 +225,7 @@ describe("the shared voice-counting helper", () => {
       value: { retracted: true },
       supersedesId: a.id,
     });
-    expect(standingAppearanceRows([a, bogus], "coat", false).map((o) => o.id)).toEqual([a.id]);
+    expect(standingAppearanceRows([a, bogus], "coat", false, TEAM_APPEARANCE_RANKING).map((o) => o.id)).toEqual([a.id]);
   });
 
   it("drops vet, imported and owner-scope rows entirely", () => {
@@ -233,7 +234,7 @@ describe("the shared voice-counting helper", () => {
       team("coat", { colours: ["ginger"] }, "2026-01-01", { provenance: "import" }),
       spotterCoat("o", ["ginger"], "2026-01-01", { authorityScope: "owner_of_this_cat" }),
     ];
-    expect(standingAppearanceRows(rows, "coat", false)).toEqual([]);
+    expect(standingAppearanceRows(rows, "coat", false, TEAM_APPEARANCE_RANKING)).toEqual([]);
   });
 });
 
@@ -859,5 +860,27 @@ describe("review finding 4: the shown colour is never raw black + white", () => 
       spotterCoat("v6", ["grey", "white"], "2026-01-06T10:00:00Z"),
     ];
     expect(resolveCoat(rows).value).toEqual(["black_and_white"]);
+  });
+});
+
+describe("review finding 5: who may retract comes from the ranking", () => {
+  const rows = () => {
+    const a = spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z");
+    const b = spotterCoat("b", ["ginger"], "2026-01-06T10:00:00Z");
+    const guardianWrong = team("coat", { retracted: true }, "2026-01-07T10:00:00Z", {
+      roleAtTime: "guardian",
+      authorityScope: "colony:4",
+      accountId: "person:guardian",
+      supersedesId: b.id,
+    });
+    return [a, b, guardianWrong];
+  };
+
+  it("R5a with today's team-only ranking a guardian's retraction does nothing", () => {
+    expect(resolveCoat(rows(), TEAM_APPEARANCE_RANKING)).toMatchObject({ value: ["ginger"], confidence: "likely" });
+  });
+
+  it("R5b with guardians ranked at level 2 her retraction applies", () => {
+    expect(resolveCoat(rows(), WITH_GUARDIANS)).toMatchObject({ value: ["ginger"], confidence: "reported" });
   });
 });

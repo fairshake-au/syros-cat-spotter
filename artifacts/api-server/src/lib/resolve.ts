@@ -685,16 +685,6 @@ function hasNoStandingOnAppearance(o: Observation): boolean {
   );
 }
 
-/** Roles whose `{ retracted: true }` is honoured: the `set_appearance`
- * holders. A retraction from anyone else (the writer refuses one) is
- * ignored at read time. */
-const APPEARANCE_RETRACTING_ROLES: ReadonlySet<string> = new Set([
-  "staff",
-  "admin",
-  "management",
-  "guardian",
-]);
-
 /** A spotter's voice: a public, person-made answer (volunteered or
  * prompted). Machine, team, guardian and system rows are never voices. */
 function isSpotterVoiceRow(o: Observation): boolean {
@@ -773,7 +763,7 @@ function sameAuthor(a: Observation, b: Observation): boolean {
  * read. Shared by colour and markings.
  *
  * - Rows from someone with no standing on appearance are dropped.
- * - A `{ retracted: true }` from a `set_appearance` holder removes exactly
+ * - A `{ retracted: true }` from someone `ranking` gives a level removes exactly
  *   the row it supersedes, and asserts nothing itself.
  * - A same-author supersession removes the row it replaces, except for
  *   markings when `keepOwnEarlierRows` is set: a device's later markings
@@ -787,6 +777,7 @@ export function standingAppearanceRows(
   observations: readonly Observation[],
   kind: "coat" | "markings",
   keepOwnEarlierRows: boolean,
+  ranking: AppearanceRanking,
 ): Observation[] {
   const rows = observations.filter(
     (o) => o.kind === kind && !hasNoStandingOnAppearance(o),
@@ -799,7 +790,9 @@ export function standingAppearanceRows(
     const target = byId.get(o.supersedesId);
     if (!target) continue;
     if (isRetractionValue(o.value)) {
-      if (!APPEARANCE_RETRACTING_ROLES.has(o.roleAtTime)) continue;
+      // Only someone the ranking gives standing may mark a row wrong, so a
+      // guardian's retraction is inert until the ranking includes her.
+      if (ranking(o) == null) continue;
       // Exactly the row it points at (spec §4.4, §10.6), nothing else.
       removed.add(target.id);
       continue;
@@ -1012,7 +1005,7 @@ export function resolveCoat(
   observations: readonly Observation[],
   ranking: AppearanceRanking = TEAM_APPEARANCE_RANKING,
 ): AppearanceResolved<CoatColour[]> {
-  const statements = standingAppearanceRows(observations, "coat", false).flatMap((row) => {
+  const statements = standingAppearanceRows(observations, "coat", false, ranking).flatMap((row) => {
     const colours = coatColours(row.value);
     return colours ? [{ row, colours }] : [];
   });
@@ -1194,7 +1187,7 @@ export function resolveMarkings(
   now: Date,
   ranking: AppearanceRanking = TEAM_APPEARANCE_RANKING,
 ): AppearanceResolved<Mark[]> {
-  const statements = standingAppearanceRows(observations, "markings", true).flatMap((row) => {
+  const statements = standingAppearanceRows(observations, "markings", true, ranking).flatMap((row) => {
     const marks = markingsList(row.value);
     return marks ? [{ row, marks }] : [];
   });
