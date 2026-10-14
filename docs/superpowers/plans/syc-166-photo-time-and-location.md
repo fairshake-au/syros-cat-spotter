@@ -246,7 +246,7 @@ The picker's website code hands back the chosen `File` and, with `base64: true`,
 
 ### Steps (test first)
 
-1. `jpegTimeTags.test.ts` (spec §9 test 4, time-only variant): a JPEG with time tags and an own offset; one with time and a GPS clock but no offset; one with no Exif; big-endian and little-endian; truncated mid-IFD; corrupt (random bytes after the marker); a pointer loop; a 30 MB base64 string (asserts it returns in under 50 ms because only the head is decoded); a HEIC header; a PNG; an empty string; non-base64 text. All return a value or `null`, none throw. **A fixture with a GPS position inside it: the output contains no part of the position** (value-based).
+1. `jpegTimeTags.test.ts` (spec §9 test 4, time-only variant): a JPEG with time tags and an own offset; one with time and a GPS clock but no offset; one with no Exif; big-endian and little-endian; truncated mid-IFD; corrupt (random bytes after the marker); a pointer loop; a 30 MB base64 string (asserts it returns in under 50 ms because only the head is decoded); a HEIC header; a PNG; an empty string; non-base64 text. All return a value or `null`, none throw. Plus a **fuzz test**: 2,000 random single-byte mutations and truncations of a valid fixture (seeded, so failures reproduce), none of which may throw or exceed the step budget. **A fixture with a GPS position inside it: the output contains no part of the position** (value-based).
 2. Implement. 3. Wire into `pickedAsset.ts` for `Platform.OS === 'web'`. When the reader returns `null`, `timeInfo.kind` becomes `none/missing` and the website now shows `photoNoTime`, which is true because we *did* read the file and found nothing.
 4. Extend `pickedAsset.test.ts`: web path with a time-bearing JPEG gives `ok`; with a stripped JPEG gives `none`; with a HEIC gives `none`.
 
@@ -424,3 +424,44 @@ Revert. Nothing is stored.
 ### Rollback
 
 Revert. The pin is the only thing ever saved, so no stored data depends on this slice.
+
+---
+
+## Privacy: every path where a photo's position (or the exact pin) could escape
+
+The spec's promise (§5): the photo's position is read on the phone, used to place the map, and is never stored as its own field, never logged, never sent anywhere new. The table lists every path the code offers, who owns the guard, and the test that proves it. A path with no test is a gap; there are none below.
+
+| # | Path | Exists today? | Guard | Test (by value, not by field name) | Slice |
+|---|---|---|---|---|---|
+| P1 | **The review screen's address** (website address bar and history) carries the confirmed pin; an unmoved pin that started at a photo equals the photo's position | Yes, unrounded: `lib/reviewParams.ts:72-100`, passed from `spot.tsx:487-495` | Round to three decimals (about 110 m) in the one builder | Whole serialised string has no number with 4+ decimals; read-back equals the rounded value; mutation probes 1-4 | 1 |
+| P2 | **The picker's `exif` object** holds the photo's full tags, GPS included, once `exif: true` is requested | No (not requested today) | One extractor is the only reader; it returns time strings only; the object is never stored, passed on or logged | `JSON.stringify(extractTimeTags(fixtureWithPosition))` contains no part of the fixture position; source scan: `.exif` read in exactly one file | 2 |
+| P3 | **The parsed photo position in the app** | No | Held in the Spot screen's React state only; cleared by `clearPhoto`; module only imported by `pickedAsset.ts` (spec §9 test 6d) | Source check on imports; a test that after `clearPhoto` and after submit the state is `null` | 5 |
+| P4 | **The saved-for-later item** | Position of the *pin* only (`spot.tsx:453-461`) | The queued item's keys equal the existing key set exactly; no new field | `Object.keys(enqueueArg)` equals `['localId','photoBase64','photoUri','lat','lng','createdAt']` (spec §9 test 6b) | 2 (time), 5 (position) |
+| P5 | **The upload request** | Pin and `capturedAt` only (`spot.tsx:441-450`) | The request body's keys equal the existing set | Keys of the `createSighting` argument equal `['deviceId','photoBase64','lat','lng','capturedAt']` (test 6a); the value equals the confirmed pin, not the photo position, in a case where they differ | 2, 5 |
+| P6 | **The photo file itself** still carries its tags on the phone until it is sent (queue, review photo store, upload) | Yes, unchanged (spec §5.4) | The server re-encodes without metadata before storing or matching (`validatePhotoBase64`, `sightings.ts:556`) | `imageValidation.exif.test.ts` (existing) **plus the XMP line (SYC-260), added as step 1 of slice 2**, with an XMP-carrying input fixture. Name data spine test 8 and 13 (`cat-record-data-spine.md` §10.8) in each PR description | 2 |
+| P7 | **The welfare ("This cat needs help") handoff** takes the photo and the confirmed pin (`lib/reportHandoff.ts`, in memory only) | Yes, unchanged | The welfare route uses the same server stripper (spec §5.4); in-memory only | Confirm the existing welfare-route test covers a GPS-bearing photo; add the one-line case in slice 2 if it does not | 2 |
+| P8 | **Console and error output** | Three unrelated `console.*` calls (`context/OfflineContext.tsx:498`, `context/DeviceContext.tsx:279`, `context/NotificationContext.tsx:128`) and `components/ErrorFallback.tsx:31`; none receives an item or a position. **No error-reporting service exists in the app** (searched) | No new logging in any new file | A console-spy test around `extractTimeTags`, `readPhotoPosition`, `resolveMapStart` and the Spot pick handler: nothing logged for a fixture photo | 2, 5 |
+| P9 | **Server logs** | Request bodies are not logged; only headers are redacted (`lib/logger.ts:5-10`) and errors are logged as name and code (`safeError`, `:25-40`) | Unchanged; no new log line in the server slices | Run `app.logRedaction.test.ts` and `logger.test.ts` and name them in the PR; slice 3 adds no `logger.*` call (assert with a log-capture test around the resolve route with a backdated sighting) | 3 |
+| P10 | **The owner's push text** | Cat name and a fixed sentence | Slice 3 adds a weekday (or a date) and nothing positional | `sightingMessage.test.ts` asserts the output matches `^[^\d]*(Monday\|...\|Sunday\|\d{1,2} [A-Z][a-z]+)$` and contains no digit pair resembling a coordinate | 3 |
+| P11 | **Public payloads** (a backdated sighting) | Date only (`catHelpers.ts:160`) | Unchanged | `sightings.backdatedPublic.test.ts`; data spine test 8 stays green | 2 |
+| P12 | **The recent-photos list** (new) | New | Stores capture times and a fingerprint, **never a position**; capped at 30 days and 200 entries; wiped by Delete my data | `recentPhotos.test.ts`: the stored JSON for a fixture with a position contains no part of it; `clearRecentPhotos` is called by `wipePhone` | 2 |
+| P13 | **Third parties** | OpenStreetMap map tiles on the website learn the area the map is showing (spec §5.6) | Not new in kind; SYC-167 would reduce it. The AI matcher receives the stripped JPEG, never the original (`matching.ts` via `validatePhotoBase64`) | Existing matcher tests; no new third party is added by any slice | 5 |
+| P14 | **Push and email carrying a place** | None carries a coordinate | No slice adds one | Covered by P10 | 3 |
+
+**Principle behind the table.** The guard is always at the narrowest point (the extractor, the route builder, the one resolver) and the test reads the *serialised result*, so a new key name or a second code path cannot slip by (the plan's own "where else must this hold?" list is rows P1 to P14).
+
+---
+
+## Collisions with work in flight
+
+| In flight | What it touches | How these slices avoid it |
+|---|---|---|
+| **SYC-44** ("Report an issue", plan on `claude/syc-44-plan`, build not started; it extends the welfare **report** queue and `ReportQueueContext`) | `lib/reportQueue.ts`, `lib/queueStore.ts` (the generic store, `queueStore.generic.test.ts`), `context/ReportQueueContext.tsx`, server report routes | **None of the five slices edits any of those files.** The 30-day staleness this work depends on is in `lib/offlineQueue.ts:14,56-64` (the *sighting* queue), which no slice edits either. The new recent-photos store is deliberately **not** built on `queueStore.ts`: it is a small capped list in its own key, so SYC-44 can change the generic store without touching it. The only shared file is `context/DeleteMyDataContext.tsx` (one added line in `wipePhone`, slice 2); if SYC-44 has edited it by then, rebase and keep both lines. A reviewer checks `git diff --name-only origin/main...HEAD` against this list in every PR. |
+| **SYC-53** (roles and invites; person events as migration 0016, `authorityLevel`) | Server roles, schema | No slice touches the schema or a migration. No migration number is used by any slice. |
+| **SYC-209** (feeding sites; migration 0015 merged, colonies pages in flight) | Cats pages, `app/cat/[id].tsx`, cat serialiser | Slice 3 changes only the resolve route's message and `lastSeenAt` and does not touch `serialiseCat` or cat pages. Slices 2/4/5 are confined to the Spot screen and new libs. |
+| **SYC-2** (coat, markings, health; PR 1.2 on a branch) | Answers routes in `routes/sightings.ts`, observation kinds | Slice 3 edits two small regions of `routes/sightings.ts` (`:822-829`, `:835-868`); the helper lives in a new file so the edit stays tiny. **Before opening slice 3's PR, `git fetch` and run `git diff origin/main...origin/claude/syc-2-pr-1-2 -- artifacts/api-server/src/routes/sightings.ts`** (and the same for any open SYC-209/SYC-53 branch); if the regions overlap, rebase onto whatever merged first, never the reverse. |
+| **`lib/i18n.ts`** (every ticket adds keys) | One 1,500-line file | Each slice appends one block headed `// SYC-166`, at the end of each of the three dictionaries; rebase immediately before opening the PR. `i18n.test.ts` fails on a missing or extra key. |
+| **`app/(tabs)/spot.tsx`** (1,136 lines, shared with camera and offline work) | The Spot screen | Logic lives in new libs (`photoClock`, `pickedAsset`, `recentPhotos`, `mapStart`, `island`); the screen gets wiring only. `replaceRejectedPhoto` is left alone. |
+| **Review agents** | Worktrees | One worktree per review agent, never shared (`LIF-79`). Mutation probes mutate the tree, so the reviewer works in its own checkout of the PR branch. |
+
+Slices are numbered so that nothing needs more than one open PR at a time except 2W and 3, which are independent of each other and can overlap.
