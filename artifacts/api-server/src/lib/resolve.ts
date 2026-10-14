@@ -259,6 +259,11 @@ export function outranks(
  * The statement that decides among those with any standing (level 1 or
  * above), or undefined if none has any. Callers pass the active rows of one
  * kind.
+ *
+ * Nothing in this file calls it yet: the sterilisation fold must also rank
+ * not-yet-linked import records, so it reduces with `outranks` directly. It
+ * is here for SYC-2 PR 1.2's `resolveCoat` and `resolveMarkings`, with
+ * `appearanceAuthorityLevel` as the ranking.
  */
 export function highestAuthority<T extends Dated>(
   list: readonly T[],
