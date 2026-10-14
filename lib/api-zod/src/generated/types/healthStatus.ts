@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { HealthStatusTurnstile } from './healthStatusTurnstile';
 
 export interface HealthStatus {
   status: string;
@@ -12,4 +13,6 @@ export interface HealthStatus {
   commit: string;
   /** When the running server was built (ISO 8601), or "unknown". */
   builtAt: string;
+  /** The Turnstile check on the public report forms (SYC-170). Never the key itself. */
+  turnstile: HealthStatusTurnstile;
 }
