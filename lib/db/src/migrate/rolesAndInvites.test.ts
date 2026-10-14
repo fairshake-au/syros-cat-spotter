@@ -360,40 +360,37 @@ describe("spec test 29a, seeded half: setRoles is additive", () => {
     expect(await rolesOf(p.id)).toEqual([`guardian:${colony}`, "management", "staff", "vet"]);
   });
 
-  it("refuses a result without staff unless forced", async () => {
+  it("refuses a result with no island role (staff or management) unless forced", async () => {
     const p = await addStaff();
     await expect(
       store.setRoles({ email: SAMUEL, remove: "staff", by: "cli:t" }),
-    ).rejects.toThrow(/without staff/);
+    ).rejects.toThrow(/no staff or management role/);
     await expect(
       store.setRoles({ email: SAMUEL, replace: ["vet"], by: "cli:t" }),
-    ).rejects.toThrow(/without staff/);
+    ).rejects.toThrow(/no staff or management role/);
     expect(await rolesOf(p.id)).toEqual(["staff"]);
     const r = await store.setRoles({ email: SAMUEL, replace: ["vet"], force: true, by: "cli:t" });
     expect(r.after).toEqual(["vet"]);
     expect(await rolesOf(p.id)).toEqual(["vet"]);
   });
 
-  it("review M1: a manager can't be locked out: --remove staff and --replace management are refused unless forced", async () => {
-    // Until PR 0.5, can() and mayEnter() ask only for staff, so a manager
-    // without staff can't sign in at all.
+  it("review M1, relaxed by SYC-316: a manager keeps staff or management; with neither they'd be locked out, so it is refused unless forced", async () => {
     const p = await addStaff();
     await store.setRoles({ email: SAMUEL, add: "management", by: "cli:t" });
+    await addStaff("jacky@example.com");
+    await store.setRoles({ email: "jacky@example.com", add: "management", by: "cli:t" });
+    // Since PR 0.5, management alone lets someone in: dropping staff is fine.
+    const r1 = await store.setRoles({ email: SAMUEL, remove: "staff", by: "cli:t" });
+    expect(r1.after).toEqual(["management"]);
     const eventsBefore = (await eventsOf(p.id)).length;
     await expect(
-      store.setRoles({ email: SAMUEL, remove: "staff", by: "cli:t" }),
-    ).rejects.toThrow(/without staff/);
-    await expect(
-      store.setRoles({ email: SAMUEL, replace: ["management"], by: "cli:t" }),
-    ).rejects.toThrow(/without staff/);
-    await expect(
-      store.setRoles({ email: SAMUEL, replace: ["management", "vet"], by: "cli:t" }),
-    ).rejects.toThrow(/without staff/);
-    expect(await rolesOf(p.id)).toEqual(["management", "staff"]);
+      store.setRoles({ email: SAMUEL, replace: ["vet"], by: "cli:t" }),
+    ).rejects.toThrow(/no staff or management role/);
+    expect(await rolesOf(p.id)).toEqual(["management"]);
     expect((await eventsOf(p.id)).length).toBe(eventsBefore);
     // Forced, it is allowed: the break-glass stays a break-glass.
-    const r = await store.setRoles({ email: SAMUEL, remove: "staff", force: true, by: "cli:t" });
-    expect(r.after).toEqual(["management"]);
+    const r = await store.setRoles({ email: SAMUEL, replace: ["vet"], force: true, by: "cli:t" });
+    expect(r.after).toEqual(["vet"]);
   });
 
   it("--replace reports the guardian placements it took away", async () => {
@@ -405,13 +402,73 @@ describe("spec test 29a, seeded half: setRoles is additive", () => {
     expect(r.droppedPlacements).toEqual([`guardian:${colony}`]);
   });
 
-  it("management is added only beside staff, and a whole new list needs replace", async () => {
+  it("management can stand on its own since PR 0.5 (SYC-316), and a whole new list needs replace", async () => {
     const p = await store.addPerson({ email: SAMUEL, name: "S", addedBy: "cli:t", roles: ["vet"] });
-    await expect(
-      store.setRoles({ email: SAMUEL, add: "management", by: "cli:t", force: true }),
-    ).rejects.toThrow(/already holds staff/);
+    const added = await store.setRoles({ email: SAMUEL, add: "management", by: "cli:t" });
+    expect(added).toEqual({ id: p.id, before: ["vet"], after: ["management", "vet"], droppedPlacements: [] });
     const r = await store.setRoles({ email: SAMUEL, replace: ["staff", "management"], by: "cli:t" });
-    expect(r).toEqual({ id: p.id, before: ["vet"], after: ["management", "staff"], droppedPlacements: [] });
+    expect(r).toEqual({ id: p.id, before: ["management", "vet"], after: ["management", "staff"], droppedPlacements: [] });
+  });
+
+  // SYC-316, roles spec §9.5: the last manager can't be demoted unless forced.
+  it("refuses to take management from the last person who holds it, by --remove or --replace, unless forced", async () => {
+    const p = await addStaff();
+    await store.setRoles({ email: SAMUEL, add: "management", by: "cli:t" });
+    const eventsBefore = (await eventsOf(p.id)).length;
+    await expect(
+      store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" }),
+    ).rejects.toThrow(/last person with management/);
+    await expect(
+      store.setRoles({ email: SAMUEL, replace: ["staff"], by: "cli:t" }),
+    ).rejects.toThrow(/last person with management/);
+    expect(await rolesOf(p.id)).toEqual(["management", "staff"]);
+    expect((await eventsOf(p.id)).length).toBe(eventsBefore);
+    const r = await store.setRoles({ email: SAMUEL, remove: "management", force: true, by: "cli:t" });
+    expect(r.after).toEqual(["staff"]);
+  });
+
+  it("lets a manager be demoted while another remains, and counts only joined people still on the list", async () => {
+    await addStaff();
+    await addStaff("jacky@example.com");
+    await store.setRoles({ email: SAMUEL, add: "management", by: "cli:t" });
+    await store.setRoles({ email: "jacky@example.com", add: "management", by: "cli:t" });
+    // Jacky leaves: her management row stays, but she no longer counts.
+    await store.markLeft("jacky@example.com", "cli:t");
+    await expect(
+      store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" }),
+    ).rejects.toThrow(/last person with management/);
+    await addStaff("susan@example.com");
+    await store.setRoles({ email: "susan@example.com", add: "management", by: "cli:t" });
+    const r = await store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" });
+    expect(r.after).toEqual(["staff"]);
+    // Now Susan is the last one.
+    await expect(
+      store.setRoles({ email: "susan@example.com", remove: "management", by: "cli:t" }),
+    ).rejects.toThrow(/last person with management/);
+  });
+
+  it("two managers demoting each other at the same moment can't both succeed", async () => {
+    await addStaff();
+    await addStaff("jacky@example.com");
+    await store.setRoles({ email: SAMUEL, add: "management", by: "cli:t" });
+    await store.setRoles({ email: "jacky@example.com", add: "management", by: "cli:t" });
+    // Two connections, so the two transactions really overlap.
+    const pool = new pg.Pool({ connectionString: url(name), max: 2 });
+    try {
+      const racing = peopleStore(drizzle(pool, { schema }));
+      const results = await Promise.allSettled([
+        racing.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" }),
+        racing.setRoles({ email: "jacky@example.com", remove: "management", by: "cli:t" }),
+      ]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const refused = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+      expect(refused.reason).toBeInstanceOf(PeopleError);
+      expect(String(refused.reason.message)).toMatch(/last person with management/);
+    } finally {
+      await pool.end();
+    }
+    const left = await c.query(`select count(*)::int as n from person_scopes where role = 'management'`);
+    expect(left.rows[0].n).toBe(1);
   });
 
   it("a guardian placement needs its colony, and only a guardian takes one", async () => {

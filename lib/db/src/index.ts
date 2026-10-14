@@ -25,6 +25,8 @@ export {
   isPersonId,
   peopleStore,
   PeopleError,
+  placementEndsAt,
+  scopeInForce,
   type AllowedPerson,
   type PersonWithScopes,
   type PeopleStore,
