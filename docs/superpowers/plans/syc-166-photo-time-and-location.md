@@ -513,3 +513,132 @@ None of these reopens a decision Samuel made. Each says what the plan does.
 15. **The server enforces nothing at 21 days.** The 21-day rule is the app's. A modified app can still send up to 30 days (`captureTime.ts:20`), as the spec accepts (§5.9, §12).
 16. **`replaceRejectedPhoto`** (`spot.tsx:398-412`) swaps a rejected queued photo and keeps the item's old time on purpose. The spec is silent. Left unchanged; a library photo used as the replacement is not read for its time.
 17. **The "Open that sighting" button (`photoAlreadyLoggedOpen`)** names a destination the spec does not define. Decision C.
+
+---
+
+## Decisions for Samuel
+
+The spec's seven decisions are settled. These are the questions the plan itself needs answered. None blocks slice 1. A and B shape slice 2 and 2W; the rest can wait until their slice is next.
+
+### Decision A · The website's date and time: build it now, or wait for the device check?
+
+The website can only read a photo's date by looking inside the file itself. Whether phone browsers hand over the date at all is exactly what the device check (C6, C8) will tell us.
+
+| | **A1. Build it straight after the phone apps (recommended)** | **A2. Wait until the device check has run** | **A3. Leave the website dating photos to the moment they are picked** |
+|---|---|---|---|
+| **What a spotter sees** | Laptop photos and any phone-browser photo that keeps its date are dated correctly; if the browser removed it, a line says so | Nothing changes on the website until the check is done, then the same as A1 | Today's behaviour on the website, permanently |
+| **Benefits** | Honours "date and time first, works whatever the check finds"; the same reader is needed by every outcome except "neither arrives"; a small piece of code | No code written on a guess | Nothing to build or maintain |
+| **Risks** | If phone browsers remove the date, the reader helps laptop users only | The website's date fix slips by however long the check takes | Website users, including the laptop-at-the-hotel tourists who benefit most, keep the wrong day |
+| **Effort** | One small PR | Same, later | None |
+
+**Recommendation: A1.** It costs little, it degrades to today's behaviour if browsers strip the date, and it avoids the website being the one place the headline fix is missing.
+
+### Decision B · Working out the time zone when the photo doesn't say (mostly Android)
+
+An iPhone photo carries its own time zone. An Android photo may not, so the spec lets the app work it out from the satellite clock stored with the photo. The weak point: a phone that reuses an old position fix writes a satellite time that is hours or minutes old, which would make the photo's time wrong by that amount.
+
+| | **B1. Exactly as the spec says** | **B2. As the spec says, plus a plausibility check (recommended)** | **B3. Never work it out: always read the time as Greek time** |
+|---|---|---|---|
+| **What a spotter sees** | A tourist's photo from another zone is placed right; a stale fix can put a photo's time off by an odd amount of minutes | The same, except an off-grid result (a stale fix) is ignored and the photo is read as Greek time | Every no-zone photo is read as Greek time; a tourist logging a photo taken in another zone is out by that zone's difference |
+| **Benefits** | Follows the approved text | Catches the commonest stale-fix error at no cost | Simplest, always predictable; right for every photo taken on Syros, which is nearly all of them |
+| **Risks** | The odd-minute errors | A stale fix that happens to be a clean multiple of 15 minutes still passes (about two in five stale fixes) | Wrong by hours for photos taken in another zone |
+| **Effort** | Spec | A few lines, two tests | Fewer lines than the spec |
+
+**Recommendation: B2.** It stays within what Samuel approved and removes the likeliest silly result. B3 is a fair simplification if you'd rather have no clever step; say so and the plan drops the GPS-clock rule.
+
+### Decision C · What "Open that sighting" does when you pick a photo you already logged
+
+The spec says the message appears with an "Open that sighting" button, but not where it goes.
+
+| | **C1. No button, just the message** | **C2. A button that goes to the right place (recommended)** | **C3. Always the cat's page** |
+|---|---|---|---|
+| **What a spotter sees** | "You've already logged this photo." and nothing to tap | Waiting in the saved-for-later list: opens that card. Already sent: opens that cat's page | The cat's page, or nothing if the cat isn't known yet |
+| **Benefits** | Simplest; no extra code in the review screen | The honest answer to "where did it go?" | One destination |
+| **Risks** | A dead end; the spec's twelfth key goes unused | Needs the cat's number remembered once the sighting is matched, which is one small call added in the review screen | A sighting still waiting to be matched has no cat page |
+| **Effort** | Least | Slice 2 also touches `app/review.tsx` by one call | Medium |
+
+**Recommendation: C2.**
+
+### Decision D · The owner's push for a photo more than a week old
+
+The spec says "seen on Tuesday". Photos can be up to 21 days old, so "Tuesday" can mean three Tuesdays ago.
+
+| | **D1. Weekday for up to 6 days, the date after that (recommended)** | **D2. Always the weekday (the spec's text)** | **D3. Always the date ("seen on 3 October")** |
+|---|---|---|---|
+| **What the owner sees** | "seen on Tuesday", or "seen on 3 October" if older than a week | "seen on Tuesday" always | "seen on 3 October" always |
+| **Benefits** | Never ambiguous; reads naturally | As approved | Never ambiguous |
+| **Risks** | Two forms to test | Misleading beyond a week | Slightly less natural for yesterday |
+
+**Recommendation: D1.**
+
+### Decision E · Two numbers the spec leaves open
+
+How long to wait for the phone's position before starting in Ermoupoli, and how far outside Syros' outline still counts as Syros.
+
+| | **E1. Wait 4 seconds; 2 km margin (recommended)** | **E2. Wait until the phone gives up (10-15 seconds); 2 km margin** | **E3. Wait 4 seconds; no margin** |
+|---|---|---|---|
+| **What a spotter sees** | A map within 4 seconds; a photo from the edge of the coast still counts | A long wait with no map | A photo taken on the very edge of the island might be called "away from Syros" |
+| **Risks** | A spotter with slow GPS gets Ermoupoli, though the map doesn't jump if their position arrives later | The "stuck" feeling this slice exists to remove | A wrong "away from Syros" stop screen, which has an "It was on Syros" way out but is irritating |
+
+**Recommendation: E1.**
+
+### Decision F · A camera photo when location is switched off
+
+The spec leaves the camera alone. Today a spotter who photographs a cat with phone location refused cannot send it: no map appears and the button is disabled.
+
+| | **F1. Leave it (the spec)** | **F2. Also start the map in Ermoupoli (recommended, as a separate small ticket)** |
+|---|---|---|
+| **What a spotter sees** | Still stuck with the red message | A map in Ermoupoli to drag to the right street |
+| **Risks** | A dead end that is plainly the same bug | The cat was photographed *here*; Ermoupoli is a guess the spotter must correct (the line says so) |
+
+**Recommendation: F2, filed as its own ticket so this feature's camera test ("camera path unchanged") stays true.**
+
+### Decision G · If the device check shows every phone gives the time only
+
+Spec §4.3 asks this directly: is the "map starts where the photo was taken" work still worth building?
+
+| | **G1. Build it anyway** | **G2. Build only the honest lines and close the rest (recommended in that case)** | **G3. Stop at the time fix** |
+|---|---|---|---|
+| **What a spotter sees** | Nothing new (no position ever arrives) | A line saying the photo doesn't say where, on platforms known to remove it | Nothing |
+| **Risks** | Dead code | Very little | The spotter wonders why the map starts near them |
+
+**Recommendation:** decide when the results are in. If anything delivers a position, build it for that platform only; if nothing does, G2.
+
+### Decision H · What the website says about location when it can read the time but not the place
+
+Only matters if the device check says phone browsers remove location but keep time (so the website gets the time-only reader).
+
+| | **H1. The spec's line ("This photo doesn't say where it was taken...")** | **H2. A neutral line: "The website can't read where a photo was taken, so the map starts near where you are now..." (recommended)** | **H3. No line** |
+|---|---|---|---|
+| **What a spotter sees** | A claim that may be untrue for a photo exported from a laptop | An honest statement about the website | The old hint "It starts near where you are." |
+| **Risks** | Untrue sometimes | One more key in three languages for native review (SYC-4) | None |
+
+**Recommendation: H2.**
+
+---
+
+## Follow-up tickets this plan implies (to file; the orchestrator numbers them)
+
+Not already covered by SYC-249, 250, 258, 259, 260, 280, 87 or 167.
+
+1. **Camera photo with location refused: start the map in Ermoupoli too** (Decision F2). Small; `spot.tsx` and `mapStart.ts`.
+2. **A guard test that Delete my data clears every on-device store.** The recent-photos list adds a key; a test that lists every key the app writes and checks each is cleared (or deliberately kept) stops the next one being missed.
+3. **iPhone: a hint if photo location arrives only with the chooser's "Location" switch on** and that switch is off by default (conditional on SYC-280's C1; file only if so).
+4. **Use a library photo's own time when it replaces a rejected photo** (`replaceRejectedPhoto`, `spot.tsx:398-412`): decide whether the replacement should keep the old time or take the new photo's, and apply the 21-day rule.
+5. **Android: read the time from the file when the picker gives no tags** (conditional on SYC-280's C2/C4 showing empty tags on a JPEG).
+6. **Add the SYC-166 entries to `DECISIONS.md`** (spec §11 leaves that for Samuel on approval; five bullets, including the age limit, the off-island rule, Ermoupoli and the owner's push).
+7. **Native review of the twelve (or thirteen) new strings** as an addition to SYC-4's list.
+8. **Share the Syros rectangle between the app and the server** for SYC-249's check: a comment on SYC-249 pointing at `lib/island.ts`, rather than a new ticket.
+
+---
+
+## Order of work, and what "done" means
+
+1. Samuel approves this plan (and answers A and B at least; the rest can wait).
+2. Slice 1 (SYC-258) -> `/ship`.
+3. Slice 2, and in parallel slice 3 (they touch different files; neither touches the other's). SYC-280's device check can use slice 2's build.
+4. Slice 2W (Decision A), slice 4.
+5. SYC-280's results go into spec §4.2; Samuel answers G. Slice 5, per the outcome table.
+6. After each merge: flip the slice's Linear ticket and SYC-166's progress note, file anything deferred, remove the worktree and branch, pull `main` (the standing `/ship` ritual).
+
+SYC-166 is done when: the photo's date is right on every platform that gives it, the honest lines are only ever true, no position outside the confirmed pin can be found in an address, a queue item, a request, a log or a payload (table P1 to P14, each with a passing test), and the real-device claims marked **[confirm]** in the spec have been replaced by results.
