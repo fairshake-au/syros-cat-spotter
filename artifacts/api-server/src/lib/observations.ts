@@ -586,6 +586,13 @@ export interface WriteObservationInput {
   observedAt: Date;
   supersedesId?: number | null;
   supersedeReason?: string | null;
+  /**
+   * Must be true to write a {@link WITHDRAWN} `life_status`. Only the owner's
+   * let-go and the team's Remove owner say so: a withdrawal takes an owner's
+   * "has a home" back without the owner link going, so no other writer
+   * (a team correction, the supersede API) may produce one.
+   */
+  allowWithdrawal?: boolean;
 }
 
 /** A claim withdrawn (claiming-a-cat.md §6, §7): supersedes a homed, asserts
@@ -716,6 +723,9 @@ export async function writeObservation(
   }
 
   if (isWithdrawal(input.kind, input.value)) {
+    if (input.allowWithdrawal !== true) {
+      refuse("MALFORMED_VALUE", "A withdrawal can only be written by a let-go or Remove owner");
+    }
     await checkWithdrawalTarget(tx, input);
   } else {
     validateValue(input.kind, input.value, {

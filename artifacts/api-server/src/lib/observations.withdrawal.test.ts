@@ -71,6 +71,7 @@ function withdraw(catId: number, supersedesId: number | null | undefined, at = d
     catId,
     kind: "life_status",
     value: WITHDRAWN,
+    allowWithdrawal: true,
     deviceId: "dev-w",
     roleAtTime: "public",
     authorityScope: "owner_of_this_cat",

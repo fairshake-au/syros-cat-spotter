@@ -193,8 +193,10 @@ export function describeStatement(
  * team statement carries its reason inside its value (routes/observations.ts).
  */
 function reasonOf(o: Observation): string | null {
-  // The owner's own let-go carries an internal note, not a reason given.
-  if (o.deviceId && isWithdrawal(o.kind as ObservationKind, o.value)) return null;
+  // The owner's own let-go carries an internal note, not a reason given. A
+  // phone wrote it when no account did: deleting their data (severPerson)
+  // clears the device id but never gives a withdrawal an account.
+  if (o.accountId == null && isWithdrawal(o.kind as ObservationKind, o.value)) return null;
   if (o.supersedesId != null && str(o.supersedeReason)) return o.supersedeReason;
   const v = o.value as Record<string, unknown> | null;
   return v && typeof v === "object" ? str(v["reason"]) : null;
@@ -223,6 +225,11 @@ export interface TeamStatement {
    * cat shows it struck through, with where it went and why. Null otherwise.
    */
   movedTo: { statementId: number; cat: TeamCatRef; reason: string | null; at: string } | null;
+  /**
+   * True for an owner's standing "has a home". It can't be marked wrong; only
+   * Remove owner ends a claim (the page points there).
+   */
+  ownerClaim: boolean;
   /** Set when this statement replaced one on a different cat: where it came from. */
   movedFrom: { statementId: number; cat: TeamCatRef } | null;
   photoUrl: string | null;
@@ -239,8 +246,21 @@ export type StatementCorrection =
   | { kind: "sterilised"; now: boolean | null }
   | { kind: "ear_tip_clipped" };
 
+/** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
+export function isOwnerHomed(o: Observation): boolean {
+  const v = o.value as Record<string, unknown> | null;
+  return (
+    o.kind === "life_status" &&
+    o.authorityScope === "owner_of_this_cat" &&
+    !!v &&
+    typeof v === "object" &&
+    v["status"] === "homed"
+  );
+}
+
 function correctionOf(o: Observation, replaced: boolean): StatementCorrection | null {
   if (replaced) return null;
+  if (isOwnerHomed(o)) return null;
   // A withdrawal is never "marked wrong": that would add a status under a
   // heading that says the owner was removed, and read as if it restored the
   // owner, which it can't. To change the cat, say its status.
@@ -307,6 +327,11 @@ export interface TeamCatView {
    */
   owner: {
     has: boolean;
+    /**
+     * No owner link, but an owner's "has a home" still stands: the owner
+     * deleted their data (claiming-a-cat.md D13). Remove owner ends it.
+     */
+    orphanedHome: boolean;
     homeDescription: string | null;
     homePin: { lat: number; lng: number } | null;
   };
@@ -516,6 +541,12 @@ export async function teamCatView(
     return publicId ? teamPhotoUrl(publicId) : null;
   };
 
+  const replacedIds = new Set(
+    observations.map((o) => o.supersedesId).filter((id): id is number => id != null),
+  );
+  const orphanedHome =
+    cat.ownerDeviceId === null &&
+    observations.some((o) => isOwnerHomed(o) && !replacedIds.has(o.id));
   const life = resolveLifeStatus(observations, evidence, now);
   const sterilised = resolveSterilised(observations, []);
 
@@ -534,7 +565,7 @@ export async function teamCatView(
     .map((o) => ({
       id: o.id,
       kind: o.kind,
-      said: describeStatement(o.kind, o.value, o.deviceId != null),
+      said: describeStatement(o.kind, o.value, o.accountId == null),
       reason: reasonOf(o),
       author: authorOf(o, people),
       observedAt: o.observedAt.toISOString(),
@@ -545,6 +576,7 @@ export async function teamCatView(
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
       correction: correctionOf(o, replacedBy.has(o.id)),
+      ownerClaim: isOwnerHomed(o) && !replacedBy.has(o.id),
     }));
 
   const mainIds = new Set([cat.primaryPhotoId]);
@@ -574,6 +606,7 @@ export async function teamCatView(
     },
     owner: {
       has: cat.ownerDeviceId !== null,
+      orphanedHome,
       // D13: deletion clears the owner link and keeps the note and pin, so
       // they show whenever stored, owner or not. Letting go and Remove owner
       // clear them, so a stored note or pin always means the cat has a home.

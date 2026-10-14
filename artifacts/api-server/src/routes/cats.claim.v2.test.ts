@@ -193,6 +193,7 @@ async function letGo(catId: number, p: Phone) {
     catId,
     kind: "life_status",
     value: WITHDRAWN,
+    allowWithdrawal: true,
     deviceId: p.id,
     roleAtTime: "public",
     authorityScope: "owner_of_this_cat",

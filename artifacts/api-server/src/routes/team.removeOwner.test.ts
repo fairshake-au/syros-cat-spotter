@@ -228,6 +228,7 @@ describe("the team page shows an owner (spec §7)", () => {
     const json = await request(app).get(`/api/team/cats/${c.id}`).set("Cookie", cookie).set("Accept", "application/json");
     expect(json.body.owner).toEqual({
       has: true,
+      orphanedHome: false,
       homeDescription: note,
       homePin: { lat: row.homeLat, lng: row.homeLng },
     });
@@ -241,7 +242,7 @@ describe("the team page shows an owner (spec §7)", () => {
     expect(res.text).not.toContain("Has an owner");
     expect(res.text).not.toContain("Home pin");
     const json = await request(app).get(`/api/team/cats/${c.id}`).set("Cookie", cookie).set("Accept", "application/json");
-    expect(json.body.owner).toEqual({ has: false, homeDescription: null, homePin: null });
+    expect(json.body.owner).toEqual({ has: false, orphanedHome: false, homeDescription: null, homePin: null });
   });
 
   it("the pin is shown only to someone with view_exact_location: nowhere in the view or the HTML without it", async () => {
@@ -530,7 +531,8 @@ describe("the transaction", () => {
   });
 
   it("locks the cat row and re-checks the owner under the lock: an owner let go while it waits wins", async () => {
-    const { c } = await ownedCat("lock");
+    const { c, d } = await ownedCat("lock");
+    const [h] = await homed(c.id);
     let pending: request.Test | undefined;
     let waiting: Promise<request.Response> | undefined;
     await db.transaction(async (tx) => {
@@ -546,11 +548,17 @@ describe("the transaction", () => {
         },
         { timeout: 5000, interval: 25 },
       );
+      // The owner lets go meanwhile (as the let-go route does): their homed is
+      // withdrawn and the link cleared.
+      await writeObservation(tx, {
+        catId: c.id, kind: "life_status", value: { withdrawn: true }, allowWithdrawal: true, deviceId: d.id,
+        roleAtTime: "public", authorityScope: "owner_of_this_cat", observedAt: new Date(), supersedesId: h!.id,
+      });
       await tx.update(catsTable).set({ ownerDeviceId: null, homeDescription: null }).where(eq(catsTable.id, c.id));
     });
     const res = await waiting!;
     expect(res.headers["location"]).toMatch(/done=ownerGone/);
-    expect(await withdrawals(c.id)).toHaveLength(0);
+    expect(await withdrawals(c.id)).toHaveLength(1);
     expect(await teamStatements(c.id)).toHaveLength(0);
   });
 });

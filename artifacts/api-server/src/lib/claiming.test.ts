@@ -123,6 +123,7 @@ async function withdraw(catId: number, deviceId: string, supersedesId: number) {
     catId,
     kind: "life_status",
     value: WITHDRAWN,
+    allowWithdrawal: true,
     deviceId,
     roleAtTime: "public",
     authorityScope: "owner_of_this_cat",

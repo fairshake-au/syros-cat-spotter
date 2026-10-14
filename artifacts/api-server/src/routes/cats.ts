@@ -547,6 +547,7 @@ router.post("/cats/:catId/let-go", async (req, res) => {
         catId,
         kind: "life_status",
         value: WITHDRAWN,
+        allowWithdrawal: true,
         deviceId,
         roleAtTime: "public",
         authorityScope: "owner_of_this_cat",

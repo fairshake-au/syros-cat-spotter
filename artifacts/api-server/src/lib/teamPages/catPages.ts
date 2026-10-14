@@ -366,6 +366,9 @@ function statementItem(
     replacements +
     moved +
     wrongForm(s, may) +
+    (s.ownerClaim
+      ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Correct the record”.</p>'
+      : "") +
     "</li>"
   );
 }
@@ -451,7 +454,7 @@ function correctionForms(
         "</fieldset>" +
         // Owned cat (spec §7): removing the owner is offered in the same step,
         // so a correction can't leave the cat stuck "street" with an owner.
-        (v.owner.has && may("remove_owner")
+        ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
           ? '<label class="choice" for="ls-owner"><input type="checkbox" id="ls-owner" name="removeOwner" value="1" checked> Also remove the owner</label>' +
             '<p class="hint">Ticked, an owner is removed unless the cat is saved as having a home. Nobody is told.</p>'
           : "") +
@@ -484,7 +487,7 @@ function correctionForms(
         '<button type="submit">Rename</button></form></details>',
     );
   }
-  if (v.owner.has && may("remove_owner") && may("set_life_status")) {
+  if ((v.owner.has || v.owner.orphanedHome) && may("remove_owner") && may("set_life_status")) {
     forms.push(
       `<details><summary>Remove owner</summary><form method="post" action="${base}/remove-owner">` +
         '<p class="hint">Ends this claim. The owner stops seeing the exact spot and getting alerts. Nobody is told.</p>' +
@@ -568,7 +571,14 @@ export function renderCatPage(
       byId,
     ) +
     "<h3>Owner</h3><dl>" +
-    row("Owner", v.owner.has ? "Has an owner" : "No owner") +
+    row(
+      "Owner",
+      v.owner.has
+        ? "Has an owner"
+        : v.owner.orphanedHome
+          ? "Has a home, but the owner deleted their data"
+          : "No owner",
+    ) +
     // D13: after an owner deletes their data the note and pin stay, with no
     // owner link, so show them whenever they are stored.
     (v.owner.has || v.owner.homeDescription || v.owner.homePin

@@ -10,6 +10,7 @@ import {
   type ObservationKind,
 } from "./observations";
 import { clearOwner, newestActiveOwnerHomed } from "./claiming";
+import { isOwnerHomed } from "./teamCatView";
 import { resolveSterilised } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
@@ -192,7 +193,11 @@ export async function removeOwnerAndSay(
       .select({ ownerDeviceId: catsTable.ownerDeviceId })
       .from(catsTable)
       .where(eq(catsTable.id, input.catId));
-    const hasOwner = cat?.ownerDeviceId != null;
+    // An owner who deleted their data leaves no link but their "has a home"
+    // standing (D13): that counts as an owner here, so it can be ended.
+    const hasOwner =
+      cat?.ownerDeviceId != null ||
+      (await newestActiveOwnerHomed(tx, input.catId, null)) !== null;
     if (!hasOwner && mode === "require_owner") return { owner: "none" as const, row: null };
 
     const observedAt = input.observedAt ?? new Date();
@@ -206,6 +211,7 @@ export async function removeOwnerAndSay(
           catId: input.catId,
           kind: "life_status",
           value: WITHDRAWN,
+          allowWithdrawal: true,
           accountId: person.id,
           roleAtTime: "staff",
           observedAt: new Date(),
@@ -271,6 +277,13 @@ export async function supersedeStatement(
     // teamCatView): refused like any answer that doesn't fit, nothing written.
     if (isWithdrawal(original.kind as ObservationKind, original.value)) {
       throw new ObservationRefused("MALFORMED_VALUE", "A withdrawal can't be corrected");
+    }
+
+    // An owner's "has a home" is the claim itself: marking it wrong would
+    // leave the owner link, note and pin in place. Remove owner is the only
+    // team path that ends a claim.
+    if (isOwnerHomed(original)) {
+      throw new ObservationRefused("MALFORMED_VALUE", "An owner's claim is ended with Remove owner");
     }
 
     const capability = capabilityFor(original.kind);
