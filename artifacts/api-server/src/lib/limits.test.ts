@@ -14,6 +14,7 @@ import {
   sweepRateLimits,
   sweepRateLimitsIfDue,
 } from "./limits";
+import { CLAIM_LIMIT, checkClaimLimit } from "../middlewares/rateLimit";
 
 // SYC-105 PR 2.1 tests T2-1 to T2-6 (docs/superpowers/plans/syc-44-report-an-issue.md,
 // Slice 2): limits counted in Postgres, not in a server's memory.
@@ -271,7 +272,10 @@ describe("a day-long window survives the sweep until it has ended (review findin
     expect(after.allowed).toBe(false);
     expect(after.hits).toBe(17);
     // Well after it has ended, it is swept.
+    // (A row outlives its window by one more window, for sliding limits.)
     await sweepRateLimits(day + DAY + 2 * HOUR);
+    expect((await peek("daily", "addr", DAY, undefined, day + 5 * HOUR)).hits).toBe(17);
+    await sweepRateLimits(day + 2 * DAY + 2 * HOUR);
     expect((await peek("daily", "addr", DAY, undefined, day + 5 * HOUR)).hits).toBe(0);
   });
 });
@@ -320,5 +324,45 @@ describe("guards (review finding 6)", () => {
       /registered twice/,
     );
     expect(() => sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 5, message: {} })).not.toThrow();
+  });
+});
+
+describe("the claim limit is a sliding window (5 per 24 hours, not 5 per calendar day)", () => {
+  const day = Date.UTC(2043, 4, 5);
+  const lateOnDay1 = day + 23 * HOUR + 59 * 60 * 1000; // 23:59 UTC
+  const earlyOnDay2 = day + DAY + 60 * 1000; // 00:01 UTC, two minutes later
+
+  it("5 claims at 23:59 UTC and a 6th at 00:01 is refused; allowed again 24 hours after the first", async () => {
+    expect(CLAIM_LIMIT).toBe(5);
+    for (let i = 0; i < CLAIM_LIMIT; i++) expect(await checkClaimLimit("slide-a", lateOnDay1)).toBe(true);
+    // A fixed window would hand a fresh allowance here.
+    expect(await checkClaimLimit("slide-a", earlyOnDay2)).toBe(false);
+    // 24 hours after the five claims, they no longer count (the refusal above does, a little).
+    expect(await checkClaimLimit("slide-a", lateOnDay1 + DAY + 60_000)).toBe(true);
+  });
+
+  it("the previous window survives the sweep while the current one runs", async () => {
+    for (let i = 0; i < CLAIM_LIMIT; i++) await checkClaimLimit("slide-b", lateOnDay1);
+    await sweepRateLimits(day + DAY + 30 * 60 * 1000);
+    expect(await checkClaimLimit("slide-b", earlyOnDay2)).toBe(false);
+  });
+
+  it("holds across two app instances", async () => {
+    vi.resetModules();
+    const other = await import("../middlewares/rateLimit");
+    const otherDb = await import("@workspace/db");
+    try {
+      for (let i = 0; i < 3; i++) expect(await checkClaimLimit("slide-c", lateOnDay1)).toBe(true);
+      for (let i = 0; i < 2; i++) expect(await other.checkClaimLimit("slide-c", lateOnDay1)).toBe(true);
+      expect(await other.checkClaimLimit("slide-c", earlyOnDay2)).toBe(false);
+      expect(await checkClaimLimit("slide-c", earlyOnDay2)).toBe(false);
+    } finally {
+      await otherDb.pool.end();
+    }
+  });
+
+  it("a fixed-window limit is unchanged: it still resets at the boundary", async () => {
+    for (let i = 0; i < 5; i++) await consume("fixedday", "k", 5, DAY, undefined, lateOnDay1);
+    expect((await consume("fixedday", "k", 5, DAY, undefined, earlyOnDay2)).allowed).toBe(true);
   });
 });

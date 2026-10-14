@@ -162,8 +162,9 @@ export async function _resetDeviceMatchLimitForTests(): Promise<void> {
 // refusals included. Keyed on a device id only AFTER the claim route's
 // verifyDeviceSecret has proved it, never on the raw body, as above.
 // Counted in Postgres since SYC-105 PR 2.1, so it holds across servers and
-// restarts. The window is clock-aligned, so a day's claims reset at 00:00 UTC
-// rather than 24 hours after the first one. Fails closed (the route answers
+// restarts. It is a SLIDING window (lib/limits.ts), so spending the limit just
+// before 00:00 UTC does not hand a fresh allowance just after it: claiming is
+// sensitive (an owner outranks a guardian). Fails closed (the route answers
 // 503) if the counter breaks.
 export const CLAIM_LIMIT = 5;
 export const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -171,14 +172,16 @@ const CLAIM_BUCKET = "claim";
 
 /**
  * Returns true if `deviceId` may make another claim attempt now, and
- * records that it did. The 6th call within a window returns false. Throws if
+ * records that it did. The 6th call within any 24 hours returns false. Throws if
  * the counter fails.
  */
 export async function checkClaimLimit(
   deviceId: string,
   now: number = Date.now(),
 ): Promise<boolean> {
-  const r = await consume(CLAIM_BUCKET, deviceId, CLAIM_LIMIT, CLAIM_WINDOW_MS, undefined, now);
+  const r = await consume(CLAIM_BUCKET, deviceId, CLAIM_LIMIT, CLAIM_WINDOW_MS, undefined, now, {
+    sliding: true,
+  });
   return r.allowed;
 }
 
