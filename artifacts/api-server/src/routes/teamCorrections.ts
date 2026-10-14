@@ -176,7 +176,7 @@ function notFound(req: Request, res: Response) {
 }
 
 /** POSTs that run the same Origin and session checks, with their capability. */
-const formRoute = (capability?: Capability) => [
+export const formRoute = (capability?: Capability) => [
   requireOrigin(TEAM_ORIGIN),
   requireTeam(capability),
   (_req: Request, res: Response, next: () => void) => {
