@@ -34,6 +34,7 @@ const zlib = require('zlib');
 const prelaunch = require('./prelaunch');
 const { passwordPage, unavailablePage } = require('./prelaunch-page');
 const { injectLoadingScreen } = require('./loading-screen');
+const challenge = require('./challenge-page');
 
 const DIST_ROOT = path.resolve(__dirname, '..', 'dist');
 
@@ -430,6 +431,30 @@ function createHandler(env = process.env, options = {}) {
 
     if (pathname === '/status') {
       return send(res, 200, { 'content-type': 'text/plain' }, 'ok');
+    }
+
+    // SYC-170 spike: the Turnstile challenge page. Exactly this path, GET/HEAD
+    // only, is served the same with the pre-launch gate on or off: it is
+    // static, holds no data and the phone WebView has no website cookie. It
+    // carries its own headers (the gate's frame-ancestors 'none' would block
+    // the web embed).
+    if (pathname === '/_challenge') {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        return send(res, 405, { 'content-type': 'text/plain', allow: 'GET, HEAD' }, 'Method Not Allowed');
+      }
+      res.removeHeader('x-frame-options');
+      const query = new URL(req.url || '/', 'http://x').searchParams;
+      const parsed = challenge.parseChallengeQuery(query);
+      if (!parsed) return send(res, 400, { 'content-type': 'text/plain' }, 'Bad Request');
+      const sitekey = challenge.sitekeyFor(env);
+      if (!sitekey) return send(res, 503, { 'content-type': 'text/plain' }, 'Service Unavailable');
+      const nonce = challenge.newNonce();
+      return send(
+        res,
+        200,
+        challenge.challengeHeaders(nonce),
+        challenge.challengePage({ sitekey, ...parsed, nonce }),
+      );
     }
 
     // In production the platform routes /api to the API service before this
