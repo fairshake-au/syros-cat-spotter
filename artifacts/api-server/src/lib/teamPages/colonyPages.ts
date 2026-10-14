@@ -77,12 +77,14 @@ function createForm(): string {
 
 export function renderColoniesPage(opts: {
   query: string;
+  /** A search that cannot match anything, shown as a search with no results. */
+  searched?: boolean;
   colonies: ColonyRow[];
   personName: string;
   done?: string;
   canCreate: boolean;
 }): string {
-  const searching = opts.query.trim() !== "";
+  const searching = opts.query.trim() !== "" || opts.searched === true;
   const list =
     opts.colonies.length > 0
       ? `<ul class="cats">${opts.colonies.map(colonyCard).join("")}</ul>`

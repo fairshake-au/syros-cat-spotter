@@ -49,6 +49,10 @@ const QUERY_MAX = 200;
 const colonyPage = (id: number, done?: string) =>
   `/api/team/colonies/${id}${done ? `?done=${encodeURIComponent(done)}` : ""}`;
 
+/** Postgres refuses a NUL character in text, so a form carrying one is a bad form. */
+const NUL = String.fromCharCode(0);
+const noNul = (s: string) => !s.includes(NUL);
+
 /** A browser sends a text box's line breaks as CRLF; store them as LF. */
 const lf = (v: unknown) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n") : v);
 
@@ -59,7 +63,7 @@ const optionalText = (max: number) =>
       const s = lf(v);
       return typeof s === "string" && s.trim() === "" ? null : s;
     },
-    z.string().trim().max(max).nullable(),
+    z.string().trim().max(max).refine(noNul).nullable(),
   );
 
 const nameField = z.preprocess(
@@ -69,6 +73,7 @@ const nameField = z.preprocess(
     .trim()
     .min(1)
     .max(COLONY_NAME_MAX)
+    .refine(noNul)
     // Nothing left once folded (only invisible characters, say): unreadable,
     // and "taken" by every other such name.
     .refine((s) => foldName(s) !== ""),
@@ -159,12 +164,17 @@ router.get(
     setTeamHeaders(res); // before any await, so an error answer carries them too
     // Only a single string is a query; ?q=a&q=b or ?q[x]=1 is no query.
     const q = typeof req.query["q"] === "string" ? req.query["q"].slice(0, QUERY_MAX) : "";
-    const colonies = await listColonies(q);
-    if (wantsJson(req)) return void res.json({ query: q, colonies });
+    // A query with a NUL in it can match nothing (Postgres can't hold one),
+    // and is never echoed back.
+    const unmatchable = q.includes(NUL);
+    const shown = unmatchable ? "" : q;
+    const colonies = unmatchable ? [] : await listColonies(q);
+    if (wantsJson(req)) return void res.json({ query: shown, colonies });
     const done = typeof req.query["done"] === "string" ? req.query["done"] : undefined;
     res.type("html").send(
       renderColoniesPage({
-        query: q,
+        query: shown,
+        searched: unmatchable,
         colonies,
         personName: person.name,
         done,

@@ -709,6 +709,34 @@ describe("the ?done= message is looked up safely", () => {
   });
 });
 
+describe("a NUL character", () => {
+  const nul = String.fromCharCode(0);
+  it("is a 400 in a name, guardian or notes, and writes nothing", async () => {
+    const id = await makeColony(unique("nul"));
+    const before = { colonies: await myColonyCount(), events: await colonyEventCount() };
+    for (const field of ["name", "guardianName", "notes"]) {
+      const bad = { [field]: `a${nul}b-${RUN}` };
+      const create = await post("/api/team/colonies", { name: unique("nul-new"), ...bad });
+      expect(create.status, `create ${field}`).toBe(400);
+      expect(create.text).not.toContain(nul);
+      const change = await post(`/api/team/colonies/${id}`, bad);
+      expect(change.status, `change ${field}`).toBe(400);
+    }
+    expect({ colonies: await myColonyCount(), events: await colonyEventCount() }).toEqual(before);
+  });
+
+  it("in the search matches nothing, renders, and is not echoed", async () => {
+    const res = await get(`/api/team/colonies?q=${encodeURIComponent(`mi${nul}mi`)}`);
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain(nul);
+    expect(res.text).not.toContain("%00");
+    expect(decoded(res.text)).toContain("No colony has ever had a name like that.");
+    const json = await get(`/api/team/colonies?q=%00`).set("Accept", "application/json");
+    expect(json.status).toBe(200);
+    expect(json.body).toEqual({ query: "", colonies: [] });
+  });
+});
+
 describe("test 12 (part): refusals", () => {
   it("every colony route answers the identical 401 with no session, and a person with no team role", async () => {
     const id = await makeColony(unique("refuse"));
