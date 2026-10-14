@@ -1110,3 +1110,40 @@ describe("review (ship) finding 6: rows a device withdrew give no evidence", () 
     expect(r).toMatchObject({ value: ["ginger"], confidence: "reported" });
   });
 });
+
+describe("review (ship) finding 7: three mutations that used to stay green", () => {
+  it("M1 a colour's independence uses only the device's rows that named that colour", () => {
+    // A's earlier black row is on another day and photo, but it says nothing
+    // about ginger; A's only ginger row shares B's photo and day.
+    const r = resolveCoat([
+      spotterCoat("a", ["black"], "2026-01-01T10:00:00Z"),
+      spotterCoat("a", ["ginger"], "2026-01-03T10:00:00Z", { photoId: 8888 }),
+      spotterCoat("b", ["ginger"], "2026-01-03T12:00:00Z", { photoId: 8888 }),
+    ]);
+    expect(r).toMatchObject({ value: ["ginger"], confidence: "reported" });
+  });
+
+  it("M2 voices that are only prompted taps never count in the shown-colour ranking", () => {
+    const r = resolveCoat([
+      spotterCoat("a", ["ginger", "tabby"], "2026-01-01T10:00:00Z"),
+      spotterCoat("b", ["ginger", "white"], "2026-01-02T10:00:00Z"),
+      spotterCoat("c", ["ginger"], "2026-01-03T10:00:00Z"),
+      spotterCoat("e", ["white"], "2026-01-05T10:00:00Z"),
+      spotterCoat("g", ["white"], "2026-01-06T10:00:00Z", { provenance: "prompted" }),
+      spotterCoat("h", ["white"], "2026-01-07T10:00:00Z", { provenance: "prompted" }),
+      spotterCoat("d", ["tabby"], "2026-01-10T10:00:00Z"),
+    ]);
+    // ginger 3; tabby 2 (newest 10 Jan); white 2 counting (newest 5 Jan).
+    expect(r.value).toEqual(["ginger", "tabby"]);
+  });
+
+  it("M3 spotters_over_machine is raised on a partial overlap with the machine", () => {
+    const r = resolveCoat([
+      machineCoat(["ginger", "tabby"], "2026-01-01T09:00:00Z"),
+      spotterCoat("a", ["ginger"], "2026-01-02T10:00:00Z"),
+      spotterCoat("b", ["ginger"], "2026-01-03T10:00:00Z"),
+    ]);
+    expect(r.value).toEqual(["ginger"]);
+    expect(r.checkReasons).toContain("spotters_over_machine");
+  });
+});
