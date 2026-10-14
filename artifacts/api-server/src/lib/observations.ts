@@ -18,7 +18,12 @@ import {
   sightingsTable,
   type Observation,
 } from "@workspace/db";
-import type { EvidenceOfLife, EvidenceSource } from "./resolve";
+import {
+  COLONY_SCOPE_PATTERN,
+  type EvidenceOfLife,
+  type EvidenceSource,
+} from "./resolve";
+import { TEAM_ROLES } from "./teamRoles";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
@@ -47,12 +52,13 @@ export type ObservationKind = (typeof OBSERVATION_KINDS)[number];
 const OBSERVATION_KIND_SET: ReadonlySet<string> = new Set(OBSERVATION_KINDS);
 
 /**
- * §10.1's `roleAtTime` vocabulary is open (`public | guardian | volunteer |
- * vet | staff | admin | system`), but `guardian`, `volunteer` and `vet` are
- * "recorded from day one and unreachable in phase 1" (§10.4) — the
- * team-access spec builds exactly one role (staff/admin), and vet accounts
- * don't exist yet (SYC-24). `writeObservation` refuses them rather than
- * silently accepting a role nothing can legitimately produce yet.
+ * §10.1's `roleAtTime` vocabulary is open (`public | guardian | vet | staff |
+ * management | system`; roles spec §10.4 renamed the never-written `admin`
+ * to `management` and retired `volunteer`). `guardian` stays unreachable
+ * until SYC-53's PR 2.2, and `vet` until vet accounts exist (SYC-24).
+ * `writeObservation` refuses them rather than silently accepting a role
+ * nothing can legitimately produce yet. The team's roles come from the one
+ * list (lib/teamRoles.ts), so a team role added there is reachable here.
  *
  * Separately, {@link ROLES_REFUSED_FOR_KIND} refuses some reachable roles for
  * particular kinds (`vet` for `coat`/`markings`; `public`, `guardian` and
@@ -63,9 +69,9 @@ const OBSERVATION_KIND_SET: ReadonlySet<string> = new Set(OBSERVATION_KINDS);
  */
 const REACHABLE_ROLES: ReadonlySet<string> = new Set([
   "public",
-  "staff",
-  "admin",
   "system",
+  // The team's roles, except `vet` (no vet accounts until SYC-24).
+  ...[...TEAM_ROLES].filter((role) => role !== "vet"),
 ]);
 
 /**
@@ -89,9 +95,9 @@ const ROLES_REFUSED_FOR_KIND: Readonly<
 /** Only these roles may write a retraction (the team's set_appearance
  * power). */
 const RETRACTING_ROLES: ReadonlySet<string> = new Set([
-  "staff",
-  "admin",
-  "management",
+  // The team's roles (a vet is already refused for coat and markings by
+  // ROLES_REFUSED_FOR_KIND, which runs first), and a cat guardian.
+  ...TEAM_ROLES,
   "guardian",
 ]);
 
@@ -343,8 +349,15 @@ function validateValue(
       return;
     }
     case "colony": {
-      if (!isPlainObject(value) || typeof value["colonyId"] !== "number") {
-        refuse("MALFORMED_VALUE", "colony needs { colonyId: number }");
+      // `{ colonyId: null }` is "no colony" (roles spec §6.8, §10.4), so a
+      // cat can leave a colony without joining another (SYC-209's "take
+      // out"). The key must be present: `{}` is still malformed.
+      if (
+        !isPlainObject(value) ||
+        !("colonyId" in value) ||
+        (value["colonyId"] !== null && typeof value["colonyId"] !== "number")
+      ) {
+        refuse("MALFORMED_VALUE", "colony needs { colonyId: number | null }");
       }
       return;
     }
@@ -598,9 +611,11 @@ export interface WriteObservationInput {
  *   `markings`, and for any `coat` that is not `provenance: "machine"`;
  *   `public`, `guardian` and `system` for `vaccinated`; `public` and
  *   `system` for `team_note`;
- * - a `roleAtTime` unreachable in phase 1 (`guardian`, `volunteer`, `vet`,
- *   or anything else not in {public, staff, admin, system});
- * - an unknown `authorityScope` or `provenance`;
+ * - a `roleAtTime` unreachable in phase 1 (`guardian`, `vet`, the retired
+ *   `volunteer` and `admin`, or anything else not in {public, staff,
+ *   management, system});
+ * - an unknown `authorityScope` or `provenance`, or a `colony:<id>` scope
+ *   on any role but `guardian` (roles spec §10.4, Decision B);
  * - not exactly one of `deviceId`/`accountId` set (the same rule the
  *   database's `observations_attribution_ck` enforces, checked here first
  *   for a clear refusal rather than a constraint-violation error), or a
@@ -616,7 +631,7 @@ export interface WriteObservationInput {
  *   applies, `INVALID_RETRACTION` for a retraction, and
  *   `INVALID_SUPERSESSION` otherwise);
  * - a `{ retracted: true }` coat/markings value from anyone but staff,
- *   admin, management or guardian, without a `supersedesId`, or whose
+ *   management or guardian, without a `supersedesId`, or whose
  *   target is not a coat/markings row of the same kind or is itself a
  *   retraction (`INVALID_RETRACTION`); or
  * - a `public` or `system` coat/markings write superseding a row that is
@@ -674,8 +689,20 @@ export async function writeObservation(
   }
 
   const authorityScope = input.authorityScope ?? "none";
-  if (!AUTHORITY_SCOPES.has(authorityScope)) {
+  // `colony:<id>` (Decision B): exactly that pattern, and only with the role
+  // `guardian`. Every other role is refused it here, so the resolver's
+  // read-time rule (a colony scope on a non-guardian counts for nothing) is
+  // a backstop, never the only guard. `guardian` itself is still refused as
+  // unreachable above until SYC-53's PR 2.2.
+  const colonyScope = COLONY_SCOPE_PATTERN.test(authorityScope);
+  if (!AUTHORITY_SCOPES.has(authorityScope) && !colonyScope) {
     refuse("INVALID_AUTHORITY_SCOPE", `Unknown authorityScope: ${authorityScope}`);
+  }
+  if (colonyScope && input.roleAtTime !== "guardian") {
+    refuse(
+      "INVALID_AUTHORITY_SCOPE",
+      `authorityScope "${authorityScope}" is only for roleAtTime "guardian"`,
+    );
   }
 
   const deviceId = input.deviceId ?? null;
