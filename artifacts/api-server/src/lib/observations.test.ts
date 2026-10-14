@@ -650,6 +650,10 @@ describe("vaccinated validator", () => {
       { vaccines: ["measles"] },
       { vaccines: ["rabies", "rabies"] },
       { vaccines: [{ other: "FeLV" }, { other: " felv " }] },
+      { vaccines: [{ other: "FeLV" }, { other: "felv" }] },
+      { vaccines: ["rabies", { other: "Rabies" }] },
+      { vaccines: [{ other: "RABIES" }] },
+      { vaccines: [{ other: "Cat flu and enteritis" }] },
       { vaccines: ["rabies"], clinic: 5 },
       { retracted: true },
     ]) {

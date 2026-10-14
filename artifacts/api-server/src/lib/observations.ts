@@ -239,6 +239,15 @@ const VACCINE_CODES: ReadonlySet<string> = new Set([
   "cat_flu_enteritis",
 ]);
 
+/** Names a typed `other` vaccine may not use, compared lower-case: the
+ * listed vaccines' codes and their English names. */
+const LISTED_VACCINE_NAMES: ReadonlySet<string> = new Set([
+  "rabies",
+  "cat_flu_enteritis",
+  "cat flu and enteritis",
+  "cat flu & enteritis",
+]);
+
 /** §10.1's per-kind value shapes. Refuses anything malformed; this is the
  * only place in the codebase that knows what a kind's `value` must look
  * like. `ctx` carries the two facts some shapes depend on. */
@@ -464,7 +473,16 @@ function validateValue(
               "an other vaccine name must be trimmed and 2 to 60 characters",
             );
           }
-          key = `other:${name.toLowerCase()}`;
+          // A typed name that is one of the listed vaccines is the listed
+          // vaccine, so it can't be stored twice under two forms.
+          const folded = name.toLowerCase();
+          if (LISTED_VACCINE_NAMES.has(folded)) {
+            refuse(
+              "MALFORMED_VALUE",
+              `"${name}" is a listed vaccine: use its code, not an other name`,
+            );
+          }
+          key = `other:${folded}`;
         } else {
           refuse(
             "MALFORMED_VALUE",
