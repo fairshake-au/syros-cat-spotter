@@ -369,6 +369,14 @@ Samuel **approved the spec on 12 October 2026** and **the implementation plan on
 - **No team action to clear a cat's home description.** SYC-130 makes the home note visible only to its owner and the team, and that change must be live before the pre-launch pass comes off (amends D6's conditional action; plan Decision 2, 14 October 2026).
 - **"Delete for good" is for privacy only:** a hidden photo that someone reported as showing a person or a private place, or that the team hid with the "for privacy" tick. Offensive photos stay hidden, not deleted (plan Decision 3, 14 October 2026).
 
+## Part 2r — the API answers only on our own addresses (SYC-229), 14 October 2026
+
+Samuel **approved on 14 October 2026**:
+
+- **The API refuses requests on its `*.replit.app` address** with a bare 404, except `/api/healthz`. That address comes in through a different front end from `apptest`/`team`, so the per-address limits (AI matching, photos, new phones) could be dodged there, and Replit has no setting to switch it off.
+- **A recovery switch, off by default.** The deployment secret `ALLOW_REPLIT_HOST=1` opens the address again for a smoke run while `apptest` points elsewhere; it is removed straight after (`docs/runbooks/neon-database.md`).
+- **The check goes when Replit can switch the address off** (follow-up ticket).
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
