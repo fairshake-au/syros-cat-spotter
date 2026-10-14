@@ -241,6 +241,9 @@ beforeAll(async () => {
     });
     return id;
   });
+  // The removed POST /cats bound the owner's secret on first use; bind it the
+  // same way the stranger's is bound below, so the owner is a proven device.
+  await request(app).get(`/api/profiles/${OWNER}`).set("X-Device-Secret", SECRET);
 
   // Emitter 3: a spotter resolves a new sighting to the street cat.
   const [pending] = await db
