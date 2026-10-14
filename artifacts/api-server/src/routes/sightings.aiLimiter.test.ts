@@ -6,16 +6,22 @@
  * free to mint — TOFU in deviceAuth.ts). Restored alongside the per-device
  * limiter in sightings.ts.
  *
- * Deliberately its own file, with neither `matchCatPhoto` nor `aiLimiter`
- * mocked: every other test file touching this route stubs `aiLimiter` out
+ * Deliberately its own file, with `aiLimiter` not mocked: every other test
+ * file touching this route stubs `aiLimiter` out
  * (sightings.matchHardening.test.ts, sightings.matchRecord.test.ts) because
  * their own request volumes would otherwise trip it for reasons unrelated
  * to what they're testing — which means none of them would notice if this
  * restoration were ever reverted. This file exists so that *something*
  * would fail if it were.
+ *
+ * SYC-301: `matchCatPhoto` IS mocked, to fail at once the way an unreachable
+ * OpenAI does (the route then answers 201 with no candidates, as before). Left
+ * real, each upload went to the dead test address and the OpenAI client's two
+ * backoff retries cost ~1.3 s, so the 21 uploads took ~26.5 s of the 30 s
+ * budget and timed out under load. The limiter is still the real one.
  */
 import { deleteTestSightings } from "../test/sightings";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import {
   db,
@@ -26,8 +32,15 @@ import {
   deviceCredentialsTable,
 } from "@workspace/db";
 import { inArray, like } from "drizzle-orm";
+vi.mock("../lib/matching", () => ({
+  matchCatPhoto: vi.fn(async () => {
+    throw new Error("Connection error.");
+  }),
+}));
+
 import app from "../app";
 import { _resetDeviceMatchLimitForTests } from "../middlewares/rateLimit";
+import { _resetNewDeviceLimitForTests } from "../middlewares/newDeviceLimit";
 
 const PREFIX = "vitest-ailimiter-";
 
@@ -89,11 +102,20 @@ describe("POST /api/sightings per-IP cost ceiling (data spine PR 5, review of #6
     // device) never has a reason to fire — if the 21st request is refused,
     // it can only be aiLimiter's per-IP budget (supertest's requests all
     // originate from one local address).
+    // SYC-301: the new-device cap (SYC-195) is also 20 per address, so
+    // without a fresh allowance before each upload the 21st new phone was
+    // refused by that cap, and this test passed with aiLimiter removed. The
+    // message tells the two 429s apart.
     for (let i = 0; i < 20; i++) {
+      await _resetNewDeviceLimitForTests();
       const res = await submitFromDevice(`${PREFIX}device-${i}`);
       expect(res.status).toBe(201);
     }
+    await _resetNewDeviceLimitForTests();
     const blocked = await submitFromDevice(`${PREFIX}device-20`);
     expect(blocked.status).toBe(429);
+    expect(blocked.body).toEqual({
+      error: "Too many requests. Please try again later.",
+    });
   }, 30_000);
 });
