@@ -133,6 +133,17 @@ describe("life_status withdrawal", () => {
       observedAt: daysAgo(5),
     });
     await expect(withdraw(c.id, ster.id)).rejects.toMatchObject({ code: "MALFORMED_VALUE" });
+    // A row of another kind whose value happens to carry status "homed" is
+    // still not a homed statement — the kind is what counts.
+    const lookalike = await writeObservation(db, {
+      catId: c.id,
+      kind: "note",
+      value: { text: "lives with us", status: "homed" },
+      accountId: "system:legacy-backfill",
+      roleAtTime: "staff",
+      observedAt: daysAgo(5),
+    });
+    await expect(withdraw(c.id, lookalike.id)).rejects.toMatchObject({ code: "MALFORMED_VALUE" });
   });
 
   it("refuses withdrawing another cat's homed", async () => {
