@@ -454,7 +454,7 @@ describe("the life-status form on an owned cat", () => {
   it("offers 'Also remove the owner', ticked by default, only on an owned cat", async () => {
     const { c } = await ownedCat("tick");
     const html = (await page(c.id)).text;
-    expect(html).toMatch(/<input type="checkbox" name="removeOwner" value="1" checked>\s*Also remove the owner/);
+    expect(html).toMatch(/<input type="checkbox"[^>]*name="removeOwner" value="1" checked>\s*Also remove the owner/);
     const free = await streetCat();
     expect((await page(free.id)).text).not.toContain("Also remove the owner");
     denied.cap = "remove_owner";

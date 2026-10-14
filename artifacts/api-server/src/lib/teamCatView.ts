@@ -12,6 +12,7 @@ import {
 import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
+import { can, type CapabilityHolder } from "./capabilities";
 import { loadCatRecords } from "./observations";
 import {
   clippedTipCount,
@@ -279,6 +280,16 @@ export interface TeamCatView {
     createdAt: string;
     mainPhotoUrl: string | null;
   };
+  /**
+   * Whether the cat has an owner (claiming-a-cat.md §7), never who: no device
+   * id, no name. The team sees the owner's home note; the home pin only if
+   * the viewer holds `view_exact_location`, and with no viewer, never.
+   */
+  owner: {
+    has: boolean;
+    homeDescription: string | null;
+    homePin: { lat: number; lng: number } | null;
+  };
   /** Exactly what the public cat page says (catHelpers.deriveCatStatuses). */
   publicStatus: DerivedCatStatus;
   /** The team-only detail behind it, straight from the resolver. */
@@ -431,7 +442,12 @@ async function crossCatLinks(observations: readonly Observation[]) {
 }
 
 /** The team's view of one cat, or null if there is no such cat. */
-export async function teamCatView(catId: number, now = new Date()): Promise<TeamCatView | null> {
+export async function teamCatView(
+  catId: number,
+  now = new Date(),
+  /** Who is looking: decides whether the owner's home pin is filled. */
+  viewer?: CapabilityHolder,
+): Promise<TeamCatView | null> {
   const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   if (!cat) return null;
 
@@ -535,6 +551,18 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
       lng: cat.lng,
       createdAt: cat.createdAt.toISOString(),
       mainPhotoUrl: urlFor(cat.primaryPhotoId),
+    },
+    owner: {
+      has: cat.ownerDeviceId !== null,
+      homeDescription: cat.ownerDeviceId !== null ? cat.homeDescription : null,
+      homePin:
+        cat.ownerDeviceId !== null &&
+        cat.homeLat !== null &&
+        cat.homeLng !== null &&
+        viewer !== undefined &&
+        can(viewer, "view_exact_location")
+          ? { lat: cat.homeLat, lng: cat.homeLng }
+          : null,
     },
     publicStatus: statuses.get(cat.id)!,
     records: {

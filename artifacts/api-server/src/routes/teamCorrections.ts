@@ -6,6 +6,7 @@ import {
   catIdOfStatement,
   NAME_MAX,
   recordTeamStatement,
+  removeOwnerAndSay,
   renameCat,
   supersedeStatement,
 } from "../lib/teamCorrections";
@@ -21,7 +22,7 @@ import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { renderPage, type NavKey } from "../lib/teamPages/layout";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { renderLikelyPage } from "../lib/teamPages/likelyPage";
-import type { Capability } from "../lib/capabilities";
+import { can, type Capability } from "../lib/capabilities";
 
 // The corrections (SYC-43 part 2 plan, PR 4): forms on the team cat page and
 // the Probably sterilised list. Every POST checks Origin first, then the
@@ -191,11 +192,15 @@ const LifeStatusForm = z.object({
   status: z.enum(["street", "homed", "in_care", "deceased"]),
   reason: reasonField,
   date: dateField,
+  /** "Also remove the owner" (claiming-a-cat.md §7): a ticked checkbox sends "1". */
+  removeOwner: z.union([z.literal("1"), z.literal(true)]).optional(),
 });
 
 /**
  * POST /api/team/cats/:id/life-status. "Deceased" needs the date the team
- * knows of; a date after today is refused.
+ * knows of; a date after today is refused. On an owned cat the form offers
+ * "Also remove the owner": ticked, and unless the new status is "has a home",
+ * it runs the same transaction as Remove owner (needs `remove_owner` too).
  */
 router.post(
   "/team/cats/:id/life-status",
@@ -205,6 +210,82 @@ router.post(
     if (catId === null) return notFound(req, res);
     const back = catPage(catId);
     const parsed = LifeStatusForm.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      const fields = fieldsOf(parsed.error);
+      return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
+    }
+    const { status, reason, date, removeOwner } = parsed.data;
+    if (status === "deceased" && !date) {
+      return formProblem(req, res, 400, {
+        fields: ["date"],
+        message: "For “No longer with us”, give the date the team knows of.",
+        back,
+        backLabel: "Back to the cat",
+      });
+    }
+    if (date && date > athensToday()) {
+      return formProblem(req, res, 400, {
+        fields: ["date"],
+        message: "The date can't be in the future.",
+        back,
+        backLabel: "Back to the cat",
+      });
+    }
+    try {
+      const row =
+        removeOwner && status !== "homed"
+          ? (
+              await removeOwnerAndSay(
+                teamPerson(res),
+                { catId, status, reason, observedAt: observedAtFor(date) },
+                "if_owner",
+              )
+            ).row!
+          : await recordTeamStatement(teamPerson(res), {
+              catId,
+              kind: "life_status",
+              value: { status },
+              reason,
+              observedAt: observedAtFor(date),
+            });
+      if (isFormPost(req)) return void res.redirect(303, catPage(catId, "life"));
+      res.status(201).json({ id: row.id });
+    } catch (err) {
+      refusalFor(req, res, err, back);
+    }
+  },
+);
+
+// ── Remove the owner ───────────────────────────────────────────────────────
+
+const RemoveOwnerForm = z.object({
+  status: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.enum(["street", "in_care", "deceased"]).default("street"),
+  ),
+  reason: reasonField,
+  date: dateField,
+});
+
+/**
+ * POST /api/team/cats/:id/remove-owner (claiming-a-cat.md §7, D6). Needs
+ * `remove_owner` AND `set_life_status`, because it records a status: without
+ * either, the same uniform 401 and nothing changes. The work is one
+ * transaction (lib/teamCorrections.ts removeOwnerAndSay). Tells nobody.
+ */
+router.post(
+  "/team/cats/:id/remove-owner",
+  ...formRoute("remove_owner"),
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    if (!can(person, "set_life_status")) {
+      req.log.info({ reason: "missing_capability" }, "correction refused");
+      return refuseNotSignedIn(req, res);
+    }
+    const catId = catIdOf(req);
+    if (catId === null) return notFound(req, res);
+    const back = catPage(catId);
+    const parsed = RemoveOwnerForm.safeParse(req.body ?? {});
     if (!parsed.success) {
       const fields = fieldsOf(parsed.error);
       return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
@@ -227,15 +308,18 @@ router.post(
       });
     }
     try {
-      const row = await recordTeamStatement(teamPerson(res), {
-        catId,
-        kind: "life_status",
-        value: { status },
-        reason,
-        observedAt: observedAtFor(date),
-      });
-      if (isFormPost(req)) return void res.redirect(303, catPage(catId, "life"));
-      res.status(201).json({ id: row.id });
+      const out = await removeOwnerAndSay(
+        person,
+        { catId, status, reason, observedAt: observedAtFor(date) },
+        "require_owner",
+      );
+      if (out.owner === "none") {
+        // Someone removed the owner first (or the owner let go): nothing written.
+        if (isFormPost(req)) return void res.redirect(303, catPage(catId, "ownerGone"));
+        return void res.status(409).json({ error: "No owner", code: "NO_OWNER" });
+      }
+      if (isFormPost(req)) return void res.redirect(303, catPage(catId, "ownerRemoved", out.row!.id));
+      res.status(201).json({ id: out.row!.id });
     } catch (err) {
       refusalFor(req, res, err, back);
     }

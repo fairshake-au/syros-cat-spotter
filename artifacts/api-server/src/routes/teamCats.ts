@@ -58,7 +58,7 @@ router.get(
     const person = teamPerson(res);
     setTeamHeaders(res);
     const raw = String(req.params["id"]);
-    const view = CAT_ID_RE.test(raw) ? await teamCatView(Number(raw)) : null;
+    const view = CAT_ID_RE.test(raw) ? await teamCatView(Number(raw), new Date(), person) : null;
     if (!view) {
       if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
       return void res.status(404).type("html").send(renderNoSuchCat(person.name));
