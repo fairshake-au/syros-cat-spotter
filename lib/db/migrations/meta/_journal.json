@@ -117,8 +117,15 @@
     {
       "idx": 16,
       "version": "7",
-      "when": 1791990056050,
-      "tag": "0016_cat_home_pin",
+      "when": 1791950090109,
+      "tag": "0016_person_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792017394677,
+      "tag": "0017_cat_home_pin",
       "breakpoints": true
     }
   ]

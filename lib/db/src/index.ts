@@ -35,7 +35,6 @@ import { peopleStore } from "./people";
 // future manage_people screen calls these same functions.
 const people = peopleStore(db);
 export const addPerson = people.addPerson;
-export const removePerson = people.removePerson;
 export const markLeft = people.markLeft;
 export const signOutEverywhere = people.signOutEverywhere;
 export const findAllowedPerson = people.findAllowedPerson;

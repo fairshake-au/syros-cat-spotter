@@ -7,11 +7,11 @@ import {
   markLeft,
   personScopesTable,
   pool,
-  removePerson,
-} from "@workspace/db";
+  } from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import { sessionCookieFor } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-188: being in the people table is not being let in. Only someone whose
 // role grants something through can() (staff, today: spec §7.1) gets a yes
@@ -31,14 +31,14 @@ beforeEach(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = SESSION_KEY;
   process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
 });
 
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   delete process.env["INTERNAL_PEOPLE_TOKEN"];
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await pool.end();
 });
 
@@ -102,7 +102,7 @@ describe("SYC-188: only a role that grants something is let in", () => {
     expect(String(h.headers["set-cookie"])).toContain("__Host-cs_team=");
     const m = await me(p.id, p.sessionVersion);
     expect(m.status).toBe(200);
-    expect(m.body.capabilities).toHaveLength(13);
+    expect(m.body.capabilities).toHaveLength(16);
   });
 
   it("staff who is also a guardian is still let in", async () => {
@@ -140,7 +140,7 @@ describe("SYC-188: only a role that grants something is let in", () => {
 
   it("staff who was removed is kept out", async () => {
     const p = await add(["staff"]);
-    expect(await removePerson(EMAIL)).toBe(true);
+    expect(await removeTestPerson(EMAIL)).toBe(true);
     await expectKeptOut(p.id, p.sessionVersion);
   });
 });

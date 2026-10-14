@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, pool, removePerson } from "@workspace/db";
+import { addPerson, pool } from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import {
   clearWelfareTables,
   seedReport,
 } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, test P1-5: every dashboard response carries the team
 // headers. The security header now includes `img-src 'self'` and still has no
@@ -25,7 +26,7 @@ const EXPECTED_CSP =
 beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await clearWelfareTables();
   reportPhotoId = (
     await seedReport({
@@ -57,7 +58,7 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await pool.end();
 });
 

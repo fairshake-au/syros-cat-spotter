@@ -1,5 +1,5 @@
 {
-  "id": "cb5d5f79-4f38-44b9-b575-9f0c0842b269",
+  "id": "b1a50198-42de-49df-beac-19c33095475b",
   "prevId": "799b55b4-314a-451f-bb59-2f9b4126338d",
   "version": "7",
   "dialect": "postgresql",
@@ -141,18 +141,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "home_lat": {
-          "name": "home_lat",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "home_lng": {
-          "name": "home_lng",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -198,10 +186,6 @@
         "cats_discoverer_ck": {
           "name": "cats_discoverer_ck",
           "value": "\"cats\".\"discoverer_device_id\" is not null or \"cats\".\"redacted_at\" is not null"
-        },
-        "cats_home_pin_ck": {
-          "name": "cats_home_pin_ck",
-          "value": "(\"cats\".\"home_lat\" is null) = (\"cats\".\"home_lng\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -3206,6 +3190,97 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.person_events": {
+      "name": "person_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "by": {
+          "name": "by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "detail": {
+          "name": "detail",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "person_events_person_idx": {
+          "name": "person_events_person_idx",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "person_events_person_id_people_id_fk": {
+          "name": "person_events_person_id_people_id_fk",
+          "tableFrom": "person_events",
+          "tableTo": "people",
+          "columnsFrom": [
+            "person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "person_events_kind_ck": {
+          "name": "person_events_kind_ck",
+          "value": "\"person_events\".\"kind\" in ('invited', 'invite_sent', 'invite_resent', 'invite_withdrawn', 'accepted', 'added', 'roles_changed', 'left', 'rejoined', 'signed_out_everywhere', 'anonymised')"
+        }
+      },
       "isRLSEnabled": false
     }
   },

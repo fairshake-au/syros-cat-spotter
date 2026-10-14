@@ -1,9 +1,10 @@
 import { createHmac } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, markLeft, pool, removePerson } from "@workspace/db";
+import { addPerson, markLeft, pool } from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // A person marked as left is refused by every reader of "who is allowed in"
 // (SYC-43 part 2, Decision 7; plan test P0-1): the hand-off, requireTeam,
@@ -26,15 +27,15 @@ beforeEach(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = SESSION_KEY;
   process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
-  await removePerson(EMAIL);
-  await removePerson(NEVER_EMAIL);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(NEVER_EMAIL);
 });
 
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   delete process.env["INTERNAL_PEOPLE_TOKEN"];
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await pool.end();
 });
 
@@ -95,7 +96,7 @@ describe("P0-1: a person marked as left is refused by every reader", () => {
     });
     // Before leaving, a pass works: the refusal below is caused by leaving.
     expect((await handoff(p.id, p.sessionVersion)).status).toBe(303);
-    await removePerson(EMAIL);
+    await removeTestPerson(EMAIL);
     const { id, before, now } = await addAndLeave();
 
     const never = seen(await handoff(NEVER_ID, 1));

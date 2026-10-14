@@ -36,7 +36,7 @@ import {
 // address. Authors are labels ("a spotter", a team member's name), and
 // photos are /api/team/photos/<publicId> only.
 
-const teamPhotoUrl = (publicId: string) =>
+export const teamPhotoUrl = (publicId: string) =>
   `/api/team/photos/${encodeURIComponent(publicId)}`;
 
 /** SYR-0012 for cat 12: the number the app and the team use (cat/[id].tsx). */

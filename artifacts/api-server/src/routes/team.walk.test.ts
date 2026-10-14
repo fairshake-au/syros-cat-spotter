@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, pool, removePerson } from "@workspace/db";
+import { addPerson, pool } from "@workspace/db";
 import app from "../app";
 import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
@@ -9,6 +9,7 @@ import {
   sessionCookieFor,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, test P1-1 (SYC-42 #27, spec §8.6 #12): every
 // /api/team/* route registered on the router answers the identical
@@ -62,11 +63,12 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * report's state, a report's team note), PR 3's two (finding a cat, a
  * cat's page), and PR 4's six (life status, sterilisation, rename, mark a
  * statement wrong, the Probably sterilised list, Looks right), and PR 5's
- * one (tying a report to a cat). If an Express upgrade
+ * one (tying a report to a cat), and SYC-209 PR 2.1's four (the colonies
+ * list, one colony, create, change). If an Express upgrade
  * changes `router.stack` and the walk finds fewer, the test fails rather than
  * passing on an empty list. Raise this when a PR adds routes.
  */
-const MINIMUM_ROUTES = 23;
+const MINIMUM_ROUTES = 27;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -96,7 +98,7 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   const volunteer = await addPerson({
     email: EMAIL,
     name: "Vera Volunteer",
@@ -115,7 +117,7 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await pool.end();
 });
 
@@ -156,6 +158,10 @@ describe("P1-1: every /api/team route refuses the unauthorised the same way", ()
       "POST /api/team/likely/:id/looks-right",
       "POST /api/team/photos/:publicId/hide",
       "POST /api/team/photos/:publicId/restore",
+      "GET /api/team/colonies",
+      "GET /api/team/colonies/:id",
+      "POST /api/team/colonies",
+      "POST /api/team/colonies/:id",
     ]) {
       expect(routes).toContain(known);
     }

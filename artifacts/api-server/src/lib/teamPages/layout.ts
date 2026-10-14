@@ -5,7 +5,7 @@ import { escapeHtml } from "./escape";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "likely";
+export type NavKey = "queue" | "cats" | "colonies" | "likely";
 
 interface NavItem {
   key: NavKey;
@@ -17,6 +17,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { key: "queue", label: "Welfare queue", href: "/api/team" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
+  { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
   { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
 ];
 

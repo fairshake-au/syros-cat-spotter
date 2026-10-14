@@ -7,6 +7,7 @@ import {
   readMigrations,
 } from "../migrate/runner";
 import { runPeopleCommand, type CliIo } from "./cli";
+import { truncateWithGuardsOff } from "../migrate/truncatePeople";
 
 // The `people` command against a throwaway database (SYC-43 part 1,
 // Decision 4; SYC-121 plan H.1(b)). The target is checked against
@@ -40,18 +41,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // PR 6: the cascade reaches photo_visibility_events, whose TRUNCATE guard
-  // is switched off for this one statement, inside a transaction, as
-  // dataSpine.test.ts does for sightings.
-  await c.query("begin");
-  await c.query(`alter table photo_visibility_events disable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events disable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes disable trigger feeding_site_old_codes_no_truncate`);
-  await c.query(`truncate person_scopes, people cascade`);
-  await c.query(`alter table photo_visibility_events enable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events enable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes enable trigger feeding_site_old_codes_no_truncate`);
-  await c.query("commit");
+  // SYC-53 PR 0.1: the cascade reaches guarded add-only tables (including
+  // person_events); the helper switches their TRUNCATE guards off for
+  // this one statement and back on.
+  await truncateWithGuardsOff(c, "person_scopes, people");
 });
 
 /** A development run, as the db-ops development Environment sets it up. */
@@ -193,12 +186,12 @@ describe("people command", () => {
     expect(list.code).toBe(0);
     expect(list.out[1]).toBe("1 person on the list.");
     expect(list.out[2]).toMatch(
-      /^[0-9a-f-]{36}\tstaff\tsession 1\tadded \S+ by cli:\S+$/,
+      /^[0-9a-f-]{36}\tstaff\tsession 1\tadded \S+ by cli:\S+\thistory added$/,
     );
     expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
   });
 
-  it("signs out everywhere and removes, after the address is typed again", async () => {
+  it("signs out everywhere after the address is typed again, and records who", async () => {
     await run([
       "add",
       "--target",
@@ -223,15 +216,26 @@ describe("people command", () => {
     expect(so.out).toContain(
       "Signed that person out everywhere (session version is now 2).",
     );
+    const events = await c.query(
+      `select kind, by from person_events order by id`,
+    );
+    expect(events.rows.map((r) => r.kind)).toEqual([
+      "added",
+      "signed_out_everywhere",
+    ]);
+    expect(events.rows[1].by).toMatch(/^cli:\S+$/);
+    const list = await run(["list", "--target", "development"]);
+    expect(list.out[2]).toMatch(/\thistory added,signed_out_everywhere$/);
+  });
+
+  it("has no remove command: marking as left is the only way off the list", async () => {
     const rm = await run(
       ["remove", "--target", "development", "--email", "susan@example.com"],
       devEnv(),
-      "SUSAN@example.com ",
+      "susan@example.com",
     );
-    expect(rm.code).toBe(0);
-    expect(rm.out).toContain("Removed that person and their roles.");
-    const left = await c.query(`select count(*)::int as n from person_scopes`);
-    expect(left.rows[0].n).toBe(0);
+    expect(rm.code).toBe(2);
+    expect(rm.out.join("\n")).toContain('Unknown command "remove".');
   });
 
   it("changes nothing when the confirmation doesn't match", async () => {
@@ -245,7 +249,13 @@ describe("people command", () => {
       "Maria",
     ]);
     const rm = await run(
-      ["remove", "--target", "development", "--email", "maria@example.com"],
+      [
+        "sign-out-everywhere",
+        "--target",
+        "development",
+        "--email",
+        "maria@example.com",
+      ],
       devEnv(),
       "maria@example.org",
     );
@@ -314,7 +324,7 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
     const list = await run(["list", "--target", "development"]);
     expect(list.out[1]).toBe("0 people on the list, and 1 marked as left.");
     expect(list.out[2]).toMatch(
-      /^[0-9a-f-]{36}\tstaff\tsession 2\tadded \S+ by cli:\S+\tLEFT \S+ by cli:samuel$/,
+      /^[0-9a-f-]{36}\tstaff\tsession 2\tadded \S+ by cli:\S+\tLEFT \S+ by cli:samuel\thistory added,left$/,
     );
     expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
   });
@@ -351,30 +361,5 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
       `Rejoined person ${id} as staff. They had left; their history is still theirs.`,
     );
     expect(await countPeople()).toBe(1);
-  });
-
-  it("remove refuses someone with history and points to mark-left", async () => {
-    await add();
-    // A real strict link (PR 1): this person has moved a report.
-    await c.query(
-      `insert into welfare_reports
-         (public_id, severity, lat, lng, client_ref, state, state_changed_by)
-       select 'cli-r-1', 'urgent', 37.4, 24.9, 'cli-c-1', 'looking', id
-         from people`,
-    );
-    try {
-      const rm = await run(
-        ["remove", "--target", "development", "--email", "susan@example.com"],
-        devEnv(),
-        "susan@example.com",
-      );
-      expect(rm.code).toBe(1);
-      expect(rm.out).toContain(
-        "This person has history. Use mark-left instead.",
-      );
-      expect(await countPeople()).toBe(1);
-    } finally {
-      await c.query(`delete from welfare_reports where public_id = 'cli-r-1'`);
-    }
   });
 });

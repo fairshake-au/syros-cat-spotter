@@ -12,7 +12,6 @@ import type { Express } from "express";
 import {
   addPerson,
   pool,
-  removePerson,
   signOutEverywhere,
 } from "@workspace/db";
 import app from "../app";
@@ -23,6 +22,7 @@ import {
   mintHs256WithPublicKey,
   mintNone,
 } from "../lib/teamAuth/__fixtures__/mint";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // POST /api/team/handoff (SYC-43 part 1 plan §5, tests 9–13; spec §8.6 #6,
 // #7). The test makes its own Ed25519 key pairs in memory.
@@ -36,8 +36,8 @@ let personId: string;
 let stalePersonId: string;
 
 beforeAll(async () => {
-  await removePerson(EMAIL);
-  await removePerson(STALE_EMAIL);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(STALE_EMAIL);
   personId = (
     await addPerson({ email: EMAIL, name: "Susan", addedBy: "cli:vitest" })
   ).id;
@@ -48,7 +48,7 @@ beforeAll(async () => {
       addedBy: "cli:vitest",
     })
   ).id;
-  await signOutEverywhere(STALE_EMAIL); // now at version 2
+  await signOutEverywhere(STALE_EMAIL, "cli:vitest"); // now at version 2
 });
 
 beforeEach(() => {
@@ -59,8 +59,8 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
-  await removePerson(EMAIL);
-  await removePerson(STALE_EMAIL);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(STALE_EMAIL);
   await pool.end();
 });
 

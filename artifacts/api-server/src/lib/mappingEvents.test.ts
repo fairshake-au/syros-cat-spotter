@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   db,
   pool,
@@ -53,7 +53,11 @@ const renamed = (over: Partial<MappingEventInput> = {}): MappingEventInput =>
   }) as MappingEventInput;
 
 const eventsFor = (id: number) =>
-  db.select().from(mappingEventsTable).where(eq(mappingEventsTable.subjectId, id));
+  db
+    .select()
+    .from(mappingEventsTable)
+    // A colony and a site can share a number, so say which.
+    .where(and(eq(mappingEventsTable.subjectKind, "site"), eq(mappingEventsTable.subjectId, id)));
 
 describe("recordMappingEvent", () => {
   it("writes one row inside the caller's transaction, signed by a person", async () => {

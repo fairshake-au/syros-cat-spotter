@@ -10,6 +10,15 @@ export const CAPABILITIES = [
   "restore_photo",
   "rename_cat",
   "rename_colony",
+  // SYC-209 (feeding-sites-and-colonies.md §7.2, plan Decision 1A): held by
+  // the team only, exactly as can() works today. Every route that asks for
+  // one of these calls requireTeam/can() with NO colony target, on purpose:
+  // once the roles plan makes can() strict, "no target" means island-wide
+  // holders only, so a guardian is refused until PR 4.1 switches targets and
+  // filters on together. It fails closed.
+  "create_colony",
+  "edit_colony",
+  "assign_cat_to_colony",
   "set_life_status",
   "remove_owner",
   "set_sterilisation",

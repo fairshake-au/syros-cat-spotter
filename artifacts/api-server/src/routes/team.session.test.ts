@@ -4,11 +4,11 @@ import request from "supertest";
 import {
   addPerson,
   pool,
-  removePerson,
   signOutEverywhere,
 } from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // The dashboard session (SYC-43 part 1 plan §6, tests 14–18; spec §8.6 #11).
 
@@ -20,8 +20,8 @@ const handoffKey = makeKey();
 let personId: string;
 
 beforeAll(async () => {
-  await removePerson(EMAIL);
-  await removePerson(OTHER_EMAIL);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(OTHER_EMAIL);
   personId = (
     await addPerson({ email: EMAIL, name: "Susan <b>", addedBy: "cli:vitest" })
   ).id;
@@ -35,8 +35,8 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
-  await removePerson(EMAIL);
-  await removePerson(OTHER_EMAIL);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(OTHER_EMAIL);
   await pool.end();
 });
 
@@ -78,7 +78,7 @@ describe("the session", () => {
     const res = await me(cookie).set("Origin", "https://evil.example");
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ name: "Susan <b>", email: EMAIL });
-    expect(res.body.capabilities).toHaveLength(13);
+    expect(res.body.capabilities).toHaveLength(16);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
     expect(res.headers["cache-control"]).toBe("no-store");
   });
@@ -90,7 +90,7 @@ describe("the session", () => {
   it("is refused on the very next request after sign out everywhere (§8.6 #11)", async () => {
     const cookie = await signIn(personId);
     expect((await me(cookie)).status).toBe(200);
-    await signOutEverywhere(EMAIL);
+    await signOutEverywhere(EMAIL, "cli:vitest");
     expectRefusal(await me(cookie));
     // Signing in again at the new version works.
     const fresh = await signIn(personId, 2);
@@ -105,7 +105,7 @@ describe("the session", () => {
     });
     const cookie = await signIn(gone.id);
     expect((await me(cookie)).status).toBe(200);
-    await removePerson(OTHER_EMAIL);
+    await removeTestPerson(OTHER_EMAIL);
     expectRefusal(await me(cookie));
   });
 
