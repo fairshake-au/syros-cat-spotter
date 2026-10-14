@@ -175,6 +175,13 @@ describe("the phone's position in the request (SYC-317)", () => {
     expect(catalogueParams(37.44, Number.POSITIVE_INFINITY)).toBeUndefined();
   });
 
+  it('a position off the globe is dropped, not sent', async () => {
+    expect(catalogueParams(500, 24.94)).toBeUndefined();
+    expect(catalogueParams(37.44, -181)).toBeUndefined();
+    const [url] = await urlsSent({ lat: 500, lng: 24.94 });
+    expect(url!.searchParams.has('lat')).toBe(false);
+  });
+
   it('small moves inside the same 110 m share one cache entry', () => {
     const a = catalogueQueryKey(catalogueParams(37.44121, 24.94121));
     const b = catalogueQueryKey(catalogueParams(37.44139, 24.94139));

@@ -35,6 +35,7 @@ type Position = { lat: number; lng: number };
  */
 function roundedPosition(params?: Position): Position | undefined {
   if (!params || !Number.isFinite(params.lat) || !Number.isFinite(params.lng)) return undefined;
+  if (Math.abs(params.lat) > 90 || Math.abs(params.lng) > 180) return undefined;
   return { lat: roundForRoute(params.lat), lng: roundForRoute(params.lng) };
 }
 
