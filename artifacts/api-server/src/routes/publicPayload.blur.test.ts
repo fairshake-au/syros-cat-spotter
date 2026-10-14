@@ -204,39 +204,42 @@ beforeAll(async () => {
   // A private feeding site right next to the cat (§6.7: absent, not blurred).
   await db.insert(feedingSitesTable).values({ name: FEEDING_NAME, ...FEEDING_EXACT, isPublic: false });
 
-  // An owned cat created directly with owner and home details.
-  const [ownedCat] = await db
-    .insert(catsTable)
-    .values({
-      name: `${CAT_PREFIX}-owned`,
-      description: "",
-      primaryPhotoId: 0,
-      ...OWNED_EXACT,
-      discovererDeviceId: OWNER,
-      ownerDeviceId: OWNER,
-      ownerName: "Eleni",
-      homeDescription: "Blue door",
-    })
-    .returning();
-  ownedCatId = ownedCat!.id;
-  // Write the observations that registration would have written
-  await writeObservation(db, {
-    catId: ownedCatId,
-    kind: "life_status",
-    value: { status: "homed" },
-    deviceId: OWNER,
-    roleAtTime: "public",
-    authorityScope: "owner_of_this_cat",
-    observedAt: new Date(),
-  });
-  await writeObservation(db, {
-    catId: ownedCatId,
-    kind: "name",
-    value: { name: `${CAT_PREFIX}-owned`, normalised: `${CAT_PREFIX.toLowerCase()}-owned` },
-    deviceId: OWNER,
-    roleAtTime: "public",
-    authorityScope: "owner_of_this_cat",
-    observedAt: new Date(),
+  // An owned cat created directly with owner and home details, with observations in a transaction like registration does.
+  ownedCatId = await db.transaction(async (tx) => {
+    const [ownedCat] = await tx
+      .insert(catsTable)
+      .values({
+        name: `${CAT_PREFIX}-owned`,
+        description: "",
+        primaryPhotoId: 0,
+        ...OWNED_EXACT,
+        discovererDeviceId: OWNER,
+        ownerDeviceId: OWNER,
+        ownerName: "Eleni",
+        homeDescription: "Blue door",
+      })
+      .returning();
+    const id = ownedCat!.id;
+    // Write the observations that registration would have written
+    await writeObservation(tx, {
+      catId: id,
+      kind: "life_status",
+      value: { status: "homed" },
+      deviceId: OWNER,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: ownedCat!.createdAt,
+    });
+    await writeObservation(tx, {
+      catId: id,
+      kind: "name",
+      value: { name: ownedCat!.name, normalised: ownedCat!.normalisedName },
+      deviceId: OWNER,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: ownedCat!.createdAt,
+    });
+    return id;
   });
 
   // Emitter 3: a spotter resolves a new sighting to the street cat.
