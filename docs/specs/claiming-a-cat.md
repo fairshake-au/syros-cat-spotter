@@ -98,7 +98,7 @@ The server tells the app, for the phone looking (and only once it has proved who
 |---|---|
 | A phone that may claim the cat | **"This is my cat"**, where the claim button has always been, styled as a secondary action rather than the page's most prominent button |
 | A phone that hasn't met it, when it lives on the street | No button. One quiet line: *"Is this your cat? Spot Agatha with the camera first, then you can say Agatha lives with you."* (D2) |
-| A phone that has met it but let it go in the last 7 days | No button and no line |
+| A phone that has met it but let it go in the last 7 days, or that the team removed as owner in the last 30 | No button and no line |
 | Anyone, when the cat has a home | No button. One line under "Has a home": *"Got a new phone? Ask Syros Cats to remove the old owner, then you can say Agatha lives with you again."* (§6; kept on the page, Samuel, 14 Oct 2026) |
 | Anyone, when the cat is in care or has died | No button and no line |
 | The cat's owner | The owner's edit sheet as usual, with **"Agatha doesn't live with me any more"** at its foot (§6) |
@@ -207,6 +207,7 @@ So:
   - is recorded with who did it and when, like every team action;
   - tells nobody.
 - **Setting an owned cat to "street"**, using the ordinary life-status correction, offers "Remove owner" in the same step. A correction can't then leave the stuck state described above.
+- **A cooldown for the removed phone.** After the team removes an owner, that phone can't claim that cat again for 30 days (Samuel, 14 Oct 2026). Other phones are not held back.
 - **The capability:** `remove_owner`, given to staff, and the action also needs `set_life_status` because it records a status. Both are defined in `team-access-and-welfare-queue.md` §7.3 (D6).
 
 ---
@@ -255,7 +256,7 @@ If a "register my cat" screen is wanted later, it comes back with its own spec (
 - **The home note** is moderated like names, at claim and at every edit. It appears only in the owner's view of their cat and on the team's dashboard, never in the public cat payload or in any message (D9).
 - **"Lives on Syros" and "lives in my home"** must both be confirmed in the claim, or it's refused `NOT_CONFIRMED` (422).
 - **The home pin** is required and must be within 1 km of the cat's public position (the blurred cell centre), or it's refused `PIN_TOO_FAR` (422), checked only after rules 1 and 2 pass and with no distance or direction in the refusal. It's visible only to the owner and to team members with `view_exact_location`.
-- **The claim limit** (§8) counts refused claims as well as successful ones, and a phone that lets go of a cat can't claim that same cat again for 7 days, so the flow can't be used to probe or to loop.
+- **The claim limit** (§8) counts refused claims as well as successful ones, and a phone that lets go of a cat can't claim that same cat again for 7 days, so the flow can't be used to probe or to loop. After the team removes an owner, that phone can't claim that cat again for 30 days (Samuel, 14 Oct 2026).
 
 ---
 

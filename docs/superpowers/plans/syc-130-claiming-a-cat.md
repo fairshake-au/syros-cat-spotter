@@ -30,7 +30,7 @@ These hold in every task:
 
   The app reads `code` from the body. (§4.4)
 - **Same owner claiming again:** 200, with nothing written and no message. (§3 rule 4)
-- **Claim limit:** **5 attempts per phone per 24 hours**, refusals included. Re-claiming the same cat within **7 days** of letting it go is refused with 429 `CLAIM_COOLDOWN`. (§11)
+- **Claim limit:** **5 attempts per phone per 24 hours**, refusals included. Re-claiming the same cat within **7 days** of letting it go is refused with 429 `CLAIM_COOLDOWN`. After the team removes an owner, that phone can't claim that cat again for 30 days (Samuel, 14 Oct 2026). (§7, §11)
 - **The home note and pin:**
   - only the owner and the team see them; on the team side, only people with `view_exact_location` see the pin;
   - never in a public payload, a message or a log;
