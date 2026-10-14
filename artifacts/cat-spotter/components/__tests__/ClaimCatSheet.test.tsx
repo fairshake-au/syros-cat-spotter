@@ -52,6 +52,7 @@ vi.mock('@tanstack/react-query', () => ({
     invalidateQueries: h.invalidate,
     removeQueries: h.removeQueries,
     setQueryData: h.setQueryData,
+    setQueriesData: h.setQueryData,
   }),
 }));
 vi.mock('@/lib/currentPosition', () => ({ getCurrentCoords: h.here }));

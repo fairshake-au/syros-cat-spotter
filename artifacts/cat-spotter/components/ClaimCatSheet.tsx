@@ -110,8 +110,9 @@ export function ClaimCatSheet({
 
   const onSuccess = (updated: Cat) => {
     if (mode === 'claim') addOwnedCat(updated.id);
-    queryClient.setQueryData(
-      getGetCatQueryKey(updated.id),
+    // The cat page keys its answer by device too, so match by prefix.
+    queryClient.setQueriesData(
+      { queryKey: getGetCatQueryKey(updated.id) },
       (prev: { cat: Cat; sightings: unknown[] } | undefined) =>
         prev ? { ...prev, cat: { ...prev.cat, ...updated } } : prev,
     );
