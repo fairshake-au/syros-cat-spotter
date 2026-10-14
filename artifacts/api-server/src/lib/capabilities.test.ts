@@ -15,7 +15,7 @@ const volunteerAndVet = {
 const nobody = { scopes: [] };
 
 describe("can()", () => {
-  it("names exactly the twelve capabilities of §7.3", () => {
+  it("names exactly the thirteen capabilities of §7.3 and the roles catalogue (remove_owner: SYC-130, D6)", () => {
     expect([...CAPABILITIES]).toEqual([
       "view_exact_location",
       "hide_photo",
@@ -23,6 +23,7 @@ describe("can()", () => {
       "rename_cat",
       "rename_colony",
       "set_life_status",
+      "remove_owner",
       "set_sterilisation",
       "set_site_public",
       "change_report_state",
@@ -32,9 +33,9 @@ describe("can()", () => {
     ]);
   });
 
-  it("gives staff all twelve", () => {
+  it("gives staff all thirteen", () => {
     for (const c of CAPABILITIES) expect(can(staff, c)).toBe(true);
-    expect(capabilitiesOf(staff)).toHaveLength(12);
+    expect(capabilitiesOf(staff)).toHaveLength(13);
   });
 
   it("gives guardian, volunteer, vet and no role none", () => {

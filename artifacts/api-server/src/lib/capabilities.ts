@@ -11,6 +11,7 @@ export const CAPABILITIES = [
   "rename_cat",
   "rename_colony",
   "set_life_status",
+  "remove_owner",
   "set_sterilisation",
   "set_site_public",
   "change_report_state",

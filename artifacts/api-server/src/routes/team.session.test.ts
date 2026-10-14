@@ -78,7 +78,7 @@ describe("the session", () => {
     const res = await me(cookie).set("Origin", "https://evil.example");
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ name: "Susan <b>", email: EMAIL });
-    expect(res.body.capabilities).toHaveLength(12);
+    expect(res.body.capabilities).toHaveLength(13);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
     expect(res.headers["cache-control"]).toBe("no-store");
   });
