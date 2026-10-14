@@ -54,12 +54,18 @@ beforeAll(async () => {
       roles: ["staff"],
     })
   ).id;
+  // SYC-53 PR 0.3: a cat guardian is always placed on a colony.
+  const colony = await pool.query<{ id: number }>(
+    "insert into colonies (name, normalised_name) values ($1, lower($1)) returning id",
+    [`Vitest obs guardian colony ${Date.now()}`],
+  );
   guardianId = (
     await addPerson({
       email: GUARDIAN_EMAIL,
       name: "Vitest Guardian",
       addedBy: "cli:vitest",
       roles: ["guardian"],
+      colonyId: colony.rows[0]!.id,
     })
   ).id;
 });

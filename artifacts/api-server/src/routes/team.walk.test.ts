@@ -103,9 +103,9 @@ beforeAll(async () => {
     email: EMAIL,
     name: "Vera Volunteer",
     addedBy: "cli:vitest",
-    roles: ["volunteer"],
+    roles: ["vet"],
   });
-  // A volunteer gets no session from the hand-off (SYC-188).
+  // A vet (who holds nothing yet) gets no session from the hand-off (SYC-188).
   volunteerCookie = sessionCookieFor(volunteer.id);
 });
 

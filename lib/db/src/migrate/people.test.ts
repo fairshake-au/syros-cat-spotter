@@ -147,7 +147,7 @@ describe("person_scopes", () => {
       )
     ).rows;
     await c.query(
-      `insert into person_scopes (person_id, role) values ($1, 'staff'), ($1, 'guardian')`,
+      `insert into person_scopes (person_id, role, reach) values ($1, 'staff', 'island'), ($1, 'vet', 'island')`,
       [p.id],
     );
     const before = await c.query(
@@ -171,7 +171,7 @@ describe("person_scopes", () => {
     });
     await expect(
       c.query(
-        `insert into person_scopes (person_id, role) values ($1, 'staff')`,
+        `insert into person_scopes (person_id, role, reach) values ($1, 'staff', 'island')`,
         [p.id],
       ),
     ).rejects.toThrow(/person_scopes_role_scope_unique/);
@@ -185,7 +185,7 @@ describe("person_scopes", () => {
     });
     await expect(
       c.query(
-        `insert into person_scopes (person_id, role) values ($1, 'admin')`,
+        `insert into person_scopes (person_id, role, reach) values ($1, 'admin', 'island')`,
         [p.id],
       ),
     ).rejects.toThrow(/person_scopes_role_ck/);
@@ -226,13 +226,13 @@ describe("the people operations", () => {
     // With their roles, so the caller can decide through can() (SYC-188).
     expect(await store.findAllowedPerson("SUSAN@example.com")).toEqual({
       ...p,
-      scopes: [{ role: "staff", colonyId: null }],
+      scopes: [{ role: "staff", colonyId: null, reach: "island", expiresAt: null }],
     });
     expect(await store.signOutEverywhere("susan@example.com", "cli:test")).toBe(2);
     const byId = await store.findPersonById(p.id);
     expect(byId).toMatchObject({
       sessionVersion: 2,
-      scopes: [{ role: "staff", colonyId: null }],
+      scopes: [{ role: "staff", colonyId: null, reach: "island", expiresAt: null }],
     });
     expect(
       await store.signOutEverywhere("nobody@example.com", "cli:test"),

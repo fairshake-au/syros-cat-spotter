@@ -23,6 +23,7 @@ on:
             carry-back-apply,
             people-add,
             people-list,
+            people-set-roles,
             people-mark-left,
             people-sign-out-everywhere,
           ]
@@ -31,11 +32,27 @@ on:
         # people CLI and the database. The person's email and name are never
         # inputs: they come from the short-lived PEOPLE_EMAIL, PEOPLE_NAME and
         # PEOPLE_EMAIL_CONFIRM Environment secrets (SYC-121 plan H.1(b)).
+        # SYC-53 PR 0.3: volunteer is retired; management is given only by
+        # people-set-roles (people-add refuses it).
         type: choice
-        options: [staff, guardian, volunteer, vet]
-        default: staff
+        # No default (review M1): a set-roles run must name the role, so a
+        # forgotten input can never mean "remove staff".
+        options: [staff, management, guardian, vet]
         required: false
-        description: "For people-add: the role to give"
+        description: "For people-add: the role to give. For people-set-roles: the one role to add or remove"
+      people_change:
+        # SYC-53 PR 0.3: set-roles is additive, one role at a time. A whole
+        # new list is CLI-only (--replace). No default: the change is always
+        # named. Removing staff also needs CONFIRM=FORCE: until SYC-53 PR 0.5
+        # only staff lets anyone sign in.
+        type: choice
+        options: [add, remove]
+        required: false
+        description: "For people-set-roles: add or remove people_role"
+      people_colony:
+        type: string
+        required: false
+        description: "For a cat guardian (people-add, people-set-roles): the colony's number"
       base_url:
         type: string
         required: false
@@ -43,7 +60,7 @@ on:
       confirm:
         type: string
         required: false
-        description: "Type APPLY for carry-back-apply"
+        description: "Type APPLY for carry-back-apply; FORCE for people-set-roles removing staff"
       fail_after:
         # The plan sketches this as `type: choice` with `""` as one of the
         # options, but actionlint refuses an empty choice option
@@ -108,6 +125,8 @@ jobs:
           # a person refuses unless it equals PEOPLE_EMAIL.
           PEOPLE_EMAIL_CONFIRM: ${{ secrets.PEOPLE_EMAIL_CONFIRM }}
           PEOPLE_ROLE: ${{ inputs.people_role }}
+          PEOPLE_CHANGE: ${{ inputs.people_change }}
+          PEOPLE_COLONY: ${{ inputs.people_colony }}
         run: bash scripts/db-ops.sh
       - name: Upload encrypted dump (copy-cutover only, if produced)
         if: always()

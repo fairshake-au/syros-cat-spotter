@@ -134,6 +134,13 @@
       "when": 1792017937875,
       "tag": "0018_cat_home_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792018398241,
+      "tag": "0019_roles_and_invites",
+      "breakpoints": true
     }
   ]
 }

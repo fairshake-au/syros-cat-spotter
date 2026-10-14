@@ -330,6 +330,9 @@ describe("db-ops people-mark-left, people-sign-out-everywhere", () => {
       NEON_DEV_URL: url(name),
       PEOPLE_EMAIL: EMAIL,
       PEOPLE_EMAIL_CONFIRM: EMAIL,
+      // For people-set-roles, so only the confirmation can refuse it.
+      PEOPLE_ROLE: "management",
+      PEOPLE_CHANGE: "add",
       GITHUB_ACTOR: "claude-bot",
       ...extra,
     });
@@ -390,6 +393,7 @@ describe("db-ops people-mark-left, people-sign-out-everywhere", () => {
   for (const COMMAND of [
     "people-mark-left",
     "people-sign-out-everywhere",
+    "people-set-roles",
   ]) {
     it(`${COMMAND} changes nothing when the confirmation is missing or doesn't match`, async () => {
       expect(devAdd().code).toBe(0);
@@ -425,5 +429,120 @@ describe("db-ops people-mark-left, people-sign-out-everywhere", () => {
     expect(shown(r.out)).toContain(
       "That address isn't on the list. Nothing was changed.",
     );
+  });
+});
+
+describe("db-ops people-set-roles and the new role list (SYC-53 PR 0.3)", () => {
+  const devSetRoles = (extra: Record<string, string | undefined> = {}) =>
+    run({
+      COMMAND: "people-set-roles",
+      TARGET: "development",
+      DATABASE_TARGET: "development",
+      NEON_DEV_URL: url(name),
+      PEOPLE_EMAIL: EMAIL,
+      PEOPLE_EMAIL_CONFIRM: EMAIL,
+      PEOPLE_ROLE: "management",
+      PEOPLE_CHANGE: "add",
+      GITHUB_ACTOR: "claude-bot",
+      ...extra,
+    });
+  const roles = async () =>
+    (await c.query(`select role from person_scopes order by role`)).rows.map(
+      (r) => r.role,
+    );
+
+  it("adds management beside staff, by the GitHub actor, printing before and after with no address", async () => {
+    expect(devAdd().code).toBe(0);
+    const r = devSetRoles();
+    expect(r.code).toBe(0);
+    const out = shown(r.out);
+    expect(out).toContain("  before: staff");
+    expect(out).toContain("  after:  management, staff");
+    expect(out.toLowerCase()).not.toContain("jacky");
+    expect(out).not.toMatch(/postgres(ql)?:\/\//);
+    expect(await roles()).toEqual(["management", "staff"]);
+    const ev = await c.query(`select kind, by from person_events order by id`);
+    expect(ev.rows.at(-1)).toEqual({
+      kind: "roles_changed",
+      by: "cli:db-ops:claude-bot",
+    });
+  });
+
+  it("review M1: removing staff from a manager is refused by db-ops itself unless CONFIRM=FORCE", async () => {
+    expect(devAdd().code).toBe(0);
+    expect(devSetRoles().code).toBe(0);
+    const refused = devSetRoles({ PEOPLE_ROLE: "staff", PEOPLE_CHANGE: "remove" });
+    expect(refused.code).not.toBe(0);
+    expect(shown(refused.out)).toMatch(/removing staff locks the person out/);
+    expect(await roles()).toEqual(["management", "staff"]);
+    // A role and a change are always named: neither has a default.
+    for (const extra of [{ PEOPLE_ROLE: undefined }, { PEOPLE_CHANGE: undefined }]) {
+      expect(devSetRoles(extra).code).not.toBe(0);
+    }
+    expect(await roles()).toEqual(["management", "staff"]);
+  });
+
+  it("removes one role, and refuses a result without staff unless CONFIRM=FORCE", async () => {
+    expect(devAdd().code).toBe(0);
+    const refused = devSetRoles({ PEOPLE_ROLE: "staff", PEOPLE_CHANGE: "remove" });
+    expect(refused.code).not.toBe(0);
+    expect(shown(refused.out)).toMatch(/removing staff locks the person out/);
+    expect(await roles()).toEqual(["staff"]);
+    expect(devSetRoles({ PEOPLE_ROLE: "vet" }).code).toBe(0);
+    const forced = devSetRoles({
+      PEOPLE_ROLE: "staff",
+      PEOPLE_CHANGE: "remove",
+      CONFIRM: "FORCE",
+    });
+    expect(forced.code).toBe(0);
+    expect(await roles()).toEqual(["vet"]);
+  });
+
+  it("refuses a role or change off the fixed lists, a bad colony, and a mismatched confirmation", async () => {
+    expect(devAdd().code).toBe(0);
+    for (const extra of [
+      { PEOPLE_ROLE: "volunteer" },
+      { PEOPLE_ROLE: "admin" },
+      { PEOPLE_CHANGE: "replace" },
+      { PEOPLE_CHANGE: undefined },
+      { PEOPLE_ROLE: "guardian", PEOPLE_COLONY: "12; drop" },
+      { PEOPLE_EMAIL_CONFIRM: "jacky.tset@example.com" },
+    ]) {
+      const r = devSetRoles(extra);
+      expect(r.code).not.toBe(0);
+      expect(shown(r.out).toLowerCase()).not.toContain("jacky");
+    }
+    expect(await roles()).toEqual(["staff"]);
+  });
+
+  it("people-add no longer offers volunteer, refuses management, and needs a colony for a guardian", async () => {
+    const vol = devAdd({ PEOPLE_ROLE: "volunteer" });
+    expect(vol.code).not.toBe(0);
+    expect(vol.out).toMatch(/people_role must be staff, guardian or vet for people-add/);
+    const mgmt = devAdd({ PEOPLE_ROLE: "management" });
+    expect(mgmt.code).not.toBe(0);
+    expect(mgmt.out).toMatch(/management isn't given by people-add/);
+    const noColony = devAdd({ PEOPLE_ROLE: "guardian" });
+    expect(noColony.code).not.toBe(0);
+    expect(shown(noColony.out)).toMatch(/A cat guardian needs a colony/);
+    expect(await countPeople()).toBe(0);
+    const colony = (
+      await c.query(
+        `insert into colonies (name, normalised_name) values ('Kini dbops', 'kini dbops') returning id`,
+      )
+    ).rows[0].id;
+    const ok = devAdd({ PEOPLE_ROLE: "guardian", PEOPLE_COLONY: String(colony) });
+    expect(ok.code).toBe(0);
+    expect(shown(ok.out)).toContain(`as guardian on colony ${colony}.`);
+  });
+
+  it("the workflow's people_role choices are the new role list", () => {
+    const yml = fs.readFileSync(path.join(ROOT, ".github/workflows/db-ops.yml"), "utf8");
+    expect(yml).toMatch(/options: \[staff, management, guardian, vet\]\n        required: false/);
+    expect(yml).toMatch(/options: \[add, remove\]\n        required: false/);
+    expect(yml).not.toMatch(/options: \[[^\]]*volunteer/);
+    expect(yml).toMatch(/people-set-roles,/);
+    expect(yml).toMatch(/PEOPLE_CHANGE: \$\{\{ inputs\.people_change \}\}/);
+    expect(yml).toMatch(/PEOPLE_COLONY: \$\{\{ inputs\.people_colony \}\}/);
   });
 });

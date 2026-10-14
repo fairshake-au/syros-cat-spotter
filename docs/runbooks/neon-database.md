@@ -24,13 +24,13 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-mark-left`, `people-sign-out-everywhere`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`.
 
-## The staff list (`people-add`, `people-list`, `people-mark-left`, `people-sign-out-everywhere`)
+## The staff list (`people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`)
 
 The list of people who can sign in to the staff dashboard (SYC-43) is managed through `db-ops` until the people screen exists (SYC-104). The `people-*` commands run against `development` or `production` only.
 
-**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`, plus **`PEOPLE_EMAIL_CONFIRM`, the address typed a second time** (SYC-131, after a typo in a 3 Oct `people-add` went unnoticed). Every command that names a person refuses unless the two addresses match, ignoring case and surrounding spaces, and changes nothing. They're set from a terminal tab just before the run and deleted straight after. The script masks all three before doing anything else and refuses to show output that contains any of them. The role is a fixed choice: `staff`, `guardian`, `volunteer` or `vet`. The output shows the person's id and role only. `people-list` shows ids, roles, session versions, who added each person, for anyone marked as left, `LEFT` with when and by whom, and each person's history (the kinds of change recorded for them, oldest first, never a name or an address). Never an address or a name. `people-add` for an address that has left brings back the same person (same id, history intact) and says "Rejoined".
+**A person's email and name are never workflow inputs.** Inputs are stored with the run and can reach the log. Instead, the email and name go in short-lived Environment secrets, `PEOPLE_EMAIL` and `PEOPLE_NAME`, plus **`PEOPLE_EMAIL_CONFIRM`, the address typed a second time** (SYC-131, after a typo in a 3 Oct `people-add` went unnoticed). Every command that names a person refuses unless the two addresses match, ignoring case and surrounding spaces, and changes nothing. They're set from a terminal tab just before the run and deleted straight after. The script masks all three before doing anything else and refuses to show output that contains any of them. The role is a fixed choice: `staff`, `guardian` or `vet` for `people-add` (a cat guardian also needs `people_colony`, the colony's number; `volunteer` is retired, SYC-53 PR 0.3). `people-add` adds the person directly, joined at once. The output shows the person's id and role only. `people-list` shows ids, roles, session versions, who added each person, for anyone marked as left, `LEFT` with when and by whom, and each person's history (the kinds of change recorded for them, oldest first, never a name or an address). Never an address or a name. `people-add` for an address that has left brings back the same person (same id, history intact) and says "Rejoined".
 
 **Seeding Samuel and Jacky after the cutover — the post-go-live procedure for any production database change (SYC-121/SYC-178).** Since go-live, every production database change (this migration, then the seed) follows the same five steps, in order. **The old Replit project is retired and must never be published again** — all of this targets the EU (new) Replit project only.
 
@@ -71,6 +71,43 @@ sleep 5
 gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
 gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --log
 ```
+
+**Management (`people-set-roles`, SYC-53 PR 0.3, Decision A1).** `management` is never given by `people-add`; it is added beside `staff` with `people-set-roles`, which is additive: `-f people_change=add` (or `remove`) and `-f people_role=management` change that one role and leave the rest alone. It needs the same three secrets as `people-add` minus the name, prints the person's roles before and after (ids and role names only), and refuses a result without `staff` unless `-f confirm=FORCE`: until SYC-53 PR 0.5 only `staff` lets anyone sign in, so removing it would lock even a manager out. `people_role` and `people_change` have no defaults; always pass both. A whole new list (`--replace`) is only offered by the `people` command itself, not by db-ops.
+
+```bash
+gh workflow run db-ops.yml --ref main -f target=production -f command=people-set-roles -f people_change=add -f people_role=management
+```
+
+**Making Samuel, Jacky and Susan management (SYC-53 PR 0.3's post-merge run).** Claude does this end to end; Samuel types nothing but his approval.
+
+1. **Before migrating each database (development, then production), Claude runs these read-only checks** with the Neon MCP's `run_sql`:
+
+   ```sql
+   select count(*) from observations where role_at_time = 'admin';  -- must be 0
+   select s.id, s.person_id, s.role, s.colony_id, p.left_at is not null as left from person_scopes s join people p on p.id = s.person_id where s.role not in ('staff','guardian','vet') or (s.role = 'guardian' and s.colony_id is null) or (s.role = 'staff' and s.colony_id is not null);  -- must be empty
+   select role, colony_id is null as island, count(*) from person_scopes group by 1, 2;
+   select count(*) filter (where left_at is null) as on_list, count(*) from people;
+   select id, name from people where left_at is null order by name;
+   ```
+
+2. **The approval list.** Before the production run, Claude shows Samuel the list from production *with names* (`select p.id, p.name, array_agg(s.role order by s.role) from people p join person_scopes s on s.person_id = p.id where p.left_at is null group by 1, 2 order by 2`, read-only): the three who become management, and everyone else, who stays team-only. Samuel approves it in chat. Nothing runs before that.
+3. **Development first, then production** (spec §15.2 step 5), each after its own `migrate` and `verify-history`.
+4. **The address secrets, without Samuel typing anything.** For each approved person id, Claude reads that person's address from *that* database with `run_sql` (`select email from people where id = '<id>'`), and pipes it straight into the secrets, never printing it in chat or in a log:
+
+   ```bash
+   cd /Users/samuelporter/Projects/syros-cat-spotter
+   printf '%s' "$ADDRESS" | gh secret set PEOPLE_EMAIL --env production
+   printf '%s' "$ADDRESS" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
+   unset ADDRESS
+   gh workflow run db-ops.yml --ref main -f target=production -f command=people-set-roles -f people_change=add -f people_role=management
+   sleep 5
+   gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+   gh secret delete PEOPLE_EMAIL --env production
+   gh secret delete PEOPLE_EMAIL_CONFIRM --env production
+   ```
+
+   The address comes from the database by id, so it can't carry a typo. The confirmation is there to catch typing mistakes, and nothing is typed here. For development, use `--env development` and `target=development`. The run prints the roles before and after; each person keeps `staff`.
+5. **Verification on each database** (read-only `run_sql`): `select s.role, s.reach, count(*) from person_scopes s join people p on p.id = s.person_id where p.left_at is null group by 1, 2 order by 1, 2` shows exactly 3 `management` / `island` rows beside the `staff` rows; `select p.id from people p join person_scopes s on s.person_id = p.id where s.role = 'management'` returns the three approved ids; `select count(*) from people where accepted_at is null and left_at is null` is 0. **SYC-53 PR 0.5 does not merge until production shows exactly three managers.**
 
 To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Someone who leaves is **marked as left** (`people mark-left`), not removed (SYC-43 part 2, Decision 7): they can't sign in, their sessions end at their next request, and everything they did stays attributed to them. There is no remove (SYC-53 PR 0.1): every person has an `added` event in the record of who changed what (`person_events`), so a hard delete can never succeed. Marking as left is the only way off the list. **Rolling back the app to a build from before `0007_people_left` re-admits everyone marked as left**, because the old code ignores `left_at`. Fix forward instead; if you can't, follow the CAUTION in that migration first. For development, swap in `--env development` and `target=development`.
 
