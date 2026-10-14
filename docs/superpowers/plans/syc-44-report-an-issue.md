@@ -504,3 +504,196 @@ Nothing is merged to `main` from the spike except a short note.
 - The privacy policy wording (one year, Cloudflare as a processor, "the report stays with the cat's record" corrected) is SYC-248's, not this plan's.
 
 ---
+## Where each of the spec's tests is built
+
+Spec §13 names 21 tests. Each is built in exactly one PR (and sometimes checked again in the app):
+
+| Spec test | Built in | Plan test |
+|---|---|---|
+| 1 hide in the same transaction; gone from every public reader | 5.1 | T5-1 (+ T3-5's reader list) |
+| 2 bad token → `428`, nothing; outage → unchecked, no hide | 1.1 (welfare), 5.1 (issues) | T1-1, T1-2, T5-2 |
+| 3 any restore, ever, blocks a report-hide | 5.1 | T5-3 |
+| 4 6th hide from one address in an hour, across two processes | 2.1 (store), 5.1 (rule) | T2-1, T5-4 |
+| 5 the brake at 5 a day, Athens time, no resume | 5.1, 7.1 (banner) | T5-5, T5-10, T7-5 |
+| 6 every refusal → `hidden: false` and the "not hidden yet" text | 5.1, 6.2 | T5-6, T6-5 |
+| 7 died/name/info/location reports change nothing public | 5.1 | T5-7 |
+| 8 no `welfare_outcome` on close; no `welfare_report` observation ever; tie refused | 4.1 | T4-3, T4-4 |
+| 9 `photo_state = 'none'`; never "Photo still uploading"; no alert delay | 4.1 (database check), 5.2 | T4-1, T5-18 |
+| 10 same device, same `clientRef`, two kinds → two reports | 4.1 | T4-6 |
+| 11 no device, address or IP in queue or JSON | 5.1, 7.1 | T5-9, T7-6 |
+| 12 email: no reporter details, photo attached, escaped; 500 issue alerts can't delay a welfare alert | 5.2 | T5-13, T5-14 |
+| 13 Turnstile: action, hostname (`team.`), `cdata`, `success: false`, reuse, timeout; secret never logged | 1.1 | T1-1, T1-2, T1-6 |
+| 14 saved report: fresh check, never "hidden" early, one report per `clientRef`, the upgrade case | 1.2, 5.1, 6.2 | T1-11, T5-8, T6-6 |
+| 15 draft with no token → `428`; outage → collapsed unchecked draft | 1.1 | T1-5 |
+| 16 `428` isn't a strike in the app's queue | 1.2, 6.2 | T1-9, T6-7 |
+| 17 route walk: a guardian sees no strip, no section, refused photo and links | 7.1 | T7-1 |
+| 18 first line links to "needs help"; "alive?" link opens `wrong_info` | 6.2 | T6-4 |
+| 19 every key in en/el/fr; web says "saved in this browser" | 1.2, 6.2 | T1-12, T6-8 |
+| 20 P6-0 covers every new place | 3.1, 5.1 | T3-5, T5-12 |
+| 21 retention by kind | 8.1 | T8-1, T8-2 |
+
+**Mutation probes are done by hand before each merge.** Break the named line, watch the named test go red, then put it back. Each PR lists its probes and the result. Every silent-failure guard in this plan has one:
+- the hostname check;
+- `428` vs unchecked;
+- `428` as a strike;
+- the brake;
+- the restore rule;
+- the reply's `hidden`;
+- the `kind` filter;
+- the `welfare_outcome` guard;
+- the tie refusal;
+- retired ids on the public route;
+- the cache header;
+- the shed order;
+- removal's restore block and matching skip;
+- retention's kind.
+
+## Every place the guards must hold
+
+A mutation probe proves a test protects a place someone thought of. It says nothing about a place nobody thought of. So each invariant lists every consumer, and three have a **structural** check that fails on a place nobody listed:
+
+1. **"An issue row is never treated as a welfare report."** The readers are in Slice 4's table. Structural: **T4-0**, the allowlist of files that touch `welfare_reports`.
+2. **"A hidden photo is never public."** PR 6's reader list (public photo route, cat list, cat detail, match candidates, notifications, the hand-pick list, push), re-run by T3-5 after rotation. Structural: **P6-0** (only `photoVisibility.ts` builds `/api/photos/`). New places in this plan: the issue alert attachment (a team email, never a link), the Issues section and the strip (team route only), and `photoHidden` in the sighting payload (a flag, not a photo).
+3. **"A deleted photo's bytes are gone and nothing brings them back."** Slice 7.2's table. Structural: **T7-8** (the `photos.data` reader allowlist), plus the type checker once `data` can be null.
+4. **"A token is checked before a report is accepted, except when Cloudflare is down."** Every public write that creates a queue row: `POST /api/reports`, `POST /api/reports/draft` and `POST /api/issues`. `PUT /api/reports/:publicId/photo` needs no token (spec §9.5: it's tied to the device and to a report that has passed). T1-1, T1-5 and T5-2 cover the three routes. The route walk records that no other public route writes `welfare_reports` (T4-0 again).
+
+---
+
+## Rollout
+
+For each PR, in order, after its own review:
+
+1. Merge. CI runs `migrate:check`, the migration tests, the API and app tests. (Docs PRs get no "Test and build" run; CI skips them on purpose, SYC-286.)
+2. **PRs with a migration (1.1, 2.1, 3.1, 4.1, 7.2):**
+   - db-ops `migrate` on development;
+   - **a Neon snapshot of production.** Auto mode blocks Neon snapshot writes, so **Samuel switches this session to "ask" mode for this one step**, then back;
+   - db-ops `migrate` on production, then `verify`.
+
+   **Migrate before publish**, as with every migration so far.
+3. Samuel pulls into the EU Replit project and publishes; Claude waits until `/api/healthz` shows the new commit before probing. **1.3 and 6.x** also need a phone build: an EAS build and an internal test release.
+4. **Probes (Claude), by slice:**
+   - **1.1:** set `TURNSTILE_MODE=observe`. Send a web report and check the log shows `ok` with the exact hostname. `curl` a report with a junk token in `enforce` on development to get `428`, with no row.
+   - **2.1:** two quick bursts from one address hit the same limit after a redeploy.
+   - **3.1:** hide, `curl` and restore, as in 3.1.
+   - **5.1:** on development, a `photo_private` report hides a test photo, the old address is `404`, and the alert arrives with the photo attached.
+   - **7.1:** `curl` every new `/api/team/*` route without a session → `401`.
+   - **7.2:** delete a test photo on development; its team route is `410`; a match near its cat still works.
+5. **Switching Turnstile on** (`TURNSTILE_MODE`; small call above): `observe` after 1.2 publishes; `enforce` once 1.3's build is in testers' hands.
+6. **Launch day** (comment on SYC-114): `PRELAUNCH_GATE=off` only after `TURNSTILE_MODE=enforce` is live on both forms, Slice 2 is live **and the one-instance pin has been lifted or deliberately kept**, plus SYC-114's own step 0 (blurring live).
+
+**Rolling back:** revert the PR. Every migration has a commented rollback, run on a snapshot first. 4.1's rollback **deletes every issue report** (said in capitals), so after Slice 5 is live it's run only with Samuel's yes. 7.2's can't restore deleted bytes.
+
+---
+
+## Where this collides with other work
+
+| Other work | Where it meets this plan | What this plan does |
+|---|---|---|
+| **SYC-53 roles** (Slice 0 in flight: PR 0.1 `person_events` = migration 0016; PR 0.2 `authorityLevel`; PR 0.5 the catalogue, strict `can()`, route walk) | `CAPABILITIES`, `team.walk.test.ts`, the queue's capability, the roles spec §6.2 | Docs 0.1 adds `remove_photo` to §6.2 first (T24 parses it). Slice 7 uses `view_welfare_queue`, adding it to `CAPABILITIES` only if 0.5 hasn't merged (C6). T7-1 extends whichever walk is on `main`. Its guardian report routes keep `kind = 'welfare'` (SYC-44 comment, 12 Oct) |
+| **SYC-130 claiming** (`claude/syc-130-build`) | Takes the home description out of the public payload (C2); adds limiters to `rateLimit.ts`; its own migration | Decision 2. Whichever of SYC-130 and 2.1 merges second moves its limiters onto the shared store |
+| **SYC-2 coat and health** (PR 1.2 in flight) | Adds to `rateLimit.ts` and `openapi.yaml` | Rebase; new limiters use the shared factory |
+| **SYC-209 feeding sites** (plan PR #118) | Its migrations take numbers too; no shared files with this plan | Next free number at generation time |
+| **SYC-150** move a sighting | Moving must keep the photo's internal id, or rule (ii)'s restore history is lost | Rule (ii) keys on `photos.id`, not on the sighting or the public id, so rotation (Slice 3) and moving can't lose it. Comment on SYC-150 |
+| **SYC-163** more photos per cat | A gallery would be a new place photos appear | P6-0 forces it through `publicPhotoUrl()`; the full-screen view (6.1) should be reused |
+| **SYC-81** shrink old photos | Must skip a deleted photo (null bytes) | Comment on SYC-81 |
+| **SYC-166** photo location (PR #101) | Reads photo metadata | No overlap unless it adds a `photos.data` reader, which T7-8 would catch |
+| **SYC-231** mail drain every 3–7 hours | The digest and the retention sweep hang off the drain | Accepted (spec §5.2): the hide never waits for mail. SYC-231's fix helps both |
+| **SYC-229** proxy hops | Per-address limits need `req.ip` to be real on every address | Probe result (13 Oct) commented there; SYC-306 checks the launch address |
+
+## What this plan does not do
+
+| Not here | Where it goes |
+|---|---|
+| Privacy policy wording (Cloudflare as a processor, one-year retention, "hiding isn't erasure", what's done about addresses) | SYC-248 |
+| The three-year welfare retention job | **SYC-302** (new) |
+| Taking privacy-hidden photos out of matching | **SYC-303** (new), Samuel's call |
+| Hiding a cat's map spot pending review (D6 option B) | SYC-247's second part, after launch |
+| Moving a photo to the right cat (`wrong_cat`) | SYC-150 |
+| Recalling copies already on phones and browsers | SYC-276 (can't be done; the policy must not imply it) |
+| App attestation on native (D10 option D) | Only if scripted abuse of the native path appears |
+| Native review of el/fr | **SYC-305** (new) |
+| The launch web address | **SYC-306** (new) |
+| The "Think this cat is alive?" link itself | `choose-a-different-cat.md`'s build; 6.2 provides where it lands |
+
+## What works with no signal, precisely
+
+- **Saving a report works with no signal**, on the phone and in the browser. It's sent when there's a connection **and** the app is open, because each send needs a fresh Turnstile check, which needs a connection to Cloudflare.
+- **Nothing is hidden until the server has the report.** The offline confirmation says so.
+- **The full-screen photo** opens only for a photo the phone has already loaded.
+- **The phone's offline cat list** may keep showing a photo that has since been hidden, until it next refreshes (spec §6).
+- **The dashboard doesn't work offline**, as today.
+
+---
+
+## Model delegation
+
+Session model for this plan: **Opus 5.5**. Opus was asked for in the brief: the plan adds a public, no-account endpoint that can hide photos, and changes the anti-bot rules on the cat-in-trouble form, so a wrong order or a missed guard is an abuse or privacy hole. For the build, each package goes to the cheapest tier that can do it, with the reason stated wherever it goes up.
+
+| Work package | Model | Why this tier | Assurance |
+|---|---|---|---|
+| Docs 0.1 (catalogue row, Part 2q) | Haiku | Copying approved text word for word | Session model diffs it against spec §5.5 and §15 |
+| 1.0 spike: Cloudflare widget via API, `/_challenge`, simulator run, spike note | Sonnet | Clear steps, documented API | **Probe:** a real token's siteverify answer shows the exact hostname, action and `cdata` (pasted into the note); session model reads the note before 1.3 starts |
+| 1.1 `lib/turnstile.ts` and the two routes | **Opus** | *Escalated:* the order (duplicate before token, `428` vs unchecked) is the whole security of the welfare queue, and a wrong branch is silent (a scripted report accepted, every test green) | T1-1…T1-8 with **mutation probes** (hostname, `rejected`→unchecked, order, unchecked limit); independent review in its own worktree told to find a way in without a token |
+| 1.2 web client and `reportQueue.ts` `428` rule | Sonnet | Small, well-specified client change | T1-9…T1-12, **mutation probe** (`428` as a strike); browser check with the three test sitekeys |
+| 1.3 native WebView host | Sonnet | Follows the spike's proven recipe | T1-13…T1-15; **probe** on Samuel's two phones (a checked row in production); Opus spot review of the navigation allow-list |
+| 2.1 shared store and moving the limiters | Sonnet | One table and a known `express-rate-limit` store interface | T2-1 across two instances with its **mutation probe**; Opus review of the atomic upsert |
+| 3.1 rotation and the retired-id lookup | **Opus** | *Escalated:* two lookups that must differ (public vs internal), inside an existing lock. A mix-up silently re-publishes a hidden photo at an old address | T3-1…T3-6 with **mutation probes**; P6-0; **probe** after publish |
+| 4.1 migration and the `kind` sweep | Sonnet | Mechanical once the reader table exists, which this plan provides | T4-0 structural guard plus T4-1's byte-for-byte snapshot, **mutation probes** on four sites; session model reads the generated SQL and the rollback line by line |
+| 5.1 `POST /api/issues` and the hide transaction | **Opus** | *Escalated:* rule order, the advisory-locked brake, limits consumed inside the transaction, the upgrade case. Every one fails silently | T5-1…T5-12 with **mutation probes**; T5-10 run 20 times; independent review told to hide 6 photos in one Athens day |
+| 5.2 `issue_alert`, digest, shedding | Sonnet | Follows the outbox's existing pattern | T5-13…T5-18 with **mutation probes** (shed order, never-shed list, digest guard); Opus spot review |
+| 6.1 full-screen view, tile, `photoHidden` | Sonnet | Standard screen work on an existing pattern | T6-1…T6-3; browser check 390 px and desktop, en/el/fr, real data |
+| 6.2 reason sheet, confirmations, `issueQueue` | Sonnet | Clear copy and states from the spec | T6-4…T6-8, **mutation probes** (confirmation from reason; web wording); browser check; SYC-305 for native review |
+| String tables and repetitive fixtures | Haiku | Mechanical | i18n test; session model reads the English |
+| 7.1 Issues section, strip, actions | Sonnet | Server-rendered HTML following the queue page | T7-1…T7-6 with **mutation probes** (strip check, order); route walk; browser check |
+| 7.2 deleting for good | **Opus** | *Escalated:* irreversible, and every reader of photo bytes must degrade. A missed one is a silent privacy failure or a 500 | T7-7…T7-10, T7-8 structural guard, **mutation probes**; independent review told to find a way to show or restore a deleted photo |
+| 8.1 retention sweep | Sonnet | One scoped update | T8-1…T8-3, **mutation probe** (kind) |
+| Adversarial review of each PR before merge | Sonnet, in its own worktree, never shared; Opus for 1.1, 3.1, 5.1 and 7.2 | Equal tier to the builder | Findings folded in and listed in each PR; the session model checks each against the code |
+| Production steps (Cloudflare widget, migrations, snapshots, probes) | Session model | Production state, not delegated | The rollout probes |
+
+## Crash-proofing for the build
+
+Each PR is built in its own worktree off fresh `origin/main`. **Commit after each numbered item**, with a `CHECKPOINT.md` (what's done, what's next) updated after each commit and deleted before the PR is marked ready. **Every agent prompt restates "commit after each item"** word for word. Agents don't spawn nested agents. If a session stops mid-PR, it comments where it got to on the PR's Linear ticket before stopping.
+
+---
+
+## Linear
+
+**Tickets this plan builds** (no new build tickets; each slice belongs to one that exists):
+
+| Slice | Ticket |
+|---|---|
+| 0, 4, 5, 6, 7.1, 8 | SYC-44 |
+| 1 | SYC-170 |
+| 2 | SYC-105 |
+| 3 | SYC-279 |
+| 7.2 | SYC-246 |
+
+**Filed by this plan (13 Oct, deduplicated against the team's open issues first):**
+- **SYC-302:** delete welfare-report notes after three years (no job exists; C10).
+- **SYC-303:** a hidden main photo is still sent to the matching service (C7; Samuel's call).
+- **SYC-305:** native review of the "Report an issue" strings, with the confirm step a launch blocker (spec §11).
+- **SYC-306:** decide the web app's launch address, then add it to the widget and the hostname list (spec §9.6).
+
+**Comments added (no state changes):**
+- SYC-44 and SYC-170: this plan's PR;
+- SYC-114: the launch-day preconditions;
+- SYC-247: its first part is superseded by SYC-130, pending Decision 2;
+- SYC-229: the 13 Oct probe;
+- SYC-81: skip deleted photos;
+- SYC-150: rule (ii) keys on `photos.id`;
+- SYC-53: `remove_photo`, and `view_welfare_queue` used by Slice 7.
+
+## Still needs Samuel
+
+1. **Decisions 1, 2 and 3** (above). Decision 1 is needed before Slice 3; 2 and 3 before Slice 7.
+2. **One paste:** copy the Turnstile secret key from Cloudflare's Turnstile page into the EU Replit project's Secrets pane as `TURNSTILE_SECRET_KEY` (PR 1.0). Claude can't write Replit secrets (documented in `docs/runbooks/replit-github-sync.md`), and the value never comes through chat.
+3. **Two phones for the spike:** a real iPhone and a real Android phone to open the internal test build (PR 1.0). If there's no Android phone to hand, say so and the spike uses a tester's.
+4. **"Ask" mode** for each production Neon snapshot (Slices 1.1, 2.1, 3.1, 4.1, 7.2).
+5. **Publishing** in the EU Replit project after each merge, and the phone builds for 1.3 and 6.x.
+6. **Lifting the one-instance pin** in Replit's deployment settings after 2.1, if the connector can't do it.
+
+---
+
+## Review outcome
+
+*(Filled in after the independent review below.)*
