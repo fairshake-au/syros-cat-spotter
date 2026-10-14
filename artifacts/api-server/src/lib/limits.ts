@@ -133,6 +133,8 @@ function windowStartOf(now: number, windowMs: number): number {
 }
 
 export type WindowOptions = {
+  /** `peek` only, sliding: the limit, so `resetAt` can say when a refused caller is next allowed. */
+  limit?: number;
   /**
    * Sliding-window counter instead of a fixed window. A fixed window lets a
    * caller spend the whole limit just before the boundary and again just
@@ -202,7 +204,36 @@ export async function consume(
   `);
   const row = res.rows[0] as { hits: number | string; prev_hits: number | string };
   const estimate = slidingEstimate(Number(row.prev_hits), Number(row.hits), now - start, windowMs);
-  return { hits: Math.ceil(estimate), allowed: estimate <= limit, resetAt: start + windowMs };
+  const allowed = estimate <= limit;
+  return {
+    hits: Math.ceil(estimate),
+    allowed,
+    resetAt: allowed
+      ? start + windowMs
+      : slidingResetAt(Number(row.prev_hits), Number(row.hits), limit, start, now, windowMs),
+  };
+}
+
+/**
+ * The earliest time a refused caller's next attempt can be allowed: when
+ * `prev * (1 - t / W) + (cur + 1) <= limit` (the retry itself counts, so it
+ * is `cur + 1`), capped at the window end, after which a lower bound is all
+ * that can be said (the next window weighs this one again). Used for
+ * Retry-After.
+ */
+function slidingResetAt(
+  prevHits: number,
+  curHits: number,
+  limit: number,
+  start: number,
+  now: number,
+  windowMs: number,
+): number {
+  const end = start + windowMs;
+  const room = limit - (curHits + 1);
+  if (room < 0 || prevHits <= 0) return end;
+  const t = start + windowMs * (1 - room / prevHits);
+  return Math.min(end, Math.max(now, t));
 }
 
 function slidingEstimate(prevHits: number, curHits: number, elapsedMs: number, windowMs: number): number {
@@ -237,7 +268,12 @@ export async function peek(
        and window_start = to_timestamp(${prevStart} / 1000.0)
   `);
   const prev = prevRes.rows[0] ? Number((prevRes.rows[0] as { hits: number | string }).hits) : 0;
-  return { hits: Math.ceil(slidingEstimate(prev, cur, now - start, windowMs)), resetAt: start + windowMs };
+  const estimate = slidingEstimate(prev, cur, now - start, windowMs);
+  const resetAt =
+    opts.limit !== undefined && estimate > opts.limit
+      ? slidingResetAt(prev, cur, opts.limit, start, now, windowMs)
+      : start + windowMs;
+  return { hits: Math.ceil(estimate), resetAt };
 }
 
 /** Forget one key's count in its current window. */

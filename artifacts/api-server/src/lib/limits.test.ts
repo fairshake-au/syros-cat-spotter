@@ -368,6 +368,27 @@ describe("the claim limit is a sliding window (about 5 per rolling 24 hours, not
     }
   });
 
+  it("resetAt for a refused caller is when the estimate next drops to the limit, capped at the window end", async () => {
+    const t0 = Date.UTC(2044, 0, 2); // day 2 starts here
+    const prevDay = t0 - HOUR; // 23:00 on day 1
+    for (let i = 0; i < 5; i++) await consume("slidereset", "k", 5, DAY, undefined, prevDay, { sliding: true });
+    const noon = t0 + 12 * HOUR;
+    const results = [];
+    for (let i = 0; i < 3; i++) results.push(await consume("slidereset", "k", 5, DAY, undefined, noon, { sliding: true }));
+    expect(results.map((r) => r.allowed)).toEqual([true, true, false]);
+    // 3 counted today: a retry makes 4, so 5 * (1 - t/W) + 4 <= 5 from t/W = 0.8.
+    expect(results[2]!.resetAt).toBe(t0 + 0.8 * DAY);
+    // And that is when it is indeed allowed (peek shows the same).
+    expect((await peek("slidereset", "k", DAY, undefined, noon, { sliding: true, limit: 5 })).resetAt).toBe(
+      t0 + 0.8 * DAY,
+    );
+    // An allowed caller is told the window end.
+    expect(results[0]!.resetAt).toBe(t0 + DAY);
+    // Past the window end it is capped there.
+    for (let i = 0; i < 9; i++) await consume("slidereset2", "k", 5, DAY, undefined, noon, { sliding: true });
+    expect((await consume("slidereset2", "k", 5, DAY, undefined, noon, { sliding: true })).resetAt).toBe(t0 + DAY);
+  });
+
   it("a fixed-window limit is unchanged: it still resets at the boundary", async () => {
     for (let i = 0; i < 5; i++) await consume("fixedday", "k", 5, DAY, undefined, lateOnDay1);
     expect((await consume("fixedday", "k", 5, DAY, undefined, earlyOnDay2)).allowed).toBe(true);
