@@ -99,11 +99,11 @@ afterAll(async () => {
   await cleanup();
   await pool.end();
 });
-beforeEach(() => {
+beforeEach(async () => {
   pushMock.mockClear();
   notifyMock.mockClear();
   eligibilityMock.mockClear();
-  _resetClaimLimitForTests();
+  await _resetClaimLimitForTests();
 });
 
 type Phone = { id: string; secret: string };
