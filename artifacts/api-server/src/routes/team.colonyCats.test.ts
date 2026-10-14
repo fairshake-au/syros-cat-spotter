@@ -15,6 +15,8 @@ import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import { signInThroughHandoff, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { currentColonyOf } from "../lib/colonyMembership";
+import { placeCats } from "../lib/colonyCats";
+import { supersedeStatement } from "../lib/teamCorrections";
 
 // SYC-209 PR 2.2: cats in colonies. Spec test 15 (the team's half), plus
 // escaping (16), refusals (12) and the counts. Cats and colonies made here
@@ -24,8 +26,15 @@ import { currentColonyOf } from "../lib/colonyMembership";
 
 // A staff member who lacks exactly one capability: today staff hold all
 // of them, so `can` is wrapped (team.colonies.test.ts does the same).
-// `cap`: lacks that one. `only`: holds that one and nothing else.
-const denied = vi.hoisted(() => ({ cap: null as string | null, only: null as string | null }));
+// `cap`: lacks that one. `only`: holds that one and nothing else. `grant`: a
+// scope with this role holds every capability and signs as that role (stands
+// in for a future role that grants something, so that a write which does not
+// go through actingRole shows up).
+const denied = vi.hoisted(() => ({
+  cap: null as string | null,
+  only: null as string | null,
+  grant: null as string | null,
+}));
 vi.mock("../lib/capabilities", async (importOriginal) => {
   const real = await importOriginal<typeof import("../lib/capabilities")>();
   return {
@@ -35,7 +44,15 @@ vi.mock("../lib/capabilities", async (importOriginal) => {
         ? false
         : denied.only !== null && args[1] !== denied.only
           ? false
-          : real.can(...args),
+          : denied.grant !== null && args[0].scopes.some((sc) => sc.role === denied.grant)
+            ? true
+            : real.can(...args),
+    // actingRole asks the real can() inside its own module, so the stand-in
+    // role is answered here: a statement signed with it went through actingRole.
+    actingRole: (...args: Parameters<typeof real.actingRole>) =>
+      denied.grant !== null && args[0].scopes.some((sc) => sc.role === denied.grant)
+        ? denied.grant
+        : real.actingRole(...args),
   };
 });
 
@@ -147,6 +164,7 @@ beforeEach(() => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
   denied.only = null;
+  denied.grant = null;
 });
 
 afterAll(async () => {
@@ -803,6 +821,27 @@ describe("test 12 (part): refusals", () => {
         expect(res.text, `${path} ${done}`).not.toContain('class="notice"');
       }
     }
+  });
+});
+
+describe("the role a colony statement is signed with comes from actingRole", () => {
+  it("is the role that granted the capability, for adding, moving, taking out and Mark wrong", async () => {
+    // A person whose only scope is a role that (in this test) grants the
+    // capability: the statements must say that role, not a hand-written "staff".
+    const person = { id: susan, scopes: [{ role: "management", colonyId: null }] };
+    denied.grant = "management";
+    const colony = await makeColony(unique("Role"));
+    const cat = await seedCat("Role-cat");
+
+    expect((await placeCats(person, colony, [cat])).kind).toBe("done");
+    expect((await placeCats(person, null, [cat])).kind).toBe("done");
+    const [, takeOut] = await colonyStatements(cat);
+    await supersedeStatement(person, { id: takeOut!.id, value: {}, reason: "wrong" });
+
+    const rows = await colonyStatements(cat);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.roleAtTime)).toEqual(["management", "management", "management"]);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(colony);
   });
 });
 
