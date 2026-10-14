@@ -230,6 +230,15 @@ describe("the precedence edges, at the function and in the sterilisation fold", 
     expect(r.supportingObservationIds).toEqual([g.id]);
   });
 
+  it("at the same instant, the cat's own record beats a not-yet-linked import record, either way round", () => {
+    for (const own of [true, false]) {
+      const row = sterilised("staff", own, NEWER);
+      const r = resolveSterilised([row], [{ id: 1, sterilised: !own, observedAt: NEWER.toISOString() }]);
+      expect(r.value).toBe(own);
+      expect(r.supportingObservationIds).toEqual([row.id]);
+    }
+  });
+
   it("a level-0 statement (a spotter's sterilised:true) is never authority, whatever its date", () => {
     const spotter = obs({ kind: "sterilised", value: { sterilised: true }, observedAt: NEWER });
     expect(resolveSterilised([spotter]).confidence).toBe("unknown");
@@ -303,6 +312,14 @@ describe("the precedence edges in the ear-tip fold (§10.2 rule 3)", () => {
     // Even a vet's older "not a clip" doesn't silence a newer spotter clip:
     // the clip is new evidence the team is shown, and it only reaches Likely.
     expect(resolveSterilised([earTip("vet", false, OLDER), spotterClip(NEWER)]).confidence).toBe("likely");
+  });
+
+  it("a vet keeps a vet's standing on the ear even on a row that also carries an owner scope", () => {
+    // earTipAuthorityLevel drops owners, but not a vet: the vet is level 4
+    // under authorityLevel whatever the scope, and stays so on the ear.
+    const guardianClip = earTip("guardian", true, NEWER);
+    const vetNo = earTip("vet", false, OLDER, { authorityScope: "owner_of_this_cat" });
+    expect(resolveSterilised([guardianClip, vetNo]).confidence).toBe("unknown");
   });
 
   it("imports and owners have no standing on the ear; a colony scope on a non-guardian neither", () => {
