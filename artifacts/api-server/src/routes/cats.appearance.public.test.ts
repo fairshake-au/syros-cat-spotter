@@ -240,7 +240,12 @@ function filesUnder(dir: string): string[] {
 describe("T-rabies: no vaccine is named in any public payload, app string or generated client", () => {
   it("GET /cats and GET /cats/:id, for a cat with every vaccine and a note recorded", async () => {
     const { texts } = await publicResponses();
-    for (const text of texts) expect(vaccineWordsIn(text)).toEqual([]);
+    for (const text of texts) {
+      expect(vaccineWordsIn(text)).toEqual([]);
+      // The free text seeded above: a typed vaccine name, the clinic and the
+      // team note's words (review of PR 2.1, minor 2).
+      expect(plain(text)).not.toMatch(/leukaemia|ermoupoli|booster|watch for/);
+    }
   });
 
   it("the patterns catch the words, in every language", () => {
