@@ -1026,13 +1026,15 @@ export function resolveCoat(
     };
   }
 
-  // The machine's reading is its newest row, Not sure included: a newer
-  // Not sure means the machine no longer has a real reading.
-  const machineRows = statements.filter((s) => s.row.provenance === "machine");
-  const newestMachine = machineRows.reduce<(typeof machineRows)[number] | undefined>(
-    (best, s) => (!best || isNewer(s.row, best.row) ? s : best),
-    undefined,
-  );
+  // The machine's reading is its NEWEST reading only (Samuel, 14 Oct 2026,
+  // review finding 9). If that row is Not sure, or the team marked it wrong,
+  // the machine has no reading: an older reading never comes back.
+  const newestMachineRow = observations
+    .filter((o) => o.kind === "coat" && o.provenance === "machine" && !isRetractionValue(o.value))
+    .reduce<Observation | undefined>((best, o) => (!best || isNewer(o, best) ? o : best), undefined);
+  const newestMachine = newestMachineRow
+    ? statements.find((s) => s.row.id === newestMachineRow.id)
+    : undefined;
   const machine = newestMachine && newestMachine.colours.length > 0 ? newestMachine : undefined;
 
   // Rule 2: two voices per colour. A device's colour is its newest standing

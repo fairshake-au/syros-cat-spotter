@@ -957,3 +957,33 @@ describe("Samuel's answer 8 (14 Oct 2026): a person's Not sure withdraws their o
     expect(r.value).toEqual(["torn_ear"]);
   });
 });
+
+describe("Samuel's answer 9 (14 Oct 2026): marking the photo reader's newest reading wrong leaves it no reading", () => {
+  const rows = () => {
+    const grey = machineCoat(["grey"], "2026-01-01T09:00:00Z");
+    const black = machineCoat(["black"], "2026-01-05T09:00:00Z");
+    const wrong = team("coat", { retracted: true }, "2026-01-06T09:00:00Z", { supersedesId: black.id });
+    return [grey, black, wrong];
+  };
+
+  it("S9a with no spotters the cat is Not sure, never the older grey", () => {
+    expect(resolveCoat(rows())).toMatchObject({
+      value: null,
+      confidence: "unknown",
+      checkReasons: ["no_authority"],
+    });
+  });
+
+  it("S9b with one spotter's ginger, ginger is reported", () => {
+    expect(resolveCoat([...rows(), spotterCoat("a", ["ginger"], "2026-01-07T10:00:00Z")])).toMatchObject({
+      value: ["ginger"],
+      confidence: "reported",
+    });
+  });
+
+  it("S9c a newer machine Not sure also leaves no reading", () => {
+    expect(
+      resolveCoat([machineCoat(["grey"], "2026-01-01T09:00:00Z"), machineCoat(["not_sure"], "2026-01-05T09:00:00Z")]),
+    ).toMatchObject({ value: null, confidence: "unknown" });
+  });
+});
