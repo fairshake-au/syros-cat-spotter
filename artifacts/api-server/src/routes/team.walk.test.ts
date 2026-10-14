@@ -62,11 +62,12 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * report's state, a report's team note), PR 3's two (finding a cat, a
  * cat's page), and PR 4's six (life status, sterilisation, rename, mark a
  * statement wrong, the Probably sterilised list, Looks right), and PR 5's
- * one (tying a report to a cat). If an Express upgrade
+ * one (tying a report to a cat), and SYC-209 PR 2.1's four (the colonies
+ * list, one colony, create, change). If an Express upgrade
  * changes `router.stack` and the walk finds fewer, the test fails rather than
  * passing on an empty list. Raise this when a PR adds routes.
  */
-const MINIMUM_ROUTES = 23;
+const MINIMUM_ROUTES = 27;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -156,6 +157,10 @@ describe("P1-1: every /api/team route refuses the unauthorised the same way", ()
       "POST /api/team/likely/:id/looks-right",
       "POST /api/team/photos/:publicId/hide",
       "POST /api/team/photos/:publicId/restore",
+      "GET /api/team/colonies",
+      "GET /api/team/colonies/:id",
+      "POST /api/team/colonies",
+      "POST /api/team/colonies/:id",
     ]) {
       expect(routes).toContain(known);
     }
