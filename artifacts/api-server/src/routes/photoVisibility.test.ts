@@ -234,8 +234,8 @@ beforeAll(async () => {
   cookie = await signInThroughHandoff(app, handoffKey, susanId);
   const maria = await addPerson({ email: MARIA, name: "Maria", addedBy: "cli:vitest", roles: ["staff"] });
   mariaCookie = await signInThroughHandoff(app, handoffKey, maria.id);
-  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["volunteer"] });
-  // A session held anyway: the hand-off gives a volunteer none (SYC-188).
+  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["vet"] });
+  // A session held anyway: the hand-off gives a vet none yet (SYC-188).
   volunteerCookie = sessionCookieFor(vera.id);
 });
 

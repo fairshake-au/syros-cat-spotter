@@ -46,6 +46,8 @@ let c: pg.Client;
 let store: ReturnType<typeof peopleStore>;
 
 const migrations = readMigrations(defaultMigrationsFolder());
+const sigDiff = (actual: string[], expected: string[]) =>
+  signatureDiff(actual, expected, { actual: "now", expected: "expected" });
 const mine = migrations.find((m) => m.tag.endsWith("_roles_and_invites"))!;
 
 beforeAll(async () => {
@@ -459,7 +461,7 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
     expect(message).toContain(`scope ${guardianNoColony} (person ${eleni}, guardian)`);
     expect(message).toContain(`scope ${staffOnColony} (person ${maria}, staff, colony ${colony})`);
     expect(message).not.toMatch(/example\.com/);
-    expect(signatureDiff(await schemaSignature(s, "public"), before)).toEqual([]);
+    expect(sigDiff(await schemaSignature(s, "public"), before)).toEqual([]);
     expect(await applied()).toBe(appliedBefore);
     // The rows are fixed by hand, as a person would, for the next test.
     await s.query(`delete from person_scopes`);
@@ -493,7 +495,7 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
       expect(message).toContain(
         `these observations have role_at_time = 'admin', which is retired: ${obs.rows[0].id}.`,
       );
-      expect(signatureDiff(await schemaSignature(o, "public"), before)).toEqual([]);
+      expect(sigDiff(await schemaSignature(o, "public"), before)).toEqual([]);
     } finally {
       await o.end();
     }
@@ -558,7 +560,7 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
     expect(message).toContain("Fix forward instead");
     expect(message).not.toMatch(/example\.com/);
     // Never half-completes: the schema, the rows and the record are as they were.
-    expect(signatureDiff(await schemaSignature(s, "public"), before)).toEqual([]);
+    expect(sigDiff(await schemaSignature(s, "public"), before)).toEqual([]);
     expect((await s.query(`select count(*)::int as n from person_scopes`)).rows[0].n).toBe(rowsBefore);
     expect(
       (await s.query(`select accepted_at from people where id = $1`, [pending])).rows[0].accepted_at,
@@ -593,7 +595,7 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
     try {
       await migrateUp(p2, migrations, { throughIdx: mine.idx - 1 });
       expect(
-        signatureDiff(await schemaSignature(s, "public"), await schemaSignature(p2, "public")),
+        sigDiff(await schemaSignature(s, "public"), await schemaSignature(p2, "public")),
       ).toEqual([]);
     } finally {
       await p2.end();
@@ -607,6 +609,6 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
     expect(left.rows[0].n).toBe(1);
     // And up again, on the seeded data.
     await migrateUp(s, migrations);
-    expect(signatureDiff(await schemaSignature(s, "public"), after)).toEqual([]);
+    expect(sigDiff(await schemaSignature(s, "public"), after)).toEqual([]);
   });
 });
