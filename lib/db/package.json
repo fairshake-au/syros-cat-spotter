@@ -15,6 +15,7 @@
     "migrate:rollback": "tsx ./src/migrate/cli.ts rollback",
     "migrate:cycle": "tsx ./src/migrate/cli.ts cycle",
     "migrate:check": "tsx ./src/migrate/cli.ts check",
+    "migrate:history": "tsx ./src/migrate/cli.ts history",
     "smoke": "tsx ./src/migrate/cli.ts smoke",
     "switchover": "tsx ./src/switchover/cli.ts",
     "test": "vitest run",
