@@ -400,6 +400,16 @@ const REFUSAL_TEXT = {
 } as const;
 const TOO_MANY = "Too many requests. Please try again later.";
 
+/**
+ * The owner's home note as stored: trimmed, at most 200 characters, and null
+ * when nothing visible is left. Zero-width and other format characters
+ * survive trim(), so "blank" is the same fold cat names use (isBlankName).
+ */
+function homeNoteOrNull(raw: string | undefined): string | null {
+  const note = (raw ?? "").trim().slice(0, 200);
+  return isBlankName(note) ? null : note;
+}
+
 function refusalStatus(code: ClaimRefusal): number {
   return code === "NOT_MET" ? 403 : 409;
 }
@@ -472,7 +482,7 @@ router.post("/cats/:catId/claim", async (req, res) => {
     res.status(422).json({ error: REFUSAL_TEXT.PIN_TOO_FAR, code: "PIN_TOO_FAR" });
     return;
   }
-  const note = (body.homeNote ?? "").trim().slice(0, 200) || null;
+  const note = homeNoteOrNull(body.homeNote);
   if (note !== null && containsOffensiveLanguage(note)) {
     res.status(400).json({ error: "Home note contains offensive language", code: "OFFENSIVE_NOTE" });
     return;
@@ -594,8 +604,8 @@ router.patch("/cats/:catId", async (req, res) => {
   if (body.homeDescription !== undefined) {
     // claiming-a-cat.md §11: the note is moderated at every edit, as at the
     // claim.
-    const note = body.homeDescription.trim().slice(0, 200);
-    if (note && containsOffensiveLanguage(note)) {
+    const note = homeNoteOrNull(body.homeDescription);
+    if (note !== null && containsOffensiveLanguage(note)) {
       res.status(400).json({ error: "Home note contains offensive language", code: "OFFENSIVE_NOTE" });
       return;
     }

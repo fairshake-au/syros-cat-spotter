@@ -401,6 +401,28 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
     }
   });
 
+  it("nit: a note of only invisible characters is stored as null, at the claim and at PATCH", async () => {
+    const invisible = "\u200B\u200C\u2060\uFEFF \u200D";
+    const c = await streetCat();
+    const d = phone("invisible");
+    await met(c.id, d);
+    const res = await claim(c.id, d, { homeNote: invisible });
+    expect(res.status).toBe(200);
+    expect((await reload(c.id)).homeDescription).toBeNull();
+    expect(res.body.homeDescription).toBeNull();
+
+    // A real note, then PATCHed to invisible-only: cleared, not kept invisible.
+    const patch = (homeDescription: string) =>
+      request(app)
+        .patch(`/api/cats/${c.id}`)
+        .set("X-Device-Secret", d.secret)
+        .send({ deviceId: d.id, homeDescription });
+    expect((await patch("Green gate")).status).toBe(200);
+    expect((await reload(c.id)).homeDescription).toBe("Green gate");
+    expect((await patch(invisible)).status).toBe(200);
+    expect((await reload(c.id)).homeDescription).toBeNull();
+  });
+
   it("a note longer than 200 characters is a 400", async () => {
     const c = await streetCat();
     const d = phone("longnote");
