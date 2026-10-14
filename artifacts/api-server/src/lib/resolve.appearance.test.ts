@@ -884,3 +884,16 @@ describe("review finding 5: who may retract comes from the ranking", () => {
     expect(resolveCoat(rows(), WITH_GUARDIANS)).toMatchObject({ value: ["ginger"], confidence: "reported" });
   });
 });
+
+describe("review finding 6: spec §4.2 colour rule 2's tie-break", () => {
+  it("R6 of three agreed colours, the two tied on voices are split by the newer supporting statement", () => {
+    const r = resolveCoat([
+      spotterCoat("v1", ["ginger", "white"], "2026-01-01T10:00:00Z"),
+      spotterCoat("v2", ["white"], "2026-01-03T10:00:00Z"),
+      spotterCoat("v3", ["ginger", "tabby"], "2026-01-04T10:00:00Z"),
+      spotterCoat("v4", ["ginger", "tabby"], "2026-01-06T10:00:00Z"),
+    ]);
+    // ginger 3 voices; white and tabby 2 each, tabby's newest is later.
+    expect(r.value).toEqual(["ginger", "tabby"]);
+  });
+});
