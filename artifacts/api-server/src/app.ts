@@ -9,6 +9,7 @@ import router from "./routes";
 import { logger, redactRequestUrl, safeError } from "./lib/logger";
 import { apiCors } from "./middlewares/apiCors";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
+import { replitHostGate } from "./middlewares/replitHostGate";
 import { opportunisticDrain } from "./lib/mail/outbox";
 import { opportunisticRoundUp } from "./lib/sightingRoundUp";
 
@@ -46,6 +47,8 @@ app.use(
     },
   }),
 );
+// SYC-229: before CORS, the pre-launch gate, body parsing and every limiter.
+app.use(replitHostGate);
 // SYC-106: every public route answers cross-origin only to the origins in
 // apiCors's allow-list (first written for the photo route, SYC-65).
 app.use((req, res, next) => {
