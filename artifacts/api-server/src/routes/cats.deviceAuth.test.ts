@@ -270,15 +270,11 @@ describe("the secret is checked before anything about the cat (SYC-107)", () => 
     expect(res.body).toEqual({ error: "Device secret required" });
   });
 
-  it("register: no secret with an unacceptable name is 401, not the name check", async () => {
-    const res = await request(app).post("/api/cats").send({
-      deviceId: device("order-e"),
-      name: "malakas the cat",
-      ownerName: "Maria",
-      homeDescription: "Blue door",
-      lat: 37.44,
-      lng: 24.9,
-    });
+  it("claim: no secret with eligibility failure is 401, not the eligibility check", async () => {
+    const cat = await insertCat("OrderElig");
+    const res = await request(app)
+      .post(`/api/cats/${cat.id}/claim`)
+      .send(claimBody(device("order-e"), "Mine"));
     expect(res.status).toBe(401);
   });
 });
