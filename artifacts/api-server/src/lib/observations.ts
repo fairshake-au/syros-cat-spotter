@@ -22,8 +22,10 @@ import type { EvidenceOfLife, EvidenceSource } from "./resolve";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
- * Conflict C11). Later phases add kinds without a migration — this list is
- * deliberately code, not a database enum.
+ * Conflict C11) and SYC-2's three appearance-and-health kinds: `markings`
+ * (distinguishing marks, spec §3.2), `vaccinated` (team-recorded vaccines)
+ * and `team_note` (a team-only health note). Later phases add kinds without
+ * a migration — this list is deliberately code, not a database enum.
  */
 export const OBSERVATION_KINDS = [
   "life_status",
@@ -36,6 +38,9 @@ export const OBSERVATION_KINDS = [
   "welfare_report",
   "welfare_outcome",
   "coat",
+  "markings",
+  "vaccinated",
+  "team_note",
 ] as const;
 export type ObservationKind = (typeof OBSERVATION_KINDS)[number];
 
@@ -48,12 +53,46 @@ const OBSERVATION_KIND_SET: ReadonlySet<string> = new Set(OBSERVATION_KINDS);
  * team-access spec builds exactly one role (staff/admin), and vet accounts
  * don't exist yet (SYC-24). `writeObservation` refuses them rather than
  * silently accepting a role nothing can legitimately produce yet.
+ *
+ * Separately, {@link ROLES_REFUSED_FOR_KIND} refuses some reachable roles for
+ * particular kinds (`vet` for `coat`/`markings`; `public`, `guardian` and
+ * `system` for `vaccinated`; `public` and `system` for `team_note`). That
+ * check runs BEFORE this one, so the per-kind rule holds independently of
+ * reachability: when SYC-53's PRs 0.2 and 2.2 add `management` and
+ * `guardian` here, they only flip reachability and these refusals still apply.
  */
 const REACHABLE_ROLES: ReadonlySet<string> = new Set([
   "public",
   "staff",
   "admin",
   "system",
+]);
+
+/**
+ * Roles refused for a given kind, whatever their reachability (spec §10.3).
+ * `coat`/`markings` refuse `vet` (a vet's word is about the cat's health, not
+ * her looks); `vaccinated` is a team-recorded fact; `team_note` is team-only.
+ *
+ * The import exception for `vaccinated` (`system` + `provenance: import`) is
+ * added when `records-import.md` is built, not now.
+ */
+const ROLES_REFUSED_FOR_KIND: Readonly<
+  Partial<Record<ObservationKind, readonly string[]>>
+> = {
+  coat: ["vet"],
+  // No machine markings (SYC2-D4), so `system` is refused outright.
+  markings: ["vet", "system"],
+  vaccinated: ["public", "guardian", "system"],
+  team_note: ["public", "system"],
+};
+
+/** Only these roles may write a retraction (the team's set_appearance
+ * power). */
+const RETRACTING_ROLES: ReadonlySet<string> = new Set([
+  "staff",
+  "admin",
+  "management",
+  "guardian",
 ]);
 
 const AUTHORITY_SCOPES: ReadonlySet<string> = new Set([
@@ -96,16 +135,8 @@ const SYSTEM_AUTHOR_SET: ReadonlySet<string> = new Set(SYSTEM_AUTHORS);
  * "Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black
  * and white · Not sure").
  *
- * **Flagged, not silently resolved**: the plan says PR 2 should import this
- * list from SYC-119's code rather than copy it ("the colour list itself is
- * imported from SYC-119's code, not copied"). But SYC-119 Slice C — the
- * thing that would define it — is sequenced strictly *after* PR 2 in the
- * plan's own parallelism table ("PR 2 and SYC-119 Slice C: Serial, PR 2
- * first"), so there is nothing in the tree to import from yet. This list is
- * defined here instead, as the minimal thing PR 2 needs to validate a
- * well-formed `coat` value. Noted in the PR body and filed on SYC-119: when
- * Slice C lands, it should import this list (or the two should converge on
- * one shared definition), not define a second one.
+ * Under Decision A1 (SYC-2), SYC-161 imports this list and these are the
+ * only definitions: nothing else may define a second colour list.
  */
 export const COAT_COLOURS = [
   "black",
@@ -120,6 +151,48 @@ export const COAT_COLOURS = [
 export type CoatColour = (typeof COAT_COLOURS)[number];
 
 const COAT_COLOUR_SET: ReadonlySet<string> = new Set(COAT_COLOURS);
+
+/**
+ * The eleven distinguishing-mark codes (coat-markings-and-health.md §3.2),
+ * in the spec's order. The only definition: nothing else lists them.
+ */
+export const MARKS = [
+  "white_paws",
+  "white_chest",
+  "white_face",
+  "colourpoint",
+  "long_fur",
+  "kinked_tail",
+  "torn_ear",
+  "short_tail",
+  "missing_eye",
+  "three_legs",
+  "odd_eyes",
+] as const;
+export type Mark = (typeof MARKS)[number];
+
+const MARK_SET: ReadonlySet<string> = new Set(MARKS);
+
+/**
+ * De-duplicates a colour list, and turns the exact set {black, white} (in
+ * either order) into `["black_and_white"]`, the only stored form of that
+ * pair. Everything else is returned de-duplicated, in its original order.
+ *
+ * Every writer calls this before `writeObservation`: the answers route
+ * (4.1), and the team and guardian statement functions (3.1 and 5.1). The
+ * validator's refusal of the raw black + white pair is only the backstop.
+ */
+export function normaliseColours(colours: readonly string[]): string[] {
+  const unique = [...new Set(colours)];
+  if (
+    unique.length === 2 &&
+    unique.includes("black") &&
+    unique.includes("white")
+  ) {
+    return ["black_and_white"];
+  }
+  return unique;
+}
 
 /** Raised by `writeObservation` for every refusal, with a stable `code` so
  * callers (and tests) can tell refusals apart without parsing text. */
@@ -141,10 +214,63 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** Keys that make a coat or markings value a statement rather than a
+ * retraction. */
+const STATEMENT_KEYS = ["colours", "marks", "cantTell", "modelVersion"] as const;
+
+/**
+ * A retraction is a plain object with `retracted === true` and none of the
+ * statement keys. Other keys, such as `reason`, are tolerated (team
+ * statements keep their reason inside the value). Returns false when
+ * `retracted` is absent; refuses when it is present but not exactly `true`,
+ * or combined with a statement key.
+ */
+function isRetraction(value: unknown): boolean {
+  if (!isPlainObject(value) || !("retracted" in value)) return false;
+  if (value["retracted"] !== true) {
+    refuse("MALFORMED_VALUE", "retracted, when present, must be exactly true");
+  }
+  if (STATEMENT_KEYS.some((k) => k in value)) {
+    refuse(
+      "MALFORMED_VALUE",
+      "a retraction cannot carry colours, marks, cantTell or modelVersion",
+    );
+  }
+  return true;
+}
+
+const VACCINE_CODES: ReadonlySet<string> = new Set([
+  "rabies",
+  "cat_flu_enteritis",
+]);
+
+/** Names a typed `other` vaccine may not use, compared lower-case: the
+ * listed vaccines' codes and their English names. */
+const LISTED_VACCINE_NAMES: ReadonlySet<string> = new Set([
+  "rabies",
+  "cat_flu_enteritis",
+  "cat flu and enteritis",
+  "cat flu & enteritis",
+]);
+
 /** §10.1's per-kind value shapes. Refuses anything malformed; this is the
  * only place in the codebase that knows what a kind's `value` must look
- * like. */
-function validateValue(kind: ObservationKind, value: unknown): void {
+ * like. `ctx` carries the two facts some shapes depend on. */
+function validateValue(
+  kind: ObservationKind,
+  value: unknown,
+  ctx: { roleAtTime: string; provenance: string },
+): void {
+  // Only coat and markings have a retraction; a stray `retracted` key on any
+  // other kind is a malformed value, not an ignorable extra.
+  if (
+    kind !== "coat" &&
+    kind !== "markings" &&
+    isPlainObject(value) &&
+    "retracted" in value
+  ) {
+    refuse("MALFORMED_VALUE", `${kind} does not accept a retracted key`);
+  }
   switch (kind) {
     case "life_status": {
       const status = isPlainObject(value) ? value["status"] : undefined;
@@ -250,17 +376,14 @@ function validateValue(kind: ObservationKind, value: unknown): void {
       return;
     }
     case "coat": {
-      if (
-        !isPlainObject(value) ||
-        !Array.isArray(value["colours"]) ||
-        typeof value["modelVersion"] !== "string"
-      ) {
+      if (isRetraction(value)) return;
+      if (!isPlainObject(value) || !Array.isArray(value["colours"])) {
         refuse(
           "MALFORMED_VALUE",
-          "coat needs { colours: CoatColour[], modelVersion: string }",
+          "coat needs { colours: CoatColour[], modelVersion? } or { retracted: true }",
         );
       }
-      const colours = (value as { colours: unknown[] })["colours"];
+      const colours = value["colours"] as unknown[];
       if (colours.length < 1 || colours.length > 2) {
         refuse("MALFORMED_VALUE", "coat.colours must have 1 or 2 entries");
       }
@@ -270,11 +393,150 @@ function validateValue(kind: ObservationKind, value: unknown): void {
           "coat.colours must be from SYC-119's fixed eight-colour list",
         );
       }
+      if (new Set(colours).size !== colours.length) {
+        refuse("MALFORMED_VALUE", "coat.colours must be distinct");
+      }
       if (colours.includes("not_sure") && colours.length > 1) {
         refuse(
           "MALFORMED_VALUE",
           '"not_sure" cannot be combined with another colour',
         );
+      }
+      if (colours.includes("black") && colours.includes("white")) {
+        refuse(
+          "MALFORMED_VALUE",
+          'black and white together is stored as "black_and_white" (use normaliseColours)',
+        );
+      }
+      // One stored form per set: "black_and_white" already says black and
+      // says white, so neither can be added to it. (A second colour such as
+      // "tabby" can.)
+      if (
+        colours.includes("black_and_white") &&
+        (colours.includes("black") || colours.includes("white"))
+      ) {
+        refuse(
+          "MALFORMED_VALUE",
+          '"black_and_white" already includes black and white',
+        );
+      }
+      const modelVersion = value["modelVersion"];
+      if (ctx.provenance === "machine") {
+        if (typeof modelVersion !== "string" || modelVersion.length === 0) {
+          refuse(
+            "MALFORMED_VALUE",
+            "a machine coat needs a non-empty modelVersion",
+          );
+        }
+      } else if (modelVersion !== undefined) {
+        refuse(
+          "MALFORMED_VALUE",
+          "modelVersion is only allowed on a machine-provenance coat",
+        );
+      }
+      return;
+    }
+    case "markings": {
+      if (isRetraction(value)) return;
+      if (!isPlainObject(value)) {
+        refuse(
+          "MALFORMED_VALUE",
+          "markings needs { marks }, { cantTell: true } or { retracted: true }",
+        );
+      }
+      if (value["cantTell"] !== undefined) {
+        if (value["cantTell"] !== true || "marks" in value) {
+          refuse(
+            "MALFORMED_VALUE",
+            "markings cantTell must be exactly true and carry no marks",
+          );
+        }
+        return;
+      }
+      const marks = value["marks"];
+      if (!Array.isArray(marks)) {
+        refuse("MALFORMED_VALUE", "markings.marks must be an array");
+      }
+      if (!marks.every((m) => MARK_SET.has(m as string))) {
+        refuse("MALFORMED_VALUE", "markings.marks must be known mark codes");
+      }
+      if (new Set(marks).size !== marks.length) {
+        refuse("MALFORMED_VALUE", "markings.marks must be distinct");
+      }
+      if (ctx.roleAtTime === "public" && marks.length > 4) {
+        refuse("MALFORMED_VALUE", "a public markings answer has at most 4 marks");
+      }
+      return;
+    }
+    case "vaccinated": {
+      if (!isPlainObject(value) || !Array.isArray(value["vaccines"])) {
+        refuse("MALFORMED_VALUE", "vaccinated needs { vaccines: [...] }");
+      }
+      const vaccines = value["vaccines"] as unknown[];
+      if (vaccines.length < 1 || vaccines.length > 3) {
+        refuse("MALFORMED_VALUE", "vaccinated.vaccines must have 1 to 3 entries");
+      }
+      const seen = new Set<string>();
+      for (const v of vaccines) {
+        let key: string;
+        if (typeof v === "string" && VACCINE_CODES.has(v)) {
+          key = `code:${v}`;
+        } else if (isPlainObject(v) && typeof v["other"] === "string") {
+          // Callers store the name already trimmed.
+          const name = v["other"];
+          if (name !== name.trim() || name.length < 2 || name.length > 60) {
+            refuse(
+              "MALFORMED_VALUE",
+              "an other vaccine name must be trimmed and 2 to 60 characters",
+            );
+          }
+          // A typed name that is one of the listed vaccines is the listed
+          // vaccine, so it can't be stored twice under two forms.
+          const folded = name.toLowerCase();
+          if (LISTED_VACCINE_NAMES.has(folded)) {
+            refuse(
+              "MALFORMED_VALUE",
+              `"${name}" is a listed vaccine: use its code, not an other name`,
+            );
+          }
+          key = `other:${folded}`;
+        } else {
+          refuse(
+            "MALFORMED_VALUE",
+            'each vaccine must be "rabies", "cat_flu_enteritis" or { other: string }',
+          );
+        }
+        if (seen.has(key)) {
+          refuse("MALFORMED_VALUE", "vaccinated.vaccines must be distinct");
+        }
+        seen.add(key);
+      }
+      const clinic = value["clinic"];
+      if (
+        clinic !== undefined &&
+        (typeof clinic !== "string" ||
+          clinic !== clinic.trim() ||
+          clinic.length < 1 ||
+          clinic.length > 120)
+      ) {
+        refuse(
+          "MALFORMED_VALUE",
+          "vaccinated.clinic must be trimmed, non-blank and at most 120 characters (callers store it trimmed, like an other vaccine name)",
+        );
+      }
+      return;
+    }
+    case "team_note": {
+      // Free text is stored as written (line breaks and all); only its raw
+      // length is capped and it must not be blank. Short labels (an other
+      // vaccine name, a clinic) are different: they must arrive trimmed.
+      const text = isPlainObject(value) ? value["text"] : undefined;
+      if (
+        typeof text !== "string" ||
+        text.trim().length < 1 ||
+        text.length > 2000
+      ) {
+        refuse("MALFORMED_VALUE", "team_note needs { text } of 1 to 2000 characters");
       }
       return;
     }
@@ -331,17 +593,35 @@ export interface WriteObservationInput {
  * `ObservationRefused`) rather than writing anything for:
  *
  * - an unknown `kind`, or a `value` that doesn't match its kind's shape;
+ * - a role refused for that kind (`ROLE_NOT_ALLOWED_FOR_KIND`), checked
+ *   before reachability: `vet` for `coat` and `markings`; `system` for
+ *   `markings`, and for any `coat` that is not `provenance: "machine"`;
+ *   `public`, `guardian` and `system` for `vaccinated`; `public` and
+ *   `system` for `team_note`;
  * - a `roleAtTime` unreachable in phase 1 (`guardian`, `volunteer`, `vet`,
  *   or anything else not in {public, staff, admin, system});
  * - an unknown `authorityScope` or `provenance`;
  * - not exactly one of `deviceId`/`accountId` set (the same rule the
  *   database's `observations_attribution_ck` enforces, checked here first
- *   for a clear refusal rather than a constraint-violation error);
+ *   for a clear refusal rather than a constraint-violation error), or a
+ *   `public` coat/markings write without a `deviceId`;
  * - an `accountId` starting `system:` that isn't on {@link SYSTEM_AUTHORS}
  *   (Part 2g: "real account ids ... never start with system:");
  * - `provenance: "machine"` from anyone but `system:vision` (the only
- *   machine-authored kind today is `coat`, SYC-119 §4.7); or
- * - a future `observedAt` (refused for every role).
+ *   machine-authored kind today is `coat`, SYC-119 §4.7);
+ * - a future `observedAt` (refused for every role);
+ * - any supersession whose target is missing or of another kind, for every
+ *   role and kind; for `coat` and `markings`, also one whose target is on
+ *   another cat (the code is `NOT_YOUR_ROW` when the own-row rule below
+ *   applies, `INVALID_RETRACTION` for a retraction, and
+ *   `INVALID_SUPERSESSION` otherwise);
+ * - a `{ retracted: true }` coat/markings value from anyone but staff,
+ *   admin, management or guardian, without a `supersedesId`, or whose
+ *   target is not a coat/markings row of the same kind or is itself a
+ *   retraction (`INVALID_RETRACTION`); or
+ * - a `public` or `system` coat/markings write superseding a row that is
+ *   not its own: the same device for `public`, the same system author for
+ *   `system` (`NOT_YOUR_ROW`, C2).
  *
  * A `public`-role `observedAt` more than 30 days in the past is not
  * refused — it is clamped to that 30-day boundary, the same rule
@@ -359,7 +639,32 @@ export async function writeObservation(
     refuse("UNKNOWN_KIND", `Unknown observation kind: ${String(input.kind)}`);
   }
 
-  validateValue(input.kind, input.value);
+  const provenance = input.provenance ?? "volunteered";
+  if (!PROVENANCES.has(provenance)) {
+    refuse("INVALID_PROVENANCE", `Unknown provenance: ${provenance}`);
+  }
+
+  // Per-kind role rule, BEFORE value validation (so a public team_note with
+  // empty text is refused for its role) and BEFORE the reachability check:
+  // it is proven independently of reachability and still holds once SYC-53
+  // makes `management` and `guardian` reachable.
+  if (
+    ROLES_REFUSED_FOR_KIND[input.kind]?.includes(input.roleAtTime) ||
+    // `system` may write a coat only as the machine's reading.
+    (input.kind === "coat" &&
+      input.roleAtTime === "system" &&
+      provenance !== "machine")
+  ) {
+    refuse(
+      "ROLE_NOT_ALLOWED_FOR_KIND",
+      `roleAtTime "${input.roleAtTime}" may not write ${input.kind}`,
+    );
+  }
+
+  validateValue(input.kind, input.value, {
+    roleAtTime: input.roleAtTime,
+    provenance,
+  });
 
   if (!REACHABLE_ROLES.has(input.roleAtTime)) {
     refuse(
@@ -373,11 +678,6 @@ export async function writeObservation(
     refuse("INVALID_AUTHORITY_SCOPE", `Unknown authorityScope: ${authorityScope}`);
   }
 
-  const provenance = input.provenance ?? "volunteered";
-  if (!PROVENANCES.has(provenance)) {
-    refuse("INVALID_PROVENANCE", `Unknown provenance: ${provenance}`);
-  }
-
   const deviceId = input.deviceId ?? null;
   const accountId = input.accountId ?? null;
   if ((deviceId == null) === (accountId == null)) {
@@ -385,6 +685,15 @@ export async function writeObservation(
       "INVALID_AUTHOR",
       "Exactly one of deviceId or accountId must be set",
     );
+  }
+  // A public appearance write must carry a device: the own-row rule (C2) and
+  // the resolver's one-voice-per-device counting both hang off it.
+  if (
+    (input.kind === "coat" || input.kind === "markings") &&
+    input.roleAtTime === "public" &&
+    deviceId == null
+  ) {
+    refuse("INVALID_AUTHOR", "a public coat or markings write needs a deviceId");
   }
   if (
     accountId != null &&
@@ -439,6 +748,73 @@ export async function writeObservation(
     observedAt = new Date(nowMs - MAX_PUBLIC_BACKDATE_MS);
   }
 
+  // Supersession rules for coat and markings. The superseded row is loaded
+  // once and shared between the retraction rule and the own-row rule (C2).
+  const isAppearanceKind = input.kind === "coat" || input.kind === "markings";
+  const retracting = isAppearanceKind && isRetraction(input.value);
+  const supersedesId = input.supersedesId ?? null;
+  if (retracting && !RETRACTING_ROLES.has(input.roleAtTime)) {
+    refuse(
+      "INVALID_RETRACTION",
+      `roleAtTime "${input.roleAtTime}" may not retract`,
+    );
+  }
+  if (retracting && supersedesId == null) {
+    refuse("INVALID_RETRACTION", "a retraction must supersede a row");
+  }
+  const needsOwnRow =
+    isAppearanceKind &&
+    (input.roleAtTime === "public" || input.roleAtTime === "system") &&
+    supersedesId != null;
+  if (supersedesId != null) {
+    const [target] = await tx
+      .select()
+      .from(observationsTable)
+      .where(eq(observationsTable.id, supersedesId));
+    const refusalCode = needsOwnRow
+      ? "NOT_YOUR_ROW"
+      : retracting
+        ? "INVALID_RETRACTION"
+        : "INVALID_SUPERSESSION";
+    // Every role, every kind: a supersession stays within one kind.
+    if (!(target && target.kind === input.kind)) {
+      refuse(refusalCode, "a supersession must target an existing row of the same kind");
+    }
+    // coat and markings only: the same cat. (Not other kinds: a welfare
+    // re-tie crosses cats on purpose.)
+    // TODO(SYC-59): compare canonical cats through cat_identity once merges exist; today merged cats refuse writes, so this only ever refuses.
+    if (isAppearanceKind && target.catId !== input.catId) {
+      refuse(refusalCode, "a coat or markings supersession must stay on the same cat");
+    }
+    // A retraction cannot retract a retraction.
+    if (
+      retracting &&
+      isPlainObject(target.value) &&
+      target.value["retracted"] === true
+    ) {
+      refuse("INVALID_RETRACTION", "a retraction cannot supersede a retraction");
+    }
+    // Every role: a retraction removes only a coat or markings row.
+    if (retracting && !(target.kind === "coat" || target.kind === "markings")) {
+      refuse(
+        "INVALID_RETRACTION",
+        "a retraction must supersede a row of the same kind (coat or markings)",
+      );
+    }
+    // C2: a device (public) or a system author (machine) only supersedes
+    // its own row. Team supersessions are unchanged (they go through
+    // lockActiveObservation).
+    if (needsOwnRow) {
+      const own =
+        input.roleAtTime === "public"
+          ? target.deviceId != null && target.deviceId === input.deviceId
+          : target.accountId != null && target.accountId === input.accountId;
+      if (!own) {
+        refuse("NOT_YOUR_ROW", "you can only supersede your own row");
+      }
+    }
+  }
+
   const [row] = await tx
     .insert(observationsTable)
     .values({
@@ -456,7 +832,7 @@ export async function writeObservation(
       photoId: input.photoId ?? null,
       importRecordId: input.importRecordId ?? null,
       observedAt,
-      supersedesId: input.supersedesId ?? null,
+      supersedesId,
       supersedeReason: input.supersedeReason ?? null,
     })
     .returning();
@@ -582,7 +958,8 @@ export async function loadCatRecords(
 
     // Evidence of life (§3.4), excluding life_status (the resolver already
     // has it directly — resolve.ts's EvidenceOfLife doc comment), colony,
-    // note, name, food_and_water and coat (none imply the cat was alive).
+    // note, name, food_and_water, coat, markings, vaccinated and team_note
+    // (none imply the cat was alive).
     let bestAt: Date | null = null;
     let bestSource: EvidenceSource | null = null;
     const consider = (at: Date, source: EvidenceSource) => {
