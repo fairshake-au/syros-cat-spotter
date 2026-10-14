@@ -1143,3 +1143,17 @@ describe("review (ship) finding 7: three mutations that used to stay green", () 
     expect(r.checkReasons).toContain("spotters_over_machine");
   });
 });
+
+describe("the supersession chain stays the fallback for a redacted row with no stamp", () => {
+  it("R2d two unstamped redacted rows linked by a supersession are one voice", () => {
+    const x1 = spotterMarks(null, { marks: ["three_legs"] }, "2026-01-05T10:00:00Z", { photoId: 1 });
+    const x2 = spotterMarks(null, { marks: ["three_legs"] }, "2026-01-06T10:00:00Z", {
+      photoId: 2,
+      supersedesId: x1.id,
+    });
+    expect(resolveMarkings([x1, x2], NOW).value).toBeNull();
+    // Without the link they are two voices of their own.
+    const y = spotterMarks(null, { marks: ["three_legs"] }, "2026-01-06T10:00:00Z", { photoId: 3 });
+    expect(resolveMarkings([x1, y], NOW).value).toEqual(["three_legs"]);
+  });
+});
