@@ -568,6 +568,87 @@ describe("logs", () => {
   });
 });
 
+describe("a withdrawal in the history (display fixes)", () => {
+  it("a team removal reads 'Owner removed by the team', with its reason, never 'unreadable' or a device id", async () => {
+    const { c, d } = await ownedCat("histteam");
+    expect((await removeOwner(c.id, { reason: "Not their cat" })).status).toBe(303);
+    const html = (await page(c.id)).text;
+    expect(html).not.toContain("unreadable");
+    expect(html).toContain("Owner removed by the team");
+    expect(html).toContain("Why: Not their cat");
+    expect(html).not.toContain(d.id);
+    const json = await request(app).get(`/api/team/cats/${c.id}`).set("Cookie", cookie).set("Accept", "application/json");
+    expect(JSON.stringify(json.body)).not.toContain(d.id);
+  });
+
+  it("the owner's own let-go reads as the owner's words, with no device id", async () => {
+    const { c, d } = await ownedCat("histowner");
+    expect((await letGo(c.id, d)).status).toBe(200);
+    const html = (await page(c.id)).text;
+    expect(html).not.toContain("unreadable");
+    expect(html).toMatch(/The owner said the cat doesn(&#39;|')t live with them any more/);
+    expect(html).not.toContain("Owner removed by the team");
+    expect(html).not.toContain(d.id);
+    expect(html).not.toContain("owner: doesn");
+  });
+
+  it("a withdrawal has no 'Mark wrong' form, and posting one anyway is refused with nothing written", async () => {
+    const { c } = await ownedCat("nowrong");
+    expect((await removeOwner(c.id, { reason: "Not their cat" })).status).toBe(303);
+    const [w] = await withdrawals(c.id);
+    const html = (await page(c.id)).text;
+    expect(html).not.toContain(`/api/team/statements/${w!.id}/wrong`);
+    const before = await lifeRows(c.id);
+    for (const choice of ["homed", "street"]) {
+      const res = await form(`/api/team/statements/${w!.id}/wrong`).send({ choice, reason: "undo" });
+      expect(res.status, choice).toBe(400);
+    }
+    expect(await lifeRows(c.id)).toEqual(before);
+    expect((await reload(c.id)).ownerDeviceId).toBeNull();
+  });
+
+  it("the owner's let-go withdrawal has no 'Mark wrong' either", async () => {
+    const { c, d } = await ownedCat("nowrongowner");
+    expect((await letGo(c.id, d)).status).toBe(200);
+    const [w] = await withdrawals(c.id);
+    expect((await page(c.id)).text).not.toContain(`/api/team/statements/${w!.id}/wrong`);
+    const res = await form(`/api/team/statements/${w!.id}/wrong`).send({ choice: "homed", reason: "undo" });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("the flash after the life-status form", () => {
+  const lifeStatus = (catId: number, body: Record<string, unknown>) =>
+    form(`/api/team/cats/${catId}/life-status`).send(body);
+  const flash = async (res: request.Response) => (await request(app).get(res.headers["location"]!).set("Cookie", cookie)).text;
+
+  it("ticked, on a cat that had an owner, says the owner was removed", async () => {
+    const { c } = await ownedCat("flashtick");
+    const text = await flash(await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" }));
+    expect(text).toContain("Saved. The owner is removed and the cat&#39;s new status is in the history below. Nobody was told.");
+    expect(text).not.toContain("The life status is added to the history below.");
+  });
+
+  it("unticked keeps the ordinary flash", async () => {
+    const { c } = await ownedCat("flashuntick");
+    const text = await flash(await lifeStatus(c.id, { status: "street", reason: "x" }));
+    expect(text).toContain("Saved. The life status is added to the history below.");
+    expect(text).not.toContain("Saved. The owner is removed");
+  });
+
+  it("ticked with no owner left keeps the ordinary flash", async () => {
+    const c = await streetCat();
+    const text = await flash(await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" }));
+    expect(text).toContain("Saved. The life status is added to the history below.");
+  });
+
+  it("ticked with 'Has a home' (owner stays) keeps the ordinary flash", async () => {
+    const { c } = await ownedCat("flashhomed");
+    const text = await flash(await lifeStatus(c.id, { status: "homed", reason: "x", removeOwner: "1" }));
+    expect(text).toContain("Saved. The life status is added to the history below.");
+  });
+});
+
 describe("the capability", () => {
   it("remove_owner is on the list, after set_life_status, and staff hold it", () => {
     const list = [...CAPABILITIES];
