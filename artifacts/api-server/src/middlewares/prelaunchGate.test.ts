@@ -511,7 +511,10 @@ describe("14. a request without a pass is refused before the body is parsed", ()
     spies.jsonParserRuns = 0;
     // A raw client: the server answers before the client finishes sending,
     // so read the response as soon as it arrives and ignore the later reset.
-    const server = app.listen(0);
+    // On 127.0.0.1 itself, the address the client uses: a port bound on
+    // every address can be one another program holds on IPv4 (see
+    // test/setup.ts, SYC-304).
+    const server = app.listen(0, "127.0.0.1");
     try {
       await new Promise<void>((r) => server.once("listening", () => r()));
       const { port } = server.address() as AddressInfo;
