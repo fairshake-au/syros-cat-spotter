@@ -176,13 +176,35 @@ export async function enqueueUncheckedWelfareAlert(
   return "waiting";
 }
 
-/** Individual emails about unchecked reports queued in the last hour (the cap's count). */
+/**
+ * The photo follow-up for an unchecked report that had its own alert. It
+ * counts toward the same 10 an hour as the alerts (review of #151, finding
+ * 9), so the cap really is 10 unchecked emails an hour, not 20. Past the cap
+ * it isn't sent: that report already had its own alert, and its photo is on
+ * the queue page.
+ */
+export async function enqueueUncheckedPhotoFollowUp(tx: Tx, reportId: number): Promise<boolean> {
+  await tx.execute(sql`select pg_advisory_xact_lock(${UNCHECKED_ALERT_LOCK})`);
+  if ((await uncheckedEmailsThisHour(tx)) >= UNCHECKED_ALERTS_PER_HOUR) return false;
+  await tx.insert(mailOutboxTable).values({
+    purpose: "welfare_alert",
+    reportId,
+    recipientHash: alertRecipientHash(),
+    payload: { kind: "photo", unchecked: true } satisfies Payload,
+  });
+  return true;
+}
+
+/**
+ * Individual emails about unchecked reports (alerts and photo follow-ups)
+ * queued in the last hour: the cap's count.
+ */
 async function uncheckedEmailsThisHour(tx: Tx): Promise<number> {
   const counted = await tx.execute(sql`
     select count(*)::int as n
       from mail_outbox
      where purpose = 'welfare_alert'
-       and payload->>'kind' = 'alert'
+       and payload->>'kind' in ('alert', 'photo')
        and payload->>'unchecked' = 'true'
        and created_at > now() - interval '1 hour'
   `);

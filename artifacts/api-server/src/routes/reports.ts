@@ -13,6 +13,7 @@ import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import {
   PHOTO_WAIT_MINUTES,
+  enqueueUncheckedPhotoFollowUp,
   enqueueUncheckedWelfareAlert,
   enqueueWelfareAlert,
   kick,
@@ -422,7 +423,11 @@ router.put("/reports/:publicId/photo", async (req, res) => {
           ),
         )
         .limit(1);
-      if (main) await enqueueWelfareAlert(tx, report.id, "photo", null);
+      if (main) {
+        // An unchecked report's follow-up counts toward the hour's 10.
+        if (report.tokenChecked === false) await enqueueUncheckedPhotoFollowUp(tx, report.id);
+        else await enqueueWelfareAlert(tx, report.id, "photo", null);
+      }
     }
     return true;
   });

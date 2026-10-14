@@ -520,6 +520,42 @@ describe("T1-7b: our side's failures", () => {
 // ── Item 6: the unchecked alert cap ────────────────────────────────────────
 
 describe("unchecked alerts: 10 an hour, then one \"N waiting\" email an hour", () => {
+  it("review finding 9: an unchecked report's photo follow-up counts toward the 10, and past them isn't sent", async () => {
+    siteverify = timeout;
+    const jpeg = (
+      await sharp({ create: { width: 64, height: 48, channels: 3, background: "#a33" } }).jpeg().toBuffer()
+    ).toString("base64");
+    const sendPhoto = (publicId: string) =>
+      request(app)
+        .put(`/api/reports/${publicId}/photo`)
+        .set("X-Device-Secret", SECRET)
+        .send({ deviceId: DEVICE, photoBase64: jpeg });
+    const kinds = async (id: number) => (await outboxFor(id)).map((m) => (m.payload as { kind: string }).kind).sort();
+
+    // A: its alert goes before the photo, so the photo gets a follow-up: 2 of the 10.
+    const a = await submit({ clientRef: clientRef(), turnstileToken: TOKEN, hasPhoto: true });
+    const aId = (await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.publicId, a.body.publicId)))[0]!.id;
+    await drainAll();
+    expect((await sendPhoto(a.body.publicId)).status).toBe(200);
+    expect(await kinds(aId)).toEqual(["alert", "photo"]);
+    expect((await outboxFor(aId)).find((m) => (m.payload as { kind: string }).kind === "photo")!.payload).toMatchObject({ unchecked: true });
+
+    // C, plus 7 more: 10 in all, with A's follow-up counted.
+    const c = await submit({ clientRef: clientRef(), turnstileToken: TOKEN, hasPhoto: true });
+    const cId = (await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.publicId, c.body.publicId)))[0]!.id;
+    for (let i = 0; i < 7; i++) {
+      expect((await submit({ clientRef: clientRef(), turnstileToken: TOKEN })).status).toBe(201);
+    }
+    const eleventh = clientRef();
+    await submit({ clientRef: eleventh, turnstileToken: TOKEN });
+    expect(await outboxFor((await rowsFor(eleventh))[0]!.id)).toHaveLength(0); // the cap is reached
+
+    // C's photo arrives after its alert went: past the cap, no follow-up.
+    await drainAll();
+    expect((await sendPhoto(c.body.publicId)).status).toBe(200);
+    expect(await kinds(cId)).toEqual(["alert"]);
+  });
+
   it("review finding 3: overflow after the hour's waiting email has gone is covered by the next one, an hour later", async () => {
     siteverify = timeout;
     for (let i = 0; i < UNCHECKED_ALERTS_PER_HOUR + 1; i++) {
