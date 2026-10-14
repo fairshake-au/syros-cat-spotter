@@ -81,8 +81,8 @@ Plus one derived state that is **not** a status anyone sets:
 
 | Who | Can set |
 |---|---|
-| **Syros Cats team** (staff, admin) | Any status, on any cat |
-| **Cat guardian** | Homed, in care, deceased — on cats they look after |
+| **Syros Cats team** (staff and management) | Any status, on any cat |
+| **Cat guardian** | Homed, in care, deceased — on cats they look after, directly, with no team check. She may put back the life status she herself replaced, within 30 days. She may also set a cat's sterilisation answer (§4.2), and add cats to, or take them out of, her own colonies (§10.5), directly |
 | **Vet** | In care, on a cat in their care. Vet accounts come later (SYC-24); until then the team records it on the vet's word. |
 | **Resident who has claimed a cat** | Homed, on their own claimed cat. They may also withdraw that statement when the cat no longer lives with them, which supersedes it and never sets a status of its own (`claiming-a-cat.md` §6). Who may claim a cat at all is `claiming-a-cat.md` §3. |
 | **Any spotter** | Nothing directly. A spotter's *sighting* is itself evidence the cat is alive, which is the strongest and most common life-status signal we get. A spotter who notices something worrying uses the note field or the trouble report. |
@@ -210,7 +210,7 @@ Three things fix it, and all three ship together:
 
 1. **A supersede write.** A team member viewing the evidence photo can mark that specific observation superseded, with a reason, from the cat page in the dashboard. It writes a new observation pointing at the old one; nothing is deleted and the mistake stays visible in the trail. `POST /observations/{id}/supersede` in §10.6.
 2. **`clipped: false` means something when a team member says it.** The §4.1 asymmetry is about *spotters*, and it is unchanged: no volume of public "no clip visible" answers moves anything. But a Syros Cats team member or vet looking at the same photograph and judging *that is a torn ear* is an authoritative statement about the ear, and it supersedes the spotter's `clipped: true` on that cat. It moves sterilised from *Likely* back to *Unknown* — never to a negative, because an unclipped ear is still not evidence of an unsterilised cat.
-3. **A *Likely* review list.** Not the full confirmation queue (still deferred) — just a dashboard list of cats sitting at *Likely* with their evidence photos, newest first, and the two buttons *looks right* / *that's not a clip*. A few minutes a week clears a season's errors.
+3. **A *Likely* review list.** Not the full confirmation queue (specified in `roles-and-invites.md` §7) — just a dashboard list of cats sitting at *Likely* with their evidence photos, newest first, and the two buttons *looks right* / *that's not a clip*. A few minutes a week clears a season's errors.
 
 ### 4.6 Precedence — which statement wins
 
