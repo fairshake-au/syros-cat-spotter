@@ -511,6 +511,7 @@ Nothing is merged to `main` from the spike except a short note.
   | Sightings payload | `photoHidden` plus "Photo removed" tile |
   | SYC-81 (shrinking old photos, not built) | Must skip removed rows; commented on SYC-81 |
 
+- **The privacy tick** (Decision 3 A): the team cat page's **Hide** form (`routes/teamPhotos.ts`) gains a "for privacy (a person or a private place)" tick, stored as the hide event's `reason` = `privacy`.
 - **The button** is on the Issues row and the team cat page, only where Decision 3 allows. The confirmation page says plainly that it can't be undone, and asks for `DELETE`.
 - **Tests:**
   - **T7-7** (each place above);
@@ -735,4 +736,26 @@ Each PR is built in its own worktree off fresh `origin/main`. **Commit after eac
 
 ## Review outcome
 
-*(Filled in after the independent review below.)*
+A Sonnet critic reviewed this plan in its own worktree, against the approved spec, its review, `DECISIONS.md`, the roles, hosting, claiming and SYC-43 part 2 documents, and the code on `main` (`f3c9c00`). The review is `docs/superpowers/plans/syc-44-report-an-issue-review.md`. It found **one blocker, seven majors and eleven minors**, and confirmed all twelve "spec versus code" claims (C1–C12). The session model checked each finding against the code before folding it in (`routes/reports.ts:122-124` and `:167-169`, `:228-232`; `routes/sightings.ts:524-540`; `routes/teamReports.ts:92-109`; `middlewares/newDeviceLimit.ts:26-36`). **Every finding was accepted. None was rejected.**
+
+| # | Severity | Finding | What changed |
+|---|---|---|---|
+| 1 | Blocker | Slice 4 dropped the resend key the live upserts name; migrating before publishing would refuse every cat-in-trouble report in between | The key change is now two steps: 4.1 adds the new key beside the old, and **4.2** drops the old one after 4.1 is published. Both rollback blocks were rewritten |
+| 2 | Major | No behaviour for a wrong secret, Cloudflare's `429`, or `off`/`observe` on the issue route, and nothing tied the pass to `enforce` | A wrong secret is `503` (retried, never unchecked); a `429` is unreachable; production defaults to `enforce`, and `off`/`observe` are ignored with the pass off; a hide always needs an `ok` verdict. T1-7, T1-7b |
+| 3 | Major | Rotating the public id broke `setPhotoVisibility`'s lock (a lost race said "No such photo") and the team page's landing | The lock is taken on `photos.id`; the outcome returns the new id for the redirect. T3-4 (extended), T3-7 |
+| 4 | Major | Hashing the raw address dropped today's IPv6 /56 grouping | Group first, then hash. T2-5 |
+| 5 | Major | The address hide limit can't be reached with the brake at 5 | The test raises the brake constant; the plan says the address limit is a second line, as the spec does |
+| 6 | Major | The photo upload route also writes `welfare_reports` and could be aimed at an issue row; T4-0 is file-level | The route filters `kind = 'welfare'` (T4-8); T4-0's limit is stated, and covered by per-route tests |
+| 7 | Major | The token was checked before any per-address limit on the issue route | An attempts limit (60 an hour) now comes before the token, adding to the spec's order rather than changing it |
+| 8 | Major | Decision 2 relied on SYC-130's privacy change with no launch condition | Decision 2's recommendation now makes SYC-130's Task 4 a launch-day condition, and option B (no condition) is set out with its risk |
+| 9 | Minor | Decision 3 lacked a team "hidden for privacy" option | Decision 3 A now includes a privacy tick on the team's Hide form; the narrower rule is kept as A2 |
+| 10 | Minor | A repeat send had no stored answer to repeat; a same-reference race was unhandled | The answer is read from stored columns; the insert uses `on conflict do nothing` and the loser replies with the winner's row |
+| 11 | Minor | The removal reader list missed the repeat-sighting path | Added to 7.2's table |
+| 12 | Minor | 5.1 queued a mail purpose only 5.2 adds; 7.2 needed 7.1 | 5.2 now comes first; 7.2 lists 7.1 |
+| 13 | Minor | "Keep hidden" didn't check the photo was still hidden | It checks under the lock and refuses after a restore. T7-4 rewritten |
+| 14 | Minor | The reported photo shared the catalogue photo route | Its own route, `/team/issue-photos/:reportPublicId`, behind `view_welfare_queue`. T7-1 |
+| 15 | Minor | Drafts used up the unchecked limit | Drafts have their own unchecked bucket |
+| 16 | Minor | No fail mode for the shared counter | Welfare reports go through on a counter error; hides fail closed. T2-6 |
+| 17 | Minor | Spec tests 9 and 13 partly mapped; no database check that a hiding reason carries a photo; D2's hint not tested | T5-18 and T1-6 extended; a database check added; T6-4 pins the hint |
+| 18 | Minor | The production widget sat with Sonnet; the limits store had only a spot review | The session model creates the widget; 2.1 gets an Opus adversarial review |
+| 19 | Minor | The team note was kept for ever, and a failed digest lost the day | Both notes go at one year; the digest's daily claim is written with its outbox row, so the outbox retries it |
