@@ -423,6 +423,25 @@ describe("pinWithinReach: measured from the public cell centre (D11, review 2 HI
     }
   });
 
+  it("a pin that isn't a real coordinate is never within reach (critic MEDIUM-2)", () => {
+    const near = north(centre, 10);
+    expect(pinWithinReach(cat, near)).toBe(true);
+    // haversine is periodic: the same point one turn round the globe would
+    // otherwise pass.
+    expect(pinWithinReach(cat, { lat: near.lat, lng: near.lng + 360 })).toBe(false);
+    expect(pinWithinReach(cat, { lat: near.lat, lng: near.lng - 360 })).toBe(false);
+    expect(pinWithinReach(cat, { lat: near.lat + 360, lng: near.lng })).toBe(false);
+    expect(pinWithinReach(cat, { lat: 90.0001, lng: 0 })).toBe(false);
+    expect(pinWithinReach(cat, { lat: -90.0001, lng: 0 })).toBe(false);
+    expect(pinWithinReach(cat, { lat: 0, lng: 180.0001 })).toBe(false);
+    expect(pinWithinReach(cat, { lat: 0, lng: -180.0001 })).toBe(false);
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      expect(pinWithinReach(cat, { lat: bad, lng: near.lng })).toBe(false);
+      expect(pinWithinReach(cat, { lat: near.lat, lng: bad })).toBe(false);
+    }
+    expect(pinWithinReach(cat, { lat: String(near.lat), lng: near.lng } as never)).toBe(false);
+  });
+
   it("the reach is 1 km", () => {
     expect(CLAIM_PIN_REACH_M).toBe(1000);
   });

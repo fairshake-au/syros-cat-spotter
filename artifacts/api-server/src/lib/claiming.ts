@@ -101,6 +101,19 @@ export async function claimEligibility(
   return met.rows[0]?.met === true ? { ok: true } : { ok: false, code: "NOT_MET" };
 }
 
+function isCoordinate(p: { lat: unknown; lng: unknown }): boolean {
+  return (
+    typeof p.lat === "number" &&
+    typeof p.lng === "number" &&
+    Number.isFinite(p.lat) &&
+    Number.isFinite(p.lng) &&
+    p.lat >= -90 &&
+    p.lat <= 90 &&
+    p.lng >= -180 &&
+    p.lng <= 180
+  );
+}
+
 /**
  * D11: within 1 km (inclusive) of the cat's PUBLIC position, the centre of
  * its 250 m cell, never its exact position or any sighting (review 2,
@@ -111,6 +124,10 @@ export function pinWithinReach(
   cat: { lat: number; lng: number },
   pin: { lat: number; lng: number },
 ): boolean {
+  // haversine is periodic, so lng + 360 would otherwise pass (critic
+  // MEDIUM-2). The claim route refuses these with a 400 first; this holds
+  // whoever calls it.
+  if (!isCoordinate(pin)) return false;
   const centre = blurPosition(cat.lat, cat.lng);
   return haversineKm(centre, pin) * 1000 <= CLAIM_PIN_REACH_M;
 }
