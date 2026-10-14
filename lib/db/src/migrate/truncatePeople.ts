@@ -1,5 +1,10 @@
 import type pg from "pg";
 
+// Tests only: this switches add-only guards off. Refuse to load anywhere else.
+if (!process.env["VITEST"]) {
+  throw new Error("truncatePeople is for tests only (VITEST is not set).");
+}
+
 // SYC-53 PR 0.1 (review minor 11). `people` is now referenced by tables whose
 // TRUNCATE is guarded (photo_visibility_events, mapping_events,
 // feeding_site_old_codes and, since this PR, person_events, the record of who

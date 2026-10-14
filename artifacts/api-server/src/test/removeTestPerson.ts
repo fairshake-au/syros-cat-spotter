@@ -1,5 +1,11 @@
 import { pool } from "@workspace/db";
 
+// Tests only: this switches an add-only guard off. Refuse to load anywhere
+// else.
+if (!process.env["VITEST"]) {
+  throw new Error("removeTestPerson is for tests only (VITEST is not set).");
+}
+
 // SYC-53 PR 0.1: `removePerson` is retired from the app (spec 9.6): every
 // person now has an `added` event with a strict link, so a hard delete can
 // never succeed, and marking as left is the only way off the list.
