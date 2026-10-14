@@ -305,3 +305,122 @@ Revert. The website goes back to dating library photos at the moment they are pi
 ### Rollback
 
 Revert; old texts return. Update rows already written keep their text.
+
+---
+
+## Slice 4 · The map always has a start: Ermoupoli when there is no usable phone position
+
+**What a spotter sees afterwards.** A spotter who picks a library photo while their phone has no usable position (location refused, still searching after a few seconds, or the phone is not on Syros: a tourist logging from the plane) no longer sees a missing map and a disabled "Check for matches". The map opens on Ermoupoli with "We've started the map in Ermoupoli. Drag it to where you saw the cat.", the button works, and they drag the pin to the right street. A spotter whose phone is on Syros sees exactly what they see today. The camera is unchanged (spec §1; see Decision F for the one camera dead end that remains).
+
+**Branch / PR:** `claude/syc-166-ermoupoli-start`, after slice 2 is merged. No spec dependency on the device check: this slice needs no photo position.
+
+### What the code does today (verified on `7089870`)
+
+- The pin starts only from the phone: `spot.tsx:228-231` sets `pickedCoords` once `photo && coords && !pickedCoords`. With no `coords` the map is never rendered (`:861`, `{pickedCoords && <LocationPicker .../>}`) and "Check for matches" stays disabled (`:885`, `disabled={!pickedCoords || ...}`). Location permission refused shows the red `locationDenied` text (`:854-860`).
+- `useLocation` (`hooks/useLocation.ts`) gives `coords`, `denied`, `loading`. On the phone, a position that does not arrive in 15 seconds with no cached fix sets `denied` (`:56-86` region, the `Promise.race` timeout); on the website the browser call times out at 10 seconds (`:23`).
+- The map positions itself from its first coordinates only (`components/LocationPicker.tsx:30-32`, native; `LocationPicker.web.tsx:47`, web), so a screen that changes its start must give the picker a fresh `key` (spec §9 test 5's parenthesis). `<LocationPicker>` has no `key` today (`spot.tsx:862`).
+- The island rectangle exists only as an un-exported constant in the tile downloader: `lib/offlineTiles.ts:19`, `{ minLat: 37.36, maxLat: 37.53, minLon: 24.85, maxLon: 25.01 }`. It is a tile box, not a coastline, and nothing checks a position against it.
+
+### Files
+
+- New `artifacts/cat-spotter/lib/island.ts` (pure): `SYROS_RECT` (moved from `offlineTiles.ts`), `isOnSyros(lat, lng, marginDeg = 0.02)`, `ERMOUPOLI = { latitude: 37.4449, longitude: 24.9433 }`. SYC-249 (the server's on-Syros check) will want the same rectangle; keeping it in one small file makes it copyable to the server unchanged.
+- New `artifacts/cat-spotter/lib/mapStart.ts` (pure): `resolveMapStart(input)`.
+- Edit `lib/offlineTiles.ts` (import the rectangle; one line, no behaviour change).
+- Edit `app/(tabs)/spot.tsx` (use the resolver; `key` the picker; the Ermoupoli line; the red denied text hidden when the map already has a start).
+- Edit `lib/i18n.ts`: `mapStartedInTown` in en, el, fr, in the same `// SYC-166` block.
+- Tests: `lib/__tests__/island.test.ts`, `mapStart.test.ts`.
+
+### `resolveMapStart`
+
+Input: `{ source: 'library' | 'camera' | 'live', phone: {coords|null, denied, loading}, waitedMs, photoPosition?: undefined }` (the `photoPosition` field is slice 5's; the resolver is written to take it from the start so slice 5 adds a branch, not a rewrite). Output: `{ status: 'waiting' }` or `{ status: 'ready', coords, origin: 'phone' | 'town' }`.
+
+- Camera and live-camera picks: unchanged (`origin: 'phone'` when coords arrive; `waiting` otherwise; it never falls back to Ermoupoli).
+- Library pick, phone position on Syros (`isOnSyros` with the margin): `origin: 'phone'`.
+- Library pick, phone position **not on Syros**, or `denied`, or still searching after `MAP_START_WAIT_MS = 4000`: `origin: 'town'` -> `ERMOUPOLI`.
+- Once a start is chosen it is **never replaced** by a later phone fix (the existing `!pickedCoords` guard, kept), so the pin does not jump under a spotter who has begun dragging.
+- Retake and re-pick reset it; the picker is remounted with `key={pickCount}` (a counter bumped in `pickPhoto`), so a new start actually repositions the map.
+
+The wait of four seconds and the island margin of 0.02 degrees (about 2 km) are the plan's own numbers; the spec says only "still searching" and "a small margin". They are Decision E. Why 0.02: the nearest other islands are well clear of the rectangle plus 2 km (Tinos town is about 25 km east, Mykonos and Paros further), while the rectangle itself is a tile box, so a margin lets a photo taken at the very edge of the coast count as Syros.
+
+### Words (spec §8)
+
+`mapStartedInTown`: en "We've started the map in Ermoupoli. Drag it to where you saw the cat.", el "Ξεκινήσαμε τον χάρτη στην Ερμούπολη. Σύρε τον εκεί όπου είδες τη γάτα.", fr "On a démarré la carte à Ermoupoli. Fais-la glisser là où tu as vu le chat." It replaces `confirmLocationHint` only when `origin === 'town'`. When `origin === 'phone'` for a library photo, `confirmLocationHint` stays ("It starts near where you are.") until slice 5 replaces it, because until slice 5 that sentence is still true. No other new line ships here; in particular **not** `mapStartedAtYou`, which says the photo "doesn't say where it was taken" and would be false for an iPhone photo we have not yet read.
+
+### Steps (test first)
+
+1. `island.test.ts`: points inside the rectangle; each edge exactly, one metre inside and one metre outside the margin; known places outside, with real coordinates: Tinos town (37.538, 25.163), Mykonos town (37.447, 25.329), Parikia on Paros (37.085, 25.150), Athens (37.984, 23.727), Munich (48.137, 11.575), and Null Island (0, 0) are all **not** on Syros; Ermoupoli, Galissas (37.4, 24.88 region) and Kini are.
+2. `mapStart.test.ts` (spec §9 test 5): library + phone on Syros -> phone; library + phone in Munich -> Ermoupoli; library + denied -> Ermoupoli; library + still loading at 3,999 ms -> `waiting`, at 4,000 ms -> Ermoupoli; library + phone fix arrives *after* the town start -> the start does not move; camera + denied -> never Ermoupoli; the button's enabled state follows `status === 'ready'`.
+3. A component test for the Spot screen's "Check for matches" button (the repo renders components through react-native-web, `vitest.config.ts`): enabled once the start is `ready`, disabled while `waiting`.
+4. Implement; add the key and the three strings.
+
+### Mutation probes
+
+1. Make the resolver fall back to Ermoupoli for the camera too -> the camera test red. 2. Drop the margin -> the edge test red. 3. Let a late phone fix overwrite the start -> the "does not move" test red. 4. Remove the picker `key` -> a test that re-picks and asserts the picker's initial coordinates changed (render both, as `LocationPicker.web.tsx:47` fixes its start in `useState`) red. 5. Show the Ermoupoli line when the start is the phone -> the line test red.
+
+### Verification
+
+- Automated: typecheck, tests.
+- **Browser, both widths, en/el/fr, real data:** in the website with Chrome's location override set to Munich, then "block" in site settings, then a Syros position, pick a photo each time and confirm map, line and button. The 4-second wait is checked with the position override delayed.
+- **iOS simulator:** Features -> Location -> None / Custom (Munich) / Custom (Ermoupoli).
+- **Real-device check:** none required for this slice (no platform claim marked [confirm]); a quick pass on one real iPhone and one real Android with location refused is cheap and goes in the PR.
+
+### Rollback
+
+Revert. Nothing is stored.
+
+---
+
+## Slice 5 · The map starts where the photo was taken (WAITS ON SYC-280)
+
+**What a spotter sees afterwards, per platform, and only where the device check says the position arrives.** Where the photo says where it was taken, the map opens on that spot with "We've started the map where this photo was taken. Drag it if that's not quite right." (or the firmer "only approximate" line when the photo records a rough fix); the saved sighting is still only the pin they confirm. A spotter with location switched off is no longer stuck. Where the photo does not say where (and we know the platform removes it), the map starts near them or in Ermoupoli and a line says honestly "This photo doesn't say where it was taken, so the map starts near where you are now." A photo whose position is **not on Syros** stops with "This photo was taken away from Syros. Cat Spotter only records cats on Syros." and two buttons, "Choose another photo" and a quiet "It was on Syros", which carries on as if the photo had no position (the photo's time is still used).
+
+**Branch / PR:** `claude/syc-166-map-start-at-photo`, one PR per outcome row below if more than one platform is in scope.
+
+### Gate (nothing in this slice starts until all four are true)
+
+1. Slice 1 (SYC-258) is merged. The spec forbids shipping SYC-166 location work before it (§5.1).
+2. Slices 2 and 4 are merged.
+3. SYC-280's device check has run and the **results table in spec §4.2 is filled in** (a docs-only PR from whoever ran it; Claude can fill the iPhone simulator rows but the real-device rows are Samuel's or a tester's).
+4. Samuel has answered the §4.3 question: **"if every phone path turns out to be time only, is the map-start work still worth building?"** (Decision G). If the answer is no, this slice reduces to the honest lines (below) and the rest is closed.
+
+### Plan by outcome (spec §4.3). The plan does not read location on a guess: each row is built only if its row is confirmed.
+
+| Device-check result | What this slice builds |
+|---|---|
+| **iPhone app: location arrives (C1), with or without the chooser's "Options -> Location" switch** | Native position reader on the picker's `exif`. If it arrives only with the iOS 17 "Location" option switched on and that option is off by default, the iPhone app is a "time only" row and a hint is considered (follow-up ticket "to file", not built here). |
+| **Android app: location never arrives (C2, expected)** | Nothing to read. The honest line `mapStartedAtYou` is shown on Android library picks, because the platform is known to remove the location (Decision 5 of the spec; SYC-259 revisits). No reader code. |
+| **Website: phone browsers keep location (C5/C7 pass)** | Widen slice 2W's reader to read the GPS position as well as the clock (the full reader). |
+| **Website: phone browsers remove location but keep time** | Nothing to widen. Laptop-exported files lose their position too, and the line says so. The website reader stays time-only (spec "time only on web"). **This is a deliberate trade:** a laptop-exported JPEG does carry its position, but we would only know that by reading it, and without reading it we cannot honestly say "this photo doesn't say where". So on the website the location line is shown **only if a position reader exists and found nothing**; with a time-only reader the website keeps the existing "It starts near where you are" hint and does not claim anything about the photo's position. |
+| **Neither arrives on the website** | Slice 2W's `photoNoTime` becomes the honest line; no website location work at all. |
+| **Locations arrive everywhere** | All of the above, full feature, nothing conditional. |
+
+### What the code will do (for the rows that are built)
+
+- **New `lib/photoPosition.ts` (pure):** `readPhotoPosition(exif)` returns `{ lat, lng, approx } | null`. It handles the iPhone shape (unsigned latitude plus `N`/`S` letter), the Android shape (signed plus letter, which must not double-negate), and the website's degrees-minutes-seconds rationals. Exactly 0, 0 is "missing", not a point in the sea. Out-of-range and non-numeric values are "missing". `GPSHPositioningError` over 150 m sets `approx` (spec §3.1, §6; `mapStartedApprox`).
+- **`pickedAsset.ts`** calls it next to the time extractor, on the same `asset.exif`, and returns the position as part of the pick result. It is held **in React state on the Spot screen only** and cleared with the photo (`clearPhoto`, `spot.tsx:233`). It is never put in a route parameter, a queue field, a log line, an error message or a storage key (see "Privacy paths").
+- **`mapStart.ts`:** the resolver gains its first branch: photo position on Syros -> `origin: 'photo'` immediately, **even if the phone's own position arrives afterwards** (spec test 5); photo position off Syros -> `{ status: 'offIsland' }`; no photo position -> slice 4's rules. `denied` is no longer a dead end when the photo supplied a start, and the red `locationDenied` text is hidden in that case (it hides today only when nothing is denied, `spot.tsx:854`).
+- **The off-island stop screen** reuses slice 2's `photoProblem` card: "Choose another photo" calls `pickPhoto(false)` from its own tap; "It was on Syros" sets a flag that treats the photo as having no position (the time is kept) and re-runs the resolver.
+- **The lines** (`mapStartedAtPhoto`, `mapStartedApprox`, `mapStartedAtYou`, `photoOffIsland`, `photoOffIslandChoose`, `photoOffIslandOverride`; spec §8, six keys) replace `confirmLocationHint` for library photos; the camera keeps it (spec §8).
+- **Twelve keys, not eleven.** Spec §8's table lists twelve keys and its text says eleven (see Spec vs code); slices 2, 4 and 5 add 5, 1 and 6.
+
+### Steps (test first)
+
+1. `photoPosition.test.ts` (spec test 1, position half): every shape, both hemispheres, western longitudes, the 0,0 rule, out-of-range, non-numeric, `GPSHPositioningError` over and under 150, and a **fixture lifted from the device check** for each platform that delivered a position.
+2. `mapStart.test.ts` additions (spec test 5): photo on Syros + phone fix arrives later -> stays at the photo; photo position + `denied` -> ready; no photo position + phone off-island -> Ermoupoli; "It was on Syros" -> as no position, time kept; retake and re-pick reset it.
+3. Off-island tests (spec test 11) with real coordinates (Tinos, Mykonos, Athens, Munich): stop screen; "Choose another photo" re-offers the library; "It was on Syros" continues; a position on Syros never triggers it.
+4. **Privacy tests, by value** (spec test 6): see the next section.
+5. Offline test (spec test 15): website with the network off, a library photo with a position still starts the pin there and saves for later; **no assertion claims the map shows streets** (the website has no offline map, SYC-167).
+6. Implement; wire the lines; add the six keys.
+
+### Mutation probes
+
+1. Let the phone's late fix overwrite a photo start -> test 5 red. 2. Put the photo position into `buildReviewParams` unrounded -> slice 1's whole-string test red. 3. Add `photoPosition` to the queued item or to the request body -> the key-set tests red. 4. Make `readPhotoPosition` double-negate the Android shape -> its fixture red. 5. Treat 0,0 as a point -> red. 6. Remove the off-island check, or make the margin huge -> test 11 red. 7. Log the parsed position -> the console-spy test red.
+
+### Verification
+
+- **Browser, three languages, ~390 px and desktop, real data,** for the website rows that are built; **iOS simulator** for the iPhone app with fixture photos carrying a position on Syros, off Syros (Mykonos), a rough fix (`GPSHPositioningError` 400), and none; **a real iPhone and a real Android** wherever the spec marks the platform claim **[confirm]** (C1, C2, C5, C7): the PR shows what the screen did on each, matching the results table in spec §4.2.
+- Update `docs/specs/photo-location-from-library.md` §1 and §4 from "expectation" to fact for each confirmed row, in the same PR as the code that depends on it.
+
+### Rollback
+
+Revert. The pin is the only thing ever saved, so no stored data depends on this slice.
