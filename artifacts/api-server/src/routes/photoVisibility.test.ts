@@ -245,7 +245,7 @@ beforeEach(async () => {
   denied.cap = null;
   visibilityCalls.n = 0;
   pushes.length = 0;
-  _resetDeviceMatchLimitForTests();
+  await _resetDeviceMatchLimitForTests();
 });
 
 afterAll(async () => {
