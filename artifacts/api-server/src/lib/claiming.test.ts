@@ -331,6 +331,39 @@ describe("claimEligibility: rule 1, the cat lives on the street with no owner", 
   });
 });
 
+describe("claimEligibility: a cat merged into another (critic HIGH-1)", () => {
+  it("a cat merged away into another can't be claimed, even by a phone that met it", async () => {
+    const canonical = await streetCat();
+    const mergedAway = await streetCat();
+    const d = dev();
+    await sighting(mergedAway.id, d, "suggested");
+    await db
+      .insert(catIdentityTable)
+      .values({ catId: mergedAway.id, canonicalCatId: canonical.id, reason: "test" });
+    expect(await eligible(mergedAway.id, d)).toEqual(NOT_ON_STREET);
+    // The cat it was merged into is the one to claim.
+    expect(await eligible(canonical.id, d)).toEqual(OK);
+  });
+
+  it("once the merge is undone, the cat can be claimed again", async () => {
+    const canonical = await streetCat();
+    const mergedAway = await streetCat();
+    const d = dev();
+    await sighting(mergedAway.id, d, "suggested");
+    const [m] = await db
+      .insert(catIdentityTable)
+      .values({ catId: mergedAway.id, canonicalCatId: canonical.id, reason: "test" })
+      .returning();
+    await db.insert(catIdentityTable).values({
+      catId: mergedAway.id,
+      canonicalCatId: mergedAway.id,
+      reason: "unmerge",
+      supersedesId: m!.id,
+    });
+    expect(await eligible(mergedAway.id, d)).toEqual(OK);
+  });
+});
+
 describe("pinWithinReach: measured from the public cell centre (D11, review 2 HIGH-1)", () => {
   // Metres along a meridian on haversineKm's sphere, so the distances below
   // are exact rather than an approximation of the conversion.

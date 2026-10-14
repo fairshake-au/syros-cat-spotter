@@ -43,6 +43,19 @@ export async function claimEligibility(
   if (cat.ownerDeviceId === deviceId) return { ok: "owner" };
   if (cat.ownerDeviceId !== null) return { ok: false, code: "ALREADY_HOMED" };
 
+  // A cat merged into another (§10.3) isn't a cat of its own any more: a
+  // homed written on it would fold into the cat it was merged into, leaving
+  // that cat homed with nobody linked, so nobody could claim it. The claim
+  // belongs on the cat it was merged into. Only a merge nothing has undone.
+  const mergedAway = await exec.execute<{ merged: boolean }>(sql`
+    select exists (
+      select 1 from cat_identity ci
+       where ci.cat_id = ${catId}
+         and ci.canonical_cat_id <> ${catId}
+         and not exists (select 1 from cat_identity u where u.supersedes_id = ci.id)
+    ) as merged`);
+  if (mergedAway.rows[0]?.merged !== false) return { ok: false, code: "NOT_ON_STREET" };
+
   // Rule 1: the derived life status, never only the owner column. A cat
   // still homed after its owner was deleted (D13), or that the team says is
   // in care or has died, can't be claimed (D3).
