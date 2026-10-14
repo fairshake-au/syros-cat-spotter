@@ -637,18 +637,18 @@ Only matters if the device check says phone browsers remove location but keep ti
 
 ---
 
-## Follow-up tickets this plan implies (to file; the orchestrator numbers them)
+## Follow-up tickets this plan implies (filed 14 October 2026)
 
 Not already covered by SYC-249, 250, 258, 259, 260, 280, 87 or 167.
 
-1. **Camera photo with location refused: start the map in Ermoupoli too** (Decision F2). Small; `spot.tsx` and `mapStart.ts`.
-2. **A guard test that Delete my data clears every on-device store.** The recent-photos list adds a key; a test that lists every key the app writes and checks each is cleared (or deliberately kept) stops the next one being missed.
-3. **iPhone: a hint if photo location arrives only with the chooser's "Location" switch on** and that switch is off by default (conditional on SYC-280's C1; file only if so).
-4. **Use a library photo's own time when it replaces a rejected photo** (`replaceRejectedPhoto`, `spot.tsx:398-412`): decide whether the replacement should keep the old time or take the new photo's, and apply the 21-day rule.
-5. **Android: read the time from the file when the picker gives no tags** (conditional on SYC-280's C2/C4 showing empty tags on a JPEG).
-6. **Add the SYC-166 entries to `DECISIONS.md`** (spec §11 leaves that for Samuel on approval; five bullets, including the age limit, the off-island rule, Ermoupoli and the owner's push).
-7. **Native review of the twelve (or thirteen) new strings** as an addition to SYC-4's list.
-8. **Share the Syros rectangle between the app and the server** for SYC-249's check: a comment on SYC-249 pointing at `lib/island.ts`, rather than a new ticket.
+1. **SYC-308 · Camera photo with location refused: start the map in Ermoupoli too** (Decision F2). Small; `spot.tsx` and `mapStart.ts`.
+2. **SYC-309 · A guard test that Delete my data clears every on-device store.** The recent-photos list adds a key; a test that lists every key the app writes and checks each is cleared (or deliberately kept) stops the next one being missed.
+3. **SYC-310 (blocked by SYC-280) · iPhone: a hint if photo location arrives only with the chooser's "Location" switch on** and that switch is off by default (conditional on SYC-280's C1; file only if so).
+4. **SYC-311 · Use a library photo's own time when it replaces a rejected photo** (`replaceRejectedPhoto`, `spot.tsx:398-412`): decide whether the replacement should keep the old time or take the new photo's, and apply the 21-day rule.
+5. **SYC-312 (blocked by SYC-280) · Android: read the time from the file when the picker gives no tags** (conditional on SYC-280's C2/C4 showing empty tags on a JPEG).
+6. **SYC-313 · Add the SYC-166 entries to `DECISIONS.md`** (spec §11 leaves that for Samuel on approval; five bullets, including the age limit, the off-island rule, Ermoupoli and the owner's push).
+7. **Added to SYC-4 (comment), not a new ticket · Native review of the twelve (or thirteen) new strings** as an addition to SYC-4's list.
+8. **Comment on SYC-249, not a new ticket · Share the Syros rectangle between the app and the server** for SYC-249's check: a comment on SYC-249 pointing at `lib/island.ts`, rather than a new ticket.
 
 ---
 
