@@ -284,3 +284,28 @@ describe('DeleteMyDataProvider', () => {
     expect(h.reports.wipeReports).toHaveBeenCalled();
   });
 });
+
+// SYC-166 slice 2: the recent-photos list is new on-device data (capture
+// times and photo fingerprints), so Delete my data must clear it too.
+describe('Delete my data clears the recent-photos list', () => {
+  const KEY = 'cat-spotter/recent-photos-v1';
+
+  it('is gone after a delete', async () => {
+    h.storage.set(KEY, JSON.stringify([{ capturedAtMs: 1, fingerprint: 'f' }]));
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.deleteNow();
+    });
+    expect(h.storage.has(KEY)).toBe(false);
+  });
+
+  it('is kept when the server call fails (nothing is wiped)', async () => {
+    h.storage.set(KEY, '[]');
+    h.deleteRequest.mockRejectedValueOnce(new TypeError('offline'));
+    const { result } = renderHook(() => useDeleteMyData(), { wrapper });
+    await act(async () => {
+      await result.current.deleteNow();
+    });
+    expect(h.storage.has(KEY)).toBe(true);
+  });
+});
