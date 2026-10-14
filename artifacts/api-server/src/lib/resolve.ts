@@ -400,10 +400,12 @@ export function resolveSterilised(
   // Each candidate carries the one observation id supporting it (or none,
   // for a not-yet-linked import record), so the newest-wins fold works the
   // same way regardless of where the assertion came from.
+  // `rank` is what `outranks` compares: the observation itself, or, for a
+  // not-yet-linked import record, a stand-in that ranks with the team.
   type Candidate = {
     sterilised: boolean;
     at: Date;
-    level: AuthorityLevel;
+    rank: Dated;
     observationId: number | null;
   };
   const authoritative: Candidate[] = active
@@ -411,40 +413,29 @@ export function resolveSterilised(
     .flatMap((o) => {
       const parsed = parseSterilised(o.value);
       return parsed
-        ? [
-            {
-              sterilised: parsed.sterilised,
-              at: o.observedAt,
-              level: authorityLevel(o),
-              observationId: o.id,
-            },
-          ]
+        ? [{ sterilised: parsed.sterilised, at: o.observedAt, rank: o, observationId: o.id }]
         : [];
     });
-  // A not-yet-linked import record ranks with the team (Decision G).
-  const fromImport: Candidate[] = importRecords.map((r) => ({
-    sterilised: r.sterilised,
-    at: new Date(r.observedAt),
-    level: 1,
-    observationId: null,
-  }));
+  // A not-yet-linked import record ranks with the team (Decision G). Its
+  // stand-in id is 0, below every real row (ids are serial from 1), so at
+  // the same instant a cat's own record beats it.
+  const fromImport: Candidate[] = importRecords.map((r) => {
+    const at = new Date(r.observedAt);
+    return {
+      sterilised: r.sterilised,
+      at,
+      rank: { roleAtTime: "system", authorityScope: "none", provenance: "import", observedAt: at, id: 0 },
+      observationId: null,
+    };
+  });
   const candidates = [...authoritative, ...fromImport];
 
   if (candidates.length > 0) {
-    // Decision G (§4.6): the highest level present decides, and within it
-    // the newest by observedAt wins, whatever sign it carries. Ties at the
-    // same instant: an observation (a cat's own record) beats a
-    // not-yet-linked import row, and between observations the later row
-    // (higher id) wins.
-    const beats = (a: Candidate, b: Candidate): boolean => {
-      if (a.level !== b.level) return a.level > b.level;
-      if (a.at.getTime() !== b.at.getTime()) return a.at.getTime() > b.at.getTime();
-      if (a.observationId == null) return false;
-      if (b.observationId == null) return true;
-      return a.observationId > b.observationId;
-    };
+    // Decision G (§4.6), through the one ordering (`outranks`): the highest
+    // level present decides, and within it the newest by observedAt wins,
+    // whatever sign it carries; an exact tie goes to the later row.
     const winner = candidates.reduce((best, candidate) =>
-      beats(candidate, best) ? candidate : best,
+      outranks(candidate.rank, best.rank) ? candidate : best,
     );
     const disagreeingConflicts = candidates
       .filter((c) => c !== winner && c.sterilised !== winner.sterilised)
