@@ -11,6 +11,7 @@
  * and it's deleted so those positions don't sit on the phone indefinitely.
  */
 import { listCats, type Cat, type ListCatsParams } from '@workspace/api-client-react';
+import { roundForRoute } from './reviewParams';
 
 /** Never used by any earlier build. */
 export const CATS_CACHE_KEY = 'cat-spotter/cats-cache/public/v2';
@@ -26,8 +27,20 @@ const MAX_PAGES = 500;
 
 type Position = { lat: number; lng: number };
 
+/**
+ * The phone's position as the catalogue request carries it: rounded to about
+ * 110 m (SYC-317), or nothing. `GET /cats?lat=&lng=` puts it in the request's
+ * address, which a host's or proxy's access log and the browser's HTTP cache
+ * may keep. The list is sorted by distance, so 110 m barely moves the order.
+ */
+function roundedPosition(params?: Position): Position | undefined {
+  if (!params || !Number.isFinite(params.lat) || !Number.isFinite(params.lng)) return undefined;
+  if (Math.abs(params.lat) > 90 || Math.abs(params.lng) > 180) return undefined;
+  return { lat: roundForRoute(params.lat), lng: roundForRoute(params.lng) };
+}
+
 export function catalogueParams(lat?: number, lng?: number): Position | undefined {
-  return lat !== undefined && lng !== undefined ? { lat, lng } : undefined;
+  return lat !== undefined && lng !== undefined ? roundedPosition({ lat, lng }) : undefined;
 }
 
 /** Invalidate this to refresh every screen's catalogue, whatever its position. */
@@ -49,8 +62,10 @@ export async function fetchWholeCatalogue(
   params?: Position,
   fetchPage: (p: ListCatsParams) => ReturnType<typeof listCats> = (p) => listCats(p),
 ): Promise<Cat[]> {
-  const first = await walkOnce(params, fetchPage);
-  return first.complete ? first.cats : (await walkOnce(params, fetchPage)).cats;
+  // Rounded here too, so no caller can send an exact position (SYC-317).
+  const position = roundedPosition(params);
+  const first = await walkOnce(position, fetchPage);
+  return first.complete ? first.cats : (await walkOnce(position, fetchPage)).cats;
 }
 
 async function walkOnce(
