@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { type Observation } from "@workspace/db";
-import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { ObservationRefused } from "../lib/observations";
 import {
   recordTeamStatement,
@@ -9,7 +9,6 @@ import {
 } from "../lib/teamCorrections";
 import { listLikelyForReview } from "../lib/likelyReview";
 import {
-  refuseNotSignedIn,
   requireOrigin,
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
@@ -165,7 +164,7 @@ router.post(
             { reason: "missing_capability", kind: body.kind },
             "observation refused",
           );
-          refuseNotSignedIn(req, res);
+          refuseSignedIn(req, res);
           return;
         }
         if (err.code === "NOT_FOUND") {
@@ -233,7 +232,7 @@ router.post(
         }
         if (err.code === "NOT_AUTHORISED") {
           req.log.info({ reason: "missing_capability" }, "supersede refused");
-          refuseNotSignedIn(req, res);
+          refuseSignedIn(req, res);
           return;
         }
         res.status(400).json({ error: err.code, message: err.message });
