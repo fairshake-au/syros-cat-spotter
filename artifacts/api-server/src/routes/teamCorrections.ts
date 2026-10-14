@@ -52,7 +52,10 @@ const isFormPost = (req: Request) =>
 /** A browser sends a text box's line breaks as CRLF; store them as LF. */
 const lf = (v: unknown) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n") : v);
 
-const reasonField = z.preprocess(lf, z.string().trim().min(1).max(REASON_MAX));
+/** Postgres refuses a NUL character in text, so a form carrying one is a bad form. */
+const noNul = (s: string) => !s.includes(String.fromCharCode(0));
+
+const reasonField = z.preprocess(lf, z.string().trim().min(1).max(REASON_MAX).refine(noNul));
 
 /** An optional date from <input type="date">: "" means none. */
 const dateField = z.preprocess(

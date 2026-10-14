@@ -697,5 +697,114 @@ describe("the colony's history says which cats were added and taken out", () => 
   });
 });
 
+describe("test 16 (escaping): a name with markup shows as text on every page this PR draws", () => {
+  it("never lets a colony name, an old name or a cat name draw as markup", async () => {
+    const colony = await makeColony(`${P}${MARKUP}-1`);
+    const cat = await seedCat(`${MARKUP}-cat`);
+    await addCats(colony, [cat]);
+    await sleep(5);
+    // A rename puts the markup into "was …" as well.
+    await post(`/api/team/colonies/${colony}`, { name: `${P}${MARKUP}-2` });
+    await moveCat(cat, "none");
+    await moveCat(cat, colony);
+
+    const find = encodeURIComponent(`${P}${MARKUP}-cat`);
+    const pages = [
+      `/api/team/colonies/${colony}/cats?q=${find}`,
+      `/api/team/colonies/${colony}`,
+      `/api/team/cats/${cat}`,
+      `/api/team/cats/${cat}?done=colony`,
+    ];
+    for (const path of pages) {
+      const res = await get(path);
+      expect(res.status, path).toBe(200);
+      expect(res.text, path).not.toContain("<img src=x");
+      expect(res.text, path).not.toContain('onerror="alert');
+    }
+    // The text is there, as text.
+    const cats = await get(`/api/team/colonies/${colony}/cats?q=${find}`);
+    expect(decoded(cats.text)).toContain(`${P}${MARKUP}-cat`);
+    const catPage = decoded((await get(`/api/team/cats/${cat}`)).text);
+    expect(catPage).toContain(`(was ${P}${MARKUP}-1)`);
+    const raw = (await get(`/api/team/colonies/${colony}`)).text;
+    expect(raw).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+  });
+});
+
+describe("test 12 (part): refusals", () => {
+  it("every new route answers the identical 401 with no session, and writes nothing", async () => {
+    const colony = await makeColony(unique("Refuse"));
+    const cat = await seedCat("Refuse-cat");
+    const routes: [string, string, Record<string, string | string[]>][] = [
+      ["get", `/api/team/colonies/${colony}/cats?q=x`, {}],
+      ["post", `/api/team/colonies/${colony}/cats`, { catIds: [String(cat)] }],
+      ["post", `/api/team/cats/${cat}/colony`, { colonyId: String(colony) }],
+    ];
+    for (const [method, path, body] of routes) {
+      const t = request(app)[method as "get" | "post"](path);
+      if (method === "post") t.set("Origin", TEAM_ORIGIN).type("form").send(body);
+      const res = await t;
+      expect([res.status, res.text], path).toEqual([401, '{"error":"not_signed_in"}']);
+    }
+    expect(await colonyStatements(cat)).toHaveLength(0);
+  });
+
+  it("every POST refuses a foreign or missing Origin, and writes nothing", async () => {
+    const colony = await makeColony(unique("Origin"));
+    const cat = await seedCat("Origin-cat");
+    for (const origin of [null, "https://evil.example.com", "https://admin.catspotters.com", `${TEAM_ORIGIN}.evil.com`]) {
+      const add = await post(`/api/team/colonies/${colony}/cats`, { catIds: [String(cat)] }, { origin });
+      expect([add.status, add.text], String(origin)).toEqual([401, '{"error":"not_signed_in"}']);
+      const move = await post(`/api/team/cats/${cat}/colony`, { colonyId: String(colony) }, { origin });
+      expect([move.status, move.text], String(origin)).toEqual([401, '{"error":"not_signed_in"}']);
+      const out = await post(`/api/team/cats/${cat}/colony`, { colonyId: "none" }, { origin });
+      expect(out.status).toBe(401);
+    }
+    expect(await colonyStatements(cat)).toHaveLength(0);
+  });
+
+  it("each write asks for assign_cat_to_colony, hides its controls without it, and writes nothing", async () => {
+    const colony = await makeColony(unique("Caps"));
+    const cat = await seedCat("Caps-cat");
+    denied.cap = "assign_cat_to_colony";
+    expect((await addCats(colony, [cat])).status).toBe(401);
+    expect((await moveCat(cat, colony)).status).toBe(401);
+    expect((await moveCat(cat, "none")).status).toBe(401);
+    expect((await get(`/api/team/colonies/${colony}/cats`)).status).toBe(401);
+    expect(await colonyStatements(cat)).toHaveLength(0);
+
+    // The pages hide what the person cannot use.
+    const page = (await get(`/api/team/colonies/${colony}`)).text;
+    expect(page).not.toContain(`/api/team/colonies/${colony}/cats`);
+    const catPage = (await get(`/api/team/cats/${cat}`)).text;
+    expect(catPage).not.toContain("<summary>Colony</summary>");
+    denied.cap = null;
+    expect((await get(`/api/team/cats/${cat}`)).text).toContain("<summary>Colony</summary>");
+    expect((await get(`/api/team/colonies/${colony}`)).text).toContain(`/api/team/colonies/${colony}/cats`);
+  });
+
+  it("a NUL character is a 400 and writes nothing", async () => {
+    const colony = await makeColony(unique("Nul"));
+    const cat = await seedCat("Nul-cat");
+    expect((await post(`/api/team/colonies/${colony}/cats`, { catIds: [`${cat}\u0000`] })).status).toBe(400);
+    expect((await post(`/api/team/cats/${cat}/colony`, { colonyId: `${colony}\u0000` })).status).toBe(400);
+    expect((await post(`/api/team/cats/${cat}/colony`, { colonyId: "none", from: `${colony}\u0000` })).status).toBe(400);
+    expect((await post(`/api/team/statements/1/wrong`, { choice: "colony_previous", reason: "x\u0000y" })).status).toBe(400);
+    expect(await colonyStatements(cat)).toHaveLength(0);
+  });
+
+  it("the ?done= message is looked up safely on the pages this PR changes", async () => {
+    const colony = await makeColony(unique("Done"));
+    const cat = await seedCat("Done-cat");
+    for (const done of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+      for (const path of [`/api/team/colonies/${colony}`, `/api/team/cats/${cat}`]) {
+        const res = await get(`${path}?done=${done}`);
+        expect(res.status, `${path} ${done}`).toBe(200);
+        expect(res.text, `${path} ${done}`).not.toContain('class="notice"');
+      }
+    }
+  });
+});
+
 // Kept to the end of the file so later tests can reuse the helpers above.
 void coloniesTable;
