@@ -34,6 +34,7 @@ import type { LatLng } from '@workspace/geo';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button, IconButton } from '@/components/purropolis';
+import { appearanceLine } from '@/lib/appearance';
 import { photoSource } from '@/lib/urls';
 import { pickedFromFor, pickerList, type PickedFrom } from '@/lib/catPicker';
 import {
@@ -295,6 +296,7 @@ export function CatPicker({
               // refusal a too-far pick gets; a suggested match (never
               // offered through this picker) is the only way to clear it.
               const isDeceased = cat.lifeStatus === 'deceased';
+              const appearance = appearanceLine(cat, t);
               return (
                 <Pressable
                   key={cat.id}
@@ -339,6 +341,16 @@ export function CatPicker({
                     >
                       {cat.name}
                     </Text>
+                    {/* SYC-2 (spec §7.2): the same line as the cat page,
+                        so a spotter can compare. Not a filter. */}
+                    {appearance ? (
+                      <Text
+                        style={[styles.cardAppearance, { color: colors.mutedForeground }]}
+                        numberOfLines={2}
+                      >
+                        {appearance}
+                      </Text>
+                    ) : null}
                     <Text style={[styles.cardCode, { color: colors.mutedForeground }]}>
                       {catCode(cat.id)}
                     </Text>
@@ -431,6 +443,7 @@ const styles = StyleSheet.create({
   cardText: { padding: 10, gap: 2 },
   cardName: { fontSize: fontSizes.md, fontFamily: fonts.displayBold },
   cardCode: { fontSize: fontSizes['2xs'], fontFamily: fonts.mono },
+  cardAppearance: { fontSize: fontSizes['2xs'], fontFamily: fonts.body },
   cardDeceased: {
     fontSize: fontSizes['3xs'],
     fontFamily: fonts.bodySemiBold,

@@ -30,6 +30,7 @@ import { MoreToAdd } from '@/components/MoreToAdd';
 import { photoSource } from '@/lib/urls';
 import { Tag, StatTile, IconButton, Button } from '@/components/purropolis';
 import { lifeLine, parseDateOnly, parsePublicDate, sterilisedLineKey } from '@/lib/catStatusLines';
+import { appearanceLine } from '@/lib/appearance';
 import { DEFAULT_CELL_M } from '@/lib/cellShape';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, lineHeights } from '@/constants/theme';
@@ -148,6 +149,9 @@ export default function CatDetailScreen() {
     (isOnline ? cat.locationPrecision === 'exact' : ownedCatIds.includes(cat.id));
   const dash = '—';
   const locationLabel = cat.description?.trim();
+  // SYC-2 (spec §5.2): colour and markings beside the place, quietly. Null
+  // for a cat nobody has described, and for an older server or cache.
+  const appearance = appearanceLine(cat, t);
 
   // Data spine PR 4 (cat-record-data-spine.md §3.5, §4.2): one of five
   // mutually exclusive life lines, never a headline, never "presumed" --
@@ -210,9 +214,10 @@ export default function CatDetailScreen() {
               </Pressable>
             )}
 
-            {locationLabel ? (
+            {locationLabel || appearance ? (
               <View style={styles.badgeRow}>
-                <Tag tone="neutral">📍 {locationLabel}</Tag>
+                {locationLabel ? <Tag tone="neutral">📍 {locationLabel}</Tag> : null}
+                {appearance ? <Tag tone="neutral">{appearance}</Tag> : null}
               </View>
             ) : null}
 
