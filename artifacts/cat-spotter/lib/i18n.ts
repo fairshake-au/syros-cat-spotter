@@ -1533,7 +1533,7 @@ const fr: Dict = {
   reportFromLibrary: 'Depuis la galerie',
   // SYC-166 slice 2: needs native review (SYC-4).
   photoTakenAt: 'Photo prise {when} (heure grecque)',
-  photoNoTime: "Cette photo n'indique pas quand elle a été prise, alors l'observation sera enregistrée à l'instant présent.",
+  photoNoTime: "Cette photo n’indique pas quand elle a été prise, alors l’observation sera enregistrée à l’instant présent.",
   photoTooOld: "Cette photo a été prise le {date}, il y a plus de {days} jours. On ne peut enregistrer que les observations des {days} derniers jours. Choisis une photo plus récente.",
   photoAlreadyLogged: 'Tu as déjà enregistré cette photo.',
   photoAlreadyLoggedOpen: 'Ouvrir cette observation',
