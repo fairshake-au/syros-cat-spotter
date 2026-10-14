@@ -845,5 +845,48 @@ describe("the role a colony statement is signed with comes from actingRole", () 
   });
 });
 
+describe("which colony stands follows the spine's rule: superseded statements never count", () => {
+  it("a correction dated earlier than the statement it replaces still wins over it", async () => {
+    const a = await makeColony(unique("Rule-A"));
+    const b = await makeColony(unique("Rule-B"));
+    const cat = await seedCat("Rule-cat");
+    const at = (iso: string) => new Date(iso);
+    const insert = async (colonyId: number, observedAt: Date, supersedesId?: number) =>
+      (
+        await db
+          .insert(observationsTable)
+          .values({
+            catId: cat,
+            kind: "colony",
+            value: { colonyId },
+            accountId: susan,
+            roleAtTime: "staff",
+            observedAt,
+            ...(supersedesId ? { supersedesId, supersedeReason: "rule test" } : {}),
+          })
+          .returning({ id: observationsTable.id })
+      )[0]!.id;
+    await insert(a, at("2026-09-01T10:00:00Z"));
+    const wrong = await insert(b, at("2026-09-01T10:01:00Z"));
+    // Written later, but dated between the two: B is superseded, so A stands.
+    await insert(a, at("2026-09-01T10:00:30Z"), wrong);
+
+    expect((await currentColonyOf([cat])).get(cat)).toBe(a);
+    const json = await request(app)
+      .get(`/api/team/cats/${cat}`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/json");
+    expect(json.body.colony).toMatchObject({ id: a });
+    const counts = await request(app)
+      .get(`/api/team/colonies?q=${encodeURIComponent(`${P}Rule`)}`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/json");
+    const byId = new Map<number, number>(
+      (counts.body.colonies as { id: number; catCount: number }[]).map((c) => [c.id, c.catCount]),
+    );
+    expect([byId.get(a), byId.get(b)]).toEqual([1, 0]);
+  });
+});
+
 // Kept to the end of the file so later tests can reuse the helpers above.
 void coloniesTable;
