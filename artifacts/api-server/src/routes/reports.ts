@@ -13,6 +13,7 @@ import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import {
   PHOTO_WAIT_MINUTES,
+  enqueueUncheckedWelfareAlert,
   enqueueWelfareAlert,
   kick,
 } from "../lib/mail/outbox";
@@ -291,7 +292,10 @@ router.post("/reports", reportLimiter, async (req, res) => {
     const dueAt = body.hasPhoto
       ? new Date(now.getTime() + PHOTO_WAIT_MINUTES * 60_000)
       : null;
-    await enqueueWelfareAlert(tx, row.id, "alert", dueAt);
+    // An unchecked report's alert is capped (10 an hour in total, then one
+    // "waiting" email an hour); every other report's alert goes as before.
+    if (tokenChecked === false) await enqueueUncheckedWelfareAlert(tx, row.id, dueAt);
+    else await enqueueWelfareAlert(tx, row.id, "alert", dueAt);
     return row;
   });
 
@@ -398,7 +402,20 @@ router.put("/reports/:publicId/photo", async (req, res) => {
       .returning({ id: mailOutboxTable.id });
     if (!bumped.length) {
       // The alert already went (or is going) without it: a short follow-up.
-      await enqueueWelfareAlert(tx, report.id, "photo", null);
+      // Not when the report never had an alert of its own (SYC-170: an
+      // unchecked report beyond the hour's 10 is counted in the "waiting"
+      // email instead), or the cap could be walked round one photo at a time.
+      const [main] = await tx
+        .select({ id: mailOutboxTable.id })
+        .from(mailOutboxTable)
+        .where(
+          and(
+            eq(mailOutboxTable.reportId, report.id),
+            sql`${mailOutboxTable.payload}->>'kind' = 'alert'`,
+          ),
+        )
+        .limit(1);
+      if (main) await enqueueWelfareAlert(tx, report.id, "photo", null);
     }
     return true;
   });
