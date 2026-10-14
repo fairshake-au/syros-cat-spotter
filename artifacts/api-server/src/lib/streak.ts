@@ -56,13 +56,17 @@ export function streakFromDays(days: string[], today: string): number {
   return streak;
 }
 
+// en-CA formats as YYYY-MM-DD, which is what the SQL side emits too. Built
+// once: constructing an Intl.DateTimeFormat is far slower than using one, and
+// the resolver asks for thousands of Athens days per cat (SYC-2 PR 1.2).
+const STREAK_DAY_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: STREAK_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 /** Today's date in {@link STREAK_TIMEZONE}, as 'YYYY-MM-DD'. */
 export function todayInStreakTimezone(now: Date = new Date()): string {
-  // en-CA formats as YYYY-MM-DD, which is what the SQL side emits too.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: STREAK_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+  return STREAK_DAY_FORMAT.format(now);
 }
