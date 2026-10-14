@@ -362,6 +362,8 @@ describe("P3-2 (team half): the team's cat page shows exact positions", () => {
       lifeStatus: publicCat["lifeStatus"],
       notSeenSince: publicCat["notSeenSince"],
       sterilised: publicCat["sterilised"],
+      coat: publicCat["coat"],
+      markings: publicCat["markings"],
     });
     expect(view.records.sterilised).toMatchObject({
       value: false,
