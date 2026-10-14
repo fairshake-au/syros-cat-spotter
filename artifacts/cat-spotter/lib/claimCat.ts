@@ -88,3 +88,12 @@ export function claimRefusal(err: unknown): ClaimRefusal {
       return { key: 'claimRefusedLater', refreshPage: false };
   }
 }
+
+/** 403 NOT_OWNER: this phone no longer owns the cat (the team removed the owner, or another phone claimed since). */
+export function isNotOwnerError(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    err.status === 403 &&
+    (err.data as { code?: unknown } | null)?.code === 'NOT_OWNER'
+  );
+}
