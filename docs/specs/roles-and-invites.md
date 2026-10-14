@@ -298,6 +298,7 @@ Every check goes through one function, `can()` in `artifacts/api-server/src/lib/
 | `match_cat_anywhere` | Pick a cat from anywhere on the island when matching a photo (published positions only). Reserved: see note 3 | Role-wide | ✓ | ✓ | ✓ |
 | `rename_cat` | Change a cat's name | Island-only | ✓ | ✓ | — |
 | `hide_photo` · `restore_photo` | Take a photo down, put it back | Island-only | ✓ | ✓ | — |
+| `remove_photo` | Remove a hidden photo's bytes for good under `hosting-and-photo-storage.md` §6.5: one write, recorded who, when and why, irreversible. Only on a photo that is already hidden for a privacy reason; asks for a typed confirmation | Island-only | ✓ | ✓ | — |
 
 **Deciding, and running the list of people**
 
