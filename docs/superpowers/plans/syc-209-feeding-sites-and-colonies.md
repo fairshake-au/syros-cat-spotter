@@ -101,7 +101,7 @@ Each is a "how". None changes what anyone experiences, unless it points to a dec
 | # | The spec says | The code, or another approved document, says | What this plan does |
 |---|---|---|---|
 | **K1** | §10 and §5.2: "the server imports the app's string file" so the card's words live in one place | The API server can't import `APP/lib/i18n.ts` (no package dependency; the app file is a large React Native module) | The card's twelve strings move to a small shared module (`lib/feeding-spot-strings`, a workspace package both import). `i18n.ts` spreads it into each language, so the app's parity test still covers them, and a second test checks the server's preview uses the same object. One place, as the spec wants |
-| **K2** | §11.1: `made_public_by` becomes a link to people; spine ask 5: `colonies.created_by` is a link to people | Both are `text` today. The roles plan (C7) writes the creator's id into `created_by` as text | Both become strict links to `people.id` in **one** checked migration (PR 1.2), refusing with a list if any value isn't a person's id. Production holds no colonies created through a screen, so this is expected to be empty. The roles plan's `createColonyWithPlacement` then writes a real link |
+| **K2** | §11.1: `made_public_by` becomes a link to people. Spine ask 5 originally said the same of `colonies.created_by` | Both are `text` today. **Updated 14 Oct 2026:** the approved roles plan (finding C7, applied to the spec by #133 and to the spine by #129) keeps `colonies.created_by` as text holding the creator's person id, with no foreign key | PR 1.2 converts **only** `feeding_sites.made_public_by` to a strict link to `people.id`, in a checked migration that refuses with a list if any value isn't a person's id. `colonies.created_by` stays text; the roles plan's `createColonyWithPlacement` and this plan's colony routes write the person's id into it |
 | **K3** | §11.1: "the plan's first step is a count" on production | db-ops has no read-only query command | The migration itself refuses with a list if a public, labelless or non-uuid row exists (test 24). The count is still run first, read-only, through the Neon tools, in the same "ask" mode window as the snapshot (Rollout) |
 | **K4** | §3: on a 390 px phone the map is 2×2 tiles of 179 px | Phones narrower than 390 px are common: 375 px (iPhone SE and mini) leaves no margin, and at 360 px (many Androids) a 2×179 map doesn't fit at all, so it would scroll or be squeezed, and a squeezed picture reads taps at the wrong scale | The page draws one mosaic per width band (2×144 below 360 px, 2×164 from 360, 2×171 from 375, 2×179 from 390, 256 px tiles from 600) and a CSS width rule shows exactly one. **Each form carries its own size in a hidden field**, so the server always converts at the scale that was tapped. The hidden mosaics' pictures may still download; that is accepted (team-only, privately cached, a few people). No script |
 | **K5** | §7.5: "forget this guardian" is a team power unless the roles spec says otherwise | The roles spec §17.4 point 1 says it is **management only**; its plan leaves the button to SYC-208's plan | This plan builds the function that blanks the name in every feeding-site and colony store, with test 23 (Slice 5). The management-only button is SYC-208's |
@@ -233,7 +233,7 @@ Three migrations, in this order. **Each takes the next free number when it is ge
 | Migration | PR | What it does | Additive? |
 |---|---|---|---|
 | `feeding_sites_and_history` | 1.1 | New `feeding_sites` columns and checks; `feeding_site_old_codes`; `mapping_events` with its redaction trigger; `site_page_reads`; redaction columns on `colony_name_history`; one `system:migration` event per existing site | **No:** the new checks fail if a public site already exists. The migration checks first and stops with a list |
-| `feeding_site_people_links` | 1.2 | `feeding_sites.made_public_by` and `colonies.created_by` from text to a strict link to `people.id` | **No:** a type change. Stops with a list if any value isn't a person's id |
+| `feeding_site_people_links` | 1.2 | `feeding_sites.made_public_by` from text to a strict link to `people.id` (`colonies.created_by` stays text, K2) | **No:** a type change. Stops with a list if any value isn't a person's id |
 | `map_tile_cache` | 3.1 | One table of cached map pictures, with a size cap | Yes |
 
 Each migration's PR proves **up, down, up** with the repository's own commands (`migrate:cycle` locally, and CI's "Test migrations" step on the real history). Each has a commented rollback block. Rollback for 1.1 says in capitals that it **deletes the history**.
@@ -300,8 +300,8 @@ Option B, as decided by Samuel on 13 Oct 2026.
 
 Its own step, as spec §11.1 asks, because it changes a column's type.
 
-- **Refuse with a list** if any `feeding_sites.made_public_by` or `colonies.created_by` is not null and isn't the id of a row in `people`.
-- Convert both to `uuid`, with a strict link to `people.id`. Rollback converts back to text.
+- **Refuse with a list** if any `feeding_sites.made_public_by` is not null and isn't the id of a row in `people`.
+- Convert it to `uuid`, with a strict link to `people.id`. Rollback converts back to text. `colonies.created_by` is not touched (K2).
 - **Tests.** Test 24 (rest): a non-uuid value, and a uuid that isn't a person, each stop the migration with the id listed; valid values convert unchanged. Up/down/up passes.
 
 ---
