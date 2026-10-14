@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { addPerson, markLeft, pool } from "@workspace/db";
+import { addPerson, db, mailOutboxTable, markLeft, pool } from "@workspace/db";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
@@ -298,6 +298,19 @@ describe("P1-7: the mail banner", () => {
     expect(html).toContain('class="banner"');
     expect(html).toContain("could not be sent");
     expect(html).toContain("Every report is still safe in the queue");
+  });
+
+  it("review finding 8 (SYC-170): is shown for a \"N unchecked reports waiting\" email that failed for good", async () => {
+    await db.insert(mailOutboxTable).values({
+      purpose: "welfare_alert",
+      reportId: null,
+      recipientHash: "vitest",
+      payload: { kind: "unchecked_waiting", waiting: 3 },
+      state: "failed",
+    });
+    const html = await getPage();
+    expect(html).toContain('class="banner"');
+    expect(html).toContain("could not be sent");
   });
 
   it("is shown for an alert still unsent an hour on", async () => {

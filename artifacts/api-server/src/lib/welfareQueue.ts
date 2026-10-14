@@ -205,11 +205,17 @@ export async function mailHealth(): Promise<MailHealth> {
     select
       count(*) filter (
         where state = 'failed'
-          and exists (
-            select 1 from welfare_reports r
-            where r.id = mail_outbox.report_id
-              and r.is_draft = false
-              and r.state in ('new', 'looking')
+          and (
+            exists (
+              select 1 from welfare_reports r
+              where r.id = mail_outbox.report_id
+                and r.is_draft = false
+                and r.state in ('new', 'looking')
+            )
+            -- SYC-170: the "N unchecked reports waiting" email has no report
+            -- row of its own, so a failed one counts by its kind (review of
+            -- #151, finding 8).
+            or (mail_outbox.report_id is null and mail_outbox.payload->>'kind' = 'unchecked_waiting')
           )
       )::int as failed,
       count(*) filter (
