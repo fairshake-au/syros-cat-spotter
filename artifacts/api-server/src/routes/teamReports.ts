@@ -207,7 +207,7 @@ router.post(
       publicId,
       from,
       to,
-      personId: person.id,
+      person,
     });
     if (outcome === "not_found") return notFound(res);
     if (isFormPost(req)) {

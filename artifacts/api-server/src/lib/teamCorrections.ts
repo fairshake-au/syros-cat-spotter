@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
-import { can, type Capability } from "./capabilities";
+import { actingRole, can, type Capability } from "./capabilities";
 import {
   ObservationRefused,
   writeObservation,
@@ -18,7 +18,7 @@ import { TEAM_ROLES } from "./teamRoles";
 // (test P4-6).
 //
 // Every write here **appends** a signed observation through writeObservation
-// (roleAtTime "staff", accountId = the person's people.id). Nothing in
+// (roleAtTime from actingRole, accountId = the person's people.id). Nothing in
 // `observations` is ever updated or deleted. The one column written is
 // `cats.name`, on a rename, in the same transaction as its `name` observation
 // (Decision 5).
@@ -139,7 +139,7 @@ export async function recordTeamStatement(
       kind: input.kind,
       value: { ...input.value, reason: input.reason },
       accountId: person.id,
-      roleAtTime: "staff",
+      roleAtTime: actingRole(person, capability),
       observedAt: input.observedAt ?? new Date(),
     }),
   );
@@ -191,7 +191,7 @@ export async function supersedeStatement(
       kind: original.kind as ObservationKind,
       value: input.value,
       accountId: person.id,
-      roleAtTime: "staff",
+      roleAtTime: actingRole(person, capability),
       observedAt: input.observedAt ?? new Date(),
       supersedesId: original.id,
       supersedeReason: input.reason,
@@ -298,7 +298,7 @@ export async function agreeWithClip(
         reason: LOOKS_RIGHT_REASON,
       },
       accountId: person.id,
-      roleAtTime: "staff",
+      roleAtTime: actingRole(person, "set_sterilisation"),
       observedAt: spotter.observedAt,
       sightingId: spotter.sightingId,
     });
@@ -389,7 +389,7 @@ export async function renameCat(
         kind: "name",
         value: { name: row!.name, normalised: row!.normalisedName, reason: input.reason },
         accountId: person.id,
-        roleAtTime: "staff",
+        roleAtTime: actingRole(person, "rename_cat"),
         observedAt: new Date(),
       });
       return row!.name;
