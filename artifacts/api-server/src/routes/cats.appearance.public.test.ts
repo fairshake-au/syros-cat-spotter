@@ -107,6 +107,41 @@ const NEVER_PUBLIC = [
   "supportingObservationIds",
   "conflicts",
   "asOf",
+  // Who said it and how (review of PR 2.1, minor 1).
+  "author",
+  "accountId",
+  "roleAtTime",
+  "provenance",
+  "observedAt",
+  "voices",
+];
+
+/** A public cat's keys, exactly (CatWithStats, catHelpers.ts). A described
+ * cat must carry no key an undescribed one lacks: the byte-for-byte
+ * snapshots only see undescribed cats (review of PR 2.1, minor 1). */
+const PUBLIC_CAT_KEYS = [
+  "coat",
+  "description",
+  "discovererNickname",
+  "discovererSpotterCode",
+  "discovererUsername",
+  "hasHome",
+  "homeDescription",
+  "homePin",
+  "id",
+  "lastSeenAt",
+  "lat",
+  "lifeStatus",
+  "lng",
+  "locationCellM",
+  "locationPrecision",
+  "markings",
+  "name",
+  "notSeenSince",
+  "ownerName",
+  "photoUrl",
+  "sightingsCount",
+  "sterilised",
 ];
 
 async function publicResponses(): Promise<{ list: Record<string, unknown>[]; details: Record<string, unknown>[]; texts: string[] }> {
@@ -148,6 +183,16 @@ describe("T-leak (C6): colour and markings reach the public as two lists of code
       expect(source.get(cats.oneColour)!["markings"]).toEqual([]);
       expect(source.get(cats.undescribed)!["coat"]).toEqual([]);
       expect(source.get(cats.undescribed)!["markings"]).toEqual([]);
+    }
+  });
+
+  it("a described cat carries exactly the public cat's keys, in the list and on its page", async () => {
+    const { list, details } = await publicResponses();
+    const cats = [...list, ...details.map((d) => d["cat"] as Record<string, unknown>)];
+    expect(cats).toHaveLength(6);
+    for (const cat of cats) {
+      expect(Object.keys(cat).sort(), String(cat["name"])).toEqual(PUBLIC_CAT_KEYS);
+      expect(Object.keys(cat["sterilised"] as object).sort()).toEqual(["clippedTipSightings", "confidence", "value"]);
     }
   });
 
