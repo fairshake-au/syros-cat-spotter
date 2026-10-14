@@ -22,6 +22,7 @@ vi.mock("./lib/logger", async (importOriginal) => {
 import { pool } from "@workspace/db";
 import app from "./app";
 import { redactRequestUrl, safeError } from "./lib/logger";
+import { mintTileToken } from "./lib/mapTiles/tileToken";
 
 const DEVICE = "vitest-logredact-0f3c9a7e2b";
 
@@ -86,6 +87,41 @@ describe("request log redaction (SYC-109)", () => {
     for (const line of spies.logLines) {
       expect(line).not.toContain("74000");
       expect(line).not.toContain("50000");
+    }
+  });
+
+  it("a real map picture request logs as /api/team/map-tiles/:tile, with nothing of its token (SYC-209 PR 3.1)", async () => {
+    process.env["TEAM_SESSION_KEYS"] = "vitest-logredact-key-0123456789abcdef-0123456789";
+    try {
+      const token = mintTileToken({ z: 17, x: 74230, y: 50478, size: 179 });
+      // No session: refused by the real route, and still logged.
+      const res = await request(app).get(`/api/team/map-tiles/${token}`);
+      expect(res.status).toBe(401);
+      const completed = spies.logLines.filter((l) => l.includes('"request completed"'));
+      expect(completed).toHaveLength(1);
+      expect(completed[0]).toContain('"/api/team/map-tiles/:tile"');
+      for (const line of spies.logLines) {
+        expect(line).not.toContain(token);
+        expect(line).not.toContain(token.slice(0, 12));
+        expect(line).not.toMatch(/74230|50478/);
+      }
+    } finally {
+      delete process.env["TEAM_SESSION_KEYS"];
+    }
+  });
+
+  it("a malformed map picture request through the real route logs neither its path nor its error message (SYC-209 PR 3.1)", async () => {
+    await request(app).get("/api/team/map-tiles/17%zz");
+    expect(spies.logLines.length).toBeGreaterThan(0);
+    const completed = spies.logLines.filter((l) => l.includes('"request completed"') || l.includes('"request errored"'));
+    expect(completed.length).toBeGreaterThan(0);
+    expect(completed.every((l) => l.includes('"/api/team/map-tiles/:tile"'))).toBe(true);
+    // The decode error reached the error handler, and was logged by type only.
+    expect(spies.logLines.some((l) => l.includes("URIError"))).toBe(true);
+    for (const line of spies.logLines) {
+      expect(line).not.toContain("17%zz");
+      expect(line).not.toContain("%zz");
+      expect(line).not.toMatch(/failed to decode/i);
     }
   });
 
