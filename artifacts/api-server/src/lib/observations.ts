@@ -615,7 +615,8 @@ export interface WriteObservationInput {
  *   `volunteer` and `admin`, or anything else not in {public, staff,
  *   management, system});
  * - an unknown `authorityScope` or `provenance`, or a `colony:<id>` scope
- *   on any role but `guardian` (roles spec §10.4, Decision B);
+ *   on any role but `guardian` (roles spec §10.4, Decision B), or an
+ *   `owner_of_this_cat` scope on `sterilised` or `ear_tip` (until SYC-130);
  * - not exactly one of `deviceId`/`accountId` set (the same rule the
  *   database's `observations_attribution_ck` enforces, checked here first
  *   for a clear refusal rather than a constraint-violation error), or a
@@ -697,6 +698,20 @@ export async function writeObservation(
   const colonyScope = COLONY_SCOPE_PATTERN.test(authorityScope);
   if (!AUTHORITY_SCOPES.has(authorityScope) && !colonyScope) {
     refuse("INVALID_AUTHORITY_SCOPE", `Unknown authorityScope: ${authorityScope}`);
+  }
+  // An owner outranks the team and a guardian (Decision G), so an
+  // owner-scoped `sterilised` or `ear_tip` row would make an unverified
+  // claimant's word Confirmed. Refused until SYC-130 can check who an owner
+  // is (SYC-53 plan, Slice 6). Owner-scoped `life_status` ("homed") and
+  // `name` rows from the claim and register routes are unaffected.
+  if (
+    authorityScope === "owner_of_this_cat" &&
+    (input.kind === "sterilised" || input.kind === "ear_tip")
+  ) {
+    refuse(
+      "INVALID_AUTHORITY_SCOPE",
+      `authorityScope "owner_of_this_cat" may not write ${input.kind} until SYC-130`,
+    );
   }
   if (colonyScope && input.roleAtTime !== "guardian") {
     refuse(

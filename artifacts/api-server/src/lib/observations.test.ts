@@ -1107,6 +1107,49 @@ describe("the record's vocabulary (SYC-53 PR 0.2)", () => {
     }
   });
 
+  it("an owner-scoped sterilised or ear_tip row is refused until SYC-130; owner-scoped homed and name still work", async () => {
+    const cat = await insertCat();
+    for (const [kind, value] of [
+      ["sterilised", { sterilised: true }],
+      ["ear_tip", { clipped: true }],
+    ] as const) {
+      for (const roleAtTime of ["public", "staff"]) {
+        const author = roleAtTime === "public" ? { deviceId: "owner-phone" } : { accountId: "vocab-account" };
+        await expect(
+          writeObservation(db, {
+            catId: cat.id,
+            kind,
+            value,
+            roleAtTime,
+            authorityScope: "owner_of_this_cat",
+            observedAt: new Date(),
+            ...author,
+          }),
+        ).rejects.toMatchObject(refused("INVALID_AUTHORITY_SCOPE"));
+      }
+    }
+    const homed = await writeObservation(db, {
+      catId: cat.id,
+      kind: "life_status",
+      value: { status: "homed" },
+      deviceId: "owner-phone",
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: new Date(),
+    });
+    expect(homed.authorityScope).toBe("owner_of_this_cat");
+    const named = await writeObservation(db, {
+      catId: cat.id,
+      kind: "name",
+      value: { name: "Owned", normalised: "owned" },
+      deviceId: "owner-phone",
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: new Date(),
+    });
+    expect(named.authorityScope).toBe("owner_of_this_cat");
+  });
+
   it("only the exact pattern colony:<id> is a colony scope; anything near it is an unknown scope", async () => {
     const cat = await insertCat();
     for (const authorityScope of ["colony:0", "colony:01", "colony:3x", "colony:", "colony:-2", "Colony:3"]) {
