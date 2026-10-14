@@ -96,8 +96,8 @@ function cat(over: Partial<Cat> = {}): Cat {
   } as Cat;
 }
 
-function page(c: Cat, canClaim: boolean) {
-  h.data = { cat: c, sightings: [], fansCount: 1, careTimeline: [], canClaim };
+function page(c: Cat, canClaim: boolean, claimCooldown = false) {
+  h.data = { cat: c, sightings: [], fansCount: 1, careTimeline: [], canClaim, claimCooldown };
   return render(<CatDetailScreen />);
 }
 
@@ -145,6 +145,18 @@ describe('the cat page and claiming (§4.1)', () => {
         'Is this your cat? Spot Agatha with the camera first, then you can say Agatha lives with you.',
       ),
     ).toBeTruthy();
+  });
+
+  it('during the 7-day cooldown there is no button and no "spot it first" line, because this phone has spotted it', () => {
+    page(cat(), false, true);
+    expect(claimButton()).toBeUndefined();
+    expect(screen.queryByText(/Spot Agatha with the camera first/)).toBeNull();
+  });
+
+  it('an older server that sends no claimCooldown still shows the hint', () => {
+    h.data = { cat: cat(), sightings: [], fansCount: 1, careTimeline: [], canClaim: false };
+    render(<CatDetailScreen />);
+    expect(screen.getByText(/Spot Agatha with the camera first/)).toBeTruthy();
   });
 
   it('never shows the button from hasHome alone: a cat with no home but canClaim false has none', () => {

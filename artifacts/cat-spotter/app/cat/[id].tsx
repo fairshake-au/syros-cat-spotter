@@ -312,7 +312,10 @@ export default function CatDetailScreen() {
                 </Text>
               )}
             </View>
-          ) : cat.lifeStatus === 'street' ? (
+          ) : cat.lifeStatus === 'street' && !data.claimCooldown ? (
+            /* During the 7-day cooldown this phone HAS spotted the cat, so
+               "spot it first" would be false; the spec has no wording for
+               the cooldown, so nothing is shown. */
             <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
               {t('claimNotMetHint').split('{name}').join(cat.name)}
             </Text>
