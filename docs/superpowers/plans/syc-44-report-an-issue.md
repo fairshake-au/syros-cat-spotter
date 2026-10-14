@@ -62,12 +62,15 @@ Three, one at a time. Each has a recommendation. None blocks Slices 0–2; Decis
 
 **The question.** You decided the team would handle "the words show where someone lives" by hand, with a narrow "clear the home description" power, **unless** SYC-130 made the home description private. SYC-130's approved spec now makes it owner-and-team only: it leaves the public cat page and every push. Should this plan drop the "clear" action?
 
+**Today, though, it's still public.** On `main` the description is in the public cat payload (`routes/cats.ts:428`, `lib/catHelpers.ts:165`), and the "has a home" push carries it (SYC-232). SYC-130's Task 4 removes it, but nothing yet makes that a condition of launch (review finding 8).
+
 | Option | Benefits | Risks | For people using the app | For the team |
 |---|---|---|---|---|
-| **A. Drop it (recommended)** | Nothing to build. The roles catalogue doesn't gain a power nobody needs. The text that worried a neighbour is no longer public once SYC-130's change ships | If SYC-130's build slipped past launch, the description would still be public for a while. The fix then is to ship SYC-130's privacy change, not to build a second tool | A neighbour's report still lands in the queue, and they're told "Syros Cats will take a look" | Location reports are handled by looking and, if needed, by contacting the owner. The map spot is already blurred to 250 m |
-| B. Build it anyway | A tool exists if the text ever becomes public again | Builds and tests a power for text the public can't see | None | A button that does nothing useful |
+| **A. Drop it, and make SYC-130's privacy change a launch-day condition (recommended)** | Nothing to build. The roles catalogue doesn't gain a power nobody needs. The pre-launch pass can't come off while the description is public, so there's never a public description with no way to clear it | Launch waits on SYC-130's Task 4 (already being built). Until launch, only testers see the description | A neighbour's report still lands in the queue, and they're told "Syros Cats will take a look" | Location reports are handled by looking and, if needed, by contacting the owner. The map spot is already blurred to 250 m |
+| B. Drop it, with no launch condition | Nothing to build, and launch doesn't wait on SYC-130 | If SYC-130 slips past launch, a description that names someone's house stays public, and the team has no way to take it down | Same | No tool when it's needed |
+| C. Build it anyway | A tool exists whatever happens to SYC-130 | Builds and tests a power for text that, once SYC-130 ships, the public can't see | None | A button that will soon do nothing useful |
 
-**Recommendation: A.** This plan also comments on SYC-247: its first part (clearing the text) is superseded by SYC-130, and its second part (hiding a map spot, after launch) stays.
+**Recommendation: A.** The condition goes on SYC-114's launch-day list beside the others. This plan also comments on SYC-247: its first part (clearing the text) is superseded by SYC-130, and its second part (hiding a map spot, after launch) stays.
 
 ### Decision 3: Which hidden photos can be deleted for good? (C3)
 
@@ -75,16 +78,17 @@ Three, one at a time. Each has a recommendation. None blocks Slices 0–2; Decis
 
 | Option | What it means | Benefits | Risks | For people in photos | For the team |
 |---|---|---|---|---|---|
-| **A. Hidden now, and someone reported it as "shows a person or a private place" (recommended)** | The button appears only on a photo that is hidden, with at least one "It shows a person or a private place" report about it (whether the report hid it, or the team hid it by hand after the daily brake) | Matches the words "privacy reason" exactly. An irreversible action stays tied to a privacy claim someone actually made | A photo that's private but was only reported as "upsetting" can't be deleted until someone reports it as private, or until the team adds a hand-hide route for privacy later | A person whose face or front door is in a photo gets real removal | One clear rule. The row says why the button is there |
+| **A. Hidden now, and either a "shows a person or a private place" report about it, or the team ticked "for privacy" when hiding it (recommended)** | The team's **Hide** form gains a "for privacy (a person or a private place)" tick, recorded as the hide's reason. The button appears only on a photo that is hidden **and** has a privacy report or a privacy hide | Matches "privacy reason" exactly. The team can act on a private photo nobody has reported (a privacy email, say), or one reported as "upsetting" that is really private. A stranger's report only makes the button **appear**; a team member still decides, and types `DELETE` | One more tick on the hide form | A person whose face or front door is in a photo gets real removal, however it reached the team | One clear rule. The row says why the button is there |
+| A2. As A, but only a "shows a person or a private place" report counts (no team tick) | The button appears only where someone reported the photo as private | Slightly less to build | The team can't delete a private photo that nobody reported as private | As A, but only through a report | Has to wait for the right report |
 | B. Hidden now, and reported for either hiding reason (private, or upsetting/offensive) | Also covers offensive pictures | Also lets the team delete upsetting photos, which may be evidence about a cat's welfare. Deletion can't be undone | Same as A, plus offensive photos | More photos deletable; more chance of losing one by mistake |
 | C. Any hidden photo | Simplest | The irreversible button sits on every photo the team has ever hidden, including "that's a different cat" | Same as A | Easiest to delete the wrong thing |
 
-**Recommendation: A.** Deletion is the one action here that can't be undone, so it stays tied to the reason it exists for.
+**Recommendation: A.** Deletion is the one action here that can't be undone, so it stays tied to the reason it exists for: privacy, as the team judges it (review finding 9).
 
 ### Small calls this plan makes (object to any, otherwise they stand)
 
 - **What `hidden: true` means.** The reply says `hidden: true` when the photo is hidden from the public at the moment the report is saved, whoever hid it. A second report about a photo that's already hidden therefore gets the "The photo is hidden" thank-you (true), and writes no second hide. The team sees "already hidden" on the row.
-- **The reporter's note is deleted at one year; the team's note is kept** (D12). The team note is the team's record of what it did, like a welfare report's.
+- **At one year, both notes go** (D12, review finding 19): the reporter's note and the team's note, since either may quote the reporter. The bare record (reason, photo or cat, state, dates) stays, which is what D12 lists.
 - **A photo deleted for good** shows a quiet tile, "Photo removed", in the sightings list, instead of "Photo hidden while Syros Cats take a look", which would no longer be true.
 - **The typed confirmation for deletion** is the word `DELETE`. The dashboard is English-only until SYC-53 PR 1.0, and a fixed word is easiest to check.
 - **The photo route's rate limit stays in each server's memory** after SYC-105. Every photo on every cat list passes it, so a database write per photo would cost more than it protects. Every write limit (reports, issues, hides, unchecked rows, sign-in hand-off, AI matching, new phones, deletion) moves to the database.
@@ -352,15 +356,16 @@ Nothing is merged to `main` from the spike except a short note.
 
 **The order inside it** (spec §13, exactly):
 1. **Body and device.**
-2. **Duplicate:** a content row with `(device, clientRef)` exists → reply with what it did (`200`, `hidden` as it was). The **upgrade case** (spec §9.5) applies when that row is unchecked, still `new` or `looking`, and its photo has never been restored. Then a valid token re-marks it checked and runs steps 5–7 for it.
+2. **Duplicate:** a content row with `(device, clientRef)` exists → reply with what it did (`200`, the stored `hidden`, below). The **upgrade case** (spec §9.5) applies when that row is unchecked, still `new` or `looking`, and its photo has never been restored. Then a valid token re-marks it checked and runs steps 6–8 for it.
 3. **Courtesy:** the same device reported the same photo (or cat) for the same reason in the last 24 hours → treated as that report (spec §8.1). It's a courtesy, not a control.
-4. **Token** (action `report_issue`, `cdata` = `clientRef`):
+4. **Attempts limit** (review finding 7): 60 calls an hour per address, counted **before** the token. Without it, junk tokens would mean unlimited calls to Cloudflare, and a Cloudflare slowed by them would turn into "unreachable" and unchecked rows. It adds to the spec's order rather than changing it: the spec's 20-reports limit still comes after the token. A real phone retrying after a `428` uses a handful.
+5. **Token** (action `report_issue`, `cdata` = `clientRef`):
    - `rejected` → `428`, nothing written;
    - `unreachable` → continue as **unchecked**, after the unchecked limit (3 an hour per address, shared with the welfare form).
-5. **Address limit:** 20 issue reports an hour (`429`).
-6. **Find the cat and photo.** The cat must exist (`404`). The photo is found through `findPhotoByAnyPublicId` (so a rotation since the phone saved the report doesn't lose it), and must be that cat's main photo or a photo on one of its resolved sightings (`422` otherwise, so nobody can hide another cat's photo through a report about a different one).
-7. **One transaction:**
-   1. insert the row (`kind = 'content'`, `photo_state = 'none'`, `token_checked`);
+6. **Address limit:** 20 issue reports an hour (`429`).
+7. **Find the cat and photo.** The cat must exist (`404`). The photo is found through `findPhotoByAnyPublicId` (so a rotation since the phone saved the report doesn't lose it), and must be that cat's main photo or a photo on one of its resolved sightings (`422` otherwise, so nobody can hide another cat's photo through a report about a different one).
+8. **One transaction:**
+   1. insert the row (`insert … on conflict (reporter_device, kind, client_ref) do nothing`; if two sends of the same `clientRef` race, the loser reads the winner's row and replies with it — review finding 10) with `kind = 'content'`, `photo_state = 'none'` and `token_checked`;
    2. for `photo_private` and `photo_inappropriate`, **lock the photo row** (the same `for update` as `setPhotoVisibility`) and apply the rules in this order, recording the first that stops the hide in `hide_skipped`:
       1. already hidden → `already_hidden`, and the reply is `hidden: true` (small call above);
       2. unchecked → `unchecked` (rule (i));
@@ -371,6 +376,7 @@ Nothing is merged to `main` from the spike except a short note.
    4. queue the alert (5.2).
 
    Commit, then reply `201 { publicId, hidden }`. **The reply's `hidden` is read from the database after the hide step, never from the reason.**
+- **What a repeat send is told** (review finding 10). The first answer is stored, not worked out again: `hidden` was true exactly when `hidden_by_report` is true or `hide_skipped = 'already_hidden'`. A repeat gets that stored answer, even if the team has restored the photo since. It tells the reporter what their report did, never the photo's state today.
 - **No reporter details anywhere:** the IP isn't stored on the row, and the device is stored only for the resend check and cleared by SYC-63 (T4-7).
 
 **Tests** (spec test numbers in brackets):
@@ -380,7 +386,7 @@ Nothing is merged to `main` from the spike except a short note.
 | **T5-1 [1]** | A confirmed `photo_private`, and a confirmed `photo_inappropriate`, with a valid token hides in the same transaction (`hidden: true`). The photo is then `404` on the public route and absent from the cat list, cat detail, match candidates and notifications | Hide after commit in a second transaction → a forced failure between them leaves a row with no hide; the test checks atomicity by failing the outbox insert |
 | **T5-2 [2]** | Each bad token is `428` with no row and no hide; a timeout or 5xx makes an unchecked row that doesn't hide | Map `rejected` to unchecked → red |
 | **T5-3 [3]** | A photo with any `restore` row isn't hidden by a report, including one hidden again by the team and restored a second time | Check only the newest event → red |
-| **T5-4 [4]** | The 6th hide from one address in an hour doesn't hide and records `address_limit`, across two app instances, on a day the brake hasn't tripped | Consume outside the transaction → red on the rollback case |
+| **T5-4 [4]** | The 6th hide from one address in an hour doesn't hide and records `address_limit`, across two app instances, on a day the brake hasn't tripped. **With the brake at 5 that day can't exist in production** (five hides from one address trip both at once, and the brake is checked first; review finding 5), so the brake's threshold is a named constant the test raises to 50. In production the address limit is the second line the spec says it is (§8.1) | Consume outside the transaction → red on the rollback case; drop the address check → red with the raised brake |
 | **T5-5 [5]** | With 5 report-hides since midnight Athens time, the 6th queues with `hidden: false` and `brake`; there's no resume route; the first report after midnight Athens time hides again. **Run across the clock change on 25 Oct 2026** (midnight Athens is 21:00 UTC on the 24th and 22:00 UTC on the 25th) | Count a rolling 24 hours instead of the Athens day → red; count team hides too → red |
 | **T5-6 [6]** | For each of `address_limit`, `restored_before`, `brake`, `unchecked`: the reply is `hidden: false` | Reply from the reason, not the database → red |
 | **T5-7 [7]** | `cat_died`, `wrong_name`, `wrong_info` and `location_revealing` change nothing public: the cat's public payload is byte-for-byte unchanged, no push is sent, and no observation is written | — |
@@ -395,7 +401,7 @@ Nothing is merged to `main` from the spike except a short note.
 - **`issue_alert`** goes into `MAIL_PURPOSES` and `DEFAULT_ENABLED`, and is **not** in `NEVER_SHED_PURPOSES`. It goes to `WELFARE_ALERT_TO`, which the caller can't choose. `urgent_alert` stays off (F1).
 - **Two kinds, one purpose:**
   - **"Photo hidden"** emails go out individually, **at most 10 an hour in total**, counted with `consume()` inside the report's transaction. Beyond 10, the report is left for the digest;
-  - **the digest**, `Issue reports: N waiting`, is sent from the mail drain at most once per Athens day (`issue_digest_runs` claimed with `insert … on conflict do nothing`). It lists reasons and cats with team links, and no notes.
+  - **the digest**, `Issue reports: N waiting`, is queued from the mail drain at most once per Athens day. `issue_digest_runs` is claimed with `insert … on conflict do nothing` **in the same transaction that puts the digest into the outbox**, so a failed send is retried by the outbox, and the day isn't lost (review finding 19). It lists reasons and cats with team links, and no notes.
 - **The builder:** `lib/issues/alertEmail.ts`. The subject is `Photo hidden: possible private or offensive content`. The body has the reason's English label, the note (escaped), the cat's name and a team-page link, and **the photo attached** (never linked), skipped if it has since been deleted for good. There are no reporter details. `processRow` gets an `issue_alert` branch.
 - **Shedding, the smallest version that keeps the promise:**
   - `claimDue` takes never-shed purposes first, so a queue of issue alerts can never sit in front of a hurt cat;
@@ -406,7 +412,7 @@ Nothing is merged to `main` from the spike except a short note.
   - **T5-15:** the 11th "Photo hidden" alert in an hour is folded into the digest;
   - **T5-16:** the digest goes once a day even with two drains at the same moment;
   - **T5-17:** at the budget, `issue_alert` is shed and `welfare_alert` still sends;
-  - **T5-18:** a content row's alert never waits ten minutes for a photo (spec test 9).
+  - **T5-18 (spec test 9):** a content row's alert never waits ten minutes for a photo, and the queue page never shows "Photo still uploading" on an issue row.
 - **Mutation probes:**
   - order `claimDue` by age only → T5-14 red;
   - add `issue_alert` to the never-shed list → T5-17 red;
@@ -437,7 +443,7 @@ Nothing is merged to `main` from the spike except a short note.
 - **The confirmation is chosen from the server's `hidden`**: hidden, "not hidden yet", or the plain thank-you (spec §4.1). Offline, it's *"Saved on your phone. It will be sent when you have a connection."*, or on the web *"Saved in this browser…"* with the line that a browser can clear what it stores. **It never says "hidden" before the server has answered.**
 - **Strings** in en, el and fr for every reason, hint, the first line, the confirm step, the four confirmations, the safety-check message, the tile and the reminder. Greek capitals use `displayUpperCase` (SYC-159). The confirm step's Greek and French keep both halves: "everyone", and "until reviewed".
 - **Tests:**
-  - **T6-4 [18]:** the first line links to "This cat needs help"; the `wrong_info` entry opens with it chosen;
+  - **T6-4 [18]:** the first line links to "This cat needs help"; the `wrong_info` entry opens with it chosen; the `photo_private` hint is exactly "faces, house numbers, number plates, inside a home or garden" (D2), with no "doorway";
   - **T6-5 [6, app]:** for `hidden: false` on a hiding reason, the "not hidden yet" text shows, never the hidden one;
   - **T6-6 [14, app]:** offline, the confirmation is the saved text and never "hidden"; a resend fetches a fresh token;
   - **T6-7 [16]:** `428` isn't a strike in `issueQueue`;
@@ -456,7 +462,8 @@ Nothing is merged to `main` from the spike except a short note.
 
 ### PR 7.1: the Issues section, the strip and the actions (spec §5.3, §5.4)
 
-- **Capabilities.** `view_welfare_queue` gates the section, its data, the strip, the alert links and the team photo route for a reported photo. If SYC-53 PR 0.5 isn't on `main` yet, this PR adds the name to `CAPABILITIES` (C6). Each gated route **refuses**, rather than hides, for anyone without it.
+- **Capabilities.** `view_welfare_queue` gates the section, its data, the strip and the alert links.
+- **The reported photo has its own route** (review finding 14): `GET /api/team/issue-photos/:reportPublicId`, gated by `view_welfare_queue`. It serves the photo a report points at, hidden or not, and nothing else. The catalogue photo route (`/team/photos/:publicId`, `view_exact_location` with the photo's cat as the target, hidden only to `hide_photo` holders) is unchanged. So a guardian who can see her colony's catalogue photos never reaches a photo **through an issue report**. If SYC-53 PR 0.5 isn't on `main` yet, this PR adds the name to `CAPABILITIES` (C6). Each gated route **refuses**, rather than hides, for anyone without it.
 - **The section**, below "Waiting for the team", with its own colour band **and** an "Issue" text label on each row:
   1. Hidden, waiting for you (longest wait first; the count goes in the top bar);
   2. location and died;
@@ -466,7 +473,7 @@ Nothing is merged to `main` from the spike except a short note.
   Each row has the reason's English label, the cat, the photo through the team route, the note (escaped), how long ago, the four states and team note, "a member of the public", **"N others reported this"** (open rows with the same photo and reason, or the same cat and reason), and `hide_skipped` in words ("hide limit reached", "restored before", "daily brake", "unchecked", "already hidden").
 - **The brake banner** is shown while today's report-hides are at 5, read from the same function the route uses. There's no resume control anywhere.
 - **Actions**, each with the Origin check and its capability, each in one transaction:
-  - **Keep hidden** (`hide_photo`; closes as Done);
+  - **Keep hidden** (`hide_photo`; closes as Done). It checks, under the photo lock, that the photo is **still hidden**. If someone restored it in the meantime, it closes nothing and says so (review finding 13);
   - **Restore** (`restore_photo`; writes the restore through Slice 3's helper, so the address rotates; closes as Nothing needed);
   - **Hide this photo** on `photo_not_cat` and `wrong_cat` rows (`hide_photo`);
   - links to the cat page's existing rename, life-status and "mark wrong" forms.
@@ -474,21 +481,22 @@ Nothing is merged to `main` from the spike except a short note.
   **No "Which cat is this?" on a content row** (Slice 4).
 - **The strip** on the team cat page lists the cat's issue reports, gated separately (spec §5.3).
 - **Tests:**
-  - **T7-1 [17]:** the route walk gains every new route. A guardian with the cat in her colony gets no strip, no Issues section, and a refusal on the reported-photo route and the alert links; a team member gets all of them. This extends `team.walk.test.ts`, and SYC-53's eight-person walk once PR 0.5 exists;
+  - **T7-1 [17]:** the route walk gains every new route. A guardian with the cat in her colony gets no strip, no Issues section, and a refusal on `/team/issue-photos/…` and the alert links; a team member gets all of them. This extends `team.walk.test.ts`, and SYC-53's eight-person walk once PR 0.5 exists;
   - **T7-2:** the order of the four groups, and that the section is never above a welfare report;
   - **T7-3:** the "others" count by group;
-  - **T7-4:** Keep hidden and Restore close the report and write exactly one event each, and Restore rotates;
+  - **T7-4:** Keep hidden writes **no** event and closes the report only while the photo is hidden (refused after a restore); Restore writes exactly one event, rotates and closes the report;
   - **T7-5:** the banner shows at 5 and there's no resume route (the walk finds none);
   - **T7-6 [11]:** the section's HTML and JSON carry no device, address or IP.
 - **Mutation probes:**
   - show the strip without its own check → T7-1 red;
+  - gate `/team/issue-photos/` with `view_exact_location` → T7-1 red;
   - put Issues above Waiting → T7-2 red.
 - **Browser check** of the dashboard at 390 px and desktop, with seeded issues of every kind.
 
 ### PR 7.2: deleting a photo for good (SYC-246; D5; hosting §6.5; migration `photo_removal`)
 
 - **The migration:** `photos.data` becomes nullable, and `photos` gains `removed_at`, `removed_by` (→ `people.id`) and `removed_reason`, with a check that `data is null` exactly when `removed_at is not null`. **Removing is one database write** (hosting §6.5): one `update photos set data = null, removed_at, removed_by, removed_reason`. The row stays, so every link to it survives. Rollback can't bring bytes back; the rollback block says so in capitals.
-- **`removePhoto(person, publicId, reason)`** in `lib/photoVisibility.ts`. It needs `remove_photo`, a typed `DELETE`, and Decision 3's rule (hidden now, and at least one `photo_private` report about it, under option A). It takes the same photo lock, and records who, when and why.
+- **`removePhoto(person, publicId, reason)`** in `lib/photoVisibility.ts`. It needs `remove_photo`, a typed `DELETE`, and Decision 3's rule (under option A: hidden now, and a `photo_private` report about it or a team hide with the privacy tick). It takes the same photo lock, and records who, when and why.
 - **Every place that reads a photo's bytes or could bring it back.** Each degrades gracefully, never into a 500, and each has a named test (**T7-7**). Because `data` becomes `string | null`, **the type checker finds every reader**. On top of that, **a source test (T7-8)** fails if `photosTable.data` or `photos.data` is read in a file outside the reviewed list:
 
   | Place | After removal |
@@ -507,7 +515,7 @@ Nothing is merged to `main` from the spike except a short note.
 - **Tests:**
   - **T7-7** (each place above);
   - **T7-8** (source);
-  - **T7-9:** refused without `remove_photo`, without `DELETE`, on a photo that isn't hidden, and on a hidden photo with no `photo_private` report;
+  - **T7-9:** refused without `remove_photo`, without `DELETE`, on a photo that isn't hidden, and on a hidden photo with neither a `photo_private` report nor a privacy-ticked hide;
   - **T7-10:** two simultaneous removals write once.
 - **Mutation probes:**
   - let restore through on a removed photo → T7-7 red;
@@ -522,9 +530,9 @@ Nothing is merged to `main` from the spike except a short note.
 
 **What changes, in plain English.** A year after an issue report is closed, the reporter's note is deleted. The bare record stays (reason, which photo or cat, what the team decided, dates), so "have we been asked about this photo before?" still has an answer.
 
-- **A daily sweep hung off the mail drain** (the keep-safe sweep's pattern, since there's no other scheduler). For `kind = 'content'` rows in `done` or `nothing_needed` whose `state_changed_at` is over a year ago, it sets `note = null` and `note_cleared_at = now()`. The team note is kept (small call above).
+- **A daily sweep hung off the mail drain** (the keep-safe sweep's pattern, since there's no other scheduler). For `kind = 'content'` rows in `done` or `nothing_needed` whose `state_changed_at` is over a year ago, it sets `note`, `team_note`, `team_note_by` and `team_note_at` to null and `note_cleared_at = now()` (small call above).
 - **Tests:**
-  - **T8-1 [21]:** an issue note goes at one year and a day, and is kept at 364 days;
+  - **T8-1 [21]:** an issue row's note and team note go at one year and a day, and are kept at 364 days;
   - **T8-2 [21]:** a welfare row closed four years ago is untouched (the three-year welfare job doesn't exist; ticket below);
   - **T8-3:** a reopened report (moved back to `looking`) isn't swept.
 - **Mutation probe:** drop `kind = 'content'` → T8-2 red.
@@ -606,7 +614,11 @@ For each PR, in order, after its own review:
    - **7.1:** `curl` every new `/api/team/*` route without a session → `401`.
    - **7.2:** delete a test photo on development; its team route is `410`; a match near its cat still works.
 5. **Switching Turnstile on** (`TURNSTILE_MODE`; small call above): `observe` after 1.2 publishes; `enforce` once 1.3's build is in testers' hands.
-6. **Launch day** (comment on SYC-114): `PRELAUNCH_GATE=off` only after `TURNSTILE_MODE=enforce` is live on both forms, Slice 2 is live **and the one-instance pin has been lifted or deliberately kept**, plus SYC-114's own step 0 (blurring live).
+6. **Launch day** (comment on SYC-114): `PRELAUNCH_GATE=off` only after:
+   - `TURNSTILE_MODE=enforce` is live on both forms (the code also refuses `off`/`observe` with the pass off);
+   - Slice 2 is live, **and the one-instance pin has been lifted or deliberately kept**;
+   - under Decision 2 A, SYC-130's Task 4 is live (no home description in the public payload or any push);
+   - SYC-114's own step 0 (blurring live).
 
 **Rolling back:** revert the PR. Every migration has a commented rollback, run on a snapshot first. 4.1's rollback **deletes every issue report** (said in capitals), so after Slice 5 is live it's run only with Samuel's yes. 7.2's can't restore deleted bytes.
 
@@ -659,11 +671,11 @@ Session model for this plan: **Opus 5.5**. Opus was asked for in the brief: the 
 | Work package | Model | Why this tier | Assurance |
 |---|---|---|---|
 | Docs 0.1 (catalogue row, Part 2q) | Haiku | Copying approved text word for word | Session model diffs it against spec §5.5 and §15 |
-| 1.0 spike: Cloudflare widget via API, `/_challenge`, simulator run, spike note | Sonnet | Clear steps, documented API | **Probe:** a real token's siteverify answer shows the exact hostname, action and `cdata` (pasted into the note); session model reads the note before 1.3 starts |
+| 1.0 spike: `/_challenge`, simulator run, spike note (**the production widget itself is created by the session model**, review finding 18) | Sonnet | Clear steps, documented API | **Probe:** a real token's siteverify answer shows the exact hostname, action and `cdata` (pasted into the note); session model reads the note before 1.3 starts |
 | 1.1 `lib/turnstile.ts` and the two routes | **Opus** | *Escalated:* the order (duplicate before token, `428` vs unchecked) is the whole security of the welfare queue, and a wrong branch is silent (a scripted report accepted, every test green) | T1-1…T1-8 with **mutation probes** (hostname, `rejected`→unchecked, order, unchecked limit); independent review in its own worktree told to find a way in without a token |
 | 1.2 web client and `reportQueue.ts` `428` rule | Sonnet | Small, well-specified client change | T1-9…T1-12, **mutation probe** (`428` as a strike); browser check with the three test sitekeys |
 | 1.3 native WebView host | Sonnet | Follows the spike's proven recipe | T1-13…T1-15; **probe** on Samuel's two phones (a checked row in production); Opus spot review of the navigation allow-list |
-| 2.1 shared store and moving the limiters | Sonnet | One table and a known `express-rate-limit` store interface | T2-1 across two instances with its **mutation probe**; Opus review of the atomic upsert |
+| 2.1 shared store and moving the limiters | Sonnet | One table and a known `express-rate-limit` store interface | T2-1, T2-5 and T2-6 with their **mutation probes**; an **Opus adversarial review in its own worktree** (not a spot review; review finding 18), because every abuse limit and the hide limits stand on this store |
 | 3.1 rotation and the retired-id lookup | **Opus** | *Escalated:* two lookups that must differ (public vs internal), inside an existing lock. A mix-up silently re-publishes a hidden photo at an old address | T3-1…T3-6 with **mutation probes**; P6-0; **probe** after publish |
 | 4.1 migration and the `kind` sweep | Sonnet | Mechanical once the reader table exists, which this plan provides | T4-0 structural guard plus T4-1's byte-for-byte snapshot, **mutation probes** on four sites; session model reads the generated SQL and the rollback line by line |
 | 5.1 `POST /api/issues` and the hide transaction | **Opus** | *Escalated:* rule order, the advisory-locked brake, limits consumed inside the transaction, the upgrade case. Every one fails silently | T5-1…T5-12 with **mutation probes**; T5-10 run 20 times; independent review told to hide 6 photos in one Athens day |
@@ -674,7 +686,7 @@ Session model for this plan: **Opus 5.5**. Opus was asked for in the brief: the 
 | 7.1 Issues section, strip, actions | Sonnet | Server-rendered HTML following the queue page | T7-1…T7-6 with **mutation probes** (strip check, order); route walk; browser check |
 | 7.2 deleting for good | **Opus** | *Escalated:* irreversible, and every reader of photo bytes must degrade. A missed one is a silent privacy failure or a 500 | T7-7…T7-10, T7-8 structural guard, **mutation probes**; independent review told to find a way to show or restore a deleted photo |
 | 8.1 retention sweep | Sonnet | One scoped update | T8-1…T8-3, **mutation probe** (kind) |
-| Adversarial review of each PR before merge | Sonnet, in its own worktree, never shared; Opus for 1.1, 3.1, 5.1 and 7.2 | Equal tier to the builder | Findings folded in and listed in each PR; the session model checks each against the code |
+| Adversarial review of each PR before merge | Sonnet, in its own worktree, never shared; Opus for 1.1, 2.1, 3.1, 5.1 and 7.2 | Equal tier to the builder | Findings folded in and listed in each PR; the session model checks each against the code |
 | Production steps (Cloudflare widget, migrations, snapshots, probes) | Session model | Production state, not delegated | The rollout probes |
 
 ## Crash-proofing for the build
@@ -703,7 +715,7 @@ Each PR is built in its own worktree off fresh `origin/main`. **Commit after eac
 
 **Comments added (no state changes):**
 - SYC-44 and SYC-170: this plan's PR;
-- SYC-114: the launch-day preconditions;
+- SYC-114: the launch-day preconditions (Turnstile `enforce`, Slice 2 live, and, under Decision 2 A, SYC-130's privacy change);
 - SYC-247: its first part is superseded by SYC-130, pending Decision 2;
 - SYC-229: the 13 Oct probe;
 - SYC-81: skip deleted photos;
