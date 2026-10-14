@@ -546,10 +546,23 @@ describe("coat validator", () => {
     const row = await writeAs(cat.id, "coat", { colours: ["ginger", "tabby"] }, "public");
     expect(row.kind).toBe("coat");
   });
-  it("accepts black_and_white and not_sure alone, and tolerates extra keys", async () => {
+  it("accepts black_and_white alone, and tolerates extra keys", async () => {
     const cat = await insertCat();
-    await writeAs(cat.id, "coat", { colours: ["black_and_white"] }, "staff");
-    await writeAs(cat.id, "coat", { colours: ["not_sure"], agreesWith: 1, reason: "x" }, "staff");
+    await writeAs(cat.id, "coat", { colours: ["black_and_white"], agreesWith: 1, reason: "x" }, "staff");
+  });
+  it("NS1 refuses a team Not sure on colour; a spotter and the machine may still say it", async () => {
+    const cat = await insertCat();
+    for (const role of ["staff", "admin"]) {
+      await expect(
+        writeAs(cat.id, "coat", { colours: ["not_sure"], reason: "x" }, "staff", { roleAtTime: role }),
+      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    }
+    await writeAs(cat.id, "coat", { colours: ["not_sure"] }, "public");
+    await writeAs(cat.id, "coat", { colours: ["not_sure"], modelVersion: "v1" }, "system", {
+      provenance: "machine",
+    });
+    // Markings are unaffected: the team's "nothing special" stays valid.
+    await writeAs(cat.id, "markings", { marks: [] }, "staff");
   });
   it("refuses a person's coat carrying modelVersion", async () => {
     const cat = await insertCat();

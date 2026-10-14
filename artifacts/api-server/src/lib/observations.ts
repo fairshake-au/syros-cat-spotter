@@ -101,6 +101,14 @@ const RETRACTING_ROLES: ReadonlySet<string> = new Set([
   "guardian",
 ]);
 
+/** Who states appearance with authority, and so may not state Not sure. */
+const STATING_ROLES_WITHOUT_NOT_SURE: ReadonlySet<string> = new Set([
+  "staff",
+  "admin",
+  "management",
+  "guardian",
+]);
+
 const AUTHORITY_SCOPES: ReadonlySet<string> = new Set([
   "none",
   "guardian_of_this_cat",
@@ -359,6 +367,19 @@ function validateValue(
         refuse(
           "MALFORMED_VALUE",
           '"not_sure" cannot be combined with another colour',
+        );
+      }
+      // The team never states Not sure on colour (Samuel, 14 October 2026):
+      // Correct does not offer it, and "Mark wrong" is how the team undoes a
+      // colour. A spotter and the photo reader still may.
+      if (
+        colours.length === 1 &&
+        colours[0] === "not_sure" &&
+        STATING_ROLES_WITHOUT_NOT_SURE.has(ctx.roleAtTime)
+      ) {
+        refuse(
+          "MALFORMED_VALUE",
+          'the team and cat guardians never state "not_sure" on colour; use a retraction ("Mark wrong") to undo a colour',
         );
       }
       if (colours.includes("black") && colours.includes("white")) {

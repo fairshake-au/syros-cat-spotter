@@ -304,6 +304,7 @@ The plan's decisions, as answered:
 **Amended 14 October 2026 (Samuel, during the PR 1.2 review), colour only:**
 - **A person's *Not sure* withdraws their own earlier colour.** If a device's newest colour answer is *Not sure*, its earlier colour no longer counts, neither as one of two voices nor as a gap-filler. **Why:** Samuel preferred to respect a change of mind over keeping the vote; the team can still correct the colour. Markings are unchanged: *Can't tell* and "nothing special" withdraw nothing.
 - **Marking the photo reader's newest reading wrong leaves it with no reading.** An older machine reading never comes back; spotters' answers or *Not sure* decide. **Why:** an older reading the team never looked at should not quietly return.
+- **The team never states *Not sure* on colour** (Samuel, 14 October 2026). The Correct screen doesn't offer it, and "Mark wrong" is how the team undoes a colour. `writeObservation` refuses a team or guardian *Not sure* coat. **Why:** one clear way to undo a colour, and no in-between state that hides spotters' answers.
 
 ## Part 2o — approval of `feeding-sites-and-colonies.md` (SYC-209), 12 October 2026
 
