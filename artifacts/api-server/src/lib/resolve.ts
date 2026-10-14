@@ -777,11 +777,17 @@ export function athensDay(at: Date): string {
   return todayInStreakTimezone(at);
 }
 
-/** One spotter's voice on one value: the row that decides it. */
+/** One spotter's voice on one value. */
 export interface Voice {
   /** The device, or `redacted:<row id>` for a row whose author was cleared. */
   key: string;
+  /** The voice's newest row: for colour, the one that says which colours
+   * the device holds now. */
   row: Observation;
+  /** Every one of the voice's rows that were passed in. Independence is
+   * judged across all of them, so a device repeating itself never costs a
+   * value its second voice. */
+  rows: Observation[];
 }
 
 function voiceKey(o: Observation): string {
@@ -803,26 +809,52 @@ function isNewer(a: Observation, b: Observation): boolean {
  * newest (by `observedAt`, ties by id). Non-spotter rows are ignored.
  */
 export function onePerVoice(rows: readonly Observation[]): Voice[] {
-  const newest = new Map<string, Observation>();
+  const byKey = new Map<string, Voice>();
   for (const o of rows) {
     if (!isSpotterVoiceRow(o)) continue;
     const key = voiceKey(o);
-    const current = newest.get(key);
-    if (!current || isNewer(o, current)) newest.set(key, o);
+    const current = byKey.get(key);
+    if (!current) {
+      byKey.set(key, { key, row: o, rows: [o] });
+      continue;
+    }
+    current.rows.push(o);
+    if (isNewer(o, current.row)) current.row = o;
   }
-  return [...newest.entries()].map(([key, row]) => ({ key, row }));
+  return [...byKey.values()];
+}
+
+/** Two rows from different voices are independent evidence: neither is a
+ * prompted tap, they came from different photos (where both still carry
+ * one), and they describe different Europe/Athens calendar days. */
+function independentRows(a: Observation, b: Observation): boolean {
+  if (a.provenance === "prompted" || b.provenance === "prompted") return false;
+  if (a.photoId != null && a.photoId === b.photoId) return false;
+  return athensDay(a.observedAt) !== athensDay(b.observedAt);
+}
+
+/** The earliest instant two voices were independent: over every pair of
+ * their rows that is independent, the later row's date, minimised. */
+function independentSince(a: Voice, b: Voice): number | null {
+  if (a.key === b.key) return null;
+  let earliest: number | null = null;
+  for (const ra of a.rows) {
+    for (const rb of b.rows) {
+      if (!independentRows(ra, rb)) continue;
+      const at = Math.max(ra.observedAt.getTime(), rb.observedAt.getTime());
+      if (earliest == null || at < earliest) earliest = at;
+    }
+  }
+  return earliest;
 }
 
 /**
- * Two voices count as two only if they are independent: neither is a
- * prompted tap, they came from different photos (where both still carry
- * one), and they describe different Europe/Athens calendar days.
+ * Two voices count as two only if some row of one and some row of the
+ * other are independent (see `independentRows`): a later repeat by either
+ * device never undoes an earlier independent pair.
  */
 export function independentPair(a: Voice, b: Voice): boolean {
-  if (a.key === b.key) return false;
-  if (a.row.provenance === "prompted" || b.row.provenance === "prompted") return false;
-  if (a.row.photoId != null && a.row.photoId === b.row.photoId) return false;
-  return athensDay(a.row.observedAt) !== athensDay(b.row.observedAt);
+  return independentSince(a, b) != null;
 }
 
 /**
@@ -835,11 +867,8 @@ export function twoVoicesSince(voices: readonly Voice[]): Date | null {
   let earliest: number | null = null;
   for (let i = 0; i < voices.length; i++) {
     for (let j = i + 1; j < voices.length; j++) {
-      const a = voices[i]!;
-      const b = voices[j]!;
-      if (!independentPair(a, b)) continue;
-      const at = Math.max(a.row.observedAt.getTime(), b.row.observedAt.getTime());
-      if (earliest == null || at < earliest) earliest = at;
+      const at = independentSince(voices[i]!, voices[j]!);
+      if (at != null && (earliest == null || at < earliest)) earliest = at;
     }
   }
   return earliest == null ? null : new Date(earliest);
@@ -850,13 +879,20 @@ export function hasTwoVoices(voices: readonly Voice[]): boolean {
   return twoVoicesSince(voices) != null;
 }
 
-/** The voices that count towards a value's tally (prompted taps never do). */
+/** The voices that count towards a value's tally: those with at least one
+ * row that is not a prompted tap. */
 function countingVoices(voices: readonly Voice[]): Voice[] {
-  return voices.filter((v) => v.row.provenance !== "prompted");
+  return voices.filter((v) => v.rows.some((r) => r.provenance !== "prompted"));
 }
 
+/** The newest supporting statement: the newest non-prompted row. */
 function newestVoiceAt(voices: readonly Voice[]): number {
-  return Math.max(-Infinity, ...countingVoices(voices).map((v) => v.row.observedAt.getTime()));
+  return Math.max(
+    -Infinity,
+    ...voices.flatMap((v) =>
+      v.rows.filter((r) => r.provenance !== "prompted").map((r) => r.observedAt.getTime()),
+    ),
+  );
 }
 
 /** The authority statement that decides, or undefined: highest level, then
@@ -972,7 +1008,11 @@ export function resolveCoat(
 
   const agreed: { colour: CoatColour; voices: Voice[] }[] = [];
   for (const colour of COAT_COLOURS) {
-    const holding = voices.filter((v) => coloursOf(v).includes(colour));
+    // The device's current colours come from its newest row; its evidence
+    // for this colour is every one of its rows that named it.
+    const holding = voices
+      .filter((v) => coloursOf(v).includes(colour))
+      .map((v) => ({ ...v, rows: v.rows.filter((r) => (coloursById.get(r.id) ?? []).includes(colour)) }));
     if (hasTwoVoices(holding)) agreed.push({ colour, voices: holding });
   }
 

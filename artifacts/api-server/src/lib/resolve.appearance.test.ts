@@ -761,3 +761,38 @@ describe("resolveVaccinated (resolver half of spec §10.6 'Vaccinated')", () => 
     expect(resolveVaccinated([wrong, fixed, bogus]).map((v) => v.observationId)).toEqual([fixed.id]);
   });
 });
+
+describe("review finding 1: a device repeating itself never costs a value its second voice", () => {
+  it("R1a A ticks torn ear Mon, B Tue, then A again Tue: still shown", () => {
+    const r = resolveMarkings(
+      [
+        spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-05T10:00:00Z", { photoId: 1 }),
+        spotterMarks("b", { marks: ["torn_ear"] }, "2026-01-06T10:00:00Z", { photoId: 2 }),
+        spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-06T15:00:00Z", { photoId: 3 }),
+      ],
+      NOW,
+    );
+    expect(r.value).toEqual(["torn_ear"]);
+  });
+
+  it("R1b the same, with A's newer row reusing B's photo: still shown", () => {
+    const r = resolveMarkings(
+      [
+        spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-05T10:00:00Z", { photoId: 1 }),
+        spotterMarks("b", { marks: ["torn_ear"] }, "2026-01-06T10:00:00Z", { photoId: 2 }),
+        spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-07T10:00:00Z", { photoId: 2 }),
+      ],
+      NOW,
+    );
+    expect(r.value).toEqual(["torn_ear"]);
+  });
+
+  it("R1c colour: A and B volunteer ginger, then A's later prompted ginger tap: still likely", () => {
+    const r = resolveCoat([
+      spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
+      spotterCoat("b", ["ginger"], "2026-01-06T10:00:00Z"),
+      spotterCoat("a", ["ginger"], "2026-01-08T10:00:00Z", { provenance: "prompted" }),
+    ]);
+    expect(r).toMatchObject({ value: ["ginger"], confidence: "likely" });
+  });
+});
