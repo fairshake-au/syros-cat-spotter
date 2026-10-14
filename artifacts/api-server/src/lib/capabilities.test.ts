@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAPABILITIES, can, capabilitiesOf, mayEnter } from "./capabilities";
+import { CAPABILITIES, actingRole, can, capabilitiesOf, mayEnter } from "./capabilities";
 
 // can() is the only place a permission is decided (SYC-43 part 1 plan §7,
 // test 19; spec §7.1, §7.3).
@@ -63,6 +63,32 @@ describe("mayEnter() (SYC-188)", () => {
   it("keeps out guardian, volunteer, vet and no role, while those grant nothing", () => {
     for (const person of [guardian, volunteerAndVet, nobody]) {
       expect(mayEnter(person)).toBe(false);
+    }
+  });
+});
+
+describe("actingRole() (SYC-53 PR 0.2; roles spec §10.4, test 23)", () => {
+  it("returns staff for every team member today, for every capability", () => {
+    for (const c of CAPABILITIES) {
+      expect(actingRole(staff, c)).toBe("staff");
+      expect(actingRole(staff, c, { colonyId: 3 })).toBe("staff");
+    }
+  });
+
+  it("a staff member who is also a guardian writes staff for a team capability, whatever order her scopes are in", () => {
+    for (const both of [
+      { scopes: [...guardian.scopes, ...staff.scopes] },
+      { scopes: [...staff.scopes, ...guardian.scopes] },
+    ]) {
+      for (const c of CAPABILITIES) expect(actingRole(both, c, { colonyId: 3 })).toBe("staff");
+    }
+  });
+
+  it("never names a role can() doesn't grant: a person whose scopes grant nothing is refused", () => {
+    for (const person of [guardian, volunteerAndVet, nobody]) {
+      for (const c of CAPABILITIES) {
+        expect(() => actingRole(person, c, { colonyId: 3 })).toThrow(/no scope grants/);
+      }
     }
   });
 });
