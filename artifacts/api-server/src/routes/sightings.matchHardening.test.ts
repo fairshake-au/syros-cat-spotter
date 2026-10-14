@@ -25,7 +25,7 @@ import {
   sightingsTable,
   deviceCredentialsTable,
 } from "@workspace/db";
-import { eq, inArray, like } from "drizzle-orm";
+import { eq, inArray, like, sql } from "drizzle-orm";
 
 const { matchCatPhoto } = vi.hoisted(() => ({
   matchCatPhoto: vi.fn(async (_photo: string, candidates: { catId: number }[]) => ({
@@ -163,6 +163,18 @@ describe("POST /api/sightings matching hardening (data spine PR 5)", () => {
   // but still returned the candidate — confidence, and critically
   // `reasoning`, intact. Spec §6.3 point 3 says a below-threshold candidate
   // is "not returned ... at all", not "returned with some fields blanked".
+  it("when the counter itself is broken the per-device limit fails closed: 503 + Retry-After (SYC-105)", async () => {
+    // aiLimiter is stubbed out in this file, so this is the device limit alone.
+    await db.execute(sql`alter table rate_limit_counters rename to rate_limit_counters_gone`);
+    try {
+      const res = await submit("vitest-matchhard-broken");
+      expect(res.status).toBe(503);
+      expect(res.headers["retry-after"]).toBe("5");
+    } finally {
+      await db.execute(sql`alter table rate_limit_counters_gone rename to rate_limit_counters`);
+    }
+  });
+
   it("a below-threshold candidate is left out of the response entirely", async () => {
     const strong = await insertCatAt("Strong", 50);
     const weak = await insertCatAt("Weak", 60);
