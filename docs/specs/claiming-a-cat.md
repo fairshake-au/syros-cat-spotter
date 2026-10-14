@@ -98,7 +98,9 @@ The server tells the app, for the phone looking (and only once it has proved who
 |---|---|
 | A phone that may claim the cat | **"This is my cat"**, where the claim button has always been, styled as a secondary action rather than the page's most prominent button |
 | A phone that hasn't met it, when it lives on the street | No button. One quiet line: *"Is this your cat? Spot Agatha with the camera first, then you can say Agatha lives with you."* (D2) |
-| Anyone, when the cat has a home, an owner, is in care or has died | No button and no line |
+| A phone that has met it but let it go in the last 7 days | No button and no line |
+| Anyone, when the cat has a home | No button. One line under "Has a home": *"Got a new phone? Ask Syros Cats to remove the old owner, then you can say Agatha lives with you again."* (§6; kept on the page, Samuel, 14 Oct 2026) |
+| Anyone, when the cat is in care or has died | No button and no line |
 | The cat's owner | The owner's edit sheet as usual, with **"Agatha doesn't live with me any more"** at its foot (§6) |
 | Anyone with no connection | The button, if shown, is disabled, with *"You need a connection to do this."* |
 
@@ -157,6 +159,7 @@ The page can be out of date: another phone may have claimed the cat a moment ear
 | 409 | `NOT_ON_STREET` | It is in care or has died | *"Agatha can't be marked as yours right now."* The page refreshes |
 | 422 | `PIN_TOO_FAR` | The home pin is more than 1 km from the cat's public position | *"That's a long way from where Agatha is usually seen. Move the pin to where Agatha lives. If Agatha really lives there, write to Syros Cats."* |
 | 422 | `NOT_CONFIRMED` | "I live on Syros" or "lives in my home" wasn't confirmed (only outside the app) | *"Only people who live on Syros can say a cat lives with them."* |
+| 400 | `OFFENSIVE_NOTE` | The note has words that aren't allowed | *"That note isn't allowed — please word it differently."* (approved by Samuel, 14 Oct 2026) |
 | 400 | — | A pin that isn't a valid position | (never shown: the app always sends one) |
 | 429 | (rate limit) | Too many claims from this phone | *"Please try again later."* |
 | — | — | No connection | *"You need a connection to do this."* A claim is never saved to send later |
@@ -341,7 +344,7 @@ The button and sheet are rewritten in all three languages. English has said "Cla
 | D12 | A plain confirmation that the cat is theirs | **Yes** (Samuel, 8 Oct). Combined with "I live on Syros" on one screen. The cat lives with them and they give it food, water and care every day; cat guardians are asked not to say yes, because a guardian's colony cat marked as homed would drop out of the charity's welfare rounds. An earlier draft ("not for cats you feed") was dropped, because owners feed their cats too. Wording in §4.2, approved. |
 | D13 | What deletion does to the home note and the home pin | **Both stay, seen only by Syros Cats** (Samuel, 8 Oct). After deletion the cat still has a home (decision A, 29 Sep), so what helps the team find it stays. Clearing both was considered and not chosen. Letting go and Remove owner still clear both, because then the cat no longer has a home. |
 
-**Copy.** All wording in §4, §6 and §7 is approved (8 Oct 2026). Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
+**Copy.** All wording in §4, §6 and §7 is approved (8 Oct 2026). Two lines added during the build were approved on 14 Oct 2026: the `OFFENSIVE_NOTE` refusal (§4.4), and, on the team's cat page, "Where the cat lives, from a past owner" for a note kept after an owner deletes their data (D13). Greek and French follow, in "tu" for French, and go to native-speaker review (SYC-4).
 
 ---
 
