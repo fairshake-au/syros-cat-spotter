@@ -570,9 +570,11 @@ export function renderCatPage(
     ) +
     "<h3>Owner</h3><dl>" +
     row("Owner", v.owner.has ? "Has an owner" : "No owner") +
-    (v.owner.has
+    // D13: after an owner deletes their data the note and pin stay, with no
+    // owner link, so show them whenever they are stored.
+    (v.owner.has || v.owner.homeDescription || v.owner.homePin
       ? row(
-          "Where the owner says the cat lives",
+          v.owner.has ? "Where the owner says the cat lives" : "Where the cat lives, from a past owner",
           v.owner.homeDescription ? esc(v.owner.homeDescription) : "No note",
         ) + (v.owner.homePin ? row("Home pin", place(v.owner.homePin.lat, v.owner.homePin.lng)) : "")
       : "") +
