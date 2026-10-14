@@ -12,6 +12,7 @@
  * `resolve.test.ts` with the same name.
  */
 import type { Observation } from "@workspace/db/schema";
+import { TEAM_ROLES } from "./teamRoles";
 
 export type Confidence = "confirmed" | "likely" | "reported" | "unknown";
 
@@ -129,30 +130,123 @@ export interface ImportRecord {
   observedAt: string;
 }
 
-const AUTHORITATIVE_ROLES = new Set(["vet", "staff", "admin"]);
+/**
+ * The exact shape of a cat guardian's scope (plan Decision B; roles spec
+ * §10.4): `colony:<id>`, written only by the server, valid only with the
+ * role `guardian`.
+ */
+export const COLONY_SCOPE_PATTERN = /^colony:[1-9][0-9]*$/;
 
 /**
- * §10.2 rule 2's authority: a team/vet role, OR an imported record. Used for
- * the `sterilised` assertions themselves.
+ * Who wins when people disagree (Decision G; Samuel, 12 and 13 October 2026;
+ * roles spec §7.2 and §10.4; data spine §4.6 and §10.2):
+ *
+ *   4  a vet
+ *   3  an owner (`authorityScope` = `owner_of_this_cat`)
+ *   2  a cat guardian (role `guardian` with a `colony:<id>` scope)
+ *   1  the team (`staff`, `management`) and imported records
+ *   0  anything else: counts for nothing
+ *
+ * The highest level present decides; the newest wins only within a level.
+ * Management ranks with the team, not above it, and imports rank with the
+ * team.
  */
-function isAuthoritative(o: Observation): boolean {
-  return AUTHORITATIVE_ROLES.has(o.roleAtTime) || o.provenance === "import";
+export type AuthorityLevel = 0 | 1 | 2 | 3 | 4;
+
+/** The fields `authorityLevel` reads, so callers needn't build a whole row. */
+export type Rankable = Pick<Observation, "roleAtTime" | "authorityScope" | "provenance">;
+
+type Dated = Rankable & Pick<Observation, "observedAt" | "id">;
+
+/**
+ * The ONE ranking function (SYC-53 plan, PR 0.2). Every rule in this file
+ * that ranks statements uses it, and SYC-2's colour and markings rules use
+ * it through {@link appearanceAuthorityLevel}. It replaced the two boolean
+ * helpers `isAuthoritative` and `isAuthoritativeRole`.
+ *
+ * A `colony:` scope on any role but `guardian` makes the row count for
+ * nothing, whatever the role (roles spec §10.4: "the resolver never treats
+ * it as authority for a non-guardian"). `writeObservation` refuses to write
+ * one; this is the read-time backstop. It checks the prefix, so a malformed
+ * `colony:` scope on a team row is nothing too, never "team".
+ */
+export function authorityLevel(o: Rankable): AuthorityLevel {
+  const scope = o.authorityScope ?? "none";
+  if (scope.startsWith("colony:") && o.roleAtTime !== "guardian") return 0;
+  if (o.roleAtTime === "vet") return 4;
+  if (scope === "owner_of_this_cat") return 3;
+  if (o.roleAtTime === "guardian") return COLONY_SCOPE_PATTERN.test(scope) ? 2 : 0;
+  if (TEAM_ROLES.has(o.roleAtTime) || o.provenance === "import") return 1;
+  return 0;
 }
 
 /**
- * §10.2 rule 3's narrower authority: a team/vet role, full stop. Used for an
- * `ear_tip { clipped: false }` correction. The spec's rule 3 names
- * "roleAtTime in {vet, staff, admin}" only — it does not extend
- * import-provenance authority to ear-tip corrections the way rule 2 does for
- * `sterilised` assertions, and nothing in DECISIONS.md says otherwise (an
- * import record is a `sterilised` statement, §10.2 rule 2 already covers
- * it; it never carries an ear-tip answer). Using the broader
- * `isAuthoritative` here would let a `provenance: "import"` row with no
- * team/vet role clear a *Likely* back to *Unknown*, which the spec doesn't
- * grant it.
+ * Colour and markings (data spine §10.2 "Colour and markings";
+ * `coat-markings-and-health.md`): the same order, with the appearance
+ * carve-out that vets, imported records and owners have no standing on a
+ * cat's looks. Built for SYC-2's `resolveCoat` and `resolveMarkings` (SYC-2
+ * plan, PR 1.2), so there is still one ranking function underneath.
  */
-function isAuthoritativeRole(o: Observation): boolean {
-  return AUTHORITATIVE_ROLES.has(o.roleAtTime);
+export function appearanceAuthorityLevel(o: Rankable): AuthorityLevel {
+  if (o.roleAtTime === "vet") return 0;
+  if (o.provenance === "import") return 0;
+  if ((o.authorityScope ?? "none") === "owner_of_this_cat") return 0;
+  return authorityLevel(o);
+}
+
+/**
+ * The ear-tip rule's authority (§10.2 rule 3): the same order, but only for
+ * the roles rule 3 names ("vet, staff, management, or `guardian` with a
+ * `colony:<id>` scope"). Two exclusions, both kept from the old
+ * `isAuthoritativeRole`:
+ *
+ * - an imported record never speaks about an ear: an import is a
+ *   `sterilised` statement, and letting an import row clear a *Likely* back
+ *   to *Unknown* is not something the spec grants it;
+ * - an owner-scoped ear answer is a spotter's answer, not a statement (§4.1:
+ *   "an owner is still not vet/staff"; test "ear-tip asymmetry"). Owners'
+ *   ear-tip rows exist in no writer today; if SYC-130 gives them standing on
+ *   the ear, that is a spec change, made here.
+ */
+function earTipAuthorityLevel(o: Rankable): AuthorityLevel {
+  if (o.provenance === "import") return 0;
+  const level = authorityLevel(o);
+  return level === 3 ? 0 : level;
+}
+
+/**
+ * Does `a` beat `b`? Highest level first; within a level, the newest by
+ * `observedAt`; an exact tie goes to the later row (the higher id).
+ */
+export function outranks(
+  a: Dated,
+  b: Dated,
+  level: (o: Rankable) => AuthorityLevel = authorityLevel,
+): boolean {
+  const la = level(a);
+  const lb = level(b);
+  if (la !== lb) return la > lb;
+  const ta = a.observedAt.getTime();
+  const tb = b.observedAt.getTime();
+  if (ta !== tb) return ta > tb;
+  return a.id > b.id;
+}
+
+/**
+ * The statement that decides among those with any standing (level 1 or
+ * above), or undefined if none has any. Callers pass the active rows of one
+ * kind.
+ */
+export function highestAuthority<T extends Dated>(
+  list: readonly T[],
+  level: (o: Rankable) => AuthorityLevel = authorityLevel,
+): T | undefined {
+  let best: T | undefined;
+  for (const o of list) {
+    if (level(o) === 0) continue;
+    if (!best || outranks(o, best, level)) best = o;
+  }
+  return best;
 }
 
 /**
@@ -251,11 +345,13 @@ const EPOCH = new Date(0).toISOString();
  *
  * 1. Discard superseded observations (redaction does not discard anything
  *    here — see `isActive`'s doc comment).
- * 2. Authoritative assertions (`roleAtTime` vet/staff/admin, or
- *    `provenance: "import"`) — newest by `observedAt` wins, whatever sign.
+ * 2. Authoritative assertions (any `authorityLevel` above 0: vet, owner,
+ *    cat guardian with a `colony:<id>` scope, staff/management, or
+ *    `provenance: "import"`) — the highest level present decides, and the
+ *    newest by `observedAt` within it wins, whatever sign (Decision G).
  * 3. Otherwise, a photo-backed `ear_tip { clipped: true }` reaches *likely*,
- *    unless a team/vet `clipped: false` (§10.2 rule 3: roles only, not
- *    import — see `isAuthoritativeRole`) supersedes or postdates it.
+ *    unless an authoritative `clipped: false` (§10.2 rule 3: never an
+ *    import — see `earTipAuthorityLevel`) beats it: see `clipCountered`.
  * 4. Otherwise, *unknown*.
  *
  * Rule 1 (the ear-tip asymmetry) falls out of this by construction: a
@@ -281,36 +377,52 @@ export function resolveSterilised(
   // Each candidate carries the one observation id supporting it (or none,
   // for a not-yet-linked import record), so the newest-wins fold works the
   // same way regardless of where the assertion came from.
-  type Candidate = { sterilised: boolean; at: Date; observationId: number | null };
+  type Candidate = {
+    sterilised: boolean;
+    at: Date;
+    level: AuthorityLevel;
+    observationId: number | null;
+  };
   const authoritative: Candidate[] = active
-    .filter((o) => o.kind === "sterilised" && isAuthoritative(o))
+    .filter((o) => o.kind === "sterilised" && authorityLevel(o) > 0)
     .flatMap((o) => {
       const parsed = parseSterilised(o.value);
       return parsed
-        ? [{ sterilised: parsed.sterilised, at: o.observedAt, observationId: o.id }]
+        ? [
+            {
+              sterilised: parsed.sterilised,
+              at: o.observedAt,
+              level: authorityLevel(o),
+              observationId: o.id,
+            },
+          ]
         : [];
     });
+  // A not-yet-linked import record ranks with the team (Decision G).
   const fromImport: Candidate[] = importRecords.map((r) => ({
     sterilised: r.sterilised,
     at: new Date(r.observedAt),
+    level: 1,
     observationId: null,
   }));
   const candidates = [...authoritative, ...fromImport];
 
   if (candidates.length > 0) {
-    // Newest by observedAt wins, whatever sign it carries (§10.2, §4.6).
-    // Ties: an observation (a cat's own record) beats a not-yet-linked
-    // import row at the same instant.
-    const winner = candidates.reduce((newest, candidate) => {
-      if (candidate.at.getTime() > newest.at.getTime()) return candidate;
-      if (
-        candidate.at.getTime() === newest.at.getTime() &&
-        candidate.observationId != null &&
-        newest.observationId == null
-      )
-        return candidate;
-      return newest;
-    });
+    // Decision G (§4.6): the highest level present decides, and within it
+    // the newest by observedAt wins, whatever sign it carries. Ties at the
+    // same instant: an observation (a cat's own record) beats a
+    // not-yet-linked import row, and between observations the later row
+    // (higher id) wins.
+    const beats = (a: Candidate, b: Candidate): boolean => {
+      if (a.level !== b.level) return a.level > b.level;
+      if (a.at.getTime() !== b.at.getTime()) return a.at.getTime() > b.at.getTime();
+      if (a.observationId == null) return false;
+      if (b.observationId == null) return true;
+      return a.observationId > b.observationId;
+    };
+    const winner = candidates.reduce((best, candidate) =>
+      beats(candidate, best) ? candidate : best,
+    );
     const disagreeingConflicts = candidates
       .filter((c) => c !== winner && c.sterilised !== winner.sterilised)
       .flatMap((c) => (c.observationId != null ? [c.observationId] : []));
@@ -346,7 +458,7 @@ export function resolveSterilised(
     (e) => e.clipped === true && e.o.photoId != null,
   );
   const authoritativeFalse = earTip.filter(
-    (e) => e.clipped === false && isAuthoritativeRole(e.o),
+    (e) => e.clipped === false && earTipAuthorityLevel(e.o) > 0,
   );
 
   const survivors = clippedTrueWithPhoto.filter(

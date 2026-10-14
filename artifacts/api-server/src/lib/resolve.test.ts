@@ -71,7 +71,7 @@ describe("resolveSterilised", () => {
     () => {
       // §4.1: absence of a visible clip is never negative evidence, however
       // many times, however recently, and whoever has an authority scope
-      // over the cat (an owner is still not vet/staff/admin). The cost of
+      // over the cat (an owner is still not vet/staff/management). The cost of
       // getting this wrong: a volunteer sent to trap a cat sterilised years
       // ago.
       const spotterNos = [
@@ -109,7 +109,7 @@ describe("resolveSterilised", () => {
   );
 
   it("a clipped tip reaches likely and never confirmed, whoever wrote it", () => {
-    for (const roleAtTime of ["public", "staff", "vet", "admin"] as const) {
+    for (const roleAtTime of ["public", "staff", "vet", "management"] as const) {
       const resolved = resolveSterilised([
         obs({
           kind: "ear_tip",
@@ -309,8 +309,8 @@ describe("resolveSterilised", () => {
     },
   );
 
-  it("vet and admin sterilised:false are confirmed negative (never dropped from authoritative)", () => {
-    for (const roleAtTime of ["vet", "admin"] as const) {
+  it("vet and management sterilised:false are confirmed negative (never dropped from authoritative)", () => {
+    for (const roleAtTime of ["vet", "management"] as const) {
       const resolved = resolveSterilised([
         obs({
           kind: "sterilised",
@@ -324,8 +324,8 @@ describe("resolveSterilised", () => {
     }
   });
 
-  it("vet and admin can also clear a wrong likely back to unknown", () => {
-    for (const roleAtTime of ["vet", "admin"] as const) {
+  it("vet and management can also clear a wrong likely back to unknown", () => {
+    for (const roleAtTime of ["vet", "management"] as const) {
       const clip = obs({
         kind: "ear_tip",
         value: { clipped: true },
