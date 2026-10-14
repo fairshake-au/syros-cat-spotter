@@ -11,6 +11,7 @@ import {
   observationsTable,
 } from "@workspace/db";
 import { and, eq, like } from "drizzle-orm";
+import { writeObservation } from "../lib/observations";
 
 async function observationsFor(catId: number, kind: string) {
   return db
@@ -178,6 +179,17 @@ describe("POST /api/cats/:catId/claim", () => {
       ownerName: "Eleni",
       homeDescription: "",
     });
+    // The owner's claim, as the claim route writes it (the public then
+    // reads "has a home": critic M1 makes the code follow that, not the link).
+    await writeObservation(db, {
+      catId: cat.id,
+      kind: "life_status",
+      value: { status: "homed" },
+      deviceId: device("owner3"),
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: new Date(),
+    });
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", DEVICE_SECRET)
@@ -185,7 +197,7 @@ describe("POST /api/cats/:catId/claim", () => {
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("ALREADY_HOMED");
     expect(notifyCatSpottersMock).not.toHaveBeenCalled();
-    expect(await observationsFor(cat.id, "life_status")).toHaveLength(0);
+    expect(await observationsFor(cat.id, "life_status")).toHaveLength(1);
   });
 
   it("writes no observation when the device secret check refuses the request", async () => {

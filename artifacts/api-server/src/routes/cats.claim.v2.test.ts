@@ -262,9 +262,11 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
 
     it("ALREADY_HOMED 409 for someone else's cat whatever pin is sent", async () => {
       const owner = phone("owner");
-      const c = await streetCat({ ownerDeviceId: owner.id });
+      const c = await streetCat();
       const d = phone("late");
       await met(c.id, d);
+      await met(c.id, owner);
+      expect((await claim(c.id, owner)).status).toBe(200);
       const res = await claim(c.id, d, { homePin: { lat: 0, lng: 0 }, livesInMyHome: false });
       expect(res.status).toBe(409);
       expect(res.body).toEqual({ error: expect.any(String), code: "ALREADY_HOMED" });
@@ -287,6 +289,36 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
       expect(res.body).toEqual({ error: expect.any(String), code: "NOT_ON_STREET" });
     });
   });
+
+  it.each(["in_care", "deceased"])(
+    "critic M1: an owned %s cat answers exactly as an ownerless one (no hidden-owner oracle)",
+    async (status) => {
+      const owner = phone("m1owner");
+      const d = phone("m1");
+      const owned = await streetCat();
+      const ownerless = await streetCat();
+      for (const c of [owned, ownerless]) await met(c.id, d);
+      await met(owned.id, owner);
+      expect((await claim(owned.id, owner)).status).toBe(200);
+      for (const c of [owned, ownerless]) {
+        await writeObservation(db, {
+          catId: c.id,
+          kind: "life_status",
+          value: { status },
+          accountId: "system:legacy-backfill",
+          roleAtTime: "staff",
+          observedAt: new Date(),
+        });
+      }
+      // The public sees both the same way.
+      expect((await detail(owned.id)).body.cat.hasHome).toBe(false);
+      const a = await claim(owned.id, d);
+      const b = await claim(ownerless.id, d);
+      expect(a.status).toBe(409);
+      expect(a.text).toBe(b.text);
+      expect(a.body.code).toBe("NOT_ON_STREET");
+    },
+  );
 
   it("NOT_CONFIRMED 422 when either box is false or missing", async () => {
     const c = await streetCat();

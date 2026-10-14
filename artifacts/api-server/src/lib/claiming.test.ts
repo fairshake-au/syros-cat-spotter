@@ -291,13 +291,67 @@ describe("claimEligibility: rule 1, the cat lives on the street with no owner", 
     expect(await eligible(c.id, d)).toEqual(NOT_ON_STREET);
   });
 
-  it("a cat with another phone as owner but a street status: ALREADY_HOMED", async () => {
+  // Critic M1 (Task 4 review): the code depends only on what the public
+  // sees (the derived status), never on a hidden owner link. The public
+  // shows this cat as living on the street with no home, so "already has a
+  // home" would reveal the link; it can't be claimed, so NOT_ON_STREET.
+  it("a cat with another phone as owner but a street status: NOT_ON_STREET, not ALREADY_HOMED", async () => {
     const d = dev();
     const c = await streetCat();
     await sighting(c.id, d, "suggested");
     await db.update(catsTable).set({ ownerDeviceId: dev() }).where(eq(catsTable.id, c.id));
     expect((await deriveCatStatuses([{ id: c.id, ownerDeviceId: null }])).get(c.id)!.lifeStatus).toBe("street");
+    expect(await eligible(c.id, d)).toEqual(NOT_ON_STREET);
+  });
+
+  it("a cat with another phone as owner and its homed: ALREADY_HOMED", async () => {
+    const d = dev();
+    const owner = dev();
+    const c = await streetCat();
+    await sighting(c.id, d, "suggested");
+    await ownerHomed(c.id, owner);
+    await db.update(catsTable).set({ ownerDeviceId: owner }).where(eq(catsTable.id, c.id));
     expect(await eligible(c.id, d)).toEqual(ALREADY_HOMED);
+  });
+
+  it.each(["in_care", "deceased"])(
+    "critic M1: an owned %s cat gives the same code as an ownerless one, met or not",
+    async (status) => {
+      for (const meets of [true, false]) {
+        const d = dev();
+        const owned = await streetCat();
+        const ownerless = await streetCat();
+        if (meets) {
+          await sighting(owned.id, d, "suggested");
+          await sighting(ownerless.id, d, "suggested");
+        }
+        await ownerHomed(owned.id, dev(), daysAgo(3));
+        await teamStatus(db, owned.id, status);
+        await teamStatus(db, ownerless.id, status);
+        await db.update(catsTable).set({ ownerDeviceId: dev() }).where(eq(catsTable.id, owned.id));
+        const a = await eligible(owned.id, d);
+        const b = await eligible(ownerless.id, d);
+        expect(a).toEqual(b);
+        expect(a).toEqual(NOT_ON_STREET);
+      }
+    },
+  );
+
+  it("critic M1: the owned cat's status is read through the caller's executor", async () => {
+    const d = dev();
+    const c = await streetCat();
+    await sighting(c.id, d, "suggested");
+    await db.update(catsTable).set({ ownerDeviceId: dev() }).where(eq(catsTable.id, c.id));
+    // A team "homed" written only inside this transaction: visible to tx, not to the pool.
+    let inTx: unknown;
+    await db
+      .transaction(async (tx) => {
+        await teamStatus(tx, c.id, "homed");
+        inTx = await claimEligibility(tx, { catId: c.id, deviceId: d });
+        throw new Error("rollback");
+      })
+      .catch(() => undefined);
+    expect(inTx).toEqual(ALREADY_HOMED);
   });
 
   it("a cat with another phone as owner and in care: still refused", async () => {

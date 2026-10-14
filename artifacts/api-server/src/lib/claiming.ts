@@ -42,7 +42,16 @@ export async function claimEligibility(
     .where(eq(catsTable.id, catId));
   if (!cat) return { ok: false, code: "NOT_MET" };
   if (cat.ownerDeviceId === deviceId) return { ok: "owner" };
-  if (cat.ownerDeviceId !== null) return { ok: false, code: "ALREADY_HOMED" };
+  if (cat.ownerDeviceId !== null) {
+    // Critic M1 (Task 4 review): another phone owns it, so it can't be
+    // claimed, but the code must depend only on what the public sees, never
+    // on the hidden owner link. The public reads "has a home" from the
+    // derived status (from the owner column while the PR 3 gate is shut),
+    // so: ALREADY_HOMED only when that says homed, else NOT_ON_STREET, the
+    // same answer an ownerless cat in that state gets.
+    const owned = (await deriveCatStatuses([{ id: catId, ownerDeviceId: cat.ownerDeviceId }], exec)).get(catId);
+    return { ok: false, code: owned?.lifeStatus === "homed" ? "ALREADY_HOMED" : "NOT_ON_STREET" };
+  }
 
   // A cat merged into another (§10.3) isn't a cat of its own any more: a
   // homed written on it would fold into the cat it was merged into, leaving
