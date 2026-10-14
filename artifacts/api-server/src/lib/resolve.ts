@@ -1086,10 +1086,21 @@ export function resolveCoat(
   // its earlier answer or not. Not sure still never wins anything.
   const coloursById = new Map(statements.map((s) => [s.row.id, s.colours]));
   const coloursOfRow = (o: Observation) => coloursById.get(o.id) ?? [];
+  //
+  // A withdrawal also cuts off the past: once a device has said Not sure,
+  // only its rows dated after its newest Not sure count for it, for
+  // independence and everything else (ship review finding 6).
   const voices = onePerVoice(
     statements.map((s) => s.row),
     appearanceVoiceKeys(observations, "coat"),
-  ).filter((v) => coloursOfRow(v.row).length > 0);
+  )
+    .map((v) => {
+      const lastNotSure = v.rows
+        .filter((r) => coloursOfRow(r).length === 0)
+        .reduce<Observation | undefined>((best, r) => (!best || isNewer(r, best) ? r : best), undefined);
+      return lastNotSure ? { ...v, rows: v.rows.filter((r) => isNewer(r, lastNotSure)) } : v;
+    })
+    .filter((v) => coloursOfRow(v.row).length > 0);
   const coloursOf = (v: Voice) => coloursOfRow(v.row);
 
   const agreed: { colour: CoatColour; voices: Voice[] }[] = [];

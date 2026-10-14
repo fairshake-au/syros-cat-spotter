@@ -1098,3 +1098,15 @@ describe("review (ship) finding 4: a prompted tap never joins two camps", () => 
     expect(r.checkReasons).toContain("tied_camps");
   });
 });
+
+describe("review (ship) finding 6: rows a device withdrew give no evidence", () => {
+  it("W6 A ginger, A Not sure, A ginger on photo X, B ginger on photo X the same day: reported, not likely", () => {
+    const r = resolveCoat([
+      spotterCoat("a", ["ginger"], "2026-01-01T10:00:00Z"),
+      spotterCoat("a", ["not_sure"], "2026-01-02T10:00:00Z"),
+      spotterCoat("a", ["ginger"], "2026-01-03T10:00:00Z", { photoId: 7777 }),
+      spotterCoat("b", ["ginger"], "2026-01-03T12:00:00Z", { photoId: 7777 }),
+    ]);
+    expect(r).toMatchObject({ value: ["ginger"], confidence: "reported" });
+  });
+});
