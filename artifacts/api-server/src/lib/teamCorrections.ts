@@ -9,6 +9,7 @@ import {
 import { resolveSterilised } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
+import { TEAM_ROLES } from "./teamRoles";
 
 // The team's corrections (SYC-43 part 2 plan, PR 4; spec §3.3, §4.5). One
 // function per kind of write, shared by the JSON routes (routes/observations.ts,
@@ -210,8 +211,8 @@ export async function catIdOfStatement(id: number): Promise<number | null> {
 
 // ── "Looks right" on the Probably sterilised list ─────────────────────────
 
-/** Roles whose clipped-ear answer is the team's, not a spotter's. */
-export const TEAM_ROLES: ReadonlySet<string> = new Set(["staff", "vet", "admin"]);
+// Roles whose clipped-ear answer is the team's, not a spotter's: the one
+// list, lib/teamRoles.ts (SYC-53 PR 0.2).
 
 export const LOOKS_RIGHT_REASON = "Checked the photo on the Probably sterilised list";
 
