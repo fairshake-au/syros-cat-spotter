@@ -821,7 +821,8 @@ describe("ship review 2: a merged-in cat's owner claim is not this cat's", () =>
       expect((await teamCatView(b.id, new Date(), staff))!.owner.orphanedHome).toBe(true);
       expect((await page(b.id)).text).toContain(`/api/team/cats/${b.id}/remove-owner"`);
     } finally {
-      await db.delete(catIdentityTable).where(eq(catIdentityTable.id, merge!.id));
+      // cat_identity is append-only: undo the merge with a row that supersedes it.
+      await db.insert(catIdentityTable).values({ catId: b.id, canonicalCatId: b.id, reason: "undo", createdBy: "vitest", supersedesId: merge!.id });
     }
   });
 });
