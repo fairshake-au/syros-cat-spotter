@@ -758,15 +758,18 @@ describe("two edits of one colony at the same moment", () => {
     try {
       let waiting = 0;
       for (let i = 0; i < 600 && waiting < 2; i++) {
-        const r = await holder.query(
+        // Poll from a connection OUTSIDE the holder's transaction: Postgres
+        // keeps one pg_stat_activity snapshot per transaction, so polling
+        // through the holder would read the same stale view every time.
+        const r = await pool.query(
           `select count(*)::int as n from pg_stat_activity
-           where wait_event_type = 'Lock' and pid <> pg_backend_pid()
+           where wait_event_type = 'Lock' and state = 'active'
              and query ilike '%colonies%' and datname = current_database()`,
         );
         waiting = r.rows[0].n;
         if (waiting < 2) await new Promise((r2) => setTimeout(r2, 25));
       }
-      const seen = await holder.query(
+      const seen = await pool.query(
         `select pid, state, wait_event_type, left(query, 80) as q from pg_stat_activity
          where datname = current_database() and pid <> pg_backend_pid()`,
       );
