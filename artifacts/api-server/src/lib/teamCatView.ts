@@ -247,9 +247,10 @@ export type StatementCorrection =
   | { kind: "ear_tip_clipped" };
 
 /** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
-export function isOwnerHomed(o: Observation): boolean {
+export function isOwnerHomed(o: Observation, onlyCatId?: number): boolean {
   const v = o.value as Record<string, unknown> | null;
   return (
+    (onlyCatId === undefined || o.catId === onlyCatId) &&
     o.kind === "life_status" &&
     o.authorityScope === "owner_of_this_cat" &&
     !!v &&
@@ -546,7 +547,7 @@ export async function teamCatView(
   );
   const orphanedHome =
     cat.ownerDeviceId === null &&
-    observations.some((o) => isOwnerHomed(o) && !replacedIds.has(o.id));
+    observations.some((o) => isOwnerHomed(o, cat.id) && !replacedIds.has(o.id));
   const life = resolveLifeStatus(observations, evidence, now);
   const sterilised = resolveSterilised(observations, []);
 
@@ -576,7 +577,9 @@ export async function teamCatView(
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
       correction: correctionOf(o, replacedBy.has(o.id)),
-      ownerClaim: isOwnerHomed(o) && !replacedBy.has(o.id),
+      // Only this cat's own claim: Remove owner is scoped to it. A merged-in
+      // cat's claim is ended from that cat's page.
+      ownerClaim: isOwnerHomed(o, cat.id) && !replacedBy.has(o.id),
     }));
 
   const mainIds = new Set([cat.primaryPhotoId]);
