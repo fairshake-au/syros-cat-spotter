@@ -829,21 +829,19 @@ describe("a NUL character", () => {
 });
 
 describe("test 12 (part): refusals", () => {
-  it("every colony route answers the identical 401 with no session, and a person with no team role", async () => {
+  it("every colony route answers the identical 401 with no session, and the 403 to a signed-in person whose roles grant nothing (SYC-53 PR 0.5)", async () => {
     const id = await makeColony(unique("refuse"));
     const before = { colonies: await myColonyCount(), events: await colonyEventCount() };
     for (const c of [null, volunteerCookie]) {
+      const want = c ? [403, '{"error":"forbidden"}'] : [401, '{"error":"not_signed_in"}'];
       for (const path of ["/api/team/colonies", `/api/team/colonies/${id}`]) {
         const res = await get(path, c).set("Accept", "application/json");
-        expect([res.status, res.text], `${path} ${c ? "volunteer" : "anonymous"}`).toEqual([
-          401,
-          '{"error":"not_signed_in"}',
-        ]);
+        expect([res.status, res.text], `${path} ${c ? "volunteer" : "anonymous"}`).toEqual(want);
       }
       const create = await post("/api/team/colonies", { name: unique("refused") }, { cookie: c }).set("Accept", "application/json");
-      expect([create.status, create.text]).toEqual([401, '{"error":"not_signed_in"}']);
+      expect([create.status, create.text]).toEqual(want);
       const change = await post(`/api/team/colonies/${id}`, { guardianName: "Nope", name: unique("nope") }, { cookie: c }).set("Accept", "application/json");
-      expect([change.status, change.text]).toEqual([401, '{"error":"not_signed_in"}']);
+      expect([change.status, change.text]).toEqual(want);
     }
     expect(await colonyRow(id)).toMatchObject({ guardianName: null });
     expect({ colonies: await myColonyCount(), events: await colonyEventCount() }).toEqual(before);
@@ -868,21 +866,21 @@ describe("test 12 (part): refusals", () => {
     const colonies = await myColonyCount();
 
     denied.cap = "create_colony";
-    expect((await post("/api/team/colonies", { name: unique("no-create") })).status).toBe(401);
+    expect((await post("/api/team/colonies", { name: unique("no-create") })).status).toBe(403);
     expect(await myColonyCount()).toBe(colonies);
 
     denied.cap = "edit_colony";
-    expect((await post(`/api/team/colonies/${id}`, { guardianName: "Nope" })).status).toBe(401);
+    expect((await post(`/api/team/colonies/${id}`, { guardianName: "Nope" })).status).toBe(403);
 
     // The name needs rename_colony, not edit_colony.
     denied.cap = "rename_colony";
     const name = (await colonyRow(id))!.name;
-    expect((await post(`/api/team/colonies/${id}`, { name: unique("no-rename") })).status).toBe(401);
+    expect((await post(`/api/team/colonies/${id}`, { name: unique("no-rename") })).status).toBe(403);
     expect((await colonyRow(id))!.name).toBe(name);
     // A change that doesn't touch the name still goes through…
     expect((await post(`/api/team/colonies/${id}`, { name, guardianName: "Anna" })).status).toBe(303);
     // …but a rename together with a guardian change is refused whole.
-    expect((await post(`/api/team/colonies/${id}`, { name: unique("no-rename-2"), guardianName: "Zoe" })).status).toBe(401);
+    expect((await post(`/api/team/colonies/${id}`, { name: unique("no-rename-2"), guardianName: "Zoe" })).status).toBe(403);
     expect(await colonyRow(id)).toMatchObject({ name, guardianName: "Anna" });
     expect(await eventsOf(id)).toHaveLength(eventsBefore + 1);
     expect(

@@ -430,12 +430,12 @@ describe("P5-4: two people tying one report at once", () => {
 // ── Refusals and edges ─────────────────────────────────────────────────────
 
 describe("refusals and edges", () => {
-  it("refuses without change_report_state, the same way as everything else, and writes nothing", async () => {
+  it("refuses without change_report_state, with the 403, the same way as everything else, and writes nothing", async () => {
     const catId = await newCat();
     const r = await newReport();
     denied.cap = "change_report_state";
     const res = await tie(r.publicId, catId, null);
-    expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
     // The second layer, inside the function, refuses on its own too.
     const person = { id: susanId, scopes: [{ role: "staff", colonyId: null }] };
     await expect(
@@ -446,7 +446,7 @@ describe("refusals and edges", () => {
     expect(await welfareRowsFor(r.id)).toHaveLength(0);
     // And a session with no staff scope gets the identical answer.
     const vol = await tie(r.publicId, catId, null, volunteerCookie);
-    expect([vol.status, vol.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([vol.status, vol.text]).toEqual([403, '{"error":"forbidden"}']);
     expect(await welfareRowsFor(r.id)).toHaveLength(0);
   });
 
