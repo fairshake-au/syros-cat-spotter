@@ -340,7 +340,7 @@ Input: `{ source: 'library' | 'camera' | 'live', phone: {coords|null, denied, lo
 - Once a start is chosen it is **never replaced** by a later phone fix (the existing `!pickedCoords` guard, kept), so the pin does not jump under a spotter who has begun dragging.
 - Retake and re-pick reset it; the picker is remounted with `key={pickCount}` (a counter bumped in `pickPhoto`), so a new start actually repositions the map.
 
-The wait of four seconds and the island margin of 0.02 degrees (about 2 km) are the plan's own numbers; the spec says only "still searching" and "a small margin". They are Decision E. Why 0.02: the nearest other islands are well clear of the rectangle plus 2 km (Tinos town is about 25 km east, Mykonos and Paros further), while the rectangle itself is a tile box, so a margin lets a photo taken at the very edge of the coast count as Syros.
+The wait of four seconds and the island margin of 0.02 degrees (about 2 km) are the plan's own numbers; the spec says only "still searching" and "a small margin". They are Decision E. Why 0.02: the nearest other islands are well clear of the rectangle plus 2 km (Tinos town, at 25.163 E, is more than 10 km past the rectangle's east edge at 25.01 E; Mykonos and Paros are further), while the rectangle itself is a tile box, so a margin lets a photo taken at the very edge of the coast count as Syros.
 
 ### Words (spec §8)
 
@@ -348,7 +348,7 @@ The wait of four seconds and the island margin of 0.02 degrees (about 2 km) are 
 
 ### Steps (test first)
 
-1. `island.test.ts`: points inside the rectangle; each edge exactly, one metre inside and one metre outside the margin; known places outside, with real coordinates: Tinos town (37.538, 25.163), Mykonos town (37.447, 25.329), Parikia on Paros (37.085, 25.150), Athens (37.984, 23.727), Munich (48.137, 11.575), and Null Island (0, 0) are all **not** on Syros; Ermoupoli, Galissas (37.4, 24.88 region) and Kini are.
+1. `island.test.ts`: points inside the rectangle; each edge exactly, one metre inside and one metre outside the margin; known places outside, with real coordinates: Tinos town (37.538, 25.163), Mykonos town (37.447, 25.329), Parikia on Paros (37.085, 25.150), Athens (37.984, 23.727), Munich (48.137, 11.575), and Null Island (0, 0) are all **not** on Syros; Ermoupoli and two coastal points taken from a map when the test is written (Finikas, Kini) are.
 2. `mapStart.test.ts` (spec §9 test 5): library + phone on Syros -> phone; library + phone in Munich -> Ermoupoli; library + denied -> Ermoupoli; library + still loading at 3,999 ms -> `waiting`, at 4,000 ms -> Ermoupoli; library + phone fix arrives *after* the town start -> the start does not move; camera + denied -> never Ermoupoli; the button's enabled state follows `status === 'ready'`.
 3. A component test for the Spot screen's "Check for matches" button (the repo renders components through react-native-web, `vitest.config.ts`): enabled once the start is `ready`, disabled while `waiting`.
 4. Implement; add the key and the three strings.
@@ -390,7 +390,7 @@ Revert. Nothing is stored.
 | **iPhone app: location arrives (C1), with or without the chooser's "Options -> Location" switch** | Native position reader on the picker's `exif`. If it arrives only with the iOS 17 "Location" option switched on and that option is off by default, the iPhone app is a "time only" row and a hint is considered (follow-up ticket "to file", not built here). |
 | **Android app: location never arrives (C2, expected)** | Nothing to read. The honest line `mapStartedAtYou` is shown on Android library picks, because the platform is known to remove the location (Decision 5 of the spec; SYC-259 revisits). No reader code. |
 | **Website: phone browsers keep location (C5/C7 pass)** | Widen slice 2W's reader to read the GPS position as well as the clock (the full reader). |
-| **Website: phone browsers remove location but keep time** | Nothing to widen. Laptop-exported files lose their position too, and the line says so. The website reader stays time-only (spec "time only on web"). **This is a deliberate trade:** a laptop-exported JPEG does carry its position, but we would only know that by reading it, and without reading it we cannot honestly say "this photo doesn't say where". So on the website the location line is shown **only if a position reader exists and found nothing**; with a time-only reader the website keeps the existing "It starts near where you are" hint and does not claim anything about the photo's position. |
+| **Website: phone browsers remove location but keep time** | Nothing to widen: the website reader stays time-only (spec "time only on web"). A time-only reader has not read the photo's position, so for a laptop-exported JPEG that does carry one, the spec's line "This photo doesn't say where it was taken" would be **untrue**. The plan therefore uses a neutral line on the website in this row ("The website can't read where a photo was taken, so the map starts near where you are now. Drag it to where you saw the cat.", one extra key in three languages). **Decision H.** |
 | **Neither arrives on the website** | Slice 2W's `photoNoTime` becomes the honest line; no website location work at all. |
 | **Locations arrive everywhere** | All of the above, full feature, nothing conditional. |
 
