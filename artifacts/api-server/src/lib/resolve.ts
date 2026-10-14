@@ -1176,6 +1176,64 @@ export function resolveMarkings(
   };
 }
 
+export type Vaccine = "rabies" | "cat_flu_enteritis" | { other: string };
+
+/** One vaccination the team recorded. Team-side only: never in a public
+ * payload (spec §6.3). */
+export interface VaccinationRecord {
+  observationId: number;
+  /** The date it was given (`observedAt`), ISO 8601. */
+  date: string;
+  vaccines: Vaccine[];
+  clinic: string | null;
+}
+
+const VACCINATING_ROLES: ReadonlySet<string> = new Set(["staff", "admin", "management"]);
+
+function parseVaccines(value: unknown): { vaccines: Vaccine[]; clinic: string | null } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const v = value as { vaccines?: unknown; clinic?: unknown };
+  if (!Array.isArray(v.vaccines) || v.vaccines.length === 0) return null;
+  const ok = v.vaccines.every(
+    (x) =>
+      x === "rabies" ||
+      x === "cat_flu_enteritis" ||
+      (typeof x === "object" && x !== null && typeof (x as { other?: unknown }).other === "string"),
+  );
+  if (!ok) return null;
+  return {
+    vaccines: v.vaccines as Vaccine[],
+    clinic: typeof v.clinic === "string" ? v.clinic : null,
+  };
+}
+
+/**
+ * The vaccinations the team recorded (spec §6.3), newest first by the date
+ * given, or `[]`. There is no negative and no *Likely*: an empty list means
+ * nothing is recorded, never "not vaccinated". Only team rows count (staff,
+ * `admin`/`management`); a row from anyone else, including a public or
+ * guardian row a writer should have refused, is ignored. A team row that
+ * replaces another team row (a correction) removes it.
+ */
+export function resolveVaccinated(observations: readonly Observation[]): VaccinationRecord[] {
+  const teamRows = observations.filter(
+    (o) => o.kind === "vaccinated" && VACCINATING_ROLES.has(o.roleAtTime),
+  );
+  return teamRows
+    .filter((o) => isActive(o, teamRows))
+    .flatMap((o) => {
+      const parsed = parseVaccines(o.value);
+      return parsed ? [{ o, ...parsed }] : [];
+    })
+    .sort((a, b) => (isNewer(a.o, b.o) ? -1 : isNewer(b.o, a.o) ? 1 : 0))
+    .map(({ o, vaccines, clinic }) => ({
+      observationId: o.id,
+      date: toIso(o.observedAt),
+      vaccines,
+      clinic,
+    }));
+}
+
 /**
  * The one snapshot the cat page, the fan-out check, the nightly notify job,
  * the dashboard and SYC-119's dead-cat guard all read (§9.1). Phase 1 takes

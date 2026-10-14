@@ -7,6 +7,7 @@ import {
   onePerVoice,
   resolveCoat,
   resolveMarkings,
+  resolveVaccinated,
   standingAppearanceRows,
   twoVoicesSince,
   type AppearanceRanking,
@@ -707,5 +708,56 @@ describe("resolveMarkings: plain cases", () => {
       "markings_changed_recently",
     ]);
     expect(resolveMarkings(rows, new Date("2026-06-15T00:00:00Z")).checkReasons).toEqual([]);
+  });
+});
+
+describe("resolveVaccinated (resolver half of spec §10.6 'Vaccinated')", () => {
+  function vacc(value: unknown, day: string, extra: Partial<Observation> = {}): Observation {
+    return obs({
+      kind: "vaccinated",
+      value,
+      deviceId: null,
+      accountId: "person:staff-1",
+      roleAtTime: "staff",
+      observedAt: new Date(day),
+      ...extra,
+    });
+  }
+
+  it("returns the team's vaccinations newest first", () => {
+    const older = vacc({ vaccines: ["rabies"] }, "2025-04-01");
+    const newer = vacc({ vaccines: ["cat_flu_enteritis", { other: "FeLV" }], clinic: "Ermoupoli" }, "2026-04-01");
+    expect(resolveVaccinated([older, newer])).toEqual([
+      {
+        observationId: newer.id,
+        date: "2026-04-01T00:00:00.000Z",
+        vaccines: ["cat_flu_enteritis", { other: "FeLV" }],
+        clinic: "Ermoupoli",
+      },
+      { observationId: older.id, date: "2025-04-01T00:00:00.000Z", vaccines: ["rabies"], clinic: null },
+    ]);
+  });
+
+  it("has no negative state: nothing recorded is an empty list, not 'not vaccinated'", () => {
+    expect(resolveVaccinated([])).toEqual([]);
+    // Even a value that tries to say "no" asserts nothing.
+    expect(resolveVaccinated([vacc({ vaccinated: false }, "2026-01-01")])).toEqual([]);
+  });
+
+  it("takes nothing from public, guardian, system or vet rows", () => {
+    const rows = [
+      vacc({ vaccines: ["rabies"] }, "2026-01-01", { roleAtTime: "public", accountId: null, deviceId: "d9" }),
+      vacc({ vaccines: ["rabies"] }, "2026-01-02", { roleAtTime: "guardian", authorityScope: "colony:2" }),
+      vacc({ vaccines: ["rabies"] }, "2026-01-03", { roleAtTime: "system", provenance: "import" }),
+      vacc({ vaccines: ["rabies"] }, "2026-01-04", { roleAtTime: "vet" }),
+    ];
+    expect(resolveVaccinated(rows)).toEqual([]);
+  });
+
+  it("a team correction replaces the row it supersedes; a spotter's supersession does nothing", () => {
+    const wrong = vacc({ vaccines: ["rabies"] }, "2026-01-01");
+    const fixed = vacc({ vaccines: ["cat_flu_enteritis"] }, "2026-01-01", { supersedesId: wrong.id });
+    const bogus = obs({ kind: "vaccinated", value: { vaccines: ["rabies"] }, supersedesId: fixed.id });
+    expect(resolveVaccinated([wrong, fixed, bogus]).map((v) => v.observationId)).toEqual([fixed.id]);
   });
 });
