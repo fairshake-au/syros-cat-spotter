@@ -191,6 +191,14 @@ describe('the website keeps today\'s behaviour (slice 2W is its own reader)', ()
     expect(spot).toMatch(/photoFingerprintRef\.current = libraryOnPhone \? fingerprint : undefined;/);
   });
 
+  it('the recent-photos list is read and written in the phone apps only', () => {
+    expect(spot).toMatch(/const recentPhotosOn = Platform\.OS !== 'web';/);
+    expect(spot).toMatch(/recentPhotosOn\s*\?\s*uniqueCaptureTime\(/);
+    expect(spot).toMatch(/if \(recentPhotosOn && remembered\) \{\s*await recordRecentPhoto\(/);
+    expect(spot.match(/\brecordRecentPhoto\(/g)).toHaveLength(1);
+    expect(spot.match(/\buniqueCaptureTime\(/g)).toHaveLength(1);
+  });
+
   it('tags are read only off the website', () => {
     expect(spot).toMatch(/readTime: !fromCamera && Platform\.OS !== 'web'/);
     expect(spot).toMatch(/exif: Platform\.OS !== 'web'/);

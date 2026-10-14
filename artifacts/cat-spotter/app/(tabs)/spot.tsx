@@ -84,6 +84,12 @@ import {
 } from '@/lib/recentPhotos';
 import { queuedSighting, sightingRequest } from '@/lib/sightingPayload';
 
+/**
+ * The recent-photos list (SYC-166 Decision 2 B) runs in the phone apps only;
+ * the website stores nothing new until its own time reader (slice 2W).
+ */
+const recentPhotosOn = Platform.OS !== 'web';
+
 /** A library photo that can't be used, said in a card with the library offered again. */
 type PhotoProblem =
   | { kind: 'tooOld'; instantMs: number }
@@ -489,20 +495,21 @@ export default function SpotScreen() {
       // Require the explicitly confirmed location — never raw GPS.
       const finalCoords = pickedCoords;
       if (!photo || !finalCoords || !deviceId) return;
-      // Two different photos from the same second would otherwise be one
-      // sighting to the server (SYC-166 Decision 2 B): move this one on by a
-      // millisecond. Same list, same answer, so a retry sends the same time.
-      const pickedMs = Date.parse(capturedAt ?? new Date().toISOString());
-      const sightingMs = uniqueCaptureTime(
-        pickedMs,
-        await loadRecentPhotos(AsyncStorage, Date.now()),
-      );
-      const sightingTime = new Date(sightingMs).toISOString();
-      const fingerprint = photoFingerprintRef.current;
-      const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       // The busy flag covers the offline branch too.
       setSubmitting(true);
       try {
+        // Two different photos from the same second would otherwise be one
+        // sighting to the server (SYC-166 Decision 2 B): move this one on by
+        // a millisecond. Same list, same answer, so a retry sends the same
+        // time. Phone apps only: the website keeps today's behaviour, and
+        // stores nothing new, until its own time reader (slice 2W).
+        const pickedMs = Date.parse(capturedAt ?? new Date().toISOString());
+        const sightingMs = recentPhotosOn
+          ? uniqueCaptureTime(pickedMs, await loadRecentPhotos(AsyncStorage, Date.now()))
+          : pickedMs;
+        const sightingTime = new Date(sightingMs).toISOString();
+        const fingerprint = photoFingerprintRef.current;
+        const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const outcome = await submitSighting({
           isOnline,
           canSaveForLater: !queueReadOnly,
@@ -560,7 +567,9 @@ export default function SpotScreen() {
               }
             : { localId },
         );
-        if (remembered) await recordRecentPhoto(AsyncStorage, remembered, Date.now());
+        if (recentPhotosOn && remembered) {
+          await recordRecentPhoto(AsyncStorage, remembered, Date.now());
+        }
 
         switch (outcome.kind) {
           case 'sent': {

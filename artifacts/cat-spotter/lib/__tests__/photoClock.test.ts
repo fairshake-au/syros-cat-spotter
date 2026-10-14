@@ -531,3 +531,69 @@ describe('extractTimeTags: time strings only, never a position', () => {
     }
   });
 });
+
+// Added after the adversarial review of #155: each case below kills a mutant
+// that survived the first suite (tolerance, rounding, ranges, leap second,
+// hour 24, the exact 21-day edge).
+describe('the edges the review found untested', () => {
+  const photo = '2026:10:03 18:42:10';
+  const gps = (date: string, time: string) =>
+    resolve({ DateTimeOriginal: photo, GPSDateStamp: date, GPSTimeStamp: time });
+
+  it('the GPS clock exactly 3 minutes off the hour is accepted; 3 minutes 1 second is not', () => {
+    expect(gps('2026:10:03', '15:45:10')).toMatchObject({ source: 'photo+gps-offset' });
+    expect(gps('2026:10:03', '15:45:11')).toMatchObject({ source: 'photo+athens' });
+    expect(gps('2026:10:03', '15:39:10')).toMatchObject({ source: 'photo+gps-offset' });
+    expect(gps('2026:10:03', '15:39:09')).toMatchObject({ source: 'photo+athens' });
+  });
+
+  it('a GPS clock a little ahead rounds to the nearest hour, not down', () => {
+    // Derived 2:58 rounds to +03:00 (rounding down would give +02:00, 58 min off).
+    expect(gps('2026:10:03', '15:44:10')).toEqual({
+      kind: 'ok',
+      instantMs: Date.UTC(2026, 9, 3, 15, 42, 10),
+      source: 'photo+gps-offset',
+    });
+  });
+
+  it('a GPS-derived offset of +14:00 and -12:00 is accepted; +15:00 and -13:00 are not', () => {
+    expect(gps('2026:10:03', '04:42:10')).toMatchObject({ source: 'photo+gps-offset' });
+    expect(gps('2026:10:03', '03:42:10')).toMatchObject({ source: 'photo+athens' });
+    expect(gps('2026:10:04', '06:42:10')).toMatchObject({ source: 'photo+gps-offset' });
+    expect(gps('2026:10:04', '07:42:10')).toMatchObject({ source: 'photo+athens' });
+  });
+
+  it('an own offset of +14:00 and -12:00 is used; +14:30 and -12:30 are treated as absent', () => {
+    const own = (o: string) => resolve({ DateTimeOriginal: photo, OffsetTimeOriginal: o });
+    expect(own('+14:00')).toMatchObject({ source: 'photo+offset' });
+    expect(own('-12:00')).toMatchObject({ source: 'photo+offset' });
+    expect(own('+14:30')).toMatchObject({ source: 'photo+athens' });
+    expect(own('-12:30')).toMatchObject({ source: 'photo+athens' });
+  });
+
+  it('a GPS leap second (:60) is read, not refused', () => {
+    expect(gps('2026:10:03', '15:41:60')).toMatchObject({ source: 'photo+gps-offset' });
+  });
+
+  it('a GPS hour of 24 is refused', () => {
+    expect(
+      resolve({
+        DateTimeOriginal: '2026:10:04 03:00:00',
+        GPSDateStamp: '2026:10:03',
+        GPSTimeStamp: '24:00:00',
+      }),
+    ).toMatchObject({ source: 'photo+athens' });
+  });
+
+  it('a photo exactly 21 days old is still accepted', () => {
+    const at = NOW - 21 * DAY;
+    const d = new Date(at);
+    const p = (n: number) => String(n).padStart(2, '0');
+    expect(
+      resolve({
+        DateTimeOriginal: `${d.getUTCFullYear()}:${p(d.getUTCMonth() + 1)}:${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`,
+        OffsetTimeOriginal: '+00:00',
+      }),
+    ).toMatchObject({ kind: 'ok', instantMs: at });
+  });
+});
