@@ -480,11 +480,11 @@ describe("resolveCoat: plain cases", () => {
     expect(r).toMatchObject({ value: ["ginger"], confidence: "reported" });
   });
 
-  it("a person's Not sure never wins: not from the team, and a later one withdraws nothing", () => {
+  it("a person's Not sure never wins: not from the team, nor from a spotter", () => {
     const r = resolveCoat([
       spotterCoat("a", ["ginger"], "2026-01-01T10:00:00Z"),
       spotterCoat("b", ["ginger"], "2026-01-02T10:00:00Z"),
-      spotterCoat("b", ["not_sure"], "2026-01-04T10:00:00Z"),
+      spotterCoat("c", ["not_sure"], "2026-01-04T10:00:00Z"),
       team("coat", { colours: ["not_sure"] }, "2026-01-05T10:00:00Z"),
     ]);
     expect(r).toMatchObject({ value: ["ginger"], confidence: "likely" });
@@ -895,5 +895,65 @@ describe("review finding 6: spec §4.2 colour rule 2's tie-break", () => {
     ]);
     // ginger 3 voices; white and tabby 2 each, tabby's newest is later.
     expect(r.value).toEqual(["ginger", "tabby"]);
+  });
+});
+
+describe("Samuel's answer 8 (14 Oct 2026): a person's Not sure withdraws their own earlier colour", () => {
+  it("S8a A ginger then A Not sure, and B ginger: B alone fills the gap, reported not likely", () => {
+    const r = resolveCoat([
+      spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
+      spotterCoat("a", ["not_sure"], "2026-01-09T10:00:00Z"),
+      spotterCoat("b", ["ginger"], "2026-01-07T10:00:00Z"),
+    ]);
+    expect(r).toMatchObject({ value: ["ginger"], confidence: "reported" });
+  });
+
+  it("S8b the same with A's Not sure superseding its ginger", () => {
+    const a1 = spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z");
+    const r = resolveCoat([
+      a1,
+      spotterCoat("a", ["not_sure"], "2026-01-09T10:00:00Z", { supersedesId: a1.id }),
+      spotterCoat("b", ["ginger"], "2026-01-07T10:00:00Z"),
+    ]);
+    expect(r).toMatchObject({ value: ["ginger"], confidence: "reported" });
+  });
+
+  it("S8c A's Not sure leaves it no gap-filler either: the older spotter's colour is not used", () => {
+    // B black is older than A's ginger; with A withdrawn, B is the newest voice.
+    const r = resolveCoat([
+      spotterCoat("b", ["black"], "2026-01-03T10:00:00Z"),
+      spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
+      spotterCoat("a", ["not_sure"], "2026-01-09T10:00:00Z"),
+    ]);
+    expect(r).toMatchObject({ value: ["black"], confidence: "reported" });
+    // And a device whose only standing answer is withdrawn leaves Not sure.
+    expect(
+      resolveCoat([
+        spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
+        spotterCoat("a", ["not_sure"], "2026-01-09T10:00:00Z"),
+      ]),
+    ).toMatchObject({ value: null, confidence: "unknown" });
+  });
+
+  it("S8d A ginger, A Not sure, A ginger again, and B ginger: likely", () => {
+    const r = resolveCoat([
+      spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
+      spotterCoat("a", ["not_sure"], "2026-01-06T10:00:00Z"),
+      spotterCoat("a", ["ginger"], "2026-01-09T10:00:00Z"),
+      spotterCoat("b", ["ginger"], "2026-01-07T10:00:00Z"),
+    ]);
+    expect(r).toMatchObject({ value: ["ginger"], confidence: "likely" });
+  });
+
+  it("S8e markings are unchanged: a later cantTell withdraws nothing", () => {
+    const r = resolveMarkings(
+      [
+        spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-05T10:00:00Z"),
+        spotterMarks("a", { cantTell: true }, "2026-01-09T10:00:00Z"),
+        spotterMarks("b", { marks: ["torn_ear"] }, "2026-01-07T10:00:00Z"),
+      ],
+      NOW,
+    );
+    expect(r.value).toEqual(["torn_ear"]);
   });
 });

@@ -1035,12 +1035,17 @@ export function resolveCoat(
   );
   const machine = newestMachine && newestMachine.colours.length > 0 ? newestMachine : undefined;
 
-  // Rule 2: two voices per colour. Not sure answers are dropped before the
-  // one-voice-per-device step, so a later Not sure withdraws nothing.
-  const spotterRows = statements.filter((s) => s.colours.length > 0);
-  const coloursById = new Map(spotterRows.map((s) => [s.row.id, s.colours]));
-  const voices = onePerVoice(spotterRows.map((s) => s.row), appearanceVoiceKeys(observations, "coat"));
-  const coloursOf = (v: Voice) => coloursById.get(v.row.id) ?? [];
+  // Rule 2: two voices per colour. A device's colour is its newest standing
+  // colour row (Samuel, 14 Oct 2026, review finding 8): when that row is Not
+  // sure the device holds no colour and counts towards nothing, linked to
+  // its earlier answer or not. Not sure still never wins anything.
+  const coloursById = new Map(statements.map((s) => [s.row.id, s.colours]));
+  const coloursOfRow = (o: Observation) => coloursById.get(o.id) ?? [];
+  const voices = onePerVoice(
+    statements.map((s) => s.row),
+    appearanceVoiceKeys(observations, "coat"),
+  ).filter((v) => coloursOfRow(v.row).length > 0);
+  const coloursOf = (v: Voice) => coloursOfRow(v.row);
 
   const agreed: { colour: CoatColour; voices: Voice[] }[] = [];
   for (const colour of COAT_COLOURS) {
