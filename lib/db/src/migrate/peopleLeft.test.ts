@@ -61,6 +61,22 @@ const SUSAN = "susan@example.com";
 const addSusan = (roles?: string[]) =>
   store.addPerson({ email: SUSAN, name: "Susan", addedBy: "cli:test", roles });
 
+/**
+ * A person written with raw SQL, so with no `person_events` row. The link
+ * tests below must run on this, not on addSusan(): a person made by the store
+ * has an `added` event, whose strict link refuses the delete whatever the
+ * welfare links say, so the test would stay green with a link removed.
+ */
+const rawSusan = async () => {
+  const r = await c.query(
+    `insert into people (email, name, added_by) values ($1, 'Susan', 'cli:test') returning id`,
+    [SUSAN],
+  );
+  const id = r.rows[0].id as string;
+  await c.query(`insert into person_scopes (person_id, role) values ($1, 'staff')`, [id]);
+  return { id };
+};
+
 const row = async (id: string) =>
   (
     await c.query(
@@ -240,7 +256,7 @@ describe("P0-4: nobody on the list can be hard-deleted (SYC-53 PR 0.1)", () => {
   it.each(links)(
     "P1-10: a person named in %s can't be hard-deleted; the database refuses",
     async (_link, seed) => {
-      const p = await addSusan();
+      const p = await rawSusan();
       await seed(p.id);
 
       await expect(
@@ -254,12 +270,26 @@ describe("P0-4: nobody on the list can be hard-deleted (SYC-53 PR 0.1)", () => {
     },
   );
 
-  it("a person who has written an observation can't be hard-deleted either", async () => {
-    const p = await addSusan();
+  it("an observation's author has no database link, so only the `added` event protects them", async () => {
+    // account_id has no foreign key (spec 10.1). On a raw person with no
+    // event nothing refuses the delete; on a person made by the store, the
+    // `added` event does.
+    const raw = await rawSusan();
     const cat = await c.query(
       `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
          values ('Agatha', 0, 37.44, 24.94, 'd') returning id`,
     );
+    await c.query(
+      `insert into observations
+         (cat_id, kind, value, account_id, role_at_time, authority_scope, provenance, observed_at)
+       values ($1, 'sterilised', '{"sterilised": true}', $2, 'staff', 'none', 'volunteered', now())`,
+      [cat.rows[0].id, raw.id],
+    );
+    await c.query(`delete from person_scopes where person_id = $1`, [raw.id]);
+    await expect(
+      c.query(`delete from people where id = $1`, [raw.id]),
+    ).resolves.toBeDefined();
+    const p = await addSusan();
     await c.query(
       `insert into observations
          (cat_id, kind, value, account_id, role_at_time, authority_scope, provenance, observed_at)
@@ -269,9 +299,6 @@ describe("P0-4: nobody on the list can be hard-deleted (SYC-53 PR 0.1)", () => {
     await expect(
       c.query(`delete from people where id = $1`, [p.id]),
     ).rejects.toMatchObject({ code: "23503" });
-    expect(await store.findPersonById(p.id)).toMatchObject({
-      scopes: [{ role: "staff", colonyId: null }],
-    });
   });
 
   it("a person with no other history still has an `added` event, so the database refuses their delete", async () => {

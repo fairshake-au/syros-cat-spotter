@@ -6,7 +6,6 @@ import {
   db,
   mailOutboxTable,
   markLeft,
-  peopleTable,
   pool,
   reportStateEventsTable,
   welfareReportsTable,
@@ -365,13 +364,33 @@ describe("P2-6: a person who has left stays named on what they did", () => {
       left: true,
     });
 
-    // Hard-deleting her is refused by the database link itself...
-    const attempt = db
-      .delete(peopleTable)
-      .where(eq(peopleTable.id, mariaId))
-      .catch((err: unknown) => err);
-    const err = (await attempt) as { code?: string; cause?: { code?: string } };
-    expect(err?.code ?? err?.cause?.code).toBe("23503");
+    // Hard-deleting her is refused by the welfare links themselves. Her
+    // `added` event would refuse it too, so the test removes her events first
+    // (trigger off, inside a transaction that is rolled back), leaving the
+    // welfare links the only thing standing in the way.
+    const client = await pool.connect();
+    let code: string | undefined;
+    try {
+      await client.query("begin");
+      await client.query(
+        `alter table person_events disable trigger person_events_append_only`,
+      );
+      await client.query(`delete from person_events where person_id = $1`, [
+        mariaId,
+      ]);
+      await client.query(`delete from person_scopes where person_id = $1`, [
+        mariaId,
+      ]);
+      try {
+        await client.query(`delete from people where id = $1`, [mariaId]);
+      } catch (err) {
+        code = (err as { code?: string }).code;
+      }
+    } finally {
+      await client.query("rollback").catch(() => {});
+      client.release();
+    }
+    expect(code).toBe("23503");
     // ...and the app has no way to delete a person at all (SYC-53 PR 0.1:
     // marking as left is the only way off the list).
     expect("removePerson" in (await import("@workspace/db"))).toBe(false);
