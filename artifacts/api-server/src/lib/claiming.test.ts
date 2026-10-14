@@ -78,6 +78,9 @@ async function sighting(
       lat: 37.44,
       lng: 24.94,
       status: opts.status ?? "resolved",
+      // Before teamStatus's statements (a day ago), so a later sighting never
+      // clears a "deceased" (data spine §3.2) behind a test's back.
+      createdAt: daysAgo(5),
     })
     .returning();
   if (choice !== "none") {
