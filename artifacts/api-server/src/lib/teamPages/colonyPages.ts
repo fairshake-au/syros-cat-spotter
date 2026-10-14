@@ -140,6 +140,25 @@ function describe(e: ColonyHistoryEntry): string {
       return w("history.notes");
     case "colony_centre_changed":
       return `${w("history.centre")}: ${centreText(b["centre"])} → ${centreText(a["centre"])}`;
+    case "cat_added":
+    case "cat_taken_out":
+    case "cat_moved_out": {
+      const word =
+        e.kind === "cat_added"
+          ? "history.catAdded"
+          : e.kind === "cat_taken_out"
+            ? "history.catTakenOut"
+            : "history.catMovedOut";
+      const catId = typeof a["catId"] === "number" ? a["catId"] : null;
+      const name = str(a["catName"]) ?? "";
+      const to = str(a["movedTo"]);
+      return (
+        `${w(word)}: ` +
+        (catId !== null ? `<a href="/api/team/cats/${catId}">${esc(name)}</a>` : esc(name)) +
+        ` <span class="syr">${esc(str(a["catSyr"]) ?? "")}</span>` +
+        (e.kind === "cat_moved_out" && to ? ` → ${quoted(to)}` : "")
+      );
+    }
     default:
       return esc(e.kind.replace(/_/g, " "));
   }

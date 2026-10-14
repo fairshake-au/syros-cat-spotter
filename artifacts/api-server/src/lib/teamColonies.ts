@@ -5,12 +5,15 @@ import {
   db,
   feedingSitesTable,
   foldName,
+  isPersonId,
   mappingEventsTable,
+  observationsTable,
   peopleTable,
   photosTable,
   type Colony,
 } from "@workspace/db";
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { catsByColony } from "./colonyMembership";
 import { recordMappingEvent } from "./mappingEvents";
 import { syrNumber, teamPhotoUrl } from "./teamCatView";
@@ -170,11 +173,114 @@ async function personLabels(ids: readonly string[]): Promise<Map<string, string>
   return out;
 }
 
+/**
+ * "Cat added" and "Cat taken out" lines for a colony's history (spec §2.6),
+ * read from the `colony` statements, not from a table of their own. Per cat,
+ * the statements that stand (not marked wrong, not redacted) are walked in
+ * the order `currentColonyOf` uses; a statement that puts the cat in this
+ * colony when it was not already is "added", and one that moves it out of
+ * this colony is "taken out" (to no colony) or "moved out" (to another).
+ */
+async function catHistoryEntries(colonyId: number): Promise<ColonyHistoryEntry[]> {
+  const replacer = alias(observationsTable, "replacer");
+  const standing = and(
+    eq(observationsTable.kind, "colony"),
+    isNull(observationsTable.redactedAt),
+    notExists(
+      db
+        .select({ one: sql`1` })
+        .from(replacer)
+        .where(eq(replacer.supersedesId, observationsTable.id)),
+    ),
+  );
+  const touched = await db
+    .selectDistinct({ catId: observationsTable.catId })
+    .from(observationsTable)
+    .where(and(standing, sql`${observationsTable.value}->>'colonyId' = ${String(colonyId)}`));
+  if (touched.length === 0) return [];
+  const catIds = touched.map((t) => t.catId);
+
+  const rows = await db
+    .select({
+      id: observationsTable.id,
+      catId: observationsTable.catId,
+      value: observationsTable.value,
+      accountId: observationsTable.accountId,
+      createdAt: observationsTable.createdAt,
+    })
+    .from(observationsTable)
+    .where(and(standing, inArray(observationsTable.catId, catIds)))
+    .orderBy(
+      asc(observationsTable.catId),
+      asc(observationsTable.observedAt),
+      asc(observationsTable.id),
+    );
+
+  const [cats, people] = await Promise.all([
+    db
+      .select({ id: catsTable.id, name: catsTable.name })
+      .from(catsTable)
+      .where(inArray(catsTable.id, catIds)),
+    personLabels(rows.map((r) => r.accountId).filter((a): a is string => isPersonId(a))),
+  ]);
+  const catName = new Map(cats.map((c) => [c.id, c.name]));
+  const otherIds = [
+    ...new Set(
+      rows
+        .map((r) => (r.value as { colonyId?: unknown } | null)?.colonyId)
+        .filter((c): c is number => typeof c === "number" && c !== colonyId),
+    ),
+  ];
+  const otherNames = new Map<number, string>();
+  if (otherIds.length > 0) {
+    for (const c of await db
+      .select({ id: coloniesTable.id, name: coloniesTable.name })
+      .from(coloniesTable)
+      .where(inArray(coloniesTable.id, otherIds))) {
+      otherNames.set(c.id, c.name);
+    }
+  }
+
+  const out: ColonyHistoryEntry[] = [];
+  const previous = new Map<number, number | null>();
+  for (const r of rows) {
+    const raw = (r.value as { colonyId?: unknown } | null)?.colonyId;
+    const now = typeof raw === "number" ? raw : null;
+    const before = previous.get(r.catId) ?? null;
+    previous.set(r.catId, now);
+    if (now === before) continue;
+    if (now !== colonyId && before !== colonyId) continue;
+    const entry = {
+      id: r.id,
+      by:
+        r.accountId && isPersonId(r.accountId)
+          ? (people.get(r.accountId) ?? "someone no longer on the team list")
+          : "the system",
+      at: r.createdAt.toISOString(),
+      before: null,
+      redacted: false,
+    };
+    const cat = { catId: r.catId, catName: catName.get(r.catId) ?? "", catSyr: syrNumber(r.catId) };
+    out.push(
+      now === colonyId
+        ? { ...entry, kind: "cat_added", after: cat }
+        : now === null
+          ? { ...entry, kind: "cat_taken_out", after: cat }
+          : {
+              ...entry,
+              kind: "cat_moved_out",
+              after: { ...cat, movedTo: otherNames.get(now) ?? null },
+            },
+    );
+  }
+  return out;
+}
+
 export async function colonyView(id: number): Promise<ColonyView | null> {
   const [colony] = await db.select().from(coloniesTable).where(eq(coloniesTable.id, id));
   if (!colony) return null;
 
-  const [sites, catIds, events] = await Promise.all([
+  const [sites, catIds, events, catEvents] = await Promise.all([
     db
       .select({ id: feedingSitesTable.id, name: feedingSitesTable.name })
       .from(feedingSitesTable)
@@ -188,6 +294,7 @@ export async function colonyView(id: number): Promise<ColonyView | null> {
         and(eq(mappingEventsTable.subjectKind, "colony"), eq(mappingEventsTable.subjectId, id)),
       )
       .orderBy(desc(mappingEventsTable.at), desc(mappingEventsTable.id)),
+    catHistoryEntries(id),
   ]);
 
   const cats: ColonyCat[] =
@@ -226,17 +333,20 @@ export async function colonyView(id: number): Promise<ColonyView | null> {
     catCount: cats.length,
     sites,
     cats,
-    history: events.map((e) => ({
-      id: e.id,
-      kind: e.kind,
-      by: e.personId
-        ? (people.get(e.personId) ?? "someone no longer on the team list")
-        : "the system",
-      at: e.at.toISOString(),
-      before: (e.before as Record<string, unknown> | null) ?? null,
-      after: (e.after as Record<string, unknown> | null) ?? null,
-      redacted: e.redactedAt !== null,
-    })),
+    history: [
+      ...events.map((e) => ({
+        id: e.id,
+        kind: e.kind,
+        by: e.personId
+          ? (people.get(e.personId) ?? "someone no longer on the team list")
+          : "the system",
+        at: e.at.toISOString(),
+        before: (e.before as Record<string, unknown> | null) ?? null,
+        after: (e.after as Record<string, unknown> | null) ?? null,
+        redacted: e.redactedAt !== null,
+      })),
+      ...catEvents,
+    ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.id - a.id)),
   };
 }
 

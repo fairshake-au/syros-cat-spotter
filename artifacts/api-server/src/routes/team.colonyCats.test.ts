@@ -644,5 +644,58 @@ describe("test 15 (team half): Mark wrong on a colony statement", () => {
   });
 });
 
+describe("the colony's history says which cats were added and taken out", () => {
+  it("reads them from the colony statements, newest first, by name, and leaves a corrected one out", async () => {
+    const a = await makeColony(unique("Hist-A"));
+    const b = await makeColony(unique("Hist-B"));
+    const c1 = await seedCat("Hist-1");
+    const c2 = await seedCat("Hist-2");
+    const c3 = await seedCat("Hist-3");
+    await addCats(a, [c1, c2, c3]);
+    await sleep(5);
+    await moveCat(c1, "none");
+    await sleep(5);
+    await moveCat(c2, b);
+    // c3 was put in by mistake: marked wrong, so it never counts as added.
+    const [wrong] = await colonyStatements(c3);
+    await markWrong(wrong!.id);
+
+    const res = await request(app)
+      .get(`/api/team/colonies/${a}`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/json");
+    const catLines = (res.body.history as { kind: string; by: string; after: { catId: number } }[]).filter(
+      (h) => h.kind.startsWith("cat_"),
+    );
+    expect(catLines.map((h) => [h.kind, h.after.catId])).toEqual([
+      ["cat_moved_out", c2],
+      ["cat_taken_out", c1],
+      ["cat_added", c2],
+      ["cat_added", c1],
+    ]);
+    expect(catLines.every((h) => h.by === "Susan")).toBe(true);
+
+    const html = decoded((await get(`/api/team/colonies/${a}`)).text);
+    expect(html).toContain("Cat added");
+    expect(html).toContain("Cat taken out");
+    expect(html).toContain(`Cat moved to another colony: <a href="/api/team/cats/${c2}">${P}Hist-2</a>`);
+    expect(html).toContain(`→ “${P}Hist-B`);
+    // The colony's own pages count agree: it holds none of these three now.
+    expect(res.body.catCount).toBe(0);
+    // B sees c2 arrive.
+    const bHtml = decoded((await get(`/api/team/colonies/${b}`)).text);
+    expect(bHtml).toContain(`Cat added: <a href="/api/team/cats/${c2}">${P}Hist-2</a>`);
+  });
+
+  it("a colony with no cat ever added has none of these lines", async () => {
+    const a = await makeColony(unique("Hist-empty"));
+    const res = await request(app)
+      .get(`/api/team/colonies/${a}`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/json");
+    expect((res.body.history as { kind: string }[]).map((h) => h.kind)).toEqual(["colony_created"]);
+  });
+});
+
 // Kept to the end of the file so later tests can reuse the helpers above.
 void coloniesTable;
