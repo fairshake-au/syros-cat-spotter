@@ -363,7 +363,7 @@ Samuel **approved the spec on 12 October 2026** and **the implementation plan on
 - **The reporter gets an on-screen thank-you only.** There is no email box on Report an issue and no closing email, so nothing amends `email-capture.md` or the privacy policy. (D9, option D.)
 - **Turnstile on both public report forms, in a WebView on the app's own challenge page on the phone apps.** Verified in Express; no Worker; exact hostname list. (D10.)
 - **A bad or missing token is refused and retried; only a Cloudflare outage is accepted, as "unchecked".** An unchecked issue report never hides. Drafts need a token too. This relaxes SYC-170's wording only in the outage case. (D11.)
-- **Issue reports are kept one year after closing,** then the note is deleted. (D12.)
+- **Issue reports are kept one year after closing,** then the note is deleted. (D12.) Both the reporter's note and the team's note go, since either may quote the reporter; the bare record stays (plan, 14 October 2026).
 - **Report an issue is built after PR 6 of the queue plan,** and Turnstile on the welfare form goes first. (D13.)
 - **Photos are never kept by shared caches.** Public photos are served as `private`, so only a viewer's own phone or browser keeps a copy; a hidden photo is gone from every public place at once. The spec's new address on every hide and restore is not built (amends D14; Samuel, 14 October 2026, plan Decision 1).
 - **No team action to clear a cat's home description.** SYC-130 makes the home note visible only to its owner and the team, and that change must be live before the pre-launch pass comes off (amends D6's conditional action; plan Decision 2, 14 October 2026).
