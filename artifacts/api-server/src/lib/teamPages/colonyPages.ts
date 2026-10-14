@@ -160,7 +160,11 @@ function historyList(history: ColonyHistoryEntry[]): string {
   );
 }
 
-function catList(cats: ColonyView["cats"]): string {
+function catList(
+  cats: ColonyView["cats"],
+  colonyId: number,
+  mayTakeOut: boolean,
+): string {
   if (cats.length === 0) return `<p class="empty">${w("colony.noCats")}</p>`;
   return (
     `<ul class="cats">` +
@@ -171,7 +175,14 @@ function catList(cats: ColonyView["cats"]): string {
           : `<span class="thumb nothumb">${w("colony.noPhoto")}</span>`;
         return (
           `<li><a class="catrow" href="/api/team/cats/${c.id}">${thumb}` +
-          `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a></li>`
+          `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>` +
+          (mayTakeOut
+            ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
+              `<input type="hidden" name="colonyId" value="none">` +
+              `<input type="hidden" name="from" value="${colonyId}">` +
+              `<button type="submit">${w("colony.takeOut")}</button></form>`
+            : "") +
+          `</li>`
         );
       })
       .join("") +
@@ -234,7 +245,10 @@ export function renderColonyPage(
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
       `<h2>${w("colony.catsTitle")}</h2>` +
-      catList(v.cats) +
+      catList(v.cats, v.id, opts.may("assign_cat_to_colony")) +
+      (v.cats.length > 0 && opts.may("assign_cat_to_colony")
+        ? `<p class="hint">${w("colony.takeOutNote")}</p>`
+        : "") +
       (opts.may("assign_cat_to_colony")
         ? `<p><a class="tap" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
         : "") +

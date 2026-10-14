@@ -415,5 +415,67 @@ describe("test 15 (team half): the team's cat page and moving a cat", () => {
   });
 });
 
+describe("test 15 (team half): taking a cat out of a colony", () => {
+  it("writes { colonyId: null }, and the earlier statement stays visible in the history", async () => {
+    const colony = await makeColony(unique("Leaver"));
+    const cat = await seedCat("Leaver-cat");
+    await moveCat(cat, colony);
+    const res = await moveCat(cat, "none");
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toMatch(/\?done=colonyOut&s=\d+#s-\d+$/);
+
+    const rows = await colonyStatements(cat);
+    expect(rows.map((r) => r.value)).toEqual([{ colonyId: colony }, { colonyId: null }]);
+    expect(rows[1]).toMatchObject({ accountId: susan, roleAtTime: "staff" });
+    expect((await currentColonyOf([cat])).has(cat)).toBe(false);
+
+    const page = decoded((await get(`/api/team/cats/${cat}?done=colonyOut&s=${rows[1]!.id}`)).text);
+    expect(page).toContain("Not in a colony");
+    expect(page).toContain(`Put in the colony “${P}Leaver`);
+    expect(page).toContain("Taken out of its colony");
+    expect(page).toContain("The cat is out of its colony");
+    // Gone from the colony page's cats.
+    const colonyView = await request(app)
+      .get(`/api/team/colonies/${colony}`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/json");
+    expect(colonyView.body.cats).toEqual([]);
+  });
+
+  it("from a colony page it goes back there; a cat moved since the page was drawn is left alone", async () => {
+    const a = await makeColony(unique("From-A"));
+    const b = await makeColony(unique("From-B"));
+    const cat = await seedCat("From-cat");
+    await moveCat(cat, a);
+
+    // The colony page offers it per cat, and says which colony it is leaving.
+    const html = (await get(`/api/team/colonies/${a}`)).text;
+    expect(html).toContain(`action="/api/team/cats/${cat}/colony"`);
+    expect(html).toContain(`name="from" value="${a}"`);
+    expect(html).toContain("Take out of this colony");
+
+    // Someone moves the cat to B; then the stale page's button is pressed.
+    await moveCat(cat, b);
+    const stale = await moveCat(cat, "none", { from: String(a) });
+    expect(stale.status).toBe(303);
+    expect(stale.headers["location"]).toBe(`/api/team/colonies/${a}?done=notThere`);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(b);
+    expect(await colonyStatements(cat)).toHaveLength(2);
+
+    // From B's page it works.
+    const done = await moveCat(cat, "none", { from: String(b) });
+    expect(done.headers["location"]).toBe(`/api/team/colonies/${b}?done=takenOut`);
+    expect((await currentColonyOf([cat])).has(cat)).toBe(false);
+    expect(await colonyStatements(cat)).toHaveLength(3);
+  });
+
+  it("taking out a cat that is in no colony writes nothing", async () => {
+    const cat = await seedCat("Nobody");
+    const res = await moveCat(cat, "none");
+    expect(res.headers["location"]).toMatch(/\?done=colonyAlready#corrections$/);
+    expect(await colonyStatements(cat)).toHaveLength(0);
+  });
+});
+
 // Kept to the end of the file so later tests can reuse the helpers above.
 void coloniesTable;

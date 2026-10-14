@@ -78,6 +78,8 @@ h3{font-size:16px;margin:16px 0 4px}
 ul.cats,ul.sightings,ol.history{list-style:none;margin:0;padding:0}
 .catrow{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;overflow-wrap:anywhere}
 .catrow:hover{border-color:#0b5c6b}
+form.takeout{margin:-4px 0 8px}
+form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 .catrow input[type=checkbox]{width:24px;height:24px;margin:0;flex:none}
 .catrow input[type=checkbox]:disabled+.thumb{opacity:.6}
 .catrow strong{color:#0b5c6b;text-decoration:underline}
