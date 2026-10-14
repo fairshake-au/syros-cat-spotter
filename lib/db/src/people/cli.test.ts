@@ -142,7 +142,7 @@ describe("choosing the database", () => {
 describe("people command", () => {
   it("adds from PEOPLE_EMAIL and PEOPLE_NAME, printing only the id and role", async () => {
     const r = await run(
-      ["add", "--target", "development", "--role", "staff", "--by", "db-ops"],
+      ["add", "--accepted", "--target", "development", "--role", "staff", "--by", "db-ops"],
       {
         ...devEnv(),
         PEOPLE_EMAIL: "Susan@Example.com",
@@ -166,7 +166,7 @@ describe("people command", () => {
   });
 
   it("refuses add with no address or name given anywhere", async () => {
-    const r = await run(["add", "--target", "development"]);
+    const r = await run(["add", "--accepted", "--target", "development"]);
     expect(r.code).toBe(2);
     expect(r.out.join("\n")).toMatch(/Give --email, or set PEOPLE_EMAIL/);
     expect(await countPeople()).toBe(0);
@@ -175,6 +175,7 @@ describe("people command", () => {
   it("lists ids, roles and versions, never an address or a name", async () => {
     await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -186,7 +187,7 @@ describe("people command", () => {
     expect(list.code).toBe(0);
     expect(list.out[1]).toBe("1 person on the list.");
     expect(list.out[2]).toMatch(
-      /^[0-9a-f-]{36}\tstaff\tsession 1\tadded \S+ by cli:\S+\thistory added$/,
+      /^[0-9a-f-]{36}\tstaff\tsession 1\tadded \S+ by cli:\S+\tlanguage en\thistory added$/,
     );
     expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
   });
@@ -194,6 +195,7 @@ describe("people command", () => {
   it("signs out everywhere after the address is typed again, and records who", async () => {
     await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -225,7 +227,7 @@ describe("people command", () => {
     ]);
     expect(events.rows[1].by).toMatch(/^cli:\S+$/);
     const list = await run(["list", "--target", "development"]);
-    expect(list.out[2]).toMatch(/\thistory added,signed_out_everywhere$/);
+    expect(list.out[2]).toMatch(/\tlanguage en\thistory added,signed_out_everywhere$/);
   });
 
   it("has no remove command: marking as left is the only way off the list", async () => {
@@ -241,6 +243,7 @@ describe("people command", () => {
   it("changes nothing when the confirmation doesn't match", async () => {
     await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -267,6 +270,7 @@ describe("people command", () => {
   it("refuses a shared mailbox with the plain-English reason", async () => {
     const add = await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -285,6 +289,7 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
   const add = () =>
     run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -324,7 +329,7 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
     const list = await run(["list", "--target", "development"]);
     expect(list.out[1]).toBe("0 people on the list, and 1 marked as left.");
     expect(list.out[2]).toMatch(
-      /^[0-9a-f-]{36}\tstaff\tsession 2\tadded \S+ by cli:\S+\tLEFT \S+ by cli:samuel\thistory added,left$/,
+      /^[0-9a-f-]{36}\tstaff\tsession 2\tadded \S+ by cli:\S+\tLEFT \S+ by cli:samuel\tlanguage en\thistory added,left$/,
     );
     expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
   });
