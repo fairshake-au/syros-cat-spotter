@@ -736,6 +736,52 @@ describe("canClaim on the cat's page (§4.1, §11)", () => {
     expect((await detail(c.id, d, d.secret)).body.canClaim).toBe(false);
   });
 
+  it("critic M2: false within 7 days of this phone letting the cat go, true after", async () => {
+    const c = await streetCat();
+    const d = phone("canletgo");
+    await bind(d);
+    await met(c.id, d);
+    expect((await claim(c.id, d)).status).toBe(200);
+    await letGo(c.id, d);
+    expect((await detail(c.id, d, d.secret)).body.canClaim).toBe(false);
+    // Another phone that has met it is unaffected.
+    const other = phone("canletgo-other");
+    await bind(other);
+    await met(c.id, other);
+    expect((await detail(c.id, other, other.secret)).body.canClaim).toBe(true);
+
+    // A withdrawal written eight days ago no longer holds the phone back.
+    const c2 = await streetCat();
+    const d2 = phone("canletgo-old");
+    await bind(d2);
+    await met(c2.id, d2);
+    expect((await claim(c2.id, d2)).status).toBe(200);
+    const [homed] = await homedObservations(c2.id);
+    await db.insert(observationsTable).values({
+      catId: c2.id,
+      kind: "life_status",
+      value: WITHDRAWN,
+      deviceId: d2.id,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: daysAgo(8),
+      createdAt: daysAgo(8),
+      supersedesId: homed!.id,
+    });
+    await clearOwner(db, c2.id);
+    expect((await detail(c2.id, d2, d2.secret)).body.canClaim).toBe(true);
+  });
+
+  it("critic M2: the 24-hour attempt limit does not turn canClaim off", async () => {
+    const c = await streetCat();
+    const d = phone("canlimit");
+    await bind(d);
+    await met(c.id, d);
+    for (let i = 0; i < 6; i++) await claim(c.id, d, { livesOnSyros: false });
+    expect((await claim(c.id, d)).status).toBe(429);
+    expect((await detail(c.id, d, d.secret)).body.canClaim).toBe(true);
+  });
+
   it("never binds a secret: looking doesn't register a phone", async () => {
     const c = await streetCat();
     const d = phone("nobind");

@@ -137,6 +137,9 @@ async function catPayload(
  * Anything short of a proven owner is the public view, with no error, so
  * the answer never says whether a guess at an owner's id was close.
  */
+/** §11: a phone that let a cat go can't claim that same cat again for this long. */
+const CLAIM_COOLDOWN_DAYS = 7;
+
 async function detailViewer(req: Request, cat: Cat): Promise<{ viewer: Viewer; canClaim: boolean }> {
   const header = req.headers["x-device-id"];
   const deviceId = typeof header === "string" ? header : "";
@@ -146,9 +149,13 @@ async function detailViewer(req: Request, cat: Cat): Promise<{ viewer: Viewer; c
   // claiming-a-cat.md §4.1, §11: "may claim" comes from the same function
   // the claim uses, and only for a phone that has proved it is that device.
   // A cat someone else owns can't be claimed, so it isn't asked.
+  // The let-go cooldown is part of the rule too (critic M2), so the button
+  // never offers a claim that would be refused. The 24-hour attempt limit
+  // isn't: it's about how often, not whether.
   const canClaim =
     cat.ownerDeviceId === null &&
-    (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true;
+    (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true &&
+    !(await letGoWithinDays(db, cat.id, deviceId, CLAIM_COOLDOWN_DAYS));
   return { viewer: PUBLIC_VIEWER, canClaim };
 }
 
@@ -392,8 +399,6 @@ const REFUSAL_TEXT = {
     "That's a long way from where this cat is usually seen. Move the pin to where the cat lives. If it really lives there, write to Syros Cats.",
 } as const;
 const TOO_MANY = "Too many requests. Please try again later.";
-/** §11: a phone that let a cat go can't claim that same cat again for this long. */
-const CLAIM_COOLDOWN_DAYS = 7;
 
 function refusalStatus(code: ClaimRefusal): number {
   return code === "NOT_MET" ? 403 : 409;
