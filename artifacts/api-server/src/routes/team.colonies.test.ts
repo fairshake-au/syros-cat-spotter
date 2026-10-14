@@ -422,6 +422,17 @@ describe("test 14: colony names", () => {
     const res = await post(`/api/team/colonies/${id}`, { name: `${P}ΑΓΊΑ` });
     expect(res.status).toBe(303);
     expect((await colonyRow(id))!.name).toBe(`${P}ΑΓΊΑ`);
+    // The event keeps both spellings as typed; no name-history row, because
+    // the old spelling folds to the current name and search already finds it.
+    const events = await eventsOf(id);
+    expect(events.map((e) => e.kind)).toEqual(["colony_created", "colony_renamed"]);
+    expect(events[1]).toMatchObject({
+      before: { name: `${P}Αγία` },
+      after: { name: `${P}ΑΓΊΑ` },
+    });
+    expect(
+      await db.select().from(colonyNameHistoryTable).where(eq(colonyNameHistoryTable.colonyId, id)),
+    ).toHaveLength(0);
     const [list] = (
       (await get(`/api/team/colonies?q=${encodeURIComponent(`${P}αγια`)}`).set("Accept", "application/json"))
         .body.colonies as { id: number }[]
@@ -706,6 +717,78 @@ describe("the ?done= message is looked up safely", () => {
         expect(res.text, `${path} ${done}`).not.toContain('class="notice"');
       }
     }
+  });
+});
+
+describe("a bad centre number", () => {
+  it("refuses hex, binary and exponent spellings, and accepts plain decimals", async () => {
+    const id = await makeColony(unique("numbers"));
+    for (const lat of ["0x10", "0b11", "1e1", "Infinity", "1_0", "10."]) {
+      const res = await post(`/api/team/colonies/${id}`, { lat, lng: "24.9" });
+      expect(res.status, lat).toBe(400);
+    }
+    expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
+    for (const [lat, lng, want] of [
+      ["37.4452", "24.9423", [37.4452, 24.9423]],
+      ["+37.4", "-24.9", [37.4, -24.9]],
+    ] as const) {
+      const res = await post(`/api/team/colonies/${id}`, { lat, lng });
+      expect(res.status, lat).toBe(303);
+      expect(await colonyRow(id)).toMatchObject({ lat: want[0], lng: want[1] });
+    }
+  });
+});
+
+describe("two edits of one colony at the same moment", () => {
+  it("queue up: the history is one unbroken chain of names", async () => {
+    const original = unique("chain");
+    const id = await makeColony(original);
+    // Hold the colony's row so both edits arrive while it is busy, then let
+    // them go. Without the row lock in updateColony, both would read the
+    // original name and both would record it as the name they replaced.
+    const holder = await pool.connect();
+    await holder.query("begin");
+    await holder.query("select id from colonies where id = $1 for update", [id]);
+    const nameA = unique("chain-a");
+    const nameB = unique("chain-b");
+    const both = Promise.all([
+      post(`/api/team/colonies/${id}`, { name: nameA }),
+      post(`/api/team/colonies/${id}`, { name: nameB }),
+    ]);
+    try {
+      let waiting = 0;
+      for (let i = 0; i < 200 && waiting < 2; i++) {
+        const r = await holder.query(
+          `select count(*)::int as n from pg_stat_activity
+           where wait_event_type = 'Lock' and pid <> pg_backend_pid()
+             and query ilike '%colonies%' and datname = current_database()`,
+        );
+        waiting = r.rows[0].n;
+        if (waiting < 2) await new Promise((r2) => setTimeout(r2, 25));
+      }
+      expect(waiting).toBeGreaterThanOrEqual(2);
+    } finally {
+      await holder.query("commit");
+      holder.release();
+    }
+    const results = await both;
+    expect(results.map((r) => r.status)).toEqual([303, 303]);
+
+    const renames = (await eventsOf(id)).filter((e) => e.kind === "colony_renamed");
+    expect(renames).toHaveLength(2);
+    const [first, second] = renames as [(typeof renames)[number], (typeof renames)[number]];
+    expect(first.before).toEqual({ name: original });
+    expect(second.before).toEqual(first.after);
+    expect([(first.after as { name: string }).name, (second.after as { name: string }).name].sort()).toEqual(
+      [nameA, nameB].sort(),
+    );
+    const history = await db
+      .select()
+      .from(colonyNameHistoryTable)
+      .where(eq(colonyNameHistoryTable.colonyId, id))
+      .orderBy(asc(colonyNameHistoryTable.id));
+    expect(history.map((h) => h.name)).toEqual([original, (first.after as { name: string }).name]);
+    expect((await colonyRow(id))!.name).toBe((second.after as { name: string }).name);
   });
 });
 

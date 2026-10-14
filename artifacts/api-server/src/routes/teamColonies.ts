@@ -85,7 +85,10 @@ const coordinate = (limit: number) =>
     (v) => {
       if (typeof v === "string") {
         const s = v.trim();
-        return s === "" ? null : Number(s);
+        if (s === "") return null;
+        // Plain decimal numbers only: Number() would also take "0x10",
+        // "0b11" and "1e1".
+        return /^[+-]?\d+(\.\d+)?$/.test(s) ? Number(s) : Number.NaN;
       }
       return v;
     },

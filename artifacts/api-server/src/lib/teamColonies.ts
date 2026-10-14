@@ -375,13 +375,16 @@ export async function updateColony(
       if (needed.rename) {
         const name = changes.name!;
         // The old name stays findable (spec §2.7) and keeps a data-spine
-        // import matching.
-        await tx.insert(colonyNameHistoryTable).values({
-          colonyId: id,
-          name: colony.name,
-          normalisedName: colony.normalisedName,
-          replacedBy: personId,
-        });
+        // import matching. A change of capitals or accents only folds to the
+        // same name, which search already finds, so it needs no history row.
+        if (foldName(name) !== colony.normalisedName) {
+          await tx.insert(colonyNameHistoryTable).values({
+            colonyId: id,
+            name: colony.name,
+            normalisedName: colony.normalisedName,
+            replacedBy: personId,
+          });
+        }
         set.name = name;
         set.normalisedName = foldName(name);
         await recordMappingEvent(tx, {
