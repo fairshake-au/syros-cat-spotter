@@ -126,7 +126,7 @@ jti  "<16 random bytes, base64url>"         // single use, §2.4 replay
 6. Look `sub` up in `people`. Not on the list any more → refused. `sv` lower than the row's current session version → refused.
 7. Only now, issue the dashboard session.
 
-**When any of that fails**, the API does the same thing every time: **HTTP 401, a fixed body (`{"error":"not_signed_in"}`), no detail about which check failed, and a redirect for browsers back to `admin.catspotters.com`.** The real reason is logged server-side with the `jti` and the request id so a support question has an answer. There is no partial trust and no fallback path: a token that fails any check buys nothing at all. Explicitly, the API never accepts an unsigned identity header, never trusts an `X-User-Email`, and has no "development bypass" that could ship.
+**When any of that fails**, the API does the same thing every time: **HTTP 401, a fixed body (`{"error":"not_signed_in"}`), no detail about which check failed, and a redirect for browsers back to `admin.catspotters.com`.** The real reason is logged server-side with the `jti` and the request id so a support question has an answer. There is no partial trust and no fallback path: a token that fails any check buys nothing at all. **A person who is signed in but lacks the capability for what they asked for is a different case, and is not sent round the sign-in loop: they get a 403 page** saying they cannot do this, with a link back to what they can. Explicitly, the API never accepts an unsigned identity header, never trusts an `X-User-Email`, and has no "development bypass" that could ship.
 
 ### 2.5 The two confirmed bugs in the live flow, and the fixes
 
@@ -189,6 +189,8 @@ v1.0 said "one identity, one allow-list, one table". That was already untrue: `s
 
 **Recommendation: B.** The break-glass exception is written down rather than pretended away: **exactly one** row may remain in `admins` — Samuel's address — so that a total API outage does not lock everyone out of the workspace documents, which are unrelated to the cat data. It grants the workspace, never the dashboard. It is reviewed at launch and again at each quarterly check.
 
+**The allow-list answers two doors, and the person's language (amended 12 October 2026, `roles-and-invites.md` §4.5 and §6.3, SYC-222).** The call no longer returns one yes. It answers two questions: may this person have the **workspace** documents (only the team and management, through the `use_workspace` capability), and may they enter the **dashboard** (an accepted person who holds at least one dashboard capability, or a pending invitee heading for the accept page and nothing else). It also returns the person's language (English, Greek or French) so the sign-in message can be written in it. The **old request shape** (the single yes the Worker sent before) is answered with yes only where the workspace is allowed, so a guardian who signs in at `admin.catspotters.com` never gets a workspace session and goes straight to the dashboard. The break-glass row in `admins` above still grants the workspace only.
+
 **One more thing the boundary has to fix.** `admin/wrangler.jsonc` records that the workspace **shares its `SIGNING_KEY` with the public site worker**, so anything holding the public site's document-gate secret can mint a workspace session cookie. Extending that key to a third system would be spreading a known weakness. So: the dashboard hand-off uses its **own** Ed25519 key pair (§2.4), unrelated to `SIGNING_KEY`, and separating `SIGNING_KEY` between the two Workers is filed as its own piece of work.
 
 ### 2.8 Shared mailboxes, and why `admin@syroscats.com` is a recipient and never an account
@@ -203,7 +205,7 @@ The whole argument for email links over a shared password is that a password can
 
 ### 2.9 Who is on the list, and what leaving looks like
 
-`people` holds: person id, email (unique, lower-cased), name, session version, when they were added and by whom. Roles and scopes live in a separate table (§7). Adding a colleague (SYC-29) is one row.
+`people` holds: person id, email (unique, lower-cased), name, session version, when they were added and by whom. *Amended 12 October 2026 (`roles-and-invites.md` §10.1):* it also holds when the person accepted their invitation, when the invitation was sent and when it expires, and their language (English, Greek or French). A person who has been invited and has not yet accepted is **pending**: on the list, but not able to do anything yet (the states are Invited, Joined, Expired, Not sent yet and Left). Anyone already on the list when this ships is treated as having accepted. Roles and scopes live in a separate table (§7); each placement now says whether it is island-wide or for one colony, and may carry an end date. Adding a colleague (SYC-29) is one row, now made by management by invitation.
 
 Three operational truths the charity should be told plainly, because they change behaviour:
 
@@ -262,6 +264,8 @@ One page, mobile-first, because a Syros Cats volunteer is far more likely to ope
 
 The landing view. A list, ordered urgent-first and then newest-first.
 
+*Amended 12 October 2026 (`roles-and-invites.md` §6.2).* The queue page, the report list and the route that serves a reporter's photograph are gated by the capability `view_welfare_queue`, held by the team and management and by no guardian. A **cat guardian** may read, but not change, the welfare reports tied to a cat in her own colonies (`view_colony_welfare_reports`): she sees the report, its photo and its location, never the reporter's contact details or device, never the team's notes, never a report tied to no cat, and never a "Report an issue" report. She cannot move a report between states or add a note.
+
 - **Urgent** at the top, marked unmistakably. **Severity changes the order of this list and nothing else** — it does not make anybody arrive sooner, because nobody is dispatched. Anything in the interface that implies otherwise is a bug (§5).
 - **Needs attention** below.
 - Each row: the photo, where it was found (**exact** location — this is the team view), how long ago, what the reporter said, whether the report is tagged as a litter, and **whether the reporter left a way to be contacted**.
@@ -277,7 +281,7 @@ The queue is deliberately not a ticketing system. Four states, one note, no assi
 
 ### 3.2 The feeding-site map
 
-Every feeding site on the island, on a map, **visible only to Syros Cats by default**. Each site has one switch: *private* (the default) or *public*, flipped one site at a time, with who flipped it and when recorded — not to police anybody, but so "how did this become public?" always has an answer. There is no bulk action.
+Every feeding site on the island, on a map, **visible only to Syros Cats by default**. Each site has one switch: *private* (the default) or *public*, flipped one site at a time, with who flipped it and when recorded — not to police anybody, but so "how did this become public?" always has an answer. Flipping a site to public goes through the confirmation page of `feeding-sites-and-colonies.md` §4.3 (a preview of what visitors will see, and a recorded "the cat guardian knows" tick); there is no one-click switch. There is no bulk action.
 
 This is a safety feature, not a preference: a public list of where cats reliably gather is a public list of where to find cats.
 
@@ -368,7 +372,7 @@ Then, in the background:
 A report photo is not a catalogue photo. It may show a bleeding animal, a doorway, a house number, a vehicle, a bystander, or the inside of somebody's yard, and none of that belongs in a public catalogue a tourist browses. Three things make that real, and **not one of them is a flag anybody has to remember to set**:
 
 1. **`POST /api/reports` is the report photo's upload path**, and it runs the bytes through the same `validatePhotoBase64` helper as `POST /api/sightings` — magic-byte detection, full decode, EXIF rotation and **metadata strip**, bounded re-encode, size caps. Verified in the code: that helper is called today from `routes/sightings.ts` and nowhere else, so this is a second call site to build, not a behaviour to assume. `hosting-and-photo-storage.md` §6.4 owns the helper and the EXIF test; this spec owns the requirement that the report path goes through it.
-2. **The bytes go to a separate `welfare_report_photos` table, not to `photos`.** The public photo route reads `photos`, so it cannot serve a report photo — not because a column told it not to, but because the row is not in the table it reads. One team-session-gated route, `GET /api/team/report-photos/:publicId`, serves them, behind the `__Host-cs_team` cookie of §8.2 and a capability check (§7.3).
+2. **The bytes go to a separate `welfare_report_photos` table, not to `photos`.** The public photo route reads `photos`, so it cannot serve a report photo — not because a column told it not to, but because the row is not in the table it reads. One team-session-gated route, `GET /api/team/report-photos/:publicId`, serves them, behind the `__Host-cs_team` cookie of §8.2 and a capability check (`roles-and-invites.md` §6.2).
 3. **There is no `visibility` column, and there should not be.** `hosting-and-photo-storage.md` §7.2 cut it on the grounds that a column nothing writes and nothing enforces is a plausible way to break photo loading mid-Play-window, and a wrong default would have published exactly these photos. Enforcement by table needs no default to be correct, which is why it is the answer rather than a column.
 
 **Promoting a report photo into the catalogue is a deliberate team action**, never a side effect of tying the report to a cat: the team taps *use this photo on the cat*, and the bytes are re-validated through the same helper and copied into `photos`. Until somebody chooses that, the photo stays team-only.
@@ -699,24 +703,29 @@ It reaches the same two places, arriving in the queue but **visually distinct an
 
 ## 7. Roles now, roles later
 
-### 7.1 What exists now
+### 7.1 The roles
 
-One role: **Syros Cats staff**. Everyone on the list can see and change everything in the dashboard. For a team this size that is honest and correct — inventing permissions nobody asked for produces a system where the person who needs to fix something cannot.
+*Amended 12 October 2026 (`roles-and-invites.md`, SYC-53), which owns roles and invitations.* There are four, and the stored words are `staff`, `management`, `guardian` and `vet`:
 
-### 7.2 What is coming
+- **The Syros Cats team** (`staff`) — everyone who works for Syros Cats on the island, including the people who help in the field. They can see and change everything in the dashboard. There is no separate volunteer role: volunteers and staff are one team.
+- **Management** (`management`) — a tier of the team: everything the team can do, plus inviting and removing people and actioning data-deletion requests. On day one that is Samuel, Jacky and Susan; everyone else on the team is team-only.
+- **Cat guardians** (`guardian`) — look after specific colonies and see those colonies in full, and other people's colonies only as the public does. A guardian arranges sterilisation the charity pays for (€50–60 per cat) by phone or WhatsApp with the team for now; an in-app request is future work this spec does not design.
+- **Vets** (`vet`) — reserved. The name exists and grants nothing until SYC-24 builds vet accounts.
 
-The same access model later carries invited **cat guardians** (who look after specific colonies and are authorised to arrange sterilisation the charity pays for), **volunteers**, and **vets**. Those roles need things this one does not: a guardian should see her own colonies in full and other people's approximately; a vet records a procedure but has no business renaming cats; a volunteer on a hillside with no mobile data needs the colony view to work offline.
+### 7.2 Why this still needs no rebuild
+
+The access model built here is the one all four roles use: a table of people, a join table of roles and colonies, and one capability function. A vet who records a procedure but has no business renaming cats, and a guardian who sees her own colonies in full, are rows in the capability table, not new code paths.
 
 ### 7.3 What we are leaving room for, so that later arrives without a rebuild
 
 - **People, not admins.** The access table is a table of *people* (§2.9), and it is the only one (§2.7).
 - **Roles and scopes are a join table from day one — not columns.** `person_scopes` (person id, role, colony id nullable). v1.0 put `role` and `scope` on the person as scalar columns, which is exactly the retrofit it claimed to be avoiding: a cat guardian looks after **several** colonies, and real people hold two roles at once — a staff member who is also the guardian of her own alley. A single column forces either a delimited string or the migration we said we would not do. The cost today is one small table.
-- **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. From the first commit the dashboard calls them by name: `view_exact_location` · `hide_photo` · `restore_photo` · `rename_cat` · `rename_colony` · `set_life_status` · `remove_owner` · `set_sterilisation` · `set_site_public` · `change_report_state` · `add_team_note` · `manage_people` · `action_deletion_request`. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
+- **Capabilities are named, and named here**, because "can this person do this?" without an enumerated list quietly becomes `isStaff()` with extra steps. The names are the catalogue in `roles-and-invites.md` §6.2, which owns them; this spec does not list them a second time. One name is not in that catalogue yet: `remove_owner`, added by the claim spec (SYC-130); the roles catalogue takes it in. Three things in that catalogue differ from this spec's first list. `view_exact_location` is a **placed** capability (a guardian holds it for her own colonies only, the team and management island-wide). The welfare queue and its reporters' photographs move to a new, island-only `view_welfare_queue`. And a separate, read-only `view_colony_welfare_reports` lets a guardian read the reports tied to a cat in her own colonies (§3.1). From the first commit the dashboard calls them by name. Every check goes through one capability function. When guardians arrive, that function changes; the screens do not.
 - **Invitation is the only way in, at every tier.** A guardian will use the same email-link flow. No second sign-in mechanism gets built for the second role.
 - **Every change is attributed from the first record**, as an observation carrying the person's id and `roleAtTime` (`cat-record-data-spine.md` §10.1). Attribution added later cannot describe the past — which is precisely why `roleAtTime` is recorded at write time and never looked up afterwards.
 - **Colony membership already exists** (§3.4), so "which colonies is this person a guardian of?" is a join, not a new concept.
 
-Explicitly **not** built now: an invitation interface, per-field permissions, approval workflows, or an offline volunteer view. Those belong with the roles they serve.
+Invitations, roles, per-person scopes and the confirmation queue are specified in `roles-and-invites.md`, which owns them.
 
 **The real rework risk was never the role column.** It was two people tables on two platforms (§2.7): guardians arriving into that split would break the "no rebuild" claim for reasons that have nothing to do with roles. That is why §2.7 is settled here rather than left open.
 
@@ -741,7 +750,7 @@ Explicitly **not** built now: an invitation interface, per-field permissions, ap
 ### 8.2 The dashboard session — Express
 
 - Hand-off validated exactly as §2.4 lists, then a **`__Host-cs_team` cookie** on `team.catspotters.com`: signed, `HttpOnly`, `Secure`, `SameSite=Lax`, thirty days, carrying person id and `session_version`.
-- **Every request re-checks** the person against `people` and compares `session_version`. Removal and forced sign-out both take effect at the next request.
+- **Every request re-checks** the person against `people` and compares `session_version`. Removal and forced sign-out both take effect at the next request. A signed-in person who lacks a capability gets a `403` (a page for a browser, JSON for anything else), never the `401` and the sign-in redirect, which would send them round a loop (§2).
 - **CORS:** replace `app.use(cors())` with an explicit allow-list and `credentials: true`. The dashboard itself is same-origin and needs none of it; the mobile app's origins are enumerated.
 - **Rate limiting:** a Postgres-backed store (§2.6), with the deployment pinned to one instance until it lands.
 

@@ -8,6 +8,7 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { logger, safeError } from "../logger";
 import { buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
+import { isNearFeedingSite, withCheckTimeout } from "../feedingSiteProximity";
 import { hashRecipient, sendMail, type SendResult } from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
 import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
@@ -67,7 +68,7 @@ export function alertRecipientHash(): string {
   return to ? hashRecipient(to) : "unset";
 }
 
-type Payload = { kind?: AlertKind; photoIncluded?: boolean };
+type Payload = { kind?: AlertKind; photoIncluded?: boolean; withMapLinks?: boolean };
 
 /** A keep-safe row's payload. `to` and the tokens are gone once it's settled. */
 export type KeepSafePayload = {
@@ -289,7 +290,30 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
       }
     }
 
-    const message = buildWelfareAlert(report, photo ?? null, kind);
+    // Map links go in only when the position is NOT within 50 m of a feeding
+    // site (SYC-245, SYC-209 Decision 2B). If the check fails or takes longer
+    // than 2 s the alert still goes, without links: an urgent alert is never
+    // held up, and a failure never adds a link. The email says nothing about
+    // why. The decision is made once and stored on the row, so a retry after
+    // a lost response sends the same body (Resend refuses a reused
+    // idempotency key whose body changed).
+    let withMapLinks: boolean;
+    if (typeof payload.withMapLinks === "boolean") {
+      withMapLinks = payload.withMapLinks;
+    } else {
+      withMapLinks = false;
+      try {
+        withMapLinks = !(await withCheckTimeout(isNearFeedingSite(report.lat, report.lng)));
+      } catch (err) {
+        logger.error({ err: safeError(err) }, "feeding-site check failed; alert sent without map links");
+      }
+      payload.withMapLinks = withMapLinks;
+      await db
+        .update(mailOutboxTable)
+        .set({ payload: { ...payload, kind } })
+        .where(eq(mailOutboxTable.id, row.id));
+    }
+    const message = buildWelfareAlert(report, photo ?? null, kind, withMapLinks);
     // The recipient is WELFARE_ALERT_TO, resolved inside sendMail.
     const result = await sendMail({
       purpose: "welfare_alert",

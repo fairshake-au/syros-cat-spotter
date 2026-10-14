@@ -56,13 +56,12 @@ const day = (iso: string) =>
 const time = (iso: string, text = when(iso)) =>
   `<time datetime="${esc(iso)}">${esc(text)}</time>`;
 
-const place = (lat: number, lng: number) => {
+// Plain text only, team-only as before. No link to any map company: the cat
+// page is where feeding sites get made, so an exact position must never leave
+// it for one (SYC-245, SYC-209 Decision 2 option B).
+const place = (lat: number, lng: number) =>
   // Exact: the stored numbers as they are, never rounded.
-  const here = `${lat}, ${lng}`;
-  // A plain link: leaving the dashboard sends nothing until it is tapped.
-  const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
-  return `${esc(here)} &middot; <a class="tap" href="${esc(map)}" rel="noopener noreferrer">Open map</a>`;
-};
+  esc(`${lat}, ${lng}`);
 
 const row = (label: string, value: string) =>
   `<dt>${esc(label)}</dt><dd>${value}</dd>`;

@@ -67,6 +67,8 @@ const SYSTEM_LABELS: Record<string, string> = {
   "system:admin-route": "imported from the old admin tool",
   "system:vision": "read automatically from the photo",
   "system:welfare-report": "a welfare report",
+  "system:seed": "the first load of feeding sites",
+  "system:migration": "already in the database before the history began",
 };
 
 interface PersonName {

@@ -61,9 +61,24 @@ const ago = (iso: string, now: Date) =>
 
 const who = (p: TeamPerson) => (p.left ? `${p.name} (left)` : p.name);
 
-const place = (lat: number, lng: number) => {
+/**
+ * Which reports (by public id) are within 50 m of a feeding site. Null means
+ * the check failed: then no link is shown at all, since a failure must never
+ * add one.
+ */
+export type NearSites = ReadonlySet<string> | null;
+
+// Decision 2B (SYC-245): the one team page that keeps a link to a map company,
+// because a welfare call-out needs directions. Within 50 m of any feeding site
+// the link is replaced by a line of text, so nothing near a site is sent to
+// the map company. The link is a plain one: leaving the dashboard sends
+// nothing until it is tapped.
+const place = (lat: number, lng: number, id: string, near: NearSites) => {
   const here = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  // A plain link: leaving the dashboard sends nothing until it is tapped.
+  if (near === null) return esc(here);
+  if (near.has(id)) {
+    return `${esc(here)} &middot; <span class="ago">Near a feeding site: see the dashboard map</span>`;
+  }
   const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   return `${esc(here)} &middot; <a href="${esc(map)}" rel="noopener noreferrer">Open map</a>`;
 };
@@ -148,8 +163,9 @@ function reportCard(
   r: QueueReport,
   now: Date,
   closed: boolean,
-  changedId?: string,
-  tied?: TiedNotice,
+  changedId: string | undefined,
+  tied: TiedNotice | undefined,
+  near: NearSites,
 ): string {
   const classes = [
     "report",
@@ -192,7 +208,7 @@ function reportCard(
       : "") +
     `<div class="head">${tags}</div>` +
     "<dl>" +
-    row("Where", place(r.lat, r.lng)) +
+    row("Where", place(r.lat, r.lng, r.id, near)) +
     row(
       "What they said",
       r.note
@@ -210,13 +226,13 @@ function reportCard(
   );
 }
 
-function draftCard(d: QueueDraft, now: Date): string {
+function draftCard(d: QueueDraft, now: Date, near: NearSites): string {
   return (
     `<article class="report draft${d.severity === "urgent" ? " urgent" : ""}" id="d-${esc(d.id)}">` +
     '<div class="head">' +
     `<span class="tag${d.severity === "urgent" ? " urgent" : ""}">${esc(SEVERITY[d.severity])}</span>` +
     `<span class="ago">started ${ago(d.startedAt, now)}</span></div>` +
-    `<dl>${row("Where", place(d.lat, d.lng))}</dl></article>`
+    `<dl>${row("Where", place(d.lat, d.lng, d.id, near))}</dl></article>`
   );
 }
 
@@ -239,23 +255,24 @@ export function renderQueuePage(
   queue: WelfareQueue,
   personName: string,
   now: Date = new Date(),
-  changedId?: string,
-  tied?: TiedNotice,
+  changedId: string | undefined,
+  tied: TiedNotice | undefined,
+  near: NearSites,
 ): string {
   const open = queue.open.length
-    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied)).join("")
+    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, near)).join("")
     : '<p class="empty">No reports are waiting for the team.</p>';
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
       '<p class="empty">Someone began a report and did not send it. They may still be worried about a cat here.</p>' +
-      queue.drafts.map((d) => draftCard(d, now)).join("") +
+      queue.drafts.map((d) => draftCard(d, now, near)).join("") +
       (queue.draftsTotal > queue.drafts.length
         ? `<p class="empty">Showing the newest ${queue.drafts.length} of ${queue.draftsTotal}.</p>`
         : "")
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +
-      queue.closed.map((r) => reportCard(r, now, true, changedId, tied)).join("") +
+      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, near)).join("") +
       (queue.closedTotal > queue.closed.length
         ? `<p class="empty">Showing the newest ${queue.closed.length} of ${queue.closedTotal}.</p>`
         : "")

@@ -75,10 +75,10 @@ export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
  * the 36-month presumed-deceased threshold. `lastSightingAt` is a second,
  * narrower fact: the newest *resolved sighting* specifically, whatever its
  * relationship to `at` — used only for §3.2's "a sighting after a deceased
- * statement clears it" rule. A `colony`, `note`, `name`, `food_and_water` or
- * `coat` observation must never reach either field, because none of those
- * imply the cat is alive (§3.4) — that filtering is `loadCatRecords`'s job,
- * not this function's.
+ * statement clears it" rule. A `colony`, `note`, `name`, `food_and_water`,
+ * `coat`, `markings`, `vaccinated` or `team_note` observation must never
+ * reach either field, because none of those imply the cat is alive (§3.4) —
+ * that filtering is `loadCatRecords`'s job, not this function's.
  *
  * `at` and `lastSightingAt` are `Date`, not strings: PR 2's loader reads
  * these from Drizzle, which already hands back `Date` objects, and an
