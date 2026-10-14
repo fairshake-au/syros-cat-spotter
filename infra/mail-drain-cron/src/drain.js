@@ -30,9 +30,12 @@ const RETRYABLE = new Set([0, 502, 503, 504]);
  * 502/503/504 (the first call can wake a sleeping deployment), like the
  * GitHub workflow did.
  *
- * Returns { kind, status, attempts, body }: kind is "ok" (200), "overdue"
- * (a welfare alert is over an hour late), "failed" (anything else) or
- * "not_configured" (no token). The token is never logged or returned.
+ * Returns { kind, status, attempts, body }: kind is "ok" (200 with the
+ * drain's own JSON, `overdue: 0`), "overdue" (a welfare alert is over an hour
+ * late), "failed" (anything else, including a 200 that isn't the drain's
+ * answer, like a login wall or holding page) or "not_configured" (no token).
+ * Redirects aren't followed, so a 3xx is "failed" too. The token is never
+ * logged or returned.
  */
 export async function callDrain({
   baseUrl,
@@ -52,6 +55,7 @@ export async function callDrain({
       const res = await fetchImpl(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
       });
       status = res.status;
@@ -67,9 +71,18 @@ export async function callDrain({
     }
     break;
   }
-  if (status === 200) return { kind: "ok", status, attempts, body };
+  if (status === 200 && isDrainOk(body)) return { kind: "ok", status, attempts, body };
   if (body.includes("welfare_alert_overdue")) return { kind: "overdue", status, attempts, body };
   return { kind: "failed", status, attempts, body };
+}
+
+/** True only for the drain's own all-clear: JSON with `overdue: 0`. */
+function isDrainOk(body) {
+  try {
+    return JSON.parse(body)?.overdue === 0;
+  } catch {
+    return false;
+  }
 }
 
 /** The alarm email for a problem, in plain words. */
@@ -128,30 +141,56 @@ export async function runTick({ env, fetchImpl, sleep, kv, sendAlarm, log, nowMs
   log({ event: "mail_drain", kind: result.kind, status: result.status, attempts: result.attempts, body: result.body });
 
   if (result.kind === "ok") {
-    if (await kv.get(OPEN_KEY)) {
-      await sendAlarm({
-        subject: "Syros Cat Spotter: the mail drain is back to normal",
-        text: `The scheduled mail drain answered 200 again, so the problem emailed earlier has cleared.\n\nWhat the app said: ${result.body}`,
-      });
-      await kv.delete(OPEN_KEY);
-      for (const kind of Object.keys(REPEAT_SECONDS)) await kv.delete(`alarm:last:${kind}`);
-      log({ event: "mail_drain_alarm", sent: "recovered" });
+    // A healthy drain never fails the tick: a recovery email or KV problem is
+    // logged, and OPEN_KEY stays set so the next tick tries again.
+    try {
+      if (await kv.get(OPEN_KEY)) {
+        await sendAlarm({
+          subject: "Syros Cat Spotter: the mail drain is back to normal",
+          text: `The scheduled mail drain answered 200 again, so the problem emailed earlier has cleared.\n\nWhat the app said: ${result.body}`,
+        });
+        await kv.delete(OPEN_KEY);
+        for (const kind of Object.keys(REPEAT_SECONDS)) await kv.delete(`alarm:last:${kind}`);
+        log({ event: "mail_drain_alarm", sent: "recovered" });
+      }
+    } catch (err) {
+      log({ event: "mail_drain_alarm", sent: false, reason: "recovery email failed", error: errText(err) });
     }
     return result;
   }
 
+  // KV only spaces the emails out. If it can't be read, send anyway: the
+  // alarm matters more than a duplicate (review of #154).
   const lastKey = `alarm:last:${result.kind}`;
-  if (await kv.get(lastKey)) {
+  let recentlyEmailed = false;
+  try {
+    recentlyEmailed = Boolean(await kv.get(lastKey));
+  } catch (err) {
+    log({ event: "mail_drain_alarm", reason: "kv read failed, sending anyway", error: errText(err) });
+  }
+  if (recentlyEmailed) {
     log({ event: "mail_drain_alarm", sent: false, reason: "already emailed recently", kind: result.kind });
   } else {
+    let sent = false;
     try {
       await sendAlarm(alarmMessage(result, baseUrl));
-      await kv.put(lastKey, String(nowMs), { expirationTtl: REPEAT_SECONDS[result.kind] });
-      await kv.put(OPEN_KEY, String(nowMs));
+      sent = true;
       log({ event: "mail_drain_alarm", sent: true, kind: result.kind });
     } catch (err) {
-      log({ event: "mail_drain_alarm", sent: false, reason: "send failed", error: err instanceof Error ? err.message : String(err) });
+      log({ event: "mail_drain_alarm", sent: false, reason: "send failed", error: errText(err) });
+    }
+    if (sent) {
+      try {
+        await kv.put(lastKey, String(nowMs), { expirationTtl: REPEAT_SECONDS[result.kind] });
+        await kv.put(OPEN_KEY, String(nowMs));
+      } catch (err) {
+        log({ event: "mail_drain_alarm", reason: "kv write failed after sending", error: errText(err) });
+      }
     }
   }
   throw new Error(`mail drain: ${result.kind} (HTTP ${result.status})`);
+}
+
+function errText(err) {
+  return err instanceof Error ? err.message : String(err);
 }

@@ -13,7 +13,8 @@
   "triggers": { "crons": ["0 */2 * * *"] },
   "vars": { "MAIL_DRAIN_BASE_URL": "https://apptest.catspotters.com", "ALARM_TO": "sam@fairshake.au" },
   // Remembers when each kind of alarm was last emailed, so a long outage
-  // sends one email an hour (stuck alert) or every 3 hours (anything else).
+  // sends one email at every run (stuck alert) or every other run, about
+  // every 4 hours (anything else).
   "kv_namespaces": [{ "binding": "ALARM_STATE", "id": "1ac7fe32ea2c41debf00bfda5868311e" }],
   // Cloudflare Email Routing, not Resend: the alarm must not depend on the
   // thing that may be broken. It can only ever send to this one address.

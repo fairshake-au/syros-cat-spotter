@@ -11,11 +11,13 @@ Cat-report alerts to Syros Cats normally go out the moment a report is filed, or
 | **`mail-drain-cron` Cloudflare Worker** (the main one) | `infra/mail-drain-cron/`, Cloudflare account, cron trigger | Every 2 hours, on the hour (UTC), reliably |
 | **`mail-drain.yml` GitHub workflow** (a backup) | `.github/workflows/mail-drain.yml` | Asked for every 3 hours; GitHub often runs it later. Also runs by hand from the Actions tab |
 
+**What a 2-hour check means for a retry.** An email whose first send fails is retried on the next visit to the app, or at the next timer run, whichever comes first. On a quiet night that can be up to 2 hours (3 if only the GitHub backup runs). Busy hours are much quicker because every visit triggers a retry.
+
 Both call `POST https://apptest.catspotters.com/api/internal/mail/drain` with `Authorization: Bearer <MAIL_DRAIN_TOKEN>`. Two callers at once is safe: each queued email is claimed by one of them only.
 
 The app answers:
 
-- **200** `{"overdue":0,...}`: all fine.
+- **200** `{"overdue":0,...}`: all fine. The Worker only counts it as fine if the reply really is this JSON; any other 200 (a login wall, a holding page) counts as a failed call. It doesn't follow redirects either.
 - **500** `{"error":"welfare_alert_overdue",...}`: a cat-report alert has been unsent for over an hour.
 - **401**: the token doesn't match (or, before launch, the pre-launch gate didn't accept it).
 - **503** `{"error":"not_configured"}`: Replit has no `MAIL_DRAIN_TOKEN`.
