@@ -280,7 +280,7 @@ export const ClaimCatBody = zod.object({
   "lng": zod.number().min(claimCatBodyHomePinLngMin).max(claimCatBodyHomePinLngMax)
 }),
   "homeNote": zod.string().max(claimCatBodyHomeNoteMax).optional()
-}).describe('claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be\ntrue (the app always sends true); anything else is 422\nNOT_CONFIRMED, not a 400, so the refusal comes after the checks\nabout the cat (§3 order of checks).\n')
+}).describe('claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be\ntrue (the app always sends true). Either one missing or false is\n422 NOT_CONFIRMED, given only after the checks about the cat (§3\norder of checks). A value of the wrong type (the string \"true\",\nsay), or a homePin that is missing, null or not a position, is a\nplain 400 before anything else.\n')
 
 export const ClaimCatResponse = zod.object({
   "id": zod.number(),

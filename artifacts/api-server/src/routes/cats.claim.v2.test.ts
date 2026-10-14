@@ -390,6 +390,17 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
     expect(row.homeLat).toBeNull();
   });
 
+  it("critic L3: a confirmation of the wrong type is a plain 400, not NOT_CONFIRMED", async () => {
+    const c = await streetCat();
+    const d = phone("wrongtype");
+    await met(c.id, d);
+    for (const over of [{ livesOnSyros: "true" }, { livesInMyHome: 1 }, { livesOnSyros: null }]) {
+      const res = await claim(c.id, d, over);
+      expect(res.status, JSON.stringify(over)).toBe(400);
+      expect(res.body).toEqual({ error: "Invalid request" });
+    }
+  });
+
   it("a note longer than 200 characters is a 400", async () => {
     const c = await streetCat();
     const d = phone("longnote");

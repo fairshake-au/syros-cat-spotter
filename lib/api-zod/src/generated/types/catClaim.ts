@@ -9,9 +9,11 @@ import type { CatClaimHomePin } from './catClaimHomePin';
 
 /**
  * claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be
- * true (the app always sends true); anything else is 422
- * NOT_CONFIRMED, not a 400, so the refusal comes after the checks
- * about the cat (§3 order of checks).
+ * true (the app always sends true). Either one missing or false is
+ * 422 NOT_CONFIRMED, given only after the checks about the cat (§3
+ * order of checks). A value of the wrong type (the string "true",
+ * say), or a homePin that is missing, null or not a position, is a
+ * plain 400 before anything else.
  */
 export interface CatClaim {
   /** @minLength 1 */
