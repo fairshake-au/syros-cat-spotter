@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, like, sql } from "drizzle-orm";
 import {
   addPerson,
   catsTable,
@@ -452,7 +452,8 @@ describe("test 14: colony names", () => {
     const id = Number(/\/colonies\/(\d+)/.exec(winner.headers["location"] as string)![1]);
     // The loser sees the clash, with a link to the winner.
     expect(loser.text).toContain(`href="/api/team/colonies/${id}"`);
-    const rows = await db.select().from(coloniesTable).where(like(coloniesTable.name, `${name.slice(0, -4)}%`));
+    // Either spelling can win the race, so match the name ignoring capitals.
+    const rows = await db.select().from(coloniesTable).where(ilike(coloniesTable.name, `${name.slice(0, -4)}%`));
     expect(rows.filter((r) => r.normalisedName === (rows.find((x) => x.id === id)!.normalisedName))).toHaveLength(1);
     expect(await eventsOf(id)).toHaveLength(1);
   });
