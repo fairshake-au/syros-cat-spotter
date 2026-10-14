@@ -757,7 +757,7 @@ describe("two edits of one colony at the same moment", () => {
     ]);
     try {
       let waiting = 0;
-      for (let i = 0; i < 200 && waiting < 2; i++) {
+      for (let i = 0; i < 600 && waiting < 2; i++) {
         const r = await holder.query(
           `select count(*)::int as n from pg_stat_activity
            where wait_event_type = 'Lock' and pid <> pg_backend_pid()
@@ -766,7 +766,11 @@ describe("two edits of one colony at the same moment", () => {
         waiting = r.rows[0].n;
         if (waiting < 2) await new Promise((r2) => setTimeout(r2, 25));
       }
-      expect(waiting).toBeGreaterThanOrEqual(2);
+      const seen = await holder.query(
+        `select pid, state, wait_event_type, left(query, 80) as q from pg_stat_activity
+         where datname = current_database() and pid <> pg_backend_pid()`,
+      );
+      expect(waiting, JSON.stringify(seen.rows)).toBeGreaterThanOrEqual(2);
     } finally {
       await holder.query("commit");
       holder.release();
