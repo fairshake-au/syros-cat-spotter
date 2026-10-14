@@ -15,6 +15,7 @@ import {
 } from "./streak";
 import { loadCatRecords, type DbOrTx } from "./observations";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
+import type { CoatColour, Mark } from "./appearance";
 import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
 import { BLUR_CELL_METRES, blurPosition, publicDistanceKm } from "./blur";
@@ -63,6 +64,14 @@ export interface DerivedCatStatus {
   lifeStatus: LifeStatusValue;
   notSeenSince: string | null;
   sterilised: SterilisedStatus;
+  /**
+   * SYC-2 (coat-markings-and-health.md §10.4): the resolved colours only,
+   * `[]` when not known (never `not_sure`, data spine §10.7). No
+   * confidence, author, count, model version or date.
+   */
+  coat: CoatColour[];
+  /** SYC-2 (§10.4): the resolved marks only, `[]` when none. */
+  markings: Mark[];
 }
 
 /**
@@ -185,6 +194,10 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
       confidence: cat.derived.sterilised.confidence,
       clippedTipSightings: cat.derived.sterilised.clippedTipSightings,
     },
+    // SYC-2 (spec §10.4): two lists of codes, copied element by element so
+    // nothing but the codes can ride along. Never vaccinations (§6.3).
+    coat: [...cat.derived.coat],
+    markings: [...cat.derived.markings],
   };
   if (viewer.from) {
     // Always to the published cell centre, even for an owner: the list
@@ -308,6 +321,10 @@ export async function deriveCatStatuses(
         sterilised: desexedCatIds.has(cat.id)
           ? { value: true, confidence: "confirmed", clippedTipSightings: 0 }
           : UNKNOWN_STERILISED,
+        // Appearance comes from observations only; before PR 3 there are
+        // none to read, so nothing is shown.
+        coat: [],
+        markings: [],
       });
     }
     return result;
@@ -323,6 +340,10 @@ export async function deriveCatStatuses(
       lifeStatus: snapshot.lifeStatus,
       notSeenSince: toPublicDate(snapshot.notSeenSince),
       sterilised: publicSterilised(snapshot.sterilised),
+      // SYC-2 (spec §10.4): the resolved VALUE only, never the confidence,
+      // supporting rows, conflicts, date or check reasons around it.
+      coat: snapshot.coat.value ?? [],
+      markings: snapshot.markings.value ?? [],
     });
   }
   return result;
