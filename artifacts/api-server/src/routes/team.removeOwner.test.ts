@@ -8,6 +8,7 @@ import {
   db,
   deviceCredentialsTable,
   markLeft,
+  catIdentityTable,
   observationsTable,
   pool,
   pushTokensTable,
@@ -795,6 +796,33 @@ describe("final review 4: a let-go stays the owner's after they delete their dat
     expect(html).toMatch(/The owner said the cat doesn(&#39;|')t live with them any more/);
     expect(html).not.toContain("Owner removed by the team");
     expect(html).not.toContain("owner: doesn");
+  });
+});
+
+describe("ship review 2: a merged-in cat's owner claim is not this cat's", () => {
+  it("the canonical cat shows no orphaned home or Remove owner for it, and its own page still does", async () => {
+    const a = await streetCat();
+    const { c: b, d } = await ownedCat("mergedin");
+    const [h] = await homed(b.id);
+    expect((await deleteMe(d)).status).toBe(204);
+    const [merge] = await db.insert(catIdentityTable).values({ catId: b.id, canonicalCatId: a.id, reason: "test", createdBy: "vitest" }).returning();
+    try {
+      const staff = { id: susanId, scopes: [{ role: "staff", colonyId: null }] };
+      const view = (await teamCatView(a.id, new Date(), staff))!;
+      // The merged-in cat's records are folded in, so its homed is in the history…
+      expect(view.history.some((s) => s.id === h!.id)).toBe(true);
+      // …but it is not this cat's claim: Remove owner (scoped to this cat) couldn't end it.
+      expect(view.owner.orphanedHome).toBe(false);
+      expect(view.history.find((s) => s.id === h!.id)!.ownerClaim).toBe(false);
+      const html = (await page(a.id)).text;
+      expect(html).not.toContain("owner deleted their data");
+      expect(html).not.toContain(`/api/team/cats/${a.id}/remove-owner"`);
+      // The merged-in cat's own page is where the claim is ended.
+      expect((await teamCatView(b.id, new Date(), staff))!.owner.orphanedHome).toBe(true);
+      expect((await page(b.id)).text).toContain(`/api/team/cats/${b.id}/remove-owner"`);
+    } finally {
+      await db.delete(catIdentityTable).where(eq(catIdentityTable.id, merge!.id));
+    }
   });
 });
 
