@@ -29,6 +29,8 @@ export interface AllowedPerson {
 }
 
 export interface PersonWithScopes extends AllowedPerson {
+  /** The language their messages and pages are in (§10.1). */
+  language: PersonLanguage;
   scopes: {
     role: PersonRole;
     colonyId: number | null;
@@ -87,6 +89,13 @@ export function checkPersonEmail(email: string): EmailCheck {
 
 function isRole(value: string): value is PersonRole {
   return (PERSON_ROLES as readonly string[]).includes(value);
+}
+
+/** The stored language, or `en` for anything the code doesn't know. */
+function asLanguage(value: string): PersonLanguage {
+  return (PERSON_LANGUAGES as readonly string[]).includes(value)
+    ? (value as PersonLanguage)
+    : "en";
 }
 
 function checkRole(role: string): asserts role is PersonRole {
@@ -239,6 +248,7 @@ export function peopleStore(db: PeopleDb) {
         name: peopleTable.name,
         email: peopleTable.email,
         sessionVersion: peopleTable.sessionVersion,
+        language: peopleTable.language,
       })
       .from(peopleTable)
       .where(
@@ -251,7 +261,11 @@ export function peopleStore(db: PeopleDb) {
         ),
       );
     if (!row) return null;
-    return { ...row, scopes: await scopesOf(row.id) };
+    return {
+      ...row,
+      language: asLanguage(row.language),
+      scopes: await scopesOf(row.id),
+    };
   }
 
   return {
@@ -644,6 +658,7 @@ export function peopleStore(db: PeopleDb) {
           name: peopleTable.name,
           email: peopleTable.email,
           sessionVersion: peopleTable.sessionVersion,
+          language: peopleTable.language,
         })
         .from(peopleTable)
         .where(
@@ -654,7 +669,11 @@ export function peopleStore(db: PeopleDb) {
           ),
         );
       if (!person) return null;
-      return { ...person, scopes: await scopesOf(id) };
+      return {
+        ...person,
+        language: asLanguage(person.language),
+        scopes: await scopesOf(id),
+      };
     },
 
     /**
