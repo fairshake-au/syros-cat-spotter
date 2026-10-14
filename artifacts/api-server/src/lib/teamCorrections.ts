@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type Capability } from "./capabilities";
+import { catTarget } from "./capabilityTargets";
 import {
   isWithdrawal,
   ObservationRefused,
@@ -140,13 +141,16 @@ export async function recordTeamStatement(
     .where(eq(catsTable.id, input.catId));
   if (!cat) throw notFound();
 
+  // The cat's colony, read from the record (SYC-316): the role written is
+  // the one that holds the capability THERE.
+  const target = await catTarget(input.catId);
   const write = (tx: DbOrTx) =>
     writeObservation(tx, {
       catId: input.catId,
       kind: input.kind,
       value: { ...input.value, reason: input.reason },
       accountId: person.id,
-      roleAtTime: actingRole(person, capability),
+      roleAtTime: actingRole(person, capability, target),
       observedAt: input.observedAt ?? new Date(),
     });
   return exec ? write(exec) : db.transaction(write);
@@ -214,7 +218,7 @@ export async function removeOwnerAndSay(
           value: WITHDRAWN,
           allowWithdrawal: true,
           accountId: person.id,
-          roleAtTime: actingRole(person, "remove_owner"),
+          roleAtTime: actingRole(person, "remove_owner", await catTarget(input.catId)),
           observedAt: new Date(),
           supersedesId: homedId,
           supersedeReason: input.reason,
@@ -295,7 +299,7 @@ export async function supersedeStatement(
       kind: original.kind as ObservationKind,
       value: input.value,
       accountId: person.id,
-      roleAtTime: actingRole(person, capability),
+      roleAtTime: actingRole(person, capability, await catTarget(original.catId)),
       observedAt: input.observedAt ?? new Date(),
       supersedesId: original.id,
       supersedeReason: input.reason,
@@ -402,7 +406,7 @@ export async function agreeWithClip(
         reason: LOOKS_RIGHT_REASON,
       },
       accountId: person.id,
-      roleAtTime: actingRole(person, "set_sterilisation"),
+      roleAtTime: actingRole(person, "set_sterilisation", await catTarget(spotter.catId)),
       observedAt: spotter.observedAt,
       sightingId: spotter.sightingId,
     });
@@ -493,7 +497,7 @@ export async function renameCat(
         kind: "name",
         value: { name: row!.name, normalised: row!.normalisedName, reason: input.reason },
         accountId: person.id,
-        roleAtTime: actingRole(person, "rename_cat"),
+        roleAtTime: actingRole(person, "rename_cat", await catTarget(cat.id)),
         observedAt: new Date(),
       });
       return row!.name;
