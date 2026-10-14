@@ -537,6 +537,10 @@ export const observationsTable = pgTable("observations", {
   //   life_status    { status: "homed" }
   //   sterilised     { sterilised: true, date: "2024-03-03", clinic: "…", costEur: 55 }
   //   ear_tip        { clipped: true, side: "left" }        // side: left|right|unsure
+  //   ear_tip        { clipped: true, side: "left", seenInPerson: true, photoPublicId: "k3x9…" }
+  //                  // a field check (roles-and-invites.md 7.3): seenInPerson marks a look
+  //                  // at the cat; photoPublicId is the random id of a private photo kept
+  //                  // apart from the public photos (never carried in photoId)
   //   ear_tip        { clipped: false } | { clipped: "cant_tell" }
   //   food_and_water { present: true } | { present: false } | { present: "cant_tell" }
   //   note           { text: "…" }
@@ -549,10 +553,18 @@ export const observationsTable = pgTable("observations", {
   accountId: text("account_id"),
   // The observer's role AT THE TIME OF WRITING. Never looked up at read time.
   roleAtTime: text("role_at_time").notNull().default("public"),
-  // public | guardian | volunteer | vet | staff | admin | system
+  // public | guardian | vet | staff | management | system
+  // (amended 12 Oct 2026, roles-and-invites.md 17.1.3: the reserved `admin` is
+  // renamed `management`; `guardian` is a live value; the reserved `volunteer`
+  // is retired, because volunteers are on the team as `staff`.)
   // Whether that authority applied to THIS cat at the time of writing.
   authorityScope: text("authority_scope").notNull().default("none"),
-  // none | guardian_of_this_cat | owner_of_this_cat
+  // none | colony:<id> | guardian_of_this_cat | owner_of_this_cat
+  // `colony:<id>` is a cat guardian's scope: the colony the cat was in when she
+  // spoke. It must match ^colony:[1-9][0-9]*$, is written only by the server
+  // (never read from a request), is valid only with roleAtTime `guardian`, and
+  // is never treated as authority for any other role (SYC-53, Decision B).
+  // `guardian_of_this_cat` stays reserved for the claim feature (SYC-130).
 
   // volunteered | prompted | machine | import | legacy
   provenance: text("provenance").notNull().default("volunteered"),
@@ -630,7 +642,7 @@ Approved with `coat-markings-and-health.md` (SYC-2). That document owns the colo
 
 - **`modelVersion` is required only on a machine reading.** The `coat` validator in `observations.ts` currently requires it on every `coat` value, which would refuse a person's statement. It becomes: required when `provenance` is `machine`, absent otherwise.
 - **One normaliser, used by every writer.** `black` + `white` is stored as `black_and_white`; every writer (the answers route, the team and guardian statement functions) calls the same `normaliseColours()`, and the validator's refusal of the raw pair is only the backstop.
-- **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, and `guardian` (with `authorityScope: guardian_of_this_cat`, her own colonies). The exact shape of a guardian's scope follows whatever the roles work (SYC-53) decides. There is no `volunteer` value: volunteers are on the team. `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public` and `guardian`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` value, are the roles spec's amendment to this section (`roles-and-invites.md` §17.1, item 3).
+- **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, and `guardian` (with `authorityScope: colony:<id>`, her own colonies; the shape and its rules are in the `observations` comment above). There is no `volunteer` value: volunteers are on the team. `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public` and `guardian`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` value, are made in §10.1 above (`roles-and-invites.md` §17.1, item 3).
 - **A retraction may only target a row of the same kind, and only `coat` or `markings`.** `{ retracted: true }` is refused from `public`, refused unless `supersedesId` is set, and refused unless the row it supersedes is the same kind and that kind is `coat` or `markings`, for every role. A retraction can never remove a `sterilised`, `vaccinated`, `team_note` or any other row.
 - A prefilled "Yes" is `provenance: "prompted"`, with `suggestedValue` set to the machine's value and `suggestionSource` naming the reading. A different answer is `volunteered`. A team or guardian Confirm carries `agreesWith: <statement id>` and **no photo**, the PR #99 pattern, so it never counts as independent public evidence.
 - A team or guardian statement on `markings` is the whole list; an empty list is meaningful.
@@ -673,8 +685,8 @@ Phase-1 rules the resolver implements:
 **Sterilised — an ordered fold, not a set of independent clauses.**
 
 1. Discard superseded and redacted-value observations.
-2. Take the **authoritative** `sterilised` assertions: `roleAtTime` in {vet, staff, admin}, or `provenance: "import"`. **The newest by `observedAt` wins, whatever sign it carries.** `true` → *confirmed sterilised*; `false` → *confirmed not sterilised*, which is displayed publicly per D4.
-3. Only if there is no authoritative assertion at all: any non-superseded `ear_tip` with `clipped: true` and a `photoId` → *likely*, unless an authoritative `ear_tip { clipped: false }` (roleAtTime in {vet, staff, admin}) supersedes or postdates it, in which case → *unknown*.
+2. Take the **authoritative** `sterilised` assertions: `roleAtTime` in {vet, staff, management}, or `guardian` with a `colony:<id>` scope, or `provenance: "import"`. **The newest by `observedAt` wins, whatever sign it carries.** `true` → *confirmed sterilised*; `false` → *confirmed not sterilised*, which is displayed publicly per D4.
+3. Only if there is no authoritative assertion at all: any non-superseded `ear_tip` with `clipped: true` and a `photoId` → *likely*, unless an authoritative `ear_tip { clipped: false }` (roleAtTime in {vet, staff, management}, or `guardian` with a `colony:<id>` scope) supersedes or postdates it, in which case → *unknown*.
 4. Otherwise → *unknown*.
 
 A spotter's `clipped: false` or `"cant_tell"` is collected into `supportingObservationIds` for display and **never affects the level** — the §4.1 asymmetry, unchanged. `ear_tip` can never produce *confirmed*, in either direction.
@@ -762,7 +774,7 @@ The resolver reads through this table, so a merge is a row and an unmerge is ano
 
 Moved to `records-import.md` §3. Created only if the import goes ahead.
 
-**`roleAtTime` values outrun what exists.** `guardian`, `volunteer` and `vet` are recorded from day one and are **unreachable in phase 1** — the team-access spec builds one role. Nobody should build a UI expecting them.
+**`roleAtTime` values.** `staff`, `management` and `guardian` are live (`roles-and-invites.md`, 12 October 2026). `vet` is reserved and grants nothing until SYC-24 builds vet accounts, so nobody should build a UI expecting it. There is no `volunteer` value: volunteers are on the team and write as `staff`. The resolver's authoritative roles are the team (`staff`, `management`), `vet`, and, **for sterilisation and for colour and markings only, `guardian`** with `authorityScope` = the colony. A guardian's `colony:<id>` scope is meaningful only for the role `guardian`.
 
 ### 10.5 Colonies and feeding sites
 
