@@ -16,7 +16,7 @@
 
 These hold in every task:
 
-- **Who may claim:** the cat's derived life status is `street` and it has no owner; and this phone has a resolved sighting of it (or of a cat merged into it), whose match choice is `suggested`, `hand_pick`, `new_cat` or `unlabelled`, and which is still on the cat chosen at match time. (Spec §3, D1, D3.)
+- **Who may claim:** the cat's derived life status is `street` and it has no owner; and this phone has a resolved sighting of it (or of a cat merged into it), whose match choice is `suggested`, `hand_pick`, `new_cat` or `unlabelled`, and which is still on the cat chosen at match time. A spot whose choice wasn't recorded (saving it failed) counts like `unlabelled` (Samuel, 14 Oct 2026). (Spec §3, D1, D3.)
 - **Order of checks:** rules 1 and 2 first, then the confirmations and the pin. Refusals never say how far, or in which direction, the pin is out. (§3, §11)
 - **The pin:** within **1 km** (≤ 1000 m) of `blurPosition(cat.lat, cat.lng)`, never the exact position or any sighting. (D11)
 - **Refusals:**

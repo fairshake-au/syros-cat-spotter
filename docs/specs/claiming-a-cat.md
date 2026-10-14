@@ -69,6 +69,7 @@ A phone can claim a cat when **all** of these hold.
   - choosing it from the nearby list (`choice: hand_pick`; D1);
   - being the sighting that started the cat (`choice: new_cat`);
   - an older sighting from before match records were kept (`choice: unlabelled`).
+  - A spot whose choice wasn't recorded, because saving it failed, counts the same as `unlabelled` (Samuel, 14 Oct 2026).
 
 **What does not count:** a sighting not yet matched to any cat, including one waiting for Syros Cats to match it.
 
