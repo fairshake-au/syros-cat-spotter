@@ -194,3 +194,15 @@ export async function checkClaimLimit(
 export async function _resetClaimLimitForTests(): Promise<void> {
   await _resetBucketForTests(CLAIM_BUCKET);
 }
+
+// The team map's pictures, GET /api/team/map-tiles/:tile (SYC-209 PR 3.1).
+// Behind a session, so this is a courtesy cap on the server's work and on
+// what it asks OpenStreetMap for, not a security control. A map page draws
+// its four pictures at five sizes (one per screen-width band; a browser may
+// fetch them all), so 20 a page: 2000 is about a hundred pages in a quarter
+// of an hour.
+export const mapTileLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 2000,
+});

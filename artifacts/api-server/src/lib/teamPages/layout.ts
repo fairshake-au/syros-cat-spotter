@@ -5,7 +5,7 @@ import { escapeHtml } from "./escape";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "colonies" | "likely";
+export type NavKey = "queue" | "cats" | "colonies" | "map" | "likely";
 
 interface NavItem {
   key: NavKey;
@@ -18,6 +18,7 @@ const NAV: NavItem[] = [
   { key: "queue", label: "Welfare queue", href: "/api/team" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
+  { key: "map", label: "Map", href: "/api/team/map" },
   { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
 ];
 
@@ -146,6 +147,34 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 .tiecard form{margin:6px 0 0}
 .tiecard .hint{margin:6px 0 0}
 .tiecard button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer;width:100%}
+.map{margin:0;line-height:0}
+.mapband{display:none;position:relative;overflow:hidden;background:#e8e4d8}
+.mapband.b144{display:block}
+.maptiles{display:grid}
+.maptiles form{margin:0;padding:0}
+.maptiles img,.maptiles input[type=image]{display:block;margin:0;padding:0;border:0;max-width:none;cursor:crosshair}
+.maptiles img{cursor:default}
+.maptiles .blank{display:block;background:#dcd8cc}
+.pin{position:absolute;display:block;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid #b3261e;border-radius:50%;background:rgba(255,255,255,.45);box-shadow:0 0 0 2px #fff}
+span.pin{pointer-events:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.attrib{margin:4px 0 8px;font-size:12px;color:#55524a}
+.mapmove{margin:8px 0 0}
+.mapmove .zoomrow,.mapmove .panrow,.mapmove .arearow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+.mapmove button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
+.mapmove button:disabled{border-color:#c9c4b6;color:#8a877e;cursor:default}
+.mapmove .zoomrow button{background:#0b5c6b;color:#fff}
+.mapmove .zoomrow button:disabled{background:#eee9da;color:#8a877e}
+.mapmove .label{margin:8px 0 6px}
+.tapped{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #b3261e;border-radius:8px;padding:10px 12px;margin:8px 0;font-variant-numeric:tabular-nums}
+main.mappage{line-height:22px}
+main.mappage h1{line-height:28px}
+main.mappage .who{line-height:20px}
+@supports (margin-left:round(down,10.5px,1px)){main.mappage{margin-left:max(0px,round(down,(100% - 760px) / 2,1px));margin-right:0}}
+@media (min-width:360px){.mapband.b144{display:none}.mapband.b164{display:block}}
+@media (min-width:375px){.mapband.b164{display:none}.mapband.b171{display:block}}
+@media (min-width:390px){.mapband.b171{display:none}.mapband.b179{display:block}}
+@media (min-width:600px){.mapband.b179{display:none}.mapband.b256{display:block}}
 @media (min-width:700px){
 main{padding-top:20px}
 .tiecard button{width:auto}
@@ -181,6 +210,12 @@ export interface PageOptions {
   afterTitle?: string;
   /** Trusted HTML: built only from fixed text and escapeHtml. */
   body: string;
+  /**
+   * A class on <main>. `mappage`: everything above the map has a whole-pixel
+   * height and the page sits on a whole pixel, so the map does too (SYC-209
+   * PR 3.1; see lib/teamPages/map.ts).
+   */
+  mainClass?: "mappage";
 }
 
 export function renderPage(opts: PageOptions): string {
@@ -200,7 +235,7 @@ export function renderPage(opts: PageOptions): string {
     `<style>${STYLES}</style></head><body>` +
     `<nav class="bar">${nav}` +
     '<form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form>' +
-    "</nav><main>" +
+    `</nav><main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
     `<h1>${escapeHtml(opts.title)}</h1>` +
