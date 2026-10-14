@@ -6,8 +6,10 @@ import { describe, expect, it } from 'vitest';
 import type { MatchCandidate } from '@workspace/api-client-react';
 import {
   REASONING_MAX_LENGTH,
+  ROUTE_POSITION_DECIMALS,
   buildReviewParams,
   parseReviewParams,
+  roundForRoute,
 } from '../reviewParams';
 
 const bigPhoto = `data:image/jpeg;base64,${'A'.repeat(6_000_000)}`;
@@ -162,8 +164,8 @@ describe('the sighting\'s saved location (SYC-119, plan P7)', () => {
       lng: 24.9425,
     });
     const parsed = parseReviewParams(params.data);
-    expect(parsed?.lat).toBe(37.4448);
-    expect(parsed?.lng).toBe(24.9425);
+    expect(parsed?.lat).toBe(37.445); // rounded to ~110 m (SYC-258)
+    expect(parsed?.lng).toBe(24.943);
     expect(params.data.length).toBeLessThan(200);
   });
 
@@ -189,5 +191,103 @@ describe('the sighting\'s saved location (SYC-119, plan P7)', () => {
     expect(
       parseReviewParams('{"sightingId":1,"lat":"37","lng":24}')?.lat,
     ).toBeUndefined();
+  });
+});
+
+describe('the route carries a rounded position only (SYC-258)', () => {
+  // A photo's (or a pin's) exact position, to the metre.
+  const PRECISE = { lat: 37.4412345, lng: 24.9412345 };
+  const build = (lat: unknown, lng: unknown) =>
+    buildReviewParams({
+      sightingId: 9,
+      isCatPhoto: true,
+      candidates: [],
+      lat: lat as number,
+      lng: lng as number,
+    });
+
+  it('rounds the position to three decimals in the serialised route', () => {
+    const params = build(PRECISE.lat, PRECISE.lng);
+    expect(ROUTE_POSITION_DECIMALS).toBe(3);
+    expect(params.data).not.toContain('37.4412345');
+    expect(params.data).not.toMatch(/\d\.\d{4,}/);
+    const parsed = parseReviewParams(params.data);
+    expect(parsed?.lat).toBe(37.441);
+    expect(parsed?.lng).toBe(24.941);
+  });
+
+  it("a pin equal to a photo's position does not leak it", () => {
+    const params = build(PRECISE.lat, PRECISE.lng);
+    // Whole string, not the lat key, so a new key name cannot slip past.
+    expect(params.data).not.toMatch(/37\.44123|24\.94123/);
+    expect(params.data).not.toMatch(/\d\.\d{4,}/);
+  });
+
+  it('rounding is stable (rounding the parsed value again changes nothing)', () => {
+    const once = parseReviewParams(build(PRECISE.lat, PRECISE.lng).data);
+    expect(roundForRoute(once!.lat!)).toBe(once!.lat);
+    expect(roundForRoute(once!.lng!)).toBe(once!.lng);
+    const twice = parseReviewParams(build(once!.lat, once!.lng).data);
+    expect(twice).toEqual(once);
+  });
+
+  it('parseReviewParams rounds an exact position from an old address', () => {
+    const parsed = parseReviewParams(
+      '{"sightingId":1,"lat":37.4412345,"lng":24.9412345}',
+    );
+    expect(parsed?.lat).toBe(37.441);
+    expect(parsed?.lng).toBe(24.941);
+  });
+
+  it('rounding never moves a point more than 80 m', () => {
+    // The island rectangle from lib/offlineTiles.ts (not exported there).
+    const ISLAND = { minLat: 37.36, maxLat: 37.53, minLon: 24.85, maxLon: 25.01 };
+    let seed = 258;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    };
+    const metres = (a: [number, number], b: [number, number]) => {
+      const R = 6371008.8;
+      const rad = (d: number) => (d * Math.PI) / 180;
+      const dLat = rad(b[0] - a[0]);
+      const dLng = rad(b[1] - a[1]);
+      const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    };
+    for (let i = 0; i < 500; i += 1) {
+      const lat = ISLAND.minLat + rand() * (ISLAND.maxLat - ISLAND.minLat);
+      const lng = ISLAND.minLon + rand() * (ISLAND.maxLon - ISLAND.minLon);
+      const parsed = parseReviewParams(build(lat, lng).data);
+      expect(parsed?.lat).toBeDefined();
+      expect(metres([lat, lng], [parsed!.lat!, parsed!.lng!])).toBeLessThan(80);
+    }
+  });
+
+  it.each([
+    ['not numbers', '37.4', '24.9'],
+    ['not finite', Number.NaN, Number.POSITIVE_INFINITY],
+    ['out of range', 91, 24.9],
+    ['out of range longitude', 37.4, 181],
+    ['only one of the two', 37.4, undefined],
+  ])('still drops a location that is %s', (_label, lat, lng) => {
+    const params = build(lat, lng);
+    expect(params.data).not.toMatch(/"lat"|"lng"/);
+  });
+
+  it('negative and zero coordinates round without "-0"', () => {
+    const params = build(-0.0004, -0.0004);
+    expect(params.data).toContain('"lat":0');
+    expect(params.data).toContain('"lng":0');
+    expect(params.data).not.toContain('-0');
+    const parsed = parseReviewParams(params.data);
+    expect(Object.is(parsed?.lat, 0)).toBe(true);
+    expect(Object.is(parsed?.lng, 0)).toBe(true);
+    const old = parseReviewParams('{"sightingId":1,"lat":-0.0004,"lng":-0}');
+    expect(Object.is(old?.lat, 0)).toBe(true);
+    expect(Object.is(old?.lng, 0)).toBe(true);
+    expect(build(-33.8688, -70.1239).data).toContain('"lat":-33.869');
   });
 });
