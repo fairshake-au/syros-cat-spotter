@@ -102,10 +102,10 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is **one PR**
 | **1. Turnstile on the cat-in-trouble form (SYC-170)** | 1.0 spike on real phones · 1.1 server check · 1.2 website · 1.3 phone apps | 1.0 before 1.3; 1.1 before 1.2 | Nobody, unless Cloudflare asks for a tap |
 | **2. Shared limits (SYC-105)** | 2.1 limits counted in Postgres | Nothing (can run beside Slice 1) | Nobody |
 | **3. A new photo address on hide (SYC-279)** | 3.1 rotation and the cache rule | Decision 1 | Nobody |
-| **4. Making the queue safe for a second kind of report** | 4.1 migration and the `kind` sweep | Nothing | Nobody |
-| **5. The report itself (server)** | 5.1 `POST /api/issues`, the hide, the rules · 5.2 `issue_alert` mail and shedding | 2.1, 3.1, 4.1; 1.1 for the token | The team's inbox, once the app sends |
+| **4. Making the queue safe for a second kind of report** | 4.1 migration and the `kind` sweep · 4.2 drop the old resend key (after 4.1 is published) | Nothing | Nobody |
+| **5. The report itself (server)** | 5.2 `issue_alert` mail and shedding, **then** 5.1 `POST /api/issues`, the hide, the rules | 2.1, 3.1, 4.2; 1.1 for the token; 5.1 needs 5.2 (it queues an `issue_alert`) | The team's inbox, once the app sends |
 | **6. The app** | 6.1 full-screen photo, the hidden tile, the link · 6.2 the reason sheet and the saved list | 5.1; 1.2 and 1.3 for the check | Everyone |
-| **7. The team's side** | 7.1 the Issues section and its actions · 7.2 deleting a photo for good (SYC-246) | 5.1; Decisions 2 and 3; docs 0.1 | The team |
+| **7. The team's side** | 7.1 the Issues section and its actions · 7.2 deleting a photo for good (SYC-246) | 5.1; Decisions 2 and 3; docs 0.1; 7.2 needs 7.1 (its button sits on the Issues row) | The team |
 | **8. Retention** | 8.1 the one-year clean-up | 4.1 | Nobody |
 
 **Slices 1 and 2 are both needed before the launch-day step that sets `PRELAUNCH_GATE=off`** (spec §8.2; comment on SYC-114). They don't touch the same files except `routes/reports.ts`'s two limiters, so they can be built side by side; whichever merges second rebases.
@@ -153,17 +153,23 @@ Nothing is merged to `main` from the spike except a short note.
   - `unreachable`: a timeout (3 seconds, then one retry with the same `idempotency_key`) or a 5xx.
 
   No `remoteip` is sent. The token is never logged: request bodies aren't logged today, and the siteverify error path logs only the outcome and Cloudflare's error codes.
+- **What our side's own failures count as** (review finding 2):
+  - a **missing secret** at start-up is logged as an error, and `/api/healthz` reports `turnstile: not_configured`;
+  - a siteverify reply of `invalid-input-secret` or `missing-input-secret` (our key is wrong) is **our** fault, never the sender's. It answers **`503 turnstile_not_configured`**, which the app already retries for ever with no strike, so the report stays on the phone until the key is fixed. It's never accepted as unchecked, because a broken key would otherwise let every report in;
+  - a `429` from Cloudflare, or any reply that isn't JSON, counts as `unreachable`.
 - **`TURNSTILE_MODE`**:
   - `off`: no check (the default in development and tests unless a test sets it);
   - `observe`: check and log the outcome, refuse nothing;
   - `enforce`.
+
+  **In production the default is `enforce`, and `off` and `observe` are honoured only while `PRELAUNCH_GATE` is on**, so the pass can't come off with the check asleep. **On `/api/issues`, a hide needs an `ok` verdict in every mode**: in `off` or `observe`, issue reports are queued and never hide.
 - **`POST /api/reports` and `POST /api/reports/draft`**, in this order:
   1. body;
   2. device;
   3. **the duplicate check first**: a sent report with this `(device, clientRef)` gets its original answer;
   4. the token (action `welfare_report` or `welfare_draft`, `cdata` = `clientRef`):
      - `rejected` → **`428 { error: "challenge_required" }`**, nothing written;
-     - `unreachable` → accept with `token_checked = false`, after the **unchecked limit** (3 an hour per address, both forms together);
+     - `unreachable` → accept with `token_checked = false`, after the **unchecked limit** (3 an hour per address, both forms together). **Drafts count in their own unchecked bucket** (10 an hour), so a real report during an outage doesn't use up two of the three on its own draft (review finding 15);
   5. the existing write.
 - **Migration:** `welfare_reports.token_checked boolean` (nullable). `null` means "sent before Turnstile", `true` means "checked", `false` means "accepted while Cloudflare was unreachable". Rollback drops the column.
 - **The unchecked limit** counts in memory until Slice 2 merges. That's correct today, because the deployment is pinned to one instance (`docs/DEPLOYMENT.md`, SYC-105 step 1). Whichever of 1.1 and 2.1 merges second moves it to the shared store.
@@ -175,15 +181,17 @@ Nothing is merged to `main` from the spike except a short note.
   - **T1-3:** the 4th unchecked row from one address in an hour is `429`, across both forms.
   - **T1-4:** a resend of an already-sent report with **no** token gets its original `200`, not `428` (the duplicate check comes first).
   - **T1-5:** the draft route with no token is `428` and writes nothing; during an outage it writes a collapsed unchecked draft (spec test 15).
-  - **T1-6:** the token never appears in any log line (captured logger).
-  - **T1-7:** `observe` refuses nothing and logs the outcome.
+  - **T1-6 (spec test 13):** neither the token nor the secret ever appears in any log line (captured logger).
+  - **T1-7:** `observe` refuses nothing and logs the outcome; with the pass off in production, `off` and `observe` are ignored and `enforce` applies.
+  - **T1-7b:** a wrong secret (`invalid-input-secret`) is `503`, with no row and never an unchecked row; a `429` from Cloudflare is unchecked.
   - **T1-8:** the unchecked list is below every checked report on the queue page.
   - Siteverify is faked at the `fetch` boundary.
 - **Mutation probes:**
   - drop the hostname comparison → T1-1 (`team.`) goes red;
   - map `rejected` to "accept unchecked" → T1-1 red;
   - put the token check before the duplicate check → T1-4 red;
-  - drop the unchecked limit → T1-3 red.
+  - drop the unchecked limit → T1-3 red;
+  - treat `invalid-input-secret` as unreachable → T1-7b red.
 
 ### PR 1.2: the website, and the saved list's rule (spec §9.3, §9.5, D11)
 
@@ -222,7 +230,7 @@ Nothing is merged to `main` from the spike except a short note.
 
 ### PR 2.1: the store (migration `rate_limit_counters`)
 
-- **The table:** `rate_limit_counters (bucket text, key text, window_start timestamptz, hits int, primary key (bucket, key, window_start))`. `key` is a SHA-256 of the address and a **salt that changes every day**. The salt is generated and kept in a one-row table by the server itself, so no new secret is needed. The table never holds an address, and old windows are deleted by the mail drain's sweep (the keep-safe sweep's pattern).
+- **The table:** `rate_limit_counters (bucket text, key text, window_start timestamptz, hits int, primary key (bucket, key, window_start))`. `key` is a SHA-256 of the address **after grouping it the way the limits do today** (`ipKeyGenerator`: an IPv6 address counts by its /56 network, and an IPv4-mapped address as the IPv4 one, `newDeviceLimit.ts:29-33`; review finding 4), and a **salt that changes every day**. The salt is generated and kept in a one-row table by the server itself, so no new secret is needed. The table never holds an address, and old windows are deleted by the mail drain's sweep (the keep-safe sweep's pattern).
 - **`lib/limits.ts`** provides:
   - `consume(bucket, key, limit, windowMs)`: one `insert … on conflict do update … returning hits`, atomic across instances;
   - `peek()`;
@@ -232,8 +240,13 @@ Nothing is merged to `main` from the spike except a short note.
   - **T2-1 (SYC-105 step 3; spec test 4's shape):** two app instances sharing one test database share the limit. The 11th report from one address across both is `429`.
   - **T2-2:** a restart doesn't reset a window.
   - **T2-3:** the stored key isn't the address, and differs on two days.
+  - **T2-5:** two IPv6 addresses in the same /56 share one count.
   - **T2-4:** old windows are swept.
-- **Mutation probe:** key the store per process (in memory) → T2-1 red.
+- **What happens when the counter itself fails** (review finding 16). If `consume()` errors (a lock timeout, say), the **cat-in-trouble routes let the report through** and log it, because a hurt-cat report must never be lost to a limiter. **Hides fail closed**: the issue row is still queued, with no hide (`hide_skipped = 'address_limit'`). Tested by **T2-6**, which makes the counter throw.
+- **Mutation probes:**
+  - key the store per process (in memory) → T2-1 red;
+  - hash the raw address → T2-5 red;
+  - fail closed on the welfare route → T2-6 red.
 - **After it's live (Claude):** lift the one-instance pin in Replit's deployment settings **only after** a probe shows the limit holding. This is SYC-105 step 4. It's a Replit setting, so if Claude can't change it through the connector, it goes on Samuel's list. Update `docs/DEPLOYMENT.md`.
 
 ---
@@ -245,12 +258,13 @@ Nothing is merged to `main` from the spike except a short note.
 ### PR 3.1: rotation, the retired-address list and the cache rule (migration `photo_public_id_history`)
 
 - **The table:** `photo_public_id_history (public_id text primary key, photo_id int not null references photos, retired_at timestamptz not null)`.
-- **`setPhotoVisibility`** (`lib/photoVisibility.ts`), inside its existing lock, on a real change only:
+- **The lock moves from the public id to the photo's own id** (review finding 3). Today `setPhotoVisibility` locks with `select … from photos where public_id = … for update` (`photoVisibility.ts:192`). Once the id can change, a second request waiting on that lock would find no row when the first one commits, and answer "No such photo" for a photo that exists. So the photo is first found by `findPhotoByAnyPublicId` (below), then locked by `photos.id`.
+- **`setPhotoVisibility`**, inside that lock, on a real change only:
   1. move the current `photos.public_id` into the history;
   2. set a fresh `gen_random_uuid()`;
   3. write the event.
 
-  A no-op ("already hidden") rotates nothing. The report-hide writer in Slice 5 calls the **same** helper.
+  A no-op ("already hidden") rotates nothing. The report-hide writer in Slice 5 calls the **same** helper. The outcome carries the **new** public id, so the team page's redirect after Hide or Restore (`teamPhotos.ts` `backTo`, which lands on `#p-<publicId>`; `catPages.ts:572`) lands on the photo, not on a missing anchor.
 - **Two lookups, deliberately different:**
   - the **public** photo route (`routes/photos.ts`) answers only to the current id;
   - **`findPhotoByAnyPublicId()`**, used only by the issue route and the team routes, also accepts a retired id. A report queued on a phone before a rotation still finds its photo, and the team route answers a retired id with a redirect to the current one.
@@ -259,13 +273,15 @@ Nothing is merged to `main` from the spike except a short note.
   - **T3-1:** hide rotates. The old id is `404` on the public route, the new id is `404` while hidden, and after a restore the newest id is `200` while both older ids stay `404`.
   - **T3-2:** a no-op doesn't rotate.
   - **T3-3:** a retired id resolves through `findPhotoByAnyPublicId` and **never** through the public route.
-  - **T3-4:** six simultaneous hides of one photo rotate once.
+  - **T3-4:** six simultaneous hides of one photo rotate once, and the five that lose the race answer "already hidden", **never "No such photo"**.
+  - **T3-7:** after Hide and after Restore, the team page lands on the photo under its new id.
   - **T3-5:** the public cat list, cat detail, match candidates and notifications carry only current ids (PR 6's reader list, re-run).
   - **T3-6:** the photo route's header with the pass off.
   - **P6-0** (the source test that only `photoVisibility.ts` builds `/api/photos/`) still holds.
 - **Mutation probes:**
   - let the public route accept a retired id → T3-3 red;
   - rotate before the lock → T3-4 red;
+  - lock by public id again → T3-4 red ("No such photo");
   - send `public` → T3-6 red.
 - **Probe (Claude, after publish):** hide a test photo; `curl` the old address (`404`) and the new one (`404`); restore it; `curl` all three. Check the response has no `age` header. With the pass on, the probe uses a tester key.
 
@@ -285,11 +301,19 @@ Nothing is merged to `main` from the spike except a short note.
   - `hidden_by_report` boolean not null, default false;
   - `hide_skipped` text, null or one of `already_hidden`, `restored_before`, `address_limit`, `brake`, `unchecked` (shown to the team as "hide limit reached" and so on);
   - `note_cleared_at` timestamptz (Slice 8).
-- **Content rows, checked in the database:** `photo_state = 'none'`, `severity = 'attention'`, `is_litter = false`. "Photo still uploading" can then never show on an issue, and the alert email can never wait for a photo that isn't coming (spec §5.1).
-- **The resend key includes the kind:** the unique `(reporter_device, client_ref)` becomes `(reporter_device, kind, client_ref)`.
+- **Content rows, checked in the database:** `photo_state = 'none'`, `severity = 'attention'`, `is_litter = false`, and `photo_private`, `photo_inappropriate` and `photo_not_cat` always carry a `photo_id` (review finding 17). `wrong_cat` may or may not, because it's offered from both the cat page and a photo. "Photo still uploading" can then never show on an issue, and the alert email can never wait for a photo that isn't coming (spec §5.1).
+- **The resend key includes the kind, in two steps** (review finding 1). Both live upserts in `routes/reports.ts` (lines 122-124 and 167-169) name `(reporter_device, client_ref)` as their conflict target, and migrations run **before** publish. Dropping that key in the same migration would make Postgres refuse every cat-in-trouble report and draft between migrate and publish. So:
+  - **4.1 adds** the new unique `(reporter_device, kind, client_ref)` **beside** the old one, and its code moves both upserts to the new target;
+  - **PR 4.2**, a one-line migration merged and migrated only **after** 4.1 is published, drops the old key.
+
+  No issue row can exist before 4.2, because the issue route arrives in Slice 5, which needs 4.2.
 - An index on `(kind, state, created_at)`, and one on `photo_id`.
 - `issue_digest_runs (day date primary key, sent_at timestamptz)`, the digest's once-a-day guard (Slice 5.2).
-- **Rollback block:** `-- DELETES EVERY "REPORT AN ISSUE" ROW FIRST: THE WELFARE ROWS' "POSITION ALWAYS PRESENT" RULE CANNOT COME BACK WHILE THEY EXIST.` Then it puts back `not null` on `lat`/`lng` and the old unique key, and drops the new columns and table. Tested up, down and up.
+- **The rollback blocks.**
+  - **4.2's** puts back the old key. It first deletes every content row, because a content row and a welfare row with the same device and reference can't both survive it.
+  - **4.1's** drops the new key, columns and table, and puts back `not null` on `lat`/`lng`. It starts with `-- DELETES EVERY "REPORT AN ISSUE" ROW FIRST: THE WELFARE ROWS' "POSITION ALWAYS PRESENT" RULE CANNOT COME BACK WHILE THEY EXIST.`
+
+  Both are tested up, down and up. Once Slice 5 is live, either runs only with Samuel's yes.
 
 **The sweep.** Every reader and writer of `welfare_reports` on `main`, from a full search (13 Oct). Each gets its rule and a named test:
 
@@ -303,16 +327,18 @@ Nothing is merged to `main` from the spike except a short note.
 | `lib/welfareTie.ts` and its route | **Refuses `kind = 'content'`**: the function returns `not_welfare`, the route answers 409, and the page never offers the control | **T4-4 (spec test 8):** the tie on a content row is refused and **no `welfare_report` observation is ever written for a content row** (checked by a query over the observation table after every content-row test in the file) |
 | `lib/mail/outbox.ts` `processRow` | A `welfare_alert` row whose report isn't `welfare` is marked failed `wrong_kind`, never built with welfare copy | **T4-5** |
 | `routes/reports.ts` (submit and draft upserts) | `on conflict (reporter_device, kind, client_ref)`, writing `kind = 'welfare'` explicitly | **T4-6 (spec test 10):** a content row and a welfare report from the same device with the same `clientRef` are two reports |
+| `routes/reports.ts:211-282` `PUT /reports/:publicId/photo` (review finding 6: a writer the first draft missed) | Looks the report up with **`kind = 'welfare'`**, so a reporter can't aim their own issue row's public id at it (it would set `photo_state = 'attached'`, which the database check refuses with a 500) → `404` | **T4-8:** a photo PUT at the reporter's own content row is `404`, writes nothing, and the row is unchanged |
 | `lib/severPerson.ts:80-83` (SYC-63 deletion) | **No kind filter**: it clears the device from both kinds | **T4-7:** "delete my data" clears `reporter_device` on a content row |
 | Test fixture `lib/teamAuth/__fixtures__/queueKit.ts` | Seeds both kinds | n/a |
 | **Not on `main` yet:** SYC-53's guardian routes (`view_colony_welfare_reports`, its PR 3.3) | `kind = 'welfare'` in SQL (its plan already says so; SYC-44 comment, 12 Oct) | That PR's own test 29b(ii) |
 
-- **The structural guard (T4-0).** A list written by hand misses places; PR 6's own review proved it. So a **source test** lists every file under `artifacts/api-server/src` (and `lib/`) that names `welfareReportsTable` or `welfare_reports`, and fails if a file appears that isn't in its allowlist. Each allowlist entry carries a one-line note of its `kind` rule. A new reader turns the test red until someone decides its rule.
+- **The structural guard (T4-0).** A list written by hand misses places; PR 6's own review proved it. So a **source test** lists every file under `artifacts/api-server/src` (and `lib/`) that names `welfareReportsTable` or `welfare_reports`, and fails if a file appears that isn't in its allowlist. Each allowlist entry carries a one-line note of its `kind` rule. A new reader turns the test red until someone decides its rule. **It works file by file, so it can't see a new query added to a file already on the list** (review finding 6). Each query in an allowlisted file is therefore covered by a route test that seeds a content row (T4-1 to T4-8), and the reviewer of every later PR that touches one of those files is told to check its `kind` rule.
 - **Mutation probes:**
   - drop the `kind` filter from `reportsQuery` → T4-1 red;
   - drop the `welfare_outcome` guard → T4-3 red;
   - let the tie accept content rows → T4-4 red;
-  - add a dummy reader file → T4-0 red.
+  - add a dummy reader file → T4-0 red;
+  - drop `kind = 'welfare'` from the photo PUT → T4-8 red.
 
 ---
 
@@ -472,6 +498,7 @@ Nothing is merged to `main` from the spike except a short note.
   | `setPhotoVisibility` restore, and the Issues "Restore" | Refused: `removed` |
   | `catDisplayPhotos` | Skips it (the newest visible photo, or the placeholder; hosting §6.5's "degrades gracefully") |
   | **Matching** (`routes/sightings.ts` `computeMatchCandidates`) | Skips a removed main photo, so it's no longer a matching reference (D5) |
+  | **A repeat sighting upload** (`routes/sightings.ts:527-537`, review finding 11) | Reads the existing sighting's photo bytes. A removed one is treated like the "photo has gone" case already written there: the sighting returns without fresh matches |
   | `issue_alert` attachment | No attachment, with a line saying it was deleted |
   | Sightings payload | `photoHidden` plus "Photo removed" tile |
   | SYC-81 (shrinking old photos, not built) | Must skip removed rows; commented on SYC-81 |
