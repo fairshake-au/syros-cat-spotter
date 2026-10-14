@@ -1059,6 +1059,123 @@ export function resolveCoat(
   };
 }
 
+const MARK_SET: ReadonlySet<string> = new Set(MARKS);
+
+/** A markings row's list, or null when it says nothing (`cantTell`) or is
+ * malformed. `[]` ("nothing special") is a real, empty list. */
+function markingsList(value: unknown): Mark[] | null {
+  if (typeof value !== "object" || value === null) return null;
+  const marks = (value as { marks?: unknown }).marks;
+  if (!Array.isArray(marks) || !marks.every((m) => MARK_SET.has(m as string))) return null;
+  return [...new Set(marks as Mark[])];
+}
+
+function inMarkOrder(marks: Iterable<Mark>): Mark[] {
+  const set = new Set(marks);
+  return MARKS.filter((m) => set.has(m));
+}
+
+/** "Changed on spotter agreement in the last 30 days" (spec §5.3). */
+const MARKINGS_RECENT_DAYS = 30;
+const DAY_MS_APPEARANCE = 86_400_000;
+
+/**
+ * A cat's markings (spec §4.2 "Markings", data spine §10.2). Pure.
+ *
+ * 1. Authority (highest `ranking` level, then newest by `observedAt`) is the
+ *    whole list, an empty list included. *Confirmed*.
+ * 2. A mark two independent voices ticked in rows dated after that standing
+ *    statement is shown alongside it, flagged `markings_reopened` (Decision
+ *    G). The list is then *Likely*, because part of it is.
+ * 3. Otherwise each mark with two independent voices is shown. *Likely*.
+ * 4. Spotters only add: a device's voice on a mark is any of its standing
+ *    rows that ticked it, so a later answer, `[]`, `cantTell` or an omission
+ *    withdraws nothing. Only an authority list or a retraction removes one.
+ *
+ * `markings_changed_recently` is set when a shown mark reached two voices
+ * within 30 days of `now`. No marks known is `value: null`, *unknown*.
+ */
+export function resolveMarkings(
+  observations: readonly Observation[],
+  now: Date,
+  ranking: AppearanceRanking = TEAM_APPEARANCE_RANKING,
+): AppearanceResolved<Mark[]> {
+  const statements = standingAppearanceRows(observations, "markings", true).flatMap((row) => {
+    const marks = markingsList(row.value);
+    return marks ? [{ row, marks }] : [];
+  });
+  const spotterStatements = statements.filter((s) => s.row.provenance !== "machine");
+  const recentSince = now.getTime() - MARKINGS_RECENT_DAYS * DAY_MS_APPEARANCE;
+
+  /** Each mark with two independent voices among rows passing `include`,
+   * with the date the second voice arrived. */
+  const agreedMarks = (include: (o: Observation) => boolean) => {
+    const out: { mark: Mark; since: Date; voices: Voice[] }[] = [];
+    for (const mark of MARKS) {
+      const rows = spotterStatements
+        .filter((s) => s.marks.includes(mark) && include(s.row))
+        .map((s) => s.row);
+      const voices = onePerVoice(rows);
+      const since = twoVoicesSince(voices);
+      if (since) out.push({ mark, since, voices: countingVoices(voices) });
+    }
+    return out;
+  };
+
+  const reasonsFor = (agreed: ReturnType<typeof agreedMarks>): AppearanceCheckReason[] =>
+    agreed.some((a) => a.since.getTime() >= recentSince) ? ["markings_changed_recently"] : [];
+
+  const authority = pickAuthority(statements, ranking);
+  if (authority) {
+    const after = authority.row.observedAt.getTime();
+    const reopened = agreedMarks((o) => o.observedAt.getTime() > after).filter(
+      (a) => !authority.marks.includes(a.mark),
+    );
+    if (reopened.length === 0) {
+      return {
+        value: inMarkOrder(authority.marks),
+        confidence: "confirmed",
+        supportingObservationIds: [authority.row.id],
+        conflicts: [],
+        asOf: toIso(authority.row.observedAt),
+        checkReasons: [],
+      };
+    }
+    const newest = Math.max(...reopened.map((a) => a.since.getTime()));
+    return {
+      value: inMarkOrder([...authority.marks, ...reopened.map((a) => a.mark)]),
+      confidence: "likely",
+      supportingObservationIds: [
+        authority.row.id,
+        ...new Set(reopened.flatMap((a) => a.voices.map((v) => v.row.id))),
+      ],
+      conflicts: [],
+      asOf: new Date(newest).toISOString(),
+      checkReasons: ["markings_reopened", ...reasonsFor(reopened)],
+    };
+  }
+
+  const agreed = agreedMarks(() => true);
+  if (agreed.length === 0) {
+    return {
+      value: null,
+      confidence: "unknown",
+      supportingObservationIds: [],
+      conflicts: [],
+      asOf: EPOCH,
+      checkReasons: [],
+    };
+  }
+  return {
+    value: inMarkOrder(agreed.map((a) => a.mark)),
+    confidence: "likely",
+    supportingObservationIds: [...new Set(agreed.flatMap((a) => a.voices.map((v) => v.row.id)))],
+    conflicts: [],
+    asOf: new Date(Math.max(...agreed.map((a) => a.since.getTime()))).toISOString(),
+    checkReasons: reasonsFor(agreed),
+  };
+}
+
 /**
  * The one snapshot the cat page, the fan-out check, the nightly notify job,
  * the dashboard and SYC-119's dead-cat guard all read (§9.1). Phase 1 takes

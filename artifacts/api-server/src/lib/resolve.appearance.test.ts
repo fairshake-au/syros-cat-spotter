@@ -6,6 +6,7 @@ import {
   independentPair,
   onePerVoice,
   resolveCoat,
+  resolveMarkings,
   standingAppearanceRows,
   twoVoicesSince,
   type AppearanceRanking,
@@ -541,5 +542,170 @@ describe("resolveCoat: plain cases", () => {
     const s = team("coat", { colours: ["black"] }, "2026-01-01");
     const wrong = team("coat", { retracted: true }, "2026-01-02", { supersedesId: s.id, accountId: "person:staff-2" });
     expect(resolveCoat([s, wrong, machineCoat(["grey"], "2026-01-01")]).value).toEqual(["grey"]);
+  });
+});
+
+const NOW = new Date("2026-06-01T12:00:00Z");
+
+describe("resolveMarkings: probed cases (plan PR 1.2 table)", () => {
+  it("P11 spotters only add: an omission, a later [] and cantTell remove nothing", () => {
+    // Device a ticks white paws, then replaces its own answer with "nothing
+    // special", then with "can't tell". Device b ticks white paws, then
+    // replaces its own answer with long fur only (an omission).
+    const a1 = spotterMarks("a", { marks: ["white_paws"] }, "2026-01-01T10:00:00Z");
+    const a2 = spotterMarks("a", { marks: [] }, "2026-01-03T10:00:00Z", { supersedesId: a1.id });
+    const a3 = spotterMarks("a", { cantTell: true }, "2026-01-04T10:00:00Z", { supersedesId: a2.id });
+    const b1 = spotterMarks("b", { marks: ["white_paws"] }, "2026-01-02T10:00:00Z");
+    const b2 = spotterMarks("b", { marks: ["long_fur"] }, "2026-01-05T10:00:00Z", { supersedesId: b1.id });
+    // The same, with later answers appended rather than superseding.
+    const c1 = spotterMarks("c", { marks: ["kinked_tail"] }, "2026-02-01T10:00:00Z");
+    const c2 = spotterMarks("c", { marks: [] }, "2026-02-03T10:00:00Z");
+    const d1 = spotterMarks("d", { marks: ["kinked_tail"] }, "2026-02-02T10:00:00Z");
+    const d2 = spotterMarks("d", { cantTell: true }, "2026-02-04T10:00:00Z");
+    const r = resolveMarkings([a1, a2, a3, b1, b2, c1, c2, d1, d2], NOW);
+    expect(r.value).toEqual(["white_paws", "kinked_tail"]);
+    expect(r.confidence).toBe("likely");
+  });
+
+  it("P12 marking one of three spotters' marks wrong leaves the other two", () => {
+    const a = spotterMarks("a", { marks: ["three_legs"] }, "2026-01-01T10:00:00Z");
+    const b = spotterMarks("b", { marks: ["three_legs"] }, "2026-01-02T10:00:00Z");
+    const c = spotterMarks("c", { marks: ["three_legs"] }, "2026-01-03T10:00:00Z");
+    const wrong = team("markings", { retracted: true }, "2026-01-04T10:00:00Z", { supersedesId: c.id });
+    const r = resolveMarkings([a, b, c, wrong], NOW);
+    expect(r.value).toEqual(["three_legs"]);
+    expect(r.supportingObservationIds.sort()).toEqual([a.id, b.id].sort());
+
+    // And the retraction does remove its own target: with only two voices,
+    // marking one wrong leaves the mark held at one.
+    const d = spotterMarks("d", { marks: ["missing_eye"] }, "2026-01-01T10:00:00Z");
+    const e = spotterMarks("e", { marks: ["missing_eye"] }, "2026-01-02T10:00:00Z");
+    const wrongE = team("markings", { retracted: true }, "2026-01-04T10:00:00Z", { supersedesId: e.id });
+    expect(resolveMarkings([d, e, wrongE], NOW).value).toBeNull();
+  });
+
+  it("P13 two voices dated after the standing team list show the mark and set markings_reopened", () => {
+    const list = team("markings", { marks: ["white_paws"] }, "2026-03-01T10:00:00Z");
+    const r = resolveMarkings(
+      [
+        // Two voices for long fur from before the list: the list overruled them.
+        spotterMarks("x", { marks: ["long_fur"] }, "2026-01-01T10:00:00Z"),
+        spotterMarks("y", { marks: ["long_fur"] }, "2026-01-02T10:00:00Z"),
+        list,
+        spotterMarks("a", { marks: ["torn_ear"] }, "2026-03-05T10:00:00Z"),
+        spotterMarks("b", { marks: ["torn_ear"] }, "2026-03-07T10:00:00Z"),
+      ],
+      new Date("2026-03-10T00:00:00Z"),
+    );
+    expect(r.value).toEqual(["white_paws", "torn_ear"]);
+    expect(r.checkReasons).toContain("markings_reopened");
+    expect(r.checkReasons).toContain("markings_changed_recently");
+  });
+});
+
+describe("resolveMarkings: plain cases", () => {
+  it("a mark is held at one voice and shown at two", () => {
+    const one = [spotterMarks("a", { marks: ["colourpoint"] }, "2026-01-01T10:00:00Z")];
+    expect(resolveMarkings(one, NOW)).toMatchObject({ value: null, confidence: "unknown" });
+    const two = [...one, spotterMarks("b", { marks: ["colourpoint"] }, "2026-01-02T10:00:00Z")];
+    expect(resolveMarkings(two, NOW)).toMatchObject({ value: ["colourpoint"], confidence: "likely" });
+  });
+
+  it("a device's later answer adds to what it ticked before", () => {
+    const a1 = spotterMarks("a", { marks: ["white_chest"] }, "2026-01-01T10:00:00Z");
+    const a2 = spotterMarks("a", { marks: ["white_face"] }, "2026-01-03T10:00:00Z", { supersedesId: a1.id });
+    const b = spotterMarks("b", { marks: ["white_chest", "white_face"] }, "2026-01-02T10:00:00Z");
+    expect(resolveMarkings([a1, a2, b], NOW).value).toEqual(["white_chest", "white_face"]);
+  });
+
+  it("cantTell changes nothing", () => {
+    const rows = [
+      spotterMarks("a", { marks: ["odd_eyes"] }, "2026-01-01T10:00:00Z"),
+      spotterMarks("b", { marks: ["odd_eyes"] }, "2026-01-02T10:00:00Z"),
+    ];
+    const withCantTell = [
+      ...rows,
+      spotterMarks("c", { cantTell: true }, "2026-01-03T10:00:00Z"),
+      team("markings", { cantTell: true }, "2026-01-04T10:00:00Z"),
+    ];
+    expect(resolveMarkings(withCantTell, NOW)).toEqual(resolveMarkings(rows, NOW));
+  });
+
+  it("only a team statement removes a mark, and an empty team list clears the marks", () => {
+    const r = resolveMarkings(
+      [
+        spotterMarks("a", { marks: ["short_tail"] }, "2026-01-01T10:00:00Z"),
+        spotterMarks("b", { marks: ["short_tail"] }, "2026-01-02T10:00:00Z"),
+        team("markings", { marks: [] }, "2026-01-05T10:00:00Z"),
+      ],
+      NOW,
+    );
+    expect(r).toMatchObject({ value: [], confidence: "confirmed", checkReasons: [] });
+  });
+
+  it("a team list may hold five marks", () => {
+    const five = ["white_paws", "white_chest", "white_face", "long_fur", "kinked_tail"];
+    expect(resolveMarkings([team("markings", { marks: five }, "2026-01-01")], NOW).value).toEqual(five);
+  });
+
+  it("the newest team list stands; a guardian's list outranks the team's", () => {
+    const older = team("markings", { marks: ["long_fur"] }, "2026-01-01");
+    const newer = team("markings", { marks: ["torn_ear"] }, "2026-01-05", { accountId: "person:staff-2" });
+    expect(resolveMarkings([older, newer], NOW).value).toEqual(["torn_ear"]);
+    const guardian = team("markings", { marks: ["white_paws"] }, "2025-12-01", {
+      roleAtTime: "guardian",
+      authorityScope: "colony:3",
+      accountId: "person:guardian",
+    });
+    expect(resolveMarkings([older, newer, guardian], NOW, WITH_GUARDIANS).value).toEqual(["white_paws"]);
+  });
+
+  it("a vet, imported or owner list counts for nothing", () => {
+    const rows = [
+      team("markings", { marks: ["three_legs"] }, "2026-01-01", { roleAtTime: "vet", accountId: "person:vet" }),
+      team("markings", { marks: ["three_legs"] }, "2026-01-02", { provenance: "import" }),
+      team("markings", { marks: ["three_legs"] }, "2026-01-03", { authorityScope: "owner_of_this_cat", roleAtTime: "public" }),
+    ];
+    expect(resolveMarkings(rows, NOW, AUTHORITY_LEVEL_UNCARVED).value).toBeNull();
+  });
+
+  it("each of the four recognition marks follows the same two-voice and add-only rules", () => {
+    for (const mark of ["short_tail", "missing_eye", "three_legs", "odd_eyes"]) {
+      const a1 = spotterMarks("a", { marks: [mark] }, "2026-01-01T10:00:00Z");
+      const one = resolveMarkings([a1], NOW);
+      expect(one.value).toBeNull();
+      const a2 = spotterMarks("a", { marks: [] }, "2026-01-02T10:00:00Z", { supersedesId: a1.id });
+      const b = spotterMarks("b", { marks: [mark] }, "2026-01-03T10:00:00Z");
+      expect(resolveMarkings([a1, a2, b], NOW).value).toEqual([mark]);
+    }
+  });
+
+  it("two voices on one Athens day, or one photo, or a prompted tap, are one", () => {
+    const sameDay = [
+      spotterMarks("a", { marks: ["long_fur"] }, "2026-01-01T23:30:00Z"),
+      spotterMarks("b", { marks: ["long_fur"] }, "2026-01-02T00:30:00Z"),
+    ];
+    expect(resolveMarkings(sameDay, NOW).value).toBeNull();
+    const samePhoto = [
+      spotterMarks("a", { marks: ["long_fur"] }, "2026-01-01T10:00:00Z", { photoId: 9001 }),
+      spotterMarks("b", { marks: ["long_fur"] }, "2026-01-03T10:00:00Z", { photoId: 9001 }),
+    ];
+    expect(resolveMarkings(samePhoto, NOW).value).toBeNull();
+    const prompted = [
+      spotterMarks("a", { marks: ["long_fur"] }, "2026-01-01T10:00:00Z"),
+      spotterMarks("b", { marks: ["long_fur"] }, "2026-01-03T10:00:00Z", { provenance: "prompted" }),
+    ];
+    expect(resolveMarkings(prompted, NOW).value).toBeNull();
+  });
+
+  it("markings_changed_recently only within 30 days of the second voice", () => {
+    const rows = [
+      spotterMarks("a", { marks: ["white_face"] }, "2026-05-01T10:00:00Z"),
+      spotterMarks("b", { marks: ["white_face"] }, "2026-05-10T10:00:00Z"),
+    ];
+    expect(resolveMarkings(rows, new Date("2026-06-01T00:00:00Z")).checkReasons).toEqual([
+      "markings_changed_recently",
+    ]);
+    expect(resolveMarkings(rows, new Date("2026-06-15T00:00:00Z")).checkReasons).toEqual([]);
   });
 });
