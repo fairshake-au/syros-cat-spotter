@@ -28,7 +28,7 @@ import type { LikelyCat } from "../lib/likelyReview";
 // SYC-43 part 2 plan, PR 4: the corrections. Tests P4-1 to P4-6.
 //
 // P4-4 needs a staff member who lacks exactly one capability. Today staff
-// hold all twelve (capabilities.ts), so `can` is wrapped: `denied.cap`, when
+// hold all fifteen (capabilities.ts), so `can` is wrapped: `denied.cap`, when
 // set, is refused to everyone, and everything else goes to the real `can`.
 const denied = vi.hoisted(() => ({ cap: null as string | null }));
 vi.mock("../lib/capabilities", async (importOriginal) => {
