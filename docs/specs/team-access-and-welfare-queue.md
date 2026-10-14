@@ -264,7 +264,7 @@ One page, mobile-first, because a Syros Cats volunteer is far more likely to ope
 
 The landing view. A list, ordered urgent-first and then newest-first.
 
-*Amended 12 October 2026 (`roles-and-invites.md` §6.2).* The queue page, the report list and the route that serves a reporter's photograph are gated by the capability `view_welfare_queue`, held by the team and management and by no guardian. A **cat guardian** may read, but not change, the welfare reports tied to a cat in her own colonies (`view_colony_welfare_reports`): she sees the report, its photo and its location, never the reporter's contact details or device, never the team's notes, and never a report tied to no cat. She cannot move a report between states or add a note.
+*Amended 12 October 2026 (`roles-and-invites.md` §6.2).* The queue page, the report list and the route that serves a reporter's photograph are gated by the capability `view_welfare_queue`, held by the team and management and by no guardian. A **cat guardian** may read, but not change, the welfare reports tied to a cat in her own colonies (`view_colony_welfare_reports`): she sees the report, its photo and its location, never the reporter's contact details or device, never the team's notes, never a report tied to no cat, and never a "Report an issue" report. She cannot move a report between states or add a note.
 
 - **Urgent** at the top, marked unmistakably. **Severity changes the order of this list and nothing else** — it does not make anybody arrive sooner, because nobody is dispatched. Anything in the interface that implies otherwise is a bug (§5).
 - **Needs attention** below.
