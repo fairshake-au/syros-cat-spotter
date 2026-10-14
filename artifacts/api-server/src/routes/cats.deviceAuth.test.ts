@@ -223,7 +223,7 @@ describe("PATCH /api/cats/:catId device auth (SYC-107)", () => {
       .set("X-Device-Secret", SECRET_OTHER)
       .send({ deviceId: stranger, name: catName("PatchStrangerHijack") });
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ error: "Only the cat's owner can update it" });
+    expect(res.body).toEqual({ error: "Only the cat's owner can update it", code: "NOT_OWNER" });
     expect((await reload(cat.id)).name).toBe(catName("PatchStranger"));
   });
 });
