@@ -702,10 +702,10 @@ describe("P6-9: events are only ever inserted", () => {
 // ── Who may ────────────────────────────────────────────────────────────────
 
 describe("each route is refused without its capability, in both layers", () => {
-  it("a person whose scopes grant nothing gets the identical 401, and nothing is written", async () => {
+  it("a person whose scopes grant nothing gets the 403 (signed in, so not the sign-in 401; SYC-53 PR 0.5), and nothing is written", async () => {
     const cat = await seedCat(0);
     for (const res of [await hide(cat.main, cat.id, volunteerCookie), await restore(cat.main, cat.id, volunteerCookie)]) {
-      expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+      expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
     }
     expect(await eventsFor(cat.main)).toHaveLength(0);
   });
@@ -714,13 +714,13 @@ describe("each route is refused without its capability, in both layers", () => {
     const cat = await seedCat(0);
     denied.cap = "hide_photo";
     const res = await hide(cat.main, cat.id);
-    expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
     expect(visibilityCalls.n).toBe(0);
     denied.cap = null;
     await hide(cat.main, cat.id);
     denied.cap = "restore_photo";
     const back = await restore(cat.main, cat.id);
-    expect([back.status, back.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([back.status, back.text]).toEqual([403, '{"error":"forbidden"}']);
     expect(visibilityCalls.n).toBe(1);
     expect((await eventsFor(cat.main)).map((r) => r.action)).toEqual(["hide"]);
   });

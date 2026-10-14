@@ -73,7 +73,7 @@ import { blurPosition } from "../lib/blur";
 import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
 import { teamCatView } from "../lib/teamCatView";
 import { renderCatPage } from "../lib/teamPages/catPages";
-import { CAPABILITIES } from "../lib/capabilities";
+import { CAPABILITIES, CATALOGUE } from "../lib/capabilities";
 
 const pushMock = vi.mocked(sendPushNotification);
 const notifyMock = vi.mocked(notifyCatSpotters);
@@ -405,17 +405,17 @@ describe("Remove owner (spec §7)", () => {
 });
 
 describe("who may remove an owner", () => {
-  it("without remove_owner, or without set_life_status, the identical 401 and nothing changes", async () => {
+  it("without remove_owner, or without set_life_status, the 403 (signed in, so not the sign-in 401; SYC-53 PR 0.5) and nothing changes", async () => {
     const { c, d } = await ownedCat("perm");
     const before = await lifeRows(c.id);
     for (const cap of ["remove_owner", "set_life_status"]) {
       denied.cap = cap;
       const res = await removeOwner(c.id);
-      expect([res.status, res.text], `without ${cap}`).toEqual([401, '{"error":"not_signed_in"}']);
+      expect([res.status, res.text], `without ${cap}`).toEqual([403, '{"error":"forbidden"}']);
     }
     denied.cap = null;
     const vol = await removeOwner(c.id, { reason: "x" }, volunteerCookie);
-    expect([vol.status, vol.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([vol.status, vol.text]).toEqual([403, '{"error":"forbidden"}']);
     expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
     expect(await lifeRows(c.id)).toEqual(before);
   });
@@ -498,7 +498,7 @@ describe("the life-status form on an owned cat", () => {
     const before = await lifeRows(c.id);
     denied.cap = "remove_owner";
     const res = await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" });
-    expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
     denied.cap = null;
     expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
     expect(await lifeRows(c.id)).toEqual(before);
@@ -828,8 +828,8 @@ describe("ship review 2: a merged-in cat's owner claim is not this cat's", () =>
 });
 
 describe("the capability", () => {
-  it("remove_owner is on the list, after set_life_status, and staff hold it", () => {
-    const list = [...CAPABILITIES];
-    expect(list.indexOf("remove_owner")).toBe(list.indexOf("set_life_status") + 1);
+  it("remove_owner is on the list, island-only, and the team holds it (SYC-53 PR 0.5 catalogue)", () => {
+    expect([...CAPABILITIES]).toContain("remove_owner");
+    expect(CATALOGUE.remove_owner).toEqual({ kind: "island", roles: ["staff", "management"] });
   });
 });

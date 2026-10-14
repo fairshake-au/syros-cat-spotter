@@ -245,10 +245,10 @@ describe("the team note route", () => {
     expect((await row(id)).teamNote).toBeNull();
   });
 
-  it("a person without the capability gets the identical 401 and nothing is written", async () => {
+  it("a person without the capability gets the 403 (signed in, so not the sign-in 401; SYC-53 PR 0.5) and nothing is written", async () => {
     const { id, publicId } = await seedReport();
     const res = await note(publicId, { note: "hello" }, veraCookie);
-    expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
     expect((await row(id)).teamNote).toBeNull();
   });
 });
