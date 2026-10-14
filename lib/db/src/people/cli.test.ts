@@ -368,3 +368,138 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
     expect(await countPeople()).toBe(1);
   });
 });
+
+describe("SYC-53 PR 0.3: add's rules, and set-roles", () => {
+  const SAMUEL = "samuel@example.com";
+  const add = (extra: string[] = []) =>
+    run([
+      "add",
+      "--accepted",
+      "--target",
+      "development",
+      "--email",
+      SAMUEL,
+      "--name",
+      "Samuel",
+      ...extra,
+    ]);
+  const setRoles = (args: string[], answer = SAMUEL) =>
+    run(
+      ["set-roles", "--target", "development", "--email", SAMUEL, "--by", "claude", ...args],
+      devEnv(),
+      answer,
+    );
+  const roles = async () =>
+    (
+      await c.query(
+        `select role, colony_id from person_scopes order by role, colony_id`,
+      )
+    ).rows.map((r) => (r.colony_id === null ? r.role : `${r.role}:${r.colony_id}`));
+
+  it("add without --accepted is refused: invitations come with the people screen", async () => {
+    const r = await run([
+      "add",
+      "--target",
+      "development",
+      "--email",
+      SAMUEL,
+      "--name",
+      "Samuel",
+    ]);
+    expect(r.code).toBe(2);
+    expect(r.out.join("\n")).toMatch(/needs --accepted/);
+    expect(await countPeople()).toBe(0);
+  });
+
+  it("add refuses volunteer and management, and a guardian with no colony", async () => {
+    for (const [extra, reason] of [
+      [["--role", "volunteer"], /"volunteer" isn't a role/],
+      [["--role", "management"], /Management can't be given when adding someone/],
+      [["--role", "guardian"], /A cat guardian needs a colony/],
+    ] as const) {
+      const r = await add([...extra]);
+      expect(r.code).toBe(1);
+      expect(r.out.join("\n")).toMatch(reason);
+    }
+    expect(await countPeople()).toBe(0);
+  });
+
+  it("add places a guardian with --colony and takes --language", async () => {
+    const colony = (
+      await c.query(
+        `insert into colonies (name, normalised_name) values ('Kini cli', 'kini cli') returning id`,
+      )
+    ).rows[0].id;
+    const r = await add(["--role", "guardian", "--colony", String(colony), "--language", "el"]);
+    expect(r.code).toBe(0);
+    expect(r.out[1]).toMatch(new RegExp(`as guardian on colony ${colony}\\.$`));
+    expect(await roles()).toEqual([`guardian:${colony}`]);
+    const p = await c.query(`select language, accepted_at from people`);
+    expect(p.rows[0].language).toBe("el");
+    expect(p.rows[0].accepted_at).toBeInstanceOf(Date);
+    const bad = await run(["add", "--accepted", "--target", "development", "--email", "x@example.com", "--name", "X", "--role", "guardian", "--colony", "twelve"]);
+    expect(bad.code).toBe(2);
+    expect(bad.out.join("\n")).toMatch(/--colony is a colony's number/);
+  });
+
+  it("set-roles --add management keeps staff and prints before and after, ids only", async () => {
+    await add();
+    const id = (await c.query(`select id from people`)).rows[0].id;
+    const r = await setRoles(["--add", "management"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual([
+      "Target: development",
+      `Person ${id}`,
+      "  before: staff",
+      "  after:  management, staff",
+    ]);
+    expect(await roles()).toEqual(["management", "staff"]);
+    const ev = await c.query(`select kind, by from person_events order by id`);
+    expect(ev.rows.at(-1)).toEqual({ kind: "roles_changed", by: "cli:claude" });
+    expect(r.out.join("\n").toLowerCase()).not.toMatch(/samuel|example\.com/);
+  });
+
+  it("a typo can't remove a manager: a bare --role, a misspelt role or a mistyped confirmation changes nothing", async () => {
+    await add();
+    await setRoles(["--add", "management"]);
+    const before = await roles();
+    const bare = await setRoles(["--role", "staff"]);
+    expect(bare.code).toBe(2);
+    expect(bare.out.join("\n")).toMatch(/one at a time; a whole new list needs --replace/);
+    const misspelt = await setRoles(["--remove", "managment"]);
+    expect(misspelt.code).toBe(1);
+    expect(misspelt.out.join("\n")).toMatch(/"managment" isn't a role/);
+    const retyped = await setRoles(["--remove", "management"], "samuel@exmaple.com");
+    expect(retyped.code).toBe(1);
+    expect(retyped.out).toContain("The addresses don't match. Nothing was changed.");
+    const none = await setRoles([]);
+    expect(none.code).toBe(1);
+    expect(none.out.join("\n")).toMatch(/Give exactly one change/);
+    expect(await roles()).toEqual(before);
+  });
+
+  it("set-roles refuses a result with no staff or management role unless --force", async () => {
+    await add();
+    const refused = await setRoles(["--replace", "vet"]);
+    expect(refused.code).toBe(1);
+    expect(refused.out.join("\n")).toMatch(/no staff or management role/);
+    expect(await roles()).toEqual(["staff"]);
+    const forced = await setRoles(["--replace", "vet", "--force"]);
+    expect(forced.code).toBe(0);
+    expect(forced.out.slice(2)).toEqual(["  before: staff", "  after:  vet"]);
+    expect(await roles()).toEqual(["vet"]);
+  });
+
+  it("list marks a pending person and shows each person's language", async () => {
+    await add();
+    await c.query(
+      `insert into people (email, name, added_by) values ('new@example.com', 'New', 'cli:t')`,
+    );
+    const list = await run(["list", "--target", "development"]);
+    expect(list.out[1]).toBe("1 person on the list, and 1 invited and not yet joined.");
+    const lines = list.out.slice(2);
+    expect(lines.filter((l) => l.includes("\tPENDING"))).toHaveLength(1);
+    expect(lines.every((l) => l.includes("\tlanguage en"))).toBe(true);
+    expect(list.out.join("\n").toLowerCase()).not.toMatch(/samuel@|new@|example\.com/);
+  });
+});

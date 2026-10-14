@@ -288,12 +288,22 @@ export async function runPeopleCommand(
 
     if (command === "list") {
       const people = await store.listPeople();
-      const onList = people.filter((p) => p.leftAt === null).length;
-      const left = people.length - onList;
+      // On the list means joined and not left (roles-and-invites.md §10.1).
+      const onList = people.filter(
+        (p) => p.leftAt === null && p.acceptedAt !== null,
+      ).length;
+      const pending = people.filter(
+        (p) => p.leftAt === null && p.acceptedAt === null,
+      ).length;
+      const left = people.length - onList - pending;
+      const extras = [
+        pending ? `${pending} invited and not yet joined` : null,
+        left ? `${left} marked as left` : null,
+      ].filter((x) => x !== null);
       // Ids and roles only: never an address or a name (H.1(b)).
       io.out(
         `${onList} ${onList === 1 ? "person" : "people"} on the list` +
-          (left ? `, and ${left} marked as left.` : "."),
+          (extras.length ? `, and ${extras.join(", and ")}.` : "."),
       );
       for (const p of people) {
         io.out(
