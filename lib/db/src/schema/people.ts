@@ -38,8 +38,7 @@ export const PERSON_ROLES = ["staff", "management", "guardian", "vet"] as const;
 
 /**
  * The roles that are always island-wide (§10.1): the team and management.
- * A database check below is built from it, and `people set-roles` refuses a
- * result holding none of them unless forced. It is not the list of the
+ * A database check below is built from it. It is not the list of the
  * team's roles (that is api-server's teamRoles.ts, which includes `vet`).
  */
 export const ISLAND_ROLES = ["staff", "management"] as const;

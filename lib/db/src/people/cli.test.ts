@@ -478,16 +478,42 @@ describe("SYC-53 PR 0.3: add's rules, and set-roles", () => {
     expect(await roles()).toEqual(before);
   });
 
-  it("set-roles refuses a result with no staff or management role unless --force", async () => {
+  it("set-roles refuses a result without staff unless --force", async () => {
     await add();
     const refused = await setRoles(["--replace", "vet"]);
     expect(refused.code).toBe(1);
-    expect(refused.out.join("\n")).toMatch(/no staff or management role/);
+    expect(refused.out.join("\n")).toMatch(/without staff/);
     expect(await roles()).toEqual(["staff"]);
     const forced = await setRoles(["--replace", "vet", "--force"]);
     expect(forced.code).toBe(0);
     expect(forced.out.slice(2)).toEqual(["  before: staff", "  after:  vet"]);
     expect(await roles()).toEqual(["vet"]);
+  });
+
+  it("review M1: a manager can't be locked out by --remove staff or --replace management", async () => {
+    await add();
+    await setRoles(["--add", "management"]);
+    for (const args of [["--remove", "staff"], ["--replace", "management"]]) {
+      const r = await setRoles(args);
+      expect(r.code).toBe(1);
+      expect(r.out.join("\n")).toMatch(/without staff/);
+    }
+    expect(await roles()).toEqual(["management", "staff"]);
+  });
+
+  it("--replace warns when it takes away a cat guardian placement", async () => {
+    const colony = (
+      await c.query(
+        `insert into colonies (name, normalised_name) values ('Kini replace', 'kini replace') returning id`,
+      )
+    ).rows[0].id;
+    await add();
+    await setRoles(["--add", "guardian", "--colony", String(colony)]);
+    const r = await setRoles(["--replace", "staff"]);
+    expect(r.code).toBe(0);
+    expect(r.out.at(-1)).toBe(
+      `  WARNING: --replace took away their cat guardian placement: guardian:${colony}.`,
+    );
   });
 
   it("list marks a pending person and shows each person's language", async () => {

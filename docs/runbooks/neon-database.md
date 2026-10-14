@@ -72,7 +72,7 @@ gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --
 gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')" --log
 ```
 
-**Management (`people-set-roles`, SYC-53 PR 0.3, Decision A1).** `management` is never given by `people-add`; it is added beside `staff` with `people-set-roles`, which is additive: `-f people_change=add` (or `remove`) and `-f people_role=management` change that one role and leave the rest alone. It needs the same three secrets as `people-add` minus the name, prints the person's roles before and after (ids and role names only), and refuses a result with no `staff` or `management` role unless `-f confirm=FORCE`. A whole new list (`--replace`) is only offered by the `people` command itself, not by db-ops.
+**Management (`people-set-roles`, SYC-53 PR 0.3, Decision A1).** `management` is never given by `people-add`; it is added beside `staff` with `people-set-roles`, which is additive: `-f people_change=add` (or `remove`) and `-f people_role=management` change that one role and leave the rest alone. It needs the same three secrets as `people-add` minus the name, prints the person's roles before and after (ids and role names only), and refuses a result without `staff` unless `-f confirm=FORCE`: until SYC-53 PR 0.5 only `staff` lets anyone sign in, so removing it would lock even a manager out. `people_role` and `people_change` have no defaults; always pass both. A whole new list (`--replace`) is only offered by the `people` command itself, not by db-ops.
 
 ```bash
 gh workflow run db-ops.yml --ref main -f target=production -f command=people-set-roles -f people_change=add -f people_role=management

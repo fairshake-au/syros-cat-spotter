@@ -35,17 +35,18 @@ on:
         # SYC-53 PR 0.3: volunteer is retired; management is given only by
         # people-set-roles (people-add refuses it).
         type: choice
+        # No default (review M1): a set-roles run must name the role, so a
+        # forgotten input can never mean "remove staff".
         options: [staff, management, guardian, vet]
-        default: staff
         required: false
         description: "For people-add: the role to give. For people-set-roles: the one role to add or remove"
       people_change:
         # SYC-53 PR 0.3: set-roles is additive, one role at a time. A whole
-        # new list is CLI-only (--replace). CONFIRM=FORCE allows a result
-        # with no staff or management role.
+        # new list is CLI-only (--replace). No default: the change is always
+        # named. Removing staff also needs CONFIRM=FORCE: until SYC-53 PR 0.5
+        # only staff lets anyone sign in.
         type: choice
         options: [add, remove]
-        default: add
         required: false
         description: "For people-set-roles: add or remove people_role"
       people_colony:
@@ -59,7 +60,7 @@ on:
       confirm:
         type: string
         required: false
-        description: "Type APPLY for carry-back-apply; FORCE for people-set-roles leaving no staff or management role"
+        description: "Type APPLY for carry-back-apply; FORCE for people-set-roles removing staff"
       fail_after:
         # The plan sketches this as `type: choice` with `""` as one of the
         # options, but actionlint refuses an empty choice option

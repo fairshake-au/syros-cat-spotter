@@ -316,9 +316,11 @@ normalise_email() {
 
 # SYC-53 PR 0.3: people-set-roles is how management is given (Decision A1),
 # and it is additive: PEOPLE_CHANGE says add or remove, PEOPLE_ROLE says which
-# one role. A whole new list (the CLI's --replace) is deliberately not
-# offered here. CONFIRM=FORCE passes --force (a result with no staff or
-# management role). PEOPLE_COLONY is a colony's number, for a cat guardian.
+# one role; neither has a default, so both must be named. A whole new list
+# (the CLI's --replace) is deliberately not offered here. Removing staff is
+# refused here unless CONFIRM=FORCE (review M1): until SYC-53 PR 0.5 only staff
+# lets anyone sign in, so it would lock even a manager out. CONFIRM=FORCE
+# passes --force. PEOPLE_COLONY is a colony's number, for a cat guardian.
 
 # A colony's number, checked here and again by the CLI and the database.
 colony_args() {
@@ -384,6 +386,10 @@ run_people() {
           exit 1
           ;;
       esac
+      if [ "$PEOPLE_CHANGE" = "remove" ] && [ "$PEOPLE_ROLE" = "staff" ] && [ "${CONFIRM:-}" != "FORCE" ]; then
+        echo "db-ops: removing staff locks the person out (only staff can sign in until the new permissions ship). Refusing unless confirm=FORCE. Nothing was changed." >&2
+        exit 1
+      fi
       args+=("--$PEOPLE_CHANGE" "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
       colony_args
       if [ "${CONFIRM:-}" = "FORCE" ]; then args+=(--force); fi

@@ -129,8 +129,10 @@ describe("SYC-188: only a role that grants something is let in", () => {
   }
 
   it("management only (no staff): kept out, since can() still asks for staff (SYC-53 PR 0.3)", async () => {
-    // The people command never makes this (management is added beside
-    // staff); written directly to prove the door doesn't open for it.
+    // The people command refuses to make this unless forced (set-roles
+    // keeps staff; --force is the break-glass), and add never gives
+    // management. Written directly here to prove the door doesn't open for
+    // it, which is why set-roles refuses it.
     const p = await add(["staff"]);
     await pool.query(
       "update person_scopes set role = 'management' where person_id = $1",

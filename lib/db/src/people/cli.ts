@@ -27,8 +27,8 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 // management-only person would have no way in). `set-roles` is how
 // management is given, beside staff, and it is additive: one role is added
 // or removed at a time, a whole new list needs --replace, the roles are
-// printed before and after, and a result with no staff or management role is
-// refused unless --force is given.
+// printed before and after, and a result without staff is refused unless
+// --force is given (until PR 0.5 only staff lets anyone sign in).
 //
 // Someone who leaves is marked as left, never removed (SYC-43 part 2, Decision
 // 7; SYC-53 PR 0.1): their history stays theirs. There is no `remove`: every
@@ -342,6 +342,11 @@ export async function runPeopleCommand(
       io.out(`Person ${result.id}`);
       io.out(`  before: ${result.before.join(", ") || "(no roles)"}`);
       io.out(`  after:  ${result.after.join(", ") || "(no roles)"}`);
+      if (result.droppedPlacements.length) {
+        io.out(
+          `  WARNING: --replace took away their cat guardian placement${result.droppedPlacements.length === 1 ? "" : "s"}: ${result.droppedPlacements.join(", ")}.`,
+        );
+      }
       return 0;
     }
     if (command === "mark-left") {

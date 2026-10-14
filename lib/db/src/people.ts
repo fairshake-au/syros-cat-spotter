@@ -3,7 +3,6 @@ import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "./schema";
 import {
-  ISLAND_ROLES,
   PERSON_LANGUAGES,
   PERSON_ROLES,
   ROLE_MAILBOX_LOCAL_PARTS,
@@ -90,10 +89,6 @@ function isRole(value: string): value is PersonRole {
   return (PERSON_ROLES as readonly string[]).includes(value);
 }
 
-function isIslandRole(role: string): boolean {
-  return (ISLAND_ROLES as readonly string[]).includes(role);
-}
-
 function checkRole(role: string): asserts role is PersonRole {
   if (!isRole(role)) {
     throw new PeopleError(
@@ -157,7 +152,11 @@ export interface SetRolesInput {
   replace?: string[];
   /** The colony, for adding or removing a `guardian` placement. */
   colonyId?: number;
-  /** Allows a result with no island role (`staff` or `management`). */
+  /**
+   * Allows a result without `staff`. Until plan PR 0.5, can() and mayEnter()
+   * ask only for `staff`, so a person without it can't sign in at all, even
+   * holding `management`.
+   */
   force?: boolean;
 }
 
@@ -166,6 +165,8 @@ export interface SetRolesResult {
   /** Role names, `guardian:<colony id>` for a placement. Ids only. */
   before: string[];
   after: string[];
+  /** Guardian placements a `replace` took away (labels, ids only). */
+  droppedPlacements: string[];
 }
 
 export interface MarkLeftResult {
@@ -438,8 +439,9 @@ export function peopleStore(db: PeopleDb) {
      * Changes one person's roles (`people set-roles`; plan PR 0.3, Decision
      * A1). It is also the break-glass, so it is hard to misuse: `add` and
      * `remove` change one role and leave the rest alone, a whole new list
-     * needs `replace`, and a result with no island role (`staff` or
-     * `management`) is refused unless `force` is given. Writes one
+     * needs `replace`, and a result without `staff` is refused unless
+     * `force` is given: until plan PR 0.5 `staff` is the only role that lets
+     * anyone in, so removing it (even from a manager) locks them out. Writes one
      * `roles_changed` event, with the roles before and after, in the same
      * transaction. A person who has left is refused: add them again.
      */
@@ -555,12 +557,19 @@ export function peopleStore(db: PeopleDb) {
           ...held.filter((h) => !toDelete.includes(h.id)).map(scopeLabel),
           ...toInsert.map(scopeLabel),
         ].sort();
-        const afterRoles = after.map((label) => label.split(":")[0]!);
-        if (!afterRoles.some(isIslandRole) && !input.force) {
+        // Until plan PR 0.5, can() and mayEnter() ask only "holds staff?":
+        // without staff, nobody (a manager included) can sign in. So staff
+        // must stay, unless forced (review M1). When 0.5 makes management
+        // grant on its own, this becomes "staff or management".
+        if (!after.includes("staff") && !input.force) {
           throw new PeopleError(
-            `That would leave them with no staff or management role (${after.join(", ") || "no roles at all"}). Nothing was changed. Give --force if that is really meant.`,
+            `That would leave them without staff (${after.join(", ") || "no roles at all"}), and until the new permissions ship only staff can sign in, so they would be locked out. Nothing was changed. Give --force if that is really meant.`,
           );
         }
+        const droppedPlacements = held
+          .filter((h) => h.colonyId !== null && toDelete.includes(h.id))
+          .map(scopeLabel)
+          .sort();
         if (toDelete.length) {
           await tx
             .delete(personScopesTable)
@@ -581,7 +590,12 @@ export function peopleStore(db: PeopleDb) {
           by: input.by,
           detail: { before, after },
         });
-        return { id: person.id, before, after };
+        return {
+          id: person.id,
+          before,
+          after,
+          droppedPlacements: input.replace ? droppedPlacements : [],
+        };
       });
     },
 

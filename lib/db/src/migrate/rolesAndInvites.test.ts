@@ -294,7 +294,7 @@ describe("spec test 29a, seeded half: setRoles is additive", () => {
   it("adds management beside staff, keeps staff, and writes one roles_changed event with before and after", async () => {
     const p = await addStaff();
     const r = await store.setRoles({ email: SAMUEL, add: "management", by: "cli:claude" });
-    expect(r).toEqual({ id: p.id, before: ["staff"], after: ["management", "staff"] });
+    expect(r).toEqual({ id: p.id, before: ["staff"], after: ["management", "staff"], droppedPlacements: [] });
     expect(await rolesOf(p.id)).toEqual(["management", "staff"]);
     const ev = await eventsOf(p.id);
     expect(ev.map((e) => e.kind)).toEqual(["added", "roles_changed"]);
@@ -357,18 +357,49 @@ describe("spec test 29a, seeded half: setRoles is additive", () => {
     expect(await rolesOf(p.id)).toEqual([`guardian:${colony}`, "management", "staff", "vet"]);
   });
 
-  it("refuses a result with no island role (staff or management) unless forced", async () => {
+  it("refuses a result without staff unless forced", async () => {
     const p = await addStaff();
     await expect(
       store.setRoles({ email: SAMUEL, remove: "staff", by: "cli:t" }),
-    ).rejects.toThrow(/no staff or management role/);
+    ).rejects.toThrow(/without staff/);
     await expect(
       store.setRoles({ email: SAMUEL, replace: ["vet"], by: "cli:t" }),
-    ).rejects.toThrow(/no staff or management role/);
+    ).rejects.toThrow(/without staff/);
     expect(await rolesOf(p.id)).toEqual(["staff"]);
     const r = await store.setRoles({ email: SAMUEL, replace: ["vet"], force: true, by: "cli:t" });
     expect(r.after).toEqual(["vet"]);
     expect(await rolesOf(p.id)).toEqual(["vet"]);
+  });
+
+  it("review M1: a manager can't be locked out: --remove staff and --replace management are refused unless forced", async () => {
+    // Until PR 0.5, can() and mayEnter() ask only for staff, so a manager
+    // without staff can't sign in at all.
+    const p = await addStaff();
+    await store.setRoles({ email: SAMUEL, add: "management", by: "cli:t" });
+    const eventsBefore = (await eventsOf(p.id)).length;
+    await expect(
+      store.setRoles({ email: SAMUEL, remove: "staff", by: "cli:t" }),
+    ).rejects.toThrow(/without staff/);
+    await expect(
+      store.setRoles({ email: SAMUEL, replace: ["management"], by: "cli:t" }),
+    ).rejects.toThrow(/without staff/);
+    await expect(
+      store.setRoles({ email: SAMUEL, replace: ["management", "vet"], by: "cli:t" }),
+    ).rejects.toThrow(/without staff/);
+    expect(await rolesOf(p.id)).toEqual(["management", "staff"]);
+    expect((await eventsOf(p.id)).length).toBe(eventsBefore);
+    // Forced, it is allowed: the break-glass stays a break-glass.
+    const r = await store.setRoles({ email: SAMUEL, remove: "staff", force: true, by: "cli:t" });
+    expect(r.after).toEqual(["management"]);
+  });
+
+  it("--replace reports the guardian placements it took away", async () => {
+    const colony = await newColony(c);
+    await addStaff();
+    await store.setRoles({ email: SAMUEL, add: "guardian", colonyId: colony, by: "cli:t" });
+    const r = await store.setRoles({ email: SAMUEL, replace: ["staff", "vet"], by: "cli:t" });
+    expect(r.after).toEqual(["staff", "vet"]);
+    expect(r.droppedPlacements).toEqual([`guardian:${colony}`]);
   });
 
   it("management is added only beside staff, and a whole new list needs replace", async () => {
@@ -377,7 +408,7 @@ describe("spec test 29a, seeded half: setRoles is additive", () => {
       store.setRoles({ email: SAMUEL, add: "management", by: "cli:t", force: true }),
     ).rejects.toThrow(/already holds staff/);
     const r = await store.setRoles({ email: SAMUEL, replace: ["staff", "management"], by: "cli:t" });
-    expect(r).toEqual({ id: p.id, before: ["vet"], after: ["management", "staff"] });
+    expect(r).toEqual({ id: p.id, before: ["vet"], after: ["management", "staff"], droppedPlacements: [] });
   });
 
   it("a guardian placement needs its colony, and only a guardian takes one", async () => {

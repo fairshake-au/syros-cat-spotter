@@ -27,8 +27,7 @@ const ROLE_WORDS = new Set(["staff", "management", "vet", "admin"]);
 const ALLOWED = new Set([
   `schema/people.ts: export const PERSON_ROLES = ["staff", "management", "guardian", "vet"]`,
   // PR 0.3: the roles that are always island-wide, for person_scopes'
-  // database check and set-roles' "no island role" refusal. Not the team's
-  // roles either (it has no vet).
+  // database check. Not the team's roles either (it has no vet).
   `schema/people.ts: export const ISLAND_ROLES = ["staff", "management"]`,
 ]);
 
