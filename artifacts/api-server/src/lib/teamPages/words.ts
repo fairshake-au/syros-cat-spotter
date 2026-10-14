@@ -12,6 +12,16 @@
 // they go through escapeHtml where they are drawn.
 
 const WORDS = {
+  // The dashboard's refusals for a signed-in person (roles-and-invites.md
+  // §6.4; SYC-53 PR 0.5). English for now; PR 1.0 adds Greek and French.
+  "refused.title": "That part is for the team",
+  "refused.forTeam": "That part of the dashboard is for the Syros Cats team.",
+  "refused.yourColonies": "Your colonies are here",
+  "refused.forManagement": "That part of the dashboard is for Syros Cats management.",
+  "refused.backHome": "Back to the dashboard",
+  "ended.title": "Your access has ended",
+  "ended.body": "Your access has ended. Ask Syros Cats if you think that's a mistake.",
+
   "colonies.title": "Colonies",
   "colonies.empty": "There are no colonies yet.",
   "colonies.noMatch": "No colony has ever had a name like that.",
