@@ -13,3 +13,4 @@ export * from "./email";
 export * from "./photoVisibility";
 export * from "./mappingEvents";
 export * from "./personEvents";
+export * from "./rateLimits";
