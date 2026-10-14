@@ -711,7 +711,7 @@ Approved with `coat-markings-and-health.md` (SYC-2), which owns the colour and m
 **Before any rule runs, tidy the statements:**
 
 - Throw out any statement that has been replaced or **retracted** (`coat-markings-and-health.md` §4.4).
-- Treat *Not sure*, *Can't tell* and any other answer that says nothing as no statement at all.
+- Treat *Not sure*, *Can't tell* and any other answer that says nothing as no statement at all, with one exception for colour: **a person's newer *Not sure* withdraws that same person's earlier colour** (Samuel, 14 October 2026). Their device then counts towards nothing until it names a real colour again. For markings, *Can't tell* and "nothing special" still withdraw nothing (markings rule 4).
 - **Black plus white means black and white.** A pair that is exactly black and white is stored as `black_and_white`. Colours are then compared one at a time as plain values, never as the order or the way someone tapped them.
 - **One voice per device, counted when the answer is worked out.** Whoever is the author of a statement is one *voice*. If several standing statements on one cat come from the same device, only the newest counts. This is checked every time the answer is worked out, so a mistake in any writing route cannot let one device count twice. (It is also enforced at writing time, `coat-markings-and-health.md` §10.3.)
 - **A pair of voices only counts as two if they come from different photos and were written on different days** (Syros calendar days). A real user loses nothing by this; the "same photo from two browsers on one afternoon" trick now needs two visits.
@@ -724,11 +724,11 @@ Approved with `coat-markings-and-health.md` (SYC-2), which owns the colour and m
    - If more than two colours are agreed, the two with the most voices are shown; on a tie, the colours whose newest supporting statement is more recent.
    - If two colours are agreed but **nobody ever named both** (two separate camps, such as two voices for *ginger* and two for *black*), only the camp with the **newer supporting statement** is shown, and the cat goes onto the team's Colour check list.
    Taps that merely confirmed a pre-filled guess count as **prompted**, not independent, and do not count towards the two (the `provenance` comment in §10.1).
-3. **Otherwise, the machine's reading** (SYC-161), if it is not *Not sure*. This is *Reported*.
+3. **Otherwise, the machine's reading** (SYC-161), if it is not *Not sure*. This is *Reported*. Only the machine's **newest** reading counts: if the team has marked it wrong, or it is *Not sure*, the machine has no reading and an older one never comes back (Samuel, 14 October 2026).
 4. **Otherwise, one spotter's word fills a gap.** If the machine said *Not sure* or never read the cat, the **newest** single spotter's suggestion is shown until something better arrives. A single spotter **never replaces a real machine reading by themselves.** (This is the change to an approved sentence; see SYC2-D10 in `coat-markings-and-health.md`.)
 5. **Otherwise, Not sure.**
 
-A person saying *Not sure* or *Can't tell* is never a statement about colour and never beats anything. If the answer came from spotters (rule 2 or 4) and the machine has a different real reading, the cat goes onto the team's Colour check list (`coat-markings-and-health.md` §5.3): the one case the review found a determined pair could use is the case the team is shown.
+A person saying *Not sure* or *Can't tell* is never a statement about colour and never beats anything; a person's *Not sure* can only withdraw that same person's own earlier colour. If the answer came from spotters (rule 2 or 4) and the machine has a different real reading, the cat goes onto the team's Colour check list (`coat-markings-and-health.md` §5.3): the one case the review found a determined pair could use is the case the team is shown.
 
 **Markings** (no machine reading in this version, SYC2-D4 in `coat-markings-and-health.md`)
 

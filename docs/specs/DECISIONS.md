@@ -301,6 +301,10 @@ The plan's decisions, as answered:
 - **E1: two colours on the cat's page.** Joined with " · " in every language ("Ginger · Tabby · White paws"), with no grammar to get wrong.
 - **Who wins on colour and markings (13 October 2026).** Decision G from the roles plan (vet > owner > cat guardian > team) applies to appearance with one carve-out: vets, imported records and owners have no standing on colour or markings (owners until SYC-130 decides). So a cat guardian's statement outranks the team's whatever the dates, and the newest wins only within a level. The team overrules a guardian by pressing **Correct**, which marks her statement wrong and records the team's answer in one step, with a reason, on the recent guardian changes list. Samuel considered letting the photo-reading model referee guardian–team disagreements and chose not to: people decide, the machine stays below them (in keeping with §4.2 rule 1 of `coat-markings-and-health.md`, where a later machine reading never overrides a person's statement).
 
+**Amended 14 October 2026 (Samuel, during the PR 1.2 review), colour only:**
+- **A person's *Not sure* withdraws their own earlier colour.** If a device's newest colour answer is *Not sure*, its earlier colour no longer counts, neither as one of two voices nor as a gap-filler. **Why:** Samuel preferred to respect a change of mind over keeping the vote; the team can still correct the colour. Markings are unchanged: *Can't tell* and "nothing special" withdraw nothing.
+- **Marking the photo reader's newest reading wrong leaves it with no reading.** An older machine reading never comes back; spotters' answers or *Not sure* decide. **Why:** an older reading the team never looked at should not quietly return.
+
 ## Part 2o — approval of `feeding-sites-and-colonies.md` (SYC-209), 12 October 2026
 
 Samuel **approved the spec on 12 October 2026**. It specifies the feeding-site map and the colony screens on the team dashboard, and the public site card. Where anything earlier in this document, `cat-record-data-spine.md` or `team-access-and-welfare-queue.md` says otherwise, these win.
