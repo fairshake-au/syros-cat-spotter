@@ -427,6 +427,22 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
     expect((await reload(c.id)).homeDescription).toBeNull();
   });
 
+  it("PATCH by a phone that isn't the owner is 403 with code NOT_OWNER (the app reads the code)", async () => {
+    const c = await streetCat();
+    const d = phone("patchowner");
+    await met(c.id, d);
+    expect((await claim(c.id, d)).status).toBe(200);
+    const other = phone("patchother");
+    await request(app).get(`/api/profiles/${other.id}/username`).set("X-Device-Secret", other.secret);
+    const res = await request(app)
+      .patch(`/api/cats/${c.id}`)
+      .set("X-Device-Secret", other.secret)
+      .send({ deviceId: other.id, homeDescription: "mine now" });
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "Only the cat's owner can update it", code: "NOT_OWNER" });
+    expect((await reload(c.id)).homeDescription).not.toBe("mine now");
+  });
+
   it("a note longer than 200 characters is a 400", async () => {
     const c = await streetCat();
     const d = phone("longnote");
