@@ -261,6 +261,14 @@ export interface CatClaim {
   homeNote?: string;
 }
 
+/**
+ * claiming-a-cat.md §6. Only the device id; the secret travels in X-Device-Secret.
+ */
+export interface CatLetGo {
+  /** @minLength 1 */
+  deviceId: string;
+}
+
 export interface CatOwnerUpdate {
   /** @minLength 1 */
   deviceId: string;

@@ -477,17 +477,8 @@ describe("POST /api/cats/:catId/let-go (SYC-130 §6)", () => {
       expect((await detail(c.id, other, other.secret)).body.canClaim).toBe(true);
       expect((await claim(c.id, other)).status).toBe(200);
     });
-
-    it("after 7 days the same phone may claim again", async () => {
-      const { c, d } = await ownedCat("cooldown-old");
-      expect((await letGo(c.id, d)).status).toBe(200);
-      await db
-        .update(observationsTable)
-        .set({ createdAt: daysAgo(8), observedAt: daysAgo(8) })
-        .where(and(eq(observationsTable.catId, c.id), sql`${observationsTable.value}->>'withdrawn' = 'true'`));
-      expect((await detail(c.id, d, d.secret)).body.canClaim).toBe(true);
-      expect((await claim(c.id, d)).status).toBe(200);
-    });
+    // The after-7-days side is covered in cats.claim.v2.test.ts: observations are
+    // append-only, so a withdrawal can't be back-dated after the fact.
   });
 
   it("nothing about the note or pin reaches the request log", async () => {

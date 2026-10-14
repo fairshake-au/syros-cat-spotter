@@ -26,6 +26,7 @@ import type {
   Cat,
   CatClaim,
   CatDetail,
+  CatLetGo,
   CatOwnerUpdate,
   CatPage,
   CatRegistration,
@@ -552,6 +553,85 @@ export const useClaimCat = <TError = ErrorType<ApiErrorBody | void>,
         TContext
       > => {
       return useMutation(getClaimCatMutationOptions(options));
+    }
+
+export const getLetGoCatUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}/let-go`
+}
+
+/**
+ * Needs the device secret, and only the cat's current owner may call
+ * it (403 NOT_OWNER otherwise). In one transaction the owner's own
+ * `homed` statements are withdrawn, so the cat's status falls back to
+ * what stood before the claim, and the owner link, name, home note and
+ * home pin are cleared. Tells nobody. The answer is the public view of
+ * the cat, and is never cached. The same phone can't claim this cat
+ * again for 7 days (429 CLAIM_COOLDOWN on the claim).
+ * @summary The owner says the cat doesn't live with them any more (claiming-a-cat.md §6)
+ */
+export const letGoCat = async (catId: number,
+    catLetGo: CatLetGo, options?: RequestInit): Promise<Cat> => {
+
+  return customFetch<Cat>(getLetGoCatUrl(catId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catLetGo)
+  }
+);}
+
+
+
+
+
+export const getLetGoCatMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof letGoCat>>, TError,{catId: number;data: BodyType<CatLetGo>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof letGoCat>>, TError,{catId: number;data: BodyType<CatLetGo>}, TContext> => {
+
+const mutationKey = ['letGoCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof letGoCat>>, {catId: number;data: BodyType<CatLetGo>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  letGoCat(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LetGoCatMutationResult = NonNullable<Awaited<ReturnType<typeof letGoCat>>>
+    export type LetGoCatMutationBody = BodyType<CatLetGo>
+    export type LetGoCatMutationError = ErrorType<ApiErrorBody | void>
+
+    /**
+ * @summary The owner says the cat doesn't live with them any more (claiming-a-cat.md §6)
+ */
+export const useLetGoCat = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof letGoCat>>, TError,{catId: number;data: BodyType<CatLetGo>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof letGoCat>>,
+        TError,
+        {catId: number;data: BodyType<CatLetGo>},
+        TContext
+      > => {
+      return useMutation(getLetGoCatMutationOptions(options));
     }
 
 export const getCreateCatUpdateUrl = (catId: number,) => {

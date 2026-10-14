@@ -18,6 +18,7 @@ export * from './catClaim';
 export * from './catClaimHomePin';
 export * from './catDetail';
 export * from './catHomePin';
+export * from './catLetGo';
 export * from './catLifeStatus';
 export * from './catLocationPrecision';
 export * from './catOwnerUpdate';

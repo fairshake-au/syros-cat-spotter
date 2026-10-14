@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import {
   RegisterCatBody,
   ClaimCatBody,
+  LetGoCatBody,
   UpdateCatBody,
   SuggestCatNamesBody,
 } from "@workspace/api-zod";
@@ -33,10 +34,12 @@ import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter, checkClaimLimit } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
-import { writeObservation } from "../lib/observations";
+import { WITHDRAWN, writeObservation } from "../lib/observations";
 import {
   claimEligibility,
+  clearOwner,
   letGoWithinDays,
+  newestActiveOwnerHomed,
   pinWithinReach,
   type ClaimRefusal,
 } from "../lib/claiming";
@@ -563,6 +566,77 @@ router.post("/cats/:catId/claim", async (req, res) => {
   res.json(
     await catPayload(result.row, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }),
   );
+});
+
+/**
+ * "This cat doesn't live with me any more" (claiming-a-cat.md §6, §8, §11).
+ * In this order:
+ * 1. the body (a plain 400) and the device secret (SYC-107), so every answer
+ *    goes only to the phone itself and only the proven id is ever used;
+ * 2. in one transaction that locks the cat row: the proven phone must still
+ *    be the owner (checked again under the lock, so two let-gos, or a let-go
+ *    and a team removal, can't both write), then a withdrawal for EVERY
+ *    active `homed` this phone has on the cat (written through
+ *    writeObservation, so `created_at` is the server's: the 7-day cooldown
+ *    reads it), then the owner link, name, note and pin are cleared.
+ * The owner never writes a status of their own: the cat's status falls back
+ * to whatever stood before the claim. Tells nobody: no push, no
+ * notification (§8). The answer is the public view. Nothing here logs the
+ * body (the request logger writes the method and URL only).
+ */
+router.post("/cats/:catId/let-go", async (req, res) => {
+  res.setHeader("Cache-Control", PER_PHONE);
+  const catId = Number(req.params.catId);
+  if (!Number.isInteger(catId)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const parsed = LetGoCatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const deviceId = await verifyDeviceSecret(req, res, parsed.data.deviceId);
+  if (!deviceId) return;
+
+  const done = await db.transaction(async (tx) => {
+    await tx.execute(sql`select id from cats where id = ${catId} for update`);
+    const [cat] = await tx
+      .select({ ownerDeviceId: catsTable.ownerDeviceId })
+      .from(catsTable)
+      .where(eq(catsTable.id, catId));
+    if (!cat) return "missing" as const;
+    if (cat.ownerDeviceId !== deviceId) return "not_owner" as const;
+    // newestActiveOwnerHomed sees only one at a time; each withdrawal
+    // supersedes it, so the next call finds the next, until none remain.
+    for (;;) {
+      const homedId = await newestActiveOwnerHomed(tx, catId, deviceId);
+      if (homedId === null) break;
+      await writeObservation(tx, {
+        catId,
+        kind: "life_status",
+        value: WITHDRAWN,
+        deviceId,
+        roleAtTime: "public",
+        authorityScope: "owner_of_this_cat",
+        observedAt: new Date(),
+        supersedesId: homedId,
+        supersedeReason: "owner: doesn't live with me any more",
+      });
+    }
+    await clearOwner(tx, catId);
+    return "ok" as const;
+  });
+  if (done === "missing") {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (done === "not_owner") {
+    res.status(403).json({ error: "Only the cat's owner can do this", code: "NOT_OWNER" });
+    return;
+  }
+  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  res.json(await catPayload(cat!, await sightingsCountFor(catId), new Date(), PUBLIC_VIEWER));
 });
 
 // Owner renames the cat or updates its home description.

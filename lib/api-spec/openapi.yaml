@@ -208,6 +208,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /cats/{catId}/let-go:
+    post:
+      operationId: letGoCat
+      tags: [cats]
+      summary: The owner says the cat doesn't live with them any more (claiming-a-cat.md §6)
+      description: |
+        Needs the device secret, and only the cat's current owner may call
+        it (403 NOT_OWNER otherwise). In one transaction the owner's own
+        `homed` statements are withdrawn, so the cat's status falls back to
+        what stood before the claim, and the owner link, name, home note and
+        home pin are cleared. Tells nobody. The answer is the public view of
+        the cat, and is never cached. The same phone can't claim this cat
+        again for 7 days (429 CLAIM_COOLDOWN on the claim).
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatLetGo"
+      responses:
+        "200":
+          description: Let go. The public view of the cat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cat"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: NOT_OWNER, or the device secret was refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "404":
+          description: Not found
   /cats/{catId}/updates:
     post:
       operationId: createCatUpdate
@@ -909,6 +954,12 @@ components:
           required: [lat, lng]
         homeNote: { type: string, maxLength: 200 }
       required: [deviceId, homePin]
+    CatLetGo:
+      type: object
+      description: claiming-a-cat.md §6. Only the device id; the secret travels in X-Device-Secret.
+      properties:
+        deviceId: { type: string, minLength: 1 }
+      required: [deviceId]
     CatOwnerUpdate:
       type: object
       properties:
