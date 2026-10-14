@@ -19,13 +19,17 @@ import { logger, safeError } from "./logger";
  * `insert … on conflict do update … returning hits`, so any number of servers
  * share it.
  *
- * Privacy: nothing here stores an address. A caller passes the key already
- * grouped the way the limits group addresses (see `addressKey`); `consume`
- * hashes it with that day's salt (a random value the server makes itself, one
- * row per day in `rate_limit_salts`, so there is no secret to configure)
- * before it touches the table. A window never straddles two salts: the salt
- * is the one for the day the window STARTS, and every window length in use
- * divides a day.
+ * Privacy: an address is never stored in the clear. A caller passes the key
+ * already grouped the way the limits group addresses (see `addressKey`);
+ * `consume` hashes it with that day's salt (a random value the server makes
+ * itself, one row per day in `rate_limit_salts`, so there is no secret to
+ * configure) before it touches the table. The salt lives in the same database
+ * as the hashed keys, for up to about 48 hours, so someone who can read the
+ * database could still test a guessed address against a key while both rows
+ * exist. Counter rows go within about an hour of their window ending.
+ * A window never straddles two salts: the salt is the one for the day the
+ * window STARTS, and `assertWindow` only allows window lengths that divide a
+ * day.
  *
  * Fixed windows, aligned to the clock (a window of an hour starts on the
  * hour), so every server picks the same window without talking to the others.
@@ -55,29 +59,59 @@ export function addressKey(address: string | undefined): string {
   return !address || address === "unknown" ? "unknown" : ipKeyGenerator(address);
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Windows must divide a day, so one never straddles two salts (and none outlives the sweep). */
+function assertWindow(windowMs: number): void {
+  if (!Number.isInteger(windowMs) || windowMs <= 0 || windowMs > DAY_MS || DAY_MS % windowMs !== 0) {
+    throw new Error(`rate limit window must be a whole number of milliseconds that divides a day: ${windowMs}`);
+  }
+}
+
+const buckets = new Map<string, { limit: number; windowMs: number }>();
+
+/**
+ * Remember a bucket's settings; refuse the same bucket name registered with
+ * different ones, because two limiters would silently share one budget.
+ */
+function registerBucket(bucket: string, limit: number, windowMs: number): void {
+  assertWindow(windowMs);
+  const seen = buckets.get(bucket);
+  if (!seen) {
+    buckets.set(bucket, { limit, windowMs });
+  } else if (seen.limit !== limit || seen.windowMs !== windowMs) {
+    throw new Error(`rate limit bucket "${bucket}" registered twice with different settings`);
+  }
+}
+
 const saltCache = new Map<string, string>();
 
 function dayOf(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-async function saltFor(day: string, exec: LimitsExecutor): Promise<string> {
+// Always read or create the day's salt on the pool, never on a caller's
+// transaction: if that transaction rolled back, the salt row would vanish
+// while this process kept it cached, and another server would make a second
+// salt for the same day, splitting one address into two counters. On the pool
+// the insert commits on its own before the salt is cached.
+async function saltFor(day: string): Promise<string> {
   const cached = saltCache.get(day);
   if (cached) return cached;
-  await exec.execute(sql`
+  await db.execute(sql`
     insert into rate_limit_salts (day, salt)
     values (${day}::date, ${randomBytes(32).toString("base64url")})
     on conflict (day) do nothing
   `);
-  const res = await exec.execute(sql`select salt from rate_limit_salts where day = ${day}::date`);
+  const res = await db.execute(sql`select salt from rate_limit_salts where day = ${day}::date`);
   const salt = (res.rows[0] as { salt: string } | undefined)?.salt;
   if (!salt) throw new Error("rate limit salt missing");
   saltCache.set(day, salt);
   return salt;
 }
 
-async function hashKey(key: string, windowStart: number, exec: LimitsExecutor): Promise<string> {
-  const salt = await saltFor(dayOf(windowStart), exec);
+async function hashKey(key: string, windowStart: number): Promise<string> {
+  const salt = await saltFor(dayOf(windowStart));
   return createHash("sha256").update(`${salt}|${key}`).digest("hex");
 }
 
@@ -99,12 +133,13 @@ export async function consume(
   tx?: LimitsExecutor,
   now: number = Date.now(),
 ): Promise<ConsumeResult> {
+  registerBucket(bucket, limit, windowMs);
   const exec = tx ?? db;
   const start = windowStartOf(now, windowMs);
-  const hashed = await hashKey(key, start, exec);
+  const hashed = await hashKey(key, start);
   const res = await exec.execute(sql`
-    insert into rate_limit_counters (bucket, key, window_start, hits)
-    values (${bucket}, ${hashed}, to_timestamp(${start} / 1000.0), 1)
+    insert into rate_limit_counters (bucket, key, window_start, window_ms, hits)
+    values (${bucket}, ${hashed}, to_timestamp(${start} / 1000.0), ${windowMs}, 1)
     on conflict (bucket, key, window_start)
     do update set hits = rate_limit_counters.hits + 1
     returning hits
@@ -121,9 +156,10 @@ export async function peek(
   tx?: LimitsExecutor,
   now: number = Date.now(),
 ): Promise<{ hits: number; resetAt: number }> {
+  assertWindow(windowMs);
   const exec = tx ?? db;
   const start = windowStartOf(now, windowMs);
-  const hashed = await hashKey(key, start, exec);
+  const hashed = await hashKey(key, start);
   const res = await exec.execute(sql`
     select hits from rate_limit_counters
      where bucket = ${bucket} and key = ${hashed}
@@ -141,9 +177,10 @@ export async function reset(
   tx?: LimitsExecutor,
   now: number = Date.now(),
 ): Promise<void> {
+  assertWindow(windowMs);
   const exec = tx ?? db;
   const start = windowStartOf(now, windowMs);
-  const hashed = await hashKey(key, start, exec);
+  const hashed = await hashKey(key, start);
   await exec.execute(sql`
     delete from rate_limit_counters
      where bucket = ${bucket} and key = ${hashed}
@@ -207,7 +244,7 @@ export class PostgresStore implements Store {
   async decrement(key: string): Promise<void> {
     try {
       const start = windowStartOf(Date.now(), this.windowMs);
-      const hashed = await hashKey(key, start, db);
+      const hashed = await hashKey(key, start);
       await db.execute(sql`
         update rate_limit_counters set hits = greatest(hits - 1, 0)
          where bucket = ${this.bucket} and key = ${hashed}
@@ -239,6 +276,7 @@ type SharedLimiterOptions = {
  * generator, `ipKeyGenerator(req.ip)`) and hashed by `consume`.
  */
 export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
+  registerBucket(opts.bucket, opts.limit, opts.windowMs);
   const failOpen = opts.failOpen ?? false;
   const limiter = rateLimit({
     windowMs: opts.windowMs,
@@ -265,16 +303,20 @@ export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
 
 // ── The sweep ──────────────────────────────────────────────────────────────
 
-/** The longest window in use is an hour; three is generous. */
-export const COUNTER_KEEP_HOURS = 3;
+/** How long a row is kept after its window has ended. */
+export const COUNTER_KEEP_AFTER_END_HOURS = 1;
 
 export type LimitsSweepResult = { countersDeleted: number; saltsDeleted: number };
 
-/** Remove windows that can no longer matter, and salts nothing uses any more. */
+/**
+ * Remove windows that have ended (a day-long window lives its whole day),
+ * and salts nothing uses any more.
+ */
 export async function sweepRateLimits(): Promise<LimitsSweepResult> {
   const counters = await db.execute(sql`
     delete from rate_limit_counters
-     where window_start < now() - make_interval(hours => ${COUNTER_KEEP_HOURS})
+     where window_start + window_ms * interval '1 millisecond'
+           < now() - make_interval(hours => ${COUNTER_KEEP_AFTER_END_HOURS})
   `);
   // A salt is only read while a window that started that day is live, so
   // yesterday's is already unused once today's first windows are over.

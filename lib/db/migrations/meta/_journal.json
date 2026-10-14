@@ -134,6 +134,13 @@
       "when": 1792017937875,
       "tag": "0018_cat_home_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792020234737,
+      "tag": "0019_rate_limit_counters",
+      "breakpoints": true
     }
   ]
 }
