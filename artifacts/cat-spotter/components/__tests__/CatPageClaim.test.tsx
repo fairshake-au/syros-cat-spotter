@@ -43,12 +43,19 @@ vi.mock('@/lib/urls', () => ({ photoSource: (p: string) => ({ uri: p }) }));
 const h = vi.hoisted(() => ({
   isOnline: true,
   deviceId: 'dev-1' as string | null,
+  isReady: true,
+  startupError: null as Error | null,
   ownedCatIds: [] as number[],
   data: undefined as unknown,
   useGetCat: vi.fn(),
 }));
 vi.mock('@/context/DeviceContext', () => ({
-  useDevice: () => ({ deviceId: h.deviceId, ownedCatIds: h.ownedCatIds }),
+  useDevice: () => ({
+    deviceId: h.deviceId,
+    ownedCatIds: h.ownedCatIds,
+    isReady: h.isReady,
+    startupError: h.startupError,
+  }),
 }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: h.isOnline }) }));
 vi.mock('@/context/NotificationContext', () => ({
@@ -109,11 +116,48 @@ const claimButton = () =>
 beforeEach(() => {
   h.isOnline = true;
   h.deviceId = 'dev-1';
+  h.isReady = true;
+  h.startupError = null;
   h.ownedCatIds = [];
 });
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+describe('the cat page waits for who the phone is (ship review 3)', () => {
+  // On a cold start the device id and secret load from storage. A request that
+  // leaves first is answered as the public, so an owner would not see Edit or
+  // "doesn't live with me" until a refetch.
+  it('does not ask for the cat until the device context is ready', () => {
+    h.isReady = false;
+    h.deviceId = null;
+    page(cat(), false);
+    expect(h.useGetCat.mock.calls[0]![1].query.enabled).toBe(false);
+  });
+
+  it('shows the spinner, not the error page, while it waits', () => {
+    h.isReady = false;
+    h.deviceId = null;
+    h.data = undefined;
+    render(<CatDetailScreen />);
+    expect(screen.queryByText(TRANSLATIONS.en.error!)).toBeNull();
+  });
+
+  it('asks once ready, and the query key carries the device id so each phone has its own answer', () => {
+    page(cat(), false);
+    const q = h.useGetCat.mock.calls[0]![1].query;
+    expect(q.enabled).toBe(true);
+    expect(q.queryKey).toEqual(['/api/cats/7', 'dev-1']);
+  });
+
+  it('still loads when the device setup failed outright (no endless spinner)', () => {
+    h.isReady = false;
+    h.deviceId = null;
+    h.startupError = new Error('no secure random source');
+    page(cat(), false);
+    expect(h.useGetCat.mock.calls[0]![1].query.enabled).toBe(true);
+  });
 });
 
 describe('the cat page and claiming (§4.1)', () => {
