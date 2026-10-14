@@ -14,7 +14,7 @@ import {
   photosTable,
   type Cat,
 } from "@workspace/db";
-import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
+import { and, eq, ne, desc, sql } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -30,10 +30,16 @@ import {
 import { notifyCatSpotters } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
-import { aiLimiter } from "../middlewares/rateLimit";
+import { aiLimiter, checkClaimLimit } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
 import { writeObservation } from "../lib/observations";
+import {
+  claimEligibility,
+  letGoWithinDays,
+  pinWithinReach,
+  type ClaimRefusal,
+} from "../lib/claiming";
 import { logRouteDuration } from "../lib/requestTiming";
 import {
   BLANK_NAME_BODY,
@@ -116,6 +122,8 @@ async function catPayload(
       discovererUsername: profile?.username ?? null,
       ownerName: cat.ownerName,
       homeDescription: cat.homeDescription,
+      homeLat: cat.homeLat,
+      homeLng: cat.homeLng,
       derived: status,
     },
     viewer,
@@ -129,11 +137,19 @@ async function catPayload(
  * Anything short of a proven owner is the public view, with no error, so
  * the answer never says whether a guess at an owner's id was close.
  */
-async function detailViewer(req: Request, cat: Cat): Promise<Viewer> {
+async function detailViewer(req: Request, cat: Cat): Promise<{ viewer: Viewer; canClaim: boolean }> {
   const header = req.headers["x-device-id"];
   const deviceId = typeof header === "string" ? header : "";
-  if (!deviceId || !cat.ownerDeviceId || deviceId !== cat.ownerDeviceId) return PUBLIC_VIEWER;
-  return (await deviceSecretMatches(req, deviceId)) ? { tier: "owner", deviceId } : PUBLIC_VIEWER;
+  const proven = deviceId !== "" && (await deviceSecretMatches(req, deviceId));
+  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false };
+  if (cat.ownerDeviceId === deviceId) return { viewer: { tier: "owner", deviceId }, canClaim: false };
+  // claiming-a-cat.md §4.1, §11: "may claim" comes from the same function
+  // the claim uses, and only for a phone that has proved it is that device.
+  // A cat someone else owns can't be claimed, so it isn't asked.
+  const canClaim =
+    cat.ownerDeviceId === null &&
+    (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true;
+  return { viewer: PUBLIC_VIEWER, canClaim };
 }
 
 function queryNumber(raw: unknown): number | undefined {
@@ -311,11 +327,12 @@ router.get("/cats/:catId", async (req, res) => {
     lookupDiscoverer(cat.discovererDeviceId),
   ]);
 
+  const { viewer, canClaim } = await detailViewer(req, cat);
   const catBody = await catPayload(
     cat,
     sightings.length,
     sightings[0]?.sighting.createdAt ?? cat.createdAt,
-    await detailViewer(req, cat),
+    viewer,
   );
   logRouteDuration(req, "GET /cats/:id", startedAt, { catId });
   res.json({
@@ -357,83 +374,160 @@ router.get("/cats/:catId", async (req, res) => {
           ),
         }),
     ),
+    canClaim,
   });
 });
 
-// Claim an unclaimed cat. Idempotent for the same device; 409 for others.
+/**
+ * English fallbacks for the claim refusals (claiming-a-cat.md §4.4). The app
+ * shows its own translated line, chosen by `code`. None carries a distance,
+ * a direction or a position (§3, §11; review 2, HIGH-1).
+ */
+const REFUSAL_TEXT = {
+  NOT_MET: "Spot this cat with the camera first, then you can say it lives with you.",
+  ALREADY_HOMED: "This cat already has a home.",
+  NOT_ON_STREET: "This cat can't be marked as yours right now.",
+  NOT_CONFIRMED: "Only people who live on Syros can say a cat lives with them.",
+  PIN_TOO_FAR:
+    "That's a long way from where this cat is usually seen. Move the pin to where the cat lives. If it really lives there, write to Syros Cats.",
+} as const;
+const TOO_MANY = "Too many requests. Please try again later.";
+/** §11: a phone that let a cat go can't claim that same cat again for this long. */
+const CLAIM_COOLDOWN_DAYS = 7;
+
+function refusalStatus(code: ClaimRefusal): number {
+  return code === "NOT_MET" ? 403 : 409;
+}
+
+/**
+ * "This is my cat" (claiming-a-cat.md §3–§5, §8, §11). In this order, and
+ * refused at the first that fails:
+ * 1. the body: a pin that isn't a position is a plain 400;
+ * 2. the device secret (SYC-107), so every answer below goes only to the
+ *    phone itself, and only the proven id is ever checked;
+ * 3. the claim limit, counting every attempt, refusals included;
+ * 4. rules 1 and 2 (claimEligibility): street, no owner, met it. The same
+ *    owner again is 200 with nothing written (rule 4);
+ * 5. the two confirmations, then the pin's reach from the cat's PUBLIC
+ *    position, then the note's moderation, then the let-go cooldown;
+ * 6. in one transaction that locks the cat row, rules 1 and 2 again,
+ *    read through that transaction (§5), then the owner link, note, pin
+ *    and `homed`.
+ * Nothing here logs the body: the request logger writes the method and URL
+ * only (app.ts), and errors go through safeError.
+ */
 router.post("/cats/:catId/claim", async (req, res) => {
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  const body = ClaimCatBody.parse(req.body);
-  // SYC-107: before the cat lookup, so the ownership answers (idempotent 200,
-  // 409) are only ever given to the device itself.
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+  const parsed = ClaimCatBody.safeParse(req.body);
+  if (!parsed.success) {
+    // Plain: no issues echoed back, so nothing of the body is repeated.
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const body = parsed.data;
+  // SYC-107: before anything about the cat, so the answers below are only
+  // ever given to the device itself.
+  const deviceId = await verifyDeviceSecret(req, res, body.deviceId);
+  if (!deviceId) return;
+  if (!checkClaimLimit(deviceId)) {
+    res.status(429).json({ error: TOO_MANY, code: "CLAIM_LIMIT" });
+    return;
+  }
 
-  const [cat] = await db
-    .select()
-    .from(catsTable)
-    .where(eq(catsTable.id, catId));
+  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   if (!cat) {
     res.status(404).json({ error: "Not found" });
     return;
   }
 
-  if (cat.ownerDeviceId && cat.ownerDeviceId !== body.deviceId) {
-    res.status(409).json({ error: "Cat already claimed by another resident" });
+  const pre = await claimEligibility(db, { catId, deviceId });
+  if (pre.ok === "owner") {
+    res.json(await catPayload(cat, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
+    return;
+  }
+  if (pre.ok === false) {
+    res.status(refusalStatus(pre.code)).json({ error: REFUSAL_TEXT[pre.code], code: pre.code });
+    return;
+  }
+  if (body.livesOnSyros !== true || body.livesInMyHome !== true) {
+    res.status(422).json({ error: REFUSAL_TEXT.NOT_CONFIRMED, code: "NOT_CONFIRMED" });
+    return;
+  }
+  if (!pinWithinReach(cat, body.homePin)) {
+    res.status(422).json({ error: REFUSAL_TEXT.PIN_TOO_FAR, code: "PIN_TOO_FAR" });
+    return;
+  }
+  const note = (body.homeNote ?? "").trim().slice(0, 200) || null;
+  if (note !== null && containsOffensiveLanguage(note)) {
+    res.status(400).json({ error: "Home note contains offensive language", code: "OFFENSIVE_NOTE" });
+    return;
+  }
+  if (await letGoWithinDays(db, catId, deviceId, CLAIM_COOLDOWN_DAYS)) {
+    res.status(429).json({ error: TOO_MANY, code: "CLAIM_COOLDOWN" });
     return;
   }
 
-  let updated = cat;
-  if (!cat.ownerDeviceId) {
-    const claimedAt = new Date();
-    // Guard against a concurrent claim: only set ownership if still
-    // unclaimed. The homed observation is written in the same transaction
-    // (data-spine.md PR 2: "A claim writes life_status: homed ... in the
-    // same transaction as the change it records").
-    const row = await db.transaction(async (tx) => {
-      const [updatedRow] = await tx
-        .update(catsTable)
-        .set({
-          ownerDeviceId: body.deviceId,
-          homeDescription: body.homeDescription.trim().slice(0, 200),
-        })
-        .where(and(eq(catsTable.id, catId), isNull(catsTable.ownerDeviceId)))
-        .returning();
-      if (!updatedRow) return null;
-      await writeObservation(tx, {
-        catId,
-        kind: "life_status",
-        value: { status: "homed" },
-        deviceId: body.deviceId,
-        roleAtTime: "public",
-        authorityScope: "owner_of_this_cat",
-        observedAt: claimedAt,
-      });
-      return updatedRow;
+  const result = await db.transaction(async (tx) => {
+    // §5: lock the row, then re-check through this transaction, so two
+    // phones can't both win and a claim can't race a team statement.
+    await tx.execute(sql`select id from cats where id = ${catId} for update`);
+    const again = await claimEligibility(tx, { catId, deviceId });
+    if (again.ok !== true) return again;
+    // §8: the "has a home" message goes out on a cat's first claim only.
+    const prior = await tx.execute<{ n: number }>(sql`
+      select count(*)::int as n from observations
+       where cat_id = ${catId}
+         and kind = 'life_status'
+         and authority_scope = 'owner_of_this_cat'
+         and value->>'status' = 'homed'`);
+    const firstEver = prior.rows[0]!.n === 0;
+    const [row] = await tx
+      .update(catsTable)
+      .set({
+        ownerDeviceId: deviceId,
+        homeDescription: note,
+        // §5: stored to about a metre.
+        homeLat: Number(body.homePin.lat.toFixed(5)),
+        homeLng: Number(body.homePin.lng.toFixed(5)),
+      })
+      .where(eq(catsTable.id, catId))
+      .returning();
+    await writeObservation(tx, {
+      catId,
+      kind: "life_status",
+      value: { status: "homed" },
+      deviceId,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: new Date(),
     });
-    if (!row) {
-      res
-        .status(409)
-        .json({ error: "Cat already claimed by another resident" });
-      return;
-    }
-    updated = row;
+    return { ok: true as const, row: row!, firstEver };
+  });
 
-    // Fire-and-forget: never blocks or fails the response.
-    void notifyCatSpotters(catId, body.deviceId, {
-      title: `${updated.name} has a home!`,
-      body: `${updated.name} has been claimed by a resident. ${updated.homeDescription ?? ""}`.trim(),
+  if (result.ok === false) {
+    res.status(refusalStatus(result.code)).json({ error: REFUSAL_TEXT[result.code], code: result.code });
+    return;
+  }
+  if (result.ok === "owner") {
+    // The same phone's other request won the lock a moment earlier.
+    const [now] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    res.json(await catPayload(now!, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
+    return;
+  }
+  if (result.firstEver) {
+    // Fire-and-forget. Never the note or the pin (§8, SYC-232).
+    void notifyCatSpotters(catId, deviceId, {
+      title: `${result.row.name} has a home!`,
+      body: `${result.row.name} now has a home.`,
       data: { type: "cat_claimed", catId },
     });
   }
-
-  const count = await sightingsCountFor(catId);
-  // The caller proved the device secret above and is (now) the owner.
   res.json(
-    await catPayload(updated, count, new Date(), { tier: "owner", deviceId: body.deviceId }),
+    await catPayload(result.row, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }),
   );
 });
 
@@ -486,8 +580,16 @@ router.patch("/cats/:catId", async (req, res) => {
     }
     changes.name = newName;
   }
-  if (body.homeDescription !== undefined)
-    changes.homeDescription = body.homeDescription.trim().slice(0, 200);
+  if (body.homeDescription !== undefined) {
+    // claiming-a-cat.md §11: the note is moderated at every edit, as at the
+    // claim.
+    const note = body.homeDescription.trim().slice(0, 200);
+    if (note && containsOffensiveLanguage(note)) {
+      res.status(400).json({ error: "Home note contains offensive language", code: "OFFENSIVE_NOTE" });
+      return;
+    }
+    changes.homeDescription = note;
+  }
 
   let updated = cat;
   if (Object.keys(changes).length > 0) {

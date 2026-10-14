@@ -16,4 +16,11 @@ export interface CatDetail {
   fansCount: number;
   /** Care history, newest first, oldest entry always `discovered` */
   careTimeline: CareEvent[];
+  /**
+     * Whether the phone looking may say "This is my cat" (claiming-a-cat.md
+     * §4.1). True only when it sent X-Device-Id with its matching
+     * X-Device-Secret and passes the same check the claim uses; false
+     * otherwise, including for the cat's owner.
+     */
+  canClaim: boolean;
 }

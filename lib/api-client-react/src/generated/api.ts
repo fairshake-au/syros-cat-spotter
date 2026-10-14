@@ -481,7 +481,17 @@ export const getClaimCatUrl = (catId: number,) => {
 }
 
 /**
- * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ * Needs the device secret. The server checks, in this order, and
+ * refuses at the first that fails: the cat lives on the street with
+ * no owner, and this phone has met it (403 NOT_MET, 409
+ * ALREADY_HOMED, 409 NOT_ON_STREET); both confirmations (422
+ * NOT_CONFIRMED); the home pin within 1 km of the cat's public
+ * position (422 PIN_TOO_FAR). No refusal says how far, or in which
+ * direction, the pin is out. The same owner claiming again is 200
+ * with nothing written. Five attempts per phone per 24 hours,
+ * refusals included (429 CLAIM_LIMIT); a phone that let this cat go
+ * in the last 7 days gets 429 CLAIM_COOLDOWN. The app reads `code`.
+ * @summary Say "This is my cat" (claiming-a-cat.md §3, §11)
  */
 export const claimCat = async (catId: number,
     catClaim: CatClaim, options?: RequestInit): Promise<Cat> => {
@@ -499,7 +509,7 @@ export const claimCat = async (catId: number,
 
 
 
-export const getClaimCatMutationOptions = <TError = ErrorType<void>,
+export const getClaimCatMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext> => {
 
@@ -528,12 +538,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ClaimCatMutationResult = NonNullable<Awaited<ReturnType<typeof claimCat>>>
     export type ClaimCatMutationBody = BodyType<CatClaim>
-    export type ClaimCatMutationError = ErrorType<void>
+    export type ClaimCatMutationError = ErrorType<ApiErrorBody | void>
 
     /**
- * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ * @summary Say "This is my cat" (claiming-a-cat.md §3, §11)
  */
-export const useClaimCat = <TError = ErrorType<void>,
+export const useClaimCat = <TError = ErrorType<ApiErrorBody | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof claimCat>>,

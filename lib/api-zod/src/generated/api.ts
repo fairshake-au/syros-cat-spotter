@@ -54,8 +54,12 @@ export const RegisterCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
-  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
+  "homePin": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
   "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
   "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
   "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
@@ -101,8 +105,12 @@ export const ListCatsResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
-  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
+  "homePin": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
   "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
   "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
   "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
@@ -150,8 +158,12 @@ export const GetCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
-  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
+  "homePin": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
   "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
   "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
   "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
@@ -174,7 +186,8 @@ export const GetCatResponse = zod.object({
   "type": zod.enum(['desexed', 'adopted', 'general', 'discovered']).describe('Care events recorded against the cat. `discovered` is synthesised\nfrom the cat\'s own creation, and its `message` is the discoverer\'s\ndisplay name rather than free text.\n'),
   "message": zod.string().nullable().describe('Null only on a `discovered` event whose discoverer deleted their data (SYC-63, SYC-235). The app shows \"a spotter\" in the reader\'s language. A blank, never a stand-in word, so no username can be mistaken for it.'),
   "at": zod.string().describe('A UTC calendar date (YYYY-MM-DD).')
-})).describe('Care history, newest first, oldest entry always `discovered`')
+})).describe('Care history, newest first, oldest entry always `discovered`'),
+  "canClaim": zod.boolean().describe('Whether the phone looking may say \"This is my cat\" (claiming-a-cat.md\n§4.1). True only when it sent X-Device-Id with its matching\nX-Device-Secret and passes the same check the claim uses; false\notherwise, including for the cat\'s owner.\n')
 })
 
 
@@ -213,8 +226,12 @@ export const UpdateCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
-  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
+  "homePin": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
   "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
   "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
   "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
@@ -227,21 +244,43 @@ export const UpdateCatResponse = zod.object({
 
 
 /**
- * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ * Needs the device secret. The server checks, in this order, and
+ * refuses at the first that fails: the cat lives on the street with
+ * no owner, and this phone has met it (403 NOT_MET, 409
+ * ALREADY_HOMED, 409 NOT_ON_STREET); both confirmations (422
+ * NOT_CONFIRMED); the home pin within 1 km of the cat's public
+ * position (422 PIN_TOO_FAR). No refusal says how far, or in which
+ * direction, the pin is out. The same owner claiming again is 200
+ * with nothing written. Five attempts per phone per 24 hours,
+ * refusals included (429 CLAIM_LIMIT); a phone that let this cat go
+ * in the last 7 days gets 429 CLAIM_COOLDOWN. The app reads `code`.
+ * @summary Say "This is my cat" (claiming-a-cat.md §3, §11)
  */
 export const ClaimCatParams = zod.object({
   "catId": zod.coerce.number()
 })
 
 
-export const claimCatBodyHomeDescriptionMax = 200;
+export const claimCatBodyHomePinLatMin = -90;
+export const claimCatBodyHomePinLatMax = 90;
+
+export const claimCatBodyHomePinLngMin = -180;
+export const claimCatBodyHomePinLngMax = 180;
+
+export const claimCatBodyHomeNoteMax = 200;
 
 
 
 export const ClaimCatBody = zod.object({
   "deviceId": zod.string().min(1),
-  "homeDescription": zod.string().max(claimCatBodyHomeDescriptionMax)
-})
+  "livesOnSyros": zod.boolean().optional(),
+  "livesInMyHome": zod.boolean().optional(),
+  "homePin": zod.object({
+  "lat": zod.number().min(claimCatBodyHomePinLatMin).max(claimCatBodyHomePinLatMax),
+  "lng": zod.number().min(claimCatBodyHomePinLngMin).max(claimCatBodyHomePinLngMax)
+}),
+  "homeNote": zod.string().max(claimCatBodyHomeNoteMax).optional()
+}).describe('claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be\ntrue (the app always sends true); anything else is 422\nNOT_CONFIRMED, not a 400, so the refusal comes after the checks\nabout the cat (§3 order of checks).\n')
 
 export const ClaimCatResponse = zod.object({
   "id": zod.number(),
@@ -258,8 +297,12 @@ export const ClaimCatResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
-  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
+  "homePin": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
   "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
   "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
   "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
@@ -347,8 +390,12 @@ export const ResolveSightingResponse = zod.object({
   "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
-  "ownerName": zod.string().nullish().describe('Display name of the resident who claimed this cat'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner'),
+  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
+  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
+  "homePin": zod.object({
+  "lat": zod.number(),
+  "lng": zod.number()
+}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
   "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
   "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
   "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),

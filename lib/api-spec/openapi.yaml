@@ -146,7 +146,18 @@ paths:
     post:
       operationId: claimCat
       tags: [cats]
-      summary: Claim an unclaimed cat as its owner (idempotent for the same device)
+      summary: Say "This is my cat" (claiming-a-cat.md §3, §11)
+      description: |
+        Needs the device secret. The server checks, in this order, and
+        refuses at the first that fails: the cat lives on the street with
+        no owner, and this phone has met it (403 NOT_MET, 409
+        ALREADY_HOMED, 409 NOT_ON_STREET); both confirmations (422
+        NOT_CONFIRMED); the home pin within 1 km of the cat's public
+        position (422 PIN_TOO_FAR). No refusal says how far, or in which
+        direction, the pin is out. The same owner claiming again is 200
+        with nothing written. Five attempts per phone per 24 hours,
+        refusals included (429 CLAIM_LIMIT); a phone that let this cat go
+        in the last 7 days gets 429 CLAIM_COOLDOWN. The app reads `code`.
       parameters:
         - name: catId
           in: path
@@ -160,15 +171,43 @@ paths:
               $ref: "#/components/schemas/CatClaim"
       responses:
         "200":
-          description: Cat claimed (or already claimed by this device)
+          description: Cat claimed (or already this device's). The owner's view.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Cat"
+        "400":
+          description: Invalid request, a pin that isn't a position, or an offensive note (code OFFENSIVE_NOTE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: NOT_MET, or the device secret was refused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
         "404":
           description: Not found
         "409":
-          description: Cat already claimed by a different device
+          description: ALREADY_HOMED or NOT_ON_STREET
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "422":
+          description: NOT_CONFIRMED or PIN_TOO_FAR
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "429":
+          description: CLAIM_LIMIT or CLAIM_COOLDOWN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
   /cats/{catId}/updates:
     post:
       operationId: createCatUpdate
@@ -763,10 +802,18 @@ components:
           nullable: true
         ownerName:
           type: ["string", "null"]
-          description: Display name of the resident who claimed this cat
+          description: Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).
         homeDescription:
           type: ["string", "null"]
-          description: Where the cat lives, as described by its owner
+          description: Where the cat lives, as described by its owner. Only in the owner's own view; null for everyone else (D9).
+        homePin:
+          type: object
+          nullable: true
+          description: Where the owner says the cat lives. Only in the owner's own view; null for everyone else (claiming-a-cat.md §5, D9).
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+          required: [lat, lng]
         hasHome:
           type: boolean
           description: |
@@ -843,10 +890,23 @@ components:
       required: [deviceId, name, ownerName, homeDescription, lat, lng]
     CatClaim:
       type: object
+      description: |
+        claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be
+        true (the app always sends true); anything else is 422
+        NOT_CONFIRMED, not a 400, so the refusal comes after the checks
+        about the cat (§3 order of checks).
       properties:
         deviceId: { type: string, minLength: 1 }
-        homeDescription: { type: string, maxLength: 200 }
-      required: [deviceId, homeDescription]
+        livesOnSyros: { type: boolean }
+        livesInMyHome: { type: boolean }
+        homePin:
+          type: object
+          properties:
+            lat: { type: number, minimum: -90, maximum: 90 }
+            lng: { type: number, minimum: -180, maximum: 180 }
+          required: [lat, lng]
+        homeNote: { type: string, maxLength: 200 }
+      required: [deviceId, homePin]
     CatOwnerUpdate:
       type: object
       properties:
@@ -920,7 +980,14 @@ components:
           description: Care history, newest first, oldest entry always `discovered`
           items:
             $ref: "#/components/schemas/CareEvent"
-      required: [cat, sightings, fansCount, careTimeline]
+        canClaim:
+          type: boolean
+          description: |
+            Whether the phone looking may say "This is my cat" (claiming-a-cat.md
+            §4.1). True only when it sent X-Device-Id with its matching
+            X-Device-Secret and passes the same check the claim uses; false
+            otherwise, including for the cat's owner.
+      required: [cat, sightings, fansCount, careTimeline, canClaim]
     Campaign:
       type: object
       description: |

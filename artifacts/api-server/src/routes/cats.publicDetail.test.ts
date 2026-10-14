@@ -23,6 +23,9 @@ import app from "../app";
 // Regenerated once, on purpose, by SYC-41 (data spine PR 6, #95): blurring
 // changed this payload (cell centre, locationPrecision/locationCellM, dates
 // not times, no sighting positions or sighting ids). Nothing else changed.
+// Regenerated again, on purpose, by SYC-130 (claiming a cat): two keys added,
+// `"homePin":null` on the cat (owner-only, so always null here) and
+// `"canClaim":false` on the page (no proven phone asked). Nothing else changed.
 //
 // Only the database's own serial ids are swapped for placeholders; every other
 // byte, including key order, is compared as sent.

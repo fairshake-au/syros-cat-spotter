@@ -5,10 +5,20 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { CatClaimHomePin } from './catClaimHomePin';
 
+/**
+ * claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be
+ * true (the app always sends true); anything else is 422
+ * NOT_CONFIRMED, not a 400, so the refusal comes after the checks
+ * about the cat (§3 order of checks).
+ */
 export interface CatClaim {
   /** @minLength 1 */
   deviceId: string;
+  livesOnSyros?: boolean;
+  livesInMyHome?: boolean;
+  homePin: CatClaimHomePin;
   /** @maxLength 200 */
-  homeDescription: string;
+  homeNote?: string;
 }

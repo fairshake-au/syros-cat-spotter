@@ -1,6 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { db, pool, catsTable, deviceCredentialsTable } from "@workspace/db";
+import {
+  db,
+  pool,
+  catsTable,
+  deviceCredentialsTable,
+  sightingMatchesTable,
+  sightingsTable,
+} from "@workspace/db";
+import { deleteTestSightings } from "../test/sightings";
 import { eq, like } from "drizzle-orm";
 
 // SYC-107: registering, claiming and renaming a cat must prove the caller
@@ -34,6 +42,7 @@ const device = (suffix: string) => `${PREFIX}${suffix}`;
 const catName = (suffix: string) => `${NAME_PREFIX}${suffix}`;
 
 async function cleanup() {
+  await deleteTestSightings(like(sightingsTable.deviceId, `${PREFIX}%`));
   await db.delete(catsTable).where(like(catsTable.name, `${NAME_PREFIX}%`));
   await db
     .delete(deviceCredentialsTable)
@@ -72,6 +81,27 @@ async function insertCat(
     })
     .returning();
   return cat!;
+}
+
+/** SYC-130: the claim body, with a pin by the cat (37.44, 24.9). */
+const claimBody = (deviceId: string, homeNote = "") => ({
+  deviceId,
+  livesOnSyros: true,
+  livesInMyHome: true,
+  homePin: { lat: 37.44, lng: 24.9 },
+  homeNote,
+});
+
+/** SYC-130 §3 rule 2: a resolved sighting of the cat, from this phone,
+ * confirming the app's suggestion, so the phone may claim it. */
+async function met(catId: number, deviceId: string) {
+  const [s] = await db
+    .insert(sightingsTable)
+    .values({ catId, deviceId, photoId: 0, lat: 37.44, lng: 24.9, status: "resolved" })
+    .returning();
+  await db
+    .insert(sightingMatchesTable)
+    .values({ sightingId: s!.id, choice: "suggested", chosenCatId: catId, chosenAt: new Date(), suggestedRank: 1 });
 }
 
 async function reload(catId: number) {
@@ -131,7 +161,7 @@ describe("POST /api/cats/:catId/claim device auth (SYC-107)", () => {
     const cat = await insertCat("ClaimNone");
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
-      .send({ deviceId: device("claim-a"), homeDescription: "Mine now" });
+      .send(claimBody(device("claim-a"), "Mine now"));
     expect(res.status).toBe(401);
     expect((await reload(cat.id)).ownerDeviceId).toBeNull();
     expect(notifyMock).not.toHaveBeenCalled();
@@ -144,7 +174,7 @@ describe("POST /api/cats/:catId/claim device auth (SYC-107)", () => {
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", SECRET_OTHER)
-      .send({ deviceId: victim, homeDescription: "Hijacked" });
+      .send(claimBody(victim, "Hijacked"));
     expect(res.status).toBe(403);
     expect(res.body).toEqual({ error: "Device secret does not match" });
     const after = await reload(cat.id);
@@ -163,7 +193,7 @@ describe("POST /api/cats/:catId/claim device auth (SYC-107)", () => {
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", SECRET_OTHER)
-      .send({ deviceId: owner, homeDescription: "" });
+      .send(claimBody(owner, ""));
     expect(res.status).toBe(403);
     expect(res.body).toEqual({ error: "Device secret does not match" });
   });
@@ -172,10 +202,11 @@ describe("POST /api/cats/:catId/claim device auth (SYC-107)", () => {
     const owner = device("claim-d");
     await bind(owner, SECRET_OWNER);
     const cat = await insertCat("ClaimOk");
+    await met(cat.id, owner);
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", SECRET_OWNER)
-      .send({ deviceId: owner, homeDescription: "Blue door" });
+      .send(claimBody(owner, "Blue door"));
     expect(res.status).toBe(200);
     expect(res.body.hasHome).toBe(true);
     expect((await reload(cat.id)).ownerDeviceId).toBe(owner);
@@ -258,7 +289,7 @@ describe("the secret is checked before anything about the cat (SYC-107)", () => 
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", SECRET_OTHER)
-      .send({ deviceId: caller, homeDescription: "Mine" });
+      .send(claimBody(caller, "Mine"));
     expect(res.status).toBe(403);
     expect(res.body).toEqual({ error: "Device secret does not match" });
   });
@@ -266,7 +297,7 @@ describe("the secret is checked before anything about the cat (SYC-107)", () => 
   it("claim: no secret on a cat that doesn't exist is 401, not 404", async () => {
     const res = await request(app)
       .post(`/api/cats/${MISSING_CAT}/claim`)
-      .send({ deviceId: device("order-b"), homeDescription: "Mine" });
+      .send(claimBody(device("order-b"), "Mine"));
     expect(res.status).toBe(401);
   });
 

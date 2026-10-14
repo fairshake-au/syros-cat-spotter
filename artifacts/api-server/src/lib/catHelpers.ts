@@ -86,8 +86,12 @@ export interface CatWithStats extends DerivedCatStatus {
   // Null once the discoverer has deleted their data (SYC-63).
   discovererSpotterCode: string | null;
   discovererNickname: string | null;
+  /** The owner tier only; null for everyone else (claiming-a-cat.md D9). */
   ownerName: string | null;
+  /** The owner tier only; null for everyone else (D9). */
   homeDescription: string | null;
+  /** The owner tier only; null for everyone else (§5, D9). */
+  homePin: { lat: number; lng: number } | null;
   discovererUsername: string | null;
 }
 
@@ -123,7 +127,11 @@ export interface CatSource {
   discovererNickname: string | null;
   discovererUsername: string | null;
   ownerName: string | null;
+  /** The owner's note and pin. Never copied to the output for a public
+   * viewer (claiming-a-cat.md §5, D9). */
   homeDescription: string | null;
+  homeLat: number | null;
+  homeLng: number | null;
   derived: DerivedCatStatus;
 }
 
@@ -161,8 +169,14 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
     discovererSpotterCode: spotterCode(cat.discovererDeviceId),
     discovererNickname: cat.discovererNickname,
     discovererUsername: cat.discovererUsername,
-    ownerName: cat.ownerName,
-    homeDescription: cat.homeDescription,
+    // claiming-a-cat.md D9: where an owned cat lives, and who its owner is,
+    // are for the owner (and the team, who never use this serialiser) only.
+    ownerName: exact ? cat.ownerName : null,
+    homeDescription: exact ? cat.homeDescription : null,
+    homePin:
+      exact && cat.homeLat !== null && cat.homeLng !== null
+        ? { lat: cat.homeLat, lng: cat.homeLng }
+        : null,
     hasHome: cat.derived.hasHome,
     lifeStatus: cat.derived.lifeStatus,
     notSeenSince: cat.derived.notSeenSince,
@@ -481,6 +495,8 @@ export async function listCatsWithStats(
           discovererUsername: r.discovererUsername ?? null,
           ownerName: r.cat.ownerName,
           homeDescription: r.cat.homeDescription,
+          homeLat: r.cat.homeLat,
+          homeLng: r.cat.homeLng,
           derived: derived.get(r.cat.id)!,
         },
         viewer,

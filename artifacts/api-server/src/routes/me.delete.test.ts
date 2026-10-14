@@ -403,11 +403,13 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
     const claimed = await catPage(w.claimed.id);
     expect(catOnly(discovered)).toEqual(catOnly(before.discovered));
     expect(catOnly(claimed)).toEqual(catOnly(before.claimed));
+    // SYC-130 D9: the home note is never in the public payload, before or
+    // after deletion; D13: it stays on the cat, for Syros Cats.
     expect(claimed.cat).toMatchObject({
       hasHome: true,
       lifeStatus: "homed",
       ownerName: null,
-      homeDescription: "The blue house by the church",
+      homeDescription: null,
     });
     const [row] = await db
       .select()
@@ -415,6 +417,7 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       .where(eq(catsTable.id, w.claimed.id));
     expect(row!.ownerDeviceId).toBeNull();
     expect(row!.ownerName).toBeNull();
+    expect(row!.homeDescription).toBe("The blue house by the church");
     const [found] = await db
       .select()
       .from(catsTable)
@@ -618,7 +621,12 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
         }),
       request(app)
         .post(`/api/cats/${w.discovered.id}/claim`)
-        .send({ deviceId: P.deviceId, homeDescription: "" }),
+        .send({
+          deviceId: P.deviceId,
+          livesOnSyros: true,
+          livesInMyHome: true,
+          homePin: { lat: 37.44, lng: 24.9 },
+        }),
       request(app)
         .patch(`/api/cats/${w.claimed.id}`)
         .send({ deviceId: P.deviceId, name: "Ghost" }),

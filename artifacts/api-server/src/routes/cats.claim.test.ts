@@ -101,6 +101,15 @@ async function insertResolvedSighting(catId: number, deviceSuffix: string) {
     .onConflictDoNothing();
 }
 
+/** SYC-130: the claim body, with the pin by the cat (37.44, 24.9). */
+const claimBody = (deviceId: string, homeNote = "") => ({
+  deviceId,
+  livesOnSyros: true,
+  livesInMyHome: true,
+  homePin: { lat: 37.44, lng: 24.9 },
+  homeNote,
+});
+
 /** Wait for the fire-and-forget notification fan-out to finish. */
 async function waitForFanOut(): Promise<string[]> {
   await vi.waitFor(() => {
@@ -112,18 +121,18 @@ async function waitForFanOut(): Promise<string[]> {
 describe("POST /api/cats/:catId/claim", () => {
   it("lets a resident claim an unclaimed cat", async () => {
     const cat = await insertCat("Free");
+    // SYC-130 §3 rule 2: only a phone that has met the cat can claim it.
+    await insertResolvedSighting(cat.id, "owner1");
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", DEVICE_SECRET)
-      .send({
-        deviceId: device("owner1"),
-        homeDescription: "Blue door near the port",
-      });
+      .send(claimBody(device("owner1"), "Blue door near the port"));
     expect(res.status).toBe(200);
     // Claiming never records who the owner is — only that the cat has a home.
     expect(res.body.ownerName).toBeNull();
     expect(res.body.hasHome).toBe(true);
     expect(res.body.homeDescription).toBe("Blue door near the port");
+    expect(res.body.homePin).toEqual({ lat: 37.44, lng: 24.9 });
     expect(notifyCatSpottersMock).toHaveBeenCalledWith(
       cat.id,
       device("owner1"),
@@ -154,10 +163,7 @@ describe("POST /api/cats/:catId/claim", () => {
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", DEVICE_SECRET)
-      .send({
-        deviceId: device("owner2"),
-        homeDescription: "Different text",
-      });
+      .send(claimBody(device("owner2"), "Different text"));
     expect(res.status).toBe(200);
     // Existing ownership details are preserved; the re-claim is a no-op.
     expect(res.body.ownerName).toBe("Nikos");
@@ -175,12 +181,9 @@ describe("POST /api/cats/:catId/claim", () => {
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", DEVICE_SECRET)
-      .send({
-        deviceId: device("intruder"),
-        homeDescription: "",
-      });
+      .send(claimBody(device("intruder"), ""));
     expect(res.status).toBe(409);
-    expect(res.body.error).toMatch(/already claimed/i);
+    expect(res.body.code).toBe("ALREADY_HOMED");
     expect(notifyCatSpottersMock).not.toHaveBeenCalled();
     expect(await observationsFor(cat.id, "life_status")).toHaveLength(0);
   });
@@ -190,23 +193,23 @@ describe("POST /api/cats/:catId/claim", () => {
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", "wrong-secret-but-16-chars-long!")
-      .send({
-        deviceId: device("owner1"),
-        homeDescription: "",
-      });
+      .send(claimBody(device("owner1"), ""));
     expect([401, 403]).toContain(res.status);
     expect(await observationsFor(cat.id, "life_status")).toHaveLength(0);
   });
 
   it("lets only one of two concurrent claims succeed", async () => {
     const cat = await insertCat("Race");
+    await insertResolvedSighting(cat.id, "race1");
+    await insertResolvedSighting(cat.id, "race2");
     const claim = (suffix: string) =>
       request(app)
         .post(`/api/cats/${cat.id}/claim`)
         .set("X-Device-Secret", DEVICE_SECRET)
-        .send({ deviceId: device(suffix), homeDescription: "" });
+        .send(claimBody(device(suffix), ""));
     const [r1, r2] = await Promise.all([claim("race1"), claim("race2")]);
     expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+    expect(await observationsFor(cat.id, "life_status")).toHaveLength(1);
   });
 
   it("returns 404 for a missing or non-numeric cat id", async () => {
@@ -214,7 +217,7 @@ describe("POST /api/cats/:catId/claim", () => {
       const res = await request(app)
         .post(`/api/cats/${id}/claim`)
         .set("X-Device-Secret", DEVICE_SECRET)
-        .send({ deviceId: device("x"), homeDescription: "" });
+        .send(claimBody(device("x"), ""));
       expect(res.status).toBe(404);
     }
   });
@@ -228,11 +231,7 @@ describe("POST /api/cats/:catId/claim", () => {
     const res = await request(app)
       .post(`/api/cats/${cat.id}/claim`)
       .set("X-Device-Secret", DEVICE_SECRET)
-      .send({
-        deviceId: device("actor"),
-        ownerName: "Actor",
-        homeDescription: "Home",
-      });
+      .send(claimBody(device("actor"), "Home"));
     expect(res.status).toBe(200);
 
     const deviceIds = await waitForFanOut();

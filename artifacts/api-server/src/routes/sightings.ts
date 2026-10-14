@@ -871,6 +871,8 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         discovererUsername: discoverer?.username ?? null,
         ownerName: cat.ownerName,
         homeDescription: cat.homeDescription,
+        homeLat: cat.homeLat,
+        homeLng: cat.homeLng,
         derived: derivedStatus,
       },
       PUBLIC_VIEWER,

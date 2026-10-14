@@ -119,9 +119,13 @@ export function ClaimCatSheet({
     if (!canSubmit || !deviceId) return;
     setError(null);
     if (mode === 'claim') {
+      // SYC-130: a stop-gap for the new claim body until Task 8 builds the
+      // two-step sheet (the "I live on Syros" box and the pin). It never
+      // sends the confirmations on the person's behalf, so the server
+      // refuses with NOT_CONFIRMED until those screens exist.
       claim.mutate({
         catId: cat.id,
-        data: { deviceId, homeDescription: trimmedHome },
+        data: { deviceId, homePin: { lat: cat.lat, lng: cat.lng }, homeNote: trimmedHome },
       });
     } else {
       update.mutate({
