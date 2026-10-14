@@ -126,6 +126,9 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/colonies/:id": { why: "one colony, team notes: view_exact_location with no target until SYC-209 PR 4.1" },
   "POST /api/team/colonies": { why: "create_colony, insisting on an island row until PR 1.1 places a guardian on hers" },
   "POST /api/team/colonies/:id": { why: "edit_colony / rename_colony with no target until SYC-209 PR 4.1" },
+  "GET /api/team/colonies/:id/cats": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.1 (Decision 1A)" },
+  "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.1 (Decision 1A)" },
+  "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.1 (Decision 1A)" },
   // The two JSON observation routes (review minor 1): the door, then the
   // capability inside; a guardian refused there gets the JSON 403.
   "POST /api/team/observations": { why: "the door, then set_life_status / set_sterilisation inside, island-only" },
