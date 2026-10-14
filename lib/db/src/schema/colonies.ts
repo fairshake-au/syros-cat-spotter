@@ -75,7 +75,7 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
  *
  * The columns after `createdAt` are SYC-209 PR 1.1's
  * (cat-record-data-spine.md §10.5, feeding-sites-and-colonies.md §11.1).
- * `madePublicBy` stays text until PR 1.2 turns it into a link to people.
+ * `madePublicBy` is a link to people (PR 1.2; it was text until then).
  */
 export const feedingSitesTable = pgTable(
   "feeding_sites",
@@ -86,7 +86,7 @@ export const feedingSitesTable = pgTable(
     lat: doublePrecision("lat").notNull(),
     lng: doublePrecision("lng").notNull(),
     isPublic: boolean("is_public").notNull().default(false),
-    madePublicBy: text("made_public_by"),
+    madePublicBy: uuid("made_public_by").references(() => peopleTable.id),
     madePublicAt: timestamp("made_public_at", { withTimezone: true }),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true })

@@ -1,5 +1,5 @@
 {
-  "id": "155bb42c-6882-48c8-b14b-039aa2694362",
+  "id": "8276b7bd-706b-4b70-be8e-13b073ea9e0f",
   "prevId": "b1a50198-42de-49df-beac-19c33095475b",
   "version": "7",
   "dialect": "postgresql",
@@ -141,18 +141,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "home_lat": {
-          "name": "home_lat",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "home_lng": {
-          "name": "home_lng",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -198,10 +186,6 @@
         "cats_discoverer_ck": {
           "name": "cats_discoverer_ck",
           "value": "\"cats\".\"discoverer_device_id\" is not null or \"cats\".\"redacted_at\" is not null"
-        },
-        "cats_home_pin_ck": {
-          "name": "cats_home_pin_ck",
-          "value": "(\"cats\".\"home_lat\" is null) = (\"cats\".\"home_lng\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -1083,7 +1067,7 @@
         },
         "made_public_by": {
           "name": "made_public_by",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1170,6 +1154,19 @@
           "tableTo": "colonies",
           "columnsFrom": [
             "colony_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "feeding_sites_made_public_by_people_id_fk": {
+          "name": "feeding_sites_made_public_by_people_id_fk",
+          "tableFrom": "feeding_sites",
+          "tableTo": "people",
+          "columnsFrom": [
+            "made_public_by"
           ],
           "columnsTo": [
             "id"

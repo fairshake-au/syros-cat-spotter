@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
-import { can, type Capability } from "./capabilities";
+import { actingRole, can, type Capability } from "./capabilities";
 import {
   isWithdrawal,
   ObservationRefused,
@@ -14,6 +14,7 @@ import { isOwnerHomed } from "./teamCatView";
 import { resolveSterilised } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
+import { TEAM_ROLES } from "./teamRoles";
 
 // The team's corrections (SYC-43 part 2 plan, PR 4; spec §3.3, §4.5). One
 // function per kind of write, shared by the JSON routes (routes/observations.ts,
@@ -22,7 +23,7 @@ import { containsOffensiveLanguage } from "./moderation";
 // (test P4-6).
 //
 // Every write here **appends** a signed observation through writeObservation
-// (roleAtTime "staff", accountId = the person's people.id). Nothing in
+// (roleAtTime from actingRole, accountId = the person's people.id). Nothing in
 // `observations` is ever updated or deleted. The one column written is
 // `cats.name`, on a rename, in the same transaction as its `name` observation
 // (Decision 5).
@@ -145,7 +146,7 @@ export async function recordTeamStatement(
       kind: input.kind,
       value: { ...input.value, reason: input.reason },
       accountId: person.id,
-      roleAtTime: "staff",
+      roleAtTime: actingRole(person, capability),
       observedAt: input.observedAt ?? new Date(),
     });
   return exec ? write(exec) : db.transaction(write);
@@ -294,7 +295,7 @@ export async function supersedeStatement(
       kind: original.kind as ObservationKind,
       value: input.value,
       accountId: person.id,
-      roleAtTime: "staff",
+      roleAtTime: actingRole(person, capability),
       observedAt: input.observedAt ?? new Date(),
       supersedesId: original.id,
       supersedeReason: input.reason,
@@ -314,8 +315,8 @@ export async function catIdOfStatement(id: number): Promise<number | null> {
 
 // ── "Looks right" on the Probably sterilised list ─────────────────────────
 
-/** Roles whose clipped-ear answer is the team's, not a spotter's. */
-export const TEAM_ROLES: ReadonlySet<string> = new Set(["staff", "vet", "admin"]);
+// Roles whose clipped-ear answer is the team's, not a spotter's: the one
+// list, lib/teamRoles.ts (SYC-53 PR 0.2).
 
 export const LOOKS_RIGHT_REASON = "Checked the photo on the Probably sterilised list";
 
@@ -401,7 +402,7 @@ export async function agreeWithClip(
         reason: LOOKS_RIGHT_REASON,
       },
       accountId: person.id,
-      roleAtTime: "staff",
+      roleAtTime: actingRole(person, "set_sterilisation"),
       observedAt: spotter.observedAt,
       sightingId: spotter.sightingId,
     });
@@ -492,7 +493,7 @@ export async function renameCat(
         kind: "name",
         value: { name: row!.name, normalised: row!.normalisedName, reason: input.reason },
         accountId: person.id,
-        roleAtTime: "staff",
+        roleAtTime: actingRole(person, "rename_cat"),
         observedAt: new Date(),
       });
       return row!.name;
