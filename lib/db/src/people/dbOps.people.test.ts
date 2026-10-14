@@ -66,8 +66,12 @@ beforeEach(async () => {
   // dataSpine.test.ts does for sightings.
   await c.query("begin");
   await c.query(`alter table photo_visibility_events disable trigger photo_visibility_events_no_truncate`);
+  await c.query(`alter table mapping_events disable trigger mapping_events_no_truncate`);
+  await c.query(`alter table feeding_site_old_codes disable trigger feeding_site_old_codes_no_truncate`);
   await c.query(`truncate person_scopes, people cascade`);
   await c.query(`alter table photo_visibility_events enable trigger photo_visibility_events_no_truncate`);
+  await c.query(`alter table mapping_events enable trigger mapping_events_no_truncate`);
+  await c.query(`alter table feeding_site_old_codes enable trigger feeding_site_old_codes_no_truncate`);
   await c.query("commit");
 });
 

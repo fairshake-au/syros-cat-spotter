@@ -11,3 +11,4 @@ export * from "./welfare";
 export * from "./sightingMatches";
 export * from "./email";
 export * from "./photoVisibility";
+export * from "./mappingEvents";
