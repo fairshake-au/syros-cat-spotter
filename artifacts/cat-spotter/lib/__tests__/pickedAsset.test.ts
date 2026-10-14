@@ -172,3 +172,27 @@ describe('source check: the picker tags are read in one place and never kept (P2
     }
   });
 });
+
+describe('the website keeps today\'s behaviour (slice 2W is its own reader)', () => {
+  const spot = readFileSync(path.resolve(__dirname, '../../app/(tabs)/spot.tsx'), 'utf8');
+
+  it('the 21-day card and the same-photo check run for library photos on the phone apps only', () => {
+    expect(spot).toMatch(/const libraryOnPhone = !fromCamera && Platform\.OS !== 'web';/);
+    const at = spot.indexOf('const libraryOnPhone');
+    const guarded = spot.indexOf('if (libraryOnPhone) {', at);
+    expect(guarded).toBeGreaterThan(at);
+    // Both checks sit inside that guard, before the photo is set.
+    const setPhotoAt = spot.indexOf('setPhoto(next);', guarded);
+    for (const check of ["timeInfo.kind === 'tooOld'", 'findAlreadyLogged(']) {
+      const i = spot.indexOf(check, guarded);
+      expect(i).toBeGreaterThan(guarded);
+      expect(i).toBeLessThan(setPhotoAt);
+    }
+    expect(spot).toMatch(/photoFingerprintRef\.current = libraryOnPhone \? fingerprint : undefined;/);
+  });
+
+  it('tags are read only off the website', () => {
+    expect(spot).toMatch(/readTime: !fromCamera && Platform\.OS !== 'web'/);
+    expect(spot).toMatch(/exif: Platform\.OS !== 'web'/);
+  });
+});

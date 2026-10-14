@@ -323,7 +323,10 @@ export default function SpotScreen() {
     const picked = await choosePhoto(fromCamera);
     if (!picked) return;
     const { photo: next, timeInfo, fingerprint } = picked;
-    if (!fromCamera) {
+    // The iPhone and Android apps only: the website keeps today's behaviour
+    // until its own time reader (slice 2W) arrives.
+    const libraryOnPhone = !fromCamera && Platform.OS !== 'web';
+    if (libraryOnPhone) {
       // More than 21 days old: not accepted, and the library offered again.
       if (timeInfo.kind === 'tooOld') {
         releasePhotoUri(next.uri);
@@ -346,7 +349,7 @@ export default function SpotScreen() {
     }
     setPhoto(next);
     setPhotoTime(timeInfo);
-    photoFingerprintRef.current = fromCamera ? undefined : fingerprint;
+    photoFingerprintRef.current = libraryOnPhone ? fingerprint : undefined;
     setCapturedAt(
       timeInfo.kind === 'ok'
         ? new Date(timeInfo.instantMs).toISOString()
