@@ -809,6 +809,18 @@ export function athensDay(at: Date): string {
   return todayInStreakTimezone(at);
 }
 
+/** Each row's Athens day, worked out once per row object rather than once
+ * per comparison: the independence checks compare rows pairwise. */
+const rowDayCache = new WeakMap<Observation, string>();
+function rowDay(o: Observation): string {
+  let day = rowDayCache.get(o);
+  if (day === undefined) {
+    day = athensDay(o.observedAt);
+    rowDayCache.set(o, day);
+  }
+  return day;
+}
+
 /** One spotter's voice on one value. */
 export interface Voice {
   /** The device, or `redacted:<row id>` for a row whose author was cleared. */
@@ -866,7 +878,7 @@ export function onePerVoice(
 function independentRows(a: Observation, b: Observation): boolean {
   if (a.provenance === "prompted" || b.provenance === "prompted") return false;
   if (a.photoId != null && a.photoId === b.photoId) return false;
-  return athensDay(a.observedAt) !== athensDay(b.observedAt);
+  return rowDay(a) !== rowDay(b);
 }
 
 /** The earliest instant two voices were independent: over every pair of
@@ -900,19 +912,34 @@ export function independentPair(a: Voice, b: Voice): boolean {
  * than two voices.
  */
 export function twoVoicesSince(voices: readonly Voice[]): Date | null {
-  let earliest: number | null = null;
-  for (let i = 0; i < voices.length; i++) {
-    for (let j = i + 1; j < voices.length; j++) {
-      const at = independentSince(voices[i]!, voices[j]!);
-      if (at != null && (earliest == null || at < earliest)) earliest = at;
+  // Walk every row in date order, checking it against the rows already
+  // seen. The first row with an independent partner from another voice
+  // dates the earliest pair (a pair is dated by its later row), so the walk
+  // stops there.
+  const entries = voices
+    .flatMap((v) => v.rows.filter((r) => r.provenance !== "prompted").map((r) => ({ key: v.key, r })))
+    .sort((x, y) => (isNewer(y.r, x.r) ? -1 : isNewer(x.r, y.r) ? 1 : 0));
+  const seen: typeof entries = [];
+  for (const e of entries) {
+    for (const prev of seen) {
+      if (prev.key !== e.key && independentRows(prev.r, e.r)) return new Date(e.r.observedAt.getTime());
     }
+    seen.push(e);
   }
-  return earliest == null ? null : new Date(earliest);
+  return null;
 }
 
-/** Two independent voices hold this value. */
+/** Two independent voices hold this value. Stops at the first pair found. */
 export function hasTwoVoices(voices: readonly Voice[]): boolean {
-  return twoVoicesSince(voices) != null;
+  for (let i = 0; i < voices.length; i++) {
+    for (let j = i + 1; j < voices.length; j++) {
+      const a = voices[i]!;
+      const b = voices[j]!;
+      if (a.key === b.key) continue;
+      for (const ra of a.rows) for (const rb of b.rows) if (independentRows(ra, rb)) return true;
+    }
+  }
+  return false;
 }
 
 /** The voices that count towards a value's tally: those with at least one
@@ -1204,12 +1231,16 @@ export function resolveMarkings(
 
   /** Each mark with two independent voices among rows passing `include`,
    * with the date the second voice arrived. */
+  const rowsByMark = new Map<Mark, Observation[]>(MARKS.map((m) => [m, []]));
+  for (const s of spotterStatements) {
+    if (!isSpotterVoiceRow(s.row)) continue;
+    for (const m of s.marks) rowsByMark.get(m)!.push(s.row);
+  }
   const agreedMarks = (include: (o: Observation) => boolean) => {
     const out: { mark: Mark; since: Date; voices: Voice[] }[] = [];
     for (const mark of MARKS) {
-      const rows = spotterStatements
-        .filter((s) => s.marks.includes(mark) && include(s.row))
-        .map((s) => s.row);
+      const rows = rowsByMark.get(mark)!.filter(include);
+      if (rows.length < 2) continue;
       const voices = onePerVoice(rows, voiceKeys);
       const since = twoVoicesSince(voices);
       if (since) out.push({ mark, since, voices: countingVoices(voices) });

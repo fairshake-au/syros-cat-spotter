@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Observation } from "@workspace/db/schema";
 import {
@@ -985,5 +986,46 @@ describe("Samuel's answer 9 (14 Oct 2026): marking the photo reader's newest rea
     expect(
       resolveCoat([machineCoat(["grey"], "2026-01-01T09:00:00Z"), machineCoat(["not_sure"], "2026-01-05T09:00:00Z")]),
     ).toMatchObject({ value: null, confidence: "unknown" });
+  });
+});
+
+describe("review (ship) finding 1: resolving a busy cat stays fast", () => {
+  function busyCat(devices: number): Observation[] {
+    const colours = [["ginger"], ["black"], ["grey", "tabby"]];
+    const marks = ["white_paws", "torn_ear", "long_fur", "kinked_tail"];
+    const rows: Observation[] = [];
+    for (let i = 0; i < devices; i++) {
+      const day = new Date(Date.UTC(2026, 0, 1 + (i % 90), 8 + (i % 12)));
+      rows.push(spotterCoat(`busy-${i}`, colours[i % 3]!, day.toISOString(), { photoId: 100_000 + i }));
+      rows.push(spotterMarks(`busy-${i}`, { marks: [marks[i % 4]!] }, day.toISOString(), { photoId: 200_000 + i }));
+    }
+    return rows;
+  }
+
+  it("T1 1,000 devices, each with one coat and one markings row, resolve in under 500 ms", () => {
+    const rows = busyCat(1000);
+    const start = performance.now();
+    const coat = resolveCoat(rows);
+    const markings = resolveMarkings(rows, NOW);
+    const ms = performance.now() - start;
+    expect(coat.confidence).toBe("likely");
+    expect(markings.value).toEqual(["white_paws", "long_fur", "kinked_tail", "torn_ear"].sort((a, b) =>
+      ["white_paws", "white_chest", "white_face", "colourpoint", "long_fur", "kinked_tail", "torn_ear"].indexOf(a) -
+      ["white_paws", "white_chest", "white_face", "colourpoint", "long_fur", "kinked_tail", "torn_ear"].indexOf(b),
+    ));
+    expect(ms).toBeLessThan(500);
+  });
+
+  it.skipIf(!process.env.APPEARANCE_TIMINGS)("timings for 100, 300 and 1,000 devices", () => {
+    for (const n of [100, 300, 1000]) {
+      const rows = busyCat(n);
+      const start = performance.now();
+      resolveCoat(rows);
+      resolveMarkings(rows, NOW);
+      appendFileSync(
+        process.env.APPEARANCE_TIMINGS!,
+        `${n} devices: ${(performance.now() - start).toFixed(1)} ms\n`,
+      );
+    }
   });
 });
