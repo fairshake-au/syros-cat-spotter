@@ -1,19 +1,27 @@
 name: mail-drain
-# SYC-42 plan, Slice 1 item 1.6, layer 3. The API runs on autoscale and can
-# sleep, so a timer inside it isn't guaranteed to fire. Every 10 minutes this
-# asks the API to send any queued mail (cat-report alerts to Syros Cats).
+# SYC-42 plan, Slice 1 item 1.6, layer 3: asks the API to send any queued
+# mail (cat-report alerts to Syros Cats).
+#
+# SYC-231: the main caller is now the `mail-drain-cron` Cloudflare Worker
+# (infra/mail-drain-cron), every 10 minutes. GitHub ran this workflow's
+# "every 10 minutes" every 3-7 hours, too slow for the over-an-hour alarm.
+# This stays as a BACKUP, every 3 hours (GitHub may run it later), and for
+# manual runs. Two callers at once is safe: each email is claimed once.
+# Runbook: docs/runbooks/mail-drain.md.
 #
 # If a cat-report alert has been unsent for over an hour, the API answers
 # non-2xx, this run FAILS, and GitHub emails Samuel about the failed run.
-# That's a different delivery path from Resend. It's about the system being
-# broken, not about a cat, and it pages nobody (F1).
+# (The Worker emails him too, through Cloudflare.) That's a different
+# delivery path from Resend. It's about the system being broken, not about
+# a cat, and it pages nobody (F1).
 #
-# MAIL_DRAIN_TOKEN is a GitHub `production` Environment secret and a Replit
-# deployment secret, never in a file or a prompt (spec §2.11). It opens one
-# path only: POST /api/internal/mail/drain.
+# MAIL_DRAIN_TOKEN is a GitHub `production` Environment secret, a Replit
+# deployment secret and a Worker secret, never in a file or a prompt (spec
+# §2.11). It opens one path only: POST /api/internal/mail/drain.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Off the hour, when GitHub's schedule queue is least busy.
+    - cron: "23 */3 * * *"
   workflow_dispatch:
     inputs:
       base_url:
