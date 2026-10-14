@@ -75,10 +75,13 @@ export async function claimEligibility(
   // into it by a merge nothing has undone (§10.3), and either:
   // - with no match record, which only a sighting from before records were
   //   kept has (it is `unlabelled`; nothing backfilled them); or
+  // - with a match record whose choice wasn't recorded (the label is written
+  //   after the resolve, best effort), which counts like `unlabelled`
+  //   (Samuel, 14 Oct 2026), unless it names a chosen cat other than the
+  //   sighting's; or
   // - with a match record that is still on the cat chosen at match time
   //   (a sighting the team later moved doesn't count for its new cat), and
-  //   whose choice is one of MET_MATCH_CHOICES (a record with no choice
-  //   doesn't count).
+  //   whose choice is one of MET_MATCH_CHOICES.
   const choices = sql.join(
     MET_MATCH_CHOICES.map((c) => sql`${c}`),
     sql`, `,
@@ -96,7 +99,9 @@ export async function claimEligibility(
                  where ci.canonical_cat_id = ${catId}
                    and not exists (select 1 from cat_identity u where u.supersedes_id = ci.id)))
          and (m.sighting_id is null
-              or (m.chosen_cat_id = s.cat_id and m.choice in (${choices})))
+              or (m.choice is null
+                  and (m.chosen_cat_id is null or m.chosen_cat_id = s.cat_id))
+              or (m.choice in (${choices}) and m.chosen_cat_id = s.cat_id))
     ) as met`);
   return met.rows[0]?.met === true ? { ok: true } : { ok: false, code: "NOT_MET" };
 }

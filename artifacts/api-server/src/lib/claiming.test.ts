@@ -67,7 +67,7 @@ async function sighting(
   catId: number | null,
   deviceId: string,
   choice: "suggested" | "hand_pick" | "new_cat" | "unlabelled" | null | "none",
-  opts: { status?: string; chosenCatId?: number } = {},
+  opts: { status?: string; chosenCatId?: number | null } = {},
 ) {
   const [s] = await db
     .insert(sightingsTable)
@@ -87,7 +87,7 @@ async function sighting(
     await db.insert(sightingMatchesTable).values({
       sightingId: s!.id,
       choice,
-      chosenCatId: opts.chosenCatId ?? catId,
+      chosenCatId: opts.chosenCatId === undefined ? catId : opts.chosenCatId,
       chosenAt: choice == null ? null : daysAgo(2),
       suggestedRank: choice === "suggested" ? 1 : null,
     });
@@ -157,11 +157,29 @@ describe("claimEligibility: rule 2, this phone has met the cat", () => {
     expect(await eligible(c.id, d)).toEqual(OK);
   });
 
-  it("a match record with no choice on it doesn't qualify (MATCH_CHOICES has nothing beyond the four)", async () => {
+  // Samuel, 14 Oct 2026: the label is written after the resolve, best
+  // effort. A spot whose choice wasn't recorded counts like `unlabelled`.
+  it("a match record whose choice wasn't recorded qualifies, like unlabelled", async () => {
+    const c = await streetCat();
+    const d = dev();
+    await sighting(c.id, d, null, { chosenCatId: null });
+    expect(await eligible(c.id, d)).toEqual(OK);
+  });
+
+  it("an unrecorded choice naming the sighting's own cat qualifies too", async () => {
     const c = await streetCat();
     const d = dev();
     await sighting(c.id, d, null);
-    expect(await eligible(c.id, d)).toEqual(NOT_MET);
+    expect(await eligible(c.id, d)).toEqual(OK);
+  });
+
+  it("an unrecorded choice naming a different cat from the sighting's doesn't count (moved)", async () => {
+    const chosen = await streetCat();
+    const movedTo = await streetCat();
+    const d = dev();
+    await sighting(movedTo.id, d, null, { chosenCatId: chosen.id });
+    expect(await eligible(movedTo.id, d)).toEqual(NOT_MET);
+    expect(await eligible(chosen.id, d)).toEqual(NOT_MET);
   });
 
   it("no sighting at all: NOT_MET", async () => {
