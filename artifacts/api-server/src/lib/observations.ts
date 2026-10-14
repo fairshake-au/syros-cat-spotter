@@ -588,10 +588,11 @@ export interface WriteObservationInput {
  * `ObservationRefused`) rather than writing anything for:
  *
  * - an unknown `kind`, or a `value` that doesn't match its kind's shape;
- * - a role refused for that kind (`ROLE_NOT_ALLOWED_FOR_KIND`: `vet` for
- *   `coat`/`markings`; `public`, `guardian`, `system` for `vaccinated`; `system` for `markings`
- *   and for any `coat` that is not `provenance: "machine"`;
- *   `public`, `system` for `team_note`), checked before reachability;
+ * - a role refused for that kind (`ROLE_NOT_ALLOWED_FOR_KIND`), checked
+ *   before reachability: `vet` for `coat` and `markings`; `system` for
+ *   `markings`, and for any `coat` that is not `provenance: "machine"`;
+ *   `public`, `guardian` and `system` for `vaccinated`; `public` and
+ *   `system` for `team_note`;
  * - a `roleAtTime` unreachable in phase 1 (`guardian`, `volunteer`, `vet`,
  *   or anything else not in {public, staff, admin, system});
  * - an unknown `authorityScope` or `provenance`;
@@ -604,15 +605,18 @@ export interface WriteObservationInput {
  * - `provenance: "machine"` from anyone but `system:vision` (the only
  *   machine-authored kind today is `coat`, SYC-119 §4.7);
  * - a future `observedAt` (refused for every role);
- * - a `{ retracted: true }` coat/markings value from anyone but {staff,
- *   admin, management, guardian}, without a `supersedesId`, or whose superseded row is missing or not the same kind
- *   (`INVALID_RETRACTION`, every role); or
- * - a `public` or `system` coat/markings write superseding a row that is not
- *   its own (same device, or same system author) (`NOT_YOUR_ROW`, C2);
- * - any supersession whose target is missing or of another kind
- *   (`INVALID_SUPERSESSION`, or the rule's own code), or, for coat and
- *   markings, on another cat;
- * - a retraction whose target is itself a retraction (`INVALID_RETRACTION`);
+ * - any supersession whose target is missing or of another kind, for every
+ *   role and kind; for `coat` and `markings`, also one whose target is on
+ *   another cat (the code is `NOT_YOUR_ROW` when the own-row rule below
+ *   applies, `INVALID_RETRACTION` for a retraction, and
+ *   `INVALID_SUPERSESSION` otherwise);
+ * - a `{ retracted: true }` coat/markings value from anyone but staff,
+ *   admin, management or guardian, without a `supersedesId`, or whose
+ *   target is not a coat/markings row of the same kind or is itself a
+ *   retraction (`INVALID_RETRACTION`); or
+ * - a `public` or `system` coat/markings write superseding a row that is
+ *   not its own: the same device for `public`, the same system author for
+ *   `system` (`NOT_YOUR_ROW`, C2).
  *
  * A `public`-role `observedAt` more than 30 days in the past is not
  * refused — it is clamped to that 30-day boundary, the same rule
