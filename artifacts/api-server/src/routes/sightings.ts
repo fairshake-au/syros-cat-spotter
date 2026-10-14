@@ -28,6 +28,7 @@ import { badgesFor } from "../lib/badges";
 import { clampCaptureTime } from "../lib/captureTime";
 import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
+import { spottedAgainMessage } from "../lib/sightingMessage";
 import { writeObservation, type DbOrTx } from "../lib/observations";
 import { catSubscriptionsTable } from "@workspace/db";
 import { matchCatPhoto } from "../lib/matching";
@@ -821,9 +822,10 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   await createUpdateAndFanOut({
     cat,
     updateType: "sighting",
+    // SYC-166 slice 3: an old photo says the day it was taken (Decision D1).
     message: isNewCat
       ? `${cat.name} was just discovered on Syros!`
-      : `${cat.name} was spotted again!`,
+      : spottedAgainMessage(cat.name, sighting.createdAt, new Date()),
     triggerSightingId: sightingId,
     excludeDeviceId: sighting.deviceId,
   });

@@ -18,7 +18,6 @@ import {
   catSubscriptionsTable,
   catUpdatesTable,
   notificationsTable,
-  observationsTable,
 } from "@workspace/db";
 import { eq, ilike, inArray, like } from "drizzle-orm";
 
@@ -100,7 +99,6 @@ async function cleanup() {
     }
     await db.delete(catUpdatesTable).where(inArray(catUpdatesTable.catId, catIds));
     await db.delete(catSubscriptionsTable).where(inArray(catSubscriptionsTable.catId, catIds));
-    await db.delete(observationsTable).where(inArray(observationsTable.catId, catIds));
   }
   const rows = await db
     .select({ photoId: sightingsTable.photoId })
