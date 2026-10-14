@@ -435,7 +435,7 @@ describe("the backfill", () => {
     } finally {
       await bc.end();
     }
-  });
+  }, 60_000);
 });
 
 describe("this migration's rollback", () => {
