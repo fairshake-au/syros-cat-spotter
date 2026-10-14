@@ -26,6 +26,7 @@ import { pointsNearFeedingSite, withCheckTimeout } from "./feedingSiteProximity"
 export const TEAM_REPORT_PHOTO_PREFIX = "/api/team/report-photos/";
 const CLOSED_LIMIT = 50;
 const DRAFT_LIMIT = 50;
+export const UNCHECKED_LIMIT = 50;
 const CLOSED_STATES = ["done", "nothing_needed"] as const;
 const OPEN_STATES = ["new", "looking"] as const;
 
@@ -134,7 +135,10 @@ export interface WelfareQueue {
    * its count is an early sign the check is broken.
    */
   unchecked: {
+    /** The newest 50 open unchecked reports (review of #151, finding 6). */
     reports: QueueReport[];
+    /** How many open unchecked reports there are. */
+    reportsTotal: number;
     drafts: QueueDraft[];
     draftsTotal: number;
   };
@@ -288,6 +292,7 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
     draftRows,
     draftCount,
     uncheckedRows,
+    uncheckedCount,
     uncheckedDraftRows,
     uncheckedDraftCount,
     mail,
@@ -328,7 +333,12 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
       // Unchecked: newest first, urgent or not (never the urgent-first order).
       reportsQuery()
         .where(and(sent, isOpen, unchecked))
-        .orderBy(desc(reportTime), desc(welfareReportsTable.id)),
+        .orderBy(desc(reportTime), desc(welfareReportsTable.id))
+        .limit(UNCHECKED_LIMIT),
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(welfareReportsTable)
+        .where(and(sent, isOpen, unchecked)),
       db
         .select(draftColumns)
         .from(welfareReportsTable)
@@ -364,6 +374,7 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
     draftsTotal: Number(draftCount[0]?.n ?? 0),
     unchecked: {
       reports: uncheckedRows.map((r) => toReport(r, mailByReport)),
+      reportsTotal: Number(uncheckedCount[0]?.n ?? 0),
       drafts: uncheckedDraftRows.map(toDraft),
       draftsTotal: Number(uncheckedDraftCount[0]?.n ?? 0),
     },

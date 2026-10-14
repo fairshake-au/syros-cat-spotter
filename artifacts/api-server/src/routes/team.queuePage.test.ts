@@ -155,6 +155,21 @@ describe("P1-2: the page's order", () => {
     const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (0)</h2>");
     expect(heading).toBeGreaterThan(html.indexOf('id="r-only-checked"'));
     expect(html).not.toContain("<details");
+    // Review finding 7: true for rows sent before the check existed, too.
+    expect(html).toContain("Reports above were either checked or sent before the safety check existed.");
+    expect(html).not.toContain("Every report above passed the safety check");
+  });
+
+  it("review finding 6: the unchecked list shows the newest 50, with the total", async () => {
+    for (let i = 0; i < 52; i++) {
+      await seedReport({ publicId: `unc-many-${i}`, sentMinutesAgo: i + 1, tokenChecked: false });
+    }
+    const html = await getPage();
+    expect(html).toContain("<h2>Unchecked (Cloudflare was unreachable) (52)</h2>");
+    expect(html).toContain("Showing the newest 50 of 52.");
+    expect(html).toContain('id="r-unc-many-0"');
+    expect(html).toContain('id="r-unc-many-49"');
+    expect(html).not.toContain('id="r-unc-many-50"');
   });
 
   it("says so when nothing is waiting", async () => {

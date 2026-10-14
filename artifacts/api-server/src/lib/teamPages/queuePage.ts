@@ -250,11 +250,16 @@ function uncheckedSection(
   tied: TiedNotice | undefined,
   near: NearSites,
 ): string {
-  const { reports, drafts, draftsTotal } = queue.unchecked;
+  const { reports, reportsTotal, drafts, draftsTotal } = queue.unchecked;
   const list = reports.length
     ? '<p class="empty">These arrived while the safety check couldn\'t reach Cloudflare. Most will be real reports sent during an outage, but some may not be, so they are kept apart from the queue above.</p>' +
-      reports.map((r) => reportCard(r, now, false, changedId, tied, near)).join("")
-    : '<p class="empty">None. Every report above passed the safety check.</p>';
+      reports.map((r) => reportCard(r, now, false, changedId, tied, near)).join("") +
+      (reportsTotal > reports.length
+        ? `<p class="empty">Showing the newest ${reports.length} of ${reportsTotal}.</p>`
+        : "")
+    : // True for null rows too: sent before the check existed, or with it off
+      // or only observing (review of #151, finding 7).
+      '<p class="empty">None. No report arrived while the safety check was unreachable. Reports above were either checked or sent before the safety check existed.</p>';
   const folded = drafts.length
     ? `<details class="unchecked-drafts"><summary>Unchecked drafts (${draftsTotal})</summary>` +
       drafts.map((d) => draftCard(d, now, near)).join("") +
@@ -264,7 +269,7 @@ function uncheckedSection(
       "</details>"
     : "";
   return (
-    `<section id="unchecked"><h2>Unchecked (Cloudflare was unreachable) (${reports.length})</h2>` +
+    `<section id="unchecked"><h2>Unchecked (Cloudflare was unreachable) (${reportsTotal})</h2>` +
     list +
     folded +
     "</section>"
