@@ -24,13 +24,18 @@ import { currentColonyOf } from "../lib/colonyMembership";
 
 // A staff member who lacks exactly one capability: today staff hold all
 // of them, so `can` is wrapped (team.colonies.test.ts does the same).
-const denied = vi.hoisted(() => ({ cap: null as string | null }));
+// `cap`: lacks that one. `only`: holds that one and nothing else.
+const denied = vi.hoisted(() => ({ cap: null as string | null, only: null as string | null }));
 vi.mock("../lib/capabilities", async (importOriginal) => {
   const real = await importOriginal<typeof import("../lib/capabilities")>();
   return {
     ...real,
     can: (...args: Parameters<typeof real.can>) =>
-      args[1] === denied.cap ? false : real.can(...args),
+      args[1] === denied.cap
+        ? false
+        : denied.only !== null && args[1] !== denied.only
+          ? false
+          : real.can(...args),
   };
 });
 
@@ -141,6 +146,7 @@ beforeEach(() => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
+  denied.only = null;
 });
 
 afterAll(async () => {
@@ -474,6 +480,167 @@ describe("test 15 (team half): taking a cat out of a colony", () => {
     const res = await moveCat(cat, "none");
     expect(res.headers["location"]).toMatch(/\?done=colonyAlready#corrections$/);
     expect(await colonyStatements(cat)).toHaveLength(0);
+  });
+});
+
+/** "Mark wrong" on a statement, as the cat page's form posts it. */
+const markWrong = (statementId: number, extra: Record<string, string> = {}) =>
+  post(`/api/team/statements/${statementId}/wrong`, {
+    choice: "colony_previous",
+    reason: "Put in the wrong colony",
+    ...extra,
+  });
+
+describe("test 15 (team half): Mark wrong on a colony statement", () => {
+  it("A then B, then Mark wrong on B, puts the cat back in A, signed and pointing at B", async () => {
+    const a = await makeColony(unique("Back-A"));
+    const b = await makeColony(unique("Back-B"));
+    const cat = await seedCat("Back-cat");
+    await moveCat(cat, a);
+    await moveCat(cat, b);
+    const [first, second] = await colonyStatements(cat);
+
+    const res = await markWrong(second!.id);
+    expect(res.status, res.text).toBe(303);
+    expect(res.headers["location"]).toMatch(new RegExp(`^/api/team/cats/${cat}\\?done=wrong&s=\\d+#s-\\d+$`));
+
+    const rows = await colonyStatements(cat);
+    expect(rows).toHaveLength(3);
+    expect(rows[2]).toMatchObject({
+      value: { colonyId: a },
+      supersedesId: second!.id,
+      supersedeReason: "Put in the wrong colony",
+      accountId: susan,
+      roleAtTime: "staff",
+    });
+    expect((await currentColonyOf([cat])).get(cat)).toBe(a);
+    void first;
+
+    const page = decoded((await get(`/api/team/cats/${cat}`)).text);
+    expect(page).toContain(`<a href="/api/team/colonies/${a}">`);
+    // The wrong statement stays, struck through, with what replaced it.
+    expect(page).toContain(`<del>Put in the colony “${P}Back-B`);
+    // Marking it wrong again says someone already did.
+    const again = await markWrong(second!.id);
+    expect(again.headers["location"]).toMatch(/\?done=already&s=\d+#s-\d+$/);
+    expect(await colonyStatements(cat)).toHaveLength(3);
+  });
+
+  it("with no earlier statement the cat is left in no colony", async () => {
+    const a = await makeColony(unique("None-A"));
+    const cat = await seedCat("None-cat");
+    await moveCat(cat, a);
+    const [only] = await colonyStatements(cat);
+    expect((await markWrong(only!.id)).status).toBe(303);
+    const rows = await colonyStatements(cat);
+    expect(rows[1]!.value).toEqual({ colonyId: null });
+    expect(rows[1]!.supersedesId).toBe(only!.id);
+    expect((await currentColonyOf([cat])).has(cat)).toBe(false);
+    expect(decoded((await get(`/api/team/cats/${cat}`)).text)).toContain("Not in a colony");
+  });
+
+  it("marking an older statement wrong leaves the newest standing; marking a take-out wrong restores the colony", async () => {
+    const a = await makeColony(unique("Mid-A"));
+    const b = await makeColony(unique("Mid-B"));
+    const c = await makeColony(unique("Mid-C"));
+    const cat = await seedCat("Mid-cat");
+    await moveCat(cat, a);
+    await moveCat(cat, b);
+    await moveCat(cat, c);
+    const [, middle] = await colonyStatements(cat);
+    expect((await markWrong(middle!.id)).status).toBe(303);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(c);
+
+    const cat2 = await seedCat("Out-cat");
+    await moveCat(cat2, a);
+    await moveCat(cat2, "none");
+    const [, takeOut] = await colonyStatements(cat2);
+    expect((await markWrong(takeOut!.id)).status).toBe(303);
+    expect((await currentColonyOf([cat2])).get(cat2)).toBe(a);
+  });
+
+  it("the replacement is worked out on the server: a colony in the form or the JSON body is ignored", async () => {
+    const a = await makeColony(unique("Host-A"));
+    const b = await makeColony(unique("Host-B"));
+    const evil = await makeColony(unique("Host-Evil"));
+    const cat = await seedCat("Host-cat");
+    await moveCat(cat, a);
+    await moveCat(cat, b);
+    const [, second] = await colonyStatements(cat);
+
+    // The JSON route takes a value; for a colony statement it is not used.
+    const res = await request(app)
+      .post(`/api/team/observations/${second!.id}/supersede`)
+      .set("Cookie", cookie)
+      .set("Origin", TEAM_ORIGIN)
+      .send({
+        value: { colonyId: evil },
+        reason: "trying to choose",
+        observedAt: "2020-01-01T00:00:00Z",
+      });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body.value).toEqual({ colonyId: a });
+    // And it is dated now, not the date the caller sent.
+    expect(Date.parse(res.body.observedAt)).toBeGreaterThan(Date.now() - 60_000);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(a);
+
+    // A colony smuggled into the form changes nothing either.
+    const cat2 = await seedCat("Host-cat2");
+    await moveCat(cat2, a);
+    await moveCat(cat2, b);
+    const [, second2] = await colonyStatements(cat2);
+    await markWrong(second2!.id, { colonyId: String(evil), value: `{"colonyId":${evil}}` });
+    expect((await currentColonyOf([cat2])).get(cat2)).toBe(a);
+  });
+
+  it("holding only assign_cat_to_colony is enough, and the colony capability is the one it needs", async () => {
+    const a = await makeColony(unique("Gate-A"));
+    const b = await makeColony(unique("Gate-B"));
+    const cat = await seedCat("Gate-cat");
+    await moveCat(cat, a);
+    await moveCat(cat, b);
+    const [, second] = await colonyStatements(cat);
+
+    // Someone who may set life status but not assign cats is refused, and
+    // nothing is written.
+    denied.only = "set_life_status";
+    const refused = await markWrong(second!.id);
+    expect([refused.status, refused.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    denied.cap = "assign_cat_to_colony";
+    denied.only = null;
+    expect((await markWrong(second!.id)).status).toBe(401);
+    expect(await colonyStatements(cat)).toHaveLength(2);
+
+    // Someone who may only assign cats can mark a colony statement wrong.
+    denied.cap = null;
+    denied.only = "assign_cat_to_colony";
+    const ok = await markWrong(second!.id);
+    expect(ok.status, ok.text).toBe(303);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(a);
+  });
+
+  it("the cat page offers Mark wrong on a colony statement only to someone who may assign", async () => {
+    const a = await makeColony(unique("Form-A"));
+    const cat = await seedCat("Form-cat");
+    await moveCat(cat, a);
+    const html = (await get(`/api/team/cats/${cat}`)).text;
+    expect(html).toContain('name="choice" value="colony_previous"');
+    expect(html).toContain("The cat goes back to the colony it was in before this");
+    denied.cap = "assign_cat_to_colony";
+    const without = (await get(`/api/team/cats/${cat}`)).text;
+    expect(without).not.toContain("colony_previous");
+  });
+
+  it("a colony statement's Mark wrong never changes life status, sterilisation or last seen", async () => {
+    const a = await makeColony(unique("Quiet-A"));
+    const cat = await seedCat("Quiet-cat");
+    await moveCat(cat, a);
+    const before = await publicCat(cat);
+    const [only] = await colonyStatements(cat);
+    await markWrong(only!.id);
+    expect(await publicCat(cat)).toEqual(before);
+    // Every statement the cat has is a colony one.
+    expect((await allStatements(cat)).every((r) => r.kind === "colony")).toBe(true);
   });
 });
 

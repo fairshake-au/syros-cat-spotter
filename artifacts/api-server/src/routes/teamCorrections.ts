@@ -404,6 +404,9 @@ const CHOICES: Record<string, Record<string, unknown>> = {
   sterilised_yes: { sterilised: true },
   sterilised_no: { sterilised: false },
   not_clipped: { clipped: false },
+  // A colony statement: the server works out the replacement (spec §2.8), so
+  // this carries no value. supersedeStatement ignores it for a colony.
+  colony_previous: {},
 };
 
 const WrongForm = z.object({
