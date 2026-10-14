@@ -30,9 +30,13 @@ function parseChallengeQuery(searchParams) {
 }
 
 /** The sitekey to use, or null if production has none configured. */
+// The test key only when NODE_ENV is exactly "development" or "test". The
+// website's production run sets no NODE_ENV at all, so anything else counts
+// as production, the same rule as the API's gateEnabled() (lib/prelaunch.ts;
+// review of #151, finding 4): there, no TURNSTILE_SITEKEY means 503.
 function sitekeyFor(env) {
   if (env.TURNSTILE_SITEKEY) return env.TURNSTILE_SITEKEY;
-  return env.NODE_ENV === 'production' ? null : TEST_SITEKEY;
+  return env.NODE_ENV === 'development' || env.NODE_ENV === 'test' ? TEST_SITEKEY : null;
 }
 
 function jsString(value) {

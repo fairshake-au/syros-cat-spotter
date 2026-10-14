@@ -661,9 +661,11 @@ describe('SYC-3 Decision 12: a restore link carries its token in the fragment', 
 
 describe('SYC-170: /_challenge (Turnstile page)', () => {
   const OK = '/_challenge?action=welfare_report&cdata=r-test123';
+  // The test sitekey is served only when NODE_ENV says development or test.
+  const DEV = { NODE_ENV: 'development' };
 
   it('is served with the gate off', async () => {
-    const req = await start({ PRELAUNCH_GATE: 'off' });
+    const req = await start({ PRELAUNCH_GATE: 'off', NODE_ENV: 'development' });
     const res = await req('GET', OK);
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
@@ -675,7 +677,7 @@ describe('SYC-170: /_challenge (Turnstile page)', () => {
   });
 
   it('is served with the gate on and no cookie, and nothing may frame it, gate on or off', async () => {
-    for (const env of [gatedEnv(), { PRELAUNCH_GATE: 'off' }]) {
+    for (const env of [gatedEnv(DEV), { PRELAUNCH_GATE: 'off', NODE_ENV: 'development' }]) {
       const req = await start(env);
       const res = await req('GET', OK);
       expect(res.status).toBe(200);
@@ -688,7 +690,7 @@ describe('SYC-170: /_challenge (Turnstile page)', () => {
   });
 
   it('hands the token only to the phone WebView, never to a parent page', async () => {
-    const req = await start(gatedEnv());
+    const req = await start(gatedEnv(DEV));
     const res = await req('GET', OK);
     expect(res.body).toContain('ReactNativeWebView.postMessage');
     expect(res.body).not.toContain('window.parent');
@@ -701,6 +703,17 @@ describe('SYC-170: /_challenge (Turnstile page)', () => {
     expect((await prod('GET', OK)).status).toBe(503);
   });
 
+  it('review finding 4: with no NODE_ENV at all (how production runs), no sitekey is 503, never the test key', async () => {
+    for (const env of [{ PRELAUNCH_GATE: 'off' }, gatedEnv(), { PRELAUNCH_GATE: 'off', NODE_ENV: 'staging' }]) {
+      const req = await start(env);
+      const res = await req('GET', OK);
+      expect(res.status).toBe(503);
+      expect(res.body).not.toContain('1x00000000000000000000AA');
+    }
+    const test = await start({ PRELAUNCH_GATE: 'off', NODE_ENV: 'test' });
+    expect((await test('GET', OK)).body).toContain('1x00000000000000000000AA');
+  });
+
   it.each([
     '/_challenge',
     '/_challenge?action=nope&cdata=x',
@@ -708,14 +721,14 @@ describe('SYC-170: /_challenge (Turnstile page)', () => {
     '/_challenge?action=welfare_report&cdata=' + 'a'.repeat(101),
     '/_challenge?action=welfare_report&cdata=%3Cscript%3E',
   ])('rejects a bad query: %s', async (url) => {
-    for (const env of [{ PRELAUNCH_GATE: 'off' }, gatedEnv()]) {
+    for (const env of [{ PRELAUNCH_GATE: 'off', NODE_ENV: 'development' }, gatedEnv(DEV)]) {
       const req = await start(env);
       expect((await req('GET', url)).status).toBe(400);
     }
   });
 
   it('accepts each allowed action and a 100-character cdata', async () => {
-    const req = await start(gatedEnv());
+    const req = await start(gatedEnv(DEV));
     for (const action of ['welfare_report', 'welfare_draft', 'report_issue']) {
       expect((await req('GET', `/_challenge?action=${action}&cdata=${'a'.repeat(100)}`)).status).toBe(200);
     }
@@ -723,12 +736,12 @@ describe('SYC-170: /_challenge (Turnstile page)', () => {
   });
 
   it('does not accept POST', async () => {
-    const req = await start(gatedEnv());
+    const req = await start(gatedEnv(DEV));
     expect((await req('POST', OK)).status).toBe(405);
   });
 
   it('exempts nothing else from the gate', async () => {
-    const req = await start(gatedEnv());
+    const req = await start(gatedEnv(DEV));
     for (const p of [
       '/_challenge/',
       '/_challenge/x',
