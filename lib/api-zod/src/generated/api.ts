@@ -135,7 +135,7 @@ export const GetCatResponse = zod.object({
   "at": zod.string().describe('A UTC calendar date (YYYY-MM-DD).')
 })).describe('Care history, newest first, oldest entry always `discovered`'),
   "canClaim": zod.boolean().describe('Whether the phone looking may say \"This is my cat\" (claiming-a-cat.md\n§4.1). True only when it sent X-Device-Id with its matching\nX-Device-Secret and passes the same check the claim uses; false\notherwise, including for the cat\'s owner.\n'),
-  "claimCooldown": zod.boolean().describe('True only for a phone that proved who it is and let this cat go in\nthe last 7 days (claiming-a-cat.md §11). Lets the app tell the\ncooldown from \"this phone hasn\'t met the cat\". False otherwise,\nfor everyone else and for every phone that hasn\'t proved itself.\n')
+  "claimCooldown": zod.boolean().describe('True only for a phone that proved who it is and let this cat go in\nthe last 7 days, or was removed as its owner by the team in the\nlast 30 (claiming-a-cat.md §11). Lets the app tell the\ncooldown from \"this phone hasn\'t met the cat\". False otherwise,\nfor everyone else and for every phone that hasn\'t proved itself.\n')
 })
 
 

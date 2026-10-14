@@ -25,7 +25,8 @@ export interface CatDetail {
   canClaim: boolean;
   /**
      * True only for a phone that proved who it is and let this cat go in
-     * the last 7 days (claiming-a-cat.md §11). Lets the app tell the
+     * the last 7 days, or was removed as its owner by the team in the
+     * last 30 (claiming-a-cat.md §11). Lets the app tell the
      * cooldown from "this phone hasn't met the cat". False otherwise,
      * for everyone else and for every phone that hasn't proved itself.
      */

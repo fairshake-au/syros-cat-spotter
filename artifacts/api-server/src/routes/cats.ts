@@ -604,7 +604,7 @@ router.patch("/cats/:catId", async (req, res) => {
     return;
   }
   if (!cat.ownerDeviceId || cat.ownerDeviceId !== body.deviceId) {
-    res.status(403).json({ error: "Only the cat's owner can update it" });
+    res.status(403).json({ error: "Only the cat's owner can update it", code: "NOT_OWNER" });
     return;
   }
 
