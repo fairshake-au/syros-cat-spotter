@@ -253,7 +253,27 @@ run_copy() {
   log "$COMMAND ($TARGET): done."
 }
 
+# --- verify-history (SYC-178) ---------------------------------------------
+# The target's record of applied migrations against the journal on main:
+# missing, extra, edited, duplicated or out-of-order migrations fail the run.
+# Read-only, and it needs no other database, so it's the check to run after
+# every production migrate now that testers write to Neon.
+run_verify_history() {
+  require_neon_url
+  log "migration history vs the journal (read-only)"
+  local out="$WORKDIR/history.log"
+  local status=0
+  (cd "$ROOT" && DATABASE_URL="$NEON_URL" \
+    pnpm --silent --filter @workspace/db run migrate:history) \
+    >"$out" 2>&1 || status=$?
+  grep_no_urls "$out"
+  cat "$out"
+  return "$status"
+}
+
 # --- verify ---------------------------------------------------------------
+# Before go-live only: compare --projected needs the old Replit database to
+# still match Neon row for row. After go-live use verify-history.
 run_verify() {
   require REPLIT_URL
   require_neon_url
@@ -269,57 +289,7 @@ run_verify() {
   grep_no_urls "$WORKDIR/compare.log"
   cat "$WORKDIR/compare.log"
 
-  log "migration history vs the journal"
-  # Written inside lib/db (not $WORKDIR) so Node's module resolution finds
-  # lib/db's own node_modules (for "pg") when this runs; removed on exit via
-  # the trap below regardless of how the command ends.
-  local check_script="$ROOT/lib/db/.db-ops-verify-history.mjs"
-  trap 'rm -f "$check_script"' RETURN
-  cat >"$check_script" <<'NODE'
-import pg from "pg";
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-
-const url = process.argv[2];
-const folder = path.resolve("migrations");
-const journal = JSON.parse(
-  fs.readFileSync(path.join(folder, "meta/_journal.json"), "utf8"),
-);
-const expected = journal.entries.map((e) => {
-  const sql = fs.readFileSync(path.join(folder, `${e.tag}.sql`), "utf8");
-  return crypto.createHash("sha256").update(sql).digest("hex");
-});
-
-const client = new pg.Client({ connectionString: url });
-await client.connect();
-try {
-  const r = await client.query(
-    `select hash from drizzle.__drizzle_migrations order by created_at`,
-  );
-  const actual = r.rows.map((row) => row.hash);
-  if (actual.length !== expected.length) {
-    console.error(
-      `migration history: ${actual.length} row(s) recorded, expected ${expected.length} (one per journal entry).`,
-    );
-    process.exit(1);
-  }
-  for (let i = 0; i < expected.length; i++) {
-    if (actual[i] !== expected[i]) {
-      console.error(
-        `migration history: row ${i} (${journal.entries[i].tag}) hash does not match the journal.`,
-      );
-      process.exit(1);
-    }
-  }
-  console.log(
-    `migration history ok: ${actual.length} row(s), all matching the journal.`,
-  );
-} finally {
-  await client.end();
-}
-NODE
-  (cd "$ROOT/lib/db" && node "$check_script" "$NEON_URL")
+  run_verify_history
 
   log "verify: done."
 }
@@ -414,6 +384,10 @@ case "$COMMAND" in
 
   verify)
     run_verify
+    ;;
+
+  verify-history)
+    run_verify_history
     ;;
 
   migrate)
