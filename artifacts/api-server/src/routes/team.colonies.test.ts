@@ -764,7 +764,7 @@ describe("two edits of one colony at the same moment", () => {
         const r = await pool.query(
           `select count(*)::int as n from pg_stat_activity
            where wait_event_type = 'Lock' and state = 'active'
-             and query ilike '%colonies%' and datname = current_database()`,
+             and query ilike '%colon%' and datname = current_database()`,
         );
         waiting = r.rows[0].n;
         if (waiting < 2) await new Promise((r2) => setTimeout(r2, 25));
