@@ -185,7 +185,7 @@ export async function letGoWithinDays(
        where cat_id = ${catId}
          and kind = 'life_status'
          and device_id = ${deviceId}
-         and (value->>'withdrawn') = 'true'
+         and value = '{"withdrawn": true}'::jsonb
          and created_at > now() - make_interval(days => ${days}::int)
     ) as found`);
   return r.rows[0]?.found === true;
@@ -213,7 +213,7 @@ export async function removedByTeamWithinDays(
        where w.cat_id = ${catId}
          and w.kind = 'life_status'
          and w.account_id is not null
-         and (w.value->>'withdrawn') = 'true'
+         and w.value = '{"withdrawn": true}'::jsonb
          and w.created_at > now() - make_interval(days => ${days}::int)
          and h.cat_id = ${catId}
          and h.kind = 'life_status'
