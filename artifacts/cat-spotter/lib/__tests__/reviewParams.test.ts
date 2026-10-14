@@ -164,8 +164,8 @@ describe('the sighting\'s saved location (SYC-119, plan P7)', () => {
       lng: 24.9425,
     });
     const parsed = parseReviewParams(params.data);
-    expect(parsed?.lat).toBe(37.4448);
-    expect(parsed?.lng).toBe(24.9425);
+    expect(parsed?.lat).toBe(37.445); // rounded to ~110 m (SYC-258)
+    expect(parsed?.lng).toBe(24.943);
     expect(params.data.length).toBeLessThan(200);
   });
 

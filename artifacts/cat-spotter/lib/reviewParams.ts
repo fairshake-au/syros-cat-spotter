@@ -18,8 +18,9 @@
  *
  * SYC-119: it also carries where the photo was taken (two short numbers), so
  * "Find the cat" can list cats near the sighting's saved location for an
- * online submission too. They only shape the phone's list: the server checks
- * a pick against its own stored location.
+ * online submission too. They are rounded to about 110 m so the address never
+ * carries a spot to the metre (SYC-258). They only shape the phone's list: the
+ * server checks a pick against its own stored location.
  *
  * A test fails if any `/review` navigation bypasses this builder.
  */
@@ -71,12 +72,22 @@ function safeText(value: unknown, max = MAX_VALUE_LENGTH): string | undefined {
   return value;
 }
 
-/** A real latitude/longitude pair, or null. */
+/** Decimal places kept in the route: 0.001 degree is about 110 m (SYC-258). */
+export const ROUTE_POSITION_DECIMALS = 3;
+
+/** Round to the route's precision; never returns -0 (JSON would hide it, but Object.is would not). */
+export function roundForRoute(n: number): number {
+  const factor = 10 ** ROUTE_POSITION_DECIMALS;
+  const rounded = Math.round(n * factor) / factor;
+  return rounded === 0 ? 0 : rounded;
+}
+
+/** A real latitude/longitude pair, rounded for the route, or null. */
 function safeLocation(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
   if (typeof lat !== 'number' || typeof lng !== 'number') return null;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  return { lat, lng };
+  return { lat: roundForRoute(lat), lng: roundForRoute(lng) };
 }
 
 function trimReasoning(value: unknown): string {
