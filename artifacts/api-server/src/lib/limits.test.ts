@@ -5,10 +5,12 @@ import type { Express } from "express";
 import { db, pool, deviceCredentialsTable, welfareReportsTable } from "@workspace/db";
 import { like, sql } from "drizzle-orm";
 import {
+  _forgetSaltsForTests,
   _resetLimitsSweepForTests,
   addressKey,
   consume,
   peek,
+  sharedLimiter,
   sweepRateLimits,
   sweepRateLimitsIfDue,
 } from "./limits";
@@ -19,6 +21,7 @@ import {
 const DEVICE = `vitest-limits-${randomBytes(4).toString("hex")}`;
 const SECRET = "vitest-limits-secret-0123456789";
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
 // Two instances of the app, as two servers would be: each is its own copy of
 // every module (so its own memory), and the two share only the database.
@@ -215,8 +218,107 @@ describe("T2-6: a broken counter never costs a cat-in-trouble report", () => {
         .set("X-Forwarded-For", "198.51.100.26")
         .send({ deviceId: fresh, token: "A".repeat(43) });
       expect(peekRes.status).toBe(503);
+      expect(peekRes.headers["retry-after"]).toBe("5");
+
+      // The photo route is a cat-in-trouble route too: from a never-seen
+      // phone it is not refused for want of a counter (404: no such report).
+      const photo = await request(a.app)
+        .put("/api/reports/no-such-report/photo")
+        .set("X-Device-Secret", SECRET)
+        .set("X-Forwarded-For", "198.51.100.27")
+        .send({ deviceId: `${DEVICE}-photo`, photoBase64: "AAAA" });
+      expect(photo.status).toBe(404);
     } finally {
       await db.execute(sql`alter table rate_limit_counters_gone rename to rate_limit_counters`);
     }
+  });
+});
+
+describe("fail closed with 503 + Retry-After, off the welfare routes (review finding 7)", () => {
+  it("AI limiter (both routes), delete-me, and the new-phone cap on an ordinary route", async () => {
+    await db.execute(sql`alter table rate_limit_counters rename to rate_limit_counters_gone`);
+    try {
+      const ip = "198.51.100.28";
+      const calls = [
+        request(a.app).post("/api/cats/name-suggestions").set("X-Forwarded-For", ip).send({}),
+        request(a.app).post("/api/sightings").set("X-Forwarded-For", ip).send({}),
+        request(a.app).delete("/api/me").set("X-Forwarded-For", ip).send({}),
+        // A never-seen phone registering on a non-welfare route: the new-phone cap.
+        request(a.app)
+          .get(`/api/notifications/${DEVICE}-newphone`)
+          .set("X-Device-Secret", SECRET)
+          .set("X-Forwarded-For", ip),
+      ];
+      for (const call of calls) {
+        const res = await call;
+        expect(res.status).toBe(503);
+        expect(res.headers["retry-after"]).toBe("5");
+      }
+    } finally {
+      await db.execute(sql`alter table rate_limit_counters_gone rename to rate_limit_counters`);
+    }
+  });
+});
+
+describe("a day-long window survives the sweep until it has ended (review finding 2, probe R3)", () => {
+  it("a 24-hour window is still counting at 05:00, after a sweep, and goes once it has ended", async () => {
+    const day = Date.UTC(2041, 2, 3);
+    for (let i = 0; i < 15; i++) await consume("daily", "addr", 15, DAY, undefined, day + 1000);
+    expect((await consume("daily", "addr", 15, DAY, undefined, day + 2000)).allowed).toBe(false);
+    // Hour 5 of that day: the old 3-hour rule would have deleted it here.
+    await sweepRateLimits(day + 5 * HOUR);
+    const after = await consume("daily", "addr", 15, DAY, undefined, day + 5 * HOUR);
+    expect(after.allowed).toBe(false);
+    expect(after.hits).toBe(17);
+    // Well after it has ended, it is swept.
+    await sweepRateLimits(day + DAY + 2 * HOUR);
+    expect((await peek("daily", "addr", DAY, undefined, day + 5 * HOUR)).hits).toBe(0);
+  });
+});
+
+describe("the day's salt is made on the pool, not in the caller's transaction (review finding 3, probe R2)", () => {
+  it("a rolled-back transaction does not split one address into two counters", async () => {
+    const t = Date.UTC(2042, 6, 7, 12, 0, 0);
+    _forgetSaltsForTests();
+    await db
+      .transaction(async (tx) => {
+        await consume("rollback", "addr", 5, HOUR, tx, t);
+        throw new Error("roll back, like a refused report");
+      })
+      .catch(() => undefined);
+    // The counter rolled back; the salt did not, so every server shares it.
+    const salts = (await db.execute(sql`select count(*)::int as n from rate_limit_salts where day = '2042-07-07'`))
+      .rows[0] as { n: number };
+    expect(salts.n).toBe(1);
+    await consume("rollback", "addr", 5, HOUR, undefined, t);
+    vi.resetModules();
+    const other = await import("./limits");
+    const otherDb = await import("@workspace/db");
+    await other.consume("rollback", "addr", 5, HOUR, undefined, t);
+    await otherDb.pool.end();
+    const rows = (await db.execute(sql`select hits from rate_limit_counters where bucket = 'rollback'`))
+      .rows as { hits: number }[];
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0]!.hits)).toBe(2);
+  });
+});
+
+describe("guards (review finding 6)", () => {
+  it("refuses a window that does not divide a day, or is longer than one", async () => {
+    await expect(consume("badwin", "k", 5, 7 * 60 * 1000)).rejects.toThrow(/divides a day/);
+    await expect(consume("badwin", "k", 5, 2 * DAY)).rejects.toThrow(/divides a day/);
+    await expect(peek("badwin", "k", 7 * 60 * 1000)).rejects.toThrow(/divides a day/);
+    expect(() =>
+      sharedLimiter({ bucket: "badwin2", windowMs: 7 * 60 * 1000, limit: 5, message: {} }),
+    ).toThrow(/divides a day/);
+  });
+
+  it("refuses a bucket registered twice with different settings, allows the same settings", () => {
+    sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 5, message: {} });
+    expect(() => sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 6, message: {} })).toThrow(/registered twice/);
+    expect(() => sharedLimiter({ bucket: "dup", windowMs: 15 * 60 * 1000, limit: 5, message: {} })).toThrow(
+      /registered twice/,
+    );
+    expect(() => sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 5, message: {} })).not.toThrow();
   });
 });

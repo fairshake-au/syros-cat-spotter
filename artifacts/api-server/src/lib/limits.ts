@@ -312,16 +312,16 @@ export type LimitsSweepResult = { countersDeleted: number; saltsDeleted: number 
  * Remove windows that have ended (a day-long window lives its whole day),
  * and salts nothing uses any more.
  */
-export async function sweepRateLimits(): Promise<LimitsSweepResult> {
+export async function sweepRateLimits(now: number = Date.now()): Promise<LimitsSweepResult> {
   const counters = await db.execute(sql`
     delete from rate_limit_counters
      where window_start + window_ms * interval '1 millisecond'
-           < now() - make_interval(hours => ${COUNTER_KEEP_AFTER_END_HOURS})
+           < to_timestamp(${now} / 1000.0) - make_interval(hours => ${COUNTER_KEEP_AFTER_END_HOURS})
   `);
   // A salt is only read while a window that started that day is live, so
   // yesterday's is already unused once today's first windows are over.
   const salts = await db.execute(sql`
-    delete from rate_limit_salts where day < (now() at time zone 'utc')::date - 1
+    delete from rate_limit_salts where day < (to_timestamp(${now} / 1000.0) at time zone 'utc')::date - 1
   `);
   return { countersDeleted: counters.rowCount ?? 0, saltsDeleted: salts.rowCount ?? 0 };
 }
