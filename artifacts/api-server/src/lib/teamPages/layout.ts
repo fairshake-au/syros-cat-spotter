@@ -46,6 +46,8 @@ h2{font-size:18px;margin:28px 0 8px}
 .tag{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:#eee9da;color:#3b3930}
 .tag.urgent{background:#b3261e;color:#fff}
 .tag.kittens{background:#d9ecf0;color:#0b4553}
+.tag.unchecked{background:#fff;border:1px dashed #8a6d00;color:#5c4800}
+details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .tag.state{background:#fff;border:1px solid #8a877e}
 .ago{color:#55524a;font-size:14px}
 .photo{display:block;width:100%;max-width:100%;height:auto;max-height:420px;object-fit:contain;background:#ece8dc;border-radius:6px;margin:0 0 8px}

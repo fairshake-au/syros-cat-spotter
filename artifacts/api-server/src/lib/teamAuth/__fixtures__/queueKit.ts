@@ -76,6 +76,8 @@ export interface SeedReport {
   stateChangedBy?: string | null;
   /** A photo's mime type; seeds a row in welfare_report_photos. */
   photo?: { mime: string; bytes: Buffer } | "pending" | "failed";
+  /** SYC-170: null (before Turnstile), true (checked) or false (unchecked). */
+  tokenChecked?: boolean | null;
   /** The alert email's state, and how long ago it was queued. */
   mail?: {
     state: "queued" | "sending" | "sent" | "failed";
@@ -120,6 +122,7 @@ export async function seedReport(
       teamNoteAt: o.teamNote ? new Date() : null,
       stateChangedBy: o.stateChangedBy ?? null,
       stateChangedAt: o.stateChangedBy ? new Date() : null,
+      tokenChecked: o.tokenChecked ?? null,
     })
     .returning({ id: welfareReportsTable.id });
   let photoPublicId: string | null = null;
