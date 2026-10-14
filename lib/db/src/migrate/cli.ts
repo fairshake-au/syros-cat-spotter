@@ -242,6 +242,9 @@ async function check(): Promise<void> {
  */
 async function history(): Promise<void> {
   const migrations = readMigrations(folder);
+  // Direct (non-pooled) addresses only: Neon's pooler rejects the startup
+  // `options`. db-ops passes NEON_*_DIRECT_URL. checkHistory's own
+  // `begin read only` holds even if a URL's ?options= overrides this.
   const client = new pg.Client({
     connectionString: resolveCliUrl(),
     options: "-c default_transaction_read_only=on",

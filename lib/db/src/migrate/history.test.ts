@@ -140,6 +140,21 @@ describe("historyProblems", () => {
     expect(p[0]).toMatch(/0001_notes.*twice/);
   });
 
+  it("reports an edited duplicate, not just the duplicate", () => {
+    const p = historyProblems([row(1, m0), row(2, m1), row(3, m1, "0".repeat(64)), row(4, m2)], migrations);
+    expect(p.join("\n")).toMatch(/0001_notes.*twice/);
+    expect(p.join("\n")).toMatch(/second record.*does not match/);
+  });
+
+  it("names a row with no timestamp instead of calling it timestamp 0", () => {
+    const p = historyProblems(
+      [row(1, m0), row(2, m1), row(3, m2), { id: 4, hash: "a".repeat(64), created_at: null }],
+      migrations,
+    );
+    expect(p).toHaveLength(1);
+    expect(p[0]).toMatch(/Row 4 .* no timestamp/);
+  });
+
   it("catches an empty history", () => {
     const p = historyProblems([], migrations);
     expect(p).toHaveLength(1);

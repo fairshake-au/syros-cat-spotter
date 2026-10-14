@@ -189,7 +189,7 @@ Don't use `verify` for this. It compares Neon with the old database row for row,
 
 It opens a read-only session and connects to nothing but the target, so it's safe on production at any time. The same check runs at the end of `verify`. Locally: `DATABASE_URL=… pnpm --filter @workspace/db run migrate:history`.
 
-A failure after a deploy usually means one of two things. If a migration is **missing**, `migrate` didn't run or didn't finish: read its log and run it again. If one is **extra**, production has a migration from a branch that isn't on `main` yet (or main's journal was rewritten): don't publish, and find which branch it came from before doing anything else.
+A failure after a deploy usually means one of two things. If a migration is **missing**, `migrate` didn't run or didn't finish: read its log and run it again. If one is **extra**, production has a migration from a branch that isn't on `main` yet (or main's journal was rewritten): don't publish, and find which branch it came from before doing anything else. Running `migrate` again won't help: it refuses a database that's ahead of the code, for the same reason.
 
 ## Read-only checks without a connection string
 

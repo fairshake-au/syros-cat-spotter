@@ -19,7 +19,7 @@ import { MIGRATIONS_SCHEMA, MIGRATIONS_TABLE, type Migration } from "./runner";
 export interface RecordedRow {
   id: number;
   hash: string;
-  created_at: string | number;
+  created_at: string | number | null;
 }
 
 /** Plain-English problems; empty means the history matches the journal. */
@@ -38,6 +38,12 @@ export function historyProblems(
   let latest: Migration | null = null;
 
   for (const row of [...recorded].sort((a, b) => a.id - b.id)) {
+    if (row.created_at === null) {
+      problems.push(
+        `Row ${row.id} of the migration history has no timestamp, so it can't be matched to any migration. Something wrote it by hand.`,
+      );
+      continue;
+    }
     const when = Number(row.created_at);
     const m = byWhen.get(when);
     if (!m) {
@@ -49,6 +55,11 @@ export function historyProblems(
     }
     if (seen.has(when)) {
       problems.push(`${m.tag} is recorded twice (again at row ${row.id}).`);
+      if (row.hash !== m.hash) {
+        problems.push(
+          `${m.tag}'s second record (row ${row.id}) does not match the file in this code either.`,
+        );
+      }
       continue;
     }
     seen.add(when);
@@ -115,6 +126,7 @@ export async function checkHistory(
       newest,
     };
   } finally {
-    await client.query("rollback");
+    // A dead connection makes this throw too; keep the original error.
+    await client.query("rollback").catch(() => {});
   }
 }
