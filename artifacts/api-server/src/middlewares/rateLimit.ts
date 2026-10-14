@@ -199,10 +199,12 @@ export async function _resetClaimLimitForTests(): Promise<void> {
 // Behind a session, so this is a courtesy cap on the server's work and on
 // what it asks OpenStreetMap for, not a security control. A map page draws
 // its four pictures at five sizes (one per screen-width band; a browser may
-// fetch them all), so 20 a page: 2000 is about a hundred pages in a quarter
-// of an hour.
+// fetch them all), so 20 a page. Someone panning quickly in a fresh browser
+// opens a page every few seconds, and 2000 was reached in testing; 5000 is
+// about 250 pages in a quarter of an hour. Pictures seen again in the same
+// hour come from the browser's own cache and don't count.
 export const mapTileLimiter = rateLimit({
   ...common,
   windowMs: 15 * 60 * 1000,
-  limit: 2000,
+  limit: 5000,
 });

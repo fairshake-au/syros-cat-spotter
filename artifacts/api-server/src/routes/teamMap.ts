@@ -162,6 +162,14 @@ router.post(
       });
     }
     const here: View = clampView({ z: ref.z, x: ref.x, y: ref.y });
+    // (0, 0) is what a browser sends when the picture never loaded, or when
+    // the button is pressed from the keyboard: not a place anyone tapped.
+    // Taking it would put the spot on the picture's corner without a word.
+    if (parsed.data.x === 0 && parsed.data.y === 0) {
+      return void mapPage(res, 400, here, {
+        note: "That tap didn't say where on the map it was. This happens when a map picture hasn't loaded, or when it's chosen with the keyboard. Nothing was picked: tap the map itself.",
+      });
+    }
     const spot = tapToPosition(ref, ref.size, parsed.data.x, parsed.data.y);
     if (!spot || !inIsland(spot)) {
       return void mapPage(res, 400, here, {

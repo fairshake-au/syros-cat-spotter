@@ -397,7 +397,7 @@ describe("the Map page", () => {
     const edge = tapForms(
       (await post("/api/team/map", { vz: "12", vx: String(r12.minX), vy: String(r12.minY) })).text,
     ).find((x) => x.size === 256)!;
-    pages.push((await post("/api/team/map/tap", { tile: edge.tile, size: "256", x: "0", y: "0" })).text);
+    pages.push((await post("/api/team/map/tap", { tile: edge.tile, size: "256", x: "1", y: "1" })).text);
     expect(pages[3]).toContain('class="tapped"');
     expect(pages[4]).toContain("outside Syros");
     for (const html of pages) {
@@ -503,7 +503,7 @@ describe("a tap on the map (test 17)", () => {
     const z = 16;
     const f = await formFor(ERMOUPOLI, z, 171);
     const ref = readTileToken(f.tile)!;
-    for (const [x, y] of [[0, 0], [170, 170], [171, 0]]) {
+    for (const [x, y] of [[0, 1], [1, 0], [170, 170], [171, 0]]) {
       const res = await request(app)
         .post("/api/team/map/tap")
         .set("Origin", TEAM_ORIGIN)
@@ -528,6 +528,14 @@ describe("a tap on the map (test 17)", () => {
     expect(viewOf(res.text).z).toBe(17);
   });
 
+  it("(0, 0) is refused: it's what a browser sends for a picture that never loaded, or a keyboard press", async () => {
+    const f = await formFor(ERMOUPOLI, 16, 179);
+    const res = await post("/api/team/map/tap", { tile: f.tile, size: "179", x: "0", y: "0" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("say where on the map it was");
+    expect(res.text).not.toContain('class="tapped"');
+  });
+
   it("the size posted must be the size the picture was drawn at", async () => {
     const f = await formFor(ERMOUPOLI, 16, 171);
     const res = await post("/api/team/map/tap", { tile: f.tile, size: "179", x: "10", y: "10" });
@@ -540,7 +548,7 @@ describe("a tap on the map (test 17)", () => {
     // At zoom 12 the island's west-most tile starts west of the island box.
     const r = islandTileRange(12);
     const token = mintTileToken({ z: 12, x: r.minX, y: r.minY, size: 256 });
-    const res = await post("/api/team/map/tap", { tile: token, size: "256", x: "0", y: "0" });
+    const res = await post("/api/team/map/tap", { tile: token, size: "256", x: "1", y: "1" });
     expect(res.status).toBe(400);
     expect(res.text).toContain("outside Syros");
     expect(res.text).not.toContain('class="tapped"');
@@ -548,7 +556,7 @@ describe("a tap on the map (test 17)", () => {
       .post("/api/team/map/tap")
       .set("Origin", TEAM_ORIGIN)
       .set("Cookie", cookie)
-      .send({ tile: token, size: "256", x: "0", y: "0" });
+      .send({ tile: token, size: "256", x: "1", y: "1" });
     expect(json.status).toBe(400);
     expect(inIsland({ lat: 37.53, lng: 24.78 })).toBe(false);
   });
