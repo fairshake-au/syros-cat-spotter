@@ -152,7 +152,7 @@ This rule gets its own section, its own named test and a line in the opening sum
 
 | Level | Reached when | Shown as, to everyone |
 |---|---|---|
-| **Confirmed sterilised** | An imported Syros Cats record, a team entry, or a vet says the cat was sterilised, and nothing more recent and equally authoritative says otherwise | *"Sterilised — confirmed by Syros Cats"* |
+| **Confirmed sterilised** | An imported Syros Cats record, a team entry, a vet, a cat guardian (for a cat in her own colonies) or a cat owner (per SYC-130) says the cat was sterilised, and nothing more recent and equally authoritative says otherwise | *"Sterilised — confirmed by Syros Cats"* |
 | **Likely sterilised** | One or more photo-backed sightings report a clipped tip, and nothing authoritative contradicts it | *"Probably sterilised — a clipped ear tip has been seen"* |
 | **Confirmed not sterilised** | A team member, a vet, or an imported record says this cat has not been sterilised, and nothing more recent and equally authoritative says otherwise | *"Not sterilised — Syros Cats' records"* |
 | **Unknown** | Nothing has been said, or only "can't tell" / "no clip visible" answers exist | *"Not known yet"* |
@@ -169,6 +169,12 @@ This rule gets its own section, its own named test and a line in the opening sum
 A fourth level, **Reported**, exists in the data model and the resolver's output type from day one but is not yet reachable — it is where SYC-52 will place a single unconfirmed public claim once prompted-versus-volunteered weighting arrives. Building the ladder with all its rungs now means the later change is a resolver change, not a schema change. See §10.
 
 **Confidence never crosses attributes.** A *Confirmed* ear tip is a confirmed statement about an ear, not about an operation. It contributes to sterilised reaching *Likely* and can never make it *Confirmed*. This is the §4.1 rule expressed as something the resolver enforces rather than a convention it hopes for.
+
+**Who can say a cat is sterilised (amended 12 October 2026, `roles-and-invites.md` Decision 5).** A *statement that a cat is sterilised* from the team, a vet, a cat guardian (for a cat in her own colonies) or a cat owner (what counts as an owner follows SYC-130, `claiming-a-cat.md`) makes the cat *Confirmed* at once. It is recorded with who said it and in what role, and the team can mark it wrong with its own later statement; the earlier statement stays in the history. A vet's waits for SYC-24, which builds vet accounts, and an owner's waits for the claim work in SYC-130. The sentence above still holds: an ear tip on its own never makes a cat *Confirmed*.
+
+**A field check is a different thing.** A cat guardian's in-person look at an ear (*it looks clipped*) counts at once, with no team OK, and shows as *"Probably sterilised – checked in person"* under *Likely*. It never makes a cat *Confirmed*, and the team can mark it wrong. Saying "she is sterilised" is a statement about the operation; "I looked at her ear" is a statement about the ear.
+
+**The "sterilised" news (Samuel, 12 October 2026).** When a statement makes a cat *Confirmed* sterilised for the first time, the people who follow that cat are told **in the app and by a push notification, never by email**, and **once per cat, ever**: if a *Confirmed* answer is later marked wrong and then confirmed again, nobody is told a second time, because the news cannot be unsent and a second message would read as spam. Whoever's statement made the cat *Confirmed* (team, management, vet, guardian or owner), the news is the same. A field check, an ear tip, and a guardian's "not sterilised" announce nothing. No email is sent for this news.
 
 ### 4.3 How many clipped-tip sightings make it Likely?
 
