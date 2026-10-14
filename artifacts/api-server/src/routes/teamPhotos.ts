@@ -2,8 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { setPhotoVisibility, type VisibilityAction } from "../lib/photoVisibility";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
-import { refuseNotSignedIn, requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
-import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
+import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { renderPage } from "../lib/teamPages/layout";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 
@@ -70,7 +70,7 @@ function route(action: VisibilityAction) {
       switch (outcome.kind) {
         case "not_authorised":
           req.log.info({ reason: "missing_capability" }, "photo visibility refused");
-          return refuseNotSignedIn(req, res);
+          return refuseSignedIn(req, res);
         case "not_found":
           if (!isFormPost(req)) return void res.status(404).json({ error: "Not found" });
           return void res

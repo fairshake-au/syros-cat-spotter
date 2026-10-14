@@ -98,11 +98,14 @@ router.post(
 
 /**
  * GET /api/team/: the welfare queue (SYC-43 part 2, PR 1). Plain
- * server-rendered HTML with no scripts.
+ * server-rendered HTML with no scripts. `view_welfare_queue`, island-only
+ * (roles spec §6.2 note 4): it holds every report on the island, "Report an
+ * issue" reports, reporters' photos and the team's notes, none of which
+ * reaches a cat guardian.
  */
 router.get(
   "/team",
-  requireTeam("view_exact_location"),
+  requireTeam("view_welfare_queue"),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
@@ -126,7 +129,11 @@ router.get(
   },
 );
 
-/** GET /api/team/me: who is signed in, for the future screens. */
+/**
+ * GET /api/team/me: who is signed in, and what they hold and WHERE (finding
+ * S13): `"island"`, the colony ids of a cat guardian's placements, or
+ * `"anywhere"` for a power with no colony to name (creating a colony).
+ */
 router.get("/team/me", requireTeam(), (_req: Request, res: Response) => {
   const person = teamPerson(res);
   setTeamHeaders(res);
