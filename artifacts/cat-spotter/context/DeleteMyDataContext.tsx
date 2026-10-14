@@ -23,6 +23,7 @@ import {
   type DeleteOutcome,
   type ReportChoice,
 } from '@/lib/deleteMyData';
+import { clearRecentPhotos } from '@/lib/recentPhotos';
 import { readStoredDeviceId, useDevice } from './DeviceContext';
 import { useOffline } from './OfflineContext';
 import { useReportQueue } from './ReportQueueContext';
@@ -87,6 +88,8 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
     resumeSync: offline.resumeSync,
     wipePhone: async () => {
       await offline.wipeQueue();
+      // SYC-166: recent photo times and fingerprints (same-photo check).
+      await clearRecentPhotos(AsyncStorage);
       if ((await AsyncStorage.getItem(DELETE_REPORTS_KEY)) === 'delete') {
         await reportQueueRef.current.wipeReports();
       }
