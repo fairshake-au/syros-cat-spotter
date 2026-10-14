@@ -48,6 +48,7 @@ export const QUEUE_COLUMNS = {
   catId: welfareReportsTable.catId,
   submittedAt: welfareReportsTable.submittedAt,
   createdAt: welfareReportsTable.createdAt,
+  tokenChecked: welfareReportsTable.tokenChecked,
   id: welfareReportsTable.id,
 };
 
@@ -92,6 +93,11 @@ export interface QueueReport {
   teamNoteBy: TeamPerson | null;
   /** The alert email to Syros Cats; null when no alert is on record. */
   emailToTeam: EmailToTeam | null;
+  /**
+   * SYC-170: accepted while Cloudflare's check was unreachable. Open ones sit
+   * in `unchecked`, never in `open`; a closed one is in `closed`, marked.
+   */
+  unchecked: boolean;
 }
 
 export interface QueueDraft {
@@ -121,6 +127,17 @@ export interface WelfareQueue {
   drafts: QueueDraft[];
   /** How many drafts exist; `drafts` holds the newest few. */
   draftsTotal: number;
+  /**
+   * SYC-170 (spec §9.5, §5.3): reports and drafts accepted while Cloudflare
+   * was unreachable. Their own list, below every checked report and never in
+   * the urgent-first order; newest first. Should be empty almost always, so
+   * its count is an early sign the check is broken.
+   */
+  unchecked: {
+    reports: QueueReport[];
+    drafts: QueueDraft[];
+    draftsTotal: number;
+  };
   mail: MailHealth;
 }
 
@@ -160,6 +177,7 @@ function toReport(r: Row, mail: Map<number, string[]>): QueueReport {
     teamNoteAt: r.teamNoteAt?.toISOString() ?? null,
     teamNoteBy: person(r.notedByName, r.notedByLeftAt),
     emailToTeam: emailState(mail.get(r.id) ?? []),
+    unchecked: r.tokenChecked === false,
   };
 }
 
@@ -251,10 +269,32 @@ export async function getQueueReport(
  */
 export async function listWelfareQueue(): Promise<WelfareQueue> {
   const sent = eq(welfareReportsTable.isDraft, false);
-  const [openRows, closedRows, closedCount, draftRows, draftCount, mail] =
+  const draft = eq(welfareReportsTable.isDraft, true);
+  // null (before Turnstile) and true are both "checked" for the queue.
+  const checked = sql`${welfareReportsTable.tokenChecked} is distinct from false`;
+  const unchecked = sql`${welfareReportsTable.tokenChecked} = false`;
+  const isOpen = inArray(welfareReportsTable.state, [...OPEN_STATES]);
+  const draftColumns = {
+    publicId: welfareReportsTable.publicId,
+    severity: welfareReportsTable.severity,
+    lat: welfareReportsTable.lat,
+    lng: welfareReportsTable.lng,
+    createdAt: welfareReportsTable.createdAt,
+  };
+  const [
+    openRows,
+    closedRows,
+    closedCount,
+    draftRows,
+    draftCount,
+    uncheckedRows,
+    uncheckedDraftRows,
+    uncheckedDraftCount,
+    mail,
+  ] =
     await Promise.all([
       reportsQuery()
-        .where(and(sent, inArray(welfareReportsTable.state, [...OPEN_STATES])))
+        .where(and(sent, isOpen, checked))
         .orderBy(
           desc(sql`(${welfareReportsTable.severity} = 'urgent')`),
           desc(reportTime),
@@ -273,15 +313,9 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
           and(sent, inArray(welfareReportsTable.state, [...CLOSED_STATES])),
         ),
       db
-        .select({
-          publicId: welfareReportsTable.publicId,
-          severity: welfareReportsTable.severity,
-          lat: welfareReportsTable.lat,
-          lng: welfareReportsTable.lng,
-          createdAt: welfareReportsTable.createdAt,
-        })
+        .select(draftColumns)
         .from(welfareReportsTable)
-        .where(eq(welfareReportsTable.isDraft, true))
+        .where(and(draft, checked))
         .orderBy(
           desc(welfareReportsTable.createdAt),
           desc(welfareReportsTable.id),
@@ -290,26 +324,49 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
-        .where(eq(welfareReportsTable.isDraft, true)),
+        .where(and(draft, checked)),
+      // Unchecked: newest first, urgent or not (never the urgent-first order).
+      reportsQuery()
+        .where(and(sent, isOpen, unchecked))
+        .orderBy(desc(reportTime), desc(welfareReportsTable.id)),
+      db
+        .select(draftColumns)
+        .from(welfareReportsTable)
+        .where(and(draft, unchecked))
+        .orderBy(
+          desc(welfareReportsTable.createdAt),
+          desc(welfareReportsTable.id),
+        )
+        .limit(DRAFT_LIMIT),
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(welfareReportsTable)
+        .where(and(draft, unchecked)),
       mailHealth(),
     ]);
 
   const mailByReport = await mailStatesFor(
-    [...openRows, ...closedRows].map((r) => r.id),
+    [...openRows, ...closedRows, ...uncheckedRows].map((r) => r.id),
   );
+  const toDraft = (d: (typeof draftRows)[number]): QueueDraft => ({
+    id: d.publicId,
+    severity: d.severity as QueueDraft["severity"],
+    lat: d.lat,
+    lng: d.lng,
+    startedAt: d.createdAt.toISOString(),
+  });
 
   return {
     open: openRows.map((r) => toReport(r, mailByReport)),
     closed: closedRows.map((r) => toReport(r, mailByReport)),
     closedTotal: Number(closedCount[0]?.n ?? 0),
-    drafts: draftRows.map((d) => ({
-      id: d.publicId,
-      severity: d.severity as QueueDraft["severity"],
-      lat: d.lat,
-      lng: d.lng,
-      startedAt: d.createdAt.toISOString(),
-    })),
+    drafts: draftRows.map(toDraft),
     draftsTotal: Number(draftCount[0]?.n ?? 0),
+    unchecked: {
+      reports: uncheckedRows.map((r) => toReport(r, mailByReport)),
+      drafts: uncheckedDraftRows.map(toDraft),
+      draftsTotal: Number(uncheckedDraftCount[0]?.n ?? 0),
+    },
     mail,
   };
 }
@@ -326,7 +383,13 @@ export async function queueNearFeedingSites(
   try {
     return await withCheckTimeout(
       pointsNearFeedingSite(
-        [...queue.open, ...queue.closed, ...queue.drafts].map((r) => ({
+        [
+          ...queue.open,
+          ...queue.closed,
+          ...queue.drafts,
+          ...(queue.unchecked?.reports ?? []),
+          ...(queue.unchecked?.drafts ?? []),
+        ].map((r) => ({
           key: r.id,
           lat: r.lat,
           lng: r.lng,
