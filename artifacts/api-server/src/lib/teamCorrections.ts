@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { can, type Capability } from "./capabilities";
 import {
+  isWithdrawal,
   ObservationRefused,
   WITHDRAWN,
   writeObservation,
@@ -266,6 +267,11 @@ export async function supersedeStatement(
 
   return db.transaction(async (tx) => {
     const original = await lockActiveObservation(tx, input.id);
+    // A withdrawn owner claim can't be marked wrong (see correctionOf in
+    // teamCatView): refused like any answer that doesn't fit, nothing written.
+    if (isWithdrawal(original.kind as ObservationKind, original.value)) {
+      throw new ObservationRefused("MALFORMED_VALUE", "A withdrawal can't be corrected");
+    }
 
     const capability = capabilityFor(original.kind);
     if (!capability || !can(person, capability)) throw notAuthorised();

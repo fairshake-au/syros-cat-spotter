@@ -325,7 +325,7 @@ export interface WriteObservationInput {
  * nothing. The resolver ignores it, because it has no `status`. */
 export const WITHDRAWN = { withdrawn: true } as const;
 
-function isWithdrawal(kind: ObservationKind, value: unknown): boolean {
+export function isWithdrawal(kind: ObservationKind, value: unknown): boolean {
   return (
     kind === "life_status" &&
     isPlainObject(value) &&

@@ -13,7 +13,7 @@ import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
 import { can, type CapabilityHolder } from "./capabilities";
-import { loadCatRecords } from "./observations";
+import { isWithdrawal, loadCatRecords, type ObservationKind } from "./observations";
 import {
   clippedTipCount,
   resolveLifeStatus,
@@ -120,10 +120,21 @@ const str = (v: unknown): string | null =>
   typeof v === "string" && v.trim() !== "" ? v : null;
 
 /** A statement in plain English. Never includes the reason (shown apart). */
-export function describeStatement(kind: string, raw: unknown): string {
+export function describeStatement(
+  kind: string,
+  raw: unknown,
+  /** Written by a phone (the owner) rather than a team member: words a withdrawal. */
+  byDevice = false,
+): string {
   const v = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   switch (kind) {
     case "life_status":
+      // A withdrawn claim (claiming-a-cat.md §6, §7): says nothing about the
+      // cat's status itself; it takes an owner's "has a home" back.
+      if (isWithdrawal(kind as ObservationKind, raw))
+        return byDevice
+          ? "The owner said the cat doesn't live with them any more"
+          : "Owner removed by the team";
       return LIFE[v["status"] as LifeStatusValue] ?? "Life status (unreadable)";
     case "sterilised": {
       const base =
@@ -180,6 +191,8 @@ export function describeStatement(kind: string, raw: unknown): string {
  * team statement carries its reason inside its value (routes/observations.ts).
  */
 function reasonOf(o: Observation): string | null {
+  // The owner's own let-go carries an internal note, not a reason given.
+  if (o.deviceId && isWithdrawal(o.kind as ObservationKind, o.value)) return null;
   if (o.supersedesId != null && str(o.supersedeReason)) return o.supersedeReason;
   const v = o.value as Record<string, unknown> | null;
   return v && typeof v === "object" ? str(v["reason"]) : null;
@@ -226,6 +239,10 @@ export type StatementCorrection =
 
 function correctionOf(o: Observation, replaced: boolean): StatementCorrection | null {
   if (replaced) return null;
+  // A withdrawal is never "marked wrong": that would add a status under a
+  // heading that says the owner was removed, and read as if it restored the
+  // owner, which it can't. To change the cat, say its status.
+  if (isWithdrawal(o.kind as ObservationKind, o.value)) return null;
   const v = (o.value && typeof o.value === "object" ? o.value : {}) as Record<string, unknown>;
   if (o.kind === "life_status") {
     const now = v["status"];
@@ -514,7 +531,7 @@ export async function teamCatView(
     .map((o) => ({
       id: o.id,
       kind: o.kind,
-      said: describeStatement(o.kind, o.value),
+      said: describeStatement(o.kind, o.value, o.deviceId != null),
       reason: reasonOf(o),
       author: authorOf(o, people),
       observedAt: o.observedAt.toISOString(),
