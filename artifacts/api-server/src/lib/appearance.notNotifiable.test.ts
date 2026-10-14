@@ -121,6 +121,7 @@ describe("the patterns catch a reader", () => {
 describe("source: notifiers never read colour, markings or vaccinations", () => {
   const notifiers = [
     join(LIB, "notificationFanout.ts"),
+    join(LIB, "notifications.ts"),
     join(LIB, "sightingRoundUp.ts"),
     ...readdirSync(join(LIB, "mail"))
       .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
@@ -136,5 +137,30 @@ describe("source: notifiers never read colour, markings or vaccinations", () => 
 describe("source: appearance never feeds the matcher (SYC2-D8)", () => {
   it("lib/matching.ts reads no coat, markings or snapshot field", () => {
     expect(offending(join(LIB, "matching.ts"))).toEqual([]);
+  });
+});
+
+/** Reads of the new snapshot fields only, for files that legitimately call
+ * the resolver for other reasons. */
+const READS_NEW_FIELDS: RegExp[] = [
+  /\.(coat|markings|vaccinations)\b/,
+  /\[\s*["'`](coat|markings|vaccinations)["'`]\s*\]/,
+  /\bcheckReasons\b/,
+];
+
+describe("source: catHelpers, which every notifier's deceased check goes through", () => {
+  const src = readFileSync(join(LIB, "catHelpers.ts"), "utf8");
+
+  it("R7a catHelpers.ts reads no coat, markings, vaccinations or checkReasons", () => {
+    expect(READS_NEW_FIELDS.filter((re) => re.test(src)).map(String)).toEqual([]);
+  });
+
+  it("R7b isResolvedDeceased reads only the snapshot's life status", () => {
+    const start = src.indexOf("export async function isResolvedDeceased");
+    expect(start).toBeGreaterThan(-1);
+    const body = src.slice(start, src.indexOf("\n}\n", start));
+    const reads = [...body.matchAll(/\bsnapshot\.(\w+)/g)].map((m) => m[1]);
+    expect(reads.length).toBeGreaterThan(0);
+    expect([...new Set(reads)]).toEqual(["lifeStatus"]);
   });
 });
