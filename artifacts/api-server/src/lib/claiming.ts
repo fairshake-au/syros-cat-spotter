@@ -171,7 +171,7 @@ export async function letGoWithinDays(
        where cat_id = ${catId}
          and kind = 'life_status'
          and device_id = ${deviceId}
-         and value = '{"withdrawn": true}'::jsonb
+         and (value->>'withdrawn') = 'true'
          and created_at > now() - make_interval(days => ${days}::int)
     ) as found`);
   return r.rows[0]?.found === true;

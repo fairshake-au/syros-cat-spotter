@@ -614,6 +614,23 @@ describe("the owner helpers", () => {
     expect(await letGoWithinDays(db, c.id, d, 9)).toBe(true);
   });
 
+  it("letGoWithinDays still sees a withdrawal if WITHDRAWN ever gains a field (critic LOW-5)", async () => {
+    const d = dev();
+    const c = await streetCat();
+    const h = await ownerHomed(c.id, d);
+    await db.insert(observationsTable).values({
+      catId: c.id,
+      kind: "life_status",
+      value: { withdrawn: true, reason: "a future field" },
+      deviceId: d,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: daysAgo(1),
+      supersedesId: h.id,
+    });
+    expect(await letGoWithinDays(db, c.id, d, 7)).toBe(true);
+  });
+
   it("clearOwner clears the owner link, name, home note and pin, and nothing else", async () => {
     const c = await streetCat();
     await db
