@@ -232,15 +232,17 @@ router.post(
       });
     }
     try {
+      let ownerRemoved = false;
       const row =
         removeOwner && status !== "homed"
-          ? (
-              await removeOwnerAndSay(
-                teamPerson(res),
-                { catId, status, reason, observedAt: observedAtFor(date) },
-                "if_owner",
-              )
-            ).row!
+          ? await removeOwnerAndSay(
+              teamPerson(res),
+              { catId, status, reason, observedAt: observedAtFor(date) },
+              "if_owner",
+            ).then((out) => {
+              ownerRemoved = out.owner === "removed";
+              return out.row!;
+            })
           : await recordTeamStatement(teamPerson(res), {
               catId,
               kind: "life_status",
@@ -248,7 +250,9 @@ router.post(
               reason,
               observedAt: observedAtFor(date),
             });
-      if (isFormPost(req)) return void res.redirect(303, catPage(catId, "life"));
+      // Say so when the tick really took an owner off the cat.
+      if (isFormPost(req))
+        return void res.redirect(303, ownerRemoved ? catPage(catId, "ownerRemoved") : catPage(catId, "life"));
       res.status(201).json({ id: row.id });
     } catch (err) {
       refusalFor(req, res, err, back);
