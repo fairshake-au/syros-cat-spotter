@@ -537,6 +537,7 @@ function addMonths(date: Date, months: number): Date {
  * be". A welfare report or an ear-tip answer dated after the clearing
  * sighting must not hide that sighting from this rule.
  */
+// Not ranked by authorityLevel yet: newest wins until SYC-130 can check who an owner is (Samuel, 14 Oct 2026).
 export function resolveLifeStatus(
   observations: readonly Observation[],
   evidenceOfLife: EvidenceOfLife | null,
