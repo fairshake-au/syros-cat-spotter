@@ -517,6 +517,23 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
       expect((await claim(c.id, d)).status).toBe(429);
     });
 
+    it("critic L1: the owner's retries are never counted and never 429 (§3 rule 4)", async () => {
+      const c = await streetCat();
+      const d = phone("retry");
+      await met(c.id, d);
+      expect((await claim(c.id, d)).status).toBe(200);
+      for (let i = 0; i < 6; i++) {
+        const res = await claim(c.id, d);
+        expect(res.status, `retry ${i + 1}`).toBe(200);
+        expect(res.body.locationPrecision).toBe("exact");
+      }
+      expect(await homedObservations(c.id)).toHaveLength(1);
+      // Refusals still count: after 4 more (5 with the first claim), the next is 429.
+      const other = await streetCat();
+      for (let i = 0; i < 4; i++) expect((await claim(other.id, d)).status).toBe(403);
+      expect((await claim(other.id, d)).status).toBe(429);
+    });
+
     it("is per phone: another phone still has its own five", async () => {
       const c = await streetCat();
       const a = phone("limit-a");

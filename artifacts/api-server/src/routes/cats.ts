@@ -410,9 +410,10 @@ function refusalStatus(code: ClaimRefusal): number {
  * 1. the body: a pin that isn't a position is a plain 400;
  * 2. the device secret (SYC-107), so every answer below goes only to the
  *    phone itself, and only the proven id is ever checked;
- * 3. the claim limit, counting every attempt, refusals included;
- * 4. rules 1 and 2 (claimEligibility): street, no owner, met it. The same
- *    owner again is 200 with nothing written (rule 4);
+ * 3. the same owner again: 200 with nothing written and no attempt spent
+ *    (rule 4);
+ * 4. the claim limit, counting every other attempt, refusals included;
+ *    then rules 1 and 2 (claimEligibility): street, no owner, met it;
  * 5. the two confirmations, then the pin's reach from the cat's PUBLIC
  *    position, then the note's moderation, then the let-go cooldown;
  * 6. in one transaction that locks the cat row, rules 1 and 2 again,
@@ -438,12 +439,17 @@ router.post("/cats/:catId/claim", async (req, res) => {
   // ever given to the device itself.
   const deviceId = await verifyDeviceSecret(req, res, body.deviceId);
   if (!deviceId) return;
+  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  // §3 rule 4: this proven phone already owns the cat. A retry succeeds
+  // quietly, writes nothing, and never spends an attempt (critic L1).
+  if (cat && cat.ownerDeviceId === deviceId) {
+    res.json(await catPayload(cat, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
+    return;
+  }
   if (!checkClaimLimit(deviceId)) {
     res.status(429).json({ error: TOO_MANY, code: "CLAIM_LIMIT" });
     return;
   }
-
-  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   if (!cat) {
     res.status(404).json({ error: "Not found" });
     return;
