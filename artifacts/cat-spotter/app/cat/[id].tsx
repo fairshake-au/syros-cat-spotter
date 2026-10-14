@@ -129,7 +129,13 @@ export default function CatDetailScreen() {
   const fansCount = data.fansCount;
   const careTimeline = data.careTimeline;
   const isClaimed = cat.hasHome;
-  const isOwner = isClaimed && ownedCatIds.includes(cat.id);
+  // The server shows the exact spot only to the proven owner, so that is
+  // the truth about who owns the cat now. The list saved on the phone can be
+  // stale (the team removed the owner and someone else claimed), so it is
+  // only the fallback while offline.
+  const isOwner =
+    isClaimed &&
+    (isOnline ? cat.locationPrecision === 'exact' : ownedCatIds.includes(cat.id));
   const dash = '—';
   const locationLabel = cat.description?.trim();
 

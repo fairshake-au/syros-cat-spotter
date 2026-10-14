@@ -195,9 +195,24 @@ describe('the cat page and claiming (§4.1)', () => {
     ).toBeTruthy();
   });
 
+  it('a stale local list does not make a phone the owner: the server gave the public view', () => {
+    // This phone remembers owning cat 7, but the team removed it and someone
+    // else claimed: the server answers with the cell, not the exact spot.
+    h.ownedCatIds = [7];
+    page(cat({ hasHome: true, lifeStatus: 'homed', locationPrecision: 'approximate' }), false);
+    expect(screen.queryByText('Edit')).toBeNull();
+  });
+
+  it('offline, the saved list is the fallback for showing Edit', () => {
+    h.isOnline = false;
+    h.ownedCatIds = [7];
+    page(cat({ hasHome: true, lifeStatus: 'homed', locationPrecision: 'approximate' }), false);
+    expect(screen.getByText('Edit')).toBeTruthy();
+  });
+
   it('the owner sees their edit button and no new-phone line', () => {
     h.ownedCatIds = [7];
-    page(cat({ hasHome: true, lifeStatus: 'homed', ownerName: 'Eleni' }), false);
+    page(cat({ hasHome: true, lifeStatus: 'homed', ownerName: 'Eleni', locationPrecision: 'exact' }), false);
     expect(screen.getByText('Edit')).toBeTruthy();
     expect(screen.queryByText(/Got a new phone/)).toBeNull();
     fireEvent.click(screen.getByText('Edit'));

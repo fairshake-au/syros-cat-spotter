@@ -29,7 +29,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { registerModalOpen } from '@/lib/modalVisibility';
 import { classifyResolveError, isBlankName } from '@/lib/catPicker';
-import { claimRefusal, pinMovedFrom, pinTooFar } from '@/lib/claimCat';
+import { claimRefusal, isNotOwnerError, pinMovedFrom, pinTooFar } from '@/lib/claimCat';
 import { getCurrentCoords } from '@/lib/currentPosition';
 import { LocationPicker } from '@/components/LocationPicker';
 import { Button } from '@/components/purropolis/Button';
@@ -134,9 +134,22 @@ export function ClaimCatSheet({
     if (refusal.refreshPage) refreshCat();
   };
 
+  // The server says this phone isn't the owner (the team removed the owner,
+  // or someone else claimed since): forget the id here, refresh the page so
+  // it shows what is true now, and close. No message: the page speaks.
+  const dropStaleOwnership = () => {
+    removeOwnedCat(cat.id);
+    refreshCat();
+    onClose();
+  };
+
   const onEditError = (err: unknown) => {
     if (isDeviceMovedError(err)) {
       onClose();
+      return;
+    }
+    if (isNotOwnerError(err)) {
+      dropStaleOwnership();
       return;
     }
     const status = (err as { status?: number })?.status;
@@ -162,6 +175,10 @@ export function ClaimCatSheet({
       onClose();
       return;
     }
+    if (isNotOwnerError(err)) {
+      dropStaleOwnership();
+      return;
+    }
     setError(named(claimRefusal(err).key));
   };
 
@@ -182,8 +199,9 @@ export function ClaimCatSheet({
   const canSaveEdit =
     !!deviceId &&
     !isPending &&
-    !isBlankName(trimmedCatName) &&
-    trimmedHome.length > 0;
+    // The note is optional (spec §4.3): an owner who claimed without one can
+    // still rename the cat, and an emptied note saves as empty.
+    !isBlankName(trimmedCatName);
   const canClaimNow = !!deviceId && !isPending && isOnline;
 
   const placePin = (coords: { latitude: number; longitude: number }) => {
@@ -461,6 +479,7 @@ export function ClaimCatSheet({
         <Pressable
           onPress={submitEdit}
           disabled={!canSaveEdit}
+          accessibilityRole="button"
           style={[
             styles.submitBtn,
             { backgroundColor: colors.primary, opacity: canSaveEdit ? 1 : 0.5 },

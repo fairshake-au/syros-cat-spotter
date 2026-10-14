@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { Platform } from 'react-native';
@@ -302,11 +303,17 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   // Hydrate the owned-cat list from the server so edit rights survive
   // reinstalls / storage clears (the local cache is just a fast start).
+  // Cats added on this phone while the profile request is in flight. The
+  // server's list replaces the saved one, but a claim that completes before
+  // the answer arrives must not be lost by an answer that predates it.
+  const addedDuringHydration = useRef<Set<number>>(new Set());
+
   useEffect(() => {
     // The initial username claim must not compete with the full multi-query
     // profile hydration. Home and Profile fetch it independently after entry.
     if (!deviceId || !username) return;
     let cancelled = false;
+    addedDuringHydration.current = new Set();
     getProfile(deviceId)
       .then((profile) => {
         if (cancelled || !Array.isArray(profile.ownedCatIds)) return;
@@ -314,7 +321,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         // phone's, it is not merged into it, so a cat the owner let go of
         // (or the team removed the owner from) stops showing owner controls.
         // The saved list is only the fast start while offline.
-        const fromServer = Array.from(new Set(profile.ownedCatIds));
+        const fromServer = Array.from(
+          new Set([...profile.ownedCatIds, ...addedDuringHydration.current]),
+        );
+        addedDuringHydration.current = new Set();
         setOwnedCatIds(fromServer);
         AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(fromServer));
       })
@@ -324,6 +334,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, [deviceId, username]);
 
   const addOwnedCat = useCallback((catId: number) => {
+    addedDuringHydration.current.add(catId);
     setOwnedCatIds((prev) => {
       if (prev.includes(catId)) return prev;
       const next = [...prev, catId];
@@ -333,6 +344,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const removeOwnedCat = useCallback((catId: number) => {
+    addedDuringHydration.current.delete(catId);
     setOwnedCatIds((prev) => {
       if (!prev.includes(catId)) return prev;
       const next = prev.filter((id) => id !== catId);

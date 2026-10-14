@@ -94,4 +94,27 @@ describe('DeviceProvider — owned cats come from the server (SYC-130)', () => {
     expect(result.current.ownedCatIds).toEqual([9]);
     expect(lastSavedOwned()).toEqual([9]);
   });
+
+  it('a claim that completes while the profile request is in flight is kept', async () => {
+    store(SAVED);
+    let answer!: (v: { ownedCatIds: number[] }) => void;
+    getProfile.mockReturnValue(new Promise((r) => (answer = r)));
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(getProfile).toHaveBeenCalled());
+    act(() => result.current.addOwnedCat(11));
+    await act(async () => answer({ ownedCatIds: [9] })); // predates the claim
+    expect([...result.current.ownedCatIds].sort((a, b) => a - b)).toEqual([9, 11]);
+  });
+
+  it('a cat let go while the profile request is in flight is not brought back by ids added earlier', async () => {
+    store(SAVED);
+    let answer!: (v: { ownedCatIds: number[] }) => void;
+    getProfile.mockReturnValue(new Promise((r) => (answer = r)));
+    const { result } = renderHook(() => useDevice(), { wrapper });
+    await waitFor(() => expect(getProfile).toHaveBeenCalled());
+    act(() => result.current.addOwnedCat(11));
+    act(() => result.current.removeOwnedCat(11));
+    await act(async () => answer({ ownedCatIds: [9] }));
+    expect(result.current.ownedCatIds).toEqual([9]);
+  });
 });

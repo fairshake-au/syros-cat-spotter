@@ -28,6 +28,7 @@ const h = vi.hoisted(() => ({
   updateMutate: vi.fn(),
   claimOpts: undefined as any,
   letGoOpts: undefined as any,
+  updateOpts: undefined as any,
   invalidate: vi.fn(),
   removeQueries: vi.fn(),
   setQueryData: vi.fn(),
@@ -86,7 +87,10 @@ vi.mock('@workspace/api-client-react', async (orig) => {
       h.letGoOpts = o;
       return { mutate: h.letGoMutate, isPending: false };
     },
-    useUpdateCat: () => ({ mutate: h.updateMutate, isPending: false }),
+    useUpdateCat: (o: unknown) => {
+      h.updateOpts = o;
+      return { mutate: h.updateMutate, isPending: false };
+    },
     getGetCatQueryKey: (id: number) => [`/api/cats/${id}`],
   };
 });
@@ -373,6 +377,48 @@ describe("the owner's sheet: letting go (§6)", () => {
     fireEvent.click(screen.getByText(full));
     const wrapped = button(full).querySelector('div, span') as HTMLElement;
     expect(oneLine.filter((c) => !wrapped.className.split(' ').includes(c)).length).toBeGreaterThan(0);
+  });
+
+  it('an owner who claimed without a note can still rename the cat', () => {
+    const NO_NOTE = { ...OWNED, homeDescription: null } as unknown as Cat;
+    open('edit', NO_NOTE);
+    fireEvent.change(screen.getByDisplayValue('Agatha'), { target: { value: 'Agatha B' } });
+    expect(disabled(button('Save changes'))).toBe(false);
+    fireEvent.click(button('Save changes'));
+    expect(h.updateMutate).toHaveBeenCalledWith({
+      catId: 7,
+      data: { deviceId: 'dev-1', name: 'Agatha B', homeDescription: '' },
+    });
+  });
+
+  it('an emptied note saves as empty; a blank name still cannot be saved', () => {
+    open('edit', OWNED);
+    fireEvent.change(screen.getByDisplayValue('the blue house'), { target: { value: '' } });
+    expect(disabled(button('Save changes'))).toBe(false);
+    fireEvent.change(screen.getByDisplayValue('Agatha'), { target: { value: '   ' } });
+    expect(disabled(button('Save changes'))).toBe(true);
+  });
+
+  it('NOT_OWNER on let-go (the team removed this owner): drops the id, refreshes, closes', () => {
+    open('edit', OWNED);
+    act(() => h.letGoOpts.mutation.onError(refusal(403, 'NOT_OWNER')));
+    expect(h.removeOwnedCat).toHaveBeenCalledWith(7);
+    expect(h.invalidate).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('NOT_OWNER on a save does the same', () => {
+    open('edit', OWNED);
+    act(() => h.updateOpts.mutation.onError(refusal(403, 'NOT_OWNER')));
+    expect(h.removeOwnedCat).toHaveBeenCalledWith(7);
+    expect(h.invalidate).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('other refusals do not drop the id', () => {
+    open('edit', OWNED);
+    act(() => h.letGoOpts.mutation.onError(refusal(429, 'CLAIM_LIMIT')));
+    expect(h.removeOwnedCat).not.toHaveBeenCalled();
   });
 
   it('on success the cat leaves this phone’s owned list at once', () => {
