@@ -85,7 +85,7 @@ beforeAll(cleanup);
 beforeEach(async () => {
   await cleanup();
   matchCatPhoto.mockClear();
-  _resetDeviceMatchLimitForTests();
+  await _resetDeviceMatchLimitForTests();
 });
 afterAll(async () => {
   await cleanup();

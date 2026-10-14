@@ -356,7 +356,7 @@ beforeEach(async () => {
   pushMock.mockClear();
   // Every seeded world registers new phones from one test address; the
   // per-address cap (SYC-195) is not what these tests are about.
-  _resetNewDeviceLimitForTests();
+  await _resetNewDeviceLimitForTests();
 });
 
 describe("DELETE /api/me: the cat's data survives and the person is gone", () => {
