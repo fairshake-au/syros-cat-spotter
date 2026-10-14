@@ -1,5 +1,13 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CAPABILITIES, actingRole, can, capabilitiesOf, mayEnter } from "./capabilities";
+import {
+  CAPABILITIES,
+  actingRole,
+  can,
+  capabilitiesOf,
+  mayEnter,
+  mayUseWorkspace,
+} from "./capabilities";
 
 // can() is the only place a permission is decided (SYC-43 part 1 plan §7,
 // test 19; spec §7.1, §7.3).
@@ -15,7 +23,7 @@ const volunteerAndVet = {
 const nobody = { scopes: [] };
 
 describe("can()", () => {
-  it("names exactly the sixteen capabilities (§7.3, plus SYC-209's three and SYC-130's remove_owner, D6)", () => {
+  it("names exactly the seventeen capabilities (§7.3, plus SYC-209's three, SYC-130's remove_owner, D6, and use_workspace, roles spec §6.3)", () => {
     expect([...CAPABILITIES]).toEqual([
       "view_exact_location",
       "hide_photo",
@@ -33,12 +41,13 @@ describe("can()", () => {
       "add_team_note",
       "manage_people",
       "action_deletion_request",
+      "use_workspace",
     ]);
   });
 
-  it("gives staff all sixteen", () => {
+  it("gives staff all seventeen", () => {
     for (const c of CAPABILITIES) expect(can(staff, c)).toBe(true);
-    expect(capabilitiesOf(staff)).toHaveLength(16);
+    expect(capabilitiesOf(staff)).toHaveLength(17);
   });
 
   it("gives guardian, volunteer, vet and no role none", () => {
@@ -68,6 +77,48 @@ describe("mayEnter() (SYC-188)", () => {
     for (const person of [guardian, volunteerAndVet, nobody]) {
       expect(mayEnter(person)).toBe(false);
     }
+  });
+});
+
+describe("mayUseWorkspace(), the workspace door (SYC-53 PR 0.4; roles spec §6.3, T27 part)", () => {
+  const management = { scopes: [{ role: "management", colonyId: null }] };
+
+  it("is true for staff, exactly the people who get the workspace today", () => {
+    expect(mayUseWorkspace(staff)).toBe(true);
+    expect(
+      mayUseWorkspace({ scopes: [...guardian.scopes, ...staff.scopes] }),
+    ).toBe(true);
+  });
+
+  it("is false for a cat guardian, a vet, management alone (can() is still staff-only) and no role", () => {
+    for (const person of [guardian, volunteerAndVet, management, nobody]) {
+      expect(mayUseWorkspace(person)).toBe(false);
+    }
+  });
+
+  it("matches can(person, 'use_workspace') for every kind of person", () => {
+    for (const person of [staff, guardian, volunteerAndVet, management, nobody]) {
+      expect(mayUseWorkspace(person)).toBe(can(person, "use_workspace"));
+    }
+  });
+
+  // While can() is staff-only, mayEnter and mayUseWorkspace agree for every
+  // possible person, so no behaviour test can tell them apart until PR 0.5.
+  // This pins how each door is decided, so swapping one for the other (the
+  // plan's T27 probe) fails now rather than when a guardian first holds a
+  // dashboard capability. internal.doors.future.test.ts covers the route.
+  it("each door is decided by its own rule: the workspace by use_workspace, never by mayEnter; the dashboard never counts use_workspace", () => {
+    const source = readFileSync(new URL("./capabilities.ts", import.meta.url), "utf8");
+    const body = (name: string) => {
+      const start = source.indexOf(`export function ${name}(`);
+      expect(start, `${name} not found`).toBeGreaterThan(-1);
+      const end = source.indexOf("\n}\n", start);
+      return source.slice(start, end);
+    };
+    const workspace = body("mayUseWorkspace");
+    expect(workspace).toContain('can(person, "use_workspace")');
+    expect(workspace).not.toMatch(/mayEnter|CAPABILITIES|some\(/);
+    expect(body("mayEnter")).toContain('c !== "use_workspace"');
   });
 });
 
