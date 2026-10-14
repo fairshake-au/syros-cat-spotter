@@ -546,15 +546,19 @@ export interface CatRecords {
  *
  * Deliberately leaves out §3.4's fourth evidence-of-life source, a linked
  * import record's operation date (SYC-49 / SYC-82, not built).
+ *
+ * `exec` lets a caller read through its own transaction (claiming-a-cat.md
+ * §5: the claim reads the cat's status inside the transaction that locks it).
  */
 export async function loadCatRecords(
   catIds: readonly number[],
+  exec: DbOrTx = db,
 ): Promise<Map<number, CatRecords>> {
   const result = new Map<number, CatRecords>();
   const uniqueIds = [...new Set(catIds)];
   if (uniqueIds.length === 0) return result;
 
-  const identityRows = await db
+  const identityRows = await exec
     .select({
       catId: catIdentityTable.catId,
       canonicalCatId: catIdentityTable.canonicalCatId,
@@ -571,7 +575,7 @@ export async function loadCatRecords(
     ...new Set([...uniqueIds, ...identityRows.map((r) => r.catId)]),
   ];
 
-  const obsRows = await db
+  const obsRows = await exec
     .select()
     .from(observationsTable)
     .where(inArray(observationsTable.catId, allCatIds));
@@ -583,7 +587,7 @@ export async function loadCatRecords(
   // cat, so this reads it across cats: one more query, the same count
   // whatever the number of cats.
   const replacer = alias(observationsTable, "replacer");
-  const replacedWelfareRows = await db
+  const replacedWelfareRows = await exec
     .select({ id: observationsTable.id })
     .from(observationsTable)
     .innerJoin(replacer, eq(replacer.supersedesId, observationsTable.id))
@@ -595,7 +599,7 @@ export async function loadCatRecords(
     );
   const replacedWelfare = new Set(replacedWelfareRows.map((r) => r.id));
 
-  const sightingRows = await db
+  const sightingRows = await exec
     .select({
       catId: sightingsTable.catId,
       newest: sql<string>`max(${sightingsTable.createdAt})`,
@@ -609,7 +613,7 @@ export async function loadCatRecords(
     )
     .groupBy(sightingsTable.catId);
 
-  const catRows = await db
+  const catRows = await exec
     .select({ id: catsTable.id, createdAt: catsTable.createdAt })
     .from(catsTable)
     .where(inArray(catsTable.id, allCatIds));

@@ -13,7 +13,7 @@ import {
   streakFromDays,
   todayInStreakTimezone,
 } from "./streak";
-import { loadCatRecords } from "./observations";
+import { loadCatRecords, type DbOrTx } from "./observations";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
@@ -255,9 +255,14 @@ function toPublicDate(iso: string | null): string | null {
  * a cat marked "adopted" through the old admin route, with no owner in the
  * app, starts showing "Has a home" (its life_status becomes derivable),
  * which the plan says is what the team meant.
+ *
+ * `exec` reads through the caller's transaction when given (claiming-a-cat.md
+ * §5). The PR 3 gate (`pr3Recorded`) still reads the migrations table on its
+ * own connection: it says nothing about any one cat.
  */
 export async function deriveCatStatuses(
   cats: readonly { id: number; ownerDeviceId: string | null }[],
+  exec: DbOrTx = db,
 ): Promise<Map<number, DerivedCatStatus>> {
   const result = new Map<number, DerivedCatStatus>();
   if (cats.length === 0) return result;
@@ -269,7 +274,7 @@ export async function deriveCatStatuses(
     // Legacy fallback (plan, PR 4): hasHome from owner_device_id, the
     // sterilised line from the legacy `desexed` cat_updates row. One
     // batched query for every id in the page, never one per cat (§2.3).
-    const desexedRows = await db
+    const desexedRows = await exec
       .select({ catId: catUpdatesTable.catId })
       .from(catUpdatesTable)
       .where(
@@ -294,7 +299,7 @@ export async function deriveCatStatuses(
     return result;
   }
 
-  const records = await loadCatRecords(catIds);
+  const records = await loadCatRecords(catIds, exec);
   const now = new Date();
   for (const cat of cats) {
     const rec = records.get(cat.id);
