@@ -68,18 +68,18 @@ function assertWindow(windowMs: number): void {
   }
 }
 
-const buckets = new Map<string, { limit: number; windowMs: number }>();
+const buckets = new Map<string, { limit: number; windowMs: number; sliding: boolean }>();
 
 /**
  * Remember a bucket's settings; refuse the same bucket name registered with
  * different ones, because two limiters would silently share one budget.
  */
-function registerBucket(bucket: string, limit: number, windowMs: number): void {
+function registerBucket(bucket: string, limit: number, windowMs: number, sliding = false): void {
   assertWindow(windowMs);
   const seen = buckets.get(bucket);
   if (!seen) {
-    buckets.set(bucket, { limit, windowMs });
-  } else if (seen.limit !== limit || seen.windowMs !== windowMs) {
+    buckets.set(bucket, { limit, windowMs, sliding });
+  } else if (seen.limit !== limit || seen.windowMs !== windowMs || seen.sliding !== sliding) {
     throw new Error(`rate limit bucket "${bucket}" registered twice with different settings`);
   }
 }
@@ -119,11 +119,27 @@ function windowStartOf(now: number, windowMs: number): number {
   return Math.floor(now / windowMs) * windowMs;
 }
 
+export type WindowOptions = {
+  /**
+   * Sliding-window counter instead of a fixed window. A fixed window lets a
+   * caller spend the whole limit just before the boundary and again just
+   * after it (5 claims at 23:59 and 5 more at 00:01). Sliding weights the
+   * previous window's count by how much of it still lies inside the last
+   * `windowMs`: allowed while
+   * `previousHits * (1 - elapsed / windowMs) + currentHits <= limit`, where
+   * currentHits includes this request. Use it for the day-long, sensitive
+   * limits (the claim limit, the address hide limit); the 15-minute and
+   * hourly limits stay on fixed windows.
+   */
+  sliding?: boolean;
+};
+
 /**
  * Count one request against (bucket, key) and say whether it is within
- * `limit`. One atomic statement, safe across any number of servers. Throws if
- * the database does; the callers below decide whether that fails open or
- * closed. `now` is for tests.
+ * `limit`. One atomic statement (in sliding mode the previous window is read
+ * in the same statement), safe across any number of servers. Throws if the
+ * database does; the callers below decide whether that fails open or closed.
+ * `now` is for tests.
  */
 export async function consume(
   bucket: string,
@@ -132,20 +148,48 @@ export async function consume(
   windowMs: number,
   tx?: LimitsExecutor,
   now: number = Date.now(),
+  opts: WindowOptions = {},
 ): Promise<ConsumeResult> {
-  registerBucket(bucket, limit, windowMs);
+  const sliding = opts.sliding ?? false;
+  registerBucket(bucket, limit, windowMs, sliding);
   const exec = tx ?? db;
   const start = windowStartOf(now, windowMs);
   const hashed = await hashKey(key, start);
+  if (!sliding) {
+    const res = await exec.execute(sql`
+      insert into rate_limit_counters (bucket, key, window_start, window_ms, hits)
+      values (${bucket}, ${hashed}, to_timestamp(${start} / 1000.0), ${windowMs}, 1)
+      on conflict (bucket, key, window_start)
+      do update set hits = rate_limit_counters.hits + 1
+      returning hits
+    `);
+    const hits = Number((res.rows[0] as { hits: number | string }).hits);
+    return { hits, allowed: hits <= limit, resetAt: start + windowMs };
+  }
+  // The previous window's key is hashed with ITS day's salt.
+  const prevStart = start - windowMs;
+  const prevHashed = await hashKey(key, prevStart);
   const res = await exec.execute(sql`
-    insert into rate_limit_counters (bucket, key, window_start, window_ms, hits)
-    values (${bucket}, ${hashed}, to_timestamp(${start} / 1000.0), ${windowMs}, 1)
-    on conflict (bucket, key, window_start)
-    do update set hits = rate_limit_counters.hits + 1
-    returning hits
+    with cur as (
+      insert into rate_limit_counters (bucket, key, window_start, window_ms, hits)
+      values (${bucket}, ${hashed}, to_timestamp(${start} / 1000.0), ${windowMs}, 1)
+      on conflict (bucket, key, window_start)
+      do update set hits = rate_limit_counters.hits + 1
+      returning hits
+    )
+    select cur.hits as hits,
+           coalesce((select hits from rate_limit_counters
+                      where bucket = ${bucket} and key = ${prevHashed}
+                        and window_start = to_timestamp(${prevStart} / 1000.0)), 0) as prev_hits
+      from cur
   `);
-  const hits = Number((res.rows[0] as { hits: number | string }).hits);
-  return { hits, allowed: hits <= limit, resetAt: start + windowMs };
+  const row = res.rows[0] as { hits: number | string; prev_hits: number | string };
+  const estimate = slidingEstimate(Number(row.prev_hits), Number(row.hits), now - start, windowMs);
+  return { hits: Math.ceil(estimate), allowed: estimate <= limit, resetAt: start + windowMs };
+}
+
+function slidingEstimate(prevHits: number, curHits: number, elapsedMs: number, windowMs: number): number {
+  return prevHits * (1 - elapsedMs / windowMs) + curHits;
 }
 
 /** How many requests (bucket, key) has in its current window, counting nothing. */
@@ -155,6 +199,7 @@ export async function peek(
   windowMs: number,
   tx?: LimitsExecutor,
   now: number = Date.now(),
+  opts: WindowOptions = {},
 ): Promise<{ hits: number; resetAt: number }> {
   assertWindow(windowMs);
   const exec = tx ?? db;
@@ -165,8 +210,17 @@ export async function peek(
      where bucket = ${bucket} and key = ${hashed}
        and window_start = to_timestamp(${start} / 1000.0)
   `);
-  const hits = res.rows[0] ? Number((res.rows[0] as { hits: number | string }).hits) : 0;
-  return { hits, resetAt: start + windowMs };
+  const cur = res.rows[0] ? Number((res.rows[0] as { hits: number | string }).hits) : 0;
+  if (!opts.sliding) return { hits: cur, resetAt: start + windowMs };
+  const prevStart = start - windowMs;
+  const prevHashed = await hashKey(key, prevStart);
+  const prevRes = await exec.execute(sql`
+    select hits from rate_limit_counters
+     where bucket = ${bucket} and key = ${prevHashed}
+       and window_start = to_timestamp(${prevStart} / 1000.0)
+  `);
+  const prev = prevRes.rows[0] ? Number((prevRes.rows[0] as { hits: number | string }).hits) : 0;
+  return { hits: Math.ceil(slidingEstimate(prev, cur, now - start, windowMs)), resetAt: start + windowMs };
 }
 
 /** Forget one key's count in its current window. */
@@ -219,6 +273,7 @@ export class PostgresStore implements Store {
     private readonly bucket: string,
     private readonly limit: number,
     private readonly failOpen: boolean,
+    private readonly sliding: boolean = false,
   ) {}
 
   init(options: Options): void {
@@ -227,7 +282,9 @@ export class PostgresStore implements Store {
 
   async increment(key: string): Promise<IncrementResponse> {
     try {
-      const r = await consume(this.bucket, key, this.limit, this.windowMs);
+      const r = await consume(this.bucket, key, this.limit, this.windowMs, undefined, Date.now(), {
+        sliding: this.sliding,
+      });
       return { totalHits: r.hits, resetTime: new Date(r.resetAt) };
     } catch (err) {
       logger.error(
@@ -268,6 +325,8 @@ type SharedLimiterOptions = {
   message: object;
   /** See `PostgresStore`. True only for the cat-in-trouble routes. */
   failOpen?: boolean;
+  /** Sliding window instead of a fixed one; see `WindowOptions`. */
+  sliding?: boolean;
 };
 
 /**
@@ -276,7 +335,7 @@ type SharedLimiterOptions = {
  * generator, `ipKeyGenerator(req.ip)`) and hashed by `consume`.
  */
 export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
-  registerBucket(opts.bucket, opts.limit, opts.windowMs);
+  registerBucket(opts.bucket, opts.limit, opts.windowMs, opts.sliding ?? false);
   const failOpen = opts.failOpen ?? false;
   const limiter = rateLimit({
     windowMs: opts.windowMs,
@@ -284,7 +343,7 @@ export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
     standardHeaders: true,
     legacyHeaders: false,
     message: opts.message,
-    store: new PostgresStore(opts.bucket, opts.limit, failOpen),
+    store: new PostgresStore(opts.bucket, opts.limit, failOpen, opts.sliding ?? false),
   });
   return (req, res, next) => {
     void limiter(req, res, (err?: unknown) => {
@@ -303,8 +362,14 @@ export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
 
 // ── The sweep ──────────────────────────────────────────────────────────────
 
-/** How long a row is kept after its window has ended. */
-export const COUNTER_KEEP_AFTER_END_HOURS = 1;
+/**
+ * How long a row is kept after its window has ended: an hour, or a whole
+ * window if that is longer. A sliding limit still reads the previous window
+ * while the current one runs, so a row must outlive its window by one more
+ * window. (A day-long row therefore lives about two days; a 15-minute or
+ * hourly one about an hour or two.)
+ */
+export const COUNTER_KEEP_AFTER_END_MIN_MS = 60 * 60 * 1000;
 
 export type LimitsSweepResult = { countersDeleted: number; saltsDeleted: number };
 
@@ -315,8 +380,8 @@ export type LimitsSweepResult = { countersDeleted: number; saltsDeleted: number 
 export async function sweepRateLimits(now: number = Date.now()): Promise<LimitsSweepResult> {
   const counters = await db.execute(sql`
     delete from rate_limit_counters
-     where window_start + window_ms * interval '1 millisecond'
-           < to_timestamp(${now} / 1000.0) - make_interval(hours => ${COUNTER_KEEP_AFTER_END_HOURS})
+     where window_start + (window_ms + greatest(window_ms, ${COUNTER_KEEP_AFTER_END_MIN_MS})) * interval '1 millisecond'
+           < to_timestamp(${now} / 1000.0)
   `);
   // A salt is only read while a window that started that day is live, so
   // yesterday's is already unused once today's first windows are over.
