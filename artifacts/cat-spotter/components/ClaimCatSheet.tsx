@@ -423,6 +423,7 @@ export function ClaimCatSheet({
           block
           disabled={isPending || !isOnline}
           onPress={submitLetGo}
+          wrapLabel
         >
           {letGo.isPending ? (
             <ActivityIndicator size="small" color={colors.secondaryForeground} />

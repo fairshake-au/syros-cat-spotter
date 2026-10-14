@@ -92,6 +92,7 @@ vi.mock('@workspace/api-client-react', async (orig) => {
 });
 
 import { ClaimCatSheet } from '../ClaimCatSheet';
+import { Button } from '../purropolis/Button';
 import { TRANSLATIONS } from '@/lib/i18n';
 
 const en = TRANSLATIONS.en;
@@ -354,6 +355,24 @@ describe("the owner's sheet: letting go (§6)", () => {
     fireEvent.click(screen.getByText('Agatha doesn’t live with me any more'));
     fireEvent.click(button('Agatha doesn’t live with me any more'));
     expect(h.letGoMutate).toHaveBeenCalledWith({ catId: 7, data: { deviceId: 'dev-1' } });
+  });
+
+  it('the confirm button’s label is not cut off with an ellipsis, even for a long name', () => {
+    const LONG = { ...OWNED, name: 'Preview Street Cat With A Long Name' } as unknown as Cat;
+    open('edit', LONG);
+    fireEvent.click(screen.getByText('Preview Street Cat With A Long Name doesn’t live with me any more'));
+    const full = 'Preview Street Cat With A Long Name doesn’t live with me any more';
+    const label = button(full).querySelector('div, span') as HTMLElement;
+    expect(label.textContent).toBe(full);
+    // A default button label carries react-native-web's one-line class.
+    cleanup();
+    render(<Button>{full}</Button>);
+    const oneLine = screen.getByText(full).className.split(' ');
+    cleanup();
+    open('edit', LONG);
+    fireEvent.click(screen.getByText(full));
+    const wrapped = button(full).querySelector('div, span') as HTMLElement;
+    expect(oneLine.filter((c) => !wrapped.className.split(' ').includes(c)).length).toBeGreaterThan(0);
   });
 
   it('on success the cat leaves this phone’s owned list at once', () => {

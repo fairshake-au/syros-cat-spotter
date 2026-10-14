@@ -20,6 +20,11 @@ export interface ButtonProps {
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /**
+   * Let a long text label wrap onto more lines instead of being cut short with
+   * an ellipsis. Off by default, so every other button looks as it did.
+   */
+  wrapLabel?: boolean;
 }
 
 const sizeConfig: Record<ButtonSize, { fontSize: number; paddingVertical: number; paddingHorizontal: number; minHeight: number }> = {
@@ -39,6 +44,7 @@ export function Button({
   onPress,
   style,
   accessibilityLabel,
+  wrapLabel = false,
 }: ButtonProps) {
   const colors = useColors();
   const sz = sizeConfig[size];
@@ -84,8 +90,12 @@ export function Button({
       {iconLeft ? <View style={styles.icon}>{iconLeft}</View> : null}
       {isTextChildren(children) ? (
         <Text
-          style={[styles.label, { fontSize: sz.fontSize, color: v.color }]}
-          numberOfLines={1}
+          style={[
+            styles.label,
+            { fontSize: sz.fontSize, color: v.color },
+            wrapLabel && styles.wrapLabel,
+          ]}
+          numberOfLines={wrapLabel ? undefined : 1}
         >
           {children}
         </Text>
@@ -108,6 +118,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fonts.displaySemiBold,
   },
+  wrapLabel: { flexShrink: 1, textAlign: 'center' },
   icon: {
     alignItems: 'center',
     justifyContent: 'center',
