@@ -95,3 +95,124 @@ Do each, confirm the named test goes red, restore:
 ### Rollback
 
 Revert. No data is stored in the new form; an address built before the revert is simply less precise.
+
+---
+
+## Slice 2 · The photo's date and time (iPhone app, Android app; the website keeps today's behaviour)
+
+**What a spotter sees afterwards.** On the iPhone and Android apps, picking a photo from the library dates the sighting to when the photo was **taken**. Under the photo a line says "Photo taken 3 October, 18:42 (Greek time)", always in Greek time whatever the phone's own zone is, so it matches how the streak day is counted. A photo from more than 21 days ago is not accepted: they see "This photo was taken on 12 September, more than 21 days ago. We can only record sightings from the last 21 days. Please choose a newer photo." with a button that opens the library again. A screenshot or forwarded photo that carries no time is recorded as now, and the screen says "This photo doesn't say when it was taken, so the sighting will be recorded as now." Two different photos from the same second both count as sightings (the second gets one millisecond later), and picking the same photo twice says "You've already logged this photo." On the **website** nothing changes in this slice: the photo is still dated to the moment it is picked, and no line claims otherwise, because the website reader is slice 2W. The camera is untouched: a photo taken now is dated now.
+
+**Branch / PR:** `claude/syc-166-photo-time`, one PR, after slice 1 is merged. It does **not** wait on SYC-280 (Samuel, 14 October): the clock order is built to give a defined answer for every combination of tags the device check could report.
+
+### What the code does today (verified on `7089870`)
+
+- **Pick sets the time to now.** `pickPhoto` (`artifacts/cat-spotter/app/(tabs)/spot.tsx:290-296`) calls `setCapturedAt(new Date().toISOString())` for both the library and the system-camera shutter. The live camera does the same at `:351`. The state lives at `:145` and is read at submit: `const sightingTime = capturedAt ?? new Date().toISOString()` (`:424`), then sent as `capturedAt` (`:449`) or queued as `createdAt` (`:459`). The queue sends it back as `capturedAt: item.createdAt` (`context/OfflineContext.tsx:401`).
+- **The library picker** is called with `base64: true`, `quality: 1`, `preferredAssetRepresentationMode: Current` (`spot.tsx:272-279`), and **no `exif` option**, so no tags come back today. The picker is `expo-image-picker ~17.0.9` (`package.json:48`), resolved to 17.0.11 in `pnpm-lock.yaml:3936`. Its `exif` option exists for iOS and Android only (`ImagePicker.types.d.ts`, the `exif?: boolean` doc); its website code does not read tags (`ExponentImagePicker.web.js:111`, "TODO ... add exif support"), and it does return the chosen `File` and, with `base64: true`, the base64 of the whole file.
+- **Compression happens after the tags are available, and it does not need to matter.** `toPickedPhoto` (`spot.tsx:97-109`) uses the picker's own base64 unless it is over 15 MB, in which case `shrink` re-encodes through `ImageManipulator` (`:78-85`), which drops the tags. On a weak connection `optimizePhotoForUpload` (`:435`, `lib/photoUpload.ts:42`) re-encodes again, at send time. Both run on the *picture*; neither touches the picker's `asset.exif` object. So the plan reads the tags from the picker's answer **at pick time, before either step**, and holds only the parsed time (spec §4). Order matters and is tested (spec test 7).
+- **The server.** `clampCaptureTime` moves a time older than 30 days to "30 days ago" without telling anyone, and a future time (more than 5 minutes ahead) to now (`artifacts/api-server/src/lib/captureTime.ts:20-23`, `:43-44`). A sighting from the same device with the same capture time is treated as a repeat: it returns the existing sighting and **never stores the second photo** (`routes/sightings.ts:511-521`, comparing `createdAt` to the clamped instant exactly; the column is `timestamptz`, `lib/db/src/schema/sightings.ts:28`, so milliseconds survive).
+- **The queue's 30-day staleness** is in `lib/offlineQueue.ts:14` (`MAX_QUEUE_AGE_MS`) and `:56-64` (`markStaleItems`, comparing `createdAt` to now), **not** in `reportQueue.ts` or `queueStore.ts` (see Collisions). A photo 21 days old therefore has 9 days of saved-for-later life.
+- **Time zones in the app** already use `Intl.DateTimeFormat` with `timeZone: 'Europe/Athens'` (`lib/campaignDates.ts:9-20`), so the plan has a precedent that works in the app's JS engine and does not add a date library.
+- **No tag-reading code exists** anywhere in `artifacts/cat-spotter` today.
+
+### Files
+
+New (all pure, framework-free, so they test without React Native):
+- `artifacts/cat-spotter/lib/photoClock.ts`: `extractTimeTags`, `resolvePhotoTime`, `MAX_PHOTO_AGE_DAYS = 21`, `athensWallClockToInstant`, `formatPhotoTaken`.
+- `artifacts/cat-spotter/lib/pickedAsset.ts`: turns a picker asset into `{ photo, timeInfo }` (calls the injected `shrink`, reads tags from `asset.exif` **before** it).
+- `artifacts/cat-spotter/lib/recentPhotos.ts`: the device's list of recent capture times and photo fingerprints (Decision 2 B).
+- Tests: `lib/__tests__/photoClock.test.ts`, `pickedAsset.test.ts`, `recentPhotos.test.ts`.
+
+Edited:
+- `app/(tabs)/spot.tsx` (wiring only; the logic lives in the libs above).
+- `lib/i18n.ts`: five keys in en, el, fr: `photoTakenAt`, `photoNoTime`, `photoTooOld`, `photoAlreadyLogged`, `photoAlreadyLoggedOpen`. Appended in one block headed `// SYC-166` at the end of each dictionary, to keep merges with other tickets trivial.
+- `context/DeleteMyDataContext.tsx`: one line in `wipePhone` (`:88-95`) calling `clearRecentPhotos()`, see "Privacy" below.
+- Server test only: `artifacts/api-server/src/lib/imageValidation.exif.test.ts` (SYC-260's XMP line).
+- New server test `artifacts/api-server/src/routes/sightings.backdatedPublic.test.ts`.
+
+**Not touched:** `lib/offlineQueue.ts`, `lib/queueStore.ts`, `lib/reportQueue.ts`, `context/OfflineContext.tsx`, `context/ReportQueueContext.tsx`, any server route, any schema.
+
+### The clock (spec §3.4), exactly
+
+`extractTimeTags(exif)` takes whatever `asset.exif` is and returns **only** these strings, if present: `DateTimeOriginal`, `OffsetTimeOriginal`, `SubSecTimeOriginal`, `GPSDateStamp`, `GPSTimeStamp`. It accepts a flat dictionary (Android shape) and one nested under `{Exif}` / `{GPS}` (the iPhone's native shape), and **returns nothing else**. In particular it does not return, copy or keep any latitude, longitude, altitude or accuracy value. This is the privacy line for slice 2: asking the picker for `exif: true` puts the photo's GPS in memory on the phone for the lifetime of the `asset`; the extractor is the only code that ever sees that object, and the object is not stored in state, passed on, or logged (test below). The exact key shapes must be captured from a real iPhone and Android for the fixtures; until SYC-280's results are in, the fixtures are written from the picker's documented shape and the iOS simulator (see Verification), and both shapes are accepted.
+
+`resolvePhotoTime(tags, now)` returns one of:
+1. **Photo time plus its own offset** (`DateTimeOriginal` + `OffsetTimeOriginal`): the instant is exact. Source `photo+offset`.
+2. **No own offset, GPS clock present** (`GPSDateStamp` + `GPSTimeStamp`) and the two are within 24 hours of each other: offset = (photo wall-clock read as if UTC) minus (GPS time), rounded to the nearest 15 minutes. Instant = wall-clock minus that offset. Source `photo+gps-offset`. **Plan hardening, not in the spec:** the rounded offset must also be a real-world zone offset (between -12:00 and +14:00) **and** the unrounded difference must be within 3 minutes of the rounded one, otherwise the GPS clock is distrusted (a phone that reuses an hours-old fix produces an off-grid difference) and rule 3 applies. See Decision B for Samuel.
+3. **Otherwise** the wall-clock is read as **Greek time** (Europe/Athens). Source `photo+athens`.
+4. **The GPS clock never sets the time on its own.** If `DateTimeOriginal` is missing there is no time, even if a GPS clock exists. Result `{ kind: 'none', reason: 'missing' }`.
+5. **Nonsense is ignored:** an unparseable string, an impossible date, or an instant more than 5 minutes in the future (the server's own skew, `captureTime.ts:23`) is `{ kind: 'none', reason: 'unreadable' | 'future' }`.
+6. **Too old:** an instant older than `MAX_PHOTO_AGE_DAYS` (21) days is `{ kind: 'tooOld', instant }`.
+7. **Sub-seconds** (`SubSecTimeOriginal`) are added as milliseconds when present. It makes a collision less likely and costs nothing; it never changes which second the photo belongs to.
+
+`athensWallClockToInstant(naive)` converts a wall-clock reading to a UTC instant with `Intl`, not with a hard-coded +2/+3. It defines the two awkward nights: on 25 October 2026 the clocks go back at 04:00 summer time, so 03:00 to 03:59 happens twice, and the **earlier** instant is chosen; on the last Sunday of March 2027 the clocks jump from 03:00 to 04:00, and a nonexistent 03:30 is read as 04:30 summer time. Both are named tests.
+
+`formatPhotoTaken(instant, language)` formats "3 October, 18:42" (en) in Athens time using the app's language, for the `{when}` in `photoTakenAt`. `photoTooOld`'s `{date}` uses the same formatter without the time, and `{days}` is `MAX_PHOTO_AGE_DAYS`.
+
+### Same-second photos and the same photo twice (Decision 2 B)
+
+`recentPhotos.ts` keeps a capped list (last 30 days, at most 200 entries) of `{ capturedAtMs, fingerprint, localId?, sightingId? }` in the device's own storage under the key `cat-spotter/recent-photos-v1` (AsyncStorage on phones, local storage on the website, as `keepSafe.ts` and `welfareGuidanceCache.ts` already do). It is **separate from the queue**: it is not built on `queueStore.ts`, carries no photo, and is written only by this slice's code.
+
+- **Fingerprint:** file size plus a fast non-cryptographic hash (FNV-1a) of the first 64 KB of the picker's base64 (the first 87,384 characters). Same photo picked twice gives the same fingerprint; two different photos from one burst differ in size or content. It is computed once, at pick time, from the string already in memory.
+- **Different photo, same second:** `uniqueCaptureTime(instantMs, fingerprint, list)` adds one millisecond at a time until the time matches no entry, **at submit time**, from the list as it stands. Because an entry is written only after a send succeeds or a save-for-later succeeds, a retry of a half-arrived send recomputes the same value and the server's own repeat protection (`sightings.ts:511-521`) still catches it. Entries from camera sightings are recorded too (time only).
+- **Same photo:** if the fingerprint is in the list, the pick stops with the `photoAlreadyLogged` line and, where the sighting is still reachable, an "Open that sighting" button (`photoAlreadyLoggedOpen`). Decision C covers what "open" does.
+- **Written** after "sent" (`spot.tsx:477`'s `case 'sent'`) and after a successful `enqueue` (`:453`). Nothing is written for a failed send or a photo that is cleared.
+- **Delete my data** (`DeleteMyDataContext.tsx:88-95`): `wipePhone` also calls `clearRecentPhotos()`. This matters because spec §5.8 says "nothing new is stored that [delete-my-data] would miss", and Decision 2 B stores something new (see Spec vs code).
+
+### The Spot screen
+
+- `choosePhoto` (`spot.tsx:239-288`) passes `exif: true` to `launchImageLibraryAsync` only (not the camera: a camera photo is taken now). It returns `{ photo, timeInfo }` from `pickedAsset.ts`; `replaceRejectedPhoto` (`:398-412`) keeps ignoring the time info (it preserves the old item's time on purpose: a rejected sighting's replacement photo is for the same sighting) and gets a one-line comment saying so.
+- `pickPhoto` for the library: if `timeInfo.kind === 'tooOld'`, set a new `photoProblem` state (`{ kind: 'tooOld', date }`) and **do not** set the photo. The Spot screen shows the explanation in the same card style the other photo errors use, with a "Choose from library" button that calls `pickPhoto(false)` directly from its own tap (a browser only opens a file chooser from a direct tap, which is why this is an inline card and not an `await`ed dialog; the camera code makes the same point at `spot.tsx:315-318`). If `kind === 'ok'`, `setCapturedAt(instant.toISOString())` and show `photoTakenAt`. If `none`, `setCapturedAt(now)` as today and, **on phones only**, show `photoNoTime`. On the website `timeInfo.kind` is `'unread'` and no line is shown, because we have not read the file (that is 2W).
+- `photoProblem` is cleared by `clearPhoto` (`:233`) and by a new pick.
+- `submit` (`:419`): `sightingTime` goes through `uniqueCaptureTime` before it is sent or queued.
+- The line "Photo taken ..." sits between the photo card (`NewSpotIntro`, `:826`) and "Where did you see it?".
+- `confirmLocationHint` ("It starts near where you are.") is unchanged in this slice.
+
+### Steps (test first, each its own commit)
+
+1. **Probe first, server:** in `imageValidation.exif.test.ts` add `expect(outputMeta.xmp).toBeUndefined()` to both existing cases and a fixture whose *input* carries an XMP block with a position (`sharp` `withMetadata` XMP, or a hand-built APP1 segment), asserting `inputMeta.xmp` is defined first, as the existing test does for EXIF (`:48-56`). If sharp's re-encode leaves XMP in, this is a **real server bug found early**: fix it in `imageValidation.ts` in the same commit and say so in the PR. (SYC-260.)
+2. **`photoClock.test.ts`, red then green** (spec §9 tests 1 (time half), 2, 3, 13):
+   - `photo time plus its own offset wins` (iPhone fixture, `+03:00`).
+   - `GPS clock fills a missing offset`: photo `2026-10-03 18:42:10`, no offset, GPS `15:42:00 UTC` on the same date, gives 15:42:10 UTC.
+   - **`GPS clock 30 minutes off the photo time: the photo time wins`** (spec §9 test 2's named fixture). Written two ways: with an own offset (own offset wins outright) and without (the 30-minute gap is off the 15-minute grid by more than 3 minutes, so the GPS clock is distrusted and Athens time is used).
+   - `GPS clock alone never sets the time` (no `DateTimeOriginal` -> `none/missing`).
+   - `no offset, no GPS clock -> read as Greek time`, summer and winter.
+   - `25 October 2026 03:30 is one defined instant` (the earlier one); `28 March 2027 03:30 (nonexistent) resolves to 04:30`.
+   - `a future time and an unreadable time fall back to none`; edge: now + 5 minutes accepted, now + 5 minutes + 1 ms refused.
+   - **`the 21-day edge`**: one minute inside is `ok`, one minute outside is `tooOld`, and the `photoTooOld` text carries the right date and `21`.
+   - `MAX_QUEUE_AGE_MS minus the photo limit leaves at least 9 days` (imports `MAX_QUEUE_AGE_MS` from `offlineQueue.ts`): the relationship that made 21 days the answer in Decision 1 is pinned, so changing either constant fails loudly.
+   - `a phone set to Berlin still shows Greek time`: with `process.env.TZ='Europe/Berlin'` for the test, a photo at 18:42 Greek time displays "18:42 (Greek time)" (spec §9 test 13).
+   - `extractTimeTags` shapes: iPhone nested `{Exif},{GPS}`, Android flat, both with a fixture GPS position of `37.4412345, 24.9412345` present in the input, and `JSON.stringify(output)` contains **no** part of it (value-based privacy test; the extractor cannot leak what it never returns).
+3. **`pickedAsset.test.ts`** (spec §9 test 7): with a mocked asset and a fake `shrink`, the over-15 MB path and the weak-connection path give the **same** time info as the plain path. A source check: `.exif` is read in exactly one file (`pickedAsset.ts`), `asset.exif` is never assigned to state, passed into a hook, or logged anywhere under `app/`, `components/`, `context/`, `hooks/` or `lib/` (same style as `reviewRoutes.test.ts`'s scan).
+4. **`recentPhotos.test.ts`** (spec §9 test 9): two different photos with the same second make two entries, the second one millisecond later; three in one second get +0, +1, +2; the same photo picked twice is caught (`already-logged`) and returns the stored `localId`/`sightingId`; a retry of one send (not recorded, because it never succeeded) returns the identical time; entries older than 30 days and beyond 200 are dropped; corrupt storage returns an empty list and never throws; `clearRecentPhotos` empties it.
+5. **Implement** the three libs, then the Spot wiring, then the five i18n keys with the spec's §8 text verbatim, then the `wipePhone` line. `lib/__tests__/i18n.test.ts` already enforces: same keys in all three languages, same `{placeholders}`, French in "tu".
+6. **Server test** `sightings.backdatedPublic.test.ts` (spec §9 test 8, new part): a sighting created with `capturedAt` 20 days ago still serialises with a **date only** in every public payload that shows it (cat list, cat page sightings list), asserted against the real serialiser output.
+7. **Walk the flows** (Verification), then a draft PR.
+
+### Tests that must exist when this slice ships (spec section 9 mapping)
+
+Test 1 (time half), 2, 3, 7, 9, 13 and 10 (the five keys), plus 8's server parts. Tests 4, 5, 6a-6d (the position parts), 11, 12, 14, 15 belong to slices 2W to 5.
+
+### Mutation probes (the limit, the order and the dedupe are silent failures)
+
+1. Delete the 21-day check -> `the 21-day edge` red.
+2. Make the GPS clock win over the photo time -> the 30-minute fixture red.
+3. Read the wall-clock as UTC instead of Athens -> the summer/winter test and the DST tests red.
+4. Accept a future time -> `a future time` red.
+5. Remove the one-millisecond bump -> `two different photos with the same second` red.
+6. Make the fingerprint a constant -> `two different photos` red (different photos are wrongly called the same); make it always differ -> `the same photo picked twice` red.
+7. Record the entry before the send succeeds -> `a retry of one send returns the identical time` red.
+8. Store `asset.exif` in state or pass it to a logger -> the source check red, and the value-based `JSON.stringify` test red if the extractor is bypassed.
+9. Show `photoNoTime` on the website -> the platform test for `'unread'` red.
+10. Forget `clearRecentPhotos` in `wipePhone` -> a test on `DeleteMyDataContext` (extend `ReportQueueContext.deleteMyData.test.tsx`'s pattern with a spy) red.
+
+### Verification
+
+- Automated: `cat-spotter` typecheck and tests; `api-server` typecheck and tests (the XMP and backdated tests).
+- **Browser, the website** (nothing should change but the new keys and the unchanged behaviour): at ~390 px and desktop, in en, el (`cat-spotter/language` = `el`) and fr, with real data from the local API, pick a photo from disk and confirm: still dated to now, **no** "Photo taken" or "doesn't say when" line (honest: the reader is 2W), the flow submits, the review screen opens.
+- **iOS simulator for the iPhone app** (this is where Claude can test the iPhone path directly): import fixture photos into the simulator's library with `xcrun simctl addmedia` (one with `DateTimeOriginal` and `OffsetTimeOriginal`, one older than 21 days, one screenshot-like with no tags, two from the same second), and walk: "Photo taken ..." line, the too-old card and its button, `photoNoTime`, two same-second photos both submitting, the same photo twice. Record what the simulator's picker returns for each tag in the PR; it feeds SYC-280 (C3) but is not a substitute for it.
+- **Real-device check, required for every claim the spec marks [confirm]:** the merged-or-branch build on one real iPhone and one real Android phone. Pick a fresh photo and read the "Photo taken ..." line against the camera roll's own time: that proves, on the phone, **C3** (iPhone time and offset arrive) and **C4** (Android time arrives, with or without GPS clock and offset). The slice ships without it (the clock order is safe for every outcome), but the PR says plainly which results are unconfirmed, and the results go into spec §4.2's table via SYC-280. If this slice's build is the one SYC-280 uses as its "separate test build", the check costs nothing extra.
+- Languages: the five new keys are drafts for SYC-4 native review.
+
+### Rollback
+
+Revert the PR. Sightings already saved keep their true capture times (they are ordinary valid timestamps). The recent-photos list is a few kilobytes of device storage; reverting leaves it unread and `Delete my data` from an older build would not clear it, so the revert PR also keeps `clearRecentPhotos` until the key is retired.
