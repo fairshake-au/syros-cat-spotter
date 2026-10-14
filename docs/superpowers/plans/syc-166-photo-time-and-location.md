@@ -2,7 +2,7 @@
 
 **Spec:** `docs/specs/photo-location-from-library.md`, approved by Samuel on 14 October 2026, every decision as recommended (Decisions 1 to 7). Its [review](../../specs/reviews/photo-location-from-library-review.md) is folded into the spec (§13).
 **Samuel's condition on the build (Linear, 14 October):** build the photo's date and time first, because it works whatever the device check finds. "Start the map where the photo was taken" is a separate, later slice that waits on the device check (SYC-280). **SYC-258 ships first**, and SYC-166 must not ship before it (spec §5.1).
-**Status:** for Samuel's approval. Nothing here is built. This document changes no code.
+**Status:** **approved by Samuel on 14 October 2026, with every recommendation**: A1 (website time reader straight after slice 2), B2 with B-30 (ii) (whole-hour offsets only), C2, D1 (weekday up to 6 days, then the date), E1 (4 s, 2 km), F2 (SYC-308), G as recommended (decide when SYC-280 results arrive; G2 if nothing delivers a position), H2. Slice 1 started the same day.
 **Checked against:** `origin/main` at `7089870` (merged 14 October 2026, 04:04 UTC). Every "exists today" claim names the file and line it was read at on that commit. Platform claims the spec marks **[confirm]** are not treated as fact anywhere below.
 
 ---
