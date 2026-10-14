@@ -49,9 +49,9 @@ export function spottedAgainMessage(catName: string, sightingAt: Date, now: Date
     return `${catName} was spotted again!`;
   }
   const seen = athensDay(sightingAt);
-  const daysBack = Math.round(
-    (utcMidnight(athensDay(now).ymd) - utcMidnight(seen.ymd)) / DAY_MS,
-  );
+  // Both are UTC midnights, so this is a whole number of days whatever the
+  // clocks did in Athens in between.
+  const daysBack = (utcMidnight(athensDay(now).ymd) - utcMidnight(seen.ymd)) / DAY_MS;
   return daysBack <= WEEKDAY_UP_TO_DAYS
     ? `${catName} was seen on ${seen.weekday}`
     : `${catName} was seen on ${seen.dayMonth}`;

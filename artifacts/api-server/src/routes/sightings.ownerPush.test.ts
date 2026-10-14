@@ -244,6 +244,21 @@ describe("the owner's push for a sighting, and the evening round-up", () => {
     ]);
     // The owner had it live and is never in the round-up.
     expect(pushesTo(owner)).toHaveLength(0);
+
+    // Their in-app rows show the stored sentence, so the old photo names the
+    // day there (Samuel, 14 Oct 2026): a day or a date, never a time.
+    const followerRow = async (deviceId: string) => {
+      const [row] = await db
+        .select({ message: catUpdatesTable.message })
+        .from(notificationsTable)
+        .innerJoin(catUpdatesTable, eq(notificationsTable.catUpdateId, catUpdatesTable.id))
+        .where(eq(notificationsTable.deviceId, deviceId));
+      return row?.message;
+    };
+    const oldRow = await followerRow(followerOld);
+    expect(oldRow).toBe(`${oldCat.name} was seen on ${athensWeekday(threeDaysAgo)}`);
+    expect(oldRow).not.toMatch(/\d{1,2}[:.]\d{2}|\bam\b|\bpm\b/i);
+    expect(await followerRow(followerFresh)).toBe(`${freshCat.name} was spotted again!`);
   });
 
   it("a new cat has no owner, so its 'just discovered' message reaches nobody live", async () => {
