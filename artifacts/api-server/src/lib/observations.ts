@@ -510,17 +510,21 @@ function validateValue(
       if (
         clinic !== undefined &&
         (typeof clinic !== "string" ||
-          clinic.trim().length < 1 ||
+          clinic !== clinic.trim() ||
+          clinic.length < 1 ||
           clinic.length > 120)
       ) {
         refuse(
           "MALFORMED_VALUE",
-          "vaccinated.clinic must be a non-blank string of at most 120 characters",
+          "vaccinated.clinic must be trimmed, non-blank and at most 120 characters (callers store it trimmed, like an other vaccine name)",
         );
       }
       return;
     }
     case "team_note": {
+      // Free text is stored as written (line breaks and all); only its raw
+      // length is capped and it must not be blank. Short labels (an other
+      // vaccine name, a clinic) are different: they must arrive trimmed.
       const text = isPlainObject(value) ? value["text"] : undefined;
       if (
         typeof text !== "string" ||

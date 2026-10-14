@@ -664,6 +664,7 @@ describe("vaccinated validator", () => {
       { vaccines: [{ other: "RABIES" }] },
       { vaccines: [{ other: "Cat flu and enteritis" }] },
       { vaccines: ["rabies"], clinic: 5 },
+      { vaccines: ["rabies"], clinic: " Ermoupoli Vets " },
       { retracted: true },
     ]) {
       await expect(writeAs(cat.id, "vaccinated", value)).rejects.toMatchObject(
