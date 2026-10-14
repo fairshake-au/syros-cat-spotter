@@ -832,8 +832,15 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
   const newBadges = profile.badges.filter((b) => !badgesBefore.includes(b));
   const askEarTip = !(await hasAnsweredEarTip(db, sighting.deviceId, cat.id));
 
+  // SYC-166 slice 3 (spec test 12): last seen is the cat's newest sighting,
+  // as the cat list has it, never this one's own (possibly much older) time.
   const [countRow] = await db
-    .select({ n: sql<number>`count(*)::int` })
+    .select({
+      n: sql<number>`count(*)::int`,
+      latest: sql<Date | null>`max(${sightingsTable.createdAt})`.mapWith(
+        sightingsTable.createdAt,
+      ),
+    })
     .from(sightingsTable)
     .where(eq(sightingsTable.catId, cat.id));
 
@@ -865,7 +872,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
         lng: cat.lng,
         ownerDeviceId: cat.ownerDeviceId,
         sightingsCount: countRow?.n ?? 1,
-        lastSeenAt: sighting.createdAt,
+        lastSeenAt: countRow?.latest ?? sighting.createdAt,
         discovererDeviceId: cat.discovererDeviceId,
         discovererNickname: discoverer?.nickname ?? null,
         discovererUsername: discoverer?.username ?? null,
