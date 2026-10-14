@@ -327,7 +327,7 @@ describe("guards (review finding 6)", () => {
   });
 });
 
-describe("the claim limit is a sliding window (5 per 24 hours, not 5 per calendar day)", () => {
+describe("the claim limit is a sliding window (about 5 per rolling 24 hours, not 5 per calendar day)", () => {
   const day = Date.UTC(2043, 4, 5);
   const lateOnDay1 = day + 23 * HOUR + 59 * 60 * 1000; // 23:59 UTC
   const earlyOnDay2 = day + DAY + 60 * 1000; // 00:01 UTC, two minutes later

@@ -26,13 +26,26 @@ import { logger, safeError } from "./logger";
  * configure) before it touches the table. The salt lives in the same database
  * as the hashed keys, for up to about 48 hours, so someone who can read the
  * database could still test a guessed address against a key while both rows
- * exist. Counter rows go within about an hour of their window ending.
+ * exist. Counter rows for hourly and shorter windows go within about an
+ * hour of their window ending; day-long rows are kept about two days in all
+ * (a sliding limit still reads the previous window).
  * A window never straddles two salts: the salt is the one for the day the
  * window STARTS, and `assertWindow` only allows window lengths that divide a
  * day.
  *
- * Fixed windows, aligned to the clock (a window of an hour starts on the
- * hour), so every server picks the same window without talking to the others.
+ * Two modes. Both use windows aligned to the clock (a window of an hour
+ * starts on the hour), so every server picks the same window without talking
+ * to the others.
+ *
+ * - Fixed (the default; the 15-minute and hourly limits): the count starts
+ *   again at each window boundary, so a caller can spend the whole limit just
+ *   before a boundary and again just after it.
+ * - Sliding (`sliding: true`; the day-long, sensitive limits): the previous
+ *   window's count is weighted by how much of it still lies inside the last
+ *   window length, so a boundary hands out no fresh allowance. It is an
+ *   estimate (the previous window is treated as if its requests were evenly
+ *   spread), so the limit is "about N per rolling window", not exactly N in
+ *   any window-length stretch.
  */
 
 /** Anything with `execute`: the pool-backed `db`, or a transaction. */

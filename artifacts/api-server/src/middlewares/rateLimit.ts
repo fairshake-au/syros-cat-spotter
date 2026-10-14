@@ -172,7 +172,9 @@ const CLAIM_BUCKET = "claim";
 
 /**
  * Returns true if `deviceId` may make another claim attempt now, and
- * records that it did. The 6th call within any 24 hours returns false. Throws if
+ * records that it did. About 5 per rolling 24 hours (a sliding-window estimate, lib/limits.ts):
+ * the 6th call in quick succession returns false, and spending the limit
+ * just before 00:00 UTC does not hand out a fresh one just after it. Throws if
  * the counter fails.
  */
 export async function checkClaimLimit(
