@@ -178,6 +178,27 @@ describe("life_status withdrawal", () => {
     await expect(withdraw(c.id, homed.id, daysAgo(2))).rejects.toMatchObject({ code: "MALFORMED_VALUE" });
   });
 
+  it("refuses a withdrawal unless the caller opts in with allowWithdrawal", async () => {
+    const c = await cat();
+    const homed = await ownerHomed(c.id, daysAgo(4));
+    const attempt = (extra: object) =>
+      writeObservation(db, {
+        catId: c.id,
+        kind: "life_status",
+        value: WITHDRAWN,
+        accountId: "someone-on-the-team",
+        roleAtTime: "staff",
+        observedAt: daysAgo(1),
+        supersedesId: homed.id,
+        ...extra,
+      });
+    await expect(attempt({})).rejects.toMatchObject({ code: "MALFORMED_VALUE" });
+    await expect(attempt({ allowWithdrawal: false })).rejects.toMatchObject({ code: "MALFORMED_VALUE" });
+    const rows = await db.select().from(observationsTable).where(eq(observationsTable.supersedesId, homed.id));
+    expect(rows).toHaveLength(0);
+    expect((await attempt({ allowWithdrawal: true })).supersedesId).toBe(homed.id);
+  });
+
   it("does not accept { withdrawn: true } on any other kind", async () => {
     const c = await cat();
     const homed = await ownerHomed(c.id, daysAgo(4));

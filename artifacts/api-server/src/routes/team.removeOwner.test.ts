@@ -652,6 +652,143 @@ describe("the flash after the life-status form", () => {
   });
 });
 
+// ── Final review fixes ─────────────────────────────────────────────────────
+
+const jsonSupersede = (id: number, value: unknown, reason = "r") =>
+  request(app)
+    .post(`/api/team/observations/${id}/supersede`)
+    .set("Origin", TEAM_ORIGIN)
+    .set("Cookie", cookie)
+    .send({ value, reason });
+const deleteMe = (p: Phone) =>
+  request(app).delete("/api/me").set("X-Device-Id", p.id).set("X-Device-Secret", p.secret);
+
+describe("final review 1: a withdrawal only ever comes from a let-go or Remove owner", () => {
+  it("the supersede API refuses {withdrawn:true} against an owner's homed, and nothing changes", async () => {
+    const { c, d } = await ownedCat("fr1owner");
+    const [h] = await homed(c.id);
+    const before = await lifeRows(c.id);
+    const res = await jsonSupersede(h!.id, { withdrawn: true });
+    expect(res.status).toBe(400);
+    expect(await lifeRows(c.id)).toEqual(before);
+    expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
+  });
+
+  it("nor against a team-written homed", async () => {
+    const c = await streetCat();
+    const h = await writeObservation(db, {
+      catId: c.id, kind: "life_status", value: { status: "homed" }, accountId: susanId, roleAtTime: "staff", observedAt: daysAgo(2),
+    });
+    const res = await jsonSupersede(h.id, { withdrawn: true });
+    expect(res.status).toBe(400);
+    expect(await withdrawals(c.id)).toHaveLength(0);
+  });
+
+  it("the fresh-statement API and the Mark wrong form can't write one either", async () => {
+    const { c } = await ownedCat("fr1fresh");
+    const [h] = await homed(c.id);
+    const before = await lifeRows(c.id);
+    const fresh = await request(app)
+      .post("/api/team/observations")
+      .set("Origin", TEAM_ORIGIN)
+      .set("Cookie", cookie)
+      .send({ catId: c.id, kind: "life_status", value: { withdrawn: true }, reason: "r" });
+    expect(fresh.status).toBe(400);
+    const formRes = await form(`/api/team/statements/${h!.id}/wrong`).send({ choice: "withdrawn", reason: "r" });
+    expect(formRes.status).toBe(400);
+    expect(await lifeRows(c.id)).toEqual(before);
+  });
+});
+
+describe("final review 2: an owner's homed is ended only by Remove owner", () => {
+  it("offers no Mark wrong on it, but points to Remove owner", async () => {
+    const { c } = await ownedCat("fr2page");
+    const [h] = await homed(c.id);
+    const html = (await page(c.id)).text;
+    expect(html).not.toContain(`/api/team/statements/${h!.id}/wrong`);
+    expect(html).toContain("To end this claim, use Remove owner");
+  });
+
+  it("the form route and the supersede API both refuse it, with nothing written", async () => {
+    const { c, d } = await ownedCat("fr2route");
+    const [h] = await homed(c.id);
+    const before = await lifeRows(c.id);
+    const a = await form(`/api/team/statements/${h!.id}/wrong`).send({ choice: "street", reason: "x" });
+    expect(a.status).toBe(400);
+    const b = await jsonSupersede(h!.id, { status: "street" });
+    expect(b.status).toBe(400);
+    expect(await lifeRows(c.id)).toEqual(before);
+    expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
+  });
+
+  it("a team-written homed can still be marked wrong", async () => {
+    const c = await streetCat();
+    const h = await writeObservation(db, {
+      catId: c.id, kind: "life_status", value: { status: "homed" }, accountId: susanId, roleAtTime: "staff", observedAt: daysAgo(2),
+    });
+    expect((await page(c.id)).text).toContain(`/api/team/statements/${h.id}/wrong`);
+    expect((await form(`/api/team/statements/${h.id}/wrong`).send({ choice: "street", reason: "x" })).status).toBe(303);
+  });
+});
+
+describe("final review 3: a home whose owner deleted their data can be removed", () => {
+  it("D13 path: delete, then the page says so and Remove owner clears it, then another phone can claim", async () => {
+    const { c, d, note } = await ownedCat("fr3");
+    const other = phone("fr3-other");
+    await met(c.id, other);
+    await bind(other);
+    expect((await deleteMe(d)).status).toBe(204);
+    const gone = await reload(c.id);
+    expect(gone.ownerDeviceId).toBeNull();
+    expect(gone.homeDescription).toBe(note);
+    // Stuck for everyone until the team acts.
+    expect((await claim(c.id, other)).status).toBe(409);
+
+    const html = (await page(c.id)).text;
+    expect(html).toContain("Has a home, but the owner deleted their data");
+    expect(html).toContain(`/api/team/cats/${c.id}/remove-owner"`);
+    expect(html).toMatch(/name="removeOwner" value="1" checked>\s*Also remove the owner/);
+
+    const res = await removeOwner(c.id, { reason: "Owner deleted their data" });
+    expect(res.headers["location"]).toMatch(/done=ownerRemoved/);
+    expect(await withdrawals(c.id)).toHaveLength(1);
+    expect(await reload(c.id)).toMatchObject({ ownerDeviceId: null, homeDescription: null, homeLat: null, homeLng: null });
+    expect((await teamStatements(c.id))[0]!.value).toMatchObject({ status: "street" });
+    expect((await detail(c.id)).body.cat.hasHome).toBe(false);
+    expect((await detail(c.id, other)).body.canClaim).toBe(true);
+    expect((await claim(c.id, other)).status).toBe(200);
+    // The page no longer says the home is orphaned.
+    expect((await page(c.id)).text).not.toContain("owner deleted their data");
+  });
+
+  it("the life-status tick also works on such a cat", async () => {
+    const { c, d } = await ownedCat("fr3tick");
+    expect((await deleteMe(d)).status).toBe(204);
+    const res = await form(`/api/team/cats/${c.id}/life-status`).send({ status: "street", reason: "x", removeOwner: "1" });
+    expect(res.headers["location"]).toMatch(/done=ownerRemoved/);
+    expect(await withdrawals(c.id)).toHaveLength(1);
+    expect((await detail(c.id)).body.cat.hasHome).toBe(false);
+  });
+
+  it("a cat that is simply not homed still says there is nothing to remove", async () => {
+    const c = await streetCat();
+    expect((await removeOwner(c.id)).headers["location"]).toMatch(/done=ownerGone/);
+    expect((await page(c.id)).text).not.toContain("/remove-owner");
+  });
+});
+
+describe("final review 4: a let-go stays the owner's after they delete their data", () => {
+  it("still reads as the owner's words and keeps the internal note out", async () => {
+    const { c, d } = await ownedCat("fr4");
+    expect((await letGo(c.id, d)).status).toBe(200);
+    expect((await deleteMe(d)).status).toBe(204);
+    const html = (await page(c.id)).text;
+    expect(html).toMatch(/The owner said the cat doesn(&#39;|')t live with them any more/);
+    expect(html).not.toContain("Owner removed by the team");
+    expect(html).not.toContain("owner: doesn");
+  });
+});
+
 describe("the capability", () => {
   it("remove_owner is on the list, after set_life_status, and staff hold it", () => {
     const list = [...CAPABILITIES];
