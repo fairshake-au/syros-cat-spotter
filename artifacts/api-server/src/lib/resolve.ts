@@ -210,8 +210,8 @@ export function appearanceAuthorityLevel(o: Rankable): AuthorityLevel {
  */
 function earTipAuthorityLevel(o: Rankable): AuthorityLevel {
   if (o.provenance === "import") return 0;
-  const level = authorityLevel(o);
-  return level === 3 ? 0 : level;
+  if (o.roleAtTime !== "vet" && (o.authorityScope ?? "none") === "owner_of_this_cat") return 0;
+  return authorityLevel(o);
 }
 
 /**
