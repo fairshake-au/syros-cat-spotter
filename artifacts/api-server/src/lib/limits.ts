@@ -178,7 +178,7 @@ export async function consume(
       insert into rate_limit_counters (bucket, key, window_start, window_ms, hits)
       values (${bucket}, ${hashed}, to_timestamp(${start} / 1000.0), ${windowMs}, 1)
       on conflict (bucket, key, window_start)
-      do update set hits = rate_limit_counters.hits + 1
+      do update set hits = least(rate_limit_counters.hits + 1, ${limit + 1})
       returning hits
     )
     select cur.hits as hits,
