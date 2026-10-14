@@ -343,6 +343,16 @@ describe("P3-2 (team half): the team's cat page shows exact positions", () => {
     expect(html).toContain("37.4447123, 24.9418765");
   });
 
+  it("SYC-245: the positions are plain text, with no link to any map company", async () => {
+    const html = await catHtml();
+    expect(html).toContain("37.4461987, 24.9433456");
+    expect(html).not.toContain("Open map");
+    // Any link at all that points off the dashboard is a failure here.
+    const external = [...html.matchAll(/<a\b[^>]*\shref="(https?:[^"]*)"/gi)].map((m) => m[1]);
+    expect(external).toEqual([]);
+    expect(html).not.toMatch(/google\.com\/maps|maps\.apple\.com|maps\.google\.|goo\.gl\/maps|waze\.com|openstreetmap\.org/i);
+  });
+
   it("shows the status exactly as the public cat page does, plus the resolver's own answer", async () => {
     const pub = await request(app).get(`/api/cats/${mimi}`);
     const { cat: publicCat } = pub.body as { cat: Record<string, unknown> };

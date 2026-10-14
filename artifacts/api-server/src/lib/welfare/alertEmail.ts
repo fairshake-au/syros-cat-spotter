@@ -102,9 +102,21 @@ export function buildWelfareAlert(
   report: WelfareReport,
   photo: AlertPhoto | null,
   kind: AlertKind,
+  /**
+   * Whether to include the Google and Apple map links. The mail outbox passes
+   * false within 50 m of a feeding site, and whenever the distance check
+   * fails (SYC-245, SYC-209 Decision 2B). Required, so no caller can get the
+   * links by forgetting. When false the email leaves the links out silently:
+   * no sentence in it may say why, because a line about a feeding site would
+   * itself tell the mail provider where one is.
+   */
+  withMapLinks: boolean,
 ): { subject: string; text: string; html: string; attachments?: MailAttachment[] } {
   const subject = alertSubject(report, kind);
   const links = mapLinks(report.lat, report.lng);
+  const mapTextLines = withMapLinks
+    ? [`Google Maps: ${links.google}`, `Apple Maps: ${links.apple}`]
+    : [];
   const when = `${athensTime(report.submittedAt ?? report.createdAt)} (Athens time)`;
   const palette = report.severity === "urgent" ? URGENT : ATTENTION;
   const status = photoStatus(report, photo);
@@ -119,8 +131,7 @@ export function buildWelfareAlert(
           `${palette.label.toUpperCase()}${report.isLitter ? " · KITTENS" : ""}: the photo for this report has now arrived. It is attached.`,
           "",
           `Where (exact): ${coords}`,
-          `Google Maps: ${links.google}`,
-          `Apple Maps: ${links.apple}`,
+          ...mapTextLines,
           `Report: ${report.publicId}`,
         ]
       : [
@@ -130,8 +141,7 @@ export function buildWelfareAlert(
           `What they saw: ${typed || "(nothing written)"}`,
           "",
           `Where (exact): ${coords}`,
-          `Google Maps: ${links.google}`,
-          `Apple Maps: ${links.apple}`,
+          ...mapTextLines,
           "",
           `When: ${when}`,
           status,
@@ -178,8 +188,9 @@ export function buildWelfareAlert(
     (report.isLitter ? pill("Kittens, or a mother with kittens") : "") +
     `</td></tr>`;
 
-  const mapButtons =
-    `<tr><td style="padding:18px 24px 4px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
+  const mapButtons = !withMapLinks
+    ? ""
+    : `<tr><td style="padding:18px 24px 4px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
     button(links.google, "Open in Google Maps") +
     button(links.apple, "Apple Maps") +
     `</tr></table></td></tr>`;
