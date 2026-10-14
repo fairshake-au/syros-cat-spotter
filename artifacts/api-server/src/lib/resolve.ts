@@ -714,6 +714,54 @@ function isRetractionValue(value: unknown): boolean {
 
 /** The same author wrote both rows: the same device, or the same account.
  * A redacted row has neither, so it is never provably the same author. */
+function isRedactedSpotterRow(o: Observation): boolean {
+  return o.deviceId == null && o.accountId == null && o.roleAtTime === "public";
+}
+
+/**
+ * A supersession the writer could only have made as the same author: the
+ * same device or account, or (after "Delete my data" cleared both ends) two
+ * redacted spotter rows, since a public write may only supersede its own
+ * row (PR 1.1, C2). A cross-device link between two live devices is not.
+ */
+function sameAuthorLink(o: Observation, target: Observation): boolean {
+  return sameAuthor(o, target) || (isRedactedSpotterRow(o) && isRedactedSpotterRow(target));
+}
+
+/**
+ * One voice key per author chain, for every row of one appearance kind: a
+ * device's rows share its key, and rows joined by a same-author
+ * supersession share one key even when redaction has cleared the device.
+ * Each redacted row outside any chain stays a voice of its own.
+ */
+export function appearanceVoiceKeys(
+  observations: readonly Observation[],
+  kind: "coat" | "markings",
+): Map<number, string> {
+  const rows = observations.filter((o) => o.kind === kind && !hasNoStandingOnAppearance(o));
+  const byId = new Map(rows.map((o) => [o.id, o]));
+  const parent = new Map(rows.map((o) => [o.id, o.id]));
+  const find = (id: number): number => {
+    const p = parent.get(id)!;
+    if (p === id) return id;
+    const root = find(p);
+    parent.set(id, root);
+    return root;
+  };
+  for (const o of rows) {
+    if (o.supersedesId == null || isRetractionValue(o.value)) continue;
+    const target = byId.get(o.supersedesId);
+    if (target && sameAuthorLink(o, target)) parent.set(find(o.id), find(target.id));
+  }
+  // A link joins only rows of one device, one account, or redacted rows,
+  // so a chain's key is its device or account, or the chain's root row.
+  const keys = new Map<number, string>();
+  for (const o of rows) {
+    keys.set(o.id, isRedactedSpotterRow(o) ? `redacted:${find(o.id)}` : voiceKey(o));
+  }
+  return keys;
+}
+
 function sameAuthor(a: Observation, b: Observation): boolean {
   if (a.deviceId != null && a.deviceId === b.deviceId) return true;
   if (a.accountId != null && a.accountId === b.accountId) return true;
@@ -765,7 +813,7 @@ export function standingAppearanceRows(
       }
       continue;
     }
-    if (sameAuthor(o, target) && !keepOwnEarlierRows) removed.add(target.id);
+    if (sameAuthorLink(o, target) && !keepOwnEarlierRows) removed.add(target.id);
   }
 
   return rows.filter((o) => !removed.has(o.id) && !isRetractionValue(o.value));
@@ -805,14 +853,18 @@ function isNewer(a: Observation, b: Observation): boolean {
 }
 
 /**
- * One voice per device: of the given spotter rows, keep only each voice's
+ * One voice per author chain (`keys`, from `appearanceVoiceKeys`; by device
+ * when absent): of the given spotter rows, keep each voice's
  * newest (by `observedAt`, ties by id). Non-spotter rows are ignored.
  */
-export function onePerVoice(rows: readonly Observation[]): Voice[] {
+export function onePerVoice(
+  rows: readonly Observation[],
+  keys: ReadonlyMap<number, string> = new Map(),
+): Voice[] {
   const byKey = new Map<string, Voice>();
   for (const o of rows) {
     if (!isSpotterVoiceRow(o)) continue;
-    const key = voiceKey(o);
+    const key = keys.get(o.id) ?? voiceKey(o);
     const current = byKey.get(key);
     if (!current) {
       byKey.set(key, { key, row: o, rows: [o] });
@@ -1003,7 +1055,7 @@ export function resolveCoat(
   // one-voice-per-device step, so a later Not sure withdraws nothing.
   const spotterRows = statements.filter((s) => s.colours.length > 0);
   const coloursById = new Map(spotterRows.map((s) => [s.row.id, s.colours]));
-  const voices = onePerVoice(spotterRows.map((s) => s.row));
+  const voices = onePerVoice(spotterRows.map((s) => s.row), appearanceVoiceKeys(observations, "coat"));
   const coloursOf = (v: Voice) => coloursById.get(v.row.id) ?? [];
 
   const agreed: { colour: CoatColour; voices: Voice[] }[] = [];
@@ -1154,6 +1206,7 @@ export function resolveMarkings(
     return marks ? [{ row, marks }] : [];
   });
   const spotterStatements = statements.filter((s) => s.row.provenance !== "machine");
+  const voiceKeys = appearanceVoiceKeys(observations, "markings");
   const recentSince = now.getTime() - MARKINGS_RECENT_DAYS * DAY_MS_APPEARANCE;
 
   /** Each mark with two independent voices among rows passing `include`,
@@ -1164,7 +1217,7 @@ export function resolveMarkings(
       const rows = spotterStatements
         .filter((s) => s.marks.includes(mark) && include(s.row))
         .map((s) => s.row);
-      const voices = onePerVoice(rows);
+      const voices = onePerVoice(rows, voiceKeys);
       const since = twoVoicesSince(voices);
       if (since) out.push({ mark, since, voices: countingVoices(voices) });
     }

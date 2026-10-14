@@ -796,3 +796,36 @@ describe("review finding 1: a device repeating itself never costs a value its se
     expect(r).toMatchObject({ value: ["ginger"], confidence: "likely" });
   });
 });
+
+describe("review finding 2: 'Delete my data' never turns one voice into two", () => {
+  function redact(o: Observation): Observation {
+    return { ...o, deviceId: null, redactedAt: new Date("2026-02-01T00:00:00Z"), redactionReason: "person_deleted" };
+  }
+
+  it("R2a colour: X ginger Mon, then X ginger Tue superseding it, is one voice before and after redaction", () => {
+    const x1 = spotterCoat("x", ["ginger"], "2026-01-05T10:00:00Z", { photoId: 1 });
+    const x2 = spotterCoat("x", ["ginger"], "2026-01-06T10:00:00Z", { photoId: 2, supersedesId: x1.id });
+    expect(resolveCoat([x1, x2]).confidence).toBe("reported");
+    expect(resolveCoat([redact(x1), redact(x2)]).confidence).toBe("reported");
+  });
+
+  it("R2b markings: X three legs Mon, then Tue superseding it, shows nothing before or after redaction", () => {
+    const x1 = spotterMarks("x", { marks: ["three_legs"] }, "2026-01-05T10:00:00Z", { photoId: 1 });
+    const x2 = spotterMarks("x", { marks: ["three_legs"] }, "2026-01-06T10:00:00Z", { photoId: 2, supersedesId: x1.id });
+    expect(resolveMarkings([x1, x2], NOW).value).toBeNull();
+    expect(resolveMarkings([redact(x1), redact(x2)], NOW).value).toBeNull();
+  });
+
+  it("R2c a redacted chain through a row that ticked nothing is still one voice", () => {
+    const x1 = spotterMarks("x", { marks: ["three_legs"] }, "2026-01-05T10:00:00Z");
+    const x2 = spotterMarks("x", { marks: [] }, "2026-01-06T10:00:00Z", { supersedesId: x1.id });
+    const x3 = spotterMarks("x", { marks: ["three_legs"] }, "2026-01-07T10:00:00Z", { supersedesId: x2.id });
+    expect(resolveMarkings([redact(x1), redact(x2), redact(x3)], NOW).value).toBeNull();
+  });
+
+  it("a cross-device supersession between two live devices is still ignored", () => {
+    const a = spotterMarks("a", { marks: ["three_legs"] }, "2026-01-05T10:00:00Z");
+    const b = spotterMarks("b", { marks: ["three_legs"] }, "2026-01-06T10:00:00Z", { supersedesId: a.id });
+    expect(resolveMarkings([a, b], NOW).value).toEqual(["three_legs"]);
+  });
+});
