@@ -279,3 +279,17 @@ describe('"Open that sighting" (Decision C2)', () => {
     ).toBeNull();
   });
 });
+
+describe('the review screen links a matched sighting to its cat (C2)', () => {
+  it('calls linkRecentPhotoToCat with the sighting, the card and the cat', async () => {
+    const { readFileSync } = await import('node:fs');
+    const path = await import('node:path');
+    const src = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
+    const at = src.indexOf('const finishAndInvalidate');
+    const call = src.indexOf('linkRecentPhotoToCat(', at);
+    expect(call).toBeGreaterThan(at);
+    expect(src.slice(call, call + 200)).toMatch(
+      /sightingId: data\.sightingId, localId: data\.localId[\s\S]*res\.cat\.id/,
+    );
+  });
+});

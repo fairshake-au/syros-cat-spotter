@@ -13,6 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   answerSightingQuestions,
   resolveSighting,
@@ -47,6 +48,7 @@ import {
 import { reviewReportHandoff } from "@/lib/reportHandoff";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { parseReviewParams } from "@/lib/reviewParams";
+import { linkRecentPhotoToCat } from "@/lib/recentPhotos";
 import {
   Button,
   Badge,
@@ -147,6 +149,14 @@ export default function ReviewScreen() {
     // Deleted by the sighting's own id, never by the route's photoRef: the
     // route can be crafted, and it must not choose what gets deleted.
     if (data.photoRef) deleteReviewPhoto(data.sightingId).catch(() => {});
+    // SYC-166 Decision C2: picking this photo again offers "Open that
+    // sighting", which goes to this cat's page. Never throws.
+    void linkRecentPhotoToCat(
+      AsyncStorage,
+      { sightingId: data.sightingId, localId: data.localId },
+      res.cat.id,
+      Date.now(),
+    );
     queryClient.invalidateQueries();
   };
 
