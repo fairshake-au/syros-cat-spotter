@@ -114,6 +114,15 @@ export interface CatSnapshot {
     /** For the API's `clippedTipSightings` (§4.3). */
     clippedTipSightings: number;
   };
+  /**
+   * SYC-2 (spec §10.2). Team-side: the public payload copies out only the
+   * value (PR 2.1), never confidence, authors, counts or check reasons.
+   * Never notifiable (data spine §9.3) and never read by the matcher.
+   */
+  coat: AppearanceResolved<CoatColour[]>;
+  markings: AppearanceResolved<Mark[]>;
+  /** Team-only, at launch and in every public payload (spec §6.3). */
+  vaccinations: VaccinationRecord[];
 }
 
 /**
@@ -1234,6 +1243,14 @@ export function resolveVaccinated(observations: readonly Observation[]): Vaccina
     }));
 }
 
+/** SYC-2's kinds, kept away from the life-status and sterilised resolvers. */
+const APPEARANCE_AND_HEALTH_KINDS: ReadonlySet<string> = new Set([
+  "coat",
+  "markings",
+  "vaccinated",
+  "team_note",
+]);
+
 /**
  * The one snapshot the cat page, the fan-out check, the nightly notify job,
  * the dashboard and SYC-119's dead-cat guard all read (§9.1). Phase 1 takes
@@ -1245,8 +1262,11 @@ export function resolveCat(
   evidenceOfLife: EvidenceOfLife | null,
   now: Date,
 ): CatSnapshot {
-  const life = resolveLifeStatus(observations, evidenceOfLife, now);
-  const sterilised = resolveSterilised(observations, []);
+  // Never crosses attributes (spec §10.2): the life-status and sterilised
+  // resolvers are not handed the appearance and health kinds at all.
+  const statusRows = observations.filter((o) => !APPEARANCE_AND_HEALTH_KINDS.has(o.kind));
+  const life = resolveLifeStatus(statusRows, evidenceOfLife, now);
+  const sterilised = resolveSterilised(statusRows, []);
   return {
     // resolveLifeStatus always resolves to a concrete status (street is the
     // untouched default) — never null, unlike the generic Resolved<T> shape
@@ -1260,7 +1280,10 @@ export function resolveCat(
       value: sterilised.value,
       confidence: sterilised.confidence,
       asOf: sterilised.asOf,
-      clippedTipSightings: clippedTipCount(observations),
+      clippedTipSightings: clippedTipCount(statusRows),
     },
+    coat: resolveCoat(observations, TEAM_APPEARANCE_RANKING),
+    markings: resolveMarkings(observations, now, TEAM_APPEARANCE_RANKING),
+    vaccinations: resolveVaccinated(observations),
   };
 }

@@ -1027,4 +1027,31 @@ describe("resolveCat", () => {
       resolveCat(observations, evidence, now),
     );
   });
+
+  it("carries colour, markings and vaccinations, and keeps them out of life status and sterilised", () => {
+    const now = new Date("2026-10-01");
+    const evidence = makeEvidence({ at: "2026-09-01T00:00:00Z", source: "sighting" });
+    const base = [
+      obs({ kind: "ear_tip", value: { clipped: true }, photoId: 3, observedAt: new Date("2026-01-01") }),
+    ];
+    const team = { deviceId: null, accountId: "person:staff-1", roleAtTime: "staff" } as const;
+    const withAppearance = [
+      ...base,
+      obs({ kind: "coat", value: { colours: ["ginger"] }, observedAt: new Date("2026-02-01"), ...team }),
+      obs({ kind: "markings", value: { marks: ["white_paws"] }, observedAt: new Date("2026-02-01"), ...team }),
+      obs({ kind: "vaccinated", value: { vaccines: ["rabies"] }, observedAt: new Date("2026-02-01"), ...team }),
+      // A malformed row of a new kind that a careless sterilised fold might
+      // read, and a supersession of the ear tip from a new kind.
+      obs({ kind: "markings", value: { sterilised: false }, observedAt: new Date("2026-03-01"), ...team }),
+      obs({ kind: "coat", value: { retracted: true }, supersedesId: base[0]!.id, ...team }),
+    ];
+    const plain = resolveCat(base, evidence, now);
+    const snapshot = resolveCat(withAppearance, evidence, now);
+    expect(snapshot.coat).toMatchObject({ value: ["ginger"], confidence: "confirmed" });
+    expect(snapshot.markings).toMatchObject({ value: ["white_paws"], confidence: "confirmed" });
+    expect(snapshot.vaccinations.map((v) => v.vaccines)).toEqual([["rabies"]]);
+    expect(snapshot.sterilised).toEqual(plain.sterilised);
+    expect(snapshot.lifeStatus).toBe(plain.lifeStatus);
+    expect(snapshot.lifeStatusAsOf).toBe(plain.lifeStatusAsOf);
+  });
 });
