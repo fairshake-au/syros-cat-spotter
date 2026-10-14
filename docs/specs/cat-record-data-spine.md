@@ -216,7 +216,9 @@ Three things fix it, and all three ship together:
 
 This is the rule the old spec got wrong, and it is worth stating plainly because it is what makes every correction in this document actually execute.
 
-**Among authoritative statements about sterilisation — team, vet, or imported record — the newest one by the date it describes wins, whichever way it points.** A 2019 import saying "sterilised" loses to a 2026 staff entry saying "not sterilised". A 2026 import saying "not sterilised" loses to a 2024 vet record saying "sterilised" only if the vet record is newer, which it is not — so the import wins. There is no thumb on the scale for positives.
+**Among authoritative statements about sterilisation, the highest level wins, and within a level the newest one by the date it describes wins, whichever way it points** (amended 13 October 2026, Decision G in `roles-and-invites.md` §7.2: the order is **vet > owner > cat guardian > team**, with management and imported records ranking as the team). A 2019 import saying "sterilised" loses to a 2026 staff entry saying "not sterilised": both are team level, so the newest wins. A 2026 import saying "not sterilised" **loses** to a 2024 vet record saying "sterilised", because a vet outranks the team and imports whatever the dates. A cat guardian's word on a cat in her own colony outranks the team's and an import's, however late the team spoke, but never an owner's or a vet's. Within a level there is no thumb on the scale for positives.
+
+The team can always mark a guardian's statement wrong (the existing supersede, §4.5), and a guardian can correct her own; a marked-wrong statement no longer counts. An owner's statement is not written until SYC-130 says how a claim is checked.
 
 Only when there is no authoritative statement at all does the clipped-tip evidence get consulted, and it can only ever produce *Likely*.
 
@@ -685,16 +687,20 @@ Phase-1 rules the resolver implements:
 **Sterilised — an ordered fold, not a set of independent clauses.**
 
 1. Discard superseded and redacted-value observations.
-2. Take the **authoritative** `sterilised` assertions: `roleAtTime` in {vet, staff, management}, or `guardian` with a `colony:<id>` scope, or `provenance: "import"`. **The newest by `observedAt` wins, whatever sign it carries.** `true` → *confirmed sterilised*; `false` → *confirmed not sterilised*, which is displayed publicly per D4.
-3. Only if there is no authoritative assertion at all: any non-superseded `ear_tip` with `clipped: true` and a `photoId` → *likely*, unless an authoritative `ear_tip { clipped: false }` (roleAtTime in {vet, staff, management}, or `guardian` with a `colony:<id>` scope) supersedes or postdates it, in which case → *unknown*.
+2. Take the **authoritative** `sterilised` assertions: `roleAtTime` in {vet, staff, management}, or `guardian` with a `colony:<id>` scope, or an owner (`authorityScope` = `owner_of_this_cat`, once SYC-130 allows owner statements), or `provenance: "import"`. **The highest level present decides (vet > owner > cat guardian > team; management and imports rank as the team), and the newest by `observedAt` wins only within that level, whatever sign it carries** (Decision G, §4.6). `true` → *confirmed sterilised*; `false` → *confirmed not sterilised*, which is displayed publicly per D4. The level of each observation comes from one function, `authorityLevel(observation)`, in `resolve.ts`, used by every rule on this page that ranks statements.
+3. Only if there is no authoritative assertion at all: any non-superseded `ear_tip` with `clipped: true` and a `photoId` → *likely*, unless an authoritative `ear_tip { clipped: false }` (roleAtTime in {vet, staff, management}, or `guardian` with a `colony:<id>` scope) supersedes or postdates it, in which case → *unknown*. Where authoritative ear-tip statements disagree with each other, the same order applies: highest level, then newest within it. So a guardian's in-person *not a clip* outranks a team *clipped* statement, but never an owner's or a vet's.
 4. Otherwise → *unknown*.
 
 A spotter's `clipped: false` or `"cant_tell"` is collected into `supportingObservationIds` for display and **never affects the level** — the §4.1 asymmetry, unchanged. `ear_tip` can never produce *confirmed*, in either direction.
 
 **Life status.**
 
-- The newest non-superseded `life_status` observation by `observedAt` wins — **except** that a resolved sighting dated after a live `deceased` observation clears it in the same read, returning `street` and recording the disagreement in `conflicts` (§3.2). No job, no queue. Checked against `evidenceOfLife.lastSightingAt` specifically, never against the newest evidence of life of any kind — see the amendment above.
+- The `life_status` observation from the highest level present (Decision G, §4.6) wins, and within that level the newest non-superseded one by `observedAt` — **except** that a resolved sighting dated after a live `deceased` observation clears it in the same read, returning `street` and recording the disagreement in `conflicts` (§3.2). No job, no queue. Checked against `evidenceOfLife.lastSightingAt` specifically, never against the newest evidence of life of any kind — see the amendment above.
 - `presumedDeceased` is true when the newest **evidence of life** (§3.4) is more than 36 months old and no `life_status` observation is newer than it. A live `deceased` status suppresses the presumed-deceased derivation entirely.
+
+**The date on a guardian's statement is the server's.** Every route a cat guardian writes through sets `observedAt` itself; a date sent by the phone is ignored there, so a guardian cannot back-date or forward-date a statement to win a same-level tie. (The generic team and import routes keep the rule above: any past date, never a future one.)
+
+**A guardian's statement that contradicts a team record is shown, not hidden.** It goes on the team's "recent guardian changes" list marked as contradicting, and the cat's page in the dashboard shows the team's record as a visible disagreement. It stands, because of the order above, until the team marks it wrong, a vet speaks, or an owner speaks.
 
 **Never crosses attributes.** There is an explicit test that no quantity or authority of `ear_tip` observations can produce `confidence: "confirmed"` on sterilised.
 
@@ -743,7 +749,7 @@ How the resolver counts and reports these, in detail:
 - **Counting voices.** The resolver counts **at most one voice per `deviceId`**, among standing rows that still have one, whatever the write path did. Two voices also need **different `photoId`s** and **different calendar days** (Syros time). A device's write that would supersede a row only supersedes **that device's own** row. All of this is checked at read time, so no write route (the answers endpoint, a backfill, a future route) can make one device count twice.
 - **Redacted rows.** After "Delete my data" a statement's device is cleared (§8, DECISIONS Part 2g). Each redacted row counts as one voice of its own. The limit is stated, not hidden: a deleted person's statement still counts, so someone who deletes their data and returns is a second voice. The photo-and-day rule above still applies where those fields survive redaction. SYC2-D1 in `coat-markings-and-health.md` accepts this.
 - **Retraction.** A `{ retracted: true }` row removes the statement it supersedes from the count and asserts nothing. The resolver treats it as a gap, not a value.
-- **Authoritative statements are compared by the date they describe** (`observedAt`), newest first, as the sterilised fold already does (§4.6). A later machine reading never beats an earlier authoritative statement.
+- **Authoritative statements are compared by the date they describe** (`observedAt`), by level first and newest within a level, as the sterilised fold now does (§4.6, Decision G). A later machine reading never beats an earlier authoritative statement.
 - **Confidence output** uses the existing ladder: authority `confirmed`; two voices `likely`; machine or a single gap-filling spotter `reported`. `reported` is the fourth rung the resolver already reserves; if SYC-52 has not made it reachable when this is built, this spec asks SYC-52 to make it so for these two attributes.
 - **Never crosses attributes.** A confirmed colour says nothing about sterilisation, life status or vaccination, and a `vaccinated` observation does not feed sterilised (no clinical inference in either direction).
 - **Not notifiable.** None of the four kinds is a derived-status change (§9.3).
@@ -831,7 +837,7 @@ export const colonyNameHistoryTable = pgTable("colony_name_history", {
 //   colony  { colonyId: null }     // an explicit "in no colony"
 ```
 
-**The `colony` observation gains a "no colony" value.** `{ colonyId: null }` is an explicit statement that the cat is in no colony, so taking a cat out of a colony is a dated claim like putting one in. The rule is the one §10.2 uses for every kind: **the newest active (non-superseded) statement stands**, whether it names a colony or says "in no colony".
+**The `colony` observation gains a "no colony" value.** `{ colonyId: null }` is an explicit statement that the cat is in no colony, so taking a cat out of a colony is a dated claim like putting one in. Colony membership is the exception to Decision G: **the newest active (non-superseded) statement stands** (Decision 6: a guardian decides alone), whether it names a colony or says "in no colony". Decision G's levels apply to sterilisation, life status, ear tip, colour and markings.
 
 `colony` joins `life_status`, `sterilised`, `ear_tip`, `food_and_water`, `note` and `name` in the phase-1 observation vocabulary. **A colony observation is not evidence of life** and does not feed §3.4's derivation — it says where a cat lives, not that it was seen.
 
