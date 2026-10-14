@@ -1085,7 +1085,9 @@ export function resolveCoat(
           newestVoiceAt(y.voices) - newestVoiceAt(x.voices),
       )
       .slice(0, 2);
-    const value = shown.map((a) => a.colour);
+    // Two agreed colours may be black and white from separate voices; the
+    // shown pair has one stored form, as every statement does.
+    const value = normaliseColours(shown.map((a) => a.colour)) as CoatColour[];
     const supporting = [...new Set(shown.flatMap((a) => countingVoices(a.voices).map((v) => v.row.id)))];
 
     const checkReasons: AppearanceCheckReason[] = [];

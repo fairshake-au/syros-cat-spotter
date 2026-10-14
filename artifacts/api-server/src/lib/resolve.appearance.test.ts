@@ -847,3 +847,17 @@ describe("review finding 3: a retraction removes exactly the row it points at", 
     expect(resolveMarkings([a1, b, a2, wrong], NOW).value).toEqual(["torn_ear"]);
   });
 });
+
+describe("review finding 4: the shown colour is never raw black + white", () => {
+  it("R4 black and white agreed by separate voices show as black and white", () => {
+    const rows = [
+      spotterCoat("v1", ["black"], "2026-01-01T10:00:00Z"),
+      spotterCoat("v2", ["black"], "2026-01-02T10:00:00Z"),
+      spotterCoat("v3", ["white"], "2026-01-03T10:00:00Z"),
+      spotterCoat("v4", ["white"], "2026-01-04T10:00:00Z"),
+      spotterCoat("v5", ["black", "grey"], "2026-01-05T10:00:00Z"),
+      spotterCoat("v6", ["grey", "white"], "2026-01-06T10:00:00Z"),
+    ];
+    expect(resolveCoat(rows).value).toEqual(["black_and_white"]);
+  });
+});
