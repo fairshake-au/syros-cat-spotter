@@ -78,6 +78,37 @@ gh run view "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --j
 gh workflow run db-ops.yml --ref main -f target=production -f command=people-set-roles -f people_change=add -f people_role=management
 ```
 
+**Making Samuel, Jacky and Susan management (SYC-53 PR 0.3's post-merge run).** Claude does this end to end; Samuel types nothing but his approval.
+
+1. **Before migrating each database (development, then production), Claude runs these read-only checks** with the Neon MCP's `run_sql`:
+
+   ```sql
+   select count(*) from observations where role_at_time = 'admin';  -- must be 0
+   select s.id, s.person_id, s.role, s.colony_id, p.left_at is not null as left from person_scopes s join people p on p.id = s.person_id where s.role not in ('staff','guardian','vet') or (s.role = 'guardian' and s.colony_id is null) or (s.role = 'staff' and s.colony_id is not null);  -- must be empty
+   select role, colony_id is null as island, count(*) from person_scopes group by 1, 2;
+   select count(*) filter (where left_at is null) as on_list, count(*) from people;
+   select id, name from people where left_at is null order by name;
+   ```
+
+2. **The approval list.** Before the production run, Claude shows Samuel the list from production *with names* (`select p.id, p.name, array_agg(s.role order by s.role) from people p join person_scopes s on s.person_id = p.id where p.left_at is null group by 1, 2 order by 2`, read-only): the three who become management, and everyone else, who stays team-only. Samuel approves it in chat. Nothing runs before that.
+3. **Development first, then production** (spec §15.2 step 5), each after its own `migrate` and `verify-history`.
+4. **The address secrets, without Samuel typing anything.** For each approved person id, Claude reads that person's address from *that* database with `run_sql` (`select email from people where id = '<id>'`), and pipes it straight into the secrets, never printing it in chat or in a log:
+
+   ```bash
+   cd /Users/samuelporter/Projects/syros-cat-spotter
+   printf '%s' "$ADDRESS" | gh secret set PEOPLE_EMAIL --env production
+   printf '%s' "$ADDRESS" | gh secret set PEOPLE_EMAIL_CONFIRM --env production
+   unset ADDRESS
+   gh workflow run db-ops.yml --ref main -f target=production -f command=people-set-roles -f people_change=add -f people_role=management
+   sleep 5
+   gh run watch "$(gh run list --workflow db-ops.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+   gh secret delete PEOPLE_EMAIL --env production
+   gh secret delete PEOPLE_EMAIL_CONFIRM --env production
+   ```
+
+   The address comes from the database by id, so it can't carry a typo. The confirmation is there to catch typing mistakes, and nothing is typed here. For development, use `--env development` and `target=development`. The run prints the roles before and after; each person keeps `staff`.
+5. **Verification on each database** (read-only `run_sql`): `select s.role, s.reach, count(*) from person_scopes s join people p on p.id = s.person_id where p.left_at is null group by 1, 2 order by 1, 2` shows exactly 3 `management` / `island` rows beside the `staff` rows; `select p.id from people p join person_scopes s on s.person_id = p.id where s.role = 'management'` returns the three approved ids; `select count(*) from people where accepted_at is null and left_at is null` is 0. **SYC-53 PR 0.5 does not merge until production shows exactly three managers.**
+
 To check that an id belongs to the right person, use the Neon MCP's `run_sql` with a `SELECT` on production. Someone who leaves is **marked as left** (`people mark-left`), not removed (SYC-43 part 2, Decision 7): they can't sign in, their sessions end at their next request, and everything they did stays attributed to them. There is no remove (SYC-53 PR 0.1): every person has an `added` event in the record of who changed what (`person_events`), so a hard delete can never succeed. Marking as left is the only way off the list. **Rolling back the app to a build from before `0007_people_left` re-admits everyone marked as left**, because the old code ignores `left_at`. Fix forward instead; if you can't, follow the CAUTION in that migration first. For development, swap in `--env development` and `target=development`.
 
 ### Someone leaves, a mistaken add, or a stolen session (SYC-131)
