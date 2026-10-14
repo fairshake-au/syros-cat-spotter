@@ -321,11 +321,65 @@ export interface WriteObservationInput {
   supersedeReason?: string | null;
 }
 
+/** A claim withdrawn (claiming-a-cat.md §6, §7): supersedes a homed, asserts
+ * nothing. The resolver ignores it, because it has no `status`. */
+export const WITHDRAWN = { withdrawn: true } as const;
+
+function isWithdrawal(kind: ObservationKind, value: unknown): boolean {
+  return (
+    kind === "life_status" &&
+    isPlainObject(value) &&
+    value["withdrawn"] === true &&
+    Object.keys(value).length === 1
+  );
+}
+
+const WITHDRAWAL_TARGET_MESSAGE =
+  "a life_status withdrawal must supersede an active homed statement on the same cat";
+
+/**
+ * A withdrawal is valid only when `supersedesId` points at a `life_status`
+ * `{ status: "homed" }` row on the same cat that nothing has superseded yet
+ * (the resolver's own meaning of "active", resolve.ts `isActive`). Who may
+ * write one is the caller's business (the let-go and remove-owner routes),
+ * not this function's.
+ */
+async function checkWithdrawalTarget(
+  tx: DbOrTx,
+  input: WriteObservationInput,
+): Promise<void> {
+  const targetId = input.supersedesId;
+  if (targetId == null) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
+  const [target] = await tx
+    .select({
+      catId: observationsTable.catId,
+      kind: observationsTable.kind,
+      value: observationsTable.value,
+    })
+    .from(observationsTable)
+    .where(eq(observationsTable.id, targetId));
+  const homed =
+    target != null &&
+    target.catId === input.catId &&
+    target.kind === "life_status" &&
+    isPlainObject(target.value) &&
+    target.value["status"] === "homed";
+  if (!homed) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
+  const [already] = await tx
+    .select({ id: observationsTable.id })
+    .from(observationsTable)
+    .where(eq(observationsTable.supersedesId, targetId))
+    .limit(1);
+  if (already) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
+}
+
 /**
  * Validates and inserts one observation (§10.1). Refuses (throws
  * `ObservationRefused`) rather than writing anything for:
  *
  * - an unknown `kind`, or a `value` that doesn't match its kind's shape;
+ * - a `life_status` {@link WITHDRAWN} that doesn't supersede an active
+ *   `homed` on the same cat;
  * - a `roleAtTime` unreachable in phase 1 (`guardian`, `volunteer`, `vet`,
  *   or anything else not in {public, staff, admin, system});
  * - an unknown `authorityScope` or `provenance`;
@@ -354,7 +408,11 @@ export async function writeObservation(
     refuse("UNKNOWN_KIND", `Unknown observation kind: ${String(input.kind)}`);
   }
 
-  validateValue(input.kind, input.value);
+  if (isWithdrawal(input.kind, input.value)) {
+    await checkWithdrawalTarget(tx, input);
+  } else {
+    validateValue(input.kind, input.value);
+  }
 
   if (!REACHABLE_ROLES.has(input.roleAtTime)) {
     refuse(
