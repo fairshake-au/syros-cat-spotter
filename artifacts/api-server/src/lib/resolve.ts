@@ -1107,7 +1107,9 @@ export function resolveCoat(
     const parent = agreed.map((_, i) => i);
     const indexOf = new Map(agreed.map((a, i) => [a.colour, i] as const));
     const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
-    for (const v of voices) {
+    // Only a voice that said something itself joins two colours: a prompted
+    // tap merely agreed with a pre-filled guess.
+    for (const v of countingVoices(voices)) {
       const named = coloursOf(v).flatMap((c) => (indexOf.has(c) ? [indexOf.get(c)!] : []));
       for (let k = 1; k < named.length; k++) parent[find(named[k]!)] = find(named[0]!);
     }

@@ -1084,3 +1084,17 @@ describe("review (ship) finding 3: marking the team's newest list wrong never br
     expect(resolveMarkings([a1, a2, b], NOW).value).toEqual(["torn_ear"]);
   });
 });
+
+describe("review (ship) finding 4: a prompted tap never joins two camps", () => {
+  it("C4 two ginger, two black, and a prompted Ginger · Black: one camp, with tied_camps", () => {
+    const r = resolveCoat([
+      spotterCoat("a", ["ginger"], "2026-01-01T10:00:00Z"),
+      spotterCoat("b", ["ginger"], "2026-01-02T10:00:00Z"),
+      spotterCoat("c", ["black"], "2026-01-03T10:00:00Z"),
+      spotterCoat("d", ["black"], "2026-01-04T10:00:00Z"),
+      spotterCoat("e", ["ginger", "black"], "2026-01-05T10:00:00Z", { provenance: "prompted" }),
+    ]);
+    expect(r.value).toEqual(["black"]);
+    expect(r.checkReasons).toContain("tied_camps");
+  });
+});
