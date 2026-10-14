@@ -91,8 +91,12 @@ export interface MarkLeftResult {
   sessionVersion: number;
 }
 
-/** A database handle or the open transaction a change is running in. */
-type Writer = Pick<PeopleDb, "insert" | "select">;
+/**
+ * The open transaction a change is running in, and nothing else: passing the
+ * database itself (`db`) does not compile, so an event can't be written
+ * outside the transaction of its change.
+ */
+type Tx = Parameters<Parameters<PeopleDb["transaction"]>[0]>[0];
 
 /**
  * Writes one row of the record of who changed what (SYC-213, spec 11.1).
@@ -101,7 +105,7 @@ type Writer = Pick<PeopleDb, "insert" | "select">;
  * only, never a name or an address.
  */
 async function recordPersonEvent(
-  tx: Writer,
+  tx: Tx,
   event: {
     personId: string;
     kind: PersonEventKind;
