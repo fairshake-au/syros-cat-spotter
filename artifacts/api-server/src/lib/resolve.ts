@@ -13,6 +13,9 @@
  */
 import type { Observation } from "@workspace/db/schema";
 import { TEAM_ROLES } from "./teamRoles";
+import type { CoatColour, Mark } from "./appearance";
+import { COAT_COLOURS, MARKS, normaliseColours } from "./appearance";
+import { todayInStreakTimezone } from "./streak";
 
 export type Confidence = "confirmed" | "likely" | "reported" | "unknown";
 
@@ -627,6 +630,259 @@ export function resolveLifeStatus(
     presumedDeceased,
     notSeenSince,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Appearance: colour and markings (data spine §10.2 "Colour and markings",
+// coat-markings-and-health.md §4.2, plan SYC-2 PR 1.2).
+// ---------------------------------------------------------------------------
+
+/**
+ * Who has standing to *state* a cat's colour or markings, as a level: the
+ * highest level present wins, then the newest by `observedAt` within it
+ * (Decision G). `null` means no standing as authority. A row with no
+ * standing may still be a spotter's voice (see `isSpotterVoiceRow`).
+ *
+ * A parameter rather than a constant because SYC-53's `authorityLevel` (its
+ * PR 0.2) is not on main yet. Whichever of the two merges second wires
+ * `authorityLevel` in here; the appearance carve-out below
+ * (`hasNoStandingOnAppearance`) is applied by the resolver before any
+ * ranking is consulted, so a ranking that ranks vets or owners highly can
+ * never give them standing on appearance.
+ */
+export type AppearanceRanking = (o: Observation) => number | null;
+
+const TEAM_APPEARANCE_ROLES: ReadonlySet<string> = new Set(["staff", "admin", "management"]);
+
+/**
+ * Today's ranking: the team (staff, and `admin`/`management`) is level 1 and
+ * nothing else counts. A cat guardian with a `colony:<id>` scope slots in at
+ * level 2 once `guardian` is reachable (SYC-53 PR 2.2), which outranks the
+ * team (Decision G).
+ */
+export const TEAM_APPEARANCE_RANKING: AppearanceRanking = (o) =>
+  TEAM_APPEARANCE_ROLES.has(o.roleAtTime) ? 1 : null;
+
+/**
+ * Vets, imported records and owners have no standing on colour or markings,
+ * neither as authority nor as a voice (spec §4.2 rule 1; data spine §10.2
+ * "`vet` and `import` rows are excluded"). Applied before the ranking.
+ */
+function hasNoStandingOnAppearance(o: Observation): boolean {
+  return (
+    o.roleAtTime === "vet" ||
+    o.provenance === "import" ||
+    o.authorityScope === "owner_of_this_cat"
+  );
+}
+
+/** Roles whose `{ retracted: true }` is honoured: the `set_appearance`
+ * holders. A retraction from anyone else (the writer refuses one) is
+ * ignored at read time. */
+const APPEARANCE_RETRACTING_ROLES: ReadonlySet<string> = new Set([
+  "staff",
+  "admin",
+  "management",
+  "guardian",
+]);
+
+/** A spotter's voice: a public, person-made answer (volunteered or
+ * prompted). Machine, team, guardian and system rows are never voices. */
+function isSpotterVoiceRow(o: Observation): boolean {
+  return (
+    o.roleAtTime === "public" &&
+    (o.provenance === "volunteered" || o.provenance === "prompted")
+  );
+}
+
+function isRetractionValue(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { retracted?: unknown }).retracted === true
+  );
+}
+
+/** The same author wrote both rows: the same device, or the same account.
+ * A redacted row has neither, so it is never provably the same author. */
+function sameAuthor(a: Observation, b: Observation): boolean {
+  if (a.deviceId != null && a.deviceId === b.deviceId) return true;
+  if (a.accountId != null && a.accountId === b.accountId) return true;
+  return false;
+}
+
+/**
+ * The rows of one appearance kind that still stand, before any value is
+ * read. Shared by colour and markings.
+ *
+ * - Rows from someone with no standing on appearance are dropped.
+ * - A `{ retracted: true }` from a `set_appearance` holder removes exactly
+ *   the row it supersedes, and asserts nothing itself.
+ * - A same-author supersession removes the row it replaces, except for
+ *   markings when `keepOwnEarlierRows` is set: a device's later markings
+ *   answer adds to what it ticked before (spec §4.2 markings rule 4), so its
+ *   earlier rows keep counting. A retraction of a markings row also removes
+ *   that device's own earlier rows in the same chain, so a retracted mark
+ *   cannot come back through an ancestor.
+ * - A cross-author supersession found in the data (one device "replacing"
+ *   another's row) is ignored: the row it points at still counts.
+ */
+export function standingAppearanceRows(
+  observations: readonly Observation[],
+  kind: "coat" | "markings",
+  keepOwnEarlierRows: boolean,
+): Observation[] {
+  const rows = observations.filter(
+    (o) => o.kind === kind && !hasNoStandingOnAppearance(o),
+  );
+  const byId = new Map(rows.map((o) => [o.id, o]));
+  const removed = new Set<number>();
+
+  for (const o of rows) {
+    if (o.supersedesId == null) continue;
+    const target = byId.get(o.supersedesId);
+    if (!target) continue;
+    if (isRetractionValue(o.value)) {
+      if (!APPEARANCE_RETRACTING_ROLES.has(o.roleAtTime)) continue;
+      removed.add(target.id);
+      // Walk the target's own same-author chain back, so an ancestor the
+      // target was built on cannot resurface (markings keep ancestors).
+      let cursor: Observation | undefined = target;
+      while (cursor?.supersedesId != null) {
+        const prev = byId.get(cursor.supersedesId);
+        if (!prev || !sameAuthor(prev, cursor)) break;
+        removed.add(prev.id);
+        cursor = prev;
+      }
+      continue;
+    }
+    if (sameAuthor(o, target) && !keepOwnEarlierRows) removed.add(target.id);
+  }
+
+  return rows.filter((o) => !removed.has(o.id) && !isRetractionValue(o.value));
+}
+
+/** The Europe/Athens calendar day of an instant, as YYYY-MM-DD. Reuses the
+ * streak's Athens bucketing so the app has one notion of a Syros day. */
+export function athensDay(at: Date): string {
+  return todayInStreakTimezone(at);
+}
+
+/** One spotter's voice on one value: the row that decides it. */
+export interface Voice {
+  /** The device, or `redacted:<row id>` for a row whose author was cleared. */
+  key: string;
+  row: Observation;
+}
+
+function voiceKey(o: Observation): string {
+  if (o.deviceId != null) return `device:${o.deviceId}`;
+  if (o.accountId != null) return `account:${o.accountId}`;
+  // Redacted (§8.5): the device is cleared. Each such row is a voice of its
+  // own (data spine §10.2 "Redacted rows").
+  return `redacted:${o.id}`;
+}
+
+function isNewer(a: Observation, b: Observation): boolean {
+  const at = a.observedAt.getTime();
+  const bt = b.observedAt.getTime();
+  return at > bt || (at === bt && a.id > b.id);
+}
+
+/**
+ * One voice per device: of the given spotter rows, keep only each voice's
+ * newest (by `observedAt`, ties by id). Non-spotter rows are ignored.
+ */
+export function onePerVoice(rows: readonly Observation[]): Voice[] {
+  const newest = new Map<string, Observation>();
+  for (const o of rows) {
+    if (!isSpotterVoiceRow(o)) continue;
+    const key = voiceKey(o);
+    const current = newest.get(key);
+    if (!current || isNewer(o, current)) newest.set(key, o);
+  }
+  return [...newest.entries()].map(([key, row]) => ({ key, row }));
+}
+
+/**
+ * Two voices count as two only if they are independent: neither is a
+ * prompted tap, they came from different photos (where both still carry
+ * one), and they describe different Europe/Athens calendar days.
+ */
+export function independentPair(a: Voice, b: Voice): boolean {
+  if (a.key === b.key) return false;
+  if (a.row.provenance === "prompted" || b.row.provenance === "prompted") return false;
+  if (a.row.photoId != null && a.row.photoId === b.row.photoId) return false;
+  return athensDay(a.row.observedAt) !== athensDay(b.row.observedAt);
+}
+
+/**
+ * When two independent voices first stood together on a value: the
+ * earliest instant at which some independent pair existed (the later row of
+ * that pair). `null` when no pair is independent, i.e. the value has fewer
+ * than two voices.
+ */
+export function twoVoicesSince(voices: readonly Voice[]): Date | null {
+  let earliest: number | null = null;
+  for (let i = 0; i < voices.length; i++) {
+    for (let j = i + 1; j < voices.length; j++) {
+      const a = voices[i]!;
+      const b = voices[j]!;
+      if (!independentPair(a, b)) continue;
+      const at = Math.max(a.row.observedAt.getTime(), b.row.observedAt.getTime());
+      if (earliest == null || at < earliest) earliest = at;
+    }
+  }
+  return earliest == null ? null : new Date(earliest);
+}
+
+/** Two independent voices hold this value. */
+export function hasTwoVoices(voices: readonly Voice[]): boolean {
+  return twoVoicesSince(voices) != null;
+}
+
+/** The voices that count towards a value's tally (prompted taps never do). */
+function countingVoices(voices: readonly Voice[]): Voice[] {
+  return voices.filter((v) => v.row.provenance !== "prompted");
+}
+
+function newestVoiceAt(voices: readonly Voice[]): number {
+  return Math.max(-Infinity, ...countingVoices(voices).map((v) => v.row.observedAt.getTime()));
+}
+
+/** The authority statement that decides, or undefined: highest level, then
+ * newest by `observedAt` (ties by id). */
+function pickAuthority<T extends { row: Observation }>(
+  statements: readonly T[],
+  ranking: AppearanceRanking,
+): T | undefined {
+  let best: { s: T; level: number } | undefined;
+  for (const s of statements) {
+    if (s.row.provenance === "machine") continue;
+    const level = ranking(s.row);
+    if (level == null) continue;
+    if (
+      !best ||
+      level > best.level ||
+      (level === best.level && isNewer(s.row, best.s.row))
+    ) {
+      best = { s, level };
+    }
+  }
+  return best?.s;
+}
+
+/** The Colour check conditions (spec §5.3), as data for Slice 3. The
+ * hand-pick reason is computed there. */
+export type AppearanceCheckReason =
+  | "no_authority"
+  | "spotters_over_machine"
+  | "tied_camps"
+  | "markings_reopened"
+  | "markings_changed_recently";
+
+export interface AppearanceResolved<T> extends Resolved<T> {
+  checkReasons: AppearanceCheckReason[];
 }
 
 /**
