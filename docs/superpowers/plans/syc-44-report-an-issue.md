@@ -92,3 +92,181 @@ Three, one at a time. Each has a recommendation. None blocks Slices 0–2; Decis
 - **Turnstile switches on in three steps** (`TURNSTILE_MODE`: `off` → `observe` → `enforce`). `observe` checks every token and logs the outcome without refusing anything, so the hostname check is proved on real traffic before it can turn anyone away. `enforce` is switched on once the phone build with the WebView is in testers' hands, and **in any case before the pre-launch pass comes off**. Older test builds would otherwise count `428` as a refusal and stop retrying after three.
 
 ---
+## How it ships: the order
+
+Every PR is built in **its own worktree off fresh `origin/main`**, is **one PR**, and leaves `main` safe on its own. "Review and merge" uses `/ship`: an independent adversarial review in **its own worktree** (never shared with the builder or another reviewer), findings folded in, CI green, merge, Linear synced, worktree removed. **Migrations take the next free number when they are generated after rebase**, never a number chosen now: `main` ends at `0015`, SYC-53 PR 0.1 holds `0016`, and SYC-53 0.3, SYC-130's home pin and SYC-209's later PRs are also queued.
+
+| Step | PRs | Needs first | Who notices |
+|---|---|---|---|
+| **0. Docs** | 0.1 roles catalogue row `remove_photo` and DECISIONS Part 2q | This plan approved | Nobody |
+| **1. Turnstile on the cat-in-trouble form (SYC-170)** | 1.0 spike on real phones · 1.1 server check · 1.2 website · 1.3 phone apps | 1.0 before 1.3; 1.1 before 1.2 | Nobody, unless Cloudflare asks for a tap |
+| **2. Shared limits (SYC-105)** | 2.1 limits counted in Postgres | Nothing (can run beside Slice 1) | Nobody |
+| **3. A new photo address on hide (SYC-279)** | 3.1 rotation and the cache rule | Decision 1 | Nobody |
+| **4. Making the queue safe for a second kind of report** | 4.1 migration and the `kind` sweep | Nothing | Nobody |
+| **5. The report itself (server)** | 5.1 `POST /api/issues`, the hide, the rules · 5.2 `issue_alert` mail and shedding | 2.1, 3.1, 4.1; 1.1 for the token | The team's inbox, once the app sends |
+| **6. The app** | 6.1 full-screen photo, the hidden tile, the link · 6.2 the reason sheet and the saved list | 5.1; 1.2 and 1.3 for the check | Everyone |
+| **7. The team's side** | 7.1 the Issues section and its actions · 7.2 deleting a photo for good (SYC-246) | 5.1; Decisions 2 and 3; docs 0.1 | The team |
+| **8. Retention** | 8.1 the one-year clean-up | 4.1 | Nobody |
+
+**Slices 1 and 2 are both needed before the launch-day step that sets `PRELAUNCH_GATE=off`** (spec §8.2; comment on SYC-114). They don't touch the same files except `routes/reports.ts`'s two limiters, so they can be built side by side; whichever merges second rebases.
+
+**Users first see the feature at Slice 6.** Slices 3, 4 and 5 can merge without the app sending anything, and Slice 7's Issues section is empty until 6.2 publishes. 6.1 (full-screen photo and the hidden tile) is worth publishing on its own, because the team already hides photos today (PR 6) and a hidden sighting photo currently shows a blank square.
+
+---
+
+## Slice 0: docs
+
+### PR 0.1: the catalogue row and DECISIONS Part 2q (docs only; CI skips it, SYC-286)
+
+**What changes for anyone:** nothing. It records what Samuel decided so the code can't run ahead of the approved documents.
+
+- `docs/specs/roles-and-invites.md` §6.2 gains the `remove_photo` row from spec §5.5, word for word: island-only, team ✓, management ✓, guardian —. **`clear_home_description` is not added** (Decision 2). If Samuel picks B, the row goes in too.
+- `docs/specs/DECISIONS.md` gains **Part 2q, "approval of `report-an-issue.md` (SYC-44, SYC-170), 12 October 2026"**, carrying spec §15's entries word for word, plus this plan's three decisions once answered.
+- **Checked first:** no PR or branch adds `remove_photo` (searched every open PR and the SYC-53 branches, 13 Oct). SYC-53's catalogue test (its T24, PR 0.5) parses §6.2 from the document itself, so the row must be on `main` before any code uses the name. SYC-53's own docs PRs (D1–D6) edit other parts of the same file; whichever merges second rebases.
+
+---
+
+## Slice 1: Turnstile on the cat-in-trouble form (SYC-170)
+
+**What changes, in plain English.** Nothing a real person notices. When someone sends a cat-in-trouble report, the app quietly checks they're a person using the real app. On the rare occasion Cloudflare wants a tap, a small sheet appears with one box to tick. If the check can't finish, the report stays saved on the phone with *"We couldn't run the safety check. Your report is still saved and we'll try again."*, and it's sent next time. A script that sends reports without the check gets nothing into the queue. When Cloudflare itself is down, reports still get through, marked "unchecked", in their own small list at the bottom of the queue.
+
+### PR 1.0: the spike, first, on a real iPhone and a real Android phone (spec §9.4, §9.6, D10)
+
+Nothing is merged to `main` from the spike except a short note.
+
+1. **Cloudflare (Claude, via the API; the `turnstile-spin` skill).** Probe that the wrangler token can manage Turnstile (`GET /accounts/:id/challenges/widgets`). If it can't, that is a token-permission problem to fix, and it is the only Cloudflare step that would reach Samuel. Create the **production widget**: managed mode, domains `["apptest.catspotters.com"]` **only** (never `catspotters.com`, which would authorise every subdomain, §9.6). Development and Replit preview addresses use **Cloudflare's published test keys**, never this widget.
+2. **The secret key** goes into the EU Replit project's deployment secrets as `TURNSTILE_SECRET_KEY`. Replit has no way for Claude to write a secret: `docs/runbooks/replit-github-sync.md` records the Replit agent confirming that only a human can type into the Secrets pane. So **Samuel copies it from the Cloudflare dashboard's Turnstile page straight into Replit's Secrets pane**. The value never passes through chat, a file or a prompt. This is the one human step in Slice 1. The sitekey is public and goes into the app's build settings and the website build.
+3. **The page.** A one-screen `/_challenge` page, served by `serve-web.js` on the app host, that renders the widget in managed mode with the `action` and `cdata` from its query string, and hands the token back with `window.ReactNativeWebView.postMessage`. The website's own pre-launch pass lets exactly `/_challenge` through: it's static, holds no data, and the phone has no website cookie.
+4. **The phones.** A development build with `react-native-webview` (a native dependency, so a new build, not a web publish). First on the iOS simulator (Claude), then on **a real iPhone and a real Android phone** through an internal test build. Each records:
+   - the exact `hostname` string siteverify reports for a phone token (it must be `apptest.catspotters.com`);
+   - `action` and `cdata` round-trip;
+   - time to a token on Wi-Fi and on one bar;
+   - what happens when Cloudflare asks for a tap;
+   - that the user agent stays the same through the session.
+5. **Output:** `docs/research/syc-170-turnstile-spike.md`, with the four facts above. **If the hostname isn't the app host, Slice 1.3 stops** and the options in spec §9.4 come back to Samuel.
+
+### PR 1.1: the server check, both routes (spec §9.2, §9.5; migration `report_token_checked`)
+
+- **`lib/turnstile.ts`**: `verifyTurnstile(token, expectedAction, expectedCdata)` returns exactly one of three outcomes:
+  - `ok`: success, with `action`, `cdata` and `hostname` all matching. The hostname is compared with an **exact list** (`TURNSTILE_HOSTNAMES`, default `apptest.catspotters.com`).
+  - `rejected`: missing, malformed, over 2,048 characters (refused before any call to Cloudflare), `success: false`, wrong action, wrong `cdata`, or a hostname not on the list.
+  - `unreachable`: a timeout (3 seconds, then one retry with the same `idempotency_key`) or a 5xx.
+
+  No `remoteip` is sent. The token is never logged: request bodies aren't logged today, and the siteverify error path logs only the outcome and Cloudflare's error codes.
+- **`TURNSTILE_MODE`**:
+  - `off`: no check (the default in development and tests unless a test sets it);
+  - `observe`: check and log the outcome, refuse nothing;
+  - `enforce`.
+- **`POST /api/reports` and `POST /api/reports/draft`**, in this order:
+  1. body;
+  2. device;
+  3. **the duplicate check first**: a sent report with this `(device, clientRef)` gets its original answer;
+  4. the token (action `welfare_report` or `welfare_draft`, `cdata` = `clientRef`):
+     - `rejected` → **`428 { error: "challenge_required" }`**, nothing written;
+     - `unreachable` → accept with `token_checked = false`, after the **unchecked limit** (3 an hour per address, both forms together);
+  5. the existing write.
+- **Migration:** `welfare_reports.token_checked boolean` (nullable). `null` means "sent before Turnstile", `true` means "checked", `false` means "accepted while Cloudflare was unreachable". Rollback drops the column.
+- **The unchecked limit** counts in memory until Slice 2 merges. That's correct today, because the deployment is pinned to one instance (`docs/DEPLOYMENT.md`, SYC-105 step 1). Whichever of 1.1 and 2.1 merges second moves it to the shared store.
+- **The queue page:** unchecked reports sit in their own **"Unchecked (Cloudflare was unreachable)"** list below the checked ones, never in the urgent-first order. Unchecked drafts are collapsed. The count shows even when it's zero, as an early warning.
+- **Unchecked alert emails:** individually up to 10 an hour in total, then at most one "N unchecked reports waiting" email an hour (small call above).
+- **Tests:**
+  - **T1-1:** `rejected` for each of missing, malformed, over-long, `success: false`, wrong action, wrong `cdata`, `team.catspotters.com`, and a reused token (Cloudflare's `timeout-or-duplicate`). Each gets `428`, with no row, no outbox row and no draft.
+  - **T1-2:** a siteverify timeout and a 503 each create an unchecked row and email it.
+  - **T1-3:** the 4th unchecked row from one address in an hour is `429`, across both forms.
+  - **T1-4:** a resend of an already-sent report with **no** token gets its original `200`, not `428` (the duplicate check comes first).
+  - **T1-5:** the draft route with no token is `428` and writes nothing; during an outage it writes a collapsed unchecked draft (spec test 15).
+  - **T1-6:** the token never appears in any log line (captured logger).
+  - **T1-7:** `observe` refuses nothing and logs the outcome.
+  - **T1-8:** the unchecked list is below every checked report on the queue page.
+  - Siteverify is faked at the `fetch` boundary.
+- **Mutation probes:**
+  - drop the hostname comparison → T1-1 (`team.`) goes red;
+  - map `rejected` to "accept unchecked" → T1-1 red;
+  - put the token check before the duplicate check → T1-4 red;
+  - drop the unchecked limit → T1-3 red.
+
+### PR 1.2: the website, and the saved list's rule (spec §9.3, §9.5, D11)
+
+- **`lib/turnstile.ts` in the app** (the client twin): `getTurnstileToken(action, cdata)`. It resolves to a token, or rejects with `ChallengeUnavailable` after about 20 seconds. On the web it loads Cloudflare's script once and renders a managed widget into a small sheet that is invisible unless Cloudflare asks for a tap. A fresh token is fetched for every send, including each resend from the saved list.
+- **`lib/reportQueue.ts`**:
+  - `isPermanentRefusal` treats **`428` as not a refusal** (`reportQueue.ts:145-148` would otherwise count it, a fact the spec relies on).
+  - A `428` triggers one fresh check and an immediate resend of that item.
+  - `ChallengeUnavailable` leaves the item `queued` with no strike, and the confirmation shows the "safety check" message.
+- **`sendDraft`** gets a token too. It stays best-effort: a failed check means no draft row, which is what happens today when a draft fails.
+- **Strings** in en, el and fr: the safety-check message, and the tap sheet's one line. On the web, "saved on your phone" reads "saved in this browser".
+- **Tests:**
+  - **T1-9 (spec test 16):** a `428` doesn't count toward three strikes; the item is kept and resent with a new token.
+  - **T1-10:** `ChallengeUnavailable` keeps the item and shows the message, with no strike.
+  - **T1-11:** a token is fetched per send, never reused, and never stored in the saved list (the stored item has no token field; checked with `isPendingReport`).
+  - **T1-12:** the i18n test has every new key in all three languages.
+- **Mutation probe:** let `428` count as a strike → T1-9 red.
+- **Browser check** (with data, en/el/fr, 390 px and desktop): send a report with the test sitekey that always passes, then with the one that always fails (it must stay saved), then with the one that forces a tap.
+
+### PR 1.3: the phone apps (spec §9.4, option A)
+
+- **`react-native-webview`** is added (with Expo SDK 54's matching version).
+- **A `TurnstileHost`** in the root layout keeps one hidden WebView ready. It loads `https://<app host>/_challenge?action=…&cdata=…` (the app host is the one the build already uses for `/api`), passes the token back by `postMessage`, and shows itself as a small sheet only when Cloudflare asks for a tap. It times out after 20 seconds, with the same fallback as the web. JavaScript and DOM storage are on; navigation is allowed only to the app host, `challenges.cloudflare.com`, `about:blank` and `about:srcdoc`; the user agent is fixed.
+- **A send that needs a check waits until the app is active** (C9). A NetInfo event in the background marks the queue "due" instead of sending.
+- **A new store build** (EAS) is needed. `TURNSTILE_MODE` moves to `enforce` only once this build is in testers' hands (small call above).
+- **Tests:**
+  - **T1-13:** the host resolves a token from a fake `postMessage`, and times out to `ChallengeUnavailable`.
+  - **T1-14:** a background NetInfo event doesn't start a check.
+  - **T1-15:** navigation outside the allowed list is refused.
+- **Probe (Claude, then Samuel's phones):** a cat-in-trouble report from each phone lands as `token_checked = true`, and the production log shows `ok` with the exact hostname.
+
+---
+
+## Slice 2: shared limits, counted in Postgres (SYC-105)
+
+**What changes, in plain English.** Nothing anyone sees. Limits that used to reset whenever the app restarted, and would multiply if Replit ran two copies, now hold properly. That's one of the two things that must be true before the pre-launch pass can come off.
+
+### PR 2.1: the store (migration `rate_limit_counters`)
+
+- **The table:** `rate_limit_counters (bucket text, key text, window_start timestamptz, hits int, primary key (bucket, key, window_start))`. `key` is a SHA-256 of the address and a **salt that changes every day**. The salt is generated and kept in a one-row table by the server itself, so no new secret is needed. The table never holds an address, and old windows are deleted by the mail drain's sweep (the keep-safe sweep's pattern).
+- **`lib/limits.ts`** provides:
+  - `consume(bucket, key, limit, windowMs)`: one `insert … on conflict do update … returning hits`, atomic across instances;
+  - `peek()`;
+  - an `express-rate-limit` store built on them.
+- **Moved onto it:** the report and draft limiters, the AI matcher, the sign-in hand-off, delete-me, the keep-safe link limiters, the per-device match limit and the new-phone cap (`newDeviceLimit.ts`'s in-memory map). The photo route's limiter stays in memory (small call above). SYC-130 and SYC-2 are adding limiters to `rateLimit.ts`; whichever merges second uses the shared factory.
+- **Tests:**
+  - **T2-1 (SYC-105 step 3; spec test 4's shape):** two app instances sharing one test database share the limit. The 11th report from one address across both is `429`.
+  - **T2-2:** a restart doesn't reset a window.
+  - **T2-3:** the stored key isn't the address, and differs on two days.
+  - **T2-4:** old windows are swept.
+- **Mutation probe:** key the store per process (in memory) → T2-1 red.
+- **After it's live (Claude):** lift the one-instance pin in Replit's deployment settings **only after** a probe shows the limit holding. This is SYC-105 step 4. It's a Replit setting, so if Claude can't change it through the connector, it goes on Samuel's list. Update `docs/DEPLOYMENT.md`.
+
+---
+
+## Slice 3: a new photo address on hide and restore (SYC-279, D14)
+
+**What changes, in plain English.** When the team hides a photo (or later, a report does), it gets a new web address, and the old one never works again. If it's restored, it gets yet another address. Nobody sees a difference, except that a copy of an old address (a saved link, an old page) stops showing the photo. With Decision 1's option A, shared caches are also told not to keep photos.
+
+### PR 3.1: rotation, the retired-address list and the cache rule (migration `photo_public_id_history`)
+
+- **The table:** `photo_public_id_history (public_id text primary key, photo_id int not null references photos, retired_at timestamptz not null)`.
+- **`setPhotoVisibility`** (`lib/photoVisibility.ts`), inside its existing lock, on a real change only:
+  1. move the current `photos.public_id` into the history;
+  2. set a fresh `gen_random_uuid()`;
+  3. write the event.
+
+  A no-op ("already hidden") rotates nothing. The report-hide writer in Slice 5 calls the **same** helper.
+- **Two lookups, deliberately different:**
+  - the **public** photo route (`routes/photos.ts`) answers only to the current id;
+  - **`findPhotoByAnyPublicId()`**, used only by the issue route and the team routes, also accepts a retired id. A report queued on a phone before a rotation still finds its photo, and the team route answers a retired id with a redirect to the current one.
+- **The cache rule (if Decision 1 is A):** with the pass off, photos are sent as `private, max-age=31536000, immutable`. With the pass on, nothing changes (it's already `private`).
+- **Tests:**
+  - **T3-1:** hide rotates. The old id is `404` on the public route, the new id is `404` while hidden, and after a restore the newest id is `200` while both older ids stay `404`.
+  - **T3-2:** a no-op doesn't rotate.
+  - **T3-3:** a retired id resolves through `findPhotoByAnyPublicId` and **never** through the public route.
+  - **T3-4:** six simultaneous hides of one photo rotate once.
+  - **T3-5:** the public cat list, cat detail, match candidates and notifications carry only current ids (PR 6's reader list, re-run).
+  - **T3-6:** the photo route's header with the pass off.
+  - **P6-0** (the source test that only `photoVisibility.ts` builds `/api/photos/`) still holds.
+- **Mutation probes:**
+  - let the public route accept a retired id → T3-3 red;
+  - rotate before the lock → T3-4 red;
+  - send `public` → T3-6 red.
+- **Probe (Claude, after publish):** hide a test photo; `curl` the old address (`404`) and the new one (`404`); restore it; `curl` all three. Check the response has no `age` header. With the pass on, the probe uses a tester key.
+
+---
