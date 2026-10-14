@@ -11,7 +11,9 @@
  * Pure: separated from the screens so it has a direct test in every
  * language.
  */
-import { CatCoatItem, CatMarkingsItem, type Cat } from '@workspace/api-client-react';
+// Types only: screens (and their tests) that mock the generated client
+// still load this file.
+import type { Cat, CatCoatItem, CatMarkingsItem } from '@workspace/api-client-react';
 
 /** Every colour the public payload can carry, and the word it shows as. */
 export const COAT_LABEL_KEYS: Record<CatCoatItem, string> = {
@@ -43,9 +45,10 @@ export const MARK_LABEL_KEYS: Record<CatMarkingsItem, string> = {
   odd_eyes: 'markShown_odd_eyes',
 };
 
-/** The vocabulary's order, which is the spec's order (§3.1, §3.2). */
-const COAT_ORDER = Object.values(CatCoatItem);
-const MARK_ORDER = Object.values(CatMarkingsItem);
+/** The spec's order (§3.1, §3.2): the maps above are written in it, and a
+ * test pins it to the generated enums. */
+const COAT_ORDER = Object.keys(COAT_LABEL_KEYS) as CatCoatItem[];
+const MARK_ORDER = Object.keys(MARK_LABEL_KEYS) as CatMarkingsItem[];
 
 function inOrder<T extends string>(codes: readonly unknown[] | undefined, order: readonly T[]): T[] {
   if (!Array.isArray(codes)) return [];

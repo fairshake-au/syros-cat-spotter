@@ -44,8 +44,9 @@ describe('T-words: every code has a word in every language', () => {
   it('every code the payload can carry maps to a key that exists in every language', () => {
     // The maps are keyed by the generated enums, so a new code fails the
     // typecheck; this checks the words behind them at run time too.
-    expect(Object.keys(COAT_LABEL_KEYS).sort()).toEqual([...COATS].sort());
-    expect(Object.keys(MARK_LABEL_KEYS).sort()).toEqual([...MARKS].sort());
+    // In the vocabulary's order too: the line is drawn in this order.
+    expect(Object.keys(COAT_LABEL_KEYS)).toEqual([...COATS]);
+    expect(Object.keys(MARK_LABEL_KEYS)).toEqual([...MARKS]);
     for (const lang of LANGS) {
       for (const key of [...Object.values(COAT_LABEL_KEYS), ...Object.values(MARK_LABEL_KEYS)]) {
         expect(TRANSLATIONS[lang][key], `${lang}.${key}`).toBeTruthy();
