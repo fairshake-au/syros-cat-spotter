@@ -40,6 +40,7 @@ import {
   letGoWithinDays,
   newestActiveOwnerHomed,
   pinWithinReach,
+  removedByTeamWithinDays,
   type ClaimRefusal,
 } from "../lib/claiming";
 import { logRouteDuration } from "../lib/requestTiming";
@@ -141,6 +142,16 @@ async function catPayload(
  */
 /** §11: a phone that let a cat go can't claim that same cat again for this long. */
 const CLAIM_COOLDOWN_DAYS = 7;
+/** §7, §11: after the team removes an owner, that phone waits this long for that cat. */
+const REMOVED_COOLDOWN_DAYS = 30;
+
+/** Either cooldown: the phone's own let-go (7 days) or a team removal (30). */
+async function inClaimCooldown(catId: number, deviceId: string): Promise<boolean> {
+  return (
+    (await letGoWithinDays(db, catId, deviceId, CLAIM_COOLDOWN_DAYS)) ||
+    (await removedByTeamWithinDays(db, catId, deviceId, REMOVED_COOLDOWN_DAYS))
+  );
+}
 
 async function detailViewer(
   req: Request,
@@ -162,7 +173,7 @@ async function detailViewer(
   // `claimCooldown` lets the app tell "you let this cat go this week" from
   // "you haven't met it", so it never shows the hint about spotting the cat
   // to a phone that has. Only a proven phone is told, and only about itself.
-  const claimCooldown = await letGoWithinDays(db, cat.id, deviceId, CLAIM_COOLDOWN_DAYS);
+  const claimCooldown = await inClaimCooldown(cat.id, deviceId);
   const canClaim =
     cat.ownerDeviceId === null &&
     (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true &&
@@ -434,7 +445,7 @@ router.post("/cats/:catId/claim", async (req, res) => {
     res.status(400).json({ error: "Home note contains offensive language", code: "OFFENSIVE_NOTE" });
     return;
   }
-  if (await letGoWithinDays(db, catId, deviceId, CLAIM_COOLDOWN_DAYS)) {
+  if (await inClaimCooldown(catId, deviceId)) {
     res.status(429).json({ error: TOO_MANY, code: "CLAIM_COOLDOWN" });
     return;
   }

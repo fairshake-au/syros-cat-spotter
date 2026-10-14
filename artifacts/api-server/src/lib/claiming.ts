@@ -191,6 +191,38 @@ export async function letGoWithinDays(
   return r.rows[0]?.found === true;
 }
 
+/**
+ * §7, §11 (Samuel, 14 Oct 2026): did the team remove this phone as the
+ * cat's owner within `days`? A team removal writes a staff withdrawal
+ * (`account_id` set) that supersedes the owner's `homed`, and that `homed`
+ * carries the owner's device. Counted by when the server wrote the
+ * withdrawal. An owner who deleted their data has no device on it, so
+ * nothing matches.
+ */
+export async function removedByTeamWithinDays(
+  exec: DbOrTx,
+  catId: number,
+  deviceId: string,
+  days: number,
+): Promise<boolean> {
+  const r = await exec.execute<{ found: boolean }>(sql`
+    select exists (
+      select 1
+        from observations w
+        join observations h on h.id = w.supersedes_id
+       where w.cat_id = ${catId}
+         and w.kind = 'life_status'
+         and w.account_id is not null
+         and (w.value->>'withdrawn') = 'true'
+         and w.created_at > now() - make_interval(days => ${days}::int)
+         and h.cat_id = ${catId}
+         and h.kind = 'life_status'
+         and h.value->>'status' = 'homed'
+         and h.device_id = ${deviceId}
+    ) as found`);
+  return r.rows[0]?.found === true;
+}
+
 /** Clears everything that made someone this cat's owner (§6, §7): the owner
  * link, their name, the home note and the home pin. */
 export async function clearOwner(exec: DbOrTx, catId: number): Promise<void> {
