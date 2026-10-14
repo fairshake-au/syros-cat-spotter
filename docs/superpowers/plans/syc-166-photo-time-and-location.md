@@ -216,3 +216,92 @@ Test 1 (time half), 2, 3, 7, 9, 13 and 10 (the five keys), plus 8's server parts
 ### Rollback
 
 Revert the PR. Sightings already saved keep their true capture times (they are ordinary valid timestamps). The recent-photos list is a few kilobytes of device storage; reverting leaves it unread and `Delete my data` from an older build would not clear it, so the revert PR also keeps `clearRecentPhotos` until the key is retired.
+
+---
+
+## Slice 2W · The website's time reader (time tags only)
+
+**What a spotter sees afterwards.** On the website, a photo picked from a laptop (or from a phone browser that keeps the time) is dated to when it was taken, with the same "Photo taken ..." line, the same 21-day rule and the same same-second fixes as the apps. If the browser has removed the time, the sighting is dated to now and the screen says "This photo doesn't say when it was taken, so the sighting will be recorded as now." The website still reads **no location** in this slice.
+
+**Why it is its own slice, and the one thing the spec leaves open.** The spec says the website reader is "sized to what the device check shows" (§4.1, Decision 4). Samuel's condition says build the date and time first because it works whatever the device check finds. Those pull in different directions for the website: the only reader worth building before the check is the **time-tags-only** one, which is also the part every surviving branch of spec §4.3 needs (the full reader, "time only on web", and everything but "neither arrives on the website"). The cost of guessing wrong is a small reader that finds nothing and degrades to today's behaviour. **This is Decision A for Samuel.** The plan recommends building 2W straight after slice 2; the alternative is to hold it until SYC-280 has filled in C6 and C8.
+
+**Branch / PR:** `claude/syc-166-web-time-reader`, after slice 2 is merged (it reuses `photoClock.ts` and the Spot wiring).
+
+### What the code does today
+
+The picker's website code hands back the chosen `File` and, with `base64: true`, the base64 of the whole file (`ExponentImagePicker.web.js`, `readFile`, `readFileAsBase64`); it reads no tags (`:111`). The Spot screen's `toPickedPhoto` (`spot.tsx:97-109`) therefore holds the whole file's base64 in memory already. Safari on iPhone converts HEIC to JPEG on upload; a true HEIC from a desktop browser is not a JPEG (spec §4 table).
+
+### Files
+
+- New `artifacts/cat-spotter/lib/jpegTimeTags.ts` (pure): `readJpegTimeTags(base64: string): TimeTags | null`.
+- Edit `lib/pickedAsset.ts` to call it on the web only, on the picker's base64, and `app/(tabs)/spot.tsx` is **not** edited (the web gets its `timeInfo` from the same function the apps do, which is the point of putting it in `pickedAsset.ts`).
+- New `lib/__tests__/jpegTimeTags.test.ts`.
+- Fixtures are built in the test with `sharp` (already a server dependency; for the app's tests, a tiny hand-assembled APP1 builder in `lib/__tests__/__fixtures__/` so the app does not gain a dependency).
+
+### What the reader does (spec §4.1, narrowed)
+
+- Decodes **only the first 64 KB** of the base64 (87,384 characters, a multiple of four) however big the file is, finds the Exif APP1 segment, walks the TIFF header (either byte order), IFD0, the Exif sub-IFD (`DateTimeOriginal`, `OffsetTimeOriginal`, `SubSecTimeOriginal`) and the GPS sub-IFD for **the two clock tags only** (`GPSDateStamp`, `GPSTimeStamp`), and returns the same `TimeTags` shape `extractTimeTags` returns.
+- **It does not read location by construction**: it does not look up tag ids for latitude, longitude, altitude or accuracy at all. A source check asserts those ids do not appear in the file, so "time only" cannot drift into "location" without a visible change. Slice 5 widens it only if the device check says phone browsers keep the location.
+- **Never throws, never hangs.** Every offset read is bounds-checked; IFD entry count capped (at 512); pointer cycles stopped by a visited set and a depth limit; a total step budget. Anything unsure returns `null`, which means "no information".
+
+### Steps (test first)
+
+1. `jpegTimeTags.test.ts` (spec §9 test 4, time-only variant): a JPEG with time tags and an own offset; one with time and a GPS clock but no offset; one with no Exif; big-endian and little-endian; truncated mid-IFD; corrupt (random bytes after the marker); a pointer loop; a 30 MB base64 string (asserts it returns in under 50 ms because only the head is decoded); a HEIC header; a PNG; an empty string; non-base64 text. All return a value or `null`, none throw. **A fixture with a GPS position inside it: the output contains no part of the position** (value-based).
+2. Implement. 3. Wire into `pickedAsset.ts` for `Platform.OS === 'web'`. When the reader returns `null`, `timeInfo.kind` becomes `none/missing` and the website now shows `photoNoTime`, which is true because we *did* read the file and found nothing.
+4. Extend `pickedAsset.test.ts`: web path with a time-bearing JPEG gives `ok`; with a stripped JPEG gives `none`; with a HEIC gives `none`.
+
+### Mutation probes
+
+1. Make the reader skip the offset tag -> the "own offset wins" web test red. 2. Make the reader decode the whole file -> the 30 MB speed test red. 3. Add a latitude tag id to the file -> the source check red. 4. Make a corrupt file throw -> the never-throws tests red. 5. Show `photoNoTime` when the reader was not run -> slice 2's `'unread'` test red.
+
+### Verification
+
+- **Browser, real files, three languages, ~390 px and desktop:** pick, in turn, an original phone JPEG exported to disk (keeps tags), a copy with tags stripped (`exiftool -all=`), a screenshot, an older-than-21-days photo, and a HEIC. Confirm each shows the right line, and that the old one shows the too-old card.
+- **Real devices (spec marks C6 and C8 [confirm]):** pick a fresh photo in iPhone Safari and in Android Chrome on the **deployed** (or tunnelled) website, and record whether the "Photo taken ..." line appears. That is the check, and it is also what answers Decision A for the future: if neither phone browser keeps the time, 2W's value is laptop users only, and that goes in the PR.
+
+### Rollback
+
+Revert. The website goes back to dating library photos at the moment they are picked; nothing stored changes.
+
+---
+
+## Slice 3 · The owner's "seen on Tuesday" push, and the reward screen's last-seen date
+
+**What a spotter sees afterwards.** A cat's owner who gets a push for a sighting from a photo more than 24 hours old sees "Agatha was seen on Tuesday" instead of "Agatha was spotted again!". Everyone else who follows the cat gets the unchanged evening round-up. A spotter who logs a 10-day-old photo of a cat another spotter saw yesterday is told, on the reward screen, that the cat was last seen **yesterday**, not 10 days ago.
+
+**Branch / PR:** `claude/syc-166-owner-push-last-seen`. Server only. Independent of slices 2 to 5 and of the app: it can ship any time after slice 1, even before any app can send an old time (today's apps can already queue a sighting for days, so the owner's push for a late sync is already misleading).
+
+### What the code does today (verified on `7089870`)
+
+- Resolve builds the update message in `artifacts/api-server/src/routes/sightings.ts:822-829`: `isNewCat ? "<cat> was just discovered on Syros!" : "<cat> was spotted again!"`, then `createUpdateAndFanOut(...)`.
+- `fanOutNotifications` (`lib/notificationFanout.ts:71-135`) writes a notification row for the followers who are the cat's owner only (`:112-115`, "only the cat's owner hears about a sighting straight away"), and pushes `opts.update.message` with the cat's name as the title (`:121-127`).
+- The evening round-up (`lib/sightingRoundUp.ts`) builds its own text from cat names and never reads the update message (`roundUpText`, `:66-80`), keyed to when the update row was written (`cu.created_at` in the query at `:131-143`). So changing the stored message cannot change the round-up. Test 14 asserts that.
+- Sighting updates are **excluded** from the public cat timeline (`routes/cats.ts:296-307`, `ne(updateType, "sighting")`), so a weekday in the message reaches the owner's notification row and push only.
+- **Last seen on the reward screen:** the resolve response sets `lastSeenAt: sighting.createdAt` (`sightings.ts:868`), this sighting's own (possibly backdated) time. The cat list instead uses `max(sightings.created_at)` (`lib/catHelpers.ts:431`). The two disagree exactly when an older photo is logged after a newer sighting.
+- Streak days (Athens, `lib/streak.ts:13`), the death rule and the team's timeline already use the stored capture time and need nothing (spec §6).
+
+### Files
+
+- New `artifacts/api-server/src/lib/sightingMessage.ts` (pure): `spottedAgainMessage(catName, sightingAt, now)`.
+- Edit `routes/sightings.ts` in exactly two places (`:822-829` and the `countRow` query at `:835-838` / `:868`), nothing else.
+- New tests `lib/sightingMessage.test.ts` and `routes/sightings.lastSeen.test.ts`; extend `routes/sightings.resolve.test.ts` or a new `routes/sightings.ownerPush.test.ts` for the push.
+
+### Steps (test first)
+
+1. **`sightingMessage.test.ts`** (spec test 14): within 24 hours (23 h 59 min) -> "Agatha was spotted again!"; at 24 h 01 min -> "Agatha was seen on Tuesday" (weekday computed in **Europe/Athens**, the same zone as the streak, `lib/streak.ts:13`); a sighting that is "tomorrow" by Athens vs UTC around midnight uses Athens; **older than 6 days -> "Agatha was seen on 3 October"** if Decision D is approved (otherwise the weekday, which is ambiguous beyond a week; photos can be up to 21 days old, so "Tuesday" can mean three Tuesdays ago); a new cat's message stays "was just discovered on Syros!" (no recipient exists for it, since a new cat has no owner; the test pins that no owner means no notification).
+2. **Owner push route test:** with a stubbed `sendPushNotification`, resolve a sighting backdated 3 days for a cat with an owner subscribed: the push body is "... was seen on <weekday>"; backdated 1 hour: "... was spotted again!". **The evening round-up for the same two cases is byte-identical to today's** (run `sightingRoundUp`'s planner with both and assert the same `roundUpText`).
+3. **`sightings.lastSeen.test.ts`** (spec test 12): cat last seen yesterday by another device; a new sighting dated 10 days ago resolves to that cat; the response's `cat.lastSeenAt` is yesterday's day, not the 10-day-old day. Second case: the new sighting is the newest -> its own day. The value goes through `serialiseCat` -> `toPublicDay` (`catHelpers.ts:160`), so it is a day, not a time.
+4. **Implement:** compute `latest = max(created_at)` of the cat's sightings in the same query that already counts them (`select count(*), max(created_at) ... where cat_id = ...`), and use `latest` for `lastSeenAt`. The message helper replaces the template literal.
+
+### Mutation probes
+
+1. Revert `lastSeenAt` to `sighting.createdAt` -> `lastSeen` test red. 2. Compute the weekday in UTC -> the near-midnight test red. 3. Change the threshold to 48 h -> the 24 h 01 min test red. 4. Make the helper also run for the round-up text -> the round-up identity test red.
+
+### Verification
+
+- Server tests and typecheck. Probe with `curl` against a local API and database: create and resolve a sighting with `capturedAt` three days ago for a followed, owned cat; read the owner's notification row via the app's notifications endpoint and confirm the text; read the resolve response's `cat.lastSeenAt`.
+- No app change, so no browser or device check. The push text is English only, like all server text (spec §8).
+
+### Rollback
+
+Revert; old texts return. Update rows already written keep their text.
