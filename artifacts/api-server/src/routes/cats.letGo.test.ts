@@ -19,6 +19,9 @@ import { deleteTestSightings } from "../test/sightings";
 // SYC-130 Task 5: the owner lets go (claiming-a-cat.md §6, §8, §11). Every
 // test makes its own cat and its own phones.
 
+// Consonants only: random hex can spell leetspeak ("a55") that the note
+// filter rightly refuses, which made this setup flaky.
+const safeTag = () => [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const spies = vi.hoisted(() => ({ logLines: [] as string[] }));
 
 vi.mock("../lib/logger", async (importOriginal) => {
@@ -131,7 +134,7 @@ async function met(catId: number, p: Phone) {
   await db.insert(pushTokensTable).values({ deviceId: p.id, token: `tok-${p.id}` }).onConflictDoNothing();
 }
 
-const NOTE = () => `Blue door ${randomBytes(3).toString("hex")}`;
+const NOTE = () => `Blue door ${safeTag()}`;
 const claim = (catId: number, p: Phone, over: Record<string, unknown> = {}) =>
   request(app)
     .post(`/api/cats/${catId}/claim`)

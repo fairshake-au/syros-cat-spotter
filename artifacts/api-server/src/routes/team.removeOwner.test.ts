@@ -25,6 +25,9 @@ import {
 // SYC-130 Task 6: the team sees an owner and removes one (claiming-a-cat.md
 // §7, D6). Staff hold every capability today, so `can` is wrapped: `denied.cap`
 // is refused to everyone and the rest goes to the real `can`.
+// Consonants only: random hex can spell leetspeak ("a55") that the note
+// filter rightly refuses, which made this setup flaky.
+const safeTag = () => [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const denied = vi.hoisted(() => ({ cap: null as string | null }));
 vi.mock("../lib/capabilities", async (importOriginal) => {
   const real = await importOriginal<typeof import("../lib/capabilities")>();
@@ -201,7 +204,7 @@ async function ownedCat(label: string) {
   const d = phone(label);
   await met(c.id, d);
   await bind(d);
-  const note = `Blue door ${randomBytes(3).toString("hex")}`;
+  const note = `Blue door ${safeTag()}`;
   expect((await claim(c.id, d, { homeNote: note })).status).toBe(200);
   const row = await reload(c.id);
   return { c, d, note, row };

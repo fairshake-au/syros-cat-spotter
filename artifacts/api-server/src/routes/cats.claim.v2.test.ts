@@ -20,6 +20,9 @@ import { deleteTestSightings } from "../test/sightings";
 // MEDIUM-9). Every test makes its own cat and its own phones, and uses dates
 // relative to now.
 
+// Consonants only: random hex can spell leetspeak ("a55") that the note
+// filter rightly refuses, which made this setup flaky.
+const safeTag = () => [...randomBytes(4)].map((b) => "bcdfghjkmpqrvwxz"[b % 16]).join("");
 const spies = vi.hoisted(() => ({ logLines: [] as string[] }));
 
 // The logging test captures every line, with production's redaction and
@@ -156,7 +159,7 @@ async function met(catId: number, p: Phone) {
   await db.insert(pushTokensTable).values({ deviceId: p.id, token: `tok-${p.id}` }).onConflictDoNothing();
 }
 
-const NOTE = () => `Blue door ${randomBytes(3).toString("hex")}`;
+const NOTE = () => `Blue door ${safeTag()}`;
 const body = (deviceId: string, over: Record<string, unknown> = {}) => ({
   deviceId,
   livesOnSyros: true,
