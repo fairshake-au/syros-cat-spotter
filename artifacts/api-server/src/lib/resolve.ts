@@ -215,6 +215,29 @@ function earTipAuthorityLevel(o: Rankable): AuthorityLevel {
 }
 
 /**
+ * Does an authoritative `ear_tip { clipped: false }` (`no`, level 1 or
+ * above under `earTipAuthorityLevel`) knock out a photo-backed
+ * `clipped: true` (`clip`)? §10.2 rule 3, with Decision G:
+ *
+ * - It always does if it marks that clip wrong (`supersedesId`).
+ * - A spotter's clip (level 0) is evidence, not a statement: the "no"
+ *   knocks it out only if it is as new or newer (`>=`), exactly as before
+ *   Decision G. A newer spotter clip after a team "not a clip" puts the cat
+ *   back at *Likely*, which is how the review list reopens (§4.1).
+ * - Between two statements with standing, the order decides: a higher
+ *   level wins whatever the dates, and within a level the newest wins, an
+ *   exact tie going to the later row. So a guardian's in-person "not a
+ *   clip" outranks a team clip, and never a vet's.
+ */
+function clipCountered(no: Observation, clip: Observation): boolean {
+  if (no.supersedesId === clip.id) return true;
+  if (earTipAuthorityLevel(clip) === 0) {
+    return no.observedAt.getTime() >= clip.observedAt.getTime();
+  }
+  return outranks(no, clip, earTipAuthorityLevel);
+}
+
+/**
  * Does `a` beat `b`? Highest level first; within a level, the newest by
  * `observedAt`; an exact tie goes to the later row (the higher id).
  */
@@ -462,12 +485,7 @@ export function resolveSterilised(
   );
 
   const survivors = clippedTrueWithPhoto.filter(
-    (candidate) =>
-      !authoritativeFalse.some(
-        (af) =>
-          af.o.supersedesId === candidate.o.id ||
-          af.o.observedAt.getTime() >= candidate.o.observedAt.getTime(),
-      ),
+    (candidate) => !authoritativeFalse.some((af) => clipCountered(af.o, candidate.o)),
   );
 
   // Every ear-tip statement is collected for display (§4.1: "the cat page
