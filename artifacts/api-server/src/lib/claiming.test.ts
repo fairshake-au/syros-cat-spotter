@@ -16,6 +16,7 @@ import {
   CLAIM_PIN_REACH_M,
   newestActiveOwnerHomed,
   letGoWithinDays,
+  removedByTeamWithinDays,
   clearOwner,
 } from "./claiming";
 import { blurPosition } from "./blur";
@@ -687,21 +688,29 @@ describe("the owner helpers", () => {
     expect(await letGoWithinDays(db, c.id, d, 9)).toBe(true);
   });
 
-  it("letGoWithinDays still sees a withdrawal if WITHDRAWN ever gains a field (critic LOW-5)", async () => {
+  // Changed in the ship review (item 5): this used to say a withdrawal with an
+  // extra field still counted, because the cooldown read only the flag. Both
+  // cooldown checks now use the same shape as isWithdrawal: exactly
+  // { withdrawn: true }. A row with another field is not a withdrawal at all.
+  it("letGoWithinDays and removedByTeamWithinDays count only the exact withdrawal shape", async () => {
     const d = dev();
     const c = await streetCat();
     const h = await ownerHomed(c.id, d);
-    await db.insert(observationsTable).values({
+    const base = {
       catId: c.id,
       kind: "life_status",
-      value: { withdrawn: true, reason: "a future field" },
-      deviceId: d,
+      value: { withdrawn: true, reason: "an extra field" },
       roleAtTime: "public",
       authorityScope: "owner_of_this_cat",
       observedAt: daysAgo(1),
       supersedesId: h.id,
-    });
-    expect(await letGoWithinDays(db, c.id, d, 7)).toBe(true);
+    };
+    await db.insert(observationsTable).values({ ...base, deviceId: d });
+    expect(await letGoWithinDays(db, c.id, d, 7)).toBe(false);
+    const c2 = await streetCat();
+    const h2 = await ownerHomed(c2.id, d);
+    await db.insert(observationsTable).values({ ...base, catId: c2.id, supersedesId: h2.id, accountId: "acct-shape-test", roleAtTime: "staff", authorityScope: "none" });
+    expect(await removedByTeamWithinDays(db, c2.id, d, 30)).toBe(false);
   });
 
   it("clearOwner clears the owner link, name, home note and pin, and nothing else", async () => {
