@@ -126,6 +126,7 @@ Edited:
 - `app/(tabs)/spot.tsx` (wiring only; the logic lives in the libs above).
 - `lib/i18n.ts`: five keys in en, el, fr: `photoTakenAt`, `photoNoTime`, `photoTooOld`, `photoAlreadyLogged`, `photoAlreadyLoggedOpen`. Appended in one block headed `// SYC-166` at the end of each dictionary, to keep merges with other tickets trivial.
 - `context/DeleteMyDataContext.tsx`: one line in `wipePhone` (`:88-95`) calling `clearRecentPhotos()`, see "Privacy" below.
+- `app/review.tsx`: **only if Decision C2 is approved**, one call after a successful resolve that records the cat's number against the photo's entry in the recent-photos list (so "Open that sighting" can reach the cat's page).
 - Server test only: `artifacts/api-server/src/lib/imageValidation.exif.test.ts` (SYC-260's XMP line).
 - New server test `artifacts/api-server/src/routes/sightings.backdatedPublic.test.ts`.
 
