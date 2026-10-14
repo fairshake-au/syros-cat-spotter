@@ -214,7 +214,7 @@ export async function removeOwnerAndSay(
           value: WITHDRAWN,
           allowWithdrawal: true,
           accountId: person.id,
-          roleAtTime: "staff",
+          roleAtTime: actingRole(person, "remove_owner"),
           observedAt: new Date(),
           supersedesId: homedId,
           supersedeReason: input.reason,
