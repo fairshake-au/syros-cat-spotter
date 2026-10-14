@@ -1029,3 +1029,32 @@ describe("review (ship) finding 1: resolving a busy cat stays fast", () => {
     }
   });
 });
+
+describe("review (ship) finding 2: one 'Delete my data' is one voice", () => {
+  it("D2 a retracted link in a device's chain does not split it into two voices after redaction", () => {
+    const r1 = spotterMarks("a", { marks: ["kinked_tail"] }, "2026-01-01T10:00:00Z", { photoId: 1 });
+    const r2 = spotterMarks("a", { marks: ["kinked_tail"] }, "2026-01-05T10:00:00Z", { photoId: 2, supersedesId: r1.id });
+    const wrong = team("markings", { retracted: true }, "2026-01-06T10:00:00Z", { supersedesId: r2.id });
+    const r4 = spotterMarks("a", { marks: ["kinked_tail"] }, "2026-01-09T10:00:00Z", { photoId: 4 });
+    expect(resolveMarkings([r1, r2, wrong, r4], NOW).value).toBeNull();
+
+    const deletedAt = new Date("2026-02-01T08:00:00Z");
+    const redact = (o: Observation): Observation => ({
+      ...o,
+      deviceId: null,
+      redactedAt: deletedAt,
+      redactionReason: "person_deleted",
+    });
+    expect(resolveMarkings([redact(r1), redact(r2), wrong, redact(r4)], NOW).value).toBeNull();
+  });
+
+  it("two people deleted at different times are still two voices", () => {
+    const a = spotterMarks(null, { marks: ["kinked_tail"] }, "2026-01-01T10:00:00Z", {
+      redactedAt: new Date("2026-02-01T08:00:00Z"),
+    });
+    const b = spotterMarks(null, { marks: ["kinked_tail"] }, "2026-01-05T10:00:00Z", {
+      redactedAt: new Date("2026-02-03T08:00:00Z"),
+    });
+    expect(resolveMarkings([a, b], NOW).value).toEqual(["kinked_tail"]);
+  });
+});

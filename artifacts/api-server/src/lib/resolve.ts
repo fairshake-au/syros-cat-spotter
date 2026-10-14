@@ -745,9 +745,17 @@ export function appearanceVoiceKeys(
   }
   // A link joins only rows of one device, one account, or redacted rows,
   // so a chain's key is its device or account, or the chain's root row.
+  //
+  // One "Delete my data" clears all of a device's rows in a single update,
+  // so they share one `redactedAt` (Postgres `now()` is the transaction's
+  // time, severPerson.ts). That instant is the redacted voice's key, so a
+  // deleted device stays one voice even where no supersession links its
+  // rows. The chain root is the fallback for a redacted row with no stamp.
   const keys = new Map<number, string>();
   for (const o of rows) {
-    keys.set(o.id, isRedactedSpotterRow(o) ? `redacted:${find(o.id)}` : voiceKey(o));
+    if (!isRedactedSpotterRow(o)) keys.set(o.id, voiceKey(o));
+    else if (o.redactedAt != null) keys.set(o.id, `redacted-at:${o.redactedAt.getTime()}`);
+    else keys.set(o.id, `redacted:${find(o.id)}`);
   }
   return keys;
 }
