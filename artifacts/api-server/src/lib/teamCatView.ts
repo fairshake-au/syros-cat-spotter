@@ -668,7 +668,7 @@ export interface TeamCatSearchResult {
 }
 
 /** "SYR-0012", "syr 12", "SYR12" or "12": cat 12. */
-const SYR_RE = /^(?:syr)?[\s-]*0*(\d{1,9})$/i;
+export const SYR_RE =/^(?:syr)?[\s-]*0*(\d{1,9})$/i;
 
 /**
  * Cats whose name matches `q` on the folded form (foldName: case, accents,

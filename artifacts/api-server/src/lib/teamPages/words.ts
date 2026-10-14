@@ -63,10 +63,31 @@ const WORDS = {
   "colony.centreHint": "Both numbers, or leave both empty.",
   "colony.save": "Save changes",
   "colony.noPhoto": "No photo",
+  "colony.addCats": "Add cats",
+  "colony.takeOut": "Take out of this colony",
+  "colony.takeOutNote": "The cat stays in the records; it just isn't in any colony.",
+
+  "add.title": "Add cats to",
+  "add.searchLabel": "Find a cat by name or SYR number",
+  "add.searchButton": "Find",
+  "add.prompt": "Type a name, or a number like SYR-0012.",
+  "add.noMatch": "No cat matches that name or SYR number.",
+  "add.more": "Showing the first 30. Type more of the name to narrow it.",
+  "add.hint":
+    "Tick the cats to add. A cat that is in another colony moves here; its history keeps the record of where it was.",
+  "add.button": "Add the ticked cats",
+  "add.noColony": "No colony",
+  "add.in": "In",
+  "add.already": "Already in this colony",
+  "add.back": "Back to the colony",
 
   "done.created": "The colony was created.",
   "done.saved": "Saved.",
   "done.unchanged": "Nothing was different, so nothing was changed.",
+  "done.added": "The ticked cats are now in this colony.",
+  "done.nothingNew": "Those cats were already in this colony. Nothing was changed.",
+  "done.takenOut": "The cat is out of this colony.",
+  "done.notThere": "That cat isn't in this colony any more, so nothing was changed.",
 
   "problem.title": "That didn't save",
   "problem.nothingChanged": "Nothing was changed.",
@@ -77,6 +98,9 @@ const WORDS = {
   "problem.nameTooLong": "A colony's name can be up to 100 characters.",
   "problem.guardianTooLong": "The guardian's name can be up to 100 characters.",
   "problem.notesTooLong": "Notes can be up to 2000 characters.",
+  "problem.pickCats": "Tick at least one cat, and no more than 100.",
+  "problem.noSuchCat": "One of those cats doesn't exist.",
+  "problem.backToAdd": "Back to adding cats",
   "problem.centre": "The centre needs a latitude and a longitude, both real numbers, or both left empty.",
 
   "taken.title": "That name is taken",
@@ -97,6 +121,9 @@ const WORDS = {
   "history.guardian": "Cat guardian changed",
   "history.notes": "Team notes changed",
   "history.centre": "Centre changed",
+  "history.catAdded": "Cat added",
+  "history.catTakenOut": "Cat taken out",
+  "history.catMovedOut": "Cat moved to another colony",
 } as const;
 
 export type WordKey = keyof typeof WORDS;

@@ -1,6 +1,8 @@
 import type { Capability } from "../capabilities";
 import type { ColonyHistoryEntry, ColonyRow, ColonyView } from "../teamColonies";
 import { COLONY_NAME_MAX, COLONY_NOTES_MAX, GUARDIAN_NAME_MAX } from "../teamColonies";
+import type { CatToAdd } from "../colonyCats";
+import { ADD_SEARCH_LIMIT } from "../colonyCats";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { t, type WordKey } from "./words";
@@ -27,6 +29,10 @@ const DONE: Record<string, WordKey> = {
   created: "done.created",
   saved: "done.saved",
   unchanged: "done.unchanged",
+  added: "done.added",
+  nothingNew: "done.nothingNew",
+  takenOut: "done.takenOut",
+  notThere: "done.notThere",
 };
 
 /** A fixed sentence for `?done=<key>`; any other key shows nothing. */
@@ -229,6 +235,9 @@ export function renderColonyPage(
       sites +
       `<h2>${w("colony.catsTitle")}</h2>` +
       catList(v.cats) +
+      (opts.may("assign_cat_to_colony")
+        ? `<p><a class="tap" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
+        : "") +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +
       historyList(v.history),
@@ -276,5 +285,58 @@ export function renderColonyProblem(
     body:
       `<p>${esc(message)} ${w("problem.nothingChanged")}</p>` +
       `<p><a class="tap" href="${esc(back.href)}">${esc(back.label)}</a></p>`,
+  });
+}
+
+// ── Adding cats to a colony ────────────────────────────────────────────────
+
+function addCard(c: CatToAdd, colonyId: number): string {
+  const thumb = c.thumbnailUrl
+    ? `<img class="thumb" src="${esc(c.thumbnailUrl)}" alt="" loading="lazy">`
+    : `<span class="thumb nothumb">${w("colony.noPhoto")}</span>`;
+  const here = c.colony?.id === colonyId;
+  const where = c.colony ? `${w("add.in")} ${esc(c.colony.name)}` : w("add.noColony");
+  return (
+    `<li><label class="catrow" for="add-${c.id}">` +
+    `<input type="checkbox" id="add-${c.id}" name="catIds" value="${c.id}"${here ? " disabled" : ""}>` +
+    thumb +
+    `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
+    `<span class="status">${here ? w("add.already") : where}</span></span></label></li>`
+  );
+}
+
+/** "Add cats": a search, then the results as tick boxes in one form. */
+export function renderAddCatsPage(opts: {
+  colony: { id: number; name: string };
+  query: string;
+  results: CatToAdd[];
+  personName: string;
+}): string {
+  const { colony, query, results } = opts;
+  const searching = query.trim() !== "";
+  const search =
+    `<form class="search" method="get" action="${esc(colonyHref(colony.id))}/cats" role="search">` +
+    `<label class="label" for="add-q">${w("add.searchLabel")}</label>` +
+    `<div class="searchrow"><input id="add-q" name="q" type="search" value="${esc(query)}" maxlength="100"${searching ? "" : " autofocus"} autocomplete="off" autocapitalize="none" spellcheck="false">` +
+    `<button type="submit">${w("add.searchButton")}</button></div></form>`;
+  let body: string;
+  if (!searching) {
+    body = `<p class="empty">${w("add.prompt")}</p>`;
+  } else if (results.length === 0) {
+    body = `<p class="empty">${w("add.noMatch")}</p>`;
+  } else {
+    body =
+      `<form method="post" action="${esc(colonyHref(colony.id))}/cats">` +
+      `<p class="hint">${w("add.hint")}</p>` +
+      `<ul class="cats">${results.map((c) => addCard(c, colony.id)).join("")}</ul>` +
+      (results.length >= ADD_SEARCH_LIMIT ? `<p class="empty">${w("add.more")}</p>` : "") +
+      `<button type="submit">${w("add.button")}</button></form>`;
+  }
+  return renderPage({
+    title: `${t("add.title")} ${colony.name}`,
+    active: "colonies",
+    personName: opts.personName,
+    beforeTitle: `<p class="back"><a href="${esc(colonyHref(colony.id))}">${w("add.back")}</a></p>`,
+    body: search + body,
   });
 }
