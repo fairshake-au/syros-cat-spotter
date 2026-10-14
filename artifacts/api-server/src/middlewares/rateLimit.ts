@@ -1,6 +1,13 @@
 import rateLimit from "express-rate-limit";
+import { _resetBucketForTests, consume, peek, sharedLimiter } from "../lib/limits";
 
 // Per-IP throttles for public, unauthenticated endpoints.
+//
+// SYC-105 PR 2.1: every limit here is counted in Postgres (lib/limits.ts), so
+// it holds across servers and restarts, EXCEPT the photo route's, which stays
+// in each server's memory (see photoLimiter). When the counter itself fails,
+// these limiters refuse with 503 (fail closed); only the cat-in-trouble
+// routes (routes/reports.ts) fail open.
 //
 // The AI-backed endpoints (POST /api/sightings, POST /api/cats/name-suggestions)
 // each trigger paid OpenAI calls, so an anonymous flood can exhaust API credits
@@ -20,8 +27,9 @@ const common = {
 };
 
 // Expensive AI endpoints: strict budget.
-export const aiLimiter = rateLimit({
-  ...common,
+export const aiLimiter = sharedLimiter({
+  bucket: "ai",
+  message: common.message,
   windowMs: 15 * 60 * 1000,
   limit: 20,
 });
@@ -32,6 +40,13 @@ export const aiLimiter = rateLimit({
 // enough that a tourist browsing the whole catalogue in one sitting never
 // notices — a few hundred photos in fifteen minutes — while making a loop
 // that walks the id range unattractive.
+//
+// STAYS IN MEMORY, per server, on purpose (SYC-105 PR 2.1, plan "small calls"):
+// every photo on every cat list passes this limiter, so a database write per
+// photo would cost more than the limit protects. It is only a cost ceiling on
+// enumeration; losing it on a restart, or having it multiplied by the number
+// of servers, costs nothing a visitor or the charity would notice. The write
+// limits are the ones that must hold, and they are in Postgres.
 //
 // This is a per-IP budget, so it stands or falls on the trust-proxy hop
 // count above being right for production. If it's wrong in the direction
@@ -48,9 +63,10 @@ export const photoLimiter = rateLimit({
 // POST /api/team/handoff (SYC-43 part 1 plan §5): a courtesy cap on
 // signature-checking work, not a security control. Each pass is single-use in
 // Postgres and every session is re-checked against the list, so nothing that
-// security depends on rests on this per-server, in-memory count.
-export const handoffLimiter = rateLimit({
-  ...common,
+// security depends on rests on this count.
+export const handoffLimiter = sharedLimiter({
+  bucket: "handoff",
+  message: common.message,
   windowMs: 15 * 60 * 1000,
   limit: 60,
 });
@@ -59,8 +75,9 @@ export const handoffLimiter = rateLimit({
 // after a dropped connection is safe, so a handful is plenty. Per IP rather
 // than per device, because the device id here is unverified until the
 // secret check, and keying on it would let a caller pick a fresh bucket.
-export const deleteMeLimiter = rateLimit({
-  ...common,
+export const deleteMeLimiter = sharedLimiter({
+  bucket: "delete_me",
+  message: common.message,
   windowMs: 15 * 60 * 1000,
   limit: 10,
 });
@@ -85,83 +102,58 @@ export const deleteMeLimiter = rateLimit({
 //
 // Keyed on a device id ONLY after routes/sightings.ts has called
 // verifyDeviceSecret() (SYC-107) and gotten it back — never on the raw,
-// unverified body.deviceId, and never on the IP. This is a plain in-memory
-// counter rather than express-rate-limit, because the key is only known
+// unverified body.deviceId, and never on the IP. This is a plain
+// counter call rather than express-rate-limit, because the key is only known
 // partway through the handler (after the secret check), not at the point
 // Express picks middleware.
 //
 // Same budget as `aiLimiter` (20 per 15 minutes) — this PR adds a key, not a
-// new shape. SYC-105 tracks moving the count into Postgres so one shared
-// budget holds across app instances; until then this Map is per-process, so
-// a device gets roughly limit × (number of app instances) requests before
-// every instance has throttled it, the same scaling gap `aiLimiter` has.
-// Not solved here.
+// new shape. SYC-105 PR 2.1 moved the count into Postgres, so the budget is
+// one number across every app instance and survives a restart. The key is
+// hashed with the day's salt before it is stored, like an address.
 export const DEVICE_MATCH_LIMIT = 20;
 export const DEVICE_MATCH_WINDOW_MS = 15 * 60 * 1000;
-
-type DeviceWindow = { count: number; resetAt: number };
-const deviceMatchWindows = new Map<string, DeviceWindow>();
-
-// Review of PR #64 (S3): nothing ever removed an entry, so a device id that
-// is used once and never again (the common case for a freely-mintable id)
-// sat in this Map forever — an unbounded, unkeyed-to-anything-real memory
-// leak. Rather than a ticking timer (one more thing to unref in tests and on
-// shutdown), the sweep piggybacks on the already-frequent call path: once
-// the Map has grown past a threshold, the next call pays the cost of
-// scanning it once and dropping anything whose window has already elapsed.
-const SWEEP_THRESHOLD = 10_000;
-
-function sweepExpiredDeviceWindows(now: number): void {
-  for (const [deviceId, window] of deviceMatchWindows) {
-    if (window.resetAt <= now) deviceMatchWindows.delete(deviceId);
-  }
-}
+const DEVICE_MATCH_BUCKET = "device_match";
 
 /**
  * Returns true if `deviceId` may make another candidate-matching request
- * right now, and records that it did. Returns false, without recording
- * anything further, once the device has used its budget for the current
- * window — i.e. the 21st call within DEVICE_MATCH_WINDOW_MS of the window's
- * start returns false, and the 20th returns true.
+ * right now, and records that it did. Returns false once the device has used
+ * its budget for the current window — i.e. the 21st call within a window
+ * returns false, and the 20th returns true. Throws if the counter fails; the
+ * caller (POST /sightings, not a cat-in-trouble route) fails closed.
  */
-export function checkDeviceMatchLimit(
+export async function checkDeviceMatchLimit(
   deviceId: string,
   now: number = Date.now(),
-): boolean {
-  if (deviceMatchWindows.size > SWEEP_THRESHOLD) sweepExpiredDeviceWindows(now);
-
-  const existing = deviceMatchWindows.get(deviceId);
-  if (!existing || existing.resetAt <= now) {
-    deviceMatchWindows.set(deviceId, {
-      count: 1,
-      resetAt: now + DEVICE_MATCH_WINDOW_MS,
-    });
-    return true;
-  }
-  if (existing.count >= DEVICE_MATCH_LIMIT) {
-    return false;
-  }
-  existing.count += 1;
-  return true;
+): Promise<boolean> {
+  const r = await consume(
+    DEVICE_MATCH_BUCKET,
+    deviceId,
+    DEVICE_MATCH_LIMIT,
+    DEVICE_MATCH_WINDOW_MS,
+    undefined,
+    now,
+  );
+  return r.allowed;
 }
 
 /**
  * The time (ms since epoch) at which `deviceId`'s current window resets, if
- * it has one yet. Used only to put an accurate `Retry-After` on a 429 — never
- * to decide whether the request is allowed (that's `checkDeviceMatchLimit`).
+ * it has counted anything in it yet. Used only to put an accurate
+ * `Retry-After` on a 429 — never to decide whether the request is allowed
+ * (that's `checkDeviceMatchLimit`).
  */
-export function deviceMatchResetAt(deviceId: string): number | undefined {
-  return deviceMatchWindows.get(deviceId)?.resetAt;
+export async function deviceMatchResetAt(
+  deviceId: string,
+  now: number = Date.now(),
+): Promise<number | undefined> {
+  const r = await peek(DEVICE_MATCH_BUCKET, deviceId, DEVICE_MATCH_WINDOW_MS, undefined, now);
+  return r.hits > 0 ? r.resetAt : undefined;
 }
 
-/** Test-only: clears every device's window so tests don't leak into each other. */
-export function _resetDeviceMatchLimitForTests(): void {
-  deviceMatchWindows.clear();
-}
-
-/** Test-only: how many devices currently have a window tracked. */
-export function _deviceMatchWindowCountForTests(): number {
-  return deviceMatchWindows.size;
+/** Test-only: clears every device's count so tests don't leak into each other. */
+export async function _resetDeviceMatchLimitForTests(): Promise<void> {
+  await _resetBucketForTests(DEVICE_MATCH_BUCKET);
 }
 
 // SYC-130 (claiming-a-cat.md §8, §11; review 2 HIGH-1): claims are limited

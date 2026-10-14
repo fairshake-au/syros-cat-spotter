@@ -239,7 +239,7 @@ beforeAll(async () => {
   volunteerCookie = sessionCookieFor(vera.id);
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
