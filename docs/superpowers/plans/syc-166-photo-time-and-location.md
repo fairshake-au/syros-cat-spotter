@@ -30,7 +30,8 @@ Each slice is its own fresh worktree off `origin/main`, its own PR, and leaves `
 | # | Slice | Needs | Ships | Platforms touched |
 |---|---|---|---|---|
 | 1 | **SYC-258:** the review screen's address carries a rounded position only | nothing | first, alone | all (one pure file) |
-| 2 | **The photo's date and time:** clock order, the 21-day limit, the "photo has no time" line, same-second and same-photo fixes. Also the XMP line in the server's photo test (SYC-260) | slice 1 merged | next | iPhone app, Android app. The website keeps today's behaviour in this slice (see 2W) |
+| 0 | **The XMP line in the server's photo test (SYC-260), a server-only PR** ("slice 2a"). If sharp leaves XMP in, the fix to `imageValidation.ts` ships here, not hidden in a client feature | nothing (independent of slice 1) | any time before slice 2 | server only |
+| 2 | **The photo's date and time:** clock order, the 21-day limit, the "photo has no time" line, same-second and same-photo fixes | slice 1 merged, and slice 0 (XMP test) merged | next | iPhone app, Android app. The website keeps today's behaviour in this slice (see 2W) |
 | 2W | **The website's time reader** (a small JPEG reader that reads time tags only) | slice 2 merged; Decision A below | right after 2, or after SYC-280's C6/C8, Samuel's call | website |
 | 3 | **Owner's "seen on Tuesday" push, and the reward screen's last-seen date** | nothing in the app; independent of 2 | any time after 1 | server only |
 | 4 | **Ermoupoli start** when there is no usable phone position | slice 2 merged (shares the pick-handling code in the Spot screen) | after 2 | iPhone, Android, website |
@@ -39,6 +40,16 @@ Each slice is its own fresh worktree off `origin/main`, its own PR, and leaves `
 **One departure from the brief's slice list, flagged here and in "Spec vs code".** The brief put "off-island stop screen and Ermoupoli start" together as slice 4. The off-island screen needs the photo's position, and nothing reads that position until slice 5. So the Ermoupoli start (which needs no photo position) is slice 4, and the off-island screen moves into slice 5, where it can actually be built and tested.
 
 **Honest lines never get ahead of the code.** A line that says "this photo doesn't say where it was taken" is only true on a platform where we have either read the photo or confirmed the platform removes the location. So `mapStartedAtYou` and `photoNoTime` appear only where that is so (slice 2 on the website shows neither; slice 5 decides the location lines per platform from the device check). The existing "It starts near where you are" hint stays for library photos until slice 5 replaces it.
+
+---
+
+## Slice 0 ("2a") · The XMP line in the server's photo test (SYC-260, first half)
+
+**What a spotter sees afterwards.** Nothing, unless the test finds a real hole: photos edited in Apple Photos (including "Adjust Location") can carry position in an XMP block, and this feature invites more library photos. **Branch / PR:** `claude/syc-260-xmp-test`, server only, needs nothing from slice 1, and can ship in parallel with it.
+
+**Steps.** In `artifacts/api-server/src/lib/imageValidation.exif.test.ts` add `expect(outputMeta.xmp).toBeUndefined()` to both existing cases (`:48-56`, `:68-80`) and a fixture whose *input* carries an XMP block with a position (`sharp` `withMetadata`, or a hand-built APP1 segment), asserting `inputMeta.xmp` is defined first, as the existing test does for EXIF. If sharp's re-encode leaves XMP in, that is a real server privacy bug: fix `imageValidation.ts` in the same PR and say so. Mutation probe: make `normalizeToJpeg` keep metadata -> the new assertions go red. Tier: Sonnet; assurance: the probe and a Sonnet adversarial review in its own worktree.
+
+**SYC-260's other half** ("This cat needs help" carrying the photo's taken-at time, review m10) is **not** in any slice here: it touches `lib/reportHandoff.ts` and `components/report/NeedsHelpLink.tsx`, which sit next to SYC-44's files. It stays open on SYC-260 and ships as its own small PR after slice 2 merges (the handoff gets the sighting's `capturedAt`; the report route already accepts a time, to be confirmed when it is picked up).
 
 ---
 
@@ -127,7 +138,6 @@ Edited:
 - `lib/i18n.ts`: five keys in en, el, fr: `photoTakenAt`, `photoNoTime`, `photoTooOld`, `photoAlreadyLogged`, `photoAlreadyLoggedOpen`. Inserted as one clearly named block headed `// SYC-166 slice 2` in each dictionary. Expect a rebase: other tickets add keys too, so textual conflicts are likely and are resolved by keeping both blocks.
 - `context/DeleteMyDataContext.tsx`: one line in `wipePhone` (`:88-95`) calling `clearRecentPhotos()`, see "Privacy" below.
 - `app/review.tsx`: **only if Decision C2 is approved**, one call after a successful resolve that records the cat's number against the photo's entry in the recent-photos list (so "Open that sighting" can reach the cat's page).
-- Server test only: `artifacts/api-server/src/lib/imageValidation.exif.test.ts` (SYC-260's XMP line).
 - New server test `artifacts/api-server/src/routes/sightings.backdatedPublic.test.ts`.
 
 **Not touched:** `lib/offlineQueue.ts`, `lib/queueStore.ts`, `lib/reportQueue.ts`, `context/OfflineContext.tsx`, `context/ReportQueueContext.tsx`, any server route, any schema.
@@ -170,7 +180,7 @@ Edited:
 
 ### Steps (test first, each its own commit)
 
-1. **Probe first, server:** in `imageValidation.exif.test.ts` add `expect(outputMeta.xmp).toBeUndefined()` to both existing cases and a fixture whose *input* carries an XMP block with a position (`sharp` `withMetadata` XMP, or a hand-built APP1 segment), asserting `inputMeta.xmp` is defined first, as the existing test does for EXIF (`:48-56`). If sharp's re-encode leaves XMP in, this is a **real server bug found early**: fix it in `imageValidation.ts` in the same commit and say so in the PR. (SYC-260.)
+1. **Slice 0 (the XMP test) has already merged**, as its own server-only PR (see below). This slice assumes it.
 2. **`photoClock.test.ts`, red then green** (spec §9 tests 1 (time half), 2, 3, 13):
    - `photo time plus its own offset wins` (iPhone fixture, `+03:00`).
    - `GPS clock fills a missing offset`: photo `2026-10-03 18:42:10`, no offset, GPS `15:42:00 UTC` on the same date, gives 15:42:10 UTC.
@@ -211,7 +221,7 @@ Test 1 (time half), 2, 3, 7, 9, 13 and 10 (the five keys), plus 8's server parts
 
 ### Verification
 
-- Automated: `cat-spotter` typecheck and tests; `api-server` typecheck and tests (the XMP and backdated tests).
+- Automated: `cat-spotter` typecheck and tests; `api-server` typecheck and tests (the backdated test).
 - **Browser, the website** (nothing should change but the new keys and the unchanged behaviour): at ~390 px and desktop, in en, el (`cat-spotter/language` = `el`) and fr, with real data from the local API, pick a photo from disk and confirm: still dated to now, **no** "Photo taken" or "doesn't say when" line (honest: the reader is 2W), the flow submits, the review screen opens.
 - **iOS simulator for the iPhone app** (this is where Claude can test the iPhone path directly): import fixture photos into the simulator's library with `xcrun simctl addmedia` (one with `DateTimeOriginal` and `OffsetTimeOriginal`, one older than 21 days, one screenshot-like with no tags, two from the same second), and walk: "Photo taken ..." line, the too-old card and its button, `photoNoTime`, two same-second photos both submitting, the same photo twice. Record what the simulator's picker returns for each tag in the PR; it feeds SYC-280 (C3) but is not a substitute for it.
 - **Real-device check, required for every claim the spec marks [confirm]:** the merged-or-branch build on one real iPhone and one real Android phone. Pick a fresh photo and read the "Photo taken ..." line against the camera roll's own time: that proves, on the phone, **C3** (iPhone time and offset arrive) and **C4** (Android time arrives, with or without GPS clock and offset). The slice ships without it (the clock order is safe for every outcome), but the PR says plainly which results are unconfirmed, and the results go into spec §4.2's table via SYC-280. If this slice's build is the one SYC-280 uses as its "separate test build", the check costs nothing extra.
@@ -321,7 +331,7 @@ Revert; old texts return. Update rows already written keep their text.
 ### What the code does today (verified on `7089870`)
 
 - The pin starts only from the phone: `spot.tsx:228-231` sets `pickedCoords` once `photo && coords && !pickedCoords`. With no `coords` the map is never rendered (`:861`, `{pickedCoords && <LocationPicker .../>}`) and "Check for matches" stays disabled (`:885`, `disabled={!pickedCoords || ...}`). Location permission refused shows the red `locationDenied` text (`:854-860`).
-- `useLocation` (`hooks/useLocation.ts`) gives `coords`, `denied`, `loading`. On the phone, a position that does not arrive in 15 seconds with no cached fix sets `denied` (`:56-86` region, the `Promise.race` timeout); on the website the browser call times out at 10 seconds (`timeout: 10000`, `hooks/useLocation.ts:28-30`).
+- `useLocation` (`hooks/useLocation.ts`) gives `coords`, `denied`, `loading`. On the phone, a position that does not arrive in 15 seconds with no cached fix sets `denied` (`:56-86` region, the `Promise.race` timeout); on the website the browser call times out at 10 seconds (`timeout: 10000`, `hooks/useLocation.ts:30`).
 - The map positions itself from its first coordinates only (`components/LocationPicker.tsx:30-32`, native; `LocationPicker.web.tsx:47`, web), so a screen that changes its start must give the picker a fresh `key` (spec §9 test 5's parenthesis). `<LocationPicker>` has no `key` today (`spot.tsx:862`).
 - The island rectangle exists only as an un-exported constant in the tile downloader: `lib/offlineTiles.ts:19`, `{ minLat: 37.36, maxLat: 37.53, minLon: 24.85, maxLon: 25.01 }`. It is a tile box, not a coastline, and nothing checks a position against it.
 
@@ -385,7 +395,7 @@ Revert. Nothing is stored.
 1. Slice 1 (SYC-258) is merged. The spec forbids shipping SYC-166 location work before it (§5.1).
 2. Slices 2 and 4 are merged.
 3. SYC-280's device check has run and the **results table in spec §4.2 is filled in** (a docs-only PR from whoever ran it; Claude can fill the iPhone simulator rows but the real-device rows are Samuel's or a tester's).
-4. Samuel has answered the §4.3 question: **"if every phone path turns out to be time only, is the map-start work still worth building?"** (Decision G). If the answer is no, this slice reduces to the honest lines (below) and the rest is closed.
+4. Samuel has answered the §4.3 question (note: **Decision 7, the approved off-island stop screen, exists only where a photo position arrives, so G2 or G3 drops it; see Decision G**): **"if every phone path turns out to be time only, is the map-start work still worth building?"** (Decision G). If the answer is no, this slice reduces to the honest lines (below) and the rest is closed.
 
 ### Plan by outcome (spec §4.3). The plan does not read location on a guess: each row is built only if its row is confirmed.
 
@@ -442,7 +452,7 @@ The spec's promise (§5): the photo's position is read on the phone, used to pla
 | P3 | **The parsed photo position in the app** | No | Held in the Spot screen's React state only; cleared by `clearPhoto`; module only imported by `pickedAsset.ts` (spec §9 test 6d) | Source check on imports; a test that after `clearPhoto` and after submit the state is `null` | 5 |
 | P4 | **The saved-for-later item** | Position of the *pin* only (`spot.tsx:453-461`) | The queued item's keys equal the existing key set exactly; no new field | `Object.keys(enqueueArg)` equals `['localId','photoBase64','photoUri','lat','lng','createdAt']` (spec §9 test 6b) | 2 (time), 5 (position) |
 | P5 | **The upload request** | Pin and `capturedAt` only (`spot.tsx:441-450`) | The request body's keys equal the existing set | Keys of the `createSighting` argument equal `['deviceId','photoBase64','lat','lng','capturedAt']` (test 6a); the value equals the confirmed pin, not the photo position, in a case where they differ | 2, 5 |
-| P6 | **The photo file itself** still carries its tags on the phone until it is sent (queue, review photo store, upload) | Yes, unchanged (spec §5.4) | The server re-encodes without metadata before storing or matching (`validatePhotoBase64`, `sightings.ts:556`) | `imageValidation.exif.test.ts` (existing) **plus the XMP line (SYC-260), added as step 1 of slice 2**, with an XMP-carrying input fixture. Name data spine test 8 and 13 (`cat-record-data-spine.md` §10.8) in each PR description | 2 |
+| P6 | **The photo file itself** still carries its tags on the phone until it is sent (queue, review photo store, upload) | Yes, unchanged (spec §5.4) | The server re-encodes without metadata before storing or matching (`validatePhotoBase64`, `sightings.ts:556`) | `imageValidation.exif.test.ts` (existing) **plus the XMP line (SYC-260), shipped as slice 0, a server-only PR before slice 2**, with an XMP-carrying input fixture. Name data spine test 8 and 13 (`cat-record-data-spine.md` §10.8) in each PR description | 2 |
 | P7 | **The welfare ("This cat needs help") handoff** takes the photo and the confirmed pin (`lib/reportHandoff.ts`, in memory only) | Yes, unchanged | The welfare route uses the same server stripper (spec §5.4); in-memory only | Confirm the existing welfare-route test covers a GPS-bearing photo; add the one-line case in slice 2 if it does not | 2 |
 | P8 | **Console and error output** | Three unrelated `console.*` calls (`context/OfflineContext.tsx:498`, `context/DeviceContext.tsx:279`, `context/NotificationContext.tsx:128`) and `components/ErrorFallback.tsx:31`; none receives an item or a position. **No error-reporting service exists in the app** (searched) | No new logging in any new file | A console-spy test around `extractTimeTags`, `readPhotoPosition`, `resolveMapStart` and the Spot pick handler: nothing logged for a fixture photo | 2, 5 |
 | P9 | **Server logs** | Request bodies are not logged; only headers are redacted (`lib/logger.ts:5-10`) and errors are logged as name and code (`safeError`, `:25-40`) | Unchanged; no new log line in the server slices | Run `app.logRedaction.test.ts` and `logger.test.ts` and name them in the PR; slice 3 adds no `logger.*` call (assert with a log-capture test around the resolve route with a backdated sighting) | 3 |
@@ -474,19 +484,20 @@ Slices are numbered so that nothing needs more than one open PR at a time except
 
 ## Model delegation
 
-**The session writing and orchestrating this plan runs on Sonnet.** Sonnet is the default tier for the build; the plan escalates to Opus only where a mistake would be a silent location-privacy failure, with a one-line reason each, and delegates mechanical work to Haiku with a named check. **Every sub-agent prompt states its tier, restates the crash-proofing rule verbatim ("commit after each item; write a checkpoint note, what is done and what is next, to the worktree; never hold work only in memory"), and forbids sub-delegation.** Each sub-agent works in its own worktree off fresh `origin/main`; each review agent in its own, never shared (`LIF-79`). "Review and merge" goes through `/ship` (an independent adversarial review is run because Claude built the PR; the `/ship` run folds findings in, checks CI, merges, flips SYC-166 and the slice's ticket, files deferred items, removes the worktree and branch, and pulls `main`). Real-device checks are done by Samuel or a tester and are not delegable.
+**The session writing and orchestrating this plan runs on Sonnet.** Sonnet is the default tier for the build; the plan escalates to Opus only for slice 5's build and for the adversarial reviews of slices 1 and 5, where a mistake would be a silent location-privacy failure, with a one-line reason each, and delegates mechanical work to Haiku with a named check. **Every sub-agent prompt states its tier, restates the crash-proofing rule verbatim ("commit after each item; write a checkpoint note, what is done and what is next, to the worktree; never hold work only in memory"), and forbids sub-delegation.** Each sub-agent works in its own worktree off fresh `origin/main`; each review agent in its own, never shared (`LIF-79`). "Review and merge" goes through `/ship` (an independent adversarial review is run because Claude built the PR; the `/ship` run folds findings in, checks CI, merges, flips SYC-166 and the slice's ticket, files deferred items, removes the worktree and branch, and pulls `main`). Real-device checks are done by Samuel or a tester and are not delegable.
 
 | Work package | Model | Why this tier | Assurance |
 |---|---|---|---|
-| **Slice 1:** round the position in `reviewParams.ts` and its tests | **Opus** | The only job is to prove no unrounded position can reach an address. A missed path is a silent privacy failure with a green suite. The change is ten lines, so Opus's cost is small. | Tests that read the serialised string (P1); **mutation probes 1-5**; adversarial review by an Opus agent in its own worktree; browser check of `location.href` and `history.state` at ~390 px and desktop |
+| **Slice 1:** round the position in `reviewParams.ts` and its tests | Sonnet | Ten lines and deterministic tests; the risk is a missed path, which the probes and review address rather than a bigger builder | Tests that read the serialised string (P1); **mutation probes 1-5**; **adversarial review by an Opus agent in its own worktree** (one line why: the failure is a silent privacy leak with a green suite, and an independent, stronger reader is the cheapest way to look for the path we did not think of); browser check of `location.href` and `history.state` at ~390 px and desktop |
 | **Slice 1:** browser check | Sonnet (browser tools) | Standard probe | Screenshot plus the two JS reads pasted into the PR |
+| **Slice 0:** the XMP test (and the fix if sharp leaves XMP in) | Sonnet | Small, server-only | Mutation probe (keep metadata -> red); Sonnet adversarial review, own worktree |
 | **Slice 2:** `photoClock.ts`, `pickedAsset.ts`, `recentPhotos.ts`, Spot wiring, server tests | Sonnet | Clear spec, standard pure code, heavy tests; the extractor is a narrow, value-tested privacy line (P2) rather than a design problem | Test-first from the named list; **mutation probes 1-11**; typecheck; adversarial review by a Sonnet agent in its own worktree **told to try to get a GPS value out of the extractor and to break the clock order**; iOS simulator walk; real-device check (C3, C4) |
 | **Slice 2:** the five i18n keys (en, el, fr) | Haiku | Copying spec §8 verbatim into three dictionaries | A throwaway script compares each string byte-for-byte with the spec's §8 table; `i18n.test.ts` (same keys, same placeholders, French in "tu"); diff spot-review by the session model |
 | **Slice 2/2W:** fixture photos (exiftool-made JPEGs with chosen tags, the DST-night times, the same-second pair, the XMP-with-position input) and a README of expected results | Haiku | Mechanical, well specified | `exiftool -j` output of each fixture compared with the README by script; the tests that consume them go red if a fixture is wrong |
 | **Slice 2W:** `jpegTimeTags.ts` | Sonnet | A binary parser with strict never-throw rules is fiddly but fully specified and fuzzable | The 2,000-case seeded fuzz test, the large-file speed test, the source check that no location tag id appears, mutation probes 1-5; adversarial review by a Sonnet agent in its own worktree; real files in the browser |
 | **Slice 3:** `sightingMessage.ts`, the two small route edits, tests | Sonnet | Small, clear, server-side | Tests including the byte-identical round-up check; mutation probes 1-4; `curl` probe against a local API; adversarial review (Sonnet, own worktree) |
 | **Slice 4:** `island.ts`, `mapStart.ts`, Spot wiring | Sonnet | Pure logic and small wiring, no new data leaves the phone | Test-first; mutation probes 1-5; browser check with the location override; simulator location presets; adversarial review (Sonnet, own worktree) |
-| **Slice 5:** `photoPosition.ts`, `mapStart.ts` branch, the off-island card, the lines | **Opus** | The one slice where the photo's exact position lives in app state. A leak into a route, a queue field, a log line or the request body is silent and would be a real privacy failure for a charity's cat-guardian users. | Privacy tests P3-P5, P8 by value; **mutation probes 1-7**; **adversarial review by an Opus agent in its own worktree whose brief is the P1-P14 table**; simulator walk with position fixtures; real iPhone and Android (C1, C2, C5, C7) |
+| **Slice 5:** `photoPosition.ts`, `mapStart.ts` branch, the off-island card, the lines | **Opus** (build) | The widest privacy surface (the photo's exact position lives in app state) plus conditional logic that depends on device-check results; a leak into a route, queue field, log line or request body is silent | Privacy tests P3-P5, P8 by value; **mutation probes 1-7**; **adversarial review by a separate Opus agent in its own worktree whose brief is the P1-P14 table**; simulator walk with position fixtures; real iPhone and Android (C1, C2, C5, C7) |
 | **Slice 5:** website widening of the reader to read position (only if C5/C7 pass) | Sonnet, inside the Opus slice's PR | Extension of 2W's parser with the same fuzz harness | Same fuzz and speed tests, plus fixtures lifted from the device check |
 | **Spec edits** (§1 and §4 turned from expectation to fact; §4.2 table filled in) | The session model (Sonnet) | Straight transcription of the device-check results | Samuel reads the diff; no code consumes it |
 | **Adversarial review of this plan** | Sonnet, own worktree | Standing rule: an independent pass before Samuel reads it | Findings folded in before the plan is presented |
@@ -509,7 +520,7 @@ None of these reopens a decision Samuel made. Each says what the plan does.
 7. **"Time only on web" shows "doesn't say where" (spec §4.3).** With a time-only reader we have not read the photo's position, so the line could be untrue for a laptop-exported JPEG. See Decision H.
 8. **Slice order.** The brief's slice 4 combined the off-island stop screen and the Ermoupoli start. The off-island screen needs a photo position, which nothing reads until slice 5. So the Ermoupoli start is slice 4, and the off-island screen is in slice 5.
 9. **"Not stuck on location permission" (spec §3.1, §3.2).** Today a refused or slow location leaves no map and a disabled button, with a red message (`spot.tsx:854-860`, `:885`). Slice 4 fixes this for library photos without a photo position; slice 5 for those with one. A **camera** photo with location refused stays stuck, because the spec says the camera paths are unaffected (Decision F).
-10. **"Still searching" has no number.** The phone's position can take 15 seconds before the app gives up (`hooks/useLocation.ts`, native `Promise.race`), 10 seconds on the website (`timeout: 10000`, `hooks/useLocation.ts:28-30`). Slice 4 uses 4 seconds (Decision E).
+10. **"Still searching" has no number.** The phone's position can take 15 seconds before the app gives up (`hooks/useLocation.ts`, native `Promise.race`), 10 seconds on the website (`timeout: 10000`, `hooks/useLocation.ts:30`). Slice 4 uses 4 seconds (Decision E).
 11. **"A small margin" around the island has no number, and the island rectangle is a tile box,** not a coastline (`lib/offlineTiles.ts:19`). Slice 4 uses 0.02 degrees (Decision E).
 12. **"Seen on {weekday}" is ambiguous beyond a week.** Photos can be up to 21 days old, so "Tuesday" can mean three Tuesdays ago (Decision D).
 13. **The GPS-clock rule's weak spot.** Spec §3.4's rule 2 (round to 15 minutes) cannot tell a stale GPS fix from a real zone. This matters most for Android, where the GPS clock may be the only help. Decision B.
@@ -517,6 +528,7 @@ None of these reopens a decision Samuel made. Each says what the plan does.
 15. **The server enforces nothing at 21 days.** The 21-day rule is the app's. A modified app can still send up to 30 days (`captureTime.ts:20`), as the spec accepts (§5.9, §12).
 16. **`replaceRejectedPhoto`** (`spot.tsx:398-412`) swaps a rejected queued photo and keeps the item's old time on purpose. The spec is silent. Left unchanged; a library photo used as the replacement is not read for its time.
 17. **The "Open that sighting" button (`photoAlreadyLoggedOpen`)** names a destination the spec does not define. Decision C.
+18. **A residual dedupe hole (review m7).** After browser storage is cleared or the app is reinstalled, the recent-photos list is empty, so two different same-second photos can be sent with the same time and the server's exact-time check (`sightings.ts:511-521`) drops the second and returns the first's result; the same photo picked again is not recognised either. Accepted as a known limit; SYC-87 (dedupe by client reference) is the real fix and stays independent.
 
 ---
 
@@ -548,6 +560,8 @@ An iPhone photo carries its own time zone. An Android photo may not, so the spec
 | **Risks** | The odd-minute errors | A stale fix that happens to be a clean multiple of 15 minutes still passes (about two in five stale fixes) | Wrong by hours for photos taken in another zone |
 | **Effort** | Spec | A few lines, two tests | Fewer lines than the spec |
 
+**Sub-question B-30.** A stale satellite clock 30 minutes behind gives a derived offset of 2:30 or 3:30, which is on the spec's 15-minute grid, so the spec's literal rule would accept it and shift the photo by 30 minutes. Options: (i) accept it (the spec's rule as written); (ii) **accept whole-hour offsets only, reading half-hour results as Greek time (recommended, and what the plan's slice 2 uses)**, at the cost that a photo genuinely taken in a half-hour zone (India, Iran) is read as Greek time; (iii) drop inference entirely (B3). **Recommendation: (ii).**
+
 **Recommendation: B2.** It stays within what Samuel approved and removes the likeliest silly result. B3 is a fair simplification if you'd rather have no clever step; say so and the plan drops the GPS-clock rule.
 
 ### Decision C · What "Open that sighting" does when you pick a photo you already logged
@@ -573,7 +587,7 @@ The spec says "seen on Tuesday". Photos can be up to 21 days old, so "Tuesday" c
 | **Benefits** | Never ambiguous; reads naturally | As approved | Never ambiguous |
 | **Risks** | Two forms to test | Misleading beyond a week | Slightly less natural for yesterday |
 
-**Recommendation: D1.**
+**Recommendation: D1. D1 changes the approved wording ("seen on {weekday}", no cutoff; Decision 3) and needs Samuel's explicit yes; until he answers, slice 3 ships the weekday.**
 
 ### Decision E · Two numbers the spec leaves open
 
@@ -605,6 +619,8 @@ Spec §4.3 asks this directly: is the "map starts where the photo was taken" wor
 |---|---|---|---|
 | **What a spotter sees** | Nothing new (no position ever arrives) | A line saying the photo doesn't say where, on platforms known to remove it | Nothing |
 | **Risks** | Dead code | Very little | The spotter wonders why the map starts near them |
+
+**What G2 and G3 cost.** Both drop the approved **Decision 7** (the "photo taken away from Syros" stop screen), because with no photo position there is nothing to stop on. What replaces it is the server-side on-Syros check (SYC-249), which catches a position off the island but, as the spec notes, **not** a Syros-placed pin for an off-island cat (the tourist back in Munich who confirms a pin in Ermoupoli). That protection is lost on the platforms where no position arrives. G1 keeps Decision 7 only on platforms that deliver a position.
 
 **Recommendation:** decide when the results are in. If anything delivers a position, build it for that platform only; if nothing does, G2.
 
@@ -646,3 +662,28 @@ Not already covered by SYC-249, 250, 258, 259, 260, 280, 87 or 167.
 6. After each merge: flip the slice's Linear ticket and SYC-166's progress note, file anything deferred, remove the worktree and branch, pull `main` (the standing `/ship` ritual).
 
 SYC-166 is done when: the photo's date is right on every platform that gives it, the honest lines are only ever true, no position outside the confirmed pin can be found in an address, a queue item, a request, a log or a payload (table P1 to P14, each with a passing test), and the real-device claims marked **[confirm]** in the spec have been replaced by results.
+
+
+---
+
+## Review outcome
+
+The independent review (`syc-166-photo-time-and-location-review.md`, Sonnet, own worktree) found no blockers and said ready with fixes. How each finding was handled:
+
+| Finding | Handling |
+|---|---|
+| **M1** wrong 30-minute fixture | Rule 2 now accepts only whole-hour derived offsets within 3 minutes; the no-offset 30-minute case is distrusted and tested; 7- and 11-minute off-grid cases and a 60-minute known-limit case added; probe 2 names the cases that go red. Decision B gains the 30-minute sub-question with a recommendation. |
+| **M2** untrue "doesn't say when" on Android | An absent, null or empty `exif` is `unread`: no line, recorded as now. `photoNoTime` only for a populated object with no usable time. Tests and probe 9 added. |
+| **M3** 2W departs from Decision 4 | Stated plainly in the 2W header, branch line and Decision A: needs Samuel's explicit yes; if no, 2W moves after SYC-280. |
+| **M4** off-island dependent on Decision G | Stop screen kept in slice 5; gate and Decision G state that G2/G3 drop approved Decision 7 and what replaces it (SYC-249's server check, which does not catch a Syros-placed pin for an off-island cat). |
+| **M5** same photo can't be retried | Fingerprint recorded only for sightings the server accepted as cat photos; test and probe 10a added. |
+| **m1** D1 is a redesign | Marked as a change to the approved wording needing Samuel's yes; slice 3 ships the weekday until he answers. |
+| **m2** future/malformed values | Behaviour stated (`photoNoTime` for a populated object; PR says so); tests for `""`, `+0300`, `Z`, out-of-range and garbage offsets, future and `0000:00:00` times. |
+| **m3** frozen Ermoupoli start | Adopted: a later on-Syros fix may replace an Ermoupoli start until the spotter first touches the map; tests and probe updated. |
+| **m4** test-to-slice mapping | Mapping made consistent; request and queue key-set tests (6a, 6b) moved into slice 2 with probe 11. |
+| **m5** XMP bundled into slice 2 | New slice 0 ("2a"), a server-only PR before slice 2. SYC-260's other half ("needs help" carrying the taken-at time) stays on SYC-260 as its own PR after slice 2. |
+| **m6** i18n conflicts | Guidance changed to a named block per slice and "expect a rebase". |
+| **m7** dedupe hole after storage cleared | Recorded in Spec vs code (item 18). |
+| **m8** dates | Approval 14 October 2026; main checked at `7089870`, merged 14 October 2026, 04:04 UTC. |
+| **m9** citation | `hooks/useLocation.ts:30`. |
+| **m10** tiers | Slice 1 builds on Sonnet with an Opus adversarial review (one-line why); slice 5 keeps its Opus build (widest privacy surface, conditional on device results) with a separate Opus reviewer. Table updated. |
