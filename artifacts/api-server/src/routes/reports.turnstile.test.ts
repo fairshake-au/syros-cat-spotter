@@ -175,6 +175,9 @@ describe("T1-1: a token that isn't good is 428 and writes nothing (spec test 13)
     ["the wrong cdata (another report's token)", (_ref, action) => ({ token: TOKEN, reply: pass("ref-someone-else", action) })],
     ["hostname team.catspotters.com", (ref, action) => ({ token: TOKEN, reply: pass(ref, action, { hostname: "team.catspotters.com" }) })],
     ["a reused token (timeout-or-duplicate)", () => ({ token: TOKEN, reply: cf({ success: false, "error-codes": ["timeout-or-duplicate"] }) })],
+    // Review of #151, finding 2: an answer is never "unreachable".
+    ["Cloudflare internal-error alone", () => ({ token: TOKEN, reply: cf({ success: false, "error-codes": ["internal-error"] }) })],
+    ["internal-error alongside invalid-input-response", () => ({ token: TOKEN, reply: cf({ success: false, "error-codes": ["invalid-input-response", "internal-error"] }) })],
   ];
 
   it.each(cases)("report: %s", async (_name, make) => {

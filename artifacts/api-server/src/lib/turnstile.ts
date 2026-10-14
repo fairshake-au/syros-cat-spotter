@@ -49,8 +49,11 @@ const TOKEN_RE = /^[\x21-\x7e]+$/;
 
 // Our own key is wrong: our fault, never the sender's.
 const SECRET_ERRORS = new Set(["invalid-input-secret", "missing-input-secret"]);
-// Cloudflare couldn't decide: treated like no answer (retried, then unchecked).
-const CLOUDFLARE_ERRORS = new Set(["internal-error"]);
+// Any other answered `success: false` is `rejected`, whatever its codes,
+// `internal-error` included (spec §9.2, §9.5; review of #151, finding 2):
+// "unreachable" is only what our server alone can see (timeout, 5xx, 429,
+// not JSON). Cloudflare doesn't say what causes internal-error, so a sender
+// might; a real one costs the phone a retry, never the report.
 
 export type TurnstileOutcome = "ok" | "rejected" | "unreachable" | "not_configured";
 
@@ -139,10 +142,6 @@ async function callSiteverify(
     return { kind: "no_answer", reason: "not-json" };
   }
   if (!reply || typeof reply !== "object") return { kind: "no_answer", reason: "not-json" };
-  const codes = errorCodesOf(reply as SiteverifyReply);
-  if ((reply as SiteverifyReply).success !== true && codes.some((c) => CLOUDFLARE_ERRORS.has(c))) {
-    return { kind: "no_answer", reason: codes.join(",") };
-  }
   return { kind: "answer", reply: reply as SiteverifyReply };
 }
 

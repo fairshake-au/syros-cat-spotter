@@ -111,11 +111,19 @@ describe("verifyTurnstile", () => {
     ["503", json({ error: "down" }, 503)],
     ["429 from Cloudflare", json({}, 429)],
     ["not JSON", () => new Response("<html>oops</html>", { status: 200 })],
-    ["internal-error", json({ success: false, "error-codes": ["internal-error"] })],
   ])("unreachable: %s", async (_name, reply) => {
     fakeSiteverify(reply);
     expect((await verifyTurnstile(TOKEN, "welfare_report", "ref-1")).outcome).toBe("unreachable");
     expect(calls).toHaveLength(2);
+  });
+
+  it.each([
+    ["internal-error alone", ["internal-error"]],
+    ["internal-error with the sender's own fault", ["invalid-input-response", "internal-error"]],
+  ])("an answered success:false is rejected, never unreachable: %s (review finding 2)", async (_name, codes) => {
+    fakeSiteverify(json({ success: false, "error-codes": codes }));
+    expect((await verifyTurnstile(TOKEN, "welfare_report", "ref-1")).outcome).toBe("rejected");
+    expect(calls).toHaveLength(1);
   });
 
   it.each(["invalid-input-secret", "missing-input-secret"])("not_configured: %s (our fault)", async (code) => {
