@@ -113,6 +113,50 @@ describe("P1-2: the page's order", () => {
     expect(html).not.toContain('id="r-a-draft"');
   });
 
+  it("T1-8 (SYC-170): unchecked reports sit in their own list below every checked report, newest first and never urgent-first; unchecked drafts folded", async () => {
+    await seedReport({ publicId: "chk-urgent", severity: "urgent", sentMinutesAgo: 600, tokenChecked: true });
+    await seedReport({ publicId: "chk-old", sentMinutesAgo: 900, tokenChecked: null });
+    await seedReport({ publicId: "chk-closed", state: "done", sentMinutesAgo: 1000, tokenChecked: true });
+    await seedReport({ publicId: "unc-attn-new", sentMinutesAgo: 1, tokenChecked: false });
+    await seedReport({ publicId: "unc-urgent-old", severity: "urgent", sentMinutesAgo: 30, tokenChecked: false });
+    await seedReport({ publicId: "unc-closed", state: "done", sentMinutesAgo: 2, tokenChecked: false });
+    await seedReport({ publicId: "chk-draft", isDraft: true, tokenChecked: true });
+    await seedReport({ publicId: "unc-draft", isDraft: true, tokenChecked: false });
+
+    const html = await getPage();
+    const at = (id: string) => html.indexOf(`id="r-${id}"`);
+    const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (2)</h2>");
+    expect(heading).toBeGreaterThan(-1);
+    // Below every checked report, open and closed, and below the checked drafts.
+    for (const id of ["chk-urgent", "chk-old", "chk-closed"]) {
+      expect(at(id), id).toBeGreaterThan(-1);
+      expect(at(id), id).toBeLessThan(heading);
+    }
+    expect(html.indexOf('id="d-chk-draft"')).toBeLessThan(heading);
+    // The queue's own count leaves them out.
+    expect(html).toContain("<h2>Waiting for the team (2)</h2>");
+    // Newest first: the urgent one is NOT lifted above the newer attention one.
+    expect(at("unc-attn-new")).toBeGreaterThan(heading);
+    expect(at("unc-urgent-old")).toBeGreaterThan(at("unc-attn-new"));
+    // A closed unchecked report is with the closed ones, marked.
+    expect(at("unc-closed")).toBeLessThan(heading);
+    const closedCard = html.slice(at("unc-closed"), html.indexOf("</article>", at("unc-closed")));
+    expect(closedCard).toContain('<span class="tag unchecked">Unchecked</span>');
+    // Unchecked drafts are folded away, inside the unchecked section.
+    const details = html.indexOf('<details class="unchecked-drafts"><summary>Unchecked drafts (1)</summary>');
+    expect(details).toBeGreaterThan(at("unc-urgent-old"));
+    expect(html.indexOf('id="d-unc-draft"')).toBeGreaterThan(details);
+    expect(html.indexOf('id="d-unc-draft"')).toBeLessThan(html.indexOf("</details>", details));
+  });
+
+  it("T1-8: the unchecked count shows even when it is zero, below the checked reports", async () => {
+    await seedReport({ publicId: "only-checked", tokenChecked: true });
+    const html = await getPage();
+    const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (0)</h2>");
+    expect(heading).toBeGreaterThan(html.indexOf('id="r-only-checked"'));
+    expect(html).not.toContain("<details");
+  });
+
   it("says so when nothing is waiting", async () => {
     const html = await getPage();
     expect(html).toContain("No reports are waiting for the team.");
