@@ -15,6 +15,7 @@ on:
             copy-rehearsal,
             copy-cutover,
             verify,
+            verify-history,
             migrate,
             migrate-rollback,
             smoke,

@@ -24,7 +24,7 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-mark-left`, `people-sign-out-everywhere`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-mark-left`, `people-sign-out-everywhere`.
 
 ## The staff list (`people-add`, `people-list`, `people-mark-left`, `people-sign-out-everywhere`)
 
@@ -36,7 +36,7 @@ The list of people who can sign in to the staff dashboard (SYC-43) is managed th
 
 1. **Neon snapshot.** Take a snapshot of `production` before changing anything (Neon console, or the Neon MCP's `create_snapshot`), so there's a known-good point to restore to.
 2. **`db-ops migrate`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=migrate`, watch it, read the log. This applies this PR's `0003_people_and_staff_sign_in` migration (creates `people`, `person_scopes`, `team_handoff_spent`; no backfill).
-3. **A Neon read-only SQL check, not `verify`** (SYC-178: `verify` compares Neon with the old Replit database row for row, which only made sense before cutover — post-go-live there's no old database left to compare against, so it now fails misleadingly every time). Instead, use the Neon MCP's `run_sql` (SELECT only) to confirm the migration landed, e.g. `SELECT count(*) FROM people` on the new, empty table.
+3. **`db-ops verify-history`, not `verify`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=verify-history`. It reads production's record of applied migrations and checks it against the migration list on `main`: every migration applied once, none missing, none the code doesn't know, none edited since, all in the right order. It's read-only and needs no other database (SYC-178). `verify` compares Neon with the old Replit database row for row, which only made sense before cutover, so it now fails misleadingly every time. Then Claude looks at the new objects themselves with the Neon MCP's `run_sql` (SELECT only), e.g. `SELECT count(*) FROM people` on a new, empty table.
 4. **EU project pull + republish.** Pull `main` into the EU (new) Replit project's workspace and republish it, so the running app matches the new schema.
 5. **Smoke against `https://apptest.catspotters.com`.** `gh workflow run db-ops.yml --ref main -f target=production -f command=smoke -f base_url=https://apptest.catspotters.com`, confirming the live app is healthy against the migrated schema.
 
@@ -134,7 +134,7 @@ Confirmed twice on 30 Sep, including a clean repeat with no password reset in be
 1. **Claude, via the Neon MCP:** verify the restored `production` **read-only** with `run_sql` — row counts match the last-known-good fingerprint, `switchover.rehearsal_marker` present, `switchover.cutover_done` absent.
 2. **Claude, via the Neon MCP:** **rename** (never delete) the leftover "`production (old)`" branch to `pre-restore-<attempt>-<hhmm>` (`list_branches`, then rename). **Don't delete it here** — it can be the parent of a kept archive or recovery branch, and Neon refuses to delete a branch with children. It's deleted only at E.13/G.1, with Samuel's OK.
 3. **Claude, via the Neon MCP:** check `production`'s compute limits; re-set to **0.25–1 CU, suspend after 300 s** only if they've changed.
-4. **Claude:** run `db-ops -f target=production -f command=fingerprint-source` (or `verify`) using the **existing** `NEON_PROD_DIRECT_URL`, then `db-ops -f command=smoke -f base_url=<the EU project's own *.replit.app address>` — **no republish.** (In most recoveries `apptest.catspotters.com` isn't pointed at the EU project, so `smoke`'s default `base_url` would resolve to the wrong place and fail misleadingly; use the explicit EU address.) **Republish only if the start-up log shows a stale instance** still answering.
+4. **Claude:** run `db-ops -f target=production -f command=verify-history` (and `fingerprint-source` if the old database still matters) using the **existing** `NEON_PROD_DIRECT_URL`, then `db-ops -f command=smoke -f base_url=<the EU project's own *.replit.app address>` — **no republish.** (In most recoveries `apptest.catspotters.com` isn't pointed at the EU project, so `smoke`'s default `base_url` would resolve to the wrong place and fail misleadingly; use the explicit EU address.) **Republish only if the start-up log shows a stale instance** still answering.
 
 **The re-paste procedure below is now a fallback only** — run it if step 4 fails with "password authentication failed" (which means protection was on for this restore, or something else changed the password):
 
@@ -175,7 +175,21 @@ At T-live plus 1 hour, 1 day and 7 days, and before the old database is deleted 
 - `db-ops -f target=production -f command=fingerprint-source`: the old database must be unchanged since the copy (compare it with E.5's).
 - `db-ops -f target=production -f command=carry-back-dry-run`: read-only on both sides. It prints exactly what testers have changed on Neon since cutover (what a rollback would carry back), and it confirms the old database is still unchanged since the copy.
 
-Don't use `verify` for this. It compares Neon with the old database row for row, so it fails as soon as testers have written anything on Neon.
+Don't use `verify` for this. It compares Neon with the old database row for row, so it fails as soon as testers have written anything on Neon. To check the migration history on its own, use `verify-history`.
+
+### `verify-history` (SYC-178)
+
+`db-ops -f target=production -f command=verify-history` checks the target's record of applied migrations (`drizzle.__drizzle_migrations`) against `lib/db/migrations/meta/_journal.json` on `main`. It fails, naming the migration, when one is:
+
+- **missing**: in the journal but not applied (either not yet, or skipped while later ones were applied);
+- **extra**: applied, but not in the journal on `main` (the database is ahead of the code, or something was applied by hand);
+- **edited**: applied, but the file has changed since (its hash differs);
+- **out of order**: applied after a migration that comes later in the journal;
+- **recorded twice**.
+
+It opens a read-only session and connects to nothing but the target, so it's safe on production at any time. The same check runs at the end of `verify`. Locally: `DATABASE_URL=… pnpm --filter @workspace/db run migrate:history`.
+
+A failure after a deploy usually means one of two things. If a migration is **missing**, `migrate` didn't run or didn't finish: read its log and run it again. If one is **extra**, production has a migration from a branch that isn't on `main` yet (or main's journal was rewritten): don't publish, and find which branch it came from before doing anything else. Running `migrate` again won't help: it refuses a database that's ahead of the code, for the same reason.
 
 ## Read-only checks without a connection string
 

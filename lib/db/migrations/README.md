@@ -24,6 +24,8 @@ Every schema change reaches a database through a file in this folder (SYC-64, `d
 
 All pending migrations run in one transaction, and each waits at most `MIGRATE_LOCK_TIMEOUT` (default `5s`) for a table lock before the whole run rolls back. `CREATE INDEX CONCURRENTLY` can't run inside a transaction, so it can't be used here.
 
+**To check a database's migration history** (read-only, safe on production): `pnpm --filter @workspace/db run migrate:history`, or for Neon `production`, `db-ops -f command=verify-history` (`docs/runbooks/neon-database.md`). It fails if a migration is missing, extra, edited after it was applied, recorded twice or applied out of order (SYC-178).
+
 **Never edit a migration after it has been applied anywhere.** The runner compares hashes and refuses. Put the change in a new migration.
 
 **If your branch's migration is older than one already merged**, the runner refuses it rather than skipping it. Delete your file and its `meta/` entries, then run `generate` again on top of the current history.

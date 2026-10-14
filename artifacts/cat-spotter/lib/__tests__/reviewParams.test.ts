@@ -231,6 +231,12 @@ describe('the route carries a rounded position only (SYC-258)', () => {
     expect(twice).toEqual(once);
   });
 
+  it('roundForRoute never turns a finite number into Infinity (SYC-317)', () => {
+    expect(roundForRoute(1e308)).toBe(1e308);
+    expect(roundForRoute(-1e308)).toBe(-1e308);
+    expect(roundForRoute(Number.MAX_VALUE)).toBe(Number.MAX_VALUE);
+  });
+
   it('parseReviewParams rounds an exact position from an old address', () => {
     const parsed = parseReviewParams(
       '{"sightingId":1,"lat":37.4412345,"lng":24.9412345}',

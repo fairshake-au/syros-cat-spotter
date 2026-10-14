@@ -5,12 +5,14 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it, vi } from 'vitest';
-import type { Cat, CatPage, ListCatsParams } from '@workspace/api-client-react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setBaseUrl, type Cat, type CatPage, type ListCatsParams } from '@workspace/api-client-react';
 import {
   CATALOGUE_PAGE_SIZE,
   CATS_CACHE_KEY,
   RETIRED_CATS_CACHE_KEYS,
+  catalogueParams,
+  catalogueQueryKey,
   fetchWholeCatalogue,
   forgetRetiredCatalogues,
   readCachedCatalogue,
@@ -109,6 +111,82 @@ describe('fetchWholeCatalogue', () => {
     const { fetchPage, calls } = server([]);
     expect(await fetchWholeCatalogue(undefined, fetchPage)).toEqual([]);
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("the phone's position in the request (SYC-317)", () => {
+  /** A GPS fix to the centimetre, as the phone reports it. */
+  const EXACT = { lat: 37.4412345, lng: 24.9412345 };
+
+  afterEach(() => {
+    setBaseUrl(null);
+    vi.unstubAllGlobals();
+  });
+
+  /** The web addresses the real request builder sends, through a stubbed fetch. */
+  async function urlsSent(params?: { lat: number; lng: number }): Promise<URL[]> {
+    const urls: URL[] = [];
+    setBaseUrl('https://apptest.example');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) => {
+        urls.push(new URL(String(input instanceof Request ? input.url : input)));
+        const body: CatPage = { cats: [], page: 1, pageSize: 200, total: 0, nextPage: null };
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+    await fetchWholeCatalogue(params);
+    return urls;
+  }
+
+  it('the address carries the position to 3 decimals (about 110 m), never the exact fix', async () => {
+    const [url] = await urlsSent(catalogueParams(EXACT.lat, EXACT.lng));
+    expect(url!.pathname).toMatch(/\/cats$/);
+    expect(url!.searchParams.get('lat')).toBe('37.441');
+    expect(url!.searchParams.get('lng')).toBe('24.941');
+    // Whole address, so a renamed parameter cannot slip past.
+    expect(url!.href).not.toMatch(/\d\.\d{4,}/);
+  });
+
+  it('a caller that skips catalogueParams still sends a rounded position', async () => {
+    const [url] = await urlsSent(EXACT);
+    expect(url!.searchParams.get('lat')).toBe('37.441');
+    expect(url!.searchParams.get('lng')).toBe('24.941');
+  });
+
+  it('every page carries the rounded position', async () => {
+    const { fetchPage, calls } = server([1, 2, 3, 4, 5]);
+    await fetchWholeCatalogue(EXACT, fetchPage);
+    expect(calls).toHaveLength(3);
+    for (const c of calls) expect(c).toMatchObject({ lat: 37.441, lng: 24.941 });
+  });
+
+  it('no position sends no lat or lng', async () => {
+    const [url] = await urlsSent(catalogueParams(undefined, undefined));
+    expect(url!.searchParams.has('lat')).toBe(false);
+    expect(url!.searchParams.has('lng')).toBe(false);
+  });
+
+  it('a position that is not a number is dropped, not sent', () => {
+    expect(catalogueParams(Number.NaN, 24.94)).toBeUndefined();
+    expect(catalogueParams(37.44, Number.POSITIVE_INFINITY)).toBeUndefined();
+  });
+
+  it('a position off the globe is dropped, not sent', async () => {
+    expect(catalogueParams(500, 24.94)).toBeUndefined();
+    expect(catalogueParams(37.44, -181)).toBeUndefined();
+    const [url] = await urlsSent({ lat: 500, lng: 24.94 });
+    expect(url!.searchParams.has('lat')).toBe(false);
+  });
+
+  it('small moves inside the same 110 m share one cache entry', () => {
+    const a = catalogueQueryKey(catalogueParams(37.44121, 24.94121));
+    const b = catalogueQueryKey(catalogueParams(37.44139, 24.94139));
+    expect(a).toEqual(b);
+    expect(catalogueQueryKey(catalogueParams(37.4449, 24.9449))).not.toEqual(a);
   });
 });
 

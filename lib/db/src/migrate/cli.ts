@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import pg from "pg";
+import { checkHistory } from "./history";
 import {
   cycle,
   defaultMigrationsFolder,
@@ -20,6 +21,7 @@ import { resolveDatabaseUrl } from "../url";
 // pnpm --filter @workspace/db run migrate:rollback   undo the newest one
 // pnpm --filter @workspace/db run migrate:cycle      up/down/up proof (empty db)
 // pnpm --filter @workspace/db run migrate:check      schema code vs history (CI)
+// pnpm --filter @workspace/db run migrate:history    live history vs journal (read-only)
 // pnpm --filter @workspace/db run smoke <base-url>   post-migration smoke test
 
 const folder = defaultMigrationsFolder();
@@ -233,6 +235,38 @@ async function check(): Promise<void> {
   );
 }
 
+/**
+ * SYC-178. The database's record of applied migrations against the journal,
+ * read-only (the session refuses writes, and the check runs in a read-only
+ * transaction). Safe on production at any time.
+ */
+async function history(): Promise<void> {
+  const migrations = readMigrations(folder);
+  // Direct (non-pooled) addresses only: Neon's pooler rejects the startup
+  // `options`. db-ops passes NEON_*_DIRECT_URL. checkHistory's own
+  // `begin read only` holds even if a URL's ?options= overrides this.
+  const client = new pg.Client({
+    connectionString: resolveCliUrl(),
+    options: "-c default_transaction_read_only=on",
+  });
+  await client.connect();
+  let r: Awaited<ReturnType<typeof checkHistory>>;
+  try {
+    r = await checkHistory(client, migrations);
+  } finally {
+    await client.end();
+  }
+  if (r.problems.length) {
+    throw new MigrationError(
+      `migration history does not match this code's journal (${r.recorded} recorded, ${migrations.length} in the journal):`,
+      r.problems,
+    );
+  }
+  console.log(
+    `migration history ok: ${r.recorded} migration(s) recorded, all in the journal, unedited and in order. Newest: ${r.newest}.`,
+  );
+}
+
 async function main(): Promise<void> {
   const [command = "up", arg] = process.argv.slice(2);
   switch (command) {
@@ -257,6 +291,9 @@ async function main(): Promise<void> {
       return;
     case "check":
       await check();
+      return;
+    case "history":
+      await history();
       return;
     case "smoke":
       await smoke(arg);

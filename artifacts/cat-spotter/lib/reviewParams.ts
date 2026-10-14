@@ -79,6 +79,8 @@ export const ROUTE_POSITION_DECIMALS = 3;
 export function roundForRoute(n: number): number {
   const factor = 10 ** ROUTE_POSITION_DECIMALS;
   const rounded = Math.round(n * factor) / factor;
+  // n * factor overflows only past ~1.8e305, where n has no decimals to round (SYC-317).
+  if (!Number.isFinite(rounded)) return n;
   return rounded === 0 ? 0 : rounded;
 }
 
