@@ -9,14 +9,26 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 // The `people` command (SYC-43 part 1, Decision 4): the stopgap way to manage
 // the list until the manage_people screen (SYC-104) exists.
 //
-//   pnpm --filter @workspace/db run people -- add --target <t> [--email <e>] [--name <n>] [--role staff] [--by <operator>]
+//   pnpm --filter @workspace/db run people -- add --target <t> --accepted [--email <e>] [--name <n>] [--role staff] [--colony <id>] [--language en] [--by <operator>]
+//   pnpm --filter @workspace/db run people -- set-roles --target <t> (--add <role> | --remove <role> | --replace <role>...) [--colony <id>] [--force] [--email <e>] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- list --target <t>
 //   pnpm --filter @workspace/db run people -- mark-left --target <t> [--email <e>] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>] [--by <operator>]
 //
-// The address is typed a second time for mark-left and
+// The address is typed a second time for set-roles, mark-left and
 // sign-out-everywhere: at a terminal, interactively; otherwise (db-ops,
 // SYC-131) as the first line of stdin.
+//
+// SYC-53 PR 0.3. `add` adds someone directly, joined at once, so it needs
+// --accepted: it is the break-glass for a team member, and invitations
+// (people who must accept first) come with the people screen. A cat guardian
+// needs --colony; `volunteer` is retired; `management` is never given by
+// `add` (between this PR and PR 0.5 can() still asks "holds staff?", so a
+// management-only person would have no way in). `set-roles` is how
+// management is given, beside staff, and it is additive: one role is added
+// or removed at a time, a whole new list needs --replace, the roles are
+// printed before and after, and a result with no staff or management role is
+// refused unless --force is given.
 //
 // Someone who leaves is marked as left, never removed (SYC-43 part 2, Decision
 // 7; SYC-53 PR 0.1): their history stays theirs. There is no `remove`: every
@@ -24,7 +36,7 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 // delete can never succeed. Marking as left is the only way off the list.
 //
 // Claude runs it through db-ops (scripts/db-ops.sh, `people-add`,
-// `people-list`, `people-mark-left` and
+// `people-list`, `people-set-roles`, `people-mark-left` and
 // `people-sign-out-everywhere`), the SYC-121 route for every database command. It picks its
 // database exactly the way db-ops.sh does for migrate:
 //  1. `--target` is mandatory, and DATABASE_TARGET (set by the GitHub
@@ -48,13 +60,15 @@ export interface CliIo {
 
 const USAGE = [
   "Usage:",
-  "  people add --target <target> [--email <address>] [--name <name>] [--role <role>]... [--by <operator>]",
+  "  people add --target <target> --accepted [--email <address>] [--name <name>] [--role <role>]... [--colony <id>] [--language en|el|fr] [--by <operator>]",
+  "  people set-roles --target <target> (--add <role> | --remove <role> | --replace <role>...) [--colony <id>] [--force] [--email <address>] [--by <operator>]",
   "  people list --target <target>",
   "  people mark-left --target <target> [--email <address>] [--by <operator>]",
   "  people sign-out-everywhere --target <target> [--email <address>] [--by <operator>]",
   "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
   "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
   "--email and --name may instead come from PEOPLE_EMAIL and PEOPLE_NAME.",
+  "Roles are staff, management, guardian and vet. A guardian needs --colony.",
 ].join("\n");
 
 class UsageError extends Error {}
@@ -66,6 +80,9 @@ export const TARGET_URL_VARIABLES = {
   development: "NEON_DEV_URL",
 } as const;
 
+/** Flags that take no value. */
+const SWITCHES = new Set(["accepted", "force"]);
+
 function parseArgs(argv: string[]): {
   command: string;
   flags: Map<string, string[]>;
@@ -75,6 +92,13 @@ function parseArgs(argv: string[]): {
   const flags = new Map<string, string[]>();
   for (let i = 0; i < rest.length; i++) {
     const flag = rest[i]!;
+    if (flag.startsWith("--") && SWITCHES.has(flag.slice(2))) {
+      if (flags.has(flag.slice(2))) {
+        throw new UsageError(`Give ${flag} at most once.`);
+      }
+      flags.set(flag.slice(2), ["yes"]);
+      continue;
+    }
     const value = rest[i + 1];
     if (
       !flag.startsWith("--") ||
@@ -95,6 +119,24 @@ function one(flags: Map<string, string[]>, name: string): string {
     throw new UsageError(`Give --${name} exactly once.`);
   }
   return values[0];
+}
+
+/** --flag once, or nothing. */
+function optional(
+  flags: Map<string, string[]>,
+  name: string,
+): string | undefined {
+  return flags.has(name) ? one(flags, name) : undefined;
+}
+
+/** A colony number, or why it isn't one. */
+function colonyFlag(flags: Map<string, string[]>): number | undefined {
+  const raw = optional(flags, "colony");
+  if (raw === undefined) return undefined;
+  if (!/^[1-9][0-9]*$/.test(raw)) {
+    throw new UsageError("--colony is a colony's number, like 12.");
+  }
+  return Number(raw);
 }
 
 /** --flag, or the environment variable db-ops passes it in. */
@@ -167,7 +209,13 @@ export async function runPeopleCommand(
   let connectionString: string | undefined;
   try {
     const { command, flags } = parseArgs(argv);
-    const known = ["add", "list", "mark-left", "sign-out-everywhere"];
+    const known = [
+      "add",
+      "list",
+      "set-roles",
+      "mark-left",
+      "sign-out-everywhere",
+    ];
     if (!known.includes(command)) {
       throw new UsageError(`Unknown command "${command}".`);
     }
@@ -183,14 +231,39 @@ export async function runPeopleCommand(
 
     // Read the person's details before connecting, so a missing one is a
     // usage error rather than a half-done run.
+    if (command === "add" && !flags.has("accepted")) {
+      throw new UsageError(
+        "add puts someone straight on the list, joined at once, so it needs --accepted. Invitations come with the people screen.",
+      );
+    }
     const addInput =
       command === "add"
         ? {
             email: flagOrEnv(flags, "email", "PEOPLE_EMAIL", io.env),
             name: flagOrEnv(flags, "name", "PEOPLE_NAME", io.env),
             roles: flags.get("role") ?? ["staff"],
+            colonyId: colonyFlag(flags),
+            language: optional(flags, "language"),
           }
         : null;
+    const setRolesInput =
+      command === "set-roles"
+        ? {
+            add: optional(flags, "add"),
+            remove: optional(flags, "remove"),
+            replace: flags.get("replace"),
+            colonyId: colonyFlag(flags),
+            force: flags.has("force"),
+          }
+        : null;
+    // A bare --role is how `add` names roles; for set-roles it would read
+    // as "these are the roles now", which is exactly the misuse additive
+    // set-roles exists to prevent.
+    if (setRolesInput && flags.has("role")) {
+      throw new UsageError(
+        "set-roles takes --add <role> or --remove <role>, one at a time; a whole new list needs --replace <role>.",
+      );
+    }
 
     client = new pg.Client({ connectionString });
     await client.connect();
@@ -200,10 +273,15 @@ export async function runPeopleCommand(
 
     if (addInput) {
       const person = await store.addPerson({ ...addInput, addedBy: operator });
+      const as =
+        addInput.roles.join(", ") +
+        (addInput.colonyId === undefined
+          ? ""
+          : ` on colony ${addInput.colonyId}`);
       io.out(
         person.rejoined
-          ? `Rejoined person ${person.id} as ${addInput.roles.join(", ")}. They had left; their history is still theirs.`
-          : `Added person ${person.id} as ${addInput.roles.join(", ")}.`,
+          ? `Rejoined person ${person.id} as ${as}. They had left; their history is still theirs.`
+          : `Added person ${person.id} as ${as}.`,
       );
       return 0;
     }
@@ -223,6 +301,8 @@ export async function runPeopleCommand(
             (p.leftAt
               ? `\tLEFT ${p.leftAt.toISOString()} by ${p.leftBy ?? "unknown"}`
               : "") +
+            (p.acceptedAt === null && p.leftAt === null ? "\tPENDING" : "") +
+            `\tlanguage ${p.language}` +
             // Kinds only: the record's verbs, never a name (SYC-213).
             `\thistory ${p.history.map((e) => e.kind).join(",") || "(none)"}`,
         );
@@ -230,7 +310,7 @@ export async function runPeopleCommand(
       return 0;
     }
 
-    // mark-left and sign-out-everywhere: the address is typed a
+    // set-roles, mark-left and sign-out-everywhere: the address is typed a
     // second time.
     const email = normaliseEmail(
       flagOrEnv(flags, "email", "PEOPLE_EMAIL", io.env),
@@ -241,6 +321,18 @@ export async function runPeopleCommand(
     if (confirmation !== email) {
       io.out("The addresses don't match. Nothing was changed.");
       return 1;
+    }
+    if (setRolesInput) {
+      const result = await store.setRoles({
+        ...setRolesInput,
+        email,
+        by: operator,
+      });
+      // Role names and colony ids only.
+      io.out(`Person ${result.id}`);
+      io.out(`  before: ${result.before.join(", ") || "(no roles)"}`);
+      io.out(`  after:  ${result.after.join(", ") || "(no roles)"}`);
+      return 0;
     }
     if (command === "mark-left") {
       const marked = await store.markLeft(email, operator);
