@@ -105,6 +105,9 @@ jobs:
       - name: Test cat-spotter (mobile app)
         run: pnpm --filter @workspace/cat-spotter test
 
+      - name: Test the mail-drain Worker (SYC-231)
+        run: node --test 'infra/mail-drain-cron/test/*.test.mjs'
+
       - name: Test api-server
         run: pnpm --filter @workspace/api-server test
 

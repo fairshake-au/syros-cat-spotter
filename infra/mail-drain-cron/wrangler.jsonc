@@ -1,0 +1,23 @@
+{
+  // SYC-231: asks the API to send queued mail every 2 hours (Samuel, 14 Oct
+  // 2026; it was every 10 minutes at first), and emails
+  // Samuel if a cat-report alert is over an hour late or the call fails.
+  // See docs/runbooks/mail-drain.md.
+  // Deploy with: npx wrangler deploy  (from this directory)
+  // MAIL_DRAIN_TOKEN is a Worker secret (wrangler secret put), never here.
+  "name": "mail-drain-cron",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-14",
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["0 */2 * * *"] },
+  "vars": { "MAIL_DRAIN_BASE_URL": "https://apptest.catspotters.com", "ALARM_TO": "sam@fairshake.au" },
+  // Remembers when each kind of alarm was last emailed, so a long outage
+  // sends one email at every run (stuck alert) or every other run, about
+  // every 4 hours (anything else).
+  "kv_namespaces": [{ "binding": "ALARM_STATE", "id": "1ac7fe32ea2c41debf00bfda5868311e" }],
+  // Cloudflare Email Routing, not Resend: the alarm must not depend on the
+  // thing that may be broken. It can only ever send to this one address.
+  "send_email": [{ "name": "ALARM_EMAIL", "destination_address": "sam@fairshake.au" }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}
