@@ -466,6 +466,12 @@ describe("POST /api/cats/:catId/let-go (SYC-130 §6)", () => {
       expect((await letGo(c.id, d)).status).toBe(200);
       const page = await detail(c.id, d, d.secret);
       expect(page.body.canClaim).toBe(false);
+      // The page can tell the app this is the cooldown, not "hasn't met it".
+      expect(page.body.claimCooldown).toBe(true);
+      // Never to a phone that hasn't proved who it is, nor to anyone else.
+      expect((await detail(c.id)).body.claimCooldown).toBe(false);
+      expect((await detail(c.id, d)).body.claimCooldown).toBe(false);
+      expect((await detail(c.id, d, "wrong-secret-0123456789")).body.claimCooldown).toBe(false);
       const res = await claim(c.id, d);
       expect(res.status).toBe(429);
       expect(res.body).toEqual({ error: expect.any(String), code: "CLAIM_COOLDOWN" });
@@ -475,6 +481,7 @@ describe("POST /api/cats/:catId/let-go (SYC-130 §6)", () => {
       await met(c.id, other);
       await bind(other);
       expect((await detail(c.id, other, other.secret)).body.canClaim).toBe(true);
+      expect((await detail(c.id, other, other.secret)).body.claimCooldown).toBe(false);
       expect((await claim(c.id, other)).status).toBe(200);
     });
     // The after-7-days side is covered in cats.claim.v2.test.ts: observations are

@@ -142,23 +142,32 @@ async function catPayload(
 /** §11: a phone that let a cat go can't claim that same cat again for this long. */
 const CLAIM_COOLDOWN_DAYS = 7;
 
-async function detailViewer(req: Request, cat: Cat): Promise<{ viewer: Viewer; canClaim: boolean }> {
+async function detailViewer(
+  req: Request,
+  cat: Cat,
+): Promise<{ viewer: Viewer; canClaim: boolean; claimCooldown: boolean }> {
   const header = req.headers["x-device-id"];
   const deviceId = typeof header === "string" ? header : "";
   const proven = deviceId !== "" && (await deviceSecretMatches(req, deviceId));
-  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false };
-  if (cat.ownerDeviceId === deviceId) return { viewer: { tier: "owner", deviceId }, canClaim: false };
+  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false };
+  if (cat.ownerDeviceId === deviceId) {
+    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false };
+  }
   // claiming-a-cat.md §4.1, §11: "may claim" comes from the same function
   // the claim uses, and only for a phone that has proved it is that device.
   // A cat someone else owns can't be claimed, so it isn't asked.
   // The let-go cooldown is part of the rule too (critic M2), so the button
   // never offers a claim that would be refused. The 24-hour attempt limit
   // isn't: it's about how often, not whether.
+  // `claimCooldown` lets the app tell "you let this cat go this week" from
+  // "you haven't met it", so it never shows the hint about spotting the cat
+  // to a phone that has. Only a proven phone is told, and only about itself.
+  const claimCooldown = await letGoWithinDays(db, cat.id, deviceId, CLAIM_COOLDOWN_DAYS);
   const canClaim =
     cat.ownerDeviceId === null &&
     (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true &&
-    !(await letGoWithinDays(db, cat.id, deviceId, CLAIM_COOLDOWN_DAYS));
-  return { viewer: PUBLIC_VIEWER, canClaim };
+    !claimCooldown;
+  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown };
 }
 
 /**
@@ -270,7 +279,7 @@ router.get("/cats/:catId", async (req, res) => {
     lookupDiscoverer(cat.discovererDeviceId),
   ]);
 
-  const { viewer, canClaim } = await detailViewer(req, cat);
+  const { viewer, canClaim, claimCooldown } = await detailViewer(req, cat);
   const catBody = await catPayload(
     cat,
     sightings.length,
@@ -318,6 +327,7 @@ router.get("/cats/:catId", async (req, res) => {
         }),
     ),
     canClaim,
+    claimCooldown,
   });
 });
 
