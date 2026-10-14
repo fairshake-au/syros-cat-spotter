@@ -797,11 +797,13 @@ export const coloniesTable = pgTable("colonies", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   notes: text("notes"),                  // team-only
-  // `peopleTable` is the people list (team-access-and-welfare-queue.md §2.9).
-  // Who created the colony: a link to `people`, null for colonies that existed
-  // before this was recorded. A cat guardian can create a colony and becomes
-  // its guardian (roles-and-invites.md Decision 14).
-  createdBy: uuid("created_by").references(() => peopleTable.id),
+  // Who created the colony: the creating person's id (from the people list,
+  // team-access-and-welfare-queue.md §2.9) held as text, with no foreign key,
+  // null for colonies that existed before this was recorded. The column
+  // already exists as nullable text; SYC-53's colony creation writes it. A cat
+  // guardian can create a colony and becomes its guardian
+  // (roles-and-invites.md Decision 14).
+  createdBy: text("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("colonies_normalised_name_unique").on(t.normalisedName),
