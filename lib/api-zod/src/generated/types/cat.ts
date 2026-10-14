@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { CatHomePin } from './catHomePin';
 import type { CatLifeStatus } from './catLifeStatus';
 import type { CatLocationPrecision } from './catLocationPrecision';
 import type { CatSterilised } from './catSterilised';
@@ -37,15 +38,17 @@ export interface Cat {
   discovererNickname?: string | null;
   discovererUsername?: string | null;
   /**
-     * Display name of the resident who claimed this cat
+     * Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).
      * @nullable
      */
   ownerName?: string | null;
   /**
-     * Where the cat lives, as described by its owner
+     * Where the cat lives, as described by its owner. Only in the owner's own view; null for everyone else (D9).
      * @nullable
      */
   homeDescription?: string | null;
+  /** Where the owner says the cat lives. Only in the owner's own view; null for everyone else (claiming-a-cat.md §5, D9). */
+  homePin?: CatHomePin;
   /**
      * Whether this cat has a home. Derived from lifeStatus === "homed"
      * (cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather

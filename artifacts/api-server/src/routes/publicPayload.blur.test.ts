@@ -204,19 +204,46 @@ beforeAll(async () => {
   // A private feeding site right next to the cat (§6.7: absent, not blurred).
   await db.insert(feedingSitesTable).values({ name: FEEDING_NAME, ...FEEDING_EXACT, isPublic: false });
 
-  // An owned cat, registered through the route so the owner is bound to its secret.
-  const reg = await request(app)
-    .post("/api/cats")
-    .set("X-Device-Secret", SECRET)
-    .send({
+  // An owned cat created directly with owner and home details, with observations in a transaction like registration does.
+  ownedCatId = await db.transaction(async (tx) => {
+    const [ownedCat] = await tx
+      .insert(catsTable)
+      .values({
+        name: `${CAT_PREFIX}-owned`,
+        description: "",
+        primaryPhotoId: 0,
+        ...OWNED_EXACT,
+        discovererDeviceId: OWNER,
+        ownerDeviceId: OWNER,
+        ownerName: "Eleni",
+        homeDescription: "Blue door",
+      })
+      .returning();
+    const id = ownedCat!.id;
+    // Write the observations that registration would have written
+    await writeObservation(tx, {
+      catId: id,
+      kind: "life_status",
+      value: { status: "homed" },
       deviceId: OWNER,
-      name: `${CAT_PREFIX}-owned`,
-      ownerName: "Eleni",
-      homeDescription: "Blue door",
-      ...OWNED_EXACT,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: ownedCat!.createdAt,
     });
-  expect(reg.status).toBe(201);
-  ownedCatId = reg.body.id;
+    await writeObservation(tx, {
+      catId: id,
+      kind: "name",
+      value: { name: ownedCat!.name, normalised: ownedCat!.normalisedName },
+      deviceId: OWNER,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: ownedCat!.createdAt,
+    });
+    return id;
+  });
+  // The removed POST /cats bound the owner's secret on first use; bind it the
+  // same way the stranger's is bound below, so the owner is a proven device.
+  await request(app).get(`/api/profiles/${OWNER}`).set("X-Device-Secret", SECRET);
 
   // Emitter 3: a spotter resolves a new sighting to the street cat.
   const [pending] = await db

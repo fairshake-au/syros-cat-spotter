@@ -16,7 +16,7 @@
 
 These hold in every task:
 
-- **Who may claim:** the cat's derived life status is `street` and it has no owner; and this phone has a resolved sighting of it (or of a cat merged into it), whose match choice is `suggested`, `hand_pick`, `new_cat` or `unlabelled`, and which is still on the cat chosen at match time. (Spec §3, D1, D3.)
+- **Who may claim:** the cat's derived life status is `street` and it has no owner; and this phone has a resolved sighting of it (or of a cat merged into it), whose match choice is `suggested`, `hand_pick`, `new_cat` or `unlabelled`, and which is still on the cat chosen at match time. A spot whose choice wasn't recorded (saving it failed) counts like `unlabelled` (Samuel, 14 Oct 2026). (Spec §3, D1, D3.)
 - **Order of checks:** rules 1 and 2 first, then the confirmations and the pin. Refusals never say how far, or in which direction, the pin is out. (§3, §11)
 - **The pin:** within **1 km** (≤ 1000 m) of `blurPosition(cat.lat, cat.lng)`, never the exact position or any sighting. (D11)
 - **Refusals:**
@@ -30,7 +30,7 @@ These hold in every task:
 
   The app reads `code` from the body. (§4.4)
 - **Same owner claiming again:** 200, with nothing written and no message. (§3 rule 4)
-- **Claim limit:** **5 attempts per phone per 24 hours**, refusals included. Re-claiming the same cat within **7 days** of letting it go is refused with 429 `CLAIM_COOLDOWN`. (§11)
+- **Claim limit:** **5 attempts per phone per 24 hours**, refusals included. Re-claiming the same cat within **7 days** of letting it go is refused with 429 `CLAIM_COOLDOWN`. After the team removes an owner, that phone can't claim that cat again for 30 days (Samuel, 14 Oct 2026). (§7, §11)
 - **The home note and pin:**
   - only the owner and the team see them; on the team side, only people with `view_exact_location` see the pin;
   - never in a public payload, a message or a log;

@@ -2,10 +2,15 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type Capability } from "./capabilities";
 import {
+  isWithdrawal,
   ObservationRefused,
+  WITHDRAWN,
   writeObservation,
+  type DbOrTx,
   type ObservationKind,
 } from "./observations";
+import { clearOwner, newestActiveOwnerHomed } from "./claiming";
+import { isOwnerHomed } from "./teamCatView";
 import { resolveSterilised } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
@@ -123,17 +128,19 @@ export interface TeamStatementInput {
 export async function recordTeamStatement(
   person: Person,
   input: TeamStatementInput,
+  /** Write inside the caller's transaction (Remove owner, SYC-130) instead of a new one. */
+  exec?: DbOrTx,
 ): Promise<Observation> {
   const capability = capabilityFor(input.kind);
   if (!capability || !can(person, capability)) throw notAuthorised();
 
-  const [cat] = await db
+  const [cat] = await (exec ?? db)
     .select({ id: catsTable.id })
     .from(catsTable)
     .where(eq(catsTable.id, input.catId));
   if (!cat) throw notFound();
 
-  return db.transaction(async (tx) =>
+  const write = (tx: DbOrTx) =>
     writeObservation(tx, {
       catId: input.catId,
       kind: input.kind,
@@ -141,8 +148,93 @@ export async function recordTeamStatement(
       accountId: person.id,
       roleAtTime: actingRole(person, capability),
       observedAt: input.observedAt ?? new Date(),
-    }),
-  );
+    });
+  return exec ? write(exec) : db.transaction(write);
+}
+
+// ── Remove owner (claiming-a-cat.md §7, D6) ───────────────────────────────
+
+export interface RemoveOwnerInput {
+  catId: number;
+  /** What the cat is now: the team's choice, "street" by default (the route). */
+  status: "street" | "in_care" | "deceased";
+  reason: string;
+  observedAt?: Date;
+}
+
+/**
+ * Takes the owner off a cat and records what the cat now is, as one ordinary
+ * team correction, in ONE transaction (spec §7):
+ *
+ * 1. the cat row is locked, so a second removal, or the owner's own let-go,
+ *    waits and then finds the owner gone;
+ * 2. the owner is looked at again under the lock (`require_owner` stops there
+ *    with nothing written; `if_owner`, the life-status form's tick, just
+ *    records the status);
+ * 3. EVERY active owner `homed` on the cat is withdrawn, as staff;
+ * 4. the owner link, name, note and pin are cleared;
+ * 5. the status is recorded through {@link recordTeamStatement}.
+ *
+ * Needs BOTH `remove_owner` and `set_life_status`, checked before anything is
+ * read. Tells nobody: no push, no notification (§8).
+ */
+export async function removeOwnerAndSay(
+  person: Person,
+  input: RemoveOwnerInput,
+  mode: "require_owner" | "if_owner",
+): Promise<{ owner: "removed" | "none"; row: Observation | null }> {
+  if (!can(person, "remove_owner") || !can(person, "set_life_status")) throw notAuthorised();
+
+  return db.transaction(async (tx) => {
+    const locked = await tx.execute<{ id: number }>(
+      sql`select id from cats where id = ${input.catId} for update`,
+    );
+    if (locked.rows.length === 0) throw notFound();
+    const [cat] = await tx
+      .select({ ownerDeviceId: catsTable.ownerDeviceId })
+      .from(catsTable)
+      .where(eq(catsTable.id, input.catId));
+    // An owner who deleted their data leaves no link but their "has a home"
+    // standing (D13): that counts as an owner here, so it can be ended.
+    const hasOwner =
+      cat?.ownerDeviceId != null ||
+      (await newestActiveOwnerHomed(tx, input.catId, null)) !== null;
+    if (!hasOwner && mode === "require_owner") return { owner: "none" as const, row: null };
+
+    const observedAt = input.observedAt ?? new Date();
+    if (hasOwner) {
+      // Each withdrawal supersedes the one found, so the next call finds the
+      // next, until none remain (an owner can have written more than one).
+      for (;;) {
+        const homedId = await newestActiveOwnerHomed(tx, input.catId, null);
+        if (homedId === null) break;
+        await writeObservation(tx, {
+          catId: input.catId,
+          kind: "life_status",
+          value: WITHDRAWN,
+          allowWithdrawal: true,
+          accountId: person.id,
+          roleAtTime: actingRole(person, "remove_owner"),
+          observedAt: new Date(),
+          supersedesId: homedId,
+          supersedeReason: input.reason,
+        });
+      }
+      await clearOwner(tx, input.catId);
+    }
+    const row = await recordTeamStatement(
+      person,
+      {
+        catId: input.catId,
+        kind: "life_status",
+        value: { status: input.status },
+        reason: input.reason,
+        observedAt,
+      },
+      tx,
+    );
+    return { owner: hasOwner ? ("removed" as const) : ("none" as const), row };
+  });
 }
 
 // ── Marking a statement wrong ─────────────────────────────────────────────
@@ -182,6 +274,18 @@ export async function supersedeStatement(
 
   return db.transaction(async (tx) => {
     const original = await lockActiveObservation(tx, input.id);
+    // A withdrawn owner claim can't be marked wrong (see correctionOf in
+    // teamCatView): refused like any answer that doesn't fit, nothing written.
+    if (isWithdrawal(original.kind as ObservationKind, original.value)) {
+      throw new ObservationRefused("MALFORMED_VALUE", "A withdrawal can't be corrected");
+    }
+
+    // An owner's "has a home" is the claim itself: marking it wrong would
+    // leave the owner link, note and pin in place. Remove owner is the only
+    // team path that ends a claim.
+    if (isOwnerHomed(original)) {
+      throw new ObservationRefused("MALFORMED_VALUE", "An owner's claim is ended with Remove owner");
+    }
 
     const capability = capabilityFor(original.kind);
     if (!capability || !can(person, capability)) throw notAuthorised();

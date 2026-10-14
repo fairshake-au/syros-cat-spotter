@@ -13,7 +13,7 @@ import {
   streakFromDays,
   todayInStreakTimezone,
 } from "./streak";
-import { loadCatRecords } from "./observations";
+import { loadCatRecords, type DbOrTx } from "./observations";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
@@ -86,8 +86,12 @@ export interface CatWithStats extends DerivedCatStatus {
   // Null once the discoverer has deleted their data (SYC-63).
   discovererSpotterCode: string | null;
   discovererNickname: string | null;
+  /** The owner tier only; null for everyone else (claiming-a-cat.md D9). */
   ownerName: string | null;
+  /** The owner tier only; null for everyone else (D9). */
   homeDescription: string | null;
+  /** The owner tier only; null for everyone else (§5, D9). */
+  homePin: { lat: number; lng: number } | null;
   discovererUsername: string | null;
 }
 
@@ -123,7 +127,11 @@ export interface CatSource {
   discovererNickname: string | null;
   discovererUsername: string | null;
   ownerName: string | null;
+  /** The owner's note and pin. Never copied to the output for a public
+   * viewer (claiming-a-cat.md §5, D9). */
   homeDescription: string | null;
+  homeLat: number | null;
+  homeLng: number | null;
   derived: DerivedCatStatus;
 }
 
@@ -134,9 +142,9 @@ export function toPublicDay(at: Date | string): string {
 
 /**
  * **The one serialiser** (§10.6). Every route that sends a cat to the app
- * builds it here: `GET /cats`, `catPayload` (`GET /cats/:id`, `POST /cats`,
- * claim, `PATCH`), and the resolve response. Built field by field from an
- * allow-list, never by spreading a row, so a new column can't leak.
+ * builds it here: `GET /cats`, `catPayload` (`GET /cats/:id`, claim, `PATCH`),
+ * and the resolve response. Built field by field from an allow-list, never by
+ * spreading a row, so a new column can't leak.
  *
  * Public: the centre of the cat's 250 m cell (secret grid origin, blur.ts),
  * `locationPrecision: "approximate"`, `locationCellM: 250`, distance to the
@@ -161,8 +169,14 @@ export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
     discovererSpotterCode: spotterCode(cat.discovererDeviceId),
     discovererNickname: cat.discovererNickname,
     discovererUsername: cat.discovererUsername,
-    ownerName: cat.ownerName,
-    homeDescription: cat.homeDescription,
+    // claiming-a-cat.md D9: where an owned cat lives, and who its owner is,
+    // are for the owner (and the team, who never use this serialiser) only.
+    ownerName: exact ? cat.ownerName : null,
+    homeDescription: exact ? cat.homeDescription : null,
+    homePin:
+      exact && cat.homeLat !== null && cat.homeLng !== null
+        ? { lat: cat.homeLat, lng: cat.homeLng }
+        : null,
     hasHome: cat.derived.hasHome,
     lifeStatus: cat.derived.lifeStatus,
     notSeenSince: cat.derived.notSeenSince,
@@ -255,9 +269,14 @@ function toPublicDate(iso: string | null): string | null {
  * a cat marked "adopted" through the old admin route, with no owner in the
  * app, starts showing "Has a home" (its life_status becomes derivable),
  * which the plan says is what the team meant.
+ *
+ * `exec` reads through the caller's transaction when given (claiming-a-cat.md
+ * §5). The PR 3 gate (`pr3Recorded`) still reads the migrations table on its
+ * own connection: it says nothing about any one cat.
  */
 export async function deriveCatStatuses(
   cats: readonly { id: number; ownerDeviceId: string | null }[],
+  exec: DbOrTx = db,
 ): Promise<Map<number, DerivedCatStatus>> {
   const result = new Map<number, DerivedCatStatus>();
   if (cats.length === 0) return result;
@@ -269,7 +288,7 @@ export async function deriveCatStatuses(
     // Legacy fallback (plan, PR 4): hasHome from owner_device_id, the
     // sterilised line from the legacy `desexed` cat_updates row. One
     // batched query for every id in the page, never one per cat (§2.3).
-    const desexedRows = await db
+    const desexedRows = await exec
       .select({ catId: catUpdatesTable.catId })
       .from(catUpdatesTable)
       .where(
@@ -294,7 +313,7 @@ export async function deriveCatStatuses(
     return result;
   }
 
-  const records = await loadCatRecords(catIds);
+  const records = await loadCatRecords(catIds, exec);
   const now = new Date();
   for (const cat of cats) {
     const rec = records.get(cat.id);
@@ -476,6 +495,8 @@ export async function listCatsWithStats(
           discovererUsername: r.discovererUsername ?? null,
           ownerName: r.cat.ownerName,
           homeDescription: r.cat.homeDescription,
+          homeLat: r.cat.homeLat,
+          homeLng: r.cat.homeLng,
           derived: derived.get(r.cat.id)!,
         },
         viewer,

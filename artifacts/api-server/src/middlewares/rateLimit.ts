@@ -163,3 +163,43 @@ export function _resetDeviceMatchLimitForTests(): void {
 export function _deviceMatchWindowCountForTests(): number {
   return deviceMatchWindows.size;
 }
+
+// SYC-130 (claiming-a-cat.md §8, §11; review 2 HIGH-1): claims are limited
+// per phone, so a phone can't claim and let go in a loop, or move a pin
+// about to learn where the PIN_TOO_FAR edge is. Every attempt counts,
+// refusals included. Keyed on a device id only AFTER the claim route's
+// verifyDeviceSecret has proved it, never on the raw body, as above. The
+// same per-process caveat as DEVICE_MATCH_LIMIT applies (SYC-105).
+export const CLAIM_LIMIT = 5;
+export const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const claimWindows = new Map<string, DeviceWindow>();
+
+function sweepExpiredClaimWindows(now: number): void {
+  for (const [deviceId, window] of claimWindows) {
+    if (window.resetAt <= now) claimWindows.delete(deviceId);
+  }
+}
+
+/**
+ * Returns true if `deviceId` may make another claim attempt now, and
+ * records that it did. The 6th call within CLAIM_WINDOW_MS of the window's
+ * start returns false.
+ */
+export function checkClaimLimit(deviceId: string, now: number = Date.now()): boolean {
+  if (claimWindows.size > SWEEP_THRESHOLD) sweepExpiredClaimWindows(now);
+
+  const existing = claimWindows.get(deviceId);
+  if (!existing || existing.resetAt <= now) {
+    claimWindows.set(deviceId, { count: 1, resetAt: now + CLAIM_WINDOW_MS });
+    return true;
+  }
+  if (existing.count >= CLAIM_LIMIT) return false;
+  existing.count += 1;
+  return true;
+}
+
+/** Test-only: clears every device's claim window. */
+export function _resetClaimLimitForTests(): void {
+  claimWindows.clear();
+}

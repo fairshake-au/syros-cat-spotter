@@ -16,4 +16,19 @@ export interface CatDetail {
   fansCount: number;
   /** Care history, newest first, oldest entry always `discovered` */
   careTimeline: CareEvent[];
+  /**
+     * Whether the phone looking may say "This is my cat" (claiming-a-cat.md
+     * §4.1). True only when it sent X-Device-Id with its matching
+     * X-Device-Secret and passes the same check the claim uses; false
+     * otherwise, including for the cat's owner.
+     */
+  canClaim: boolean;
+  /**
+     * True only for a phone that proved who it is and let this cat go in
+     * the last 7 days, or was removed as its owner by the team in the
+     * last 30 (claiming-a-cat.md §11). Lets the app tell the
+     * cooldown from "this phone hasn't met the cat". False otherwise,
+     * for everyone else and for every phone that hasn't proved itself.
+     */
+  claimCooldown: boolean;
 }

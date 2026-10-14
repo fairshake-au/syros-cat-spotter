@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { Platform } from 'react-native';
@@ -172,6 +173,8 @@ interface DeviceContextValue {
   ownedCatIds: number[];
   /** Record a successful ownership claim for a cat. */
   addOwnedCat: (catId: number) => void;
+  /** SYC-130: the owner let go of a cat; it leaves this phone's list at once. */
+  removeOwnedCat: (catId: number) => void;
   /**
    * SYC-3: the server said `device_moved`. This phone's spotter was moved to
    * a new phone with "Get your spots back"; the app shows "Your spots moved
@@ -209,6 +212,7 @@ const DeviceContext = createContext<DeviceContextValue>({
   setUsername: () => {},
   ownedCatIds: [],
   addOwnedCat: () => {},
+  removeOwnedCat: () => {},
   moved: false,
   startAgain: async () => {},
   adoptRestoredIdentity: async () => {},
@@ -299,19 +303,30 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
 
   // Hydrate the owned-cat list from the server so edit rights survive
   // reinstalls / storage clears (the local cache is just a fast start).
+  // Cats added on this phone while the profile request is in flight. The
+  // server's list replaces the saved one, but a claim that completes before
+  // the answer arrives must not be lost by an answer that predates it.
+  const addedDuringHydration = useRef<Set<number>>(new Set());
+
   useEffect(() => {
     // The initial username claim must not compete with the full multi-query
     // profile hydration. Home and Profile fetch it independently after entry.
     if (!deviceId || !username) return;
     let cancelled = false;
+    addedDuringHydration.current = new Set();
     getProfile(deviceId)
       .then((profile) => {
         if (cancelled || !Array.isArray(profile.ownedCatIds)) return;
-        setOwnedCatIds((prev) => {
-          const merged = Array.from(new Set([...prev, ...profile.ownedCatIds]));
-          AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(merged));
-          return merged;
-        });
+        // SYC-130 (claiming-a-cat.md §6): the server's list replaces this
+        // phone's, it is not merged into it, so a cat the owner let go of
+        // (or the team removed the owner from) stops showing owner controls.
+        // The saved list is only the fast start while offline.
+        const fromServer = Array.from(
+          new Set([...profile.ownedCatIds, ...addedDuringHydration.current]),
+        );
+        addedDuringHydration.current = new Set();
+        setOwnedCatIds(fromServer);
+        AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(fromServer));
       })
       .catch(() => {
         // Offline or server unreachable: keep the locally cached list.
@@ -319,9 +334,20 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   }, [deviceId, username]);
 
   const addOwnedCat = useCallback((catId: number) => {
+    addedDuringHydration.current.add(catId);
     setOwnedCatIds((prev) => {
       if (prev.includes(catId)) return prev;
       const next = [...prev, catId];
+      AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const removeOwnedCat = useCallback((catId: number) => {
+    addedDuringHydration.current.delete(catId);
+    setOwnedCatIds((prev) => {
+      if (!prev.includes(catId)) return prev;
+      const next = prev.filter((id) => id !== catId);
       AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(next));
       return next;
     });
@@ -389,6 +415,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       setUsername,
       ownedCatIds,
       addOwnedCat,
+      removeOwnedCat,
       moved,
       startAgain,
       adoptRestoredIdentity,
@@ -409,6 +436,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       setUsername,
       ownedCatIds,
       addOwnedCat,
+      removeOwnedCat,
       resetIdentity,
     ],
   );

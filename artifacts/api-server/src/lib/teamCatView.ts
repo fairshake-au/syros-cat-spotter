@@ -12,7 +12,8 @@ import {
 import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
-import { loadCatRecords } from "./observations";
+import { can, type CapabilityHolder } from "./capabilities";
+import { isWithdrawal, loadCatRecords, type ObservationKind } from "./observations";
 import {
   clippedTipCount,
   resolveLifeStatus,
@@ -121,10 +122,21 @@ const str = (v: unknown): string | null =>
   typeof v === "string" && v.trim() !== "" ? v : null;
 
 /** A statement in plain English. Never includes the reason (shown apart). */
-export function describeStatement(kind: string, raw: unknown): string {
+export function describeStatement(
+  kind: string,
+  raw: unknown,
+  /** Written by a phone (the owner) rather than a team member: words a withdrawal. */
+  byDevice = false,
+): string {
   const v = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   switch (kind) {
     case "life_status":
+      // A withdrawn claim (claiming-a-cat.md §6, §7): says nothing about the
+      // cat's status itself; it takes an owner's "has a home" back.
+      if (isWithdrawal(kind as ObservationKind, raw))
+        return byDevice
+          ? "The owner said the cat doesn't live with them any more"
+          : "Owner removed by the team";
       return LIFE[v["status"] as LifeStatusValue] ?? "Life status (unreadable)";
     case "sterilised": {
       const base =
@@ -181,6 +193,10 @@ export function describeStatement(kind: string, raw: unknown): string {
  * team statement carries its reason inside its value (routes/observations.ts).
  */
 function reasonOf(o: Observation): string | null {
+  // The owner's own let-go carries an internal note, not a reason given. A
+  // phone wrote it when no account did: deleting their data (severPerson)
+  // clears the device id but never gives a withdrawal an account.
+  if (o.accountId == null && isWithdrawal(o.kind as ObservationKind, o.value)) return null;
   if (o.supersedesId != null && str(o.supersedeReason)) return o.supersedeReason;
   const v = o.value as Record<string, unknown> | null;
   return v && typeof v === "object" ? str(v["reason"]) : null;
@@ -209,6 +225,11 @@ export interface TeamStatement {
    * cat shows it struck through, with where it went and why. Null otherwise.
    */
   movedTo: { statementId: number; cat: TeamCatRef; reason: string | null; at: string } | null;
+  /**
+   * True for an owner's standing "has a home". It can't be marked wrong; only
+   * Remove owner ends a claim (the page points there).
+   */
+  ownerClaim: boolean;
   /** Set when this statement replaced one on a different cat: where it came from. */
   movedFrom: { statementId: number; cat: TeamCatRef } | null;
   photoUrl: string | null;
@@ -225,8 +246,26 @@ export type StatementCorrection =
   | { kind: "sterilised"; now: boolean | null }
   | { kind: "ear_tip_clipped" };
 
+/** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
+export function isOwnerHomed(o: Observation, onlyCatId?: number): boolean {
+  const v = o.value as Record<string, unknown> | null;
+  return (
+    (onlyCatId === undefined || o.catId === onlyCatId) &&
+    o.kind === "life_status" &&
+    o.authorityScope === "owner_of_this_cat" &&
+    !!v &&
+    typeof v === "object" &&
+    v["status"] === "homed"
+  );
+}
+
 function correctionOf(o: Observation, replaced: boolean): StatementCorrection | null {
   if (replaced) return null;
+  if (isOwnerHomed(o)) return null;
+  // A withdrawal is never "marked wrong": that would add a status under a
+  // heading that says the owner was removed, and read as if it restored the
+  // owner, which it can't. To change the cat, say its status.
+  if (isWithdrawal(o.kind as ObservationKind, o.value)) return null;
   const v = (o.value && typeof o.value === "object" ? o.value : {}) as Record<string, unknown>;
   if (o.kind === "life_status") {
     const now = v["status"];
@@ -280,6 +319,22 @@ export interface TeamCatView {
     lng: number;
     createdAt: string;
     mainPhotoUrl: string | null;
+  };
+  /**
+   * Whether the cat has an owner (claiming-a-cat.md §7), never who: no device
+   * id, no name. The team sees the home note, kept after an owner deletes
+   * their data (D13); the home pin only if
+   * the viewer holds `view_exact_location`, and with no viewer, never.
+   */
+  owner: {
+    has: boolean;
+    /**
+     * No owner link, but an owner's "has a home" still stands: the owner
+     * deleted their data (claiming-a-cat.md D13). Remove owner ends it.
+     */
+    orphanedHome: boolean;
+    homeDescription: string | null;
+    homePin: { lat: number; lng: number } | null;
   };
   /** Exactly what the public cat page says (catHelpers.deriveCatStatuses). */
   publicStatus: DerivedCatStatus;
@@ -433,7 +488,12 @@ async function crossCatLinks(observations: readonly Observation[]) {
 }
 
 /** The team's view of one cat, or null if there is no such cat. */
-export async function teamCatView(catId: number, now = new Date()): Promise<TeamCatView | null> {
+export async function teamCatView(
+  catId: number,
+  now = new Date(),
+  /** Who is looking: decides whether the owner's home pin is filled. */
+  viewer?: CapabilityHolder,
+): Promise<TeamCatView | null> {
   const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   if (!cat) return null;
 
@@ -482,6 +542,12 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
     return publicId ? teamPhotoUrl(publicId) : null;
   };
 
+  const replacedIds = new Set(
+    observations.map((o) => o.supersedesId).filter((id): id is number => id != null),
+  );
+  const orphanedHome =
+    cat.ownerDeviceId === null &&
+    observations.some((o) => isOwnerHomed(o, cat.id) && !replacedIds.has(o.id));
   const life = resolveLifeStatus(observations, evidence, now);
   const sterilised = resolveSterilised(observations, []);
 
@@ -500,7 +566,7 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
     .map((o) => ({
       id: o.id,
       kind: o.kind,
-      said: describeStatement(o.kind, o.value),
+      said: describeStatement(o.kind, o.value, o.accountId == null),
       reason: reasonOf(o),
       author: authorOf(o, people),
       observedAt: o.observedAt.toISOString(),
@@ -511,6 +577,9 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
       correction: correctionOf(o, replacedBy.has(o.id)),
+      // Only this cat's own claim: Remove owner is scoped to it. A merged-in
+      // cat's claim is ended from that cat's page.
+      ownerClaim: isOwnerHomed(o, cat.id) && !replacedBy.has(o.id),
     }));
 
   const mainIds = new Set([cat.primaryPhotoId]);
@@ -537,6 +606,21 @@ export async function teamCatView(catId: number, now = new Date()): Promise<Team
       lng: cat.lng,
       createdAt: cat.createdAt.toISOString(),
       mainPhotoUrl: urlFor(cat.primaryPhotoId),
+    },
+    owner: {
+      has: cat.ownerDeviceId !== null,
+      orphanedHome,
+      // D13: deletion clears the owner link and keeps the note and pin, so
+      // they show whenever stored, owner or not. Letting go and Remove owner
+      // clear them, so a stored note or pin always means the cat has a home.
+      homeDescription: cat.homeDescription,
+      homePin:
+        cat.homeLat !== null &&
+        cat.homeLng !== null &&
+        viewer !== undefined &&
+        can(viewer, "view_exact_location")
+          ? { lat: cat.homeLat, lng: cat.homeLng }
+          : null,
     },
     publicStatus: statuses.get(cat.id)!,
     records: {

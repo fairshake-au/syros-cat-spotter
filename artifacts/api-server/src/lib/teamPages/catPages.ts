@@ -267,11 +267,17 @@ const dateInput = (id: string, label: string, hint: string) =>
   `<label class="label" for="${id}">${esc(label)} <span class="hint">${esc(hint)}</span></label>` +
   `<input id="${id}" name="date" type="date" max="${today()}">`;
 
-const lifeChoices = (name: string, idBase: string, skip: LifeStatusValue | null) =>
-  LIFE_ORDER.filter((l) => l !== skip)
+const lifeChoices = (
+  name: string,
+  idBase: string,
+  skip: LifeStatusValue | null,
+  allowed: readonly LifeStatusValue[] = LIFE_ORDER,
+  checked: LifeStatusValue | null = null,
+) =>
+  LIFE_ORDER.filter((l) => l !== skip && allowed.includes(l))
     .map(
       (l) =>
-        `<label class="choice" for="${idBase}-${l}"><input type="radio" id="${idBase}-${l}" name="${name}" value="${l}" required> ${esc(LIFE[l])}</label>`,
+        `<label class="choice" for="${idBase}-${l}"><input type="radio" id="${idBase}-${l}" name="${name}" value="${l}" required${l === checked ? " checked" : ""}> ${esc(LIFE[l])}</label>`,
     )
     .join("");
 
@@ -360,6 +366,9 @@ function statementItem(
     replacements +
     moved +
     wrongForm(s, may) +
+    (s.ownerClaim
+      ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Correct the record”.</p>'
+      : "") +
     "</li>"
   );
 }
@@ -372,6 +381,8 @@ const DONE: Record<string, string> = {
   renamed: "Saved. The new name is in the history below.",
   unchanged: "That is already the cat's name. Nothing was changed.",
   already: "Someone already corrected this. Here's what replaced it.",
+  ownerRemoved: "Saved. The owner is removed and the cat's new status is in the history below. Nobody was told.",
+  ownerGone: "This cat has no owner now, so there was nothing to remove. Nothing was changed.",
 };
 
 /** What the page says beside a photo after Hide or Restore (PR 6). */
@@ -441,6 +452,12 @@ function correctionForms(
         '<fieldset><legend class="label">The cat…</legend>' +
         lifeChoices("status", "ls", null) +
         "</fieldset>" +
+        // Owned cat (spec §7): removing the owner is offered in the same step,
+        // so a correction can't leave the cat stuck "street" with an owner.
+        ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
+          ? '<label class="choice" for="ls-owner"><input type="checkbox" id="ls-owner" name="removeOwner" value="1" checked> Also remove the owner</label>' +
+            '<p class="hint">Ticked, an owner is removed unless the cat is saved as having a home. Nobody is told.</p>'
+          : "") +
         dateInput("ls-date", "Date the team knows of", "(needed for “No longer with us”; leave empty for today)") +
         reasonInput("ls-why") +
         '<button type="submit">Save</button></form></details>',
@@ -468,6 +485,18 @@ function correctionForms(
         `<input class="text" id="rn-name" name="name" required maxlength="60" value="${esc(v.cat.name)}" autocomplete="off" spellcheck="false">` +
         reasonInput("rn-why") +
         '<button type="submit">Rename</button></form></details>',
+    );
+  }
+  if ((v.owner.has || v.owner.orphanedHome) && may("remove_owner") && may("set_life_status")) {
+    forms.push(
+      `<details><summary>Remove owner</summary><form method="post" action="${base}/remove-owner">` +
+        '<p class="hint">Ends this claim. The owner stops seeing the exact spot and getting alerts. Nobody is told.</p>' +
+        '<fieldset><legend class="label">The cat now…</legend>' +
+        lifeChoices("status", "ro", null, ["street", "in_care", "deceased"], "street") +
+        "</fieldset>" +
+        dateInput("ro-date", "Date the team knows of", "(needed for “No longer with us”)") +
+        reasonInput("ro-why") +
+        '<button type="submit">Remove owner</button></form></details>',
     );
   }
   if (forms.length === 0) return notice;
@@ -541,6 +570,24 @@ export function renderCatPage(
       ),
       byId,
     ) +
+    "<h3>Owner</h3><dl>" +
+    row(
+      "Owner",
+      v.owner.has
+        ? "Has an owner"
+        : v.owner.orphanedHome
+          ? "Has a home, but the owner deleted their data"
+          : "No owner",
+    ) +
+    // D13: after an owner deletes their data the note and pin stay, with no
+    // owner link, so show them whenever they are stored.
+    (v.owner.has || v.owner.homeDescription || v.owner.homePin
+      ? row(
+          v.owner.has ? "Where the owner says the cat lives" : "Where the cat lives, from a past owner",
+          v.owner.homeDescription ? esc(v.owner.homeDescription) : "No note",
+        ) + (v.owner.homePin ? row("Home pin", place(v.owner.homePin.lat, v.owner.homePin.lng)) : "")
+      : "") +
+    "</dl>" +
     "<h2>First recorded</h2><dl>" +
     row("Where", place(cat.lat, cat.lng)) +
     row("When", time(cat.createdAt)) +

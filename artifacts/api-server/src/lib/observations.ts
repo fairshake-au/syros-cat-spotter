@@ -599,6 +599,65 @@ export interface WriteObservationInput {
   observedAt: Date;
   supersedesId?: number | null;
   supersedeReason?: string | null;
+  /**
+   * Must be true to write a {@link WITHDRAWN} `life_status`. Only the owner's
+   * let-go and the team's Remove owner say so: a withdrawal takes an owner's
+   * "has a home" back without the owner link going, so no other writer
+   * (a team correction, the supersede API) may produce one.
+   */
+  allowWithdrawal?: boolean;
+}
+
+/** A claim withdrawn (claiming-a-cat.md §6, §7): supersedes a homed, asserts
+ * nothing. The resolver ignores it, because it has no `status`. */
+export const WITHDRAWN = { withdrawn: true } as const;
+
+export function isWithdrawal(kind: ObservationKind, value: unknown): boolean {
+  return (
+    kind === "life_status" &&
+    isPlainObject(value) &&
+    value["withdrawn"] === true &&
+    Object.keys(value).length === 1
+  );
+}
+
+const WITHDRAWAL_TARGET_MESSAGE =
+  "a life_status withdrawal must supersede an active homed statement on the same cat";
+
+/**
+ * A withdrawal is valid only when `supersedesId` points at a `life_status`
+ * `{ status: "homed" }` row on the same cat that nothing has superseded yet
+ * (the resolver's own meaning of "active", resolve.ts `isActive`). Who may
+ * write one is the caller's business (the let-go and remove-owner routes),
+ * not this function's.
+ */
+async function checkWithdrawalTarget(
+  tx: DbOrTx,
+  input: WriteObservationInput,
+): Promise<void> {
+  const targetId = input.supersedesId;
+  if (targetId == null) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
+  const [target] = await tx
+    .select({
+      catId: observationsTable.catId,
+      kind: observationsTable.kind,
+      value: observationsTable.value,
+    })
+    .from(observationsTable)
+    .where(eq(observationsTable.id, targetId));
+  const homed =
+    target != null &&
+    target.catId === input.catId &&
+    target.kind === "life_status" &&
+    isPlainObject(target.value) &&
+    target.value["status"] === "homed";
+  if (!homed) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
+  const [already] = await tx
+    .select({ id: observationsTable.id })
+    .from(observationsTable)
+    .where(eq(observationsTable.supersedesId, targetId))
+    .limit(1);
+  if (already) refuse("MALFORMED_VALUE", WITHDRAWAL_TARGET_MESSAGE);
 }
 
 /**
@@ -606,6 +665,8 @@ export interface WriteObservationInput {
  * `ObservationRefused`) rather than writing anything for:
  *
  * - an unknown `kind`, or a `value` that doesn't match its kind's shape;
+ * - a `life_status` {@link WITHDRAWN} that doesn't supersede an active
+ *   `homed` on the same cat;
  * - a role refused for that kind (`ROLE_NOT_ALLOWED_FOR_KIND`), checked
  *   before reachability: `vet` for `coat` and `markings`; `system` for
  *   `markings`, and for any `coat` that is not `provenance: "machine"`;
@@ -677,10 +738,17 @@ export async function writeObservation(
     );
   }
 
-  validateValue(input.kind, input.value, {
-    roleAtTime: input.roleAtTime,
-    provenance,
-  });
+  if (isWithdrawal(input.kind, input.value)) {
+    if (input.allowWithdrawal !== true) {
+      refuse("MALFORMED_VALUE", "A withdrawal can only be written by a let-go or Remove owner");
+    }
+    await checkWithdrawalTarget(tx, input);
+  } else {
+    validateValue(input.kind, input.value, {
+      roleAtTime: input.roleAtTime,
+      provenance,
+    });
+  }
 
   if (!REACHABLE_ROLES.has(input.roleAtTime)) {
     refuse(
@@ -911,15 +979,19 @@ export interface CatRecords {
  *
  * Deliberately leaves out §3.4's fourth evidence-of-life source, a linked
  * import record's operation date (SYC-49 / SYC-82, not built).
+ *
+ * `exec` lets a caller read through its own transaction (claiming-a-cat.md
+ * §5: the claim reads the cat's status inside the transaction that locks it).
  */
 export async function loadCatRecords(
   catIds: readonly number[],
+  exec: DbOrTx = db,
 ): Promise<Map<number, CatRecords>> {
   const result = new Map<number, CatRecords>();
   const uniqueIds = [...new Set(catIds)];
   if (uniqueIds.length === 0) return result;
 
-  const identityRows = await db
+  const identityRows = await exec
     .select({
       catId: catIdentityTable.catId,
       canonicalCatId: catIdentityTable.canonicalCatId,
@@ -936,7 +1008,7 @@ export async function loadCatRecords(
     ...new Set([...uniqueIds, ...identityRows.map((r) => r.catId)]),
   ];
 
-  const obsRows = await db
+  const obsRows = await exec
     .select()
     .from(observationsTable)
     .where(inArray(observationsTable.catId, allCatIds));
@@ -948,7 +1020,7 @@ export async function loadCatRecords(
   // cat, so this reads it across cats: one more query, the same count
   // whatever the number of cats.
   const replacer = alias(observationsTable, "replacer");
-  const replacedWelfareRows = await db
+  const replacedWelfareRows = await exec
     .select({ id: observationsTable.id })
     .from(observationsTable)
     .innerJoin(replacer, eq(replacer.supersedesId, observationsTable.id))
@@ -960,7 +1032,7 @@ export async function loadCatRecords(
     );
   const replacedWelfare = new Set(replacedWelfareRows.map((r) => r.id));
 
-  const sightingRows = await db
+  const sightingRows = await exec
     .select({
       catId: sightingsTable.catId,
       newest: sql<string>`max(${sightingsTable.createdAt})`,
@@ -974,7 +1046,7 @@ export async function loadCatRecords(
     )
     .groupBy(sightingsTable.catId);
 
-  const catRows = await db
+  const catRows = await exec
     .select({ id: catsTable.id, createdAt: catsTable.createdAt })
     .from(catsTable)
     .where(inArray(catsTable.id, allCatIds));
