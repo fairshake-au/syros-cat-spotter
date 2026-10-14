@@ -12,9 +12,9 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 //   pnpm --filter @workspace/db run people -- add --target <t> [--email <e>] [--name <n>] [--role staff] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- list --target <t>
 //   pnpm --filter @workspace/db run people -- mark-left --target <t> [--email <e>] [--by <operator>]
-//   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>]
+//   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>] [--by <operator>]
 //
-// The address is typed a second time for mark-left, remove and
+// The address is typed a second time for mark-left and
 // sign-out-everywhere: at a terminal, interactively; otherwise (db-ops,
 // SYC-131) as the first line of stdin.
 //
@@ -51,7 +51,7 @@ const USAGE = [
   "  people add --target <target> [--email <address>] [--name <name>] [--role <role>]... [--by <operator>]",
   "  people list --target <target>",
   "  people mark-left --target <target> [--email <address>] [--by <operator>]",
-  "  people sign-out-everywhere --target <target> [--email <address>]",
+  "  people sign-out-everywhere --target <target> [--email <address>] [--by <operator>]",
   "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
   "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
   "--email and --name may instead come from PEOPLE_EMAIL and PEOPLE_NAME.",
