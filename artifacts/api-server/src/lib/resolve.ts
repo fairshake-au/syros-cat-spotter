@@ -219,7 +219,8 @@ function earTipAuthorityLevel(o: Rankable): AuthorityLevel {
  * above under `earTipAuthorityLevel`) knock out a photo-backed
  * `clipped: true` (`clip`)? §10.2 rule 3, with Decision G:
  *
- * - It always does if it marks that clip wrong (`supersedesId`).
+ * - A "no" that marks the clip wrong (`supersedesId`) needs no rule here:
+ *   a superseded clip is not active, so it never reaches this function.
  * - A spotter's clip (level 0) is evidence, not a statement: the "no"
  *   knocks it out only if it is as new or newer (`>=`), exactly as before
  *   Decision G. A newer spotter clip after a team "not a clip" puts the cat
@@ -230,7 +231,6 @@ function earTipAuthorityLevel(o: Rankable): AuthorityLevel {
  *   clip" outranks a team clip, and never a vet's.
  */
 function clipCountered(no: Observation, clip: Observation): boolean {
-  if (no.supersedesId === clip.id) return true;
   if (earTipAuthorityLevel(clip) === 0) {
     return no.observedAt.getTime() >= clip.observedAt.getTime();
   }
