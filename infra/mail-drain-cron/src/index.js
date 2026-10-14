@@ -14,8 +14,9 @@ export default {
       sleep: (ms) => scheduler.wait(ms),
       kv: env.ALARM_STATE,
       // The binding's destination_address (wrangler.jsonc) is the only
-      // address it can send to.
-      sendAlarm: ({ subject, text }) => env.ALARM_EMAIL.send({ from: FROM, subject, text }),
+      // address it can send to. `to` must still be given: despite the docs,
+      // send() refuses an email with no recipient (found live, 14 Oct 2026).
+      sendAlarm: ({ subject, text }) => env.ALARM_EMAIL.send({ to: env.ALARM_TO, from: FROM, subject, text }),
       log: (fields) => console.log(JSON.stringify(fields)),
       nowMs: controller.scheduledTime,
     });
