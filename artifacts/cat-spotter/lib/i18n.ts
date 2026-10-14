@@ -520,6 +520,47 @@ const en: Dict = {
   reportCostsHeading: 'Costs, and the Municipality',
   reportTakePhoto: 'Take photo',
   reportFromLibrary: 'From library',
+
+  // SYC-2 PR 2.1 (coat-markings-and-health.md §3.1, §3.2, §5.1, §5.2, §9):
+  // the colour and marking words, and Slice 4's questions, landed once.
+  // coat_*: the eight colours. mark_*: the eleven chip labels. markShown_*:
+  // the four marks as the cat page and picker card show them (plain
+  // recognition features, never injuries). The questions use the cat's name
+  // or "this cat", never a pronoun.
+  coat_black: 'Black',
+  coat_white: 'White',
+  coat_ginger: 'Ginger',
+  coat_grey: 'Grey',
+  coat_tabby: 'Tabby',
+  coat_tortoiseshell_or_calico: 'Tortoiseshell or calico',
+  coat_black_and_white: 'Black and white',
+  coat_not_sure: 'Not sure',
+  mark_white_paws: 'White paws',
+  mark_white_chest: 'White chest or bib',
+  mark_white_face: 'White patch on the face',
+  mark_colourpoint: 'Dark face, ears and tail',
+  mark_long_fur: 'Long fur',
+  mark_kinked_tail: 'Kinked tail',
+  mark_torn_ear: 'Torn or notched ear',
+  mark_short_tail: 'Short or missing tail',
+  mark_missing_eye: 'Missing an eye',
+  mark_three_legs: 'Three legs',
+  mark_odd_eyes: 'Eyes of different colours',
+  markShown_short_tail: 'Short or missing tail',
+  markShown_missing_eye: 'One eye',
+  markShown_three_legs: 'Three legs',
+  markShown_odd_eyes: 'Eyes of different colours',
+  appearanceColourQuestion: '{name} looks {colours} — right?',
+  appearanceColourQuestionUnnamed: 'This cat looks {colours} — right?',
+  appearanceYes: 'Yes',
+  appearanceChange: 'Change',
+  appearanceSkip: 'Skip',
+  appearancePickColours: 'Pick one or two colours',
+  appearanceMarkingsQuestion: 'Anything that makes {name} easy to spot?',
+  appearanceMarkingsQuestionUnnamed: 'Anything that makes this cat easy to spot?',
+  appearanceNothingSpecial: 'Nothing special',
+  appearanceCantTell: 'Can’t tell',
+  appearanceLooksHurt: 'Does it look hurt? Tell Syros Cats.',
 };
 
 const el: Dict = {
@@ -1019,6 +1060,45 @@ const el: Dict = {
   reportCostsHeading: 'Κόστος, και ο Δήμος',
   reportTakePhoto: 'Τράβα φωτογραφία',
   reportFromLibrary: 'Από τη συλλογή',
+
+  // SYC-2 PR 2.1: DRAFT Greek, for Johnny's check (SYC-283, SYC-244). The
+  // colour and chip words are the spec's drafts (coat-markings-and-health.md
+  // §3.1, §3.2) verbatim; markShown_missing_eye and the questions are
+  // drafted here. No pronoun or gendered adjective for the cat.
+  coat_black: 'Μαύρο',
+  coat_white: 'Λευκό',
+  coat_ginger: 'Πορτοκαλί',
+  coat_grey: 'Γκρι',
+  coat_tabby: 'Τιγρέ',
+  coat_tortoiseshell_or_calico: 'Χελωνόχρωμο ή τρίχρωμο',
+  coat_black_and_white: 'Ασπρόμαυρο',
+  coat_not_sure: 'Δεν είμαι σίγουρος/η',
+  mark_white_paws: 'Λευκά πόδια',
+  mark_white_chest: 'Λευκό στήθος',
+  mark_white_face: 'Λευκή κηλίδα στο πρόσωπο',
+  mark_colourpoint: 'Σκούρο πρόσωπο, αυτιά και ουρά',
+  mark_long_fur: 'Μακρύ τρίχωμα',
+  mark_kinked_tail: 'Στραβή ουρά',
+  mark_torn_ear: 'Σκισμένο αυτί',
+  mark_short_tail: 'Κοντή ή χωρίς ουρά',
+  mark_missing_eye: 'Λείπει ένα μάτι',
+  mark_three_legs: 'Τρία πόδια',
+  mark_odd_eyes: 'Μάτια διαφορετικού χρώματος',
+  markShown_short_tail: 'Κοντή ή χωρίς ουρά',
+  markShown_missing_eye: 'Ένα μάτι',
+  markShown_three_legs: 'Τρία πόδια',
+  markShown_odd_eyes: 'Μάτια διαφορετικού χρώματος',
+  appearanceColourQuestion: '{name}: {colours}. Σωστά;',
+  appearanceColourQuestionUnnamed: 'Αυτή η γάτα: {colours}. Σωστά;',
+  appearanceYes: 'Ναι',
+  appearanceChange: 'Αλλαγή',
+  appearanceSkip: 'Παράλειψη',
+  appearancePickColours: 'Διάλεξε ένα ή δύο χρώματα',
+  appearanceMarkingsQuestion: '{name}: υπάρχει κάτι που βοηθά να αναγνωριστεί εύκολα;',
+  appearanceMarkingsQuestionUnnamed: 'Αυτή η γάτα: υπάρχει κάτι που βοηθά να αναγνωριστεί εύκολα;',
+  appearanceNothingSpecial: 'Τίποτα ιδιαίτερο',
+  appearanceCantTell: 'Δεν φαίνεται',
+  appearanceLooksHurt: 'Μήπως έχει τραυματιστεί; Πες το στους Syros Cats.',
 };
 
 const fr: Dict = {
@@ -1519,6 +1599,45 @@ const fr: Dict = {
   reportCostsHeading: 'Frais, et la Municipalité',
   reportTakePhoto: 'Prendre une photo',
   reportFromLibrary: 'Depuis la galerie',
+
+  // SYC-2 PR 2.1: DRAFT French, for Johnny's check (SYC-283, SYC-244). The
+  // colour and chip words are the spec's drafts (coat-markings-and-health.md
+  // §3.1, §3.2) verbatim; markShown_missing_eye and the questions are
+  // drafted here, with "tu". No pronoun or gendered adjective for the cat.
+  coat_black: 'Noir',
+  coat_white: 'Blanc',
+  coat_ginger: 'Roux',
+  coat_grey: 'Gris',
+  coat_tabby: 'Tigré',
+  coat_tortoiseshell_or_calico: 'Écaille de tortue ou calico',
+  coat_black_and_white: 'Noir et blanc',
+  coat_not_sure: 'Pas sûr',
+  mark_white_paws: 'Pattes blanches',
+  mark_white_chest: 'Plastron blanc',
+  mark_white_face: 'Tache blanche sur le visage',
+  mark_colourpoint: 'Visage, oreilles et queue foncés',
+  mark_long_fur: 'Poil long',
+  mark_kinked_tail: 'Queue coudée',
+  mark_torn_ear: 'Oreille déchirée ou entaillée',
+  mark_short_tail: 'Queue courte ou absente',
+  mark_missing_eye: 'Un œil manquant',
+  mark_three_legs: 'Trois pattes',
+  mark_odd_eyes: 'Yeux de couleurs différentes',
+  markShown_short_tail: 'Queue courte ou absente',
+  markShown_missing_eye: 'Un seul œil',
+  markShown_three_legs: 'Trois pattes',
+  markShown_odd_eyes: 'Yeux de couleurs différentes',
+  appearanceColourQuestion: '{name} : {colours}, c’est bien ça ?',
+  appearanceColourQuestionUnnamed: 'Ce chat : {colours}, c’est bien ça ?',
+  appearanceYes: 'Oui',
+  appearanceChange: 'Changer',
+  appearanceSkip: 'Passer',
+  appearancePickColours: 'Choisis une ou deux couleurs',
+  appearanceMarkingsQuestion: 'Un détail qui permet de reconnaître {name} facilement ?',
+  appearanceMarkingsQuestionUnnamed: 'Un détail qui permet de reconnaître ce chat facilement ?',
+  appearanceNothingSpecial: 'Rien de particulier',
+  appearanceCantTell: 'Impossible à dire',
+  appearanceLooksHurt: 'Une blessure ? Préviens Syros Cats.',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };
