@@ -33,6 +33,7 @@ vi.mock("../lib/logger", async (importOriginal) => {
 import app from "../app";
 import { drainDue, settleOutbox, UNCHECKED_ALERTS_PER_HOUR } from "../lib/mail/outbox";
 import { SITEVERIFY_URL } from "../lib/turnstile";
+import { UNCHECKED_ISLAND_WIDE_PER_HOUR } from "../lib/uncheckedLimit";
 
 const DEVICE = `vitest-turnstile-${randomBytes(4).toString("hex")}`;
 const SECRET = "vitest-turnstile-device-secret-aa";
@@ -268,6 +269,28 @@ describe("T1-3: the unchecked limit, per address", () => {
     expect((await draft({ clientRef: ref, turnstileToken: TOKEN }, ip)).status).toBe(429);
     expect(await rowsFor(ref)).toHaveLength(0);
     expect((await submit({ clientRef: clientRef(), turnstileToken: TOKEN }, ip)).status).toBe(201);
+  });
+
+  it("review finding 5: at most 30 unchecked rows an hour island-wide, reports and drafts together; past it 503 try_again, nothing written", async () => {
+    siteverify = timeout;
+    // 30 rows from 15 addresses: a draft and a report each.
+    for (let i = 0; i < UNCHECKED_ISLAND_WIDE_PER_HOUR / 2; i++) {
+      const ip = freshIp();
+      expect((await draft({ clientRef: clientRef(), turnstileToken: TOKEN }, ip)).status).toBe(204);
+      expect((await submit({ clientRef: clientRef(), turnstileToken: TOKEN }, ip)).status).toBe(201);
+    }
+    const ref = clientRef();
+    const res = await submit({ clientRef: ref, turnstileToken: TOKEN }, freshIp());
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: "try_again" });
+    expect(await rowsFor(ref)).toHaveLength(0);
+    const d = clientRef();
+    expect((await draft({ clientRef: d, turnstileToken: TOKEN }, freshIp())).status).toBe(503);
+    expect(await rowsFor(d)).toHaveLength(0);
+    // A checked report is never held back by the fence.
+    const ok = clientRef();
+    siteverify = pass(ok);
+    expect((await submit({ clientRef: ok, turnstileToken: TOKEN }, freshIp())).status).toBe(201);
   });
 
   it("an IPv6 address counts by its /56, like every other limit", async () => {
