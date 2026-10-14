@@ -5,7 +5,7 @@ name: mail-drain
 # SYC-231: the main caller is now the `mail-drain-cron` Cloudflare Worker
 # (infra/mail-drain-cron), every 10 minutes. GitHub ran this workflow's
 # "every 10 minutes" every 3-7 hours, too slow for the over-an-hour alarm.
-# This stays as a BACKUP, every 3 hours (GitHub may run it later), and for
+# This stays as a BACKUP, every 2 hours (GitHub may run it later), and for
 # manual runs. Two callers at once is safe: each email is claimed once.
 # Runbook: docs/runbooks/mail-drain.md.
 #
@@ -21,7 +21,7 @@ name: mail-drain
 on:
   schedule:
     # Off the hour, when GitHub's schedule queue is least busy.
-    - cron: "23 */3 * * *"
+    - cron: "23 */2 * * *"
   workflow_dispatch:
     inputs:
       base_url:

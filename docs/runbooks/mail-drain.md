@@ -9,7 +9,7 @@ Cat-report alerts to Syros Cats normally go out the moment a report is filed, or
 | What | Where | How often |
 |---|---|---|
 | **`mail-drain-cron` Cloudflare Worker** (the main one) | `infra/mail-drain-cron/`, Cloudflare account, cron trigger | Every 10 minutes, reliably |
-| **`mail-drain.yml` GitHub workflow** (a backup) | `.github/workflows/mail-drain.yml` | Asked for every 3 hours; GitHub often runs it later. Also runs by hand from the Actions tab |
+| **`mail-drain.yml` GitHub workflow** (a backup) | `.github/workflows/mail-drain.yml` | Asked for every 2 hours; GitHub often runs it later. Also runs by hand from the Actions tab |
 
 Both call `POST https://apptest.catspotters.com/api/internal/mail/drain` with `Authorization: Bearer <MAIL_DRAIN_TOKEN>`. Two callers at once is safe: each queued email is claimed by one of them only.
 
