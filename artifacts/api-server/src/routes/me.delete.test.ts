@@ -352,7 +352,7 @@ function catOnly(page: Awaited<ReturnType<typeof catPage>>) {
   return { cat, sightings: page.sightings.length };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   pushMock.mockClear();
   // Every seeded world registers new phones from one test address; the
   // per-address cap (SYC-195) is not what these tests are about.

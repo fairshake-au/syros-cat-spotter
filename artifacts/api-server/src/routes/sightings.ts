@@ -40,6 +40,7 @@ import {
   DEVICE_MATCH_LIMIT,
   DEVICE_MATCH_WINDOW_MS,
 } from "../middlewares/rateLimit";
+import { safeError } from "../lib/logger";
 import { selectCandidateCats } from "../lib/candidateSelection";
 import {
   BLANK_NAME_BODY,
@@ -473,12 +474,22 @@ router.post("/sightings", aiLimiter, async (req, res) => {
   // retry — which still re-runs computeMatchCandidates below — counts
   // against the same budget as a fresh upload, exactly as the old per-IP
   // limiter counted every POST to this route.
-  if (!checkDeviceMatchLimit(verifiedDeviceId)) {
+  let deviceWithinLimit: boolean;
+  try {
+    deviceWithinLimit = await checkDeviceMatchLimit(verifiedDeviceId);
+  } catch (err) {
+    // Not a cat-in-trouble route, so a limit that cannot count fails closed.
+    req.log.error({ err: safeError(err) }, "device match limit counter failed");
+    res.setHeader("Retry-After", "5");
+    res.status(503).json({ error: "Please try again in a moment." });
+    return;
+  }
+  if (!deviceWithinLimit) {
     // Nit from review of PR #64: the per-IP aiLimiter sends RateLimit-* and
     // Retry-After on a 429; this in-memory limiter had sent neither. A
     // client (or a spotter's phone, eventually) can't tell how long to back
     // off without one.
-    const resetAt = deviceMatchResetAt(verifiedDeviceId);
+    const resetAt = await deviceMatchResetAt(verifiedDeviceId).catch(() => undefined);
     const retryAfterSeconds = Math.max(
       0,
       Math.ceil(

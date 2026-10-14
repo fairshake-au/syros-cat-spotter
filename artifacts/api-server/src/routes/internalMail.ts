@@ -3,6 +3,7 @@ import { checkMailDrainToken } from "../lib/internalAuth";
 import { drainDue, overdueWelfareAlerts, OVERDUE_MINUTES } from "../lib/mail/outbox";
 import { sendDailyRoundUp, type RoundUpResult } from "../lib/sightingRoundUp";
 import { sweepKeepSafeIfDue } from "../lib/keepSafe/sweep";
+import { sweepRateLimitsIfDue } from "../lib/limits";
 import { safeError } from "../lib/logger";
 
 /**
@@ -26,7 +27,7 @@ import { safeError } from "../lib/logger";
  * the status code: that stays about welfare alerts only.
  *
  * It also runs the keep-safe sweep (SYC-3, lib/keepSafe/sweep.ts), at most
- * hourly per server. A sweep failure is logged and never changes the status.
+ * hourly per server, and the rate-limit sweep (lib/limits.ts) on the same terms. A sweep failure is logged and never changes the status.
  */
 const router: IRouter = Router();
 
@@ -44,6 +45,7 @@ router.post("/internal/mail/drain", async (req, res) => {
   const result = await drainDue(25);
   const overdue = await overdueWelfareAlerts();
   await sweepKeepSafeIfDue(req.log);
+  await sweepRateLimitsIfDue(req.log);
   // After the welfare check, so a slow push service can't delay it.
   let roundUp: RoundUpResult | { status: "error" };
   try {

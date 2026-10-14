@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
 import { Router, type IRouter } from "express";
-import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import {
   db,
@@ -10,6 +9,7 @@ import {
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
+import { sharedLimiter } from "../lib/limits";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import {
   PHOTO_WAIT_MINUTES,
@@ -34,23 +34,32 @@ import {
  */
 const router: IRouter = Router();
 
-// 10 reports per IP per hour (spec §2.6). Counted in memory per server until
-// SYC-105 moves limits into Postgres.
-const reportLimiter = rateLimit({
+// Counted in Postgres (SYC-105 PR 2.1; lib/limits.ts), so the limits hold
+// across servers and restarts. These two routes FAIL OPEN: if the counter
+// itself breaks, the request goes through and the failure is logged, because
+// a hurt-cat report must never be lost to a limiter (plan review finding 16).
+// Every other limiter in the app fails closed.
+const TOO_MANY = { error: "Too many requests. Please try again later." };
+
+// 10 reports per IP per hour (spec §2.6).
+const reportLimiter = sharedLimiter({
+  bucket: "report",
   windowMs: 60 * 60 * 1000,
   limit: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many requests. Please try again later." },
+  message: TOO_MANY,
+  failOpen: true,
 });
 
-const draftLimiter = rateLimit({
+const draftLimiter = sharedLimiter({
+  bucket: "report_draft",
   windowMs: 60 * 60 * 1000,
   limit: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many requests. Please try again later." },
+  message: TOO_MANY,
+  failOpen: true,
 });
+
+// The new-phone cap on these routes fails open too (lib/deviceAuth.ts).
+const WELFARE_DEVICE_AUTH = { limiterFailsOpen: true } as const;
 
 const Language = z.enum(["en", "el", "fr"]).catch("en");
 const Severity = z.enum(["attention", "urgent"]);
@@ -104,7 +113,7 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
   const parsed = DraftBody.safeParse(req.body);
   if (!parsed.success) return badRequest(res, parsed.error);
   const body = parsed.data;
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+  if (!(await verifyDeviceSecret(req, res, body.deviceId, WELFARE_DEVICE_AUTH))) return;
 
   await db
     .insert(welfareReportsTable)
@@ -139,7 +148,7 @@ router.post("/reports", reportLimiter, async (req, res) => {
   const parsed = SubmitBody.safeParse(req.body);
   if (!parsed.success) return badRequest(res, parsed.error);
   const body = parsed.data;
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+  if (!(await verifyDeviceSecret(req, res, body.deviceId, WELFARE_DEVICE_AUTH))) return;
 
   const note = body.note?.trim() ? body.note.trim() : null;
   const now = new Date();
@@ -212,7 +221,7 @@ router.put("/reports/:publicId/photo", async (req, res) => {
   const parsed = PhotoBody.safeParse(req.body);
   if (!parsed.success) return badRequest(res, parsed.error);
   const body = parsed.data;
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+  if (!(await verifyDeviceSecret(req, res, body.deviceId, WELFARE_DEVICE_AUTH))) return;
 
   const publicId = String(req.params["publicId"] ?? "");
   const [report] = await db
