@@ -12,3 +12,4 @@ export * from "./sightingMatches";
 export * from "./email";
 export * from "./photoVisibility";
 export * from "./mappingEvents";
+export * from "./personEvents";

@@ -23,7 +23,6 @@ on:
             people-add,
             people-list,
             people-mark-left,
-            people-remove,
             people-sign-out-everywhere,
           ]
       people_role:

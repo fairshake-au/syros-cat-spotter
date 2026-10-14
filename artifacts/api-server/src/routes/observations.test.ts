@@ -6,7 +6,6 @@ import {
   pool,
   addPerson,
   markLeft,
-  removePerson,
   catsTable,
   sightingsTable,
   sightingMatchesTable,
@@ -17,6 +16,7 @@ import {
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import { sessionCookieFor } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // Data spine plan, PR 8 (spec §4.5, §3.5): the correction path's endpoints.
 // No staff screen exists yet (SYC-43's later parts build it) — these are
@@ -43,8 +43,8 @@ async function cleanupCats() {
 }
 
 beforeAll(async () => {
-  await removePerson(STAFF_EMAIL);
-  await removePerson(GUARDIAN_EMAIL);
+  await removeTestPerson(STAFF_EMAIL);
+  await removeTestPerson(GUARDIAN_EMAIL);
   await cleanupCats();
   staffId = (
     await addPerson({
@@ -69,7 +69,7 @@ afterAll(async () => {
   // The staff member wrote observations, so they have history: they leave
   // rather than being deleted (SYC-43 part 2, Decision 7).
   await markLeft(STAFF_EMAIL, "cli:vitest");
-  await removePerson(GUARDIAN_EMAIL);
+  await removeTestPerson(GUARDIAN_EMAIL);
   await pool.end();
 });
 

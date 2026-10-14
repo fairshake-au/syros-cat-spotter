@@ -6,7 +6,6 @@ import {
   db,
   mailOutboxTable,
   pool,
-  removePerson,
   reportStateEventsTable,
   welfareReportsTable,
 } from "@workspace/db";
@@ -19,6 +18,7 @@ import {
   signInThroughHandoff,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, PR 2: moving a report between the four states.
 // P2-1 (one event, the signed-in person), P2-2 (two at once), P2-3 (Origin),
@@ -39,7 +39,7 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
-  for (const e of [SUSAN, MARIA, VERA]) await removePerson(e);
+  for (const e of [SUSAN, MARIA, VERA]) await removeTestPerson(e);
   const susan = await addPerson({
     email: SUSAN,
     name: "Susan",
@@ -74,7 +74,7 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
-  for (const e of [SUSAN, MARIA, VERA]) await removePerson(e);
+  for (const e of [SUSAN, MARIA, VERA]) await removeTestPerson(e);
   await pool.end();
 });
 

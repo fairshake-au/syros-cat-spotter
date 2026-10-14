@@ -794,7 +794,7 @@ SYC-213 specifies an add-only table with kinds `added`, `left`, `rejoined`, `rol
 | `signed_out_everywhere` | | by whom |
 | `anonymised` | SYC-208 runs | by whom |
 
-`by` is a person id, `self` or `cli:<operator>`. There is no expiry event: an invitation's expiry is worked out when read (§10.1). Each operation in `lib/db/src/people.ts` writes its event **in the same transaction** as the change (SYC-213's test: drop the insert and a test goes red). A database trigger refuses updates and deletes, as for observations.
+`by` is a person id, `self`, `cli:<operator>`, or `system:migration` (the rows the migration wrote for people who predate the record). There is no expiry event: an invitation's expiry is worked out when read (§10.1). Each operation in `lib/db/src/people.ts` writes its event **in the same transaction** as the change (SYC-213's test: drop the insert and a test goes red). A database trigger refuses updates and deletes, as for observations.
 
 ### 11.2 Everything else that records who
 
