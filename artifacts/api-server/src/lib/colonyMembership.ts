@@ -19,13 +19,15 @@ import { alias } from "drizzle-orm/pg-core";
  */
 export async function currentColonyOf(
   catIds?: readonly number[],
+  /** A transaction to read through, so a caller inside one doesn't take a second connection. */
+  q: Pick<typeof db, "select" | "selectDistinctOn"> = db,
 ): Promise<Map<number, number>> {
   const out = new Map<number, number>();
   if (catIds && catIds.length === 0) return out;
 
   // A statement is superseded when some other row points back at it.
   const replacer = alias(observationsTable, "replacer");
-  const rows = await db
+  const rows = await q
     .selectDistinctOn([observationsTable.catId], {
       catId: observationsTable.catId,
       value: observationsTable.value,
@@ -36,7 +38,7 @@ export async function currentColonyOf(
         eq(observationsTable.kind, "colony"),
         isNull(observationsTable.redactedAt),
         notExists(
-          db
+          q
             .select({ one: sql`1` })
             .from(replacer)
             .where(eq(replacer.supersedesId, observationsTable.id)),

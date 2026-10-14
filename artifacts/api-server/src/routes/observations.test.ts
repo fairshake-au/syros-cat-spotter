@@ -143,7 +143,7 @@ describe("POST /api/team/observations", () => {
     expect(await observationsFor(cat.id)).toHaveLength(0);
   });
 
-  it("refuses a signed-in person without the capability, the same way", async () => {
+  it("refuses a signed-in person without the capability with the JSON 403, not the sign-in 401 (SYC-53 PR 0.5, review minor 1)", async () => {
     const cat = await insertCat();
     const cookie = sessionCookieFor(guardianId);
     const res = await post("/api/team/observations")
@@ -154,8 +154,8 @@ describe("POST /api/team/observations", () => {
         value: { status: "deceased" },
         reason: "found on the road",
       });
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ error: "not_signed_in" });
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "forbidden" });
     expect(await observationsFor(cat.id)).toHaveLength(0);
   });
 
@@ -494,10 +494,10 @@ describe("POST /api/team/observations/:id/supersede", () => {
     const res = await post(`/api/team/observations/${spotted.id}/supersede`)
       .set("Cookie", cookie)
       .send({ value: { clipped: false }, reason: "nope" });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
   });
 
-  it("gives a capability-less person the uniform 401 against an already-superseded target, not a 409 (review of #68, authz-ordering-leak)", async () => {
+  it("gives a capability-less person the same 403 against an already-superseded target, not a 409 (review of #68, authz-ordering-leak; 403 since SYC-53 PR 0.5)", async () => {
     const cat = await insertCat();
     const original = await writeEarTip(cat.id, true);
     const staffCookie = await signIn(staffId);
@@ -517,8 +517,8 @@ describe("POST /api/team/observations/:id/supersede", () => {
     const res = await post(`/api/team/observations/${original.id}/supersede`)
       .set("Cookie", guardianCookie)
       .send({ value: { clipped: true }, reason: "trying again" });
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ error: "not_signed_in" });
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: "forbidden" });
   });
 
   it("lets staff supersede with an earlier observedAt than the entry it corrects (the J4 case)", async () => {
@@ -715,7 +715,7 @@ describe("GET /api/team/observations/review/likely", () => {
     const res = await request(app)
       .get("/api/team/observations/review/likely")
       .set("Cookie", cookie);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
   });
 
   it("issues the same number of queries whether a cat without ear-tip evidence exists or not (review of #68, n-plus-one)", async () => {
