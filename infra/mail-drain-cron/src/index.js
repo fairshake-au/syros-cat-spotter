@@ -1,0 +1,31 @@
+// SYC-231: runs the mail drain every 2 hours, on the hour (wrangler.jsonc
+// `triggers`). GitHub's own schedule, asked for every 10 minutes, really ran
+// every 3-7 hours at random, which made the "over an hour late" alarm for
+// cat-report alerts (SYC-42 layer 3) arrive hours late. Every 2 hours on a
+// reliable clock means a stuck alert is reported 1-3 hours after it stuck. The logic lives in drain.js.
+import { runTick } from "./drain.js";
+
+const FROM = { email: "mail-drain@catspotters.com", name: "Syros Cat Spotter mail drain" };
+
+export default {
+  async scheduled(controller, env, ctx) {
+    await runTick({
+      env,
+      fetchImpl: (url, init) => fetch(url, init),
+      sleep: (ms) => scheduler.wait(ms),
+      kv: env.ALARM_STATE,
+      // The binding's destination_address (wrangler.jsonc) is the only
+      // address it can send to. `to` must still be given: despite the docs,
+      // send() refuses an email with no recipient (found live, 14 Oct 2026).
+      sendAlarm: ({ subject, text }) => env.ALARM_EMAIL.send({ to: env.ALARM_TO, from: FROM, subject, text }),
+      log: (fields) => console.log(JSON.stringify(fields)),
+      nowMs: controller.scheduledTime,
+    });
+  },
+
+  // No public endpoint: workers_dev and preview URLs are off, and anything
+  // that reaches this anyway gets a 404. It can't trigger a drain.
+  async fetch() {
+    return new Response("Not found", { status: 404 });
+  },
+};
