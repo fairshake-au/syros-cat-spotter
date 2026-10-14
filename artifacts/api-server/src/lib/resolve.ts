@@ -885,6 +885,180 @@ export interface AppearanceResolved<T> extends Resolved<T> {
   checkReasons: AppearanceCheckReason[];
 }
 
+const COAT_COLOUR_SET: ReadonlySet<string> = new Set(COAT_COLOURS);
+
+/** A coat row's colours, normalised (black + white is black and white), or
+ * null for a malformed value. `["not_sure"]` comes back as `[]`: it says
+ * nothing. */
+function coatColours(value: unknown): CoatColour[] | null {
+  if (typeof value !== "object" || value === null) return null;
+  const raw = (value as { colours?: unknown }).colours;
+  if (!Array.isArray(raw) || !raw.every((c) => COAT_COLOUR_SET.has(c as string))) return null;
+  const colours = normaliseColours(raw as string[]) as CoatColour[];
+  return colours.filter((c) => c !== "not_sure");
+}
+
+function sameColourSet(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((c) => b.includes(c));
+}
+
+/**
+ * A cat's coat colour (spec §4.2 "Colour", data spine §10.2). Pure.
+ *
+ * Machine readings are the `provenance: "machine"` rows in the same list.
+ *
+ * 1. Authority: the highest `ranking` level present, then the newest by
+ *    `observedAt`. A team Confirm is a statement with the same value.
+ *    *Confirmed*. A later machine reading or spotter never beats it.
+ * 2. Two independent voices per colour. Separate camps (nobody named both)
+ *    show only the camp with the newer support, flagged `tied_camps`.
+ *    *Likely*. If the machine has a different real reading, flagged
+ *    `spotters_over_machine`.
+ * 3. The machine's newest reading, if it is not Not sure. *Reported*.
+ * 4. The newest single spotter fills a gap the machine left. *Reported*.
+ * 5. Not sure: `value: null`, *unknown*.
+ *
+ * `no_authority` is set when the colour is the machine's alone or not sure.
+ */
+export function resolveCoat(
+  observations: readonly Observation[],
+  ranking: AppearanceRanking = TEAM_APPEARANCE_RANKING,
+): AppearanceResolved<CoatColour[]> {
+  const statements = standingAppearanceRows(observations, "coat", false).flatMap((row) => {
+    const colours = coatColours(row.value);
+    return colours ? [{ row, colours }] : [];
+  });
+
+  // Rule 1: authority. A person's Not sure is never a statement.
+  const authority = pickAuthority(
+    statements.filter((s) => s.colours.length > 0),
+    ranking,
+  );
+  if (authority) {
+    return {
+      value: authority.colours,
+      confidence: "confirmed",
+      supportingObservationIds: [authority.row.id],
+      conflicts: [],
+      asOf: toIso(authority.row.observedAt),
+      checkReasons: [],
+    };
+  }
+
+  // The machine's reading is its newest row, Not sure included: a newer
+  // Not sure means the machine no longer has a real reading.
+  const machineRows = statements.filter((s) => s.row.provenance === "machine");
+  const newestMachine = machineRows.reduce<(typeof machineRows)[number] | undefined>(
+    (best, s) => (!best || isNewer(s.row, best.row) ? s : best),
+    undefined,
+  );
+  const machine = newestMachine && newestMachine.colours.length > 0 ? newestMachine : undefined;
+
+  // Rule 2: two voices per colour. Not sure answers are dropped before the
+  // one-voice-per-device step, so a later Not sure withdraws nothing.
+  const spotterRows = statements.filter((s) => s.colours.length > 0);
+  const coloursById = new Map(spotterRows.map((s) => [s.row.id, s.colours]));
+  const voices = onePerVoice(spotterRows.map((s) => s.row));
+  const coloursOf = (v: Voice) => coloursById.get(v.row.id) ?? [];
+
+  const agreed: { colour: CoatColour; voices: Voice[] }[] = [];
+  for (const colour of COAT_COLOURS) {
+    const holding = voices.filter((v) => coloursOf(v).includes(colour));
+    if (hasTwoVoices(holding)) agreed.push({ colour, voices: holding });
+  }
+
+  if (agreed.length > 0) {
+    // Camps: agreed colours joined when some voice named both.
+    const parent = agreed.map((_, i) => i);
+    const indexOf = new Map(agreed.map((a, i) => [a.colour, i] as const));
+    const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
+    for (const v of voices) {
+      const named = coloursOf(v).flatMap((c) => (indexOf.has(c) ? [indexOf.get(c)!] : []));
+      for (let k = 1; k < named.length; k++) parent[find(named[k]!)] = find(named[0]!);
+    }
+    const camps = new Map<number, typeof agreed>();
+    agreed.forEach((a, i) => {
+      const root = find(i);
+      camps.set(root, [...(camps.get(root) ?? []), a]);
+    });
+    const campList = [...camps.values()];
+    const campNewest = (camp: typeof agreed) => Math.max(...camp.map((a) => newestVoiceAt(a.voices)));
+    const camp = campList.reduce((best, c) => (campNewest(c) > campNewest(best) ? c : best));
+
+    // Within the camp: most voices, then the newer support; at most two.
+    const shown = [...camp]
+      .sort(
+        (x, y) =>
+          countingVoices(y.voices).length - countingVoices(x.voices).length ||
+          newestVoiceAt(y.voices) - newestVoiceAt(x.voices),
+      )
+      .slice(0, 2);
+    const value = shown.map((a) => a.colour);
+    const supporting = [...new Set(shown.flatMap((a) => countingVoices(a.voices).map((v) => v.row.id)))];
+
+    const checkReasons: AppearanceCheckReason[] = [];
+    const conflicts: number[] = [];
+    if (campList.length > 1) {
+      checkReasons.push("tied_camps");
+      for (const other of campList) {
+        if (other === camp) continue;
+        for (const a of other) conflicts.push(...countingVoices(a.voices).map((v) => v.row.id));
+      }
+    }
+    if (machine && !sameColourSet(machine.colours, value)) {
+      checkReasons.push("spotters_over_machine");
+      conflicts.push(machine.row.id);
+    }
+    const asOfAt = Math.max(...shown.map((a) => newestVoiceAt(a.voices)));
+    return {
+      value,
+      confidence: "likely",
+      supportingObservationIds: supporting,
+      conflicts: [...new Set(conflicts)],
+      asOf: new Date(asOfAt).toISOString(),
+      checkReasons,
+    };
+  }
+
+  // Rule 3: the machine's real reading.
+  if (machine) {
+    return {
+      value: machine.colours,
+      confidence: "reported",
+      supportingObservationIds: [machine.row.id],
+      conflicts: [],
+      asOf: toIso(machine.row.observedAt),
+      checkReasons: ["no_authority"],
+    };
+  }
+
+  // Rule 4: the newest single spotter fills the gap.
+  const newestVoice = voices.reduce<Voice | undefined>(
+    (best, v) => (!best || isNewer(v.row, best.row) ? v : best),
+    undefined,
+  );
+  if (newestVoice) {
+    return {
+      value: coloursOf(newestVoice),
+      confidence: "reported",
+      supportingObservationIds: [newestVoice.row.id],
+      conflicts: [],
+      asOf: toIso(newestVoice.row.observedAt),
+      checkReasons: [],
+    };
+  }
+
+  // Rule 5: not sure.
+  return {
+    value: null,
+    confidence: "unknown",
+    supportingObservationIds: [],
+    conflicts: [],
+    asOf: EPOCH,
+    checkReasons: ["no_authority"],
+  };
+}
+
 /**
  * The one snapshot the cat page, the fan-out check, the nightly notify job,
  * the dashboard and SYC-119's dead-cat guard all read (§9.1). Phase 1 takes
