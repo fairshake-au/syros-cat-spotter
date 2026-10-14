@@ -12,19 +12,19 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 //   pnpm --filter @workspace/db run people -- add --target <t> [--email <e>] [--name <n>] [--role staff] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- list --target <t>
 //   pnpm --filter @workspace/db run people -- mark-left --target <t> [--email <e>] [--by <operator>]
-//   pnpm --filter @workspace/db run people -- remove --target <t> [--email <e>]
 //   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>]
 //
 // The address is typed a second time for mark-left, remove and
 // sign-out-everywhere: at a terminal, interactively; otherwise (db-ops,
 // SYC-131) as the first line of stdin.
 //
-// Someone who leaves is marked as left, not removed (SYC-43 part 2, Decision
-// 7): their history stays theirs. `remove` is only for a mistaken add, and
-// refuses anyone with history.
+// Someone who leaves is marked as left, never removed (SYC-43 part 2, Decision
+// 7; SYC-53 PR 0.1): their history stays theirs. There is no `remove`: every
+// person has an `added` event in the record of who changed what, so a hard
+// delete can never succeed. Marking as left is the only way off the list.
 //
 // Claude runs it through db-ops (scripts/db-ops.sh, `people-add`,
-// `people-list`, `people-mark-left`, `people-remove` and
+// `people-list`, `people-mark-left` and
 // `people-sign-out-everywhere`), the SYC-121 route for every database command. It picks its
 // database exactly the way db-ops.sh does for migrate:
 //  1. `--target` is mandatory, and DATABASE_TARGET (set by the GitHub
@@ -51,7 +51,6 @@ const USAGE = [
   "  people add --target <target> [--email <address>] [--name <name>] [--role <role>]... [--by <operator>]",
   "  people list --target <target>",
   "  people mark-left --target <target> [--email <address>] [--by <operator>]",
-  "  people remove --target <target> [--email <address>]   (only for someone with no history)",
   "  people sign-out-everywhere --target <target> [--email <address>]",
   "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
   "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
@@ -168,7 +167,7 @@ export async function runPeopleCommand(
   let connectionString: string | undefined;
   try {
     const { command, flags } = parseArgs(argv);
-    const known = ["add", "list", "mark-left", "remove", "sign-out-everywhere"];
+    const known = ["add", "list", "mark-left", "sign-out-everywhere"];
     if (!known.includes(command)) {
       throw new UsageError(`Unknown command "${command}".`);
     }
@@ -223,13 +222,15 @@ export async function runPeopleCommand(
           `${p.id}\t${p.roles.join(",") || "(no roles)"}\tsession ${p.sessionVersion}\tadded ${p.addedAt.toISOString()} by ${p.addedBy ?? "unknown"}` +
             (p.leftAt
               ? `\tLEFT ${p.leftAt.toISOString()} by ${p.leftBy ?? "unknown"}`
-              : ""),
+              : "") +
+            // Kinds only: the record's verbs, never a name (SYC-213).
+            `\thistory ${p.history.map((e) => e.kind).join(",") || "(none)"}`,
         );
       }
       return 0;
     }
 
-    // mark-left, remove and sign-out-everywhere: the address is typed a
+    // mark-left and sign-out-everywhere: the address is typed a
     // second time.
     const email = normaliseEmail(
       flagOrEnv(flags, "email", "PEOPLE_EMAIL", io.env),
@@ -250,16 +251,7 @@ export async function runPeopleCommand(
       );
       return marked === null ? 1 : 0;
     }
-    if (command === "remove") {
-      const removed = await store.removePerson(email);
-      io.out(
-        removed
-          ? "Removed that person and their roles."
-          : "That address isn't on the list. Nothing was changed.",
-      );
-      return removed ? 0 : 1;
-    }
-    const version = await store.signOutEverywhere(email);
+    const version = await store.signOutEverywhere(email, operator);
     io.out(
       version === null
         ? "That address isn't on the list. Nothing was changed."

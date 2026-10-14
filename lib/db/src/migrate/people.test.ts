@@ -12,6 +12,7 @@ import {
   rollbackLast,
 } from "./runner";
 import { schemaSignature, signatureDiff } from "./signature";
+import { truncateWithGuardsOff } from "./truncatePeople";
 
 // The list of people as the migration builds it (team-access spec §2.8, §2.9,
 // §7.3; SYC-43 part 1 plan tests 1–5), on a throwaway database.
@@ -50,18 +51,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // PR 6: the cascade reaches photo_visibility_events, whose TRUNCATE guard
-  // is switched off for this one statement, inside a transaction, as
-  // dataSpine.test.ts does for sightings.
-  await c.query("begin");
-  await c.query(`alter table photo_visibility_events disable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events disable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes disable trigger feeding_site_old_codes_no_truncate`);
-  await c.query(`truncate person_scopes, people, team_handoff_spent cascade`);
-  await c.query(`alter table photo_visibility_events enable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events enable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes enable trigger feeding_site_old_codes_no_truncate`);
-  await c.query("commit");
+  // SYC-53 PR 0.1: the cascade reaches guarded add-only tables (including
+  // person_events); the helper switches their TRUNCATE guards off for
+  // this one statement and back on.
+  await truncateWithGuardsOff(c, "person_scopes, people, team_handoff_spent");
 });
 
 const rawInsert = (email: string) =>
@@ -144,12 +137,19 @@ describe("people: the TypeScript and database deny-lists agree", () => {
 
 describe("person_scopes", () => {
   it("removing a person removes their scopes (cascade), even by raw delete", async () => {
-    const p = await store.addPerson({
-      email: "eleni@example.com",
-      name: "Eleni",
-      addedBy: "cli:test",
-      roles: ["staff", "guardian"],
-    });
+    // A raw row: a person made by the store has a person_events row, which
+    // (strictly linked) refuses a delete. The cascade is a property of
+    // person_scopes alone.
+    const [p] = (
+      await c.query(
+        `insert into people (email, name, added_by)
+         values ('eleni@example.com', 'Eleni', 'cli:test') returning id`,
+      )
+    ).rows;
+    await c.query(
+      `insert into person_scopes (person_id, role) values ($1, 'staff'), ($1, 'guardian')`,
+      [p.id],
+    );
     const before = await c.query(
       `select count(*)::int as n from person_scopes where person_id = $1`,
       [p.id],
@@ -228,16 +228,15 @@ describe("the people operations", () => {
       ...p,
       scopes: [{ role: "staff", colonyId: null }],
     });
-    expect(await store.signOutEverywhere("susan@example.com")).toBe(2);
+    expect(await store.signOutEverywhere("susan@example.com", "cli:test")).toBe(2);
     const byId = await store.findPersonById(p.id);
     expect(byId).toMatchObject({
       sessionVersion: 2,
       scopes: [{ role: "staff", colonyId: null }],
     });
-    expect(await store.removePerson("susan@example.com")).toBe(true);
-    expect(await store.findAllowedPerson("susan@example.com")).toBeNull();
-    expect(await store.removePerson("susan@example.com")).toBe(false);
-    expect(await store.signOutEverywhere("susan@example.com")).toBeNull();
+    expect(
+      await store.signOutEverywhere("nobody@example.com", "cli:test"),
+    ).toBeNull();
   });
 
   it("treats a non-uuid id as not on the list, without a database error", async () => {

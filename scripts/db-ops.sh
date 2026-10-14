@@ -335,7 +335,7 @@ NODE
 # Every command that names a person needs the address twice (SYC-131):
 # PEOPLE_EMAIL_CONFIRM must equal PEOPLE_EMAIL, compared the way the people
 # CLI normalises addresses (trimmed, lower-case). This stands in for the CLI's
-# interactive retype, which a workflow can't do; for mark-left, remove and
+# interactive retype, which a workflow can't do; for mark-left and
 # sign-out-everywhere the confirmation is also fed to that retype, so the CLI
 # checks it a second time.
 
@@ -345,7 +345,7 @@ normalise_email() {
 }
 
 run_people() {
-  local sub="$1" # add | list | mark-left | remove | sign-out-everywhere
+  local sub="$1" # add | list | mark-left | sign-out-everywhere
   local out="$WORKDIR/people.log"
   local status=0
   local args=(--target "$TARGET")
@@ -372,7 +372,7 @@ run_people() {
       esac
       args+=(--role "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
       ;;
-    mark-left)
+    mark-left|sign-out-everywhere)
       args+=(--by "db-ops:${GITHUB_ACTOR:-unknown}")
       ;;
   esac
@@ -433,7 +433,7 @@ case "$COMMAND" in
     (cd "$ROOT" && pnpm --filter @workspace/db run smoke "$BASE_URL")
     ;;
 
-  people-add|people-list|people-mark-left|people-remove|people-sign-out-everywhere)
+  people-add|people-list|people-mark-left|people-sign-out-everywhere)
     if [ "$TARGET" = "rehearsal" ]; then
       echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
       exit 1

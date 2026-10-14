@@ -19,6 +19,7 @@ import {
   migrateUp,
   readMigrations,
 } from "../migrate/runner";
+import { truncateWithGuardsOff } from "../migrate/truncatePeople";
 
 // scripts/db-ops.sh's people-add and people-list (SYC-43 part 1; SYC-121
 // plan H.1(b)), run for real against a throwaway local database standing in
@@ -61,18 +62,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // PR 6: the cascade reaches photo_visibility_events, whose TRUNCATE guard
-  // is switched off for this one statement, inside a transaction, as
-  // dataSpine.test.ts does for sightings.
-  await c.query("begin");
-  await c.query(`alter table photo_visibility_events disable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events disable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes disable trigger feeding_site_old_codes_no_truncate`);
-  await c.query(`truncate person_scopes, people cascade`);
-  await c.query(`alter table photo_visibility_events enable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events enable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes enable trigger feeding_site_old_codes_no_truncate`);
-  await c.query("commit");
+  // SYC-53 PR 0.1: the cascade reaches guarded add-only tables (including
+  // person_events); the helper switches their TRUNCATE guards off for
+  // this one statement and back on.
+  await truncateWithGuardsOff(c, "person_scopes, people");
 });
 
 function run(env: Record<string, string | undefined>) {
@@ -286,7 +279,6 @@ describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
     for (const COMMAND of [
       "people-add",
       "people-mark-left",
-      "people-remove",
       "people-sign-out-everywhere",
     ]) {
       for (const PEOPLE_EMAIL_CONFIRM of [
@@ -311,8 +303,7 @@ describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
         "people-add",
         "people-list",
         "people-mark-left",
-        "people-remove",
-        "people-sign-out-everywhere",
+          "people-sign-out-everywhere",
       ]) {
         const r = stubbedRun({ ...base, COMMAND, DATABASE_TARGET });
         expect(r.code).not.toBe(0);
@@ -327,7 +318,7 @@ describe("db-ops.sh's own target check, with the CLI stubbed out", () => {
 
 // SYC-131: the commands that end someone's access, run the way db-ops runs
 // them: the address twice, from two secrets, in place of the CLI's retype.
-describe("db-ops people-mark-left, people-remove, people-sign-out-everywhere", () => {
+describe("db-ops people-mark-left, people-sign-out-everywhere", () => {
   const devRun = (
     COMMAND: string,
     extra: Record<string, string | undefined> = {},
@@ -377,36 +368,27 @@ describe("db-ops people-mark-left, people-remove, people-sign-out-everywhere", (
     expect((await person())!.session_version).toBe(2);
   });
 
-  it("remove deletes a mistaken add, and refuses someone with history", async () => {
+  it("sign-out-everywhere records who did it, by the GitHub actor", async () => {
     expect(devAdd().code).toBe(0);
-    const ok = devRun("people-remove");
-    expect(ok.code).toBe(0);
-    expect(shown(ok.out)).toContain("Removed that person and their roles.");
-    expect(await countPeople()).toBe(0);
+    expect(devRun("people-sign-out-everywhere").code).toBe(0);
+    const ev = await c.query(
+      `select kind, by from person_events order by id`,
+    );
+    expect(ev.rows).toEqual([
+      { kind: "added", by: expect.stringMatching(/^cli:/) },
+      { kind: "signed_out_everywhere", by: "cli:db-ops:claude-bot" },
+    ]);
+  });
 
+  it("people-remove is gone: there is no way to delete a person (SYC-53 PR 0.1)", () => {
     expect(devAdd().code).toBe(0);
-    const p = (await person())!;
-    const cat = await c.query(
-      `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
-         values ('Agatha', 0, 37.44, 24.94, 'd') returning id`,
-    );
-    await c.query(
-      `insert into observations
-         (cat_id, kind, value, account_id, role_at_time, authority_scope, provenance, observed_at)
-       values ($1, 'sterilised', '{"sterilised": true}', $2, 'staff', 'none', 'volunteered', now())`,
-      [cat.rows[0].id, p.id],
-    );
-    const refused = devRun("people-remove");
-    expect(refused.code).not.toBe(0);
-    expect(shown(refused.out)).toContain(
-      "This person has history. Use mark-left instead.",
-    );
-    expect(await countPeople()).toBe(1);
+    const r = devRun("people-remove");
+    expect(r.code).not.toBe(0);
+    expect(countPeople()).resolves.toBe(1);
   });
 
   for (const COMMAND of [
     "people-mark-left",
-    "people-remove",
     "people-sign-out-everywhere",
   ]) {
     it(`${COMMAND} changes nothing when the confirmation is missing or doesn't match`, async () => {

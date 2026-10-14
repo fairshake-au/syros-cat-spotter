@@ -9,7 +9,7 @@ import {
   personScopesTable,
   type PersonRole,
 } from "./schema/people";
-import { observationsTable } from "./schema/observations";
+import { personEventsTable, type PersonEventKind } from "./schema/personEvents";
 
 // The rules shared by every way into the list of people (team-access spec
 // §2.8, §2.9): the `people` command now, the manage_people screen later. The
@@ -36,20 +36,6 @@ export class PeopleError extends Error {
     super(message);
     this.name = "PeopleError";
   }
-}
-
-/** removePerson's refusal for someone who has history (Decision 7). */
-export const HAS_HISTORY_MESSAGE =
-  "This person has history. Use mark-left instead.";
-
-/** Postgres' foreign_key_violation, wherever the driver's wrapper puts it. */
-function isForeignKeyViolation(err: unknown): boolean {
-  let e = err;
-  while (e && typeof e === "object") {
-    if ((e as { code?: unknown }).code === "23503") return true;
-    e = (e as { cause?: unknown }).cause;
-  }
-  return false;
 }
 
 const UUID_RE =
@@ -105,6 +91,32 @@ export interface MarkLeftResult {
   sessionVersion: number;
 }
 
+/** A database handle or the open transaction a change is running in. */
+type Writer = Pick<PeopleDb, "insert" | "select">;
+
+/**
+ * Writes one row of the record of who changed what (SYC-213, spec 11.1).
+ * Always called with the transaction the change itself runs in, so the change
+ * and its event stand or fall together. `detail` holds ids and role names
+ * only, never a name or an address.
+ */
+async function recordPersonEvent(
+  tx: Writer,
+  event: {
+    personId: string;
+    kind: PersonEventKind;
+    by: string;
+    detail?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await tx.insert(personEventsTable).values({
+    personId: event.personId,
+    kind: event.kind,
+    by: event.by,
+    detail: event.detail ?? null,
+  });
+}
+
 /**
  * The people operations, bound to one database. `@workspace/db` exports
  * these bound to the app's database; the `people` command and the tests bind
@@ -147,31 +159,6 @@ export function peopleStore(db: PeopleDb) {
       );
     if (!row) return null;
     return { ...row, scopes: await scopesOf(row.id) };
-  }
-
-  function removeInTransaction(email: string): Promise<boolean> {
-    return db.transaction(async (tx) => {
-      const [person] = await tx
-        .select({ id: peopleTable.id })
-        .from(peopleTable)
-        .where(eq(peopleTable.email, email))
-        .for("update");
-      if (!person) return false;
-      // Observations name their author by account_id, which has no database
-      // link (the data spine keeps it as text, §10.1), so the links can't
-      // refuse this one. Check it here.
-      const [authored] = await tx
-        .select({ id: observationsTable.id })
-        .from(observationsTable)
-        .where(eq(observationsTable.accountId, person.id))
-        .limit(1);
-      if (authored) throw new PeopleError(HAS_HISTORY_MESSAGE);
-      await tx
-        .delete(personScopesTable)
-        .where(eq(personScopesTable.personId, person.id));
-      await tx.delete(peopleTable).where(eq(peopleTable.id, person.id));
-      return true;
-    });
   }
 
   return {
@@ -230,6 +217,12 @@ export function peopleStore(db: PeopleDb) {
           await tx
             .insert(personScopesTable)
             .values(roles.map((role) => ({ personId: existing.id, role })));
+          await recordPersonEvent(tx, {
+            personId: existing.id,
+            kind: "rejoined",
+            by: input.addedBy,
+            detail: { roles },
+          });
           return { ...person!, rejoined: true };
         }
         const id = crypto.randomUUID();
@@ -245,6 +238,12 @@ export function peopleStore(db: PeopleDb) {
         await tx
           .insert(personScopesTable)
           .values(roles.map((role) => ({ personId: id, role })));
+        await recordPersonEvent(tx, {
+          personId: id,
+          kind: "added",
+          by: input.addedBy,
+          detail: { roles },
+        });
         return { ...person!, rejoined: false };
       });
     },
@@ -281,38 +280,55 @@ export function peopleStore(db: PeopleDb) {
             id: peopleTable.id,
             sessionVersion: peopleTable.sessionVersion,
           });
+        // What they held when they left, as role names and colony ids.
+        const held = await tx
+          .select({
+            role: personScopesTable.role,
+            colonyId: personScopesTable.colonyId,
+          })
+          .from(personScopesTable)
+          .where(eq(personScopesTable.personId, person.id));
+        await recordPersonEvent(tx, {
+          personId: person.id,
+          kind: "left",
+          by,
+          detail: {
+            roles: [...new Set(held.map((h) => h.role))],
+            colonyIds: [
+              ...new Set(
+                held
+                  .map((h) => h.colonyId)
+                  .filter((c): c is number => c !== null),
+              ),
+            ],
+          },
+        });
         return row!;
       });
     },
 
     /**
-     * Hard deletion, only for someone with no history: a mistaken add
-     * (Decision 7). The database's strict links to people.id refuse it for
-     * anyone else, and that refusal becomes "use mark-left instead"; so does
-     * having written an observation, which has no link. Deletes
-     * their roles, then the person, in one transaction. The cascade is
-     * declared too; deleting the roles here keeps removal correct even if it
-     * were ever missing. False if they weren't in the table.
+     * Signs this person out on every device, and records who did it. Their
+     * new version, or null if the address isn't in the table.
      */
-    async removePerson(email: string): Promise<boolean> {
-      try {
-        return await removeInTransaction(normaliseEmail(email));
-      } catch (err) {
-        if (isForeignKeyViolation(err)) {
-          throw new PeopleError(HAS_HISTORY_MESSAGE);
-        }
-        throw err;
-      }
-    },
-
-    /** Signs this person out on every device. Their new version, or null. */
-    async signOutEverywhere(email: string): Promise<number | null> {
-      const [row] = await db
-        .update(peopleTable)
-        .set({ sessionVersion: sql`${peopleTable.sessionVersion} + 1` })
-        .where(eq(peopleTable.email, normaliseEmail(email)))
-        .returning({ sessionVersion: peopleTable.sessionVersion });
-      return row?.sessionVersion ?? null;
+    async signOutEverywhere(email: string, by: string): Promise<number | null> {
+      return db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(peopleTable)
+          .set({ sessionVersion: sql`${peopleTable.sessionVersion} + 1` })
+          .where(eq(peopleTable.email, normaliseEmail(email)))
+          .returning({
+            id: peopleTable.id,
+            sessionVersion: peopleTable.sessionVersion,
+          });
+        if (!row) return null;
+        await recordPersonEvent(tx, {
+          personId: row.id,
+          kind: "signed_out_everywhere",
+          by,
+        });
+        return row.sessionVersion;
+      });
     },
 
     /**
@@ -354,6 +370,8 @@ export function peopleStore(db: PeopleDb) {
         addedBy: string | null;
         leftAt: Date | null;
         leftBy: string | null;
+        /** Oldest first: kind, when, and by whom (ids only). */
+        history: { kind: string; at: Date; by: string }[];
       })[]
     > {
       const people = await db
@@ -361,6 +379,15 @@ export function peopleStore(db: PeopleDb) {
         .from(peopleTable)
         .orderBy(asc(peopleTable.addedAt), asc(peopleTable.email));
       const scopes = await db.select().from(personScopesTable);
+      const events = await db
+        .select({
+          personId: personEventsTable.personId,
+          kind: personEventsTable.kind,
+          at: personEventsTable.at,
+          by: personEventsTable.by,
+        })
+        .from(personEventsTable)
+        .orderBy(asc(personEventsTable.id));
       return people.map((p) => ({
         id: p.id,
         name: p.name,
@@ -370,6 +397,9 @@ export function peopleStore(db: PeopleDb) {
         addedBy: p.addedBy,
         leftAt: p.leftAt,
         leftBy: p.leftBy,
+        history: events
+          .filter((e) => e.personId === p.id)
+          .map((e) => ({ kind: e.kind, at: e.at, by: e.by })),
         roles: scopes
           .filter((s) => s.personId === p.id)
           .map((s) =>

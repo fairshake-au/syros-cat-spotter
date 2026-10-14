@@ -3,7 +3,7 @@ import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../schema";
-import { HAS_HISTORY_MESSAGE, peopleStore, PeopleError } from "../people";
+import { peopleStore, PeopleError } from "../people";
 import {
   defaultMigrationsFolder,
   migrateUp,
@@ -11,6 +11,7 @@ import {
   rollbackLast,
 } from "./runner";
 import { schemaSignature, signatureDiff } from "./signature";
+import { truncateWithGuardsOff } from "./truncatePeople";
 
 // Marking people as left (SYC-43 part 2, Decision 7; plan tests P0-2 to P0-5),
 // on a throwaway database. P0-1, the three readers of "who is allowed in",
@@ -50,18 +51,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // PR 6: the cascade reaches photo_visibility_events, whose TRUNCATE guard
-  // is switched off for this one statement, inside a transaction, as
-  // dataSpine.test.ts does for sightings.
-  await c.query("begin");
-  await c.query(`alter table photo_visibility_events disable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events disable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes disable trigger feeding_site_old_codes_no_truncate`);
-  await c.query(`truncate report_state_events, welfare_reports, person_scopes, people cascade`);
-  await c.query(`alter table photo_visibility_events enable trigger photo_visibility_events_no_truncate`);
-  await c.query(`alter table mapping_events enable trigger mapping_events_no_truncate`);
-  await c.query(`alter table feeding_site_old_codes enable trigger feeding_site_old_codes_no_truncate`);
-  await c.query("commit");
+  // SYC-53 PR 0.1: the cascade reaches guarded add-only tables (including
+  // person_events); the helper switches their TRUNCATE guards off for
+  // this one statement and back on.
+  await truncateWithGuardsOff(c, "report_state_events, welfare_reports, person_scopes, people");
 });
 
 const SUSAN = "susan@example.com";
@@ -199,9 +192,12 @@ describe("P0-3: adding a left person's address again rejoins the same row", () =
   });
 });
 
-describe("P0-4: hard deletion is only for someone with no history", () => {
+describe("P0-4: nobody on the list can be hard-deleted (SYC-53 PR 0.1)", () => {
   // P1-10 (P0-4, repointed at the real links PR 1 added): each is a strict
-  // link to people.id, no cascade and no set-null.
+  // link to people.id, no cascade and no set-null. Since PR 0.1 every person
+  // also has an `added` event with a strict link, so a hard delete can never
+  // succeed and `removePerson` is gone (spec 9.6): marking as left is the only
+  // way off the list.
   const links: [string, (personId: string) => Promise<void>][] = [
     [
       "welfare_reports.state_changed_by",
@@ -242,7 +238,7 @@ describe("P0-4: hard deletion is only for someone with no history", () => {
   ];
 
   it.each(links)(
-    "P1-10: a person named in %s can't be hard-deleted; the database refuses and removePerson says use mark-left",
+    "P1-10: a person named in %s can't be hard-deleted; the database refuses",
     async (_link, seed) => {
       const p = await addSusan();
       await seed(p.id);
@@ -251,9 +247,6 @@ describe("P0-4: hard deletion is only for someone with no history", () => {
         c.query(`delete from people where id = $1`, [p.id]),
       ).rejects.toMatchObject({ code: "23503" });
 
-      await expect(store.removePerson(SUSAN)).rejects.toThrow(
-        new PeopleError(HAS_HISTORY_MESSAGE),
-      );
       // Nothing changed: the person and their roles are both still there.
       expect(await store.findPersonById(p.id)).toMatchObject({
         scopes: [{ role: "staff", colonyId: null }],
@@ -261,7 +254,7 @@ describe("P0-4: hard deletion is only for someone with no history", () => {
     },
   );
 
-  it("refuses deleting a person who has written an observation, which has no database link", async () => {
+  it("a person who has written an observation can't be hard-deleted either", async () => {
     const p = await addSusan();
     const cat = await c.query(
       `insert into cats (name, primary_photo_id, lat, lng, discoverer_device_id)
@@ -273,40 +266,29 @@ describe("P0-4: hard deletion is only for someone with no history", () => {
        values ($1, 'sterilised', '{"sterilised": true}', $2, 'staff', 'none', 'volunteered', now())`,
       [cat.rows[0].id, p.id],
     );
-    await expect(store.removePerson(SUSAN)).rejects.toThrow(
-      new PeopleError(HAS_HISTORY_MESSAGE),
-    );
+    await expect(
+      c.query(`delete from people where id = $1`, [p.id]),
+    ).rejects.toMatchObject({ code: "23503" });
     expect(await store.findPersonById(p.id)).toMatchObject({
       scopes: [{ role: "staff", colonyId: null }],
     });
   });
 
-  it("deletes a person with no history", async () => {
+  it("a person with no other history still has an `added` event, so the database refuses their delete", async () => {
     const p = await addSusan();
-    expect(await store.removePerson(SUSAN)).toBe(true);
-    expect(await row(p.id)).toBeUndefined();
+    const events = await c.query(
+      `select kind from person_events where person_id = $1`,
+      [p.id],
+    );
+    expect(events.rows).toEqual([{ kind: "added" }]);
+    await expect(
+      c.query(`delete from people where id = $1`, [p.id]),
+    ).rejects.toMatchObject({ code: "23503" });
+    expect(await row(p.id)).toBeDefined();
   });
 
-  it("other database errors are not reworded", async () => {
-    const p = await addSusan();
-    // A trigger that fails the delete for a reason other than a link.
-    await c.query(`
-      create function refuse_people_delete() returns trigger language plpgsql as
-        $$ begin raise exception 'not a link problem'; end $$;
-      create trigger refuse_people_delete before delete on people
-        for each row execute function refuse_people_delete();`);
-    try {
-      const err = await store.removePerson(SUSAN).catch((e: unknown) => e);
-      expect(err).not.toBeInstanceOf(PeopleError);
-      expect((err as Error).cause).toMatchObject({
-        message: "not a link problem",
-      });
-    } finally {
-      await c.query(`
-        drop trigger refuse_people_delete on people;
-        drop function refuse_people_delete();`);
-    }
-    expect(await row(p.id)).toBeDefined();
+  it("removePerson no longer exists", () => {
+    expect((store as Record<string, unknown>)["removePerson"]).toBeUndefined();
   });
 });
 
@@ -351,9 +333,13 @@ describe("P0-5: this migration's rollback", () => {
     await cc.connect();
     try {
       await migrateUp(cc, migrations, { throughIdx: mine!.idx });
-      const s = peopleStore(drizzle(cc, { schema }));
-      await s.addPerson({ email: SUSAN, name: "Susan", addedBy: "cli:test" });
-      await s.markLeft(SUSAN, "cli:samuel");
+      // Raw rows: this database is migrated only through 0007, so
+      // person_events (0016) doesn't exist and the store can't be used.
+      await cc.query(
+        `insert into people (email, name, added_by, left_at, left_by)
+         values ($1, 'Susan', 'cli:test', now(), 'cli:samuel')`,
+        [SUSAN],
+      );
       await expect(rollbackLast(cc, migrations)).rejects.toThrow(
         /marked as left/,
       );
