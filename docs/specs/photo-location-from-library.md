@@ -1,6 +1,6 @@
 # Starting the map where (and when) a library photo was taken
 
-**Status:** **Revised after adversarial review; awaiting the device check and Samuel's approval.** Draft of 7 October 2026, reviewed the same day ([review](./reviews/photo-location-from-library-review.md)).
+**Status:** **Approved by Samuel, 14 October 2026, with every decision as recommended.** The build plans the photo's date and time first, which works whatever the device check finds; the "map starts where the photo was taken" part is a later slice that waits on the device check (§4.2, SYC-280). Reviewed on 7 October 2026 ([review](./reviews/photo-location-from-library-review.md)).
 **Owner:** Samuel
 **Covers:** SYC-166, from Linda's email of 30 September (a cat seen earlier near a friend's house in Talaras; the app started the map where she was *now* and dated the sighting to the moment she picked the photo).
 **Related:** [`cat-record-data-spine.md`](./cat-record-data-spine.md) §6 and §10.6 (blurring and where it is applied), §10.8 test 13 (photos carry no GPS) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4 (the 1.5 km rule) · [`offline-queue-on-web.md`](./offline-queue-on-web.md) §3.6 (repeat protection) · [`add-details-later.md`](./add-details-later.md) (the 30-day answer window) · [`DECISIONS.md`](./DECISIONS.md) Part 2h (the 500 m rule) · SYC-87 (dedupe by client reference, independent), SYC-164 (the draggable web map), SYC-167 (the website's map without signal), SYC-249 (a server check that a sighting is on Syros)
@@ -251,7 +251,7 @@ The existing `confirmLocationHint` ("It starts near where you are.") stops being
 | **Risks** | The saved item can never send; the reward questions have a day left. Also makes streak-filling easier | The holiday case above | Slightly less fresh data than 14; still lets an owner who edits a photo's date fill streak days within the limit | Turns away the weekly tourist | The server quietly moves dates older than 30 days to "30 days ago" (wrong date); "last seen" and the streak are easier to inflate |
 | **Effort** | One constant | One constant | One constant (`MAX_PHOTO_AGE_DAYS`) | One constant | Server and queue changes |
 
-**Recommendation: C, 21 days.** *Changed after review: 14 days would already turn away a two-week Syros holiday logged at home a few days after returning; 21 days covers that and still leaves nine days of queue life.* The streak caveat (§5.9) applies to every option and is accepted.
+**Decided (Samuel, 14 October 2026): as recommended.** **Recommendation: C, 21 days.** *Changed after review: 14 days would already turn away a two-week Syros holiday logged at home a few days after returning; 21 days covers that and still leaves nine days of queue life.* The streak caveat (§5.9) applies to every option and is accepted.
 
 ### Decision 2 · Two photos taken in the same second, and the same photo twice
 
@@ -265,7 +265,7 @@ Photo times are accurate to the second. The server treats a second sighting from
 
 How B works: when a library photo's time equals the time of a sighting this device has queued or sent in the last 30 days and it is a **different** photo, add one millisecond until it is unique (a retry still sends the stored value). When it is the **same** photo, say so and offer to open that sighting.
 
-**Recommendation: B.** *Changed after review: the earlier recommendation was to build SYC-87 first, but the harm is bigger than described and has a phone-only fix, whereas SYC-87 needs a database migration and would open double points for re-logging one photo.* SYC-87 stays Low and independent.
+**Decided (Samuel, 14 October 2026): as recommended.** **Recommendation: B.** *Changed after review: the earlier recommendation was to build SYC-87 first, but the harm is bigger than described and has a phone-only fix, whereas SYC-87 needs a database migration and would open double points for re-logging one photo.* SYC-87 stays Low and independent.
 
 ### Decision 3 · Telling people about a sighting from a photo taken days ago
 
@@ -278,7 +278,7 @@ Resolving a sighting reaches **only the cat's owner** straight away ("Agatha was
 | **Benefits** | The owner of a cat who has gone missing wants "seen on Tuesday" most; honest; one English string | Trivial to build | No change |
 | **Risks** | One new server text to maintain (English only, like all server text) | Hides news from the person who cares most; suppresses a round-up line that makes no "now" claim anyway | A false "now" feel in the owner's push |
 
-**Recommendation: A.** *Changed after review: the earlier draft argued against telling "followers" immediately, but only owners are told immediately now, and they should never be silenced. The round-up is left alone.*
+**Decided (Samuel, 14 October 2026): as recommended.** **Recommendation: A.** *Changed after review: the earlier draft argued against telling "followers" immediately, but only owners are told immediately now, and they should never be silenced. The round-up is left alone.*
 
 ### Decision 4 · Reading the website's file
 
@@ -288,7 +288,7 @@ Resolving a sighting reaches **only the cat's owner** straight away ("Agatha was
 | **Benefits** | Tiny, no new dependency; covers what Safari and Chrome actually send | Handles HEIC and odd files | Nothing to build |
 | **Risks** | We own the parsing bugs (hence the test list); HEIC on a desktop browser gives nothing | A dependency of some tens of kilobytes on every web load | Laptop-at-the-hotel tourists, the people who benefit most on the website, get nothing |
 
-**Recommendation: A**, built after the device check: the full reader if phone browsers pass the location, **time tags only** if they remove it (§4.3), and option C if they remove both. It reads `OffsetTimeOriginal` too (§3.4). *Agreed in review, now explicitly conditional.*
+**Decided (Samuel, 14 October 2026): as recommended.** **Recommendation: A**, built after the device check: the full reader if phone browsers pass the location, **time tags only** if they remove it (§4.3), and option C if they remove both. It reads `OffsetTimeOriginal` too (§3.4). *Agreed in review, now explicitly conditional.*
 
 ### Decision 5 · Android and the location permission
 
@@ -300,7 +300,7 @@ On Android, the photo chooser the app uses is the system photo picker, which rem
 | **Benefits** | No new prompt for a charity app; simple privacy line: we never ask to read where your photos were taken beyond what you hand us | Android photos could start the map | No app permission needed when it arrives; the right fix |
 | **Risks** | Android users get half the feature for now | A worse picker and a worrying prompt, both affecting every Android user | Depends on Google; expected no earlier than late 2026 |
 
-**Recommendation: A now, with C filed as SYC-259 (revisit dated December 2026).** *Changed after review: asking for the permission would not work with the system picker, so the real alternative to A is the older chooser, which costs every Android user.* The device check (C2) confirms or corrects this.
+**Decided (Samuel, 14 October 2026): as recommended.** **Recommendation: A now, with C filed as SYC-259 (revisit dated December 2026).** *Changed after review: asking for the permission would not work with the system picker, so the real alternative to A is the older chooser, which costs every Android user.* The device check (C2) confirms or corrects this.
 
 ### Decision 6 · Starting the map in Ermoupoli
 
@@ -310,7 +310,7 @@ On Android, the photo chooser the app uses is the system photo picker, which rem
 | **Benefits** | Always usable; covers location refused and still searching, as well as off-island | No change |
 | **Risks** | The town isn't where every cat is; the line tells them to drag | The dead end that exists for Android photos and most website photos |
 
-**Recommendation: A.** *Widened after review: also used when location is refused or unavailable, since most website and all Android photos carry no position. It does not cover an off-island photo position, which has its own screen (Decision 7).*
+**Decided (Samuel, 14 October 2026): as recommended.** **Recommendation: A.** *Widened after review: also used when location is refused or unavailable, since most website and all Android photos carry no position. It does not cover an off-island photo position, which has its own screen (Decision 7).*
 
 ### Decision 7 · A photo taken away from Syros (new, from review)
 
@@ -322,7 +322,7 @@ Island-hopping is how most Cyclades tourists travel. A tourist back in Munich ma
 | **Benefits** | No wrong Syros cats from other islands; an easy way out when the photo's position is wrong or edited | Never refuses anyone | Never refuses anyone |
 | **Risks** | One more screen; a spotter whose photo is edited has to tap the override | Wrong matches and imaginary cats; the exact failure above | Pins that can't be saved, and confusion |
 
-**Recommendation: A.** The Ermoupoli start remains for the case where there is *no* photo position (Decision 6).
+**Decided (Samuel, 14 October 2026): as recommended.** **Recommendation: A.** The Ermoupoli start remains for the case where there is *no* photo position (Decision 6).
 
 ---
 
