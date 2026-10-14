@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { haversineKm } from "@workspace/geo";
 import { blurPosition } from "./blur";
 import { deriveCatStatuses } from "./catHelpers";
+import { pr3Recorded } from "./pr3Gate";
 import type { DbOrTx } from "./observations";
 
 /**
@@ -55,6 +56,12 @@ export async function claimEligibility(
          and not exists (select 1 from cat_identity u where u.supersedes_id = ci.id)
     ) as merged`);
   if (mergedAway.rows[0]?.merged !== false) return { ok: false, code: "NOT_ON_STREET" };
+
+  // Fail closed (critic HIGH-2): until the PR 3 backfill is recorded, and
+  // whenever the gate can't be read, deriveCatStatuses falls back to the
+  // owner column alone and calls every ownerless cat "street", including one
+  // the team says is in care or has died. Nothing is claimable then.
+  if (!(await pr3Recorded())) return { ok: false, code: "NOT_ON_STREET" };
 
   // Rule 1: the derived life status, never only the owner column. A cat
   // still homed after its owner was deleted (D13), or that the team says is
