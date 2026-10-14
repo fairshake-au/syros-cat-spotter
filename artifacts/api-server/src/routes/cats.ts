@@ -159,6 +159,15 @@ async function detailViewer(req: Request, cat: Cat): Promise<{ viewer: Viewer; c
   return { viewer: PUBLIC_VIEWER, canClaim };
 }
 
+/**
+ * A per-phone answer (the owner's exact position, note and pin, canClaim, a
+ * claim's or an edit's result) must never be kept by a shared cache and
+ * handed to another phone. No global cache policy exists in this server or
+ * in front of it (only per-route "no-store" headers), so each such route
+ * sets its own.
+ */
+const PER_PHONE = "private, no-store";
+
 function queryNumber(raw: unknown): number | undefined {
   if (typeof raw !== "string" || raw.trim() === "") return undefined;
   const n = Number(raw);
@@ -273,6 +282,9 @@ router.post("/cats", async (req, res) => {
 
 router.get("/cats/:catId", async (req, res) => {
   const startedAt = performance.now();
+  // The answer depends on X-Device-Id (and its secret), never on the URL alone.
+  res.setHeader("Vary", "X-Device-Id, X-Device-Secret");
+  if (req.headers["x-device-id"] !== undefined) res.setHeader("Cache-Control", PER_PHONE);
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });
@@ -433,6 +445,7 @@ function refusalStatus(code: ClaimRefusal): number {
  * only (app.ts), and errors go through safeError.
  */
 router.post("/cats/:catId/claim", async (req, res) => {
+  res.setHeader("Cache-Control", PER_PHONE);
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });
@@ -554,6 +567,7 @@ router.post("/cats/:catId/claim", async (req, res) => {
 
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {
+  res.setHeader("Cache-Control", PER_PHONE);
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });

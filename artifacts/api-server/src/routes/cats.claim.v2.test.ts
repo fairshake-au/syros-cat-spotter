@@ -879,3 +879,43 @@ describe("PATCH /api/cats/:catId: the owner's note (invariant 7)", () => {
     expect(JSON.stringify([notifyMock.mock.calls, pushMock.mock.calls])).not.toContain(note);
   });
 });
+
+describe("caching: per-phone answers are never stored by a shared cache", () => {
+  it("GET /cats/:id with X-Device-Id is private, no-store, proven or not, and varies on the phone", async () => {
+    const c = await streetCat();
+    const d = phone("cache");
+    await bind(d);
+    await met(c.id, d);
+    for (const res of [await detail(c.id, d, d.secret), await detail(c.id, d)]) {
+      expect(res.headers["cache-control"]).toBe("private, no-store");
+      expect(res.headers["vary"]).toMatch(/x-device-id/i);
+    }
+    expect((await claim(c.id, d)).status).toBe(200);
+    const own = await detail(c.id, d, d.secret);
+    expect(own.body.cat.locationPrecision).toBe("exact");
+    expect(own.headers["cache-control"]).toBe("private, no-store");
+    // The anonymous public page is the same for everyone; it still tells a
+    // cache that a phone's headers change the answer.
+    const anon = await detail(c.id);
+    expect(anon.headers["cache-control"] ?? "").not.toMatch(/no-store/);
+    expect(anon.headers["vary"]).toMatch(/x-device-id/i);
+  });
+
+  it("claim and PATCH responses are private, no-store, refusals included", async () => {
+    const c = await streetCat();
+    const d = phone("cache-claim");
+    await met(c.id, d);
+    const refused = await claim(c.id, d, { livesOnSyros: false });
+    expect(refused.status).toBe(422);
+    expect(refused.headers["cache-control"]).toBe("private, no-store");
+    const ok = await claim(c.id, d);
+    expect(ok.status).toBe(200);
+    expect(ok.headers["cache-control"]).toBe("private, no-store");
+    const patched = await request(app)
+      .patch(`/api/cats/${c.id}`)
+      .set("X-Device-Secret", d.secret)
+      .send({ deviceId: d.id, homeDescription: "Red door" });
+    expect(patched.status).toBe(200);
+    expect(patched.headers["cache-control"]).toBe("private, no-store");
+  });
+});
