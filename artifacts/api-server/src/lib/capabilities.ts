@@ -267,6 +267,11 @@ export function capabilitiesOf(
   return out;
 }
 
+/** Does any of this person's rows cover the whole island (the team)? */
+export function holdsIslandRow(person: CapabilityHolder): boolean {
+  return person.scopes.some(isIslandRow);
+}
+
 /**
  * The dashboard door (roles spec §6.3): the hand-off, and the signed-in
  * pages that need no particular capability. Being in the people table is not

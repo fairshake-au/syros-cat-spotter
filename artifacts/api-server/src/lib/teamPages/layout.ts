@@ -158,7 +158,14 @@ dt{margin-top:0}
 
 export interface PageOptions {
   title: string;
-  active: NavKey;
+  /** The highlighted menu item; null for a page that isn't one of them. */
+  active: NavKey | null;
+  /**
+   * The team's menu (default true). A refusal page leaves it out: a cat
+   * guardian shouldn't be offered links to pages that refuse her. Sign out
+   * is always there.
+   */
+  nav?: boolean;
   /** The signed-in person's name (escaped here). */
   personName: string;
   /** Trusted HTML: built only from fixed text and escapeHtml. */
@@ -172,7 +179,7 @@ export interface PageOptions {
 }
 
 export function renderPage(opts: PageOptions): string {
-  const nav = NAV.map((n) => {
+  const nav = (opts.nav === false ? [] : NAV).map((n) => {
     const label = escapeHtml(n.label);
     if (!n.href) return `<span class="off">${label}</span>`;
     return n.key === opts.active
