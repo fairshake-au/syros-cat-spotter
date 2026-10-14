@@ -1,5 +1,6 @@
 {
-  // SYC-231: asks the API to send queued mail every 10 minutes, and emails
+  // SYC-231: asks the API to send queued mail every 2 hours (Samuel, 14 Oct
+  // 2026; it was every 10 minutes at first), and emails
   // Samuel if a cat-report alert is over an hour late or the call fails.
   // See docs/runbooks/mail-drain.md.
   // Deploy with: npx wrangler deploy  (from this directory)
@@ -9,7 +10,7 @@
   "compatibility_date": "2026-10-14",
   "workers_dev": false,
   "preview_urls": false,
-  "triggers": { "crons": ["*/10 * * * *"] },
+  "triggers": { "crons": ["0 */2 * * *"] },
   "vars": { "MAIL_DRAIN_BASE_URL": "https://apptest.catspotters.com", "ALARM_TO": "sam@fairshake.au" },
   // Remembers when each kind of alarm was last emailed, so a long outage
   // sends one email an hour (stuck alert) or every 3 hours (anything else).

@@ -2,14 +2,14 @@
 
 **Companion to:** [DEPLOYMENT.md](../DEPLOYMENT.md). **Design:** `docs/superpowers/plans/syc-42-cat-in-trouble.md` item 1.6.
 
-Cat-report alerts to Syros Cats normally go out the moment a report is filed, or on the next request to the app. The mail drain is the safety net: every 10 minutes something asks the app to send whatever is still queued, and **if a cat-report alert has been waiting for over an hour, Samuel gets an email**. That email goes through Cloudflare, not Resend, so it still arrives when Resend is the thing that's broken. It pages nobody: it's about the system, not about a cat.
+Cat-report alerts to Syros Cats normally go out the moment a report is filed, or on the next request to the app. The mail drain is the safety net: every 2 hours something asks the app to send whatever is still queued, and **if a cat-report alert has been waiting for over an hour, Samuel gets an email**. Because the check runs every 2 hours, that email arrives 1 to 3 hours after the alert got stuck (Samuel's choice, 14 Oct 2026; it was every 10 minutes at first). That email goes through Cloudflare, not Resend, so it still arrives when Resend is the thing that's broken. It pages nobody: it's about the system, not about a cat.
 
 ## What runs it
 
 | What | Where | How often |
 |---|---|---|
-| **`mail-drain-cron` Cloudflare Worker** (the main one) | `infra/mail-drain-cron/`, Cloudflare account, cron trigger | Every 10 minutes, reliably |
-| **`mail-drain.yml` GitHub workflow** (a backup) | `.github/workflows/mail-drain.yml` | Asked for every 2 hours; GitHub often runs it later. Also runs by hand from the Actions tab |
+| **`mail-drain-cron` Cloudflare Worker** (the main one) | `infra/mail-drain-cron/`, Cloudflare account, cron trigger | Every 2 hours, on the hour (UTC), reliably |
+| **`mail-drain.yml` GitHub workflow** (a backup) | `.github/workflows/mail-drain.yml` | Asked for every 3 hours; GitHub often runs it later. Also runs by hand from the Actions tab |
 
 Both call `POST https://apptest.catspotters.com/api/internal/mail/drain` with `Authorization: Bearer <MAIL_DRAIN_TOKEN>`. Two callers at once is safe: each queued email is claimed by one of them only.
 
@@ -26,9 +26,9 @@ The Worker emails **sam@fairshake.au** (a verified Cloudflare Email Routing addr
 
 | Subject starts | Means | Repeats |
 |---|---|---|
-| "a cat-report alert to Syros Cats is over an hour late" | The app is up but can't send the alert. Check `RESEND_API_KEY` and `WELFARE_ALERT_TO` in Replit, and Resend's log. The report itself is safe in the database. | Hourly while it lasts |
-| "the mail drain call failed (HTTP …)" | The app is down, asleep and not waking, or refusing the token (401) | Every 3 hours |
-| "the mail drain has no token" | The Worker lost its secret | Every 3 hours |
+| "a cat-report alert to Syros Cats is over an hour late" | The app is up but can't send the alert. Check `RESEND_API_KEY` and `WELFARE_ALERT_TO` in Replit, and Resend's log. The report itself is safe in the database. | At every run (every 2 hours) while it lasts |
+| "the mail drain call failed (HTTP …)" | The app is down, asleep and not waking, or refusing the token (401) | About every 4 hours (every other run) |
+| "the mail drain has no token" | The Worker lost its secret | About every 4 hours |
 | "the mail drain is back to normal" | The first good run after any of the above | Once |
 
 The GitHub backup, when it fails, makes GitHub email Samuel about a failed run, as before. A failed GitHub run can also be GitHub's own fault: the 5 Oct 2026 20:37 UTC failure was GitHub never giving the job a machine to run on (it waited 15 minutes and was cancelled). If the Worker hasn't emailed, a lone GitHub failure is probably GitHub.

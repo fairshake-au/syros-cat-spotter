@@ -1,7 +1,8 @@
-// SYC-231: runs the mail drain every 10 minutes (wrangler.jsonc `triggers`).
-// GitHub's own schedule, asked for every 10 minutes, really ran every 3-7
-// hours, which made the "over an hour late" alarm for cat-report alerts
-// (SYC-42 layer 3) arrive hours late. The logic lives in drain.js.
+// SYC-231: runs the mail drain every 2 hours, on the hour (wrangler.jsonc
+// `triggers`). GitHub's own schedule, asked for every 10 minutes, really ran
+// every 3-7 hours at random, which made the "over an hour late" alarm for
+// cat-report alerts (SYC-42 layer 3) arrive hours late. Every 2 hours on a
+// reliable clock means a stuck alert is reported 1-3 hours after it stuck. The logic lives in drain.js.
 import { runTick } from "./drain.js";
 
 const FROM = { email: "mail-drain@catspotters.com", name: "Syros Cat Spotter mail drain" };

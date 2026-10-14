@@ -1,4 +1,4 @@
-// SYC-231: what one 10-minute tick does. Kept free of Workers-only imports so
+// SYC-231: what one tick (every 2 hours) does. Kept free of Workers-only imports so
 // `node --test` can run it with stand-ins for fetch, KV and the alarm email.
 //
 // One tick: ask the API to send any queued mail (POST /api/internal/mail/drain
@@ -10,9 +10,12 @@
 
 export const DRAIN_PATH = "/api/internal/mail/drain";
 
-/** How long before the same kind of problem is emailed again. */
+/**
+ * How long before the same kind of problem is emailed again. The Worker runs
+ * every 2 hours, so 1 hour means "at every run" and 3 hours "every other run".
+ */
 export const REPEAT_SECONDS = {
-  overdue: 60 * 60, // a cat-report alert is stuck: remind hourly
+  overdue: 60 * 60, // a cat-report alert is stuck: remind at every run
   failed: 3 * 60 * 60, // the API is down or answering oddly
   not_configured: 3 * 60 * 60, // the Worker has no token
 };
@@ -82,7 +85,7 @@ export function alarmMessage(result, baseUrl) {
         "",
         `What the app said (HTTP ${result.status}): ${result.body}`,
         "",
-        "This email comes from the mail-drain-cron Cloudflare Worker, every hour while the problem lasts.",
+        "This email comes from the mail-drain-cron Cloudflare Worker, and repeats at every run (every 2 hours) while the problem lasts.",
       ].join("\n"),
     };
   }
@@ -101,7 +104,7 @@ export function alarmMessage(result, baseUrl) {
   return {
     subject: `Syros Cat Spotter: the mail drain call failed (HTTP ${result.status || "no answer"})`,
     text: [
-      `The 10-minute mail drain could not get a good answer from ${baseUrl}.`,
+      `The scheduled mail drain could not get a good answer from ${baseUrl}.`,
       "Until it does, queued mail that missed its first send is not being retried,",
       "and the over-an-hour-late check for cat-report alerts is not running.",
       "",
@@ -110,7 +113,7 @@ export function alarmMessage(result, baseUrl) {
       "401 means the token in the Worker and in Replit no longer match; 503 not_configured means",
       "Replit has no MAIL_DRAIN_TOKEN. See docs/runbooks/mail-drain.md.",
       "",
-      "This email repeats every 3 hours while the problem lasts.",
+      "This email repeats about every 4 hours (every other run) while the problem lasts.",
     ].join("\n"),
   };
 }
@@ -128,7 +131,7 @@ export async function runTick({ env, fetchImpl, sleep, kv, sendAlarm, log, nowMs
     if (await kv.get(OPEN_KEY)) {
       await sendAlarm({
         subject: "Syros Cat Spotter: the mail drain is back to normal",
-        text: `The 10-minute mail drain answered 200 again, so the problem emailed earlier has cleared.\n\nWhat the app said: ${result.body}`,
+        text: `The scheduled mail drain answered 200 again, so the problem emailed earlier has cleared.\n\nWhat the app said: ${result.body}`,
       });
       await kv.delete(OPEN_KEY);
       for (const kind of Object.keys(REPEAT_SECONDS)) await kv.delete(`alarm:last:${kind}`);
