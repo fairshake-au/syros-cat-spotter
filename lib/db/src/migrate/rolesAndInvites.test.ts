@@ -548,8 +548,14 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
       expect(p.language).toBe("en");
     }
     const scopes = await s.query(
-      `select role, reach, colony_id, granted_at from person_scopes order by id`,
+      `select s.role, s.reach, s.colony_id, s.granted_at, s.granted_by, p.added_at, p.added_by
+         from person_scopes s join people p on p.id = s.person_id order by s.id`,
     );
+    // Review m5: granted when, and by whoever, the person was added.
+    for (const r of scopes.rows) {
+      expect(r.granted_at).toEqual(r.added_at);
+      expect(r.granted_by).toBe(r.added_by);
+    }
     expect(scopes.rows.map((r) => [r.role, r.reach, r.colony_id])).toEqual([
       ["staff", "island", null],
       ["guardian", "colony", colony],
@@ -563,7 +569,7 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
     ).toBe(0);
   });
 
-  it("rolling back refuses and lists management, guardian and pending rows, and changes nothing", async () => {
+  it("rolling back refuses and lists management rows, guardian rows granted since, and pending people, and changes nothing", async () => {
     const ids = (await s.query(`select id from people where left_at is null order by email`)).rows.map(
       (r) => r.id as string,
     );
@@ -576,8 +582,16 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
         `insert into people (email, name, added_by) values ('new@example.com', 'N', 'cli:t') returning id`,
       )
     ).rows[0].id as string;
-    const guardian = (await s.query(`select id from person_scopes where role = 'guardian'`)).rows[0]
-      .id as number;
+    // A guardian from before the migration (held fine by the old schema)
+    // must not block the rollback (review m1); one granted since must.
+    const oldGuardian = (await s.query(`select id, colony_id from person_scopes where role = 'guardian'`))
+      .rows[0] as { id: number; colony_id: number };
+    const guardian = (
+      await s.query(
+        `insert into person_scopes (person_id, role, reach, colony_id, granted_by) values ($1, 'guardian', 'colony', $2, 'cli:t') returning id`,
+        [ids[0], oldGuardian.colony_id],
+      )
+    ).rows[0].id as number;
     const before = await schemaSignature(s, "public");
     const rowsBefore = (await s.query(`select count(*)::int as n from person_scopes`)).rows[0].n;
 
@@ -587,6 +601,7 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
     expect(message).toContain("ROLLING BACK IS NOT SAFE");
     expect(message).toContain(`management rows: scope ${mgmt.rows[0].id} (person ${ids[0]})`);
     expect(message).toContain(`guardian rows: scope ${guardian} `);
+    expect(message).not.toContain(`scope ${oldGuardian.id} `);
     expect(message).toContain(`pending people: ${pending}`);
     expect(message).toContain("Fix forward instead");
     expect(message).not.toMatch(/example\.com/);
@@ -596,6 +611,62 @@ describe("T29 and the seeded rollback (review M7), on a database seeded before t
     expect(
       (await s.query(`select accepted_at from people where id = $1`, [pending])).rows[0].accepted_at,
     ).toBeNull();
+  });
+
+  it("the delete path also needs a roles_invites_* database: the setting alone still refuses (review m2)", async () => {
+    const otherName = `rolesinv_other_${suffix}`;
+    const a = new pg.Client({ connectionString: url("postgres") });
+    await a.connect();
+    await a.query(`create database "${otherName}"`);
+    const o = new pg.Client({ connectionString: url(otherName) });
+    await o.connect();
+    try {
+      await migrateUp(o, migrations);
+      const p = await seedPersonOn(o, "maria@example.com");
+      await o.query(
+        `insert into person_scopes (person_id, role, reach) values ($1, 'staff', 'island'), ($1, 'management', 'island')`,
+        [p],
+      );
+      await o.query(`set catspotter.rollback_deletes = 'on'`);
+      let message = "";
+      await rollbackLast(o, migrations).catch((e: Error) => (message = e.message));
+      expect(message).toContain("ROLLING BACK IS NOT SAFE");
+      expect(
+        (await o.query(`select count(*)::int as n from person_scopes where role = 'management'`)).rows[0].n,
+      ).toBe(1);
+    } finally {
+      await o.end();
+      await a.query(`drop database if exists "${otherName}"`);
+      await a.end();
+    }
+  });
+
+  it("an old guardian placement alone doesn't block the rollback (review m1)", async () => {
+    // Checked on its own database so the shared seeded one keeps its rows.
+    const oName = `roles_invites_oldg_${suffix}`;
+    const a = new pg.Client({ connectionString: url("postgres") });
+    await a.connect();
+    await a.query(`create database "${oName}"`);
+    const o = new pg.Client({ connectionString: url(oName) });
+    await o.connect();
+    try {
+      await migrateUp(o, migrations, { throughIdx: mine.idx - 1 });
+      const colony = await newColony(o);
+      const p = await seedPersonOn(o, "eleni@example.com");
+      await o.query(
+        `insert into person_scopes (person_id, role, colony_id) values ($1, 'guardian', $2)`,
+        [p, colony],
+      );
+      await migrateUp(o, migrations);
+      expect(await rollbackLast(o, migrations)).toBe(mine.tag);
+      expect(
+        (await o.query(`select role, colony_id from person_scopes`)).rows,
+      ).toEqual([{ role: "guardian", colony_id: colony }]);
+    } finally {
+      await o.end();
+      await a.query(`drop database if exists "${oName}"`);
+      await a.end();
+    }
   });
 
   it("on a throwaway database the harness may delete them instead, printing each count, then up again works", async () => {

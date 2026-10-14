@@ -63,6 +63,18 @@ ALTER TABLE "person_scopes" ADD COLUMN "expires_at" timestamp with time zone;-->
 ALTER TABLE "person_scopes" ADD COLUMN "relationship" text;--> statement-breakpoint
 ALTER TABLE "person_scopes" ADD COLUMN "granted_by" text;--> statement-breakpoint
 ALTER TABLE "person_scopes" ADD COLUMN "granted_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+-- Existing placements were granted when their person was added, by whoever
+-- added them (review m5), not "now".
+UPDATE "person_scopes" s SET "granted_at" = p."added_at", "granted_by" = p."added_by"
+  FROM "people" p WHERE p."id" = s."person_id";--> statement-breakpoint
+-- When this migration ran, so the rollback can tell a guardian placement that
+-- was already here (the old schema holds it fine) from one written since
+-- (review m1). A column comment: it is not part of the compared schema.
+DO $$
+BEGIN
+  EXECUTE format('COMMENT ON COLUMN "person_scopes"."granted_at" IS %L',
+                 'roles_and_invites applied at ' || to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
+END $$;--> statement-breakpoint
 -- Step 5: the role list without volunteer and with management, and the
 -- checks. The unique (person, role, colony) constraint stays as it is.
 ALTER TABLE "person_scopes" DROP CONSTRAINT "person_scopes_role_ck";--> statement-breakpoint
@@ -83,14 +95,18 @@ ALTER TABLE "person_scopes" ADD CONSTRAINT "person_scopes_relationship_ck" CHECK
 -- PENDING INVITEE IN AS IF SHE HAD JOINED. IN PRODUCTION THE PATH IS FIX
 -- FORWARD, NOT ROLL BACK.
 --
--- So the rollback below refuses, listing every management row, guardian row
--- and pending person (ids only), and changes nothing. Only a throwaway
--- database may go further: with `SET catspotter.rollback_deletes = 'on'` in
--- the session (the test harness does this; nothing in production does), it
--- deletes the management and guardian rows and marks each pending person as
--- left, printing each count as a NOTICE. Pending people are marked left, not
--- deleted: every person has a strict, append-only person_events history
--- (0016), so a delete could never succeed. Either way it runs in one
+-- So the rollback below refuses, listing every management row, every
+-- guardian row granted since this migration ran (one from before it is held
+-- fine by the old schema), and every pending person (ids only), and changes
+-- nothing. Only a throwaway test database may go further: with
+-- `SET catspotter.rollback_deletes = 'on'` in the session AND a database
+-- named roles_invites_* (this migration's own tests; nothing in production
+-- is either), it deletes those management and guardian rows and marks each
+-- pending person as left, printing each count as a NOTICE. Pending people are
+-- marked left, not deleted: every person has a strict, append-only
+-- person_events history (0016), so a delete could never succeed. That
+-- test-only path writes NO `left` event for them (review m3): it is for
+-- throwaway databases, never a record anyone keeps. Either way it runs in one
 -- transaction and never half-completes. Take a Neon snapshot first, and roll
 -- the app back first: its people code reads and writes these columns (see
 -- lib/db/migrations/README.md).
@@ -102,24 +118,32 @@ ALTER TABLE "person_scopes" ADD CONSTRAINT "person_scopes_relationship_ck" CHECK
 --   guardian_rows text;
 --   pending_people text;
 --   n integer;
+--   applied_at timestamptz;
 -- BEGIN
+--   applied_at := substring(col_description('person_scopes'::regclass,
+--     (SELECT attnum FROM pg_attribute WHERE attrelid = 'person_scopes'::regclass AND attname = 'granted_at'))
+--     FROM 'roles_and_invites applied at (.*)$')::timestamptz;
+--   IF applied_at IS NULL THEN
+--     RAISE EXCEPTION 'roles_and_invites: the record of when this migration ran is missing, so the rollback cannot tell old guardian placements from new ones. Nothing was changed.';
+--   END IF;
 --   SELECT string_agg(format('scope %s (person %s)', id, person_id), ', ' ORDER BY id) INTO management_rows
 --     FROM person_scopes WHERE role = 'management';
 --   SELECT string_agg(format('scope %s (person %s, colony %s)', id, person_id, colony_id), ', ' ORDER BY id) INTO guardian_rows
---     FROM person_scopes WHERE role = 'guardian';
+--     FROM person_scopes WHERE role = 'guardian' AND granted_at > applied_at;
 --   SELECT string_agg(id::text, ', ' ORDER BY added_at, id) INTO pending_people
 --     FROM people WHERE accepted_at IS NULL AND left_at IS NULL;
 --   IF management_rows IS NULL AND guardian_rows IS NULL AND pending_people IS NULL THEN
 --     RETURN;
 --   END IF;
---   IF coalesce(current_setting('catspotter.rollback_deletes', true), '') <> 'on' THEN
+--   IF coalesce(current_setting('catspotter.rollback_deletes', true), '') <> 'on'
+--      OR current_database() NOT LIKE 'roles\_invites\_%' THEN
 --     RAISE EXCEPTION 'roles_and_invites: ROLLING BACK IS NOT SAFE: it would lose management rows: %; guardian rows: %; pending people: %. Nothing was changed. Fix forward instead.',
 --       coalesce(management_rows, 'none'), coalesce(guardian_rows, 'none'), coalesce(pending_people, 'none');
 --   END IF;
 --   DELETE FROM person_scopes WHERE role = 'management';
 --   GET DIAGNOSTICS n = ROW_COUNT;
 --   RAISE NOTICE 'roles_and_invites rollback: deleted % management rows', n;
---   DELETE FROM person_scopes WHERE role = 'guardian';
+--   DELETE FROM person_scopes WHERE role = 'guardian' AND granted_at > applied_at;
 --   GET DIAGNOSTICS n = ROW_COUNT;
 --   RAISE NOTICE 'roles_and_invites rollback: deleted % guardian rows', n;
 --   UPDATE people SET left_at = now(), left_by = 'system:rollback', session_version = session_version + 1
