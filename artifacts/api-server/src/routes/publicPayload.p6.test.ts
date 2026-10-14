@@ -166,10 +166,24 @@ describe("PR 6: public payloads for a cat with no hidden photos are unchanged", 
     const page = await request(app).get(`/api/cats/${catId}`);
     sections.push(`detail: ${placeholders(page.text)}`);
 
+    // SYC-130 removed POST /cats (D7); an owner's rename to a taken name is
+    // the same NAME_TAKEN reply (nameTakenBody), so the bytes don't change.
+    const [own] = await db
+      .insert(catsTable)
+      .values({
+        name: `${PREFIX}renamer`,
+        description: "",
+        primaryPhotoId: 0,
+        lat: ORIGIN.lat,
+        lng: ORIGIN.lng,
+        discovererDeviceId: DEVICE,
+        ownerDeviceId: DEVICE,
+      })
+      .returning({ id: catsTable.id });
     const taken = await request(app)
-      .post("/api/cats")
+      .patch(`/api/cats/${own!.id}`)
       .set("X-Device-Secret", SECRET)
-      .send({ deviceId: DEVICE, name: NAME, ownerName: "Maria", homeDescription: "Blue door", lat: 37.44, lng: 24.9 });
+      .send({ deviceId: DEVICE, name: NAME });
     expect(taken.status).toBe(409);
     sections.push(`name_taken: ${placeholders(taken.text)}`);
 
