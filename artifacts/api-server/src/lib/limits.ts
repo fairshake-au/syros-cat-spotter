@@ -97,6 +97,28 @@ function registerBucket(bucket: string, limit: number, windowMs: number, sliding
   }
 }
 
+const owners = new Set<string>();
+
+/**
+ * Claim a bucket name for one limiter, once, at module load: the three
+ * function-call limiters (device match, new device, claim) call this at the
+ * top of their module, and `sharedLimiter` calls it when it is made. A second
+ * claim on the same name throws, even with the same settings, because two
+ * limiters would silently share one budget; and a settings clash with a later
+ * `consume` call throws at boot-time registration rather than as a 503 (or,
+ * on a welfare route, no limit at all) on the first request.
+ */
+export function declareLimit(
+  bucket: string,
+  limit: number,
+  windowMs: number,
+  opts: WindowOptions = {},
+): void {
+  if (owners.has(bucket)) throw new Error(`rate limit bucket "${bucket}" already has an owner`);
+  registerBucket(bucket, limit, windowMs, opts.sliding ?? false);
+  owners.add(bucket);
+}
+
 const saltCache = new Map<string, string>();
 
 function dayOf(ms: number): string {
@@ -388,7 +410,7 @@ type SharedLimiterOptions = {
  * generator, `ipKeyGenerator(req.ip)`) and hashed by `consume`.
  */
 export function sharedLimiter(opts: SharedLimiterOptions): RequestHandler {
-  registerBucket(opts.bucket, opts.limit, opts.windowMs, opts.sliding ?? false);
+  declareLimit(opts.bucket, opts.limit, opts.windowMs, { sliding: opts.sliding });
   const failOpen = opts.failOpen ?? false;
   const limiter = rateLimit({
     windowMs: opts.windowMs,

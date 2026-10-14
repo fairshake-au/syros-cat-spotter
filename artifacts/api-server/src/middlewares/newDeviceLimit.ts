@@ -28,11 +28,13 @@
 // and the route fails closed, except on the cat-in-trouble routes, which pass
 // `failOpen` so a hurt-cat report is never lost to a limiter.
 import { logger, safeError } from "../lib/logger";
-import { _resetBucketForTests, addressKey, consume, peek } from "../lib/limits";
+import { _resetBucketForTests, addressKey, consume, declareLimit, peek } from "../lib/limits";
 
 export const NEW_DEVICES_PER_ADDRESS_PER_HOUR = 20;
 const WINDOW_MS = 60 * 60 * 1000;
 const BUCKET = "new_device";
+// Declared once at load, so a clash with another limiter throws on import.
+declareLimit(BUCKET, NEW_DEVICES_PER_ADDRESS_PER_HOUR, WINDOW_MS);
 
 // The address is grouped the way express-rate-limit groups it for the other
 // limits (an IPv6 address by its /56 network, an IPv4-mapped one as the IPv4

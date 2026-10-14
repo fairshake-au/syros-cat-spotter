@@ -317,13 +317,43 @@ describe("guards (review finding 6)", () => {
     ).toThrow(/divides a day/);
   });
 
-  it("refuses a bucket registered twice with different settings, allows the same settings", () => {
+  it("a second sharedLimiter on the same bucket throws, even with the same settings", () => {
     sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 5, message: {} });
-    expect(() => sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 6, message: {} })).toThrow(/registered twice/);
-    expect(() => sharedLimiter({ bucket: "dup", windowMs: 15 * 60 * 1000, limit: 5, message: {} })).toThrow(
+    expect(() => sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 5, message: {} })).toThrow(/already has an owner/);
+    expect(() => sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 6, message: {} })).toThrow(/already has an owner/);
+  });
+
+  it("consume refuses settings that clash with the bucket's registration, but repeats of the same are fine", async () => {
+    await consume("clash", "k", 5, HOUR);
+    await consume("clash", "k", 5, HOUR);
+    await expect(consume("clash", "k", 6, HOUR)).rejects.toThrow(/registered twice/);
+    await expect(consume("clash", "k", 5, 15 * 60 * 1000)).rejects.toThrow(/registered twice/);
+    await expect(consume("clash", "k", 5, HOUR, undefined, Date.now(), { sliding: true })).rejects.toThrow(
       /registered twice/,
     );
-    expect(() => sharedLimiter({ bucket: "dup", windowMs: HOUR, limit: 5, message: {} })).not.toThrow();
+  });
+
+  it("the function-call limiters are declared when their module loads, so a clash throws at registration", async () => {
+    vi.resetModules();
+    const fresh = await import("./limits");
+    const freshDb = await import("@workspace/db");
+    try {
+      // Nothing declared yet: any settings are accepted for a new name.
+      fresh.declareLimit("claim-clash-probe", 1, HOUR);
+      await import("../middlewares/rateLimit");
+      await import("../middlewares/newDeviceLimit");
+      // Loading those modules declared "claim", "device_match" and "new_device":
+      // declaring them again throws now, not on the first request.
+      expect(() => fresh.declareLimit("claim", 5, DAY, { sliding: true })).toThrow(/already has an owner/);
+      expect(() => fresh.declareLimit("device_match", 20, 15 * 60 * 1000)).toThrow(/already has an owner/);
+      expect(() => fresh.declareLimit("new_device", 20, HOUR)).toThrow(/already has an owner/);
+      // And a request-time call with the wrong mode is refused before touching a count.
+      await expect(fresh.consume("claim", "k", 5, DAY, undefined, Date.now(), { sliding: false })).rejects.toThrow(
+        /registered twice/,
+      );
+    } finally {
+      await freshDb.pool.end();
+    }
   });
 });
 

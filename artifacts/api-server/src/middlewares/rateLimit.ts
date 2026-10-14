@@ -1,5 +1,5 @@
 import rateLimit from "express-rate-limit";
-import { _resetBucketForTests, consume, peek, sharedLimiter } from "../lib/limits";
+import { _resetBucketForTests, consume, declareLimit, peek, sharedLimiter } from "../lib/limits";
 
 // Per-IP throttles for public, unauthenticated endpoints.
 //
@@ -114,6 +114,8 @@ export const deleteMeLimiter = sharedLimiter({
 export const DEVICE_MATCH_LIMIT = 20;
 export const DEVICE_MATCH_WINDOW_MS = 15 * 60 * 1000;
 const DEVICE_MATCH_BUCKET = "device_match";
+// Declared once at load, so a clash with another limiter throws on import.
+declareLimit(DEVICE_MATCH_BUCKET, DEVICE_MATCH_LIMIT, DEVICE_MATCH_WINDOW_MS);
 
 /**
  * Returns true if `deviceId` may make another candidate-matching request
@@ -169,6 +171,7 @@ export async function _resetDeviceMatchLimitForTests(): Promise<void> {
 export const CLAIM_LIMIT = 5;
 export const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CLAIM_BUCKET = "claim";
+declareLimit(CLAIM_BUCKET, CLAIM_LIMIT, CLAIM_WINDOW_MS, { sliding: true });
 
 /**
  * Returns true if `deviceId` may make another claim attempt now, and
