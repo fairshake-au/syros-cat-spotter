@@ -59,6 +59,10 @@ export interface SterilisedStatus {
   clippedTipSightings: number;
 }
 
+/** A colour the public can see: "Not sure" is never sent, it is `[]`
+ * (data spine §10.7), so the type rules it out (review of PR 2.1, nit 3). */
+export type PublicCoatColour = Exclude<CoatColour, "not_sure">;
+
 export interface DerivedCatStatus {
   hasHome: boolean;
   lifeStatus: LifeStatusValue;
@@ -69,7 +73,7 @@ export interface DerivedCatStatus {
    * `[]` when not known (never `not_sure`, data spine §10.7). No
    * confidence, author, count, model version or date.
    */
-  coat: CoatColour[];
+  coat: PublicCoatColour[];
   /** SYC-2 (§10.4): the resolved marks only, `[]` when none. */
   markings: Mark[];
 }
@@ -342,7 +346,7 @@ export async function deriveCatStatuses(
       sterilised: publicSterilised(snapshot.sterilised),
       // SYC-2 (spec §10.4): the resolved VALUE only, never the confidence,
       // supporting rows, conflicts, date or check reasons around it.
-      coat: snapshot.coat.value ?? [],
+      coat: (snapshot.coat.value ?? []).filter((c): c is PublicCoatColour => c !== "not_sure"),
       markings: snapshot.markings.value ?? [],
     });
   }
