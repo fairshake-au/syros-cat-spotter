@@ -136,16 +136,7 @@ export async function enqueueUncheckedWelfareAlert(
   dueAt: Date | null,
 ): Promise<"alert" | "waiting" | "none"> {
   await tx.execute(sql`select pg_advisory_xact_lock(${UNCHECKED_ALERT_LOCK})`);
-  const counted = await tx.execute(sql`
-    select
-      count(*) filter (where payload->>'kind' = 'alert' and payload->>'unchecked' = 'true')::int as alerts,
-      count(*) filter (where payload->>'kind' = ${UNCHECKED_WAITING})::int as waiting
-    from mail_outbox
-    where purpose = 'welfare_alert'
-      and created_at > now() - interval '1 hour'
-  `);
-  const row = counted.rows[0] as { alerts: number; waiting: number } | undefined;
-  if (Number(row?.alerts ?? 0) < UNCHECKED_ALERTS_PER_HOUR) {
+  if ((await uncheckedEmailsThisHour(tx)) < UNCHECKED_ALERTS_PER_HOUR) {
     await tx.insert(mailOutboxTable).values({
       purpose: "welfare_alert",
       reportId,
@@ -155,15 +146,47 @@ export async function enqueueUncheckedWelfareAlert(
     });
     return "alert";
   }
-  if (Number(row?.waiting ?? 0) > 0) return "none";
+  // Past the cap: this report must be covered by a "waiting" email. The
+  // latest one covers it only if it hasn't counted yet (its count is fixed
+  // at its first try). Otherwise queue the next one, an hour after the last
+  // one went, so no unchecked report is ever left without an email (review
+  // of #151, finding 3) and the team still gets at most one an hour.
+  const latest = await tx.execute(sql`
+    select (state in ('queued', 'sending') and not (payload ? 'waiting')) as covers,
+           greatest(
+             now() + make_interval(mins => ${UNCHECKED_WAITING_DELAY_MINUTES}),
+             coalesce(sent_at, created_at + make_interval(mins => ${UNCHECKED_WAITING_DELAY_MINUTES})) + interval '1 hour'
+           ) as next_due
+      from mail_outbox
+     where purpose = 'welfare_alert' and payload->>'kind' = ${UNCHECKED_WAITING}
+     order by created_at desc, id desc
+     limit 1
+  `);
+  const last = latest.rows[0] as { covers: boolean; next_due: Date | string } | undefined;
+  if (last?.covers) return "none";
   await tx.insert(mailOutboxTable).values({
     purpose: "welfare_alert",
     reportId: null,
     recipientHash: alertRecipientHash(),
     payload: { kind: UNCHECKED_WAITING } satisfies Payload,
-    nextAttemptAt: new Date(Date.now() + UNCHECKED_WAITING_DELAY_MINUTES * 60_000),
+    nextAttemptAt: last
+      ? new Date(last.next_due)
+      : new Date(Date.now() + UNCHECKED_WAITING_DELAY_MINUTES * 60_000),
   });
   return "waiting";
+}
+
+/** Individual emails about unchecked reports queued in the last hour (the cap's count). */
+async function uncheckedEmailsThisHour(tx: Tx): Promise<number> {
+  const counted = await tx.execute(sql`
+    select count(*)::int as n
+      from mail_outbox
+     where purpose = 'welfare_alert'
+       and payload->>'kind' = 'alert'
+       and payload->>'unchecked' = 'true'
+       and created_at > now() - interval '1 hour'
+  `);
+  return Number((counted.rows[0] as { n: number } | undefined)?.n ?? 0);
 }
 
 /**

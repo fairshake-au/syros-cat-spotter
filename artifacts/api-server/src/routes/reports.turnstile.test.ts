@@ -497,6 +497,37 @@ describe("T1-7b: our side's failures", () => {
 // ── Item 6: the unchecked alert cap ────────────────────────────────────────
 
 describe("unchecked alerts: 10 an hour, then one \"N waiting\" email an hour", () => {
+  it("review finding 3: overflow after the hour's waiting email has gone is covered by the next one, an hour later", async () => {
+    siteverify = timeout;
+    for (let i = 0; i < UNCHECKED_ALERTS_PER_HOUR + 1; i++) {
+      expect((await submit({ clientRef: clientRef(), turnstileToken: TOKEN })).status).toBe(201);
+    }
+    await drainAll();
+    const first = mailSent.filter((m) => m.subject.includes("waiting"));
+    expect(first.map((m) => m.subject)).toEqual(["1 unchecked cat report waiting in the welfare queue"]);
+
+    // 20 minutes on (the probe's scenario), two more overflow reports.
+    await db.execute(sql`update mail_outbox set created_at = created_at - interval '20 minutes', sent_at = sent_at - interval '20 minutes'`);
+    for (let i = 0; i < 2; i++) {
+      expect((await submit({ clientRef: clientRef(), turnstileToken: TOKEN })).status).toBe(201);
+    }
+    const pending = await db.execute(sql`
+      select count(*)::int as n,
+             min(extract(epoch from next_attempt_at - (select sent_at from mail_outbox where payload->>'kind' = 'unchecked_waiting' and state = 'sent')))::float as gap
+        from mail_outbox where payload->>'kind' = 'unchecked_waiting' and state = 'queued'`);
+    const p = pending.rows[0] as { n: number; gap: number };
+    expect(p.n).toBe(1); // one more, not two
+    expect(Number(p.gap)).toBeGreaterThanOrEqual(59 * 60); // an hour after the last went
+
+    // Step past the hour: the next waiting email goes and counts all three.
+    await drainAll();
+    const all = mailSent.filter((m) => m.subject.includes("waiting")).map((m) => m.subject);
+    expect(all).toEqual([
+      "1 unchecked cat report waiting in the welfare queue",
+      "3 unchecked cat reports waiting in the welfare queue",
+    ]);
+  });
+
   it("the 11th and 12th unchecked reports in an hour get no alert of their own, and one waiting email counts them", async () => {
     siteverify = timeout;
     const ids: number[] = [];
