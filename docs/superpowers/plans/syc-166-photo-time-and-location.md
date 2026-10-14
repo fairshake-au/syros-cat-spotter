@@ -3,7 +3,7 @@
 **Spec:** `docs/specs/photo-location-from-library.md`, approved by Samuel on 14 October 2026, every decision as recommended (Decisions 1 to 7). Its [review](../../specs/reviews/photo-location-from-library-review.md) is folded into the spec (§13).
 **Samuel's condition on the build (Linear, 14 October):** build the photo's date and time first, because it works whatever the device check finds. "Start the map where the photo was taken" is a separate, later slice that waits on the device check (SYC-280). **SYC-258 ships first**, and SYC-166 must not ship before it (spec §5.1).
 **Status:** for Samuel's approval. Nothing here is built. This document changes no code.
-**Checked against:** `origin/main` at `7089870` (13 October 2026). Every "exists today" claim names the file and line it was read at on that commit. Platform claims the spec marks **[confirm]** are not treated as fact anywhere below.
+**Checked against:** `origin/main` at `7089870` (merged 14 October 2026, 04:04 UTC). Every "exists today" claim names the file and line it was read at on that commit. Platform claims the spec marks **[confirm]** are not treated as fact anywhere below.
 
 ---
 
@@ -124,7 +124,7 @@ New (all pure, framework-free, so they test without React Native):
 
 Edited:
 - `app/(tabs)/spot.tsx` (wiring only; the logic lives in the libs above).
-- `lib/i18n.ts`: five keys in en, el, fr: `photoTakenAt`, `photoNoTime`, `photoTooOld`, `photoAlreadyLogged`, `photoAlreadyLoggedOpen`. Appended in one block headed `// SYC-166` at the end of each dictionary, to keep merges with other tickets trivial.
+- `lib/i18n.ts`: five keys in en, el, fr: `photoTakenAt`, `photoNoTime`, `photoTooOld`, `photoAlreadyLogged`, `photoAlreadyLoggedOpen`. Inserted as one clearly named block headed `// SYC-166 slice 2` in each dictionary. Expect a rebase: other tickets add keys too, so textual conflicts are likely and are resolved by keeping both blocks.
 - `context/DeleteMyDataContext.tsx`: one line in `wipePhone` (`:88-95`) calling `clearRecentPhotos()`, see "Privacy" below.
 - `app/review.tsx`: **only if Decision C2 is approved**, one call after a successful resolve that records the cat's number against the photo's entry in the recent-photos list (so "Open that sighting" can reach the cat's page).
 - Server test only: `artifacts/api-server/src/lib/imageValidation.exif.test.ts` (SYC-260's XMP line).
@@ -138,7 +138,7 @@ Edited:
 
 `resolvePhotoTime(tags, now)` returns one of:
 1. **Photo time plus its own offset** (`DateTimeOriginal` + `OffsetTimeOriginal`): the instant is exact. Source `photo+offset`.
-2. **No own offset, GPS clock present** (`GPSDateStamp` + `GPSTimeStamp`) and the two are within 24 hours of each other: offset = (photo wall-clock read as if UTC) minus (GPS time), rounded to the nearest 15 minutes. Instant = wall-clock minus that offset. Source `photo+gps-offset`. **Plan hardening, not in the spec:** the rounded offset must also be a real-world zone offset (between -12:00 and +14:00) **and** the unrounded difference must be within 3 minutes of the rounded one, otherwise the GPS clock is distrusted (a phone that reuses an hours-old fix produces an off-grid difference) and rule 3 applies. See Decision B for Samuel.
+2. **No own offset, GPS clock present** (`GPSDateStamp` + `GPSTimeStamp`) and the two are within 24 hours of each other: offset = (photo wall-clock read as if UTC) minus (GPS time), rounded to the nearest 15 minutes. Instant = wall-clock minus that offset. Source `photo+gps-offset`. **Plan hardening, not in the spec:** the derived offset is accepted only if it is within 3 minutes of a **whole-hour** offset between -12:00 and +14:00. A phone that reuses an hours-old fix gives an off-grid difference; and a 30-minute-stale fix gives a derived offset of 2:30 or 3:30, which is on the 15-minute grid and would otherwise shift the photo by 30 minutes, so half-hour zones are not inferred (a photo from a half-hour zone is read as Greek time). An hour-stale fix still passes and is wrong by an hour: a known limit. See Decision B for Samuel.
 3. **Otherwise** the wall-clock is read as **Greek time** (Europe/Athens). Source `photo+athens`.
 4. **The GPS clock never sets the time on its own.** If `DateTimeOriginal` is missing there is no time, even if a GPS clock exists. Result `{ kind: 'none', reason: 'missing' }`.
 5. **Nonsense is ignored:** an unparseable string, an impossible date, or an instant more than 5 minutes in the future (the server's own skew, `captureTime.ts:23`) is `{ kind: 'none', reason: 'unreadable' | 'future' }`.
@@ -156,13 +156,13 @@ Edited:
 - **Fingerprint:** file size plus a fast non-cryptographic hash (FNV-1a) of the first 64 KB of the picker's base64 (the first 87,384 characters). Same photo picked twice gives the same fingerprint; two different photos from one burst differ in size or content. It is computed once, at pick time, from the string already in memory.
 - **Different photo, same second:** `uniqueCaptureTime(instantMs, fingerprint, list)` adds one millisecond at a time until the time matches no entry, **at submit time**, from the list as it stands. Because an entry is written only after a send succeeds or a save-for-later succeeds, a retry of a half-arrived send recomputes the same value and the server's own repeat protection (`sightings.ts:511-521`) still catches it. Entries from camera sightings are recorded too (time only).
 - **Same photo:** if the fingerprint is in the list, the pick stops with the `photoAlreadyLogged` line and, where the sighting is still reachable, an "Open that sighting" button (`photoAlreadyLoggedOpen`). Decision C covers what "open" does.
-- **Written** after "sent" (`spot.tsx:477`'s `case 'sent'`) and after a successful `enqueue` (`:453`). Nothing is written for a failed send or a photo that is cleared.
+- **Written** only for a sighting the server accepted as a cat photo (after "sent" with `isCatPhoto !== false`, not a `rejected` outcome, `spot.tsx:477`'s `case 'sent'`), so a photo rejected as "not a cat" or one that fails matching can be re-picked (review M5)); previously: after "sent" (`spot.tsx:477`'s `case 'sent'`) and after a successful `enqueue` (`:453`). Nothing is written for a failed send or a photo that is cleared.
 - **Delete my data** (`DeleteMyDataContext.tsx:88-95`): `wipePhone` also calls `clearRecentPhotos()`. This matters because spec §5.8 says "nothing new is stored that [delete-my-data] would miss", and Decision 2 B stores something new (see Spec vs code).
 
 ### The Spot screen
 
 - `choosePhoto` (`spot.tsx:239-288`) passes `exif: true` to `launchImageLibraryAsync` only (not the camera: a camera photo is taken now). It returns `{ photo, timeInfo }` from `pickedAsset.ts`; `replaceRejectedPhoto` (`:398-412`) keeps ignoring the time info (it preserves the old item's time on purpose: a rejected sighting's replacement photo is for the same sighting) and gets a one-line comment saying so.
-- `pickPhoto` for the library: if `timeInfo.kind === 'tooOld'`, set a new `photoProblem` state (`{ kind: 'tooOld', date }`) and **do not** set the photo. The Spot screen shows the explanation in the same card style the other photo errors use, with a "Choose from library" button that calls `pickPhoto(false)` directly from its own tap (a browser only opens a file chooser from a direct tap, which is why this is an inline card and not an `await`ed dialog; the camera code makes the same point at `spot.tsx:315-318`). If `kind === 'ok'`, `setCapturedAt(instant.toISOString())` and show `photoTakenAt`. If `none`, `setCapturedAt(now)` as today and, **on phones only**, show `photoNoTime`. On the website `timeInfo.kind` is `'unread'` and no line is shown, because we have not read the file (that is 2W).
+- `pickPhoto` for the library: if `timeInfo.kind === 'tooOld'`, set a new `photoProblem` state (`{ kind: 'tooOld', date }`) and **do not** set the photo. The Spot screen shows the explanation in the same card style the other photo errors use, with a "Choose from library" button that calls `pickPhoto(false)` directly from its own tap (a browser only opens a file chooser from a direct tap, which is why this is an inline card and not an `await`ed dialog; the camera code makes the same point at `spot.tsx:315-318`). If `kind === 'ok'`, `setCapturedAt(instant.toISOString())` and show `photoTakenAt`. If `none`, `setCapturedAt(now)` as today. `photoNoTime` is shown **on phones only, and only when the picker returned a populated `exif` object with no usable time** (including a future or malformed time, for which the same line is shown: the photo does say something, but nothing we can use; the PR says so). **An absent, null or empty `exif` is `unread`**: no line, recorded as now, because Android's picker may return nothing for a JPEG that does carry a time (C4 unconfirmed) and "doesn't say when" would then be untrue. On the website `timeInfo.kind` is `'unread'` and no line is shown, because we have not read the file (that is 2W).
 - `photoProblem` is cleared by `clearPhoto` (`:233`) and by a new pick.
 - `submit` (`:419`): `sightingTime` goes through `uniqueCaptureTime` before it is sent or queued.
 - The line "Photo taken ..." sits between the photo card (`NewSpotIntro`, `:826`) and "Where did you see it?".
@@ -174,36 +174,39 @@ Edited:
 2. **`photoClock.test.ts`, red then green** (spec §9 tests 1 (time half), 2, 3, 13):
    - `photo time plus its own offset wins` (iPhone fixture, `+03:00`).
    - `GPS clock fills a missing offset`: photo `2026-10-03 18:42:10`, no offset, GPS `15:42:00 UTC` on the same date, gives 15:42:10 UTC.
-   - **`GPS clock 30 minutes off the photo time: the photo time wins`** (spec §9 test 2's named fixture). Written two ways: with an own offset (own offset wins outright) and without (the 30-minute gap is off the 15-minute grid by more than 3 minutes, so the GPS clock is distrusted and Athens time is used).
+   - **`GPS clock 30 minutes off the photo time: the photo time wins`** (spec §9 test 2's named fixture). Written two ways: with an own offset (own offset wins outright), and without one (the derived offset would be 2:30 or 3:30, a half-hour zone, so the GPS clock is distrusted and Athens time is used; under the spec's literal rule it would be accepted, which is Decision B's sub-question). Separate cases with a **7-minute** and an **11-minute** gap (off-grid, so distrusted) and a **60-minute** gap (accepted, wrong by an hour: the pinned known limit).
    - `GPS clock alone never sets the time` (no `DateTimeOriginal` -> `none/missing`).
    - `no offset, no GPS clock -> read as Greek time`, summer and winter.
    - `25 October 2026 03:30 is one defined instant` (the earlier one); `28 March 2027 03:30 (nonexistent) resolves to 04:30`.
+   - `OffsetTimeOriginal` oddities: `""`, `"+0300"` (no colon), `"Z"`, `"+25:00"` and `"garbage"` are each either parsed to the same instant as the canonical form (`+0300`, `Z`) or treated as absent (empty, out of range, garbage), never thrown on; a future-dated and a `0000:00:00 00:00:00` photo time give `none` with the `photoNoTime` line.
    - `a future time and an unreadable time fall back to none`; edge: now + 5 minutes accepted, now + 5 minutes + 1 ms refused.
    - **`the 21-day edge`**: one minute inside is `ok`, one minute outside is `tooOld`, and the `photoTooOld` text carries the right date and `21`.
    - `MAX_QUEUE_AGE_MS minus the photo limit leaves at least 9 days` (imports `MAX_QUEUE_AGE_MS` from `offlineQueue.ts`): the relationship that made 21 days the answer in Decision 1 is pinned, so changing either constant fails loudly.
    - `a phone set to Berlin still shows Greek time`: with `process.env.TZ='Europe/Berlin'` for the test, a photo at 18:42 Greek time displays "18:42 (Greek time)" (spec §9 test 13).
    - `extractTimeTags` shapes: iPhone nested `{Exif},{GPS}`, Android flat, both with a fixture GPS position of `37.4412345, 24.9412345` present in the input, and `JSON.stringify(output)` contains **no** part of it (value-based privacy test; the extractor cannot leak what it never returns).
 3. **`pickedAsset.test.ts`** (spec §9 test 7): with a mocked asset and a fake `shrink`, the over-15 MB path and the weak-connection path give the **same** time info as the plain path. A source check: `.exif` is read in exactly one file (`pickedAsset.ts`), `asset.exif` is never assigned to state, passed into a hook, or logged anywhere under `app/`, `components/`, `context/`, `hooks/` or `lib/` (same style as `reviewRoutes.test.ts`'s scan).
-4. **`recentPhotos.test.ts`** (spec §9 test 9): two different photos with the same second make two entries, the second one millisecond later; three in one second get +0, +1, +2; the same photo picked twice is caught (`already-logged`) and returns the stored `localId`/`sightingId`; a retry of one send (not recorded, because it never succeeded) returns the identical time; entries older than 30 days and beyond 200 are dropped; corrupt storage returns an empty list and never throws; `clearRecentPhotos` empties it.
+4. **`recentPhotos.test.ts`** (spec §9 test 9): a photo the server rejected as not-a-cat (`isCatPhoto: false`) or whose send was rejected is **not** recorded, and re-picking it is allowed; two different photos with the same second make two entries, the second one millisecond later; three in one second get +0, +1, +2; the same photo picked twice is caught (`already-logged`) and returns the stored `localId`/`sightingId`; a retry of one send (not recorded, because it never succeeded) returns the identical time; entries older than 30 days and beyond 200 are dropped; corrupt storage returns an empty list and never throws; `clearRecentPhotos` empties it.
 5. **Implement** the three libs, then the Spot wiring, then the five i18n keys with the spec's §8 text verbatim, then the `wipePhone` line. `lib/__tests__/i18n.test.ts` already enforces: same keys in all three languages, same `{placeholders}`, French in "tu".
 6. **Server test** `sightings.backdatedPublic.test.ts` (spec §9 test 8, new part): a sighting created with `capturedAt` 20 days ago still serialises with a **date only** in every public payload that shows it (cat list, cat page sightings list), asserted against the real serialiser output.
 7. **Walk the flows** (Verification), then a draft PR.
 
 ### Tests that must exist when this slice ships (spec section 9 mapping)
 
-Test 1 (time half), 2, 3, 7, 9, 13 and 10 (the five keys), plus 8's server parts. Tests 4, 5, 6a-6d (the position parts), 11, 12, 14, 15 belong to slices 2W to 5.
+Test 1 (time half), 2, 3, 7, 9, 13 and 10 (the five keys), plus 8's server parts. Also **6a and 6b** (the request carries exactly `deviceId, photoBase64, lat, lng, capturedAt`, with the confirmed pin; the queued item's keys equal the existing set exactly; both asserted in a case where the pin differs from anything photo-derived), cheap and in this slice. Tests 4 (slice 2W), 5 (slice 4/5), 6c (slice 1), 6d and the position parts (slice 5), 11 (5), 12 and 14 (3), 15 (5).
 
 ### Mutation probes (the limit, the order and the dedupe are silent failures)
 
 1. Delete the 21-day check -> `the 21-day edge` red.
-2. Make the GPS clock win over the photo time -> the 30-minute fixture red.
+2. Make the GPS clock win over the photo time -> the own-offset 30-minute fixture red. Accept half-hour offsets -> the no-offset 30-minute case red. Remove the 3-minute tolerance -> the 7- and 11-minute cases red.
 3. Read the wall-clock as UTC instead of Athens -> the summer/winter test and the DST tests red.
 4. Accept a future time -> `a future time` red.
 5. Remove the one-millisecond bump -> `two different photos with the same second` red.
 6. Make the fingerprint a constant -> `two different photos` red (different photos are wrongly called the same); make it always differ -> `the same photo picked twice` red.
 7. Record the entry before the send succeeds -> `a retry of one send returns the identical time` red.
 8. Store `asset.exif` in state or pass it to a logger -> the source check red, and the value-based `JSON.stringify` test red if the extractor is bypassed.
-9. Show `photoNoTime` on the website -> the platform test for `'unread'` red.
+9. Show `photoNoTime` on the website, or when `exif` is empty/null on a phone -> the `'unread'` tests red (tests: `empty exif object -> unread`, `null exif -> unread`, `exif with only GPS keys and no time -> none, line shown`).
+11. Add a field (a `photoTakenLat` or any new key) to the request body or to the queued item -> the key-set tests red.
+10a. Record the fingerprint for a rejected photo -> the not-a-cat re-pick test red.
 10. Forget `clearRecentPhotos` in `wipePhone` -> a test on `DeleteMyDataContext` (extend `ReportQueueContext.deleteMyData.test.tsx`'s pattern with a spy) red.
 
 ### Verification
@@ -224,9 +227,9 @@ Revert the PR. Sightings already saved keep their true capture times (they are o
 
 **What a spotter sees afterwards.** On the website, a photo picked from a laptop (or from a phone browser that keeps the time) is dated to when it was taken, with the same "Photo taken ..." line, the same 21-day rule and the same same-second fixes as the apps. If the browser has removed the time, the sighting is dated to now and the screen says "This photo doesn't say when it was taken, so the sighting will be recorded as now." The website still reads **no location** in this slice.
 
-**Why it is its own slice, and the one thing the spec leaves open.** The spec says the website reader is "sized to what the device check shows" (§4.1, Decision 4). Samuel's condition says build the date and time first because it works whatever the device check finds. Those pull in different directions for the website: the only reader worth building before the check is the **time-tags-only** one, which is also the part every surviving branch of spec §4.3 needs (the full reader, "time only on web", and everything but "neither arrives on the website"). The cost of guessing wrong is a small reader that finds nothing and degrades to today's behaviour. **This is Decision A for Samuel.** The plan recommends building 2W straight after slice 2; the alternative is to hold it until SYC-280 has filled in C6 and C8.
+**Why it is its own slice, and the one thing the spec leaves open.** The spec says the website reader is "sized to what the device check shows" (§4.1, Decision 4). Samuel's condition says build the date and time first because it works whatever the device check finds. Those pull in different directions for the website: the only reader worth building before the check is the **time-tags-only** one, which is also the part every surviving branch of spec §4.3 needs (the full reader, "time only on web", and everything but "neither arrives on the website"). The cost of guessing wrong is a small reader that finds nothing and degrades to today's behaviour. **Building the website reader before the device check departs from approved Decision 4's wording ("built after the device check") and needs Samuel's explicit yes; approving this plan is not that yes.** If he says no, 2W moves to after SYC-280 and slice 2 ships as written. **This is Decision A for Samuel.** The plan recommends building 2W straight after slice 2; the alternative is to hold it until SYC-280 has filled in C6 and C8.
 
-**Branch / PR:** `claude/syc-166-web-time-reader`, after slice 2 is merged (it reuses `photoClock.ts` and the Spot wiring).
+**Branch / PR:** `claude/syc-166-web-time-reader`, after slice 2 is merged **and Samuel has said yes to Decision A** (it reuses `photoClock.ts` and the Spot wiring).
 
 ### What the code does today
 
@@ -318,7 +321,7 @@ Revert; old texts return. Update rows already written keep their text.
 ### What the code does today (verified on `7089870`)
 
 - The pin starts only from the phone: `spot.tsx:228-231` sets `pickedCoords` once `photo && coords && !pickedCoords`. With no `coords` the map is never rendered (`:861`, `{pickedCoords && <LocationPicker .../>}`) and "Check for matches" stays disabled (`:885`, `disabled={!pickedCoords || ...}`). Location permission refused shows the red `locationDenied` text (`:854-860`).
-- `useLocation` (`hooks/useLocation.ts`) gives `coords`, `denied`, `loading`. On the phone, a position that does not arrive in 15 seconds with no cached fix sets `denied` (`:56-86` region, the `Promise.race` timeout); on the website the browser call times out at 10 seconds (`:23`).
+- `useLocation` (`hooks/useLocation.ts`) gives `coords`, `denied`, `loading`. On the phone, a position that does not arrive in 15 seconds with no cached fix sets `denied` (`:56-86` region, the `Promise.race` timeout); on the website the browser call times out at 10 seconds (`timeout: 10000`, `hooks/useLocation.ts:28-30`).
 - The map positions itself from its first coordinates only (`components/LocationPicker.tsx:30-32`, native; `LocationPicker.web.tsx:47`, web), so a screen that changes its start must give the picker a fresh `key` (spec §9 test 5's parenthesis). `<LocationPicker>` has no `key` today (`spot.tsx:862`).
 - The island rectangle exists only as an un-exported constant in the tile downloader: `lib/offlineTiles.ts:19`, `{ minLat: 37.36, maxLat: 37.53, minLon: 24.85, maxLon: 25.01 }`. It is a tile box, not a coastline, and nothing checks a position against it.
 
@@ -338,10 +341,10 @@ Input: `{ source: 'library' | 'camera' | 'live', phone: {coords|null, denied, lo
 - Camera and live-camera picks: unchanged (`origin: 'phone'` when coords arrive; `waiting` otherwise; it never falls back to Ermoupoli).
 - Library pick, phone position on Syros (`isOnSyros` with the margin): `origin: 'phone'`.
 - Library pick, phone position **not on Syros**, or `denied`, or still searching after `MAP_START_WAIT_MS = 4000`: `origin: 'town'` -> `ERMOUPOLI`.
-- Once a start is chosen it is **never replaced** by a later phone fix (the existing `!pickedCoords` guard, kept), so the pin does not jump under a spotter who has begun dragging.
+- A start from Ermoupoli **may be replaced by a later on-Syros phone fix until the spotter first touches the map** (drag, tap or zoom); after that, nothing replaces it, so the pin never jumps under a spotter who has begun dragging. A start that came from the phone is never replaced. Test: late fix before touch moves the pin; after touch it does not.
 - Retake and re-pick reset it; the picker is remounted with `key={pickCount}` (a counter bumped in `pickPhoto`), so a new start actually repositions the map.
 
-The wait of four seconds and the island margin of 0.02 degrees (about 2 km) are the plan's own numbers; the spec says only "still searching" and "a small margin". They are Decision E. Why 0.02: the nearest other islands are well clear of the rectangle plus 2 km (Tinos town, at 25.163 E, is more than 10 km past the rectangle's east edge at 25.01 E; Mykonos and Paros are further), while the rectangle itself is a tile box, so a margin lets a photo taken at the very edge of the coast count as Syros.
+The "until first touch" rule keeps a slow-GPS spotter from being frozen on Ermoupoli. The wait of four seconds and the island margin of 0.02 degrees (about 2 km) are the plan's own numbers; the spec says only "still searching" and "a small margin". They are Decision E. Why 0.02: the nearest other islands are well clear of the rectangle plus 2 km (Tinos town, at 25.163 E, is more than 10 km past the rectangle's east edge at 25.01 E; Mykonos and Paros are further), while the rectangle itself is a tile box, so a margin lets a photo taken at the very edge of the coast count as Syros.
 
 ### Words (spec §8)
 
@@ -350,13 +353,13 @@ The wait of four seconds and the island margin of 0.02 degrees (about 2 km) are 
 ### Steps (test first)
 
 1. `island.test.ts`: points inside the rectangle; each edge exactly, one metre inside and one metre outside the margin; known places outside, with real coordinates: Tinos town (37.538, 25.163), Mykonos town (37.447, 25.329), Parikia on Paros (37.085, 25.150), Athens (37.984, 23.727), Munich (48.137, 11.575), and Null Island (0, 0) are all **not** on Syros; Ermoupoli and two coastal points taken from a map when the test is written (Finikas, Kini) are.
-2. `mapStart.test.ts` (spec §9 test 5): library + phone on Syros -> phone; library + phone in Munich -> Ermoupoli; library + denied -> Ermoupoli; library + still loading at 3,999 ms -> `waiting`, at 4,000 ms -> Ermoupoli; library + phone fix arrives *after* the town start -> the start does not move; camera + denied -> never Ermoupoli; the button's enabled state follows `status === 'ready'`.
+2. `mapStart.test.ts` (spec §9 test 5): library + phone on Syros -> phone; library + phone in Munich -> Ermoupoli; library + denied -> Ermoupoli; library + still loading at 3,999 ms -> `waiting`, at 4,000 ms -> Ermoupoli; library + phone fix arrives *after* the town start and **before** any touch -> the start moves to the fix; **after** a touch -> it does not move; camera + denied -> never Ermoupoli; the button's enabled state follows `status === 'ready'`.
 3. A component test for the Spot screen's "Check for matches" button (the repo renders components through react-native-web, `vitest.config.ts`): enabled once the start is `ready`, disabled while `waiting`.
 4. Implement; add the key and the three strings.
 
 ### Mutation probes
 
-1. Make the resolver fall back to Ermoupoli for the camera too -> the camera test red. 2. Drop the margin -> the edge test red. 3. Let a late phone fix overwrite the start -> the "does not move" test red. 4. Remove the picker `key` -> a test that re-picks and asserts the picker's initial coordinates changed (render both, as `LocationPicker.web.tsx:47` fixes its start in `useState`) red. 5. Show the Ermoupoli line when the start is the phone -> the line test red.
+1. Make the resolver fall back to Ermoupoli for the camera too -> the camera test red. 2. Drop the margin -> the edge test red. 3. Let a late phone fix overwrite the start after a touch -> the "does not move" test red; never replace at all -> the "before touch" test red. 4. Remove the picker `key` -> a test that re-picks and asserts the picker's initial coordinates changed (render both, as `LocationPicker.web.tsx:47` fixes its start in `useState`) red. 5. Show the Ermoupoli line when the start is the phone -> the line test red.
 
 ### Verification
 
@@ -461,7 +464,7 @@ The spec's promise (§5): the photo's position is read on the phone, used to pla
 | **SYC-53** (roles and invites; person events as migration 0016, `authorityLevel`) | Server roles, schema | No slice touches the schema or a migration. No migration number is used by any slice. |
 | **SYC-209** (feeding sites; migration 0015 merged, colonies pages in flight) | Cats pages, `app/cat/[id].tsx`, cat serialiser | Slice 3 changes only the resolve route's message and `lastSeenAt` and does not touch `serialiseCat` or cat pages. Slices 2/4/5 are confined to the Spot screen and new libs. |
 | **SYC-2** (coat, markings, health; PR 1.2 on a branch) | Answers routes in `routes/sightings.ts`, observation kinds | Slice 3 edits two small regions of `routes/sightings.ts` (`:822-829`, `:835-868`); the helper lives in a new file so the edit stays tiny. **Before opening slice 3's PR, `git fetch` and run `git diff origin/main...origin/claude/syc-2-pr-1-2 -- artifacts/api-server/src/routes/sightings.ts`** (and the same for any open SYC-209/SYC-53 branch); if the regions overlap, rebase onto whatever merged first, never the reverse. |
-| **`lib/i18n.ts`** (every ticket adds keys) | One 1,500-line file | Each slice appends one block headed `// SYC-166`, at the end of each of the three dictionaries; rebase immediately before opening the PR. `i18n.test.ts` fails on a missing or extra key. |
+| **`lib/i18n.ts`** (every ticket adds keys) | One 1,500-line file | Each slice inserts its keys as its own clearly named block (`// SYC-166 slice N`) in each of the three dictionaries. Expect a rebase and a textual conflict; resolve by keeping both blocks, and rebase immediately before opening the PR. `i18n.test.ts` fails on a missing or extra key. |
 | **`app/(tabs)/spot.tsx`** (1,136 lines, shared with camera and offline work) | The Spot screen | Logic lives in new libs (`photoClock`, `pickedAsset`, `recentPhotos`, `mapStart`, `island`); the screen gets wiring only. `replaceRejectedPhoto` is left alone. |
 | **Review agents** | Worktrees | One worktree per review agent, never shared (`LIF-79`). Mutation probes mutate the tree, so the reviewer works in its own checkout of the PR branch. |
 
@@ -477,7 +480,7 @@ Slices are numbered so that nothing needs more than one open PR at a time except
 |---|---|---|---|
 | **Slice 1:** round the position in `reviewParams.ts` and its tests | **Opus** | The only job is to prove no unrounded position can reach an address. A missed path is a silent privacy failure with a green suite. The change is ten lines, so Opus's cost is small. | Tests that read the serialised string (P1); **mutation probes 1-5**; adversarial review by an Opus agent in its own worktree; browser check of `location.href` and `history.state` at ~390 px and desktop |
 | **Slice 1:** browser check | Sonnet (browser tools) | Standard probe | Screenshot plus the two JS reads pasted into the PR |
-| **Slice 2:** `photoClock.ts`, `pickedAsset.ts`, `recentPhotos.ts`, Spot wiring, server tests | Sonnet | Clear spec, standard pure code, heavy tests; the extractor is a narrow, value-tested privacy line (P2) rather than a design problem | Test-first from the named list; **mutation probes 1-10**; typecheck; adversarial review by a Sonnet agent in its own worktree **told to try to get a GPS value out of the extractor and to break the clock order**; iOS simulator walk; real-device check (C3, C4) |
+| **Slice 2:** `photoClock.ts`, `pickedAsset.ts`, `recentPhotos.ts`, Spot wiring, server tests | Sonnet | Clear spec, standard pure code, heavy tests; the extractor is a narrow, value-tested privacy line (P2) rather than a design problem | Test-first from the named list; **mutation probes 1-11**; typecheck; adversarial review by a Sonnet agent in its own worktree **told to try to get a GPS value out of the extractor and to break the clock order**; iOS simulator walk; real-device check (C3, C4) |
 | **Slice 2:** the five i18n keys (en, el, fr) | Haiku | Copying spec §8 verbatim into three dictionaries | A throwaway script compares each string byte-for-byte with the spec's §8 table; `i18n.test.ts` (same keys, same placeholders, French in "tu"); diff spot-review by the session model |
 | **Slice 2/2W:** fixture photos (exiftool-made JPEGs with chosen tags, the DST-night times, the same-second pair, the XMP-with-position input) and a README of expected results | Haiku | Mechanical, well specified | `exiftool -j` output of each fixture compared with the README by script; the tests that consume them go red if a fixture is wrong |
 | **Slice 2W:** `jpegTimeTags.ts` | Sonnet | A binary parser with strict never-throw rules is fiddly but fully specified and fuzzable | The 2,000-case seeded fuzz test, the large-file speed test, the source check that no location tag id appears, mutation probes 1-5; adversarial review by a Sonnet agent in its own worktree; real files in the browser |
@@ -506,7 +509,7 @@ None of these reopens a decision Samuel made. Each says what the plan does.
 7. **"Time only on web" shows "doesn't say where" (spec §4.3).** With a time-only reader we have not read the photo's position, so the line could be untrue for a laptop-exported JPEG. See Decision H.
 8. **Slice order.** The brief's slice 4 combined the off-island stop screen and the Ermoupoli start. The off-island screen needs a photo position, which nothing reads until slice 5. So the Ermoupoli start is slice 4, and the off-island screen is in slice 5.
 9. **"Not stuck on location permission" (spec §3.1, §3.2).** Today a refused or slow location leaves no map and a disabled button, with a red message (`spot.tsx:854-860`, `:885`). Slice 4 fixes this for library photos without a photo position; slice 5 for those with one. A **camera** photo with location refused stays stuck, because the spec says the camera paths are unaffected (Decision F).
-10. **"Still searching" has no number.** The phone's position can take 15 seconds before the app gives up (`hooks/useLocation.ts`, native `Promise.race`), 10 seconds on the website (`:23`). Slice 4 uses 4 seconds (Decision E).
+10. **"Still searching" has no number.** The phone's position can take 15 seconds before the app gives up (`hooks/useLocation.ts`, native `Promise.race`), 10 seconds on the website (`timeout: 10000`, `hooks/useLocation.ts:28-30`). Slice 4 uses 4 seconds (Decision E).
 11. **"A small margin" around the island has no number, and the island rectangle is a tile box,** not a coastline (`lib/offlineTiles.ts:19`). Slice 4 uses 0.02 degrees (Decision E).
 12. **"Seen on {weekday}" is ambiguous beyond a week.** Photos can be up to 21 days old, so "Tuesday" can mean three Tuesdays ago (Decision D).
 13. **The GPS-clock rule's weak spot.** Spec §3.4's rule 2 (round to 15 minutes) cannot tell a stale GPS fix from a real zone. This matters most for Android, where the GPS clock may be the only help. Decision B.
@@ -532,7 +535,7 @@ The website can only read a photo's date by looking inside the file itself. Whet
 | **Risks** | If phone browsers remove the date, the reader helps laptop users only | The website's date fix slips by however long the check takes | Website users, including the laptop-at-the-hotel tourists who benefit most, keep the wrong day |
 | **Effort** | One small PR | Same, later | None |
 
-**Recommendation: A1.** It costs little, it degrades to today's behaviour if browsers strip the date, and it avoids the website being the one place the headline fix is missing.
+**Recommendation: A1, as a departure from the approved Decision 4 wording that needs Samuel's explicit yes.** It costs little, it degrades to today's behaviour if browsers strip the date, and it avoids the website being the one place the headline fix is missing.
 
 ### Decision B · Working out the time zone when the photo doesn't say (mostly Android)
 
