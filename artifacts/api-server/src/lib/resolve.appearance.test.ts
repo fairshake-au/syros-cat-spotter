@@ -829,3 +829,21 @@ describe("review finding 2: 'Delete my data' never turns one voice into two", ()
     expect(resolveMarkings([a, b], NOW).value).toEqual(["three_legs"]);
   });
 });
+
+describe("review finding 3: a retraction removes exactly the row it points at", () => {
+  it("R3a retracting A's later white paws row leaves A's earlier torn ear standing", () => {
+    const a1 = spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-05T10:00:00Z");
+    const b = spotterMarks("b", { marks: ["torn_ear"] }, "2026-01-06T10:00:00Z");
+    const a2 = spotterMarks("a", { marks: ["white_paws"] }, "2026-01-08T10:00:00Z", { supersedesId: a1.id });
+    const wrong = team("markings", { retracted: true }, "2026-01-09T10:00:00Z", { supersedesId: a2.id });
+    expect(resolveMarkings([a1, b, a2, wrong], NOW).value).toEqual(["torn_ear"]);
+  });
+
+  it("R3b retracting A's later [] row leaves A's earlier torn ear standing", () => {
+    const a1 = spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-05T10:00:00Z");
+    const b = spotterMarks("b", { marks: ["torn_ear"] }, "2026-01-06T10:00:00Z");
+    const a2 = spotterMarks("a", { marks: [] }, "2026-01-08T10:00:00Z", { supersedesId: a1.id });
+    const wrong = team("markings", { retracted: true }, "2026-01-09T10:00:00Z", { supersedesId: a2.id });
+    expect(resolveMarkings([a1, b, a2, wrong], NOW).value).toEqual(["torn_ear"]);
+  });
+});

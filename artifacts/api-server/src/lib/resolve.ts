@@ -778,9 +778,8 @@ function sameAuthor(a: Observation, b: Observation): boolean {
  * - A same-author supersession removes the row it replaces, except for
  *   markings when `keepOwnEarlierRows` is set: a device's later markings
  *   answer adds to what it ticked before (spec §4.2 markings rule 4), so its
- *   earlier rows keep counting. A retraction of a markings row also removes
- *   that device's own earlier rows in the same chain, so a retracted mark
- *   cannot come back through an ancestor.
+ *   earlier rows keep counting. A retraction removes only its own target,
+ *   never that device's earlier rows.
  * - A cross-author supersession found in the data (one device "replacing"
  *   another's row) is ignored: the row it points at still counts.
  */
@@ -801,16 +800,8 @@ export function standingAppearanceRows(
     if (!target) continue;
     if (isRetractionValue(o.value)) {
       if (!APPEARANCE_RETRACTING_ROLES.has(o.roleAtTime)) continue;
+      // Exactly the row it points at (spec §4.4, §10.6), nothing else.
       removed.add(target.id);
-      // Walk the target's own same-author chain back, so an ancestor the
-      // target was built on cannot resurface (markings keep ancestors).
-      let cursor: Observation | undefined = target;
-      while (cursor?.supersedesId != null) {
-        const prev = byId.get(cursor.supersedesId);
-        if (!prev || !sameAuthor(prev, cursor)) break;
-        removed.add(prev.id);
-        cursor = prev;
-      }
       continue;
     }
     if (sameAuthorLink(o, target) && !keepOwnEarlierRows) removed.add(target.id);
