@@ -72,8 +72,10 @@ describe('DeviceProvider — owned cats come from the server (SYC-130)', () => {
     store(SAVED);
     getProfile.mockResolvedValue({ ownedCatIds: [] });
     const { result } = renderHook(() => useDevice(), { wrapper });
-    await waitFor(() => expect(result.current.ownedCatIds).toEqual([]));
-    expect(lastSavedOwned()).toEqual([]);
+    // The list may already read [] before the saved one loads, so wait for
+    // the server's empty list to be saved, not just for state to read [].
+    await waitFor(() => expect(lastSavedOwned()).toEqual([]));
+    expect(result.current.ownedCatIds).toEqual([]);
   });
 
   it('online, the server list is used as is, with cats this phone had not heard of', async () => {
