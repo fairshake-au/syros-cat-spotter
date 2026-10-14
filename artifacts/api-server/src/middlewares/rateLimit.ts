@@ -160,38 +160,29 @@ export async function _resetDeviceMatchLimitForTests(): Promise<void> {
 // per phone, so a phone can't claim and let go in a loop, or move a pin
 // about to learn where the PIN_TOO_FAR edge is. Every attempt counts,
 // refusals included. Keyed on a device id only AFTER the claim route's
-// verifyDeviceSecret has proved it, never on the raw body, as above. The
-// same per-process caveat as DEVICE_MATCH_LIMIT applies (SYC-105).
+// verifyDeviceSecret has proved it, never on the raw body, as above.
+// Counted in Postgres since SYC-105 PR 2.1, so it holds across servers and
+// restarts. The window is clock-aligned, so a day's claims reset at 00:00 UTC
+// rather than 24 hours after the first one. Fails closed (the route answers
+// 503) if the counter breaks.
 export const CLAIM_LIMIT = 5;
 export const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-const claimWindows = new Map<string, DeviceWindow>();
-
-function sweepExpiredClaimWindows(now: number): void {
-  for (const [deviceId, window] of claimWindows) {
-    if (window.resetAt <= now) claimWindows.delete(deviceId);
-  }
-}
+const CLAIM_BUCKET = "claim";
 
 /**
  * Returns true if `deviceId` may make another claim attempt now, and
- * records that it did. The 6th call within CLAIM_WINDOW_MS of the window's
- * start returns false.
+ * records that it did. The 6th call within a window returns false. Throws if
+ * the counter fails.
  */
-export function checkClaimLimit(deviceId: string, now: number = Date.now()): boolean {
-  if (claimWindows.size > SWEEP_THRESHOLD) sweepExpiredClaimWindows(now);
-
-  const existing = claimWindows.get(deviceId);
-  if (!existing || existing.resetAt <= now) {
-    claimWindows.set(deviceId, { count: 1, resetAt: now + CLAIM_WINDOW_MS });
-    return true;
-  }
-  if (existing.count >= CLAIM_LIMIT) return false;
-  existing.count += 1;
-  return true;
+export async function checkClaimLimit(
+  deviceId: string,
+  now: number = Date.now(),
+): Promise<boolean> {
+  const r = await consume(CLAIM_BUCKET, deviceId, CLAIM_LIMIT, CLAIM_WINDOW_MS, undefined, now);
+  return r.allowed;
 }
 
-/** Test-only: clears every device's claim window. */
-export function _resetClaimLimitForTests(): void {
-  claimWindows.clear();
+/** Test-only: clears every device's claim count. */
+export async function _resetClaimLimitForTests(): Promise<void> {
+  await _resetBucketForTests(CLAIM_BUCKET);
 }

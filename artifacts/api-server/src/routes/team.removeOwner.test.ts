@@ -111,13 +111,13 @@ beforeAll(async () => {
   veraId = vera.id;
   volunteerCookie = sessionCookieFor(vera.id);
 });
-beforeEach(() => {
+beforeEach(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
   pushMock.mockClear();
   notifyMock.mockClear();
-  _resetClaimLimitForTests();
+  await _resetClaimLimitForTests();
 });
 afterAll(async () => {
   await cleanup();
