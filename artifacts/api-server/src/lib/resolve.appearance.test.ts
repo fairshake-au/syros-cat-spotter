@@ -1058,3 +1058,29 @@ describe("review (ship) finding 2: one 'Delete my data' is one voice", () => {
     expect(resolveMarkings([a, b], NOW).value).toEqual(["kinked_tail"]);
   });
 });
+
+describe("review (ship) finding 3: marking the team's newest list wrong never brings back the older one", () => {
+  it("L3a team white paws, then team nothing special replacing it, then retracted: nothing shown", () => {
+    const list = team("markings", { marks: ["white_paws"] }, "2026-01-01T10:00:00Z");
+    const nothing = team("markings", { marks: [] }, "2026-01-05T10:00:00Z", { supersedesId: list.id });
+    const wrong = team("markings", { retracted: true }, "2026-01-06T10:00:00Z", { supersedesId: nothing.id });
+    expect(resolveMarkings([list, nothing, wrong], NOW)).toMatchObject({ value: null, confidence: "unknown" });
+  });
+
+  it("L3b the same when a different team member wrote the replacement", () => {
+    const list = team("markings", { marks: ["white_paws"] }, "2026-01-01T10:00:00Z");
+    const nothing = team("markings", { marks: [] }, "2026-01-05T10:00:00Z", {
+      supersedesId: list.id,
+      accountId: "person:staff-2",
+    });
+    const wrong = team("markings", { retracted: true }, "2026-01-06T10:00:00Z", { supersedesId: nothing.id });
+    expect(resolveMarkings([list, nothing, wrong], NOW).value).toBeNull();
+  });
+
+  it("a spotter's own earlier marks still count after its later answer", () => {
+    const a1 = spotterMarks("a", { marks: ["torn_ear"] }, "2026-01-01T10:00:00Z");
+    const a2 = spotterMarks("a", { marks: [] }, "2026-01-03T10:00:00Z", { supersedesId: a1.id });
+    const b = spotterMarks("b", { marks: ["torn_ear"] }, "2026-01-04T10:00:00Z");
+    expect(resolveMarkings([a1, a2, b], NOW).value).toEqual(["torn_ear"]);
+  });
+});

@@ -773,10 +773,11 @@ function sameAuthor(a: Observation, b: Observation): boolean {
  * - Rows from someone with no standing on appearance are dropped.
  * - A `{ retracted: true }` from someone `ranking` gives a level removes exactly
  *   the row it supersedes, and asserts nothing itself.
- * - A same-author supersession removes the row it replaces, except for
- *   markings when `keepOwnEarlierRows` is set: a device's later markings
- *   answer adds to what it ticked before (spec §4.2 markings rule 4), so its
- *   earlier rows keep counting. A retraction removes only its own target,
+ * - A same-author supersession, or one authority statement replacing
+ *   another, removes the row it replaces, except a spotter's own markings
+ *   when `keepOwnEarlierRows` is set: a device's later markings answer adds
+ *   to what it ticked before (spec §4.2 markings rule 4), so its earlier
+ *   rows keep counting. A retraction removes only its own target,
  *   never that device's earlier rows.
  * - A cross-author supersession found in the data (one device "replacing"
  *   another's row) is ignored: the row it points at still counts.
@@ -805,7 +806,14 @@ export function standingAppearanceRows(
       removed.add(target.id);
       continue;
     }
-    if (sameAuthorLink(o, target) && !keepOwnEarlierRows) removed.add(target.id);
+    // A replacement removes the row it replaces when the writer could only
+    // have done it as that author, or when both are authority statements (a
+    // team member correcting the team's list). Only a spotter's own earlier
+    // markings are kept (add-only, `keepOwnEarlierRows`): an authority list
+    // is the whole list, so a replaced one never comes back.
+    const replaces =
+      sameAuthorLink(o, target) || (ranking(o) != null && ranking(target) != null);
+    if (replaces && !(keepOwnEarlierRows && isSpotterVoiceRow(target))) removed.add(target.id);
   }
 
   return rows.filter((o) => !removed.has(o.id) && !isRetractionValue(o.value));
