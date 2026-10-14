@@ -23,7 +23,7 @@ import {
   type EvidenceOfLife,
   type EvidenceSource,
 } from "./resolve";
-import { TEAM_ROLES } from "./teamRoles";
+import { TEAM_ROLES, isTeamRole } from "./teamRoles";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
@@ -101,13 +101,11 @@ const RETRACTING_ROLES: ReadonlySet<string> = new Set([
   "guardian",
 ]);
 
-/** Who states appearance with authority, and so may not state Not sure. */
-const STATING_ROLES_WITHOUT_NOT_SURE: ReadonlySet<string> = new Set([
-  "staff",
-  "admin",
-  "management",
-  "guardian",
-]);
+/** Who states appearance with authority, and so may not state Not sure: the
+ * team (the one list, `isTeamRole`) and a cat guardian. */
+function statesAppearanceWithAuthority(role: string): boolean {
+  return isTeamRole(role) || role === "guardian";
+}
 
 const AUTHORITY_SCOPES: ReadonlySet<string> = new Set([
   "none",
@@ -375,7 +373,7 @@ function validateValue(
       if (
         colours.length === 1 &&
         colours[0] === "not_sure" &&
-        STATING_ROLES_WITHOUT_NOT_SURE.has(ctx.roleAtTime)
+        statesAppearanceWithAuthority(ctx.roleAtTime)
       ) {
         refuse(
           "MALFORMED_VALUE",

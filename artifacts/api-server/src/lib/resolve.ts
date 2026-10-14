@@ -12,7 +12,7 @@
  * `resolve.test.ts` with the same name.
  */
 import type { Observation } from "@workspace/db/schema";
-import { TEAM_ROLES } from "./teamRoles";
+import { TEAM_ROLES, isTeamRole } from "./teamRoles";
 import type { CoatColour, Mark } from "./appearance";
 import { COAT_COLOURS, MARKS, normaliseColours } from "./appearance";
 import { todayInStreakTimezone } from "./streak";
@@ -647,30 +647,18 @@ export function resolveLifeStatus(
 // ---------------------------------------------------------------------------
 
 /**
- * Who has standing to *state* a cat's colour or markings, as a level: the
- * highest level present wins, then the newest by `observedAt` within it
- * (Decision G). `null` means no standing as authority. A row with no
- * standing may still be a spotter's voice (see `isSpotterVoiceRow`).
+ * Who has standing to *state* a cat's colour or markings, as a Decision G
+ * level (0 = none). The default is `appearanceAuthorityLevel` (SYC-53 PR
+ * 0.2): a cat guardian with a `colony:<id>` scope (2) outranks the team and
+ * management (1), and vets, imports and owners are 0. Kept a parameter so
+ * tests can inject a ranking. A row with no standing may still be a
+ * spotter's voice (see `isSpotterVoiceRow`).
  *
- * A parameter rather than a constant because SYC-53's `authorityLevel` (its
- * PR 0.2) is not on main yet. Whichever of the two merges second wires
- * `authorityLevel` in here; the appearance carve-out below
- * (`hasNoStandingOnAppearance`) is applied by the resolver before any
- * ranking is consulted, so a ranking that ranks vets or owners highly can
- * never give them standing on appearance.
+ * The appearance carve-out (`hasNoStandingOnAppearance`) is also applied by
+ * the resolver before any ranking is consulted, so even a ranking that
+ * ranks vets or owners highly can never give them standing here.
  */
-export type AppearanceRanking = (o: Observation) => number | null;
-
-const TEAM_APPEARANCE_ROLES: ReadonlySet<string> = new Set(["staff", "admin", "management"]);
-
-/**
- * Today's ranking: the team (staff, and `admin`/`management`) is level 1 and
- * nothing else counts. A cat guardian with a `colony:<id>` scope slots in at
- * level 2 once `guardian` is reachable (SYC-53 PR 2.2), which outranks the
- * team (Decision G).
- */
-export const TEAM_APPEARANCE_RANKING: AppearanceRanking = (o) =>
-  TEAM_APPEARANCE_ROLES.has(o.roleAtTime) ? 1 : null;
+export type AppearanceRanking = (o: Rankable) => AuthorityLevel;
 
 /**
  * Vets, imported records and owners have no standing on colour or markings,
@@ -801,7 +789,7 @@ export function standingAppearanceRows(
     if (isRetractionValue(o.value)) {
       // Only someone the ranking gives standing may mark a row wrong, so a
       // guardian's retraction is inert until the ranking includes her.
-      if (ranking(o) == null) continue;
+      if (ranking(o) === 0) continue;
       // Exactly the row it points at (spec §4.4, §10.6), nothing else.
       removed.add(target.id);
       continue;
@@ -812,7 +800,7 @@ export function standingAppearanceRows(
     // markings are kept (add-only, `keepOwnEarlierRows`): an authority list
     // is the whole list, so a replaced one never comes back.
     const replaces =
-      sameAuthorLink(o, target) || (ranking(o) != null && ranking(target) != null);
+      sameAuthorLink(o, target) || (ranking(o) > 0 && ranking(target) > 0);
     if (replaces && !(keepOwnEarlierRows && isSpotterVoiceRow(target))) removed.add(target.id);
   }
 
@@ -974,26 +962,19 @@ function newestVoiceAt(voices: readonly Voice[]): number {
   );
 }
 
-/** The authority statement that decides, or undefined: highest level, then
- * newest by `observedAt` (ties by id). */
+/** The authority statement that decides, or undefined: Decision G's order
+ * through `highestAuthority` (highest level, then newest by `observedAt`,
+ * ties by id). Machine readings are never authority. */
 function pickAuthority<T extends { row: Observation }>(
   statements: readonly T[],
   ranking: AppearanceRanking,
 ): T | undefined {
-  let best: { s: T; level: number } | undefined;
-  for (const s of statements) {
-    if (s.row.provenance === "machine") continue;
-    const level = ranking(s.row);
-    if (level == null) continue;
-    if (
-      !best ||
-      level > best.level ||
-      (level === best.level && isNewer(s.row, best.s.row))
-    ) {
-      best = { s, level };
-    }
-  }
-  return best?.s;
+  const candidates = statements.filter((s) => s.row.provenance !== "machine");
+  const winner = highestAuthority(
+    candidates.map((s) => s.row),
+    ranking,
+  );
+  return winner ? candidates.find((s) => s.row === winner) : undefined;
 }
 
 /** The Colour check conditions (spec §5.3), as data for Slice 3. The
@@ -1046,7 +1027,7 @@ function sameColourSet(a: readonly string[], b: readonly string[]): boolean {
  */
 export function resolveCoat(
   observations: readonly Observation[],
-  ranking: AppearanceRanking = TEAM_APPEARANCE_RANKING,
+  ranking: AppearanceRanking = appearanceAuthorityLevel,
 ): AppearanceResolved<CoatColour[]> {
   const statements = standingAppearanceRows(observations, "coat", false, ranking).flatMap((row) => {
     const colours = coatColours(row.value);
@@ -1248,7 +1229,7 @@ const DAY_MS_APPEARANCE = 86_400_000;
 export function resolveMarkings(
   observations: readonly Observation[],
   now: Date,
-  ranking: AppearanceRanking = TEAM_APPEARANCE_RANKING,
+  ranking: AppearanceRanking = appearanceAuthorityLevel,
 ): AppearanceResolved<Mark[]> {
   const statements = standingAppearanceRows(observations, "markings", true, ranking).flatMap((row) => {
     const marks = markingsList(row.value);
@@ -1343,7 +1324,6 @@ export interface VaccinationRecord {
   clinic: string | null;
 }
 
-const VACCINATING_ROLES: ReadonlySet<string> = new Set(["staff", "admin", "management"]);
 
 function parseVaccines(value: unknown): { vaccines: Vaccine[]; clinic: string | null } | null {
   if (typeof value !== "object" || value === null) return null;
@@ -1365,14 +1345,15 @@ function parseVaccines(value: unknown): { vaccines: Vaccine[]; clinic: string | 
 /**
  * The vaccinations the team recorded (spec §6.3), newest first by the date
  * given, or `[]`. There is no negative and no *Likely*: an empty list means
- * nothing is recorded, never "not vaccinated". Only team rows count (staff,
- * `admin`/`management`); a row from anyone else, including a public or
+ * nothing is recorded, never "not vaccinated". Only team rows count
+ * (`isTeamRole`, less `vet` until vets can sign in and hold
+ * `set_vaccination`); a row from anyone else, including a public or
  * guardian row a writer should have refused, is ignored. A team row that
  * replaces another team row (a correction) removes it.
  */
 export function resolveVaccinated(observations: readonly Observation[]): VaccinationRecord[] {
   const teamRows = observations.filter(
-    (o) => o.kind === "vaccinated" && VACCINATING_ROLES.has(o.roleAtTime),
+    (o) => o.kind === "vaccinated" && isTeamRole(o.roleAtTime) && o.roleAtTime !== "vet",
   );
   return teamRows
     .filter((o) => isActive(o, teamRows))
@@ -1428,8 +1409,8 @@ export function resolveCat(
       asOf: sterilised.asOf,
       clippedTipSightings: clippedTipCount(statusRows),
     },
-    coat: resolveCoat(observations, TEAM_APPEARANCE_RANKING),
-    markings: resolveMarkings(observations, now, TEAM_APPEARANCE_RANKING),
+    coat: resolveCoat(observations, appearanceAuthorityLevel),
+    markings: resolveMarkings(observations, now, appearanceAuthorityLevel),
     vaccinations: resolveVaccinated(observations),
   };
 }

@@ -552,7 +552,7 @@ describe("coat validator", () => {
   });
   it("NS1 refuses a team Not sure on colour; a spotter and the machine may still say it", async () => {
     const cat = await insertCat();
-    for (const role of ["staff", "admin"]) {
+    for (const role of ["staff", "management"]) {
       await expect(
         writeAs(cat.id, "coat", { colours: ["not_sure"], reason: "x" }, "staff", { roleAtTime: role }),
       ).rejects.toMatchObject(refused("MALFORMED_VALUE"));

@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { isTeamRole } from "./teamRoles";
 import type { Observation } from "@workspace/db/schema";
 import {
   athensDay,
@@ -11,7 +12,8 @@ import {
   resolveVaccinated,
   standingAppearanceRows,
   twoVoicesSince,
-  TEAM_APPEARANCE_RANKING,
+  appearanceAuthorityLevel,
+  authorityLevel,
   type AppearanceRanking,
 } from "./resolve";
 
@@ -119,24 +121,18 @@ function machineCoat(colours: string[], day: string): Observation {
   });
 }
 
-/** A ranking with guardians in it (SYC-53's shape, before it is on main):
- * a guardian with a colony scope is level 2, the team level 1. */
-const WITH_GUARDIANS: AppearanceRanking = (o) => {
-  if (o.roleAtTime === "guardian" && /^colony:[1-9][0-9]*$/.test(o.authorityScope)) return 2;
-  if (["staff", "admin", "management"].includes(o.roleAtTime)) return 1;
-  return null;
-};
+/** The real Decision G ranking for appearance (SYC-53 PR 0.2): a guardian
+ * with a colony scope is level 2, the team level 1, vets/imports/owners 0. */
+const WITH_GUARDIANS: AppearanceRanking = appearanceAuthorityLevel;
 
-/** Like SYC-53's `authorityLevel` with no appearance carve-out: vets, owners
- * and imports rank above everyone. The resolver must ignore them anyway. */
-const AUTHORITY_LEVEL_UNCARVED: AppearanceRanking = (o) => {
-  if (o.roleAtTime === "vet") return 4;
-  if (o.provenance === "import") return 4;
-  if (o.authorityScope === "owner_of_this_cat") return 3;
-  if (o.roleAtTime === "guardian") return 2;
-  if (["staff", "admin", "management"].includes(o.roleAtTime)) return 1;
-  return null;
-};
+/** SYC-53's `authorityLevel` without the appearance carve-out: vets 4,
+ * owners 3, imports 1. The resolver must ignore them anyway. */
+const AUTHORITY_LEVEL_UNCARVED: AppearanceRanking = authorityLevel;
+
+/** A ranking where only the team has standing (no guardians yet), built on
+ * the one list of team roles. */
+const TEAM_ONLY: AppearanceRanking = (o) =>
+  isTeamRole(o.roleAtTime) && o.roleAtTime !== "vet" ? 1 : 0;
 
 
 describe("the shared voice-counting helper", () => {
@@ -216,7 +212,7 @@ describe("the shared voice-counting helper", () => {
     const b = spotterCoat("b", ["black"], "2026-01-02");
     const hijack = spotterCoat("c", ["grey"], "2026-01-03", { supersedesId: a.id });
     const retraction = team("coat", { retracted: true }, "2026-01-04", { supersedesId: b.id });
-    const standing = standingAppearanceRows([a, b, hijack, retraction], "coat", false, TEAM_APPEARANCE_RANKING);
+    const standing = standingAppearanceRows([a, b, hijack, retraction], "coat", false, appearanceAuthorityLevel);
     expect(standing.map((o) => o.id).sort()).toEqual([a.id, hijack.id].sort());
   });
 
@@ -226,7 +222,7 @@ describe("the shared voice-counting helper", () => {
       value: { retracted: true },
       supersedesId: a.id,
     });
-    expect(standingAppearanceRows([a, bogus], "coat", false, TEAM_APPEARANCE_RANKING).map((o) => o.id)).toEqual([a.id]);
+    expect(standingAppearanceRows([a, bogus], "coat", false, appearanceAuthorityLevel).map((o) => o.id)).toEqual([a.id]);
   });
 
   it("drops vet, imported and owner-scope rows entirely", () => {
@@ -235,7 +231,7 @@ describe("the shared voice-counting helper", () => {
       team("coat", { colours: ["ginger"] }, "2026-01-01", { provenance: "import" }),
       spotterCoat("o", ["ginger"], "2026-01-01", { authorityScope: "owner_of_this_cat" }),
     ];
-    expect(standingAppearanceRows(rows, "coat", false, TEAM_APPEARANCE_RANKING)).toEqual([]);
+    expect(standingAppearanceRows(rows, "coat", false, appearanceAuthorityLevel)).toEqual([]);
   });
 });
 
@@ -877,12 +873,12 @@ describe("review finding 5: who may retract comes from the ranking", () => {
     return [a, b, guardianWrong];
   };
 
-  it("R5a with today's team-only ranking a guardian's retraction does nothing", () => {
-    expect(resolveCoat(rows(), TEAM_APPEARANCE_RANKING)).toMatchObject({ value: ["ginger"], confidence: "likely" });
+  it("R5a with a team-only ranking a guardian's retraction does nothing", () => {
+    expect(resolveCoat(rows(), TEAM_ONLY)).toMatchObject({ value: ["ginger"], confidence: "likely" });
   });
 
-  it("R5b with guardians ranked at level 2 her retraction applies", () => {
-    expect(resolveCoat(rows(), WITH_GUARDIANS)).toMatchObject({ value: ["ginger"], confidence: "reported" });
+  it("R5b with the real ranking (guardians at level 2) her retraction applies", () => {
+    expect(resolveCoat(rows())).toMatchObject({ value: ["ginger"], confidence: "reported" });
   });
 });
 
