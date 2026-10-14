@@ -1,6 +1,7 @@
 import { db, reportStateEventsTable, welfareReportsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { actingRole, type CapabilityHolder } from "./capabilities";
+import { catTarget } from "./capabilityTargets";
 import { writeObservation } from "./observations";
 
 /**
@@ -82,7 +83,7 @@ export async function moveReportState(input: {
           kind: "welfare_outcome",
           value: { state: to, reportId: updated[0]!.id },
           accountId: personId,
-          roleAtTime: actingRole(person, "change_report_state"),
+          roleAtTime: actingRole(person, "change_report_state", await catTarget(catId)),
           observedAt: new Date(),
         });
       }

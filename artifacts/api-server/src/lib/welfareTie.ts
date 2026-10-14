@@ -6,6 +6,7 @@ import {
   type Observation,
 } from "@workspace/db";
 import { actingRole, can } from "./capabilities";
+import { catTarget } from "./capabilityTargets";
 import { lockActiveObservation } from "./teamCorrections";
 import { ObservationRefused, writeObservation } from "./observations";
 
@@ -189,7 +190,7 @@ export async function tieReportToCat(input: {
           // even when the row is credited to whoever closed it earlier: the
           // closer's role at the time isn't stored on the report. Today every
           // team member writes `staff`, so the two can't differ.
-          roleAtTime: actingRole(input.person, "change_report_state"),
+          roleAtTime: actingRole(input.person, "change_report_state", await catTarget(input.catId)),
           observedAt: report.stateChangedAt ?? new Date(),
         });
       }
