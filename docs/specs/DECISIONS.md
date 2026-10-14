@@ -349,6 +349,26 @@ Samuel **approved the spec on 12 October 2026** and **the implementation plan on
 21. **C. A field check's photo is kept in its own private table, `field_check_photos`,** served only by a team route, and referred to from the ear-tip statement by its random id, never through the public photo column. **D. SYC-209's build owns the colony screens and routes;** this work owns the powers they ask for, and the first guardian is invited once SYC-209's "create a colony" step is live (production holds no colony yet); team and management can be invited sooner. **E. "Needs a look" is grouped by colony** on the plain dashboard page and sorted by distance only on the field pages, and the phone's position travels in a POST body, never in an address. **F. The saved colony view gets a short screen spec (SYC-54)** before its slice is planned in detail.
 22. **G. Who wins when people disagree: vet > owner > cat guardian > team, and the newest wins only within the same level** (Samuel, 12 October 2026; updated 13 October 2026: an owner always prevails over a cat guardian). Imported records and management rank with the team. A guardian's wrong word stands until the team marks it wrong, a vet speaks, or an owner speaks. The server sets the date on every guardian route; a date sent by the phone is ignored there. A guardian's statement that contradicts a team record goes on the team's "recent guardian changes" list, marked as contradicting. This replaces the data spine's "newest authoritative statement wins, whatever the role" rule (the spec change is a separate docs PR).
 
+## Part 2q — approval of `report-an-issue.md` (SYC-44, SYC-170), 12 October 2026, and its implementation plan, 14 October 2026
+
+Samuel **approved the spec on 12 October 2026** and **the implementation plan on 14 October 2026** (`docs/superpowers/plans/syc-44-report-an-issue.md`). Where anything earlier says otherwise, these win.
+
+- **"Report an issue" lives in the existing queue.** Reports use `welfare_reports` with `kind = 'content'`, shown in a second section under the welfare list, never above a welfare report, and visible only to people who hold `view_welfare_queue`; cat guardians never see them. (D1.)
+- **A privacy report hides, as an inappropriate-content report does.** One confirmed report about a photo that shows a person or a private place hides it pending review, on the approved confirm step. (D2; amends Part 2b.)
+- **Four safeguards on a one-report hide.** A hide needs a verified Turnstile token; a photo the team has ever restored is not hidden again by a report; hides per address are capped at 5 an hour and 15 a day; and a global brake stops automatic hiding after 5 report-hides in a calendar day (Athens time), with a dashboard banner, until midnight. (D3.)
+- **A hidden photo is hidden from everyone but staff** and is replaced in the sightings list by a neutral tile. "Visible to whoever uploaded it" is dropped. (D4; amends §6.)
+- **Any team member can delete a hidden privacy photo for good before launch,** with a typed confirmation, under the contract in `hosting-and-photo-storage.md` §6.5, recorded with who did it. (D5, option B widened from management-only; amends nothing.)
+- **A report about location or home text, or about a death, never changes anything by itself.** The team acts. (D6, D7.)
+- **A photo is reported from a larger view of that photo.** (D8.)
+- **The reporter gets an on-screen thank-you only.** There is no email box on Report an issue and no closing email, so nothing amends `email-capture.md` or the privacy policy. (D9, option D.)
+- **Turnstile on both public report forms, in a WebView on the app's own challenge page on the phone apps.** Verified in Express; no Worker; exact hostname list. (D10.)
+- **A bad or missing token is refused and retried; only a Cloudflare outage is accepted, as "unchecked".** An unchecked issue report never hides. Drafts need a token too. This relaxes SYC-170's wording only in the outage case. (D11.)
+- **Issue reports are kept one year after closing,** then the note is deleted. (D12.)
+- **Report an issue is built after PR 6 of the queue plan,** and Turnstile on the welfare form goes first. (D13.)
+- **Photos are never kept by shared caches.** Public photos are served as `private`, so only a viewer's own phone or browser keeps a copy; a hidden photo is gone from every public place at once. The spec's new address on every hide and restore is not built (amends D14; Samuel, 14 October 2026, plan Decision 1).
+- **No team action to clear a cat's home description.** SYC-130 makes the home note visible only to its owner and the team, and that change must be live before the pre-launch pass comes off (amends D6's conditional action; plan Decision 2, 14 October 2026).
+- **"Delete for good" is for privacy only:** a hidden photo that someone reported as showing a person or a private place, or that the team hid with the "for privacy" tick. Offensive photos stay hidden, not deleted (plan Decision 3, 14 October 2026).
+
 ## Part 3 — spec ownership, to stop the specs drifting apart again
 
 The four specs were written independently and contradicted each other in fourteen places. Each area now has exactly one owning document. A spec that needs another's behaviour **references it and does not restate it**.
