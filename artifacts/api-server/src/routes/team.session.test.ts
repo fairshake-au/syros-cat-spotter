@@ -118,7 +118,14 @@ describe("the session", () => {
       JSON.stringify({ pid: personId, sv: 99, exp: now + 999 }),
     ).toString("base64url");
     expectRefusal(await me(`${name}=${tamperedBody}.${mac}`));
-    expectRefusal(await me(`${name}=${body}.${mac.slice(0, -2)}AA`));
+    // SYC-297: change the MAC's first character, never its tail. Overwriting
+    // the last two with "AA" was a no-op whenever the MAC already ended in
+    // "AA" (1 run in ~1024), so the genuine cookie went back and got a 200.
+    const flipped = `${mac[0] === "A" ? "B" : "A"}${mac.slice(1)}`;
+    expect(Buffer.from(flipped, "base64url")).not.toEqual(
+      Buffer.from(mac, "base64url"),
+    );
+    expectRefusal(await me(`${name}=${body}.${flipped}`));
     const sv = await currentVersion();
     expectRefusal(
       await me(craft({ pid: personId, sv, exp: now + 999 }, KEY_B)),
