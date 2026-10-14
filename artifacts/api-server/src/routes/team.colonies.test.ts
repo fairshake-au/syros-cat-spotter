@@ -696,6 +696,19 @@ describe("the list and a colony's page", () => {
   });
 });
 
+describe("the ?done= message is looked up safely", () => {
+  it("names that exist on every object are no message, and no error", async () => {
+    const id = await makeColony(unique("done"));
+    for (const done of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+      for (const path of ["/api/team/colonies", `/api/team/colonies/${id}`]) {
+        const res = await get(`${path}?done=${done}`);
+        expect(res.status, `${path} ${done}`).toBe(200);
+        expect(res.text, `${path} ${done}`).not.toContain('class="notice"');
+      }
+    }
+  });
+});
+
 describe("test 12 (part): refusals", () => {
   it("every colony route answers the identical 401 with no session, and a person with no team role", async () => {
     const id = await makeColony(unique("refuse"));

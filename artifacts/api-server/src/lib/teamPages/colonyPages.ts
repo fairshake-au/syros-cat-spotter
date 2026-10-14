@@ -31,7 +31,7 @@ const DONE: Record<string, WordKey> = {
 
 /** A fixed sentence for `?done=<key>`; any other key shows nothing. */
 function banner(done: string | undefined): string {
-  const key = done !== undefined ? DONE[done] : undefined;
+  const key = done !== undefined && Object.hasOwn(DONE, done) ? DONE[done] : undefined;
   return key ? `<p class="notice" role="status">${w(key)}</p>` : "";
 }
 

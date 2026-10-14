@@ -124,7 +124,7 @@ const problemFor = (fields: string[], name: unknown) => {
       if (f === "name" && typeof name === "string" && name.trim().length > COLONY_NAME_MAX) {
         return t("problem.nameTooLong");
       }
-      const key = FIELD_WORDS[f];
+      const key = Object.hasOwn(FIELD_WORDS, f) ? FIELD_WORDS[f] : undefined;
       return key ? t(key) : t("problem.fields") + ".";
     }),
   );
