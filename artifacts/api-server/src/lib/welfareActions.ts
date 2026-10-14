@@ -1,5 +1,6 @@
 import { db, reportStateEventsTable, welfareReportsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
+import { actingRole, type CapabilityHolder } from "./capabilities";
 import { writeObservation } from "./observations";
 
 /**
@@ -33,7 +34,7 @@ export type MoveOutcome =
   | "not_found";
 
 /**
- * Moves a sent report from `from` to `to`, as `personId`. One transaction:
+ * Moves a sent report from `from` to `to`, as `person`. One transaction:
  * the UPDATE only matches while the report is still in the state the page
  * showed (`state = from`), so of two people moving it at once exactly one
  * matches, and only that one writes the event. Postgres makes the second
@@ -43,9 +44,12 @@ export async function moveReportState(input: {
   publicId: string;
   from: ReportState;
   to: ReportState;
-  personId: string;
+  /** The signed-in person: their id is recorded, and their scopes decide
+   * the role the cat's history row is written with (actingRole). */
+  person: CapabilityHolder & { id: string };
 }): Promise<MoveOutcome> {
-  const { publicId, from, to, personId } = input;
+  const { publicId, from, to, person } = input;
+  const personId = person.id;
   return db.transaction(async (tx) => {
     const updated = await tx
       .update(welfareReportsTable)
@@ -78,7 +82,7 @@ export async function moveReportState(input: {
           kind: "welfare_outcome",
           value: { state: to, reportId: updated[0]!.id },
           accountId: personId,
-          roleAtTime: "staff",
+          roleAtTime: actingRole(person, "change_report_state"),
           observedAt: new Date(),
         });
       }

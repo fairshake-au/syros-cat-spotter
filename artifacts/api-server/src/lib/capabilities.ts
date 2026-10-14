@@ -4,6 +4,8 @@
 // asks "is this person staff?"; each asks for a capability by name, and when
 // guardian, volunteer and vet roles arrive (§7.2), only this function changes.
 
+import { TEAM_ROLE_NAMES, type TeamRole } from "./teamRoles";
+
 export const CAPABILITIES = [
   "view_exact_location",
   "hide_photo",
@@ -49,6 +51,41 @@ export function can(
   // §7.1: in this part, staff may do everything; guardian, volunteer and vet
   // are stored but grant nothing yet.
   return person.scopes.some((s) => s.role === "staff");
+}
+
+/**
+ * Which `roleAtTime` a statement is written with (roles spec §10.4; SYC-53
+ * plan, PR 0.2): the role under which the capability was granted for that
+ * target, decided by the server from the person and the action and never
+ * read from the request. A person who is staff and also a cat guardian,
+ * using a team capability, writes `staff`; using a guardian-only capability
+ * on her colony, she will write `guardian` (PR 2.2).
+ *
+ * Each of the person's scopes is asked on its own whether it grants the
+ * capability, through can(), so this can never name a role can() wouldn't
+ * honour. When several grant it, the team's roles are tried first, in the
+ * one list's order (staff, management, vet), then the rest. Today can()
+ * grants only `staff`, so this returns `staff` for every team member and
+ * nothing written changes.
+ *
+ * Throws if no scope grants the capability: every caller has already
+ * checked can() and refused, so reaching here without a grant is a bug, and
+ * writing a statement under a role nobody holds would be worse than failing.
+ */
+export function actingRole(
+  person: CapabilityHolder,
+  capability: Capability,
+  target?: CapabilityTarget,
+): string {
+  const order = (role: string): number => {
+    const i = TEAM_ROLE_NAMES.indexOf(role as TeamRole);
+    return i === -1 ? TEAM_ROLE_NAMES.length : i;
+  };
+  const scopes = [...person.scopes].sort((a, b) => order(a.role) - order(b.role));
+  for (const scope of scopes) {
+    if (can({ scopes: [scope] }, capability, target)) return scope.role;
+  }
+  throw new Error(`actingRole: no scope grants ${capability}`);
 }
 
 /** Every capability this person holds, for GET /api/team/me. */

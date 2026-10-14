@@ -1013,3 +1013,149 @@ describe("no retraction of a retraction (review fix 9)", () => {
     ).rejects.toMatchObject(refused("INVALID_RETRACTION"));
   });
 });
+
+// SYC-53 PR 0.2 (roles spec §10.4; data spine §10.1): the record's vocabulary.
+describe("the record's vocabulary (SYC-53 PR 0.2)", () => {
+  const write = (catId: number, roleAtTime: string, extra: Record<string, unknown> = {}) =>
+    writeObservation(db, {
+      catId,
+      kind: "sterilised",
+      value: { sterilised: true },
+      accountId: "vocab-account",
+      roleAtTime,
+      observedAt: new Date(),
+      ...extra,
+    });
+
+  it("management is a live role; the retired admin and volunteer are refused", async () => {
+    const cat = await insertCat();
+    const row = await write(cat.id, "management");
+    expect(row.roleAtTime).toBe("management");
+    for (const role of ["admin", "volunteer"]) {
+      await expect(write(cat.id, role)).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
+    }
+  });
+
+  it("guardian and vet stay unreachable (guardian until PR 2.2, vet until SYC-24)", async () => {
+    const cat = await insertCat();
+    for (const role of ["guardian", "vet"]) {
+      await expect(write(cat.id, role)).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
+    }
+    // Even with the guardian's own scope shape.
+    await expect(
+      write(cat.id, "guardian", { authorityScope: "colony:3" }),
+    ).rejects.toMatchObject(refused("UNREACHABLE_ROLE"));
+  });
+
+  it("a management member may retract a colour, like staff", async () => {
+    const cat = await insertCat();
+    const coat = await writeAs(cat.id, "coat", { colours: ["ginger"] }, "staff");
+    const retraction = await writeObservation(db, {
+      catId: cat.id,
+      kind: "coat",
+      value: { retracted: true },
+      accountId: "vocab-manager",
+      roleAtTime: "management",
+      observedAt: new Date(),
+      supersedesId: coat.id,
+    });
+    expect(retraction.supersedesId).toBe(coat.id);
+  });
+
+  it("the colony observation accepts { colonyId: null } (no colony); a non-number or a missing key is still refused", async () => {
+    const cat = await insertCat();
+    const none = await writeObservation(db, {
+      catId: cat.id,
+      kind: "colony",
+      value: { colonyId: null },
+      accountId: "vocab-account",
+      roleAtTime: "staff",
+      observedAt: new Date(),
+    });
+    expect(none.value).toEqual({ colonyId: null });
+    const placed = await writeObservation(db, {
+      catId: cat.id,
+      kind: "colony",
+      value: { colonyId: 4 },
+      accountId: "vocab-account",
+      roleAtTime: "staff",
+      observedAt: new Date(),
+    });
+    expect(placed.value).toEqual({ colonyId: 4 });
+    for (const value of [{ colonyId: "x" }, {}, { colonyId: undefined }, null]) {
+      await expect(
+        writeObservation(db, {
+          catId: cat.id,
+          kind: "colony",
+          value,
+          accountId: "vocab-account",
+          roleAtTime: "staff",
+          observedAt: new Date(),
+        }),
+      ).rejects.toMatchObject(refused("MALFORMED_VALUE"));
+    }
+  });
+
+  it("a colony:<id> scope is refused on every role but guardian, so nobody writes a stray one", async () => {
+    const cat = await insertCat();
+    for (const role of ["staff", "management", "system", "public"]) {
+      const author = role === "public" ? { deviceId: "vocab-device", accountId: undefined } : {};
+      const accountId = role === "system" ? "system:admin-route" : "vocab-account";
+      await expect(
+        write(cat.id, role, { accountId, ...author, authorityScope: "colony:3" }),
+      ).rejects.toMatchObject(refused("INVALID_AUTHORITY_SCOPE"));
+    }
+  });
+
+  it("an owner-scoped sterilised or ear_tip row is refused until SYC-130; owner-scoped homed and name still work", async () => {
+    const cat = await insertCat();
+    for (const [kind, value] of [
+      ["sterilised", { sterilised: true }],
+      ["ear_tip", { clipped: true }],
+    ] as const) {
+      for (const roleAtTime of ["public", "staff"]) {
+        const author = roleAtTime === "public" ? { deviceId: "owner-phone" } : { accountId: "vocab-account" };
+        await expect(
+          writeObservation(db, {
+            catId: cat.id,
+            kind,
+            value,
+            roleAtTime,
+            authorityScope: "owner_of_this_cat",
+            observedAt: new Date(),
+            ...author,
+          }),
+        ).rejects.toMatchObject(refused("INVALID_AUTHORITY_SCOPE"));
+      }
+    }
+    const homed = await writeObservation(db, {
+      catId: cat.id,
+      kind: "life_status",
+      value: { status: "homed" },
+      deviceId: "owner-phone",
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: new Date(),
+    });
+    expect(homed.authorityScope).toBe("owner_of_this_cat");
+    const named = await writeObservation(db, {
+      catId: cat.id,
+      kind: "name",
+      value: { name: "Owned", normalised: "owned" },
+      deviceId: "owner-phone",
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: new Date(),
+    });
+    expect(named.authorityScope).toBe("owner_of_this_cat");
+  });
+
+  it("only the exact pattern colony:<id> is a colony scope; anything near it is an unknown scope", async () => {
+    const cat = await insertCat();
+    for (const authorityScope of ["colony:0", "colony:01", "colony:3x", "colony:", "colony:-2", "Colony:3"]) {
+      await expect(write(cat.id, "staff", { authorityScope })).rejects.toMatchObject(
+        refused("INVALID_AUTHORITY_SCOPE"),
+      );
+    }
+  });
+});

@@ -8,7 +8,8 @@ import {
 } from "@workspace/db";
 import { loadCatRecords } from "./observations";
 import { resolveCat } from "./resolve";
-import { newestActiveClip, TEAM_ROLES } from "./teamCorrections";
+import { newestActiveClip } from "./teamCorrections";
+import { TEAM_ROLES } from "./teamRoles";
 
 // The *Probably sterilised* review list (spec §4.5 point 3; SYC-43 part 2
 // plan, PR 4). Read by the dashboard page (GET /api/team/likely) and by data

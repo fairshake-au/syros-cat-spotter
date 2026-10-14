@@ -5,7 +5,7 @@ import {
   welfareReportsTable,
   type Observation,
 } from "@workspace/db";
-import { can } from "./capabilities";
+import { actingRole, can } from "./capabilities";
 import { lockActiveObservation } from "./teamCorrections";
 import { ObservationRefused, writeObservation } from "./observations";
 
@@ -185,7 +185,11 @@ export async function tieReportToCat(input: {
           kind: "welfare_outcome",
           value: { state: report.state, reportId: report.id },
           accountId: report.stateChangedBy ?? input.person.id,
-          roleAtTime: "staff",
+          // The role comes from the person tying the report (actingRole),
+          // even when the row is credited to whoever closed it earlier: the
+          // closer's role at the time isn't stored on the report. Today every
+          // team member writes `staff`, so the two can't differ.
+          roleAtTime: actingRole(input.person, "change_report_state"),
           observedAt: report.stateChangedAt ?? new Date(),
         });
       }
