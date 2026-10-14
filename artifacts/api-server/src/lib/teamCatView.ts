@@ -282,7 +282,8 @@ export interface TeamCatView {
   };
   /**
    * Whether the cat has an owner (claiming-a-cat.md §7), never who: no device
-   * id, no name. The team sees the owner's home note; the home pin only if
+   * id, no name. The team sees the home note, kept after an owner deletes
+   * their data (D13); the home pin only if
    * the viewer holds `view_exact_location`, and with no viewer, never.
    */
   owner: {
@@ -554,9 +555,11 @@ export async function teamCatView(
     },
     owner: {
       has: cat.ownerDeviceId !== null,
-      homeDescription: cat.ownerDeviceId !== null ? cat.homeDescription : null,
+      // D13: deletion clears the owner link and keeps the note and pin, so
+      // they show whenever stored, owner or not. Letting go and Remove owner
+      // clear them, so a stored note or pin always means the cat has a home.
+      homeDescription: cat.homeDescription,
       homePin:
-        cat.ownerDeviceId !== null &&
         cat.homeLat !== null &&
         cat.homeLng !== null &&
         viewer !== undefined &&
