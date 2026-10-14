@@ -115,9 +115,12 @@ describe("mayUseWorkspace(), the workspace door (SYC-53 PR 0.4; roles spec §6.3
       const end = source.indexOf("\n}\n", start);
       return source.slice(start, end);
     };
+    // The whole body is the one statement: nothing else (mayEnter, "holds
+    // any capability", an extra `||`) may decide the workspace.
     const workspace = body("mayUseWorkspace");
-    expect(workspace).toContain('can(person, "use_workspace")');
-    expect(workspace).not.toMatch(/mayEnter|CAPABILITIES|some\(/);
+    expect(workspace.slice(workspace.indexOf("{") + 1).trim()).toBe(
+      'return can(person, "use_workspace");',
+    );
     expect(body("mayEnter")).toContain('c !== "use_workspace"');
   });
 });

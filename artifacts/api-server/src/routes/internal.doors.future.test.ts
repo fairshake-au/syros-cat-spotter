@@ -10,19 +10,28 @@ import { removeTestPerson } from "../test/removeTestPerson";
 //
 // In this PR can() is still staff-only, so the dashboard door and the
 // workspace door open for exactly the same people, and nothing real can tell
-// them apart: answering the old shape with the dashboard door instead of the
-// workspace door would pass every other test until PR 0.5 gives guardians
-// something. So here the dashboard door is replaced with what PR 0.5 will
-// make it for a guardian (any placement opens it), and the workspace door is
-// left real. The route must still refuse her the workspace in both shapes.
+// them apart: answering the old shape with the dashboard door, or with "holds
+// any capability", would pass every other test until PR 0.5 gives guardians
+// something. So here the exported can(), capabilitiesOf() and mayEnter() are
+// replaced with what PR 0.5 will make them for a placed guardian: every
+// capability except use_workspace. mayUseWorkspace() is left real (its own
+// body is pinned in capabilities.test.ts). The route must still refuse her
+// the workspace in both shapes, however it is written.
 
 vi.mock("../lib/capabilities", async (importOriginal) => {
   const real = await importOriginal<typeof import("../lib/capabilities")>();
+  type Holder = Parameters<typeof real.can>[0];
+  type Cap = Parameters<typeof real.can>[1];
+  const placedGuardian = (p: Holder) =>
+    p.scopes.some((s) => s.role === "guardian" && s.colonyId !== null);
+  const can = (p: Holder, c: Cap, t?: Parameters<typeof real.can>[2]) =>
+    real.can(p, c, t) || (placedGuardian(p) && c !== "use_workspace");
   return {
     ...real,
-    mayEnter: (person: Parameters<typeof real.mayEnter>[0]) =>
-      real.mayEnter(person) ||
-      person.scopes.some((s) => s.role === "guardian" && s.colonyId !== null),
+    can,
+    capabilitiesOf: (p: Holder) => real.CAPABILITIES.filter((c) => can(p, c)),
+    mayEnter: (p: Holder) =>
+      real.CAPABILITIES.some((c) => c !== "use_workspace" && can(p, c)),
   };
 });
 
@@ -31,10 +40,11 @@ const RUN = randomBytes(3).toString("hex");
 const GUARDIAN = `vitest-doorsf-guardian-${RUN}@example.com`;
 const STAFF = `vitest-doorsf-staff-${RUN}@example.com`;
 let guardianId: string;
+let colonyId: number;
 
 beforeAll(async () => {
   process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
-  const colonyId = (
+  colonyId = (
     await pool.query<{ id: number }>(
       "insert into colonies (name, normalised_name) values ($1, lower($1)) returning id",
       [`Vitest doors future colony ${RUN}`],
@@ -61,6 +71,7 @@ afterAll(async () => {
   delete process.env["INTERNAL_PEOPLE_TOKEN"];
   await removeTestPerson(GUARDIAN);
   await removeTestPerson(STAFF);
+  await pool.query("delete from colonies where id = $1", [colonyId]);
   await pool.end();
 });
 

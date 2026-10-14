@@ -49,14 +49,18 @@ const NEVER = addr("never");
 const EVERYONE = [STAFF, STAFF_GREEK, GUARDIAN, VET, NO_ROLES, LEFT, PENDING];
 
 const ids: Record<string, { id: string; sessionVersion: number }> = {};
+const colonyIds: number[] = [];
 
-const aColony = async () =>
-  (
+const aColony = async () => {
+  const id = (
     await pool.query<{ id: number }>(
       "insert into colonies (name, normalised_name) values ($1, lower($1)) returning id",
       [`Vitest doors colony ${RUN} ${Math.random()}`],
     )
   ).rows[0]!.id;
+  colonyIds.push(id);
+  return id;
+};
 
 const add = async (
   email: string,
@@ -101,6 +105,7 @@ afterEach(() => {
 
 afterAll(async () => {
   for (const e of EVERYONE) await removeTestPerson(e);
+  await pool.query("delete from colonies where id = any($1)", [colonyIds]);
   await pool.end();
 });
 
@@ -114,16 +119,15 @@ const ask = (body: Record<string, unknown>) => {
 const askOld = (email: string) => ask({ email });
 const askDoors = (email: string) => ask({ email, version: 2 });
 
-/** Everything the Worker can see of an answer. */
-const seen = (res: request.Response) => ({
-  status: res.status,
-  text: res.text,
-  contentType: res.headers["content-type"],
-  contentLength: res.headers["content-length"],
-  etag: res.headers["etag"],
-  cacheControl: res.headers["cache-control"],
-  setCookie: res.headers["set-cookie"],
-});
+/**
+ * Everything the Worker can see of an answer: the status, the exact bytes,
+ * and every header but the clock and the connection's own.
+ */
+const seen = (res: request.Response) => {
+  const headers = { ...res.headers };
+  for (const h of ["date", "connection", "keep-alive"]) delete headers[h];
+  return { status: res.status, text: res.text, headers };
+};
 
 describe("T7: the old request shape says yes only to the workspace door (§14 case 11)", () => {
   it("a cat guardian placed on one colony gets allowed:false from the old shape, exactly as a stranger does", async () => {

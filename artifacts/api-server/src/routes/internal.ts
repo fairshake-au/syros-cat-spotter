@@ -78,7 +78,12 @@ router.post(
   async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const raw: unknown = req.body?.email;
-    const version: unknown = req.body?.version;
+    // Own property only, so nothing on a prototype can turn an old-shape
+    // request into a version-2 one (whose yes can mean the dashboard only).
+    const version: unknown =
+      req.body && Object.hasOwn(req.body, "version")
+        ? req.body.version
+        : undefined;
     if (
       typeof raw !== "string" ||
       raw.length > MAX_EMAIL_LENGTH ||
