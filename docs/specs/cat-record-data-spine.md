@@ -81,8 +81,8 @@ Plus one derived state that is **not** a status anyone sets:
 
 | Who | Can set |
 |---|---|
-| **Syros Cats team** (staff, admin) | Any status, on any cat |
-| **Cat guardian** | Homed, in care, deceased — on cats they look after |
+| **Syros Cats team** (staff and management) | Any status, on any cat |
+| **Cat guardian** | Homed, in care, deceased — on cats they look after, directly, with no team check. She may put back the life status she herself replaced, within 30 days. She may also set a cat's sterilisation answer (§4.2), and add cats to, or take them out of, her own colonies (§10.5), directly |
 | **Vet** | In care, on a cat in their care. Vet accounts come later (SYC-24); until then the team records it on the vet's word. |
 | **Resident who has claimed a cat** | Homed, on their own claimed cat. They may also withdraw that statement when the cat no longer lives with them, which supersedes it and never sets a status of its own (`claiming-a-cat.md` §6). Who may claim a cat at all is `claiming-a-cat.md` §3. |
 | **Any spotter** | Nothing directly. A spotter's *sighting* is itself evidence the cat is alive, which is the strongest and most common life-status signal we get. A spotter who notices something worrying uses the note field or the trouble report. |
@@ -152,9 +152,9 @@ This rule gets its own section, its own named test and a line in the opening sum
 
 | Level | Reached when | Shown as, to everyone |
 |---|---|---|
-| **Confirmed sterilised** | An imported Syros Cats record, a team entry, or a vet says the cat was sterilised, and nothing more recent and equally authoritative says otherwise | *"Sterilised — confirmed by Syros Cats"* |
+| **Confirmed sterilised** | An imported Syros Cats record, a team entry, a vet, a cat guardian (for a cat in her own colonies) or a cat owner (per SYC-130) says the cat was sterilised, and nothing from a higher level, or later at the same level, says otherwise (Decision G) | *"Sterilised — confirmed by Syros Cats"* |
 | **Likely sterilised** | One or more photo-backed sightings report a clipped tip, and nothing authoritative contradicts it | *"Probably sterilised — a clipped ear tip has been seen"* |
-| **Confirmed not sterilised** | A team member, a vet, or an imported record says this cat has not been sterilised, and nothing more recent and equally authoritative says otherwise | *"Not sterilised — Syros Cats' records"* |
+| **Confirmed not sterilised** | A team member, a vet, a cat guardian (for a cat in her own colonies), an owner (once SYC-130 allows owners to write), or an imported record says this cat has not been sterilised, and nothing from a higher level, or later at the same level, says otherwise (Decision G) | *"Not sterilised — Syros Cats' records"* |
 | **Unknown** | Nothing has been said, or only "can't tell" / "no clip visible" answers exist | *"Not known yet"* |
 
 **Per D4, a confirmed negative is shown publicly.** The earlier draft of this spec recommended hiding it — showing *"Not known yet"* to the public while the team saw the truth. Samuel decided against that: the app should be honest, and a person looking at a cat should be able to see that this one still needs help.
@@ -169,6 +169,12 @@ This rule gets its own section, its own named test and a line in the opening sum
 A fourth level, **Reported**, exists in the data model and the resolver's output type from day one but is not yet reachable — it is where SYC-52 will place a single unconfirmed public claim once prompted-versus-volunteered weighting arrives. Building the ladder with all its rungs now means the later change is a resolver change, not a schema change. See §10.
 
 **Confidence never crosses attributes.** A *Confirmed* ear tip is a confirmed statement about an ear, not about an operation. It contributes to sterilised reaching *Likely* and can never make it *Confirmed*. This is the §4.1 rule expressed as something the resolver enforces rather than a convention it hopes for.
+
+**Who can say a cat is sterilised (amended 12 October 2026, `roles-and-invites.md` Decision 5).** A *statement that a cat is sterilised* from the team, a vet, a cat guardian (for a cat in her own colonies) or a cat owner (what counts as an owner follows SYC-130, `claiming-a-cat.md`) makes the cat *Confirmed* at once. It is recorded with who said it and in what role, and the team can mark it wrong with its own later statement; the earlier statement stays in the history. A vet's waits for SYC-24, which builds vet accounts, and an owner's waits for the claim work in SYC-130. The sentence above still holds: an ear tip on its own never makes a cat *Confirmed*.
+
+**A field check is a different thing.** A cat guardian's in-person look at an ear (*it looks clipped*) counts at once, with no team OK, and shows as *"Probably sterilised – checked in person"* under *Likely*. It never makes a cat *Confirmed*, and the team can mark it wrong. Saying "she is sterilised" is a statement about the operation; "I looked at her ear" is a statement about the ear.
+
+**The "sterilised" news (Samuel, 12 October 2026).** When a statement makes a cat *Confirmed* sterilised for the first time, the people who follow that cat are told **in the app and by a push notification**, and **once per cat, ever**: if a *Confirmed* answer is later marked wrong and then confirmed again, nobody is told a second time in the app or by push, because the news cannot be unsent and a second message would read as spam. Whoever's statement made the cat *Confirmed* (team, management, vet, guardian or owner), the news is the same. A field check, an ear tip, and a guardian's "not sterilised" announce nothing. The roles work sends no email itself; people who opted in to news by email also get the separate "your cat was sterilised" email from the nightly job in `email-capture.md` §5.3 (SYC-55), unchanged (Samuel, 13 October 2026).
 
 ### 4.3 How many clipped-tip sightings make it Likely?
 
@@ -204,7 +210,7 @@ Three things fix it, and all three ship together:
 
 1. **A supersede write.** A team member viewing the evidence photo can mark that specific observation superseded, with a reason, from the cat page in the dashboard. It writes a new observation pointing at the old one; nothing is deleted and the mistake stays visible in the trail. `POST /observations/{id}/supersede` in §10.6.
 2. **`clipped: false` means something when a team member says it.** The §4.1 asymmetry is about *spotters*, and it is unchanged: no volume of public "no clip visible" answers moves anything. But a Syros Cats team member or vet looking at the same photograph and judging *that is a torn ear* is an authoritative statement about the ear, and it supersedes the spotter's `clipped: true` on that cat. It moves sterilised from *Likely* back to *Unknown* — never to a negative, because an unclipped ear is still not evidence of an unsterilised cat.
-3. **A *Likely* review list.** Not the full confirmation queue (still deferred) — just a dashboard list of cats sitting at *Likely* with their evidence photos, newest first, and the two buttons *looks right* / *that's not a clip*. A few minutes a week clears a season's errors.
+3. **A *Likely* review list.** Not the full confirmation queue (specified in `roles-and-invites.md` §7) — just a dashboard list of cats sitting at *Likely* with their evidence photos, newest first, and the two buttons *looks right* / *that's not a clip*. A few minutes a week clears a season's errors.
 
 ### 4.6 Precedence — which statement wins
 
@@ -531,6 +537,10 @@ export const observationsTable = pgTable("observations", {
   //   life_status    { status: "homed" }
   //   sterilised     { sterilised: true, date: "2024-03-03", clinic: "…", costEur: 55 }
   //   ear_tip        { clipped: true, side: "left" }        // side: left|right|unsure
+  //   ear_tip        { clipped: true, side: "left", seenInPerson: true, photoPublicId: "k3x9…" }
+  //                  // a field check (roles-and-invites.md 7.3): seenInPerson marks a look
+  //                  // at the cat; photoPublicId is the random id of a private photo kept
+  //                  // apart from the public photos (never carried in photoId)
   //   ear_tip        { clipped: false } | { clipped: "cant_tell" }
   //   food_and_water { present: true } | { present: false } | { present: "cant_tell" }
   //   note           { text: "…" }
@@ -543,10 +553,18 @@ export const observationsTable = pgTable("observations", {
   accountId: text("account_id"),
   // The observer's role AT THE TIME OF WRITING. Never looked up at read time.
   roleAtTime: text("role_at_time").notNull().default("public"),
-  // public | guardian | volunteer | vet | staff | admin | system
+  // public | guardian | vet | staff | management | system
+  // (amended 12 Oct 2026, roles-and-invites.md 17.1.3: the reserved `admin` is
+  // renamed `management`; `guardian` is a live value; the reserved `volunteer`
+  // is retired, because volunteers are on the team as `staff`.)
   // Whether that authority applied to THIS cat at the time of writing.
   authorityScope: text("authority_scope").notNull().default("none"),
-  // none | guardian_of_this_cat | owner_of_this_cat
+  // none | colony:<id> | guardian_of_this_cat | owner_of_this_cat
+  // `colony:<id>` is a cat guardian's scope: the colony the cat was in when she
+  // spoke. It must match ^colony:[1-9][0-9]*$, is written only by the server
+  // (never read from a request), is valid only with roleAtTime `guardian`, and
+  // is never treated as authority for any other role (SYC-53, Decision B).
+  // `guardian_of_this_cat` stays reserved for the claim feature (SYC-130).
 
   // volunteered | prompted | machine | import | legacy
   provenance: text("provenance").notNull().default("volunteered"),
@@ -624,7 +642,7 @@ Approved with `coat-markings-and-health.md` (SYC-2). That document owns the colo
 
 - **`modelVersion` is required only on a machine reading.** The `coat` validator in `observations.ts` currently requires it on every `coat` value, which would refuse a person's statement. It becomes: required when `provenance` is `machine`, absent otherwise.
 - **One normaliser, used by every writer.** `black` + `white` is stored as `black_and_white`; every writer (the answers route, the team and guardian statement functions) calls the same `normaliseColours()`, and the validator's refusal of the raw pair is only the backstop.
-- **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, and `guardian` (with `authorityScope: guardian_of_this_cat`, her own colonies). The exact shape of a guardian's scope follows whatever the roles work (SYC-53) decides. There is no `volunteer` value: volunteers are on the team. `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public` and `guardian`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` value, are the roles spec's amendment to this section (`roles-and-invites.md` §17.1, item 3).
+- **Who may write which kind.** `coat` and `markings` accept `public` (suggestions), `staff`, `management`, and `guardian` (with `authorityScope: colony:<id>`, her own colonies; the shape and its rules are in the `observations` comment above). There is no `volunteer` value: volunteers are on the team. `vet` has no standing on appearance and is refused. `vaccinated` is refused from `public` and `guardian`, and from `system` except `provenance: import` once `records-import.md` is built (the import is optional and after the first release). `team_note` is refused from `public` and `system`, accepted from staff and management, and from `guardian` only for her own colonies. The rename of the reserved `roleAtTime` value `admin` to `management`, and the live `guardian` value, are made in §10.1 above (`roles-and-invites.md` §17.1, item 3).
 - **A retraction may only target a row of the same kind, and only `coat` or `markings`.** `{ retracted: true }` is refused from `public`, refused unless `supersedesId` is set, and refused unless the row it supersedes is the same kind and that kind is `coat` or `markings`, for every role. A retraction can never remove a `sterilised`, `vaccinated`, `team_note` or any other row.
 - A prefilled "Yes" is `provenance: "prompted"`, with `suggestedValue` set to the machine's value and `suggestionSource` naming the reading. A different answer is `volunteered`. A team or guardian Confirm carries `agreesWith: <statement id>` and **no photo**, the PR #99 pattern, so it never counts as independent public evidence.
 - A team or guardian statement on `markings` is the whole list; an empty list is meaningful.
@@ -667,8 +685,8 @@ Phase-1 rules the resolver implements:
 **Sterilised — an ordered fold, not a set of independent clauses.**
 
 1. Discard superseded and redacted-value observations.
-2. Take the **authoritative** `sterilised` assertions: `roleAtTime` in {vet, staff, admin}, or `provenance: "import"`. **The newest by `observedAt` wins, whatever sign it carries.** `true` → *confirmed sterilised*; `false` → *confirmed not sterilised*, which is displayed publicly per D4.
-3. Only if there is no authoritative assertion at all: any non-superseded `ear_tip` with `clipped: true` and a `photoId` → *likely*, unless an authoritative `ear_tip { clipped: false }` (roleAtTime in {vet, staff, admin}) supersedes or postdates it, in which case → *unknown*.
+2. Take the **authoritative** `sterilised` assertions: `roleAtTime` in {vet, staff, management}, or `guardian` with a `colony:<id>` scope, or `provenance: "import"`. **The newest by `observedAt` wins, whatever sign it carries.** `true` → *confirmed sterilised*; `false` → *confirmed not sterilised*, which is displayed publicly per D4.
+3. Only if there is no authoritative assertion at all: any non-superseded `ear_tip` with `clipped: true` and a `photoId` → *likely*, unless an authoritative `ear_tip { clipped: false }` (roleAtTime in {vet, staff, management}, or `guardian` with a `colony:<id>` scope) supersedes or postdates it, in which case → *unknown*.
 4. Otherwise → *unknown*.
 
 A spotter's `clipped: false` or `"cant_tell"` is collected into `supportingObservationIds` for display and **never affects the level** — the §4.1 asymmetry, unchanged. `ear_tip` can never produce *confirmed*, in either direction.
@@ -756,7 +774,7 @@ The resolver reads through this table, so a merge is a row and an unmerge is ano
 
 Moved to `records-import.md` §3. Created only if the import goes ahead.
 
-**`roleAtTime` values outrun what exists.** `guardian`, `volunteer` and `vet` are recorded from day one and are **unreachable in phase 1** — the team-access spec builds one role. Nobody should build a UI expecting them.
+**`roleAtTime` values.** `staff`, `management` and `guardian` are live (`roles-and-invites.md`, 12 October 2026). `vet` is reserved and grants nothing until SYC-24 builds vet accounts, so nobody should build a UI expecting it. There is no `volunteer` value: volunteers are on the team and write as `staff`. The resolver's authoritative roles are the team (`staff`, `management`), `vet`, and, **for sterilisation and for colour and markings only, `guardian`** with `authorityScope` = the colony. A guardian's `colony:<id>` scope is meaningful only for the role `guardian`.
 
 ### 10.5 Colonies and feeding sites
 
@@ -779,11 +797,13 @@ export const coloniesTable = pgTable("colonies", {
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   notes: text("notes"),                  // team-only
-  // `peopleTable` is the people list (team-access-and-welfare-queue.md §2.9).
-  // Who created the colony: a link to `people`, null for colonies that existed
-  // before this was recorded. A cat guardian can create a colony and becomes
-  // its guardian (roles-and-invites.md Decision 14).
-  createdBy: uuid("created_by").references(() => peopleTable.id),
+  // Who created the colony: the creating person's id (from the people list,
+  // team-access-and-welfare-queue.md §2.9) held as text, with no foreign key,
+  // null for colonies that existed before this was recorded. The column
+  // already exists as nullable text; SYC-53's colony creation writes it. A cat
+  // guardian can create a colony and becomes its guardian
+  // (roles-and-invites.md Decision 14).
+  createdBy: text("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("colonies_normalised_name_unique").on(t.normalisedName),
