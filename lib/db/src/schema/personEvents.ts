@@ -43,6 +43,14 @@ export type PersonEventKind = (typeof PERSON_EVENT_KINDS)[number];
  * delete and TRUNCATE. `detail` holds ids and role names only, never a name
  * or an address, so the record survives anonymising (SYC-208).
  *
+ * `detail` has two shapes. A live event holds what the operation knew:
+ * `{ roles }` for `added` and `rejoined`, `{ roles, colonyIds }` for `left`,
+ * nothing for `signed_out_everywhere`. An event the migration backfilled for
+ * someone who predates the record is `{ backfilled: true }` for `added`
+ * (their roles then are not known, so none are guessed) and
+ * `{ backfilled: true, roles, colonyIds }` for `left`. A reader tells the two
+ * apart by `backfilled`.
+ *
  * `by` is a person id, `self`, or `cli:<operator>` (or `system:migration`
  * for the rows the migration wrote for people who predate the record).
  */
