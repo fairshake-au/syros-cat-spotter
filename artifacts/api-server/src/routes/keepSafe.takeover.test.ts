@@ -23,6 +23,7 @@ vi.mock("../lib/logger", async (importOriginal) => {
 
 import {
   db,
+  catsTable,
   deviceCredentialsTable,
   emailConsentEventsTable,
   emailContactsTable,
@@ -437,7 +438,6 @@ const PROBES: Probe[] = [
   { name: "POST /sightings/:id/resolve", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/resolve`).set("X-Device-Secret", s).send({ deviceId: id, newCatName: "Anything" }) },
   { name: "POST /sightings/:id/answers", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/answers`).set("X-Device-Secret", s).send({ deviceId: id }) },
   { name: "GET /profiles/:id/cats/:c/open-sightings", file: "sightings.ts", call: (id, s, c) => request(app).get(`/api/profiles/${id}/cats/${c.catId}/open-sightings`).set("X-Device-Secret", s) },
-  { name: "POST /cats", file: "cats.ts", call: (id, s) => request(app).post("/api/cats").set("X-Device-Secret", s).send({ deviceId: id, name: "Anything", ownerName: "Me", homeDescription: "", lat: 37.44, lng: 24.9 }) },
   { name: "POST /cats/:id/claim", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/claim`).set("X-Device-Secret", s).send({ deviceId: id, livesOnSyros: true, livesInMyHome: true, homePin: { lat: 37.44, lng: 24.9 } }) },
   { name: "POST /cats/:id/let-go", file: "cats.ts", call: (id, s, c) => request(app).post(`/api/cats/${c.catId}/let-go`).set("X-Device-Secret", s).send({ deviceId: id }) },
   { name: "PATCH /cats/:id", file: "cats.ts", call: (id, s, c) => request(app).patch(`/api/cats/${c.catId}`).set("X-Device-Secret", s).send({ deviceId: id, name: "Anything" }) },
@@ -472,12 +472,11 @@ describe("4. the old phone carrying on", () => {
       .insert(welfareReportsTable)
       .values({ publicId: `pub-${RUN}-${n}`, severity: "urgent", lat: 37.44, lng: 24.9, reporterDevice: old.id, clientRef: `ref-${RUN}-${n}` })
       .returning();
-    const catRes = await request(app)
-      .post("/api/cats")
-      .set("X-Device-Secret", old.secret)
-      .send({ deviceId: old.id, name: `Kscat${RUN}${n}`, ownerName: "Me", homeDescription: "", lat: 37.44, lng: 24.9 });
-    expect(catRes.status).toBe(201);
-    const ctx = { sightingId: sighting!.id, catId: catRes.body.id as number, publicId: report!.publicId };
+    const [cat] = await db
+      .insert(catsTable)
+      .values({ name: `Kscat${RUN}${n}`, description: "", primaryPhotoId: 0, lat: 37.44, lng: 24.9, discovererDeviceId: old.id })
+      .returning();
+    const ctx = { sightingId: sighting!.id, catId: cat!.id, publicId: report!.publicId };
 
     const { phone, token } = await newPhoneWithLink(email);
     expect((await redeem(phone, token, old.id)).status).toBe(200);

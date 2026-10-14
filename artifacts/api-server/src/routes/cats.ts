@@ -1,6 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
 import {
-  RegisterCatBody,
   ClaimCatBody,
   LetGoCatBody,
   UpdateCatBody,
@@ -205,84 +204,6 @@ router.get("/cats", async (req, res) => {
   });
   res.json(result);
 });
-
-// Resident registers a brand-new owned cat (no sighting required).
-router.post("/cats", async (req, res) => {
-  const body = RegisterCatBody.parse(req.body);
-  // SYC-107: every route that acts as a spotter proves the caller holds the
-  // device's secret before anything else, so an id seen in traffic can't be
-  // used to register, claim or rename cats as someone else.
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
-  const name = body.name.trim().slice(0, 60);
-  if (isBlankName(name)) {
-    res.status(400).json(BLANK_NAME_BODY);
-    return;
-  }
-  if (containsOffensiveLanguage(name)) {
-    res.status(400).json({
-      error: "Cat name contains offensive language",
-      code: "OFFENSIVE_NAME",
-    });
-    return;
-  }
-  // SYC-101: one cat per folded name. Checked first so the answer names
-  // the cat holding it; the unique index still decides a race (below).
-  const taken = await catNamed(name);
-  if (taken) {
-    res.status(409).json(await nameTakenBody(taken));
-    return;
-  }
-  // Owner registration writes homed + name observations in the same
-  // transaction as the cat row itself (data-spine.md PR 2: "Owner
-  // registration (POST /cats) writes the same [as a claim] at creation").
-  const cat = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(catsTable)
-      .values({
-        name,
-        description: "",
-        // No photo yet — 0 is a sentinel; the photos route 404s for it and
-        // the owner (or a first sighting) can supply a real photo later.
-        primaryPhotoId: 0,
-        lat: body.lat,
-        lng: body.lng,
-        discovererDeviceId: body.deviceId,
-        ownerDeviceId: body.deviceId,
-        ownerName: body.ownerName.trim().slice(0, 60),
-        homeDescription: body.homeDescription.trim().slice(0, 200),
-      })
-      .returning();
-    await writeObservation(tx, {
-      catId: row!.id,
-      kind: "life_status",
-      value: { status: "homed" },
-      deviceId: body.deviceId,
-      roleAtTime: "public",
-      authorityScope: "owner_of_this_cat",
-      observedAt: row!.createdAt,
-    });
-    await writeObservation(tx, {
-      catId: row!.id,
-      kind: "name",
-      value: { name: row!.name, normalised: row!.normalisedName },
-      deviceId: body.deviceId,
-      roleAtTime: "public",
-      authorityScope: "owner_of_this_cat",
-      observedAt: row!.createdAt,
-    });
-    return row!;
-  }).catch(nullOnUniqueViolation);
-  if (!cat) {
-    // Another cat took the name between the check above and this write.
-    res.status(409).json(await nameTakenBody(await catNamed(name)));
-    return;
-  }
-  // The registering device is the owner and has just proved its secret.
-  res
-    .status(201)
-    .json(await catPayload(cat, 0, cat.createdAt, { tier: "owner", deviceId: body.deviceId }));
-});
-
 router.get("/cats/:catId", async (req, res) => {
   const startedAt = performance.now();
   // The answer depends on X-Device-Id (and its secret), never on the URL alone.

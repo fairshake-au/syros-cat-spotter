@@ -204,19 +204,40 @@ beforeAll(async () => {
   // A private feeding site right next to the cat (§6.7: absent, not blurred).
   await db.insert(feedingSitesTable).values({ name: FEEDING_NAME, ...FEEDING_EXACT, isPublic: false });
 
-  // An owned cat, registered through the route so the owner is bound to its secret.
-  const reg = await request(app)
-    .post("/api/cats")
-    .set("X-Device-Secret", SECRET)
-    .send({
-      deviceId: OWNER,
+  // An owned cat created directly with owner and home details.
+  const [ownedCat] = await db
+    .insert(catsTable)
+    .values({
       name: `${CAT_PREFIX}-owned`,
+      description: "",
+      primaryPhotoId: 0,
+      ...OWNED_EXACT,
+      discovererDeviceId: OWNER,
+      ownerDeviceId: OWNER,
       ownerName: "Eleni",
       homeDescription: "Blue door",
-      ...OWNED_EXACT,
-    });
-  expect(reg.status).toBe(201);
-  ownedCatId = reg.body.id;
+    })
+    .returning();
+  ownedCatId = ownedCat!.id;
+  // Write the observations that registration would have written
+  await writeObservation(db, {
+    catId: ownedCatId,
+    kind: "life_status",
+    value: { status: "homed" },
+    deviceId: OWNER,
+    roleAtTime: "public",
+    authorityScope: "owner_of_this_cat",
+    observedAt: new Date(),
+  });
+  await writeObservation(db, {
+    catId: ownedCatId,
+    kind: "name",
+    value: { name: `${CAT_PREFIX}-owned`, normalised: `${CAT_PREFIX.toLowerCase()}-owned` },
+    deviceId: OWNER,
+    roleAtTime: "public",
+    authorityScope: "owner_of_this_cat",
+    observedAt: new Date(),
+  });
 
   // Emitter 3: a spotter resolves a new sighting to the street cat.
   const [pending] = await db

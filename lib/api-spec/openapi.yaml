@@ -32,25 +32,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
   /cats:
-    post:
-      operationId: registerCat
-      tags: [cats]
-      summary: Register a brand-new owned cat (resident registration, no sighting required)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CatRegistration"
-      responses:
-        "201":
-          description: Cat created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Cat"
-        "400":
-          description: Invalid input
     get:
       operationId: listCats
       tags: [cats]
@@ -923,16 +904,6 @@ components:
           nullable: true
           description: The next page to ask for, or null on the last page.
       required: [cats, page, pageSize, total, nextPage]
-    CatRegistration:
-      type: object
-      properties:
-        deviceId: { type: string, minLength: 1 }
-        name: { type: string, minLength: 1, maxLength: 60 }
-        ownerName: { type: string, minLength: 1, maxLength: 60 }
-        homeDescription: { type: string, maxLength: 200 }
-        lat: { type: number }
-        lng: { type: number }
-      required: [deviceId, name, ownerName, homeDescription, lat, lng]
     CatClaim:
       type: object
       description: |

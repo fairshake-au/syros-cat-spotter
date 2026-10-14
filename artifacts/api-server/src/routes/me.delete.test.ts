@@ -607,7 +607,8 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       expect(res.status, withSecretLabels[i]).toBe(410);
       expect(res.body.code).toBe("IDENTITY_DELETED");
     }
-    // The three cat routes, with the old id and no secret at all (§4.3).
+    // The cat routes, with the old id and no secret at all (§4.3).
+    // POST /api/cats has been removed (SYC-130 D7).
     const noSecret = [
       request(app)
         .post("/api/cats")
@@ -631,9 +632,10 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
         .patch(`/api/cats/${w.claimed.id}`)
         .send({ deviceId: P.deviceId, name: "Ghost" }),
     ];
-    const noSecretLabels = ["POST /cats", "POST claim", "PATCH cat"];
+    const noSecretLabels = ["POST /cats (removed, 404)", "POST claim", "PATCH cat"];
+    const expectedStatuses = [404, 410, 410];
     for (const [i, res] of (await Promise.all(noSecret)).entries()) {
-      expect(res.status, noSecretLabels[i]).toBe(410);
+      expect(res.status, noSecretLabels[i]).toBe(expectedStatuses[i]);
     }
     const creds = await db
       .select()

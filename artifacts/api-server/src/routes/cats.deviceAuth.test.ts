@@ -109,53 +109,6 @@ async function reload(catId: number) {
   return row!;
 }
 
-describe("POST /api/cats device auth (SYC-107)", () => {
-  const body = (deviceId: string, nameSuffix: string) => ({
-    deviceId,
-    name: catName(nameSuffix),
-    ownerName: "Maria",
-    homeDescription: "Blue door",
-    lat: 37.44,
-    lng: 24.9,
-  });
-
-  async function catsNamed(nameSuffix: string) {
-    return db.select().from(catsTable).where(eq(catsTable.name, catName(nameSuffix)));
-  }
-
-  it("refuses a registration with no secret and registers nothing", async () => {
-    const res = await request(app).post("/api/cats").send(body(device("reg-a"), "RegNone"));
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ error: "Device secret required" });
-    expect(await catsNamed("RegNone")).toHaveLength(0);
-  });
-
-  it("refuses a registration under someone else's device id and registers nothing", async () => {
-    const victim = device("reg-b");
-    await bind(victim, SECRET_OWNER);
-    const res = await request(app)
-      .post("/api/cats")
-      .set("X-Device-Secret", SECRET_OTHER)
-      .send(body(victim, "RegWrong"));
-    expect(res.status).toBe(403);
-    expect(res.body).toEqual({ error: "Device secret does not match" });
-    expect(await catsNamed("RegWrong")).toHaveLength(0);
-  });
-
-  it("registers the cat when the right secret is sent", async () => {
-    const owner = device("reg-c");
-    await bind(owner, SECRET_OWNER);
-    const res = await request(app)
-      .post("/api/cats")
-      .set("X-Device-Secret", SECRET_OWNER)
-      .send(body(owner, "RegOk"));
-    expect(res.status).toBe(201);
-    const [row] = await catsNamed("RegOk");
-    expect(row?.ownerDeviceId).toBe(owner);
-    expect(row?.discovererDeviceId).toBe(owner);
-  });
-});
-
 describe("POST /api/cats/:catId/claim device auth (SYC-107)", () => {
   it("refuses a claim with no secret and leaves the cat unclaimed", async () => {
     const cat = await insertCat("ClaimNone");

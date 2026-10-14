@@ -95,53 +95,6 @@ describe("catNamed (SYC-101)", () => {
   });
 });
 
-describe("POST /api/cats with a folded-name clash (SYC-101)", () => {
-  it("answers NAME_TAKEN naming the cat, and registers nothing", async () => {
-    const zoe = await insertCat(`${NAME_PREFIX} Zoë`);
-    const res = await request(app)
-      .post("/api/cats")
-      .set("X-Device-Secret", SECRET)
-      .send({
-        deviceId: owner,
-        name: `${NAME_PREFIX.toLowerCase()} zoe`,
-        ownerName: "Maria",
-        homeDescription: "Blue door",
-        lat: 37.44,
-        lng: 24.9,
-      });
-    expect(res.status).toBe(409);
-    expect(res.body).toMatchObject({
-      code: "NAME_TAKEN",
-      cat: { id: zoe.id, name: `${NAME_PREFIX} Zoë` },
-    });
-    const rows = await db
-      .select()
-      .from(catsTable)
-      .where(eq(catsTable.normalisedName, `${NAME_PREFIX.toLowerCase()} zoe`));
-    expect(rows.map((r) => r.id)).toEqual([zoe.id]);
-  });
-
-  it("records the database's folded form on the name observation", async () => {
-    const res = await request(app)
-      .post("/api/cats")
-      .set("X-Device-Secret", SECRET)
-      .send({
-        deviceId: owner,
-        name: `${NAME_PREFIX} ΣΟΦΊΑΣ`,
-        ownerName: "Maria",
-        homeDescription: "Blue door",
-        lat: 37.44,
-        lng: 24.9,
-      });
-    expect(res.status).toBe(201);
-    expect(res.body.name).toBe(`${NAME_PREFIX} ΣΟΦΊΑΣ`);
-    const obs = await nameObservations(res.body.id);
-    expect(obs.map((o) => o.value)).toEqual([
-      { name: `${NAME_PREFIX} ΣΟΦΊΑΣ`, normalised: `${NAME_PREFIX.toLowerCase()} σοφιασ` },
-    ]);
-  });
-});
-
 describe("PATCH /api/cats/:id rename with a folded-name clash (SYC-101)", () => {
   it("answers NAME_TAKEN naming the other cat, and changes nothing", async () => {
     const other = await insertCat(`${NAME_PREFIX} Αγάπη`);
@@ -183,25 +136,6 @@ describe("PATCH /api/cats/:id rename with a folded-name clash (SYC-101)", () => 
 describe("losing a race for a name (SYC-101, review of #92)", () => {
   // The pre-check found nothing, then another cat took the name before this
   // write: the unique index refuses it, and the answer is still NAME_TAKEN.
-  it("registering answers NAME_TAKEN, naming the cat that won", async () => {
-    const winner = await insertCat(`${NAME_PREFIX} Φιλιώ`);
-    race.skipPrechecks = 1;
-    const res = await request(app)
-      .post("/api/cats")
-      .set("X-Device-Secret", SECRET)
-      .send({
-        deviceId: owner,
-        name: `${NAME_PREFIX.toUpperCase()} ΦΙΛΙΩ`,
-        ownerName: "Maria",
-        homeDescription: "Blue door",
-        lat: 37.44,
-        lng: 24.9,
-      });
-    expect(race.skipPrechecks).toBe(0);
-    expect(res.status).toBe(409);
-    expect(res.body).toMatchObject({ code: "NAME_TAKEN", cat: { id: winner.id } });
-  });
-
   it("renaming answers NAME_TAKEN and changes nothing", async () => {
     const winner = await insertCat(`${NAME_PREFIX} Μαρίνα`);
     const mine = await insertCat(`${NAME_PREFIX} Τούλα`, owner);
@@ -228,22 +162,8 @@ describe("losing a race for a name (SYC-101, review of #92)", () => {
 });
 
 describe("a name that is empty once folded (SYC-101, review of #92)", () => {
-  it("is refused on registration and on rename, and writes nothing", async () => {
-    const invisible = "\u200b\u2060\u200b";
-    const reg = await request(app)
-      .post("/api/cats")
-      .set("X-Device-Secret", SECRET)
-      .send({
-        deviceId: owner,
-        name: invisible,
-        ownerName: "Maria",
-        homeDescription: "Blue door",
-        lat: 37.44,
-        lng: 24.9,
-      });
-    expect(reg.status).toBe(400);
-    expect(reg.body).toEqual({ error: "Cat name is empty", code: "EMPTY_NAME" });
-
+  it("is refused on rename and writes nothing", async () => {
+    const invisible = "​⁠​";
     const mine = await insertCat(`${NAME_PREFIX} Κίκα`, owner);
     const ren = await request(app)
       .patch(`/api/cats/${mine.id}`)
