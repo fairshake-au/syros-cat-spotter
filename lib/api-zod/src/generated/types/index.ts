@@ -23,7 +23,6 @@ export * from './catLifeStatus';
 export * from './catLocationPrecision';
 export * from './catOwnerUpdate';
 export * from './catPage';
-export * from './catRegistration';
 export * from './catSterilised';
 export * from './catSterilisedConfidence';
 export * from './catUpdate';

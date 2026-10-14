@@ -919,3 +919,19 @@ describe("caching: per-phone answers are never stored by a shared cache", () => 
     expect(patched.headers["cache-control"]).toBe("private, no-store");
   });
 });
+
+describe("POST /api/cats (removed, D7)", () => {
+  it("returns 404", async () => {
+    const res = await request(app)
+      .post("/api/cats")
+      .send({
+        deviceId: "test-device",
+        name: "Test Cat",
+        ownerName: "Test Owner",
+        homeDescription: "Test",
+        lat: 37.44,
+        lng: 24.9,
+      });
+    expect(res.status).toBe(404);
+  });
+});

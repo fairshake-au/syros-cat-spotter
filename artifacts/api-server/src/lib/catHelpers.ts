@@ -142,9 +142,9 @@ export function toPublicDay(at: Date | string): string {
 
 /**
  * **The one serialiser** (§10.6). Every route that sends a cat to the app
- * builds it here: `GET /cats`, `catPayload` (`GET /cats/:id`, `POST /cats`,
- * claim, `PATCH`), and the resolve response. Built field by field from an
- * allow-list, never by spreading a row, so a new column can't leak.
+ * builds it here: `GET /cats`, `catPayload` (`GET /cats/:id`, claim, `PATCH`),
+ * and the resolve response. Built field by field from an allow-list, never by
+ * spreading a row, so a new column can't leak.
  *
  * Public: the centre of the cat's 250 m cell (secret grid origin, blur.ts),
  * `locationPrecision: "approximate"`, `locationCellM: 250`, distance to the

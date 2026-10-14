@@ -29,7 +29,6 @@ import type {
   CatLetGo,
   CatOwnerUpdate,
   CatPage,
-  CatRegistration,
   CatUpdate,
   CheckUsernameAvailabilityParams,
   ClaimUsernameRequest,
@@ -161,77 +160,6 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
-
-export const getRegisterCatUrl = () => {
-
-
-
-
-  return `/api/cats`
-}
-
-/**
- * @summary Register a brand-new owned cat (resident registration, no sighting required)
- */
-export const registerCat = async (catRegistration: CatRegistration, options?: RequestInit): Promise<Cat> => {
-
-  return customFetch<Cat>(getRegisterCatUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(catRegistration)
-  }
-);}
-
-
-
-
-
-export const getRegisterCatMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext> => {
-
-const mutationKey = ['registerCat'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerCat>>, {data: BodyType<CatRegistration>}> = (props) => {
-          const {data} = props ?? {};
-
-          return  registerCat(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type RegisterCatMutationResult = NonNullable<Awaited<ReturnType<typeof registerCat>>>
-    export type RegisterCatMutationBody = BodyType<CatRegistration>
-    export type RegisterCatMutationError = ErrorType<void>
-
-    /**
- * @summary Register a brand-new owned cat (resident registration, no sighting required)
- */
-export const useRegisterCat = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof registerCat>>,
-        TError,
-        {data: BodyType<CatRegistration>},
-        TContext
-      > => {
-      return useMutation(getRegisterCatMutationOptions(options));
-    }
 
 export const getListCatsUrl = (params?: ListCatsParams,) => {
   const normalizedParams = new URLSearchParams();

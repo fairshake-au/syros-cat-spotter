@@ -211,25 +211,6 @@ export interface CatPage {
   nextPage: number | null;
 }
 
-export interface CatRegistration {
-  /** @minLength 1 */
-  deviceId: string;
-  /**
-     * @minLength 1
-     * @maxLength 60
-     */
-  name: string;
-  /**
-     * @minLength 1
-     * @maxLength 60
-     */
-  ownerName: string;
-  /** @maxLength 200 */
-  homeDescription: string;
-  lat: number;
-  lng: number;
-}
-
 export type CatClaimHomePin = {
   /**
      * @minimum -90

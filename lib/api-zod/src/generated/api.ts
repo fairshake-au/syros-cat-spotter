@@ -19,59 +19,6 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Register a brand-new owned cat (resident registration, no sighting required)
- */
-
-export const registerCatBodyNameMax = 60;
-
-export const registerCatBodyOwnerNameMax = 60;
-
-export const registerCatBodyHomeDescriptionMax = 200;
-
-
-
-export const RegisterCatBody = zod.object({
-  "deviceId": zod.string().min(1),
-  "name": zod.string().min(1).max(registerCatBodyNameMax),
-  "ownerName": zod.string().min(1).max(registerCatBodyOwnerNameMax),
-  "homeDescription": zod.string().max(registerCatBodyHomeDescriptionMax),
-  "lat": zod.number(),
-  "lng": zod.number()
-})
-
-export const RegisterCatResponse = zod.object({
-  "id": zod.number(),
-  "name": zod.string(),
-  "description": zod.string(),
-  "photoUrl": zod.string().nullable(),
-  "lat": zod.number().describe('Where this cat is. For \"approximate\", the centre of its cell, never a pin.'),
-  "lng": zod.number().describe('See lat.'),
-  "locationPrecision": zod.enum(['exact', 'approximate']).describe('\"approximate\" means lat\/lng are the centre of a cell of\nlocationCellM metres and must be drawn as that cell, never as a\npin (cat-record-data-spine.md §10.7). \"exact\" only ever reaches\na cat\'s own owner, on its detail page.\n'),
-  "locationCellM": zod.number().nullable().describe('The cell\'s side in metres when approximate; null when exact.'),
-  "sightingsCount": zod.number(),
-  "lastSeenAt": zod.string().describe('A UTC calendar date (YYYY-MM-DD), never a time (§6.4.4).'),
-  "distanceKm": zod.number().nullish().describe('To the cat\'s published cell centre, rounded to 0.1 km (§6.4.2).'),
-  "discovererSpotterCode": zod.string().nullish().describe('Null once the discoverer has deleted their data; the app shows \"a spotter\"'),
-  "discovererNickname": zod.string().nullish(),
-  "discovererUsername": zod.string().nullish(),
-  "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
-  "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
-  "homePin": zod.object({
-  "lat": zod.number(),
-  "lng": zod.number()
-}).nullish().describe('Where the owner says the cat lives. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md §5, D9).'),
-  "hasHome": zod.boolean().describe('Whether this cat has a home. Derived from lifeStatus === \"homed\"\n(cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather\nthan a claim column directly, so a team correction is honoured\nand deleting an owner\'s device never silently unhomes a cat.\n'),
-  "lifeStatus": zod.enum(['street', 'homed', 'in_care', 'deceased']).describe('The cat\'s resolved life status (§3). A live \"deceased\" status is\ncleared automatically the moment a later sighting resolves to\nthis cat (§3.2) — the client never needs to handle that itself.\n'),
-  "notSeenSince": zod.string().nullable().describe('A calendar date (YYYY-MM-DD, UTC day — the same convention\nlastSeenAt\'s server-side computation uses), set only when this\ncat is presumed deceased (§3.4: no evidence of life for 36\nmonths) — never alongside lifeStatus: \"deceased\", and never\nshown as a headline or sent as a notification. The app reads it\nas \"Not seen since {date}\", in the same quiet place it would\nshow \"Last seen yesterday\". Date-only, not a timestamp: a\nthree-year-old \"last seen\" doesn\'t need time-of-day precision,\nand a bare date avoids a timezone round-trip when the client\nrenders it. Deliberately plain `type: string` rather than\n`format: date` — this repo\'s orval config coerces a `date`\nformat straight to a JS `Date` in the zod package\n(`override.zod.coerce.response`), which would desync from the\nplain `string` the react-query client keeps; a bare string\nkeeps both generated packages agreeing on the wire type.\n'),
-  "sterilised": zod.object({
-  "value": zod.boolean().nullable(),
-  "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
-  "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
-}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
-})
-
-
-/**
  * Paged (cat-record-data-spine.md §2.3). Walk `nextPage` until it is
  * null to get every cat. Every cat is the public view: lat/lng are the
  * centre of its 250 m cell (§6.2, §10.6).
