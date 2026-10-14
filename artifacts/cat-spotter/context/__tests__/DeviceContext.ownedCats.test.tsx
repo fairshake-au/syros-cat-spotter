@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getItem, setItem } = vi.hoisted(() => ({
   getItem: vi.fn(),
-  setItem: vi.fn(async () => {}),
+  setItem: vi.fn(async (_key: string, _value: string) => {}),
 }));
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem, setItem },
@@ -43,7 +43,7 @@ const SAVED = {
 
 function lastSavedOwned(): number[] | null {
   const calls = setItem.mock.calls.filter((c) => c[0] === 'cat-spotter/owned-cat-ids');
-  return calls.length ? JSON.parse(calls[calls.length - 1][1] as string) : null;
+  return calls.length ? JSON.parse(calls[calls.length - 1]![1]) : null;
 }
 
 describe('DeviceProvider — owned cats come from the server (SYC-130)', () => {

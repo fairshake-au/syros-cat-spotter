@@ -21,6 +21,7 @@ import {
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
+import { useOffline } from '@/context/OfflineContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { OwnershipBanner } from '@/components/OwnershipBanner';
 import { ClaimCatSheet } from '@/components/ClaimCatSheet';
@@ -79,13 +80,16 @@ export default function CatDetailScreen() {
     }
   }, [highlighted, markRead]);
 
-  // §10.6 Option B: on its own cat's page, the owner's device says who it
-  // is (its secret goes with every request), and the server answers with
-  // the exact position. Everyone else, and every list, gets the cell.
-  const asOwner = deviceId !== null && ownedCatIds.includes(catId);
+  const { isOnline } = useOffline();
+
+  // §10.6 Option B: on a cat's page the phone says who it is (X-Device-Id,
+  // and its secret goes with every request). The server answers an owner
+  // with the exact position, and tells a phone whether it may say "This is
+  // my cat" (`canClaim`, claiming-a-cat.md §4.1). Everyone else, and every
+  // list, gets the cell and `canClaim: false`.
   const query = useGetCat(catId, {
     query: { enabled: Number.isFinite(catId), queryKey: getGetCatQueryKey(catId) },
-    request: asOwner ? { headers: { 'X-Device-Id': deviceId } } : undefined,
+    request: deviceId !== null ? { headers: { 'X-Device-Id': deviceId } } : undefined,
   });
 
   const close = () => {
@@ -272,23 +276,47 @@ export default function CatDetailScreen() {
           )}
 
           {isClaimed ? (
-            <OwnershipBanner
-              ownerName={cat.ownerName}
-              homeDescription={cat.homeDescription}
-            />
-          ) : (
-            <Button
-              variant="primary"
-              size="lg"
-              block
-              iconLeft={
-                <Feather name="home" size={16} color={colors.primaryForeground} />
-              }
-              onPress={() => setSheet('claim')}
-            >
-              {t('claimCat')}
-            </Button>
-          )}
+            <>
+              <OwnershipBanner
+                ownerName={cat.ownerName}
+                homeDescription={cat.homeDescription}
+              />
+              {/* Claiming-a-cat.md §6: an owner on a new phone can't let go
+                  from it. Said quietly, under "Has a home". */}
+              {!isOwner && (
+                <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
+                  {t('claimNewPhone').split('{name}').join(cat.name)}
+                </Text>
+              )}
+            </>
+          ) : data.canClaim ? (
+            /* Claiming-a-cat.md §4.1: only when the server says this phone
+               may claim; styled as a secondary action, never the page's most
+               prominent button. */
+            <View style={{ gap: 6 }}>
+              <Button
+                variant="secondary"
+                size="lg"
+                block
+                disabled={!isOnline}
+                iconLeft={
+                  <Feather name="home" size={16} color={colors.secondaryForeground} />
+                }
+                onPress={() => setSheet('claim')}
+              >
+                {t('claimCat')}
+              </Button>
+              {!isOnline && (
+                <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
+                  {t('claimNeedsConnection')}
+                </Text>
+              )}
+            </View>
+          ) : cat.lifeStatus === 'street' ? (
+            <Text style={[styles.quietLine, { color: colors.mutedForeground }]}>
+              {t('claimNotMetHint').split('{name}').join(cat.name)}
+            </Text>
+          ) : null}
 
           <View style={styles.statsRow}>
             <StatTile
@@ -523,6 +551,7 @@ const styles = StyleSheet.create({
     height: 180,
   },
   map: { flex: 1 },
+  quietLine: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 19 },
   mapCaption: { fontSize: 12, fontFamily: 'Inter_500Medium', marginTop: -6 },
   sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold' },
   sightingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
