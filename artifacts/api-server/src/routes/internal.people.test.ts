@@ -8,8 +8,9 @@ import {
   vi,
 } from "vitest";
 import request from "supertest";
-import { addPerson, pool, removePerson } from "@workspace/db";
+import { addPerson, pool } from "@workspace/db";
 import app from "../app";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // POST /api/internal/people/allowed (SYC-43 part 1 plan §4, tests 6–8).
 
@@ -33,7 +34,7 @@ const EMAIL = "vitest-internal-susan@example.com";
 let personId: string;
 
 beforeAll(async () => {
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   const p = await addPerson({
     email: EMAIL,
     name: "Susan",
@@ -47,7 +48,7 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await pool.end();
 });
 

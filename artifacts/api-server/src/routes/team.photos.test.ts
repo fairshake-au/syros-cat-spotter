@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, db, pool, photosTable, removePerson } from "@workspace/db";
+import { addPerson, db, pool, photosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
@@ -9,6 +9,7 @@ import {
   seedReport,
   signInThroughHandoff,
 } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, test P1-3 (spec §8.6 #12, team half): the team's
 // report-photo route serves the bytes to a signed-in person and 401s without
@@ -27,7 +28,7 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   const susan = await addPerson({
     email: EMAIL,
     name: "Susan",
@@ -58,7 +59,7 @@ afterAll(async () => {
   await db
     .delete(photosTable)
     .where(eq(photosTable.publicId, cataloguePhotoId));
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await pool.end();
 });
 

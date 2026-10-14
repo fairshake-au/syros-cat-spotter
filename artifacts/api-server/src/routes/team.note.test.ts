@@ -8,7 +8,6 @@ import {
   markLeft,
   peopleTable,
   pool,
-  removePerson,
   reportStateEventsTable,
   welfareReportsTable,
 } from "@workspace/db";
@@ -21,6 +20,7 @@ import {
   signInThroughHandoff,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, PR 2: the team note, the forms on the queue page, and
 // P2-6 (a person who has left stays named on what they did).
@@ -40,7 +40,7 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
-  for (const e of [SUSAN, MARIA, VERA]) await removePerson(e);
+  for (const e of [SUSAN, MARIA, VERA]) await removeTestPerson(e);
   const susan = await addPerson({
     email: SUSAN,
     name: "Susan",
@@ -75,7 +75,7 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
-  for (const e of [SUSAN, MARIA, VERA]) await removePerson(e);
+  for (const e of [SUSAN, MARIA, VERA]) await removeTestPerson(e);
   await pool.end();
 });
 
@@ -372,8 +372,10 @@ describe("P2-6: a person who has left stays named on what they did", () => {
       .catch((err: unknown) => err);
     const err = (await attempt) as { code?: string; cause?: { code?: string } };
     expect(err?.code ?? err?.cause?.code).toBe("23503");
-    // ...and the people tool turns that into "use mark-left".
-    await expect(removePerson(MARIA)).rejects.toThrow(
+    // ...and the app has no way to delete a person at all (SYC-53 PR 0.1:
+    // marking as left is the only way off the list).
+    expect("removePerson" in (await import("@workspace/db"))).toBe(false);
+    await expect(removeTestPerson(MARIA)).rejects.toThrow(
       "This person has history. Use mark-left instead.",
     );
     const r = await row(id);
@@ -386,7 +388,7 @@ describe("a person marked as left can't use either form (review of PR 2)", () =>
   const LENA = "vitest-note-lena@example.com";
 
   it("gets the identical 401 on both routes, at their very next request, and nothing is written", async () => {
-    await removePerson(LENA);
+    await removeTestPerson(LENA);
     const lena = await addPerson({
       email: LENA,
       name: "Lena",

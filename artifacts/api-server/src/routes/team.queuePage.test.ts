@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { addPerson, markLeft, pool, removePerson } from "@workspace/db";
+import { addPerson, markLeft, pool } from "@workspace/db";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
@@ -15,6 +15,7 @@ import {
   northOf,
   seedFeedingSite,
 } from "../test/feedingSites";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, PR 1: the queue page itself. P1-2 (HTML order), P1-6
 // (words that must not appear), P1-7 (the mail banner), P1-8 (escaping).
@@ -30,8 +31,8 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
-  await removePerson(EMAIL);
-  await removePerson(MARIA);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(MARIA);
   const susan = await addPerson({
     email: EMAIL,
     name: "Susan",
@@ -55,8 +56,8 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
-  await removePerson(EMAIL);
-  await removePerson(MARIA);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(MARIA);
   await pool.end();
 });
 
@@ -277,7 +278,7 @@ describe("P1-8: values are escaped", () => {
       name: evil,
       addedBy: "cli:vitest",
     }).catch(async () => {
-      await removePerson("vitest-qpage-evil@example.com");
+      await removeTestPerson("vitest-qpage-evil@example.com");
       return addPerson({
         email: "vitest-qpage-evil@example.com",
         name: evil,
@@ -303,7 +304,7 @@ describe("P1-8: values are escaped", () => {
       expect(html).toContain("team &lt;script&gt;");
     } finally {
       await clearWelfareTables();
-      await removePerson("vitest-qpage-evil@example.com");
+      await removeTestPerson("vitest-qpage-evil@example.com");
     }
   });
 });

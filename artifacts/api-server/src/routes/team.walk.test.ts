@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, pool, removePerson } from "@workspace/db";
+import { addPerson, pool } from "@workspace/db";
 import app from "../app";
 import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
@@ -9,6 +9,7 @@ import {
   sessionCookieFor,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, test P1-1 (SYC-42 #27, spec §8.6 #12): every
 // /api/team/* route registered on the router answers the identical
@@ -96,7 +97,7 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   const volunteer = await addPerson({
     email: EMAIL,
     name: "Vera Volunteer",
@@ -115,7 +116,7 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
-  await removePerson(EMAIL);
+  await removeTestPerson(EMAIL);
   await pool.end();
 });
 

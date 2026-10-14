@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, markLeft, pool, removePerson } from "@workspace/db";
+import { addPerson, markLeft, pool } from "@workspace/db";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
@@ -9,6 +9,7 @@ import {
   signInThroughHandoff,
 } from "../lib/teamAuth/__fixtures__/queueKit";
 import { QUEUE_COLUMNS, type WelfareQueue } from "../lib/welfareQueue";
+import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-43 part 2 plan, PR 1: the welfare queue's data (GET /api/team/reports).
 // P1-2 (order and sections) and P1-4 (nothing private leaves). The page's own
@@ -25,8 +26,8 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await clearWelfareTables();
-  await removePerson(EMAIL);
-  await removePerson(MARIA);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(MARIA);
   const susan = await addPerson({
     email: EMAIL,
     name: "Susan",
@@ -48,8 +49,8 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
-  await removePerson(EMAIL);
-  await removePerson(MARIA);
+  await removeTestPerson(EMAIL);
+  await removeTestPerson(MARIA);
   await pool.end();
 });
 
