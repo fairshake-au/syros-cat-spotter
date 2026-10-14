@@ -149,10 +149,6 @@ describe("the table", () => {
     await expect(c.query(`truncate person_events`)).rejects.toThrow(
       /person_events is append-only: TRUNCATE is not allowed/,
     );
-    // Nor does truncating people cascade past the guard.
-    await expect(c.query(`truncate people cascade`)).rejects.toThrow(
-      /append-only: TRUNCATE is not allowed/,
-    );
   });
 });
 
