@@ -16,6 +16,17 @@ import {
   enqueueWelfareAlert,
   kick,
 } from "../lib/mail/outbox";
+import {
+  logVerdict,
+  turnstileMode,
+  verifyTurnstile,
+  type TurnstileAction,
+} from "../lib/turnstile";
+import {
+  takeUncheckedAllowance,
+  uncheckedResetAt,
+  type UncheckedBucket,
+} from "../lib/uncheckedLimit";
 
 /**
  * "This cat needs help" (SYC-42 plan, Slice 1 items 1.2–1.4; spec §4).
@@ -27,7 +38,14 @@ import {
  *   part arrives even if the big one struggles.
  * - The device secret is a courtesy check against a broken app, not abuse
  *   control (spec §4.4). Until launch the pre-launch gate limits these routes
- *   to testers; Turnstile and shared limits are Slice 4 (SYC-170, SYC-105).
+ *   to testers; shared limits are SYC-105.
+ * - Turnstile (SYC-170; report-an-issue spec §9.5). Both writes run, in this
+ *   order: body, device, THE DUPLICATE CHECK (a report already sent with this
+ *   device and clientRef gets its original answer, with or without a token,
+ *   so a resend from the app's saved list is never swallowed), then the
+ *   token. A rejected token is 428 and writes nothing; our own broken key is
+ *   503; Cloudflare unreachable is accepted as unchecked, behind its own
+ *   small limit. See `tokenGate`.
  * - Request bodies are never logged (the request log records method and
  *   path only), so a note, coordinates or a device id never reach the logs
  *   (item 1.7; test 19).
@@ -87,6 +105,71 @@ const PhotoBody = z.object({
   photoBase64: z.string().min(1),
 });
 
+/**
+ * The Turnstile step (spec §9.5). Returns the value for `token_checked`, or
+ * undefined once it has answered the request itself.
+ *
+ * - off: no check; null.
+ * - observe: check and log, refuse nothing; true when ok, false when
+ *   Cloudflare was unreachable, otherwise null (nothing was enforced).
+ * - enforce: ok → true; rejected → 428 challenge_required, nothing written;
+ *   not_configured → 503 turnstile_not_configured (our key, never the
+ *   sender's fault, and never accepted unchecked); unreachable → false,
+ *   after the unchecked limit (429 beyond it).
+ */
+async function tokenGate(
+  req: import("express").Request,
+  res: import("express").Response,
+  action: TurnstileAction,
+  clientRef: string,
+  bucket: UncheckedBucket,
+): Promise<boolean | null | undefined> {
+  const mode = turnstileMode();
+  if (mode === "off") return null;
+  const token: unknown = (req.body as { turnstileToken?: unknown } | undefined)?.turnstileToken;
+  const verdict = await verifyTurnstile(token, action, clientRef);
+  if (mode === "observe") {
+    logVerdict(mode, action, verdict);
+    return verdict.outcome === "ok" ? true : verdict.outcome === "unreachable" ? false : null;
+  }
+  if (verdict.outcome !== "ok") logVerdict(mode, action, verdict);
+  switch (verdict.outcome) {
+    case "ok":
+      return true;
+    case "rejected":
+      res.status(428).json({ error: "challenge_required" });
+      return undefined;
+    case "not_configured":
+      res.status(503).json({ error: "turnstile_not_configured" });
+      return undefined;
+    case "unreachable": {
+      const address = req.ip ?? "unknown";
+      if (!(await takeUncheckedAllowance(bucket, address))) {
+        const resetAt = uncheckedResetAt(bucket, address);
+        if (resetAt) res.set("Retry-After", String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
+        res.status(429).json({ error: "Too many requests. Please try again later." });
+        return undefined;
+      }
+      return false;
+    }
+  }
+}
+
+/** The report already sent with this device and clientRef, if there is one. */
+async function sentReport(deviceId: string, clientRef: string) {
+  const [row] = await db
+    .select({ publicId: welfareReportsTable.publicId })
+    .from(welfareReportsTable)
+    .where(
+      and(
+        eq(welfareReportsTable.reporterDevice, deviceId),
+        eq(welfareReportsTable.clientRef, clientRef),
+        eq(welfareReportsTable.isDraft, false),
+      ),
+    );
+  return row;
+}
+
 function newPublicId(): string {
   return randomBytes(18).toString("base64url");
 }
@@ -106,6 +189,15 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
   const body = parsed.data;
   if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
 
+  // A draft call for a report already sent changes nothing (below), so it
+  // gets that answer before any token is asked for.
+  if (await sentReport(body.deviceId, body.clientRef)) {
+    res.status(204).end();
+    return;
+  }
+  const tokenChecked = await tokenGate(req, res, "welfare_draft", body.clientRef, "draft");
+  if (tokenChecked === undefined) return;
+
   await db
     .insert(welfareReportsTable)
     .values({
@@ -118,6 +210,7 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
       reporterDevice: body.deviceId,
       clientRef: body.clientRef,
       isDraft: true,
+      tokenChecked,
     })
     .onConflictDoUpdate({
       target: [welfareReportsTable.reporterDevice, welfareReportsTable.clientRef],
@@ -127,6 +220,7 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
         lat: body.lat,
         lng: body.lng,
         reporterLanguage: body.language,
+        tokenChecked,
       },
       // A sent report is never turned back into a draft, or changed by one.
       setWhere: sql`${welfareReportsTable.isDraft} = true`,
@@ -140,6 +234,16 @@ router.post("/reports", reportLimiter, async (req, res) => {
   if (!parsed.success) return badRequest(res, parsed.error);
   const body = parsed.data;
   if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+
+  // The duplicate check comes BEFORE the token (spec §9.5): a resend of a
+  // report already sent gets its original 200, with or without a token.
+  const already = await sentReport(body.deviceId, body.clientRef);
+  if (already) {
+    res.status(200).json({ publicId: already.publicId });
+    return;
+  }
+  const tokenChecked = await tokenGate(req, res, "welfare_report", body.clientRef, "report");
+  if (tokenChecked === undefined) return;
 
   const note = body.note?.trim() ? body.note.trim() : null;
   const now = new Date();
@@ -163,6 +267,7 @@ router.post("/reports", reportLimiter, async (req, res) => {
         isDraft: false,
         photoState,
         submittedAt: now,
+        tokenChecked,
       })
       .onConflictDoUpdate({
         target: [welfareReportsTable.reporterDevice, welfareReportsTable.clientRef],
@@ -176,6 +281,7 @@ router.post("/reports", reportLimiter, async (req, res) => {
           isDraft: false,
           photoState,
           submittedAt: now,
+          tokenChecked,
         },
         setWhere: sql`${welfareReportsTable.isDraft} = true`,
       })
