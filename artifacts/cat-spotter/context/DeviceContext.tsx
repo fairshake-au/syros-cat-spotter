@@ -172,6 +172,8 @@ interface DeviceContextValue {
   ownedCatIds: number[];
   /** Record a successful ownership claim for a cat. */
   addOwnedCat: (catId: number) => void;
+  /** SYC-130: the owner let go of a cat; it leaves this phone's list at once. */
+  removeOwnedCat: (catId: number) => void;
   /**
    * SYC-3: the server said `device_moved`. This phone's spotter was moved to
    * a new phone with "Get your spots back"; the app shows "Your spots moved
@@ -209,6 +211,7 @@ const DeviceContext = createContext<DeviceContextValue>({
   setUsername: () => {},
   ownedCatIds: [],
   addOwnedCat: () => {},
+  removeOwnedCat: () => {},
   moved: false,
   startAgain: async () => {},
   adoptRestoredIdentity: async () => {},
@@ -307,11 +310,13 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     getProfile(deviceId)
       .then((profile) => {
         if (cancelled || !Array.isArray(profile.ownedCatIds)) return;
-        setOwnedCatIds((prev) => {
-          const merged = Array.from(new Set([...prev, ...profile.ownedCatIds]));
-          AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(merged));
-          return merged;
-        });
+        // SYC-130 (claiming-a-cat.md §6): the server's list replaces this
+        // phone's, it is not merged into it, so a cat the owner let go of
+        // (or the team removed the owner from) stops showing owner controls.
+        // The saved list is only the fast start while offline.
+        const fromServer = Array.from(new Set(profile.ownedCatIds));
+        setOwnedCatIds(fromServer);
+        AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(fromServer));
       })
       .catch(() => {
         // Offline or server unreachable: keep the locally cached list.
@@ -322,6 +327,15 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     setOwnedCatIds((prev) => {
       if (prev.includes(catId)) return prev;
       const next = [...prev, catId];
+      AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const removeOwnedCat = useCallback((catId: number) => {
+    setOwnedCatIds((prev) => {
+      if (!prev.includes(catId)) return prev;
+      const next = prev.filter((id) => id !== catId);
       AsyncStorage.setItem(OWNED_CATS_KEY, JSON.stringify(next));
       return next;
     });
@@ -389,6 +403,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       setUsername,
       ownedCatIds,
       addOwnedCat,
+      removeOwnedCat,
       moved,
       startAgain,
       adoptRestoredIdentity,
@@ -409,6 +424,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       setUsername,
       ownedCatIds,
       addOwnedCat,
+      removeOwnedCat,
       resetIdentity,
     ],
   );
