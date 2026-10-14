@@ -403,6 +403,18 @@ function validateValue(
           'black and white together is stored as "black_and_white" (use normaliseColours)',
         );
       }
+      // One stored form per set: "black_and_white" already says black and
+      // says white, so neither can be added to it. (A second colour such as
+      // "tabby" can.)
+      if (
+        colours.includes("black_and_white") &&
+        (colours.includes("black") || colours.includes("white"))
+      ) {
+        refuse(
+          "MALFORMED_VALUE",
+          '"black_and_white" already includes black and white',
+        );
+      }
       const modelVersion = value["modelVersion"];
       if (ctx.provenance === "machine") {
         if (typeof modelVersion !== "string" || modelVersion.length === 0) {

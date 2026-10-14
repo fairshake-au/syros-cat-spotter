@@ -532,6 +532,15 @@ describe("normaliseColours", () => {
 });
 
 describe("coat validator", () => {
+  it("refuses black_and_white combined with black or white, accepts it with tabby", async () => {
+    const cat = await insertCat();
+    for (const colours of [["black_and_white", "black"], ["white", "black_and_white"]]) {
+      await expect(writeAs(cat.id, "coat", { colours }, "staff")).rejects.toMatchObject(
+        refused("MALFORMED_VALUE"),
+      );
+    }
+    await writeAs(cat.id, "coat", { colours: ["black_and_white", "tabby"] }, "staff");
+  });
   it("accepts a person's coat pair from public", async () => {
     const cat = await insertCat();
     const row = await writeAs(cat.id, "coat", { colours: ["ginger", "tabby"] }, "public");
