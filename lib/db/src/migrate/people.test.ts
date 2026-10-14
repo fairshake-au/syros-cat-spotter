@@ -216,6 +216,17 @@ describe("the people operations", () => {
     ).rejects.toThrow("That address is already on the list.");
   });
 
+  it("both finders carry the person's language (SYC-53 PR 0.4: the Worker's version-2 answer)", async () => {
+    const p = await store.addPerson({
+      email: "eleni@example.com",
+      name: "Eleni",
+      addedBy: "cli:test",
+      language: "el",
+    });
+    expect((await store.findAllowedPerson("eleni@example.com"))?.language).toBe("el");
+    expect((await store.findPersonById(p.id))?.language).toBe("el");
+  });
+
   it("finds, signs out everywhere and removes by address", async () => {
     const { rejoined, ...p } = await store.addPerson({
       email: "susan@example.com",
@@ -226,12 +237,14 @@ describe("the people operations", () => {
     // With their roles, so the caller can decide through can() (SYC-188).
     expect(await store.findAllowedPerson("SUSAN@example.com")).toEqual({
       ...p,
+      language: "en",
       scopes: [{ role: "staff", colonyId: null, reach: "island", expiresAt: null }],
     });
     expect(await store.signOutEverywhere("susan@example.com", "cli:test")).toBe(2);
     const byId = await store.findPersonById(p.id);
     expect(byId).toMatchObject({
       sessionVersion: 2,
+      language: "en",
       scopes: [{ role: "staff", colonyId: null, reach: "island", expiresAt: null }],
     });
     expect(
