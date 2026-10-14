@@ -5,10 +5,22 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { CatClaimHomePin } from './catClaimHomePin';
 
+/**
+ * claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be
+ * true (the app always sends true). Either one missing or false is
+ * 422 NOT_CONFIRMED, given only after the checks about the cat (§3
+ * order of checks). A value of the wrong type (the string "true",
+ * say), or a homePin that is missing, null or not a position, is a
+ * plain 400 before anything else.
+ */
 export interface CatClaim {
   /** @minLength 1 */
   deviceId: string;
+  livesOnSyros?: boolean;
+  livesInMyHome?: boolean;
+  homePin: CatClaimHomePin;
   /** @maxLength 200 */
-  homeDescription: string;
+  homeNote?: string;
 }

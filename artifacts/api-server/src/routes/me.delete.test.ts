@@ -12,6 +12,7 @@ import {
   observationsTable,
   profilesTable,
   pushTokensTable,
+  sightingMatchesTable,
   sightingsTable,
   welfareReportsTable,
   emailContactsTable,
@@ -63,6 +64,10 @@ import { deletedMarkerKey } from "../lib/deviceAuth";
 import { enqueueKeepSafeMail } from "../lib/mail/outbox";
 import { addressFingerprint } from "../lib/mail/fingerprint";
 import { _resetNewDeviceLimitForTests } from "../middlewares/newDeviceLimit";
+import { _resetClaimLimitForTests } from "../middlewares/rateLimit";
+import { blurPosition } from "../lib/blur";
+import { teamCatView } from "../lib/teamCatView";
+import { renderCatPage } from "../lib/teamPages/catPages";
 
 const pushMock = vi.mocked(sendPushNotification);
 
@@ -403,11 +408,13 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
     const claimed = await catPage(w.claimed.id);
     expect(catOnly(discovered)).toEqual(catOnly(before.discovered));
     expect(catOnly(claimed)).toEqual(catOnly(before.claimed));
+    // SYC-130 D9: the home note is never in the public payload, before or
+    // after deletion; D13: it stays on the cat, for Syros Cats.
     expect(claimed.cat).toMatchObject({
       hasHome: true,
       lifeStatus: "homed",
       ownerName: null,
-      homeDescription: "The blue house by the church",
+      homeDescription: null,
     });
     const [row] = await db
       .select()
@@ -415,6 +422,7 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       .where(eq(catsTable.id, w.claimed.id));
     expect(row!.ownerDeviceId).toBeNull();
     expect(row!.ownerName).toBeNull();
+    expect(row!.homeDescription).toBe("The blue house by the church");
     const [found] = await db
       .select()
       .from(catsTable)
@@ -604,7 +612,8 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       expect(res.status, withSecretLabels[i]).toBe(410);
       expect(res.body.code).toBe("IDENTITY_DELETED");
     }
-    // The three cat routes, with the old id and no secret at all (§4.3).
+    // The cat routes, with the old id and no secret at all (§4.3).
+    // POST /api/cats has been removed (SYC-130 D7).
     const noSecret = [
       request(app)
         .post("/api/cats")
@@ -618,14 +627,20 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
         }),
       request(app)
         .post(`/api/cats/${w.discovered.id}/claim`)
-        .send({ deviceId: P.deviceId, homeDescription: "" }),
+        .send({
+          deviceId: P.deviceId,
+          livesOnSyros: true,
+          livesInMyHome: true,
+          homePin: { lat: 37.44, lng: 24.9 },
+        }),
       request(app)
         .patch(`/api/cats/${w.claimed.id}`)
         .send({ deviceId: P.deviceId, name: "Ghost" }),
     ];
-    const noSecretLabels = ["POST /cats", "POST claim", "PATCH cat"];
+    const noSecretLabels = ["POST /cats (removed, 404)", "POST claim", "PATCH cat"];
+    const expectedStatuses = [404, 410, 410];
     for (const [i, res] of (await Promise.all(noSecret)).entries()) {
-      expect(res.status, noSecretLabels[i]).toBe(410);
+      expect(res.status, noSecretLabels[i]).toBe(expectedStatuses[i]);
     }
     const creds = await db
       .select()
@@ -770,5 +785,128 @@ describe("DELETE /api/me: logging", () => {
     expect(text).toContain("/api/me");
     expect(text).not.toContain(w.P.deviceId);
     expect(text).not.toContain(w.P.secret);
+  });
+});
+
+// SYC-130 Task 9 (claiming-a-cat.md D13, §5; data spine §8.3): deleting your
+// data ends the owner link and the name, and keeps what helps the team find
+// the cat's home: the note and the pin. The claim is made through the real
+// route, so the test sees what really happens.
+describe("DELETE /api/me: a claimed cat keeps its home note and pin for the team (D13)", () => {
+  const CAT = { lat: 37.4451, lng: 24.9462 };
+  const PUBLIC = blurPosition(CAT.lat, CAT.lng);
+  const PIN = { lat: PUBLIC.lat + 0.001, lng: PUBLIC.lng + 0.001 };
+
+  /** A sighting of the cat, matched by confirming the suggestion (§3 rule 2). */
+  async function meet(catId: number, p: Person) {
+    const [s] = await db
+      .insert(sightingsTable)
+      .values({ catId, deviceId: p.deviceId, photoId: 0, lat: CAT.lat, lng: CAT.lng, status: "resolved" })
+      .returning();
+    await db
+      .insert(sightingMatchesTable)
+      .values({ sightingId: s!.id, choice: "suggested", chosenCatId: catId, chosenAt: new Date(), suggestedRank: 1 });
+  }
+  const claimAs = (catId: number, p: Person, over: Record<string, unknown> = {}) =>
+    request(app)
+      .post(`/api/cats/${catId}/claim`)
+      .set("X-Device-Secret", p.secret)
+      .send({ deviceId: p.deviceId, livesOnSyros: true, livesInMyHome: true, homePin: PIN, homeNote: "x", ...over });
+
+  it("clears the owner link and name, keeps the note and pin, and shows them only to the team", async () => {
+    _resetClaimLimitForTests();
+    const P = person("CO");
+    const R = person("CR");
+    await signUp(P, 3);
+    await signUp(R, 1);
+    const tag = randomBytes(4).toString("hex");
+    const note = `The green gate, ${tag}`;
+    const [cat] = await db
+      .insert(catsTable)
+      .values({
+        name: `SeverClaim${tag}`,
+        description: "",
+        primaryPhotoId: 0,
+        lat: CAT.lat,
+        lng: CAT.lng,
+        discovererDeviceId: R.deviceId,
+      })
+      .returning();
+    const catId = cat!.id;
+    await meet(catId, P);
+    await meet(catId, R);
+
+    // Through the real route.
+    const claimed = await claimAs(catId, P, { homeNote: note });
+    expect(claimed.status).toBe(200);
+    // No route sets owner_name any more (POST /cats is gone); owners
+    // registered before it was removed still carry one, so give this owner
+    // the same, so the test can see it cleared.
+    const ownerName = `Owner Name ${tag}`;
+    await db.update(catsTable).set({ ownerName }).where(eq(catsTable.id, catId));
+    const [mine] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    expect(mine!.ownerDeviceId).toBe(P.deviceId);
+    expect(mine!.ownerName).toBe(ownerName);
+    expect(mine!.homeDescription).toBe(note);
+    expect(mine!.homeLat).not.toBeNull();
+    expect(mine!.homeLng).not.toBeNull();
+    const pin = { lat: mine!.homeLat!, lng: mine!.homeLng! };
+
+    expect((await deleteMe(P)).status).toBe(204);
+
+    // Cleared: the link and the name. Kept: the note and the pin.
+    const [row] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    expect(row!.ownerDeviceId).toBeNull();
+    expect(row!.ownerName).toBeNull();
+    expect(row!.homeDescription).toBe(note);
+    expect(row!.homeLat).toBe(pin.lat);
+    expect(row!.homeLng).toBe(pin.lng);
+
+    // The public payload, detail and list, has neither.
+    const detail = await request(app).get(`/api/cats/${catId}`);
+    const list = await request(app).get("/api/cats").query({ pageSize: 100, lat: CAT.lat, lng: CAT.lng });
+    expect(detail.status).toBe(200);
+    expect(list.status).toBe(200);
+    expect(detail.body.cat).toMatchObject({ hasHome: true, homeDescription: null, homePin: null, ownerName: null });
+    const inList = (list.body.cats as { id: number }[]).find((c) => c.id === catId);
+    expect(inList).toBeDefined();
+    for (const text of [JSON.stringify(detail.body), JSON.stringify(inList)]) {
+      expect(text).not.toContain(note);
+      expect(text).not.toContain(ownerName);
+      expect(text).not.toContain(String(pin.lat));
+      expect(text).not.toContain(String(pin.lng));
+    }
+
+    // The team: the note to anyone on the team, the pin only with
+    // view_exact_location (the volunteer role lacks it; staff has it).
+    const volunteer = { id: "vitest-sever-volunteer", scopes: [{ role: "volunteer" as const, colonyId: null }] };
+    const staff = { id: "vitest-sever-staff", scopes: [{ role: "staff" as const, colonyId: null }] };
+    const noPin = (await teamCatView(catId, new Date(), volunteer))!;
+    expect(noPin.owner.homeDescription).toBe(note);
+    expect(noPin.owner.homePin).toBeNull();
+    const withPin = (await teamCatView(catId, new Date(), staff))!;
+    expect(withPin.owner.homeDescription).toBe(note);
+    expect(withPin.owner.homePin).toEqual(pin);
+    expect((await teamCatView(catId))!.owner.homePin).toBeNull();
+    const lacking = renderCatPage(noPin, "Vera", { may: () => false });
+    expect(lacking).toContain(note);
+    expect(lacking).not.toContain(String(pin.lat));
+    const full = renderCatPage(withPin, "Susan", { may: () => true });
+    expect(full).toContain(note);
+    expect(full).toContain(`${pin.lat}, ${pin.lng}`);
+
+    // The cat still has a home, so another phone that met it is refused.
+    const statusNow = detail.body.cat.lifeStatus;
+    const late = await claimAs(catId, R);
+    expect({ derived: statusNow, status: late.status, code: late.body.code }).toEqual({
+      derived: "homed",
+      status: 409,
+      code: "ALREADY_HOMED",
+    });
+    expect((await db.select().from(catsTable).where(eq(catsTable.id, catId)))[0]!.ownerDeviceId).toBeNull();
+
+    // And nothing anywhere names the deleted phone.
+    expect(await columnsHolding(P.deviceId)).toEqual([]);
+    expect(await columnsHolding(ownerName)).toEqual([]);
   });
 });

@@ -22,6 +22,7 @@ export const CAPABILITIES = [
   "edit_colony",
   "assign_cat_to_colony",
   "set_life_status",
+  "remove_owner",
   "set_sterilisation",
   "set_site_public",
   "change_report_state",

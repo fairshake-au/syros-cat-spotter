@@ -516,12 +516,28 @@ describe("P6-7: push notifications carry no photo address", () => {
 describe("P6-9n: the NAME_TAKEN reply (item 9: as the catalogue)", () => {
   it("names the cat with the photo the catalogue shows, and the original after restore", async () => {
     const cat = await seedCat(1);
+    // SYC-130 removed POST /cats (D7): an owner renaming their own cat to the
+    // taken name gets the same NAME_TAKEN reply (nameTakenBody).
+    const [own] = await db
+      .insert(catsTable)
+      .values({
+        name: `${PREFIX}renamer-${n}`,
+        description: "",
+        primaryPhotoId: cat.main.id,
+        lat: ORIGIN.lat,
+        lng: ORIGIN.lng,
+        discovererDeviceId: DEVICE,
+        ownerDeviceId: DEVICE,
+      })
+      .returning({ id: catsTable.id });
     const register = () =>
       request(app)
-        .post("/api/cats")
+        .patch(`/api/cats/${own!.id}`)
         .set("X-Device-Secret", SECRET)
-        .send({ deviceId: DEVICE, name: cat.name, ownerName: "Maria", homeDescription: "Blue door", lat: 37.44, lng: 24.9 });
-    expect((await register()).body.cat.photoUrl).toBe(url(cat.main));
+        .send({ deviceId: DEVICE, name: cat.name });
+    const first = await register();
+    expect(first.status).toBe(409);
+    expect(first.body.cat.photoUrl).toBe(url(cat.main));
     await hide(cat.main, cat.id);
     const taken = await register();
     expect(taken.status).toBe(409);

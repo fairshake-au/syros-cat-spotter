@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import {
-  RegisterCatBody,
   ClaimCatBody,
+  LetGoCatBody,
   UpdateCatBody,
   SuggestCatNamesBody,
 } from "@workspace/api-zod";
@@ -14,7 +14,7 @@ import {
   photosTable,
   type Cat,
 } from "@workspace/db";
-import { and, eq, ne, desc, isNull, sql } from "drizzle-orm";
+import { and, eq, ne, desc, sql } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -30,10 +30,19 @@ import {
 import { notifyCatSpotters } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
-import { aiLimiter } from "../middlewares/rateLimit";
+import { aiLimiter, checkClaimLimit } from "../middlewares/rateLimit";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
-import { writeObservation } from "../lib/observations";
+import { WITHDRAWN, writeObservation } from "../lib/observations";
+import {
+  claimEligibility,
+  clearOwner,
+  letGoWithinDays,
+  newestActiveOwnerHomed,
+  pinWithinReach,
+  removedByTeamWithinDays,
+  type ClaimRefusal,
+} from "../lib/claiming";
 import { logRouteDuration } from "../lib/requestTiming";
 import {
   BLANK_NAME_BODY,
@@ -116,6 +125,8 @@ async function catPayload(
       discovererUsername: profile?.username ?? null,
       ownerName: cat.ownerName,
       homeDescription: cat.homeDescription,
+      homeLat: cat.homeLat,
+      homeLng: cat.homeLng,
       derived: status,
     },
     viewer,
@@ -129,12 +140,55 @@ async function catPayload(
  * Anything short of a proven owner is the public view, with no error, so
  * the answer never says whether a guess at an owner's id was close.
  */
-async function detailViewer(req: Request, cat: Cat): Promise<Viewer> {
+/** §11: a phone that let a cat go can't claim that same cat again for this long. */
+const CLAIM_COOLDOWN_DAYS = 7;
+/** §7, §11: after the team removes an owner, that phone waits this long for that cat. */
+const REMOVED_COOLDOWN_DAYS = 30;
+
+/** Either cooldown: the phone's own let-go (7 days) or a team removal (30). */
+async function inClaimCooldown(catId: number, deviceId: string): Promise<boolean> {
+  return (
+    (await letGoWithinDays(db, catId, deviceId, CLAIM_COOLDOWN_DAYS)) ||
+    (await removedByTeamWithinDays(db, catId, deviceId, REMOVED_COOLDOWN_DAYS))
+  );
+}
+
+async function detailViewer(
+  req: Request,
+  cat: Cat,
+): Promise<{ viewer: Viewer; canClaim: boolean; claimCooldown: boolean }> {
   const header = req.headers["x-device-id"];
   const deviceId = typeof header === "string" ? header : "";
-  if (!deviceId || !cat.ownerDeviceId || deviceId !== cat.ownerDeviceId) return PUBLIC_VIEWER;
-  return (await deviceSecretMatches(req, deviceId)) ? { tier: "owner", deviceId } : PUBLIC_VIEWER;
+  const proven = deviceId !== "" && (await deviceSecretMatches(req, deviceId));
+  if (!proven) return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false };
+  if (cat.ownerDeviceId === deviceId) {
+    return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false };
+  }
+  // claiming-a-cat.md §4.1, §11: "may claim" comes from the same function
+  // the claim uses, and only for a phone that has proved it is that device.
+  // A cat someone else owns can't be claimed, so it isn't asked.
+  // The let-go cooldown is part of the rule too (critic M2), so the button
+  // never offers a claim that would be refused. The 24-hour attempt limit
+  // isn't: it's about how often, not whether.
+  // `claimCooldown` lets the app tell "you let this cat go this week" from
+  // "you haven't met it", so it never shows the hint about spotting the cat
+  // to a phone that has. Only a proven phone is told, and only about itself.
+  const claimCooldown = await inClaimCooldown(cat.id, deviceId);
+  const canClaim =
+    cat.ownerDeviceId === null &&
+    (await claimEligibility(db, { catId: cat.id, deviceId })).ok === true &&
+    !claimCooldown;
+  return { viewer: PUBLIC_VIEWER, canClaim, claimCooldown };
 }
+
+/**
+ * A per-phone answer (the owner's exact position, note and pin, canClaim, a
+ * claim's or an edit's result) must never be kept by a shared cache and
+ * handed to another phone. No global cache policy exists in this server or
+ * in front of it (only per-route "no-store" headers), so each such route
+ * sets its own.
+ */
+const PER_PHONE = "private, no-store";
 
 function queryNumber(raw: unknown): number | undefined {
   if (typeof raw !== "string" || raw.trim() === "") return undefined;
@@ -170,86 +224,11 @@ router.get("/cats", async (req, res) => {
   });
   res.json(result);
 });
-
-// Resident registers a brand-new owned cat (no sighting required).
-router.post("/cats", async (req, res) => {
-  const body = RegisterCatBody.parse(req.body);
-  // SYC-107: every route that acts as a spotter proves the caller holds the
-  // device's secret before anything else, so an id seen in traffic can't be
-  // used to register, claim or rename cats as someone else.
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
-  const name = body.name.trim().slice(0, 60);
-  if (isBlankName(name)) {
-    res.status(400).json(BLANK_NAME_BODY);
-    return;
-  }
-  if (containsOffensiveLanguage(name)) {
-    res.status(400).json({
-      error: "Cat name contains offensive language",
-      code: "OFFENSIVE_NAME",
-    });
-    return;
-  }
-  // SYC-101: one cat per folded name. Checked first so the answer names
-  // the cat holding it; the unique index still decides a race (below).
-  const taken = await catNamed(name);
-  if (taken) {
-    res.status(409).json(await nameTakenBody(taken));
-    return;
-  }
-  // Owner registration writes homed + name observations in the same
-  // transaction as the cat row itself (data-spine.md PR 2: "Owner
-  // registration (POST /cats) writes the same [as a claim] at creation").
-  const cat = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(catsTable)
-      .values({
-        name,
-        description: "",
-        // No photo yet — 0 is a sentinel; the photos route 404s for it and
-        // the owner (or a first sighting) can supply a real photo later.
-        primaryPhotoId: 0,
-        lat: body.lat,
-        lng: body.lng,
-        discovererDeviceId: body.deviceId,
-        ownerDeviceId: body.deviceId,
-        ownerName: body.ownerName.trim().slice(0, 60),
-        homeDescription: body.homeDescription.trim().slice(0, 200),
-      })
-      .returning();
-    await writeObservation(tx, {
-      catId: row!.id,
-      kind: "life_status",
-      value: { status: "homed" },
-      deviceId: body.deviceId,
-      roleAtTime: "public",
-      authorityScope: "owner_of_this_cat",
-      observedAt: row!.createdAt,
-    });
-    await writeObservation(tx, {
-      catId: row!.id,
-      kind: "name",
-      value: { name: row!.name, normalised: row!.normalisedName },
-      deviceId: body.deviceId,
-      roleAtTime: "public",
-      authorityScope: "owner_of_this_cat",
-      observedAt: row!.createdAt,
-    });
-    return row!;
-  }).catch(nullOnUniqueViolation);
-  if (!cat) {
-    // Another cat took the name between the check above and this write.
-    res.status(409).json(await nameTakenBody(await catNamed(name)));
-    return;
-  }
-  // The registering device is the owner and has just proved its secret.
-  res
-    .status(201)
-    .json(await catPayload(cat, 0, cat.createdAt, { tier: "owner", deviceId: body.deviceId }));
-});
-
 router.get("/cats/:catId", async (req, res) => {
   const startedAt = performance.now();
+  // The answer depends on X-Device-Id (and its secret), never on the URL alone.
+  res.setHeader("Vary", "X-Device-Id, X-Device-Secret");
+  if (req.headers["x-device-id"] !== undefined) res.setHeader("Cache-Control", PER_PHONE);
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });
@@ -311,11 +290,12 @@ router.get("/cats/:catId", async (req, res) => {
     lookupDiscoverer(cat.discovererDeviceId),
   ]);
 
+  const { viewer, canClaim, claimCooldown } = await detailViewer(req, cat);
   const catBody = await catPayload(
     cat,
     sightings.length,
     sightings[0]?.sighting.createdAt ?? cat.createdAt,
-    await detailViewer(req, cat),
+    viewer,
   );
   logRouteDuration(req, "GET /cats/:id", startedAt, { catId });
   res.json({
@@ -357,88 +337,254 @@ router.get("/cats/:catId", async (req, res) => {
           ),
         }),
     ),
+    canClaim,
+    claimCooldown,
   });
 });
 
-// Claim an unclaimed cat. Idempotent for the same device; 409 for others.
+/**
+ * English fallbacks for the claim refusals (claiming-a-cat.md §4.4). The app
+ * shows its own translated line, chosen by `code`. None carries a distance,
+ * a direction or a position (§3, §11; review 2, HIGH-1).
+ */
+const REFUSAL_TEXT = {
+  NOT_MET: "Spot this cat with the camera first, then you can say it lives with you.",
+  ALREADY_HOMED: "This cat already has a home.",
+  NOT_ON_STREET: "This cat can't be marked as yours right now.",
+  NOT_CONFIRMED: "Only people who live on Syros can say a cat lives with them.",
+  PIN_TOO_FAR:
+    "That's a long way from where this cat is usually seen. Move the pin to where the cat lives. If it really lives there, write to Syros Cats.",
+} as const;
+const TOO_MANY = "Too many requests. Please try again later.";
+
+/**
+ * The owner's home note as stored: trimmed, at most 200 characters, and null
+ * when nothing visible is left. Zero-width and other format characters
+ * survive trim(), so "blank" is the same fold cat names use (isBlankName).
+ */
+function homeNoteOrNull(raw: string | undefined): string | null {
+  const note = (raw ?? "").trim().slice(0, 200);
+  return isBlankName(note) ? null : note;
+}
+
+function refusalStatus(code: ClaimRefusal): number {
+  return code === "NOT_MET" ? 403 : 409;
+}
+
+/**
+ * "This is my cat" (claiming-a-cat.md §3–§5, §8, §11). In this order, and
+ * refused at the first that fails:
+ * 1. the body: a pin that isn't a position is a plain 400;
+ * 2. the device secret (SYC-107), so every answer below goes only to the
+ *    phone itself, and only the proven id is ever checked;
+ * 3. the same owner again: 200 with nothing written and no attempt spent
+ *    (rule 4);
+ * 4. the claim limit, counting every other attempt, refusals included;
+ *    then rules 1 and 2 (claimEligibility): street, no owner, met it;
+ * 5. the two confirmations, then the pin's reach from the cat's PUBLIC
+ *    position, then the note's moderation, then the let-go cooldown;
+ * 6. in one transaction that locks the cat row, rules 1 and 2 again,
+ *    read through that transaction (§5), then the owner link, note, pin
+ *    and `homed`.
+ * Nothing here logs the body: the request logger writes the method and URL
+ * only (app.ts), and errors go through safeError.
+ */
 router.post("/cats/:catId/claim", async (req, res) => {
+  res.setHeader("Cache-Control", PER_PHONE);
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  const body = ClaimCatBody.parse(req.body);
-  // SYC-107: before the cat lookup, so the ownership answers (idempotent 200,
-  // 409) are only ever given to the device itself.
-  if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
-
-  const [cat] = await db
-    .select()
-    .from(catsTable)
-    .where(eq(catsTable.id, catId));
+  const parsed = ClaimCatBody.safeParse(req.body);
+  if (!parsed.success) {
+    // Plain: no issues echoed back, so nothing of the body is repeated.
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const body = parsed.data;
+  // SYC-107: before anything about the cat, so the answers below are only
+  // ever given to the device itself.
+  const deviceId = await verifyDeviceSecret(req, res, body.deviceId);
+  if (!deviceId) return;
+  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  // §3 rule 4: this proven phone already owns the cat. A retry succeeds
+  // quietly, writes nothing, and never spends an attempt (critic L1).
+  if (cat && cat.ownerDeviceId === deviceId) {
+    res.json(await catPayload(cat, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
+    return;
+  }
+  if (!checkClaimLimit(deviceId)) {
+    res.status(429).json({ error: TOO_MANY, code: "CLAIM_LIMIT" });
+    return;
+  }
   if (!cat) {
     res.status(404).json({ error: "Not found" });
     return;
   }
 
-  if (cat.ownerDeviceId && cat.ownerDeviceId !== body.deviceId) {
-    res.status(409).json({ error: "Cat already claimed by another resident" });
+  const pre = await claimEligibility(db, { catId, deviceId });
+  if (pre.ok === "owner") {
+    res.json(await catPayload(cat, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
+    return;
+  }
+  if (pre.ok === false) {
+    res.status(refusalStatus(pre.code)).json({ error: REFUSAL_TEXT[pre.code], code: pre.code });
+    return;
+  }
+  if (body.livesOnSyros !== true || body.livesInMyHome !== true) {
+    res.status(422).json({ error: REFUSAL_TEXT.NOT_CONFIRMED, code: "NOT_CONFIRMED" });
+    return;
+  }
+  if (!pinWithinReach(cat, body.homePin)) {
+    res.status(422).json({ error: REFUSAL_TEXT.PIN_TOO_FAR, code: "PIN_TOO_FAR" });
+    return;
+  }
+  const note = homeNoteOrNull(body.homeNote);
+  if (note !== null && containsOffensiveLanguage(note)) {
+    res.status(400).json({ error: "Home note contains offensive language", code: "OFFENSIVE_NOTE" });
+    return;
+  }
+  if (await inClaimCooldown(catId, deviceId)) {
+    res.status(429).json({ error: TOO_MANY, code: "CLAIM_COOLDOWN" });
     return;
   }
 
-  let updated = cat;
-  if (!cat.ownerDeviceId) {
-    const claimedAt = new Date();
-    // Guard against a concurrent claim: only set ownership if still
-    // unclaimed. The homed observation is written in the same transaction
-    // (data-spine.md PR 2: "A claim writes life_status: homed ... in the
-    // same transaction as the change it records").
-    const row = await db.transaction(async (tx) => {
-      const [updatedRow] = await tx
-        .update(catsTable)
-        .set({
-          ownerDeviceId: body.deviceId,
-          homeDescription: body.homeDescription.trim().slice(0, 200),
-        })
-        .where(and(eq(catsTable.id, catId), isNull(catsTable.ownerDeviceId)))
-        .returning();
-      if (!updatedRow) return null;
-      await writeObservation(tx, {
-        catId,
-        kind: "life_status",
-        value: { status: "homed" },
-        deviceId: body.deviceId,
-        roleAtTime: "public",
-        authorityScope: "owner_of_this_cat",
-        observedAt: claimedAt,
-      });
-      return updatedRow;
+  const result = await db.transaction(async (tx) => {
+    // §5: lock the row, then re-check through this transaction, so two
+    // phones can't both win and a claim can't race a team statement.
+    await tx.execute(sql`select id from cats where id = ${catId} for update`);
+    const again = await claimEligibility(tx, { catId, deviceId });
+    if (again.ok !== true) return again;
+    // §8: the "has a home" message goes out on a cat's first claim only.
+    const prior = await tx.execute<{ n: number }>(sql`
+      select count(*)::int as n from observations
+       where cat_id = ${catId}
+         and kind = 'life_status'
+         and authority_scope = 'owner_of_this_cat'
+         and value->>'status' = 'homed'`);
+    const firstEver = prior.rows[0]!.n === 0;
+    const [row] = await tx
+      .update(catsTable)
+      .set({
+        ownerDeviceId: deviceId,
+        homeDescription: note,
+        // §5: stored to about a metre.
+        homeLat: Number(body.homePin.lat.toFixed(5)),
+        homeLng: Number(body.homePin.lng.toFixed(5)),
+      })
+      .where(eq(catsTable.id, catId))
+      .returning();
+    await writeObservation(tx, {
+      catId,
+      kind: "life_status",
+      value: { status: "homed" },
+      deviceId,
+      roleAtTime: "public",
+      authorityScope: "owner_of_this_cat",
+      observedAt: new Date(),
     });
-    if (!row) {
-      res
-        .status(409)
-        .json({ error: "Cat already claimed by another resident" });
-      return;
-    }
-    updated = row;
+    return { ok: true as const, row: row!, firstEver };
+  });
 
-    // Fire-and-forget: never blocks or fails the response.
-    void notifyCatSpotters(catId, body.deviceId, {
-      title: `${updated.name} has a home!`,
-      body: `${updated.name} has been claimed by a resident. ${updated.homeDescription ?? ""}`.trim(),
+  if (result.ok === false) {
+    res.status(refusalStatus(result.code)).json({ error: REFUSAL_TEXT[result.code], code: result.code });
+    return;
+  }
+  if (result.ok === "owner") {
+    // The same phone's other request won the lock a moment earlier.
+    const [now] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+    res.json(await catPayload(now!, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
+    return;
+  }
+  if (result.firstEver) {
+    // Fire-and-forget. Never the note or the pin (§8, SYC-232).
+    void notifyCatSpotters(catId, deviceId, {
+      title: `${result.row.name} has a home!`,
+      body: `${result.row.name} now has a home.`,
       data: { type: "cat_claimed", catId },
     });
   }
-
-  const count = await sightingsCountFor(catId);
-  // The caller proved the device secret above and is (now) the owner.
   res.json(
-    await catPayload(updated, count, new Date(), { tier: "owner", deviceId: body.deviceId }),
+    await catPayload(result.row, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }),
   );
+});
+
+/**
+ * "This cat doesn't live with me any more" (claiming-a-cat.md §6, §8, §11).
+ * In this order:
+ * 1. the body (a plain 400) and the device secret (SYC-107), so every answer
+ *    goes only to the phone itself and only the proven id is ever used;
+ * 2. in one transaction that locks the cat row: the proven phone must still
+ *    be the owner (checked again under the lock, so two let-gos, or a let-go
+ *    and a team removal, can't both write), then a withdrawal for EVERY
+ *    active `homed` this phone has on the cat (written through
+ *    writeObservation, so `created_at` is the server's: the 7-day cooldown
+ *    reads it), then the owner link, name, note and pin are cleared.
+ * The owner never writes a status of their own: the cat's status falls back
+ * to whatever stood before the claim. Tells nobody: no push, no
+ * notification (§8). The answer is the public view. Nothing here logs the
+ * body (the request logger writes the method and URL only).
+ */
+router.post("/cats/:catId/let-go", async (req, res) => {
+  res.setHeader("Cache-Control", PER_PHONE);
+  const catId = Number(req.params.catId);
+  if (!Number.isInteger(catId)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const parsed = LetGoCatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+  const deviceId = await verifyDeviceSecret(req, res, parsed.data.deviceId);
+  if (!deviceId) return;
+
+  const done = await db.transaction(async (tx) => {
+    await tx.execute(sql`select id from cats where id = ${catId} for update`);
+    const [cat] = await tx
+      .select({ ownerDeviceId: catsTable.ownerDeviceId })
+      .from(catsTable)
+      .where(eq(catsTable.id, catId));
+    if (!cat) return "missing" as const;
+    if (cat.ownerDeviceId !== deviceId) return "not_owner" as const;
+    // newestActiveOwnerHomed sees only one at a time; each withdrawal
+    // supersedes it, so the next call finds the next, until none remain.
+    for (;;) {
+      const homedId = await newestActiveOwnerHomed(tx, catId, deviceId);
+      if (homedId === null) break;
+      await writeObservation(tx, {
+        catId,
+        kind: "life_status",
+        value: WITHDRAWN,
+        allowWithdrawal: true,
+        deviceId,
+        roleAtTime: "public",
+        authorityScope: "owner_of_this_cat",
+        observedAt: new Date(),
+        supersedesId: homedId,
+        supersedeReason: "owner: doesn't live with me any more",
+      });
+    }
+    await clearOwner(tx, catId);
+    return "ok" as const;
+  });
+  if (done === "missing") {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (done === "not_owner") {
+    res.status(403).json({ error: "Only the cat's owner can do this", code: "NOT_OWNER" });
+    return;
+  }
+  const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
+  res.json(await catPayload(cat!, await sightingsCountFor(catId), new Date(), PUBLIC_VIEWER));
 });
 
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {
+  res.setHeader("Cache-Control", PER_PHONE);
   const catId = Number(req.params.catId);
   if (!Number.isInteger(catId)) {
     res.status(404).json({ error: "Not found" });
@@ -458,7 +604,7 @@ router.patch("/cats/:catId", async (req, res) => {
     return;
   }
   if (!cat.ownerDeviceId || cat.ownerDeviceId !== body.deviceId) {
-    res.status(403).json({ error: "Only the cat's owner can update it" });
+    res.status(403).json({ error: "Only the cat's owner can update it", code: "NOT_OWNER" });
     return;
   }
 
@@ -486,8 +632,16 @@ router.patch("/cats/:catId", async (req, res) => {
     }
     changes.name = newName;
   }
-  if (body.homeDescription !== undefined)
-    changes.homeDescription = body.homeDescription.trim().slice(0, 200);
+  if (body.homeDescription !== undefined) {
+    // claiming-a-cat.md §11: the note is moderated at every edit, as at the
+    // claim.
+    const note = homeNoteOrNull(body.homeDescription);
+    if (note !== null && containsOffensiveLanguage(note)) {
+      res.status(400).json({ error: "Home note contains offensive language", code: "OFFENSIVE_NOTE" });
+      return;
+    }
+    changes.homeDescription = note;
+  }
 
   let updated = cat;
   if (Object.keys(changes).length > 0) {

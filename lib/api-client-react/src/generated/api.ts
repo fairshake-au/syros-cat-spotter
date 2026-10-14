@@ -26,9 +26,9 @@ import type {
   Cat,
   CatClaim,
   CatDetail,
+  CatLetGo,
   CatOwnerUpdate,
   CatPage,
-  CatRegistration,
   CatUpdate,
   CheckUsernameAvailabilityParams,
   ClaimUsernameRequest,
@@ -160,77 +160,6 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
-
-export const getRegisterCatUrl = () => {
-
-
-
-
-  return `/api/cats`
-}
-
-/**
- * @summary Register a brand-new owned cat (resident registration, no sighting required)
- */
-export const registerCat = async (catRegistration: CatRegistration, options?: RequestInit): Promise<Cat> => {
-
-  return customFetch<Cat>(getRegisterCatUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(catRegistration)
-  }
-);}
-
-
-
-
-
-export const getRegisterCatMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext> => {
-
-const mutationKey = ['registerCat'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerCat>>, {data: BodyType<CatRegistration>}> = (props) => {
-          const {data} = props ?? {};
-
-          return  registerCat(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type RegisterCatMutationResult = NonNullable<Awaited<ReturnType<typeof registerCat>>>
-    export type RegisterCatMutationBody = BodyType<CatRegistration>
-    export type RegisterCatMutationError = ErrorType<void>
-
-    /**
- * @summary Register a brand-new owned cat (resident registration, no sighting required)
- */
-export const useRegisterCat = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCat>>, TError,{data: BodyType<CatRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof registerCat>>,
-        TError,
-        {data: BodyType<CatRegistration>},
-        TContext
-      > => {
-      return useMutation(getRegisterCatMutationOptions(options));
-    }
 
 export const getListCatsUrl = (params?: ListCatsParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -481,7 +410,17 @@ export const getClaimCatUrl = (catId: number,) => {
 }
 
 /**
- * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ * Needs the device secret. The server checks, in this order, and
+ * refuses at the first that fails: the cat lives on the street with
+ * no owner, and this phone has met it (403 NOT_MET, 409
+ * ALREADY_HOMED, 409 NOT_ON_STREET); both confirmations (422
+ * NOT_CONFIRMED); the home pin within 1 km of the cat's public
+ * position (422 PIN_TOO_FAR). No refusal says how far, or in which
+ * direction, the pin is out. The same owner claiming again is 200
+ * with nothing written. Five attempts per phone per 24 hours,
+ * refusals included (429 CLAIM_LIMIT); a phone that let this cat go
+ * in the last 7 days gets 429 CLAIM_COOLDOWN. The app reads `code`.
+ * @summary Say "This is my cat" (claiming-a-cat.md §3, §11)
  */
 export const claimCat = async (catId: number,
     catClaim: CatClaim, options?: RequestInit): Promise<Cat> => {
@@ -499,7 +438,7 @@ export const claimCat = async (catId: number,
 
 
 
-export const getClaimCatMutationOptions = <TError = ErrorType<void>,
+export const getClaimCatMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext> => {
 
@@ -528,12 +467,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ClaimCatMutationResult = NonNullable<Awaited<ReturnType<typeof claimCat>>>
     export type ClaimCatMutationBody = BodyType<CatClaim>
-    export type ClaimCatMutationError = ErrorType<void>
+    export type ClaimCatMutationError = ErrorType<ApiErrorBody | void>
 
     /**
- * @summary Claim an unclaimed cat as its owner (idempotent for the same device)
+ * @summary Say "This is my cat" (claiming-a-cat.md §3, §11)
  */
-export const useClaimCat = <TError = ErrorType<void>,
+export const useClaimCat = <TError = ErrorType<ApiErrorBody | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimCat>>, TError,{catId: number;data: BodyType<CatClaim>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof claimCat>>,
@@ -542,6 +481,85 @@ export const useClaimCat = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getClaimCatMutationOptions(options));
+    }
+
+export const getLetGoCatUrl = (catId: number,) => {
+
+
+
+
+  return `/api/cats/${catId}/let-go`
+}
+
+/**
+ * Needs the device secret, and only the cat's current owner may call
+ * it (403 NOT_OWNER otherwise). In one transaction the owner's own
+ * `homed` statements are withdrawn, so the cat's status falls back to
+ * what stood before the claim, and the owner link, name, home note and
+ * home pin are cleared. Tells nobody. The answer is the public view of
+ * the cat, and is never cached. The same phone can't claim this cat
+ * again for 7 days (429 CLAIM_COOLDOWN on the claim).
+ * @summary The owner says the cat doesn't live with them any more (claiming-a-cat.md §6)
+ */
+export const letGoCat = async (catId: number,
+    catLetGo: CatLetGo, options?: RequestInit): Promise<Cat> => {
+
+  return customFetch<Cat>(getLetGoCatUrl(catId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catLetGo)
+  }
+);}
+
+
+
+
+
+export const getLetGoCatMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof letGoCat>>, TError,{catId: number;data: BodyType<CatLetGo>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof letGoCat>>, TError,{catId: number;data: BodyType<CatLetGo>}, TContext> => {
+
+const mutationKey = ['letGoCat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof letGoCat>>, {catId: number;data: BodyType<CatLetGo>}> = (props) => {
+          const {catId,data} = props ?? {};
+
+          return  letGoCat(catId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LetGoCatMutationResult = NonNullable<Awaited<ReturnType<typeof letGoCat>>>
+    export type LetGoCatMutationBody = BodyType<CatLetGo>
+    export type LetGoCatMutationError = ErrorType<ApiErrorBody | void>
+
+    /**
+ * @summary The owner says the cat doesn't live with them any more (claiming-a-cat.md §6)
+ */
+export const useLetGoCat = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof letGoCat>>, TError,{catId: number;data: BodyType<CatLetGo>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof letGoCat>>,
+        TError,
+        {catId: number;data: BodyType<CatLetGo>},
+        TContext
+      > => {
+      return useMutation(getLetGoCatMutationOptions(options));
     }
 
 export const getCreateCatUpdateUrl = (catId: number,) => {

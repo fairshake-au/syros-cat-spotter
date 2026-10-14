@@ -33,6 +33,9 @@ import app from "../app";
 // by PR 6. Readers: the catalogue list, the cat's page, the NAME_TAKEN reply,
 // the match candidates, the resolve reply, the notifications list and the
 // "Anything to add?" card. (P3-2's own snapshot covers the cat's page too.)
+// Regenerated once, on purpose, by SYC-130 (claiming a cat): `"homePin":null`
+// on every public cat (the pin is owner-only) and `"canClaim":false` on the
+// cat's page (no proven phone asked). No other byte changed.
 //
 // Only values the database or the clock hand out (serial ids, the upload's
 // random public id, today's date) are swapped for placeholders; every other
@@ -163,10 +166,24 @@ describe("PR 6: public payloads for a cat with no hidden photos are unchanged", 
     const page = await request(app).get(`/api/cats/${catId}`);
     sections.push(`detail: ${placeholders(page.text)}`);
 
+    // SYC-130 removed POST /cats (D7); an owner's rename to a taken name is
+    // the same NAME_TAKEN reply (nameTakenBody), so the bytes don't change.
+    const [own] = await db
+      .insert(catsTable)
+      .values({
+        name: `${PREFIX}renamer`,
+        description: "",
+        primaryPhotoId: 0,
+        lat: ORIGIN.lat,
+        lng: ORIGIN.lng,
+        discovererDeviceId: DEVICE,
+        ownerDeviceId: DEVICE,
+      })
+      .returning({ id: catsTable.id });
     const taken = await request(app)
-      .post("/api/cats")
+      .patch(`/api/cats/${own!.id}`)
       .set("X-Device-Secret", SECRET)
-      .send({ deviceId: DEVICE, name: NAME, ownerName: "Maria", homeDescription: "Blue door", lat: 37.44, lng: 24.9 });
+      .send({ deviceId: DEVICE, name: NAME });
     expect(taken.status).toBe(409);
     sections.push(`name_taken: ${placeholders(taken.text)}`);
 

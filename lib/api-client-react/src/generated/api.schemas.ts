@@ -86,6 +86,14 @@ export const CatLocationPrecision = {
 } as const;
 
 /**
+ * Where the owner says the cat lives. Only in the owner's own view; null for everyone else (claiming-a-cat.md §5, D9).
+ */
+export type CatHomePin = {
+  lat: number;
+  lng: number;
+} | null;
+
+/**
  * The cat's resolved life status (§3). A live "deceased" status is
  * cleared automatically the moment a later sighting resolves to
  * this cat (§3.2) — the client never needs to handle that itself.
@@ -148,15 +156,17 @@ export interface Cat {
   discovererNickname?: string | null;
   discovererUsername?: string | null;
   /**
-     * Display name of the resident who claimed this cat
+     * Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).
      * @nullable
      */
   ownerName?: string | null;
   /**
-     * Where the cat lives, as described by its owner
+     * Where the cat lives, as described by its owner. Only in the owner's own view; null for everyone else (D9).
      * @nullable
      */
   homeDescription?: string | null;
+  /** Where the owner says the cat lives. Only in the owner's own view; null for everyone else (claiming-a-cat.md §5, D9). */
+  homePin?: CatHomePin;
   /**
      * Whether this cat has a home. Derived from lifeStatus === "homed"
      * (cat-record-data-spine.md §10.7, data-spine.md plan PR 4) rather
@@ -201,30 +211,43 @@ export interface CatPage {
   nextPage: number | null;
 }
 
-export interface CatRegistration {
-  /** @minLength 1 */
-  deviceId: string;
+export type CatClaimHomePin = {
   /**
-     * @minLength 1
-     * @maxLength 60
+     * @minimum -90
+     * @maximum 90
      */
-  name: string;
-  /**
-     * @minLength 1
-     * @maxLength 60
-     */
-  ownerName: string;
-  /** @maxLength 200 */
-  homeDescription: string;
   lat: number;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
   lng: number;
-}
+};
 
+/**
+ * claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be
+ * true (the app always sends true). Either one missing or false is
+ * 422 NOT_CONFIRMED, given only after the checks about the cat (§3
+ * order of checks). A value of the wrong type (the string "true",
+ * say), or a homePin that is missing, null or not a position, is a
+ * plain 400 before anything else.
+ */
 export interface CatClaim {
   /** @minLength 1 */
   deviceId: string;
+  livesOnSyros?: boolean;
+  livesInMyHome?: boolean;
+  homePin: CatClaimHomePin;
   /** @maxLength 200 */
-  homeDescription: string;
+  homeNote?: string;
+}
+
+/**
+ * claiming-a-cat.md §6. Only the device id; the secret travels in X-Device-Secret.
+ */
+export interface CatLetGo {
+  /** @minLength 1 */
+  deviceId: string;
 }
 
 export interface CatOwnerUpdate {
@@ -290,6 +313,21 @@ export interface CatDetail {
   fansCount: number;
   /** Care history, newest first, oldest entry always `discovered` */
   careTimeline: CareEvent[];
+  /**
+     * Whether the phone looking may say "This is my cat" (claiming-a-cat.md
+     * §4.1). True only when it sent X-Device-Id with its matching
+     * X-Device-Secret and passes the same check the claim uses; false
+     * otherwise, including for the cat's owner.
+     */
+  canClaim: boolean;
+  /**
+     * True only for a phone that proved who it is and let this cat go in
+     * the last 7 days, or was removed as its owner by the team in the
+     * last 30 (claiming-a-cat.md §11). Lets the app tell the
+     * cooldown from "this phone hasn't met the cat". False otherwise,
+     * for everyone else and for every phone that hasn't proved itself.
+     */
+  claimCooldown: boolean;
 }
 
 export type CampaignCurrency = typeof CampaignCurrency[keyof typeof CampaignCurrency];

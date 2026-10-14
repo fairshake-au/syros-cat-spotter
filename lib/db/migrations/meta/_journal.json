@@ -127,6 +127,13 @@
       "when": 1792017266338,
       "tag": "0017_feeding_site_made_public_by_link",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792017937875,
+      "tag": "0018_cat_home_pin",
+      "breakpoints": true
     }
   ]
 }

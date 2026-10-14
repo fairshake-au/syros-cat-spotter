@@ -61,6 +61,28 @@ describe('i18n dictionaries', () => {
     }
   });
 
+  // claiming-a-cat.md §4: the wording uses the cat's name, never "he" or "she",
+  // so it never guesses (SYC-130).
+  it('the claiming and letting-go strings use no pronouns for the cat', () => {
+    const keys = Object.keys(TRANSLATIONS.en).filter(
+      (k) => /^(claim|letGo)/.test(k),
+    );
+    expect(keys.length).toBeGreaterThan(20);
+    const offenders = keys
+      .filter((k) => /\b(he|she|her|him|his)\b/i.test(TRANSLATIONS.en[k]))
+      .map((k) => `${k}: ${TRANSLATIONS.en[k]}`);
+    expect(offenders).toEqual([]);
+  });
+
+  it('never says snapper, colony carer or adopt in the claiming strings', () => {
+    for (const code of LANG_CODES) {
+      for (const [k, v] of Object.entries(TRANSLATIONS[code])) {
+        if (!/^(claim|letGo)/.test(k)) continue;
+        expect(v, `${code}.${k}`).not.toMatch(/snapper|colony carer|adopt|υιοθε|adopter/i);
+      }
+    }
+  });
+
   it('uses the requested product name for the welcome title in every language', () => {
     for (const code of LANG_CODES) {
       expect(TRANSLATIONS[code].welcomeTitle, `welcomeTitle in ${code}`).toBe(
