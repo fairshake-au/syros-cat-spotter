@@ -363,7 +363,7 @@ export function renderAddCatsPage(opts: {
       `<p class="hint">${w("add.hint")}</p>` +
       `<ul class="cats">${results.map((c) => addCard(c, colony.id)).join("")}</ul>` +
       (results.length >= ADD_SEARCH_LIMIT ? `<p class="empty">${w("add.more")}</p>` : "") +
-      `<button type="submit">${w("add.button")}</button></form>`;
+      `<button type="submit" class="primary">${w("add.button")}</button></form>`;
   }
   return renderPage({
     title: `${t("add.title")} ${colony.name}`,

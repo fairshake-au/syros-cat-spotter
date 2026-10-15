@@ -282,6 +282,7 @@ describe("test 15 (team half): adding cats from a colony page", () => {
     expect(html).toContain("No colony");
     expect(html).toContain(`In ${P}Other`);
     expect(html).toContain("Already in this colony");
+    expect(html).toContain('class="primary">Add the ticked cats</button>');
     expect(html).toContain(`name="catIds" value="${free}"`);
     // The cat already here can't be ticked.
     expect(html).toMatch(/value="\d+" disabled/);

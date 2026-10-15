@@ -74,7 +74,8 @@ h3{font-size:16px;margin:16px 0 4px}
 .search{margin:8px 0 16px}
 .searchrow{display:flex;gap:8px}
 .searchrow input{flex:1;min-width:0;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px}
-.searchrow button,.search button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+button.primary{margin-top:8px}
+button.primary,.searchrow button,.search button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
 ul.cats,ul.sightings,ol.history{list-style:none;margin:0;padding:0}
 .catrow{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;overflow-wrap:anywhere}
 .catrow:hover{border-color:#0b5c6b}
