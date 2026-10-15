@@ -67,6 +67,7 @@ let sightingB: number;
 let bareCatId: number; // a cat in no colony
 let bareSighting: number;
 let outsideSighting: number;
+let awaitingSighting: number;
 let pendingSighting: number;
 
 const unique = (label: string) => `vt-ep-${RUN}-${label}-${++n}`;
@@ -188,6 +189,8 @@ beforeAll(async () => {
   sightingB = await sighting(catId, cat.photoId, SPOT_B, { createdAt: new Date("2026-09-28T16:40:00Z") });
   outsideSighting = await sighting(catId, cat.photoId, { lat: 38.5123456, lng: 25.5123456 });
   pendingSighting = await sighting(catId, cat.photoId, SPOT_A, { status: "pending", catId: null });
+  // Not yet checked by the team, though it already names a cat.
+  awaitingSighting = await sighting(catId, cat.photoId, SPOT_A, { status: "awaiting_team" });
 
   const bare = await seedCat(null);
   bareCatId = bare.id;
@@ -247,6 +250,13 @@ describe("the cat page: two buttons on each sighting", () => {
     expect(res.text).not.toContain("from-sighting");
     expect(res.text).not.toContain("Make a feeding site here");
     expect(res.text).toContain("map-at-sighting");
+  });
+
+  it("someone who may add sites but not see exact positions gets no cat page, so neither button", async () => {
+    denied.cap = "view_exact_location";
+    const res = await get(`/api/team/cats/${catId}`);
+    expect(res.status).toBe(403);
+    expect(res.text).not.toContain("from-sighting");
   });
 });
 
@@ -344,6 +354,7 @@ describe("'Make a feeding site here'", () => {
     const bad: Array<[string, Record<string, string>]> = [
       ["no such sighting", { sightingId: NO_SUCH }],
       ["a pending sighting (no cat yet)", { sightingId: String(pendingSighting) }],
+      ["a sighting the team hasn't checked yet", { sightingId: String(awaitingSighting) }],
       ["outside the island box", { sightingId: String(outsideSighting) }],
       ["not a number", { sightingId: "abc" }],
       ["empty", { sightingId: "" }],
@@ -591,6 +602,7 @@ describe("access (roles PR 0.5: no target until PR 4.1)", () => {
   it("each button asks for its own capability, before the body is read", async () => {
     const wants: Array<[string, string]> = [
       ["add_feeding_site", "/api/team/sites/from-sighting"],
+      ["view_exact_location", "/api/team/sites/from-sighting"],
       ["view_exact_location", "/api/team/sites/map-at-sighting"],
     ];
     for (const [cap, path] of wants) {

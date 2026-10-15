@@ -459,6 +459,9 @@ async function sightingFor(req: Request, res: Response) {
 router.post(
   "/team/sites/from-sighting",
   ...formRoute("add_feeding_site"),
+  // The answer is the sighting's exact position, so adding sites alone isn't
+  // enough: once roles get colony targets (PR 4.1) the two can differ.
+  requireTeam("view_exact_location"),
   async (req: Request, res: Response) => {
     const found = await sightingFor(req, res);
     if (!found) return;
