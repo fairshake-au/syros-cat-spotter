@@ -6,12 +6,14 @@ import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { SESSION_COOKIE } from "../lib/teamAuth/session";
 import { TEAM_HOME } from "../lib/teamAuth/config";
-import { installFakeResend } from "../test/fakeResend";
-import { cleanUpPeople, eventKinds, inviteCookieFor, invited, joined, personRow } from "../test/inviteKit";
+import { installFakeResend, type SentMail } from "../test/fakeResend";
+import { cleanUpPeople, eventKinds, inviteCookieFor, invited, joined, otherManagerEmails, personRow } from "../test/inviteKit";
 import { endPlacements } from "../test/roleKit";
 import { settleOutbox } from "../lib/mail/outbox";
 import { aboutYou, renderMyColoniesPage, renderMyPage } from "../lib/teamPages/myPages";
 import { CATALOGUE, LIVE_LANGUAGES } from "../lib/teamPages/strings";
+import { renderAccessNotice } from "../lib/mail/personTemplates";
+import { en } from "../lib/teamPages/strings/en";
 
 // SYC-53 PR 1.3: "My page" and "My colonies" (roles-and-invites.md §2.6,
 // §6.2 note 1, §9.1, §9.5, §13.1). Home after the hand-off and after accept;
@@ -28,6 +30,7 @@ const KEY = "vitest-my-key-0123456789abcdef-0123456789";
 const handoffKey = makeKey();
 type Who = PersonWithScopes & { cookie: string };
 
+let sent: SentMail[];
 let solo: Who; // the only management person, until `second` joins
 let second: Who;
 let vaporia: number;
@@ -39,7 +42,7 @@ beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   process.env["RESEND_API_KEY"] = "re_test_not_real";
-  installFakeResend();
+  sent = installFakeResend();
   vaporia = await colonyNamed("Vaporia — Eleni's");
   katoChora = await colonyNamed("Kato Chora");
   solo = await joined("my-solo", ["staff", "management"]);
@@ -302,7 +305,7 @@ describe("the one sentence about yourself (§2.6)", () => {
   it("in Greek and French once live (the sentence is built from the catalogue)", () => {
     const who = { team: false, management: false, placements: [{ colonyId: 1, name: "Βαπόρια", relationship: null, expiresAt: null }] };
     expect(aboutYou("el", who, ["en", "el"])).toBe("Είστε κηδεμόνας γατών για Βαπόρια.");
-    expect(aboutYou("fr", who, ["en", "fr"])).toBe("Tu es gardien de chats pour Βαπόρια.");
+    expect(aboutYou("fr", who, ["en", "fr"])).toBe("Tu es gardien(ne) de chats pour Βαπόρια.");
     expect(aboutYou("el", who, LIVE_LANGUAGES)).toBe("You’re a cat guardian for Βαπόρια.");
   });
 });
@@ -383,5 +386,93 @@ describe("every POST is Origin-checked (a missing Origin too) and changes nothin
     const gone = await joined("my-gone", ["staff"]);
     await markLeftById(second.id, gone.id);
     expect((await get("/api/team/my", gone.cookie)).status).toBe(401);
+  });
+});
+
+// ── Samuel, 15 Oct 2026: the team and management tell the other managers when
+// they remove themselves; a cat guardian's own actions email nobody. ──
+
+const NOTICE_SUBJECT = en["mail.notice.subject"];
+
+/** Notices sent since the last call, as who they went to. */
+async function notices(): Promise<SentMail[]> {
+  await settleOutbox();
+  const out = sent.filter((m) => m.subject === NOTICE_SUBJECT);
+  sent.length = 0;
+  return out;
+}
+
+describe("stopping helping, and signing yourself out: who is told", () => {
+  beforeEach(async () => {
+    await settleOutbox();
+    sent.length = 0;
+  });
+
+  it("a team member stopping helping emails every other manager, not themselves, in its own words", async () => {
+    const t = await joined("my-n-team", ["staff"]);
+    const expected = await otherManagerEmails(t.id);
+    expect(expected.length).toBeGreaterThanOrEqual(2);
+    expect((await post("/api/team/my/stop-helping", t.cookie)).status).toBe(200);
+    const mails = await notices();
+    expect(mails.map((m) => m.to).sort()).toEqual(expected);
+    expect(mails.map((m) => m.to)).not.toContain(t.email);
+    for (const m of mails) {
+      expect(m.text).toContain("Vt my-n-team stopped helping Syros Cats.");
+      expect(m.text).not.toMatch(/marked/);
+    }
+  });
+
+  it("a manager doing so: the same", async () => {
+    const m = await joined("my-n-mgr", ["staff", "management"]);
+    const expected = await otherManagerEmails(m.id);
+    expect((await post("/api/team/my/stop-helping", m.cookie)).status).toBe(200);
+    const mails = await notices();
+    expect(mails.map((x) => x.to).sort()).toEqual(expected);
+    expect(mails.map((x) => x.to)).not.toContain(m.email);
+    expect(mails[0]!.text).toContain("Vt my-n-mgr stopped helping Syros Cats.");
+  });
+
+  it("a cat guardian stopping helping emails nobody", async () => {
+    const g = await guardian("my-n-g1", [vaporia]);
+    expect((await post("/api/team/my/stop-helping", g.cookie)).status).toBe(200);
+    expect(await notices()).toEqual([]);
+    expect((await pool.query(`select count(*)::int n from mail_outbox where purpose = 'access_change_notice' and payload->>'subjectId' = $1`, [g.id])).rows[0].n).toBe(0);
+  });
+
+  it("a cat guardian's own sign-out everywhere emails nobody", async () => {
+    const g = await guardian("my-n-g2", [vaporia]);
+    expect((await post("/api/team/my/sign-out-everywhere", g.cookie)).status).toBe(303);
+    expect(await notices()).toEqual([]);
+  });
+
+  it("a team member's own sign-out everywhere emails the managers", async () => {
+    const t = await joined("my-n-team2", ["staff"]);
+    const expected = await otherManagerEmails(t.id);
+    expect((await post("/api/team/my/sign-out-everywhere", t.cookie)).status).toBe(303);
+    const mails = await notices();
+    expect(mails.map((m) => m.to).sort()).toEqual(expected);
+  });
+
+  it("the notice names the person and says they stopped; nothing typed reaches it (three languages, same kind)", () => {
+    const base = { actorName: "Susan", subjectName: "Susan", change: { kind: "left_self", withdrawn: 0 } as const, colonyNames: new Map<number, string>() };
+    const mail = renderAccessNotice({ ...base, language: "en" });
+    expect(mail.text.split("\n\n")[0]).toBe("Susan stopped helping Syros Cats.");
+    expect(mail.text).not.toMatch(/marked/);
+    expect(renderAccessNotice({ ...base, language: "el" }, ["en", "el"]).text).toContain("Susan σταμάτησε να βοηθάει");
+    expect(renderAccessNotice({ ...base, language: "fr" }, ["en", "fr"]).text).toContain("Susan a arrêté d’aider Syros Cats.");
+    // A hostile name is defanged like every other notice.
+    const evil = renderAccessNotice({ ...base, subjectName: "x https://evil.example" , language: "en" });
+    expect(evil.text).not.toContain("https://evil.example");
+  });
+});
+
+describe("minor 3: sign out everywhere answers a form post with a page redirect, not a blank 204", () => {
+  it("a form POST without Sec-Fetch-Mode gets the 303 to sign-in; a plain JSON POST gets 204", async () => {
+    const a = await joined("my-m3a", ["staff"]);
+    const form = await request(app).post("/api/team/my/sign-out-everywhere").type("form").send({}).set("Cookie", a.cookie).set("Origin", TEAM_ORIGIN);
+    expect([form.status, form.headers["location"]]).toEqual([303, "https://admin.catspotters.com/"]);
+    const b = await joined("my-m3b", ["staff"]);
+    const json = await request(app).post("/api/team/my/sign-out-everywhere").send({}).set("Cookie", b.cookie).set("Origin", TEAM_ORIGIN);
+    expect(json.status).toBe(204);
   });
 });

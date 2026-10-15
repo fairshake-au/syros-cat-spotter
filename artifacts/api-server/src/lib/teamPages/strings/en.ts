@@ -72,6 +72,7 @@ export const en = {
   "mail.notice.rolesChanged": "{actor} changed what {subject} can do. Before: {before}. Now: {after}.",
   "mail.notice.rejoined": "{actor} brought {subject} back as {role}. They will need to accept again.",
   "mail.notice.left": "{actor} marked {subject} as left.",
+  "mail.notice.leftSelf": "{subject} stopped helping Syros Cats.",
   "mail.notice.withdrawn": "Invitations {subject} had sent that were still open were withdrawn: {count}.",
   "mail.notice.signedOut": "{actor} signed {subject} out everywhere.",
   "mail.notice.why": "Every change to who can use the dashboard is emailed to the other managers. If this looks wrong, you can sign someone out everywhere on the People page.",

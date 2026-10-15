@@ -3,12 +3,10 @@ import {
   findPersonById,
   LAST_MANAGER,
   myColonies,
-  PeopleError,
   setOwnLanguage,
-  stopHelping,
   type PersonWithScopes,
 } from "@workspace/db";
-import { ActionRefused, signOutEverywhere } from "../lib/people/actions";
+import { ActionRefused, signOutEverywhere, stopHelping } from "../lib/people/actions";
 import { SIGN_IN_PAGE } from "../lib/teamAuth/config";
 import { clearInviteSession, clearSession } from "../lib/teamAuth/session";
 import { isBrowserNavigation, setTeamHeaders } from "../lib/teamAuth/refuse";
@@ -105,7 +103,7 @@ router.post("/team/my/sign-out-everywhere", ...formRoute(undefined, OWN), async 
   // Her cookie is already dead (the version rose); clear it as well.
   clearSession(res);
   clearInviteSession(res);
-  if (isBrowserNavigation(req)) return void res.redirect(303, SIGN_IN_PAGE);
+  if (wantsPage(req)) return void res.redirect(303, SIGN_IN_PAGE);
   res.status(204).end();
 });
 
@@ -119,9 +117,9 @@ router.post("/team/my/stop-helping", ...formRoute(undefined, OWN), async (req: R
   const person = teamPerson(res);
   const forPage = { name: person.name, language: person.language };
   try {
-    await stopHelping(person.id);
+    await stopHelping(person);
   } catch (err) {
-    if (!(err instanceof PeopleError)) throw err;
+    if (!(err instanceof ActionRefused)) throw err;
     if (err.message === LAST_MANAGER) {
       req.log.info({ reason: "last_manager" }, "stop helping refused");
       if (!wantsPage(req)) return void res.status(409).json({ error: "last_manager" });
