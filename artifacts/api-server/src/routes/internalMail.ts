@@ -9,7 +9,8 @@ import { safeError } from "../lib/logger";
 /**
  * POST /api/internal/mail/drain (SYC-42 plan, Slice 1 item 1.6, layer 3).
  *
- * Called every 10 minutes by .github/workflows/mail-drain.yml with
+ * Called every 2 hours by the mail-drain-cron Worker (SYC-231), and every 3
+ * hours as a backup by .github/workflows/mail-drain.yml, with
  * MAIL_DRAIN_TOKEN. Sends what's due, then answers non-2xx if any welfare
  * alert has been unsent for over an hour, so the scheduled run fails and
  * GitHub emails Samuel. That's a delivery path independent of Resend, and it

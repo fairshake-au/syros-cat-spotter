@@ -40,13 +40,19 @@ export function checkInternalToken(
 
 /**
  * SYC-42 plan, Slice 1 item 1.6: `MAIL_DRAIN_TOKEN`, the scheduled job's own
- * narrow token. It opens exactly one path, POST /api/internal/mail/drain, and
- * nothing else; and the sign-in Worker's INTERNAL_PEOPLE_TOKEN does not open
- * the drain. A separate token means a leaked drain token can at worst make
- * the server send mail that was already queued. Held only in the GitHub
- * `production` environment and Replit's deployment secrets (spec §2.11).
+ * narrow token. It opens exactly two paths and nothing else:
+ * - POST /api/internal/mail/drain (SYC-42), and
+ * - POST /api/internal/coat/sweep (SYC-161, Decision D1: the manual colour
+ *   run, so it needs no new secret).
+ * The sign-in Worker's INTERNAL_PEOPLE_TOKEN opens neither. A separate token
+ * means a leaked drain token can at worst make the server send mail that was
+ * already queued, and bring forward colour readings that are due anyway,
+ * capped by the hourly reading budget (a photo is never read twice). Held
+ * only in the GitHub `production` environment, Replit's deployment secrets
+ * and the mail-drain-cron Worker (spec §2.11).
  */
 export const MAIL_DRAIN_PATH = "/api/internal/mail/drain";
+export const COAT_SWEEP_PATH = "/api/internal/coat/sweep";
 
 export function checkMailDrainToken(
   authorization: string | undefined,
