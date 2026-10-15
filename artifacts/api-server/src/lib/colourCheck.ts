@@ -5,6 +5,7 @@ import {
   appearanceAuthorityLevel,
   resolveCoat,
   resolveMarkings,
+  standingAboveTeam,
   type AppearanceCheckReason,
 } from "./resolve";
 import { handPickDisagrees, handPickedAmong } from "./handPick";
@@ -54,6 +55,11 @@ export interface ColourCheckCat {
   coat: CoatColour[] | null;
   markings: Mark[] | null;
   reasons: ColourCheckReason[];
+  /**
+   * The cat guardian statements a team Correct would mark wrong, per kind
+   * (empty: none decides). The list warns before Correct overrules her.
+   */
+  above: { coat: number[]; markings: number[] };
   /** "check": a reason other than `no_authority`. "not_described": only that. */
   group: "check" | "not_described";
   /** The newest colour or markings statement on the cat, else when it was first recorded (ISO). */
@@ -123,6 +129,10 @@ export async function listColourCheck(now = new Date()): Promise<ColourCheckCat[
       photoUrl: publicId ? teamPhotoUrl(publicId) : null,
       coat: coat.value,
       markings: markings.value,
+      above: {
+        coat: standingAboveTeam(observations, "coat").map((o) => o.id),
+        markings: standingAboveTeam(observations, "markings").map((o) => o.id),
+      },
       reasons,
       group: reasons.some((r) => r !== "no_authority") ? "check" : "not_described",
       newestAt: new Date(newest).toISOString(),

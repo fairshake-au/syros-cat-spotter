@@ -159,7 +159,8 @@ export const fr: Record<StringKey, string> = {
   "appearance.checkTitle": "Mérite un second regard",
   "appearance.guardianDisagrees": "C’est la déclaration d’un gardien de chats qui décide, et l’équipe a dit autre chose. Pour la remplacer, utilise Corriger.",
   "appearance.confirm": "C’est juste",
-  "appearance.confirmHint": "Enregistre l’accord de l’équipe. Sur la déclaration d’un gardien de chats, cela ne change rien à ce que voit le public.",
+  "appearance.confirmHint": "Enregistre l’accord de l’équipe.",
+  "appearance.confirmHintGuardian": "C’est la déclaration d’un gardien de chats qui décide, donc cela ne change rien à ce que voit le public.",
   "appearance.correctColour": "Corriger la couleur",
   "appearance.correctMarkings": "Corriger les marques",
   "appearance.pickColours": "Choisis-en une ou deux",
@@ -185,8 +186,6 @@ export const fr: Record<StringKey, string> = {
   "appearance.done.markedWrong": "Enregistré. Cette déclaration ne compte plus. Elle reste dans l’historique ci-dessous.",
   "appearance.recordsSay": "Les registres disent",
   "appearance.noPhoto": "Pas de photo",
-  "appearance.problem.colours": "Choisis une ou deux couleurs.",
-  "appearance.problem.reason": "Dis pourquoi, en 500 caractères maximum.",
 
   "colourCheck.title": "Vérification des couleurs",
   "colourCheck.intro": "Les chats dont la couleur ou les marques méritent un second regard. Faible priorité : quelques minutes par semaine.",

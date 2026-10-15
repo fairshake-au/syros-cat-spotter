@@ -20,7 +20,7 @@ import {
   resolveCoat,
   resolveMarkings,
   resolveSterilised,
-  standingAppearanceRows,
+  standingAboveTeam,
 } from "./resolve";
 import { catNamed, isBlankName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
@@ -363,10 +363,13 @@ export interface SupersedeInput {
  *    race past the already-superseded check ("double-supersede-race").
  *
  * A colour or markings statement (SYC-2 PR 3.1, spec §4.4) is marked wrong
- * by a **retraction**, `{ retracted: true }`, whatever value was sent: it
- * removes that one statement from the count and asserts nothing in its
- * place. This is the only "mark wrong" for appearance; there is no second
- * route.
+ * by a **retraction**, `{ retracted: true }`, and nothing else: it removes
+ * that one statement from the count and asserts nothing in its place. Any
+ * other value is refused, so nobody expecting a replacement gets a
+ * retraction instead; a new colour or list is Correct. This is the only
+ * "mark wrong" for appearance; there is no second route. The cat is locked
+ * first, in the same order as Correct and Confirm (cat, then statement), so
+ * none of them reads a colour another is halfway through changing.
  */
 export async function supersedeStatement(
   person: Person,
@@ -377,6 +380,11 @@ export async function supersedeStatement(
   if (!SUPERSEDE_CAPABILITIES.some((c) => can(person, c))) throw notAuthorised();
 
   const run = async (tx: Tx) => {
+    const [peek] = await tx
+      .select({ catId: observationsTable.catId, kind: observationsTable.kind })
+      .from(observationsTable)
+      .where(eq(observationsTable.id, input.id));
+    if (peek && isAppearanceKind(peek.kind)) await lockCat(tx, peek.catId);
     const original = await lockActiveObservation(tx, input.id);
     // A withdrawn owner claim can't be marked wrong (see correctionOf in
     // teamCatView): refused like any answer that doesn't fit, nothing written.
@@ -406,6 +414,12 @@ export async function supersedeStatement(
     // Colour and markings: always a retraction (spec §4.4), never a value
     // the caller picks. writeObservation refuses a retraction of a retraction.
     const isAppearance = isAppearanceKind(original.kind);
+    if (isAppearance && !isRetractedValue(input.value)) {
+      throw new ObservationRefused(
+        "MALFORMED_VALUE",
+        "A colour or markings statement is marked wrong with { retracted: true }; use Correct for a new value",
+      );
+    }
     const value = isColony
       ? await colonyAfterMarkingWrong(tx, original)
       : isAppearance
@@ -438,6 +452,12 @@ export type AppearanceKind = "coat" | "markings";
 
 export function isAppearanceKind(kind: string): kind is AppearanceKind {
   return kind === "coat" || kind === "markings";
+}
+
+/** Exactly `{ retracted: true }`, nothing more. */
+function isRetractedValue(value: Record<string, unknown>): boolean {
+  const keys = Object.keys(value);
+  return keys.length === 1 && keys[0] === "retracted" && value["retracted"] === true;
 }
 
 /** The reason a Confirm carries: fixed, as "Looks right" on the Likely list. */
@@ -538,29 +558,24 @@ export async function confirmAppearance(
   });
 }
 
-/**
- * The standing statements of one kind that outrank the team on this cat:
- * every cat guardian's (Decision G; `appearanceAuthorityLevel` above 1).
- * "Standing" is the resolver's own rule (`standingAppearanceRows`), so a
- * statement already marked wrong, replaced, or itself a retraction is never
- * among them.
- */
-export function standingAboveTeam(
-  observations: readonly Observation[],
-  kind: AppearanceKind,
-): Observation[] {
-  return standingAppearanceRows(observations, kind, kind === "markings", appearanceAuthorityLevel).filter(
-    (o) => o.provenance !== "machine" && appearanceAuthorityLevel(o) > 1,
-  );
-}
-
 export interface CorrectInput {
   catId: number;
   kind: AppearanceKind;
   /** Colour codes (1–2, never Not sure) or the whole list of marks ([] = nothing special). */
   codes: readonly string[];
   reason: string;
+  /**
+   * The ids of the statements outranking the team that the page showed (the
+   * ones Correct will mark wrong). When given and the set has changed since
+   * (a cat guardian said something new), nothing is written ("changed"), so
+   * nobody overrules a statement they never saw.
+   */
+  shownAbove?: readonly number[];
 }
+
+export type CorrectOutcome =
+  | { kind: "corrected"; row: Observation; retracted: Observation[] }
+  | { kind: "changed" };
 
 /**
  * **Correct** (spec §4.4; Decision G, Samuel 13 October 2026): the team's
@@ -580,7 +595,7 @@ export async function correctAppearance(
   person: Person,
   input: CorrectInput,
   now = new Date(),
-): Promise<{ row: Observation; retracted: Observation[] }> {
+): Promise<CorrectOutcome> {
   // No target: island-wide holders only. A cat guardian's own routes (SYC-2
   // PR 5.1) pass the cat's colony, read from the record.
   if (!can(person, "set_appearance")) throw notAuthorised();
@@ -593,11 +608,15 @@ export async function correctAppearance(
   return db.transaction(async (tx) => {
     await lockCat(tx, input.catId);
     const { observations } = await resolvedAppearance(tx, input.catId, now);
+    const above = standingAboveTeam(observations, input.kind);
+    if (input.shownAbove && !sameCodes(input.shownAbove.map(String), above.map((o) => String(o.id)))) {
+      return { kind: "changed" as const };
+    }
     const retracted: Observation[] = [];
-    for (const above of standingAboveTeam(observations, input.kind)) {
+    for (const statement of above) {
       const { row } = await supersedeStatement(
         person,
-        { id: above.id, value: RETRACTED, reason: input.reason },
+        { id: statement.id, value: RETRACTED, reason: input.reason },
         tx,
       );
       retracted.push(row);
@@ -607,7 +626,7 @@ export async function correctAppearance(
       { catId: input.catId, kind: input.kind, value, reason: input.reason, observedAt: now },
       tx,
     );
-    return { row, retracted };
+    return { kind: "corrected" as const, row, retracted };
   });
 }
 

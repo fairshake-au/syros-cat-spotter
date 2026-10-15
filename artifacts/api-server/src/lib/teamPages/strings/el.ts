@@ -159,7 +159,8 @@ export const el: Record<StringKey, string> = {
   "appearance.checkTitle": "Αξίζει μια δεύτερη ματιά",
   "appearance.guardianDisagrees": "Αυτό το αποφασίζει μια δήλωση κηδεμόνα γατών, και η ομάδα είπε κάτι διαφορετικό. Για να την παρακάμψετε, χρησιμοποιήστε τη Διόρθωση.",
   "appearance.confirm": "Σωστό",
-  "appearance.confirmHint": "Καταγράφει ότι η ομάδα συμφωνεί. Σε δήλωση κηδεμόνα γατών δεν αλλάζει τίποτα από όσα βλέπει το κοινό.",
+  "appearance.confirmHint": "Καταγράφει ότι η ομάδα συμφωνεί.",
+  "appearance.confirmHintGuardian": "Αυτό το αποφασίζει μια δήλωση κηδεμόνα γατών, οπότε δεν αλλάζει τίποτα από όσα βλέπει το κοινό.",
   "appearance.correctColour": "Διόρθωση του χρώματος",
   "appearance.correctMarkings": "Διόρθωση των σημαδιών",
   "appearance.pickColours": "Επιλέξτε ένα ή δύο",
@@ -185,8 +186,6 @@ export const el: Record<StringKey, string> = {
   "appearance.done.markedWrong": "Αποθηκεύτηκε. Αυτή η δήλωση δεν μετράει πια. Μένει στο ιστορικό παρακάτω.",
   "appearance.recordsSay": "Τα αρχεία λένε",
   "appearance.noPhoto": "Χωρίς φωτογραφία",
-  "appearance.problem.colours": "Επιλέξτε ένα ή δύο χρώματα.",
-  "appearance.problem.reason": "Πείτε γιατί, με έως 500 χαρακτήρες.",
 
   "colourCheck.title": "Έλεγχος χρώματος",
   "colourCheck.intro": "Γάτες των οποίων το χρώμα ή τα σημάδια αξίζουν μια δεύτερη ματιά. Χαμηλή προτεραιότητα: λίγα λεπτά την εβδομάδα.",

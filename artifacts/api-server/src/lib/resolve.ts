@@ -807,6 +807,23 @@ export function standingAppearanceRows(
   return rows.filter((o) => !removed.has(o.id) && !isRetractionValue(o.value));
 }
 
+/**
+ * The standing statements of one kind that outrank the team on this cat:
+ * every cat guardian's (Decision G; `appearanceAuthorityLevel` above 1).
+ * "Standing" is `standingAppearanceRows`, the rule the resolver itself uses,
+ * so a statement already marked wrong, replaced, or itself a retraction is
+ * never among them. These are what a team Correct marks wrong (SYC-2 PR 3.1),
+ * and the dashboard shows them so nobody overrules a statement unseen.
+ */
+export function standingAboveTeam(
+  observations: readonly Observation[],
+  kind: "coat" | "markings",
+): Observation[] {
+  return standingAppearanceRows(observations, kind, kind === "markings", appearanceAuthorityLevel).filter(
+    (o) => o.provenance !== "machine" && appearanceAuthorityLevel(o) > 1,
+  );
+}
+
 /** The Europe/Athens calendar day of an instant, as YYYY-MM-DD. Reuses the
  * streak's Athens bucketing so the app has one notion of a Syros day. */
 export function athensDay(at: Date): string {

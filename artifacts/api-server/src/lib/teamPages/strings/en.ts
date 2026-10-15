@@ -181,7 +181,8 @@ export const en = {
   "appearance.checkTitle": "Worth a second look",
   "appearance.guardianDisagrees": "A cat guardian's statement decides this, and the team said something different. To overrule it, use Correct.",
   "appearance.confirm": "That's right",
-  "appearance.confirmHint": "Records the team's agreement. On a cat guardian's statement it changes nothing the public sees.",
+  "appearance.confirmHint": "Records the team's agreement.",
+  "appearance.confirmHintGuardian": "A cat guardian's statement decides this, so it changes nothing the public sees.",
   "appearance.correctColour": "Correct the colour",
   "appearance.correctMarkings": "Correct the markings",
   "appearance.pickColours": "Pick one or two",
@@ -207,8 +208,6 @@ export const en = {
   "appearance.done.markedWrong": "Saved. That statement no longer counts. It stays in the history below.",
   "appearance.recordsSay": "Records say",
   "appearance.noPhoto": "No photo",
-  "appearance.problem.colours": "Pick one or two colours.",
-  "appearance.problem.reason": "Say why, in up to 500 characters.",
 
   "colourCheck.title": "Colour check",
   "colourCheck.intro": "Cats whose colour or markings are worth a second look. Low priority: a few minutes a week.",

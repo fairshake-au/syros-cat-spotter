@@ -24,6 +24,7 @@ import {
   resolveLifeStatus,
   resolveMarkings,
   resolveSterilised,
+  standingAboveTeam,
   standingAppearanceRows,
   type AppearanceCheckReason,
   type AppearanceResolved,
@@ -397,6 +398,8 @@ export interface TeamAppearance {
   statements: TeamAppearanceStatement[];
   /** A cat guardian's statement decides (Decision G). */
   guardianDecides: boolean;
+  /** The cat guardian statements a team Correct would mark wrong (what the page shows it will overrule). */
+  aboveTeamIds: number[];
   /** …and a standing team statement says something different (shown as a disagreement). */
   guardianDisagrees: boolean;
 }
@@ -925,6 +928,7 @@ function appearanceOf(
     checkReasons: resolved.checkReasons,
     statements,
     guardianDecides,
+    aboveTeamIds: standingAboveTeam(observations, kind).map((o) => o.id),
     guardianDisagrees,
   };
 }

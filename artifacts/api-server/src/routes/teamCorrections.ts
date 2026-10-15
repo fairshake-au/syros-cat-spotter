@@ -839,6 +839,11 @@ const CorrectForm = z.object({
     z.array(z.enum(MARKS)).max(MARKS.length).optional(),
   ),
   reason: reasonField,
+  /** The cat guardian statements the page showed Correct would overrule: ids, comma-joined from a form. */
+  shownAbove: z.preprocess(
+    (v) => (typeof v === "string" ? (v === "" ? [] : v.split(",")) : v),
+    z.array(z.coerce.number().int().positive()).max(50).optional(),
+  ),
   back: z.enum(["cat", "colour"]).optional(),
 });
 
@@ -911,9 +916,12 @@ router.post(
         kind: parsed.data.kind,
         codes,
         reason: parsed.data.reason,
+        shownAbove: parsed.data.shownAbove,
       });
-      const done = out.retracted.length > 0 ? "a_overruled" : "a_corrected";
+      const done =
+        out.kind === "changed" ? "a_changed" : out.retracted.length > 0 ? "a_overruled" : "a_corrected";
       if (isFormPost(req)) return void res.redirect(303, afterAppearance(parsed.data.back, catId, done));
+      if (out.kind === "changed") return void res.status(409).json({ error: "Changed", code: "CHANGED" });
       res.status(201).json({ id: out.row.id, retracted: out.retracted.map((r) => r.id) });
     } catch (err) {
       refusalFor(req, res, err, back);

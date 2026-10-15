@@ -403,6 +403,28 @@ describe("T-overrule: a team Correct on a cat guardian's cat overrules her", () 
     expect((await snapshot(catId)).coat.value).toEqual(["grey"]);
   });
 
+  it("a page out of date overrules nothing: a guardian statement it didn't show stops the Correct (a_changed)", async () => {
+    const catId = await newCat();
+    const seen = await guardian(catId, "coat", "eleni", { value: { colours: ["grey"] }, daysAgo: 6 });
+    await guardian(catId, "coat", "maria", { value: { colours: ["white"] }, daysAgo: 1 });
+    const before = await rowsFor(catId);
+    const stale = await correct(catId, { kind: "coat", colours: "ginger", shownAbove: String(seen.id) });
+    expect(stale.headers["location"]).toContain("done=a_changed");
+    expect(await rowsFor(catId)).toEqual(before);
+    // Nothing shown, but one stands now: also changed.
+    const none = await json(`/api/team/cats/${catId}/appearance/correct`).send({
+      kind: "coat",
+      colours: ["ginger"],
+      reason: "x",
+      shownAbove: [],
+    });
+    expect([none.status, none.body.code]).toEqual([409, "CHANGED"]);
+    // The page's set, exactly: the overrule goes ahead.
+    const ids = before.map((o) => o.id).join(",");
+    const ok = await correct(catId, { kind: "coat", colours: "ginger", shownAbove: ids });
+    expect(ok.headers["location"]).toContain("done=a_overruled");
+  });
+
   it("does not touch the team's own earlier statements", async () => {
     const catId = await newCat();
     await team(catId, "coat", { value: { colours: ["grey"] }, daysAgo: 4 });
@@ -436,18 +458,25 @@ describe("Mark wrong (the existing route, a retraction)", () => {
     expect((await snapshot(catId)).coat.value).toBeNull();
   });
 
-  it("writes a retraction whatever choice or value is sent (no second way to write a colour)", async () => {
+  it("refuses anything but a retraction, on the form and the JSON supersede route (no second way to write a colour)", async () => {
     const catId = await newCat();
     const s = await spotter(catId, "coat", "a", { value: { colours: ["ginger"] } });
-    await wrong(s.id, { choice: "street" });
+    expect((await wrong(s.id, { choice: "street" })).status).toBe(400);
     const t = await spotter(catId, "markings", "b", { value: { marks: ["torn_ear"] } });
-    const j = await json(`/api/team/observations/${t.id}/supersede`).send({
+    const replace = await json(`/api/team/observations/${t.id}/supersede`).send({
       value: { marks: ["white_paws"] },
       reason: "x",
     });
-    expect(j.status).toBe(201);
+    expect(replace.status).toBe(400);
+    expect((await rowsFor(catId)).filter((o) => o.supersedesId != null)).toHaveLength(0);
+
+    const retract = await json(`/api/team/observations/${t.id}/supersede`).send({
+      value: { retracted: true },
+      reason: "x",
+    });
+    expect(retract.status).toBe(201);
     const written = (await rowsFor(catId)).filter((o) => o.supersedesId != null);
-    expect(written.map((o) => o.value)).toEqual([{ retracted: true }, { retracted: true }]);
+    expect(written.map((o) => o.value)).toEqual([{ retracted: true }]);
   });
 
   it("a second Mark wrong on the same row says already, and writes nothing", async () => {
@@ -685,6 +714,17 @@ describe("the hand-pick reason", () => {
     expect(await listed(suggested)).toBeUndefined();
   });
 
+  it("on a cat guardian's cat, a team Confirm after the answer clears it, though her statement still decides", async () => {
+    const catId = await newCat();
+    await guardian(catId, "coat", "eleni", { value: { colours: ["black"] }, daysAgo: 9 });
+    const sightingId = await handPicked(catId);
+    await spotter(catId, "coat", `picker-${catId}`, { value: { colours: ["ginger"] }, sightingId, daysAgo: 1 });
+    expect((await listed(catId))?.reasons).toEqual(["hand_pick"]);
+    await confirm(catId, "coat");
+    expect(await listed(catId)).toBeUndefined();
+    expect((await snapshot(catId)).coat.value).toEqual(["black"]);
+  });
+
   it("a team statement made after the answer clears it (the team has looked)", async () => {
     const catId = await newCat();
     await machine(catId, ["black"], 5);
@@ -730,10 +770,25 @@ describe("the Appearance section on the team cat page", () => {
   it("shows a guardian–team disagreement, with Correct offered to overrule", async () => {
     const catId = await newCat();
     await team(catId, "coat", { value: { colours: ["black"] }, daysAgo: 1 });
-    await guardian(catId, "coat", "eleni", { value: { colours: ["grey"] }, daysAgo: 5 });
+    const g = await guardian(catId, "coat", "eleni", { value: { colours: ["grey"] }, daysAgo: 5 });
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     expect(res.text).toContain("A cat guardian&#39;s statement decides this, and the team said something different");
     expect(res.text).toContain("Saving marks every standing cat guardian statement on it wrong");
+    expect(res.text).toContain(`name="shownAbove" value="${g.id}"`);
+  });
+
+  it("the Colour check list warns before its Correct overrules a cat guardian", async () => {
+    const catId = await newCat();
+    const g = await guardian(catId, "markings", "eleni", { value: { marks: ["torn_ear"] }, daysAgo: 20 });
+    await team(catId, "coat", { value: { colours: ["grey"] }, daysAgo: 20 });
+    await twoSpotters(catId, "markings", { marks: ["long_fur"] });
+    expect((await listed(catId))?.above).toEqual({ coat: [], markings: [g.id] });
+    const page = await request(app).get("/api/team/colour-check").set("Cookie", cookie);
+    const row = page.text.slice(page.text.indexOf(`id="c-${catId}"`));
+    const next = row.indexOf('<li class="report colourcheck"', 1);
+    const end = next === -1 ? row.length : next;
+    expect(row.slice(0, end)).toContain("Saving marks every standing cat guardian statement on it wrong");
+    expect(row.slice(0, end)).toContain(`name="shownAbove" value="${g.id}"`);
   });
 
   it("without set_appearance, the section shows but offers no forms", async () => {

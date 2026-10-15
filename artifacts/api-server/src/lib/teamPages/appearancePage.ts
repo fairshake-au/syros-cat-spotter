@@ -88,15 +88,20 @@ function confirmForm(
   catId: number,
   kind: "coat" | "markings",
   value: readonly string[],
+  guardianDecides: boolean,
   back: AppearanceBack,
 ): string {
+  const which = tr(lang, kind === "coat" ? "appearance.colour" : "appearance.markings");
   return (
     `<form method="post" action="/api/team/cats/${catId}/appearance/confirm">` +
     `<input type="hidden" name="kind" value="${kind}">` +
     `<input type="hidden" name="expected" value="${esc(value.join(","))}">` +
     backField(back) +
-    `<button type="submit" class="save">${esc(tr(lang, "appearance.confirm"))}</button>` +
-    `<p class="hint">${esc(tr(lang, "appearance.confirmHint"))}</p></form>`
+    // Two of these sit side by side on the Colour check list: say which.
+    `<button type="submit" class="save">${esc(tr(lang, "appearance.confirm"))}<span class="sr"> (${esc(which)})</span></button>` +
+    `<p class="hint">${esc(tr(lang, "appearance.confirmHint"))}` +
+    (guardianDecides ? ` ${esc(tr(lang, "appearance.confirmHintGuardian"))}` : "") +
+    "</p></form>"
   );
 }
 
@@ -111,7 +116,8 @@ function correctForm(
   catId: number,
   kind: "coat" | "markings",
   current: readonly string[] | null,
-  guardianDecides: boolean,
+  /** The cat guardian statements Correct will mark wrong (empty: none decides). */
+  above: readonly number[],
   back: AppearanceBack,
   idBase: string,
 ): string {
@@ -130,8 +136,10 @@ function correctForm(
     `<form method="post" action="/api/team/cats/${catId}/appearance/correct">` +
     `<input type="hidden" name="kind" value="${kind}">` +
     (kind === "markings" ? '<input type="hidden" name="marks" value="">' : "") +
+    // What the page showed it will overrule: if that changed, nothing is written.
+    `<input type="hidden" name="shownAbove" value="${esc(above.join(","))}">` +
     backField(back) +
-    (guardianDecides ? `<p class="warn">${esc(tr(lang, "appearance.overruleHint"))}</p>` : "") +
+    (above.length > 0 ? `<p class="warn">${esc(tr(lang, "appearance.overruleHint"))}</p>` : "") +
     `<fieldset><legend class="label">${esc(tr(lang, kind === "coat" ? "appearance.pickColours" : "appearance.pickMarks"))}</legend>` +
     `<div class="chips">${boxes}</div></fieldset>` +
     reasonInput(lang, `${idBase}-why`) +
@@ -216,8 +224,8 @@ function kindBlock(
     (a.guardianDisagrees ? `<p class="warn">${esc(tr(lang, "appearance.guardianDisagrees"))}</p>` : "") +
     (mayChange
       ? '<div class="fixes appfix">' +
-        (canConfirm ? confirmForm(lang, catId, kind, a.value!, "cat") : "") +
-        correctForm(lang, catId, kind, a.value, a.guardianDecides, "cat", `ac-${kind}`) +
+        (canConfirm ? confirmForm(lang, catId, kind, a.value!, a.guardianDecides, "cat") : "") +
+        correctForm(lang, catId, kind, a.value, a.aboveTeamIds, "cat", `ac-${kind}`) +
         "</div>"
       : "") +
     `<p class="label">${esc(tr(lang, "appearance.statements"))}</p>` +
@@ -264,14 +272,18 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
     `${tr(lang, "appearance.markings")}: ${valueText(lang, "markings", c.markings)}`,
   ].join(" · ");
   const confirms = [
-    c.coat !== null && c.coat.length > 0 ? confirmForm(lang, c.catId, "coat", c.coat, "colour") : "",
-    c.markings !== null ? confirmForm(lang, c.catId, "markings", c.markings, "colour") : "",
+    c.coat !== null && c.coat.length > 0
+      ? confirmForm(lang, c.catId, "coat", c.coat, c.above.coat.length > 0, "colour")
+      : "",
+    c.markings !== null
+      ? confirmForm(lang, c.catId, "markings", c.markings, c.above.markings.length > 0, "colour")
+      : "",
   ].join("");
   // Correct inline for the cats that matter; a link for the long
   // "not yet described" group, so that page stays light.
   const corrects = inline
-    ? correctForm(lang, c.catId, "coat", c.coat, false, "colour", `cc${c.catId}-coat`) +
-      correctForm(lang, c.catId, "markings", c.markings, false, "colour", `cc${c.catId}-markings`)
+    ? correctForm(lang, c.catId, "coat", c.coat, c.above.coat, "colour", `cc${c.catId}-coat`) +
+      correctForm(lang, c.catId, "markings", c.markings, c.above.markings, "colour", `cc${c.catId}-markings`)
     : "";
   return (
     `<li class="report colourcheck" id="c-${c.catId}">` +

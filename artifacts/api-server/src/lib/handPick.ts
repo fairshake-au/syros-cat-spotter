@@ -43,8 +43,10 @@ export async function handPickedAmong(observations: readonly Observation[]): Pro
  *
  * - No spotter answer, or a "Not sure", gives no flag.
  * - It clears when that answer is marked wrong (it no longer stands), or
- *   when a team or guardian statement recorded after the answer decides the
- *   colour: the team has looked.
+ *   when any standing team or guardian statement on the colour was recorded
+ *   after the answer: the team has looked. Any, not only the one that
+ *   decides: on a cat guardian's cat, a team Confirm made after the answer
+ *   is the team looking, though her older statement still decides.
  */
 export function handPickDisagrees(
   observations: readonly Observation[],
@@ -53,11 +55,10 @@ export function handPickDisagrees(
 ): boolean {
   const resolved: readonly string[] = coat.value ?? [];
   if (resolved.length === 0) return false;
-  const decidedBy =
-    coat.confidence === "confirmed"
-      ? observations.find((o) => o.id === coat.supportingObservationIds[0])
-      : undefined;
   const standing = standingAppearanceRows(observations, "coat", false, appearanceAuthorityLevel);
+  const lookedAt = standing
+    .filter((o) => o.provenance !== "machine" && appearanceAuthorityLevel(o) > 0)
+    .reduce((t, o) => Math.max(t, o.createdAt.getTime()), -Infinity);
   return standing.some((o) => {
     if (o.roleAtTime !== "public" || o.sightingId == null) return false;
     if (!handPickedSightings.has(o.sightingId)) return false;
@@ -65,7 +66,7 @@ export function handPickDisagrees(
     if (!Array.isArray(raw)) return false;
     const said = normaliseColours(raw as string[]).filter((c) => c !== "not_sure");
     if (said.length === 0) return false;
-    if (decidedBy && decidedBy.createdAt.getTime() > o.createdAt.getTime()) return false;
+    if (lookedAt > o.createdAt.getTime()) return false;
     return !said.some((c) => resolved.includes(c));
   });
 }
