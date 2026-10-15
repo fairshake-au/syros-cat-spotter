@@ -888,7 +888,7 @@ components:
             keeps both generated packages agreeing on the wire type.
         sterilised:
           type: object
-          description: Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one.
+          description: Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly. Since SYC-75 "likely" (a clipped ear tip has been seen) is shown publicly too, now that Syros Cats can correct a wrong one (Q2). A missing clip is never shown as "not sterilised".
           properties:
             value:
               type: boolean
