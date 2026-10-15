@@ -91,6 +91,8 @@ Facts mostly sensible in the safe direction; the weaknesses are in the plumbing 
 
 ## How each finding was handled
 
+**Fact numbers changed.** The finding numbers below refer to the first draft's facts. In the revised spec, the sweet-taste fact (old 17) is gone and a new fact 11, "Admire, don't pick up", is in; old facts 11–16 are now 12–17. So the kittens fact (old 11) is now fact 12.
+
 Checked against the code before acting: the campaign is fetched only on the Help tab (`help.tsx:61`); `/review` shows the candidate list, picker or new-cat sheet before the success screen, and a separate not-a-cat screen (`review.tsx:382`, `:512`); `NeedsHelpLink` is hidden while submitting. All confirmed. Apple's App Review Guidelines were opened (15 Oct 2026): **3.2.2(iv)** says apps that aren't approved nonprofits "may only collect funds outside of the app, such as via Safari or SMS". That rules out an in-app browser as the fix for finding 4.
 
 | # | Handled how |
