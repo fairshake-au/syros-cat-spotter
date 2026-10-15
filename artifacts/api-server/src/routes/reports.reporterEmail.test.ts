@@ -195,6 +195,8 @@ describe("test 31: nothing but the one 'is this you?' reaches an unconfirmed add
       "Your cat report reached Syros Cats",
       "About the cat you reported",
     ]);
+    // Filed without a photo: the acknowledgement doesn't claim one.
+    expect(mine[1]!.text).toContain("Your report reached Syros Cats on");
     for (const m of mine.slice(1)) {
       expect(m.from).toBe("Syros Cats via Cat Spotters <reports@mail.catspotters.com>");
       expect(m.replyTo).toBe("admin@syroscats.com");

@@ -137,17 +137,22 @@ function deleteLine(deleteUrl: string): { text: string; html: string } {
 
 // ── The acknowledgement (§5.3(g)) ──────────────────────────────────────────
 
-/** Params: date (from `reportDate`), litter ("yes" | "no"), deleteUrl. */
+/**
+ * Params: date (from `reportDate`), litter ("yes" | "no"), photo ("yes" |
+ * "no": whether a photo actually arrived; like SYC-180 on screen, it never
+ * says "your photo" when there wasn't one), deleteUrl.
+ */
 export const reportAck: FixedTemplate = (params) => {
   const date = params["date"] ?? "";
   if (!/^\d{1,2} [A-Z][a-z]+ \d{4}$/.test(date)) throw new Error("report template: missing or unsafe date");
   const litter = oneOf(params, "litter", ["yes", "no"] as const) === "yes";
+  const photo = oneOf(params, "photo", ["yes", "no"] as const) === "yes";
   const deleteUrl = url(params, "deleteUrl");
   const municipality = getGuidance("en").municipality;
   const vets = vetLines();
   const del = deleteLine(deleteUrl);
 
-  const thanks = `Thank you for telling us about this cat. Your report and your photo reached Syros Cats on ${date}, and it is in their list.`;
+  const thanks = `Thank you for telling us about this cat. ${photo ? "Your report and your photo" : "Your report"} reached Syros Cats on ${date}, and it is in their list.`;
   const vetFirst =
     "If this cat is badly hurt, the fastest help is a vet, and it is worth doing without waiting for us.";
   const cageLead = "Phone the nearest clinic and ask to borrow a carrying cage";

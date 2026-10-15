@@ -60,7 +60,7 @@ describe("the 'is this you?' email (email-capture.md §4.1)", () => {
 });
 
 describe("the acknowledgement (§5.3(g))", () => {
-  const params = { date: reportDate(new Date("2026-10-15T08:00:00Z")), litter: "no", deleteUrl };
+  const params = { date: reportDate(new Date("2026-10-15T08:00:00Z")), litter: "no", photo: "yes", deleteUrl };
 
   it("says when it reached Syros Cats, lists the vets, and carries the delete link", () => {
     const r = reportAck(params);
@@ -71,6 +71,13 @@ describe("the acknowledgement (§5.3(g))", () => {
     expect(r.text).toContain("€50–60 a cat");
     expect(r.text).toContain(deleteUrl);
     expect(r.html).toContain('href="tel:+302281077929"');
+  });
+
+  it("never says 'your photo' when no photo arrived (as SYC-180 on screen)", () => {
+    expect(reportAck(params).text).toContain("Your report and your photo reached Syros Cats");
+    const none = reportAck({ ...params, photo: "no" }).text;
+    expect(none).toContain("Your report reached Syros Cats on 15 October 2026");
+    expect(none).not.toContain("photo");
   });
 
   it("puts the cage before any handling (§10)", () => {

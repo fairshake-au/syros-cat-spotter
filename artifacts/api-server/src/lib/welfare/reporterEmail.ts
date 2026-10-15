@@ -528,15 +528,20 @@ export async function processReporterMail(
       return "failed";
     }
     const [report] = (
-      await db.execute(sql`select is_litter, coalesce(submitted_at, created_at) as at from welfare_reports where id = ${row.reportId}`)
-    ).rows as { is_litter: boolean; at: Date | string }[];
+      await db.execute(sql`select is_litter, photo_state, coalesce(submitted_at, created_at) as at from welfare_reports where id = ${row.reportId}`)
+    ).rows as { is_litter: boolean; photo_state: string; at: Date | string }[];
     if (!report) {
       await giveUp(row, payload, "report_gone");
       return "failed";
     }
     const deleteUrl = forgetUrl(payload.deleteToken);
     if (purpose === "report_ack") {
-      params = { date: reportDate(new Date(report.at)), litter: report.is_litter ? "yes" : "no", deleteUrl };
+      params = {
+        date: reportDate(new Date(report.at)),
+        litter: report.is_litter ? "yes" : "no",
+        photo: report.photo_state === "attached" ? "yes" : "no",
+        deleteUrl,
+      };
     } else {
       params = { outcome: payload.outcome ?? "", deleteUrl };
       const sentence = cleanTeamSentence(payload.teamSentence);
