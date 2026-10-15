@@ -468,25 +468,27 @@ describe("db-ops people-set-roles and the new role list (SYC-53 PR 0.3)", () => 
     });
   });
 
-  it("review M1: removing staff from a manager is refused by db-ops itself unless CONFIRM=FORCE", async () => {
+  it("SYC-316: a manager may drop staff; taking management from the last manager is refused unless CONFIRM=FORCE", async () => {
     expect(devAdd().code).toBe(0);
     expect(devSetRoles().code).toBe(0);
-    const refused = devSetRoles({ PEOPLE_ROLE: "staff", PEOPLE_CHANGE: "remove" });
+    const refused = devSetRoles({ PEOPLE_ROLE: "management", PEOPLE_CHANGE: "remove" });
     expect(refused.code).not.toBe(0);
-    expect(shown(refused.out)).toMatch(/removing staff locks the person out/);
+    expect(shown(refused.out)).toMatch(/last person with management/);
     expect(await roles()).toEqual(["management", "staff"]);
+    expect(devSetRoles({ PEOPLE_ROLE: "staff", PEOPLE_CHANGE: "remove" }).code).toBe(0);
+    expect(await roles()).toEqual(["management"]);
     // A role and a change are always named: neither has a default.
     for (const extra of [{ PEOPLE_ROLE: undefined }, { PEOPLE_CHANGE: undefined }]) {
       expect(devSetRoles(extra).code).not.toBe(0);
     }
-    expect(await roles()).toEqual(["management", "staff"]);
+    expect(await roles()).toEqual(["management"]);
   });
 
-  it("removes one role, and refuses a result without staff unless CONFIRM=FORCE", async () => {
+  it("removes one role, and refuses a result with neither staff nor management unless CONFIRM=FORCE", async () => {
     expect(devAdd().code).toBe(0);
     const refused = devSetRoles({ PEOPLE_ROLE: "staff", PEOPLE_CHANGE: "remove" });
     expect(refused.code).not.toBe(0);
-    expect(shown(refused.out)).toMatch(/removing staff locks the person out/);
+    expect(shown(refused.out)).toMatch(/no staff or management role/);
     expect(await roles()).toEqual(["staff"]);
     expect(devSetRoles({ PEOPLE_ROLE: "vet" }).code).toBe(0);
     const forced = devSetRoles({
