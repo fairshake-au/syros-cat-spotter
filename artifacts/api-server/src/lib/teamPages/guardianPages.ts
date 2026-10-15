@@ -186,8 +186,8 @@ export function renderGuardianCatPage(
 }
 
 /**
- * A cat outside her colonies, or in none: exactly what the public app shows
- * (its public photo, its lines), and no position at all on this page.
+ * A cat outside her colonies, or in none: the public app's lines for it, and
+ * no position at all on this page.
  */
 export function renderPublicCatForGuardian(
   who: GuardianViewer,
@@ -196,10 +196,12 @@ export function renderPublicCatForGuardian(
 ): string {
   const lang = pageLanguage(who.language, live);
   const t: Say = (k, v) => tr(lang, k, v, live);
-  const main = cat.photoUrl ? `<img class="gmain" src="${esc(cat.photoUrl)}" alt="${esc(cat.name)}">` : "";
+  // No photo: the public photo address sits behind the pre-launch pass,
+  // which the dashboard doesn't carry, and the team photo route rightly
+  // refuses her for a cat outside her colonies. The JSON keeps the public
+  // `photoUrl`, field for field.
   const body =
     `<div class="notice"><p>${esc(t("gcat.public.note"))}</p></div>` +
-    main +
     '<div class="gfacts">' +
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
     `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` +

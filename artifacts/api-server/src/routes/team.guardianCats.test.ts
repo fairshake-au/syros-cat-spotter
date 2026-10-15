@@ -176,6 +176,9 @@ describe("T4: outside her colonies she gets exactly the public view", () => {
     expect(res.text).not.toContain("37.445");
     expect(res.text).not.toContain("24.942");
     expect(res.text).toContain("isn’t in one of your colonies");
+    // No photo either: the public address is behind the pre-launch pass.
+    expect(res.text).not.toContain("/api/photos/");
+    expect(res.text).not.toContain("/api/team/photos/");
   });
 
   it("her colony page never lists another colony's cat, and another colony is not found", async () => {
