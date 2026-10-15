@@ -186,7 +186,9 @@ afterAll(async () => {
   await clearWelfareTables();
   // A person who created a colony has history and cannot be removed; the
   // throwaway database is dropped at the end of the run anyway.
-  await removeTestPerson(EMAIL).catch(() => {});
+  await removeTestPerson(EMAIL).catch((err: unknown) => {
+    if (!(err instanceof Error && err.message.includes("has history"))) throw err;
+  });
   await pool.end();
 });
 

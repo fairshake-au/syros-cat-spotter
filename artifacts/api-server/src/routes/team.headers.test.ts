@@ -170,6 +170,9 @@ describe("SYC-330: a POST with Origin: null is still refused", () => {
 describe("SYC-330: other origins are refused", () => {
   const cases: [string, (t: request.Test) => request.Test][] = [
     ["a foreign Origin", (t) => t.set("Origin", "https://evil.example")],
+    // Same site, different origin: SameSite=Lax would let the cookie through,
+    // so the Origin check is what refuses it.
+    ["a sister site's Origin", (t) => t.set("Origin", "https://apptest.catspotters.com")],
     [
       "Origin: null from a cross-site page",
       (t) => t.set("Origin", "null").set("Sec-Fetch-Site", "cross-site"),
