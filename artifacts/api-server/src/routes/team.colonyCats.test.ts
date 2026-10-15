@@ -375,8 +375,8 @@ describe("test 15 (team half): the team's cat page and moving a cat", () => {
     ).toBe(303);
 
     const html = decoded((await get(`/api/team/cats/${cat}`)).text);
-    expect(html).toContain(`<a href="/api/team/colonies/${colony}">${renamed}</a> <span class="meta">(was ${old})</span>`);
-    expect(html).toContain(`Put in the colony “${renamed} (was ${old})”`);
+    expect(html).toContain(`<a href="/api/team/colonies/${colony}">${renamed}</a> <span class="meta">(was “${old}”)</span>`);
+    expect(html).toContain(`Put in the colony “${renamed}” (was “${old}”)`);
 
     // A cat put there after the rename was never in the old one: no "was".
     const later = await seedCat("Later");
@@ -773,7 +773,7 @@ describe("test 16 (escaping): a name with markup shows as text on every page thi
     const cats = await get(`/api/team/colonies/${colony}/cats?q=${find}`);
     expect(decoded(cats.text)).toContain(`${P}${MARKUP}-cat`);
     const catPage = decoded((await get(`/api/team/cats/${cat}`)).text);
-    expect(catPage).toContain(`(was ${P}${MARKUP}-1)`);
+    expect(catPage).toContain(`(was “${P}${MARKUP}-1”)`);
     const raw = (await get(`/api/team/colonies/${colony}`)).text;
     expect(raw).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });

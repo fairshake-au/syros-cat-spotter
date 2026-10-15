@@ -179,7 +179,7 @@ export function describeStatement(
       // can't today) falls back to its number rather than saying nothing.
       return typeof v["colonyId"] === "number"
         ? colonyLabel
-          ? `Put in the colony “${colonyLabel}”`
+          ? `Put in the colony ${colonyLabel}`
           : `Put in colony ${v["colonyId"]}`
         : "Taken out of its colony";
     case "welfare_report":
@@ -547,9 +547,9 @@ async function colonyNameLookup(colonyIds: readonly number[]) {
   };
 }
 
-/** "Vaporia — Eleni's", or "Vaporia — Eleni's (was Vaporia)" after a rename. */
+/** The colony as the history words it, quoted, with the earlier name after it. */
 const colonyWords = (l: { name: string | null; wasName: string | null }) =>
-  l.name === null ? null : l.wasName ? `${l.name} (was ${l.wasName})` : l.name;
+  l.name === null ? null : l.wasName ? `“${l.name}” (was “${l.wasName}”)` : `“${l.name}”`;
 
 /** The team's view of one cat, or null if there is no such cat. */
 export async function teamCatView(

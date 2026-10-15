@@ -640,7 +640,7 @@ export function renderCatPage(
       "Colony",
       v.colony
         ? `<a href="/api/team/colonies/${v.colony.id}">${esc(v.colony.name)}</a>` +
-            (v.colony.wasName ? ` <span class="meta">(was ${esc(v.colony.wasName)})</span>` : "")
+            (v.colony.wasName ? ` <span class="meta">(was “${esc(v.colony.wasName)}”)</span>` : "")
         : "Not in a colony",
     ) +
     "</dl>" +
