@@ -11,6 +11,7 @@ import { SIGN_IN_PAGE } from "../lib/teamAuth/config";
 import { clearInviteSession, clearSession } from "../lib/teamAuth/session";
 import { isBrowserNavigation, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { isTeamRole } from "../lib/teamRoles";
 import { formRoute } from "./teamCorrections";
 import { MY_COLONIES_PATH, MY_PAGE_PATH } from "../lib/teamPages/layout";
 import {
@@ -39,7 +40,7 @@ async function aboutMe(person: PersonWithScopes): Promise<MyPerson> {
   return {
     name: person.name,
     language: person.language,
-    team: person.scopes.some((s) => s.role === "staff" || s.role === "management"),
+    team: person.scopes.some((s) => isTeamRole(s.role)),
     management: person.scopes.some((s) => s.role === "management"),
     placements: await myColonies(person.id),
   };

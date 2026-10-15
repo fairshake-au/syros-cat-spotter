@@ -16,6 +16,7 @@ import {
   type PeopleTx,
 } from "@workspace/db";
 import { can } from "../capabilities";
+import { isTeamRole, TEAM_ROLE_NAMES } from "../teamRoles";
 import { addressKey, consume, declareLimit } from "../limits";
 import { enqueueAccessNotices, enqueuePersonInvite } from "../mail/personOutbox";
 import { kickRow } from "../mail/outbox";
@@ -307,7 +308,7 @@ export async function signOutEverywhere(actor: PersonWithScopes, personId: strin
 
 /** Does this person hold the team or management right now (not only a colony placement)? */
 function holdsTeamRole(p: Pick<PersonWithScopes, "scopes">): boolean {
-  return p.scopes.some((s) => s.role === "staff" || s.role === "management");
+  return p.scopes.some((s) => isTeamRole(s.role));
 }
 
 /**
@@ -329,7 +330,7 @@ export async function stopHelping(person: PersonWithScopes): Promise<{ personId:
           .where(
             and(
               eq(personScopesTable.personId, person.id),
-              inArray(personScopesTable.role, ["staff", "management"]),
+              inArray(personScopesTable.role, [...TEAM_ROLE_NAMES]),
               scopeInForce(),
             ),
           )
