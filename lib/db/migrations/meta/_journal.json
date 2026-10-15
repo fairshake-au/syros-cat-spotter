@@ -169,6 +169,13 @@
       "when": 1792045668260,
       "tag": "0023_issue_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792048816649,
+      "tag": "0024_refuse_deleting_sites_and_colonies",
+      "breakpoints": true
     }
   ]
 }
