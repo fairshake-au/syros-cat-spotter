@@ -8,11 +8,10 @@
  * controller and are tested there; this file only wires the WebView to it.
  */
 import React, { useSyncExternalStore } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { useLanguage } from '@/context/LanguageContext';
 import { turnstileController as controller } from '@/lib/turnstile';
-import { TURNSTILE_USER_AGENT } from '@/lib/turnstileNav';
 
 export function TurnstileHost() {
   const { t } = useLanguage();
@@ -29,7 +28,10 @@ export function TurnstileHost() {
         source={{ uri: view.url }}
         javaScriptEnabled
         domStorageEnabled
-        userAgent={Platform.OS === 'android' ? TURNSTILE_USER_AGENT.android : TURNSTILE_USER_AGENT.ios}
+        // No `userAgent` prop on purpose: Cloudflare needs the user agent to stay the same
+        // through a session, not to look like any particular browser. The WebView's own
+        // default is constant per install; a spoofed string that doesn't match the real
+        // engine is exactly what bot scoring catches.
         originWhitelist={['https://*', 'http://localhost*', 'http://127.0.0.1*', 'about:*']}
         onShouldStartLoadWithRequest={(req) => controller.shouldLoad(req.url)}
         onMessage={onMessage}
