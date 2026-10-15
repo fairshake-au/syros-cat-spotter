@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { addPerson, db, mailOutboxTable, markLeft, pool } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
@@ -497,5 +498,31 @@ describe("SYC-245 (SYC-209 Decision 2B): the map link near a feeding site", () =
       spy.mockRestore();
       vi.useRealTimers();
     }
+  });
+});
+
+describe("SYC-42 Slice 3: the reporter's email on the queue page", () => {
+  it("says contact was left and what happened to it, offers the optional Done line, and never shows the address", async () => {
+    const address = "never-on-the-page@example.org";
+    await seedReport({ publicId: "with-contact" });
+    const [contact] = (
+      await db.execute(sql`
+        insert into email_contacts (purpose, address, address_hmac, address_mask, device_id, status)
+        values ('report', ${address}, 'vitest-hmac', 'n•••@example.org', 'vitest-qpage-device', 'pending')
+        returning id
+      `)
+    ).rows as { id: number }[];
+    await db.execute(sql`update welfare_reports set reporter_contact_id = ${contact!.id} where public_id = ${"with-contact"}`);
+    await seedReport({ publicId: "no-contact" });
+    const html = await getPage();
+    expect(html).toContain("They haven&#39;t confirmed the address yet, so nothing else goes to it.");
+    expect(html).toContain('name="reporterSentence"');
+    expect(html).toContain("This goes to a member of the public");
+    expect(html).not.toContain(address);
+    expect(html).not.toContain("n•••@example.org");
+    // Only the report with an address gets the line box.
+    expect(html.split('name="reporterSentence"')).toHaveLength(2);
+    await db.execute(sql`update welfare_reports set reporter_contact_id = null where public_id = ${"with-contact"}`);
+    await db.execute(sql`delete from email_contacts where id = ${contact!.id}`);
   });
 });
