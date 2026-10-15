@@ -55,6 +55,24 @@ const notFound = (res: Response) => {
   res.status(404).json({ error: "Not found" });
 };
 
+/**
+ * The queue's JSON for a report just written to, for the state, note and tie
+ * routes' answers. `getQueueReport` is welfare-only (SYC-44 PR 4.1), so for a
+ * "Report an issue" row (`kind = 'content'`) it is null. Until Slice 7 gives
+ * issues their own answer shape, that is a 404 `{ error: "not_found" }`, never
+ * a `200 null`; the write itself has already happened (review of #170,
+ * finding 4). Returns undefined after answering.
+ */
+async function queueReportOr404(res: Response, publicId: string) {
+  const report = await getQueueReport(publicId);
+  if (report === null) {
+    setTeamHeaders(res);
+    res.status(404).json({ error: "not_found" });
+    return undefined;
+  }
+  return report;
+}
+
 // Photo ids are base64url (report photos) or uuids (catalogue photos).
 // Anything else is simply not a photo: answered before Postgres, which
 // would refuse some bytes (a NUL, say) with an error instead.
@@ -237,7 +255,8 @@ router.post(
         backToReport(publicId, outcome === "changed"),
       );
     }
-    const report = await getQueueReport(publicId);
+    const report = await queueReportOr404(res, publicId);
+    if (!report) return;
     if (outcome === "changed") {
       return void res.status(409).json({
         error: "changed_by_someone_else",
@@ -273,7 +292,8 @@ router.post(
     });
     if (!written) return notFound(res);
     if (isFormPost(req)) return void res.redirect(303, backToReport(publicId));
-    res.json(await getQueueReport(publicId));
+    const report = await queueReportOr404(res, publicId);
+    if (report) res.json(report);
   },
 );
 

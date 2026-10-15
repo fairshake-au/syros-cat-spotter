@@ -260,6 +260,41 @@ describe("T4-3 (spec test 8): closing a content row writes no welfare_outcome", 
   });
 });
 
+describe("#170 review, finding 4: the JSON routes never answer 200 null for a content row", () => {
+  const json = (path: string) =>
+    request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie);
+
+  it("state: 404 { error: 'not_found' }, although the move itself happened; a stale move too", async () => {
+    const content = await seedReport({ publicId: `${PREFIX}c-json-state`, kind: "content", reason: "other" });
+    const moved = await json(`/api/team/reports/${content.publicId}/state`).send({ from: "new", to: "done" });
+    expect(moved.status).toBe(404);
+    expect(moved.body).toEqual({ error: "not_found" });
+    expect((await reportRow(content.publicId)).state).toBe("done");
+
+    const stale = await json(`/api/team/reports/${content.publicId}/state`).send({ from: "new", to: "looking" });
+    expect(stale.status).toBe(404);
+    expect(stale.body).toEqual({ error: "not_found" });
+  });
+
+  it("note: 404 { error: 'not_found' }, although the note was written", async () => {
+    const content = await seedReport({ publicId: `${PREFIX}c-json-note`, kind: "content", reason: "other" });
+    const res = await json(`/api/team/reports/${content.publicId}/note`).send({ note: "Checked the photo" });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "not_found" });
+    expect((await reportRow(content.publicId)).teamNote).toBe("Checked the photo");
+  });
+
+  it("a welfare row's JSON answers are unchanged", async () => {
+    const welfare = await seedReport({ publicId: `${PREFIX}w-json` });
+    const moved = await json(`/api/team/reports/${welfare.publicId}/state`).send({ from: "new", to: "looking" });
+    expect(moved.status).toBe(200);
+    expect(moved.body.id).toBe(welfare.publicId);
+    const noted = await json(`/api/team/reports/${welfare.publicId}/note`).send({ note: "On it" });
+    expect(noted.status).toBe(200);
+    expect(noted.body.teamNote).toBe("On it");
+  });
+});
+
 describe("T4-4 (spec test 8): a content row can never be tied to a cat", () => {
   it("the function refuses with not_welfare and the route answers 409; nothing is written", async () => {
     const cat = await newCat();
