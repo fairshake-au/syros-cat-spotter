@@ -359,9 +359,9 @@ export function peopleStore(db: PeopleDb) {
       const roles = [...new Set(input.roles ?? ["staff"])];
       if (roles.length === 0) throw new PeopleError("Give at least one role.");
       for (const role of roles) checkRole(role);
-      // Until the capability catalogue ships (plan PR 0.5), can() answers
-      // "holds staff?", so a management-only person would have no powers
-      // and no way in. Management is added beside staff, with set-roles.
+      // Management is never given by `add` (PR 0.3, review minor 5): it is
+      // given with set-roles, as a recorded roles change, to someone already
+      // on the list. (Since PR 0.5 management lets someone in on its own.)
       if (roles.includes("management")) {
         throw new PeopleError(
           "Management can't be given when adding someone. Add them as staff, then use set-roles --add management.",
