@@ -57,6 +57,8 @@ export interface NewReportInput {
   language: ReportLanguage;
   clientRef: string;
   photo: { uri: string; base64: string } | null;
+  /** SYC-42 Slice 3: the address the reporter left, if any. */
+  email?: string | null;
 }
 
 interface ReportQueueValue {
@@ -276,6 +278,7 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
         language: input.language,
         hasPhoto: !!input.photo,
         clientRef: input.clientRef,
+        email: input.email,
       });
       let item: PendingReport = base;
       if (input.photo) {

@@ -235,6 +235,26 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
     expect(text).toContain(plain(g.copy.confirmation.hurt));
   });
 
+  it.each(LANGS)('SYC-42 Slice 3, test 3.7 (%s): the "if an email was given" line, never claiming a send that hasn\'t happened', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const c = g.copy.confirmation;
+    const with_ = (state: 'sent' | 'queued' | 'busy' | 'sending' | 'failed', emailGiven: boolean) => {
+      const t = render(<ReportConfirmation state={state} guidance={g} emailGiven={emailGiven} onDone={() => {}} />).container.textContent ?? '';
+      cleanup();
+      return t;
+    };
+    expect(with_('sent', true)).toContain(c.emailGiven);
+    expect(with_('sent', false)).not.toContain(c.emailGiven);
+    for (const state of ['queued', 'busy', 'sending'] as const) {
+      expect(with_(state, true), state).toContain(c.emailGivenOffline);
+      expect(with_(state, true), state).not.toContain(c.emailGiven);
+    }
+    // Refused by the server: no message went, and none will on its own.
+    expect(with_('failed', true)).not.toContain(c.emailGiven);
+    expect(with_('failed', true)).not.toContain(c.emailGivenOffline);
+  });
+
   it.each(LANGS)('SYC-180 (%s): a report sent without a photo never says the photo is saved', (code) => {
     lang.current = code;
     const g = getGuidance(code);

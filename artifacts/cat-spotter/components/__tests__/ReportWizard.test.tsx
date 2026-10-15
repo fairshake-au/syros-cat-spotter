@@ -236,3 +236,62 @@ describe('ReportWizard', () => {
     expect(w.text()).not.toMatch(/report[A-Z]\w+/);
   });
 });
+
+describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §3.4)', () => {
+  const toScreen2 = (w: ReturnType<typeof setup>) => {
+    fireEvent.click(within(w.getByTestId('report-footer')).getByText(TRANSLATIONS[lang.current].reportNext));
+    fireEvent.click(w.getByTestId('severity-urgent'));
+  };
+
+  it('is hidden unless the server says the check email can go', () => {
+    const w = setup();
+    toScreen2(w);
+    expect(w.queryByTestId('report-email-ask')).toBeNull();
+  });
+
+  it.each(['en', 'el', 'fr'] as const)('(%s) shows the consent wording, anonymous by default; the box appears only on "Yes"', (code) => {
+    lang.current = code;
+    const t = TRANSLATIONS[code];
+    const w = setup({ offerEmail: true });
+    toScreen2(w);
+    const ask = w.getByTestId('report-email-ask');
+    expect(ask.textContent).toContain(t.reportEmailTitle);
+    expect(ask.textContent).toContain(t.reportEmailBody);
+    expect(ask.textContent).toContain(t.reportEmailYes);
+    expect(ask.textContent).toContain(t.reportEmailNo);
+    expect(w.getByTestId('report-email-no').getAttribute('aria-checked')).toBe('true');
+    expect(w.queryByTestId('report-email')).toBeNull();
+    fireEvent.click(w.getByTestId('report-email-yes'));
+    expect(w.getByTestId('report-email')).toBeTruthy();
+    expect(ask.textContent).toContain(t.reportEmailCheck);
+  });
+
+  it('English is email-capture.md §3.4 word for word', () => {
+    expect(T.reportEmailTitle).toBe('Shall we tell you what happens?');
+    expect(T.reportEmailBody).toBe(
+      "Syros Cats will see this report. If you leave an email we'll confirm we've got it, and write once more when there's an outcome. It's used for this report and nothing else.",
+    );
+    expect(T.reportEmailYes).toBe('Yes, keep me updated');
+    expect(T.reportEmailNo).toBe('No, send it anonymously');
+  });
+
+  it('a mistyped address is pointed out but never blocks the report', () => {
+    const w = setup({ offerEmail: true });
+    toScreen2(w);
+    fireEvent.click(w.getByTestId('report-email-yes'));
+    fireEvent.change(w.getByTestId('report-email'), { target: { value: 'not-an-address' } });
+    expect(w.getByTestId('report-email-invalid')).toBeTruthy();
+    w.next();
+    expect(w.text()).toContain(T.reportBeforeSendTitle);
+  });
+
+  it('what they chose reaches Send', async () => {
+    const w = setup({ offerEmail: true });
+    toScreen2(w);
+    fireEvent.click(w.getByTestId('report-email-yes'));
+    fireEvent.change(w.getByTestId('report-email'), { target: { value: 'me@example.org' } });
+    w.next();
+    fireEvent.click(within(w.getByTestId('report-footer')).getByText(T.reportSendReport));
+    expect(w.onSend).toHaveBeenCalledWith(expect.objectContaining({ wantsUpdates: true, email: 'me@example.org' }));
+  });
+});

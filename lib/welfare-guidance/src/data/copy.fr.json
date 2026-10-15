@@ -44,7 +44,9 @@
     "sentBodyNoPhoto": "L'emplacement est enregistré, et ce signalement est dans la liste de Syros Cats.",
     "next": "**Ce qui se passe ensuite, honnêtement :** quelqu'un chez Syros Cats le lira quand il le pourra.",
     "hurt": "**Si ce chat est gravement blessé, n'attends pas après nous.** Un vétérinaire est l'aide la plus rapide qui soit, et **les vétérinaires d'ici te prêteront une cage de transport** — appelle le plus proche et demande un « piège » ou une cage de transport, puis attire le chat à l'intérieur avec des sardines ou de la pâtée.",
-    "offline": "Ce signalement est enregistré sur ton téléphone et partira tout seul dès que tu auras du réseau."
+    "offline": "Ce signalement est enregistré sur ton téléphone et partira tout seul dès que tu auras du réseau.",
+    "emailGiven": "Nous avons envoyé un message à cette adresse pour vérifier qu'elle est correcte. Touche le lien qu'il contient et nous t'écrirons quand quelqu'un aura regardé ce signalement. D'ici là, nous ne t'enverrons rien du tout.",
+    "emailGivenOffline": "Nous enverrons un message pour vérifier cette adresse dès que tu auras du réseau. Tant que tu n'auras pas touché le lien qu'il contient, nous ne t'enverrons rien du tout."
   },
   "vetList": {
     "review": "pending-native-check",

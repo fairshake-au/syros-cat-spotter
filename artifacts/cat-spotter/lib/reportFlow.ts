@@ -30,6 +30,12 @@ export interface ReportFlow {
    * (review of #55, S4).
    */
   pinIsDefault?: boolean;
+  /**
+   * SYC-42 Slice 3, "Shall we tell you what happens?" (email-capture.md
+   * §3.4): off unless they choose "Yes, keep me updated".
+   */
+  wantsUpdates?: boolean;
+  email?: string;
 }
 
 export const INITIAL_FLOW: ReportFlow = {
@@ -40,7 +46,28 @@ export const INITIAL_FLOW: ReportFlow = {
   isLitter: false,
   note: '',
   pinIsDefault: false,
+  wantsUpdates: false,
+  email: '',
 };
+
+const SINGLE_ADDRESS = /^[^\s@,;<>"()]+@[^\s@,;<>"()]+\.[^\s@,;<>"()]+$/;
+
+/** Shaped like one email address (the server checks again). */
+export function looksLikeEmail(value: string): boolean {
+  const v = value.trim();
+  return v.length <= 254 && SINGLE_ADDRESS.test(v);
+}
+
+/**
+ * The address to send with the report: only when they chose "Yes, keep me
+ * updated" and typed something shaped like an address. Anything else goes
+ * anonymously; a typo never blocks the report (the screen says so).
+ */
+export function reporterEmail(flow: ReportFlow): string | null {
+  if (!flow.wantsUpdates) return null;
+  const v = (flow.email ?? '').trim();
+  return looksLikeEmail(v) ? v : null;
+}
 
 export function canAdvance(flow: ReportFlow): boolean {
   if (flow.step === 1) return flow.coords !== null && !flow.pinIsDefault;

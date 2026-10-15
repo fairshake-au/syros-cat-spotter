@@ -499,6 +499,42 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
   });
 });
 
+describe('SYC-42 Slice 3: the reporter\'s address in the queue', () => {
+  it('goes with the text, and is dropped from the phone once the server has the report', async () => {
+    const r = report({ email: 'someone@example.org' });
+    const { store, state } = makeStore([r]);
+    await store.load();
+    const bodies: Record<string, unknown>[] = [];
+    const a = api({
+      submit: vi.fn(async (body) => {
+        bodies.push({ ...body });
+        return { publicId: 'pub-1' };
+      }),
+      uploadPhoto: vi.fn(async () => {
+        throw new Error('no signal');
+      }),
+    });
+    await syncReports(store, { api: a, deviceId: 'dev-1', ...photos });
+    expect(bodies[0]!['email']).toBe('someone@example.org');
+    // Waiting only on its photo now: the address is no longer on the phone.
+    expect(store.items()[0]!.status).toBe('photo');
+    expect(store.items()[0]!.email).toBeUndefined();
+    expect(state.value).not.toContain('someone@example.org');
+  });
+
+  it('a report with no address sends none', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const bodies: Record<string, unknown>[] = [];
+    await syncReports(store, {
+      api: api({ submit: vi.fn(async (body) => (bodies.push({ ...body }), { publicId: 'p' })) }),
+      deviceId: 'dev-1',
+      ...photos,
+    });
+    expect('email' in bodies[0]!).toBe(false);
+  });
+});
+
 describe('confirmationState (item 1.12)', () => {
   it('test 20: "sent" only once the server has accepted the text', () => {
     const r = report();

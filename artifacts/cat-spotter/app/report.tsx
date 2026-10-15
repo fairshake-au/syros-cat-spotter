@@ -10,11 +10,12 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useReportQueue } from '@/context/ReportQueueContext';
 import { useLocation } from '@/hooks/useLocation';
 import { useWelfareGuidance } from '@/hooks/useWelfareGuidance';
+import { useReporterEmailOn } from '@/hooks/useReporterEmailOn';
 import { IconButton } from '@/components/purropolis';
 import { ReportWizard } from '@/components/report/ReportWizard';
 import { ReportConfirmation } from '@/components/report/ReportConfirmation';
 import { takeReportHandoff } from '@/lib/reportHandoff';
-import { startFlow, type ReportFlow } from '@/lib/reportFlow';
+import { reporterEmail, startFlow, type ReportFlow } from '@/lib/reportFlow';
 import { confirmationState, newClientRef, type ReportLanguage } from '@/lib/reportQueue';
 import { notify } from '@/lib/notify';
 import { spacing } from '@/constants/theme';
@@ -60,6 +61,9 @@ export default function ReportScreen() {
   // SYC-180: whether the sent report carries a photo. A report saved without
   // its photo (storage full) says so too, even after it has left the queue.
   const [sentHasPhoto, setSentHasPhoto] = useState(true);
+  // SYC-42 Slice 3: offer the email box only when the server can verify.
+  const offerEmail = useReporterEmailOn();
+  const [sentEmailGiven, setSentEmailGiven] = useState(false);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -78,6 +82,7 @@ export default function ReportScreen() {
   const send = async (flow: ReportFlow) => {
     if (!flow.coords || !flow.severity || sending) return;
     setSending(true);
+    const email = offerEmail ? reporterEmail(flow) : null;
     try {
       const localId = await submitReport({
         severity: flow.severity,
@@ -88,8 +93,10 @@ export default function ReportScreen() {
         language: language as ReportLanguage,
         clientRef,
         photo: flow.photo,
+        email,
       });
       setSentHasPhoto(!!flow.photo);
+      setSentEmailGiven(!!email);
       setSentLocalId(localId);
     } catch {
       notify(t('error'));
@@ -121,6 +128,7 @@ export default function ReportScreen() {
               state={state}
               guidance={guidance}
               hasPhoto={sentHasPhoto}
+              emailGiven={sentEmailGiven}
               onDone={close}
               onRetry={() => void retryFailed()}
             />
@@ -150,6 +158,7 @@ export default function ReportScreen() {
       onSend={send}
       onClose={close}
       sending={sending}
+      offerEmail={offerEmail}
     />
   );
 }

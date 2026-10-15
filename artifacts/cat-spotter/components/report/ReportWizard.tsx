@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import {
   draftReady,
   flowBack,
   flowNext,
+  looksLikeEmail,
   type ReportFlow,
 } from '@/lib/reportFlow';
 import { UrgentAdvice } from './UrgentAdvice';
@@ -47,7 +48,14 @@ export interface ReportWizardProps {
   onSend: (flow: ReportFlow) => Promise<void>;
   onClose: () => void;
   sending: boolean;
+  /**
+   * SYC-42 Slice 3: offer "Shall we tell you what happens?" Only when the
+   * server says the "is this you?" email can actually go.
+   */
+  offerEmail?: boolean;
 }
+
+const PRIVACY_URL = 'https://catspotters.com/privacy';
 
 export function ReportWizard({
   guidance,
@@ -58,6 +66,7 @@ export function ReportWizard({
   onSend,
   onClose,
   sending,
+  offerEmail = false,
 }: ReportWizardProps) {
   const colors = useColors();
   const { t } = useLanguage();
@@ -243,6 +252,69 @@ export function ReportWizard({
                   testID="report-note"
                 />
               </View>
+
+              {offerEmail && (
+                <View style={styles.noteBlock} testID="report-email-ask">
+                  <Text style={[styles.noteTitle, { color: colors.foreground }]}>{t('reportEmailTitle')}</Text>
+                  <Text style={[styles.hint, { color: colors.mutedForeground }]}>{t('reportEmailBody')}</Text>
+                  {([true, false] as const).map((yes) => {
+                    const selected = !!flow.wantsUpdates === yes;
+                    return (
+                      <Pressable
+                        key={String(yes)}
+                        onPress={() => update({ wantsUpdates: yes })}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: selected }}
+                        aria-checked={selected}
+                        testID={yes ? 'report-email-yes' : 'report-email-no'}
+                        style={styles.checkRow}
+                      >
+                        <Feather
+                          name={selected ? 'check-circle' : 'circle'}
+                          size={22}
+                          color={selected ? colors.primary : colors.mutedForeground}
+                        />
+                        <Text style={[styles.checkLabel, { color: colors.foreground }]}>
+                          {t(yes ? 'reportEmailYes' : 'reportEmailNo')}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  {flow.wantsUpdates && (
+                    <>
+                      <TextInput
+                        value={flow.email ?? ''}
+                        onChangeText={(email) => update({ email })}
+                        placeholder={t('reportEmailPlaceholder')}
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="email"
+                        inputMode="email"
+                        maxLength={254}
+                        style={[styles.emailInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+                        testID="report-email"
+                      />
+                      {(flow.email ?? '').trim() !== '' && !looksLikeEmail(flow.email ?? '') && (
+                        <Text style={[styles.hint, { color: colors.destructive }]} testID="report-email-invalid">
+                          {t('reportEmailInvalid')}
+                        </Text>
+                      )}
+                      <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+                        {t('reportEmailCheck')}{' '}
+                        <Text
+                          accessibilityRole="link"
+                          onPress={() => void Linking.openURL(PRIVACY_URL).catch(() => undefined)}
+                          style={[styles.hint, styles.linkText, { color: colors.mutedForeground }]}
+                        >
+                          {t('reportEmailPrivacy')}
+                        </Text>
+                      </Text>
+                    </>
+                  )}
+                </View>
+              )}
             </>
           )}
 
@@ -336,6 +408,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 15,
     textAlignVertical: 'top',
+  },
+  emailInput: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    minHeight: 44,
+    paddingHorizontal: spacing[3],
+    fontFamily: fonts.body,
+    fontSize: 16,
   },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[2], paddingHorizontal: spacing[4] },
   footerInner: { width: '100%', maxWidth: 640, alignSelf: 'center' },

@@ -84,3 +84,14 @@ describe('reportFlow', () => {
     expect(startFlow({ photo }).step).toBe(1);
   });
 });
+
+describe('SYC-42 Slice 3: reporterEmail', () => {
+  it('sends an address only when they chose "Yes, keep me updated" and it looks like one', async () => {
+    const { INITIAL_FLOW: F, reporterEmail } = await import('../reportFlow');
+    expect(reporterEmail({ ...F, email: 'a@b.org' })).toBeNull();
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: ' a@b.org ' })).toBe('a@b.org');
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: 'not an address' })).toBeNull();
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: 'a@b.org, c@d.org' })).toBeNull();
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: '' })).toBeNull();
+  });
+});

@@ -45,7 +45,9 @@
     "sentBodyNoPhoto": "The location is saved, and this report is in Syros Cats' list.",
     "next": "**What happens next, honestly:** somebody at Syros Cats will read it when they can.",
     "hurt": "**If this cat is badly hurt, please don't wait for us.** A vet is the fastest help there is, and **the vets here will lend you a carrying cage** — phone the nearest one and ask for a \"trap\" or carrying cage, then lure the cat in with sardines or wet food.",
-    "offline": "This report is saved on your phone and sends itself the moment you have a signal."
+    "offline": "This report is saved on your phone and sends itself the moment you have a signal.",
+    "emailGiven": "We've sent one message to that address to check it's right. Tap the link in it and we'll write to you when someone has looked at this report. Until you do, we won't send you anything at all.",
+    "emailGivenOffline": "We'll send a message to check that address when you're back online. Until you tap the link in it, we won't send you anything at all."
   },
   "vetList": {
     "review": "draft",
