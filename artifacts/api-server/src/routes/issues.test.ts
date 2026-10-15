@@ -944,6 +944,7 @@ describe("T5-11: only this cat's photo, and only a real one", () => {
     expect((await send({ catId: cat.id, reason: "photo_private" })).status).toBe(400);
     expect((await send({ catId: cat.id, reason: "cat_died", photoPublicId: cat.main.publicId })).status).toBe(400);
     expect((await send({ catId: cat.id, reason: "not_a_reason" })).status).toBe(400);
+    expect((await send({ catId: 2 ** 31, reason: "cat_died" })).status).toBe(400);
   });
 });
 

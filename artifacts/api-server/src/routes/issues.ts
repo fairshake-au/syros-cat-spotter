@@ -81,7 +81,8 @@ const IssueBody = z.object({
   deviceId: z.string().min(1).max(128),
   clientRef: z.string().min(8).max(100),
   reason: z.enum(ISSUE_REASONS),
-  catId: z.number().int().positive(),
+  // A database integer: anything larger would be a 500, not a 400.
+  catId: z.number().int().positive().max(2_147_483_647),
   photoPublicId: z.string().min(1).max(100).optional().nullable(),
   note: z.string().max(1000).optional().nullable(),
   language: z.enum(["en", "el", "fr"]).catch("en"),
