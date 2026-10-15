@@ -59,6 +59,10 @@ export function ReportConfirmation({
         <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
           {t('reportBusy')}
         </Text>
+      ) : state === 'check' ? (
+        <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
+          {t('reportCheckUnavailable')}
+        </Text>
       ) : state === 'failed' ? (
         <Text role="heading" style={[styles.headingSmall, { color: colors.destructive }]}>
           {t('reportFailed')}

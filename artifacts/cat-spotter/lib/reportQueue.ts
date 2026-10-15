@@ -16,6 +16,7 @@
  * Framework-free so the ordering rules are unit-testable.
  */
 import type { QueueStore } from './queueStore';
+import { isChallengeUnavailable, type ChallengeAction } from './challengeUnavailable';
 
 export type ReportSeverity = 'attention' | 'urgent';
 export type ReportLanguage = 'en' | 'el' | 'fr';
@@ -50,6 +51,12 @@ export interface PendingReport {
   nativeReminderId?: string;
   /** The last try met a 429 (too many reports from this connection). */
   busy?: boolean;
+  /**
+   * The last try couldn't run the safety check (SYC-170): the report is still
+   * saved and will be tried again, with no strike. The check's token itself is
+   * never stored: it is single-use and fetched fresh for every send.
+   */
+  checkUnavailable?: boolean;
 }
 
 export interface SubmitBody {
@@ -62,6 +69,8 @@ export interface SubmitBody {
   note: string | null;
   language: ReportLanguage;
   hasPhoto: boolean;
+  /** Cloudflare Turnstile token, fresh for this send (SYC-170); absent on the phone apps until PR 1.3. */
+  turnstileToken?: string;
 }
 
 export interface ReportApi {
@@ -144,7 +153,10 @@ function statusOf(err: unknown): number | null {
  */
 function isPermanentRefusal(err: unknown): boolean {
   const s = statusOf(err);
-  return s !== null && s >= 400 && s < 500 && s !== 401 && s !== 403 && s !== 408 && s !== 429;
+  // 428 is "run the safety check again", never a refusal: no strike (SYC-170).
+  return (
+    s !== null && s >= 400 && s < 500 && s !== 401 && s !== 403 && s !== 408 && s !== 428 && s !== 429
+  );
 }
 
 function update(localId: string, patch: (r: PendingReport) => PendingReport) {
@@ -171,6 +183,12 @@ export interface SyncDeps {
   deviceId: string;
   readPhoto(ref: string): Promise<string | null>;
   deletePhoto(ref: string): Promise<void>;
+  /**
+   * A fresh Turnstile token for one send (SYC-170), or null where this build
+   * can't run the check yet. Rejects with ChallengeUnavailable if the check
+   * can't run or finish.
+   */
+  getToken(action: ChallengeAction, cdata: string): Promise<string | null>;
   /** Called the moment the server accepts a report's text. */
   onTextAccepted?: (localId: string) => void;
 }
@@ -189,17 +207,31 @@ export async function syncReports(
 
     if (current.status === 'queued') {
       try {
-        const { publicId } = await deps.api.submit({
-          deviceId: deps.deviceId,
-          clientRef: current.clientRef,
-          severity: current.severity,
-          isLitter: current.isLitter,
-          lat: current.lat,
-          lng: current.lng,
-          note: current.note.trim() ? current.note.trim() : null,
-          language: current.language,
-          hasPhoto: current.hasPhoto,
-        });
+        const sendText = async () => {
+          // A fresh token for every send, never reused and never stored.
+          const token = await deps.getToken('welfare_report', current.clientRef);
+          return deps.api.submit({
+            deviceId: deps.deviceId,
+            clientRef: current.clientRef,
+            severity: current.severity,
+            isLitter: current.isLitter,
+            lat: current.lat,
+            lng: current.lng,
+            note: current.note.trim() ? current.note.trim() : null,
+            language: current.language,
+            hasPhoto: current.hasPhoto,
+            ...(token ? { turnstileToken: token } : {}),
+          });
+        };
+        let accepted: { publicId: string };
+        try {
+          accepted = await sendText();
+        } catch (first) {
+          // 428: the check wasn't good. Run it once more and resend straight away.
+          if (statusOf(first) !== 428) throw first;
+          accepted = await sendText();
+        }
+        const { publicId } = accepted;
         deps.onTextAccepted?.(current.localId);
         if (!current.hasPhoto) {
           await store.mutate(removeItem(current.localId), 'system');
@@ -207,16 +239,38 @@ export async function syncReports(
         }
         current = { ...current, status: 'photo', publicId, serverFailures: 0 };
         await store.mutate(
-          update(current.localId, (r) => ({ ...r, status: 'photo', publicId, serverFailures: 0 })),
+          update(current.localId, (r) => ({
+            ...r,
+            status: 'photo',
+            publicId,
+            serverFailures: 0,
+            checkUnavailable: undefined,
+          })),
           'system',
         );
       } catch (err) {
+        if (isChallengeUnavailable(err)) {
+          // The safety check couldn't run: keep the report, no strike, and
+          // say so on the confirmation. Stop here: the rest would meet the
+          // same wait (up to 20 s each); the next timer tries again.
+          if (!current.checkUnavailable) {
+            await store
+              .mutate(update(current.localId, (r) => ({ ...r, checkUnavailable: true })), 'system')
+              .catch(() => undefined);
+          }
+          return;
+        }
         if (!isPermanentRefusal(err)) {
           // Remember a 429, so the screen says "too many just now", not "no signal".
           const busy = statusOf(err) === 429;
           if (busy !== Boolean(current.busy)) {
             await store
               .mutate(update(current.localId, (r) => ({ ...r, busy })), 'system')
+              .catch(() => undefined);
+          }
+          if (current.checkUnavailable) {
+            await store
+              .mutate(update(current.localId, (r) => ({ ...r, checkUnavailable: false })), 'system')
               .catch(() => undefined);
           }
           if (statusOf(err) === null) return; // no signal
@@ -228,6 +282,7 @@ export async function syncReports(
             return {
               ...r,
               serverFailures,
+              checkUnavailable: undefined,
               status: serverFailures >= MAX_SERVER_FAILURES ? 'failed' : r.status,
             };
           }),
@@ -267,7 +322,7 @@ export async function syncReports(
   }
 }
 
-export type ConfirmationState = 'sent' | 'sending' | 'queued' | 'busy' | 'failed';
+export type ConfirmationState = 'sent' | 'sending' | 'queued' | 'busy' | 'failed' | 'check';
 
 /** What the confirmation screen may say about one report (spec §5.3(e)). */
 export function confirmationState(
@@ -280,6 +335,7 @@ export function confirmationState(
   if (acceptedIds.has(localId) || item?.status === 'photo') return 'sent';
   if (item?.status === 'failed') return 'failed';
   if (syncing && item) return 'sending';
+  if (item?.checkUnavailable) return 'check';
   return item?.busy ? 'busy' : 'queued';
 }
 
