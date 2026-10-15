@@ -223,22 +223,35 @@ export function renderCatSearchPage(
 
 // ── The team's cat page ────────────────────────────────────────────────────
 
-const statementLink = (id: number) => `<a href="#s-${id}">#${id}</a>`;
+/** How many statements the history shows before "Show all" (SYC-219). */
+export const HISTORY_SHOWN = 20;
+
+/**
+ * The statements the history on this page shows; null when it shows every
+ * one. A link to a statement left out reloads the page with the full list.
+ */
+type Shown = ReadonlySet<number> | null;
+
+const statementHref = (id: number, shown: Shown) =>
+  shown === null || shown.has(id) ? `#s-${id}` : `?history=all#s-${id}`;
+
+const statementLink = (id: number, shown: Shown) =>
+  `<a href="${statementHref(id, shown)}">#${id}</a>`;
 
 /**
  * The statements an answer rests on, in words: what was said, by whom and
  * when, each linking to its place in the history below.
  */
-function statementRefs(ids: number[], byId: Map<number, TeamStatement>): string {
+function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: Shown): string {
   if (ids.length === 0) return "Nothing yet";
   return (
     '<ul class="refs">' +
     ids
       .map((id) => {
         const s = byId.get(id);
-        if (!s) return `<li>${statementLink(id)}</li>`;
+        if (!s) return `<li>${statementLink(id, shown)}</li>`;
         return (
-          `<li><a href="#s-${id}">${esc(s.said)}</a> ` +
+          `<li><a href="${statementHref(id, shown)}">${esc(s.said)}</a> ` +
           `<span class="meta">(${esc(s.author.label)}, ${time(s.createdAt, day(s.createdAt))})</span></li>`
         );
       })
@@ -253,14 +266,15 @@ function recordBlock<T>(
   valueText: string,
   extra: string,
   byId: Map<number, TeamStatement>,
+  shown: Shown,
 ): string {
   return (
     `<h3>${esc(label)}</h3><dl>` +
     row("Records say", `${esc(valueText)} <span class="tag">${esc(CONFIDENCE[r.confidence])}</span>`) +
     row("As of", time(r.asOf, day(r.asOf))) +
-    row("Based on", statementRefs(r.supportingStatementIds, byId)) +
+    row("Based on", statementRefs(r.supportingStatementIds, byId, shown)) +
     (r.conflictingStatementIds.length
-      ? row("Disagrees", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId)}</div>`)
+      ? row("Disagrees", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId, shown)}</div>`)
       : "") +
     extra +
     "</dl>"
@@ -348,6 +362,7 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
 function statementItem(
   s: TeamStatement,
   byId: Map<number, TeamStatement>,
+  shown: Shown,
   may: (c: Capability) => boolean = () => false,
   notice = "",
 ): string {
@@ -362,7 +377,7 @@ function statementItem(
     .filter((r): r is TeamStatement => r !== undefined)
     .map(
       (r) =>
-        `<p class="replacement">Replaced by ${statementLink(r.id)}: ${esc(r.said)}` +
+        `<p class="replacement">Replaced by ${statementLink(r.id, shown)}: ${esc(r.said)}` +
         (r.reason ? `. Why: ${esc(r.reason)}` : "") +
         ` <span class="meta">(${esc(r.author.label)}, ${time(r.createdAt)})</span></p>`,
     )
@@ -377,7 +392,7 @@ function statementItem(
     ? `<p class="meta">Moved here from <a href="${esc(catHref(s.movedFrom.cat.id))}">${esc(s.movedFrom.cat.name)}</a> ` +
       `<span class="syr">${esc(s.movedFrom.cat.syr)}</span></p>`
     : s.replaces != null
-      ? `<p class="meta">Corrects ${statementLink(s.replaces)}</p>`
+      ? `<p class="meta">Corrects ${statementLink(s.replaces, shown)}</p>`
       : "";
   return (
     `<li class="statement${replaced ? " replaced" : ""}" id="s-${s.id}">` +
@@ -431,6 +446,8 @@ export interface CatPageOptions {
   photo?: string;
   /** Every colony, for the "Colony" list. Only asked for if the person may assign. */
   colonies?: { id: number; name: string }[];
+  /** ?history=all: show every statement, not just the newest HISTORY_SHOWN. */
+  allHistory?: boolean;
 }
 
 /**
@@ -569,6 +586,15 @@ function correctionForms(
   );
 }
 
+/**
+ * The record and "Correct the record" side by side on a wide screen, one
+ * under the other on a phone. Without the forms, the record alone.
+ */
+function sideBySide(record: string, fixes: string): string {
+  if (!fixes.includes('id="corrections"')) return record + fixes;
+  return `<div class="twocol"><div>${record}</div><div>${fixes}</div></div>`;
+}
+
 export function renderCatPage(
   v: TeamCatView,
   personName: string,
@@ -586,13 +612,22 @@ export function renderCatPage(
   const atStatement = opts.at !== undefined && v.history.some((h) => h.id === opts.at);
   const formsNotice = atStatement ? "" : notice;
   const byId = new Map(v.history.map((s) => [s.id, s]));
+  // The history is newest first. After a correction to an older statement
+  // the page lands on it, so then every statement is shown.
+  const newest = v.history.slice(0, HISTORY_SHOWN);
+  const shown: Shown =
+    opts.allHistory ||
+    v.history.length <= HISTORY_SHOWN ||
+    (atStatement && !newest.some((h) => h.id === opts.at))
+      ? null
+      : new Set(newest.map((h) => h.id));
   const mainHidden = v.photos.find((p) => p.source === "main")?.hidden ?? null;
   const main =
     (cat.mainPhotoUrl
       ? `<img class="photo catmain" src="${esc(cat.mainPhotoUrl)}" alt="Main photo of ${esc(cat.name)}">`
       : '<div class="nophoto">No photo</div>') +
     (mainHidden
-      ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">Photos</a>.</p>'
+      ? '<p class="hiddenby">The main photo is hidden from the public. They see the newest photo of this cat that isn\'t hidden, or no photo if every one is. See <a href="#photos">All photos</a>.</p>'
       : "");
   const clipped = records.sterilised.clippedTipSightings;
 
@@ -617,6 +652,7 @@ export function renderCatPage(
             )
           : ""),
       byId,
+      shown,
     ) +
     recordBlock(
       "Sterilised",
@@ -629,6 +665,7 @@ export function renderCatPage(
           : esc(`Seen in ${clipped} sighting${clipped === 1 ? "" : "s"}`),
       ),
       byId,
+      shown,
     ) +
     "<h3>Owner</h3><dl>" +
     row(
@@ -688,7 +725,7 @@ export function renderCatPage(
   const landed = v.photos.some((p) => p.publicId === opts.photo);
   const hiddenCount = v.photos.filter((p) => p.hidden).length;
   const photos =
-    `<h2 id="photos">Photos (${v.photos.length})</h2>` +
+    `<h2 id="photos">All photos (${v.photos.length})</h2>` +
     (landed ? "" : photoNotice) +
     (hiddenCount > 0
       ? `<p class="hint">${hiddenCount} hidden from the public. The team still sees ${hiddenCount === 1 ? "it" : "them"} here.</p>`
@@ -704,11 +741,14 @@ export function renderCatPage(
         "</div>");
 
   const history =
-    `<h2>What has been said (${v.history.length})</h2>` +
+    `<h2 id="history">What has been said (${v.history.length})</h2>` +
     '<p class="hint">Newest first. Nothing is ever deleted: a statement that was corrected stays, struck through, with what replaced it.</p>' +
     (v.history.length === 0
       ? '<p class="empty">Nothing has been said about this cat yet.</p>'
-      : `<ol class="history">${v.history.map((s) => statementItem(s, byId, may, atStatement && s.id === opts.at ? notice : "")).join("")}</ol>`);
+      : `<ol class="history">${(shown === null ? v.history : newest).map((s) => statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "")).join("")}</ol>` +
+        (shown === null
+          ? ""
+          : `<p class="more"><a class="tap" href="?history=all#history">Show all ${v.history.length}</a></p>`));
 
   return renderPage({
     title: cat.name,
@@ -716,9 +756,9 @@ export function renderCatPage(
     personName,
     beforeTitle: '<p class="back"><a href="/api/team/cats">&larr; Find another cat</a></p>',
     afterTitle: `<p class="syrline">${esc(cat.syr)}</p>`,
+    mainClass: "wide",
     body:
-      overview +
-      correctionForms(v, may, formsNotice, opts.colonies) +
+      sideBySide(overview, correctionForms(v, may, formsNotice, opts.colonies)) +
       sightings +
       photos +
       history,

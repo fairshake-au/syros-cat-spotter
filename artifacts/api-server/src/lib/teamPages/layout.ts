@@ -28,16 +28,20 @@ const STYLES = `
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:#f6f4ef;color:#1d1d1b;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 a{color:#0b5c6b}
-.bar{background:#fff;border-bottom:1px solid #d9d5ca;padding:4px 12px;display:flex;flex-wrap:wrap;gap:0 14px;align-items:center}
-.bar a,.bar span,.bar button{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;display:inline-flex;align-items:center}
+/* One row on every screen (SYC-219): on a phone the menu scrolls sideways
+   rather than wrapping, so it is always 53px tall. */
+.bar{background:#fff;border-bottom:1px solid #d9d5ca;padding:4px 12px;display:flex;flex-wrap:nowrap;gap:0 14px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.bar::-webkit-scrollbar{display:none}
+.bar a,.bar span{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;flex:none}
 .bar .here{font-weight:700;color:#1d1d1b;border-bottom:3px solid #0b5c6b;text-decoration:none}
 .bar .off{color:#6b685f}
-.bar form{margin:0 0 0 auto}
-.bar button{background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
+main.wide{max-width:1120px}
 h1{font-size:22px;margin:12px 0 4px}
 h2{font-size:18px;margin:28px 0 8px}
-.who{margin:0 0 12px;color:#55524a;font-size:14px}
+.who{margin:0 0 12px;color:#55524a;font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:0 12px;min-height:44px}
+.who form{margin:0 0 0 auto}
+.who button{font:inherit;font-size:15px;min-height:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
 .banner{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:12px 0}
 .empty{color:#55524a;margin:8px 0}
 .report{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #c98a00;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
@@ -52,10 +56,23 @@ h2{font-size:18px;margin:28px 0 8px}
 details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .tag.state{background:#fff;border:1px solid #8a877e}
 .ago{color:#55524a;font-size:14px}
+.report.closed details>summary{cursor:pointer;min-height:44px;padding:4px 0}
+.report.closed details>summary .head{display:inline-flex;margin:0;vertical-align:middle}
+.said1{display:block;margin:4px 0 0 18px;color:#3b3930;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.report.closed details[open]>summary{margin-bottom:8px}
+details.notebox{margin:10px 0 0}
+details.notebox>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
+.more{margin:8px 0 0}
+/* On a phone a report's photo is a thumbnail beside its tags (SYC-219 pass). */
+.has-photo{display:grid;grid-template-columns:88px 1fr;gap:0 12px;align-items:start}
+.has-photo>*{grid-column:1 / -1}
+.has-photo>.photolink{grid-column:1;grid-row:1;margin:0 0 8px}
+.has-photo>.head{grid-column:2;grid-row:1}
+.has-photo>.photolink .photo{width:88px;height:88px;object-fit:cover;margin:0}
 .photo{display:block;width:100%;max-width:100%;height:auto;max-height:420px;object-fit:contain;background:#ece8dc;border-radius:6px;margin:0 0 8px}
 .nophoto{background:#ece8dc;border-radius:6px;padding:14px 10px;margin:0 0 8px;color:#55524a;font-size:14px}
-dl{margin:8px 0 0;display:grid;grid-template-columns:1fr;gap:2px}
-dt{font-size:13px;color:#55524a;margin-top:6px}
+dl{margin:8px 0 0;display:grid;grid-template-columns:minmax(88px,30%) 1fr;gap:6px 10px}
+dt{font-size:13px;color:#55524a;padding-top:2px}
 dd{margin:0}
 .note{white-space:pre-wrap}
 .bad{color:#8c1d18;font-weight:700}
@@ -114,12 +131,15 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
 .why{font-size:15px}
 .replacement{border-top:1px dashed #c9c4b6;margin-top:6px!important;padding-top:6px}
 .back{margin:12px 0 0}
-.back a,a.tap{display:inline-block;padding:8px 0}
+/* Links inside text keep their look but get a 44px-tall tap area: padding
+   on an inline link doesn't move the text around it. Zero specificity, so
+   any class rule below wins. */
+:where(dd,li,p,span)>a{padding:12px 0}
+.back a,a.tap{display:inline-flex;align-items:center;min-height:44px;padding:0}
 .syrline{margin:0 0 4px;color:#55524a;font-size:15px;font-variant-numeric:tabular-nums}
 .photo.catmain{width:auto;max-width:100%;max-height:240px}
 .refs{margin:0;padding:0;list-style:none}
-.refs li{margin:0 0 2px}
-.refs a{display:inline-block;padding:4px 0}
+.refs li{margin:0 0 6px}
 .hintlist{margin:0 0 8px;padding-left:20px}
 .hintlist li{margin:4px 0}
 .evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 4px;max-width:520px}
@@ -191,15 +211,21 @@ main.mappage .who{line-height:20px}
 @media (min-width:700px){
 main{padding-top:20px}
 .tiecard button{width:auto}
-.report.has-photo{display:grid;grid-template-columns:240px 1fr;gap:0 16px;align-items:start}
-.report.has-photo .photo,.report.has-photo .nophoto{grid-column:1;grid-row:1 / span 2}
-.report.has-photo>.head,.report.has-photo>dl,.report.has-photo>.actions,.report.has-photo>.notice{grid-column:2}
+.has-photo{grid-template-columns:240px 1fr;gap:0 16px}
+.has-photo>.photolink{grid-row:1 / span 3}
+.has-photo>.photolink .photo{width:240px;height:auto;max-height:320px;object-fit:contain}
+.has-photo>*:not(.photolink){grid-column:2}
 .states{grid-template-columns:repeat(4,1fr)}
 dl{grid-template-columns:150px 1fr;gap:4px 12px}
 dt{margin-top:0}
 .thumb{width:96px;height:96px}
 .photo.catmain{max-height:320px}
 .gallery{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+}
+/* A big screen: a wide page puts the record beside the forms that change it. */
+@media (min-width:1000px){
+.twocol{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 32px;align-items:start}
+.twocol>div>h2:first-child,.twocol>div>:first-child{margin-top:12px}
 }
 `;
 
@@ -210,7 +236,7 @@ export interface PageOptions {
   /**
    * The team's menu (default true). A refusal page leaves it out: a cat
    * guardian shouldn't be offered links to pages that refuse her. Sign out
-   * is always there.
+   * (beside the name) is always there.
    */
   nav?: boolean;
   /** The signed-in person's name (escaped here). */
@@ -233,9 +259,10 @@ export interface PageOptions {
   /**
    * A class on <main>. `mappage`: everything above the map has a whole-pixel
    * height and the page sits on a whole pixel, so the map does too (SYC-209
-   * PR 3.1; see lib/teamPages/map.ts).
+   * PR 3.1; see lib/teamPages/map.ts). `wide`: up to 1120px on a big
+   * screen, for a page laid out to use the room.
    */
-  mainClass?: "mappage";
+  mainClass?: "mappage" | "wide";
 }
 
 export function renderPage(opts: PageOptions): string {
@@ -257,16 +284,17 @@ export function renderPage(opts: PageOptions): string {
     '<meta name="robots" content="noindex">' +
     `<title>${escapeHtml(opts.title)}</title>` +
     `<style>${STYLES}</style></head><body>` +
-    `<nav class="bar">${nav}` +
-    '<form method="post" action="/api/team/signout"><button type="submit">' +
-    escapeHtml(tr(lang, "shell.signOut", undefined, opts.liveLanguages)) +
-    "</button></form>" +
-    `</nav><main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
+    (nav ? `<nav class="bar">${nav}</nav>` : "") +
+    `<main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
     `<h1>${escapeHtml(opts.title)}</h1>` +
     (opts.afterTitle ?? "") +
-    `<p class="who">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</p>` +
+    // Sign out sits here, not in the menu, so the menu fits one row (SYC-219).
+    `<div class="who"><span>${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</span>` +
+    '<form method="post" action="/api/team/signout"><button type="submit">' +
+    escapeHtml(tr(lang, "shell.signOut", undefined, opts.liveLanguages)) +
+    "</button></form></div>" +
     opts.body +
     "</main></body></html>"
   );

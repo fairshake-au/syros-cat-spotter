@@ -103,7 +103,11 @@ const row = (label: string, value: string) =>
 
 function photoBlock(r: QueueReport): string {
   if (r.photo.url) {
-    return `<img class="photo" src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy">`;
+    // A thumbnail on a phone: tap it for the photo at full size.
+    return (
+      `<a class="photolink" href="${esc(r.photo.url)}">` +
+      `<img class="photo" src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy"></a>`
+    );
   }
   const text =
     r.photo.status === "pending"
@@ -119,7 +123,7 @@ function photoBlock(r: QueueReport): string {
  * forms posting to the routes in routes/teamReports.ts; the browser sends
  * the Origin the routes check. `from` is the state this page showed.
  */
-function actionForms(r: QueueReport): string {
+function actionForms(r: QueueReport, noteOpen: boolean): string {
   const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
   const buttons = REPORT_STATES.map((s) =>
     s === r.state
@@ -145,13 +149,15 @@ function actionForms(r: QueueReport): string {
     '<p class="label">Move this report to</p>' +
     sentence +
     `<div class="states">${buttons}</div></form>` +
+    // Folded away so a phone isn't mostly empty note boxes.
+    `<details class="notebox"${noteOpen ? " open" : ""}><summary>${r.teamNote ? "Change the team note" : "Add a team note"}</summary>` +
     `<form method="post" action="${esc(base)}/note">` +
     `<label class="label" for="${esc(noteId)}">Team note ` +
     '<span class="hint">Team only. Never shown to the reporter.</span></label>' +
     // The first newline after <textarea> is dropped by browsers, so one is
     // added to keep a note that starts with a blank line as written.
     `<textarea id="${esc(noteId)}" name="note" rows="3" maxlength="${NOTE_MAX}">\n${esc(r.teamNote ?? "")}</textarea>` +
-    '<button type="submit" class="save">Save note</button></form>' +
+    '<button type="submit" class="save">Save note</button></form></details>' +
     "</div>"
   );
 }
@@ -198,10 +204,11 @@ function reportCard(
     "report",
     r.severity === "urgent" ? "urgent" : "",
     closed ? "closed" : "",
-    r.photo.url ? "has-photo" : "",
+    r.photo.url && !closed ? "has-photo" : "",
   ]
     .filter(Boolean)
     .join(" ");
+  const landed = r.id === changedId || (tied !== undefined && r.id === tied.id);
   const tags =
     `<span class="tag${r.severity === "urgent" ? " urgent" : ""}">${esc(SEVERITY[r.severity])}</span>` +
     (r.isLitter ? '<span class="tag kittens">Kittens</span>' : "") +
@@ -224,8 +231,7 @@ function reportCard(
   const email = r.emailToTeam
     ? `<span${r.emailToTeam === "failed" ? ' class="bad"' : ""}>${esc(EMAIL[r.emailToTeam])}</span>`
     : '<span class="ago">None on record</span>';
-  return (
-    `<article class="${classes}" id="r-${esc(r.id)}">` +
+  const body =
     photoBlock(r) +
     (r.id === changedId
       ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>`
@@ -234,7 +240,7 @@ function reportCard(
     (tied && r.id === tied.id && Object.hasOwn(TIED_TEXT, tied.key)
       ? `<p class="notice" role="status">${esc(TIED_TEXT[tied.key]!)}</p>`
       : "") +
-    `<div class="head">${tags}</div>` +
+    (closed ? "" : `<div class="head">${tags}</div>`) +
     "<dl>" +
     row("Where", place(r.lat, r.lng, r.id, near)) +
     row(
@@ -254,8 +260,14 @@ function reportCard(
     moved +
     row("Email to Syros Cats", email) +
     "</dl>" +
-    actionForms(r) +
-    "</article>"
+    actionForms(r, landed);
+  if (!closed) return `<article class="${classes}" id="r-${esc(r.id)}">${body}</article>`;
+  // A closed report is one line until it's opened: open after an action on it.
+  return (
+    `<article class="${classes}" id="r-${esc(r.id)}">` +
+    `<details${landed ? " open" : ""}><summary><span class="head">${tags}</span>` +
+    `<span class="said1">${r.note ? esc(r.note) : "Nothing written"}</span></summary>` +
+    `<div${r.photo.url ? ' class="has-photo"' : ""}>${body}</div></details></article>`
   );
 }
 
@@ -352,6 +364,7 @@ export function renderQueuePage(
   return renderPage({
     title: "Welfare queue",
     active: "queue",
+    mainClass: "wide",
     personName,
     banner: mailBanner(queue.mail),
     body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, near)}`,

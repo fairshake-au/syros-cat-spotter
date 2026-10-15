@@ -80,6 +80,7 @@ router.get(
         at,
         photo,
         colonies: can(person, "assign_cat_to_colony") ? await allColonyChoices() : undefined,
+        allHistory: req.query["history"] === "all",
       }),
     );
   },
