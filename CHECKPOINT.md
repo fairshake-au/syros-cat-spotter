@@ -25,3 +25,6 @@ Branch: `claude/bold-bardeen-uveanq` (off origin/main e428b15, 15 Oct 2026). Doc
 
 ## Milestone 2 (15 Oct): spec draft committed (docs/specs/matching-game.md), branch pushed. Sonnet critic running; output goes to docs/specs/reviews/matching-game-review.md.
 - Dedupe: merge-cats follow-up = existing SYC-59 (no new ticket). No other "game" ticket exists.
+
+## Milestone 3 (15 Oct): review committed verbatim; spec draft 2 folds all 23 findings (§16). Pushed.
+## Next: PR (draft) → link on SYC-402 + In Progress → follow-up ticket (team re-file action; dedupe) → artifact → delete CHECKPOINT.md.
