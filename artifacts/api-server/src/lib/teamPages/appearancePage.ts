@@ -92,13 +92,18 @@ function confirmForm(
   back: AppearanceBack,
 ): string {
   const which = tr(lang, kind === "coat" ? "appearance.colour" : "appearance.markings");
+  // On the Colour check list two of these sit together, so the button says
+  // which; on the cat page it sits under its own heading.
+  const label =
+    back === "colour"
+      ? esc(tr(lang, "appearance.confirmWhich", { what: which.toLowerCase() }))
+      : `${esc(tr(lang, "appearance.confirm"))}<span class="sr"> (${esc(which)})</span>`;
   return (
     `<form method="post" action="/api/team/cats/${catId}/appearance/confirm">` +
     `<input type="hidden" name="kind" value="${kind}">` +
     `<input type="hidden" name="expected" value="${esc(value.join(","))}">` +
     backField(back) +
-    // Two of these sit side by side on the Colour check list: say which.
-    `<button type="submit" class="save">${esc(tr(lang, "appearance.confirm"))}<span class="sr"> (${esc(which)})</span></button>` +
+    `<button type="submit" class="save">${label}</button>` +
     `<p class="hint">${esc(tr(lang, "appearance.confirmHint"))}` +
     (guardianDecides ? ` ${esc(tr(lang, "appearance.confirmHintGuardian"))}` : "") +
     "</p></form>"

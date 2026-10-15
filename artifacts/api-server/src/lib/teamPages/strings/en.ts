@@ -181,6 +181,7 @@ export const en = {
   "appearance.checkTitle": "Worth a second look",
   "appearance.guardianDisagrees": "A cat guardian's statement decides this, and the team said something different. To overrule it, use Correct.",
   "appearance.confirm": "That's right",
+  "appearance.confirmWhich": "That's right: {what}",
   "appearance.confirmHint": "Records the team's agreement.",
   "appearance.confirmHintGuardian": "A cat guardian's statement decides this, so it changes nothing the public sees.",
   "appearance.correctColour": "Correct the colour",

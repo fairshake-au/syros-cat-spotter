@@ -159,6 +159,7 @@ export const fr: Record<StringKey, string> = {
   "appearance.checkTitle": "Mérite un second regard",
   "appearance.guardianDisagrees": "C’est la déclaration d’un gardien de chats qui décide, et l’équipe a dit autre chose. Pour la remplacer, utilise Corriger.",
   "appearance.confirm": "C’est juste",
+  "appearance.confirmWhich": "C’est juste : {what}",
   "appearance.confirmHint": "Enregistre l’accord de l’équipe.",
   "appearance.confirmHintGuardian": "C’est la déclaration d’un gardien de chats qui décide, donc cela ne change rien à ce que voit le public.",
   "appearance.correctColour": "Corriger la couleur",

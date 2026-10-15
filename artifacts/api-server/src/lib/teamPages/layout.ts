@@ -260,7 +260,7 @@ main.mappage .who{line-height:20px}
 .appfix>form>.hint{margin:4px 0 0}
 li.colourcheck{list-style:none}
 li.colourcheck .catrow{border:0;padding:0;margin:0 0 6px}
-details.notdescribed>summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center;color:#0b4553}
+details.notdescribed>summary{cursor:pointer;font-weight:700;padding:10px 0;color:#0b4553}
 @media (min-width:700px){
 .chips{grid-template-columns:1fr 1fr}
 main{padding-top:20px}

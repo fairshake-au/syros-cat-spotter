@@ -159,6 +159,7 @@ export const el: Record<StringKey, string> = {
   "appearance.checkTitle": "Αξίζει μια δεύτερη ματιά",
   "appearance.guardianDisagrees": "Αυτό το αποφασίζει μια δήλωση κηδεμόνα γατών, και η ομάδα είπε κάτι διαφορετικό. Για να την παρακάμψετε, χρησιμοποιήστε τη Διόρθωση.",
   "appearance.confirm": "Σωστό",
+  "appearance.confirmWhich": "Σωστό: {what}",
   "appearance.confirmHint": "Καταγράφει ότι η ομάδα συμφωνεί.",
   "appearance.confirmHintGuardian": "Αυτό το αποφασίζει μια δήλωση κηδεμόνα γατών, οπότε δεν αλλάζει τίποτα από όσα βλέπει το κοινό.",
   "appearance.correctColour": "Διόρθωση του χρώματος",
