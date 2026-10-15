@@ -87,7 +87,7 @@ The dashboard stays fast on a phone in a street with weak signal. A few screens 
   - Probably sterilised (renamed "Ear clips to check", settling SYC-365);
   - Ask Syros Cats to match it;
   - Needs an OK;
-  - Colour check;
+  - Colour check (#191 gives it a menu entry. In this menu, it moves to Home);
   - Matched by hand (once SYC-152 exists).
 - **People** shows only to those who can manage people, as now.
 - **On a phone** the menu is one row you can slide sideways, with the current page underlined. Sign out sits at the end of the row. On a desktop it's a single bar with Sign out at the right.
@@ -270,7 +270,7 @@ The team cat page answers "who is this and what do we know" in the first screenf
     - "Not known".
   - **Lives:** "On the street", "Has a home", "In care", or "No longer with us".
     - A cat not seen for a long time adds "Not seen since Jun 2026" (always month and year).
-  - **Colour:** chips, plus "read from the photo" or "set by Maria".
+  - **Colour:** chips, plus "read from the photo" or "set by Maria". Tapping it goes to the Appearance section (#191), which stays in the evidence area below.
   - **Colony:** the name, with a link, or "No colony".
   - **Last seen:** "3 days ago · Kini, harbour steps".
   - **Vaccinated** and **Health note:** where recorded (team only).
