@@ -189,7 +189,7 @@ export default function RootLayout() {
                           <GestureHandlerRootView>
                             <KeyboardProvider>
                               <OnboardingGate />
-                                <TurnstileHost />
+                              <TurnstileHost />
                             </KeyboardProvider>
                           </GestureHandlerRootView>
                         </DeleteMyDataProvider>
