@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { t } from "./words";
 
 // SYC-245 (SYC-209 PR 0.2, Decision 2 option B). A page the team sees must
 // never send an exact position to a map company. This reads the source of
@@ -41,6 +42,29 @@ describe("no link to a map company from the team's pages", () => {
   it("the cat page contains neither a Google nor an Apple maps address", () => {
     const text = readFileSync(join(DIR, "catPages.ts"), "utf8");
     for (const company of MAP_COMPANIES) expect(text).not.toContain(company);
+  });
+
+  // SYC-209 PR 3.4: "Make a feeding site here" replaces the map-company link
+  // on the cat page, and the page never has both.
+  it("the cat page has the sighting buttons and no map-company address", () => {
+    const text = readFileSync(join(DIR, "catPages.ts"), "utf8");
+    // The words come through t(); the page names the keys, words.ts holds the text.
+    expect(text).toContain('"sighting.makeSite"');
+    expect(text).toContain('"sighting.showOnMap"');
+    expect(t("sighting.makeSite")).toBe("Make a feeding site here");
+    expect(t("sighting.showOnMap")).toBe("Show on our map");
+    // Both are POST forms to our own routes, carrying only the sighting's number.
+    expect(text).toContain('method=\"post\" action=\"/api/team/sites/from-sighting\"');
+    expect(text).toContain('method=\"post\" action=\"/api/team/sites/map-at-sighting\"');
+    for (const company of MAP_COMPANIES) expect(text).not.toContain(company);
+  });
+
+  it("a page that offers 'Make a feeding site here' never also links to a map company", () => {
+    for (const file of sources) {
+      const text = readFileSync(join(DIR, file), "utf8");
+      if (!text.includes('"sighting.makeSite"')) continue;
+      for (const company of MAP_COMPANIES) expect(text, `${file} has the button and ${company}`).not.toContain(company);
+    }
   });
 
   it.each(sources.filter((f) => !EXEMPT.has(f)))(
