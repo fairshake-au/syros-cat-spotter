@@ -77,3 +77,10 @@ export function parseStoredSettings(raw: string | null): StoredSettings | null {
     return null;
   }
 }
+
+/** The server answered "no" for this phone (never bound, deleted, too many
+ * requests, no secret): its signals are unknown. Anything else (no answer, a
+ * 5xx while the server restarts) keeps the last answer. */
+export function isRefusal(status: number): boolean {
+  return status === 401 || status === 403 || status === 410 || status === 429;
+}
