@@ -304,11 +304,16 @@ export function CatPicker({
                   disabled={isDeceased}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: isDeceased }}
-                  accessibilityLabel={
-                    isDeceased
-                      ? `${cat.name}, ${catCode(cat.id)}, ${t('pickerDeceased')}`
-                      : `${cat.name}, ${catCode(cat.id)}`
-                  }
+                  // SYC-2: a screen reader hears the colour and markings line
+                  // too, since the label replaces the card's own text.
+                  accessibilityLabel={[
+                    cat.name,
+                    catCode(cat.id),
+                    appearance,
+                    isDeceased ? t('pickerDeceased') : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
                   onPress={() => {
                     if (isDeceased) return;
                     setSelected(cat);

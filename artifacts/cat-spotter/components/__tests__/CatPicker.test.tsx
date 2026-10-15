@@ -117,6 +117,11 @@ describe('CatPicker', () => {
     for (const id of [7, 3]) {
       expect(getByTestId(`picker-cat-${id}`).textContent).not.toMatch(/coat_|mark_|·/);
     }
+    // A screen reader hears it too (review of #159).
+    expect(getByTestId('picker-cat-42').getAttribute('aria-label')).toBe(
+      'Agatha, SYR-0042, coat_ginger · coat_tabby · mark_white_paws',
+    );
+    expect(getByTestId('picker-cat-7').getAttribute('aria-label')).toBe('Krispy, SYR-0007');
   });
 
   it('shows the name and SYR number, and never a distance', () => {
