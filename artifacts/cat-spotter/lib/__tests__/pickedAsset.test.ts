@@ -1,6 +1,7 @@
 /**
  * SYC-166 slice 2: turning the picker's answer into a photo and its time
- * (spec §9 test 7; plan Steps 3, P2, P8; probes 8 and 9).
+ * (spec §9 test 7; plan Steps 3, P2, P8; probes 8 and 9). Slice 2W: on the
+ * website the time comes from the file itself, through the time-only reader.
  *
  * The tags are read from the picker's answer before any re-encode, so the
  * over-15 MB path and the weak-connection path can't change the time. The
@@ -10,8 +11,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { readPickedAsset } from '../pickedAsset';
+import { readPickedAsset, type TimeFrom } from '../pickedAsset';
 import { photoFingerprint } from '../recentPhotos';
+import { FIXTURE_POSITION, buildJpeg, toBase64 } from './__fixtures__/exifJpeg';
 
 const NOW = Date.UTC(2026, 9, 10, 12);
 const MAX = 15 * 1024 * 1024;
@@ -24,8 +26,8 @@ const exif = {
 
 const shrunk = { uri: 'file:///shrunk.jpg', base64: 'U0hSVU5L' };
 
-function opts(readTime = true) {
-  return { readTime, now: NOW, shrink: vi.fn(async () => shrunk), maxUploadBytes: MAX };
+function opts(timeFrom: TimeFrom = 'pickerTags') {
+  return { timeFrom, now: NOW, shrink: vi.fn(async () => shrunk), maxUploadBytes: MAX };
 }
 
 describe('readPickedAsset', () => {
@@ -78,9 +80,94 @@ describe('readPickedAsset', () => {
       expect(r.timeInfo).toEqual({ kind: 'unread' });
     });
 
-    it('the website (no tags read) -> unread, even if the picker returned some', async () => {
-      const r = await readPickedAsset({ uri: 'u', base64: 'QUJD', exif }, opts(false));
+    it('the camera (time not read) -> unread, even if the picker returned tags', async () => {
+      const r = await readPickedAsset({ uri: 'u', base64: 'QUJD', exif }, opts('nowhere'));
       expect(r.timeInfo).toEqual({ kind: 'unread' });
+    });
+
+    it('the website with no file bytes from the picker -> unread (the reader never ran)', async () => {
+      for (const base64 of [null, undefined, '']) {
+        const r = await readPickedAsset({ uri: 'u', base64, exif }, opts('file'));
+        expect(r.timeInfo).toEqual({ kind: 'unread' });
+      }
+    });
+  });
+
+  describe('the website reads the time from the file (slice 2W)', () => {
+    const jpeg = toBase64(
+      buildJpeg({
+        DateTimeOriginal: '2026:10:03 18:42:10',
+        OffsetTimeOriginal: '+03:00',
+        GPSDateStamp: '2026:10:03',
+        GPSTimeStamp: [
+          [15, 1],
+          [42, 1],
+          [10, 1],
+        ],
+        position: FIXTURE_POSITION,
+      }),
+    );
+
+    it('a JPEG with its time and own offset -> ok, the exact instant', async () => {
+      const r = await readPickedAsset({ uri: 'blob:a', base64: jpeg }, opts('file'));
+      expect(r.timeInfo).toEqual({
+        kind: 'ok',
+        instantMs: Date.UTC(2026, 9, 3, 15, 42, 10),
+        source: 'photo+offset',
+      });
+      expect(r.photo).toEqual({ uri: 'blob:a', base64: jpeg });
+      expect(r.fingerprint).toBe(photoFingerprint(jpeg));
+    });
+
+    it('the file decides, not the picker: a stray tag object is ignored on the website', async () => {
+      const stripped = toBase64(buildJpeg(null));
+      const r = await readPickedAsset({ uri: 'u', base64: stripped, exif }, opts('file'));
+      expect(r.timeInfo).toEqual({ kind: 'none', reason: 'missing' });
+    });
+
+    it.each([
+      ['a stripped JPEG (no Exif block)', toBase64(buildJpeg(null))],
+      ['an Exif block with no time in it', toBase64(buildJpeg({}))],
+      [
+        'a HEIC',
+        toBase64(Uint8Array.from([0, 0, 0, 24, 102, 116, 121, 112, 104, 101, 105, 99, 0, 0, 0, 0])),
+      ],
+      ['a PNG', toBase64(Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]))],
+    ])('%s -> none: we read it (or it is not a JPEG) and it says no time, so the line is shown', async (_l, b64) => {
+      const r = await readPickedAsset({ uri: 'u', base64: b64 }, opts('file'));
+      expect(r.timeInfo).toEqual({ kind: 'none', reason: 'missing' });
+    });
+
+    it.each([
+      ['a JPEG cut off before its time', () => jpeg.slice(0, 80)],
+      ['base64 the reader cannot decode', () => jpeg.replace(/\+/g, '-') + '-'],
+    ])('%s -> unread: the reader was unsure, so no line', async (_l, b64) => {
+      const r = await readPickedAsset({ uri: 'u', base64: b64() }, opts('file'));
+      expect(r.timeInfo).toEqual({ kind: 'unread' });
+    });
+
+    it('a photo more than 21 days old -> tooOld', async () => {
+      const old = toBase64(buildJpeg({ DateTimeOriginal: '2026:09:12 18:00:00' }));
+      const r = await readPickedAsset({ uri: 'u', base64: old }, opts('file'));
+      expect(r.timeInfo.kind).toBe('tooOld');
+    });
+
+    it('the over-15 MB path gives the same time: the file is read before the shrink', async () => {
+      const plain = await readPickedAsset({ uri: 'u', base64: jpeg }, opts('file'));
+      const big = jpeg.slice(0, jpeg.length - 4) + 'A'.repeat(Math.ceil((MAX / 3) * 4) + 8);
+      const o = opts('file');
+      const viaShrink = await readPickedAsset({ uri: 'u', base64: big }, o);
+      expect(o.shrink).toHaveBeenCalledWith('u');
+      expect(viaShrink.photo).toEqual(shrunk);
+      expect(viaShrink.timeInfo).toEqual(plain.timeInfo);
+    });
+
+    it('the result carries no part of the file\'s GPS position', async () => {
+      const r = await readPickedAsset({ uri: 'u', base64: jpeg }, opts('file'));
+      const out = JSON.stringify({ timeInfo: r.timeInfo, fingerprint: r.fingerprint });
+      for (const digits of ['284441', '284442', '123457', '98765', '37/1', '24/1']) {
+        expect(out).not.toContain(digits);
+      }
     });
   });
 
@@ -166,20 +253,33 @@ describe('source check: the picker tags are read in one place and never kept (P2
   });
 
   it('the new files log nothing (P8)', () => {
-    for (const rel of ['lib/pickedAsset.ts', 'lib/photoClock.ts', 'lib/recentPhotos.ts']) {
+    for (const rel of [
+      'lib/pickedAsset.ts',
+      'lib/photoClock.ts',
+      'lib/recentPhotos.ts',
+      'lib/jpegTimeTags.ts',
+    ]) {
       const src = files.find((f) => f.rel === rel)!.src;
       expect(src).not.toMatch(/\bconsole\./);
     }
   });
+
+  it('the website reader is used by lib/pickedAsset.ts alone', () => {
+    const importers = files
+      .filter(({ src }) => /from\s+['"][^'"]*jpegTimeTags['"]/.test(src))
+      .map((f) => f.rel);
+    expect(importers).toEqual(['lib/pickedAsset.ts']);
+  });
 });
 
-describe('the website keeps today\'s behaviour (slice 2W is its own reader)', () => {
+describe('the website reads time from the file with the time-only reader (slice 2W)', () => {
   const spot = readFileSync(path.resolve(__dirname, '../../app/(tabs)/spot.tsx'), 'utf8');
 
-  it('the 21-day card and the same-photo check run for library photos on the phone apps only', () => {
-    expect(spot).toMatch(/const libraryOnPhone = !fromCamera && Platform\.OS !== 'web';/);
-    const at = spot.indexOf('const libraryOnPhone');
-    const guarded = spot.indexOf('if (libraryOnPhone) {', at);
+  it('the 21-day card and the same-photo check run for every library photo, website included', () => {
+    expect(spot).toMatch(/const fromLibrary = !fromCamera;/);
+    expect(spot).not.toMatch(/libraryOnPhone/);
+    const at = spot.indexOf('const fromLibrary');
+    const guarded = spot.indexOf('if (fromLibrary) {', at);
     expect(guarded).toBeGreaterThan(at);
     // Both checks sit inside that guard, before the photo is set.
     const setPhotoAt = spot.indexOf('setPhoto(next);', guarded);
@@ -188,19 +288,24 @@ describe('the website keeps today\'s behaviour (slice 2W is its own reader)', ()
       expect(i).toBeGreaterThan(guarded);
       expect(i).toBeLessThan(setPhotoAt);
     }
-    expect(spot).toMatch(/photoFingerprintRef\.current = libraryOnPhone \? fingerprint : undefined;/);
+    expect(spot).toMatch(/photoFingerprintRef\.current = fromLibrary \? fingerprint : undefined;/);
   });
 
-  it('the recent-photos list is read and written in the phone apps only', () => {
-    expect(spot).toMatch(/const recentPhotosOn = Platform\.OS !== 'web';/);
-    expect(spot).toMatch(/recentPhotosOn\s*\?\s*uniqueCaptureTime\(/);
-    expect(spot).toMatch(/if \(recentPhotosOn && remembered\) \{\s*await recordRecentPhoto\(/);
+  it('the recent-photos list is read and written on every platform, website included', () => {
+    expect(spot).not.toMatch(/recentPhotosOn/);
+    expect(spot).toMatch(
+      /const sightingMs = uniqueCaptureTime\(\s*pickedMs,\s*await loadRecentPhotos\(AsyncStorage, Date\.now\(\)\),?\s*\);/,
+    );
+    expect(spot).toMatch(/if \(remembered\) \{\s*await recordRecentPhoto\(/);
     expect(spot.match(/\brecordRecentPhoto\(/g)).toHaveLength(1);
     expect(spot.match(/\buniqueCaptureTime\(/g)).toHaveLength(1);
   });
 
-  it('tags are read only off the website', () => {
-    expect(spot).toMatch(/readTime: !fromCamera && Platform\.OS !== 'web'/);
+  it('library photos read their time: the file on the website, the picker tags on the phones; never the camera', () => {
+    expect(spot).toMatch(
+      /timeFrom: fromCamera \? 'nowhere' : Platform\.OS === 'web' \? 'file' : 'pickerTags'/,
+    );
+    // The website's picker reads no tags, so it is not asked for them.
     expect(spot).toMatch(/exif: Platform\.OS !== 'web'/);
   });
 });
