@@ -11,6 +11,12 @@
 
 Where the two differ, this review says so.
 
+## Update, later on 15 Oct
+
+- The live build moved to `118bc03` at 16:23 UTC, which includes the People screen. Finding 1 below describes the build `2d6e643` that was reviewed.
+- "Which cat: This is a cat we know" is already fixed on main as "Match to a known cat" (#184).
+- #192 (SYC-362 part 2a) changed the cat page's wording on main. The redesign spec keeps that wording.
+
 ## Headline findings
 
 1. **The live site is behind main.** The live build has no People screen (`/api/team/people` returns "Not found"), and its phone menu wraps onto two lines, which main already fixes (SYC-219). Main needs pulling and publishing in Replit.

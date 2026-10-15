@@ -21,6 +21,7 @@ It turns the dashboard parts of PRODUCT-SPEC §2.6 and §3 (items 9, 12 and 13) 
 - SYC-207 and SYC-394: other ways to build the dashboard.
 - SYC-270, SYC-362, SYC-365 and SYC-366: fixes this spec builds on.
 - SYC-288: our own island map pictures.
+- SYC-395: the rest of SYC-362, handed to this spec (§15).
 - SYC-24: vet access, parked.
 
 **Evidence:** `docs/reviews/team-dashboard-ux-review-2026-10-15.md`.
@@ -70,6 +71,8 @@ The dashboard stays fast on a phone in a street with weak signal. A few screens 
 | D5 | Donations? | **Designed now (§9.7), built last,** once the donation route with James is settled. |
 | D6 | Welfare statistics? | **Patterns, not performance.** Never response times, targets or per-person figures. |
 | D7 | Find a cat from a photo? | **Yes.** |
+| D9 | Open map links | Samuel, 15 Oct 2026, in the SYC-362 plan: "map links for coordinates are fine for the team. the privacy considerations don't apply to Syros Cats users". On feeding sites: "Everywhere, sites included". These are outbound links only, for island-wide team members only (§3.2, §10.4). |
+| D10 | SYC-362's unfinished work | "Hand all of it to the redesign" (Samuel, 15 Oct 2026). It's tracked as SYC-395 and placed in §15. |
 | D8 | A vet visit versus a cat guardian's earlier "not sterilised" | **The visit overrules, visibly.** Logging a visit with Sterilised also marks any standing guardian "not sterilised" on that cat wrong, with the reason "vet visit on [date]". The change appears on the recent guardian changes list. This works the same way as the team's **Correct** on colour. |
 
 ## 3. How the dashboard is laid out
@@ -91,12 +94,13 @@ The dashboard stays fast on a phone in a street with weak signal. A few screens 
 
 ### 3.2 Every page
 
-- **The page title comes first.** "Signed in as …" moves into the menu bar and isn't repeated under each title.
+- **The page title comes first.** "Signed in as …" and Sign out move into the menu bar. Today they sit under each title, which shipped in #184.
 - **Places are shown as names, never numbers.** A place label is built from:
   - the **named area** (§3.3);
   - plus, where one exists and the viewer may see it, a feeding site's **public label**.
 
-  A site's internal name is never used, because it usually contains a guardian's name ("Vaporia — Eleni's"). The result reads like "Kini" or "Kini, harbour steps". For the team, the exact position stays one tap away, to copy into a phone's maps (SYC-245).
+  A site's internal name is never used, because it usually contains a guardian's name ("Vaporia — Eleni's"). The result reads like "Kini" or "Kini, harbour steps".
+- **"Open map" is the one tap to the exact spot (D9).** For island-wide team members, every place label carries an **Open map** link that opens the position in the phone's maps. It's built only by `lib/teamPages/position.ts`, and it appears only when the viewer can see the whole island (`visibleColonyIds(person) === null`). It never appears for cat guardians, never on an owner's home position, and never in anything public.
 - **Empty pages explain themselves.** For example: "No colonies yet. A colony is a group of cats fed in the same place, usually by one cat guardian. Grouping cats into colonies lets you plan trapping rounds and see each colony's progress. Create the first one."
 - **Every new screen has its error and empty states written down** (§13).
 - **Lists load small pictures** (§11).
@@ -279,16 +283,18 @@ The team cat page answers "who is this and what do we know" in the first screenf
 
 A short set of buttons:
 - **Log a vet visit** (§8): full width, the main action.
-- **Correct something:** opens the existing correction forms (life status, sterilised, colour, colony, rename), one at a time.
+- **Update this cat:** opens the existing forms one at a time (where the cat lives, whether sterilised, colour, colony, rename). It keeps the "Are you sure?" page before an owner is removed (#192).
 - **Add a note.**
 
-The explanation of how corrections work moves into a short note you can open, written in plain words: "Every change is kept, with your name. To undo one, mark it wrong."
+The explanation of how changes work moves into a short note you can open, keeping the wording that shipped in #192: "Every change is saved with your name. Nothing is deleted. A change with an older date won't override a newer one. To undo a change, use Mark wrong on it in the history below."
+
+The page keeps #192's words throughout: "What we know about this cat", "Since", "Why we think so", "Says otherwise", "Date it happened", "History", and "change" rather than "statement". This spec changes two things on the cat page. The "not known / likely / confirmed" tags are replaced by the plain-worded values in §7.1, so a value can never contradict its own tag. And the side-by-side desktop layout from #184 becomes the summary-and-actions layout below.
 
 ### 7.3 Evidence (folded, below)
 
 - **Sightings:** a compact list of date, place label and thumbnail. "Make a feeding site here" and "Show on the map" move into a small menu on each sighting.
 - **Vet visits:** each with date, what was done, clinic and cost.
-- **History:** the full record, newest first, as now, with one change. Routine sightings are grouped into one line, such as "Seen 19 times by spotters between 29 Jul and 24 Sep, looking well". Tap the line to expand it. Statements that change something (status, colony, colour, name, vet visits, notes) are never grouped.
+- **History:** the full record, newest first, as now. It keeps the newest 20 with "Show all N" (shipped in #184), with one change. Routine sightings are grouped into one line, such as "Seen 19 times by spotters between 29 Jul and 24 Sep, looking well". Tap the line to expand it. Statements that change something (status, colony, colour, name, vet visits, notes) are never grouped.
 
 On a desktop, the summary and actions sit side by side above the evidence, and the evidence uses the full width.
 
@@ -324,7 +330,7 @@ Each statement it creates points back to the visit.
 
 **When a guardian disagrees (D8).** Under Decision G, a cat guardian's standing "not sterilised" on the same cat would outrank a team statement. So the same save also marks that guardian statement wrong, with the reason "vet visit on 13 Aug 2026". It appears on the recent guardian changes list, so nobody is overruled silently. This mirrors the team's **Correct** on colour (DECISIONS, 13 Oct 2026). Undoing the visit restores the guardian's statement.
 
-**Sterilisations recorded without a visit.** "Correct something → Sterilised" still works. The vet report counts those as "sterilised, no cost recorded".
+**Sterilisations recorded without a visit.** "Update this cat → whether sterilised" still works. The vet report counts those as "sterilised, no cost recorded".
 
 **Proof the cat was alive.** A vet visit also counts as proof the cat was alive on that date. This amends the data spine's list in §3.4.
 
@@ -533,7 +539,7 @@ Changes to named areas and to the standard price are kept in the same add-only h
 ### 10.4 Everyone else
 
 - **The public** sees nothing new. Nothing in this spec changes what the app shows spotters.
-- **No position, and no person's or colony's name, ever appears in a web address.** That covers filters, the map, map pictures and shared links. Cat positions reach the browser only inside a signed-in page, or a signed-in request to our own server.
+- **No position, and no person's or colony's name, ever appears in one of our own web addresses.** That covers filters, the map, map pictures and shared links. The one exception is D9's outbound **Open map** link. It carries a position to the phone's maps app, only for island-wide team members, and is built only by `position.ts`. Guardian-view tests fail if any map company's address appears on a guardian's page. Cat positions reach the browser only inside a signed-in page, or a signed-in request to our own server.
 - **Downloaded files** contain only what the page shows to that viewer. They never include a feeding site's internal name or a guardian's name unless the team chooses to add them. Only the impact report is meant for outside eyes, and it follows §9.4's limits.
 
 ## 11. Small photo versions
@@ -630,6 +636,9 @@ These rules follow the data-visualisation method.
 
 ### 12.4 The map
 
+- **Feeding sites are squares, never circles, and never teal.** Circles mean cats, and teal means sterilisation status. Public sites are filled dark-ink squares, private sites are dark-ink outlined squares, and retired sites are dashed grey squares (shown only when asked for). The key beside the map shows all of them.
+- **On a phone, the Feeding sites view keeps SYC-362's aim:** what matters (the list, or the map with its key) sits near the top, and pan and "Go to" come after.
+
 - **A quiet base map.** It's light and low-colour, so the dots stand out.
 - **Dots** are at least 10px, with the ring and outline from §12.2. Tap targets are at least 44px even where the dot is smaller.
 - **The legend** sits small in the top-right corner, using the same shapes as the badges. It can be folded away, and it never covers the sheet that opens when you tap a cat.
@@ -690,7 +699,8 @@ This is a guide for the implementation plan, not a design in itself.
 
 | Phase | What ships | Why |
 |---|---|---|
-| 1 | Named areas; small photo versions; the Cats screen with filters and grid; the team cat page summary; the Map with cats and the sightings trail | Fixes the two problems Samuel named: "you must know its name", and "show me all cats on a map" |
+| 0 | From SYC-395: an "Are you sure?" page before Retire this site (using `confirm.ts` and `sure.*` words); D9's Open map links for island-wide team members, with the guard and tests swapped (replace `noMapLinks.source.test.ts`, allow-list `position.guard`, add guardian-view tests, remove the queue's near-site rule) | Small, already designed and approved in the SYC-362 plan, and independent of the rest |
+| 1 | Named areas; small photo versions; the Cats screen with filters and grid; the team cat page summary; the Map with cats, the sightings trail, and feeding sites as a square-marker layer (SYC-395 item 3) | Fixes the two problems Samuel named: "you must know its name", and "show me all cats on a map" |
 | 2 | Home (with every work list linked); Colonies list with progress and flags; the trapping planner; Find from a photo | The office's daily view, and the trapping rounds |
 | 3 | Vet visits (single and round); the Reports: Sterilisation progress, Colony health, Coverage and spotting, Welfare patterns, Vet visits and costs | Reports need vet visits to give honest figures |
 | 4 | The impact report with print, PDF and CSV, reproducible "as of" | Built on phase 3's figures |
