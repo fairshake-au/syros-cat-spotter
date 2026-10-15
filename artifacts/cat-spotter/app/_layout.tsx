@@ -182,17 +182,17 @@ export default function RootLayout() {
               <DeviceProvider>
                 <OfflineProvider>
                   <AppSettingsProvider>
-                  <ReportQueueProvider>
-                    <NotificationProvider>
-                      <DeleteMyDataProvider>
-                        <GestureHandlerRootView>
-                          <KeyboardProvider>
-                            <OnboardingGate />
-                          </KeyboardProvider>
-                        </GestureHandlerRootView>
-                      </DeleteMyDataProvider>
-                    </NotificationProvider>
-                  </ReportQueueProvider>
+                    <ReportQueueProvider>
+                      <NotificationProvider>
+                        <DeleteMyDataProvider>
+                          <GestureHandlerRootView>
+                            <KeyboardProvider>
+                              <OnboardingGate />
+                            </KeyboardProvider>
+                          </GestureHandlerRootView>
+                        </DeleteMyDataProvider>
+                      </NotificationProvider>
+                    </ReportQueueProvider>
                   </AppSettingsProvider>
                 </OfflineProvider>
               </DeviceProvider>

@@ -167,4 +167,58 @@ describe('AppSettingsProvider', () => {
     expect(h.getAppSettings).toHaveBeenCalledTimes(1);
     await act(async () => release());
   });
+
+  it('a device id that changes during a fetch still gets its own answer (asked again when the fetch ends)', async () => {
+    let releaseA!: (v: unknown) => void;
+    h.getSpotterSignals.mockImplementation((id: string) =>
+      id === 'dev-a' ? new Promise((r) => (releaseA = r)) : Promise.resolve(KNOWN),
+    );
+    const { result, rerender } = renderHook(() => useAppSettings(), { wrapper });
+    await waitFor(() => expect(h.getSpotterSignals).toHaveBeenCalledWith('dev-a'));
+    h.device = { deviceId: 'dev-b', ownedCatIds: [] };
+    rerender();
+    await act(async () => releaseA(KNOWN));
+    await waitFor(() => expect(h.getSpotterSignals).toHaveBeenCalledWith('dev-b'));
+    await waitFor(() => expect(result.current.signals.status).toBe('known'));
+    expect(saved().signalsFor).toBe('dev-b');
+  });
+
+  it('a first send while a refusal is in flight asks once more, and the bound phone gets known signals', async () => {
+    let releaseFirst!: (e: unknown) => void;
+    h.getSpotterSignals
+      .mockImplementationOnce(() => new Promise((_, rej) => (releaseFirst = rej)))
+      .mockResolvedValue(KNOWN);
+    const { result } = renderHook(() => useAppSettings(), { wrapper });
+    await waitFor(() => expect(h.getSpotterSignals).toHaveBeenCalledTimes(1));
+    act(() => result.current.noteSent());
+    await act(async () => releaseFirst(apiError(403)));
+    await waitFor(() => expect(h.getSpotterSignals).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.signals.status).toBe('known'));
+  });
+
+  it('a slow settings answer never saves over signals that arrived meanwhile', async () => {
+    let releaseSettings!: (v: unknown) => void;
+    h.getAppSettings.mockReturnValueOnce(new Promise((r) => (releaseSettings = r)));
+    const { result } = renderHook(() => useAppSettings(), { wrapper });
+    // The claim lands while the settings are still on their way.
+    await act(async () => releaseSettings(SETTINGS));
+    await waitFor(() => expect(result.current.signals.status).toBe('known'));
+    await waitFor(() => expect(saved().settings.loaded).toBe(true));
+    expect(saved().signals.status).toBe('known');
+    expect(saved().signalsFor).toBe('dev-a');
+  });
+
+  it('a saved copy read late never replaces what was fetched, and another id\'s saved signals are dropped', async () => {
+    h.storage.set(
+      APP_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ settings: { loaded: true, linkOn: false, hiddenFacts: [] }, donateHost: null, signalsFor: 'dev-old', signals: { status: 'known', hasClaimedCat: true, firstSpotDate: '2026-01-01' } }),
+    );
+    h.getSpotterSignals.mockRejectedValue(new TypeError('Failed to fetch'));
+    h.getAppSettings.mockRejectedValue(new TypeError('Failed to fetch'));
+    const { result } = renderHook(() => useAppSettings(), { wrapper });
+    // The saved switches are used (offline), but dev-old's signals are not dev-a's.
+    await waitFor(() => expect(result.current.settings.loaded).toBe(true));
+    expect(result.current.signals).toEqual({ status: 'unknown' });
+    await waitFor(() => expect(JSON.stringify(saved())).not.toContain('dev-old'));
+  });
 });

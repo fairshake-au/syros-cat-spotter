@@ -61,6 +61,9 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   const deviceRef = useRef(deviceId);
   deviceRef.current = deviceId;
   const inFlight = useRef<Promise<void> | null>(null);
+  // Asked again while a fetch was running: run once more when it ends, so a
+  // new device id or a newly bound phone always gets a fresh answer.
+  const rerun = useRef(false);
 
   /** Apply a change to the latest values, then show and save the result. */
   const update = useCallback((change: (prev: StoredSettings) => StoredSettings) => {
@@ -81,17 +84,22 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
         const merged: StoredSettings = {
           settings: now.settings.loaded ? now.settings : saved.settings,
           donateHost: now.settings.loaded ? now.donateHost : saved.donateHost,
-          signalsFor: now.signalsFor ?? saved.signalsFor,
-          signals: now.signalsFor ? now.signals : saved.signals,
+          // Saved signals count only for the device id this phone has now.
+          ...(now.signalsFor !== null || saved.signalsFor !== deviceRef.current
+            ? { signalsFor: now.signalsFor, signals: now.signals }
+            : { signalsFor: saved.signalsFor, signals: saved.signals }),
         };
-        storedRef.current = merged;
-        setStored(merged);
+        // Saved back, so another id's signals don't linger on the phone.
+        update(() => merged);
       })
       .catch(() => undefined);
-  }, []);
+  }, [update]);
 
   const refresh = useCallback((): Promise<void> => {
-    if (inFlight.current) return inFlight.current;
+    if (inFlight.current) {
+      rerun.current = true;
+      return inFlight.current;
+    }
     const run = (async () => {
       try {
         const res = await getAppSettings();
@@ -113,6 +121,10 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
       }
     })().finally(() => {
       inFlight.current = null;
+      if (rerun.current) {
+        rerun.current = false;
+        void refreshRef.current();
+      }
     });
     inFlight.current = run;
     return run;
