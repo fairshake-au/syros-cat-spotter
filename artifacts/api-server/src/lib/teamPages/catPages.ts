@@ -21,7 +21,7 @@ import { t } from "./words";
 
 // The app's own English words (artifacts/cat-spotter/lib/i18n.ts), so the
 // team reads the public line exactly as a spotter does.
-const LIFE: Record<LifeStatusValue, string> = {
+export const LIFE: Record<LifeStatusValue, string> = {
   street: "Lives on the street",
   homed: "Has a home",
   in_care: "In Syros Cats' care",
@@ -422,6 +422,7 @@ const DONE: Record<string, string> = {
   already: "Someone already corrected this. Here's what replaced it.",
   ownerRemoved: "Saved. The owner is removed and the cat's new status is in the history below. Nobody was told.",
   ownerGone: "This cat has no owner now, so there was nothing to remove. Nothing was changed.",
+  lifeOwnerKept: "Saved. This cat still has an owner. Ask the team if the owner should be removed.",
   colony: "Saved. The colony is added to the history below.",
   colonyOut: "Saved. The cat is out of its colony. This is added to the history below.",
   colonyAlready: "The cat was already there, so nothing was changed.",
@@ -530,11 +531,10 @@ function correctionForms(
         '<fieldset><legend class="label">The cat…</legend>' +
         lifeChoices("status", "ls", null) +
         "</fieldset>" +
-        // Owned cat (spec §7): removing the owner is offered in the same step,
-        // so a correction can't leave the cat stuck "street" with an owner.
+        // Owned cat (spec §7, SYC-362 D2): no box. Saving anything but "has a
+        // home" asks first, on its own page, before the owner is removed.
         ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
-          ? '<label class="choice" for="ls-owner"><input type="checkbox" id="ls-owner" name="removeOwner" value="1" checked> Also remove the owner</label>' +
-            '<p class="hint">Ticked, an owner is removed unless the cat is saved as having a home. Nobody is told.</p>'
+          ? '<p class="hint">This cat has an owner. Saving anything but “Has a home” asks you first whether to remove the owner.</p>'
           : "") +
         dateInput("ls-date", "Date the team knows of", "(needed for “No longer with us”; leave empty for today)") +
         reasonInput("ls-why") +

@@ -224,8 +224,10 @@ export interface RemoveOwnerInput {
  * 1. the cat row is locked, so a second removal, or the owner's own let-go,
  *    waits and then finds the owner gone;
  * 2. the owner is looked at again under the lock (`require_owner` stops there
- *    with nothing written; `if_owner`, the life-status form's tick, just
- *    records the status);
+ *    with nothing written; `if_owner`, a confirmed life-status save or the
+ *    JSON route's removeOwner, just records the status when there is none;
+ *    `confirm_if_owner`, an unconfirmed life-status form, stops with
+ *    "needs_confirm" and nothing written when there IS one: SYC-362 D2);
  * 3. EVERY active owner `homed` on the cat is withdrawn, as staff;
  * 4. the owner link, name, note and pin are cleared;
  * 5. the status is recorded through {@link recordTeamStatement}.
@@ -236,8 +238,8 @@ export interface RemoveOwnerInput {
 export async function removeOwnerAndSay(
   person: Person,
   input: RemoveOwnerInput,
-  mode: "require_owner" | "if_owner",
-): Promise<{ owner: "removed" | "none"; row: Observation | null }> {
+  mode: "require_owner" | "if_owner" | "confirm_if_owner",
+): Promise<{ owner: "removed" | "none" | "needs_confirm"; row: Observation | null }> {
   if (!can(person, "remove_owner") || !can(person, "set_life_status")) throw notAuthorised();
 
   return db.transaction(async (tx) => {
@@ -255,6 +257,9 @@ export async function removeOwnerAndSay(
       cat?.ownerDeviceId != null ||
       (await newestActiveOwnerHomed(tx, input.catId, null)) !== null;
     if (!hasOwner && mode === "require_owner") return { owner: "none" as const, row: null };
+    // Checked under the lock, so an owner who claims in the same moment
+    // can't be removed without the person having been asked.
+    if (hasOwner && mode === "confirm_if_owner") return { owner: "needs_confirm" as const, row: null };
 
     const observedAt = input.observedAt ?? new Date();
     if (hasOwner) {
@@ -290,6 +295,26 @@ export async function removeOwnerAndSay(
     );
     return { owner: hasOwner ? ("removed" as const) : ("none" as const), row };
   });
+}
+
+/**
+ * A cat's name and whether it has an owner (a link, or a deleted owner's
+ * standing "has a home"), for the words on an "Are you sure?" page and the
+ * note a cat guardian sees after saving. Informational only: the decision
+ * itself is always made again under the lock in {@link removeOwnerAndSay}.
+ * Null when there is no such cat.
+ */
+export async function catOwnerState(
+  catId: number,
+): Promise<{ name: string; hasOwner: boolean } | null> {
+  const [cat] = await db
+    .select({ name: catsTable.name, ownerDeviceId: catsTable.ownerDeviceId })
+    .from(catsTable)
+    .where(eq(catsTable.id, catId));
+  if (!cat) return null;
+  const hasOwner =
+    cat.ownerDeviceId != null || (await newestActiveOwnerHomed(db, catId, null)) !== null;
+  return { name: cat.name, hasOwner };
 }
 
 // ── Marking a statement wrong ─────────────────────────────────────────────
