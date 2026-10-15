@@ -332,6 +332,16 @@ router.post(
       throw err;
     }
     if (outcome.kind === "report_not_found") return notFound(res);
+    // SYC-44 PR 4.1: a "Report an issue" row is never tied to a cat (it would
+    // write a `welfare_report` observation, i.e. evidence of life). The page
+    // never offers the control; a hand-made request gets 409, nothing written.
+    if (outcome.kind === "not_welfare") {
+      req.log.info({ reason: "not_welfare" }, "tie refused");
+      return void res.status(409).json({
+        error: "not_welfare",
+        message: "Only a \"needs help\" report can be tied to a cat.",
+      });
+    }
     if (outcome.kind === "cat_not_found")
       return badRequest(req, res, ["catId"], publicId);
 
