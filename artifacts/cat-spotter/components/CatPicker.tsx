@@ -351,7 +351,7 @@ export function CatPicker({
                     {appearance ? (
                       <Text
                         style={[styles.cardAppearance, { color: colors.mutedForeground }]}
-                        numberOfLines={2}
+                        numberOfLines={3}
                       >
                         {appearance}
                       </Text>
