@@ -15,6 +15,7 @@ const WORDS = {
   // The dashboard's refusals for a signed-in person (roles-and-invites.md
   // §6.4; SYC-53 PR 0.5). English for now; PR 1.0 adds Greek and French.
   "refused.title": "That part is for the team",
+  "refused.titleManagement": "That part is for management",
   "refused.forTeam": "That part of the dashboard is for the Syros Cats team.",
   "refused.yourColonies": "Your colonies are here",
   "refused.forManagement": "That part of the dashboard is for Syros Cats management.",

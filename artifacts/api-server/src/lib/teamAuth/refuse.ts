@@ -110,7 +110,7 @@ export function forbiddenPage(person: RefusedPerson): string {
     : `<p>${escapeHtml(t("refused.forTeam"))} ` +
       `<a href="${GUARDIAN_HOME_PATH}">${escapeHtml(t("refused.yourColonies"))}</a>.</p>`;
   return renderPage({
-    title: t("refused.title"),
+    title: t(person.island ? "refused.titleManagement" : "refused.title"),
     active: null,
     nav: person.island,
     personName: person.name,
