@@ -1,6 +1,6 @@
 # The feeding nudge, in the spot flow
 
-**Status:** Draft for Samuel's approval, 15 October 2026. An independent adversarial review (Sonnet) found 2 blockers and 15 major issues in the first draft. All are fixed here; the review and how each finding was handled are in [`reviews/feeding-nudge-and-starter-facts-review.md`](./reviews/feeding-nudge-and-starter-facts-review.md).
+**Status:** Draft for Samuel's approval, 15 October 2026. **All six decisions answered by Samuel, 15 October 2026** (§8): 1, 2, 3 and 6 as recommended; 4 changed to a full nudge once, then a daily one-liner for visitors only; 5 changed to nothing after an offline save. This version builds them in. An independent adversarial review (Sonnet) found 2 blockers and 15 major issues in the first draft. All are fixed here; the review and how each finding was handled are in [`reviews/feeding-nudge-and-starter-facts-review.md`](./reviews/feeding-nudge-and-starter-facts-review.md).
 **Owner:** Samuel
 **Covers:** SYC-36 (and the shared half of SYC-343). `docs/PRODUCT-SPEC.md` §2.2: *"The feeding nudge (short form) in the spot flow, with the winter-dependence explanation and the €1-a-day redirect."*
 **Builds on:** the proposal §13 "The feeding nudge" (the long form this is the short form of) · the onboarding "Please don't feed them" step and the "Look, don't touch" safety screen (SYC-35) · the result screens in `/review` (match list, naming a new cat) · the Help tab's donate button (SYC-1's seam).
@@ -22,7 +22,7 @@ On a spotter's **first** spot, that card is the feeding nudge:
 
 When the matches come back, the nudge **comes with the spotter** to the first result screen, below the matches, now with two buttons: **Help feed a cat**, which opens Syros Cats' own donation page (**syroscats.com/donations**) in the phone's browser, and **Got it**. It never sits above the matches or between the spotter and their cat.
 
-It comes back **at most twice more, never within two weeks of the last time**, and never again once someone has tapped **Help feed a cat**. Every other wait shows a cat fact instead.
+The full nudge shows **once**. After that, a visitor gets a **one-line reminder** under the matches on their first spot of each day, *"Please don't feed the cats. €1 feeds one for a day."*, with the same button. A phone that looks like a resident's (it has claimed a cat, or has been spotting for three weeks or more) gets no reminders. Every wait after the first shows a cat fact.
 
 Syros Cats must confirm the donation page and the €1 and €30 figures (§7). If they can't by 22 October, the nudge ships without figures or a button, pointing to the Help tab instead (§5.2). That switch is a setting, not a new release.
 
@@ -43,7 +43,7 @@ Two things make it work, and both are in the short form:
 |---|---|---|
 | **What the nudge gives them** | The reason not to feed, and a better way to help that still feels like feeding a cat | Backing: the app tells visitors what guardians have been telling them for years |
 | **What it must not do** | Lecture, or repeat itself every spot | Suggest that feeding *by guardians* is wrong. The copy names guardians as the people who do it properly |
-| **How the cap serves them** | A four-day visitor sees it once, on their first spot | A resident who spots every week sees it three times in total, a fortnight or more apart, then never again. Cat guardians who sign in don't see it at all (§8, Decision 4) |
+| **How often** | The full nudge on their first spot, then a one-line reminder on their first spot of each day for the rest of the trip | The full nudge once, then nothing: residents are the least likely to give, and guardians already know. Cat guardians who sign in don't see it at all (§8, Decision 4) |
 
 ---
 
@@ -55,21 +55,30 @@ The nudge appears in **the waiting card** (`starter-facts.md` §3), which takes 
 
 During the wait the nudge shows its **words only**: heading, two paragraphs and the €1 line. No buttons. Opening a browser while the photo is still uploading could stop the upload, so the button waits for the result (§3.3).
 
-### 3.2 Which wait gets the nudge
+### 3.2 When the full nudge shows, and when the one-liner does
 
-The card shows one thing per wait. The nudge takes the card when **all** of these are true:
+**The full nudge** takes the waiting card on a phone's **first** spot that is sent with a signal, and never again once it has been counted. It's skipped entirely for anyone signed in as a cat guardian or Syros Cats team member (once those sign-ins exist; Decision 4).
 
-1. The spotter is sending the sighting now (connected), so there's a wait to fill.
-2. This phone has **counted** the nudge **fewer than 3 times**.
-3. It has never been counted, **or** at least **14 days** have passed since it last was.
-4. The spotter hasn't tapped **Help feed a cat** before.
-5. The spotter isn't signed in as a cat guardian or Syros Cats team member (once those sign-ins exist; Decision 4).
+**It's counted** when it appears on the first result screen (§3.3): that's when the spotter has had the whole wait plus as long as they like to read it. If the wait ends badly (a rejected photo, a failed send, or "Save and send later"), it isn't counted, and the next attempt shows it again. An offline save shows nothing and counts nothing (Decision 5); the full nudge waits for the phone's first spot sent with a signal.
 
-Otherwise, the card shows a fact.
+**The one-liner** is a single line with the button, on the first result screen only, below the matches:
 
-**What counts as one showing.** The nudge is counted when it appears on the first result screen (§3.3): that's when the spotter has had the whole wait plus as long as they like to read it. Showing it during a wait that ends badly (a rejected photo, a failed send, or "Save and send later") **doesn't count**, and the next attempt shows the nudge again. A showing after an offline save counts (§3.5).
+> Please don't feed the cats. €1 feeds one for a day. *[Help feed a cat]*
 
-In practice: a visitor on a four-day trip sees the nudge **once**, on their first spot. Someone back a fortnight later sees it a second time. A resident sees it three times over at least a month, then never again. Nobody sees it on two spots in a row unless the first one failed.
+It shows when **all** of these are true:
+
+1. The full nudge has already been counted, on an earlier day.
+2. This is the phone's first spot of the day sent with a signal (days run on Athens time, like streaks).
+3. The phone looks like a **visitor's**: it hasn't claimed a cat as its own, and its first spot was less than **21 days** ago.
+4. Nobody has tapped **Help feed a cat** on this phone. Someone who has given doesn't need a daily reminder. (Carried over from the first draft's rule; Samuel can drop it.)
+5. The donation link is switched on (§5.2). With no link, there's nothing for the line to offer, so it doesn't show.
+6. The spotter isn't signed in as a cat guardian or team member.
+
+The one-liner never takes the waiting card: on those spots, the wait shows a fact as usual, and the line appears with the matches.
+
+**Why the resident guess works this way.** The app can't know who lives on Syros. Claiming a cat as your own pet is a strong sign of living here; spotting across three weeks is longer than almost any visit. The language setting isn't used, because many summer visitors are Greeks from Athens. A visitor who stays longer than three weeks stops getting reminders, which is acceptable.
+
+In practice: a visitor on a four-day trip sees the full nudge on their first spot and a one-line reminder on each of the next three days. A resident sees the full nudge once, then never again.
 
 ### 3.3 After the matches come back
 
@@ -80,20 +89,20 @@ When the result arrives, the nudge moves with the spotter to **the first result 
 
 It sits **below everything the spotter needs to act on**: below the matches, below "None of these" and "Find the cat yourself", below the name field and its button. It never pushes those down or sits between the spotter and their cat. It has the same words, now with its two buttons, and stays until the spotter taps **Got it**, taps **Help feed a cat**, or moves on. It doesn't follow them to the next screen.
 
-It **never appears** on the "we couldn't see a cat in this photo" screen, and isn't counted there.
+Neither the nudge nor the one-liner **ever appears** on the "we couldn't see a cat in this photo" screen, and nothing is counted there.
 
 **Help feed a cat** opens the donation page in the phone's own browser. By this point the sighting has been saved on Cat Spotters' server, so leaving the app doesn't lose it: the spotter returns to the same result screen.
 
 ### 3.4 Where it doesn't appear
 
-- **Not on every spot.** §3.2 caps it.
+- **Not in full more than once.** After that, visitors get the one-liner at most once a day, and residents nothing (§3.2).
 - **Not as a pop-up, a sheet or a screen of its own.** It's always a card within a screen the spotter is already on.
 - **Not on the cat's page.** The proposal also puts the nudge "quietly on each cat's page"; that, and the long form with all four reasons, belong to Teaching in full (SYC-61, MLP).
 - **Not on the team dashboard.** Syros Cats' staff don't spot through the dashboard.
 
-### 3.5 After an offline save (Decision 5)
+### 3.5 After an offline save
 
-With no signal, the sighting is saved on the phone and there's no wait. If the nudge is due (§3.2, rules 2–5), it shows as a card on the Spot tab under the "saved" message, in its **no-link** form (§5.2: the Help tab line instead of the figures and button, since a donation page can't open without signal). It stays until the spotter taps **Got it** or takes the next photo. This showing counts.
+Nothing (Decision 5). An offline save shows its usual "saved on your phone" message and no nudge, and counts nothing. The full nudge shows on the phone's first spot sent with a signal.
 
 ---
 
@@ -133,7 +142,15 @@ These are drafts. Greek and French go to Johnny for native review (SYC-283) on T
 
 The "opens in your browser" line under **Help feed a cat** reuses the existing `campaignOpensAt` string (*"Opens {host} in your browser"*), already translated.
 
-If Samuel chooses a single figure (Decision 2), `feedNudgeEuro` keeps only the matching sentence.
+Samuel chose both figures (Decision 2).
+
+### 5.1a The daily one-liner
+
+| Key | English | Ελληνικά | Français |
+|---|---|---|---|
+| `feedNudgeLine` | Please don't feed the cats. €1 feeds one for a day. | Σε παρακαλούμε, μην ταΐζεις τις γάτες. Με 1 € τρέφεται μια γάτα για μια μέρα. | Merci de ne pas nourrir les chats. 1 € en nourrit un pendant une journée. |
+
+It uses the same **Help feed a cat** button and *"Opens {host} in your browser"* line as the full nudge. The one-liner keeps only the €1 figure, to stay one line; the €30 month is on the donation page's own choices and in the full nudge.
 
 **Word choices, so the reviewer knows they were deliberate:**
 
@@ -145,7 +162,7 @@ If Samuel chooses a single figure (Decision 2), `feedNudgeEuro` keeps only the m
 
 ### 5.2 Without a donation link or figures
 
-Used when Syros Cats haven't confirmed the page and figures by 22 October, after an offline save (§3.5), and whenever the app hasn't been able to load its settings (§9). No figures and no button; the redirect is said in words:
+Used when Syros Cats haven't confirmed the page and figures by 22 October, and whenever the app hasn't been able to load its settings (§9). No figures and no button; the redirect is said in words. The one-liner doesn't show at all in this form:
 
 | Key | English | Ελληνικά | Français |
 |---|---|---|---|
@@ -159,7 +176,7 @@ The quoted tab names match the live tab labels (`tabHelp`: Help, Βοήθεια,
 
 Being precise, because offline support in Cat Spotters is partial:
 
-- **No signal.** The app saves the sighting on the phone and says so. There's no wait, so no waiting card. If the nudge is due, it shows on the Spot tab in its no-link form (§3.5). When the saved sighting is sent later, it's matched in the background, with no card.
+- **No signal.** The app saves the sighting on the phone and says so. There's no wait, so no waiting card, and no nudge or one-liner (Decision 5). When the saved sighting is sent later, it's matched in the background, with no card.
 - **Weak signal.** The wait is longer, so there's more time to read. The nudge's words are part of the app itself, not downloaded, so they appear instantly whatever the signal.
 - **The Help feed a cat button needs a connection.** It opens a web page. It only appears on the result screen, which needs the server to have just answered, so the phone had a connection seconds earlier. If the page then can't load, the browser shows its own error.
 - **On the website** (which testers use), the nudge's words are there whenever the app itself has loaded. The website can't be opened from scratch with no signal at all; that's true of the whole site, not just this card.
@@ -175,7 +192,7 @@ These go to Syros Cats in one message, with the English copy, by **Monday 19 Oct
 2. **The page.** Should **Help feed a cat** open **syroscats.com/donations** (your existing page: PayPal, card, bank transfer)? It's a general page, so it won't repeat the €1 or €30 figures. And are you happy for Cat Spotters, which isn't run by Syros Cats, to send people there?
 3. **The winter explanation.** Is it right for Syros that colonies fed by visitors through the summer go hungry when the visitors leave?
 4. **The guardians line.** *"Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round."* Fair as stated, given many guardians are volunteers?
-5. **Counting.** Are you happy for the app to count how many times the donation link is opened (a number only, nothing about who; Decision 6)?
+5. **Counting.** Are you happy for the app to count how many times the donation link is opened (a number only, nothing about who; Decision 6, which Samuel has said yes to)?
 
 ### 7.1 App Store and Google Play
 
@@ -186,6 +203,8 @@ Apple's App Review Guidelines (opened 15 October 2026), **3.2.2(iv)**: an app th
 ## 8. Open decisions, each with a recommendation
 
 ### Decision 1 · Where "Help feed a cat" goes at launch
+
+**Decided by Samuel, 15 Oct 2026: A** (Syros Cats' page, with C as the automatic fallback).
 
 In-app donations are MLP (SYC-1), so at launch the button has to go somewhere that already exists.
 
@@ -199,6 +218,8 @@ In-app donations are MLP (SYC-1), so at launch the button has to go somewhere th
 
 ### Decision 2 · Which figure the nudge uses
 
+**Decided by Samuel, 15 Oct 2026: A** (both figures).
+
 | Option | Words | Benefits | Risks |
 |---|---|---|---|
 | **A. Both: "€1 feeds a cat for a day. €30 feeds one for a month."** *(recommended)* | Both lines | Keeps the €1 framing that makes it feel easy, and makes the month the natural gift, which loses far less to fees | One more line to read |
@@ -208,6 +229,8 @@ In-app donations are MLP (SYC-1), so at launch the button has to go somewhere th
 **Recommendation: A.**
 
 ### Decision 3 · Where the nudge goes after the wait
+
+**Decided by Samuel, 15 Oct 2026: A** (below everything on the first result screen).
 
 | Option | What the spotter sees | Benefits | Risks |
 |---|---|---|---|
@@ -219,15 +242,20 @@ In-app donations are MLP (SYC-1), so at launch the button has to go somewhere th
 
 ### Decision 4 · How often it comes back, and for whom
 
+**Decided by Samuel, 15 Oct 2026: the full nudge once, then a daily one-liner for visitors; residents once only** (§3.2). Samuel asked why not every spot, and pointed out that residents are the least likely to give, so should see it once only. The options he chose from:
+
 | Option | Who sees what | Benefits | Risks |
 |---|---|---|---|
-| **A. First spot, then at most twice more, 14 days apart; never after a tap; never for signed-in guardians and team** *(recommended)* | Visitors once; residents three times over a month or more; guardians never | Everyone sees it when it matters most; residents aren't nagged; guardians aren't lectured about their own work | A visitor who skipped it while distracted doesn't see it again during their trip |
-| **B. Once only** | Everyone, once | The lightest touch | Repeat visitors next summer never see it again |
-| **C. Every 5th spot, no limit** | Frequent spotters often | Most exposure | Nags the most engaged people, who are least likely to be the problem |
+| **A. Full once, then a daily one-liner for visitors** *(recommended; chosen)* | Full nudge on the first spot; visitors get one line plus the button on their first spot each day; residents (claimed a cat, or spotting 3+ weeks) nothing more | Visitors, the likely givers and feeders, keep a daily reminder without a wall of text. Residents aren't nagged | The resident guess will sometimes be wrong |
+| **B. Full nudge on every spot** | Everyone, every spot | Maximum exposure | After two or three times nobody reads it; the result screen grows every spot; it crowds out the facts |
+| **C. One-liner on every spot** | Full once, then the line every spot; residents once | More reminders than A | A line on every result screen becomes invisible fast |
+| **D. Once only, for everyone** | Everyone, once | Simplest, least naggy | No reminder for a visitor who skimmed it on day one |
 
-**Recommendation: A.** Guardian sign-ins arrive with roles (MLP); until then, the cap is what protects locals. People who've claimed a cat as their own pet keep the normal cap: they're pet owners, not feeders.
+The first draft's rule (first spot, then at most twice more, 14 days apart) is replaced.
 
 ### Decision 5 · After an offline save
+
+**Decided by Samuel, 15 Oct 2026: B** (nothing offline). Not the recommendation; less to build.
 
 | Option | What an offline spotter sees | Benefits | Risks |
 |---|---|---|---|
@@ -237,6 +265,8 @@ In-app donations are MLP (SYC-1), so at launch the button has to go somewhere th
 **Recommendation: A.**
 
 ### Decision 6 · Counting how often the link is opened
+
+**Decided by Samuel, 15 Oct 2026: A** (a bare count).
 
 The app has no analytics, so without this nobody can tell whether the nudge leads anyone to give.
 
@@ -254,25 +284,27 @@ The app has no analytics, so without this nobody can tell whether the nudge lead
 - **Copy** goes in `lib/i18n.ts` under the keys in §5, in all three languages, with the existing parity test covering them.
 - **App settings.** A small new endpoint (e.g. `GET /api/app-settings`), separate from the campaign, returns whether the nudge's link and figures are on and which facts are hidden (`starter-facts.md` §9). The app fetches it when it starts and keeps the last answer on the phone. **Defaults when nothing has ever loaded:** link and figures off (§5.2 form), no facts hidden. A nudge shown in the no-link form *only because settings hadn't loaded* isn't counted.
 - **The link** opens a Cat Spotters address (e.g. `/api/go/feed`) that counts the open and redirects to the configured donation page (Decision 6). The configured page goes through the existing `sanitizeDonateUrl`. If Decision 6 is no, the settings carry the page address instead, and the app opens it directly with the same helper as the Help tab's Donate button. Either way: the phone's own browser, never a page inside the app (§7.1).
-- **The nudge's memory** (times counted, last counted, tapped) sits in the waiting card's record (`starter-facts.md` §3.4).
+- **The nudge's memory** (full nudge counted, the date of the last one-liner, tapped, and the date of the phone's first spot) sits in the waiting card's record (`starter-facts.md` §3.4). Whether the phone has claimed a cat comes from what the app already knows about claims.
 - **The schedule** is the waiting card's pure function (`starter-facts.md` §9); this spec's rules are its first branch. The function is told the outcome of each wait, so it only counts a showing on a result screen.
 - **The result screens** (`review.tsx`) get the nudge from the same record, keyed by the sighting, so it appears on the first result screen only, below the existing content.
 - **Before building, measure the wait.** The typical and slow (p50, p90) times for sending a sighting on the live server decide how much people can read; if the typical wait is under 2 seconds, raise it with Samuel.
 
 ### 9.1 Tests that must exist
 
-1. A new phone's first wait shows the nudge's words, with no buttons.
+1. A new phone's first wait shows the full nudge's words, with no buttons.
 2. When the result arrives, the nudge appears **below** the match list (and below the naming form when there are no matches), with both buttons, and is counted.
-3. The not-a-cat screen never shows the nudge, and the nudge isn't counted.
-4. A rejected photo, a failed send, or choosing "Save and send later" doesn't count the nudge; the next wait shows it again.
-5. A wait 14 days after the last counted showing shows the nudge; 13 days after, a fact.
-6. After three counted showings, it never shows again.
-7. After a tap on **Help feed a cat**, it never shows again.
-8. An offline save with the nudge due shows the no-link form on the Spot tab, and counts it.
-9. With the link setting off, or settings never loaded, the result screen shows the §5.2 form: no figures, no button.
-10. With settings never loaded, that showing isn't counted.
-11. The card's top is visible without scrolling on a 375 × 667 screen at the default text size, in all three languages; buttons stack at the largest text size; both are at least 44 × 44 points.
-12. All keys exist in English, Greek and French (the existing parity test).
+3. The not-a-cat screen never shows the nudge or the one-liner, and counts nothing.
+4. A rejected photo, a failed send, or choosing "Save and send later" doesn't count the full nudge; the next wait shows it again.
+5. Once counted, the full nudge never shows again.
+6. The day after, a visitor's first result screen shows the one-liner below the matches; their second spot that day doesn't. The wait on that spot shows a fact.
+7. No one-liner for a phone that has claimed a cat, or whose first spot was 21 or more days ago.
+8. No one-liner after a tap on **Help feed a cat**.
+9. No one-liner when the donation link is switched off.
+10. An offline save shows no nudge or one-liner and changes nothing in the record.
+11. With the link setting off, or settings never loaded, the full nudge shows the §5.2 form: no figures, no button. With settings never loaded, it isn't counted.
+12. Days roll over on Athens time.
+13. The card's top is visible without scrolling on a 375 × 667 screen at the default text size, in all three languages; buttons stack at the largest text size; both are at least 44 × 44 points.
+14. All keys exist in English, Greek and French (the existing parity test).
 
 A browser-pane check at about 390 px and at desktop width goes with the PR, in all three languages.
 

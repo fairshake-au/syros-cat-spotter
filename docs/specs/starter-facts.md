@@ -1,6 +1,6 @@
 # Starter facts, in three languages
 
-**Status:** Draft for Samuel's approval, 15 October 2026. An independent adversarial review (Sonnet) found 2 blockers and 15 major issues across this spec and `feeding-nudge.md`, including six facts that needed rewording. All are fixed here; the review and how each finding was handled are in [`reviews/feeding-nudge-and-starter-facts-review.md`](./reviews/feeding-nudge-and-starter-facts-review.md).
+**Status:** Draft for Samuel's approval, 15 October 2026. **All four decisions answered by Samuel, 15 October 2026, as recommended** (§8). An independent adversarial review (Sonnet) found 2 blockers and 15 major issues across this spec and `feeding-nudge.md`, including six facts that needed rewording. All are fixed here; the review and how each finding was handled are in [`reviews/feeding-nudge-and-starter-facts-review.md`](./reviews/feeding-nudge-and-starter-facts-review.md).
 **Owner:** Samuel
 **Covers:** SYC-48 (and the shared half of SYC-343). `docs/PRODUCT-SPEC.md` §2.2: *"Starter content set: ~20 authored facts per language, including the lactose fact and an ear-tip explainer with a photo example."* Also the 1 September meeting's teaching addition: *"Add disease-spread prevention to the sterilisation benefits."*
 **Builds on:** the proposal §13 "What the app teaches" (the six strands and the first example facts) · the engagement design §5 (`docs/superpowers/specs/2026-07-28-engagement-and-donations-design.md`: use the waiting time, author the content, never generate it live) · the ear-tip example photo (SYC-79, in the app as `assets/images/ear-tip-example.jpg`, used by the ear-tip question, SYC-37).
@@ -53,7 +53,7 @@ It never delays anything. The result arrives exactly when it would have without 
 
 One thing per wait, chosen in this order:
 
-1. **The feeding nudge**, if its rules say so (`feeding-nudge.md` §3.2). On a new phone, that's the first wait.
+1. **The full feeding nudge**, if it hasn't been counted yet (`feeding-nudge.md` §3.2). On a new phone, that's the first wait. (The nudge's daily one-liner never takes the card; it appears with the matches, so those waits show a fact.)
 2. **The ear-tip explainer** (fact 1), if this phone hasn't seen it yet.
 3. **The milk fact** (fact 7), if this phone hasn't seen it yet.
 4. **The next fact in this phone's shuffled order** of the other eighteen.
@@ -62,11 +62,11 @@ So a new spotter sees: nudge, ear tip, milk, then the shuffle. When every fact (
 
 | What happens | During the wait | After the wait |
 |---|---|---|
-| **Sending, nudge due** | The nudge's words, no buttons | The nudge moves to the first result screen with its buttons, and is counted (`feeding-nudge.md` §3.3) |
+| **Sending, full nudge due** | The nudge's words, no buttons | The nudge moves to the first result screen with its buttons, and is counted (`feeding-nudge.md` §3.3) |
 | **Sending, fact due** | The fact | The fact goes with the wait. It counts as seen if it was on screen for **3 seconds** or more |
 | **The photo has no cat in it** | Whatever was due | Nothing carries over. Nothing is counted; the next wait shows the same item |
 | **The send fails, or the spotter chooses "Save and send later"** | Whatever was due | Nothing is counted; the next wait shows the same item |
-| **No signal: saved on the phone** | No wait, no card | If the nudge is due, its no-link form shows on the Spot tab (`feeding-nudge.md` §3.5). Facts don't show |
+| **No signal: saved on the phone** | No wait, no card | Nothing: no fact, no nudge (`feeding-nudge.md` §3.5). Nothing is counted |
 | **A fact is switched off** (§9), including fact 1 or 7 | Skipped, as if already seen | "Seen them all" means all the facts that are switched on |
 | **The app's settings have never loaded** | Nothing is switched off; the nudge uses its no-link form and isn't counted | — |
 | **The phone's record can't be read** | A fact, never the nudge | Nothing is saved for this wait |
@@ -83,7 +83,7 @@ The real length of the wait hasn't been measured. Before building, the plan meas
 
 One small record on the phone, or in the browser on the website, stored under its own versioned key (e.g. `catSpotters.waitingCard.v1`):
 
-- the nudge's count, last-counted date, and whether its button was tapped (`feeding-nudge.md` §3.2);
+- whether the full nudge has been counted, the date of the last one-liner, whether the button was tapped, and the date of this phone's first spot (`feeding-nudge.md` §3.2);
 - which facts have been seen, and this phone's shuffled order.
 
 None of it is sent to the server or tied to a username. **Delete my data** removes it with everything else. If a browser clears its storage, the sequence starts again from the nudge, which is harmless. The record is best-effort: if it can't be read, the card shows a fact (never the nudge) and saves nothing for that wait. Two browser tabs may occasionally both show the first item; that's acceptable.
@@ -267,7 +267,7 @@ There's no admin screen for facts at MVP. Changing a fact's words means an app u
 Being precise, because offline support in Cat Spotters is partial:
 
 - **The words and the photo need no signal.** They're part of the app, not downloaded when the card shows.
-- **The card appears only while a sighting is being sent.** With no signal, the app saves the sighting on the phone and says so; there's no wait and no fact. (The feeding nudge may show after an offline save; `feeding-nudge.md` §3.5.) When the saved sighting is sent later, it's matched in the background, with no card.
+- **The card appears only while a sighting is being sent.** With no signal, the app saves the sighting on the phone and says so; there's no wait, no fact and no nudge. When the saved sighting is sent later, it's matched in the background, with no card.
 - **Weak signal means a longer wait,** so there's more time to read.
 - **On the website** (which testers use), the facts are there whenever the app itself has loaded. The website can't be opened from scratch with no signal at all; that's true of the whole site, not just this card.
 - **Switching a fact off** (§9) reaches a phone the next time the app starts with a connection. Until then, the phone uses the last settings it saw.
@@ -294,6 +294,8 @@ All twenty go to Syros Cats in English with one question: *is anything here wron
 
 ### Decision 1 · What order the facts come in
 
+**Decided by Samuel, 15 Oct 2026: A** (fixed start, then shuffled).
+
 | Option | What a new spotter sees | Benefits | Risks |
 |---|---|---|---|
 | **A. Fixed start, then shuffled** *(recommended)* | Nudge, ear tip, milk, then the rest in a random order with no repeats until all are seen | The three things Syros Cats care most about reach everyone early. Repeat spotters still get variety | A visitor who only spots twice never sees the milk fact |
@@ -304,6 +306,8 @@ All twenty go to Syros Cats in English with one question: *is anything here wron
 
 ### Decision 2 · Should facts stay on screen after the result arrives?
 
+**Decided by Samuel, 15 Oct 2026: A** (the fact goes with the wait).
+
 | Option | What the spotter sees | Benefits | Risks |
 |---|---|---|---|
 | **A. No, the fact goes with the wait** *(recommended)* | A fact during the wait; the result screens as they are | The result screens stay clean. Facts are a bonus, not a task. A fact cut short (under 3 seconds) comes round again | On a fast connection, some facts get only a few seconds |
@@ -312,6 +316,8 @@ All twenty go to Syros Cats in English with one question: *is anything here wron
 **Recommendation: A.**
 
 ### Decision 3 · Twenty facts, or ten?
+
+**Decided by Samuel, 15 Oct 2026: A, falling back to C** (all twenty; core ten plus ten in the first update if Johnny runs out of time).
 
 The launch plan lists cutting to ten facts as a fallback (SYC-343). Twenty facts is roughly 1,200 words of Greek and French for Johnny.
 
@@ -324,6 +330,8 @@ The launch plan lists cutting to ten facts as a fallback (SYC-343). Twenty facts
 **Recommendation: A**, falling back to **C** if Johnny can't review all twenty by 27 October. A fact never ships in one language without the other two.
 
 ### Decision 4 · On a new spotter's first spot: the nudge or the ear tip?
+
+**Decided by Samuel, 15 Oct 2026: A** (nudge first).
 
 The ear-tip question after each spot already shows the same example photo and a one-line caption, so the first spot's ear-tip answer gets some help either way.
 
@@ -352,7 +360,7 @@ The ear-tip question after each spot already shows the same example photo and a 
 2. No fact repeats until every switched-on fact has been seen; after a reshuffle, the first fact isn't the last one seen.
 3. A fact on screen for under 3 seconds isn't marked seen.
 4. A wait that ends in a no-cat photo, a failed send or "Save and send later" marks nothing, and the next wait shows the same item.
-5. An offline save shows no fact and changes nothing in the record (the nudge's offline rule is tested in `feeding-nudge.md`).
+5. An offline save shows no fact or nudge and changes nothing in the record.
 6. A switched-off fact never shows, including fact 1 or 7, and the rest still rotate.
 7. When the result arrives, the fact goes; nothing about facts appears on the result screens.
 8. If the record can't be read, the card shows a fact, never the nudge, and nothing is written.
