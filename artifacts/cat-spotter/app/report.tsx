@@ -82,7 +82,9 @@ export default function ReportScreen() {
   const send = async (flow: ReportFlow) => {
     if (!flow.coords || !flow.severity || sending) return;
     setSending(true);
-    const email = offerEmail ? reporterEmail(flow) : null;
+    // What they chose on the email screen, even if the server's answer
+    // changed after the screen was shown (review of #181, finding 7).
+    const email = reporterEmail(flow);
     try {
       const localId = await submitReport({
         severity: flow.severity,

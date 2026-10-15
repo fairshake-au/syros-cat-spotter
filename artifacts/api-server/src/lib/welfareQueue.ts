@@ -73,7 +73,7 @@ export type EmailToTeam = "sent" | "delivered" | "bounced" | "waiting" | "failed
  * means they left an address but haven't confirmed it, so nothing but the
  * one "is this you?" can go. Otherwise the latest acknowledgement or outcome.
  */
-export type EmailToReporter = "unconfirmed" | "waiting" | "sent" | "delivered" | "bounced" | "failed";
+export type EmailToReporter = "unconfirmed" | "confirmed" | "waiting" | "sent" | "delivered" | "bounced" | "failed";
 
 export interface TeamPerson {
   name: string;
@@ -181,7 +181,9 @@ export type ReportMail = {
 function reporterState(m: ReportMail | undefined): EmailToReporter | null {
   if (!m?.contact) return null;
   if (m.contact === "unconfirmed") return "unconfirmed";
-  if (!m.reporter) return "waiting";
+  // Confirmed, with nothing of its own to send (its acknowledgement was
+  // within another report's 24 hours): not "waiting" (review of #181, finding 6).
+  if (!m.reporter) return "confirmed";
   const r = m.reporter;
   if (r.state === "failed") return "failed";
   if (r.state === "queued" || r.state === "sending") return "waiting";

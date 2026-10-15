@@ -48,15 +48,24 @@ export async function sweepKeepSafe(): Promise<SweepResult> {
     `);
     const rows = expired.rows as { id: number; address_hmac: string; purpose: string }[];
     if (rows.some((r) => r.purpose === "report")) {
-      // Anything still queued for them holds a raw link.
+      // Every email to them goes: queued ones hold a raw link, sent ones the
+      // fingerprint, and so do their delivery records.
+      const ids = sql.join(
+        rows.filter((r) => r.purpose === "report").map((r) => sql`${String(r.id)}`),
+        sql`, `,
+      );
+      await tx.execute(sql`
+        delete from mail_deliveries
+         where provider_message_id in (
+           select provider_message_id from mail_outbox
+            where purpose in ('public_verify', 'report_ack', 'report_outcome')
+              and provider_message_id is not null
+              and payload->>'contactId' in (${ids}))
+      `);
       await tx.execute(sql`
         delete from mail_outbox
          where purpose in ('public_verify', 'report_ack', 'report_outcome')
-           and state in ('queued', 'sending')
-           and payload->>'contactId' in (${sql.join(
-             rows.filter((r) => r.purpose === "report").map((r) => sql`${String(r.id)}`),
-             sql`, `,
-           )})
+           and payload->>'contactId' in (${ids})
       `);
     }
     for (const row of rows) {

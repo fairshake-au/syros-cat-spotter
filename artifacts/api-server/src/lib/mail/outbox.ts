@@ -307,6 +307,13 @@ async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]
     .where(sql`${mailOutboxTable.id} in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`);
 }
 
+const DELIVERY_RECORDED: ReadonlySet<string> = new Set([
+  "welfare_alert",
+  "public_verify",
+  "report_ack",
+  "report_outcome",
+]);
+
 async function markSent(row: MailOutboxRow, providerMessageId: string | null, payload: Payload | Record<string, unknown>) {
   await db
     .update(mailOutboxTable)
@@ -319,8 +326,11 @@ async function markSent(row: MailOutboxRow, providerMessageId: string | null, pa
     })
     .where(eq(mailOutboxTable.id, row.id));
   // What happens to it next comes from Resend's webhook (SYC-42 Slice 3,
-  // item 3.6). Best effort: the email has gone, whatever this does.
-  if (providerMessageId) {
+  // item 3.6), for the mail the queue shows: the alert and the reporter's
+  // emails. Keep-safe mail isn't recorded, so its delivery records can't
+  // outlive "Delete my data" (review of #181, finding 3). Best effort: the
+  // email has gone, whatever this does.
+  if (providerMessageId && DELIVERY_RECORDED.has(row.purpose)) {
     await db
       .execute(sql`
         insert into mail_deliveries (provider_message_id, purpose, report_id, recipient_hash)

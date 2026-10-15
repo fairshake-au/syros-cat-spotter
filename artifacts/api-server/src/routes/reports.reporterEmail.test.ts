@@ -226,11 +226,11 @@ describe("test 31: nothing but the one 'is this you?' reaches an unconfirmed add
 describe("test 33: one outcome email per report", () => {
   async function confirmed() {
     const to = address();
-    const { res } = await fileReport({ email: to });
+    const { res, device: d } = await fileReport({ email: to });
     const [verify] = await mailTo(to);
     await press("/api/mail/confirm", tokenIn(verify!, "/api/mail/confirm"));
     await mailTo(to);
-    return { to, publicId: res.body.publicId as string };
+    return { to, publicId: res.body.publicId as string, device: d };
   }
 
   it("Looking at it sends nothing; Done sends one; re-opening and re-closing sends no second", async () => {
@@ -260,13 +260,35 @@ describe("test 33: one outcome email per report", () => {
     expect(last.text).not.toContain("This should not go.");
   });
 
-  it("a second report from a confirmed address is acknowledged without another 'is this you?' (after 24 hours)", async () => {
-    const { to } = await confirmed();
+  it("a second report from the same phone is acknowledged without another 'is this you?' (after 24 hours)", async () => {
+    const { to, device: d } = await confirmed();
     await db.execute(sql`update mail_outbox set created_at = now() - interval '25 hours' where purpose = 'report_ack'`);
-    await fileReport({ email: to });
+    await fileReport({ email: to }, d);
     const mine = await mailTo(to);
     expect(mine.filter((m) => m.subject.startsWith("Is this you?"))).toHaveLength(1);
     expect(mine.filter((m) => m.subject === "Your cat report reached Syros Cats")).toHaveLength(2);
+  });
+
+  it("review of #181, finding 1: a stranger's report with a confirmed address gets only the one 'is this you?', never the acknowledgement or outcome", async () => {
+    const { to } = await confirmed();
+    await db.execute(sql`update mail_outbox set created_at = now() - interval '25 hours' where purpose = 'report_ack'`);
+    const before = (await mailTo(to)).length;
+    const stranger = await fileReport({ email: to });
+    await move(stranger.res.body.publicId, "new", "done", "About someone else's cat.");
+    const mine = (await mailTo(to)).slice(before);
+    expect(mine.map((m) => m.subject)).toEqual(["Is this you? — Cat Spotters"]);
+    // Confirming it from that email sends what was held for that report.
+    await press("/api/mail/confirm", tokenIn(mine[0]!, "/api/mail/confirm"));
+    await db.execute(sql`update mail_outbox set next_attempt_at = now() - interval '1 second' where state = 'queued'`);
+    const after = (await mailTo(to)).slice(before + 1).map((m) => m.subject);
+    expect(after).toEqual(["Your cat report reached Syros Cats", "About the cat you reported"]);
+  });
+
+  it("review of #181, finding 1: a confirmed address gets at most 3 'is this you?' a day from other phones", async () => {
+    const { to } = await confirmed();
+    const before = (await mailTo(to)).length;
+    for (let i = 0; i < 5; i++) await fileReport({ email: to });
+    expect((await mailTo(to)).slice(before).filter((m) => m.subject.startsWith("Is this you?"))).toHaveLength(2);
   });
 });
 
@@ -316,10 +338,10 @@ describe("test 35: a suppressed or limited address gets nothing, and the report 
     expect(cap!.reason).toBe("verify_cap");
   });
 
-  it("a report from an unconfirmed address waits on the first 'is this you?': confirming acknowledges both (one a day)", async () => {
+  it("a second report from the same phone waits on the first 'is this you?': confirming acknowledges both (one a day)", async () => {
     const to = address();
-    await fileReport({ email: to });
-    await fileReport({ email: to });
+    const { device: d } = await fileReport({ email: to });
+    await fileReport({ email: to }, d);
     const [verify] = await mailTo(to);
     await press("/api/mail/confirm", tokenIn(verify!, "/api/mail/confirm"));
     const mine = await mailTo(to);
@@ -465,5 +487,30 @@ describe("test 36: the Resend webhook", () => {
     const res = await post(body, { Authorization: `Bearer ${process.env["INTERNAL_PEOPLE_TOKEN"] ?? "x"}` });
     expect(res.status).toBe(503);
     expect(await db.select().from(emailSuppressionsTable)).toHaveLength(0);
+  });
+});
+
+describe("review of #181: the remaining confirmed findings", () => {
+  it("finding 4: 'Delete my details' removes every email to the address and its delivery records, sent ones too", async () => {
+    const to = address();
+    await fileReport({ email: to });
+    const [verify] = await mailTo(to);
+    await press("/api/mail/confirm", tokenIn(verify!, "/api/mail/confirm"));
+    const ack = (await mailTo(to)).find((m) => m.subject === "Your cat report reached Syros Cats")!;
+    const n = async () => {
+      const r = await db.execute(sql`
+        select (select count(*) from mail_outbox where purpose in ('public_verify', 'report_ack', 'report_outcome'))::int as o,
+               (select count(*) from mail_deliveries where purpose in ('public_verify', 'report_ack', 'report_outcome'))::int as d`);
+      return r.rows[0] as { o: number; d: number };
+    };
+    expect((await n()).o).toBeGreaterThan(0);
+    expect((await n()).d).toBeGreaterThan(0);
+    await press("/api/mail/forget", tokenIn(ack, "/api/mail/forget"));
+    expect(await n()).toEqual({ o: 0, d: 0 });
+  });
+
+  it("finding 3: keep-safe emails leave no delivery record behind", async () => {
+    const r = await db.execute(sql`select count(*)::int as n from mail_deliveries where purpose in ('keep_safe_verify', 'restore_link')`);
+    expect((r.rows[0] as { n: number }).n).toBe(0);
   });
 });

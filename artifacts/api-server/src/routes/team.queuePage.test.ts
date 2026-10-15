@@ -516,12 +516,18 @@ describe("SYC-42 Slice 3: the reporter's email on the queue page", () => {
     await seedReport({ publicId: "no-contact" });
     const html = await getPage();
     expect(html).toContain("They haven&#39;t confirmed the address yet, so nothing else goes to it.");
-    expect(html).toContain('name="reporterSentence"');
-    expect(html).toContain("This goes to a member of the public");
+    // Not confirmed: no line box, since a line written now would never reach
+    // them (review of #181, finding 2).
+    expect(html).not.toContain('name="reporterSentence"');
     expect(html).not.toContain(address);
     expect(html).not.toContain("n•••@example.org");
-    // Only the report with an address gets the line box.
-    expect(html.split('name="reporterSentence"')).toHaveLength(2);
+    await db.execute(sql`update email_contacts set status = 'confirmed', confirmed_at = now() where id = ${contact!.id}`);
+    const after = await getPage();
+    expect(after).toContain("Yes. They confirmed the address.");
+    expect(after).toContain("This goes to a member of the public");
+    // Only the report with a confirmed address gets the line box.
+    expect(after.split('name="reporterSentence"')).toHaveLength(2);
+    expect(after).not.toContain(address);
     await db.execute(sql`update welfare_reports set reporter_contact_id = null where public_id = ${"with-contact"}`);
     await db.execute(sql`delete from email_contacts where id = ${contact!.id}`);
   });

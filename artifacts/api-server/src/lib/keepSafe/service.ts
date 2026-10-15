@@ -314,7 +314,7 @@ export async function confirmAddress(raw: string): Promise<ConfirmOutcome> {
       await tx.execute(sql`select purpose from email_contacts where id = ${token.contact_id}`)
     ).rows as { purpose: string }[];
     if (contact?.purpose === "report") {
-      return { purpose: "report", outboxIds: await confirmReporterAddress(tx, token.address_hmac) };
+      return { purpose: "report", outboxIds: await confirmReporterAddress(tx, token.address_hmac, token.device_id) };
     }
     const confirmed = await tx.execute(sql`
       update email_contacts set status = 'confirmed', confirmed_at = now()

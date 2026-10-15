@@ -37,11 +37,14 @@ import { dailyCeilings } from "../keepSafe/service";
  * - per IP, and the global daily ceiling, shared with keep-safe;
  * - a suppressed address (forgotten, bounced, complained) gets nothing.
  *
- * Once an address is confirmed it stays confirmed: a later report with the
- * same address skips the "is this you?" and is acknowledged straight away
- * (within the daily limit). Three in a lifetime counts "is this you?"
- * messages only (email-capture.md §4.4 owns that limit), so a cat guardian's
- * fourth report is still acknowledged.
+ * Confirmation is per phone: a later report with the same address from the
+ * same phone skips the "is this you?" and is acknowledged straight away
+ * (within the daily limit). From another phone it gets the one fixed "is this
+ * you?" again, because someone else may have typed it (review of #181,
+ * finding 1). Three in a lifetime counts "is this you?" messages only
+ * (email-capture.md §4.4 owns that limit), and stops applying once the holder
+ * has confirmed the address anywhere, so a cat guardian's fourth report is
+ * still acknowledged.
  */
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -51,6 +54,8 @@ export const REPORTER_LIMITS = {
   verifyPerAddressHours: 24,
   verifyLifetime: 3,
   ackPerAddressHours: 24,
+  /** An address confirmed from another phone: "is this you?" at most 3 a day. */
+  verifyConfirmedPerDay: 3,
   addPerIpPerHour: 20,
 };
 
@@ -156,18 +161,30 @@ export async function addReporterEmail(input: AddReporterInput, log: Log): Promi
     // A resent report already has its address: nothing more to do.
     if (!report || report.reporter_contact_id !== null) return skip("already_linked");
 
-    const confirmedBefore =
+    // Confirmed by its holder for a report from THIS phone: the same person,
+    // so no second "is this you?". Confirmed only from another phone: someone
+    // else may have typed it, so it gets the one fixed "is this you?" again
+    // and nothing more until it's confirmed for this report too (F7b;
+    // adversarial review of #181, finding 1; the keep-safe rule, SYC-261).
+    const confirmedHere =
+      (await count(tx, sql`
+        select count(*)::int as n from email_contacts
+         where purpose = 'report' and address_hmac = ${hmac} and status = 'confirmed'
+           and device_id = ${input.deviceId}
+      `)) > 0;
+    const confirmedElsewhere =
+      confirmedHere ||
       (await count(tx, sql`
         select count(*)::int as n from email_contacts
          where purpose = 'report' and address_hmac = ${hmac} and status = 'confirmed'
       `)) > 0;
     // Forgotten, bounced or complained: don't even keep the address.
-    if (await isReportSuppressed(to, confirmedBefore ? "confirmed" : "verify")) return skip("suppressed");
+    if (await isReportSuppressed(to, confirmedElsewhere ? "confirmed" : "verify")) return skip("suppressed");
 
     const inserted = await tx.execute(sql`
       insert into email_contacts (purpose, address, address_hmac, address_mask, device_id, status, confirmed_at)
       values ('report', ${to}, ${hmac}, ${maskAddress(to)}, ${input.deviceId},
-              ${confirmedBefore ? "confirmed" : "pending"}, ${confirmedBefore ? new Date() : null})
+              ${confirmedHere ? "confirmed" : "pending"}, ${confirmedHere ? new Date() : null})
       returning id
     `);
     const contactId = (inserted.rows[0] as { id: number }).id;
@@ -177,29 +194,43 @@ export async function addReporterEmail(input: AddReporterInput, log: Log): Promi
       values (${contactId}, ${input.deviceId}, ${hmac}, 'report', 'consented', 'welfare_report', ${REPORT_WORDING_VERSION}, ${input.language})
     `);
 
-    if (confirmedBefore) {
+    if (confirmedHere) {
       const ack = await queueAck(tx, { reportId: report.id, contactId, hmac, deviceId: input.deviceId });
       return ack === null ? skip("ack_daily_limit") : [ack];
     }
 
-    // Per address: one in 24 hours. A report while one is still waiting to be
-    // confirmed rides on it: confirming confirms the address, for every report.
-    const recent = await count(tx, sql`
-      select count(*)::int as n from email_consent_events
-       where purpose = 'report' and event = 'verify_sent' and address_hmac = ${hmac}
-         and occurred_at > now() - make_interval(hours => ${REPORTER_LIMITS.verifyPerAddressHours})
-    `);
-    if (recent > 0) return skip("per_address_24h");
-    const lifetime = await count(tx, sql`
-      select count(*)::int as n from email_consent_events
-       where purpose = 'report' and event = 'verify_sent' and address_hmac = ${hmac}
-    `);
-    if (lifetime >= REPORTER_LIMITS.verifyLifetime) {
-      await tx.execute(sql`
-        insert into email_suppressions (address_hmac, reason, scope)
-        values (${hmac}, 'verify_cap', 'report') on conflict do nothing
+    if (confirmedElsewhere) {
+      // An address its holder has confirmed isn't a stranger's: the 24-hour
+      // and lifetime caps don't apply, but a stranger who knows it still
+      // can't flood it (3 a day, as keep-safe does for a confirmed address).
+      const todayToAddress = await count(tx, sql`
+        select count(*)::int as n from email_consent_events
+         where purpose = 'report' and event = 'verify_sent' and address_hmac = ${hmac}
+           and occurred_at > now() - interval '1 day'
       `);
-      return skip("lifetime_cap");
+      if (todayToAddress >= REPORTER_LIMITS.verifyConfirmedPerDay) return skip("confirmed_daily_cap");
+    }
+    // Per address: one in 24 hours. A report from the same phone while one
+    // is still waiting to be confirmed rides on it: confirming confirms that
+    // phone's reports with this address.
+    if (!confirmedElsewhere) {
+      const recent = await count(tx, sql`
+        select count(*)::int as n from email_consent_events
+         where purpose = 'report' and event = 'verify_sent' and address_hmac = ${hmac}
+           and occurred_at > now() - make_interval(hours => ${REPORTER_LIMITS.verifyPerAddressHours})
+      `);
+      if (recent > 0) return skip("per_address_24h");
+      const lifetime = await count(tx, sql`
+        select count(*)::int as n from email_consent_events
+         where purpose = 'report' and event = 'verify_sent' and address_hmac = ${hmac}
+      `);
+      if (lifetime >= REPORTER_LIMITS.verifyLifetime) {
+        await tx.execute(sql`
+          insert into email_suppressions (address_hmac, reason, scope)
+          values (${hmac}, 'verify_cap', 'report') on conflict do nothing
+        `);
+        return skip("lifetime_cap");
+      }
     }
     const fromIp = await count(tx, sql`
       select count(*)::int as n from mail_requests
@@ -321,15 +352,24 @@ export async function onReportStateChanged(
   m: { reportId: number; eventId: number; to: string; teamSentence: string | null },
 ): Promise<number | null> {
   if (m.to !== "done" && m.to !== "nothing_needed") return null;
-  const contact = (
-    await tx.execute(sql`
-      select c.id, c.address_hmac, c.status, c.device_id from welfare_reports r
-        join email_contacts c on c.id = r.reporter_contact_id
-       where r.id = ${m.reportId} and r.kind = 'welfare'
-    `)
-  ).rows[0] as { id: number; address_hmac: string; status: string; device_id: string | null } | undefined;
+  const readContact = async () =>
+    (
+      await tx.execute(sql`
+        select c.id, c.address_hmac, c.status, c.device_id from welfare_reports r
+          join email_contacts c on c.id = r.reporter_contact_id
+         where r.id = ${m.reportId} and r.kind = 'welfare'
+      `)
+    ).rows[0] as { id: number; address_hmac: string; status: string; device_id: string | null } | undefined;
+  const first = await readContact();
+  if (!first) return null;
+  // Lock, THEN read the status: a confirmation running at the same moment
+  // either finishes first (and we see it confirmed) or waits for this close
+  // (and sends the held outcome itself). Read before the lock, the two could
+  // each miss the other and the outcome would never go (review of #181,
+  // finding 5).
+  await lock(tx, first.address_hmac);
+  const contact = await readContact();
   if (!contact || contact.status !== "confirmed" || !contact.device_id) return null;
-  await lock(tx, contact.address_hmac);
   if (await outcomeAlreadySent(tx, m.reportId)) return null;
   await tx.execute(sql`update report_state_events set reporter_message = 'report_outcome' where id = ${m.eventId}`);
   return queueOutcome(tx, {
@@ -345,18 +385,21 @@ export async function onReportStateChanged(
 // ── "Yes, that was me" and "Forget this address" ───────────────────────────
 
 /**
- * The address is confirmed: every report row waiting on it becomes confirmed,
+ * The address is confirmed: every report row from the same phone waiting on it becomes confirmed,
  * and what was held is sent, in one go (email-capture.md §4.3 step 5): each
  * report's acknowledgement (one per address per 24 hours), and the outcome of
  * any report the team has already closed. Runs inside confirmAddress's
  * transaction. Returns the outbox rows to kick.
  */
-export async function confirmReporterAddress(tx: Tx, hmac: string): Promise<number[]> {
+export async function confirmReporterAddress(tx: Tx, hmac: string, deviceId: string): Promise<number[]> {
   await lock(tx, hmac);
+  // Only this phone's reports: a report someone else typed the same address
+  // on waits for its own "is this you?" (review of #181, finding 1).
   const confirmed = (
     await tx.execute(sql`
       update email_contacts set status = 'confirmed', confirmed_at = now()
        where purpose = 'report' and address_hmac = ${hmac} and status = 'pending'
+         and device_id = ${deviceId}
       returning id, device_id
     `)
   ).rows as { id: number; device_id: string | null }[];
@@ -434,11 +477,20 @@ export async function forgetReporterAddress(
   const ids = removed.map((r) => r.id);
   if (ids.length) {
     const list = sql.join(ids.map((id) => sql`${String(id)}`), sql`, `);
-    // Anything still waiting to go to it holds a raw link: gone too.
+    // Every email to it goes: queued ones hold a raw link, sent ones the
+    // address's fingerprint, and so do their delivery records (review of
+    // #181, finding 4; the same rows "Delete my data" removes).
+    await tx.execute(sql`
+      delete from mail_deliveries
+       where provider_message_id in (
+         select provider_message_id from mail_outbox
+          where purpose in ('public_verify', 'report_ack', 'report_outcome')
+            and provider_message_id is not null
+            and payload->>'contactId' in (${list}))
+    `);
     await tx.execute(sql`
       delete from mail_outbox
        where purpose in ('public_verify', 'report_ack', 'report_outcome')
-         and state in ('queued', 'sending')
          and payload->>'contactId' in (${list})
     `);
     await tx.execute(sql`

@@ -43,6 +43,7 @@ const EMAIL: Record<EmailToTeam, string> = {
 // SYC-42 Slice 3. Never the address: only what happened.
 const REPORTER_EMAIL: Record<EmailToReporter, string> = {
   unconfirmed: "Yes. They haven't confirmed the address yet, so nothing else goes to it.",
+  confirmed: "Yes. They confirmed the address.",
   waiting: "Yes. An email to them is waiting to send.",
   sent: "Yes. Our last email to them was sent.",
   delivered: "Yes. Our last email to them was delivered.",
@@ -130,7 +131,9 @@ function actionForms(r: QueueReport): string {
   // SYC-42 Slice 3 (§5.3(h)): one optional line added to the reporter's
   // fixed "Done" email. Only when they left an address and it can still go.
   const sentence =
-    r.contactLeft && r.state !== "done"
+    // Only once they've confirmed: a line written before that would never
+    // reach them (review of #181, finding 2).
+    r.contactLeft && r.emailToReporter !== "unconfirmed" && r.state !== "done"
       ? `<label class="label" for="${esc(sentenceId)}">Add a line to the reporter's email (optional, sent with Done only) ` +
         '<span class="hint">This goes to a member of the public, added to the fixed message. Keep it short.</span></label>' +
         `<input id="${esc(sentenceId)}" name="reporterSentence" type="text" class="text" maxlength="${TEAM_SENTENCE_MAX}">`
