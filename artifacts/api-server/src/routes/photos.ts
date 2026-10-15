@@ -36,8 +36,9 @@ router.get("/photos/:id", photoLimiter, async (req, res) => {
   // 2147483647) and short enough that nothing in range survives past it
   // undetected either.
   if (/^\d{1,10}$/.test(id)) {
-    res.status(404).json({ error: "Not found" });
+    // A "not found" is never cached either, so a restore shows again at once.
     res.setHeader("Cache-Control", "no-store");
+    res.status(404).json({ error: "Not found" });
     return;
   }
 
@@ -49,8 +50,9 @@ router.get("/photos/:id", photoLimiter, async (req, res) => {
   // 2, PR 6): the same 404, so the answer never says a photo exists. Staff
   // see hidden photos through the team photo route instead.
   if (!photo || (await hiddenPhotoIds([photo.id])).has(photo.id)) {
-    res.status(404).json({ error: "Not found" });
+    // A "not found" is never cached either, so a restore shows again at once.
     res.setHeader("Cache-Control", "no-store");
+    res.status(404).json({ error: "Not found" });
     return;
   }
   const buffer = Buffer.from(photo.data, "base64");
