@@ -235,6 +235,11 @@ const TABLE: Record<string, Row> = {
   // SYC-53 PR 1.3, "My page" and "My colonies": any accepted person, no capability.
   "GET /api/team/my": { why: "My page: any accepted person (requireTeam with no capability)", except: OWN_PAGES },
   "GET /api/team/my/colonies": { why: "My colonies: any accepted person", except: OWN_PAGES },
+  // SYC-53 PR 2.1: her colony and her cats. The door only (anyone who may
+  // enter); inside, view_exact_location with the record's target decides
+  // between her view and the public one, and another colony is not found.
+  "GET /api/team/my/colonies/:id": { why: "her colony page: the door, then view_exact_location for that colony inside", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
+  "GET /api/team/my/cats/:id": { why: "one cat: the door, then her view or the public view by the cat's colony from the record", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
   "GET /api/team/my/stop-helping": { why: "the 'are you sure?' page: any accepted person; changes nothing", except: OWN_PAGES },
   "POST /api/team/my/language": { why: "change my language: any accepted person, Origin checked", except: OWN_PAGES },
   "POST /api/team/my/sign-out-everywhere": { why: "sign myself out everywhere: any accepted person, Origin checked", except: OWN_PAGES, fresh: true },
@@ -281,7 +286,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 73;
+const MINIMUM_ROUTES = 75;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
