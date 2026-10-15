@@ -997,7 +997,8 @@ export async function searchTeamCats(rawQuery: string): Promise<TeamCatSearchRes
     id: c.id,
     syr: syrNumber(c.id),
     name: c.name,
-    thumbnailUrl: c.photoPublicId ? teamPhotoUrl(c.photoPublicId) : null,
+    // The small version (SYC-396 PR 1.2): lists never load the full photo.
+    thumbnailUrl: c.photoPublicId ? `${teamPhotoUrl(c.photoPublicId)}/small` : null,
     status: statuses.get(c.id)!,
   }));
 }

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
+import sharp from "sharp";
 import { pool } from "@workspace/db";
 import app from "../app";
 import router from "./index";
@@ -151,6 +152,12 @@ interface Row {
    * each time, never as the shared one.
    */
   fresh?: true;
+  /**
+   * A named exemption from "never cached": this one route may instead answer
+   * with exactly this Cache-Control when it serves its picture (a refusal or a
+   * 404 is still no-store). For the photo versions only (SYC-396 PR 1.2).
+   */
+  mayCache?: string;
   /** Overrides on TEAM_ONLY. */
   except?: Partial<Record<Kind, Outcome>>;
 }
@@ -170,6 +177,11 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/photos/:publicId": {
     why: "a catalogue photo: view_exact_location for the photo's cats' colonies (here a cat in colony A)",
     except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
+  },
+  "GET /api/team/photos/:publicId/:size": {
+    why: "a small or medium version of a catalogue photo: the photo route's checks, through the same helper (here a cat in colony A)",
+    except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
+    mayCache: "private, max-age=86400",
   },
   "POST /api/team/reports/:publicId/state": { why: "change_report_state, island-only" },
   "POST /api/team/reports/:publicId/note": { why: "add_team_note, island-only" },
@@ -334,6 +346,9 @@ beforeAll(async () => {
   const colonyA = await newColony("walk-A");
   const colonyB = await newColony("walk-B");
   catInA = { ...(await seedCat(colonyA)), colonyId: colonyA, otherColony: colonyB };
+  // A real picture, so the photo-version route is walked through its 200 (and its cache header) too.
+  const jpeg = await sharp({ create: { width: 300, height: 200, channels: 3, background: "#284" } }).jpeg().toBuffer();
+  await pool.query("update photos set data = $1 where id = $2", [jpeg.toString("base64"), catInA.photoId]);
   people.team = await signedPerson("walk-team", ["staff"]);
   people.management = await signedPerson("walk-mgmt", ["staff"]);
   await pool.query("update person_scopes set role = 'management' where person_id = $1", [
@@ -380,6 +395,9 @@ function pathFor(route: string): string {
   const raw = route.split(" ")[1]!;
   if (route === "GET /api/team/photos/:publicId") {
     return `/api/team/photos/${catInA.photoPublicId}`;
+  }
+  if (route === "GET /api/team/photos/:publicId/:size") {
+    return `/api/team/photos/${catInA.photoPublicId}/small`;
   }
   return raw.replace(/:\w+/g, NO_SUCH);
 }
@@ -512,7 +530,10 @@ describe("T1: the route walk", () => {
             break;
         }
         // Every dashboard answer, refusal or not, is never cached.
-        expect(json.headers["cache-control"], where).toBe("no-store");
+        const allowed = ["no-store", ...(TABLE[route]!.mayCache ? [TABLE[route]!.mayCache!] : [])];
+        expect(allowed, `${where}: cache-control ${String(json.headers["cache-control"])}`).toContain(
+          json.headers["cache-control"],
+        );
       }
     });
   }

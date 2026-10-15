@@ -26,6 +26,7 @@ import { renderPage } from "../lib/teamPages/layout";
 import { can } from "../lib/capabilities";
 import { photoTargets } from "../lib/capabilityTargets";
 import { hiddenPhotoIds } from "../lib/photoVisibility";
+import { isVariantSize, variantFor } from "../lib/photoVariants";
 import { escapeHtml } from "../lib/teamPages/escape";
 import { cleanTeamSentence, TEAM_SENTENCE_MAX } from "../lib/mail/reportTemplates";
 import { kickRow } from "../lib/mail/outbox";
@@ -122,31 +123,72 @@ router.get(
  * A photo hidden from the public is served only to a holder of `hide_photo`
  * (roles spec §6.2 note 4): the team sees hidden items, a guardian doesn't.
  */
-router.get(
-  "/team/photos/:publicId",
-  requireTeam("view_exact_location", {
-    target: (req) => photoTargets(String(req.params["publicId"])),
-  }),
-  async (req: Request, res: Response) => {
-    setTeamHeaders(res);
-    const publicId = String(req.params["publicId"]);
-    if (!PHOTO_ID_RE.test(publicId)) return notFound(res);
-    const [photo] = await db
-      .select({ id: photosTable.id, data: photosTable.data, mime: photosTable.mime })
-      .from(photosTable)
-      .where(eq(photosTable.publicId, publicId));
-    if (!photo || !IMAGE_TYPES.has(photo.mime)) return notFound(res);
-    if (
-      !can(teamPerson(res), "hide_photo") &&
-      (await hiddenPhotoIds([photo.id])).has(photo.id)
-    ) {
-      req.log.info({ reason: "hidden_photo" }, "team request refused");
-      return refuseSignedIn(req, res);
-    }
-    res.setHeader("Content-Type", photo.mime);
-    res.send(Buffer.from(photo.data, "base64"));
-  },
-);
+const photoAccess = requireTeam("view_exact_location", {
+  target: (req) => photoTargets(String(req.params["publicId"])),
+});
+
+/**
+ * The checks every catalogue-photo route shares, so the photo and its small
+ * and medium versions (SYC-396 PR 1.2) can't drift apart. Runs after
+ * `photoAccess` (capability, each cat's colony read from the record). Finds the
+ * photo and refuses a hidden one to anyone without `hide_photo`. It answers
+ * the refusal itself and returns null, or returns the photo to serve.
+ */
+async function servablePhoto(
+  req: Request,
+  res: Response,
+): Promise<{ id: number; data: string; mime: string } | null> {
+  const publicId = String(req.params["publicId"]);
+  if (!PHOTO_ID_RE.test(publicId)) {
+    notFound(res);
+    return null;
+  }
+  const [photo] = await db
+    .select({ id: photosTable.id, data: photosTable.data, mime: photosTable.mime })
+    .from(photosTable)
+    .where(eq(photosTable.publicId, publicId));
+  if (!photo || !IMAGE_TYPES.has(photo.mime)) {
+    notFound(res);
+    return null;
+  }
+  if (
+    !can(teamPerson(res), "hide_photo") &&
+    (await hiddenPhotoIds([photo.id])).has(photo.id)
+  ) {
+    req.log.info({ reason: "hidden_photo" }, "team request refused");
+    refuseSignedIn(req, res);
+    return null;
+  }
+  return photo;
+}
+
+router.get("/team/photos/:publicId", photoAccess, async (req: Request, res: Response) => {
+  setTeamHeaders(res);
+  const photo = await servablePhoto(req, res);
+  if (!photo) return;
+  res.setHeader("Content-Type", photo.mime);
+  res.send(Buffer.from(photo.data, "base64"));
+});
+
+/**
+ * GET /api/team/photos/:publicId/:size: the small (160 px) or medium (640 px)
+ * version of a catalogue photo, for lists and grids (SYC-396 PR 1.2; spec
+ * §11). Exactly the photo route's checks (`photoAccess` and `servablePhoto`),
+ * so a hidden photo's versions are hidden too. A JPEG with no location data,
+ * kept by the browser privately for a day, never in a shared cache.
+ */
+router.get("/team/photos/:publicId/:size", photoAccess, async (req: Request, res: Response) => {
+  setTeamHeaders(res);
+  const size = String(req.params["size"]);
+  if (!isVariantSize(size)) return notFound(res);
+  const photo = await servablePhoto(req, res);
+  if (!photo) return;
+  const bytes = await variantFor(photo.id, size);
+  if (!bytes) return notFound(res);
+  // After setTeamHeaders' no-store: this one answer may be kept, privately.
+  res.setHeader("Cache-Control", "private, max-age=86400");
+  res.type("jpeg").send(bytes);
+});
 
 // ── PR 2: moving a report and the team note ────────────────────────────────
 
