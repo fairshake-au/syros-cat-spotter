@@ -114,7 +114,9 @@ The onboarding screen stays as the spec says: "keep my spots safe" has its own "
 
 ### Decision 5: When the limit blocks good news, hold it or drop it?
 
-**Decided (Samuel, 15 Oct), changing the spec:** "change the limit to once per week - fortnightly is too infrequent"; then, asked about the yearly cap, **"No yearly cap"**; and for news that arrives while the weekly limit is closed, **A: hold it, drop after 60 days**. So: at most one cat-news email a week per person, no yearly ceiling, nothing in the 48 hours after confirming, and held news goes with the next email the limit allows. This amends `email-capture.md` §5.2 and §9, `DECISIONS.md` (the 28 Sep edits), and `privacy-policy.md`'s "a handful of times a year at most" (all in this PR; the policy wording is also noted on SYC-66 for Samuel's approval). The table below is the question as first put, with the fortnightly limit.
+**Decided (Samuel, 15 Oct), changing the spec.** His answer, verbatim: "change the limit to once per week - fortnightly is too infrequent". Asked about the yearly cap, he chose "No yearly cap". For news that arrives while the weekly limit is closed, he chose "Hold it, drop after 60 days (Recommended)". So: at most one cat-news email a week per person, no yearly ceiling, and held news goes with the next email the limit allows, dropped after 60 days. (The spec's separate 48-hour quiet period after confirming is unchanged.) This amends `email-capture.md` §5.1, §5.2 and §9, `DECISIONS.md` (the 28 Sep edits), and `privacy-policy.md`'s "a handful of times a year at most" (the new policy wording is pending Samuel's approval; noted on SYC-66).
+
+**The table below is the question as first put, with the old fortnightly numbers; the risks under the decided rule are halved (news up to a week late; lost after 6 days for option C).**
 
 **The question.** The spec caps cat news at one email a fortnight and eight a year, with nothing in the first 48 hours after someone confirms. Suppose a follower got "Loukoumi found a home" last Tuesday, and tonight Agatha is confirmed sterilised. The spec says "three cats with news in the same week is one email about three cats", but doesn't say what happens to news that arrives while the cap is closed.
 
@@ -144,7 +146,7 @@ The email's own "Stop emailing me" (where we can't know which phone it is) alway
 
 ### Decision 7: Cat-news emails in English only at first?
 
-**Decided (Samuel, 15 Oct): B, the reader's language from day one.** Cat-news emails and the news web pages go in the reader's app language. So the Greek and French email lines below must be checked by Johnny in the 22 Oct pack (noted on SYC-346) before cat news switches on. The "is this you?" email and the reporter's emails stay English-first under the 15 Oct rule for #181.
+**Decided (Samuel, 15 Oct): B, the reader's language from day one** (he chose "Their language from day one"; the recommendation was A). Cat-news emails and the news web pages (the news confirm page and the unsubscribe page) go in the language recorded with the person's consent. So the Greek and French email lines below must be checked by Johnny in the 22 Oct pack (noted on SYC-346) before cat news switches on. The "is this you?" email and the reporter's emails stay English-first under the 15 Oct rule for #181.
 
 **The question.** The spec wants Greek and French written by native speakers. On 15 Oct Samuel decided the **reporter's** emails go in English for everyone until Johnny checks the Greek and French (SYC-283). Should cat news follow the same rule?
 
@@ -153,7 +155,7 @@ The email's own "Stop emailing me" (where we can't know which phone it is) alway
 | **A. English first, Greek and French once Johnny has checked them (recommended)** | Drafts are in this plan for Johnny's pack. Each email switches to the reader's app language once its words are checked | The same rule as the reporter's emails. Nothing unchecked goes to a stranger's inbox | Greek and French readers get English until then. Cat news can't go out before mid-November anyway, which gives Johnny time |
 | B. In the reader's language from the start, using the drafts | — | Feels local | Unchecked Greek and French in an email we can't take back |
 
-**Recommendation: A.**
+**Recommended A; Samuel chose B.** The table is the question as first put.
 
 ### Small calls this plan makes (object to any, otherwise they stand)
 
@@ -248,7 +250,7 @@ The email's own "Stop emailing me" (where we can't know which phone it is) alway
 - **`GET /api/news/address`** → `{ state: "off" | "pending" | "on", mask? }`. **`DELETE /api/news/address`** ("Stop emailing me", this phone only; Decision 6).
 - **Outbox (C4):** `processRow` sends `public_verify` with `payload.kind === "news"` to `processNewsMail`; everything else goes to #181's code unchanged. `processNewsMail` **re-reads the contact by `payload.contactId`** (it must still exist, be `pending`, and belong to the token's phone) before calling `sendMail`, as `processReporterMail` does, and gives up (clearing the payload) if not. It sends #181's fixed `public_verify` template with `newsSendDeps("verify")`.
 - **`suppression.ts`:** `isNewsSuppressed(address, "verify" | "confirmed")`, mirroring `isReportSuppressed`: `verify_cap` and `forget_verify` block only further "is this you?" emails, never mail to an address its holder confirmed (SYC-261). `newsSendDeps(mail)` uses it, and `isNewsConfirmed`.
-- **Confirm and forget (C4):** `tokenIsLive`, `confirmAddress` and `forgetAddress` get a `news` branch. Confirm: that contact (only that phone's) becomes `confirmed`, a `verified` event. Forget from the "is this you?" email: delete it, a `news`/`forget` mark, a `withdrawn` event. The confirm page has news wording (English only, like #181's pages; copy below).
+- **Confirm and forget (C4):** `tokenIsLive`, `confirmAddress` and `forgetAddress` get a `news` branch. Confirm: that contact (only that phone's) becomes `confirmed`, a `verified` event. Forget from the "is this you?" email: delete it, a `news`/`forget` mark, a `withdrawn` event. The confirm page has news wording, in the language recorded with the consent (Decision 7; copy below). The "is this you?" email itself is #181's and stays English-first.
 - **Delivery records (agreed with the SYC-42 Slice 3 session).** #181's `markSent` records a `mail_deliveries` row for every purpose in `DELIVERY_RECORDED`, which includes `public_verify`, so a news "is this you?" gets one (no `report_id`, the news fingerprint). Every news clean-up (forget, the sweep, Delete my data, unsubscribe) also deletes those rows, as `forgetReporterAddress` does. `cat_news` is **not** added to `DELIVERY_RECORDED`: nothing reads its state, and a bounce or complaint still marks the address, because #181's webhook marks the `to` address on the event, not the delivery row.
 - **The 7-day sweep** (`keepSafe/sweep.ts`) adds `news`.
 - **Delete my data** (`keepSafe/sever.ts`) already deletes every contact with the device id and redacts its consent events; this PR adds the device's news outbox rows, their delivery rows and its send-log rows (Slice 3).
@@ -554,4 +556,6 @@ This session (Opus) wrote the plan. For the build:
 
 - ~~Decisions 1–7~~ settled 15 Oct. The small calls stand unless he objects.
 - Approve the plan, so Slice 1 can be built the week of 19 Oct.
+- Approve the privacy-policy wording for the weekly limit (`privacy-policy.md`, SYC-66).
+- Before cat news switches on: Johnny's check of the Greek and French email and page lines (SYC-346, Decision 7).
 - Later: review the first real change the nightly check finds.

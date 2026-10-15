@@ -178,7 +178,7 @@ Samuel reviewed the email-capture spec and **approved it on 28 September 2026**,
 - **D5 amended: onboarding ends with an optional email step.** It leads with not losing your spots ("Save my spots" and "Skip", equally prominent), with news as a separate, unticked box. Skipping doesn't use up a later ask; ticking news means no news moment asks again.
 - **SYC-3 decided: "keep my spots safe".** An opt-in, separately consented restore email that brings a spotter's collection back on a new phone, using the staff sign-in safeguards and telling the old phone. Under-15s are told to use a parent's email. The device key also moves into the phone's secure storage. **The news email still restores nothing.**
 - **The "follow this cat" ask appears on the first spot**, named or not.
-- **The ask screens no longer promise a frequency.** The fortnight and annual caps are unchanged; the privacy policy still states "a handful of times a year at most". **Amended by Samuel, 15 October 2026 (SYC-344 Decision 5): at most one cat-news email a week, no yearly cap; the privacy policy now says "never more than once a week".**
+- **The ask screens no longer promise a frequency.** ~~The fortnight and annual caps are unchanged; the privacy policy still states "a handful of times a year at most".~~ **Superseded, amended by Samuel, 15 October 2026 (SYC-344 Decision 5): at most one cat-news email a week, no yearly cap; the privacy policy now says "never more than once a week".**
 - **D2 reaffirmed:** two sending subdomains, `mail.` and `news.`.
 - **The privacy policy text moves to `privacy-policy.md`**, approved separately.
 - **Donor emails are deferred until donations are built** (SYC-1). Working assumption: the payment company keeps them.

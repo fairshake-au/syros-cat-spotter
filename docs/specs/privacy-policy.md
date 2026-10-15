@@ -28,6 +28,8 @@ The policy is written to be read, not to be defended. The draft:
 >
 > Once you've confirmed it, we use your address for exactly what you asked for: news about cats you've met (only when there's real news, and never more than once a week), the summary of your visit if you asked for one, and what happened to a cat you reported. Every message has a one-tap way to stop, and a one-tap way to delete your address entirely.
 >
+> *[Drafting note, not policy text: "(only when there's real news, and never more than once a week)" replaced "(a handful of times a year at most)" on 15 October 2026, after Samuel set the cat-news limit to once a week with no yearly cap (SYC-344 Decision 5). The new wording is pending Samuel's approval of this policy (SYC-66).]*
+>
 > **What your news email is not.** It is not a login. Knowing it gives nobody any access to anything, and it won't get your spots back on a new phone.
 >
 > **"Keep my spots safe", if you choose it.** This is a separate email, and it's optional. It lets you get your spots back if you lose or change your phone. It works like a key: anyone who can open that inbox can open your collection, so use an address only you (or a parent) can read. When it's used on a new phone, your old phone is signed out and told. You can remove it in Settings, and deleting your data removes it too.

@@ -310,7 +310,7 @@ The suppression list checked at (1) is the **same** list used for unsubscribes a
 | Message | Trigger | Sending identity (§7) | Cap |
 |---|---|---|---|
 | **Is this you?** | Any address typed anywhere in the app | **News** *(D2 amendment — see §7)* | §4.4 |
-| **Your cat's news** | The nightly job finds a genuine, good-news status change on a cat you follow (§5.3). **Never a death, a presumed death, or any life-status change other than *homed*** (F4, §5.3) | News | Max one per fortnight; max eight per year |
+| **Your cat's news** | The nightly job finds a genuine, good-news status change on a cat you follow (§5.3). **Never a death, a presumed death, or any life-status change other than *homed*** (F4, §5.3) | News | Max one per week; no yearly cap (§5.2; changed by Samuel, 15 October 2026, SYC-344 Decision 5) |
 | **Your visit summary** | You asked for it, and the address is confirmed | News | Once per visit |
 | **Your report: we've got it** | You filed a welfare report, left an address, and confirmed it | Transactional | Once per report |
 | **Your report: what happened** | The report reaches a closing state | Transactional | Once per report (§5.4) |
