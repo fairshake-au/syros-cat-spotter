@@ -1,7 +1,6 @@
 import { renderPage, MY_COLONIES_PATH } from "./layout";
 import { escapeHtml as esc } from "./escape";
 import { publicLine } from "./appearancePage";
-import { position } from "./position";
 import {
   LIVE_LANGUAGES,
   formatDate,
@@ -18,9 +17,16 @@ import type { Confidence } from "../resolve";
 // .md §2.2). Server-drawn, no scripts, in her language once it is live.
 // Built ONLY from guardianCatView's shape (or, for a cat outside her
 // colonies, the public view), so nothing the team's cat page carries can
-// reach here. Positions print with position() and never as a map link
+// reach here. Positions print as plain text and never as a map link
 // (SYC-245, SYC-362: map links are for island-wide viewers only). Every name
 // that came from a record goes through esc() where it is drawn.
+
+/**
+ * A position as text, to 5 decimal places (about 1 m), as the team's pages
+ * print it. Never a link: position.ts is the only builder of map links and
+ * SYC-362 keeps them off every page a cat guardian reads.
+ */
+const exact = (lat: number, lng: number): string => `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
 export const MY_CAT_PATH = "/api/team/my/cats";
 export const myColonyPath = (id: number) => `${MY_COLONIES_PATH}/${id}`;
@@ -127,7 +133,7 @@ export function renderGuardianColonyPage(
               `<p>${esc(sterilisedWords(c.sterilised, t))}</p>` +
               (c.lifeStatus ? `<p>${esc(t(`gcat.life.${c.lifeStatus}` as StringKey))}</p>` : "") +
               `<p class="muted">${esc(lastSeenWords(c.lastSeen, lang, t, live))}</p>` +
-              `<p class="muted">${esc(t("gcat.position", { position: "\u0000" })).replace("\u0000", position(c.lat, c.lng, { link: false }))}</p>` +
+              `<p class="muted">${esc(t("gcat.position", { position: exact(c.lat, c.lng) }))}</p>` +
               "</div></li>"
             );
           })
@@ -170,7 +176,7 @@ export function renderGuardianCatPage(
     `<p>${esc(sterilisedWords(cat.sterilised, t))}</p>` +
     (cat.lifeStatus ? `<p>${esc(t(`gcat.life.${cat.lifeStatus}` as StringKey))}</p>` : "") +
     `<p>${esc(lastSeenWords(cat.lastSeen, lang, t, live))}</p>` +
-    `<p>${esc(t("gcat.position", { position: "\u0000" })).replace("\u0000", position(cat.lat, cat.lng, { link: false }))}</p>` +
+    `<p>${esc(t("gcat.position", { position: exact(cat.lat, cat.lng) }))}</p>` +
     appearanceLine(lang, cat) +
     (cat.description ? `<p class="muted">${esc(cat.description)}</p>` : "") +
     "</div>" +
