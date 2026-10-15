@@ -218,7 +218,8 @@ async function uncheckedEmailsThisHour(tx: Tx): Promise<number> {
 async function countUncheckedWithoutAlert(): Promise<number> {
   const result = await db.execute(sql`
     select count(*)::int as n from welfare_reports r
-     where r.is_draft = false
+     where r.kind = 'welfare'
+       and r.is_draft = false
        and r.token_checked = false
        and r.state in ('new', 'looking')
        and not exists (
@@ -429,6 +430,14 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
       .where(eq(welfareReportsTable.id, row.reportId));
     if (!report) {
       await markFailed(row, "report_gone");
+      return "failed";
+    }
+    // SYC-44 PR 4.1: a welfare alert is only ever built for a welfare report.
+    // A "Report an issue" row has no position and its own `issue_alert`
+    // email; if one is ever queued as a welfare alert it is given up, never
+    // sent with the welfare copy.
+    if (report.kind !== "welfare" || report.lat === null || report.lng === null) {
+      await markFailed(row, "wrong_kind");
       return "failed";
     }
     const [photo] = await db
