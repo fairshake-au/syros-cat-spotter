@@ -1,29 +1,48 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import sharp from "sharp";
 import { randomBytes } from "node:crypto";
-import {
-  db,
-  pool,
-  deviceCredentialsTable,
-  mailOutboxTable,
-  welfareReportPhotosTable,
-  welfareReportsTable,
-} from "@workspace/db";
 import { and, eq, like, sql } from "drizzle-orm";
-import app from "../app";
+import { createThrowawayDatabase, dropThrowawayDatabase } from "@workspace/db/testDatabase";
 
 // SYC-44 PR 4.1 (plan Slice 4): the public report routes and "Report an
-// issue" rows. T4-6 (spec test 10) and T4-8.
+// issue" rows. T4-6 (spec test 10), T4-8 and the lost-race lookup.
 //
-// WHY THE OLD KEY IS DROPPED HERE. PR 4.1 adds the key
+// THIS FILE RUNS ON ITS OWN THROWAWAY DATABASE. PR 4.1 adds the key
 // (reporter_device, kind, client_ref) BESIDE the old (reporter_device,
 // client_ref), because the live code names the old one until 4.1 is
 // published; PR 4.2 drops it. While both exist, a welfare row and a content
 // row with the same device and reference cannot coexist (the old key refuses
 // the pair), which is also why no content row can exist before 4.2. T4-6 is
-// about the key that survives, so this file drops the old one for its own run
-// (simulating 4.2) and puts it back afterwards. PR 4.2 deletes that step.
+// about the key that survives, so this file drops the old one (simulating
+// 4.2) in a database nobody else uses: the run's shared database never sees
+// the index missing (review of #170, finding 6). PR 4.2 deletes that step,
+// and with it the second database.
+
+// The lost-race test makes the token check also insert the report that "won"
+// (see the last describe). Off for every other test.
+const hooks = vi.hoisted(() => ({
+  enforce: false,
+  beforeVerdict: null as null | (() => Promise<void>),
+}));
+vi.mock("../lib/turnstile", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../lib/turnstile")>();
+  return {
+    ...real,
+    turnstileMode: (...a: Parameters<typeof real.turnstileMode>) =>
+      hooks.enforce ? ("enforce" as const) : real.turnstileMode(...a),
+    verifyTurnstile: async (...a: Parameters<typeof real.verifyTurnstile>) => {
+      if (!hooks.enforce) return real.verifyTurnstile(...a);
+      await hooks.beforeVerdict?.();
+      return { outcome: "ok" } as Awaited<ReturnType<typeof real.verifyTurnstile>>;
+    },
+  };
+});
+
+let dbm: typeof import("@workspace/db");
+let app: (typeof import("../app"))["default"];
+let baseUrl: string;
+let own: { url: string; name: string };
 
 const DEVICE = `vitest-kind-${randomBytes(4).toString("hex")}`;
 const SECRET = "vitest-kind-secret-aaaaaaaa";
@@ -61,8 +80,8 @@ const draft = (body: Partial<Record<string, unknown>> = {}) =>
 
 /** A "Report an issue" row, written straight to the table (the route arrives in Slice 5). */
 async function contentRow(ref: string, device: string | null = DEVICE) {
-  const [row] = await db
-    .insert(welfareReportsTable)
+  const [row] = await dbm.db
+    .insert(dbm.welfareReportsTable)
     .values({
       publicId: `c-${randomBytes(10).toString("hex")}`,
       kind: "content",
@@ -80,14 +99,18 @@ async function contentRow(ref: string, device: string | null = DEVICE) {
 }
 
 const rowsFor = (ref: string) =>
-  db.select().from(welfareReportsTable).where(eq(welfareReportsTable.clientRef, ref)).orderBy(welfareReportsTable.id);
+  dbm.db
+    .select()
+    .from(dbm.welfareReportsTable)
+    .where(eq(dbm.welfareReportsTable.clientRef, ref))
+    .orderBy(dbm.welfareReportsTable.id);
 
 async function cleanup() {
-  await db.execute(
+  await dbm.db.execute(
     sql`delete from mail_outbox where report_id in (select id from welfare_reports where reporter_device like ${DEVICE + "%"})`,
   );
-  await db.delete(welfareReportsTable).where(like(welfareReportsTable.reporterDevice, `${DEVICE}%`));
-  await db.delete(deviceCredentialsTable).where(like(deviceCredentialsTable.deviceId, `${DEVICE}%`));
+  await dbm.db.delete(dbm.welfareReportsTable).where(like(dbm.welfareReportsTable.reporterDevice, `${DEVICE}%`));
+  await dbm.db.delete(dbm.deviceCredentialsTable).where(like(dbm.deviceCredentialsTable.deviceId, `${DEVICE}%`));
 }
 
 async function tinyJpeg(): Promise<string> {
@@ -96,16 +119,26 @@ async function tinyJpeg(): Promise<string> {
 }
 
 beforeAll(async () => {
-  await cleanup();
-  await db.execute(sql.raw(`drop index if exists ${OLD_KEY}`));
+  baseUrl = process.env["DATABASE_URL"]!;
+  own = await createThrowawayDatabase(baseUrl, { prefix: "api_server_test" });
+  process.env["DATABASE_URL"] = own.url;
+  // The db pool is made from DATABASE_URL when the module loads: load the
+  // app afresh, against this file's own database.
+  vi.resetModules();
+  dbm = await import("@workspace/db");
+  app = (await import("../app")).default;
+  await dbm.db.execute(sql.raw(`drop index if exists ${OLD_KEY}`));
 });
-beforeEach(cleanup);
-afterAll(async () => {
+beforeEach(async () => {
+  hooks.enforce = false;
+  hooks.beforeVerdict = null;
   await cleanup();
-  await db.execute(
-    sql.raw(`create unique index if not exists ${OLD_KEY} on welfare_reports using btree (reporter_device, client_ref)`),
-  );
-  await pool.end();
+});
+afterAll(async () => {
+  hooks.enforce = false;
+  await dbm.pool.end();
+  process.env["DATABASE_URL"] = baseUrl;
+  await dropThrowawayDatabase(baseUrl, own.name);
 });
 
 describe("T4-6 (spec test 10): the same device and reference, two kinds, two reports", () => {
@@ -126,7 +159,10 @@ describe("T4-6 (spec test 10): the same device and reference, two kinds, two rep
     // The content row is exactly as it was.
     expect(rows.find((r) => r.kind === "content")).toEqual(content);
     // Only the welfare report queued an alert.
-    const mail = await db.select().from(mailOutboxTable).where(sql`report_id in (${welfare.id}, ${content.id})`);
+    const mail = await dbm.db
+      .select()
+      .from(dbm.mailOutboxTable)
+      .where(sql`report_id in (${welfare.id}, ${content.id})`);
     expect(mail.map((m) => [m.reportId, m.purpose])).toEqual([[welfare.id, "welfare_alert"]]);
   });
 
@@ -182,6 +218,44 @@ describe("T4-6 (spec test 10): the same device and reference, two kinds, two rep
   });
 });
 
+describe("the lost race (review of #170, finding 3): the lookup after a conflicting upsert", () => {
+  it("answers with the welfare report that got in first, never the content row that shares its reference", async () => {
+    const ref = clientRef();
+    const content = await contentRow(ref); // lower id than the winner
+    let winner: string | undefined;
+    // After submit's "already sent?" check and before its upsert, another
+    // request's welfare report lands. The token check sits exactly there.
+    hooks.enforce = true;
+    hooks.beforeVerdict = async () => {
+      hooks.beforeVerdict = null;
+      const [row] = await dbm.db
+        .insert(dbm.welfareReportsTable)
+        .values({
+          publicId: `w-${randomBytes(10).toString("hex")}`,
+          kind: "welfare",
+          severity: "urgent",
+          lat: LAT,
+          lng: LNG,
+          reporterDevice: DEVICE,
+          clientRef: ref,
+          isDraft: false,
+          photoState: "none",
+          submittedAt: new Date(),
+        })
+        .returning();
+      winner = row!.publicId;
+    };
+
+    const res = await submit({ clientRef: ref });
+
+    expect(winner).toBeDefined();
+    expect(res.status).toBe(200);
+    expect(res.body.publicId).toBe(winner);
+    expect(res.body.publicId).not.toBe(content.publicId);
+    expect(await rowsFor(ref)).toHaveLength(2);
+  });
+});
+
 describe("T4-8: a photo can't be aimed at a 'Report an issue' row", () => {
   it("PUT /reports/:publicId/photo on the reporter's own content row is 404, writes nothing, and leaves the row unchanged", async () => {
     // Registers the device's secret on first use.
@@ -194,13 +268,16 @@ describe("T4-8: a photo can't be aimed at a 'Report an issue' row", () => {
       .send({ deviceId: DEVICE, photoBase64: await tinyJpeg() });
     expect(res.status).toBe(404);
 
-    const [after] = await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.id, content.id));
+    const [after] = await dbm.db
+      .select()
+      .from(dbm.welfareReportsTable)
+      .where(eq(dbm.welfareReportsTable.id, content.id));
     expect(after).toEqual(content);
     expect(after!.photoState).toBe("none");
-    const photos = await db
-      .select({ id: welfareReportPhotosTable.id })
-      .from(welfareReportPhotosTable)
-      .where(eq(welfareReportPhotosTable.reportId, content.id));
+    const photos = await dbm.db
+      .select({ id: dbm.welfareReportPhotosTable.id })
+      .from(dbm.welfareReportPhotosTable)
+      .where(eq(dbm.welfareReportPhotosTable.reportId, content.id));
     expect(photos).toHaveLength(0);
   });
 
@@ -212,10 +289,15 @@ describe("T4-8: a photo can't be aimed at a 'Report an issue' row", () => {
       .set("X-Device-Secret", SECRET)
       .send({ deviceId: DEVICE, photoBase64: await tinyJpeg() });
     expect(res.status).toBe(200);
-    const [row] = await db
-      .select({ photoState: welfareReportsTable.photoState })
-      .from(welfareReportsTable)
-      .where(and(eq(welfareReportsTable.publicId, sent.body.publicId), eq(welfareReportsTable.kind, "welfare")));
+    const [row] = await dbm.db
+      .select({ photoState: dbm.welfareReportsTable.photoState })
+      .from(dbm.welfareReportsTable)
+      .where(
+        and(
+          eq(dbm.welfareReportsTable.publicId, sent.body.publicId),
+          eq(dbm.welfareReportsTable.kind, "welfare"),
+        ),
+      );
     expect(row!.photoState).toBe("attached");
   });
 });
