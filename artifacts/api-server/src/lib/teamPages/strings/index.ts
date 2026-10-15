@@ -89,5 +89,7 @@ export function formatDateTime(
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    // A 24-hour clock in every language: el-GR otherwise gives "12:00 π.μ.".
+    hourCycle: "h23",
   }).format(at);
 }

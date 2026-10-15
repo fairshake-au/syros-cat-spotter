@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { normaliseEmail, pool } from "@workspace/db";
 import { en } from "./en";
@@ -11,6 +13,7 @@ import {
   type Language,
 } from "./index";
 import { accessEndedPage, forbiddenPage } from "../../teamAuth/refuse";
+import { renderPage } from "../layout";
 
 // T25 (SYC-53 PR 1.0): the dashboard's three-language catalogue.
 
@@ -95,6 +98,13 @@ describe("dates are in the person's language, Athens time", () => {
     expect(formatDate("fr", at, all)).toBe("15 octobre 2026");
     expect(formatDateTime("fr", at, all)).toMatch(/15 octobre 2026.*01:30/);
   });
+  it("keeps Athens time across the 25 October 2026 clock change, on a 24-hour clock", () => {
+    expect(formatDateTime("en", new Date("2026-10-24T20:59:00Z"), all)).toMatch(/24 October 2026.*23:59/);
+    expect(formatDateTime("en", new Date("2026-10-24T21:00:00Z"), all)).toMatch(/25 October 2026.*00:00/);
+    expect(formatDateTime("el", new Date("2026-10-24T21:00:00Z"), all)).toMatch(/25 Οκτωβρίου 2026.*00:00/);
+    expect(formatDateTime("el", new Date("2026-10-24T20:59:00Z"), all)).toMatch(/23:59/);
+    expect(formatDateTime("fr", new Date("2026-10-25T02:00:00Z"), all)).toMatch(/25 octobre 2026.*04:00/);
+  });
   it("falls back to English while Greek is not live", () => {
     expect(formatDate("el", at)).toBe("15 October 2026");
   });
@@ -103,8 +113,10 @@ describe("dates are in the person's language, Athens time", () => {
 describe("SYC-101: Greek local parts, Postgres lower() and JavaScript toLowerCase()", () => {
   // FINDING (PR 1.0): the two do NOT agree on a word-final capital sigma.
   // JavaScript applies the Unicode final-sigma rule (ΟΔΥΣΣΕΑΣ -> οδυσσεας,
-  // ending in ς); Postgres lower() on a libc collation (macOS and CI's
-  // postgres:16 here) lowers every Σ to σ (οδυσσεασ). So `normaliseEmail(x)`
+  // ending in ς); Postgres lower() under a libc collation (macOS and CI's
+  // postgres:16 here) lowers every Σ to σ (οδυσσεασ). Under an ICU collation
+  // it agrees with JavaScript (review of #176); production's collation is
+  // unchecked. So `normaliseEmail(x)`
   // is NOT always `select lower(x)`. It is safe today because the address is
   // always normalised in JavaScript first and the table's
   // `people_email_lowercase_ck` (email = lower(btrim(email))) only needs the
@@ -180,5 +192,25 @@ describe("the guardian-facing refusal pages", () => {
     expect(forbiddenPage({ ...guardian, language: "fr" }, live)).toContain('<html lang="en">');
     // And the default is untouched afterwards.
     expect(forbiddenPage({ ...guardian, language: "el" })).toContain('<html lang="en">');
+  });
+});
+
+describe("the page shell and the person's language", () => {
+  it("never draws a non-live language, even when a page passes it raw (review of #176)", () => {
+    for (const lang of ["el", "fr", "xx", "__proto__"]) {
+      const page = renderPage({ title: "T", active: null, nav: false, personName: "Eleni", body: "", lang });
+      expect(page).toContain('<html lang="en">');
+      expect(page).toContain("Signed in as Eleni");
+    }
+  });
+
+  it("requireTeam hands the person's own language to both refusals (review of #176)", () => {
+    // While only English is live the pages can't show the difference, so the
+    // wiring is pinned at the source: both refusals pass people.language.
+    const source = readFileSync(
+      fileURLToPath(new URL("../../../middlewares/requireTeam.ts", import.meta.url)),
+      "utf8",
+    );
+    expect(source.match(/language: person\.language/g)?.length).toBe(2);
   });
 });
