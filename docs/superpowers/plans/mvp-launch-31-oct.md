@@ -22,7 +22,7 @@
 There are 16 days. Building isn't the hard part: about 28 pull requests have merged since 14 October (`gh pr list --state merged`). Four things decide whether 31 October happens:
 
 1. **The phone apps can't be in the stores by 31 October.** No store build has ever been made. If the Google Play account is a personal one, Google makes a new app run a closed test with 12 or more testers for 14 days in a row before it can go public, and Apple's review takes 1–2 weeks. So the plan launches **the website version of the app** (the one testers use today) on 31 October, with the QR codes pointing at it, and submits both store apps as soon as they're ready so they follow in November. **This is Samuel's call: decision D1.**
-2. **All the new Greek and French has to reach Johnny by Thursday 22 October.** Every new visitor-facing sentence (starter facts, feeding nudge, "Report an issue", the reporter's email, the rename) is written in English and drafted in Greek and French by then, even for screens that are built later. The starter facts and the feeding nudge already have Greek and French drafts in their spec (PR #174, awaiting approval).
+2. **All the new Greek and French has to reach Johnny by Thursday 22 October.** Every new visitor-facing sentence (starter facts, feeding nudge, "Report an issue", the reporter's email, the rename) is written in English and drafted in Greek and French by then, even for screens that are built later. The starter facts and the feeding nudge already have Greek and French drafts in their spec (PR #174, approved).
 3. **Samuel is the only person who can merge and start a publish.** About 30 more pull requests and seven publishes have to fit through him. The plan batches them into two merge windows a day and a fixed publish calendar.
 4. **Samuel's own launch tasks**: the store accounts, approving the privacy policy, the liability check on the injured-cat advice, and three conversations with Syros Cats. Each is small, but each blocks launch on its own.
 
@@ -59,8 +59,8 @@ Checked against `origin/main` (`2acae50`), `gh pr list`, the session list and Li
 | §2.1 Rename to "Cat Spotters (Syros)" | **Not done.** `app.json` still says "Syros Cat Spotters"; the app name in all three languages is still the old one | `artifacts/cat-spotter/app.json:3`; `lib/i18n.ts:50,610,1154`; SYC-34 Backlog |
 | §2.1 €50–60 copy, French title, "clipped tip" | Done | SYC-14, SYC-15 Done |
 | §2.2 Keep-your-distance screen | Done | SYC-35 Done |
-| §2.2 Feeding nudge | **Spec written and reviewed, awaiting Samuel** (PR #174, `docs/specs/feeding-nudge.md`). Nothing built | `gh pr view 174`; SYC-36, SYC-343 |
-| §2.2 ~20 starter facts per language | **Spec written and reviewed, awaiting Samuel** (PR #174, `docs/specs/starter-facts.md`), with all 20 facts and their Greek and French drafts. Nothing built | `gh pr view 174`; SYC-48, SYC-343 |
+| §2.2 Feeding nudge | **Spec approved by Samuel, 15 Oct** (PR #174, `docs/specs/feeding-nudge.md`). Nothing built | `gh pr view 174`; SYC-36, SYC-343 |
+| §2.2 ~20 starter facts per language | **Spec approved by Samuel, 15 Oct** (PR #174, `docs/specs/starter-facts.md`), with all 20 facts and their Greek and French drafts. Nothing built | `gh pr view 174`; SYC-48, SYC-343 |
 | §2.3 500 m matching, 25/15 points, ear-tip question, note + food/water | Done | SYC-39, SYC-38, SYC-37, SYC-74 Done |
 | §2.4 Life status | Done | SYC-40 Done |
 | §2.4 Sterilised Confirmed/Likely | Built. "Likely" is hidden from the public by a switch that is still off. The three conditions for turning it on are met in the code: the team's correction tools (#68), the correction screens (#99) and staff reaching the dashboard (SYC-103 Done) | `artifacts/api-server/src/lib/likelyGate.ts:33`; SYC-75 In Progress |
@@ -216,7 +216,7 @@ Each build PR follows the usual pipeline: its own worktree off fresh `origin/mai
 | Report an issue, server | SYC-44 4.2, 5.2, then 5.1 | 4.1 live (Fri 16 publish) |
 | Reporter's email | SYC-42 Slice 3 (other session) | `news.` verified |
 | Email capture | Slices from the plan | Plan approved Mon 19 |
-| Match-wait screen | Bigger than one card (PR #174): a few settings (donation link on or off, hidden facts, the donation address), a bare count of donation-link taps (no device, name or place) with its own small database table, the card replacing the location map while sending, the nudge carried onto the first result screen, and a one-line daily reminder for visitors (`feeding-nudge.md` §3.2, §5.1a). Nothing shows after a spot saved with no signal (Samuel, decision 5, SYC-36). Two PRs, Sonnet, one publish slot each (Fri 23, Mon 26) | Spec approved Mon 19; the send-time measurement |
+| Match-wait screen | Bigger than one card (PR #174): a few settings (donation link on or off, hidden facts, the donation address), a bare count of donation-link taps (no device, name or place) with its own small database table, the two "is this a resident's phone?" signals served from the server (has it claimed a cat, and the date of its first spot; existing tables, no new table; `feeding-nudge.md` §3.2, §9), the card replacing the location map while sending, the nudge carried onto the first result screen, and a one-line daily reminder for visitors (`feeding-nudge.md` §3.2, §5.1a). Nothing shows after a spot saved with no signal (Samuel, decision 5, SYC-36). Two PRs, Sonnet, one publish slot each (Fri 23, Mon 26) | Spec approved Mon 19; the send-time measurement |
 | Rename | SYC-34: app name and per-language names | D2 |
 | "Likely sterilised" | SYC-75: confirm the three conditions on the live site, then the one-line switch | Nothing |
 | Store builds | First iPhone and Android builds | Accounts |
