@@ -528,8 +528,9 @@ Every agent prompt carries, word for word: *commit early and often in the worktr
 - **SYC-350:** the Google Play finding above.
 - **SYC-345:** the launch-day tap check.
 - **New, filed with this plan (checked against existing issues first):**
-  - A settings page on the team dashboard for the nudge and facts (Decision 1 B), after launch.
-  - Fill `signedInRole` when the app gets guardian and team sign-in (C4), under SYC-53.
+  - **SYC-383**: a settings page on the team dashboard for the nudge and facts (Decision 1 B), after launch.
+  - **SYC-384**: fill `signedInRole` when the app gets guardian and team sign-in (C4), under SYC-53.
+- **Commented on 15 Oct:** SYC-36, SYC-48, SYC-343, SYC-350 (the Google Play finding) and SYC-345 (the launch-day tap).
 
 ---
 
