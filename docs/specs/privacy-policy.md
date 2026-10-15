@@ -18,7 +18,7 @@ The policy is written to be read, not to be defended. The draft:
 >
 > **Who we are.** Cat Spotters is made for **Syros Cats**, a cat charity on the island of Syros in Greece. Syros Cats decide what this app collects and why, which in data-protection language makes them the *data controller*. If you want to ask us anything here, or ask us to delete something: **hello@catspotters.com**.
 >
-> **What we collect if you say nothing.** Your phone gets a random identifier the first time you open the app. It is not your name, your account, or anything we can trace to a person — it exists so that your spots are yours and your points add up. Alongside it we keep the cats you've spotted, the photographs you took of them, and roughly where and when you saw them.
+> **What we collect if you say nothing.** Your phone gets a random identifier the first time you open the app. It is not your name, your account, or anything we can trace to a person — it exists so that your spots are yours and your points add up. Alongside it we keep the cats you've spotted, the photographs you took of them, and roughly where and when you saw them. When someone taps "Help feed a cat", Cat Spotters adds one to a count for that day. It keeps nothing about who tapped it, their phone, or where they were.
 >
 > **What we do with photographs and places.** Photographs of cats go into the island's record of its cats, and may be shown publicly in the app. We strip the hidden location tag out of every photo before we store it. Cat locations are shown to the public rounded to a wide area rather than an exact spot, because an exact spot is a map to a cat that some people would rather not have one.
 >
