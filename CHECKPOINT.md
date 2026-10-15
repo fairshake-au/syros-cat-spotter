@@ -10,9 +10,14 @@ Worktree: lucid-goodall-050c55, branch claude/syc-53-pr-2-1 (off origin/main e42
 - Moved-cat line: roles plan says PR 2.1 owns `movedCatNotices`; SYC-209 plan (on main) says `movedAwayNotices` is SYC-209 PR 4.2. Asked Samuel.
 - Feeding sites on the cat page: needs #194's sitesForPerson (unmerged).
 
+## Done (PR 2.1 build)
+- Samuel 15 Oct: SYC-209 builds the moved-cat line (movedAwayNotices, its PR 4.2). Recorded on SYC-53.
+- lib/publicCat.ts, canonical targets, guardianCatView, routes, pages (en/el/fr), tests T4/T5/merged (21), walk rows (72).
+- Full api-server suite: 154 files passed, 1 skipped; 2478 tests passed, 4 skipped.
+- Probes p1-p6 all red (logs in scratchpad probe-*.log). Browser check 390 + desktop, en + el (local only); screenshots committed.
+
 ## Next
-1. lib/publicCatPayload.ts (move catPayload out of routes/cats.ts, unchanged behaviour)
-2. capabilityTargets: canonical cat through cat_identity (SYC-333)
-3. lib/guardianCatView.ts (own allow-list) + tests T4/T5
-4. routes GET /api/team/my/colonies/:id, /api/team/my/cats/:id (+ walk rows, strings en/el/fr, pages)
-5. probes, browser check, PR, Opus review
+1. Push, open PR (draft), message coordinator
+2. Opus adversarial review in its own worktree; fold findings; re-review
+3. After #194 merges: cat links on its colony page -> /my/cats for non-island viewers (+ test); sites line via sitesForPerson
+4. Remove CHECKPOINT.md before asking for review-and-merge; then PR 2.2
