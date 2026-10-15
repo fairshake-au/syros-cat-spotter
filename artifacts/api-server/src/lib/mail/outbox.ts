@@ -1,6 +1,8 @@
 import {
   db,
+  catsTable,
   mailOutboxTable,
+  photosTable,
   welfareReportPhotosTable,
   welfareReportsTable,
   type MailOutboxRow,
@@ -9,6 +11,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { logger, safeError } from "../logger";
 import { consume, declareLimit } from "../limits";
 import { buildUncheckedWaiting, buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
+import { buildIssueAlert, buildIssueDigest, type IssueDigestItem } from "../issues/alertEmail";
 import { isNearFeedingSite, withCheckTimeout } from "../feedingSiteProximity";
 import { hashRecipient, sendMail, type SendResult } from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
@@ -158,6 +161,10 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** An issue_alert row's payload (SYC-44 PR 5.2). */
 type IssuePayload = {
   kind: "alert" | "digest";
+  /** Digest only: the Athens day it covers, how many reports it counted and what it listed (fixed when queued, so a retry sends the same body). */
+  day?: string;
+  waiting?: number;
+  digest?: IssueDigestItem[];
 };
 
 /** Queue a welfare alert inside the caller's transaction. */
@@ -483,6 +490,76 @@ async function processKeepSafe(row: MailOutboxRow, mail: KeepSafeMail): Promise<
   return "sent";
 }
 
+/**
+ * SYC-44 PR 5.2: the "Photo hidden" alert. Built from the report row, the
+ * cat's name and the reported photo's bytes, read at send time. It never waits
+ * for a photo (the photo is already in the catalogue, not uploaded later), and
+ * a row that isn't a "Report an issue" row is given up, never sent with this
+ * copy.
+ */
+async function processIssueAlert(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
+  const payload = (row.payload ?? {}) as IssuePayload;
+  if (payload.kind === "digest") return processIssueDigest(row, payload);
+  if (row.reportId === null) {
+    await markFailed(row, "report_gone");
+    return "failed";
+  }
+  const [report] = await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.id, row.reportId));
+  if (!report) {
+    await markFailed(row, "report_gone");
+    return "failed";
+  }
+  if (report.kind !== "content") {
+    await markFailed(row, "wrong_kind");
+    return "failed";
+  }
+  const [cat] =
+    report.catId === null
+      ? []
+      : await db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(eq(catsTable.id, report.catId));
+  const [stored] =
+    report.photoId === null
+      ? []
+      : await db.select({ data: photosTable.data, mime: photosTable.mime }).from(photosTable).where(eq(photosTable.id, report.photoId));
+  const bytes = stored?.data ? Buffer.from(stored.data, "base64") : null;
+  const photo = bytes && bytes.length > 0 ? { bytes, mime: stored!.mime } : null;
+  const result = await sendMail({
+    purpose: "issue_alert",
+    ...buildIssueAlert(report, cat ?? null, photo),
+    // Names the report and whether the photo is attached, as the welfare alert does.
+    idempotencyKey: `issue-${report.publicId}-${row.id}-${photo ? "photo" : "nophoto"}`,
+  });
+  if (!result.ok) {
+    await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
+    return "retry";
+  }
+  await markSent(row, result.providerMessageId, payload);
+  return "sent";
+}
+
+async function processIssueDigest(row: MailOutboxRow, payload: IssuePayload): Promise<"sent" | "retry" | "failed"> {
+  if (typeof payload.waiting !== "number" || !Array.isArray(payload.digest)) {
+    await markFailed(row, "nothing_to_send");
+    return "failed";
+  }
+  const result = await sendMail({
+    purpose: "issue_alert",
+    ...buildIssueDigest(payload.waiting, payload.digest),
+    idempotencyKey: `issue-digest-${payload.day}-${row.id}-${row.createdAt.getTime()}`,
+  });
+  if (!result.ok) {
+    await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
+    return "retry";
+  }
+  await markSent(row, result.providerMessageId, payload);
+  if (payload.day) {
+    await db
+      .execute(sql`update issue_digest_runs set sent_at = now() where day = ${payload.day}::date and sent_at is null`)
+      .catch((err) => logger.error({ err: safeError(err), outboxId: row.id }, "issue digest: sent_at not recorded"));
+  }
+  return "sent";
+}
+
 async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
   try {
     if ((KEEP_SAFE_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
@@ -494,6 +571,9 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
     }
     if ((REPORTER_PURPOSES as readonly string[]).includes(row.purpose)) {
       return await processReporterMail(row, { markSent, markRetry });
+    }
+    if (row.purpose === "issue_alert") {
+      return await processIssueAlert(row);
     }
     if (row.purpose === "welfare_alert" && (row.payload as Payload | null)?.kind === UNCHECKED_WAITING) {
       return await processUncheckedWaiting(row);
