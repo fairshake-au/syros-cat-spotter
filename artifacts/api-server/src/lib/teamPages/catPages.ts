@@ -270,11 +270,11 @@ function recordBlock<T>(
 ): string {
   return (
     `<h3>${esc(label)}</h3><dl>` +
-    row("Records say", `${esc(valueText)} <span class="tag">${esc(CONFIDENCE[r.confidence])}</span>`) +
-    row("As of", time(r.asOf, day(r.asOf))) +
-    row("Based on", statementRefs(r.supportingStatementIds, byId, shown)) +
+    row("Status", `${esc(valueText)} <span class="tag">${esc(CONFIDENCE[r.confidence])}</span>`) +
+    row("Since", time(r.asOf, day(r.asOf))) +
+    row("Why we think so", statementRefs(r.supportingStatementIds, byId, shown)) +
     (r.conflictingStatementIds.length
-      ? row("Disagrees", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId, shown)}</div>`)
+      ? row("Says otherwise", `<div class="bad">${statementRefs(r.conflictingStatementIds, byId, shown)}</div>`)
       : "") +
     extra +
     "</dl>"
@@ -353,7 +353,7 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
     '<fieldset><legend class="label">It should say</legend>' +
     lifeChoices("choice", `${id}-to`, c.now) +
     "</fieldset>" +
-    dateInput(`${id}-date`, "Date the team knows of", "(needed for “No longer with us”)") +
+    dateInput(`${id}-date`, "Date it happened", "(needed for “No longer with us”)") +
     reasonInput(`${id}-why`) +
     '<button type="submit">Mark wrong</button></form></details>'
   );
@@ -406,7 +406,7 @@ function statementItem(
     moved +
     wrongForm(s, may) +
     (s.ownerClaim
-      ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Correct the record”.</p>'
+      ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Update this cat”.</p>'
       : "") +
     "</li>"
   );
@@ -416,7 +416,7 @@ function statementItem(
 const DONE: Record<string, string> = {
   life: "Saved. The life status is added to the history below.",
   sterilised: "Saved. The sterilisation is added to the history below.",
-  wrong: "Saved. The correction is in the history below, with the statement it replaces.",
+  wrong: "Saved. The correction is in the history below, with the change it replaces.",
   renamed: "Saved. The new name is in the history below.",
   unchanged: "That is already the cat's name. Nothing was changed.",
   already: "Someone already corrected this. Here's what replaced it.",
@@ -527,7 +527,7 @@ function correctionForms(
   const forms: string[] = [];
   if (may("set_life_status")) {
     forms.push(
-      `<details><summary>Say the life status</summary><form method="post" action="${base}/life-status">` +
+      `<details><summary>Update where the cat lives</summary><form method="post" action="${base}/life-status">` +
         '<fieldset><legend class="label">The cat…</legend>' +
         lifeChoices("status", "ls", null) +
         "</fieldset>" +
@@ -536,14 +536,14 @@ function correctionForms(
         ((v.owner.has || v.owner.orphanedHome) && may("remove_owner")
           ? '<p class="hint">This cat has an owner. Saving anything but “Has a home” asks you first whether to remove the owner.</p>'
           : "") +
-        dateInput("ls-date", "Date the team knows of", "(needed for “No longer with us”; leave empty for today)") +
+        dateInput("ls-date", "Date it happened", "(needed for “No longer with us”; leave blank for today)") +
         reasonInput("ls-why") +
         '<button type="submit">Save</button></form></details>',
     );
   }
   if (may("set_sterilisation")) {
     forms.push(
-      `<details><summary>Say whether sterilised</summary><form method="post" action="${base}/sterilisation">` +
+      `<details><summary>Update whether sterilised</summary><form method="post" action="${base}/sterilisation">` +
         '<p class="warn">A clipped ear seen in a photo is never proof. Use this only when Syros Cats or a vet knows.</p>' +
         '<fieldset><legend class="label">The cat is…</legend>' +
         '<label class="choice" for="st-yes"><input type="radio" id="st-yes" name="sterilised" value="yes" required> Sterilised</label>' +
@@ -552,7 +552,7 @@ function correctionForms(
         dateInput("st-date", "When it was done", "(optional)") +
         '<label class="label" for="st-clinic">Clinic or vet <span class="hint">(optional)</span></label>' +
         '<input class="text" id="st-clinic" name="clinic" maxlength="100" autocomplete="off">' +
-        reasonInput("st-why", "How the team knows") +
+        reasonInput("st-why", "How we know") +
         '<button type="submit">Save</button></form></details>',
     );
   }
@@ -573,23 +573,22 @@ function correctionForms(
         '<fieldset><legend class="label">The cat now…</legend>' +
         lifeChoices("status", "ro", null, ["street", "in_care", "deceased"], "street") +
         "</fieldset>" +
-        dateInput("ro-date", "Date the team knows of", "(needed for “No longer with us”)") +
+        dateInput("ro-date", "Date it happened", "(needed for “No longer with us”)") +
         reasonInput("ro-why") +
         '<button type="submit" class="risky">Remove owner</button></form></details>',
     );
   }
   if (forms.length === 0) return notice;
   return (
-    '<h2 id="corrections">Correct the record</h2>' +
+    '<h2 id="corrections">Update this cat</h2>' +
     notice +
-    '<p class="hint">Each change is added to the history below, signed with your name. Nothing is deleted: to undo one, mark it wrong.</p>' +
-    '<p class="hint">The statement with the latest “true on” date decides. If a statement below is simply wrong, use <strong>Mark wrong</strong> on it rather than adding a new one with an earlier date.</p>' +
+    '<p class="hint">Every change is saved with your name. Nothing is deleted. A change with an older date won\'t override a newer one. To undo a change, use <strong>Mark wrong</strong> on it in the history below.</p>' +
     `<div class="fixes">${forms.join("")}</div>`
   );
 }
 
 /**
- * The record and "Correct the record" side by side on a wide screen, one
+ * The record and "Update this cat" side by side on a wide screen, one
  * under the other on a phone. Without the forms, the record alone.
  */
 function sideBySide(record: string, fixes: string): string {
@@ -605,7 +604,7 @@ export function renderCatPage(
   const { cat, records } = v;
   const may = opts.may ?? (() => false);
   // The message goes where the page lands: beside the statement after a
-  // correction, at the top of "Correct the record" after the other forms.
+  // correction, at the top of "Update this cat" after the other forms.
   // Own keys only: ?done=constructor must not reach Object.prototype.
   const notice =
     opts.done && Object.hasOwn(DONE, opts.done)
@@ -638,8 +637,8 @@ export function renderCatPage(
     (cat.description ? `<p>${esc(cat.description)}</p>` : "") +
     "<h2>What the public sees</h2>" +
     `<p class="public">${esc(publicStatusText(v.publicStatus))}</p>` +
-    "<h2>What the records say</h2>" +
-    '<p class="hint">Team only. How the answer above was worked out.</p>' +
+    "<h2>What we know about this cat</h2>" +
+    '<p class="hint">Team only. How we got to what the public sees.</p>' +
     recordBlock(
       "Life",
       records.lifeStatus,
@@ -743,8 +742,8 @@ export function renderCatPage(
         "</div>");
 
   const history =
-    `<h2 id="history">What has been said (${v.history.length})</h2>` +
-    '<p class="hint">Newest first. Nothing is ever deleted: a statement that was corrected stays, struck through, with what replaced it.</p>' +
+    `<h2 id="history">History (${v.history.length})</h2>` +
+    '<p class="hint">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p>' +
     (v.history.length === 0
       ? '<p class="empty">Nothing has been said about this cat yet.</p>'
       : `<ol class="history">${(shown === null ? v.history : newest).map((s) => statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "")).join("")}</ol>` +

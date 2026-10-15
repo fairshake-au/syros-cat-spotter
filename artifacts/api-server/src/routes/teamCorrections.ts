@@ -151,7 +151,7 @@ function refusalFor(req: Request, res: Response, err: unknown, back: string, act
   }
   if (err.code === "NOT_FOUND") {
     return formProblem(req, res, 404, {
-      message: "That cat or statement doesn't exist.",
+      message: "That cat or change doesn't exist.",
       back: "/api/team/cats",
       backLabel: "Find a cat",
       active,
@@ -168,7 +168,7 @@ function refusalFor(req: Request, res: Response, err: unknown, back: string, act
   }
   return formProblem(req, res, 400, {
     fields: [err.code],
-    message: "That answer doesn't fit this kind of statement.",
+    message: "That answer doesn't fit this kind of change.",
     back,
     backLabel: "Back",
     active,
@@ -182,7 +182,7 @@ function catIdOf(req: Request): number | null {
 
 function notFound(req: Request, res: Response) {
   formProblem(req, res, 404, {
-    message: "That cat or statement doesn't exist.",
+    message: "That cat or change doesn't exist.",
     back: "/api/team/cats",
     backLabel: "Find a cat",
   });
@@ -198,7 +198,7 @@ export const formRoute = (capability?: Capability, options?: RequireTeamOptions)
   },
 ];
 
-// ── Say the life status ────────────────────────────────────────────────────
+// ── Update where the cat lives ────────────────────────────────────────────────────
 
 const LifeStatusForm = z.object({
   status: z.enum(["street", "homed", "in_care", "deceased"]),
@@ -242,7 +242,7 @@ router.post(
     if (status === "deceased" && !date) {
       return formProblem(req, res, 400, {
         fields: ["date"],
-        message: "For “No longer with us”, give the date the team knows of.",
+        message: "For “No longer with us”, give the date it happened.",
         back,
         backLabel: "Back to the cat",
       });
@@ -353,7 +353,7 @@ router.post(
     if (status === "deceased" && !date) {
       return formProblem(req, res, 400, {
         fields: ["date"],
-        message: "For “No longer with us”, give the date the team knows of.",
+        message: "For “No longer with us”, give the date it happened.",
         back,
         backLabel: "Back to the cat",
       });
@@ -410,7 +410,7 @@ router.post(
   },
 );
 
-// ── Say whether sterilised ─────────────────────────────────────────────────
+// ── Update whether sterilised ─────────────────────────────────────────────────
 
 const SterilisationForm = z.object({
   sterilised: z.enum(["yes", "no"]),
@@ -529,7 +529,7 @@ router.post(
     if (choice === "deceased" && !date) {
       return formProblem(req, res, 400, {
         fields: ["date"],
-        message: "For “No longer with us”, give the date the team knows of.",
+        message: "For “No longer with us”, give the date it happened.",
         back,
         backLabel: "Back",
         active,
