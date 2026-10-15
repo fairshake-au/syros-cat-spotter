@@ -29,9 +29,6 @@ export const VISION_AUTHOR = "system:vision";
 export const READER_SOURCE = "coat-reader";
 export const COPY_SOURCE = "coat-reader:copy";
 
-/** The advisory-lock namespace for colour readings (with the cat id). */
-const LOCK_NAMESPACE = 161;
-
 /** Tests only: runs between the re-check and the insert (T-race). */
 export const _recordHooks: { afterRecheck: null | (() => Promise<void>) } = { afterRecheck: null };
 
@@ -49,7 +46,9 @@ async function lockAndRecheck(
   action: "read" | "copy",
   copyOf?: number,
 ): Promise<boolean> {
-  await tx.execute(sql`select pg_advisory_xact_lock(${LOCK_NAMESPACE}, ${catId})`);
+  // The house style for per-cat locks (teamCorrections, sightings): a hashed
+  // name, so this never shares a key with another lock.
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('coat-reading'), ${catId})`);
   const [entry] = await catsDueForReading(1, tx, { catIds: [catId] });
   const still =
     entry !== undefined &&

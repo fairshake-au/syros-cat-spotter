@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { catIdentityTable, catsTable, db, photosTable, sightingsTable, type Observation } from "@workspace/db";
 import { loadCatRecords, type DbOrTx } from "../observations";
 import { catDisplayPhotoIds, hiddenPhotoIds } from "../photoVisibility";
+import { appearanceAuthorityLevel } from "../resolve";
 
 /**
  * Which cats need a colour reading (SYC-161 plan, rules R1, R2 and R4).
@@ -65,12 +66,20 @@ function newest(rows: readonly Observation[]): Observation | undefined {
   return rows.reduce<Observation | undefined>((best, o) => (!best || isNewer(o, best) ? o : best), undefined);
 }
 
-/** Ids of the rows the team marked wrong (superseded by a retraction). */
+/**
+ * Ids of the rows the team marked wrong (superseded by a retraction). Only a
+ * retraction the resolver itself honours counts: one from someone the
+ * appearance ranking gives standing (`standingAppearanceRows`, resolve.ts).
+ * A retraction without standing leaves the reading counting there, so it
+ * must not stop the reading being copied forward here (Opus spot review,
+ * finding 2).
+ */
 function markedWrong(observations: readonly Observation[]): Set<number> {
   const out = new Set<number>();
   for (const o of observations) {
     if (
       o.supersedesId != null &&
+      appearanceAuthorityLevel(o) !== 0 &&
       (o.kind === "coat" || o.kind === "markings") &&
       typeof o.value === "object" &&
       o.value !== null &&
@@ -158,6 +167,12 @@ export async function catsDueForReading(
       because = "reading_photo_hidden";
     }
     if (!because) continue;
+    // Belt and braces: the newest reading is already of the photo shown, so
+    // there is nothing to do. Unreachable while the two rules above agree
+    // with photoVisibility.ts; it stops a copy repeating every run if they
+    // ever drift (SYC-163 rewrites the stand-in rule; Opus spot review,
+    // finding 7).
+    if (latest?.photoId === shown) continue;
 
     // R4: the photo to read may have been read before.
     const ofPhoto = observations.filter((o) => isMachineReading(o) && o.photoId === shown);

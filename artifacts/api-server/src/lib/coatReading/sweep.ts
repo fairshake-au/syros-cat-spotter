@@ -161,7 +161,15 @@ export async function sweepCoatReadings(opts: {
     }
 
     // A model call. The bytes are read by the id `due.ts` chose, which is
-    // only ever a public photo (R1).
+    // only ever a public photo (R1). The list above was made when the run
+    // started, and a run can take minutes, so the cat is checked again right
+    // before its photo leaves the server: a photo the team hid in the
+    // meantime is never sent (Opus spot review, finding 1).
+    const [still] = await catsDueForReading(1, db, { catIds: [d.catId] });
+    if (!still || still.photoId !== d.photoId || still.action !== "read") {
+      result.items.push({ ...item, status: "not_due_any_more" });
+      continue;
+    }
     const [photo] = await db
       .select({ data: photosTable.data, mime: photosTable.mime })
       .from(photosTable)

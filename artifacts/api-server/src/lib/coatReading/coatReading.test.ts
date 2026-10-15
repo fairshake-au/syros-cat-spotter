@@ -26,7 +26,7 @@ import { loadCatRecords, writeObservation } from "../observations";
 import { catDisplayPhotoIds, catDisplayPhotos } from "../photoVisibility";
 import { resolveCoat } from "../resolve";
 import { catsDueForReading } from "./due";
-import { _recordHooks, recordReading } from "./record";
+import { _recordHooks, copyReadingForward, recordReading } from "./record";
 import { MODEL_VERSION } from "./reader";
 import { BUDGETS, spendReadBudget, sweepCoatReadings } from "./sweep";
 
@@ -652,5 +652,131 @@ describe("T-race: two servers recording one cat at once write one row (R8)", () 
     const outcomes = await Promise.all([first, second]);
     expect(outcomes.map((o) => o.kind).sort()).toEqual(["not_due", "written"]);
     expect(await machineRows(c.id)).toHaveLength(1);
+  });
+});
+
+// Added from the Opus spot review of due.ts, record.ts and catDisplayPhotoIds.
+describe("spot review: the gaps it found, closed", () => {
+  it("finding 1: a photo the team hides during a run is never sent", async () => {
+    const a = await cat("mid-a");
+    const b = await cat("mid-b");
+    // While the model looks at a's photo, the team hides b's.
+    create.mockImplementationOnce(async () => {
+      sentLabels.push("mid-a:main");
+      await setHidden(b.main, true);
+      return { choices: [{ message: { content: JSON.stringify(answer(["grey"])) } }] };
+    });
+    const r = await write([a.id, b.id]);
+    expect(sentLabels).toEqual(["mid-a:main"]);
+    expect(r.items.find((i) => i.catId === b.id)).toMatchObject({ status: "not_due_any_more" });
+    expect(await machineRows(b.id)).toHaveLength(0);
+  });
+
+  it("finding 2: a retraction without standing doesn't stop a copy (the resolver ignores it too)", async () => {
+    const c = await cat("nostanding");
+    await sighting(c.id, "nostanding:s");
+    const tick = clock();
+    await write([c.id], tick);
+    const [first] = await machineRows(c.id);
+    // A "mark wrong" from someone with no standing on appearance, written
+    // straight to the table (writeObservation would refuse it).
+    await db.insert(observationsTable).values({
+      catId: c.id,
+      kind: "coat",
+      value: { retracted: true },
+      deviceId: `${PREFIX}no-standing`,
+      roleAtTime: "public",
+      authorityScope: "none",
+      provenance: "volunteered",
+      observedAt: new Date(),
+      supersedesId: first!.id,
+    });
+    expect((await resolvedCoat(c.id)).value).toEqual(["ginger", "tabby"]);
+    await setHidden(c.main, true);
+    await write([c.id], tick);
+    await setHidden(c.main, false);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toMatchObject([
+      { action: "copy", copyOf: first!.id },
+    ]);
+  });
+
+  it("finding 3: a copy whose source was marked wrong after the list was made writes nothing", async () => {
+    const c = await cat("late-wrong");
+    await sighting(c.id, "late-wrong:s");
+    const tick = clock();
+    await write([c.id], tick);
+    await setHidden(c.main, true);
+    await write([c.id], tick);
+    await setHidden(c.main, false);
+    const [due] = await catsDueForReading(Infinity, db, { catIds: [c.id] });
+    expect(due).toMatchObject({ action: "copy" });
+    await markWrong(c.id, due!.copyOf!);
+    const before = (await machineRows(c.id)).length;
+    expect(await copyReadingForward({ catId: c.id, photoId: due!.photoId, copyOf: due!.copyOf!, now: tick() })).toEqual({
+      kind: "not_due",
+    });
+    expect(await machineRows(c.id)).toHaveLength(before);
+  });
+
+  it("finding 3: the re-check refuses a copy of a different row, and a read where a copy is due", async () => {
+    const c = await cat("wrong-source");
+    await sighting(c.id, "wrong-source:s");
+    const tick = clock();
+    await write([c.id], tick);
+    await setHidden(c.main, true);
+    await write([c.id], tick);
+    await setHidden(c.main, false);
+    const [due] = await catsDueForReading(Infinity, db, { catIds: [c.id] });
+    const rows = await machineRows(c.id);
+    const standIn = rows.find((r) => r.photoId !== c.main)!;
+    expect(await copyReadingForward({ catId: c.id, photoId: c.main, copyOf: standIn.id, now: tick() })).toEqual({
+      kind: "not_due",
+    });
+    expect(
+      await recordReading({
+        catId: c.id,
+        photoId: due!.photoId,
+        colours: ["white"],
+        raw: { colours: ["white"], confidence: 0.9, catCount: 1, photoClear: true },
+        now: tick(),
+      }),
+    ).toEqual({ kind: "not_due" });
+    expect(await machineRows(c.id)).toHaveLength(rows.length);
+  });
+
+  it("finding 4: ANY rejected reading of a photo stops the copy, not only the newest", async () => {
+    const c = await cat("anywrong");
+    await sighting(c.id, "anywrong:s");
+    answers.set("anywrong:main", answer(["ginger"]));
+    answers.set("anywrong:s", answer(["black"]));
+    const tick = clock();
+    await write([c.id], tick); // r1: main, ginger
+    await setHidden(c.main, true);
+    await write([c.id], tick); // r2: stand-in, black
+    await setHidden(c.main, false);
+    await write([c.id], tick); // r3: a copy of r1
+    const [r1] = await machineRows(c.id);
+    await markWrong(c.id, r1!.id); // the team rejects the ORIGINAL, not the copy
+    await setHidden(c.main, true);
+    await write([c.id], tick); // r4: a copy of r2 (the stand-in)
+    await setHidden(c.main, false);
+    // The main photo's readings are r1 (rejected) and r3 (its copy): neither comes back.
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
+    expect((await resolvedCoat(c.id)).value).toEqual(["black"]);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("finding 5 (R2 rule 3, as written): every photo hidden, then a new public sighting → one reading of it", async () => {
+    const c = await cat("reappear");
+    await write([c.id]);
+    await setHidden(c.main, true);
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toEqual([]);
+    const s = await sighting(c.id, "reappear:s");
+    expect(await catsDueForReading(Infinity, db, { catIds: [c.id] })).toMatchObject([
+      { photoId: s, action: "read", because: "reading_photo_hidden" },
+    ]);
+    await write([c.id]);
+    await write([c.id]);
+    expect(sentLabels).toEqual(["reappear:main", "reappear:s"]);
   });
 });
