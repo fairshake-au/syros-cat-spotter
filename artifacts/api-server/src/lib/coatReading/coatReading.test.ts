@@ -70,17 +70,22 @@ afterEach(() => {
   _recordHooks.afterRecheck = null;
 });
 
-async function photo(label: string): Promise<number> {
+async function photo(label: string, createdAt: Date): Promise<number> {
   const [p] = await db
     .insert(photosTable)
-    .values({ publicId: `${PREFIX}${label}-${n++}`, data: bytesFor(label), mime: "image/jpeg" })
+    .values({ publicId: `${PREFIX}${label}-${n++}`, data: bytesFor(label), mime: "image/jpeg", createdAt })
     .returning({ id: photosTable.id });
   return p!.id;
 }
 
-/** A cat with a main photo labelled `${label}:main`. */
+/**
+ * A cat with a main photo labelled `${label}:main`, taken two days ago:
+ * older than any sighting's photo, as in life, so a reading dated by its
+ * photo (mutation probe 1) would lose to the stand-in's every time, not only
+ * when two inserts happen to land in different milliseconds.
+ */
 async function cat(label: string, opts: { noPhoto?: boolean } = {}): Promise<{ id: number; main: number }> {
-  const main = opts.noPhoto ? 0 : await photo(`${label}:main`);
+  const main = opts.noPhoto ? 0 : await photo(`${label}:main`, new Date(Date.now() - 2 * 86_400_000));
   const [c] = await db
     .insert(catsTable)
     .values({
@@ -96,7 +101,8 @@ async function cat(label: string, opts: { noPhoto?: boolean } = {}): Promise<{ i
 
 /** A resolved sighting of the cat, with a new photo. Newer each call. */
 async function sighting(catId: number, label: string, minutesAgo = 0): Promise<number> {
-  const photoId = await photo(label);
+  const at = new Date(Date.now() - minutesAgo * 60_000);
+  const photoId = await photo(label, at);
   await db.insert(sightingsTable).values({
     catId,
     photoId,
@@ -104,7 +110,7 @@ async function sighting(catId: number, label: string, minutesAgo = 0): Promise<n
     lat: AT.lat,
     lng: AT.lng,
     status: "resolved",
-    createdAt: new Date(Date.now() - minutesAgo * 60_000),
+    createdAt: at,
   });
   return photoId;
 }
