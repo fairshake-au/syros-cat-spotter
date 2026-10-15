@@ -3,6 +3,7 @@ import { AccessibilityInfo, StyleSheet, Text, View, type ImageSourcePropType } f
 import { Image } from 'expo-image';
 import { useColors } from '@/hooks/useColors';
 import { Card } from '@/components/purropolis/Card';
+import { displayUpperCase } from '@/lib/displayUpperCase';
 import { EAR_TIP_EXAMPLE_PHOTO } from '@/lib/earTipExample';
 import { factById } from '@/lib/starterFacts';
 import type { WaitChoice } from '@/lib/waitingCard';
@@ -57,7 +58,7 @@ export function WaitingCard({ choice, t, examplePhoto = EAR_TIP_EXAMPLE_PHOTO }:
   return (
     <View testID="waiting-card">
         <Card flat style={styles.card}>
-      <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{t('waitingEyebrow')}</Text>
+      <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{displayUpperCase(t('waitingEyebrow'))}</Text>
       {fact?.photo && examplePhoto ? (
         <Image
           testID="waiting-card-photo"
@@ -83,7 +84,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes['2xs'],
     letterSpacing: 0.6,
-    textTransform: 'uppercase',
   },
   title: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.lg, lineHeight: fontSizes.lg * 1.3 },
   body: { fontFamily: fonts.body, fontSize: fontSizes.md, lineHeight: fontSizes.md * 1.45 },

@@ -1084,9 +1084,12 @@ export default function SpotScreen() {
                   </Text>
                 </View>
               )}
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                {t('confirmLocationHint')}
-              </Text>
+              {/* SYC-48: the map is hidden while the waiting card shows. */}
+              {waitChoice ? null : (
+                <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                  {t('confirmLocationHint')}
+                </Text>
+              )}
               {denied && (
                 <Pressable onPress={refresh}>
                   <Text style={[styles.denied, { color: colors.destructive }]}>

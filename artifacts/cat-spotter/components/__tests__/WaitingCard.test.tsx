@@ -40,7 +40,7 @@ describe('WaitingCard', () => {
     const { getByText, queryByTestId, container } = render(
       <WaitingCard choice={{ kind: 'fact', id: 'fact.milk' }} t={t} examplePhoto={photo} />,
     );
-    expect(getByText('While we look…')).toBeTruthy();
+    expect(getByText('WHILE WE LOOK…')).toBeTruthy();
     expect(getByText(TRANSLATIONS.en['fact.milk']!)).toBeTruthy();
     expect(queryByTestId('waiting-card-photo')).toBeNull();
     expect(container.querySelectorAll('button, [role="button"]')).toHaveLength(0);
@@ -60,9 +60,15 @@ describe('WaitingCard', () => {
     expect(announce).toHaveBeenCalledWith('While we look, a cat fact');
   });
 
+  it('the Greek eyebrow drops its accents in capitals (SYC-159)', () => {
+    const el = (key: string) => TRANSLATIONS.el[key] ?? key;
+    const { getByText } = render(<WaitingCard choice={{ kind: 'fact', id: 'fact.milk' }} t={el} />);
+    expect(getByText('ΟΣΟ ΨΑΧΝΟΥΜΕ…')).toBeTruthy();
+  });
+
   it('every fact switched off: only the eyebrow', () => {
     const { getByText, queryByTestId } = render(<WaitingCard choice={{ kind: 'empty' }} t={t} />);
-    expect(getByText('While we look…')).toBeTruthy();
+    expect(getByText('WHILE WE LOOK…')).toBeTruthy();
     expect(queryByTestId('waiting-card-fact')).toBeNull();
   });
 
