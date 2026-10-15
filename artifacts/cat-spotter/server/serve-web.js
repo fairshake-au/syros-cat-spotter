@@ -24,6 +24,9 @@
  * job: it serves the Expo GO bundles built by scripts/build.js, which open
  * the app inside Expo Go on a phone. This one serves the app to browsers.
  *
+ * SYC-189: every page on team.catspotters.com (apart from /status and
+ * /_challenge) redirects to the staff dashboard at /api/team/.
+ *
  * Zero external dependencies, Node.js built-ins only.
  */
 
@@ -37,6 +40,30 @@ const { injectLoadingScreen } = require('./loading-screen');
 const challenge = require('./challenge-page');
 
 const DIST_ROOT = path.resolve(__dirname, '..', 'dist');
+
+// SYC-189: the staff dashboard's address, and where its home page lives.
+// The API server holds the same two values (lib/teamAuth/config.ts).
+const TEAM_HOST = 'team.catspotters.com';
+const TEAM_HOME_PATH = '/api/team/';
+
+/** The address the visitor typed, lower-case, without a port or trailing dot. */
+function hostName(value) {
+  const first = String(value || '').split(',')[0].trim().toLowerCase();
+  return first.replace(/:\d+$/, '').replace(/\.$/, '');
+}
+
+/**
+ * True for a request to team.catspotters.com. Checks Host and the proxy's
+ * X-Forwarded-Host, in case the platform rewrites Host on the way in. A
+ * forged header gains nothing: it only earns a redirect to the dashboard,
+ * which has its own sign-in.
+ */
+function isTeamHost(req) {
+  return (
+    hostName(req.headers.host) === TEAM_HOST ||
+    hostName(req.headers['x-forwarded-host']) === TEAM_HOST
+  );
+}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -467,6 +494,22 @@ function createHandler(env = process.env, options = {}) {
         404,
         { 'content-type': 'application/json' },
         JSON.stringify({ error: 'API is not served by the web static server' }),
+      );
+    }
+
+    // SYC-189: team.catspotters.com is the staff dashboard's address, and the
+    // dashboard lives at /api/team/ on the API server. Everything else on
+    // that address used to fall through to the tester app (and its password
+    // page), so staff landed in the wrong place. Send them to the dashboard,
+    // which sends anyone not signed in on to admin.catspotters.com. Before
+    // the gate, so the tester password never shows here. 302, not 301:
+    // browsers would keep a 301 forever.
+    if (isTeamHost(req)) {
+      return send(
+        res,
+        302,
+        { location: TEAM_HOME_PATH, 'cache-control': 'no-store', 'content-type': 'text/plain' },
+        'Found',
       );
     }
 
