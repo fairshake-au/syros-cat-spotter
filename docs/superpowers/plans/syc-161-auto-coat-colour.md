@@ -1,6 +1,6 @@
 # SYC-161: each cat's colour read from its photo, and the colour chips in "Find the cat"
 
-**Status: Samuel answered Decisions A–D on 15 October 2026, taking every recommendation (A1, B1, C1, D1). The plan as a whole awaits his approval. Nothing is built.**
+**Status: approved by Samuel, 15 October 2026, with every recommendation taken (Decisions A1, B1, C1, D1). PR 1 and SYC-2 PR 3.1 are being started in their own sessions.**
 **Ticket:** SYC-161 (Urgent). Parent SYC-119. It builds on SYC-2 (Decision A1 of `syc-2-coat-markings-and-health.md`).
 **Specs:** `docs/specs/choose-a-different-cat.md` §4.7, §4.5, §6, §8.4, §9 and §10, as amended by `docs/specs/coat-markings-and-health.md` §4.2, §7.2, §8, §10.2, §10.4 and §10.7, and `DECISIONS.md` Part 2n (including SYC2-D10). Samuel's 30 September answers to the SYC-119 plan still stand: Decision 2A (a background job fills in existing cats; nobody has to run it by hand) and Decision 3A (the chips appear only once existing cats have been read).
 **Checked against:** `origin/main` at `ad38e17` (15 Oct 2026). Live build `f03901a` carries SYC-2 PR 2.1. That comes from SYC-2's comment of 15 Oct 06:41 UTC; I did not probe `/api/healthz` again. I also checked: the open PRs #146, #172, #174, #176, #178–#181; Linear SYC-161 (all 6 comments), SYC-2 (all comments), SYC-329, SYC-56 and SYC-119; and the MVP launch plan on PR #172 (`docs/superpowers/plans/mvp-launch-31-oct.md` on branch `claude/xenodochial-zhukovsky-df315f`). Every "exists today" claim names the file I read it in.
