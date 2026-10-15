@@ -216,6 +216,10 @@ beforeAll(async () => {
   await colonyStatement((await seedCat(null)).id, c1, maria.id, "guardian");
   sightA = await sighting(catA.id, catA.photoId, { lat: 37.44701, lng: 24.94321 });
   sightB = await sighting(catB.id, catB.photoId, S2_POS);
+  // The newest site changes anywhere are colony 2's and the no-colony site's,
+  // so a "Recently changed" strip that forgot her filter would show them.
+  await editSite(staffId, s0, await stampOf(s0), { notes: "latest change, no colony" });
+  await editSite(zoe.id, s2, await stampOf(s2), { notes: `${S2_NOTES} again` });
 });
 
 beforeEach(() => {
