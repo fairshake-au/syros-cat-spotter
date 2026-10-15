@@ -14,7 +14,7 @@ Today a cat's colour shows only once someone on the team has described it. Produ
 When this plan is built:
 
 - **Every cat with a photo gets a colour, read once from its photo** by the same AI model that already compares cats for matching. Examples: "Ginger · Tabby", "Black and white". When the model can't tell, the answer is **Not sure**. That happens when the photo is dark or blurred, shows two cats or none, or the model isn't confident. A Not sure cat simply shows no colour.
-- **New cats get their colour within seconds of being named.** When the team hides a cat's photo, the colour is read again from the photo the public now sees.
+- **Existing cats get colours Samuel has checked first** (Decision A). **New cats get their colour within seconds of being named**, once the team can fix a wrong colour (SYC-2 PR 3.1). When the team hides a cat's photo, the colour is read again from the photo the public now sees.
 - **People still have the final say**, by SYC-2's rules, unchanged. The team or a cat guardian always wins. Two spotters who agree beat the machine. One spotter alone fills a gap but never overturns a real reading. A later reading never beats the team or a guardian.
 - **"Find the cat" gets a row of colour chips**: *All · Black · White · Ginger · Grey · Tabby · Tortoiseshell or calico · Black and white · Not sure*.
   - *All* is on until someone taps a colour, and more than one can be picked.
@@ -32,9 +32,9 @@ When this plan is built:
 |---|---|
 | **PR 1: the colour reader** | Nothing. The server can read a colour, but nothing starts it automatically |
 | **Trial run** (on production, writes nothing) | Nothing public. Samuel sees a contact sheet of every cat's photo beside the colour the model gave it |
-| **Fill-in run** | Colours appear on cats' pages and on "Find the cat" cards (SYC-2 PR 2.1 already shows them) |
-| **PR 2: keeping up by itself** | New cats show a colour seconds after they're named. A hidden photo leads to a fresh reading |
+| **Checked fill-in run** | The colours Samuel agreed with appear on cats' pages and on "Find the cat" cards (SYC-2 PR 2.1 already shows them) |
 | **PR 3: the chips** | Spotters can filter "Find the cat" by colour |
+| **PR 2, switched on once the team can fix a colour** | New cats show a colour seconds after they're named. A hidden photo leads to a fresh reading |
 
 ---
 
@@ -91,11 +91,12 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 | Option | What it means | Benefits | Risks | What people notice |
 |---|---|---|---|---|
-| **A1. Build everything now; run the trial now; write colours the day SYC-2 PR 3.1 is live (recommended)** | PRs 1–3 are built and merged now. The trial run reads every cat on production and writes nothing; Samuel checks a contact sheet, and the "Not sure" cut-off is tightened if needed. The fill-in run, PR 2 and the chips go live once the team can mark a colour wrong. SYC-2's stream is asked to make PR 3.1 its next PR | Nothing wrong reaches the public with no way to fix it. The waiting time is used to measure accuracy on the real cats. Nothing is built twice | The colours wait on SYC-2 PR 3.1, a team-only PR of roughly a day's work that nobody has started. SYC-161 stays "Urgent" but can't be "Done" before it | Nothing until 3.1 is live; then colours on every cat and the chips within a day |
-| A2. Go live as soon as each PR merges | Colours and chips appear as soon as the fill-in run is done | Fastest | A wrong colour stays public, unfixable, until 3.1. A cat filed under the wrong colour drops out of a filtered list (the "N more cats" line is the only safety net). Reports about it pile up in "Report an issue" with nothing the team can do | Colours at once; some wrong ones that stay wrong for a while |
-| A3. Go live now, with a stop-gap "withdraw" | As A2, plus an internal command that records the machine saying Not sure over a reading we judge wrong | Live now, and fixable | A person's judgement gets recorded as the machine's own reading. That muddies the accuracy data SYC-56 needs, and adds a second way to correct colour that the spec doesn't have | As A2, with fixes a few hours later |
+| **A1. Checked colours now, automatic colours later (recommended)** | The trial reads every existing cat and writes nothing. Samuel looks at a contact sheet: each cat's photo beside the colour the model gave it. The fill-in run then writes only the colours he agrees with; any he rejects are left out, and those cats stay "colour not known". New cats are read automatically only once the team can mark a colour wrong (SYC-2 PR 3.1). Until then they are "colour not known", which the filter never hides | No unchecked colour goes public before it can be fixed. Doesn't wait on SYC-2 PR 3.1, so the launch dates in Decision B can hold. A rejected reading is never written, so SYC-56's accuracy data stays clean. The contact sheet doubles as a first accuracy measure | Samuel spends about five minutes on the contact sheet. New cats show no colour until SYC-2 PR 3.1 is live | Colours on existing cats within a day of PR 1 going live, and the chips soon after. New cats gain colours later |
+| A2. Wait for SYC-2 PR 3.1 before writing any colour | As A1, but the fill-in run also waits for 3.1 | Every colour is fixable from the moment it is public | Waits on a PR nobody has started, so the 23 and 26 October slots (Decision B) can't hold | Nothing until 3.1 is live |
+| A3. Go live as soon as each PR merges, unchecked | Colours and chips appear as soon as the fill-in run is done | Fastest | A wrong colour stays public, with nothing anyone can do, until 3.1. A cat filed under the wrong colour drops out of a filtered list; the "N more cats" line is the only safety net | Colours at once; some wrong ones that stay wrong for a while |
+| A4. SYC-161 builds a small "Mark wrong" for colour itself | One team button that marks a machine colour wrong, built in PR 1, ahead of SYC-2 PR 3.1 | Fixable from day one, with no wait | Builds part of SYC-2 PR 3.1 twice, or pulls it into this plan. That work belongs to SYC-2 (Decision A1 of its plan) | As A3, with fixes possible at once |
 
-**Recommendation: A1.** It costs a short wait and keeps the spec's promise that a wrong colour is one tap to fix. If SYC-2 PR 3.1 can't start this week, A2 with only the checked trial results is the fallback I'd suggest then. That decision is Samuel's to make at the time, not now.
+**Recommendation: A1.** With 28 cats a human check is cheap, and it leaves nothing wrong and unfixable in public. SYC-2's stream is still asked to make PR 3.1 its next PR, because automatic reading for new cats waits on it.
 
 ### Decision B: does any of this go out before the 31 October launch?
 
@@ -103,7 +104,7 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 | Option | Benefits | Risks | What people notice at launch |
 |---|---|---|---|
-| **B1. Aim for launch, never block it (recommended)** | The chips' words go into Johnny's pack by 22 Oct, whether or not the chips ship. PRs 1 and 2 fit the Fri 23 Oct publish; PR 3 fits Mon 26 Oct. If SYC-2 PR 3.1 (Decision A) or anything else slips, SYC-161 goes first week of November, ahead of the launch plan's own cuts. **Not on the must-launch list** | Tourists in busy Ermoupoli get the filter from day one, which is when duplicates are most likely | Two more PRs through Samuel's merge windows in the busiest fortnight | The chips, if everything lands; otherwise nothing changes |
+| **B1. Aim for launch, never block it (recommended)** | The chips' words go into Johnny's pack by 22 Oct, whether or not the chips ship. PR 1 fits the Fri 23 Oct publish, then the trial and the checked fill-in run (Decision A1). PR 3 fits Mon 26 Oct. PR 2 is published switched off and switched on once SYC-2 PR 3.1 is live, whenever that is. If anything slips, SYC-161 goes in the first week of November, ahead of the launch plan's own cuts. **Not on the must-launch list** | Tourists in busy Ermoupoli get the filter from day one, which is when duplicates are most likely | Two more PRs through Samuel's merge windows in the busiest fortnight | The chips, if everything lands; otherwise nothing changes |
 | B2. After launch | Nothing extra in the launch fortnight | The colour filter misses the first weeks of real tourist use; spotters' "Ginger · Tabby, right?" (SYC-2 Slice 4) waits too | Nothing |
 
 **Recommendation: B1.** It adds no risk to the date, because SYC-161 is never on the must-launch list. The launch-plan session (`local_78021dc8…`) is told, so the calendar can show it.
@@ -114,8 +115,8 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 | Option | What it means | Benefits | Risks | What people notice |
 |---|---|---|---|---|
-| **C1. Read it right after the new cat is saved (recommended)** | After the naming request has finished, the server reads the new cat's photo in the background; the spotter's screen never waits. The sweep (Decision D) catches any it missed | The colour is there within seconds. SYC-2's one-tap question works as designed. Still one call per cat | A public action starts one model call. But it can only ever be one per cat: rule R4 refuses a second reading of the same photo. And every new cat already cost a bigger matching call behind the existing AI limit | New cats show their colour almost at once |
-| C2. Only the background sweep reads new cats | The sweep picks a new cat up on its next run, up to about 2 hours later | Keeps the brief's wording to the letter: no public request ever starts a call | For up to 2 hours a new cat has no colour. SYC-2's question after the points would usually show empty chips | Colours appear on new cats a while later |
+| **C1. Read it right after the new cat is saved (recommended)** | Once the naming has finished, the server reads the new cat's photo in the background, so the spotter's screen never waits. If that is missed (the server can go quiet once it has answered), the catch-up run a couple of hours later reads it instead | The colour is there within seconds. SYC-2's one-tap question works as designed. Still one call per cat | Naming a cat, which anyone can do, starts one model call. It can only ever be one per cat, because a photo is never read twice. Every new cat has already cost a bigger matching call, and photo uploads are already limited per phone. New-cat readings also get their own small hourly allowance, so a burst of new cats can't use up the catch-up run's | New cats show their colour almost at once |
+| C2. Only the catch-up run reads new cats | Every couple of hours the server catches up on cats with no colour, new ones included | Keeps the brief's wording to the letter: nothing the public does ever starts a call | For up to about 2 hours a new cat has no colour. SYC-2's question after the points would usually show empty chips | Colours appear on new cats a while later |
 | C3. Ask the matching call for the colour as well (the spec's "ride along") | The model gives a colour for every sighting photo during matching | No extra call | It changes the matching prompt, which nobody can measure yet (SYC-56 isn't built). It breaks SYC2-D8's rule and its guard, and reads colour for every sighting, not just new cats | Same as C1, with a risk to matching quality |
 
 **Recommendation: C1.** The rule the brief quotes exists to stop the public running up the bill (spec §12 C8). C1 keeps that protection, because the public can't trigger a second call for any cat. If Samuel prefers the brief's letter, C2 is the safe alternative.
@@ -126,11 +127,11 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 | Option | Benefits | Risks | Samuel's hands |
 |---|---|---|---|
-| **D1. One new internal address, `POST /api/internal/coat/sweep`, opened by the existing drain token; started from a new GitHub workflow that Claude runs (recommended)** | No new secret. Claude can run the dry run, the trial and the fill-in run with `gh workflow run`. The automatic sweep (PR 2) rides the existing drain | The drain token stops meaning "exactly one path". If it leaked, the worst anyone could do is make the server read colours that are due anyway (rule R4 forbids repeats; a budget caps the calls per hour). The pre-launch gate gains one more exception, tested | None |
-| D2. Same, with its own new token | The drain token keeps its single meaning | One more secret in Replit, GitHub and nowhere else, and Samuel pastes it into Replit's Secrets tab and publishes | One paste and one publish |
-| D3. No manual address; only the automatic sweep (the 30 Sept Decision 2A, word for word) | Least code | No dry run or trial before colours go public, and the first run writes straight away | None |
+| **D1. Reuse the password the mail job already uses (recommended)** | No new secret. Claude starts the dry run, the trial and the fill-in run from a GitHub button, and the catch-up run rides the existing mail job every couple of hours | That password now opens two doors, not one, and the second can spend money on model calls. If it leaked, the most anyone could do is make the server read colours that are due anyway: a photo is never read twice, and an hourly allowance caps the calls (about 60 an hour at most). Like the mail job, the new GitHub button only ever sends the password to the real app's address | None |
+| D2. Same, with its own new password | The mail job's password keeps its single meaning, and a leak of one doesn't open the other | One more secret to keep in Replit and GitHub | One paste into Replit's Secrets tab, and one publish |
+| D3. No manual start; only the automatic catch-up run (the 30 Sept Decision 2A, word for word) | Least code | No dry run or trial before colours go public, and no way to leave out readings Samuel rejects (Decision A1) | None |
 
-**Recommendation: D1.** Leaking this token could only cause work that happens anyway. That's why I don't think it needs a new secret, and Samuel has no step to take.
+**Recommendation: D1.** A leak could only bring forward work that would happen anyway, at a capped cost. That's why I don't think it needs a new secret, and Samuel has no step to take. Technically: `POST /api/internal/coat/sweep`, opened by `MAIL_DRAIN_TOKEN`, through a new `coat-readings.yml` workflow.
 
 ---
 
@@ -138,32 +139,50 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 These are the rules for **when** to read and **what** gets written. They sit on top of SYC-2's rules for which reading wins, and never replace them.
 
-- **R1. Which photo.** The reader reads the photo the public sees for that cat (`catDisplayPhotos`, the one place that decides). It never reads a hidden photo, so a photo the team hid for privacy is never sent to the model. A cat with no public photo is not read; it stays not known.
-- **R2. When a cat is due.** A cat is due for a reading if any of these holds:
-  1. it has no machine reading and has a public photo;
-  2. its main photo is public and the machine's newest reading is not of the main photo (this covers a restored main photo, and SYC-163's future "choose a main photo");
-  3. its main photo is hidden and the photo of the newest reading is no longer public (this covers hiding).
+- **R1. Which photo.** The reader reads the photo the public sees for that cat. One place decides that: `photoVisibility.ts`.
+  - `catDisplayPhotos` returns web addresses, not photo ids, so PR 1 adds `catDisplayPhotoIds` beside it. It shares the same stand-in code, and `catDisplayPhotos` is rewritten on top of it.
+  - A test asserts that the two always agree. Nothing parses an address back into an id.
+  - The reader never reads a hidden photo, so a photo the team hid for privacy is never sent to the model.
+  - A cat with no public photo is not read.
+- **R2. When a cat is due.** A cat is due if any of these holds:
+  1. it has **no machine row at all** (counting rows the team marked wrong and Not sure rows), and it has a public photo;
+  2. its main photo is public, and the machine's newest reading is not of the main photo. This covers a restored main photo and SYC-163's future "choose a main photo". If the main photo was read before, see R4: no new model call;
+  3. its main photo is hidden, and the photo of the newest reading is no longer public. This covers hiding.
 
   **A new sighting never makes a cat due by itself.** When the main photo is hidden, the stand-in photo the public sees changes with every new sighting. Reading again each time would let the public trigger readings, so a reading stands as long as its own photo stays public.
+
+  Cats with a standing team or guardian colour are still read. The call costs little, and SYC-2's Colour check list compares the machine's reading with people's.
+
+  **When every photo is hidden, or the main photo is deleted, the last reading stays.** The cat's colour is still true even when its photo isn't public, and the machine can't withdraw its own reading without reading something. A team member who thinks it is wrong marks it wrong (SYC-2 PR 3.1).
+  - Today a deleted main photo gets no stand-in in `catDisplayPhotos`, whatever this plan does. That's a gap in photo display, not in colour, and SYC-44 PR 7.2 (deleting hidden photos for good) gets a comment about it.
 - **R3. One reading is one new row.** Each reading is a new `coat` observation, never an edit and never a supersession:
   - `accountId: "system:vision"`, `roleAtTime: "system"`, `provenance: "machine"`;
   - `photoId` = the photo read;
   - `value: { colours, modelVersion }`, with the colours passed through `normaliseColours`;
   - `observedAt` = **the moment of the reading**, never the photo's date. "Newest machine reading" must mean the last one read, or a reading of an older stand-in photo would lose to the reading of the photo it replaced. Colour is not evidence of life, so the date says nothing about whether the cat is alive.
   - The model's raw answer (its colours, its confidence, how many cats it saw) goes in the team-only `suggestedValue`, with `suggestionSource: "coat-reader"`. That lets SYC-56 tune the Not sure cut-off later without paying for a second reading. It never reaches the public, and the resolver doesn't read it.
-- **R4. Never read the same photo twice.**
-  - A cat is never read again from a photo it already has a machine reading of, whatever that reading said.
-  - That covers a reading the team later marked wrong. The fill-in run can never bring back a colour the team rejected; the cat stays without a machine reading until its photo changes.
-  - This is also why the public can never cause a second call.
+- **R4. Never call the model twice for the same photo.**
+  - A cat's photo is never sent to the model again once it has a machine reading, whatever that reading said.
+  - When R2 rule 2 makes a cat due for a main photo that was read before (a restore), the reader **copies that earlier reading forward** with no model call:
+    - a new row, with the same colours, the same `modelVersion` and `photoId`, and `observedAt` = now;
+    - `suggestionSource: "coat-reader:copy"`, and `suggestedValue` naming the row copied.
+  - It does this **only if the team never marked that earlier reading wrong.** If they did, nothing is written, and the stand-in's reading stays the newest.
+  - So the fill-in run can never bring back a colour the team rejected.
+  - Only a team action (hide or restore) can make a cat due again, and that is why the public can never cause a second call.
 - **R5. Not sure, honestly.** The model answers in a fixed JSON shape: how many cats it sees, whether the photo is clear, one or two colours from the list it is given, and a confidence. The list comes from `COAT_COLOURS` through a `Record<CoatColour, string>` of plain descriptions, so it can't drift from the real one. The reader writes `["not_sure"]` if any of these holds:
   - it saw anything other than exactly one cat;
   - the photo isn't clear;
   - it gave no colours, more than two, an unknown one, `not_sure` beside a colour, or an impossible pair that `normaliseColours` and the validator refuse;
   - its confidence is **below 0.8** (cautious to start; tuned with SYC-56's labels and filed there).
 - **R6. A failed call writes nothing.** A timeout, an error or unreadable output leaves no row; the cat stays not known.
-  - It is retried at most 3 times per (cat, photo) in 7 days, counted in a shared database bucket so every server agrees.
-  - After that it waits for the next photo change or a manual run. A photo that always fails can't burn calls forever.
-- **R7. A budget.** All reading shares one counter of at most **30 model calls per hour**. The automatic sweep reads at most 10 cats per run; a manual run reads at most 50. A run that hits the budget stops and says how many are left.
+  - Each attempt is counted before the call, in a shared database bucket `coat-read-photo`, keyed by (cat, photo): **3 attempts a day, sliding**.
+  - `limits.ts` only allows windows of a day or less (`assertWindow`, `limits.ts:78`), so a photo that always fails costs at most 3 calls a day.
+  - The plan accepts that rather than adding a table. The hourly allowance in R7 caps it too.
+- **R7. A budget.** All reading shares one sliding counter, `coat-read-hour`, of **60 model calls an hour**, enough for a trial and a fill-in run of today's 28 cats in the same hour.
+  - New-cat readings (Decision C1) also draw on their own smaller counter, `coat-read-new`, of **20 an hour**, so a burst of new cats can't use up the catch-up run's allowance.
+  - The automatic catch-up run reads at most 10 cats a run, and runs no more often than the mail job calls it. A manual run reads at most 50.
+  - A run that hits a limit stops at once. It reports how many it read and how many are still due, and writes nothing for the cat it was on.
+  - Copying a reading forward (R4) makes no call and draws on no counter.
 - **R8. Two servers at once.** The write happens inside a transaction that takes an advisory lock on the cat and checks again that the cat is still due for the same photo. Two servers reading the same cat at once can waste one call, but can't write two rows.
 
 ---
@@ -175,10 +194,11 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 | Step | PR | Needs first | Who notices |
 |---|---|---|---|
 | 1 | **PR 1: the reader, the manual address and the docs fixes** | This plan approved | Nobody |
-| 2 | **Trial run** on production (rollout steps 1–4) | PR 1 live | Samuel (contact sheet) |
-| 3 | **PR 2: reading by itself** (the drain sweep, plus new cats under Decision C1) | PR 1. Can merge any time; **under A1 it is published with the fill-in run** | New cats get colours |
-| 4 | **PR 3: the "Find the cat" chips** | PR 1. Can be built in parallel with PR 2; **merges after the fill-in run** (K4) | Spotters |
-| 5 | **Fill-in run**, then PR 2 and PR 3 published | Under A1: SYC-2 PR 3.1 live | Everyone |
+| 2 | **Dry run, trial and contact sheet** on production | PR 1 live | Samuel (about 5 minutes) |
+| 3 | **Checked fill-in run** (Decision A1), leaving out any Samuel rejects | Samuel's answer on the contact sheet | Everyone: existing cats show colours |
+| 4 | **PR 3: the "Find the cat" chips** | PR 1; built in parallel with PR 2; **merges after the fill-in run** (K4) | Spotters |
+| 5 | **PR 2: reading by itself**, merged and published switched off | PR 1 | Nobody |
+| 6 | **Switch-on PR** (`AUTO_COAT_READING = true`) | SYC-2 PR 3.1 live (A1) | New cats get colours |
 
 **Rollback:** a revert for each PR. Readings already written stay valid, and SYC-2's resolver keeps using them. To make every machine colour stop counting, the team marks them wrong once 3.1 exists. Nothing is deleted.
 
@@ -192,17 +212,24 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 - `lib/visionModel.ts` (new): `VISION_MODEL = "gpt-5.6-terra"`, the one place the model name lives. `matching.ts` imports it **and changes nothing else**: same prompt, same parsing, and the source guard stays green.
 - `lib/coatReading/reader.ts` (new): `readCoatFromPhoto({ data, mime })` returns `{ kind: "reading", colours, raw }` or `{ kind: "failed", reason }`. It makes one call with one image. The prompt asks about colour only (spec §4.7: never sex, age, ear tip or health) and builds its colour list from `COAT_COLOURS`. It applies R5 and never throws.
   - `MODEL_VERSION = "${VISION_MODEL}/coat-v1"`. A prompt change bumps `coat-v1`.
-- `lib/coatReading/due.ts` (new): `catsDueForReading(limit, q)`, batched with a fixed number of queries. It returns `{ catId, photoId }[]` by R1, R2 and R4, oldest cat first, and uses only `photoVisibility.ts`'s functions for visibility.
-- `lib/coatReading/record.ts` (new): `recordReading(catId, photoId, reading, now)`. It locks, re-checks and calls `writeObservation` (R3, R8). **The only caller in `src/` that passes `system:vision` or `provenance: "machine"`.**
-- `lib/coatReading/sweep.ts` (new): `sweepCoatReadings({ mode, limit, now })` with three modes.
-  - `dry_run`: no model call and no write. Returns how many cats are due, their ids and photo ids, and the calls it would make.
-  - `trial`: calls the model and writes nothing. Returns each cat's id, photo id, the colours it would write, and the raw answer.
-  - `write`: the real thing.
+- `lib/photoVisibility.ts`: a new `catDisplayPhotoIds(cats, q)` returns `Map<catId, photoId | null>`, by the same rule. `catDisplayPhotos` is rewritten to use it, so there is still one stand-in rule. No new public address is built anywhere, and P6-0 stays green.
+- `lib/coatReading/due.ts` (new): `catsDueForReading(limit, q)`, batched with a fixed number of queries. It returns `{ catId, photoId, action: "read" | "copy", copyOf? }[]` by R1, R2 and R4, oldest cat first. It uses only `photoVisibility.ts`'s functions for visibility, and reads through `cat_identity` like every other reader.
+- `lib/coatReading/record.ts` (new): `recordReading(...)` and `copyReadingForward(...)`. Each locks, re-checks and calls `writeObservation` (R3, R4, R8). **The only caller in `src/` that passes `system:vision` or `provenance: "machine"`.**
+- `lib/coatReading/sweep.ts` (new): `sweepCoatReadings({ mode, limit, exclude, now })` with three modes.
+  - `dry_run`: no model call and no write. Returns how many cats are due, their ids, photo ids and actions, and the calls it would make.
+  - `trial`: calls the model and writes nothing. Returns, for each cat, its id, photo id, the colours it would write, and the raw answer: colours, confidence, how many cats it saw, clear or not. It also returns the cut-off in use.
+  - `write`: the real thing. `exclude` lists cat ids **not** to write, for the readings Samuel rejects (Decision A1).
 
-  It enforces R6 and R7 through `declareLimit`/`consume` buckets `coat-read-hour` and `coat-read-photo`.
-- `routes/internalCoat.ts` (new): `POST /api/internal/coat/sweep`, body `{ mode, limit }`; `mode` defaults to `dry_run`. Opened by the drain token (Decision D1) and answers `no-store`. Added to the pre-launch gate's exception next to `MAIL_DRAIN_PATH`. `internalAuth.ts`'s comment is updated so the token's two paths are both named.
-- `.github/workflows/coat-readings.yml` (new): `workflow_dispatch` only, with inputs `mode` (a choice: `dry_run`, `trial`, `write`; default `dry_run`) and `limit`. It uses the `production` environment's `MAIL_DRAIN_TOKEN` and prints the JSON answer.
-  - In `trial` mode the answer has cat ids, photo ids and colours only. Never a photo, never a token.
+  Because the trial returns the raw confidence, a different cut-off can be judged from one trial without paying for another. Only a change to the **prompt** needs a new trial, and that means a PR, Samuel's pull in Replit and a publish, because the model can only be called from the live server.
+
+  The sweep enforces R6 and R7 through the `declareLimit`/`consume` buckets `coat-read-hour`, `coat-read-new` and `coat-read-photo`, all sliding.
+- `routes/internalCoat.ts` (new): `POST /api/internal/coat/sweep`, body `{ mode, limit, exclude }`; `mode` defaults to `dry_run`. Opened by the drain token (Decision D1) and answers `no-store`.
+  - Added to the pre-launch gate's exception next to `MAIL_DRAIN_PATH`.
+  - `internalAuth.ts`'s comment is updated so the token's two paths are both named, and so is `internalMail.ts`'s stale "every 10 minutes".
+- `.github/workflows/coat-readings.yml` (new): `workflow_dispatch` only, with inputs `mode` (a choice: `dry_run`, `trial`, `write`; default `dry_run`), `limit` and `exclude`.
+  - It uses the `production` environment's `MAIL_DRAIN_TOKEN`.
+  - It has **the same host check as `mail-drain.yml`**: the token only ever goes to `https://apptest.catspotters.com` or the production variable's address, never to an address typed into the run.
+  - It prints the JSON answer: ids, colours and the raw answer's numbers. Never a photo, never a token.
 - **Docs:** `choose-a-different-cat.md` §9, where the cache sentence becomes "no bump; `coat` is in v2 (coat-markings-and-health.md §10.4)". §4.7's "can ride along" gets a pointer to Decision C. The SYC-119 plan's Slice C gets a pointer to this plan.
 
 **Tests**
@@ -218,7 +245,13 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
   - Each R2 case, as due and as not due.
   - A new sighting on a cat whose main is hidden **does not** make it due.
   - A restored main photo does.
-  - A photo already read is never due again, including when that reading was marked wrong (a retraction row seeded directly) and when it was Not sure.
+  - A photo already read is never sent to the model again, including when that reading was marked wrong (a retraction row seeded directly) and when it was Not sure.
+  - A restored main photo that was read before is **copied forward with no model call** (T-copy). If its earlier reading was marked wrong, nothing is written.
+  - A cat whose only machine row was marked wrong is not "unread" under R2 rule 1.
+  - A cat whose photo row has been deleted is not read.
+- **T-ids.** `catDisplayPhotoIds` and `catDisplayPhotos` agree for every cat across these fixtures: main public, main hidden with a stand-in, everything hidden, main deleted.
+- **T-newest** (through the real resolver): after a hide, the stand-in's reading (dated now) beats the older main-photo reading. After a restore, the copied-forward reading of the main photo beats the stand-in's.
+- **T-exclude.** `write` with `exclude: [id]` writes every due cat except that one, and that cat stays due.
 - **T-precedence** (through the real resolver; these are spec tests 16 and SYC2-D10):
   - a team colour beats a newer machine reading;
   - one spotter doesn't overturn a machine reading;
@@ -227,8 +260,13 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 - **T-life.** A fill-in run over cats with old photos changes no cat's `lastSeen`, `notSeenSince` or presumed-deceased state (spec test 17).
 - **T-quiet.** A run queues no push, mail or round-up: notification, outbox and push spies stay at zero.
 - **T-public.** After a reading, `GET /cats/:id` carries `coat` with the colours. Nothing anywhere in the payload names `modelVersion`, `photoId` of the reading, `suggestedValue`, `confidence` for coat, `system:vision` or the reading's date (spec test 20). A Not sure reading gives `coat: []`. The snapshot's shape is unchanged.
-- **T-budget.** The 31st call in an hour isn't made. The 4th failure of one photo in 7 days isn't retried. Each limit is shared across two simulated servers, through the database.
-- **T-race.** Two `recordReading` calls at once for the same (cat, photo) write one row.
+- **T-budget.** These calls aren't made:
+  - the 61st in an hour;
+  - the 21st new-cat reading in an hour;
+  - a 4th attempt on one photo within a day.
+
+  Each limit holds across two simulated servers, through the database. A run that hits the limit reports how many cats are still due.
+- **T-race.** A test hook holds the first `recordReading` between its re-check and its insert while a second one runs, which forces the interleave. Exactly one row results.
 - **T-route.**
   - No token gives 401; no server token gives 503; the mail-drain path is unchanged.
   - `dry_run` and `trial` write no row and make the right number of calls (0, N).
@@ -241,8 +279,10 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
   - only `coatReading/record.ts` names `system:vision` with `provenance: "machine"` in `src/` (tests excepted).
 
 **Mutation probes** (each: break it, see the named test go red, restore):
-1. `observedAt` set to the photo's date: T-row and T-due's restore case.
-2. R4 removed (read the same photo again): T-due's "marked wrong" case.
+1. `observedAt` set to the photo's date: T-row and T-newest.
+2. R4 removed (read the same photo again): T-due's "marked wrong" case and T-copy (a model call is made).
+2a. Copying forward a reading the team marked wrong: T-copy.
+2b. `catDisplayPhotoIds` with its own stand-in rule that drifts from the address rule: T-ids.
 3. The confidence cut-off removed: T-shape at 0.79.
 4. `catDisplayPhotos` swapped for `primaryPhotoId`: T-photo's hidden-bytes case.
 5. A `not_sure` row written on failure: T-shape's failed cases and T-due.
@@ -251,7 +291,7 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 8. `dry_run` falling through to `write`: T-route.
 9. `coat` read inside `candidateSelection.ts`: the new source guard.
 
-**Model:** Sonnet builds; **Opus spot review of `due.ts` and `record.ts`** before the PR opens (the subtle part: R2, R4 and their interaction with the resolver's "newest machine reading").
+**Model:** Sonnet builds. Before the PR opens, **Opus spot reviews `due.ts`, `record.ts` and `catDisplayPhotoIds`.** These are the subtle part: R2 and R4 (the copy-forward included) and how they interact with the resolver's "newest machine reading".
 
 ## PR 2: reading by itself
 
@@ -259,7 +299,9 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 
 - `routes/internalMail.ts`: the drain calls `sweepCoatReadings({ mode: "write", limit: 10 })` after the welfare check, at most hourly per server, like the keep-safe sweep. A failure is logged and **never changes the drain's status code**, which stays about welfare alerts only.
 - **C1 only:** `routes/sightings.ts`, after the resolve transaction has committed and only when `isNewCat`, `res.on("finish")` starts `readCatNow(catId)`. That runs the same due check, budget and `recordReading`, and is never awaited by the response. A failure is logged; the sweep catches it later. With C2, this bullet is dropped.
-- **Both of the above sit behind one constant, `AUTO_COAT_READING`**, merged as `false` under Decision A1. A one-line PR flips it on the day of the fill-in run, so PR 2 can merge and be published with other work without reading anything early. Under A2 it merges as `true`.
+- The new-cat read is **best effort**. On autoscale a server can go quiet once it has answered, and the catch-up run picks up anything it missed.
+- **Both of the above sit behind one constant, `AUTO_COAT_READING`**, merged as `false` under Decision A1 (also A2). A one-line PR flips it once SYC-2 PR 3.1 is live, so PR 2 can merge and be published with other work without reading anything. Under A3 it merges as `true`.
+- While it is `false`, a photo the team hides keeps its old reading until the switch is on. That's acceptable, because the team only hides a few photos.
 - A hide or restore needs no hook: R2 makes the cat due, and the next sweep reads it. That takes up to about 2 hours, which is acceptable for a team action and keeps `teamPhotos.ts` untouched.
 
 **Tests**
@@ -280,9 +322,13 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
 
 - `lib/catPicker.ts`: `colourFilter(list, selected)` is pure. It takes `pickerList`'s output and returns `{ matching, notKnown, hiddenCount }`.
   - A cat matches if any of its colours is selected.
+  - **A black-and-white cat also matches Black and White.** It is partly both, and someone who saw a tuxedo and tapped "Black" mustn't lose it, because a hidden cat is how duplicates get made. The chip *Black and white* matches only black-and-white cats.
   - A cat with `coat` missing or `[]` is always in `notKnown`, under any selection (spec test 13).
   - Both lists keep `pickerList`'s order exactly (K5, spec tests 14 and 18).
-  - Picking *Not sure* alone shows only `notKnown`. *All* means no filter.
+  - `hiddenCount` counts the cats that match the search but not the colour.
+  - Under *All* there is no "Colour not known" heading: one list, as today.
+  - Picking the not-known chip alone shows only `notKnown`.
+- **The not-known chip is labelled "Colour not known"** (`pickerColourNotKnown`, the same words as the heading), not "Not sure". The Greek `coat_not_sure` reads "I'm not sure", which suits a spotter answering a question but not a filter. This departs from spec §6's chip list in one word, and Johnny checks it.
 - `components/ColourChips.tsx` (new): the shared chip component, which SYC-2's PRs 4.2 and 4.3 reuse.
   - Each chip has a drawn picture and the word (D1): plain swatches for the five solid colours, stripes for tabby, patches for tortoiseshell or calico, a split for black and white, a question mark for Not sure. *All* has no picture.
   - Each chip is a toggle button with `accessibilityState.selected`.
@@ -308,6 +354,9 @@ Every PR is built in **its own worktree off fresh `origin/main`**, is one PR, an
   - the order is kept in both lists;
   - not-known cats are present under every selection;
   - a ginger tabby shows under Ginger and under Tabby;
+  - a black-and-white cat shows under Black, under White and under Black and white; a black cat doesn't show under Black and white;
+  - no "Colour not known" heading under *All*;
+  - `hiddenCount` counts only the cats the search matches;
   - the counts add up: matching + not known + hidden = total;
   - a cat from an old cache with no `coat` field is not known.
 - Screen:
@@ -357,23 +406,27 @@ Each publish follows the launch plan's routine: Samuel pulls main in Replit, Cla
    - Probe: `/api/healthz` shows the commit.
    - `POST /api/internal/coat/sweep` with no token answers 401 (curl).
    - The mail drain still answers as before (one manual `mail-drain` run).
-2. **Dry run.** `gh workflow run coat-readings.yml -f mode=dry_run`. Expect about 28 cats due, the same as the cats with a public photo in `GET /api/cats`. Compare the ids. Anything unexpected stops here.
+2. **Dry run.** `gh workflow run coat-readings.yml -f mode=dry_run`.
+   - The run goes through the drain token, which the pre-launch gate already lets in.
+   - Expect about 28 cats due. Compare the ids with the cats that have a public photo in `GET /api/cats`, read in the browser pane: Samuel's monthly pre-launch sign-in covers that, and Claude never types the password. If that sign-in has lapsed, Claude asks him to sign in again.
+   - Anything unexpected stops here.
 3. **Trial.** `mode=trial`, limit 50: about 28 calls.
-   - Claude builds a **contact sheet** (a private artifact) of each cat's public photo beside the trial colour. It is checked by eye, then sent to Samuel.
-   - If the share of clearly wrong readings is above about 1 in 10, the cut-off goes up, or the prompt changes (and `coat-v1` becomes `coat-v2`), and the trial runs again. Each extra trial costs one more set of calls.
-   - Recorded on SYC-161, with the SYC-56 labels it gives (SYC-56 comment).
-4. **Wait for SYC-2 PR 3.1 to be live** (Decision A1). Meanwhile PR 2 merges with `AUTO_COAT_READING = false`, so publishing it reads nothing. PR 3 merges only after the fill-in run (K4); under A2 it can go sooner.
-5. **Fill-in run.** `mode=write`, limit 50.
-   - Probe: `GET /api/cats` shows `coat` on every cat the trial read with a colour, and `[]` on the Not sure ones.
-   - A read-only query on production counts exactly one `system:vision` row per cat read, with no `backfill:` source.
-   - A second `mode=write` run writes **nothing** (proves rule R4 holds on production).
+   - Claude builds a **contact sheet** (a private artifact): each cat's public photo, loaded in the browser pane, beside the trial colour and the model's confidence. It is checked by eye, then sent to Samuel.
+   - If too many are wrong (more than about 1 in 10), the cut-off is raised from the trial's own numbers, at no new cost. If that isn't enough, the prompt changes (`coat-v1` becomes `coat-v2`), which takes a PR, Samuel's pull and a publish, and then another trial.
+   - The result is recorded on SYC-161, and the labels go to SYC-56.
+4. **Checked fill-in run** (Decision A1). `mode=write`, limit 50, `exclude` = the cats Samuel rejected.
+   - Probe: `GET /api/cats` shows `coat` on every cat written with a colour, and `[]` on the Not sure and excluded ones.
+   - A read-only query on production counts exactly one `system:vision` row per cat written, with no `backfill:` source.
+   - A dry run straight afterwards reports **0 due** apart from the excluded cats. That proves R4 holds on production; "no rows written" alone could be the budget talking.
    - Three cats' `lastSeen` values are unchanged from before.
-6. **The switch-on PR and PR 3 published.**
+   - A model call made now could answer differently from the trial. So the write run's answer is compared with the trial, cat by cat. Any cat whose colour changed is shown to Samuel before PR 3 merges.
+5. **PR 3 published.** The picker is checked on the live site at 390 px and desktop: the chips, "Colour not known", and the hidden line above "Add it as a new cat".
+6. **PR 2 published, switched off.** The next drain run's answer is checked: it reports no coat reading.
+7. **SYC-2 PR 3.1 live, then the switch-on PR published.**
    - The new-cat path is **not** probed by naming a test cat, because that would create public data on production. It is proven by PR 2's tests and by the next real new cat: Claude checks its row and says so on the ticket.
-   - The next drain run's answer is checked.
-   - The picker is checked on the live site at 390 px and desktop: the chips, "Colour not known", the hidden line above "Add it as a new cat".
+   - The next drain run's answer reports how many cats it read.
 
-**Heads-up before outside effects:** nothing in this rollout emails or messages anyone. The trial and the fill-in run touch only production's own records, and the fill-in run is the agreed change. Samuel gets one line of warning before step 5 anyway.
+**Heads-up before outside effects:** nothing in this rollout emails or messages anyone. The trial and the fill-in run touch only production's own records, and the fill-in run is the agreed change. Samuel gets one line of warning before step 4 anyway.
 
 ---
 
@@ -406,8 +459,8 @@ Nothing here waits in the offline queue.
 
 ## Where this collides with other work
 
-- **SYC-2 PR 3.1** (not started): Decision A1 waits for it. Its Appearance section should show the machine reading's photo and model version to the team. A comment on SYC-2 asks for that, and for 3.1 next.
-- **SYC-44** hides photos through `setPhotoVisibility` (author `report:<id>`), so its hides make cats due by R2, with nothing to change. Its PR 7.2 deletes hidden photos for good. A reading keeps its `photoId` after its photo is gone, and R2 then treats that photo as not public. Covered by T-due with a deleted photo row.
+- **SYC-2 PR 3.1** (not started): only the switch-on for new cats waits for it (Decision A1). Its Appearance section should show the machine reading's photo and model version to the team. A comment on SYC-2 asks for that, and for 3.1 next.
+- **SYC-44** hides photos through `setPhotoVisibility` (author `report:<id>`), so its hides make cats due by R2, with nothing to change. Its PR 7.2 deletes hidden photos for good. A reading keeps its `photoId` after its photo is gone, and the last reading stays (R2). T-due checks that a deleted photo is never read. The display gap for a deleted main photo is noted on SYC-44.
 - **SYC-163** (team chooses a main photo): R2 rule 2 already re-reads when the main photo changes.
 - **SYC-59** (merges): a merge doesn't combine readings (spec §8.5). Today merged cats refuse writes, so the reader skips them: `due.ts` reads through `cat_identity` like every other reader.
 - **The launch plan (#172):** Decision B. The launch-plan session agreed on 15 Oct. PR #172 at `b4c7668` lists SYC-161 as outside the launch, pending Decision B, and cut before the launch plan's own cuts. Its slots, if it lands, are Fri 23 and Mon 26 Oct, and its colours go public only after SYC-2 PR 3.1. The six picker strings are on SYC-346 for Johnny's pack.
@@ -423,7 +476,7 @@ This session is on Opus; the plan was written here. That's judgment across the s
 |---|---|---|---|
 | This plan | Opus (this session) | Weighing three specs, two earlier plans and the tree against each other | Independent adversarial review (below) |
 | Adversarial review of this plan | Sonnet, own worktree, read-only | Checking claims against files is ordinary search-and-compare | Every finding is checked by Opus against the file it names before it's folded in |
-| PR 1 build | Sonnet | Clear spec; the rules are written above | Tests plus mutation probes 1–9 (silent failures: a wrong `observedAt` or a re-read is "successful" but wrong); **Opus spot review of `due.ts` and `record.ts`**, justified because R2/R4's interplay with "newest machine reading" is the one place a green suite can hide a wrong answer |
+| PR 1 build | Sonnet | Clear spec; the rules are written above | Tests plus mutation probes 1–9, 2a and 2b. These are silent failures: a wrong `observedAt`, a re-read or a drifting stand-in rule each "succeeds" but is wrong. **Opus spot reviews `due.ts`, `record.ts` and `catDisplayPhotoIds`**, because how R2 and R4 interact with "newest machine reading" is the one place a green suite can hide a wrong answer |
 | PR 2 build | Sonnet | Small wiring | Tests plus its 3 mutation probes; `/ship` review |
 | PR 3 build | Sonnet | Standard UI and a pure function | Tests plus 4 mutation probes; the browser check at two widths in three languages; Samuel judges the chip pictures |
 | The i18n drafts | Sonnet, inside PR 3 | Short strings from the spec's English | i18n parity test; Johnny (SYC-283) |
@@ -451,4 +504,35 @@ Each PR's builder commits after each item and keeps an untracked `CHECKPOINT.md`
 
 ## Review outcome
 
-*(Filled in after the independent review.)*
+**Independent adversarial review** (Sonnet, its own worktree, read-only), 15 Oct 2026. It read the plan at `76d1dc8` and the code at `origin/main` `629fbea`. Verdict: "not ready to approve" until findings 1–4 were fixed. I checked findings 1, 2 and 7 against the files myself (`limits.ts:78`, `photoVisibility.ts:84-135`, `mail-drain.yml:55-64`). Every finding was accepted.
+
+| # | Severity | Finding | What changed |
+|---|---|---|---|
+| 1 | Blocker | R6's "3 tries in 7 days" can't be built: `limits.ts` refuses windows over a day | R6 is now 3 attempts a day, sliding. A photo that always fails costs at most 3 calls a day, and the hourly allowance caps it too |
+| 2 | Blocker | `catDisplayPhotos` returns web addresses, not photo ids | PR 1 adds `catDisplayPhotoIds`, sharing the one stand-in rule; T-ids; probe 2b |
+| 3 | Major | R2 (re-read a restored main photo) contradicted R4 (never read a photo twice) | A restore copies the earlier reading forward with no model call, unless the team marked it wrong; T-copy, T-newest, probe 2a |
+| 4 | Major | Decision A1 (wait for SYC-2 PR 3.1) contradicted B1's dates; two realistic options were missing | Decision A rewritten. The new A1 is a fill-in run Samuel has checked, with the readings he rejects left out, and automatic reading switched on after 3.1. A team "Mark wrong" built here is now option A4 |
+| 5 | Major | 30 calls an hour collided with a trial plus a fill-in run, and the manual limit of 50 was meaningless | 60 an hour, sliding; a run stops cleanly and reports what's left |
+| 6 | Major | A prompt change needs a PR, a pull and a publish | Said so. The trial returns the raw confidence and the cut-off, so tuning the cut-off needs no re-run |
+| 7 | Major | The new workflow could send the drain token anywhere | It has the same host check as `mail-drain.yml`. Decision D now says the password can spend money and what caps it |
+| 8 | Minor | New cats could use up the shared allowance | A separate `coat-read-new` allowance of 20 an hour |
+| 9 | Minor | Every photo hidden, or a deleted main photo, leaves an old reading; my "covered by T-due" claim was wrong | Stated as a rule (the last reading stays; the team marks it wrong if needed). Claim corrected; SYC-44 gets a comment about the display gap |
+| 10 | Minor | R2 rule 1 didn't say what "no machine reading" means | It means no machine row at all. Cats with a team colour are still read (stated, with the reason) |
+| 11 | Minor | Some probes could pass by luck | The race is forced with a hook. A resolver-level ordering test was added. The production probe checks "0 due", not just "no rows". How Claude gets past the pre-launch gate is stated |
+| 12 | Minor | Filter semantics unspecified | A black-and-white cat shows under Black and under White. No heading under *All*. The hidden count follows the search. The not-known chip reads "Colour not known" (it departs from spec §6 in one word; Johnny checks it) |
+| 13 | Minor | Jargon in Decisions C and D | Rewritten around what people notice; the technical names moved to one closing line |
+| 14 | Nit | Trial output, the stale "every 10 minutes" comment, the new-cat read being best effort, the run frequency | All fixed |
+
+**Hard constraints the review checked and found holding:**
+- one colour list, and `resolveCoat` reused;
+- machine rows with `system:vision`, machine provenance, `photoId` and `modelVersion`;
+- a new reading is always a new row;
+- a single spotter never overturns the machine, and the machine never beats the team or a guardian;
+- `[]` means not known;
+- no cache-key bump and no migration;
+- no colour in the matcher;
+- not evidence of life, and never notifiable;
+- the public sees the colour only;
+- the offline claims match spec §4.5.
+
+One new risk came out of the fixes. A write run calls the model again, so its answer can differ from the trial's. Rollout step 4 compares the two cat by cat, and shows Samuel any cat whose colour changed before the chips merge.
