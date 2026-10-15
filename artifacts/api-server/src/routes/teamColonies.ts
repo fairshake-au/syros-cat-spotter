@@ -1,6 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { can, holdsIslandRow } from "../lib/capabilities";
+import { ObservationRefused } from "../lib/observations";
+import { ADD_CATS_MAX, colonyRef, placeCats, searchCatsToAdd } from "../lib/colonyCats";
 import { foldName } from "@workspace/db";
 import {
   COLONY_NAME_MAX,
@@ -13,6 +15,7 @@ import {
   type ColonyChanges,
 } from "../lib/teamColonies";
 import {
+  renderAddCatsPage,
   renderColoniesPage,
   renderColonyPage,
   renderColonyProblem,
@@ -305,6 +308,114 @@ router.post(
       case "saved":
         if (isFormPost(req)) return void res.redirect(303, colonyPage(id, "saved"));
         return void res.json({ changed: outcome.events });
+    }
+  },
+);
+
+// ── Adding cats ────────────────────────────────────────────────────────────
+
+/** The ticked cats: one id or several, as the form sends them, or a JSON list. */
+const AddCatsForm = z.object({
+  catIds: z.preprocess(
+    (v) => (typeof v === "string" || typeof v === "number" ? [v] : v),
+    z
+      .array(
+        z.union([
+          z.string().regex(ID_RE),
+          z.number().int().min(1).max(999_999_999),
+        ]),
+      )
+      .min(1)
+      .max(ADD_CATS_MAX),
+  ),
+});
+
+/** The page for finding cats to add (`assign_cat_to_colony`). */
+router.get(
+  "/team/colonies/:id/cats",
+  requireTeam("assign_cat_to_colony"),
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    setTeamHeaders(res);
+    const raw = String(req.params["id"]);
+    const colony = ID_RE.test(raw) ? await colonyRef(Number(raw)) : null;
+    if (!colony) {
+      if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
+      return void res.status(404).type("html").send(renderNoSuchColony(person.name));
+    }
+    const q = typeof req.query["q"] === "string" ? req.query["q"].slice(0, QUERY_MAX) : "";
+    // A NUL can match nothing (Postgres can't hold one) and is never echoed.
+    const unmatchable = q.includes(NUL);
+    const results = unmatchable ? [] : await searchCatsToAdd(q);
+    if (wantsJson(req)) return void res.json({ colony, query: unmatchable ? "" : q, results });
+    res
+      .type("html")
+      .send(
+        renderAddCatsPage({
+          colony,
+          query: unmatchable ? "" : q,
+          results,
+          personName: person.name,
+        }),
+      );
+  },
+);
+
+/**
+ * Puts the ticked cats in this colony, one signed statement each, all or
+ * none (`assign_cat_to_colony`, no target).
+ */
+router.post(
+  "/team/colonies/:id/cats",
+  ...formRoute("assign_cat_to_colony"),
+  async (req: Request, res: Response) => {
+    const person = teamPerson(res);
+    const raw = String(req.params["id"]);
+    if (!ID_RE.test(raw)) return notFound(req, res);
+    const id = Number(raw);
+    const back = { href: `${colonyPage(id)}/cats`, label: t("problem.backToAdd") };
+    const parsed = AddCatsForm.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      if (!isFormPost(req)) {
+        return void res
+          .status(400)
+          .json({ error: "Invalid request", fields: fieldsOf(parsed.error) });
+      }
+      return void res
+        .status(400)
+        .type("html")
+        .send(renderColonyProblem(person.name, t("problem.pickCats"), back));
+    }
+    try {
+      const out = await placeCats(person, id, parsed.data.catIds.map(Number));
+      switch (out.kind) {
+        case "no_colony":
+          return notFound(req, res);
+        case "no_cat":
+          if (!isFormPost(req)) {
+            return void res.status(400).json({ error: "Invalid request", fields: ["catIds"] });
+          }
+          return void res
+            .status(400)
+            .type("html")
+            .send(renderColonyProblem(person.name, t("problem.noSuchCat"), back));
+        case "done":
+          if (isFormPost(req)) {
+            return void res.redirect(
+              303,
+              colonyPage(id, out.written.length > 0 ? "added" : "nothingNew"),
+            );
+          }
+          return void res
+            .status(out.written.length > 0 ? 201 : 200)
+            .json({ added: out.written.length, skipped: out.skipped, statementIds: out.written });
+      }
+    } catch (err) {
+      if (err instanceof ObservationRefused && err.code === "NOT_AUTHORISED") {
+        req.log.info({ reason: "missing_capability" }, "colony change refused");
+        return refuseSignedIn(req, res);
+      }
+      throw err;
     }
   },
 );

@@ -1,4 +1,5 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type Capability } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
@@ -45,11 +46,13 @@ export type DirectKind = (typeof DIRECT_KINDS)[number];
 
 /** Which capability gates writing or superseding a given kind. `ear_tip` has
  * no capability of its own — a clipped-tip correction feeds sterilised, so
- * it is gated the same way sterilised itself is. Any other kind (note,
- * colony, name, …) has no team capability here and is refused. */
+ * it is gated the same way sterilised itself is. `colony` (SYC-209 PR 2.2)
+ * is gated by `assign_cat_to_colony`. Any other kind (note, name, …) has no
+ * team capability here and is refused. */
 export function capabilityFor(kind: string): Capability | null {
   if (kind === "life_status") return "set_life_status";
   if (kind === "sterilised" || kind === "ear_tip") return "set_sterilisation";
+  if (kind === "colony") return "assign_cat_to_colony";
   return null;
 }
 
@@ -58,7 +61,55 @@ export function capabilityFor(kind: string): Capability | null {
 export const SUPERSEDE_CAPABILITIES: readonly Capability[] = [
   "set_life_status",
   "set_sterilisation",
+  "assign_cat_to_colony",
 ];
+
+/**
+ * What a cat's colony statements say once `original` is marked wrong (spec
+ * §2.8): the colony of the newest of the OTHER active statements, or
+ * `{ colonyId: null }` if there are none. "Newest" and "active" are the
+ * rule in lib/colonyMembership.ts (latest `observedAt`, then the higher id;
+ * not superseded, not redacted), so a cat's colony after "Mark wrong" is
+ * exactly what `currentColonyOf` would have said had the wrong statement
+ * never been made.
+ *
+ * Worked out here, on the server, inside the caller's transaction, and never
+ * taken from a form or a JSON body: whoever marks a statement wrong chooses
+ * nothing about where the cat goes instead.
+ */
+async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{ colonyId: number | null }> {
+  const replacer = alias(observationsTable, "replacer");
+  const [next] = await tx
+    .select({ value: observationsTable.value })
+    .from(observationsTable)
+    .where(
+      and(
+        eq(observationsTable.catId, original.catId),
+        eq(observationsTable.kind, "colony"),
+        isNull(observationsTable.redactedAt),
+        // Only ORIGINAL statements say where the cat goes back to. A row that
+        // itself supersedes something is the system's own restatement (what
+        // an earlier Mark wrong wrote: a copy of the colony that then stood),
+        // and choosing it would put the cat back in a colony whose statement
+        // was just marked wrong (A -> B -> C, mark C wrong writes a copy of B;
+        // marking B wrong must then land on A, not on that copy). This relies
+        // on colony statements being superseded only by Mark wrong, which is
+        // the only path that writes one.
+        isNull(observationsTable.supersedesId),
+        sql`${observationsTable.id} <> ${original.id}`,
+        notExists(
+          tx
+            .select({ one: sql`1` })
+            .from(replacer)
+            .where(eq(replacer.supersedesId, observationsTable.id)),
+        ),
+      ),
+    )
+    .orderBy(desc(observationsTable.observedAt), desc(observationsTable.id))
+    .limit(1);
+  const colonyId = (next?.value as { colonyId?: unknown } | undefined)?.colonyId;
+  return { colonyId: typeof colonyId === "number" ? colonyId : null };
+}
 
 const notAuthorised = () =>
   new ObservationRefused("NOT_AUTHORISED", "Not authorised");
@@ -294,13 +345,24 @@ export async function supersedeStatement(
     const capability = capabilityFor(original.kind);
     if (!capability || !can(person, capability)) throw notAuthorised();
 
+    // A colony statement is the one kind whose replacement is not the
+    // caller's to choose (spec §2.8): the cat goes back to where its other
+    // statements put it. The cat is locked first, so two people marking two
+    // of its statements wrong queue up and each sees what the other left.
+    const isColony = original.kind === "colony";
+    if (isColony) {
+      await tx.execute(sql`select id from cats where id = ${original.catId} for update`);
+    }
+    const value = isColony ? await colonyAfterMarkingWrong(tx, original) : input.value;
+
     const row = await writeObservation(tx, {
       catId: original.catId,
       kind: original.kind as ObservationKind,
-      value: input.value,
+      value,
       accountId: person.id,
       roleAtTime: actingRole(person, capability, await catTarget(original.catId, tx)),
-      observedAt: input.observedAt ?? new Date(),
+      // Now, not the caller's date: nothing about a colony change is dated by the team.
+      observedAt: isColony ? new Date() : (input.observedAt ?? new Date()),
       supersedesId: original.id,
       supersedeReason: input.reason,
     });

@@ -642,10 +642,13 @@ describe("the list and a colony's page", () => {
     expect(list).toContain("2 feeding sites · 1 cats");
 
     const page = (await get(`/api/team/colonies/${a}`)).text;
-    expect(page).toContain(`href="/api/team/cats/${stays.id}"`);
+    // The cats listed now. (The history, further down, also names cats that
+    // have since left, from PR 2.2, so only the Cats section is looked at.)
+    const catsSection = page.slice(page.indexOf("<h2>Cats</h2>"), page.indexOf("<h2>Team-only notes</h2>"));
+    expect(catsSection).toContain(`href="/api/team/cats/${stays.id}"`);
     expect(page).toContain(`src="/api/team/photos/${stays.photoPublicId}"`);
-    expect(page).not.toContain(`/api/team/cats/${moved.id}"`);
-    expect(page).not.toContain(`/api/team/cats/${gone.id}"`);
+    expect(catsSection).not.toContain(`/api/team/cats/${moved.id}"`);
+    expect(catsSection).not.toContain(`/api/team/cats/${gone.id}"`);
     expect(page).toContain(`${P}site-1`);
     expect(page).not.toContain(`${P}site-closed`);
     expect(page).toContain("&lt;b&gt;notes&lt;/b&gt;");

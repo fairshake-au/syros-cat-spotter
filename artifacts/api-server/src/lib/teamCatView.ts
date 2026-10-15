@@ -1,5 +1,7 @@
 import {
   catsTable,
+  coloniesTable,
+  colonyNameHistoryTable,
   db,
   foldName,
   isPersonId,
@@ -9,7 +11,8 @@ import {
   observationsTable,
   type Observation,
 } from "@workspace/db";
-import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
 import { can, type CapabilityHolder } from "./capabilities";
@@ -127,6 +130,8 @@ export function describeStatement(
   raw: unknown,
   /** Written by a phone (the owner) rather than a team member: words a withdrawal. */
   byDevice = false,
+  /** For a `colony` statement: the colony's name, as the page words it. */
+  colonyLabel: string | null = null,
 ): string {
   const v = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   switch (kind) {
@@ -170,9 +175,13 @@ export function describeStatement(
     case "name":
       return str(v["name"]) ? `Named “${v["name"] as string}”` : "Named";
     case "colony":
+      // By name, never by number. A colony that has gone from the list (it
+      // can't today) falls back to its number rather than saying nothing.
       return typeof v["colonyId"] === "number"
-        ? `Put in colony ${v["colonyId"]}`
-        : "Colony";
+        ? colonyLabel
+          ? `Put in the colony ${colonyLabel}`
+          : `Put in colony ${v["colonyId"]}`
+        : "Taken out of its colony";
     case "welfare_report":
       return `Welfare report: ${SEVERITY[v["severity"] as string] ?? "unknown severity"}${v["isLitter"] === true ? ", kittens" : ""}`;
     case "welfare_outcome":
@@ -244,7 +253,9 @@ export interface TeamStatement {
 export type StatementCorrection =
   | { kind: "life_status"; now: LifeStatusValue | null }
   | { kind: "sterilised"; now: boolean | null }
-  | { kind: "ear_tip_clipped" };
+  | { kind: "ear_tip_clipped" }
+  /** A colony statement. The replacement is worked out on the server. */
+  | { kind: "colony" };
 
 /** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
 export function isOwnerHomed(o: Observation, onlyCatId?: number): boolean {
@@ -281,6 +292,7 @@ function correctionOf(o: Observation, replaced: boolean): StatementCorrection | 
     };
   }
   if (o.kind === "ear_tip" && v["clipped"] === true) return { kind: "ear_tip_clipped" };
+  if (o.kind === "colony") return { kind: "colony" };
   return null;
 }
 
@@ -336,6 +348,12 @@ export interface TeamCatView {
     homeDescription: string | null;
     homePin: { lat: number; lng: number } | null;
   };
+  /**
+   * The colony the cat is in now (lib/colonyMembership.ts), by name, or null.
+   * `wasName` is set when the colony has been renamed since the statement
+   * that put the cat there ("Vaporia — Eleni's (was Vaporia)").
+   */
+  colony: { id: number; name: string; wasName: string | null } | null;
   /** Exactly what the public cat page says (catHelpers.deriveCatStatuses). */
   publicStatus: DerivedCatStatus;
   /** The team-only detail behind it, straight from the resolver. */
@@ -487,6 +505,52 @@ async function crossCatLinks(observations: readonly Observation[]) {
   return { movedTo, movedFrom };
 }
 
+/**
+ * Colony names for a cat's page: today's name, and the name the colony had
+ * when a statement was made (the earliest earlier name replaced after it), so
+ * a rename since shows as "(was …)". A name removed at someone's request
+ * (redacted) is never shown.
+ */
+async function colonyNameLookup(colonyIds: readonly number[]) {
+  const ids = [...new Set(colonyIds)];
+  const current = new Map<number, string>();
+  const earlier = new Map<number, { name: string | null; at: number }[]>();
+  if (ids.length > 0) {
+    const [colonies, olds] = await Promise.all([
+      db
+        .select({ id: coloniesTable.id, name: coloniesTable.name })
+        .from(coloniesTable)
+        .where(inArray(coloniesTable.id, ids)),
+      db
+        .select({
+          colonyId: colonyNameHistoryTable.colonyId,
+          name: colonyNameHistoryTable.name,
+          replacedAt: colonyNameHistoryTable.replacedAt,
+          redactedAt: colonyNameHistoryTable.redactedAt,
+        })
+        .from(colonyNameHistoryTable)
+        .where(inArray(colonyNameHistoryTable.colonyId, ids))
+        .orderBy(asc(colonyNameHistoryTable.replacedAt), asc(colonyNameHistoryTable.id)),
+    ]);
+    for (const c of colonies) current.set(c.id, c.name);
+    for (const o of olds) {
+      const list = earlier.get(o.colonyId) ?? [];
+      list.push({ name: o.redactedAt === null ? o.name : null, at: o.replacedAt.getTime() });
+      earlier.set(o.colonyId, list);
+    }
+  }
+  return (colonyId: number, at: Date): { name: string | null; wasName: string | null } => {
+    const name = current.get(colonyId) ?? null;
+    const then = earlier.get(colonyId)?.find((e) => e.at > at.getTime());
+    const wasName = then && then.name !== null && then.name !== name ? then.name : null;
+    return { name, wasName };
+  };
+}
+
+/** The colony as the history words it, quoted, with the earlier name after it. */
+const colonyWords = (l: { name: string | null; wasName: string | null }) =>
+  l.name === null ? null : l.wasName ? `“${l.name}” (was “${l.wasName}”)` : `“${l.name}”`;
+
 /** The team's view of one cat, or null if there is no such cat. */
 export async function teamCatView(
   catId: number,
@@ -551,6 +615,32 @@ export async function teamCatView(
   const life = resolveLifeStatus(observations, evidence, now);
   const sterilised = resolveSterilised(observations, []);
 
+  // The colony: which one stands is lib/colonyMembership.ts's rule alone;
+  // here it is only given a name. The statement that put the cat there says
+  // when, so a rename since can be shown.
+  const colonyOfStatement = (o: Observation): number | null => {
+    const id = (o.value as { colonyId?: unknown } | null)?.colonyId;
+    return typeof id === "number" ? id : null;
+  };
+  const standingColonyId = (await currentColonyOf([cat.id])).get(cat.id) ?? null;
+  const colonyNameAt = await colonyNameLookup(
+    observations.map(colonyOfStatement).filter((id): id is number => id !== null),
+  );
+  let colony: TeamCatView["colony"] = null;
+  if (standingColonyId !== null) {
+    const putIn = observations
+      .filter(
+        (o) =>
+          o.kind === "colony" &&
+          !replacedIds.has(o.id) &&
+          o.redactedAt === null &&
+          colonyOfStatement(o) === standingColonyId,
+      )
+      .sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime() || b.id - a.id)[0];
+    const l = colonyNameAt(standingColonyId, putIn?.createdAt ?? now);
+    if (l.name !== null) colony = { id: standingColonyId, name: l.name, wasName: l.wasName };
+  }
+
   const replacedBy = new Map<number, number[]>();
   for (const o of observations) {
     if (o.supersedesId == null) continue;
@@ -566,7 +656,14 @@ export async function teamCatView(
     .map((o) => ({
       id: o.id,
       kind: o.kind,
-      said: describeStatement(o.kind, o.value, o.accountId == null),
+      said: describeStatement(
+        o.kind,
+        o.value,
+        o.accountId == null,
+        o.kind === "colony" && colonyOfStatement(o) !== null
+          ? colonyWords(colonyNameAt(colonyOfStatement(o)!, o.createdAt))
+          : null,
+      ),
       reason: reasonOf(o),
       author: authorOf(o, people),
       observedAt: o.observedAt.toISOString(),
@@ -622,6 +719,7 @@ export async function teamCatView(
           ? { lat: cat.homeLat, lng: cat.homeLng }
           : null,
     },
+    colony,
     publicStatus: statuses.get(cat.id)!,
     records: {
       lifeStatus: {
@@ -668,7 +766,7 @@ export interface TeamCatSearchResult {
 }
 
 /** "SYR-0012", "syr 12", "SYR12" or "12": cat 12. */
-const SYR_RE = /^(?:syr)?[\s-]*0*(\d{1,9})$/i;
+export const SYR_RE =/^(?:syr)?[\s-]*0*(\d{1,9})$/i;
 
 /**
  * Cats whose name matches `q` on the folded form (foldName: case, accents,
