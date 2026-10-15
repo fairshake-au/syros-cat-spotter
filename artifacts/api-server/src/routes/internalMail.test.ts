@@ -266,3 +266,42 @@ describe("test 16: the drain fails loudly when an alert is over an hour late", (
     expect((await drain(DRAIN_TOKEN)).status).toBe(200);
   });
 });
+
+describe("T4-5 (SYC-44 PR 4.1): a welfare_alert for a 'Report an issue' row is never sent", () => {
+  it("is marked failed wrong_kind, never built with the welfare copy, and the welfare alert beside it still goes", async () => {
+    const welfare = await seedReport();
+    // A content row has no position; someone queues a welfare_alert for it.
+    const [content] = await db
+      .insert(welfareReportsTable)
+      .values({
+        publicId: `pub-${randomBytes(10).toString("hex")}`,
+        kind: "content",
+        reason: "other",
+        severity: "attention",
+        lat: null,
+        lng: null,
+        reporterDevice: DEVICE,
+        clientRef: randomBytes(6).toString("hex"),
+        photoState: "none",
+        submittedAt: new Date(),
+      })
+      .returning();
+    await db.insert(mailOutboxTable).values({
+      purpose: "welfare_alert",
+      reportId: content!.id,
+      recipientHash: "0000000000000000",
+      payload: { kind: "alert" },
+      nextAttemptAt: new Date(Date.now() - 1000),
+    });
+
+    await drainDue(10);
+
+    const [row] = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.reportId, content!.id));
+    expect(row!.state).toBe("failed");
+    expect(row!.lastError).toBe("wrong_kind");
+    expect(row!.sentAt).toBeNull();
+    // Only the welfare report's email went out; nothing mentions the content row.
+    expect(sentIds).toEqual([welfare.publicId]);
+    expect(sentIds).not.toContain(content!.publicId);
+  });
+});
