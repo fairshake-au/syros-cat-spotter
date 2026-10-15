@@ -22,6 +22,7 @@ import {
   signInThroughHandoff,
   TEAM_ORIGIN,
 } from "../lib/teamAuth/__fixtures__/queueKit";
+import { deleteTestRows } from "../test/deleteGuarded";
 import { recordMappingEvent } from "../lib/mappingEvents";
 import { currentColonyOf } from "../lib/colonyMembership";
 
@@ -203,7 +204,7 @@ beforeEach(() => {
 afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
-  await db.delete(feedingSitesTable).where(like(feedingSitesTable.name, `${P}%`));
+  await deleteTestRows("feeding_sites", "name like $1", [`${P}%`]);
   await db.delete(catsTable).where(like(catsTable.name, `${P}%`));
   await db.delete(photosTable).where(inArray(photosTable.id, photoIds));
   await pool.end();

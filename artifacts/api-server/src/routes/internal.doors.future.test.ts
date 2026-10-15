@@ -4,6 +4,7 @@ import request from "supertest";
 import { addPerson, pool } from "@workspace/db";
 import app from "../app";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { deleteTestRows } from "../test/deleteGuarded";
 
 // The two doors once a cat guardian holds a dashboard capability (SYC-53 plan
 // PR 0.4, T7 and the T27 probe).
@@ -71,7 +72,7 @@ afterAll(async () => {
   delete process.env["INTERNAL_PEOPLE_TOKEN"];
   await removeTestPerson(GUARDIAN);
   await removeTestPerson(STAFF);
-  await pool.query("delete from colonies where id = $1", [colonyId]);
+  await deleteTestRows("colonies", "id = $1", [colonyId]);
   await pool.end();
 });
 

@@ -1,5 +1,5 @@
 import { db, feedingSitesTable } from "@workspace/db";
-import { like } from "drizzle-orm";
+import { deleteTestRows } from "./deleteGuarded";
 
 /**
  * Test seeding for feeding sites (SYC-245). Every seeded site is named
@@ -22,7 +22,5 @@ export async function seedFeedingSite(lat: number, lng: number): Promise<void> {
 }
 
 export async function deleteTestFeedingSites(): Promise<void> {
-  await db
-    .delete(feedingSitesTable)
-    .where(like(feedingSitesTable.name, `${SITE_PREFIX}%`));
+  await deleteTestRows("feeding_sites", "name like $1", [`${SITE_PREFIX}%`]);
 }

@@ -17,6 +17,9 @@ const GUARDS: [table: string, trigger: string][] = [
   ["mapping_events", "mapping_events_no_truncate"],
   ["feeding_site_old_codes", "feeding_site_old_codes_no_truncate"],
   ["person_events", "person_events_no_truncate"],
+  // SYC-298: sites and colonies refuse TRUNCATE too, and people reach them.
+  ["feeding_sites", "feeding_sites_no_truncate"],
+  ["colonies", "colonies_no_truncate"],
 ];
 
 /** `truncate <tables> cascade` with the guards the cascade reaches off. */
@@ -26,11 +29,20 @@ export async function truncateWithGuardsOff(
 ): Promise<void> {
   await c.query("begin");
   try {
-    for (const [table, trigger] of GUARDS) {
+    // A test database migrated only part of the way lacks the newer guards.
+    const present = new Set(
+      (
+        await c.query<{ tgname: string }>(
+          `select tgname from pg_trigger where not tgisinternal`,
+        )
+      ).rows.map((r) => r.tgname),
+    );
+    const guards = GUARDS.filter(([, trigger]) => present.has(trigger));
+    for (const [table, trigger] of guards) {
       await c.query(`alter table ${table} disable trigger ${trigger}`);
     }
     await c.query(`truncate ${tables} cascade`);
-    for (const [table, trigger] of GUARDS) {
+    for (const [table, trigger] of guards) {
       await c.query(`alter table ${table} enable trigger ${trigger}`);
     }
     await c.query("commit");
