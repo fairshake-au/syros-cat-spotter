@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
   check,
-  customType,
   index,
   integer,
   pgTable,
@@ -9,6 +8,7 @@ import {
   smallint,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { bytea } from "./bytea";
 
 /**
  * The team map's picture cache (SYC-209 PR 3.1; feeding-sites spec §3,
@@ -29,12 +29,6 @@ import {
  * are here says which streets the team has looked at. The table is never
  * read by a public route and its rows are never logged.
  */
-
-const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType() {
-    return "bytea";
-  },
-});
 
 export const mapTileCacheTable = pgTable(
   "map_tile_cache",

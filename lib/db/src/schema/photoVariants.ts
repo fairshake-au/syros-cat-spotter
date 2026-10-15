@@ -1,13 +1,13 @@
 import { sql } from "drizzle-orm";
 import {
   check,
-  customType,
   integer,
   pgTable,
   primaryKey,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { bytea } from "./bytea";
 import { photosTable } from "./photos";
 
 /**
@@ -20,12 +20,6 @@ import { photosTable } from "./photos";
  * kept. Removing a photo removes its versions with it (the cascade). The
  * versions are only ever served through the visibility-checked team route.
  */
-
-const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType() {
-    return "bytea";
-  },
-});
 
 export const photoVariantsTable = pgTable(
   "photo_variants",
