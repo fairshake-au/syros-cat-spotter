@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 
 // Spec §3.2 / risk 2: a feeding site's internal name usually holds a
 // guardian's name ("Vaporia — Eleni's"), so it must never reach a place
-// label. placeLabel's second argument is the site's PUBLIC label only. This
-// reads every source file under lib/ and routes/ and goes red if a call to
-// placeLabel( passes anything ending in `.name`.
+// label. The compiler is the main guard (placeLabel's second argument is a
+// branded PublicLabel). This text check is the backstop: it reads every source
+// file under src/ and goes red if a call to placeLabel( passes anything ending
+// in `.name`.
 
 const SRC = join(__dirname, "..", "..");
 const isTestSupport = (rel: string) =>
@@ -21,22 +22,21 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
-function sourceFiles(roots: string[]): string[] {
+function sourceFiles(): string[] {
   const out: string[] = [];
-  for (const root of roots) {
-    for (const path of walk(join(SRC, root))) {
-      const rel = relative(SRC, path).split(sep).join("/");
-      if (/\.(ts|tsx|js|mjs)$/.test(rel) && !isTestSupport(rel)) out.push(rel);
-    }
+  for (const path of walk(SRC)) {
+    const rel = relative(SRC, path).split(sep).join("/");
+    if (/\.(ts|tsx|js|mjs)$/.test(rel) && !isTestSupport(rel)) out.push(rel);
   }
   return out;
 }
 
 describe("placeLabel never takes a site's internal name", () => {
-  const files = sourceFiles(["lib", "routes"]);
+  const files = sourceFiles();
 
   it("scans a real set of files (an empty walk would pass for the wrong reason)", () => {
     expect(files.length).toBeGreaterThan(50);
+    expect(files.some((f) => f.startsWith("middlewares/"))).toBe(true); // wider than lib/ and routes/
   });
 
   it("placeLabel exists where the guard expects it", () => {
@@ -45,9 +45,10 @@ describe("placeLabel never takes a site's internal name", () => {
     );
   });
 
-  for (const file of files) {
-    it(`${file} never builds a place label from a site's internal name`, () => {
-      expect(readFileSync(join(SRC, file), "utf8")).not.toMatch(/placeLabel\([^)]*\.name\b/);
-    });
-  }
+  it("no source file under src/ builds a place label from a site's internal name", () => {
+    const offenders = files.filter((f) =>
+      /placeLabel\([^)]*\.name\b/.test(readFileSync(join(SRC, f), "utf8")),
+    );
+    expect(offenders).toEqual([]);
+  });
 });
