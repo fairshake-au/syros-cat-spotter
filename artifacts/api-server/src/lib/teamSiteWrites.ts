@@ -184,6 +184,11 @@ export interface SiteDetails {
   directions?: string | null;
 }
 
+// Retired sites stay editable, movable and re-colonisable, by decision (review
+// of PR 3.3): it is harmless (a retired site is private and off every list
+// by default) and lets the team tidy the records. Only Retire itself refuses
+// a retired site.
+
 /**
  * Name, notes and "how to find it": one history row for each that differs. A
  * field left out (undefined) is left alone; null clears notes and directions.
