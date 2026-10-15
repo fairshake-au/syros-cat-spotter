@@ -12,7 +12,8 @@ import { visibleColonyIds, isIslandWide } from "../lib/guardianView";
 import { guardianOn, putInColony, seedCat, type SeededCat, type Signed } from "../test/roleKit";
 import { viewAround } from "../lib/mapTiles/geometry";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
-import { renderNameTaken } from "../lib/teamPages/colonyPages";
+import { renderColonyLine, renderNameTaken } from "../lib/teamPages/colonyPages";
+import { colonyLineFor } from "../lib/colonyCats";
 import { removeTestPerson } from "../test/removeTestPerson";
 
 // SYC-209 PR 4.1: what a cat guardian sees (feeding-sites spec §7.3; plan
@@ -402,6 +403,34 @@ describe("what a guardian does see: her own colonies, in full", () => {
     const options = [...res.text.matchAll(/<option value="(\d*)"/g)].map((m) => m[1]);
     expect(options).toEqual(["", String(c1)]);
     expect(res.text).toContain(`<option value="${c1}" selected>`);
+  });
+
+  it("Show on our map on her cat's sighting: her Feeding sites page, centred there", async () => {
+    const res = await post("/api/team/sites/map-at-sighting", { sightingId: String(sightA) }, eleni.cookie);
+    expect(res.status).toBe(200);
+    expect(decoded(res.text)).toContain(S1_NAME);
+  });
+
+  it("the cat page's colony line: her colony by name, another colony unnamed (roles PR 2.1 draws it)", async () => {
+    const mine = visibleColonyIds({ scopes: [{ role: "guardian", colonyId: c1 }] });
+    const lineB = await colonyLineFor(mine, catB.id);
+    expect(lineB).toEqual({ kind: "another" });
+    const htmlB = renderColonyLine(lineB);
+    expect(htmlB).toBe("another colony");
+    expect(htmlB).not.toContain(C2_NAME);
+    expect(htmlB).not.toContain("href");
+    const lineA = await colonyLineFor(mine, catA.id);
+    expect(lineA).toEqual({ kind: "here", id: c1, name: C1_NAME });
+    expect(renderColonyLine(lineA)).toBe(`<a href="/api/team/colonies/${c1}">${C1_NAME.replace(/'/g, "&#39;")}</a>`);
+    // The team sees every colony by name.
+    expect(await colonyLineFor(visibleColonyIds(staffPerson()), catB.id)).toEqual({ kind: "here", id: c2, name: C2_NAME });
+    const nowhere = await seedCat(null);
+    expect(renderColonyLine(await colonyLineFor(mine, nowhere.id))).toBe("Not in a colony");
+  });
+
+  it("the team's cat page stays the team's: a guardian is refused even for her own cat", async () => {
+    const res = await get(`/api/team/cats/${catA.id}`, eleni.cookie, "json");
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
   });
 
   it("the colony pick lists hold her colonies only", async () => {

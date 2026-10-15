@@ -475,3 +475,32 @@ export function renderAddCatsPage(opts: ColonyViewer & {
     body: search + body,
   });
 }
+
+// ── A cat's colony line, for someone who may not see every colony ──────────
+
+/** What `colonyLineFor` (lib/colonyCats.ts) says about a cat's colony. */
+export type ColonyLine =
+  | { kind: "none" }
+  | { kind: "another" }
+  | { kind: "here"; id: number; name: string };
+
+/**
+ * A cat's colony line (spec §7.3, "Cat page colony line"): the colony's name
+ * with a link if the viewer sees it, "another colony" (no name, no number, no
+ * link) if it is one she doesn't, or "Not in a colony". Trusted HTML.
+ *
+ * Built and tested in SYC-209 PR 4.1. The team's cat page is island-only and
+ * is not changed here; the roles plan's PR 2.1 (a guardian's own cat page)
+ * draws this line.
+ */
+export function renderColonyLine(line: ColonyLine, lang?: string): string {
+  const { w } = wordsIn(lang);
+  switch (line.kind) {
+    case "here":
+      return `<a href="${esc(colonyHref(line.id))}">${esc(line.name)}</a>`;
+    case "another":
+      return w("colony.another");
+    case "none":
+      return w("colony.none");
+  }
+}

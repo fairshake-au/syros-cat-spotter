@@ -493,6 +493,7 @@ export const el: Record<StringKey, string> = {
   "taken.cantUse": "Αυτό το όνομα δεν μπορεί να χρησιμοποιηθεί.",
   "add.another": "Σε άλλη αποικία",
   "colony.another": "άλλη αποικία",
+  "colony.none": "Σε καμία αποικία",
   "map.alt": "Χάρτης της Σύρου",
   "map.altPlace": "Χάρτης της Σύρου. Πατήστε ένα σημείο για να το επιλέξετε.",
   "map.aria": "Χάρτης της Σύρου, ζουμ {zoom} από {max}",

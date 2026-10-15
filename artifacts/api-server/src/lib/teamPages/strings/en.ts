@@ -517,6 +517,7 @@ export const en = {
   "taken.cantUse": "That name can't be used.",
   "add.another": "In another colony",
   "colony.another": "another colony",
+  "colony.none": "Not in a colony",
   "map.alt": "Map of Syros",
   "map.altPlace": "Map of Syros. Tap a spot to pick it.",
   "map.aria": "Map of Syros, zoom {zoom} of {max}",

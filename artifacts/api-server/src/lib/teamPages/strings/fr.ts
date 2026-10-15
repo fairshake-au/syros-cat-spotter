@@ -493,6 +493,7 @@ export const fr: Record<StringKey, string> = {
   "taken.cantUse": "Ce nom ne peut pas être utilisé.",
   "add.another": "Dans une autre colonie",
   "colony.another": "une autre colonie",
+  "colony.none": "Dans aucune colonie",
   "map.alt": "Carte de Syros",
   "map.altPlace": "Carte de Syros. Touche un endroit pour le choisir.",
   "map.aria": "Carte de Syros, zoom {zoom} sur {max}",
