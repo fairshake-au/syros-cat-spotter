@@ -1,6 +1,7 @@
 import { catsTable, coloniesTable, db, foldName, photosTable } from "@workspace/db";
 import { asc, eq, inArray, or, sql } from "drizzle-orm";
 import { actingRole, can } from "./capabilities";
+import { catTarget } from "./capabilityTargets";
 import { currentColonyOf } from "./colonyMembership";
 import { ObservationRefused, writeObservation } from "./observations";
 import { SYR_RE, syrNumber, teamPhotoUrl } from "./teamCatView";
@@ -91,7 +92,7 @@ export async function placeCats(
         kind: "colony",
         value: { colonyId },
         accountId: person.id,
-        roleAtTime: actingRole(person, "assign_cat_to_colony"),
+        roleAtTime: actingRole(person, "assign_cat_to_colony", await catTarget(catId, tx)),
         observedAt: new Date(),
       });
       written.push(row.id);

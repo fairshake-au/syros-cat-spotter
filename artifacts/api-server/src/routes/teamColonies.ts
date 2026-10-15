@@ -413,7 +413,7 @@ router.post(
     } catch (err) {
       if (err instanceof ObservationRefused && err.code === "NOT_AUTHORISED") {
         req.log.info({ reason: "missing_capability" }, "colony change refused");
-        return refuseNotSignedIn(req, res);
+        return refuseSignedIn(req, res);
       }
       throw err;
     }

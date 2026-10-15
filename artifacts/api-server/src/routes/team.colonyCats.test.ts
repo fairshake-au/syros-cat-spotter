@@ -653,10 +653,10 @@ describe("test 15 (team half): Mark wrong on a colony statement", () => {
     // nothing is written.
     denied.only = "set_life_status";
     const refused = await markWrong(second!.id);
-    expect([refused.status, refused.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([refused.status, refused.text]).toEqual([403, '{"error":"forbidden"}']);
     denied.cap = "assign_cat_to_colony";
     denied.only = null;
-    expect((await markWrong(second!.id)).status).toBe(401);
+    expect((await markWrong(second!.id)).status).toBe(403);
     expect(await colonyStatements(cat)).toHaveLength(2);
 
     // Someone who may only assign cats can mark a colony statement wrong.
@@ -815,10 +815,10 @@ describe("test 12 (part): refusals", () => {
     const colony = await makeColony(unique("Caps"));
     const cat = await seedCat("Caps-cat");
     denied.cap = "assign_cat_to_colony";
-    expect((await addCats(colony, [cat])).status).toBe(401);
-    expect((await moveCat(cat, colony)).status).toBe(401);
-    expect((await moveCat(cat, "none")).status).toBe(401);
-    expect((await get(`/api/team/colonies/${colony}/cats`)).status).toBe(401);
+    expect((await addCats(colony, [cat])).status).toBe(403);
+    expect((await moveCat(cat, colony)).status).toBe(403);
+    expect((await moveCat(cat, "none")).status).toBe(403);
+    expect((await get(`/api/team/colonies/${colony}/cats`)).status).toBe(403);
     expect(await colonyStatements(cat)).toHaveLength(0);
 
     // The pages hide what the person cannot use.
