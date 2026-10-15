@@ -27,6 +27,29 @@ export {
   PeopleError,
   placementEndsAt,
   scopeInForce,
+  personState,
+  isInvitedNow,
+  isAnonymisedEmail,
+  anonymisedEmail,
+  cleanPersonName,
+  inviteRecipient,
+  managerRecipient,
+  managersToNotify,
+  peopleNames,
+  colonyNames,
+  recordInviteDelivered,
+  ANONYMISED_NAME,
+  INVITATION_DAYS,
+  PERSON_NAME_MAX,
+  type PersonState,
+  type Invitee,
+  type InviteRecipient,
+  type PlacementInput,
+  type InTransaction,
+  type MarkLeftResult,
+  type SetPlacementsResult,
+  type PeopleTx,
+  type PeopleExec,
   type AllowedPerson,
   type PersonWithScopes,
   type PeopleStore,
@@ -42,3 +65,18 @@ export const signOutEverywhere = people.signOutEverywhere;
 export const findAllowedPerson = people.findAllowedPerson;
 export const findPersonById = people.findPersonById;
 export const listPeople = people.listPeople;
+// SYC-53 PR 1.1: invitations, accepting, withdrawing, leaving.
+export const invitePerson = people.invitePerson;
+export const findInvitee = people.findInvitee;
+export const findInviteeByEmail = people.findInviteeByEmail;
+export const invitationFor = people.invitationFor;
+export const acceptInvitation = people.acceptInvitation;
+export const declineInvitation = people.declineInvitation;
+export const withdrawInvitation = people.withdrawInvitation;
+export const resendInvitation = people.resendInvitation;
+export const setPlacements = people.setPlacements;
+export const markLeftById = people.markLeftById;
+export const stopHelping = people.stopHelping;
+export const signOutEverywhereById = people.signOutEverywhereById;
+export const rejoinPerson = people.rejoinPerson;
+export const createColonyWithPlacement = people.createColonyWithPlacement;

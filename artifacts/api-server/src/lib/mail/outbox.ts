@@ -13,6 +13,7 @@ import { hashRecipient, sendMail, type SendResult } from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
 import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
 import { REPORTER_PURPOSES, processReporterMail } from "../welfare/reporterEmail";
+import { PERSON_OUTBOX_PURPOSES, processPersonMail } from "./personOutbox";
 
 /**
  * The mail outbox (SYC-42 plan, Slice 1 items 1.5–1.6).
@@ -436,6 +437,10 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
   try {
     if ((KEEP_SAFE_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
       return await processKeepSafe(row, row.purpose as KeepSafeMail);
+    }
+    // SYC-53 PR 1.1: invitations and access-change notices (personOutbox.ts).
+    if ((PERSON_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
+      return await processPersonMail(row);
     }
     if ((REPORTER_PURPOSES as readonly string[]).includes(row.purpose)) {
       return await processReporterMail(row, { markSent, markRetry });

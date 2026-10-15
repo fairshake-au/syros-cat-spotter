@@ -2,6 +2,13 @@ import { logger } from "../logger";
 import { addressFingerprint, type FingerprintLabel } from "./fingerprint";
 import { KEEP_SAFE_TEMPLATES } from "./keepSafeTemplates";
 import { REPORT_TEMPLATES } from "./reportTemplates";
+import {
+  colonyIdsOf,
+  isAccessChange,
+  renderAccessNotice,
+  renderInvitation,
+  type AccessChange,
+} from "./personTemplates";
 import { resendSend } from "./resend";
 
 /**
@@ -44,6 +51,16 @@ import { resendSend } from "./resend";
  *
  * The priority budget (§2.10) exists here as the never-shed group only;
  * shedding arrives with the first purpose that can be shed.
+ *
+ * **People mail (SYC-53 PR 1.1; roles-and-invites.md §8.3, §8.5).** Two
+ * purposes whose recipient is a PERSON ID, never an address: the caller
+ * can't pass `to`, and a message carrying one is refused. `person_invite`
+ * looks the address up itself and refuses unless that person is pending,
+ * unexpired and not anonymised, so it can't be used to email a stranger.
+ * `access_change_notice` goes only to a management member who is joined,
+ * on the list and holds management now, and never to the person who made
+ * the change. Both bodies are closed templates built here from the records
+ * (personTemplates.ts).
  */
 
 /** email-capture.md §5.1's closed message list, plus the team alert. */
@@ -60,11 +77,14 @@ export const MAIL_PURPOSES = [
   "keep_safe_verify",
   "restore_link",
   "forget",
+  "person_invite",
+  "access_change_notice",
 ] as const;
 
 export type MailPurpose = (typeof MAIL_PURPOSES)[number];
 export type TeamPurpose = "welfare_alert" | "urgent_alert";
-export type PublicPurpose = Exclude<MailPurpose, TeamPurpose>;
+export type PersonPurpose = "person_invite" | "access_change_notice";
+export type PublicPurpose = Exclude<MailPurpose, TeamPurpose | PersonPurpose>;
 export type MailIdentity = "transactional" | "news";
 
 type PurposeRule = {
@@ -75,14 +95,19 @@ type PurposeRule = {
    * unverified_public: the one fixed "is this you?" message, to any address
    *   not suppressed (it is the only thing an unverified address can get).
    * verified_public: only to an address its holder has confirmed (F7b).
+   * person: a person id; the invitee's own address, only while she is
+   *   pending, unexpired and not anonymised (SYC-53 PR 1.1).
+   * management: a person id; a joined management member, never the actor.
    */
-  recipient: "team" | "unverified_public" | "verified_public";
+  recipient: "team" | "unverified_public" | "verified_public" | "person" | "management";
   body: "team_built" | "fixed_template";
   replyTo?: string;
 };
 
 const REPORTS_FROM = "Syros Cats via Cat Spotters <reports@mail.catspotters.com>";
 const TRANSACTIONAL_FROM = "Cat Spotters <hello@mail.catspotters.com>";
+/** The sign-in sender: an invitation comes from where the sign-in link will (C8). */
+const SIGNIN_FROM = "Cat Spotters <signin@mail.catspotters.com>";
 const NEWS_FROM = "Cat Spotters <news@news.catspotters.com>";
 const SYROS_CATS = "admin@syroscats.com";
 
@@ -101,6 +126,10 @@ export const PURPOSE_RULES: Record<MailPurpose, PurposeRule> = {
   keep_safe_verify: { identity: "transactional", from: TRANSACTIONAL_FROM, recipient: "unverified_public", body: "fixed_template" },
   restore_link: { identity: "transactional", from: TRANSACTIONAL_FROM, recipient: "verified_public", body: "fixed_template" },
   forget: { identity: "transactional", from: TRANSACTIONAL_FROM, recipient: "verified_public", body: "fixed_template" },
+  // SYC-53 PR 1.1. Both transactional; the invitation can be shed after
+  // sign-in links and welfare mail (§8.5), so it is NOT in NEVER_SHED.
+  person_invite: { identity: "transactional", from: SIGNIN_FROM, recipient: "person", body: "fixed_template" },
+  access_change_notice: { identity: "transactional", from: TRANSACTIONAL_FROM, recipient: "management", body: "fixed_template" },
 };
 
 const IDENTITY_KEY: Record<MailIdentity, string> = {
@@ -117,6 +146,8 @@ const DEFAULT_ENABLED: readonly MailPurpose[] = [
   "public_verify",
   "report_ack",
   "report_outcome",
+  "person_invite",
+  "access_change_notice",
 ];
 let enabledOverride: readonly MailPurpose[] | null = null;
 
@@ -137,6 +168,8 @@ export const PURPOSE_LABEL: Record<MailPurpose, Exclude<FingerprintLabel, "ip">>
   keep_safe_verify: "keep_safe",
   restore_link: "keep_safe",
   forget: "keep_safe",
+  person_invite: "team",
+  access_change_notice: "team",
 };
 
 /** `contentId` lets the HTML show the attachment inline with `cid:<contentId>`. */
@@ -161,7 +194,26 @@ export type PublicMessage = {
   idempotencyKey?: string;
 };
 
-export type MailMessage = TeamMessage | PublicMessage;
+/** An invitation: to this person, never to an address (§8.5). */
+export type PersonInviteMessage = {
+  purpose: "person_invite";
+  personId: string;
+  idempotencyKey?: string;
+};
+
+/** A notice to one other management member about one change (§8.3). */
+export type AccessChangeMessage = {
+  purpose: "access_change_notice";
+  recipientId: string;
+  actorId: string;
+  subjectId: string;
+  change: AccessChange;
+  idempotencyKey?: string;
+};
+
+export type PersonMessage = PersonInviteMessage | AccessChangeMessage;
+
+export type MailMessage = TeamMessage | PublicMessage | PersonMessage;
 
 export type RenderedTemplate = { subject: string; text: string; html: string };
 export type FixedTemplate = (params: Record<string, string>) => RenderedTemplate;
@@ -184,6 +236,9 @@ export type SendResult =
         | "suppressed"
         | "unverified"
         | "unknown_template"
+        | "recipient_check_missing"
+        | "not_pending"
+        | "not_a_manager"
         | "not_configured"
         | "provider_error";
       detail?: string;
@@ -201,6 +256,23 @@ export type SendDeps = {
   isSuppressed?: (address: string) => Promise<boolean>;
   /** Required for every verified-only public purpose (F7b). */
   isVerified?: (address: string) => Promise<boolean>;
+  /** Required for the people purposes: looks people up by id (SYC-53 PR 1.1). */
+  people?: PersonMailLookups;
+};
+
+/** How the people purposes find their recipient and words, by id only. */
+export type PersonMailLookups = {
+  /** The invitee, only while pending, unexpired and not anonymised. */
+  invitee(personId: string): Promise<{
+    email: string;
+    language: string;
+    roles: string[];
+    colonies: { id: number; name: string }[];
+  } | null>;
+  /** A joined management member with management in force now. */
+  manager(personId: string): Promise<{ email: string; language: string } | null>;
+  names(ids: string[]): Promise<ReadonlyMap<string, string>>;
+  colonyNames(ids: number[]): Promise<ReadonlyMap<number, string>>;
 };
 
 function enabled(): readonly MailPurpose[] {
@@ -277,6 +349,56 @@ export function describeMail(): { level: "info" | "warn"; line: string }[] {
   return lines;
 }
 
+/**
+ * The recipient and words of a people message, from the records, or why
+ * there are none. Never from the caller: the message holds only ids.
+ */
+async function buildPersonMail(
+  message: PersonMessage,
+  people: PersonMailLookups,
+): Promise<
+  | { ok: true; to: string; content: RenderedTemplate }
+  | { ok: false; reason: "not_pending" | "not_a_manager" | "recipient_not_allowed" | "unknown_template" }
+> {
+  if (message.purpose === "person_invite") {
+    if (typeof message.personId !== "string") return { ok: false, reason: "recipient_not_allowed" };
+    const invitee = await people.invitee(message.personId);
+    if (!invitee) return { ok: false, reason: "not_pending" };
+    return {
+      ok: true,
+      to: invitee.email,
+      content: renderInvitation({
+        language: invitee.language,
+        roles: invitee.roles,
+        colonies: invitee.colonies.map((c) => c.name),
+      }),
+    };
+  }
+  const { recipientId, actorId, subjectId, change } = message;
+  if (typeof recipientId !== "string" || typeof actorId !== "string" || typeof subjectId !== "string") {
+    return { ok: false, reason: "recipient_not_allowed" };
+  }
+  // Never the person who made the change (§8.3).
+  if (recipientId === actorId) return { ok: false, reason: "recipient_not_allowed" };
+  if (!isAccessChange(change)) return { ok: false, reason: "unknown_template" };
+  const manager = await people.manager(recipientId);
+  if (!manager) return { ok: false, reason: "not_a_manager" };
+  const names = await people.names([actorId, subjectId]);
+  const colonyNames = await people.colonyNames(colonyIdsOf(change));
+  return {
+    ok: true,
+    to: manager.email,
+    content: renderAccessNotice({
+      language: manager.language,
+      // `self` and `cli:` actors have no name on the list.
+      actorName: names.get(actorId) ?? "Syros Cats",
+      subjectName: names.get(subjectId) ?? "someone",
+      change,
+      colonyNames,
+    }),
+  };
+}
+
 export async function sendMail(message: MailMessage, deps: SendDeps = {}): Promise<SendResult> {
   const log = deps.log ?? logger;
   const purpose = message.purpose;
@@ -297,7 +419,34 @@ export async function sendMail(message: MailMessage, deps: SendDeps = {}): Promi
 
   let to: string;
   let content: RenderedTemplate & { attachments?: MailAttachment[] };
-  if (rule.recipient === "team") {
+  if (rule.recipient === "person" || rule.recipient === "management") {
+    // A person id only: an address, a template or any caller text is refused.
+    for (const field of ["to", "template", "params", "subject", "text", "html", "attachments"]) {
+      if (field in m) {
+        log.error({ purpose, field }, "mail: refused, people mail takes a person id, never an address or text");
+        return { ok: false, reason: "recipient_not_allowed" };
+      }
+    }
+    if (!deps.people || !deps.isSuppressed) {
+      log.error({ purpose }, "mail: refused, no people lookup or suppression check supplied");
+      return { ok: false, reason: "recipient_check_missing" };
+    }
+    const built = await buildPersonMail(message as PersonMessage, deps.people);
+    if (!built.ok) {
+      log.warn({ purpose, reason: built.reason }, "mail: not sent, the recipient check failed");
+      return { ok: false, reason: built.reason };
+    }
+    to = built.to.trim();
+    if (!SINGLE_ADDRESS.test(to)) {
+      log.error({ purpose }, "mail: refused, recipient is not a single address");
+      return { ok: false, reason: "bad_recipient" };
+    }
+    if (await deps.isSuppressed(to)) {
+      log.warn({ purpose, recipientHash: hashRecipient(to, purpose) }, "mail: not sent, address is suppressed");
+      return { ok: false, reason: "suppressed" };
+    }
+    content = built.content;
+  } else if (rule.recipient === "team") {
     if ("to" in m) {
       log.error({ purpose }, "mail: refused, team mail takes no caller-chosen recipient");
       return { ok: false, reason: "recipient_not_allowed" };

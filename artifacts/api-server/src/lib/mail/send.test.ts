@@ -85,7 +85,7 @@ describe("sendMail", () => {
     expect(isPurposeEnabled("urgent_alert")).toBe(false);
   });
 
-  it("switched on: welfare_alert (SYC-42), SYC-3's two keep-safe emails, and the reporter's three (SYC-42 Slice 3); forget stays off (A9)", () => {
+  it("switched on: welfare_alert (SYC-42), SYC-3's two keep-safe emails, the reporter's three (SYC-42 Slice 3) and SYC-53's two people emails; forget stays off (A9)", () => {
     expect(MAIL_PURPOSES.filter((p) => isPurposeEnabled(p))).toEqual([
       "welfare_alert",
       "public_verify",
@@ -93,11 +93,20 @@ describe("sendMail", () => {
       "report_outcome",
       "keep_safe_verify",
       "restore_link",
+      "person_invite",
+      "access_change_notice",
     ]);
   });
 
-  it("welfare alerts and restore links are in the never-shed group (spec §2.10; SYC-3 A7)", () => {
+  it("welfare alerts and restore links are in the never-shed group (spec §2.10; SYC-3 A7); an invitation can be shed (roles spec §8.5)", () => {
     expect(NEVER_SHED_PURPOSES).toEqual(["welfare_alert", "restore_link"]);
+    expect(NEVER_SHED_PURPOSES).not.toContain("person_invite");
+    expect(PURPOSE_RULES.person_invite).toMatchObject({
+      identity: "transactional",
+      from: "Cat Spotters <signin@mail.catspotters.com>",
+      recipient: "person",
+    });
+    expect(PURPOSE_RULES.access_change_notice).toMatchObject({ identity: "transactional", recipient: "management" });
   });
 
   describe("recipients are decided by purpose (review fix 1)", () => {

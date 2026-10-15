@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, findPersonById, teamHandoffSpentTable } from "@workspace/db";
+import { db, findInvitee, findPersonById, teamHandoffSpentTable } from "@workspace/db";
 import { lt, sql } from "drizzle-orm";
 import { handoffLimiter } from "../middlewares/rateLimit";
 import {
@@ -11,7 +11,14 @@ import {
   TEAM_ORIGIN,
 } from "../lib/teamAuth/config";
 import { checkHandoffToken } from "../lib/teamAuth/handoff";
-import { clearSession, issueSession } from "../lib/teamAuth/session";
+import {
+  clearInviteSession,
+  clearSession,
+  issueInviteSession,
+  issueSession,
+  readInviteSession,
+  readSession,
+} from "../lib/teamAuth/session";
 import {
   GUARDIAN_HOME_PATH,
   isBrowserNavigation,
@@ -32,7 +39,33 @@ import { listWelfareQueue, queueNearFeedingSites } from "../lib/welfareQueue";
 
 const router: IRouter = Router();
 
+/** Where an invitee lands after the hand-off: the accept page (PR 1.1). */
+export const WELCOME_PATH = "/api/team/my/welcome";
+
 const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+/**
+ * Where a replayed pass's person already is (SYC-353): her home, if this
+ * request carries a valid team session for exactly `sub` at her current
+ * session version and she may enter; the accept page, if it carries a valid
+ * invitee session for exactly `sub` and she is still Invited at that
+ * version. Otherwise null.
+ */
+async function alreadySignedInAs(req: Request, sub: string, now: number): Promise<string | null> {
+  const team = readSession(req, now);
+  if (team && team.pid === sub) {
+    const person = await findPersonById(team.pid);
+    if (person && person.sessionVersion === team.sv && mayEnter(person)) {
+      return can(person, "view_welfare_queue") ? TEAM_HOME : `${TEAM_ORIGIN}${GUARDIAN_HOME_PATH}`;
+    }
+  }
+  const pending = readInviteSession(req, now);
+  if (pending && pending.pid === sub) {
+    const invitee = await findInvitee(pending.pid);
+    if (invitee && invitee.sessionVersion === pending.sv) return `${TEAM_ORIGIN}${WELCOME_PATH}`;
+  }
+  return null;
+}
 
 /**
  * POST /api/team/handoff: the sign-in Worker's "Cat Spotters dashboard"
@@ -74,13 +107,45 @@ router.post(
       .values({ jti: claims.jti })
       .onConflictDoNothing()
       .returning({ jti: teamHandoffSpentTable.jti });
-    if (spent.length !== 1) return refuse("replayed", claims.jti);
+    if (spent.length !== 1) {
+      // SYC-353: since SYC-88 a re-tap within the minute sends the SAME pass,
+      // which is refused as a replay even though this browser already holds
+      // a good session from the first tap. Only here, after every earlier
+      // check has passed: if the request's own session is for exactly this
+      // pass's person (pid === sub) at her current session version, send her
+      // where a fresh hand-off would. No new cookie, and the pass stays spent.
+      const home = await alreadySignedInAs(req, claims.sub, now);
+      if (home) {
+        req.log.info({ reason: "replayed_already_signed_in", jti: claims.jti }, "team hand-off replayed by a signed-in browser");
+        setTeamHeaders(res);
+        res.redirect(303, home);
+        return;
+      }
+      return refuse("replayed", claims.jti);
+    }
 
     // 6. Still on the list, at the current session version. The Worker read
     // `sv` from the list moments ago and versions only ever rise, so anything
     // but equality is refused.
     const person = await findPersonById(claims.sub);
-    if (!person) return refuse("not_on_list", claims.jti);
+    if (!person) {
+      // SYC-53 PR 1.1 (roles spec §4.1 step 3, §4.5): someone invited and not
+      // yet joined gets an invitee session, its own cookie and kind, which
+      // reaches the accept page and nothing else. findInvitee means Invited
+      // and unexpired, by the database's clock, and returns no placements.
+      const pending = await findInvitee(claims.sub);
+      if (!pending) return refuse("not_on_list", claims.jti);
+      if (claims.sv !== pending.sessionVersion) {
+        return refuse("stale_session_version", claims.jti);
+      }
+      if (!issueInviteSession(res, pending, now)) {
+        return refuse("session_not_configured", claims.jti);
+      }
+      req.log.info({ jti: claims.jti }, "team hand-off accepted for an invitee");
+      setTeamHeaders(res);
+      res.redirect(303, `${TEAM_ORIGIN}${WELCOME_PATH}`);
+      return;
+    }
     // A role that grants nothing gets no session either (SYC-188).
     if (!mayEnter(person)) return refuse("no_capability", claims.jti);
     if (claims.sv !== person.sessionVersion) {
@@ -166,6 +231,8 @@ router.post(
   (req: Request, res: Response) => {
     setTeamHeaders(res);
     clearSession(res);
+    // An invitee's session too (SYC-53 PR 1.1): sign-out ends both kinds.
+    clearInviteSession(res);
     if (isBrowserNavigation(req)) {
       res.redirect(303, SIGN_IN_PAGE);
       return;
