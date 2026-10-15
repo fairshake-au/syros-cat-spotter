@@ -237,6 +237,8 @@ function expectNoPositionInAddresses(where: string, html: string, location?: str
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
   if (location) values.push(location);
   for (const v of values) {
+    // A photo's address is its opaque uuid, never a position (its dashes would look like z/x/y).
+    if (/^\/api\/(team\/)?photos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v)) continue;
     expect(v, `${where}: ${v}`).not.toMatch(/\d+\.\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);
