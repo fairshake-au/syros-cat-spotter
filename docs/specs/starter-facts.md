@@ -350,7 +350,7 @@ The ear-tip question after each spot already shows the same example photo and a 
 - **Word limit test:** every fact is 35 words or fewer in every language, counted per language.
 - **The card** replaces the location map in the New spot screen's layout while a sighting is sending (`spot.tsx`), and is gone once the result arrives.
 - **The schedule:** one small pure function decides what each wait shows (§3.2 and `feeding-nudge.md` §3.2), given the phone's record, the settings, today's date and, afterwards, how the wait ended. It's unit-tested without mounting a screen.
-- **Switching a fact off:** the app settings endpoint (`feeding-nudge.md` §9) lists fact ids to hide. Defaults when settings have never loaded: nothing hidden. **At launch**, every sign-off fact without Syros Cats' yes is in that list.
+- **Switching a fact off:** the app settings endpoint (`feeding-nudge.md` §9) lists fact ids to hide. Defaults when settings have never loaded: nothing hidden. *(Amended 15 Oct 2026 by the match-wait plan, PR #187: the phone's never-loaded default stays "nothing hidden" (Samuel, plan Decision 4). On the server, a missing facts setting hides the nine sign-off facts (plan small call 3).)* **At launch**, every sign-off fact without Syros Cats' yes is in that list.
 - **The record:** stored under one versioned key, read and written inside try/catch, and removed by **Delete my data**.
 - **The photo:** the existing `EAR_TIP_EXAMPLE_PHOTO` (`lib/earTipExample.ts`), not a copy.
 
