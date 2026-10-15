@@ -150,6 +150,8 @@ describe("P3-2 (public half): GET /api/cats/:id is unchanged by PR 3", () => {
       s.catId = s.catId === catId ? "<cat>" : s.catId;
     }
     const text = JSON.stringify(body);
+    // SYC-75 changed one field on purpose: the seeded photo-backed clip now
+    // shows publicly as sterilised {true, "likely"} (Q2's gate opened).
     await expect(text).toMatchFileSnapshot(
       "./__snapshots__/cats.publicDetail.p3-2.txt",
     );
