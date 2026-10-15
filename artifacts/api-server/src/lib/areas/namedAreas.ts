@@ -29,8 +29,9 @@ export const NAMED_AREAS: readonly NamedArea[] = [
   { key: "vari", name: "Vari", lat: 37.3983488, lng: 24.9467109 }, // OSM node 1846917012 (place=village)
   { key: "fabrika", name: "Fabrika", lat: 37.3919149, lng: 24.9528053 }, // OSM node 2684088129 (place=locality)
   { key: "manna", name: "Manna", lat: 37.4196393, lng: 24.947383 }, // OSM node 1846917017 (place=village)
-  // Still to add (spec §16 Q2): Mega Gialos and Chroussa. OSM has no place
-  // node for either that Nominatim returns (only roads), so no centre yet.
+  // Found under their Greek spellings (Χρούσα, Μέγας Γιαλός), checked 15 Oct 2026.
+  { key: "mega-gialos", name: "Mega Gialos", lat: 37.3809687, lng: 24.9109853 }, // OSM node 2684084813 (place=village)
+  { key: "chroussa", name: "Chroussa", lat: 37.4022955, lng: 24.9193522 }, // OSM node 1846917030 (place=village)
 ];
 
 export function areaFor(lat: number, lng: number): NamedArea | typeof OFF_SYROS {

@@ -27,7 +27,7 @@ describe("named areas (spec §3.3)", () => {
   it("maps every area's own centre to itself", () => {
     for (const a of NAMED_AREAS) expect(areaFor(a.lat, a.lng).key).toBe(a.key);
   });
-  it.each(["ano-syros", "vari", "fabrika", "manna"])(
+  it.each(["ano-syros", "vari", "fabrika", "manna", "mega-gialos", "chroussa"])(
     "has %s, and its own centre maps to it",
     (key) => {
       const a = areaByKey(key);
