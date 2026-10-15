@@ -64,7 +64,7 @@ The ear tip comes early on purpose. After each spot, the reward screen asks *"is
 
 ### 3.3 Short waits
 
-Matching often takes only a few seconds, so facts are short: **35 words or fewer**, most under 30, in every language. A fact counts as **seen** once it has been on screen for at least **1 second**; if the result arrives sooner, it isn't counted and comes up again next time.
+Matching often takes only a few seconds, so facts are short: **35 words or fewer** in every language (counting words, not punctuation), most under 30. A fact counts as **seen** once it has been on screen for at least **1 second**; if the result arrives sooner, it isn't counted and comes up again next time.
 
 Facts **don't follow the spotter to the reward screen**. When the result arrives, the fact goes. (The nudge is the one exception, because it has something to do; `feeding-nudge.md` §3.3. See Decision 2 here, §8.)
 
@@ -101,9 +101,9 @@ These are drafts. Greek and French go to Johnny (SYC-283) by about 24 October.
 ### Sterilisation (strand 3)
 
 **Fact 1 · The clipped ear tip** · *core* · *sign-off* · **shows the ear-tip example photo**
-- **EN** See the flat top of that ear? That's a clipped tip. A vet trims it while the cat is asleep for her sterilisation, so anyone can tell she's been done. On Syros it's usually the left ear.
-- **EL** Βλέπεις την ίσια άκρη σε αυτό το αυτί; Είναι κομμένη άκρη. Ο κτηνίατρος την κόβει ενώ η γάτα κοιμάται για τη στείρωσή της, ώστε να φαίνεται ότι έχει στειρωθεί. Στη Σύρο είναι συνήθως το αριστερό αυτί.
-- **FR** Tu vois le haut tout plat de cette oreille ? C’est un bout coupé. Le vétérinaire le coupe pendant que la chatte dort pour sa stérilisation, pour que chacun sache qu’elle est stérilisée. À Syros, c’est généralement l’oreille gauche.
+- **EN** The flat top on this ear is a clipped tip: the sign a cat has been sterilised. The vet trims it while she's asleep for the operation. On Syros it's usually the left ear.
+- **EL** Η ίσια άκρη σε αυτό το αυτί είναι κομμένη άκρη: το σημάδι ότι η γάτα έχει στειρωθεί. Ο κτηνίατρος την κόβει ενώ κοιμάται για την επέμβαση. Στη Σύρο είναι συνήθως το αριστερό αυτί.
+- **FR** Le haut tout plat de cette oreille, c’est un bout coupé : le signe qu’une chatte a été stérilisée. Le vétérinaire le coupe pendant qu’elle dort pour l’opération. À Syros, c’est généralement l’oreille gauche.
 
 **Fact 2 · How fast it adds up** · *core*
 - **EN** One unsterilised female can have two or three litters a year, and her kittens can be pregnant themselves from as young as four months.
@@ -157,7 +157,7 @@ These are drafts. Greek and French go to Johnny (SYC-283) by about 24 October.
 **Fact 11 · Kittens on their own** · *core* · *sign-off*
 - **EN** Found kittens on their own? Their mother is usually nearby, finding food. Watch from a distance. If they look cold, hurt or ill, tap "This cat needs help".
 - **EL** Βρήκες γατάκια μόνα τους; Η μητέρα τους συνήθως είναι κοντά και ψάχνει φαγητό. Παρακολούθησε από απόσταση. Αν φαίνονται παγωμένα, χτυπημένα ή άρρωστα, πάτα «Αυτή η γάτα χρειάζεται βοήθεια».
-- **FR** Tu as trouvé des chatons seuls ? Leur mère est souvent tout près, partie chercher à manger. Observe-les de loin. S’ils ont l’air d’avoir froid, d’être blessés ou malades, touche « Ce chat a besoin d’aide ».
+- **FR** Des chatons tout seuls ? Leur mère est souvent tout près, partie chercher à manger. Observe de loin. S’ils semblent avoir froid, blessés ou malades, touche « Ce chat a besoin d’aide ».
 
 The quoted button names must match the live labels (`reportNeedsHelp`); the builder checks all three against `i18n.ts`.
 
