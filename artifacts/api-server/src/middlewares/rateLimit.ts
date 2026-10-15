@@ -196,13 +196,13 @@ export async function _resetClaimLimitForTests(): Promise<void> {
 }
 
 // The team map's pictures, GET /api/team/map-tiles/:tile (SYC-209 PR 3.1).
-// Behind a session, so this is a courtesy cap on the server's work and on
-// what it asks OpenStreetMap for, not a security control. A map page draws
-// its four pictures at five sizes (one per screen-width band; a browser may
-// fetch them all), so 20 a page. Someone panning quickly in a fresh browser
-// opens a page every few seconds, and 2000 was reached in testing; 5000 is
-// about 250 pages in a quarter of an hour. Pictures seen again in the same
-// hour come from the browser's own cache and don't count.
+// Behind a session, so this is a courtesy cap on the server's work, not a
+// security control (what we ask OpenStreetMap for is held down by the cache
+// and the backoff in lib/mapTiles/tileCache.ts). A map page draws its one
+// picture at five sizes (one per screen-width band; a browser may fetch
+// them all), so 5 a page; 5000 leaves room for a team in one office
+// panning quickly. Pictures seen again in the same hour come from the
+// browser's own cache and don't count.
 //
 // STAYS IN MEMORY, per server, like photoLimiter and for the same reason
 // (SYC-105 PR 2.1): a page loads five pictures, so a database write per

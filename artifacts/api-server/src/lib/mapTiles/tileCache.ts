@@ -34,27 +34,50 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 
 export type Fetcher = typeof fetch;
 
-/** Fetch one tile from OpenStreetMap, or null for any failure. */
-async function fetchTile(t: Tile, fetcher: Fetcher): Promise<Buffer | null> {
+/**
+ * Backing off (OpenStreetMap's tile policy: a client that keeps asking
+ * after being refused gets blocked). After a tile fails, it isn't asked for
+ * again for 15 minutes; after the provider says "too many" (429) or "no"
+ * (403), no tile is asked for at all for an hour. Meanwhile a cached copy
+ * is served, or the tile is left blank. In memory, per server: a restart
+ * forgets it, which costs at most one more request.
+ */
+export const TILE_RETRY_AFTER_MS = 15 * 60 * 1000;
+export const PROVIDER_RETRY_AFTER_MS = 60 * 60 * 1000;
+const tileFailedUntil = new Map<string, number>();
+let providerRefusedUntil = 0;
+
+/** For tests: forget every failure. */
+export function _resetTileBackoffForTests(): void {
+  tileFailedUntil.clear();
+  providerRefusedUntil = 0;
+}
+
+type FetchResult = { bytes: Buffer } | { failed: "refused" | "other" };
+
+/** Fetch one tile from OpenStreetMap. */
+async function fetchTile(t: Tile, fetcher: Fetcher): Promise<FetchResult> {
   try {
     const res = await fetcher(OSM_TILE_URL(t), {
       headers: { "User-Agent": USER_AGENT, Accept: "image/png" },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       redirect: "error",
     });
-    if (res.status !== 200) return null;
+    if (res.status === 429 || res.status === 403) return { failed: "refused" };
+    if (res.status !== 200) return { failed: "other" };
     const declared = Number(res.headers.get("content-length") ?? "0");
-    if (declared > MAX_TILE_BYTES) return null;
+    if (declared > MAX_TILE_BYTES) return { failed: "other" };
     const bytes = Buffer.from(await res.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > MAX_TILE_BYTES) return null;
-    if (!bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) return null;
-    // A whole, decodable 256 px PNG, or it isn't kept for 30 days.
+    if (bytes.length === 0 || bytes.length > MAX_TILE_BYTES) return { failed: "other" };
+    if (!bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) return { failed: "other" };
+    // A whole, decodable 256 px PNG, or it isn't kept for 30 days. The size
+    // is checked before the full decode, so nothing huge is ever decoded.
     const meta = await sharp(bytes, { failOn: "error" }).metadata();
-    if (meta.format !== "png" || meta.width !== 256 || meta.height !== 256) return null;
+    if (meta.format !== "png" || meta.width !== 256 || meta.height !== 256) return { failed: "other" };
     await sharp(bytes, { failOn: "error" }).raw().toBuffer();
-    return bytes;
+    return { bytes };
   } catch {
-    return null;
+    return { failed: "other" };
   }
 }
 
@@ -87,14 +110,24 @@ export interface TileSource {
  */
 const inFlight = new Map<string, Promise<Buffer | null>>();
 
-/** Fetch one tile and store it. Null if the provider failed. */
+/** Fetch one tile and store it. Null if the provider failed, or is being left alone after failing. */
 function fetchAndStore(t: Tile, src: TileSource): Promise<Buffer | null> {
   const key = `${t.z}/${t.x}/${t.y}`;
   const running = inFlight.get(key);
   if (running) return running;
+  const nowMs = (src.now ?? (() => new Date()))().getTime();
+  if (nowMs < providerRefusedUntil || nowMs < (tileFailedUntil.get(key) ?? 0)) {
+    return Promise.resolve(null);
+  }
   const job = (async () => {
-    const fresh = await fetchTile(t, src.fetcher ?? fetch);
-    if (!fresh) return null;
+    const result = await fetchTile(t, src.fetcher ?? fetch);
+    if ("failed" in result) {
+      if (result.failed === "refused") providerRefusedUntil = nowMs + PROVIDER_RETRY_AFTER_MS;
+      tileFailedUntil.set(key, nowMs + TILE_RETRY_AFTER_MS);
+      return null;
+    }
+    tileFailedUntil.delete(key);
+    const fresh = result.bytes;
     const now = (src.now ?? (() => new Date()))();
     await db
       .insert(mapTileCacheTable)
@@ -154,17 +187,19 @@ const BLANK = { r: 220, g: 216, b: 204 };
  *
  * Null when the view isn't on Syros at zooms 12–19 (refused before anything
  * is fetched) or no tile at all could be had. A tile that can't be had is
- * left blank, so the rest of the map still shows.
+ * left blank, so the rest of the map still shows; `complete` says so, and
+ * such a picture isn't cached by the browser, so a reload fills the gap.
  */
 export async function mosaicPicture(
   view: View,
   size: number,
   src: TileSource = {},
-): Promise<Buffer | null> {
+): Promise<{ png: Buffer; complete: boolean } | null> {
   if (!isViewAllowed(view)) return null;
   const tiles = viewTiles(view);
   const pngs = await Promise.all(tiles.map((t) => getTilePng(t, src)));
   if (pngs.every((p) => !p)) return null;
+  const complete = pngs.every((p) => p);
   const full = 256 * GRID;
   const joined = sharp({
     create: { width: full, height: full, channels: 3, background: BLANK },
@@ -174,11 +209,12 @@ export async function mosaicPicture(
     ),
   );
   const span = size * GRID;
-  if (span === full) return joined.png({ compressionLevel: 6 }).toBuffer();
+  if (span === full) return { png: await joined.png({ compressionLevel: 6 }).toBuffer(), complete };
   // sharp resizes after compositing only from a finished image.
   const flat = await joined.png().toBuffer();
-  return sharp(flat)
+  const png = await sharp(flat)
     .resize(span, span, { fit: "fill", kernel: "lanczos3" })
     .png({ compressionLevel: 6 })
     .toBuffer();
+  return { png, complete };
 }

@@ -26,6 +26,7 @@ import { removeTestPerson } from "./test/removeTestPerson";
 import app from "./app";
 import { redactRequestUrl, safeError } from "./lib/logger";
 import { mintTileToken } from "./lib/mapTiles/tileToken";
+import { _resetTileBackoffForTests } from "./lib/mapTiles/tileCache";
 
 const DEVICE = "vitest-logredact-0f3c9a7e2b";
 
@@ -124,6 +125,7 @@ describe("request log redaction (SYC-109)", () => {
       const tile = { z: 19, x: 298467, y: 203255, size: 179 as const };
       for (const failing of [true, false]) {
         spies.logLines.length = 0;
+        _resetTileBackoffForTests(); // the failing round backs off; the next must fetch
         fetchSpy.mockImplementation(async () =>
           failing
             ? new Response("no", { status: 500 })

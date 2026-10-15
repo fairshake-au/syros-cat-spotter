@@ -130,7 +130,7 @@ describe("tap to position (test 17)", () => {
     const span = 2 * 179;
     const edge = tapToPosition(view, 179, span, span)!;
     const last = tapToPosition(view, 179, span - 1, span - 1)!;
-    expect(metres(edge, last)).toBeLessThan(pixelMetres(16, 179, edge.lat));
+    expect(edge).toEqual(last);
     expect(tapToPosition(view, 179, span + 1, 0)).toBeNull();
     expect(tapToPosition(view, 179, -1, 0)).toBeNull();
     expect(tapToPosition(view, 179, 1.5, 0)).toBeNull();

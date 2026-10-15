@@ -21,6 +21,7 @@ import { mintTileToken, readTileToken } from "../lib/mapTiles/tileToken";
 import {
   FETCH_TIMEOUT_MS,
   REFRESH_AFTER_MS,
+  _resetTileBackoffForTests,
   tileFetchesSettled,
   trimTileCache,
   USER_AGENT,
@@ -102,6 +103,7 @@ beforeEach(async () => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
   await db.delete(mapTileCacheTable);
+  _resetTileBackoffForTests();
   fetchSpy = vi.spyOn(globalThis, "fetch");
   okFetch();
 });
@@ -200,6 +202,7 @@ describe("map pictures: what is sent", () => {
     expect((init.headers as Record<string, string>)["User-Agent"]).toBe(USER_AGENT);
     expect(USER_AGENT).toMatch(/catspotters\.com/);
     expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.redirect).toBe("error"); // a redirect can't send the server elsewhere
     expect(FETCH_TIMEOUT_MS).toBe(10_000);
     const rows = await db.select().from(mapTileCacheTable);
     expect(rows).toHaveLength(4);
@@ -261,6 +264,12 @@ describe("map pictures: what is sent", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("a picture address Express can't decode gets a 500 that is never cached", async () => {
+    const res = await request(app).get("/api/team/map-tiles/17%zz").set("Cookie", cookie);
+    expect(res.status).toBe(500);
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
   it("an expired token is refused", async () => {
     const t = { ...viewAround(ERMOUPOLI, 16), size: 179 as const };
     const old = mintTileToken(t, Math.floor(Date.now() / 1000) - 26 * 3600);
@@ -279,10 +288,16 @@ describe("map pictures: what is sent", () => {
       async () => new Response(Buffer.concat([valid.subarray(0, 40), Buffer.alloc(200, 7)]), { status: 200 }),
       // A real PNG of the wrong size.
       async () => new Response(await sharp({ create: { width: 10, height: 10, channels: 3, background: "#fff" } }).png().toBuffer(), { status: 200 }),
+      // A real 256 px PNG cut short: its header still reads as 256 px PNG.
+      async () => new Response(valid.subarray(0, Math.floor(valid.length * 0.6)), { status: 200 }),
+      // More than 1 MB, said in advance or not.
+      async () => new Response(Buffer.alloc(1100 * 1024, 1), { status: 200, headers: { "Content-Length": String(1100 * 1024) } }),
+      async () => new Response(Buffer.concat([valid, Buffer.alloc(1100 * 1024, 1)]), { status: 200 }),
       async () => {
         throw new TypeError("fetch failed");
       },
     ]) {
+      _resetTileBackoffForTests();
       fetchSpy.mockImplementation(failure);
       const res = await picture(mintTileToken({ ...v, size: 256 }));
       expect([res.status, res.headers["cache-control"]]).toEqual([503, "no-store"]);
@@ -301,7 +316,33 @@ describe("map pictures: what is sent", () => {
     );
     const res = await picture(mintTileToken({ ...v, size: 179 }));
     expect(res.status).toBe(200);
+    // Not cached by the browser: a reload in the same hour fills the gap.
+    expect(res.headers["cache-control"]).toBe("no-store");
     expect(await db.select().from(mapTileCacheTable)).toHaveLength(3);
+  });
+
+  it("after a tile fails, it isn't asked for again for a while", async () => {
+    fetchSpy.mockImplementation(async () => new Response("no", { status: 500 }));
+    const token = mintTileToken({ ...viewAround(ERMOUPOLI, 17), size: 179 });
+    for (let i = 0; i < 3; i++) expect((await picture(token)).status).toBe(503);
+    expect(fetchSpy).toHaveBeenCalledTimes(4); // once per tile, not three times
+    // Five bands at once, after the failures: nothing more is asked for.
+    await Promise.all(BANDS.map((b) => picture(mintTileToken({ ...viewAround(ERMOUPOLI, 17), size: b.size as never }))));
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it("after the provider says 'too many' (429) or 'no' (403), no tile is asked for for an hour", async () => {
+    for (const status of [429, 403]) {
+      _resetTileBackoffForTests();
+      fetchSpy.mockClear();
+      fetchSpy.mockImplementation(async () => new Response("slow down", { status }));
+      expect((await picture(mintTileToken({ ...viewAround(ERMOUPOLI, 17), size: 179 }))).status).toBe(503);
+      const asked = fetchSpy.mock.calls.length;
+      expect(asked).toBeGreaterThan(0);
+      // A different view, other tiles: still nothing asked for.
+      expect((await picture(mintTileToken({ ...viewAround(ERMOUPOLI, 15), size: 179 }))).status).toBe(503);
+      expect(fetchSpy.mock.calls.length, String(status)).toBe(asked);
+    }
   });
 
   it("an error while drawing the picture is answered no-store", async () => {
@@ -333,6 +374,7 @@ describe("map pictures: what is sent", () => {
 
     const newer = await makePng(10);
     okFetch(newer);
+    _resetTileBackoffForTests(); // the failed refresh above backs off for 15 minutes
     expect((await picture(token)).status).toBe(200);
     await tileFetchesSettled();
     for (const row of await db.select().from(mapTileCacheTable)) {
@@ -341,6 +383,26 @@ describe("map pictures: what is sent", () => {
     }
     // Four first fetches, four failed refreshes, four good ones.
     expect(fetchSpy).toHaveBeenCalledTimes(12);
+  });
+
+  it("a slow provider never holds up a picture we already have", async () => {
+    const v = viewAround(ERMOUPOLI, 18);
+    const token = mintTileToken({ ...v, size: 256 });
+    expect((await picture(token)).status).toBe(200);
+    await db.update(mapTileCacheTable).set({ fetchedAt: new Date(Date.now() - REFRESH_AFTER_MS - 60_000) });
+    // The refresh hangs until the end of the test.
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    fetchSpy.mockImplementation(async () => {
+      await gate;
+      return new Response(png, { status: 200 });
+    });
+    const started = Date.now();
+    const res = await picture(token);
+    expect(res.status).toBe(200);
+    expect(Date.now() - started).toBeLessThan(2000);
+    release();
+    await tileFetchesSettled();
   });
 
   it("keeps the cache under its cap, dropping the oldest pictures first", async () => {

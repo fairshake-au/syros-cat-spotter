@@ -169,13 +169,15 @@ router.get(
     if (!ref || !isViewAllowed(ref)) {
       return void res.status(404).json({ error: "Not found" });
     }
-    const body = await mosaicPicture(ref, ref.size);
-    if (!body) {
+    const picture = await mosaicPicture(ref, ref.size);
+    if (!picture) {
       req.log.warn({ reason: "tile_unavailable" }, "map picture unavailable");
       return void res.status(503).json({ error: "Map picture unavailable" });
     }
-    res.setHeader("Cache-Control", "private, max-age=86400");
-    res.type("png").send(body);
+    // A picture with a blank quarter stays no-store, so a reload in the same
+    // hour (same address) picks up the tile once the server has it.
+    if (picture.complete) res.setHeader("Cache-Control", "private, max-age=86400");
+    res.type("png").send(picture.png);
   },
 );
 

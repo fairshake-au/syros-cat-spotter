@@ -141,9 +141,10 @@ export function tapToPosition(
   if (!isWhole(px) || !isWhole(py)) return null;
   const span = GRID * size;
   if (px < 0 || py < 0 || px > span || py > span) return null;
-  // A tap reported on the far edge itself (px === span) is the last pixel.
-  const fx = Math.min(px + 0.5, span) / size;
-  const fy = Math.min(py + 0.5, span) / size;
+  // A tap reported on the far edge itself (px === span) is the last pixel,
+  // taken at that pixel's centre like any other.
+  const fx = (Math.min(px, span - 1) + 0.5) / size;
+  const fy = (Math.min(py, span - 1) + 0.5) / size;
   return {
     lat: tileYToLat(view.y + fy, view.z),
     lng: tileXToLng(view.x + fx, view.z),
