@@ -93,6 +93,19 @@ describe('the twenty facts', () => {
     }
   });
 
+  it('French facts and nudge words use non-breaking spaces before ? : ; ! and inside « »', () => {
+    const keys = [...FACT_IDS, 'waitingEyebrow', 'waitingFactA11yLabel', 'feedNudgeTitle', 'feedNudgeWhy',
+      'feedNudgeInstead', 'feedNudgeEuro', 'feedNudgeHelp', 'feedNudgeDismiss', 'feedNudgeA11yLabel',
+      'feedNudgeLine', 'feedNudgeInsteadNoLink'];
+    for (const k of keys) {
+      const v = TRANSLATIONS.fr[k]!;
+      expect({ k, bad: / [?:;!]|« | »/.test(v) }).toEqual({ k, bad: false });
+    }
+    // And the facts that have them really do.
+    expect(TRANSLATIONS.fr['fact.tortie']).toContain('\u00a0:');
+    expect(TRANSLATIONS.fr['fact.cantTell']).toContain('«\u00a0');
+  });
+
   it('French and Greek keep a non-breaking space between a number and €', () => {
     for (const lang of ['el', 'fr'] as const) {
       for (const [k, v] of Object.entries(TRANSLATIONS[lang])) {

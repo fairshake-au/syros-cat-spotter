@@ -71,10 +71,6 @@ export const handoffLimiter = sharedLimiter({
   limit: 60,
 });
 
-// DELETE /api/me (SYC-63): a person deletes themselves once, and a retry
-// after a dropped connection is safe, so a handful is plenty. Per IP rather
-// than per device, because the device id here is unverified until the
-// secret check, and keying on it would let a caller pick a fresh bucket.
 // SYC-36 (match-wait plan PR 1): GET /api/app-settings/:deviceId/signals,
 // which a phone asks on start, on returning to the app and on reconnect. Cheap,
 // but it reads the database for any id it's given. Generous, so a ferry or a
@@ -87,6 +83,10 @@ export const signalsLimiter = sharedLimiter({
   limit: 60,
 });
 
+// DELETE /api/me (SYC-63): a person deletes themselves once, and a retry
+// after a dropped connection is safe, so a handful is plenty. Per IP rather
+// than per device, because the device id here is unverified until the
+// secret check, and keying on it would let a caller pick a fresh bucket.
 export const deleteMeLimiter = sharedLimiter({
   bucket: "delete_me",
   message: common.message,

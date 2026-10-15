@@ -75,6 +75,15 @@ describe("GET /api/go/feed", () => {
     expect(res.headers.location).toBe(PAGE);
   });
 
+  it("a slow count never holds the redirect up for more than about half a second", async () => {
+    await setLink(PAGE);
+    vi.spyOn(db, "execute").mockReturnValueOnce(new Promise(() => undefined) as never);
+    const started = Date.now();
+    const res = await request(app).get("/api/go/feed");
+    expect(res.status).toBe(302);
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
   it("feed_tap_count false forwards without counting", async () => {
     await setLink(PAGE);
     await db.insert(appSettingsTable).values({ key: "feed_tap_count", value: false });

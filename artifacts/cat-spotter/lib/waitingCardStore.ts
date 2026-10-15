@@ -48,6 +48,17 @@ export async function loadWaitingRecord(store: KeyValueStore, deviceId: string):
   }
 }
 
+/** The record only if one is stored and readable; null otherwise (used to
+ * settle a wait without bringing a wiped record back). */
+export async function loadExistingWaitingRecord(store: KeyValueStore, deviceId: string): Promise<WaitingRecord | null> {
+  try {
+    if ((await store.getItem(waitingCardKey(deviceId))) === null) return null;
+  } catch {
+    return null;
+  }
+  return loadWaitingRecord(store, deviceId);
+}
+
 /** Saves the record; a failure is swallowed (the card is a bonus). */
 export async function saveWaitingRecord(store: KeyValueStore, deviceId: string, record: WaitingRecord): Promise<void> {
   try {

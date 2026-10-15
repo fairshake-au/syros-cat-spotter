@@ -67,7 +67,8 @@ describe("the migration's seed (Samuel's Decision 6)", () => {
 
 describe("db-ops set-setting", () => {
   beforeEach(async () => {
-    await c.query(`delete from app_settings where key <> 'feed_nudge_donate_url'`);
+    await c.query(`delete from app_settings`);
+    await c.query(`insert into app_settings (key, value) values ('feed_nudge_donate_url', '"https://syroscats.com/donations"'::jsonb)`);
   });
 
   it("switches the link off, and shows every switch without the connection string", async () => {
@@ -78,8 +79,6 @@ describe("db-ops set-setting", () => {
     expect(r.out).toContain("starter_facts_hidden: no row");
     expect(r.out).not.toMatch(/postgres(ql)?:\/\//);
     expect(r.out).not.toContain(url(name));
-    // Put it back for the other tests.
-    dev({ COMMAND: "set-setting", SETTING_KEY: "feed_nudge_donate_url", SETTING_VALUE: '"https://syroscats.com/donations"' });
   });
 
   it("sets the hidden facts, and updated_at moves", async () => {
@@ -116,6 +115,7 @@ describe("db-ops set-setting", () => {
       NEON_REHEARSAL_URL: url(name),
     });
     expect(r.code).not.toBe(0);
+    expect(r.out).toContain("only runs against target=development or target=production");
   });
 });
 

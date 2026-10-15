@@ -53,11 +53,25 @@ describe('the waiting card on the New spot screen', () => {
     expect(settle).toBeLessThan(push);
   });
 
-  it('only a sent photo with a cat in it reaches a result (spec tests 4 and 7)', () => {
-    const settle = between('settleWait(', 'await saveWaitingRecord');
+  it('only a sent photo with a cat in it reaches a result, and only then is the record saved (spec tests 4 and 7)', () => {
+    const settle = between('const waitOutcome: WaitOutcome =', 'noteSent();');
     expect(settle).toMatch(/outcome\.kind === 'sent'/);
     expect(settle).toMatch(/isCatPhoto/);
     expect(settle).toMatch(/kind: 'notCat'/);
     expect(settle).toMatch(/kind: 'failed'/);
+    expect(settle).toMatch(/waitOutcome\.kind === 'result'/);
+    expect(settle).toMatch(/loadExistingWaitingRecord/);
+  });
+
+  it('the token is bumped as soon as the send returns, before anything else waits', () => {
+    const after = between('const outcome = await submitSighting({', 'const waitOutcome');
+    const bump = after.indexOf('waitTokenRef.current += 1');
+    expect(bump).toBeGreaterThan(-1);
+    expect(after.slice(after.indexOf('});'), bump)).not.toMatch(/await /);
+  });
+
+  it('7. the result screens show nothing about facts', () => {
+    const review = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
+    expect(review).not.toMatch(/WaitingCard|waitingEyebrow|starterFacts|'fact\./);
   });
 });

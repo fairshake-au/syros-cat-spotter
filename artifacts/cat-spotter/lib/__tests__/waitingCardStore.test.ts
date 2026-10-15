@@ -59,3 +59,13 @@ describe('the waiting-card record', () => {
     expect([...s.data.keys()]).toEqual(['cat-spotter/username']);
   });
 });
+
+describe('loadExistingWaitingRecord', () => {
+  it('is null when nothing is stored, so a wiped record is never brought back', async () => {
+    const { loadExistingWaitingRecord } = await import('../waitingCardStore');
+    const s = memory();
+    expect(await loadExistingWaitingRecord(s, 'd1')).toBeNull();
+    await saveWaitingRecord(s, 'd1', emptyRecord());
+    expect(await loadExistingWaitingRecord(s, 'd1')).toEqual(emptyRecord());
+  });
+});

@@ -52,8 +52,9 @@ import {
   shouldShowWaitingCard,
   type WaitChoice,
   type WaitingRecord,
+  type WaitOutcome,
 } from '@/lib/waitingCard';
-import { loadWaitingRecord, saveWaitingRecord } from '@/lib/waitingCardStore';
+import { loadExistingWaitingRecord, loadWaitingRecord, saveWaitingRecord } from '@/lib/waitingCardStore';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
@@ -609,21 +610,28 @@ export default function SpotScreen() {
         });
 
         // SYC-48: how the wait ended, taken now (before the photo is saved for
-        // the result screen). Only a wait that reached a result counts.
+        // the result screen). A card still being chosen must not appear late.
+        waitTokenRef.current += 1;
         const wait = waitRef.current;
         waitRef.current = null;
-        if (wait?.record) {
-          const settled = settleWait(
-            wait.record,
-            wait.choice,
-            outcome.kind === 'sent'
-              ? outcome.result.isCatPhoto
-                ? { kind: 'result', sightingId: outcome.result.sightingId }
-                : { kind: 'notCat' }
-              : { kind: 'failed' },
-            wait.stopwatch.elapsed(Date.now()),
-          );
-          await saveWaitingRecord(AsyncStorage, deviceId, settled);
+        const waitOutcome: WaitOutcome =
+          outcome.kind === 'sent'
+            ? outcome.result.isCatPhoto
+              ? { kind: 'result', sightingId: outcome.result.sightingId }
+              : { kind: 'notCat' }
+            : { kind: 'failed' };
+        // Only a wait that reached a result changes the record. It is read
+        // again first, so nothing written meanwhile is lost, and a record wiped
+        // meanwhile ("Delete my data") isn't brought back.
+        if (wait?.record && waitOutcome.kind === 'result') {
+          const current = await loadExistingWaitingRecord(AsyncStorage, deviceId);
+          if (current) {
+            await saveWaitingRecord(
+              AsyncStorage,
+              deviceId,
+              settleWait(current, wait.choice, waitOutcome, wait.stopwatch.elapsed(Date.now())),
+            );
+          }
         }
         if (outcome.kind === 'sent') noteSent();
 

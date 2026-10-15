@@ -39,16 +39,16 @@ export function WaitingCard({ choice, t, examplePhoto = EAR_TIP_EXAMPLE_PHOTO }:
     return (
       <View testID="waiting-card">
         <Card flat style={styles.card}>
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>
-          {t('feedNudgeTitle')}
-        </Text>
-        <Text style={[styles.body, { color: colors.foreground }]}>{t('feedNudgeWhy')}</Text>
-        <Text style={[styles.body, { color: colors.foreground }]}>
-          {t(choice.form === 'link' ? 'feedNudgeInstead' : 'feedNudgeInsteadNoLink')}
-        </Text>
-        {choice.form === 'link' ? (
-          <Text style={[styles.euro, { color: colors.foreground }]}>{t('feedNudgeEuro')}</Text>
-        ) : null}
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>
+            {t('feedNudgeTitle')}
+          </Text>
+          <Text style={[styles.body, { color: colors.foreground }]}>{t('feedNudgeWhy')}</Text>
+          <Text style={[styles.body, { color: colors.foreground }]}>
+            {t(choice.form === 'link' ? 'feedNudgeInstead' : 'feedNudgeInsteadNoLink')}
+          </Text>
+          {choice.form === 'link' ? (
+            <Text style={[styles.euro, { color: colors.foreground }]}>{t('feedNudgeEuro')}</Text>
+          ) : null}
         </Card>
       </View>
     );
@@ -57,23 +57,25 @@ export function WaitingCard({ choice, t, examplePhoto = EAR_TIP_EXAMPLE_PHOTO }:
   const fact = choice.kind === 'fact' ? factById(choice.id) : undefined;
   return (
     <View testID="waiting-card">
-        <Card flat style={styles.card}>
-      <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{displayUpperCase(t('waitingEyebrow'))}</Text>
-      {fact?.photo && examplePhoto ? (
-        <Image
-          testID="waiting-card-photo"
-          source={examplePhoto}
-          style={[styles.photo, { borderColor: colors.border }]}
-          contentFit="cover"
-          accessibilityLabel={t('earTipExampleAlt')}
-        />
-      ) : null}
-      {fact ? (
-        <Text testID="waiting-card-fact" style={[styles.body, { color: colors.foreground }]}>
-          {t(fact.id)}
+      <Card flat style={styles.card}>
+        <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
+          {displayUpperCase(t('waitingEyebrow'))}
         </Text>
-      ) : null}
-        </Card>
+        {fact?.photo && examplePhoto ? (
+          <Image
+            testID="waiting-card-photo"
+            source={examplePhoto}
+            style={[styles.photo, { borderColor: colors.border }]}
+            contentFit="cover"
+            accessibilityLabel={t('earTipExampleAlt')}
+          />
+        ) : null}
+        {fact ? (
+          <Text testID="waiting-card-fact" style={[styles.body, { color: colors.foreground }]}>
+            {t(fact.id)}
+          </Text>
+        ) : null}
+      </Card>
     </View>
   );
 }
