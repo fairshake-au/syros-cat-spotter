@@ -284,7 +284,7 @@ describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §
     fireEvent.click(w.getByTestId('litter-checkbox'));
     expect(w.queryByTestId('report-email-ask')).toBeNull();
     nextIn(w);
-    expect(w.text()).toContain(T.reportEmailTitle);
+    expect(w.text()).toContain(T.reportEmailScreenTitle);
     expect(w.text()).toContain(stepOf(3, 4));
     expect(w.getByTestId('report-email-ask')).toBeTruthy();
     nextIn(w);
@@ -299,8 +299,9 @@ describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §
     const t = TRANSLATIONS[code];
     const w = setup({ offerEmail: true });
     toEmailScreen(w);
-    expect(w.text()).toContain(t.reportEmailTitle);
     const ask = w.getByTestId('report-email-ask');
+    // The whole question, in the screen itself, never cut off in the header.
+    expect(ask.textContent).toContain(t.reportEmailTitle);
     expect(ask.textContent).toContain(t.reportEmailBody);
     expect(ask.textContent).toContain(t.reportEmailYes);
     expect(ask.textContent).toContain(t.reportEmailNo);

@@ -99,7 +99,7 @@ describe('SYC-42 Slice 3: reporterEmail', () => {
 describe('SYC-42 Slice 3: the email screen (Samuel, 15 Oct 2026)', () => {
   it('with it: where → how bad → email → before you send; the email screen never holds anyone up', async () => {
     const { INITIAL_FLOW: F, flowNext: next, screenAt } = await import('../reportFlow');
-    let f = { ...F, coords: { latitude: 37.44, longitude: 24.94 } };
+    let f: ReportFlow = { ...F, coords: { latitude: 37.44, longitude: 24.94 } };
     expect(screenAt(f.step, true)).toBe('where');
     f = next(f, true);
     expect(screenAt(f.step, true)).toBe('howBad');

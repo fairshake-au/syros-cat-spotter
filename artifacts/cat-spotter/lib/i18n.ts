@@ -510,6 +510,8 @@ const en: Dict = {
   // its two fixed lines (the second is about news, which a report address
   // never gets).
   reportEmailTitle: 'Shall we tell you what happens?',
+  // The short screen title; the question itself is the screen's first line.
+  reportEmailScreenTitle: 'Your email',
   reportEmailBody: "Syros Cats will see this report. If you leave an email we'll confirm we've got it, and write once more when there's an outcome. It's used for this report and nothing else.",
   reportEmailYes: 'Yes, keep me updated',
   reportEmailNo: 'No, send it anonymously',
@@ -1073,6 +1075,7 @@ const el: Dict = {
   reportNotePlaceholder: 'Προαιρετικό',
   // SYC-42 Slice 3: Fair Shake drafts, pending a native check (SYC-283).
   reportEmailTitle: 'Θέλεις να σου πούμε τι θα γίνει;',
+  reportEmailScreenTitle: 'Το email σου',
   reportEmailBody: 'Η Syros Cats θα δει αυτή την αναφορά. Αν αφήσεις ένα email, θα σου επιβεβαιώσουμε ότι τη λάβαμε και θα σου γράψουμε άλλη μία φορά όταν υπάρξει αποτέλεσμα. Χρησιμοποιείται μόνο για αυτή την αναφορά.',
   reportEmailYes: 'Ναι, θέλω ενημέρωση',
   reportEmailNo: 'Όχι, στείλε την ανώνυμα',
@@ -1630,6 +1633,7 @@ const fr: Dict = {
   reportNotePlaceholder: 'Facultatif',
   // SYC-42 Slice 3: Fair Shake drafts, pending a native check (SYC-283).
   reportEmailTitle: 'Veux-tu savoir ce qui se passe ensuite ?',
+  reportEmailScreenTitle: 'Ton e-mail',
   reportEmailBody: "Syros Cats verra ce signalement. Si tu laisses ton e-mail, nous te confirmerons sa réception, puis nous t'écrirons une dernière fois quand il y aura une issue. Il ne sert qu'à ce signalement.",
   reportEmailYes: 'Oui, tiens-moi au courant',
   reportEmailNo: 'Non, envoyer anonymement',

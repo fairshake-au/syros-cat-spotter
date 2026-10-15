@@ -122,7 +122,7 @@ export function ReportWizard({
       : screen === 'howBad'
         ? t('reportHowBadTitle')
         : screen === 'email'
-          ? t('reportEmailTitle')
+          ? t('reportEmailScreenTitle')
           : t('reportBeforeSendTitle');
   const choose = async (fromCamera: boolean) => {
     const photo = await onChoosePhoto(fromCamera);
@@ -278,6 +278,7 @@ export function ReportWizard({
 
           {screen === 'email' && (
             <View style={styles.noteBlock} testID="report-email-ask">
+              <Text role="heading" style={[styles.choiceTitle, { color: colors.foreground }]}>{t('reportEmailTitle')}</Text>
               <Text style={[styles.checkLabel, { color: colors.foreground }]}>{t('reportEmailBody')}</Text>
               {([true, false] as const).map((yes) => {
                 const selected = !!flow.wantsUpdates === yes;
