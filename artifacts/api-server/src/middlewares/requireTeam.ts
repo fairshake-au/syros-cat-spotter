@@ -1,5 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { findPersonById, type PersonWithScopes } from "@workspace/db";
+import { navContext } from "../lib/teamPages/layout";
 import { readSession } from "../lib/teamAuth/session";
 import {
   refuseAccessEnded,
@@ -142,7 +143,7 @@ export function requireTeam(
         }
       }
       res.locals["teamPerson"] = person;
-      next();
+      navContext.run({ people: can(person, "manage_people") }, next);
     } catch (err) {
       next(err);
     }

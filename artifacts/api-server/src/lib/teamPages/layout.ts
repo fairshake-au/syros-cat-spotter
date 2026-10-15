@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { escapeHtml } from "./escape";
 import { tr, pageLanguage, type Language } from "./strings";
 
@@ -6,7 +7,7 @@ import { tr, pageLanguage, type Language } from "./strings";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely";
+export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely" | "people";
 
 interface NavItem {
   key: NavKey;
@@ -24,6 +25,15 @@ const NAV: NavItem[] = [
   { key: "sites", label: "Feeding sites", short: "Sites", href: "/api/team/sites" },
   { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
 ];
+
+/** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
+const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
+
+/**
+ * Set by requireTeam for the rest of a request, so every page drawn for a
+ * management member carries the People link without each page passing it.
+ */
+export const navContext = new AsyncLocalStorage<{ people: boolean }>();
 
 const STYLES = `
 *{box-sizing:border-box}
@@ -282,6 +292,8 @@ export interface PageOptions {
    * screen, for a page laid out to use the room.
    */
   mainClass?: "mappage" | "wide";
+  /** Show the People link (default: whatever requireTeam set for this request). */
+  showPeople?: boolean;
 }
 
 export function renderPage(opts: PageOptions): string {
@@ -289,7 +301,8 @@ export function renderPage(opts: PageOptions): string {
   // passes the person's language, which still falls back to English until
   // that language is live; `<html lang>` is the language actually used.
   const lang: Language = pageLanguage(opts.lang, opts.liveLanguages);
-  const nav = (opts.nav === false ? [] : NAV).map((n) => {
+  const showPeople = opts.showPeople ?? navContext.getStore()?.people ?? false;
+  const nav = (opts.nav === false ? [] : showPeople ? [...NAV, PEOPLE_NAV] : NAV).map((n) => {
     // On a phone "Welfare queue" shows as "Queue" (CSS picks one).
     const label = n.short
       ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
