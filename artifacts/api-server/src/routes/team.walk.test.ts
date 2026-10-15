@@ -153,7 +153,7 @@ interface Row {
    */
   fresh?: true;
   /**
-   * A named exemption from "never cached": this one route may instead answer
+   * A named exemption from "never cached", honoured on a 200 only: this one route may instead answer
    * with exactly this Cache-Control when it serves its picture (a refusal or a
    * 404 is still no-store). For the photo versions only (SYC-396 PR 1.2).
    */
@@ -181,7 +181,7 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/photos/:publicId/:size": {
     why: "a small or medium version of a catalogue photo: the photo route's checks, through the same helper (here a cat in colony A)",
     except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" },
-    mayCache: "private, max-age=86400",
+    mayCache: "private, no-cache",
   },
   "POST /api/team/reports/:publicId/state": { why: "change_report_state, island-only" },
   "POST /api/team/reports/:publicId/note": { why: "add_team_note, island-only" },
@@ -530,7 +530,7 @@ describe("T1: the route walk", () => {
             break;
         }
         // Every dashboard answer, refusal or not, is never cached.
-        const allowed = ["no-store", ...(TABLE[route]!.mayCache ? [TABLE[route]!.mayCache!] : [])];
+        const allowed = ["no-store", ...(TABLE[route]!.mayCache && json.status === 200 ?[TABLE[route]!.mayCache!] : [])];
         expect(allowed, `${where}: cache-control ${String(json.headers["cache-control"])}`).toContain(
           json.headers["cache-control"],
         );

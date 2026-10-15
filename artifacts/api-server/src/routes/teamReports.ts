@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, photosTable, welfareReportPhotosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -137,14 +138,14 @@ const photoAccess = requireTeam("view_exact_location", {
 async function servablePhoto(
   req: Request,
   res: Response,
-): Promise<{ id: number; data: string; mime: string } | null> {
+): Promise<{ id: number; mime: string } | null> {
   const publicId = String(req.params["publicId"]);
   if (!PHOTO_ID_RE.test(publicId)) {
     notFound(res);
     return null;
   }
   const [photo] = await db
-    .select({ id: photosTable.id, data: photosTable.data, mime: photosTable.mime })
+    .select({ id: photosTable.id, mime: photosTable.mime })
     .from(photosTable)
     .where(eq(photosTable.publicId, publicId));
   if (!photo || !IMAGE_TYPES.has(photo.mime)) {
@@ -166,8 +167,14 @@ router.get("/team/photos/:publicId", photoAccess, async (req: Request, res: Resp
   setTeamHeaders(res);
   const photo = await servablePhoto(req, res);
   if (!photo) return;
+  // The picture itself is read only now the checks have passed.
+  const [full] = await db
+    .select({ data: photosTable.data })
+    .from(photosTable)
+    .where(eq(photosTable.id, photo.id));
+  if (!full) return notFound(res);
   res.setHeader("Content-Type", photo.mime);
-  res.send(Buffer.from(photo.data, "base64"));
+  res.send(Buffer.from(full.data, "base64"));
 });
 
 /**
@@ -175,7 +182,7 @@ router.get("/team/photos/:publicId", photoAccess, async (req: Request, res: Resp
  * version of a catalogue photo, for lists and grids (SYC-396 PR 1.2; spec
  * §11). Exactly the photo route's checks (`photoAccess` and `servablePhoto`),
  * so a hidden photo's versions are hidden too. A JPEG with no location data,
- * kept by the browser privately for a day, never in a shared cache.
+ * kept by the browser privately but revalidated on every view (ETag), never in a shared cache.
  */
 router.get("/team/photos/:publicId/:size", photoAccess, async (req: Request, res: Response) => {
   setTeamHeaders(res);
@@ -185,8 +192,19 @@ router.get("/team/photos/:publicId/:size", photoAccess, async (req: Request, res
   if (!photo) return;
   const bytes = await variantFor(photo.id, size);
   if (!bytes) return notFound(res);
-  // After setTeamHeaders' no-store: this one answer may be kept, privately.
-  res.setHeader("Cache-Control", "private, max-age=86400");
+  // Only now, with access and the hidden check passed, may it be kept. "no-cache"
+  // makes the browser ask again on every view, so a photo hidden later is refused
+  // at once (never served from the browser copy), and a 304 sends no picture.
+  const etag = `"${createHash("sha1").update(bytes).digest("hex")}"`;
+  res.setHeader("Cache-Control", "private, no-cache");
+  res.setHeader("ETag", etag);
+  const sent = String(req.headers["if-none-match"] ?? "")
+    .split(",")
+    .map((t) => t.trim());
+  if (sent.includes(etag) || sent.includes("*")) {
+    res.status(304).end();
+    return;
+  }
   res.type("jpeg").send(bytes);
 });
 

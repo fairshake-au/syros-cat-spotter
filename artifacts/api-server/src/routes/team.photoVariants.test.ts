@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import request from "supertest";
 import sharp from "sharp";
 import { eq } from "drizzle-orm";
@@ -67,7 +69,7 @@ afterAll(async () => {
 /** Status and body text (the picture parser leaves `res.text` empty). */
 const said = (res: request.Response): [number, string] => [res.status, (res.body as Buffer).toString("utf8")];
 
-const version = (publicId: string, size: string, cookie?: string) => {
+const version = (publicId: string, size: string, cookie?: string, ifNoneMatch?: string) => {
   const r = request(app)
     .get(`/api/team/photos/${publicId}/${size}`)
     .buffer(true)
@@ -76,6 +78,7 @@ const version = (publicId: string, size: string, cookie?: string) => {
       res.on("data", (c: Buffer) => chunks.push(c));
       res.on("end", () => cb(null, Buffer.concat(chunks)));
     });
+  if (ifNoneMatch) r.set("If-None-Match", ifNoneMatch);
   return cookie ? r.set("Cookie", cookie) : r;
 };
 
@@ -92,10 +95,62 @@ describe("the photo version route", () => {
     }
   });
 
-  it("is kept privately by the browser for a day, and never public", async () => {
+  it("may be kept by the browser, but only after asking again each time: private, no-cache, with an ETag", async () => {
     const res = await version(catA.photoPublicId, "small", staff.cookie);
-    expect(res.headers["cache-control"]).toBe("private, max-age=86400");
-    expect(res.headers["cache-control"]).not.toMatch(/public/);
+    expect(res.headers["cache-control"]).toBe("private, no-cache");
+    expect(res.headers["cache-control"]).not.toMatch(/public|max-age/);
+    expect(res.headers["etag"]).toMatch(/^"[0-9a-f]{40,}"$/);
+  });
+
+  it("answers a repeat with the same ETag as 304 and no picture", async () => {
+    const first = await version(catA.photoPublicId, "small", staff.cookie);
+    const again = await version(catA.photoPublicId, "small", staff.cookie, first.headers["etag"] as string);
+    expect(again.status).toBe(304);
+    expect((again.body as Buffer).length).toBe(0);
+    expect(again.headers["etag"]).toBe(first.headers["etag"]);
+    expect(again.headers["cache-control"]).toBe("private, no-cache");
+    const other = await version(catA.photoPublicId, "small", staff.cookie, '"not-it"');
+    expect(other.status).toBe(200);
+  });
+
+  it("a photo hidden after its version was stored and viewed is refused to a guardian, with or without If-None-Match", async () => {
+    const cat = await realPhoto(await seedCat(colonyA));
+    // Seen while visible, so the version is stored and the guardian holds its ETag.
+    const seen = await version(cat.photoPublicId, "small", eleni.cookie);
+    expect(seen.status).toBe(200);
+    const tag = seen.headers["etag"] as string;
+    expect((await version(cat.photoPublicId, "small", staff.cookie)).status).toBe(200);
+    await hidePhoto(cat.photoId);
+    const plain = await version(cat.photoPublicId, "small", eleni.cookie);
+    expect(said(plain)).toEqual(FORBIDDEN);
+    const revalidate = await version(cat.photoPublicId, "small", eleni.cookie, tag);
+    expect(said(revalidate)).toEqual(FORBIDDEN);
+    expect(revalidate.headers["cache-control"]).toBe("no-store");
+    // The team (hide_photo) still gets it.
+    expect((await version(cat.photoPublicId, "small", staff.cookie, tag)).status).toBe(304);
+  });
+
+  it("errors and misses are never cacheable", async () => {
+    const odd = await seedCat(colonyA);
+    const answers = [
+      await version(hiddenA.photoPublicId, "small", eleni.cookie), // hidden 403
+      await version(catB.photoPublicId, "small", eleni.cookie), // outside her colony 403
+      await version(catA.photoPublicId, "large", staff.cookie), // bad size 404
+      await version(odd.photoPublicId, "small", staff.cookie), // undecodable 404
+      await version(catA.photoPublicId, "small"), // no session 401
+    ];
+    expect(answers.map((r) => r.status)).toEqual([403, 403, 404, 404, 401]);
+    for (const r of answers) expect(r.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("servablePhoto never loads the full-size photo (its select has no `data`)", () => {
+    const src = fs.readFileSync(path.join(__dirname, "teamReports.ts"), "utf8");
+    const start = src.indexOf("async function servablePhoto");
+    const end = src.indexOf("\nrouter.get", start);
+    expect(start).toBeGreaterThan(-1);
+    const body = src.slice(start, end);
+    expect(body).toMatch(/\.select\(/);
+    expect(body).not.toMatch(/photosTable\.data|\bdata:/);
   });
 
   it("answers 404 for any other size", async () => {
