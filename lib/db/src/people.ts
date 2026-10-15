@@ -599,7 +599,7 @@ async function holdsManagement(tx: Tx, personId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-const LAST_MANAGER =
+export const LAST_MANAGER =
   "They are the last person with management. Nobody else could invite or remove anyone. Nothing was changed.";
 
 /** The person's rows, locked, each with whether it is in force now. */
@@ -2086,6 +2086,52 @@ export function peopleStore(db: PeopleDb) {
         language: asLanguage(person.language),
         scopes: await scopesOf(id),
       };
+    },
+
+    /**
+     * A cat guardian's own placements that are in force now, by the
+     * DATABASE's clock, for "My colonies" and "My page" (PR 1.3): the colony's
+     * name, the label the team gave it (null for none) and when the placement
+     * ends (null for never). An ended placement is not returned. Nothing here
+     * grants anything; it is only what she is shown about herself.
+     */
+    async myColonies(personId: string): Promise<
+      { colonyId: number; name: string; relationship: string | null; expiresAt: Date | null }[]
+    > {
+      if (!isPersonId(personId)) return [];
+      const rows = await db
+        .select({
+          colonyId: personScopesTable.colonyId,
+          name: coloniesTable.name,
+          relationship: personScopesTable.relationship,
+          expiresAt: personScopesTable.expiresAt,
+        })
+        .from(personScopesTable)
+        .innerJoin(coloniesTable, eq(coloniesTable.id, personScopesTable.colonyId))
+        .where(
+          and(
+            eq(personScopesTable.personId, personId),
+            eq(personScopesTable.role, "guardian"),
+            scopeInForce(),
+          ),
+        )
+        .orderBy(asc(coloniesTable.name), asc(coloniesTable.id));
+      return rows.map((r) => ({ ...r, colonyId: r.colonyId! }));
+    },
+
+    /**
+     * A person's own choice of language (PR 1.3). Only a language we have
+     * (en, el, fr); only for someone who is on the list. True if it was saved.
+     */
+    async setOwnLanguage(personId: string, language: string): Promise<boolean> {
+      if (!isPersonId(personId)) return false;
+      const lang = checkLanguage(language);
+      const rows = await db
+        .update(peopleTable)
+        .set({ language: lang })
+        .where(and(eq(peopleTable.id, personId), isNull(peopleTable.leftAt), isNotNull(peopleTable.acceptedAt)))
+        .returning({ id: peopleTable.id });
+      return rows.length === 1;
     },
 
     /**

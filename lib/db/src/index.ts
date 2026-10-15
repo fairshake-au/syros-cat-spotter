@@ -25,6 +25,7 @@ export {
   isPersonId,
   peopleStore,
   PeopleError,
+  LAST_MANAGER,
   placementEndsAt,
   scopeInForce,
   personState,
@@ -80,5 +81,7 @@ export const setPlacements = people.setPlacements;
 export const markLeftById = people.markLeftById;
 export const stopHelping = people.stopHelping;
 export const signOutEverywhereById = people.signOutEverywhereById;
+export const myColonies = people.myColonies;
+export const setOwnLanguage = people.setOwnLanguage;
 export const rejoinPerson = people.rejoinPerson;
 export const createColonyWithPlacement = people.createColonyWithPlacement;
