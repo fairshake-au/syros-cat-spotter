@@ -111,7 +111,9 @@ export function requireTeam(
       if (capability) {
         const islandOnly = options.island === true && !holdsIslandRow(person);
         let allowed = !islandOnly;
-        if (allowed) {
+        // An island row passes every target of every capability it holds,
+        // so the team's requests skip the lookup (review finding 7).
+        if (allowed && !(options.target && can(person, capability))) {
           const resolved = options.target ? await options.target(req) : [];
           const targets = Array.isArray(resolved) ? resolved : [resolved];
           allowed =

@@ -684,6 +684,9 @@ export function peopleStore(db: PeopleDb) {
                 eq(personScopesTable.role, "management"),
                 isNull(peopleTable.leftAt),
                 isNotNull(peopleTable.acceptedAt),
+                // A management row with an end date that has passed lets
+                // nobody in, so it doesn't count (review finding 3b).
+                scopeInForce(),
               ),
             );
           const others = managers.filter((m) => m.personId !== person.id);

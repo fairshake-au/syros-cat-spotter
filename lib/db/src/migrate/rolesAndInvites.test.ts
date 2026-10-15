@@ -444,6 +444,31 @@ describe("spec test 29a, seeded half: setRoles is additive", () => {
     ).rejects.toThrow(/last person with management/);
   });
 
+  it("a pending invitee or an ended management row doesn't count as another manager (review findings 3a, 3b)", async () => {
+    await addStaff();
+    await store.setRoles({ email: SAMUEL, add: "management", by: "cli:t" });
+    const jacky = await addStaff("jacky@example.com");
+    await store.setRoles({ email: "jacky@example.com", add: "management", by: "cli:t" });
+    // Jacky invited but not joined: not a manager anyone can rely on.
+    await c.query("update people set accepted_at = null where id = $1", [jacky.id]);
+    await expect(
+      store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" }),
+    ).rejects.toThrow(/last person with management/);
+    // Joined again, but her management row ended yesterday.
+    await c.query("update people set accepted_at = now() where id = $1", [jacky.id]);
+    await c.query(
+      "update person_scopes set expires_at = now() - interval '1 day' where person_id = $1 and role = 'management'",
+      [jacky.id],
+    );
+    await expect(
+      store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" }),
+    ).rejects.toThrow(/last person with management/);
+    // Control: with her row in force, Samuel can step down.
+    await c.query("update person_scopes set expires_at = null where person_id = $1", [jacky.id]);
+    const r = await store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" });
+    expect(r.after).toEqual(["staff"]);
+  });
+
   it("two managers demoting each other at the same moment can't both succeed", async () => {
     await addStaff();
     await addStaff("jacky@example.com");

@@ -293,6 +293,9 @@ describe("T1: the route walk", () => {
           case "pass":
             expect([401, 403], `${where}: got ${json.status} ${String(json.text ?? "").slice(0, 80)}`).not.toContain(json.status);
             expect([401, 403], `${where} (browser)`).not.toContain(page.status);
+            // Through the checks and answered, not crashed (review finding 10).
+            expect(json.status, `${where}: ${json.status}`).toBeLessThan(500);
+            expect(page.status, `${where} (browser): ${page.status}`).toBeLessThan(500);
             break;
           case "signin":
             expect([json.status, json.text], where).toEqual([401, '{"error":"not_signed_in"}']);
