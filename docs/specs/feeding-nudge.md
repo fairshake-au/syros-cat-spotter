@@ -1,6 +1,11 @@
 # The feeding nudge, in the spot flow
 
 **Status:** Draft for Samuel's approval, 15 October 2026. **All six decisions answered by Samuel, 15 October 2026** (§8): 1, 2, 3 and 6 as recommended; 4 changed to a full nudge once, then a daily one-liner for visitors only; 5 changed to nothing after an offline save. This version builds them in. An independent adversarial review (Sonnet) found 2 blockers and 15 major issues in the first draft. All are fixed here; the review and how each finding was handled are in [`reviews/feeding-nudge-and-starter-facts-review.md`](./reviews/feeding-nudge-and-starter-facts-review.md).
+> **Amended 15 October 2026 by the match-wait implementation plan** (`docs/superpowers/plans/match-wait-screen.md`, PR #187, Samuel's Decisions 1–6, recorded on SYC-36). Where this spec and the plan differ, the plan wins:
+> - **Launch default (plan Decision 6, Samuel: "show both and I'll confirm with them").** The €1 and €30 figures and the **Help feed a cat** button are **on at launch**, pointing at syroscats.com/donations. They no longer wait for Syros Cats' yes. The §5.2 form is used only if Syros Cats say no, or a phone has never loaded its settings. This replaces the "ships without figures or a button by 22 October" default in §1, §5.2, §7, §8 Decision 1 and §10.
+> - **Where the switches live (plan Decision 1).** In a small database table. Claude changes them on request until a team-dashboard page for Syros Cats arrives (SYC-383, first week of November).
+> - **The count (plan Decision 5).** One number per Athens day.
+
 **Owner:** Samuel
 **Covers:** SYC-36 (and the shared half of SYC-343). `docs/PRODUCT-SPEC.md` §2.2: *"The feeding nudge (short form) in the spot flow, with the winter-dependence explanation and the €1-a-day redirect."*
 **Builds on:** the proposal §13 "The feeding nudge" (the long form this is the short form of) · the onboarding "Please don't feed them" step and the "Look, don't touch" safety screen (SYC-35) · the result screens in `/review` (match list, naming a new cat) · the Help tab's donate button (SYC-1's seam).
@@ -169,7 +174,7 @@ It uses the same **Help feed a cat** button and *"Opens {host} in your browser"*
 
 ### 5.2 Without a donation link or figures
 
-Used when Syros Cats haven't confirmed the page and figures by 22 October, and whenever the app hasn't been able to load its settings (§9). No figures and no **Help feed a cat** button; **Got it** stays. The redirect is said in words. When the link is switched off on purpose, this showing counts as the phone's full nudge; when it's shown only because settings never loaded, it doesn't (§9). The one-liner doesn't show at all in this form:
+*(Amended 15 Oct 2026: on at launch instead; see the note at the top.)* Used when Syros Cats haven't confirmed the page and figures by 22 October, and whenever the app hasn't been able to load its settings (§9). No figures and no **Help feed a cat** button; **Got it** stays. The redirect is said in words. When the link is switched off on purpose, this showing counts as the phone's full nudge; when it's shown only because settings never loaded, it doesn't (§9). The one-liner doesn't show at all in this form:
 
 | Key | English | Ελληνικά | Français |
 |---|---|---|---|
@@ -193,7 +198,7 @@ Being precise, because offline support in Cat Spotters is partial:
 
 ## 7. What Syros Cats must confirm
 
-These go to Syros Cats in one message, with the English copy, by **Monday 19 October**, so answers land before the copy freeze on 22 October. **If an answer hasn't come by 22 October, the nudge ships in its §5.2 form** (no figures, no button) and switches over when they say yes, with no new release.
+These go to Syros Cats in one message, with the English copy, by **Monday 19 October**, so answers land before the copy freeze on 22 October. *(Amended 15 Oct 2026: on at launch instead; see the note at the top.)* **If an answer hasn't come by 22 October, the nudge ships in its §5.2 form** (no figures, no button) and switches over when they say yes, with no new release.
 
 1. **The figures.** On food alone, €1 covers more than a day: decent dry food in Greece costs roughly 20–60 cents per cat per day (§12). So "€1 feeds a cat for a day" errs on the safe side, if it's meant to cover the food plus the round, water and bowls. Card and PayPal fees take a fixed amount from each payment, which hurts a €1 gift most, so the nudge also says *"€30 feeds one for a month"*. **Are you happy for the app to say both?**
 2. **The page.** Should **Help feed a cat** open **syroscats.com/donations** (your existing page: PayPal, card, bank transfer)? It's a general page, so it won't repeat the €1 or €30 figures. And are you happy for Cat Spotters, which isn't run by Syros Cats, to send people there?

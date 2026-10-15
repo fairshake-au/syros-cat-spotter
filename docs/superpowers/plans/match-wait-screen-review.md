@@ -45,3 +45,37 @@
 ## Not taken up
 
 None. Every finding was folded in, or turned into a decision for Samuel (findings 1, 5, 12 and 13 became Decisions 3, 4, 5 and 6).
+
+## After Samuel's decisions (15 October 2026)
+
+Samuel answered the plan's six decisions through question prompts. Each is recorded on SYC-36 with his exact selection. Two findings above read differently in the light of those answers:
+- **Finding 5:** Decision 4 was answered "Keep the spec: nothing hidden". A phone first opened with no signal can still show an unconfirmed fact. He accepted that risk.
+- **Finding 13:** Decision 1 was answered "Dashboard page for Syros Cats", then "Page after launch". Decision 6 was answered "show both and I'll confirm with them", which the plan reads as "on at launch".
+
+## Second review, on the final text (before merge)
+
+**Reviewer:** an independent Sonnet agent, read-only, on commit `da195e8b` against `origin/main` `691042ea`.
+
+**Verdict, condensed:** no blockers. It confirmed:
+- findings 1–17 above are fixed in the text;
+- the decisions are built in consistently, except the places listed below;
+- seeding a value in a migration is tolerated, because `migrate:check` compares the schema, not data, and 0006 and 0011 already insert rows.
+
+| # | Severity | Finding (condensed) | What happened |
+|---|---|---|---|
+| R2-1 | Major | "In plain English" still said the nudge ships without figures or a button if Syros Cats haven't answered by 22 Oct, which contradicts Decision 6 | **Fixed:** now says on at launch, and off only on a no |
+| R2-2 | Major | The Decision 6 override of the spec's default was flagged only at §1 and §7. It sits in §1, §5.2, §7, §8 and §10, with no row in the disagreement table. Small call 3 adds a server default the spec lacks | **Fixed:** new row C13, saying the plan wins where it differs. Dated amendment notes added in this PR to `feeding-nudge.md` (top, §5.2, §7) and `starter-facts.md` §9 |
+| R2-3 | Major | Production migrations run through `db-ops` **before** the publish, not after. CI test databases will carry the seeded link | **Fixed:** the ship table now says `db-ops migrate` runs before the publish. The seed SQL (`ON CONFLICT DO NOTHING`), the rollback, and "tests delete the seed first" are written in |
+| R2-4 | Major | "Claude edits with one SQL statement" had no documented production path, and was easy to get wrong with jsonb | **Fixed:** a new allowlisted `db-ops set-setting` command that checks key and value shape and upserts, plus a runbook step. A wrongly shaped value reads as missing, never an error |
+| R2-5 | Major | "Reaches phones within about a minute" doesn't hold when the response is cached for 5 minutes and phones re-fetch only on start, foreground or reconnect | **Fixed:** cache cut to 60 seconds; the wording says when a phone actually picks a change up; a cache reset is added for tests |
+| R2-6 | Minor | `GREEK_TIME_ZONE` isn't exported | **Fixed:** uses `CAMPAIGN_TIMEZONE` |
+| R2-7 | Minor | Stale `i18n.ts` line numbers | **Fixed** (:1025, :1583; :815, :1372) |
+| R2-8 | Minor | Stale base commit and PR states (#178, #180 and #184 merged; #188 holds 0026) | **Fixed:** rebased on `691042ea`; header, collision table and migration number (0027 or higher) refreshed |
+| R2-9 | Minor | `none` vs an empty list for "show all facts" | **Fixed:** an empty list everywhere |
+| R2-10 | Minor | Signals failures also include 400, 401 and 429 | **Fixed:** "any answer but 200 means unknown", with 401 and 429 tests |
+| R2-11 | Minor | This file didn't record Samuel's answers | **Fixed:** the section above |
+| R2-12 | Nit | The status line said Decision 6 went "differently" | **Fixed:** "as recommended in shape, but on at launch" |
+| R2-13 | Nit | "Recommendation: A" sat under a chosen B (Decisions 1 and 4) | **Fixed:** marked "not chosen" |
+| R2-14 | Nit | The Decision 6 box didn't state the accepted risk | **Fixed:** figures and button go live before Syros Cats answer; Google Play's point is still unchecked; the switch is the safety net |
+| R2-15 | Nit | The gate match should be exact and raw, like the health check | **Fixed:** with tests for `/api/go/feed/` and `/API/GO/FEED` |
+| R2-16 | Nit | String counts in Model delegation | **Fixed** |
