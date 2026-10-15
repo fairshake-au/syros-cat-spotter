@@ -15,7 +15,7 @@ Scratch DB syc53_my on PORT 8095 (dropped, server stopped). en at 390 and 1280, 
 
 ## Next
 - browser check + screenshots (docs/screenshots/syc-53-pr-1-3/)
-- full suite + typecheck, final report
+
 
 ## Probes (red lines)
 All four were red, then restored (git status clean after each).
