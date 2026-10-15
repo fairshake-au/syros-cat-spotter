@@ -37,6 +37,8 @@ import type {
   CreateCatUpdateRequest,
   CreateSightingRequest,
   HealthStatus,
+  IssueReportReply,
+  IssueReportRequest,
   LeaderboardEntry,
   ListCatsParams,
   MarkAllNotificationsRead200,
@@ -2214,4 +2216,91 @@ export function useGoFeed<TData = Awaited<ReturnType<typeof goFeed>>, TError = E
 
 
 
+
+export const getReportIssueUrl = () => {
+
+
+
+
+  return `/api/issues`
+}
+
+/**
+ * Public, no account. Needs the device secret (trust-on-first-use).
+ * `turnstileToken` is a Cloudflare Turnstile token for the action
+ * `report_issue` with `cdata` = `clientRef`.
+ *
+ * A resend of the same `clientRef` from the same device is one report:
+ * it gets the first answer again (200), with or without a token. A
+ * report saved without a verified token, still undecided and whose
+ * photo was never restored, is upgraded by a resend with a good token.
+ *
+ * For `photo_private` and `photo_inappropriate` the photo may be hidden
+ * from the public in the same moment. `hidden` says whether it is
+ * hidden now because of this report, or was already hidden. It is
+ * false when the token wasn't verified, the photo was restored by the
+ * team before, the day's limit on report-hides was reached, or this
+ * address's hide limit was reached. Choose the words shown from
+ * `hidden`, never from the reason.
+ * @summary Report an issue with a cat or one of its photos (report-an-issue.md §5.1, §8, §9.5)
+ */
+export const reportIssue = async (issueReportRequest: IssueReportRequest, options?: RequestInit): Promise<IssueReportReply> => {
+
+  return customFetch<IssueReportReply>(getReportIssueUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(issueReportRequest)
+  }
+);}
+
+
+
+
+
+export const getReportIssueMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportIssue>>, TError,{data: BodyType<IssueReportRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportIssue>>, TError,{data: BodyType<IssueReportRequest>}, TContext> => {
+
+const mutationKey = ['reportIssue'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportIssue>>, {data: BodyType<IssueReportRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reportIssue(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportIssueMutationResult = NonNullable<Awaited<ReturnType<typeof reportIssue>>>
+    export type ReportIssueMutationBody = BodyType<IssueReportRequest>
+    export type ReportIssueMutationError = ErrorType<ApiErrorBody | void>
+
+    /**
+ * @summary Report an issue with a cat or one of its photos (report-an-issue.md §5.1, §8, §9.5)
+ */
+export const useReportIssue = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportIssue>>, TError,{data: BodyType<IssueReportRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportIssue>>,
+        TError,
+        {data: BodyType<IssueReportRequest>},
+        TContext
+      > => {
+      return useMutation(getReportIssueMutationOptions(options));
+    }
 

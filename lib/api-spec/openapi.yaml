@@ -18,6 +18,8 @@ tags:
     description: Device profiles, points, badges
   - name: notifications
     description: Cat update notifications and push tokens
+  - name: issues
+    description: Report an issue with a cat or a photo
 paths:
   /healthz:
     get:
@@ -734,6 +736,71 @@ paths:
           description: Forwarded to the donation page
         "200":
           description: The donation link is switched off; a plain page saying so
+  /issues:
+    post:
+      operationId: reportIssue
+      tags: [issues]
+      summary: Report an issue with a cat or one of its photos (report-an-issue.md §5.1, §8, §9.5)
+      description: |
+        Public, no account. Needs the device secret (trust-on-first-use).
+        `turnstileToken` is a Cloudflare Turnstile token for the action
+        `report_issue` with `cdata` = `clientRef`.
+
+        A resend of the same `clientRef` from the same device is one report:
+        it gets the first answer again (200), with or without a token. A
+        report saved without a verified token, still undecided and whose
+        photo was never restored, is upgraded by a resend with a good token.
+
+        For `photo_private` and `photo_inappropriate` the photo may be hidden
+        from the public in the same moment. `hidden` says whether it is
+        hidden now because of this report, or was already hidden. It is
+        false when the token wasn't verified, the photo was restored by the
+        team before, the day's limit on report-hides was reached, or this
+        address's hide limit was reached. Choose the words shown from
+        `hidden`, never from the reason.
+      parameters:
+        - $ref: "#/components/parameters/DeviceSecretHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueReportRequest"
+      responses:
+        "200":
+          description: Already sent (a resend); the first answer again
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueReportReply"
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueReportReply"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "401":
+          description: Device secret missing
+        "403":
+          description: Device secret refused
+        "404":
+          description: No such cat, or no such photo
+        "410":
+          description: This spotter's data was deleted
+        "422":
+          description: The photo isn't one of this cat's photos
+        "428":
+          description: challenge_required. Nothing was saved; run a fresh check and send again
+        "429":
+          description: Too many requests from this address. Keep the report and retry later
+        "503":
+          description: try_again or turnstile_not_configured. Nothing was saved; retry later (not a refusal)
 components:
   parameters:
     DeviceIdHeader:
@@ -1023,6 +1090,38 @@ components:
           required: [lat, lng]
         homeNote: { type: string, maxLength: 200 }
       required: [deviceId, homePin]
+    IssueReportRequest:
+      type: object
+      description: report-an-issue.md §2, §13. The secret travels in X-Device-Secret.
+      properties:
+        deviceId: { type: string, minLength: 1, maxLength: 128 }
+        clientRef: { type: string, minLength: 8, maxLength: 100 }
+        reason:
+          type: string
+          enum:
+            - photo_private
+            - photo_inappropriate
+            - photo_not_cat
+            - wrong_cat
+            - wrong_name
+            - wrong_info
+            - location_revealing
+            - cat_died
+            - other
+        catId: { type: integer }
+        photoPublicId:
+          type: string
+          description: Required for photo_private, photo_inappropriate and photo_not_cat; optional for wrong_cat; not allowed otherwise.
+        note: { type: string, maxLength: 1000 }
+        language: { type: string, enum: [en, el, fr] }
+        turnstileToken: { type: string, maxLength: 2048 }
+      required: [deviceId, clientRef, reason, catId]
+    IssueReportReply:
+      type: object
+      properties:
+        publicId: { type: string }
+        hidden: { type: boolean }
+      required: [publicId, hidden]
     CatLetGo:
       type: object
       description: claiming-a-cat.md §6. Only the device id; the secret travels in X-Device-Secret.
