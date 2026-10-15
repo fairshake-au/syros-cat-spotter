@@ -1,67 +1,112 @@
-Chromium | 320 | layout | band mapband b144; pictures 144x144@(12,185) 144x144@(156,185) 144x144@(12,329) 144x144@(156,329); page 320/320 | PASS
-Chromium | 320 | tap (17, 23) on picture 2 | server read (18, 24) on 144 px | PASS
+Chromium | 320 | layout, island (zoom 12) | band mapband b144; picture 288x288@(12,185); page 320/320 | PASS
+Chromium | 320 | layout, Ermoupoli (zoom 15) | band mapband b144; pictures 288x288@(12,185); page 320/320 | PASS
+Chromium | 320 | tap (17, 23) | server read (18, 24) on 288 px | PASS
 Chromium | 320 | layout after tap | band mapband b144; whole px: true; page 320/320 | PASS
-Chromium | 320 | tap (1, 1) on picture 2 | server read (2, 2) on 144 px | PASS
-Chromium | 320 | tap (143, 143) on picture 1 | server read (138, 138) on 144 px | FAIL
-Chromium | 360 | layout | band mapband b164; pictures 164x164@(12,185) 164x164@(176,185) 164x164@(12,349) 164x164@(176,349); page 360/360 | PASS
-Chromium | 360 | tap (17, 23) on picture 2 | server read (18, 24) on 164 px | PASS
+Chromium | 320 | tap (1, 1) | server read (2, 2) on 288 px | PASS
+Chromium | 320 | tap (143, 143) | server read (144, 144) on 288 px | PASS
+Chromium | 320 | tap (144, 144) | server read (145, 145) on 288 px | PASS
+Chromium | 320 | tap (287, 287) | server read (282, 282) on 288 px | FAIL
+Chromium | 360 | layout, island (zoom 12) | band mapband b164; picture 328x328@(12,185); page 360/360 | PASS
+Chromium | 360 | layout, Ermoupoli (zoom 15) | band mapband b164; pictures 328x328@(12,185); page 360/360 | PASS
+Chromium | 360 | tap (17, 23) | server read (18, 24) on 328 px | PASS
 Chromium | 360 | layout after tap | band mapband b164; whole px: true; page 360/360 | PASS
-Chromium | 360 | tap (1, 1) on picture 2 | server read (2, 2) on 164 px | PASS
-Chromium | 360 | tap (163, 163) on picture 1 | server read (158, 158) on 164 px | FAIL
-Chromium | 375 | layout | band mapband b171; pictures 171x171@(12,185) 171x171@(183,185) 171x171@(12,356) 171x171@(183,356); page 375/375 | PASS
-Chromium | 375 | tap (17, 23) on picture 2 | server read (18, 24) on 171 px | PASS
+Chromium | 360 | tap (1, 1) | server read (2, 2) on 328 px | PASS
+Chromium | 360 | tap (163, 163) | server read (164, 164) on 328 px | PASS
+Chromium | 360 | tap (164, 164) | server read (165, 165) on 328 px | PASS
+Chromium | 360 | tap (327, 327) | server read (322, 322) on 328 px | FAIL
+Chromium | 375 | layout, island (zoom 12) | band mapband b171; picture 342x342@(12,185); page 375/375 | PASS
+Chromium | 375 | layout, Ermoupoli (zoom 15) | band mapband b171; pictures 342x342@(12,185); page 375/375 | PASS
+Chromium | 375 | tap (17, 23) | server read (18, 24) on 342 px | PASS
 Chromium | 375 | layout after tap | band mapband b171; whole px: true; page 375/375 | PASS
-Chromium | 375 | tap (1, 1) on picture 2 | server read (2, 2) on 171 px | PASS
-Chromium | 375 | tap (170, 170) on picture 1 | server read (165, 165) on 171 px | FAIL
-Chromium | 390 | layout | band mapband b179; pictures 179x179@(12,185) 179x179@(191,185) 179x179@(12,364) 179x179@(191,364); page 390/390 | PASS
-Chromium | 390 | tap (17, 23) on picture 2 | server read (18, 24) on 179 px | PASS
+Chromium | 375 | tap (1, 1) | server read (2, 2) on 342 px | PASS
+Chromium | 375 | tap (170, 170) | server read (171, 171) on 342 px | PASS
+Chromium | 375 | tap (171, 171) | server read (172, 172) on 342 px | PASS
+Chromium | 375 | tap (341, 341) | server read (336, 336) on 342 px | FAIL
+Chromium | 390 | layout, island (zoom 12) | band mapband b179; picture 358x358@(12,185); page 390/390 | PASS
+Chromium | 390 | layout, Ermoupoli (zoom 15) | band mapband b179; pictures 358x358@(12,185); page 390/390 | PASS
+Chromium | 390 | tap (17, 23) | server read (18, 24) on 358 px | PASS
 Chromium | 390 | layout after tap | band mapband b179; whole px: true; page 390/390 | PASS
-Chromium | 390 | tap (1, 1) on picture 2 | server read (2, 2) on 179 px | PASS
-Chromium | 390 | tap (178, 178) on picture 1 | server read (173, 173) on 179 px | FAIL
-Chromium | 1280 | layout | band mapband b256; pictures 256x256@(272,149) 256x256@(528,149) 256x256@(272,405) 256x256@(528,405); page 1280/1280 | PASS
-Chromium | 1280 | tap (17, 23) on picture 2 | server read (18, 24) on 256 px | PASS
+Chromium | 390 | tap (1, 1) | server read (2, 2) on 358 px | PASS
+Chromium | 390 | tap (178, 178) | server read (179, 179) on 358 px | PASS
+Chromium | 390 | tap (179, 179) | server read (180, 180) on 358 px | PASS
+Chromium | 390 | tap (357, 357) | server read (352, 352) on 358 px | FAIL
+Chromium | 1280 | layout, island (zoom 12) | band mapband b256; picture 512x512@(272,149); page 1280/1280 | PASS
+Chromium | 1280 | layout, Ermoupoli (zoom 15) | band mapband b256; pictures 512x512@(272,149); page 1280/1280 | PASS
+Chromium | 1280 | tap (17, 23) | server read (18, 24) on 512 px | PASS
 Chromium | 1280 | layout after tap | band mapband b256; whole px: true; page 1280/1280 | PASS
-Chromium | 1280 | tap (1, 1) on picture 2 | server read (2, 2) on 256 px | PASS
-Chromium | 1280 | tap (255, 255) on picture 1 | nothing posted | FAIL
-WebKit | 320 | layout | band mapband b144; pictures 144x144@(12,185) 144x144@(156,185) 144x144@(12,329) 144x144@(156,329); page 320/320 | PASS
-WebKit | 320 | tap (17, 23) on picture 2 | server read (17, 23) on 144 px | PASS
-WebKit | 320 | tap (1, 1) on picture 2 | server read (1, 1) on 144 px | PASS
-WebKit | 320 | tap (143, 143) on picture 1 | server read (143, 143) on 144 px | PASS
-WebKit | 360 | layout | band mapband b164; pictures 164x164@(12,185) 164x164@(176,185) 164x164@(12,349) 164x164@(176,349); page 360/360 | PASS
-WebKit | 360 | tap (17, 23) on picture 2 | server read (17, 23) on 164 px | PASS
-WebKit | 360 | tap (1, 1) on picture 2 | server read (1, 1) on 164 px | PASS
-WebKit | 360 | tap (163, 163) on picture 1 | server read (163, 163) on 164 px | PASS
-WebKit | 375 | layout | band mapband b171; pictures 171x171@(12,185) 171x171@(183,185) 171x171@(12,356) 171x171@(183,356); page 375/375 | PASS
-WebKit | 375 | tap (17, 23) on picture 2 | server read (17, 23) on 171 px | PASS
-WebKit | 375 | tap (1, 1) on picture 2 | server read (1, 1) on 171 px | PASS
-WebKit | 375 | tap (170, 170) on picture 1 | server read (170, 170) on 171 px | PASS
-WebKit | 390 | layout | band mapband b179; pictures 179x179@(12,185) 179x179@(191,185) 179x179@(12,364) 179x179@(191,364); page 390/390 | PASS
-WebKit | 390 | tap (17, 23) on picture 2 | server read (17, 23) on 179 px | PASS
-WebKit | 390 | tap (1, 1) on picture 2 | server read (1, 1) on 179 px | PASS
-WebKit | 390 | tap (178, 178) on picture 1 | server read (178, 178) on 179 px | PASS
-WebKit | 1280 | layout | band mapband b256; pictures 256x256@(272,149) 256x256@(528,149) 256x256@(272,405) 256x256@(528,405); page 1280/1280 | PASS
-WebKit | 1280 | tap (17, 23) on picture 2 | server read (17, 23) on 256 px | PASS
-WebKit | 1280 | tap (1, 1) on picture 2 | server read (1, 1) on 256 px | PASS
-WebKit | 1280 | tap (255, 255) on picture 1 | server read (255, 255) on 256 px | PASS
-Firefox | 320 | layout | band mapband b144; pictures 144x144@(12,185) 144x144@(156,185) 144x144@(12,329) 144x144@(156,329); page 320/320 | PASS
-Firefox | 320 | tap (17, 23) on picture 2 | server read (17, 23) on 144 px | PASS
-Firefox | 320 | tap (1, 1) on picture 2 | server read (1, 1) on 144 px | PASS
-Firefox | 320 | tap (143, 143) on picture 1 | server read (143, 143) on 144 px | PASS
-Firefox | 360 | layout | band mapband b164; pictures 164x164@(12,185) 164x164@(176,185) 164x164@(12,349) 164x164@(176,349); page 360/360 | PASS
-Firefox | 360 | tap (17, 23) on picture 2 | server read (17, 23) on 164 px | PASS
-Firefox | 360 | tap (1, 1) on picture 2 | server read (1, 1) on 164 px | PASS
-Firefox | 360 | tap (163, 163) on picture 1 | server read (163, 163) on 164 px | PASS
-Firefox | 375 | layout | band mapband b171; pictures 171x171@(12,185) 171x171@(183,185) 171x171@(12,356) 171x171@(183,356); page 375/375 | PASS
-Firefox | 375 | tap (17, 23) on picture 2 | server read (17, 23) on 171 px | PASS
-Firefox | 375 | tap (1, 1) on picture 2 | server read (1, 1) on 171 px | PASS
-Firefox | 375 | tap (170, 170) on picture 1 | server read (170, 170) on 171 px | PASS
-Firefox | 390 | layout | band mapband b179; pictures 179x179@(12,185) 179x179@(191,185) 179x179@(12,364) 179x179@(191,364); page 390/390 | PASS
-Firefox | 390 | tap (17, 23) on picture 2 | server read (17, 23) on 179 px | PASS
-Firefox | 390 | tap (1, 1) on picture 2 | server read (1, 1) on 179 px | PASS
-Firefox | 390 | tap (178, 178) on picture 1 | server read (178, 178) on 179 px | PASS
-Firefox | 1280 | layout | band mapband b256; pictures 256x256@(272,149) 256x256@(528,149) 256x256@(272,405) 256x256@(528,405); page 1280/1280 | PASS
-Firefox | 1280 | tap (17, 23) on picture 2 | server read (17, 23) on 256 px | PASS
-Firefox | 1280 | tap (1, 1) on picture 2 | server read (1, 1) on 256 px | PASS
-Firefox | 1280 | tap (255, 255) on picture 1 | server read (255, 255) on 256 px | PASS
+Chromium | 1280 | tap (1, 1) | server read (2, 2) on 512 px | PASS
+Chromium | 1280 | tap (255, 255) | server read (256, 256) on 512 px | PASS
+Chromium | 1280 | tap (256, 256) | server read (257, 257) on 512 px | PASS
+Chromium | 1280 | tap (511, 511) | server read (512, 512) on 512 px | PASS
+WebKit | 320 | layout, island (zoom 12) | band mapband b144; picture 288x288@(12,185); page 320/320 | PASS
+WebKit | 320 | layout, Ermoupoli (zoom 15) | band mapband b144; pictures 288x288@(12,185); page 320/320 | PASS
+WebKit | 320 | tap (17, 23) | server read (17, 23) on 288 px | PASS
+WebKit | 320 | tap (1, 1) | server read (1, 1) on 288 px | PASS
+WebKit | 320 | tap (143, 143) | server read (143, 143) on 288 px | PASS
+WebKit | 320 | tap (144, 144) | server read (144, 144) on 288 px | PASS
+WebKit | 320 | tap (287, 287) | server read (287, 287) on 288 px | PASS
+WebKit | 360 | layout, island (zoom 12) | band mapband b164; picture 328x328@(12,185); page 360/360 | PASS
+WebKit | 360 | layout, Ermoupoli (zoom 15) | band mapband b164; pictures 328x328@(12,185); page 360/360 | PASS
+WebKit | 360 | tap (17, 23) | server read (17, 23) on 328 px | PASS
+WebKit | 360 | tap (1, 1) | server read (1, 1) on 328 px | PASS
+WebKit | 360 | tap (163, 163) | server read (163, 163) on 328 px | PASS
+WebKit | 360 | tap (164, 164) | server read (164, 164) on 328 px | PASS
+WebKit | 360 | tap (327, 327) | server read (327, 327) on 328 px | PASS
+WebKit | 375 | layout, island (zoom 12) | band mapband b171; picture 342x342@(12,185); page 375/375 | PASS
+WebKit | 375 | layout, Ermoupoli (zoom 15) | band mapband b171; pictures 342x342@(12,185); page 375/375 | PASS
+WebKit | 375 | tap (17, 23) | server read (17, 23) on 342 px | PASS
+WebKit | 375 | tap (1, 1) | server read (1, 1) on 342 px | PASS
+WebKit | 375 | tap (170, 170) | server read (170, 170) on 342 px | PASS
+WebKit | 375 | tap (171, 171) | server read (171, 171) on 342 px | PASS
+WebKit | 375 | tap (341, 341) | server read (341, 341) on 342 px | PASS
+WebKit | 390 | layout, island (zoom 12) | band mapband b179; picture 358x358@(12,185); page 390/390 | PASS
+WebKit | 390 | layout, Ermoupoli (zoom 15) | band mapband b179; pictures 358x358@(12,185); page 390/390 | PASS
+WebKit | 390 | tap (17, 23) | server read (17, 23) on 358 px | PASS
+WebKit | 390 | tap (1, 1) | server read (1, 1) on 358 px | PASS
+WebKit | 390 | tap (178, 178) | server read (178, 178) on 358 px | PASS
+WebKit | 390 | tap (179, 179) | server read (179, 179) on 358 px | PASS
+WebKit | 390 | tap (357, 357) | server read (357, 357) on 358 px | PASS
+WebKit | 1280 | layout, island (zoom 12) | band mapband b256; picture 512x512@(272,149); page 1280/1280 | PASS
+WebKit | 1280 | layout, Ermoupoli (zoom 15) | band mapband b256; pictures 512x512@(272,149); page 1280/1280 | PASS
+WebKit | 1280 | tap (17, 23) | server read (17, 23) on 512 px | PASS
+WebKit | 1280 | tap (1, 1) | server read (1, 1) on 512 px | PASS
+WebKit | 1280 | tap (255, 255) | server read (255, 255) on 512 px | PASS
+WebKit | 1280 | tap (256, 256) | server read (256, 256) on 512 px | PASS
+WebKit | 1280 | tap (511, 511) | server read (511, 511) on 512 px | PASS
+Firefox | 320 | layout, island (zoom 12) | band mapband b144; picture 288x288@(12,185); page 320/320 | PASS
+Firefox | 320 | layout, Ermoupoli (zoom 15) | band mapband b144; pictures 288x288@(12,185); page 320/320 | PASS
+Firefox | 320 | tap (17, 23) | server read (17, 23) on 288 px | PASS
+Firefox | 320 | tap (1, 1) | server read (1, 1) on 288 px | PASS
+Firefox | 320 | tap (143, 143) | server read (143, 143) on 288 px | PASS
+Firefox | 320 | tap (144, 144) | server read (144, 144) on 288 px | PASS
+Firefox | 320 | tap (287, 287) | server read (287, 287) on 288 px | PASS
+Firefox | 360 | layout, island (zoom 12) | band mapband b164; picture 328x328@(12,185); page 360/360 | PASS
+Firefox | 360 | layout, Ermoupoli (zoom 15) | band mapband b164; pictures 328x328@(12,185); page 360/360 | PASS
+Firefox | 360 | tap (17, 23) | server read (17, 23) on 328 px | PASS
+Firefox | 360 | tap (1, 1) | server read (1, 1) on 328 px | PASS
+Firefox | 360 | tap (163, 163) | server read (163, 163) on 328 px | PASS
+Firefox | 360 | tap (164, 164) | server read (164, 164) on 328 px | PASS
+Firefox | 360 | tap (327, 327) | server read (327, 327) on 328 px | PASS
+Firefox | 375 | layout, island (zoom 12) | band mapband b171; picture 342x342@(12,185); page 375/375 | PASS
+Firefox | 375 | layout, Ermoupoli (zoom 15) | band mapband b171; pictures 342x342@(12,185); page 375/375 | PASS
+Firefox | 375 | tap (17, 23) | server read (17, 23) on 342 px | PASS
+Firefox | 375 | tap (1, 1) | server read (1, 1) on 342 px | PASS
+Firefox | 375 | tap (170, 170) | server read (170, 170) on 342 px | PASS
+Firefox | 375 | tap (171, 171) | server read (171, 171) on 342 px | PASS
+Firefox | 375 | tap (341, 341) | server read (341, 341) on 342 px | PASS
+Firefox | 390 | layout, island (zoom 12) | band mapband b179; picture 358x358@(12,185); page 390/390 | PASS
+Firefox | 390 | layout, Ermoupoli (zoom 15) | band mapband b179; pictures 358x358@(12,185); page 390/390 | PASS
+Firefox | 390 | tap (17, 23) | server read (17, 23) on 358 px | PASS
+Firefox | 390 | tap (1, 1) | server read (1, 1) on 358 px | PASS
+Firefox | 390 | tap (178, 178) | server read (178, 178) on 358 px | PASS
+Firefox | 390 | tap (179, 179) | server read (179, 179) on 358 px | PASS
+Firefox | 390 | tap (357, 357) | server read (357, 357) on 358 px | PASS
+Firefox | 1280 | layout, island (zoom 12) | band mapband b256; picture 512x512@(272,149); page 1280/1280 | PASS
+Firefox | 1280 | layout, Ermoupoli (zoom 15) | band mapband b256; pictures 512x512@(272,149); page 1280/1280 | PASS
+Firefox | 1280 | tap (17, 23) | server read (17, 23) on 512 px | PASS
+Firefox | 1280 | tap (1, 1) | server read (1, 1) on 512 px | PASS
+Firefox | 1280 | tap (255, 255) | server read (255, 255) on 512 px | PASS
+Firefox | 1280 | tap (256, 256) | server read (256, 256) on 512 px | PASS
+Firefox | 1280 | tap (511, 511) | server read (511, 511) on 512 px | PASS
 Origin the browser sent on the map's form posts: Chromium: null; WebKit: null; Firefox: null
-FAILS 5 of 65
+FAILS 4 of 110

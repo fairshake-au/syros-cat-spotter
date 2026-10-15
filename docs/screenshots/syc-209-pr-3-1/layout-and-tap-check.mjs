@@ -2,8 +2,9 @@
 // test 20). For each engine (Chromium, WebKit = Safari's engine, Firefox)
 // and each width (320, 360, 375, 390 px phones, 1280 px desktop):
 //   - exactly one picture set is shown, and it is the band for that width;
-//   - every shown picture's displayed size equals the size in its form;
-//   - every shown picture starts on a whole pixel (top and left);
+//   - the shown map picture (one per band: 2×2 tiles joined by the server)
+//     is displayed at exactly twice the size in its form;
+//   - it starts on a whole pixel (top and left);
 //   - the page has no sideways scroll;
 //   - a real tap (touch on phones, mouse on desktop) at a known point on a
 //     picture is read back by the server at that point, within 1 px.
@@ -26,14 +27,17 @@ const WIDTHS = [
   [390, 179],
   [1280, 256],
 ];
-// [x, y, picture]: the island at zoom 12 doesn't fill all four pictures,
-// so each tap goes on a picture where that point is on Syros (a tap off the
-// island is refused, correctly, and would prove nothing here).
+// Taps, in tile sizes (s) from the picture's top-left corner, made on the
+// Ermoupoli view (all on Syros). "s-1"/"s" straddle the seam between the
+// picture's tiles, where four separate pictures used to meet.
 const TAPS = [
-  [17, 23, 1], // top right
-  [1, 1, 1], // one pixel in from the corner ((0, 0) is refused by design)
-  ["last", "last", 0], // top left's bottom-right corner
+  [17, 23],
+  [1, 1], // (0, 0) is refused by design
+  ["s-1", "s-1"],
+  ["s", "s"],
+  ["2s-1", "2s-1"],
 ];
+const at = (v, s) => (v === "s-1" ? s - 1 : v === "s" ? s : v === "2s-1" ? 2 * s - 1 : v);
 
 const rows = [];
 const sentOrigins = new Set();
@@ -91,28 +95,34 @@ for (const [ename, engine] of [
         };
       });
 
-    for (const [tx, ty, which] of TAPS) {
+    for (const [tx, ty] of TAPS) {
       await page.goto(`${BASE}/api/team/map`);
+      await page.waitForLoadState("networkidle");
+      const island = tx === 17 ? await measure() : null;
+      await Promise.all([page.waitForURL(`${BASE}/api/team/map`), page.click("button[value=ermoupoli]")]);
       await page.waitForLoadState("networkidle");
       const m = await measure();
       const layoutOk =
         m.bands.length === 1 &&
         m.bands[0] === `mapband b${size}` &&
-        m.pics.length === 4 &&
-        m.pics.every((p) => p.w === size && p.h === size && p.s === size && Number.isInteger(p.l) && Number.isInteger(p.t)) &&
+        m.pics.length === 1 &&
+        m.pics.every((p) => p.w === 2 * size && p.h === 2 * size && p.s === size && Number.isInteger(p.l) && Number.isInteger(p.t)) &&
         m.sw <= m.iw &&
         m.pics.every((p) => pictureStatus.get(p.src) === 200);
       if (tx === 17) {
+        rows.push([ename, width, "layout, island (zoom 12)",
+          `band ${island.bands.join(",")}; picture ${island.pics.map((p) => `${p.w}x${p.h}@(${p.l},${p.t})`).join(" ")}; page ${island.sw}/${island.iw}`,
+          island.bands[0] === `mapband b${size}` && island.pics.length === 1 && island.pics[0].w === 2 * size && Number.isInteger(island.pics[0].l) && Number.isInteger(island.pics[0].t) && island.sw <= island.iw ? "PASS" : "FAIL"]);
         rows.push([
-          ename, width, "layout",
+          ename, width, "layout, Ermoupoli (zoom 15)",
           `band ${m.bands.join(",")}; pictures ${m.pics.map((p) => `${p.w}x${p.h}@(${p.l},${p.t})${pictureStatus.get(p.src) === 200 ? "" : ` picture ${pictureStatus.get(p.src) ?? "not fetched"}`}`).join(" ")}; page ${m.sw}/${m.iw}`,
           layoutOk ? "PASS" : "FAIL",
         ]);
         if (OUT && ename === "Chromium") await page.screenshot({ path: `${OUT}/${width}-map.png`, fullPage: true });
       }
-      const pic = m.pics[which];
-      const px = tx === "last" ? size - 1 : tx;
-      const py = ty === "last" ? size - 1 : ty;
+      const pic = m.pics[0];
+      const px = at(tx, size);
+      const py = at(ty, size);
       await page.evaluate(() => scrollTo(0, 0));
       const x = pic.l + px + 0.5;
       const y = pic.t + py + 0.5;
@@ -121,15 +131,15 @@ for (const [ename, engine] of [
       else await page.mouse.click(x, y);
       const went = await nav;
       const text = went ? await page.textContent("main") : "";
-      const got = /Point (\d+), (\d+) on a (\d+) px picture/.exec(text ?? "");
-      const ok = got && Math.abs(+got[1] - px) <= 1 && Math.abs(+got[2] - py) <= 1 && +got[3] === size;
-      rows.push([ename, width, `tap (${px}, ${py}) on picture ${which + 1}`, got ? `server read (${got[1]}, ${got[2]}) on ${got[3]} px` : "nothing posted", ok ? "PASS" : "FAIL"]);
+      const got = /Point (\d+), (\d+) on a (\d+) px map picture/.exec(text ?? "");
+      const ok = got && Math.abs(+got[1] - px) <= 1 && Math.abs(+got[2] - py) <= 1 && +got[3] === 2 * size;
+      rows.push([ename, width, `tap (${px}, ${py})`, got ? `server read (${got[1]}, ${got[2]}) on ${got[3]} px` : "nothing posted", ok ? "PASS" : "FAIL"]);
       if (OUT && ename === "Chromium" && tx === 17) {
         await page.waitForLoadState("networkidle");
         const after = await measure();
         rows.push([ename, width, "layout after tap",
           `band ${after.bands.join(",")}; whole px: ${after.pics.every((p) => Number.isInteger(p.l) && Number.isInteger(p.t))}; page ${after.sw}/${after.iw}`,
-          after.bands.length === 1 && after.pics.every((p) => Number.isInteger(p.l) && Number.isInteger(p.t) && p.w === size) && after.sw <= after.iw ? "PASS" : "FAIL"]);
+          after.bands.length === 1 && after.pics.every((p) => Number.isInteger(p.l) && Number.isInteger(p.t) && p.w === 2 * size) && after.sw <= after.iw ? "PASS" : "FAIL"]);
         await page.screenshot({ path: `${OUT}/${width}-after-tap.png`, fullPage: true });
       }
     }
