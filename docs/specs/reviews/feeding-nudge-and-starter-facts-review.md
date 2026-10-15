@@ -91,6 +91,8 @@ Facts mostly sensible in the safe direction; the weaknesses are in the plumbing 
 
 ## How each finding was handled
 
+**After this table was written.** It records how the first-draft findings were fixed. Samuel then answered the decisions (15 Oct 2026), which changed two outcomes and the numbering: row 18's cap became *the full nudge once, then a daily one-liner for visitors only; residents nothing more* (nudge Decision 4), and row 9's offline nudge became *nothing after an offline save* (nudge Decision 5). The nudge's decisions are now 1 page, 2 figures, 3 placement, 4 frequency, 5 offline, 6 counting; numbers below are corrected to match. A second adversarial pass on the final version is at the end of this file.
+
 **Fact numbers changed.** The finding numbers below refer to the first draft's facts. In the revised spec, the sweet-taste fact (old 17) is gone and a new fact 11, "Admire, don't pick up", is in; old facts 11–16 are now 12–17. So the kittens fact (old 11) is now fact 12.
 
 Checked against the code before acting: the campaign is fetched only on the Help tab (`help.tsx:61`); `/review` shows the candidate list, picker or new-cat sheet before the success screen, and a separate not-a-cat screen (`review.tsx:382`, `:512`); `NeedsHelpLink` is hidden while submitting. All confirmed. Apple's App Review Guidelines were opened (15 Oct 2026): **3.2.2(iv)** says apps that aren't approved nonprofits "may only collect funds outside of the app, such as via Safari or SMS". That rules out an in-app browser as the fix for finding 4.
@@ -99,13 +101,13 @@ Checked against the code before acting: the campaign is fetched only on the Help
 |---|---|
 | 1 | **Fixed.** The nudge carries to the first screen of the result (candidate list, or the naming sheet when there are no candidates), below the main action, never blocking it. Not on the not-a-cat screen, and not counted there. Tests added. (feeding-nudge §3.3, Decision 2) |
 | 2 | **Fixed.** During the wait the card takes the map's place, at the top of the visible area. Visibility test at 375 × 667 with large text, and a 390 px check. (starter-facts §3.1, §3.5) |
-| 3 | **Fixed.** New small app-settings endpoint, fetched at start and kept on the phone; defaults defined; the nudge's button and €1 line live on the result screen, by which time settings have almost always loaded; a showing without settings isn't counted. (feeding-nudge §9; starter-facts §9) |
+| 3 | **Fixed.** New small app-settings endpoint, fetched at start and kept on the phone; defaults defined; the nudge's button lives on the result screen, by which time settings have almost always loaded; a showing without settings isn't counted. (feeding-nudge §9; starter-facts §9) |
 | 4 | **Fixed by design.** The button never appears during the upload. The wait shows the nudge's words only; the button appears with the carried-over nudge on the result screen, after the sighting has been saved on the server. It opens the real browser, as Apple's 3.2.2(iv) requires. |
 | 5 | **Fixed.** Card appears for any online send. Nudge counts only when the result is a cat photo and the carried-over card is shown; a failed or rejected send doesn't advance anything; the retry shows the same item. |
 | 6 | **Fixed.** Facts count as seen after 3 seconds. The nudge counts on the result screen, where it stays until dismissed. Measuring the real wait (p50/p90 of the sighting request) is a pre-build task in the plan. |
-| 7 | **Fixed.** §7 Q1 reworded plainly. New Decision 4 (€1 a day alone, a €30 month alone, or both lines); recommendation: both. |
+| 7 | **Fixed.** §7 Q1 reworded plainly. New nudge Decision 2 (€1 a day alone, a €30 month alone, or both lines); recommendation and Samuel's choice: both. |
 | 8 | **Decision added** (starter-facts Decision 4): nudge first or ear tip first. Recommendation stays nudge first, with the reason. |
-| 9 | **Decision added** (feeding-nudge Decision 4): words-only nudge after an offline save. Recommended yes. |
+| 9 | **Decision added** (nudge Decision 5): words-only nudge after an offline save, recommended yes. **Samuel chose nothing offline.** |
 | 10 | **Fixed.** Fact 11 rewritten: time frame, don't pick them up, "after your result", and no promise of collection. Syros Cats question extended. |
 | 11 | **Fixed.** Fact 3 now says individual-level, and "doesn't affect people". |
 | 12 | **Fixed.** Fact 8 reworded (onions, garlic, chocolate; cooked bones, cured meat, salty leftovers). Fact 17 (sweet taste) replaced by a strand 4 fact: why not to pick a street cat up. Sweet taste moved to "left out". |
@@ -114,7 +116,7 @@ Checked against the code before acting: the campaign is fetched only on the Help
 | 15 | **Fixed.** This file. Status lines updated. |
 | 16 | **Fixed.** Default: a sign-off fact without a yes by 22 Oct is hidden at launch through the settings switch; the nudge ships words-only. |
 | 17 | **Fixed.** Store-review section added, quoting 3.2.2(iv); Google Play's policy marked unchecked for the store-listing work. |
-| 18 | **Folded into Decision 3** (feeding-nudge): when guardian sign-ins arrive (roles, MLP), the nudge is off for them. Claimers are pet owners, not feeders, so they keep the cap. |
+| 18 | **Folded into nudge Decision 4**: signed-in guardians and team never see it (once roles exist). Samuel then replaced the cap: claimers and 3-week phones count as residents and get nothing after the first nudge. |
 | 19 | **Fixed.** One table of card states in starter-facts §3.2; one storage key, versioned; deleted by "Delete my data"; a11y label no longer says "While we look". |
 | 20 | **Fixed.** Fact 1 in all three languages says "the ear in this photo"; Greek rewritten. |
 | 21, 22 | **Fixed.** Fact 2 says "her daughters" in all three languages. |
@@ -133,4 +135,29 @@ Checked against the code before acting: the campaign is fetched only on the Help
 | 37 | **Fixed.** Fact 6 tagged; facts 4 and 19 added to §7. |
 | 38 | **Fixed.** The no-link nudge says "the Help tab shows how to give", and fact 11 says "This cat needs help" only. |
 | 39 | **Fixed.** Wording corrected; strands 2 and 6 noted as intentionally thin; strand 4 gains the "don't pick them up" fact. |
-| 40 | **Decision added** (feeding-nudge Decision 5): a count of link opens, no device id. Recommended yes. |
+| 40 | **Decision added** (nudge Decision 6): a count of link opens, no device id. Recommended and chosen. |
+
+---
+
+## Second adversarial pass, on the final version (before merge)
+
+**Reviewer:** independent subagent, Sonnet tier, 15 October 2026, read-only, on head `3847023` (after Samuel's decisions). **Result:** no blockers; 4 majors, 8 minors, 4 nits; "safe to merge as specs after a small fix commit". All fixed in the merge commit:
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | This review's "how handled" table contradicted the final decisions and used old decision numbers | Note added above the table; rows 3, 7, 9, 18, 40 corrected |
+| 2 | Fact 12 told spotters to tap "This cat needs help", which is hidden during the wait and absent from the naming screen (`spot.tsx` hides it while sending; `review.tsx` has it on the match list only) | Fact 12 now says "report them in the app" in all three languages; the false paragraph replaced with where the link actually is |
+| 3 | The resident signals had no defined source; the app keeps no local claim state; a storage wipe would restart the 21 days | Both signals come from the server via app settings (`hasClaimedCat`, `firstSpotDate`, from the phone's earliest sighting); existing phones backfilled by their real first sighting; no settings means no one-liner |
+| 4 | "First spot of the day" ambiguous (failed spots, background sends, same day as the full nudge, midnight, taps on the full nudge) | Condition rewritten: first one-liner-eligible result screen of the Athens day; used up when shown; not by failures; never on the full nudge's day; tap rule covers both and is noted as approved |
+| 5 | Placement vs the "This cat needs help" link that SYC-42 keeps last | Nudge and one-liner sit above that link |
+| 6 | Dismissal undefined in the no-link form and for the one-liner | Got it stays in the no-link form; one-liner needs none; counting rule for the no-link form stated |
+| 7 | Starter-facts omitted the guardian skip and "one exception" | Both fixed |
+| 8 | §4.2 said fact 13 for the white-cat note | Now fact 14 |
+| 9 | Guardian skip pointed at Decision 4, which didn't mention it | Sentence added to Decision 4; table points at §3.2 |
+| 10 | Tests didn't cover several rules | Nudge tests rewritten (19 tests) to cover each rule and edge |
+| 11 | "Checked by Syros Cats" overclaimed | Now "sent to Syros Cats to check; sign-off facts stay off until they say yes" |
+| 12 | Word count undefined | Defined: space-separated pieces with a letter or digit |
+| 13 | French one-liner impersonal | "S’il te plaît, ne nourris pas les chats." |
+| 14 | French fact 6 gender | "une chatte"; English and Greek say "female cat" to match |
+| 15 | Greek one-liner mixed persons | "Σου ζητάμε να μην ταΐζεις τις γάτες." (for Johnny) |
+| 16 | Decision 5 option A not marked "not chosen" | Marked |

@@ -12,7 +12,7 @@
 
 ## 1. The short version
 
-While Cat Spotters looks for a match, the spotter sees **one short fact about cats** in the space where the map was. Twenty facts, written once, checked by Syros Cats, and the same twenty in English, Greek and French.
+While Cat Spotters looks for a match, the spotter sees **one short fact about cats** in the space where the map was. Twenty facts, written once, sent to Syros Cats to check, and the same twenty in English, Greek and French. Facts that need their specific yes stay switched off until they give it.
 
 They're chosen to be worth reading and to make people better at helping. Eleven are about sterilisation, food and being around a street cat, plus one on kittens found alone. The rest teach people to read a cat: why the tortoiseshell is almost always female, what a slow blink means, why the white cat with blue eyes didn't run.
 
@@ -26,7 +26,7 @@ They're chosen to be worth reading and to make people better at helping. Eleven 
 
 The match wait is the one moment in the app when a spotter is certain to be looking at the screen, often with the cat still in front of them. The proposal and the engagement design both spend that moment on teaching, because a fact read while looking at a cat is the one people remember.
 
-**Facts are authored, not generated.** Every fact here is written once, sourced, checked by Syros Cats, and native-reviewed. Nothing is made up while the app runs, so the app can't tell someone something false about cats in the charity's name.
+**Facts are authored, not generated.** Every fact here is written once, sourced, sent to Syros Cats to check, and native-reviewed. The facts that most need their expertise ship only with their yes (§7). Nothing is made up while the app runs, so the app can't tell someone something false about cats in the charity's name.
 
 ### 2.1 Two audiences, needs that fit together
 
@@ -53,7 +53,7 @@ It never delays anything. The result arrives exactly when it would have without 
 
 One thing per wait, chosen in this order:
 
-1. **The full feeding nudge**, if it hasn't been counted yet (`feeding-nudge.md` §3.2). On a new phone, that's the first wait. (The nudge's daily one-liner never takes the card; it appears with the matches, so those waits show a fact.)
+1. **The full feeding nudge**, if it hasn't been counted yet and the spotter isn't signed in as a cat guardian or team member (`feeding-nudge.md` §3.2). On a new phone, that's the first wait. (The nudge's daily one-liner never takes the card; it appears with the matches, so those waits show a fact.)
 2. **The ear-tip explainer** (fact 1), if this phone hasn't seen it yet.
 3. **The milk fact** (fact 7), if this phone hasn't seen it yet.
 4. **The next fact in this phone's shuffled order** of the other eighteen.
@@ -73,9 +73,9 @@ So a new spotter sees: nudge, ear tip, milk, then the shuffle. When every fact (
 
 ### 3.3 Short waits
 
-Matching often takes only a few seconds, so facts are short: **35 words or fewer** in every language (counting words, not punctuation), most under 30. A fact counts as **seen** after **3 seconds** on screen; if the result arrives sooner, it comes round again next time.
+Matching often takes only a few seconds, so facts are short: **35 words or fewer** in every language, most under 30. A word is a space-separated piece of text containing a letter or digit, so French « ? » and « : » don't count, and l’oignon is one word. A fact counts as **seen** after **3 seconds** on screen; if the result arrives sooner, it comes round again next time.
 
-Facts **don't follow the spotter to the result screens**. When the result arrives, the fact goes (Decision 2, §8). The nudge is the one exception, because it asks the spotter to do something.
+Facts **don't follow the spotter to the result screens**. When the result arrives, the fact goes (Decision 2, §8). The nudge and its daily one-liner are the exceptions, because they ask the spotter to do something.
 
 The real length of the wait hasn't been measured. Before building, the plan measures it on the live server (`feeding-nudge.md` §9).
 
@@ -86,7 +86,7 @@ One small record on the phone, or in the browser on the website, stored under it
 - whether the full nudge has been counted, the date of the last one-liner, whether the button was tapped, and the date of this phone's first spot (`feeding-nudge.md` §3.2);
 - which facts have been seen, and this phone's shuffled order.
 
-None of it is sent to the server or tied to a username. **Delete my data** removes it with everything else. If a browser clears its storage, the sequence starts again from the nudge, which is harmless. The record is best-effort: if it can't be read, the card shows a fact (never the nudge) and saves nothing for that wait. Two browser tabs may occasionally both show the first item; that's acceptable.
+None of it is sent to the server or tied to a username. **Delete my data** removes it with everything else. If a browser clears its storage, the full nudge may show once more and the facts start again; the resident signals for the one-liner come from the server, so a resident still gets no one-liners (`feeding-nudge.md` §3.2). The record is best-effort: if it can't be read, the card shows a fact (never the nudge) and saves nothing for that wait. Two browser tabs may occasionally both show the first item; that's acceptable.
 
 ### 3.5 What it looks like
 
@@ -141,9 +141,9 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 - **FR** Si on retire les chats d’un endroit où il y a à manger et un abri, d’autres arrivent souvent. Les stériliser vise plutôt une colonie stable qui cesse de grandir.
 
 **Fact 6 · What it costs** · *core* · *sign-off*
-- **EN** Sterilising one cat costs Syros Cats €50–60. That one operation prevents every litter she would otherwise have had.
-- **EL** Η στείρωση μίας γάτας κοστίζει στις Syros Cats 50–60 €. Αυτή η μία επέμβαση αποτρέπει κάθε γέννα που θα έκανε διαφορετικά.
-- **FR** Stériliser un chat coûte 50 à 60 € à Syros Cats. Cette seule opération évite toutes les portées qu’elle aurait eues.
+- **EN** Sterilising one female cat costs Syros Cats €50–60. That one operation prevents every litter she would otherwise have had.
+- **EL** Η στείρωση μίας θηλυκής γάτας κοστίζει στις Syros Cats 50–60 €. Αυτή η μία επέμβαση αποτρέπει κάθε γέννα που θα έκανε διαφορετικά.
+- **FR** Stériliser une chatte coûte 50 à 60 € à Syros Cats. Cette seule opération évite toutes les portées qu’elle aurait eues.
 
 ### Food, and being around a street cat (strand 4)
 
@@ -175,11 +175,11 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 ### When a cat needs help (strand 5)
 
 **Fact 12 · Kittens on their own** · *core* · *sign-off*
-- **EN** Kittens on their own? Their mother has usually just gone for food. Don't pick them up; watch from a distance. If they look cold, hurt or ill, use "This cat needs help".
-- **EL** Γατάκια μόνα τους; Η μητέρα τους συνήθως έχει πάει για φαγητό. Μην τα σηκώσεις· παρακολούθησε από απόσταση. Αν κρυώνουν, είναι τραυματισμένα ή άρρωστα, πάτα «Αυτή η γάτα χρειάζεται βοήθεια».
-- **FR** Des chatons tout seuls ? Leur mère est souvent juste partie manger. Ne les prends pas : observe de loin. S’ils ont froid, sont blessés ou malades, touche « Ce chat a besoin d’aide ».
+- **EN** Kittens on their own? Their mother has usually just gone for food. Don't pick them up; watch from a distance. If they look cold, hurt or ill, report them in the app.
+- **EL** Γατάκια μόνα τους; Η μητέρα τους συνήθως έχει πάει για φαγητό. Μην τα σηκώσεις· παρακολούθησε από απόσταση. Αν κρυώνουν, είναι τραυματισμένα ή άρρωστα, ανέφερέ τα από την εφαρμογή.
+- **FR** Des chatons tout seuls ? Leur mère est souvent juste partie manger. Ne les prends pas : observe de loin. S’ils ont froid, sont blessés ou malades, signale-les dans l’appli.
 
-The quoted label matches the live one (`reportNeedsHelp`, checked on origin/main `f757c0d`). "This cat needs help" is on the Spot screen whenever a sighting isn't being sent, so it's there as soon as the result has come back. The report flow itself explains what Syros Cats can and can't do (the capacity messaging from Susan's standard reply); the fact promises nothing.
+The fact names no button, because the spotter reads it during the wait, when "This cat needs help" is hidden. The link is on the Spot screen when nothing is sending, on the match list, and on every cat's page; it isn't on the naming screen (checked on origin/main `f757c0d`). The report flow itself explains what Syros Cats can and can't do (the capacity messaging from Susan's standard reply); the fact promises nothing.
 
 ### Reading a cat (strand 1)
 
@@ -244,7 +244,7 @@ The quoted "Can't tell" matches the live answer labels (`earTipCantTell`: *Can�
 - **Fact 5 says "aims for", not "keeps".** Whether sterilise-and-return holds a colony stable is argued over by researchers (§12).
 - **Fact 8 doesn't call bread or grapes poisonous.** Bread isn't. Grapes are well documented for dogs but thinly for cats, so the fact names what's solid and the leftovers people actually give cats on Syros.
 - **Fact 9 is about a dry bowl at a feeding spot**, not leaving new bowls anywhere: unattended bowls cause hygiene problems and neighbour complaints.
-- **Fact 13 says "many", not a percentage.** Studies put it at 65–85% of all-white, two-blue-eyed cats (§12). "Many" is true and won't age.
+- **Fact 14 says "many", not a percentage.** Studies put it at 65–85% of all-white, two-blue-eyed cats (§12). "Many" is true and won't age.
 - **Facts 14 and 15 keep their distance** ("stay where it can see you", "from a distance"), to agree with the "Look, don't touch" screen.
 - **Fact 18 gives no exact weeks.** The research found only weak sources for the timing.
 - **No sweet-taste fact.** It was in the first draft ("a cat will ignore your ice cream but not your sardine"), but it invited feeding sardines. Replaced by fact 11.
@@ -285,7 +285,7 @@ All twenty go to Syros Cats in English with one question: *is anything here wron
 5. **Fact 6:** €50–60 per sterilisation, the figure you confirmed on 1 September. Still right?
 6. **Fact 8:** cooked bones, cured meat and salty leftovers. Is that the right list for what people actually leave out on Syros?
 7. **Fact 9:** topping up a dry water bowl at a feeding spot. Your feeding-programme page asks visitors to refill water at your stations (§12). Happy for every visitor to do it at any feeding spot, or only yours? (Feeding sites are private by default, so the app never shows where they are.)
-8. **Fact 12:** kittens on their own. Watch from a distance, don't pick them up, and use "This cat needs help" if they look cold, hurt or ill. Does that match your litter guidance ("contact us first, don't just turn up")? It deliberately promises nothing about collection.
+8. **Fact 12:** kittens on their own. Watch from a distance, don't pick them up, and report them in the app if they look cold, hurt or ill. Does that match your litter guidance ("contact us first, don't just turn up")? It deliberately promises nothing about collection.
 9. **Fact 19:** colonies built around related females. Does that match the colonies you know?
 
 ---
@@ -367,7 +367,7 @@ The ear-tip question after each spot already shows the same example photo and a 
 9. **Delete my data** removes the record.
 10. All twenty facts and the card's words exist in English, Greek and French.
 11. Every fact is 35 words or fewer in each language.
-12. The quoted labels in facts 12 and 20 match the live `reportNeedsHelp` and `earTipCantTell` strings in each language, compared after normalising quote marks and apostrophes.
+12. The quoted label in fact 20 matches the live `earTipCantTell` string in each language, compared after normalising quote marks and apostrophes.
 13. The card's top is in view on a 375 × 667 screen when it appears, at the default and the largest text size, in all three languages, including the ear-tip fact with its photo.
 
 A browser-pane check at about 390 px and at desktop width goes with the PR, in all three languages.
