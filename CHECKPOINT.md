@@ -26,3 +26,4 @@ All run with `-t` on team.people.test.ts; each restored afterwards.
 
 - Browser check done at 390px and 1280px (scratch DBs dropped, servers stopped): no horizontal scroll, every button/input/summary >= 44px, inputs 16px. Screenshots in docs/screenshots/syc-53-pr-1-2/. Found and fixed: clip passed straight to map clipped colony names to 1 letter.
 - NEXT: full suites + typecheck, final report.
+- DONE. Final: api-server 135 files passed | 1 skipped; 2073 tests passed | 4 skipped. lib/db 31 files, 492 tests passed. Typecheck: libs, api-server, scripts Done; mockup-sandbox fails (known).
