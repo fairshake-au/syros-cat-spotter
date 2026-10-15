@@ -1,6 +1,7 @@
 import { logger } from "../logger";
 import { addressFingerprint, type FingerprintLabel } from "./fingerprint";
 import { KEEP_SAFE_TEMPLATES } from "./keepSafeTemplates";
+import { REPORT_TEMPLATES } from "./reportTemplates";
 import { resendSend } from "./resend";
 
 /**
@@ -27,7 +28,8 @@ import { resendSend } from "./resend";
  *   mail (`mail.`) uses RESEND_API_KEY; news mail (`news.`) uses
  *   RESEND_NEWS_API_KEY (spec §2.10: separate keys, so either can be
  *   rotated or revoked alone).
- * - **Whether it's switched on.** SYC-42 switched on `welfare_alert`; SYC-3
+ * - **Whether it's switched on.** SYC-42 switched on `welfare_alert`, and
+ *   in Slice 3 `public_verify`, `report_ack` and `report_outcome`; SYC-3
  *   switches on `keep_safe_verify` and `restore_link`. `forget` stays off: the
  *   build sends no "you've been forgotten" email (plan review A9).
  *   `urgent_alert` is reserved and OFF: Samuel kept F1 on 1 Oct 2026
@@ -106,7 +108,16 @@ const IDENTITY_KEY: Record<MailIdentity, string> = {
   news: "RESEND_NEWS_API_KEY",
 };
 
-const DEFAULT_ENABLED: readonly MailPurpose[] = ["welfare_alert", "keep_safe_verify", "restore_link"];
+// SYC-42 Slice 3 switches on the reporter's three: the one "is this you?"
+// (news), then the acknowledgement and the outcome (mail.), verified only.
+const DEFAULT_ENABLED: readonly MailPurpose[] = [
+  "welfare_alert",
+  "keep_safe_verify",
+  "restore_link",
+  "public_verify",
+  "report_ack",
+  "report_outcome",
+];
 let enabledOverride: readonly MailPurpose[] | null = null;
 
 /** Never shed under the priority budget (spec §2.10). A restore link is a sign-in (review A7). */
@@ -155,8 +166,8 @@ export type MailMessage = TeamMessage | PublicMessage;
 export type RenderedTemplate = { subject: string; text: string; html: string };
 export type FixedTemplate = (params: Record<string, string>) => RenderedTemplate;
 
-/** Fixed templates for public purposes. SYC-42 Slice 3 adds the report ones. */
-const DEFAULT_TEMPLATES: Record<string, FixedTemplate> = { ...KEEP_SAFE_TEMPLATES };
+/** Fixed templates for public purposes. */
+const DEFAULT_TEMPLATES: Record<string, FixedTemplate> = { ...KEEP_SAFE_TEMPLATES, ...REPORT_TEMPLATES };
 let templatesOverride: Record<string, FixedTemplate> | null = null;
 
 export type SendResult =
