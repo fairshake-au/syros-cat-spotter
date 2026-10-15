@@ -7,7 +7,7 @@ import { tr, pageLanguage, type Language } from "./strings";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely" | "people" | "myPage" | "myColonies";
+export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely" | "colour" | "people" | "myPage" | "myColonies";
 
 interface NavItem {
   key: NavKey;
@@ -24,6 +24,9 @@ const NAV: NavItem[] = [
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
   { key: "sites", label: "Feeding sites", short: "Sites", href: "/api/team/sites" },
   { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
+  // SYC-2 PR 3.1: the team's low-priority list of cats whose colour or
+  // markings deserve a second look (spec §5.3).
+  { key: "colour", label: "Colour check", href: "/api/team/colour-check" },
 ];
 
 /** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
@@ -251,7 +254,15 @@ main.mappage .who{line-height:20px}
 @media (min-width:375px){.mapband.b164{display:none}.mapband.b171{display:block}}
 @media (min-width:390px){.mapband.b171{display:none}.mapband.b179{display:block}}
 @media (min-width:600px){.mapband.b179{display:none}.mapband.b256{display:block}}
+/* SYC-2 PR 3.1: the Appearance section's chip pickers and the Colour check list. */
+.chips{display:grid;grid-template-columns:1fr;gap:0 12px}
+.appfix form{margin:8px 0 0}
+.appfix>form>.hint{margin:4px 0 0}
+li.colourcheck{list-style:none}
+li.colourcheck .catrow{border:0;padding:0;margin:0 0 6px}
+details.notdescribed>summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center;color:#0b4553}
 @media (min-width:700px){
+.chips{grid-template-columns:1fr 1fr}
 main{padding-top:20px}
 .tiecard button{width:auto}
 .has-photo{grid-template-columns:240px 1fr;gap:0 16px}

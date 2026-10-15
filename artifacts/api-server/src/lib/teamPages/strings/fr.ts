@@ -182,6 +182,9 @@ export const fr: Record<StringKey, string> = {
   "appearance.done.overruled": "Enregistré. Les déclarations du gardien de chats sont marquées comme fausses, et la déclaration de l’équipe est ajoutée.",
   "appearance.done.nothing": "Il n’y avait encore rien à confirmer. Rien n’a été changé.",
   "appearance.done.changed": "Cela a changé depuis que tu as ouvert la page, donc rien n’a été changé. Vérifie à nouveau.",
+  "appearance.done.markedWrong": "Enregistré. Cette déclaration ne compte plus. Elle reste dans l’historique ci-dessous.",
+  "appearance.recordsSay": "Les registres disent",
+  "appearance.noPhoto": "Pas de photo",
   "appearance.problem.colours": "Choisis une ou deux couleurs.",
   "appearance.problem.reason": "Dis pourquoi, en 500 caractères maximum.",
 

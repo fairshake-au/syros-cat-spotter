@@ -204,6 +204,9 @@ export const en = {
   "appearance.done.overruled": "Saved. The cat guardian's statements are marked wrong, and the team's statement is added.",
   "appearance.done.nothing": "There was nothing to confirm yet. Nothing was changed.",
   "appearance.done.changed": "This changed since you opened the page, so nothing was changed. Check it again.",
+  "appearance.done.markedWrong": "Saved. That statement no longer counts. It stays in the history below.",
+  "appearance.recordsSay": "Records say",
+  "appearance.noPhoto": "No photo",
   "appearance.problem.colours": "Pick one or two colours.",
   "appearance.problem.reason": "Say why, in up to 500 characters.",
 

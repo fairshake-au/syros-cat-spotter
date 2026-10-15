@@ -182,6 +182,9 @@ export const el: Record<StringKey, string> = {
   "appearance.done.overruled": "Αποθηκεύτηκε. Οι δηλώσεις του κηδεμόνα γατών σημειώθηκαν ως λάθος και προστέθηκε η δήλωση της ομάδας.",
   "appearance.done.nothing": "Δεν υπήρχε ακόμη κάτι να επιβεβαιωθεί. Δεν άλλαξε τίποτα.",
   "appearance.done.changed": "Αυτό άλλαξε από τότε που ανοίξατε τη σελίδα, οπότε δεν άλλαξε τίποτα. Ελέγξτε το ξανά.",
+  "appearance.done.markedWrong": "Αποθηκεύτηκε. Αυτή η δήλωση δεν μετράει πια. Μένει στο ιστορικό παρακάτω.",
+  "appearance.recordsSay": "Τα αρχεία λένε",
+  "appearance.noPhoto": "Χωρίς φωτογραφία",
   "appearance.problem.colours": "Επιλέξτε ένα ή δύο χρώματα.",
   "appearance.problem.reason": "Πείτε γιατί, με έως 500 χαρακτήρες.",
 
