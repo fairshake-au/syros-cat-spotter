@@ -1,0 +1,1200 @@
+{
+ "390-cat-mimi": {
+  "overflowX": false,
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Ear tip clipped, left ear",
+    "h": 34,
+    "w": 163
+   },
+   {
+    "tag": "A",
+    "text": "Vaporia — Eleni's",
+    "h": 42,
+    "w": 124
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 41,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "When it was done (optional)",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Clinic or vet (optional)",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "How we know",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Put the cat in",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "New name",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why it isn't a clip",
+    "h": 20,
+    "w": 335
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 335
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/2",
+  "title": "Μιμή",
+  "text": "Queue\nCats\nColonies\nSites\nProbably sterilised\n\n← Find another cat\n\nΜιμή\n\nSYR-0002\n\nSigned in as Susan\nSign out\n\nTabby with a notched ear\n\nWhat the public sees\n\nLives on the street · Probably sterilised — a clipped ear tip has been seen\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street not known\nSince\n8 Oct 2026\nWhy we think so\nNothing yet\nSterilised\nStatus\nProbably sterilised likely\nSince\n11 Oct 2026\nWhy we think so\nEar tip clipped, lef"
+ },
+ "390-remove-owner-confirm": {
+  "overflowX": false,
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "small": [],
+  "url": "http://localhost:8132/api/team/cats/2/remove-owner",
+  "title": "Remove Μιμή's owner?",
+  "text": "Queue\nCats\nColonies\nSites\nProbably sterilised\nRemove Μιμή's owner?\nSigned in as Susan\nSign out\nThe owner stops seeing the exact spot and getting alerts.\nThe owner is not told.\nΜιμή will be saved as “Lives on the street”.\nYes, remove the owner\n\nBack to the cat (nothing changed)"
+ },
+ "390-remove-owner-done": {
+  "overflowX": false,
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Lives on the street",
+    "h": 34,
+    "w": 134
+   },
+   {
+    "tag": "A",
+    "text": "Ear tip clipped, left ear",
+    "h": 34,
+    "w": 163
+   },
+   {
+    "tag": "A",
+    "text": "Vaporia — Eleni's",
+    "h": 42,
+    "w": 124
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 41,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 335
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 335
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 335
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 335
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/2?done=ownerRemoved&s=39#s-39",
+  "title": "Μιμή",
+  "text": "Queue\nCats\nColonies\nSites\nProbably sterilised\n\n← Find another cat\n\nΜιμή\n\nSYR-0002\n\nSigned in as Susan\nSign out\n\nTabby with a notched ear\n\nWhat the public sees\n\nLives on the street · Probably sterilised — a clipped ear tip has been seen\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street confirmed\nSince\n15 Oct 2026\nWhy we think so\nLives on the street (Susan, 15 Oct 2026)\nSterilised\nStatus\nProbably sterilised likely\nSince\n11 Oct 2026\nWhy we"
+ },
+ "390-life-confirm": {
+  "overflowX": false,
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "small": [],
+  "url": "http://localhost:8132/api/team/cats/11/life-status",
+  "title": "Remove Owned 2's owner too?",
+  "text": "Queue\nCats\nColonies\nSites\nProbably sterilised\nRemove Owned 2's owner too?\nSigned in as Susan\nSign out\nOwned 2 has an owner. Saving “Lives on the street” also removes the owner.\nThe owner stops seeing the exact spot and getting alerts. The owner is not told.\nTo keep the owner, go back and choose “Has a home”.\nYes, save and remove the owner\n\nBack to the cat (nothing changed)"
+ },
+ "390-life-cancel": {
+  "overflowX": false,
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Vaporia — Eleni's",
+    "h": 42,
+    "w": 124
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 41,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "When it was done (optional)",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Clinic or vet (optional)",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "How we know",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Put the cat in",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "New name",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 335
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/11#corrections",
+  "title": "Owned 2",
+  "text": "Queue\nCats\nColonies\nSites\nProbably sterilised\n\n← Find another cat\n\nOwned 2\n\nSYR-0011\n\nSigned in as Susan\nSign out\nWhat the public sees\n\nLives on the street · Not known yet\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street not known\nSince\n8 Oct 2026\nWhy we think so\nNothing yet\nSterilised\nStatus\nNot known yet not known\nSince\n1 Jan 1970\nWhy we think so\nNothing yet\nClipped ear\nNot seen in any sighting\nOwner\nOwner\nHas an owner\nWhere the owne"
+ },
+ "390-guardian-catpage": {
+  "status": 403,
+  "body": "That part is for the team\nSigned in as Eleni\nSign out\n\nThat part of the dashboard is for the Syros Cats team. Your colonies are here."
+ },
+ "390-guardian-life-saved": {
+  "overflowX": false,
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Your colonies are here",
+    "h": 42,
+    "w": 161
+   }
+  ],
+  "url": "http://localhost:8133/api/team/cats/12/life-status",
+  "title": "That part is for the team",
+  "text": "That part is for the team\nSigned in as Eleni\nSign out\n\nThat part of the dashboard is for the Syros Cats team. Your colonies are here."
+ },
+ "1280-cat-mimi": {
+  "overflowX": false,
+  "scrollWidth": 1280,
+  "innerWidth": 1280,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Lives on the street",
+    "h": 34,
+    "w": 134
+   },
+   {
+    "tag": "A",
+    "text": "Ear tip clipped, left ear",
+    "h": 34,
+    "w": 163
+   },
+   {
+    "tag": "A",
+    "text": "Vaporia — Eleni's",
+    "h": 42,
+    "w": 124
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "When it was done (optional)",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Clinic or vet (optional)",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "How we know",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Put the cat in",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "New name",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 20,
+    "w": 1065
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 1065
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why it isn't a clip",
+    "h": 20,
+    "w": 1065
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 1065
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/2",
+  "title": "Μιμή",
+  "text": "Welfare queue\nCats\nColonies\nFeeding sites\nProbably sterilised\n\n← Find another cat\n\nΜιμή\n\nSYR-0002\n\nSigned in as Susan\nSign out\n\nTabby with a notched ear\n\nWhat the public sees\n\nLives on the street · Probably sterilised — a clipped ear tip has been seen\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street confirmed\nSince\n15 Oct 2026\nWhy we think so\nLives on the street (Susan, 15 Oct 2026)\nSterilised\nStatus\nProbably sterilised likely\nSince\n11"
+ },
+ "1280-remove-owner-confirm": {
+  "overflowX": false,
+  "scrollWidth": 1280,
+  "innerWidth": 1280,
+  "small": [],
+  "url": "http://localhost:8132/api/team/cats/10/remove-owner",
+  "title": "Remove Owned 1's owner?",
+  "text": "Welfare queue\nCats\nColonies\nFeeding sites\nProbably sterilised\nRemove Owned 1's owner?\nSigned in as Susan\nSign out\nThe owner stops seeing the exact spot and getting alerts.\nThe owner is not told.\nOwned 1 will be saved as “Lives on the street”.\nYes, remove the owner\n\nBack to the cat (nothing changed)"
+ },
+ "1280-remove-owner-done": {
+  "overflowX": false,
+  "scrollWidth": 1280,
+  "innerWidth": 1280,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Lives on the street",
+    "h": 34,
+    "w": 134
+   },
+   {
+    "tag": "A",
+    "text": "Vaporia — Eleni's",
+    "h": 42,
+    "w": 124
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 1065
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 1065
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 1065
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/10?done=ownerRemoved&s=40#s-40",
+  "title": "Owned 1",
+  "text": "Welfare queue\nCats\nColonies\nFeeding sites\nProbably sterilised\n\n← Find another cat\n\nOwned 1\n\nSYR-0010\n\nSigned in as Susan\nSign out\nWhat the public sees\n\nLives on the street · Not known yet\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street confirmed\nSince\n15 Oct 2026\nWhy we think so\nLives on the street (Susan, 15 Oct 2026)\nSterilised\nStatus\nNot known yet not known\nSince\n1 Jan 1970\nWhy we think so\nNothing yet\nClipped ear\nNot seen in any si"
+ },
+ "1280-life-confirm": {
+  "overflowX": false,
+  "scrollWidth": 1280,
+  "innerWidth": 1280,
+  "small": [],
+  "url": "http://localhost:8132/api/team/cats/13/life-status",
+  "title": "Remove Owned 4's owner too?",
+  "text": "Welfare queue\nCats\nColonies\nFeeding sites\nProbably sterilised\nRemove Owned 4's owner too?\nSigned in as Susan\nSign out\nOwned 4 has an owner. Saving “Lives on the street” also removes the owner.\nThe owner stops seeing the exact spot and getting alerts. The owner is not told.\nTo keep the owner, go back and choose “Has a home”.\nYes, save and remove the owner\n\nBack to the cat (nothing changed)"
+ },
+ "1280-life-cancel": {
+  "overflowX": false,
+  "scrollWidth": 1280,
+  "innerWidth": 1280,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Vaporia — Eleni's",
+    "h": 42,
+    "w": 124
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "When it was done (optional)",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Clinic or vet (optional)",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "How we know",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Put the cat in",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "New name",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "Date it happened (needed for “No longer ",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "Why",
+    "h": 20,
+    "w": 1065
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/13#corrections",
+  "title": "Owned 4",
+  "text": "Welfare queue\nCats\nColonies\nFeeding sites\nProbably sterilised\n\n← Find another cat\n\nOwned 4\n\nSYR-0013\n\nSigned in as Susan\nSign out\nWhat the public sees\n\nLives on the street · Not known yet\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street not known\nSince\n8 Oct 2026\nWhy we think so\nNothing yet\nSterilised\nStatus\nNot known yet not known\nSince\n1 Jan 1970\nWhy we think so\nNothing yet\nClipped ear\nNot seen in any sighting\nOwner\nOwner\nHas an owne"
+ },
+ "1280-guardian-catpage": {
+  "status": 403,
+  "body": "That part is for the team\nSigned in as Eleni\nSign out\n\nThat part of the dashboard is for the Syros Cats team. Your colonies are here."
+ },
+ "1280-guardian-life-saved": {
+  "overflowX": false,
+  "scrollWidth": 1280,
+  "innerWidth": 1280,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Your colonies are here",
+    "h": 42,
+    "w": 161
+   }
+  ],
+  "url": "http://localhost:8133/api/team/cats/14/life-status",
+  "title": "That part is for the team",
+  "text": "That part is for the team\nSigned in as Eleni\nSign out\n\nThat part of the dashboard is for the Syros Cats team. Your colonies are here."
+ },
+ "390-busy-history": {
+  "heading": [
+   "History (26)"
+  ],
+  "showAll": [
+   "Show all 26"
+  ]
+ },
+ "390-cat-busy-history": {
+  "overflowX": false,
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Lives on the street",
+    "h": 34,
+    "w": 134
+   },
+   {
+    "tag": "A",
+    "text": "Sterilised",
+    "h": 34,
+    "w": 67
+   },
+   {
+    "tag": "A",
+    "text": "Galissas",
+    "h": 42,
+    "w": 60
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 41,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 340
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 335
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/9",
+  "title": "Busy",
+  "text": "Queue\nCats\nColonies\nSites\nProbably sterilised\n\n← Find another cat\n\nBusy\n\nSYR-0009\n\nSigned in as Susan\nSign out\nWhat the public sees\n\nLives on the street · Sterilised — confirmed by Syros Cats\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street confirmed\nSince\n16 Aug 2026\nWhy we think so\nLives on the street (Susan, 16 Aug 2026)\nSterilised\nStatus\nSterilised confirmed\nSince\n17 Aug 2026\nWhy we think so\nSterilised (Susan, 17 Aug 2026)\nClipped "
+ },
+ "1280-busy-history": {
+  "heading": [
+   "History (26)"
+  ],
+  "showAll": [
+   "Show all 26"
+  ]
+ },
+ "1280-cat-busy-history": {
+  "overflowX": false,
+  "scrollWidth": 1280,
+  "innerWidth": 1280,
+  "small": [
+   {
+    "tag": "A",
+    "text": "Lives on the street",
+    "h": 34,
+    "w": 134
+   },
+   {
+    "tag": "A",
+    "text": "Sterilised",
+    "h": 34,
+    "w": 67
+   },
+   {
+    "tag": "A",
+    "text": "Galissas",
+    "h": 42,
+    "w": 60
+   },
+   {
+    "tag": "INPUT",
+    "text": "street",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "homed",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "in_care",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "deceased",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "INPUT",
+    "text": "yes",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "INPUT",
+    "text": "no",
+    "h": 22,
+    "w": 22
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 506
+   },
+   {
+    "tag": "LABEL",
+    "text": "",
+    "h": 20,
+    "w": 1065
+   }
+  ],
+  "url": "http://localhost:8132/api/team/cats/9",
+  "title": "Busy",
+  "text": "Welfare queue\nCats\nColonies\nFeeding sites\nProbably sterilised\n\n← Find another cat\n\nBusy\n\nSYR-0009\n\nSigned in as Susan\nSign out\nWhat the public sees\n\nLives on the street · Sterilised — confirmed by Syros Cats\n\nWhat we know about this cat\n\nTeam only. How we got to what the public sees.\n\nLife\nStatus\nLives on the street confirmed\nSince\n16 Aug 2026\nWhy we think so\nLives on the street (Susan, 16 Aug 2026)\nSterilised\nStatus\nSterilised confirmed\nSince\n17 Aug 2026\nWhy we think so\nSterilised (Susan, 17 Au"
+ }
+}
