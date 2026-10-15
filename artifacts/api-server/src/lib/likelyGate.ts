@@ -29,5 +29,13 @@
  * three conditions are actually true in production; filed as a reminder on
  * SYC-43 (the screen) so it isn't forgotten. See the PR body for the Linear
  * ticket.
+ *
+ * **Flipped to `true` by SYC-75 (15 Oct 2026).** All three conditions were
+ * checked against production build f03901a: PR 8's correction routes and
+ * PR 4's "Probably sterilised" list (`/api/team/likely`) answer 401, not
+ * 404; SYC-103 is Done; SYC-43 part 2 PR 4 (#99) is the screen. Merged only
+ * after Samuel confirmed the Syros Cats team has seen the list. The constant
+ * stays so the switch can be thrown back in one line if the team can't keep
+ * up with corrections.
  */
-export const LIKELY_STERILISED_PUBLIC_LIVE = false;
+export const LIKELY_STERILISED_PUBLIC_LIVE = true;
