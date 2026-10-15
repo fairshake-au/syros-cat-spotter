@@ -68,7 +68,22 @@ const notesHint = ({ w }: Words) => `<p class="hint">${w("notes.hint")}</p>`;
 
 // ── The list ───────────────────────────────────────────────────────────────
 
-function colonyCard({ w }: Words, c: ColonyRow): string {
+/**
+ * "1 cat", "3 cats" (review: the list said "1 cats"). French takes the
+ * singular for 0 and 1; English and Greek only for 1.
+ */
+function counted(
+  { t, lang }: Words,
+  n: number,
+  one: "count.colonySite" | "count.colonyCat",
+  many: "count.colonySites" | "count.colonyCats",
+): string {
+  const single = n === 1 || (pageLanguage(lang) === "fr" && n === 0);
+  return t(single ? one : many, { n: String(n) });
+}
+
+function colonyCard(W: Words, c: ColonyRow): string {
+  const { w } = W;
   const guardian = c.guardianName
     ? `${w("colonies.guardian")}: ${esc(c.guardianName)}`
     : w("colonies.noGuardian");
@@ -80,8 +95,8 @@ function colonyCard({ w }: Words, c: ColonyRow): string {
     `<strong>${esc(c.name)}</strong>` +
     `<span class="status">${guardian}</span>` +
     formerly +
-    `<span class="status">${esc(String(c.siteCount))} ${w("colonies.sites").toLowerCase()} · ` +
-    `${esc(String(c.catCount))} ${w("colonies.cats").toLowerCase()}</span>` +
+    `<span class="status">${esc(counted(W, c.siteCount, "count.colonySite", "count.colonySites"))} · ` +
+    `${esc(counted(W, c.catCount, "count.colonyCat", "count.colonyCats"))}</span>` +
     `</span></a></li>`
   );
 }
@@ -297,8 +312,10 @@ export function renderColonyPage(
     `<dt>${w("colonies.cats")}</dt><dd>${esc(String(v.catCount))}</dd>` +
     `<dt>${w("colony.centre")}</dt><dd>${v.lat !== null && v.lng !== null ? esc(`${v.lat}, ${v.lng}`) : w("colony.noCentre")}</dd>` +
     `</dl>`;
+  // A cat guardian may read (and from PR 4.2 edit) her own colony's notes, so
+  // to her they are just "Notes"; the team keeps "Team-only notes".
   const notes =
-    `<h2>${w("colony.notes")}</h2>` +
+    `<h2>${w(island ? "colony.notes" : "colony.notesOwn")}</h2>` +
     (v.notes ? `<p class="note">${esc(v.notes)}</p>` : `<p class="empty">${w("colony.noNotes")}</p>`);
   return renderPage({
     title: v.name,

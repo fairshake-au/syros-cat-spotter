@@ -3,7 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockIns
 import request from "supertest";
 import { addPerson, pool } from "@workspace/db";
 import app from "../app";
-import { sessionCookieFor } from "../lib/teamAuth/__fixtures__/queueKit";
+import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
+import { fr } from "../lib/teamPages/strings/fr";
 import { createColony } from "../lib/teamColonies";
 import { addSite } from "../lib/teamSiteWrites";
 import { guardianOn, type Signed } from "../test/roleKit";
@@ -120,5 +121,52 @@ describe("a cat guardian reads her pages in her language; the team reads English
       const text = unescape((await page(path, eleni.cookie)).text).replace(/<style>[\s\S]*?<\/style>/, "");
       for (const s of english) expect(text.includes(s), `${path}: "${s}"`).toBe(false);
     }
+  });
+});
+
+describe("the error pages she can reach are in her language too (review F2)", () => {
+  const formPost = (path: string, body: Record<string, string>, cookie: string) =>
+    request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie).type("form").send(body);
+
+  it("a map move that can't be read (POST /sites/map, 400)", async () => {
+    const res = await formPost("/api/team/sites/map", { vz: "nonsense" }, eleni.cookie);
+    expect(res.status).toBe(400);
+    const text = unescape(res.text);
+    expect(text).toContain(el["sites.moveNote"]);
+    expect(text).not.toContain(en["sites.moveNote"]);
+    // The team's is in English.
+    const team = unescape((await formPost("/api/team/sites/map", { vz: "nonsense" }, staffCookie)).text);
+    expect(team).toContain(en["sites.moveNote"]);
+  });
+
+  it("a site or colony that isn't there (404)", async () => {
+    for (const [path, greek] of [
+      ["/api/team/sites/999999999", el["site.noSuchBody"]],
+      ["/api/team/colonies/999999999", el["none.body"]],
+      ["/api/team/colonies/999999999/cats", el["none.body"]],
+    ] as const) {
+      const res = await page(path, eleni.cookie);
+      expect(res.status, path).toBe(404);
+      expect(unescape(res.text), path).toContain(greek);
+    }
+  });
+});
+
+describe("her colony page and the Colonies list (browser check)", () => {
+  it("her notes are just 'Notes'; the team's stay 'Team-only notes'", async () => {
+    const hers = unescape((await page(`/api/team/colonies/${colony}`, eleni.cookie)).text);
+    expect(hers).toContain(`<h2>${el["colony.notesOwn"]}</h2>`);
+    expect(hers).not.toContain(el["colony.notes"]);
+    const team = unescape((await page(`/api/team/colonies/${colony}`, staffCookie)).text);
+    expect(team).toContain("<h2>Team-only notes</h2>");
+  });
+
+  it("counts are singular for one, in every language", async () => {
+    const hers = unescape((await page("/api/team/colonies", eleni.cookie)).text);
+    expect(hers).toContain(`${el["count.colonySite"].replace("{n}", "1")} · ${el["count.colonyCats"].replace("{n}", "0")}`);
+    const team = unescape((await page("/api/team/colonies", staffCookie)).text);
+    expect(team).toContain("1 feeding site · 0 cats");
+    expect(team).not.toContain("1 feeding sites");
+    expect(fr["count.colonyCat"].replace("{n}", "1")).toBe("1 chat");
   });
 });

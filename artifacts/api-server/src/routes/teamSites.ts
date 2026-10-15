@@ -162,7 +162,8 @@ router.post(
         400,
         viewAround(ISLAND_CENTRE, START_ZOOM),
         showRetired,
-        t("sites.moveNote"),
+        // In her language: a cat guardian reaches this page too (review F2).
+        t("sites.moveNote", pageViewer(res).lang),
       ));
     }
     await sitesPage(res, 200, view, showRetired);
