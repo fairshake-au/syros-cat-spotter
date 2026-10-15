@@ -4,3 +4,5 @@ Scratch database, local build of this branch. `seed.ts` seeds the data (run as a
 
 - A cat guardian's session is refused (403, "That part is for the team") on the cat page and on a posted life-status; nothing is saved and the owner stays.
 - The 1280 cat-mimi shot was retaken after Mimi's owner was restored by hand, so its history lists one extra life-status row.
+
+**In the repo:** only the confirm pages and the guardian refusal are kept here. The full-page cat, history, done and cancel shots (about 7 MB) were left out for size; they were checked on 15 Oct 2026 during the PR.
