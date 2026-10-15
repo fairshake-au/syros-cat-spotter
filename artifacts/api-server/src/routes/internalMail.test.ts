@@ -270,7 +270,9 @@ describe("test 16: the drain fails loudly when an alert is over an hour late", (
 describe("T4-5 (SYC-44 PR 4.1): a welfare_alert for a 'Report an issue' row is never sent", () => {
   it("is marked failed wrong_kind, never built with the welfare copy, and the welfare alert beside it still goes", async () => {
     const welfare = await seedReport();
-    // A content row has no position; someone queues a welfare_alert for it.
+    // Someone queues a welfare_alert for a content row. It is given a
+    // position here (the database allows one) so that the KIND, not a missing
+    // position, is what stops the email.
     const [content] = await db
       .insert(welfareReportsTable)
       .values({
@@ -278,8 +280,8 @@ describe("T4-5 (SYC-44 PR 4.1): a welfare_alert for a 'Report an issue' row is n
         kind: "content",
         reason: "other",
         severity: "attention",
-        lat: null,
-        lng: null,
+        lat: 37.44,
+        lng: 24.94,
         reporterDevice: DEVICE,
         clientRef: randomBytes(6).toString("hex"),
         photoState: "none",
