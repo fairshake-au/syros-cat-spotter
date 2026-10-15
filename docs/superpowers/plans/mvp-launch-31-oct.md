@@ -73,7 +73,7 @@ Checked against `origin/main` (`2acae50`), `gh pr list`, the session list and Li
 | §2.6 Private feeding-site map | Map pictures done (PR 3.1, #161). Pages in review (PR 3.2, #169). Adding and moving sites (3.3, 3.4) not started; 3.4's precondition, PR 0.2, merged (#125) | `gh pr list`; `git log origin/main` |
 | §2.6 Per-site "make public" switch | **After launch** by the approved SYC-209 plan (Slice 6) | SYC-209 plan, "Slice 6" |
 | §2.6 "Report an issue" | Docs only (PR 0.1). Its database change (PR 4.1) is being built. About 10 PRs to go | SYC-44 plan; session list |
-| §2.7 Email capture | Spec approved 28 Sep. **No plan; the asking screens and the nightly job aren't built.** The address, consent and suppression tables exist already (migration `0012`) | `docs/specs/email-capture.md`; SYC-45 Backlog |
+| §2.7 Email capture | Spec approved 28 Sep. Plan written, all seven decisions settled by Samuel on 15 Oct (PR #186, `syc-344-email-capture.md`). **No news ask is live on 31 Oct:** the spec allows none until the nightly check has run two weeks on real data, so before launch only that check is built, watching and sending nothing. Earliest switch-on about 14 Nov (Decision 1) | PR #186; SYC-344 |
 | §2.8 Migrations, photo hardening | Done | SYC-64, SYC-98, SYC-121 Done |
 | Turnstile on the report forms | Server check watching only (#151, #163). It switches itself to refusing when the pre-launch pass goes off. Its secret key is **not yet in Replit** (commit message of #163). Website part (PR 1.2) being built. Phone-app part (PR 1.3) not started | SYC-170; `artifacts/api-server/src/lib/turnstile.ts:212-221` |
 | Shared rate limits | Counted in the database (#150). Left: check a limit holds across a republish, then allow more than one server | SYC-105 comment, 15 Oct |
@@ -175,8 +175,8 @@ Samuel merges in two windows a day (morning and evening), each a batch of PRs th
 | **Fri 16 Oct** | SYC-209 3.2; SYC-279 cache rule; Turnstile website part (SYC-170 1.2); SYC-44 4.1 | `0023_issue_reports` |
 | **Mon 19 Oct** | SYC-44 4.2; SYC-42 Slice 3 (reporter's email); SYC-209 3.3; the rename (SYC-34) | 4.2's one-line change, then Slice 3's if it has one |
 | **Wed 21 Oct** | SYC-44 5.2 then 5.1; SYC-209 3.4; "Likely sterilised" switched on (SYC-75) | none |
-| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen PR 1 (server pieces and the facts); email capture, first slice | one migration holding `app_settings` and `donation_link_taps` (next free number, `0027` or higher), seeded with the donation address; then email capture's if any |
-| **Mon 26 Oct** | SYC-44 7.1; match-wait screen PR 2 (the feeding nudge everywhere); email capture, second slice; more than one server allowed (SYC-105) | none |
+| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen PR 1 (server pieces and the facts); email capture Slice 1 (the nightly check, watch-only) | two migrations, in merge order, each taking the next free number from `0027`: the match-wait one (`app_settings` and `donation_link_taps`, seeded with the donation address) and email capture's `cat_news_check` |
+| **Mon 26 Oct** | SYC-44 7.1; match-wait screen PR 2 (the feeding nudge everywhere); more than one server allowed (SYC-105) | none |
 | **Wed 28 Oct** | Johnny's corrections; SYC-44 7.2 and 8.1 unless cut | 7.2's `photo_removal` |
 | **Thu 29 Oct** | Fixes only | none |
 
@@ -215,7 +215,7 @@ Each build PR follows the usual pipeline: its own worktree off fresh `origin/mai
 | Feeding-site map | SYC-209 3.3, then 3.4 | 3.2 merged; 0.2 (merged) |
 | Report an issue, server | SYC-44 4.2, 5.2, then 5.1 | 4.1 live (Fri 16 publish) |
 | Reporter's email | SYC-42 Slice 3 (other session) | `news.` verified |
-| Email capture | Slices from the plan | Plan approved Mon 19 |
+| Email capture | Slice 1 only before launch: the nightly news check, watch-only, sending nothing, built Mon 19 – Fri 23. Its job runs from the mail Worker, which moves to the launch address with the switch-over (SYC-345). Slices 2–5 (the asks, Settings, the news email) follow after launch | Plan approved (PR #186) |
 | Match-wait screen | Plan approved 15 Oct (PR #187). **PR 1, Fri 23:** the server pieces (a settings table, the resident-signals route, the donation-tap count, the `/api/go/feed` link, which works even before launch) plus the facts during the wait. **PR 2, Mon 26:** the feeding nudge everywhere (during the wait, on the result screen, the visitors' daily one-liner, the button). The nudge waits for PR 2 so it never shows without its count. The €1/€30 figures and the button are on at launch (Samuel, D6); Syros Cats confirm them. Until a dashboard page lands (SYC-383, first week of November), Claude changes settings with a `db-ops set-setting` command, with Samuel's OK | Before PR 1: the send-time measurement, run on a temporary Neon branch (ask mode) |
 | Rename | SYC-34: app name and per-language names | D2 |
 | "Likely sterilised" | SYC-75: confirm the three conditions on the live site, then the one-line switch | Nothing |
@@ -225,10 +225,10 @@ Each build PR follows the usual pipeline: its own worktree off fresh `origin/mai
 
 ### Wave 2: Thursday 22 – Tuesday 27 October · the visible parts, while Johnny reviews
 
-- **Thursday 22: copy freeze.** Claude assembles Johnny's pack (SYC-346): every new Greek and French sentence, grouped by screen, English beside it.
+- **Thursday 22: copy freeze.** Claude assembles Johnny's pack (SYC-346): every new Greek and French sentence, grouped by screen, English beside it. It includes the cat-news email lines (Samuel chose the reader's language from day one, email-capture Decision 7). The reporter's emails go out in English for everyone at launch until Johnny has checked their Greek and French (Samuel, 15 Oct), so they are in the pack but don't block launch.
 - **Friday 23:** Samuel sends the pack. Store apps submitted if ready.
 - SYC-44 6.1 and 6.2 (the app's side of "Report an issue"), then 7.1 (the team's Issues section). 7.2 and 8.1 if not cut.
-- Email capture's remaining slices (first to cut).
+- Email capture: nothing more before launch. Slices 2–5 start after 31 October; the asks switch on once the two-week rule is met (about 14 November at the earliest).
 - SYC-105: check a limit holds across a republish, then allow more than one server.
 - **Monday 26:** the Turnstile secret key in Replit, checked through `/api/healthz`.
 - Clocks change in Athens on Sunday 25 October. "Report an issue" counts its daily limit by Athens midnight; its tests cover the change, and Claude checks it live on Monday 26.
@@ -317,7 +317,7 @@ The store apps go live when all of this is true. Dates are the earliest each can
 
 **Cut, in this order, if the date is at risk:**
 
-1. Email capture (SYC-45). Agreed 12 Oct. Reporters can still leave an email (that's Slice 3).
+1. Email capture (SYC-45). Agreed 12 Oct. Already reduced to its watch-only nightly check before launch (Samuel, 15 Oct), so cutting it means dropping that check and starting the two-week clock later. Reporters can still leave an email (that's SYC-42 Slice 3).
 2. The rest of the feeding-site map: SYC-209 3.3 and 3.4. Agreed 12 Oct. **The team's map would start empty**: they could see the read-only pages from 3.2 but couldn't add a site until 3.3 and 3.4 ship.
 3. Starter facts: the 10 "core" ones only, the rest in the first update (proposed, D4).
 4. SYC-44 7.2 and 8.1 to the first week of November (proposed, D4).
