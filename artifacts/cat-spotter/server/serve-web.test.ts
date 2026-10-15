@@ -813,6 +813,20 @@ describe('SYC-189: team.catspotters.com goes to the dashboard, never the tester 
     expect(res.body).toBe('ok');
   });
 
+  it('/_challenge is still served on the team address (the phone Turnstile page)', async () => {
+    const req = await start(gatedEnv({ NODE_ENV: 'development' }));
+    const res = await req('GET', '/_challenge?action=welfare_report&cdata=r-test123', { headers: TEAM });
+    expect(res.status).toBe(200);
+    expect(res.body).toContain('turnstile.render');
+  });
+
+  it('a forged X-Forwarded-Host only redirects the sender’s own request', async () => {
+    const req = await start(gatedEnv());
+    const res = await req('GET', '/', { headers: { host: 'catspotters.com', 'x-forwarded-host': 'team.catspotters.com' } });
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/api/team/');
+  });
+
   it('other addresses are unchanged: the tester app and its password page', async () => {
     const req = await start(gatedEnv());
     for (const host of ['catspotters.com', 'www.catspotters.com', 'admin.catspotters.com', 'team.catspotters.com.evil.com', 'evilteam.catspotters.com']) {
