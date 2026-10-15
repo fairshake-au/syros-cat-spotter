@@ -91,7 +91,7 @@ interface Ctx {
 interface Page {
   goto(url: string): Promise<unknown>;
   url(): string;
-  getByRole(role: string, o: { name: string }): Loc;
+  getByRole(role: string, o: { name: string | RegExp }): Loc;
   getByLabel(label: string | RegExp): Loc;
   waitForURL(re: RegExp, o?: { timeout: number }): Promise<void>;
   waitForLoadState(s: string): Promise<void>;
