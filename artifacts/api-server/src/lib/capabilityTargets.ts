@@ -5,7 +5,7 @@ import {
   photosTable,
   sightingsTable,
 } from "@workspace/db";
-import { eq, isNotNull, and } from "drizzle-orm";
+import { eq, isNotNull, and, sql } from "drizzle-orm";
 import type { CapabilityTarget } from "./capabilities";
 import { currentColonyOf } from "./colonyMembership";
 
@@ -26,24 +26,81 @@ import { currentColonyOf } from "./colonyMembership";
 //   site's, its own colony column (SYC-209 PR 4.1). Neither has a route yet.)
 //
 // A cat in no colony has no placed target, so only island holders pass.
+//
+// A cat merged into another (`cat_identity`, data spine §10.3) is judged by
+// the cat it was merged INTO (SYC-333, PR 2.1): its own old colony
+// statements no longer say where it belongs. Merges don't exist yet (SYC-59),
+// so today every cat is its own canonical cat.
 
 type Reader = Parameters<typeof currentColonyOf>[1];
+
+/** How many merges deep to follow before giving up (a loop is bad data). */
+const MAX_MERGE_HOPS = 8;
+
+/**
+ * The cat each of these is now (itself, or the cat it was merged into, through
+ * every merge nothing has undone). A chain that loops, or runs deeper than
+ * any real one could, resolves to null: no colony, so only the team passes.
+ */
+export async function canonicalCats(
+  catIds: readonly number[],
+  q: Pick<typeof db, "execute"> = db,
+): Promise<Map<number, number | null>> {
+  const out = new Map<number, number | null>();
+  for (const id of new Set(catIds)) {
+    let at = id;
+    const seen = new Set<number>([id]);
+    let resolved: number | null = null;
+    for (let hop = 0; hop <= MAX_MERGE_HOPS; hop++) {
+      const r = await q.execute<{ canonical: number }>(sql`
+        select ci.canonical_cat_id as canonical from cat_identity ci
+         where ci.cat_id = ${at}
+           and ci.canonical_cat_id <> ${at}
+           and not exists (select 1 from cat_identity u where u.supersedes_id = ci.id)
+         order by ci.id desc
+         limit 1`);
+      const next = r.rows[0]?.canonical;
+      if (next === undefined) {
+        resolved = at;
+        break;
+      }
+      if (seen.has(Number(next))) break;
+      seen.add(Number(next));
+      at = Number(next);
+    }
+    out.set(id, resolved);
+  }
+  return out;
+}
+
+/** Colony targets for these cats, each judged as its canonical cat. */
+async function targetsOf(catIds: readonly number[], q?: Reader & Pick<typeof db, "execute">) {
+  const canonical = await canonicalCats(catIds, q);
+  const ids = [...new Set([...canonical.values()].filter((c): c is number => c !== null))];
+  const colonies = await currentColonyOf(ids, q);
+  return (catId: number): CapabilityTarget => {
+    const c = canonical.get(catId);
+    return { colonyId: c == null ? null : (colonies.get(c) ?? null) };
+  };
+}
 
 /**
  * The target for one cat. Inside a transaction, pass it: a second connection
  * taken while the transaction holds one can starve the pool under a burst.
  */
-export async function catTarget(catId: number, q?: Reader): Promise<CapabilityTarget> {
-  const colonies = await currentColonyOf([catId], q);
-  return { colonyId: colonies.get(catId) ?? null };
+export async function catTarget(
+  catId: number,
+  q?: Reader & Pick<typeof db, "execute">,
+): Promise<CapabilityTarget> {
+  return (await targetsOf([catId], q))(catId);
 }
 
 /** One target per cat, for checking every one of them. */
 async function catTargets(catIds: readonly number[]): Promise<CapabilityTarget[]> {
   const unique = [...new Set(catIds)];
   if (unique.length === 0) return [{ colonyId: null }];
-  const colonies = await currentColonyOf(unique);
-  return unique.map((id) => ({ colonyId: colonies.get(id) ?? null }));
+  const targetOf = await targetsOf(unique);
+  return unique.map(targetOf);
 }
 
 /** The cats a stored photo is tied to, by its public id. */
