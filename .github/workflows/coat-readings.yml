@@ -1,0 +1,114 @@
+name: coat-readings
+# SYC-161 plan, PR 1 (Decision D1): the manual colour run. Asks the live API
+# to read cats' coat colours from their public photos.
+#
+#   mode=dry_run  no model call, no write: which cats are due (the default)
+#   mode=trial    calls the model, writes nothing: colours and the model's
+#                 raw numbers, for Samuel's contact sheet (Decision A1)
+#   mode=write    writes the readings, except the cats listed in `exclude`
+#
+# Started by hand only; there is no schedule. Nothing in PR 1 reads colours
+# automatically (that is PR 2, behind AUTO_COAT_READING).
+#
+# MAIL_DRAIN_TOKEN is a GitHub `production` Environment secret, a Replit
+# deployment secret and a Worker secret, never in a file or a prompt (spec
+# §2.11). It opens two paths only: the mail drain and POST
+# /api/internal/coat/sweep. Like mail-drain.yml, the token only ever goes to
+# the app: the address is the production variable MAIL_DRAIN_BASE_URL or
+# https://apptest.catspotters.com, never one typed into the run, and it is
+# checked against the same host list before the token is sent.
+#
+# The run prints the API's JSON answer: cat ids, photo ids, colours and the
+# model's raw numbers. Never a photo, never the token.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [dry_run, trial, write]
+        default: dry_run
+        description: "dry_run (no call, no write), trial (calls, no write) or write"
+      limit:
+        type: string
+        default: "50"
+        description: "How many cats to read, 1 to 50"
+      exclude:
+        type: string
+        default: ""
+        description: "Cat ids NOT to write, comma-separated (the readings Samuel rejected)"
+permissions: { contents: read }
+concurrency: { group: "coat-readings", cancel-in-progress: false }
+jobs:
+  sweep:
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Run the colour sweep
+        env:
+          MAIL_DRAIN_TOKEN: ${{ secrets.MAIL_DRAIN_TOKEN }}
+          BASE_URL: ${{ vars.MAIL_DRAIN_BASE_URL || 'https://apptest.catspotters.com' }}
+          MODE: ${{ inputs.mode }}
+          LIMIT: ${{ inputs.limit }}
+          EXCLUDE: ${{ inputs.exclude }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MAIL_DRAIN_TOKEN}" ]; then
+            echo "::error::MAIL_DRAIN_TOKEN is not set in the production environment"
+            exit 1
+          fi
+          # The token only ever goes to the app (the same check as mail-drain.yml).
+          rest="${BASE_URL#*://}"
+          scheme="${BASE_URL%%://*}"
+          host="${rest%%/*}"
+          host="${host%%:*}"
+          case "${scheme}://${host}" in
+            https://apptest.catspotters.com|http://localhost|http://127.0.0.1) ;;
+            *)
+              echo "::error::base_url must be https://apptest.catspotters.com or localhost"
+              exit 1
+              ;;
+          esac
+          case "${MODE}" in
+            dry_run|trial|write) ;;
+            *) echo "::error::mode must be dry_run, trial or write"; exit 1 ;;
+          esac
+          case "${LIMIT}" in
+            ''|*[!0-9]*) echo "::error::limit must be a whole number from 1 to 50"; exit 1 ;;
+          esac
+          if [ "${LIMIT}" -lt 1 ] || [ "${LIMIT}" -gt 50 ]; then
+            echo "::error::limit must be a whole number from 1 to 50"
+            exit 1
+          fi
+          case "${EXCLUDE}" in
+            *[!0-9,\ ]*) echo "::error::exclude must be cat ids separated by commas"; exit 1 ;;
+          esac
+          body="$(jq -cn --arg mode "${MODE}" --argjson limit "${LIMIT}" --arg exclude "${EXCLUDE}" \
+            '{mode: $mode, limit: $limit, exclude: ($exclude | split(",") | map(gsub(" "; "")) | map(select(length > 0)) | map(tonumber))}')"
+          echo "Request: ${body}"
+          out="$(mktemp)"
+          # The first call can wake a sleeping deployment: retry once when
+          # the connection fails (curl exits 6 or 7, before anything reached
+          # the app) or the platform answers 502/503. Never on a timeout or a
+          # 504, where the app may still be working: a trial run twice would
+          # pay for its calls twice.
+          for attempt in 1 2; do
+            rc=0
+            code=$(curl -sS -o "$out" -w '%{http_code}' --max-time 900 \
+              -X POST -H "Authorization: Bearer ${MAIL_DRAIN_TOKEN}" \
+              -H "Content-Type: application/json" --data "${body}" \
+              "${BASE_URL%/}/api/internal/coat/sweep") || rc=$?
+            code="${code:-000}"
+            if [ "$attempt" = 1 ] && { [ "$rc" = 6 ] || [ "$rc" = 7 ] || [ "$code" = 502 ] || [ "$code" = 503 ]; }; then
+              sleep 20
+              continue
+            fi
+            break
+          done
+          echo "HTTP ${code}"
+          jq . "$out" 2>/dev/null || cat "$out" || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::The colour sweep call failed (HTTP ${code})."
+            exit 1
+          fi
