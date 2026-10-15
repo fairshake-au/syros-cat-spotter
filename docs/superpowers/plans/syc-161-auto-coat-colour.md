@@ -410,7 +410,7 @@ Nothing here waits in the offline queue.
 - **SYC-44** hides photos through `setPhotoVisibility` (author `report:<id>`), so its hides make cats due by R2, with nothing to change. Its PR 7.2 deletes hidden photos for good. A reading keeps its `photoId` after its photo is gone, and R2 then treats that photo as not public. Covered by T-due with a deleted photo row.
 - **SYC-163** (team chooses a main photo): R2 rule 2 already re-reads when the main photo changes.
 - **SYC-59** (merges): a merge doesn't combine readings (spec §8.5). Today merged cats refuse writes, so the reader skips them: `due.ts` reads through `cat_identity` like every other reader.
-- **The launch plan (#172):** Decision B. The launch-plan session is told about the proposed slots (23 and 26 Oct) and the strings for Johnny's pack.
+- **The launch plan (#172):** Decision B. The launch-plan session agreed on 15 Oct. PR #172 at `b4c7668` lists SYC-161 as outside the launch, pending Decision B, and cut before the launch plan's own cuts. Its slots, if it lands, are Fri 23 and Mon 26 Oct, and its colours go public only after SYC-2 PR 3.1. The six picker strings are on SYC-346 for Johnny's pack.
 - **Open PRs today:** none touches `lib/coatReading/`, `matching.ts`, `internalMail.ts` or `CatPicker.tsx` (checked with `gh pr diff --name-only` before each PR opens). PR #181 (SYC-42 Slice 3) touches mail; PR 2 rebases after it if both are open.
 
 ---
