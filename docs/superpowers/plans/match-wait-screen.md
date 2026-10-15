@@ -7,7 +7,7 @@
 - SYC-345 (the launch-day checklist);
 - SYC-53 (signed-in roles, later).
 
-**Status:** written and reviewed on 15 October 2026, **awaiting Samuel's approval.** Nothing here is built, published or configured.
+**Status:** written and reviewed on 15 October 2026. **All six decisions answered by Samuel on 15 October 2026** (each recorded on SYC-36): 2, 3 and 5 as recommended; **1, 4 and 6 differently**, and this version builds his answers in. **The plan as a whole still awaits his approval.** Nothing here is built, published or configured.
 
 **Design (approved, not reopened here):** `docs/specs/feeding-nudge.md` and `docs/specs/starter-facts.md`, merged in PR #174 (commit `629fbea`), with their review `docs/specs/reviews/feeding-nudge-and-starter-facts-review.md`.
 
@@ -61,13 +61,13 @@ Every "exists today" claim names the file it was read in. An independent Sonnet 
 
 That splits the work slightly differently from the launch plan, for a reason given under "Small calls".
 
-**Six decisions for you**, each with a recommendation:
-1. Where the switches live.
-2. How to measure the wait without touching the live site.
-3. Letting the donation button work for testers before launch.
-4. What a phone shows before it has ever loaded the switches.
-5. Counting taps per day or as one total.
-6. One switch or two for the button and the figures.
+**Six decisions, all answered by Samuel on 15 Oct** (details under each decision below):
+1. Where the switches live: **in the database, with a dashboard page for Syros Cats after launch.** Until then Claude changes them on request.
+2. Measuring the wait: **a test run on a temporary copy of the database.**
+3. The donation button before launch: **let that one link through the testers' pass.**
+4. A phone that hasn't loaded the switches: **keep the spec, nothing hidden.**
+5. Counting taps: **one number per day.**
+6. The money line and the button: **both shown at launch.** Samuel confirms them with Syros Cats.
 
 ---
 
@@ -79,7 +79,7 @@ The specs' decisions stand. These are places where carrying them out needs the p
 |---|---|---|---|
 | C1 | "The date of the earliest sighting the server holds for this phone" (`feeding-nudge.md` §3.2) | `sightings.created_at` is set from the **photo's capture time**, not when the server got it (`routes/sightings.ts:580-588`, `createdAt: capturedAt`). A photo picked from the library can be up to 21 days old (`lib/photoClock.ts:24`). Read naively, a tourist whose first spot is a three-week-old photo would count as a resident on day one | The first-spot date is the earliest **arrival** time of that phone's sightings: `photos.created_at`, set by the database on insert (`lib/db/src/schema/photos.ts:38`). The photos table has no foreign key from sightings, so the query is a LEFT JOIN with `COALESCE(photos.created_at, sightings.created_at)`, so a deleted photo never makes a resident look new. Checked on Neon, 15 Oct: real dates survived the move (earliest 22 Jul, latest 30 Sep 2026). A sighting saved offline arrives, and counts, when it's sent |
 | C2 | "Has this phone claimed a cat? Claims are kept on the server" | There's no claims table. A claim is `cats.owner_device_id` plus a `life_status` / `homed` observation with `authority_scope = 'owner_of_this_cat'` and the device (`lib/db/src/schema/cats.ts:34`; `newestActiveOwnerHomed`, `lib/claiming.ts:154`). Letting a cat go clears the owner and adds a **withdrawing** row; the original `homed` row keeps its device id (`routes/cats.ts:540`; `clearOwner`, `lib/claiming.ts:228`) | "Has claimed" means **has ever claimed**: any such `homed` row for this device (index `observations_device_idx`). Someone who let their cat go still lives here. Small call 2, with a let-go test |
-| C3 | "The app settings endpoint … switched off without [an app update]" (`starter-facts.md` §9; `feeding-nudge.md` §9) | No settings store exists. The Help tab's campaign is read from **server environment variables** on every request (`lib/campaign.ts:59-80`, `CAMPAIGN_*`), changed by editing them in Replit and publishing (`docs/DEPLOYMENT.md:51`) | Decision 1 |
+| C3 | "The app settings endpoint … switched off without [an app update]" (`starter-facts.md` §9; `feeding-nudge.md` §9) | No settings store exists. The Help tab's campaign is read from **server environment variables** on every request (`lib/campaign.ts:59-80`, `CAMPAIGN_*`), changed by editing them in Replit and publishing (`docs/DEPLOYMENT.md:51`) | Decision 1: a new `app_settings` table, edited by Claude on request until Syros Cats' dashboard page (SYC-383) arrives |
 | C4 | "Signed in as a cat guardian or Syros Cats team member … once those sign-ins exist" | The app has no such sign-in. There's no role, guardian or team flag anywhere in `artifacts/cat-spotter/app`, `context` or `lib` (searched 15 Oct). Team sign-in exists only on the server's dashboard (`middlewares/requireTeam.ts`) | The schedule takes `signedInRole`, which is always `null` at launch. Its tests (nudge test 14) are written now. SYC-53's app work fills it in, and a follow-up ticket says so |
 | C5 | "The map is locked during that time anyway" (`starter-facts.md` §3.1) | `LocationPicker` gets no disabled prop while sending (`spot.tsx:1017-1020`). The pin itself is safe: the send copies `pickedCoords` at the start (`spot.tsx:492`) | Doesn't matter once the card replaces the map. The map comes back with the same pin if the send fails, because the pin is screen state, not the map's |
 | C6 | The record holds "the date of this phone's first spot" (`starter-facts.md` §3.4) | The later text (`feeding-nudge.md` §3.2 and §9) moved both resident signals to the server, so they survive a wiped browser | The phone's record doesn't store a first-spot date. The server's answer is kept with the settings, so the last one seen is used offline |
@@ -94,9 +94,11 @@ The specs' decisions stand. These are places where carrying them out needs the p
 
 ## Decisions for Samuel
 
-Six, each with a recommendation. 1, 2 and 3 matter most. 4, 5 and 6 are small, and the recommendation is what the plan assumes unless you say otherwise.
+Six, each with a recommendation. **All answered by Samuel on 15 Oct 2026**, through question prompts, and each recorded on SYC-36 with his exact selection. His answer is at the top of each one. The options are kept below it as the record of what he chose between.
 
 ### Decision 1: Where the switches live, and who flips them
+
+> **Decided by Samuel, 15 Oct: "Dashboard page for Syros Cats"** (option B, not the recommendation). **Follow-on, same day: "Page after launch".** The switches live in a small database table from PR 1 (Fri 23 Oct). Until the dashboard page exists, Claude changes them on request with Samuel's OK, in "ask" mode. The page itself (SYC-383) comes in the first week of November.
 
 **The question.** Three things must be changeable without a new app:
 - whether the donation button and figures show;
@@ -115,6 +117,8 @@ Syros Cats' answers (due Mon 19) decide the launch values, and they may say yes 
 
 ### Decision 2: Measuring how long the wait is, without touching the live site
 
+> **Decided by Samuel, 15 Oct: "Test run on a copy (Recommended)".** M0 runs before PR 1, once Samuel switches the session to "ask" mode.
+
 **The question.** The spec asks for the typical wait and the slow end (the time half of sends beat, and the time nine in ten beat) before building, and says to come back to you if the typical wait is under 2 seconds. Here's what I could check today (15 Oct):
 
 - **The database can't answer it.** The main copy of the database has 52 sightings, the newest from 30 Sep, and no match records at all, so there's nothing to time.
@@ -132,6 +136,8 @@ Every real measurement means sending sightings somewhere, so it needs your OK.
 
 ### Decision 3: Letting the donation button work for testers before launch
 
+> **Decided by Samuel, 15 Oct: "Let that one link through (Recommended)".**
+
 **The question.** Until launch day, the live server only answers phones and browsers that carry the testers' pass. The app carries it, but **Help feed a cat** opens the phone's own browser, which doesn't. So from 26 Oct until the pass comes off on 31 Oct, a tester tapping the button would see an error page instead of Syros Cats' donation page.
 
 | Option | What a tester sees before 31 Oct | Good | Bad |
@@ -143,6 +149,8 @@ Every real measurement means sending sightings somewhere, so it needs your OK.
 
 ### Decision 4: What a phone shows before it has ever loaded the switches
 
+> **Decided by Samuel, 15 Oct: "Keep the spec: nothing hidden"** (option B, not the recommendation). A phone that has never loaded the switches hides no facts, as `starter-facts.md` §9 says.
+
 **The question.** A phone gets the switches the first time the app opens with a signal. Until then, the spec says, nothing is hidden: every fact shows, including the nine that need Syros Cats' yes (for example "On Syros it's usually the left ear"). Normally that's a matter of seconds, but a phone first opened with no signal could show an unconfirmed fact.
 
 | Option | What that phone shows | Good | Bad |
@@ -153,6 +161,8 @@ Every real measurement means sending sightings somewhere, so it needs your OK.
 **Recommendation: A.** It's the same rule as the spec's own "switched off until they say yes", applied to a phone that hasn't heard yet.
 
 ### Decision 5: Counting taps per day, or as one total
+
+> **Decided by Samuel, 15 Oct: "One number per day (Recommended)".**
 
 **The question.** You approved "a bare count" of taps on **Help feed a cat**. The plan keeps one number for each day (Athens time). A date isn't about a person, but it is more than one total, and the privacy policy sentence changes with it.
 
@@ -166,6 +176,11 @@ Either way: no phone, address, name or place is kept. The counting address has *
 **Recommendation: A.**
 
 ### Decision 6: One switch for the button and the figures, or two
+
+> **Decided by Samuel, 15 Oct, in his words: "show both and I'll confirm with them".** The first wording of the question was unclear to him, so it was re-asked more plainly. The plan reads his answer as follows (recorded on SYC-36 for him to correct):
+> - The money line and the **Help feed a cat** button stay together, as **one switch**, and that switch is **on at launch**, pointing at syroscats.com/donations.
+> - Samuel confirms both with Syros Cats himself (SYC-360). If they say no to either, the switch goes off, with no new release.
+> - This changes the spec's launch default (`feeding-nudge.md` §1, §7: "ships without figures or a button" if unconfirmed by 22 Oct).
 
 **The question.** Syros Cats are asked two separate things: can the app say "€1 a day, €30 a month", and can the button open their donation page. The spec has two forms of the nudge only: figures and button, or neither (§5.2).
 
@@ -196,7 +211,8 @@ Either way: no phone, address, name or place is kept. The counting address has *
 |---|---|---|---|---|
 | M0 | Measure the wait (Decision 2) | After your OK, before PR 1 | Claude | Decision 2; "ask" mode for the database copy |
 | PR 1 | The server pieces and the facts during the wait | Built 19–22 Oct, **published Fri 23 Oct** | Sonnet build, Sonnet review | This plan approved; migration number agreed with live sessions after rebasing |
-| Settings | Launch values: donation page on or off, hidden facts, from Syros Cats' answers (SYC-360) | Set before the Fri 23 publish, so they go live with it. No publish of their own | Claude prepares them; whoever can enter server settings enters them (Decision 1, unchecked) | Decision 1 |
+| Settings | Launch values. **The donation page is on** (Decision 6), set by the migration itself. **Hidden facts** come from Syros Cats' answers (SYC-360) | Right after the Fri 23 publish runs the migration. No publish of their own | Claude, with Samuel's OK, in "ask" mode | Decision 1 |
+| Page | Syros Cats' dashboard page for the switches (SYC-383) | First week of November | Sonnet build | Decision 1 follow-on |
 | PR 2 | The nudge: wait, result screen, one-liner, button, count | Built 22–25 Oct, **published Mon 26 Oct** | Sonnet build, Sonnet review | PR 1 live; Decision 3 |
 | Words | Johnny's Greek and French corrections | Back Tue 27; applied in the launch plan's single corrections PR on **Wed 28** (feature freeze); live with the Thu 29 final publish | Haiku edit, Claude checks | The launch plan's existing slot |
 | Launch | A real tap on **Help feed a cat** on the live site, and a check that the tap count went up by one | 31 Oct, after the testers' pass comes off | Claude | SYC-345 checklist |
@@ -226,9 +242,12 @@ Either way: no phone, address, name or place is kept. The counting address has *
 
 ### Server (`artifacts/api-server`)
 
-- **`GET /api/app-settings`** (new, `routes/appSettings.ts`). Public, no device needed. It reads the server's settings on each request, as `getCampaign()` does:
-  - `FEED_NUDGE_DONATE_URL` is the donation page. It goes through the existing `sanitizeDonateUrl` (`lib/campaign.ts:35-46`), which allows https only and otherwise returns empty. **Empty means the link and figures are off** (`feeding-nudge.md` §5.2; Decision 6).
-  - `STARTER_FACTS_HIDDEN` is a comma-separated list of fact ids. Unknown ids are ignored and logged once. If it's unset, the nine sign-off ids are hidden (small call 3). `none` means nothing is hidden.
+- **The switches table** (Decision 1): `app_settings (key text primary key, value jsonb not null, updated_at timestamptz not null default now())`. It's read through `lib/appSettings.ts`, with a 60-second in-memory cache, so a change reaches phones within about a minute of being made. Three keys:
+  - `feed_nudge_donate_url`: the donation page, as text. On every read it goes through the existing `sanitizeDonateUrl` (`lib/campaign.ts:35-46`), which allows https only and otherwise returns empty. **Empty or missing means the link and figures are off** (`feeding-nudge.md` §5.2). **The migration seeds it with `https://syroscats.com/donations`**, so it's on at launch (Decision 6).
+  - `starter_facts_hidden`: a list of fact ids. Unknown ids are ignored and logged once. **If the row is missing, the nine sign-off ids are hidden** (small call 3). An empty list means nothing is hidden.
+  - `feed_tap_count`: true or false. Missing means true.
+  - **Until the dashboard page exists**, Claude changes a value with one SQL statement, after Samuel's OK each time and in "ask" mode, and records the change on SYC-36. SYC-383's page will edit the same table.
+- **`GET /api/app-settings`** (new, `routes/appSettings.ts`). Public, no device needed. It reads the switches above.
   - The response is `{ feedNudge: { donateHost: "syroscats.com" } | null, hiddenFacts: string[] }`, sent with `Cache-Control: public, max-age=300`. The full donation address isn't sent, because the app opens the counting address.
 - **`GET /api/app-settings/:deviceId/signals`** (new, same file). It uses `verifyDeviceSecret(req, res, id, { bind: false })` (`lib/deviceAuth.ts:86`), so asking never binds a new phone or uses up the new-device allowance. It returns:
   - `hasClaimedCat`: whether any `life_status` observation exists for this device with `value->>'status' = 'homed'` and `authority_scope = 'owner_of_this_cat'`, withdrawn or not (C2).
@@ -238,14 +257,14 @@ Either way: no phone, address, name or place is kept. The counting address has *
   - It's rate limited with a new `sharedLimiter` bucket (`middlewares/rateLimit.ts`), 60 requests per 15 minutes per address. The existing limiter's privacy note already covers that.
   - **The path is added to the log redaction list** (`lib/logger.ts:61-62`), with a case in `app.logRedaction.test.ts` (C12).
 - **`GET /api/go/feed`** (new, `routes/go.ts`):
-  - It adds one to today's count (Decision 5) and answers `302` to `FEED_NUDGE_DONATE_URL`, with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+  - It adds one to today's count (Decision 5) and answers `302` to the donation page in `feed_nudge_donate_url`, with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
   - The count is best effort. If the database write fails or takes more than 500 ms, it logs and redirects anyway. **The redirect never fails because of the count.**
   - If no donation page is set, it answers a short plain page in the visitor's language (Appendix B, chosen from `Accept-Language`) and counts nothing (small call 5).
   - Only `GET` counts. `HEAD` (link previews) is answered without counting. Express sends HEAD to GET handlers, so the method is checked explicitly.
   - It has no rate limiter (Decision 5), and it reads and keeps no query string. Its log line carries no IP: the serializers keep only id, method and the redacted address (`app.ts:30`). `req.ip` is used only by the limiters.
-  - `FEED_TAP_COUNT=off` stops the count and keeps the redirect, so a "no" from Syros Cats to counting (their question 5) needs no new code.
+  - `feed_tap_count = false` stops the count and keeps the redirect, so a "no" from Syros Cats to counting (their question 5) needs no new code.
   - **The pre-launch gate** (Decision 3 A): `middlewares/prelaunchGate.ts` lets exactly `GET` and `HEAD` on `/api/go/feed` through, beside the health check. A gate test proves that, and proves that `/api/go/feed/x`, `/api/go`, `POST /api/go/feed` and `/api/app-settings` are still gated.
-- **The table**, migration name `donation_link_taps`. The number is taken after rebasing and agreed with the live sessions first, never picked by hand. 0025 is on `main` today, so it's 0026 or higher. The table is `donation_link_taps (day date primary key, taps integer not null default 0)`; with Decision 5 B it would be a single row instead. Each tap runs `INSERT … ON CONFLICT (day) DO UPDATE SET taps = donation_link_taps.taps + 1`. The schema goes in `lib/db/src/schema/donationLinkTaps.ts`, exported from `schema/index.ts`. It's generated with drizzle-kit, with a commented rollback block (`lib/db/migrations/README.md`), following `0021_rate_limit_counters.sql`.
+- **The tap table**, in the same migration as the switches table (migration name `match_wait_settings_and_taps`). The number is taken after rebasing and agreed with the live sessions first, never picked by hand. 0025 is on `main` today, so it's 0026 or higher. The table is `donation_link_taps (day date primary key, taps integer not null default 0)`; with Decision 5 B it would be a single row instead. Each tap runs `INSERT … ON CONFLICT (day) DO UPDATE SET taps = donation_link_taps.taps + 1`. The schema goes in `lib/db/src/schema/donationLinkTaps.ts`, exported from `schema/index.ts`. It's generated with drizzle-kit, with a commented rollback block (`lib/db/migrations/README.md`), following `0021_rate_limit_counters.sql`.
 - **OpenAPI and client:** the routes go in `lib/api-spec/openapi.yaml`, and the client is regenerated (`lib/api-client-react`). `/api/go/feed` is documented but not called by the client; it's a link.
 
 ### App (`artifacts/cat-spotter`)
@@ -266,7 +285,7 @@ Either way: no phone, address, name or place is kept. The counting address has *
     - A stored order drops ids that no longer exist or are hidden, and adds new ids at random places.
     - Signals loaded with `firstSpotDate: null` mean "no spots yet", so the phone is a visitor whose first spot is today.
     - Signals that are unknown, or that failed with a 403 or 410, mean no one-liner.
-    - Before the switches have ever loaded, the sign-off facts are hidden (Decision 4 A).
+    - Before the switches have ever loaded, nothing is hidden, as the spec says (Decision 4).
 - **`lib/waitingCardStore.ts`** (new): one record per device id in AsyncStorage, under `catSpotters.waitingCard.v1` (localStorage on the website, as AsyncStorage already does there). Every read and write is in try/catch. If the record can't be read, `chooseForWait` gets `null`: it shows a fact, never the nudge, and writes nothing (no `pendingResult` either) for that wait. The fields are `nudgeCounted`, `nudgeCountedDay`, `lastLineDay`, `tapped`, `seenFacts`, `order`, `lastFactId` and `pendingResult: { sightingId, nudge: 'full' | 'noLink' | null, countable }`.
 - **`context/AppSettingsContext.tsx`** (new, wired into `app/_layout.tsx`): fetches the switches and this phone's signals:
   - when the app starts;
@@ -275,7 +294,7 @@ Either way: no phone, address, name or place is kept. The counting address has *
   - after a claim succeeds;
   - when the device id changes.
 
-  It keeps the last answers in AsyncStorage (`catSpotters.appSettings.v1`), so a phone that has been online once knows them offline. Everything it holds is keyed by device id and reset when the id changes (after "Delete my data" or a restore). A successful claim sets `hasClaimedCat` locally at once (`feeding-nudge.md` §3.2). A first successful send sets `firstSpotDate` to today if it was `null`. If the switches have never loaded, the link is off, the sign-off facts are hidden (Decision 4 A), and the signals are unknown.
+  It keeps the last answers in AsyncStorage (`catSpotters.appSettings.v1`), so a phone that has been online once knows them offline. Everything it holds is keyed by device id and reset when the id changes (after "Delete my data" or a restore). A successful claim sets `hasClaimedCat` locally at once (`feeding-nudge.md` §3.2). A first successful send sets `firstSpotDate` to today if it was `null`. If the switches have never loaded, the link is off, nothing is hidden (Decision 4), and the signals are unknown.
 - **`components/WaitingCard.tsx`** (new): the card, as `starter-facts.md` §3.5 and `feeding-nudge.md` §4 describe:
   - The eyebrow, the fact text, and for the ear-tip fact the photo at 2:1 with `earTipExampleAlt`.
   - When it appears, it announces `waitingFactA11yLabel` (or `feedNudgeA11yLabel`) through `AccessibilityInfo.announceForAccessibility` and leaves focus on the button.
@@ -323,7 +342,7 @@ Plus these:
   - re-fetched on foreground, on reconnect, after a claim and on a device id change;
   - a claim sets `hasClaimedCat` at once;
   - a 403 or 410 gives "unknown" and doesn't touch the moved-phone flow;
-  - never-loaded switches hide the sign-off facts.
+  - never-loaded switches hide nothing (Decision 4).
 - **Server tests** (`routes/appSettings.test.ts`, `routes/go.test.ts`, the gate's tests, `app.logRedaction.test.ts`):
   - The donation page unset, invalid (`http:`, `javascript:`) and valid.
   - Hidden facts unset (the nine sign-off ids), `none`, and with an unknown id.
@@ -332,7 +351,7 @@ Plus these:
     - counts once per GET, not on HEAD; two taps on one day make 2;
     - still answers 302 when the database write throws;
     - with no page set, answers the plain page and counts nothing;
-    - with `FEED_TAP_COUNT=off`, counts nothing;
+    - with `feed_tap_count` false, counts nothing;
     - carries `no-store`.
   - The gate lets exactly `GET`/`HEAD /api/go/feed` through and nothing next to it.
 - **Migration:** CI's `migrate:check` and the db package's up/down/up test.
@@ -428,22 +447,22 @@ Plus these:
 | Nothing about who tapped is kept by Cat Spotters | `routes/go.ts` (no IP, device, query string or limiter); the request-log serializers (`app.ts:30`); the table's two columns. Replit's own access logs: **unchecked** |
 | Device ids stay out of logs | The redaction list (`lib/logger.ts:61-62`) for the signals route; mutation probe 7 |
 | Only the one address gets past the pre-launch gate | `middlewares/prelaunchGate.ts` exact match; mutation probe 8 |
-| Unconfirmed facts never show | `chooseForWait`, including the fixed start (facts 1 and 7), the reshuffle and the never-loaded default; the server default for the unset setting |
+| Hidden facts never show, once the switches have loaded | `chooseForWait`, including the fixed start (facts 1 and 7) and the reshuffle; the server default for a missing row. (Before the switches load, nothing is hidden: Decision 4) |
 | The redirect only goes to an https page | `sanitizeDonateUrl` on the server; the app never builds the donation address itself |
 
 ---
 
 ## Syros Cats' answers and the switches (SYC-360)
 
-Answers are due Mon 19 Oct. Nothing waits on them. This is what each answer changes, all as switches (Decision 1):
+Answers are due Mon 19 Oct. Nothing waits on them. This is what each answer changes, all as rows in the switches table that Claude sets with Samuel's OK (Decision 1):
 
-| Their answer | Switch, set before the Fri 23 publish |
+| Their answer | Switch |
 |---|---|
-| Figures and page both yes | `FEED_NUDGE_DONATE_URL=https://syroscats.com/donations` |
-| Either one no, or no answer | `FEED_NUDGE_DONATE_URL` left empty: the no-link nudge (Decision 6) |
-| A yes to some of the nine sign-off facts | `STARTER_FACTS_HIDDEN` lists the sign-off facts **without** a yes |
-| No answer on the facts | `STARTER_FACTS_HIDDEN` left unset: all nine hidden |
-| No to counting (their question 5) | `FEED_TAP_COUNT=off` |
+| Figures and page: yes, or no answer yet | `feed_nudge_donate_url` stays as seeded (on). Samuel confirms with them (Decision 6) |
+| A no to either the figures or the page | `feed_nudge_donate_url` emptied: the no-link nudge |
+| A yes to some of the nine sign-off facts | `starter_facts_hidden` lists the sign-off facts **without** a yes |
+| No answer on the facts | No row: all nine hidden |
+| No to counting (their question 5) | `feed_tap_count` false |
 
 **Worth knowing now:** if Syros Cats answer nothing on the facts **and** the launch has to use the core-ten cut (D4 in the launch plan), only **four** facts would show at launch:
 - 2 (litters);
@@ -472,7 +491,7 @@ Six of the ten core facts need their yes (1, 3, 4, 6, 8 and 12). That's the stro
 | PR #181 (SYC-42 Slice 3), **merged** 15 Oct | Took migration 0025; edited `lib/i18n.ts` | This plan is rebased on it. The tap-count migration is 0026 or higher, taken after rebasing and agreed with the live sessions before claiming |
 | Email capture (SYC-344 plan) | Its "follow this cat" card goes on the **success** block of `review.tsx` (below the points and badges) | **Agreed with that session on 15 Oct:** they never share a screen. Order on a first spot: wait → match list or naming (nudge) → success (email card). Its PR rebases after this plan's PR 2. Its migrations don't touch this plan's table |
 | PRs #178, #179, #183 (SYC-53) | `routes/index.ts` (one line each); later, signed-in roles in the app | A one-line merge in `routes/index.ts`. SYC-53's app sign-in fills `signedInRole` |
-| PR #184 (SYC-219, dashboard layout) | Team dashboard only | None, with Decision 1 A |
+| PR #184 (SYC-219, dashboard layout) | Team dashboard only | None at launch. SYC-383's page (November) rebases on it |
 | PR #185 (SYC-323, store build settings) | `eas.json` and build profiles | None. The store listing's donation check (SYC-350) is that stream's |
 | PR #180 (SYC-209 PR 3.4) | Team pages only | None |
 | SYC-161 (colour chips, plan merged as #182) | "Find the cat" (`components/CatPicker.tsx`), not the match list or naming | None |
@@ -487,7 +506,7 @@ Six of the ten core facts need their yes (1, 3, 4, 6, 8 and 12). That's the stro
 - **Weak signal:** the wait is longer, so there's more to read. The facts, the nudge and the ear-tip photo are inside the app, so they show straight away.
 - **The switches and signals** are fetched when the app opens with a signal, and again on returning to it and when the signal comes back. The last answers are kept on the phone. A phone that has never loaded them:
   - shows the no-link nudge, which isn't counted;
-  - hides the sign-off facts (Decision 4 A);
+  - hides no facts (Decision 4);
   - gets no one-liner.
 - **Help feed a cat** needs a connection, because it opens a web page. It only appears on the result screen, seconds after the server answered.
 - **The website** can't be opened from scratch with no signal. That's true of the whole site.
@@ -496,7 +515,7 @@ Six of the ten core facts need their yes (1, 3, 4, 6, 8 and 12). That's the stro
 
 ## What this plan does not do
 
-- No settings page on the dashboard (Decision 1 B, a follow-up).
+- No settings page on the dashboard at launch. It comes in the first week of November (SYC-383, Decision 1).
 - No nudge on the cat's page, no long form, no page of all the facts, and no fact about the cat just photographed. Those belong to Teaching in full (SYC-61).
 - No in-app donations (SYC-1).
 - No offline nudge (Samuel, decision 5).
@@ -528,7 +547,7 @@ Every agent prompt carries, word for word: *commit early and often in the worktr
 - **SYC-350:** the Google Play finding above.
 - **SYC-345:** the launch-day tap check.
 - **New, filed with this plan (checked against existing issues first):**
-  - **SYC-383**: a settings page on the team dashboard for the nudge and facts (Decision 1 B), after launch.
+  - **SYC-383**: Syros Cats' dashboard page for the switches (Decision 1), first week of November.
   - **SYC-384**: fill `signedInRole` when the app gets guardian and team sign-in (C4), under SYC-53.
 - **Commented on 15 Oct:** SYC-36, SYC-48, SYC-343, SYC-350 (the Google Play finding) and SYC-345 (the launch-day tap).
 
@@ -536,11 +555,11 @@ Every agent prompt carries, word for word: *commit early and often in the worktr
 
 ## Still needs Samuel
 
-1. Approve this plan.
-2. Decisions 1–6. The recommendations are what the plan assumes; 4, 5 and 6 are small.
-3. The OK for M0, if Decision 2 is A. It creates a temporary database copy, spends about 10 matching calls, and needs "ask" mode.
-4. Send SYC-360 to Syros Cats (answers by Mon 19), knowing the four-fact worst case above.
-5. Your pull before the 23 and 26 Oct publishes. With Decision 1 A, also whoever enters the server switches, if Claude can't.
+1. Approve this plan. (Decisions 1–6 are answered.)
+2. Switch the session to "ask" mode for M0 (the temporary database copy, about 10 matching calls).
+3. Send SYC-360 to Syros Cats (answers by Mon 19), knowing the four-fact worst case above. Questions 1 and 2 are now confirmations (Decision 6).
+4. Your OK, in "ask" mode, each time Claude changes a switch before SYC-383's page exists.
+5. Your pull before the 23 and 26 Oct publishes.
 
 ---
 
