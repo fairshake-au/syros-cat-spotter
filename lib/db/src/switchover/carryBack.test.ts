@@ -225,8 +225,10 @@ describe("carry-back, end to end (test 4)", () => {
     expect(table(dry, "cat_subscriptions").toDelete).toEqual([
       { device_id: "dev-b", cat_id: 2 },
     ]);
-    expect(dry.noHomeInTarget).toEqual(["observations"]);
-    expect(dry.noHomeRows).toEqual({ observations: 1 });
+    // SYC-36: migration 0027 seeds one app_settings row (the donation link,
+    // Samuel's Decision 6); like observations, it lives on Neon only.
+    expect(dry.noHomeInTarget).toEqual(["app_settings", "observations"]);
+    expect(dry.noHomeRows).toEqual({ app_settings: 1, observations: 1 });
     expect(dry.droppedColumns).toEqual([
       { table: "photos", columns: ["public_id"] },
       // SYC-101's generated folded name: the old database has no such
