@@ -349,7 +349,7 @@ Short. Somebody using this is worried, possibly upset, and possibly standing in 
    - *Urgent* — "Badly hurt, collapsed, or in danger right now."
 4. **What you saw** — free text, optional, no character counter, no format.
 5. **Is this kittens?** — a tick box: "This is kittens, or a mother with kittens." This changes what the app says next (§5.3).
-6. **Your email** — optional. **The consent wording is `email-capture.md` §3.4's, verbatim, and that spec is the single source for it.** v1.0 carried a second, different wording; it is struck. The reporter also sees the separate, unticked "also email me news about the cats I've met" box that spec defines — a different purpose, so a different consent.
+6. **Your email** — optional. *(Samuel, 15 Oct 2026, SYC-42 Slice 3: when it is offered, this is its own screen, just before "Before you send", so no screen in the flow scrolls; the flow is then four screens. The reporter's emails are in English for everyone until the Greek and French are checked by a native speaker, SYC-283.)* **The consent wording is `email-capture.md` §3.4's, verbatim, and that spec is the single source for it.** v1.0 carried a second, different wording; it is struck. The reporter also sees the separate, unticked "also email me news about the cats I've met" box that spec defines — a different purpose, so a different consent.
 
 **A draft is written the moment severity and location are set**, before anything else is typed. If the person abandons the flow at the guidance screen, the team still sees that somebody reported a cat in that street. An abandoned report that leaves nothing is the exact outcome the charity most wants to avoid.
 

@@ -17,9 +17,12 @@ import { VetList } from './VetList';
  *
  * "Sent. Syros Cats have this." ONLY once the server has accepted the text.
  * A report saved on the phone says so, and is never called sent (plan test
- * 20). The "if an email was given" line isn't here: Slice 1 collects no
- * address (Decision 4). Whatever happened to the report, the vet advice is
- * on screen.
+ * 20). Whatever happened to the report, the vet advice is on screen.
+ *
+ * SYC-42 Slice 3: if they left an address, §5.3(e)'s "[If an email was
+ * given]" line once the server has the report, or, while it's still on the
+ * phone, that the check goes when they're back online (email-capture.md
+ * §4.3). Never that it has gone when it hasn't.
  */
 export function ReportConfirmation({
   state,
@@ -27,11 +30,14 @@ export function ReportConfirmation({
   onDone,
   onRetry,
   hasPhoto = true,
+  emailGiven = false,
 }: {
   state: ConfirmationState;
   guidance: WelfareGuidance;
   /** SYC-180: a report sent without a photo never says the photo is saved. */
   hasPhoto?: boolean;
+  /** SYC-42 Slice 3: the reporter left an address with this report. */
+  emailGiven?: boolean;
   onDone: () => void;
   /** Failed only: put the report back in the queue and send. */
   onRetry?: () => void;
@@ -84,6 +90,13 @@ export function ReportConfirmation({
       <RichText text={c.next} style={para} />
       <RichText text={c.hurt} style={para} />
       <VetList guidance={guidance} />
+
+      {emailGiven && state === 'sent' && (
+        <Text style={para} testID="report-email-line">{c.emailGiven}</Text>
+      )}
+      {emailGiven && (state === 'queued' || state === 'busy' || state === 'sending') && (
+        <Text style={para} testID="report-email-line">{c.emailGivenOffline}</Text>
+      )}
 
       {state === 'failed' && onRetry && (
         <Button variant="primary" size="lg" block onPress={onRetry}>

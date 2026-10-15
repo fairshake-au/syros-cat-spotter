@@ -84,3 +84,35 @@ describe('reportFlow', () => {
     expect(startFlow({ photo }).step).toBe(1);
   });
 });
+
+describe('SYC-42 Slice 3: reporterEmail', () => {
+  it('sends an address only when they chose "Yes, keep me updated" and it looks like one', async () => {
+    const { INITIAL_FLOW: F, reporterEmail } = await import('../reportFlow');
+    expect(reporterEmail({ ...F, email: 'a@b.org' })).toBeNull();
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: ' a@b.org ' })).toBe('a@b.org');
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: 'not an address' })).toBeNull();
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: 'a@b.org, c@d.org' })).toBeNull();
+    expect(reporterEmail({ ...F, wantsUpdates: true, email: '' })).toBeNull();
+  });
+});
+
+describe('SYC-42 Slice 3: the email screen (Samuel, 15 Oct 2026)', () => {
+  it('with it: where → how bad → email → before you send; the email screen never holds anyone up', async () => {
+    const { INITIAL_FLOW: F, flowNext: next, screenAt } = await import('../reportFlow');
+    let f: ReportFlow = { ...F, coords: { latitude: 37.44, longitude: 24.94 } };
+    expect(screenAt(f.step, true)).toBe('where');
+    f = next(f, true);
+    expect(screenAt(f.step, true)).toBe('howBad');
+    f = next({ ...f, severity: 'urgent' }, true);
+    expect(screenAt(f.step, true)).toBe('email');
+    f = next(f, true);
+    expect(screenAt(f.step, true)).toBe('beforeSend');
+    expect(f.step).toBe(4);
+    expect(next(f, true).step).toBe(4);
+  });
+
+  it('without it: the three screens, unchanged', async () => {
+    const { screenAt } = await import('../reportFlow');
+    expect([1, 2, 3].map((n) => screenAt(n as 1 | 2 | 3, false))).toEqual(['where', 'howBad', 'beforeSend']);
+  });
+});

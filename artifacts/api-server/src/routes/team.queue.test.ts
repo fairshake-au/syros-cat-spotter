@@ -68,6 +68,8 @@ const EXPECTED_REPORT_KEYS = [
   // name is a catalogue name, not a private field.
   "cat",
   "contactLeft",
+  // SYC-42 Slice 3: what happened to the reporter's emails, never the address.
+  "emailToReporter",
   "emailToTeam",
   "id",
   "isLitter",

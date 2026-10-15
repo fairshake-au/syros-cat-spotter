@@ -4,6 +4,7 @@ import { addressFingerprint, deviceFingerprint, ipFingerprint, maskAddress, norm
 import { enqueueKeepSafeMail } from "../mail/outbox";
 import { isKeepSafeSuppressed } from "../mail/suppression";
 import { hashToken, newToken, RESTORE_TOKEN_MINUTES, VERIFY_TOKEN_DAYS } from "./tokens";
+import { confirmReporterAddress, forgetReporterAddress } from "../welfare/reporterEmail";
 
 /**
  * "Keep my spots safe": adding an address, confirming or forgetting it, and
@@ -268,18 +269,38 @@ export async function removeKeepSafeAddress(deviceId: string): Promise<void> {
 
 // ── Confirm and forget (step 4) ────────────────────────────────────────────
 
-/** Read-only: is this a live, unused token of this purpose? (GET never changes anything.) */
-export async function tokenIsLive(raw: string, purpose: "verify" | "forget"): Promise<boolean> {
+/**
+ * Whose address a link is about: decides the page's words (SYC-42 Slice 3).
+ * `report_delete` is a forget link to a CONFIRMED report address: the
+ * "Delete my details" link in an acknowledgement or outcome.
+ */
+export type LinkPurpose = "keep_safe" | "report" | "report_delete";
+
+/**
+ * Read-only: is this a live, unused token of this purpose, and whose address
+ * is it? Null when it isn't live. (GET never changes anything.)
+ */
+export async function tokenIsLive(raw: string, purpose: "verify" | "forget"): Promise<LinkPurpose | null> {
   const result = await db.execute(sql`
-    select 1 from mail_tokens
-     where token_hash = ${hashToken(raw)} and purpose = ${purpose}
-       and used_at is null and expires_at > now()
+    select c.purpose, c.status from mail_tokens t
+      left join email_contacts c on c.id = t.contact_id
+     where t.token_hash = ${hashToken(raw)} and t.purpose = ${purpose}
+       and t.used_at is null and t.expires_at > now()
   `);
-  return result.rows.length > 0;
+  const row = result.rows[0] as { purpose: string | null; status: string | null } | undefined;
+  if (!row) return null;
+  if (row.purpose !== "report") return "keep_safe";
+  return purpose === "forget" && row.status === "confirmed" ? "report_delete" : "report";
 }
 
-/** "Yes, that was me": the address becomes confirmed. */
-export async function confirmAddress(raw: string): Promise<boolean> {
+export type ConfirmOutcome = false | { purpose: "keep_safe" | "report"; outboxIds: number[] };
+
+/**
+ * "Yes, that was me": the address becomes confirmed. For a report address
+ * (SYC-42 Slice 3) that also queues what was held for it: the caller kicks
+ * `outboxIds` once this has committed.
+ */
+export async function confirmAddress(raw: string): Promise<ConfirmOutcome> {
   return db.transaction(async (tx) => {
     const used = await tx.execute(sql`
       update mail_tokens set used_at = now()
@@ -289,6 +310,12 @@ export async function confirmAddress(raw: string): Promise<boolean> {
     `);
     const token = used.rows[0] as { contact_id: number | null; device_id: string; address_hmac: string } | undefined;
     if (!token?.contact_id) return false;
+    const [contact] = (
+      await tx.execute(sql`select purpose from email_contacts where id = ${token.contact_id}`)
+    ).rows as { purpose: string }[];
+    if (contact?.purpose === "report") {
+      return { purpose: "report", outboxIds: await confirmReporterAddress(tx, token.address_hmac, token.device_id) };
+    }
     const confirmed = await tx.execute(sql`
       update email_contacts set status = 'confirmed', confirmed_at = now()
        where id = ${token.contact_id} and status = 'pending'
@@ -299,11 +326,12 @@ export async function confirmAddress(raw: string): Promise<boolean> {
       insert into email_consent_events (contact_id, device_id, address_hmac, purpose, event)
       values (${token.contact_id}, ${token.device_id}, ${token.address_hmac}, 'keep_safe', 'verified')
     `);
-    return true;
+    return { purpose: "keep_safe", outboxIds: [] };
   });
 }
 
-export type ForgetOutcome = false | "forgotten" | "request_cancelled";
+/** `report_forgotten` / `report_deleted`: a report address (SYC-42 Slice 3). */
+export type ForgetOutcome = false | "forgotten" | "request_cancelled" | "report_forgotten" | "report_deleted";
 
 /**
  * "Forget this address" (A10; SYC-262).
@@ -327,6 +355,15 @@ export async function forgetAddress(raw: string): Promise<ForgetOutcome> {
     `);
     const token = used.rows[0] as { contact_id: number | null; device_id: string; address_hmac: string } | undefined;
     if (!token) return false;
+    if (token.contact_id) {
+      const [contact] = (
+        await tx.execute(sql`select purpose from email_contacts where id = ${token.contact_id}`)
+      ).rows as { purpose: string }[];
+      if (contact?.purpose === "report") {
+        const done = await forgetReporterAddress(tx, { contactId: token.contact_id, hmac: token.address_hmac });
+        return done === "deleted" ? "report_deleted" : "report_forgotten";
+      }
+    }
     const keepsAnotherSafe = await count(tx, sql`
       select count(*)::int as n from email_contacts
        where purpose = 'keep_safe' and address_hmac = ${token.address_hmac} and status = 'confirmed'

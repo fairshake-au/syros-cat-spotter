@@ -192,3 +192,34 @@ export const emailSuppressionsTable = pgTable(
 
 export type EmailContactRow = typeof emailContactsTable.$inferSelect;
 export type MailTokenRow = typeof mailTokensTable.$inferSelect;
+
+/**
+ * What happened to each email after Resend accepted it (SYC-42 plan, Slice 3
+ * item 3.6; spec §8.4). One row per provider message id, written as
+ * `accepted` when the outbox sends, then moved on by the signature-checked
+ * Resend webhook (`delivered`, `bounced`, `complained`). Read by the queue's
+ * delivery column. Never the address: only its fingerprint.
+ */
+export const MAIL_DELIVERY_STATES = ["accepted", "delivered", "bounced", "complained", "suppressed"] as const;
+
+export const mailDeliveriesTable = pgTable(
+  "mail_deliveries",
+  {
+    providerMessageId: text("provider_message_id").primaryKey(),
+    // A MailPurpose (api-server/src/lib/mail/send.ts).
+    purpose: text("purpose").notNull(),
+    // The welfare report it was about, if any. Kept as a plain id: a deleted
+    // report leaves its delivery record behind, harmlessly.
+    reportId: integer("report_id"),
+    recipientHash: text("recipient_hash").notNull(),
+    state: text("state").notNull().default("accepted"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("mail_deliveries_state_ck", sql`${t.state} in (${sqlList(MAIL_DELIVERY_STATES)})`),
+    index("mail_deliveries_report_idx").on(t.reportId),
+  ],
+);
+
+export type MailDeliveryRow = typeof mailDeliveriesTable.$inferSelect;

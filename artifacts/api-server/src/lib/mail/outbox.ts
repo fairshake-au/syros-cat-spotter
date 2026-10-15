@@ -12,6 +12,7 @@ import { isNearFeedingSite, withCheckTimeout } from "../feedingSiteProximity";
 import { hashRecipient, sendMail, type SendResult } from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
 import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
+import { REPORTER_PURPOSES, processReporterMail } from "../welfare/reporterEmail";
 
 /**
  * The mail outbox (SYC-42 plan, Slice 1 items 1.5–1.6).
@@ -306,7 +307,14 @@ async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]
     .where(sql`${mailOutboxTable.id} in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`);
 }
 
-async function markSent(row: MailOutboxRow, providerMessageId: string | null, payload: Payload) {
+const DELIVERY_RECORDED: ReadonlySet<string> = new Set([
+  "welfare_alert",
+  "public_verify",
+  "report_ack",
+  "report_outcome",
+]);
+
+async function markSent(row: MailOutboxRow, providerMessageId: string | null, payload: Payload | Record<string, unknown>) {
   await db
     .update(mailOutboxTable)
     .set({
@@ -317,6 +325,20 @@ async function markSent(row: MailOutboxRow, providerMessageId: string | null, pa
       payload,
     })
     .where(eq(mailOutboxTable.id, row.id));
+  // What happens to it next comes from Resend's webhook (SYC-42 Slice 3,
+  // item 3.6), for the mail the queue shows: the alert and the reporter's
+  // emails. Keep-safe mail isn't recorded, so its delivery records can't
+  // outlive "Delete my data" (review of #181, finding 3). Best effort: the
+  // email has gone, whatever this does.
+  if (providerMessageId && DELIVERY_RECORDED.has(row.purpose)) {
+    await db
+      .execute(sql`
+        insert into mail_deliveries (provider_message_id, purpose, report_id, recipient_hash)
+        values (${providerMessageId}, ${row.purpose}, ${row.reportId}, ${row.recipientHash})
+        on conflict (provider_message_id) do nothing
+      `)
+      .catch((err) => logger.error({ err: safeError(err), outboxId: row.id }, "mail_deliveries: not recorded"));
+  }
 }
 
 async function markRetry(row: MailOutboxRow, error: string) {
@@ -414,6 +436,9 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
   try {
     if ((KEEP_SAFE_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
       return await processKeepSafe(row, row.purpose as KeepSafeMail);
+    }
+    if ((REPORTER_PURPOSES as readonly string[]).includes(row.purpose)) {
+      return await processReporterMail(row, { markSent, markRetry });
     }
     if (row.purpose === "welfare_alert" && (row.payload as Payload | null)?.kind === UNCHECKED_WAITING) {
       return await processUncheckedWaiting(row);

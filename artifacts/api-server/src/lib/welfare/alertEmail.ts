@@ -13,7 +13,8 @@ import { escapeHtml, type MailAttachment } from "../mail/send";
  *   restricted photo outside the gate (spec §4.3). It is also shown inline,
  *   through the attachment's content id (`cid:`), so a volunteer sees the cat
  *   without opening anything.
- * - No reporter contact. Slice 1 collects none (Decision 4).
+ * - Never the reporter's address (spec §4.3, email-capture.md §5.4): only
+ *   whether they left one (SYC-42 Slice 3).
  * - Everything the reporter typed is escaped in the HTML part; nothing typed
  *   goes into a header (the subject is fixed text).
  *
@@ -24,6 +25,13 @@ import { escapeHtml, type MailAttachment } from "../mail/send";
  */
 
 export type AlertKind = "alert" | "photo";
+
+/** Spec §4.3's words. The address itself is never in the alert. */
+function contactLine(report: WelfareReport): string {
+  return report.reporterContactId != null
+    ? "The reporter left contact details — reply from the dashboard."
+    : "No contact details were left.";
+}
 
 export type AlertPhoto = { bytes: Buffer; mime: string };
 
@@ -152,7 +160,7 @@ export function buildWelfareAlert(
           `When: ${when}`,
           status,
           `Language: ${language}`,
-          "No contact details were left.",
+          contactLine(report),
           `Report: ${report.publicId}`,
           "",
           whatTheyWereTold(report.severity),
@@ -224,7 +232,7 @@ export function buildWelfareAlert(
         fact("Where (exact)", coords) +
         fact("Photo", photo ? "Attached, and shown above." : status) +
         fact("Language", language) +
-        fact("Contact", "No contact details were left.") +
+        fact("Contact", contactLine(report)) +
         fact("Report", report.publicId) +
         `</table></td></tr>` +
         `<tr><td style="padding:16px 24px 22px"><div style="border-top:1px solid #EAECF0;padding-top:14px;color:#475467;font-size:13px;line-height:1.5">${esc(whatTheyWereTold(report.severity))}</div></td></tr>`;

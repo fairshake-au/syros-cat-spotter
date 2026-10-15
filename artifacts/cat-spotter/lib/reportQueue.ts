@@ -75,6 +75,11 @@ export interface PendingReport {
    * to load (likely a content blocker): the screen says what to allow.
    */
   checkBlocked?: boolean;
+  /**
+   * SYC-42 Slice 3: the address the reporter left, if any. Sent with the
+   * text, and dropped from the phone the moment the server has the report.
+   */
+  email?: string;
 }
 
 export interface SubmitBody {
@@ -89,6 +94,8 @@ export interface SubmitBody {
   hasPhoto: boolean;
   /** Cloudflare Turnstile token, fresh for this send (SYC-170); absent on the phone apps until PR 1.3. */
   turnstileToken?: string;
+  /** SYC-42 Slice 3: only when the reporter left one. */
+  email?: string;
 }
 
 export interface ReportApi {
@@ -127,6 +134,7 @@ export function newPendingReport(input: {
   language: ReportLanguage;
   hasPhoto: boolean;
   clientRef?: string;
+  email?: string | null;
   now?: Date;
 }): PendingReport {
   const now = input.now ?? new Date();
@@ -143,6 +151,7 @@ export function newPendingReport(input: {
     hasPhoto: input.hasPhoto,
     status: 'queued',
     serverFailures: 0,
+    ...(input.email ? { email: input.email } : {}),
   };
 }
 
@@ -266,6 +275,7 @@ export async function syncReports(
             language: current.language,
             hasPhoto: current.hasPhoto,
             ...(token ? { turnstileToken: token } : {}),
+            ...(current.email ? { email: current.email } : {}),
           });
         };
         let accepted: { publicId: string };
@@ -286,9 +296,11 @@ export async function syncReports(
           await store.mutate(removeItem(current.localId), 'system');
           continue;
         }
-        current = { ...current, status: 'photo', publicId, serverFailures: 0 };
+        // The server has the address now: it doesn't stay on the phone.
+        const { email: _sent, ...rest } = current;
+        current = { ...rest, status: 'photo', publicId, serverFailures: 0 };
         await store.mutate(
-          update(current.localId, (r) => ({
+          update(current.localId, ({ email: _e, ...r }) => ({
             ...r,
             status: 'photo',
             publicId,

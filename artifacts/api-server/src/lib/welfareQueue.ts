@@ -1,7 +1,6 @@
 import {
   catsTable,
   db,
-  mailOutboxTable,
   peopleTable,
   welfareReportPhotosTable,
   welfareReportsTable,
@@ -64,7 +63,17 @@ const SELECT = {
 };
 
 export type PhotoStatus = "attached" | "pending" | "none" | "failed";
-export type EmailToTeam = "sent" | "waiting" | "failed";
+/**
+ * `delivered` / `bounced` come from Resend's webhook (mail_deliveries, SYC-42
+ * Slice 3 item 3.6); until it reports, an accepted email is `sent`.
+ */
+export type EmailToTeam = "sent" | "delivered" | "bounced" | "waiting" | "failed";
+/**
+ * The reporter's emails (SYC-42 Slice 3), never their address: `unconfirmed`
+ * means they left an address but haven't confirmed it, so nothing but the
+ * one "is this you?" can go. Otherwise the latest acknowledgement or outcome.
+ */
+export type EmailToReporter = "unconfirmed" | "confirmed" | "waiting" | "sent" | "delivered" | "bounced" | "failed";
 
 export interface TeamPerson {
   name: string;
@@ -87,8 +96,10 @@ export interface QueueReport {
   photo: { status: PhotoStatus; url: string | null };
   /** The cat the team tied this report to (SYC-43 part 2, PR 5), or null. */
   cat: { id: number; name: string } | null;
-  /** Always false until SYC-42 Slice 3 (the address is never shown). */
-  contactLeft: false;
+  /** The reporter left an email address (never shown: spec §3.1). */
+  contactLeft: boolean;
+  /** What happened to the reporter's emails; null when they left no address. */
+  emailToReporter: EmailToReporter | null;
   teamNote: string | null;
   teamNoteAt: string | null;
   teamNoteBy: TeamPerson | null;
@@ -148,16 +159,42 @@ export interface WelfareQueue {
 const person = (name: string | null, leftAt: Date | null): TeamPerson | null =>
   name === null ? null : { name, left: leftAt !== null };
 
-function emailState(states: string[]): EmailToTeam | null {
-  if (!states.length) return null;
-  if (states.includes("failed")) return "failed";
-  if (states.some((s) => s === "queued" || s === "sending")) return "waiting";
+type MailRow = { state: string; delivery: string | null };
+
+function emailState(rows: MailRow[]): EmailToTeam | null {
+  if (!rows.length) return null;
+  if (rows.some((r) => r.state === "failed")) return "failed";
+  if (rows.some((r) => r.state === "queued" || r.state === "sending")) return "waiting";
+  if (rows.some((r) => r.delivery === "bounced" || r.delivery === "complained")) return "bounced";
+  if (rows.every((r) => r.delivery === "delivered")) return "delivered";
+  return "sent";
+}
+
+/** What the queue knows about one report's mail: never an address. */
+export type ReportMail = {
+  team: MailRow[];
+  contact: "unconfirmed" | "confirmed" | null;
+  /** The latest acknowledgement or outcome, if any. */
+  reporter: MailRow | null;
+};
+
+function reporterState(m: ReportMail | undefined): EmailToReporter | null {
+  if (!m?.contact) return null;
+  if (m.contact === "unconfirmed") return "unconfirmed";
+  // Confirmed, with nothing of its own to send (its acknowledgement was
+  // within another report's 24 hours): not "waiting" (review of #181, finding 6).
+  if (!m.reporter) return "confirmed";
+  const r = m.reporter;
+  if (r.state === "failed") return "failed";
+  if (r.state === "queued" || r.state === "sending") return "waiting";
+  if (r.delivery === "bounced" || r.delivery === "complained") return "bounced";
+  if (r.delivery === "delivered") return "delivered";
   return "sent";
 }
 
 type Row = Awaited<ReturnType<typeof reportsQuery>>[number];
 
-function toReport(r: Row, mail: Map<number, string[]>): QueueReport {
+function toReport(r: Row, mail: Map<number, ReportMail>): QueueReport {
   const status = r.photoState as PhotoStatus;
   const hasPhoto = status === "attached" && r.photoPublicId !== null;
   return {
@@ -178,11 +215,12 @@ function toReport(r: Row, mail: Map<number, string[]>): QueueReport {
       url: hasPhoto ? `${TEAM_REPORT_PHOTO_PREFIX}${r.photoPublicId}` : null,
     },
     cat: r.catId !== null && r.catName !== null ? { id: r.catId, name: r.catName } : null,
-    contactLeft: false,
+    contactLeft: Boolean(mail.get(r.id)?.contact),
+    emailToReporter: reporterState(mail.get(r.id)),
     teamNote: r.teamNote,
     teamNoteAt: r.teamNoteAt?.toISOString() ?? null,
     teamNoteBy: person(r.notedByName, r.notedByLeftAt),
-    emailToTeam: emailState(mail.get(r.id) ?? []),
+    emailToTeam: emailState(mail.get(r.id)?.team ?? []),
     unchecked: r.tokenChecked === false,
   };
 }
@@ -240,30 +278,44 @@ export async function mailHealth(): Promise<MailHealth> {
   return { failed: Number(row?.failed ?? 0), late: Number(row?.late ?? 0) };
 }
 
-/** The alert emails' states for these reports, keyed by report row id. */
-async function mailStatesFor(ids: number[]): Promise<Map<number, string[]>> {
-  const mailByReport = new Map<number, string[]>();
-  if (!ids.length) return mailByReport;
-  const mailRows = await db
-    .select({
-      reportId: mailOutboxTable.reportId,
-      state: mailOutboxTable.state,
-    })
-    .from(mailOutboxTable)
-    .where(
-      and(
-        eq(mailOutboxTable.purpose, "welfare_alert"),
-        inArray(mailOutboxTable.reportId, ids),
-      ),
-    );
+/**
+ * The alert emails' states for these reports, and the reporter's (contact
+ * status and latest acknowledgement or outcome), keyed by report row id.
+ * Delivery comes from mail_deliveries. Only states: no address, no contact id.
+ */
+async function mailStatesFor(ids: number[]): Promise<Map<number, ReportMail>> {
+  const byReport = new Map<number, ReportMail>();
+  if (!ids.length) return byReport;
+  const get = (id: number) => {
+    let m = byReport.get(id);
+    if (!m) byReport.set(id, (m = { team: [], contact: null, reporter: null }));
+    return m;
+  };
+  const list = sql.join(ids.map((id) => sql`${id}`), sql`, `);
+  const mailRows = (
+    await db.execute(sql`
+      select m.report_id, m.purpose, m.state, d.state as delivery
+        from mail_outbox m
+        left join mail_deliveries d on d.provider_message_id = m.provider_message_id
+       where m.report_id in (${list})
+         and m.purpose in ('welfare_alert', 'report_ack', 'report_outcome')
+       order by m.id
+    `)
+  ).rows as { report_id: number; purpose: string; state: string; delivery: string | null }[];
   for (const m of mailRows) {
-    if (m.reportId === null) continue;
-    mailByReport.set(m.reportId, [
-      ...(mailByReport.get(m.reportId) ?? []),
-      m.state,
-    ]);
+    const row = { state: m.state, delivery: m.delivery };
+    if (m.purpose === "welfare_alert") get(m.report_id).team.push(row);
+    else get(m.report_id).reporter = row;
   }
-  return mailByReport;
+  const contacts = (
+    await db.execute(sql`
+      select r.id, c.status from welfare_reports r
+        join email_contacts c on c.id = r.reporter_contact_id
+       where r.id in (${list})
+    `)
+  ).rows as { id: number; status: string }[];
+  for (const c of contacts) get(c.id).contact = c.status === "confirmed" ? "confirmed" : "unconfirmed";
+  return byReport;
 }
 
 /**

@@ -99,6 +99,10 @@ export type GuidanceCopy = {
     next: string;
     hurt: string;
     offline: string;
+    /** SYC-42 Slice 3, §5.3(e) "[If an email was given]": the server has the report. */
+    emailGiven: string;
+    /** email-capture.md §4.3: the report (and the address) are still on the phone. */
+    emailGivenOffline: string;
   };
   vetList: {
     review: ReviewState;

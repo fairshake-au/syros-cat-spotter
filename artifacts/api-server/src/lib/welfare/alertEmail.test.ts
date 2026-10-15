@@ -84,6 +84,15 @@ describe("welfare alert email", () => {
     }
   });
 
+  it("SYC-42 Slice 3: says the reporter left contact details, never the address", () => {
+    const out = buildWelfareAlert({ ...base, reporterContactId: 7 } as WelfareReport, null, "alert", true);
+    for (const part of [out.text, out.html]) {
+      expect(part).toContain("The reporter left contact details — reply from the dashboard.");
+      expect(part).not.toContain("No contact details were left.");
+      expect(part).not.toMatch(/@(?!mail\.catspotters)/);
+    }
+  });
+
   it("the photo follow-up is short: the photo, the map buttons and the report id", () => {
     const out = buildWelfareAlert(base, photo, "photo", true);
     expect(out.subject).toBe("Urgent cat report: badly hurt or in danger (photo)");

@@ -350,13 +350,29 @@ describe("no promise anybody is coming (test 5, spec §5.1, §10; review fix 6)"
     expect(text).not.toMatch(/(^|[^\p{L}])(appelez|dites|demandez|emmenez|laissez|placez|ouvrez|reculez|attendez|fermez|couvrez|partez|posez|allez|donnez|essayez|soulevez|mettez|prévenez|envoyez|sachez|déplacez|attirez)([^\p{L}]|$)/iu);
   });
 
-  it("the confirmation screen has no 'if an email was given' line (Decision 4)", () => {
+  it("the confirmation screen's 'if an email was given' lines arrive with SYC-42 Slice 3 (item 3.7), §5.3(e) word for word", () => {
     for (const lang of GUIDANCE_LANGUAGES) {
       const c = getGuidance(lang).copy.confirmation as Record<string, unknown>;
       expect(Object.keys(c).sort()).toEqual(
-        ["hurt", "next", "offline", "review", "sentBody", "sentBodyNoPhoto", "sentHeading"].sort(),
+        [
+          "emailGiven",
+          "emailGivenOffline",
+          "hurt",
+          "next",
+          "offline",
+          "review",
+          "sentBody",
+          "sentBodyNoPhoto",
+          "sentHeading",
+        ].sort(),
       );
     }
+    const en = getGuidance("en").copy.confirmation;
+    expect(en.emailGiven).toBe(
+      "We've sent one message to that address to check it's right. Tap the link in it and we'll write to you when someone has looked at this report. Until you do, we won't send you anything at all.",
+    );
+    // email-capture.md §4.3: never "we've sent" while it's still on the phone.
+    expect(en.emailGivenOffline).not.toMatch(/sent/i);
   });
 });
 

@@ -47,8 +47,28 @@ export async function severKeepSafe(tx: Tx, deviceId: string, reason: string): P
        and recipient_hash in (
          select address_hmac from email_contacts where purpose = 'keep_safe' and device_id = ${deviceId})
   `);
+  // SYC-42 Slice 3: the reporter's emails about their reports. Queued ones
+  // hold a raw link token; sent ones hold the address's fingerprint, and so
+  // does their delivery record. All go, before the contact rows they name.
+  await tx.execute(sql`
+    delete from mail_deliveries
+     where provider_message_id in (
+       select provider_message_id from mail_outbox
+        where purpose in ('public_verify', 'report_ack', 'report_outcome')
+          and provider_message_id is not null
+          and payload->>'contactId' in (
+            select id::text from email_contacts where purpose = 'report' and device_id = ${deviceId}))
+  `);
+  await tx.execute(sql`
+    delete from mail_outbox
+     where purpose in ('public_verify', 'report_ack', 'report_outcome')
+       and payload->>'contactId' in (
+         select id::text from email_contacts where purpose = 'report' and device_id = ${deviceId})
+  `);
   // Every contact row naming the spotter, whatever its purpose: report and
-  // news contacts can carry a device id too (review of #97, finding 7).
+  // news contacts can carry a device id too (review of #97, finding 7). A
+  // report contact holds the address itself; deleting it also takes it off
+  // the report (reporter_contact_id is set null), and the report stays.
   await tx.execute(sql`delete from email_contacts where device_id = ${deviceId}`);
   // A used restore link this spotter asked for, but that moved someone
   // ELSE (Decision 12: any phone may press the button), still tells that

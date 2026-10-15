@@ -85,9 +85,12 @@ describe("sendMail", () => {
     expect(isPurposeEnabled("urgent_alert")).toBe(false);
   });
 
-  it("switched on: welfare_alert (SYC-42), and SYC-3's two keep-safe emails; forget stays off (A9)", () => {
+  it("switched on: welfare_alert (SYC-42), SYC-3's two keep-safe emails, and the reporter's three (SYC-42 Slice 3); forget stays off (A9)", () => {
     expect(MAIL_PURPOSES.filter((p) => isPurposeEnabled(p))).toEqual([
       "welfare_alert",
+      "public_verify",
+      "report_ack",
+      "report_outcome",
       "keep_safe_verify",
       "restore_link",
     ]);
@@ -263,7 +266,8 @@ describe("sendMail", () => {
       const all = JSON.stringify(lines);
       expect(all).not.toContain("re_secret_value_never_logged");
       expect(lines).toContainEqual({ level: "info", line: "mail: transactional key (RESEND_API_KEY) present" });
-      expect(lines.find((l) => l.line.includes("RESEND_NEWS_API_KEY"))!.level).toBe("info");
+      // SYC-42 Slice 3 switched on public_verify, which the news key signs.
+      expect(lines.find((l) => l.line.includes("RESEND_NEWS_API_KEY"))!.level).toBe("warn");
       delete process.env["RESEND_API_KEY"];
       const warn = describeMail().find((l) => l.line.includes("RESEND_API_KEY") && !l.line.includes("NEWS"))!;
       expect(warn.level).toBe("warn");
