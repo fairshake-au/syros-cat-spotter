@@ -149,7 +149,10 @@ describe("SYC-188: only a role that grants something is let in", () => {
       const p = await add(roles, colony);
       // The old request shape is the workspace door (PR 0.4): no.
       expect((await ask(EMAIL)).body).toEqual({ allowed: false });
-      expect((await handoff(p.id, p.sessionVersion)).status).toBe(303);
+      const h = await handoff(p.id, p.sessionVersion);
+      expect(h.status).toBe(303);
+      // She lands on her own page, never on the queue's 403 (review finding 2).
+      expect(h.headers["location"]).toBe("https://team.catspotters.com/api/team/me");
       const m = await me(p.id, p.sessionVersion);
       expect(m.status).toBe(200);
       const where = Object.fromEntries(

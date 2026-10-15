@@ -47,17 +47,23 @@ const cells = (line: string) =>
     .split("|")
     .map((c) => c.trim());
 
-/** Who holds it, from one row's Team, Management and Guardian cells. */
-function rolesOf(team: string, mgmt: string, guardian: string, line: string): string[] {
+/**
+ * Who holds it, from one row's Team, Management and Guardian cells. Each cell
+ * must suit the kind (review finding 9): "All" and "Own" only on a placed
+ * row, "✓" only on any other kind.
+ */
+function rolesOf(kind: CapabilityKind, team: string, mgmt: string, guardian: string, line: string): string[] {
+  const yesFor = (column: string) =>
+    kind === "placed" ? [column === "Guardian" ? "Own" : "All"] : ["✓"];
   const holds = (cell: string, column: string, yes: string[]) => {
     if (yes.includes(cell)) return true;
     if (cell === "—") return false;
     throw new Error(`§6.2: the ${column} column says "${cell}" in: ${line}`);
   };
   const roles: string[] = [];
-  if (holds(team, "Team", ["All", "✓"])) roles.push("staff");
-  if (holds(mgmt, "Management", ["All", "✓"])) roles.push("management");
-  if (holds(guardian, "Guardian", ["Own", "✓"])) roles.push("guardian");
+  if (holds(team, "Team", yesFor("Team"))) roles.push("staff");
+  if (holds(mgmt, "Management", yesFor("Management"))) roles.push("management");
+  if (holds(guardian, "Guardian", yesFor("Guardian"))) roles.push("guardian");
   return roles;
 }
 
@@ -77,7 +83,10 @@ function parseCatalogue(spec: string): SpecRow[] {
     if (line.trim() !== HEADER) {
       throw new Error(`§6.2: a table header changed. Expected:\n${HEADER}\nGot:\n${line.trim()}`);
     }
-    i++; // the |---| line
+    i++;
+    if (!/^\|(\s*-+\s*\|){6}\s*$/.test(lines[i] ?? "")) {
+      throw new Error(`§6.2: the line under a table header isn't a six-column separator: ${lines[i]}`);
+    }
     for (i++; i < lines.length && lines[i]!.startsWith("|"); i++) {
       const row = lines[i]!;
       const c = cells(row);
@@ -86,7 +95,7 @@ function parseCatalogue(spec: string): SpecRow[] {
       if (names.length === 0) throw new Error(`§6.2: a row names no capability: ${row}`);
       const kind = KINDS[c[2]!];
       if (!kind) throw new Error(`§6.2: unknown kind "${c[2]}" in: ${row}`);
-      rows.push({ names, kind, roles: rolesOf(c[3]!, c[4]!, c[5]!, row), line: row });
+      rows.push({ names, kind, roles: rolesOf(kind, c[3]!, c[4]!, c[5]!, row), line: row });
     }
   }
   if (tables !== 4) throw new Error(`§6.2: expected 4 tables, found ${tables}`);

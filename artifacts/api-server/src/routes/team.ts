@@ -13,13 +13,14 @@ import {
 import { checkHandoffToken } from "../lib/teamAuth/handoff";
 import { clearSession, issueSession } from "../lib/teamAuth/session";
 import {
+  GUARDIAN_HOME_PATH,
   isBrowserNavigation,
   refuseNotSignedIn,
   requireOrigin,
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
-import { capabilitiesOf, mayEnter } from "../lib/capabilities";
+import { capabilitiesOf, holdsIslandRow, mayEnter } from "../lib/capabilities";
 import { renderQueuePage } from "../lib/teamPages/queuePage";
 import { listWelfareQueue, queueNearFeedingSites } from "../lib/welfareQueue";
 
@@ -92,7 +93,14 @@ router.post(
     }
     req.log.info({ jti: claims.jti }, "team hand-off accepted");
     setTeamHeaders(res);
-    res.redirect(303, TEAM_HOME);
+    // The team lands on the welfare queue. Someone with no island row (a
+    // cat guardian) lands on her own page instead, never on the queue's 403
+    // (roles spec §6.3: "straight to the dashboard"). PR 1.3 makes that page
+    // "My colonies".
+    res.redirect(
+      303,
+      holdsIslandRow(person) ? TEAM_HOME : `${TEAM_ORIGIN}${GUARDIAN_HOME_PATH}`,
+    );
   },
 );
 

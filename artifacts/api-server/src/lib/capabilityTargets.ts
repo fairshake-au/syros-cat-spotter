@@ -1,11 +1,9 @@
 import {
   catsTable,
   db,
-  feedingSitesTable,
   observationsTable,
   photosTable,
   sightingsTable,
-  welfareReportsTable,
 } from "@workspace/db";
 import { eq, isNotNull, and } from "drizzle-orm";
 import type { CapabilityTarget } from "./capabilities";
@@ -23,8 +21,9 @@ import { currentColonyOf } from "./colonyMembership";
 //   more than one, so this returns one target per cat and the check must pass
 //   for EVERY one of them. A photo tied to no cat gets one target with no
 //   colony, which only island holders pass.
-// - A report's colony is its cat's; a report tied to no cat has none.
-// - A feeding site's colony is its own column.
+// - (Later PRs add a report's target, its cat's colony, with SYC-44's
+//   `kind = 'welfare'` filter in the same query (PR 3.3), and a feeding
+//   site's, its own colony column (SYC-209 PR 4.1). Neither has a route yet.)
 //
 // A cat in no colony has no placed target, so only island holders pass.
 
@@ -82,24 +81,4 @@ const PHOTO_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 export async function photoTargets(publicId: string): Promise<CapabilityTarget[]> {
   if (!PHOTO_ID_RE.test(publicId)) return [{ colonyId: null }];
   return catTargets(await catsOfPhoto(publicId));
-}
-
-/** A welfare report's target: its cat's colony, or none. */
-export async function reportTarget(publicId: string): Promise<CapabilityTarget> {
-  if (!PHOTO_ID_RE.test(publicId)) return { colonyId: null };
-  const [report] = await db
-    .select({ catId: welfareReportsTable.catId })
-    .from(welfareReportsTable)
-    .where(eq(welfareReportsTable.publicId, publicId));
-  if (!report || report.catId === null) return { colonyId: null };
-  return catTarget(report.catId);
-}
-
-/** A feeding site's target: its own colony column. */
-export async function feedingSiteTarget(siteId: number): Promise<CapabilityTarget> {
-  const [site] = await db
-    .select({ colonyId: feedingSitesTable.colonyId })
-    .from(feedingSitesTable)
-    .where(eq(feedingSitesTable.id, siteId));
-  return { colonyId: site?.colonyId ?? null };
 }

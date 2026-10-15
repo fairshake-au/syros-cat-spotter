@@ -21,6 +21,7 @@ import {
 // database's clock, at midnight Athens time (T6).
 
 const KEY = "vitest-placed-key-0123456789abcdef-0123456789";
+const TOKEN = "vitest-internal-token-placed-0123456789abcdef";
 
 let colonyA: number;
 let colonyB: number;
@@ -53,6 +54,7 @@ afterEach(() => {
 afterAll(async () => {
   for (const e of people) await removeTestPerson(e);
   delete process.env["TEAM_SESSION_KEYS"];
+  delete process.env["INTERNAL_PEOPLE_TOKEN"];
   await pool.end();
 });
 
@@ -99,6 +101,18 @@ describe("T5: the catalogue photo route takes its target from the photo's cat", 
       lng: 24.942,
     });
     expect((await photo(mine.photoPublicId, eleni.cookie)).status).toBe(403);
+    expect((await photo(mine.photoPublicId, staff.cookie)).status).toBe(200);
+  });
+
+  it("a photo carried by a statement on a cat in another colony needs that colony too (review finding 1)", async () => {
+    const mine = await seedCat(colonyA);
+    const other = await seedCat(colonyB);
+    expect((await photo(mine.photoPublicId, eleni.cookie)).status).toBe(200);
+    await db.execute(
+      sql`insert into observations (cat_id, kind, value, device_id, role_at_time, photo_id, observed_at)
+          values (${other.id}, 'ear_tip', '{"clipped": true}'::jsonb, 'vt-roles-statement', 'public', ${mine.photoId}, now())`,
+    );
+    expect([(await photo(mine.photoPublicId, eleni.cookie)).status]).toEqual([403]);
     expect((await photo(mine.photoPublicId, staff.cookie)).status).toBe(200);
   });
 
@@ -182,6 +196,26 @@ describe("T6: a placement's end takes effect at the next request, by the databas
     expect(page.text).toContain("Your access has ended. Ask Syros Cats if you think that&#39;s a mistake.");
     expect(page.headers["cache-control"]).toBe("no-store");
     expect((await photo(catA.photoPublicId, g.cookie)).status).toBe(403);
+  });
+
+  it("the sign-in Worker's question gets no door for her once every placement has ended (review finding 5)", async () => {
+    process.env["INTERNAL_PEOPLE_TOKEN"] = TOKEN;
+    const g = await guardianOn("placed-worker", [colonyA]);
+    people.push(g.email);
+    const ask = (body: object) =>
+      request(app).post("/api/internal/people/allowed").set("Authorization", `Bearer ${TOKEN}`).send(body);
+    expect((await ask({ email: g.email, version: 2 })).body).toMatchObject({
+      allowed: true,
+      doors: { workspace: false, dashboard: true },
+    });
+    await endPlacements(g.id);
+    const stranger = `vitest-placed-nobody-${Date.now()}@example.com`;
+    for (const shape of [{}, { version: 2 }]) {
+      const her = await ask({ email: g.email, ...shape });
+      const nobody = await ask({ email: stranger, ...shape });
+      expect([her.status, her.text], JSON.stringify(shape)).toEqual([nobody.status, nobody.text]);
+      expect(her.body.allowed).toBe(false);
+    }
   });
 
   it("is the database's clock, not the app's: an app clock an hour behind still sees the placement ended", async () => {

@@ -161,14 +161,18 @@ describe("canSomewhere(): for the door and menus only", () => {
     expect(canSomewhere(staff, "view_welfare_queue")).toBe(true);
   });
 
-  it("is never what a route asks: no route file calls it", () => {
-    const routes = join(__dirname, "../routes");
-    const middlewares = join(__dirname, "../middlewares");
-    for (const dir of [routes, middlewares]) {
-      for (const name of readdirSync(dir)) {
-        if (!name.endsWith(".ts") || name.endsWith(".test.ts")) continue;
-        expect(readFileSync(join(dir, name), "utf8"), name).not.toContain("canSomewhere");
-      }
+  it("is never what guards a page: nothing in src calls it but the door in capabilities.ts", () => {
+    const src = join(__dirname, "..");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) return walk(p);
+        return p.endsWith(".ts") && !p.endsWith(".test.ts") ? [p] : [];
+      });
+    const files = walk(src).filter((p) => !p.endsWith(join("lib", "capabilities.ts")));
+    expect(files.length).toBeGreaterThan(50);
+    for (const f of files) {
+      expect(readFileSync(f, "utf8"), f).not.toContain("canSomewhere");
     }
   });
 });

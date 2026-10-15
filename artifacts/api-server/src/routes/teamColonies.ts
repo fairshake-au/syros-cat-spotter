@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { can } from "../lib/capabilities";
+import { can, holdsIslandRow } from "../lib/capabilities";
 import { foldName } from "@workspace/db";
 import {
   COLONY_NAME_MAX,
@@ -182,7 +182,8 @@ router.get(
         colonies,
         personName: person.name,
         done,
-        canCreate: can(person, "create_colony"),
+        // The same rule as POST /team/colonies: an island row, until PR 1.1.
+        canCreate: holdsIslandRow(person) && can(person, "create_colony"),
       }),
     );
   },
