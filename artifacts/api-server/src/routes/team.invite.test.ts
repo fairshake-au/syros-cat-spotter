@@ -203,7 +203,7 @@ describe("accepting, and the pending cookie afterwards (review minor 7)", () => 
   it("a guardian with only placed roles lands on her own page", async () => {
     const p = await invited(susan, "rt-gh", [{ role: "guardian", colonyId: colony }]);
     const res = await post("/api/team/my/accept", inviteCookieFor(p.id, 1));
-    expect(res.headers["location"]).toBe("https://team.catspotters.com/api/team/me");
+    expect(res.headers["location"]).toBe("https://team.catspotters.com/api/team/my/colonies");
   });
 
   it("accept after the invitation was withdrawn: nothing changes, and it says so", async () => {
