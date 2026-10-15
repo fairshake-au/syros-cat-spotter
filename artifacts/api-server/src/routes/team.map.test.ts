@@ -129,18 +129,21 @@ describe("map pictures: who may have one", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("needs the team role: a vet (no team role) gets the same 401", async () => {
+  it("needs the team role: a vet (no team role) is refused, 403, with nothing fetched", async () => {
     const token = mintTileToken({ ...viewAround(ERMOUPOLI, 16), size: 179 });
     const res = await picture(token, volunteerCookie);
-    expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    // SYC-53 PR 0.5: a signed-in person who may not have this gets the 403.
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
+    expect(res.headers["cache-control"]).toBe("no-store");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("needs view_exact_location: a team member without it gets the same 401", async () => {
+  it("needs view_exact_location: a team member without it is refused, 403, with nothing fetched", async () => {
     denied.cap = "view_exact_location";
     const token = mintTileToken({ ...viewAround(ERMOUPOLI, 16), size: 179 });
     const res = await picture(token);
-    expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
+    expect(res.headers["cache-control"]).toBe("no-store");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
