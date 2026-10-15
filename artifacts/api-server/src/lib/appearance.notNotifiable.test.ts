@@ -143,6 +143,8 @@ describe("source: appearance never feeds the matcher (SYC2-D8)", () => {
 /** Reads of the new snapshot fields only, for files that legitimately call
  * the resolver for other reasons. */
 const READS_NEW_FIELDS: RegExp[] = [
+  // Destructuring: `const { coat } = snapshot` (review of #159).
+  /\{[^{}=;]*\b(coat|markings|vaccinations|checkReasons)\b[^{}=;]*\}\s*(:[^=;]*)?=/,
   /\.(coat|markings|vaccinations)\b/,
   /\[\s*["'`](coat|markings|vaccinations)["'`]\s*\]/,
   /\bcheckReasons\b/,
@@ -189,6 +191,8 @@ describe("source: catHelpers, which every notifier's deceased check goes through
       "snapshot.vaccinations",
       "snapshot.markings.checkReasons",
       "snapshot.coat",
+      "const { coat, markings } = snapshot;",
+      "const { lifeStatus, vaccinations }: CatSnapshot = resolveCat(o, e, now);",
     ]) {
       let rest = `${src}\n${extra}`;
       for (const { read } of ALLOWED_READS) rest = rest.split(read).join("");
