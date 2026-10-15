@@ -184,13 +184,18 @@ async function tokenGate(
   }
 }
 
-/** The report already sent with this device and clientRef, if there is one. */
+/**
+ * The "needs help" report already sent with this device and clientRef, if
+ * there is one. Welfare kind only (SYC-44 PR 4.1): a "Report an issue" row
+ * that shares the reference is a different report, never "already sent".
+ */
 async function sentReport(deviceId: string, clientRef: string) {
   const [row] = await db
     .select({ publicId: welfareReportsTable.publicId })
     .from(welfareReportsTable)
     .where(
       and(
+        eq(welfareReportsTable.kind, "welfare"),
         eq(welfareReportsTable.reporterDevice, deviceId),
         eq(welfareReportsTable.clientRef, clientRef),
         eq(welfareReportsTable.isDraft, false),
@@ -231,6 +236,7 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
     .insert(welfareReportsTable)
     .values({
       publicId: newPublicId(),
+      kind: "welfare",
       severity: body.severity,
       isLitter: body.isLitter ?? false,
       lat: body.lat,
@@ -242,7 +248,11 @@ router.post("/reports/draft", draftLimiter, async (req, res) => {
       tokenChecked,
     })
     .onConflictDoUpdate({
-      target: [welfareReportsTable.reporterDevice, welfareReportsTable.clientRef],
+      target: [
+        welfareReportsTable.reporterDevice,
+        welfareReportsTable.kind,
+        welfareReportsTable.clientRef,
+      ],
       set: {
         severity: body.severity,
         isLitter: body.isLitter ?? false,
@@ -285,6 +295,7 @@ router.post("/reports", reportLimiter, async (req, res) => {
       .insert(welfareReportsTable)
       .values({
         publicId: newPublicId(),
+        kind: "welfare",
         severity: body.severity,
         isLitter: body.isLitter,
         lat: body.lat,
@@ -299,7 +310,11 @@ router.post("/reports", reportLimiter, async (req, res) => {
         tokenChecked,
       })
       .onConflictDoUpdate({
-        target: [welfareReportsTable.reporterDevice, welfareReportsTable.clientRef],
+        target: [
+          welfareReportsTable.reporterDevice,
+          welfareReportsTable.kind,
+          welfareReportsTable.clientRef,
+        ],
         set: {
           severity: body.severity,
           isLitter: body.isLitter,
@@ -333,6 +348,7 @@ router.post("/reports", reportLimiter, async (req, res) => {
       .from(welfareReportsTable)
       .where(
         and(
+          eq(welfareReportsTable.kind, "welfare"),
           eq(welfareReportsTable.reporterDevice, body.deviceId),
           eq(welfareReportsTable.clientRef, body.clientRef),
         ),
@@ -359,10 +375,15 @@ router.put("/reports/:publicId/photo", async (req, res) => {
     .where(
       and(
         eq(welfareReportsTable.publicId, publicId),
+        // SYC-44 PR 4.1: only a "needs help" report takes a photo here. An
+        // issue row's public id aimed at this route would otherwise set
+        // photo_state = 'attached', which its database check refuses (500).
+        eq(welfareReportsTable.kind, "welfare"),
         eq(welfareReportsTable.isDraft, false),
       ),
     );
-  // The same answer for "no such report" and "not your report".
+  // The same answer for "no such report", "not your report" and "not a
+  // needs-help report".
   if (!report || report.reporterDevice !== body.deviceId) {
     res.status(404).json({ error: "Not found" });
     return;
