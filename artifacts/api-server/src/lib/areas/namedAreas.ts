@@ -32,6 +32,16 @@ export const NAMED_AREAS: readonly NamedArea[] = [
   // Found under their Greek spellings (Χρούσα, Μέγας Γιαλός), checked 15 Oct 2026.
   { key: "mega-gialos", name: "Mega Gialos", lat: 37.3809687, lng: 24.9109853 }, // OSM node 2684084813 (place=village)
   { key: "chroussa", name: "Chroussa", lat: 37.4022955, lng: 24.9193522 }, // OSM node 1846917030 (place=village)
+  // Added for coverage of the north and the inland west (adversarial review B1),
+  // Nominatim 15 Oct 2026, Greek spellings. Guarded by namedAreas.coverage.test.ts.
+  { key: "kampos", name: "Kampos", lat: 37.4938214, lng: 24.915293 }, // OSM node 2684101669 (place=hamlet)
+  { key: "chalandriani", name: "Chalandriani", lat: 37.4847709, lng: 24.9357413 }, // OSM node 1846917029 (place=hamlet)
+  { key: "syringas", name: "Syringas", lat: 37.4843924, lng: 24.9132138 }, // OSM node 2684101451 (place=hamlet)
+  { key: "aetos", name: "Aetos", lat: 37.4727567, lng: 24.9021428 }, // OSM node 3434625183 (place=locality)
+  { key: "lia", name: "Lia", lat: 37.489323, lng: 24.9019931 }, // OSM node 3434625179 (place=locality)
+  { key: "grammata", name: "Grammata", lat: 37.4993396, lng: 24.8878902 }, // OSM node 2886089541 (place=locality)
+  { key: "pagos", name: "Pagos", lat: 37.4166124, lng: 24.9052657 }, // OSM node 1846917022 (place=village)
+  { key: "episkopio", name: "Episkopio", lat: 37.4367321, lng: 24.9179183 }, // OSM node 2684076935 (place=village)
 ];
 
 export function areaFor(lat: number, lng: number): NamedArea | typeof OFF_SYROS {
