@@ -13,7 +13,7 @@ import { refuseSignedIn, requireTeam, teamPerson } from "./requireTeam";
 // The door to the Colonies and Feeding sites pages that a cat guardian may
 // read (SYC-209 PR 4.1; spec §7.3). She enters when `visibleColonyIds`
 // names at least one colony; every query behind the door is then filtered by
-// that same set, in SQL. Never `canSomewhere`, which is the sign-in door's
+// that same set, in SQL. Never the "for any colony?" check, which is the sign-in door's
 // alone (a roles test enforces it).
 //
 // Someone who may enter the dashboard but sees no colony (no

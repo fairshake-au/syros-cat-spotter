@@ -38,7 +38,7 @@ export interface Visible {
  * Built from `capabilitiesOf(person)`'s colony ids for `view_exact_location`
  * (roles PR 0.5). `null` ("all") ONLY for an island-wide holder. Anything
  * else (no grant, or a shape this code doesn't know) sees nothing: fails
- * closed. Never `canSomewhere`, which is the sign-in door's alone.
+ * closed. Never the "for any colony?" check, which is the sign-in door's alone.
  */
 export function visibleColonyIds(person: CapabilityHolder): Visible {
   const grant = capabilitiesOf(person).find((c) => c.capability === "view_exact_location");
