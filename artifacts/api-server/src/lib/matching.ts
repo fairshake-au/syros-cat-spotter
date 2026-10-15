@@ -1,4 +1,5 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { VISION_MODEL } from "./visionModel";
 
 export interface CandidateInput {
   catId: number;
@@ -41,7 +42,7 @@ export async function matchCatPhoto(
   ];
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.6-terra",
+    model: VISION_MODEL,
     max_completion_tokens: 8192,
     messages: [{ role: "user", content }],
   });
