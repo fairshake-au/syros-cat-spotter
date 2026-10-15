@@ -22,7 +22,7 @@
 There are 16 days. Building isn't the hard part: about 28 pull requests have merged since 14 October (`gh pr list --state merged`). Four things decide whether 31 October happens:
 
 1. **The phone apps can't be in the stores by 31 October.** No store build has ever been made. If the Google Play account is a personal one, Google makes a new app run a closed test with 12 or more testers for 14 days in a row before it can go public, and Apple's review takes 1–2 weeks. So the plan launches **the website version of the app** (the one testers use today) on 31 October, with the QR codes pointing at it, and submits both store apps as soon as they're ready so they follow in November. **This is Samuel's call: decision D1.**
-2. **All the new Greek and French has to reach Johnny by Thursday 22 October.** Every new visitor-facing sentence (starter facts, feeding nudge, "Report an issue", the reporter's email, the rename) is written in English and drafted in Greek and French by then, even for screens that are built later. Two of those (starter facts and the feeding nudge) don't have a spec yet.
+2. **All the new Greek and French has to reach Johnny by Thursday 22 October.** Every new visitor-facing sentence (starter facts, feeding nudge, "Report an issue", the reporter's email, the rename) is written in English and drafted in Greek and French by then, even for screens that are built later. The starter facts and the feeding nudge already have Greek and French drafts in their spec (PR #174, awaiting approval).
 3. **Samuel is the only person who can merge and start a publish.** About 30 more pull requests and seven publishes have to fit through him. The plan batches them into two merge windows a day and a fixed publish calendar.
 4. **Samuel's own launch tasks**: the store accounts, approving the privacy policy, the liability check on the injured-cat advice, and three conversations with Syros Cats. Each is small, but each blocks launch on its own.
 
@@ -59,8 +59,8 @@ Checked against `origin/main` (`2acae50`), `gh pr list`, the session list and Li
 | §2.1 Rename to "Cat Spotters (Syros)" | **Not done.** `app.json` still says "Syros Cat Spotters"; the app name in all three languages is still the old one | `artifacts/cat-spotter/app.json:3`; `lib/i18n.ts:50,610,1154`; SYC-34 Backlog |
 | §2.1 €50–60 copy, French title, "clipped tip" | Done | SYC-14, SYC-15 Done |
 | §2.2 Keep-your-distance screen | Done | SYC-35 Done |
-| §2.2 Feeding nudge | **No spec, nothing built** | SYC-36 Backlog; no file in `docs/specs/` |
-| §2.2 ~20 starter facts per language | **No spec, no content, nothing built** | SYC-48 Backlog; no file in `docs/specs/` |
+| §2.2 Feeding nudge | **Spec written and reviewed, awaiting Samuel** (PR #174, `docs/specs/feeding-nudge.md`). Nothing built | `gh pr view 174`; SYC-36, SYC-343 |
+| §2.2 ~20 starter facts per language | **Spec written and reviewed, awaiting Samuel** (PR #174, `docs/specs/starter-facts.md`), with all 20 facts and their Greek and French drafts. Nothing built | `gh pr view 174`; SYC-48, SYC-343 |
 | §2.3 500 m matching, 25/15 points, ear-tip question, note + food/water | Done | SYC-39, SYC-38, SYC-37, SYC-74 Done |
 | §2.4 Life status | Done | SYC-40 Done |
 | §2.4 Sterilised Confirmed/Likely | Built. "Likely" is hidden from the public by a switch that is still off. The three conditions for turning it on are met in the code: the team's correction tools (#68), the correction screens (#99) and staff reaching the dashboard (SYC-103 Done) | `artifacts/api-server/src/lib/likelyGate.ts:33`; SYC-75 In Progress |
@@ -123,7 +123,7 @@ Turnstile, the QR codes and the staff sign-in all need it. Keeping `apptest.cats
 
 Samuel agreed two cuts: email capture first, then the rest of the feeding-site map. Two more, in this order:
 
-3. **Starter facts at 10 per language instead of the ~20 in spec §2.2** (`PRODUCT-SPEC.md:49`). Fewer facts to write, check and translate; the waiting screen still has something to show.
+3. **Starter facts at 10 per language instead of the ~20 in spec §2.2** (`PRODUCT-SPEC.md:49`). The facts spec (PR #174) already tags 10 of them as "core", so this cut means launching with the core 10 and adding the other 10 in the first update. The spec's own recommendation is all 20; the cut is only for if the date is at risk.
 4. **"Report an issue" PRs 7.2 (deleting a photo for good) and 8.1 (the one-year clean-up) move to the first week of November.** The team can still hide a photo at once; until 7.2 ships, Claude deletes on request. 8.1 has nothing to do for a year.
 
 **Recommendation:** accept both as cut candidates. Neither changes what a visitor sees on 31 October.
@@ -148,8 +148,9 @@ Working backwards from Saturday 31 October.
 | By | What | Owner | Why that date |
 |---|---|---|---|
 | **Fri 16 Oct** | D1–D5 decided; store accounts checked, and registered if missing | Samuel | The store accounts are the longest wait |
-| **Fri 16 Oct** | Match-wait spec (SYC-343) and email-capture plan (SYC-344) written and reviewed; `news.catspotters.com` checked with Resend | Claude | Their words must reach Johnny by the 22nd |
+| **Fri 16 Oct** | Match-wait spec (SYC-343) written and reviewed (done: PR #174); email-capture plan (SYC-344) written and reviewed; `news.catspotters.com` checked with Resend | Claude | Their words must reach Johnny by the 22nd |
 | **Mon 19 Oct** | Match-wait spec and email-capture plan approved | Samuel | Building starts 19–20 Oct |
+| **Mon 19 Oct** | Syros Cats answer the 5 feeding-nudge questions and sign off 9 of the facts (PR #174) | Syros Cats, asked by Samuel | Unanswered items fall back to defaults the team can change in settings, so this blocks nothing; answers just make launch-day text right |
 | **Mon 19 Oct** | First store builds; Android closed test started if needed | Claude, with Samuel for account steps | Starts Google's 14-day clock |
 | **Tue 20 Oct** | Privacy policy spec approved (SYC-82) | Samuel | The policy must be live before store submission |
 | **Thu 22 Oct** | **Copy freeze.** Every new visitor-facing sentence written in English and drafted in Greek and French, including screens not built yet (their words are in the specs) | Claude | Johnny's pack |
@@ -174,8 +175,8 @@ Samuel merges in two windows a day (morning and evening), each a batch of PRs th
 | **Fri 16 Oct** | SYC-209 3.2; SYC-279 cache rule; Turnstile website part (SYC-170 1.2); SYC-44 4.1 | `0023_issue_reports` |
 | **Mon 19 Oct** | SYC-44 4.2; SYC-42 Slice 3 (reporter's email); SYC-209 3.3; the rename (SYC-34) | 4.2's one-line change, then Slice 3's if it has one |
 | **Wed 21 Oct** | SYC-44 5.2 then 5.1; SYC-209 3.4; "Likely sterilised" switched on (SYC-75) | none |
-| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen; email capture, first slice | email capture's, if any |
-| **Mon 26 Oct** | SYC-44 7.1; email capture, second slice; more than one server allowed (SYC-105) | none |
+| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen, first PR (settings service and the card); email capture, first slice | email capture's, if any; the settings service's, if it stores settings in the database |
+| **Mon 26 Oct** | SYC-44 7.1; match-wait screen, second PR (result screen and the offline nudge); email capture, second slice; more than one server allowed (SYC-105) | none |
 | **Wed 28 Oct** | Johnny's corrections; SYC-44 7.2 and 8.1 unless cut | 7.2's `photo_removal` |
 | **Thu 29 Oct** | Fixes only | none |
 
@@ -200,7 +201,8 @@ Each build PR follows the usual pipeline: its own worktree off fresh `origin/mai
 - Start the liability check (SYC-171).
 
 **Claude**
-- The match-wait spec (SYC-343): one spec for the feeding nudge and the starter facts, since both appear on the screen people see while the app looks for their cat. Adversarial review, then rendered for Samuel.
+- The match-wait spec (SYC-343): **done** as PR #174 (feeding nudge and starter facts, reviewed, with Greek and French drafts). Samuel is being taken through its 10 decisions by that session.
+- Before the match-wait build starts: measure how long sending a sighting takes on the live server (the middle and slow-end times, p50 and p90), since the card is shown while it sends.
 - The email-capture plan (SYC-344). It starts from what SYC-42 Slice 3 builds: **Slice 3 owns the "is this you?" email, consent records and the do-not-email list**; email capture adds only the asking screens and the nightly job. Cutting email capture then removes nothing a reporter needs.
 - Check `news.catspotters.com` with Resend and fix its DNS records through the Cloudflare API if needed.
 - Store set-up (SYC-323): `eas.json`, build profiles, the Android map key request.
@@ -214,7 +216,7 @@ Each build PR follows the usual pipeline: its own worktree off fresh `origin/mai
 | Report an issue, server | SYC-44 4.2, 5.2, then 5.1 | 4.1 live (Fri 16 publish) |
 | Reporter's email | SYC-42 Slice 3 (other session) | `news.` verified |
 | Email capture | Slices from the plan | Plan approved Mon 19 |
-| Match-wait screen | Feeding nudge and starter facts: English, Syros Cats' fact check, Greek and French drafts | Spec approved Mon 19 |
+| Match-wait screen | Bigger than one card (PR #174): a small settings service (donation link on or off, hidden facts, a counted link-out), the card replacing the location map while sending, the nudge carried onto the first result screen, and a link-free nudge after a spot saved offline. Likely two PRs, Sonnet, one publish slot each (Fri 23, Mon 26) | Spec approved Mon 19; the send-time measurement |
 | Rename | SYC-34: app name and per-language names | D2 |
 | "Likely sterilised" | SYC-75: confirm the three conditions on the live site, then the one-line switch | Nothing |
 | Store builds | First iPhone and Android builds | Accounts |
@@ -316,7 +318,7 @@ The store apps go live when all of this is true. Dates are the earliest each can
 
 1. Email capture (SYC-45). Agreed 12 Oct. Reporters can still leave an email (that's Slice 3).
 2. The rest of the feeding-site map: SYC-209 3.3 and 3.4. Agreed 12 Oct. **The team's map would start empty**: they could see the read-only pages from 3.2 but couldn't add a site until 3.3 and 3.4 ship.
-3. Starter facts at 10 per language instead of ~20 (proposed, D4).
+3. Starter facts: the 10 "core" ones only, the rest in the first update (proposed, D4).
 4. SYC-44 7.2 and 8.1 to the first week of November (proposed, D4).
 
 **After launch by approved plans:** SYC-209 Slice 4 (guardians, needs roles), 5.1 (forgetting a guardian's name, with SYC-208) and Slice 6 (public feeding sites); SYC-53 roles and invites; SYC-114 gate code removal; the store apps going live.
@@ -344,9 +346,9 @@ This session runs on Opus. The plan and its synthesis stay here: weighing store 
 | Work package | Model | Why this tier | Assurance |
 |---|---|---|---|
 | Adversarial review of this plan | Sonnet | Checking claims against the repo | Every finding checked against its source before it was folded in; two were rejected with evidence (review file) |
-| Match-wait spec (SYC-343) | Opus | Public wording about feeding street cats, where a wrong call teaches tourists the wrong thing | Sonnet adversarial review checks it against spec §2.2, SYC-36, SYC-48 and the canonical facts in `CLAUDE.md` (€50–60, "cat guardian", "spotter"); Samuel approves |
+| Match-wait spec (SYC-343), done as PR #174 | Opus | Public wording about feeding street cats, where a wrong call teaches tourists the wrong thing | Sonnet adversarial review checks it against spec §2.2, SYC-36, SYC-48 and the canonical facts in `CLAUDE.md` (€50–60, "cat guardian", "spotter"); Samuel approves |
 | Email-capture plan (SYC-344) | Opus | Consent and the "is this you?" rule, where a mistake emails someone who never agreed | Sonnet adversarial review checks that every rule in `email-capture.md` §4–§5.6 maps to a named test in the plan; Samuel approves |
-| Clear-plan build PRs: SYC-209 3.3, 3.4; SYC-44 4.2, 6.1, 6.2, 7.1, 8.1; SYC-34 | Sonnet | Each has a written plan with named tests | CI (types, tests, the database-change check); the plan's named tests; an adversarial review in its own worktree; a browser check at 390 px and desktop with data for anything visible |
+| Clear-plan build PRs: SYC-209 3.3, 3.4; SYC-44 4.2, 6.1, 6.2, 7.1, 8.1; SYC-34; the two match-wait PRs | Sonnet | Each has a written plan with named tests | CI (types, tests, the database-change check); the plan's named tests; an adversarial review in its own worktree; a browser check at 390 px and desktop with data for anything visible |
 | SYC-75 switch-on | Sonnet | One line, but it changes what the public sees | The existing test for the hidden case is changed to prove the shown case; after publish, a live check: a cat with a clipped-tip sighting and no team entry shows "Probably sterilised", and a "can't tell" cat shows "Not known yet" |
 | SYC-44 5.1 (the report and the hide) | Opus | A wrong-but-green result hides photos it shouldn't, or misses ones it should | Mutation probes from its plan: fail the outbox write and no hide remains (T5-1); count a rolling 24 hours instead of the Athens day and T5-5 goes red; remove the lock and T5-10 goes red. Opus adversarial review |
 | SYC-44 5.2 (the alert email and its cap) | Opus | A broken cap floods Syros Cats' inbox, silently | Mutation probe: remove the cap and its test goes red. Opus review |
