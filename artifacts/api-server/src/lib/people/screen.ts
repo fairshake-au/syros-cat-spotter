@@ -3,6 +3,7 @@ import {
   isAnonymisedEmail,
   isPersonId,
   PeopleError,
+  PERSON_ROLES,
   personState,
   placementEndsAt,
   SCOPE_RELATIONSHIPS,
@@ -288,7 +289,8 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
 
 // ── The forms: what a person typed, turned into placements ────────────────
 
-export const FORM_ROLES = ["staff", "management", "guardian"] as const;
+/** The roles the forms offer: all but the reserved `vet` (PERSON_ROLES is the one list). */
+export const FORM_ROLES: readonly string[] = PERSON_ROLES.filter((r) => r !== "vet");
 
 const many = (v: unknown): string[] =>
   (Array.isArray(v) ? v : v === undefined ? [] : [v]).filter((x): x is string => typeof x === "string");
@@ -306,7 +308,7 @@ export type PlacementsForm = { ok: true; placements: PlacementInput[] } | { ok: 
  */
 export function parsePlacements(body: Record<string, unknown>, existing: ReadonlySet<number>): PlacementsForm {
   const roles = many(body["roles"]);
-  if (roles.some((r) => !(FORM_ROLES as readonly string[]).includes(r))) {
+  if (roles.some((r) => !FORM_ROLES.includes(r))) {
     return { ok: false, message: "Choose the team, management or a cat guardian." };
   }
   if (roles.length === 0) return { ok: false, message: "Choose at least one role." };
