@@ -322,7 +322,7 @@ The store apps go live when all of this is true. Dates are the earliest each can
 3. Starter facts: the 10 "core" ones only, the rest in the first update (proposed, D4).
 4. SYC-44 7.2 and 8.1 to the first week of November (proposed, D4).
 
-**Not in the spec, proposed outside the launch (awaiting Samuel):** SYC-161, reading each cat's coat colour from its photo. Its own plan (branch `claude/syc-161-plan`, Decision B) proposes it isn't a launch item, and is cut before any of the cuts above. If it lands, PRs 1 and 2 go in the Fri 23 publish and PR 3 (colour chips in "Find the cat") on Mon 26, with no database change. Its colours only go public once SYC-2 PR 3.1 (the team's "Mark wrong" for colour) is live, and nobody is building 3.1 yet. Its six new "Find the cat" strings go in Johnny's pack either way.
+**Not in the spec, proposed outside the launch (awaiting Samuel):** SYC-161, reading each cat's coat colour from its photo. Its own plan (branch `claude/syc-161-plan`, Decision B) proposes it isn't a launch item, and is cut before any of the cuts above. PR 1 (#190, the colour reader, no database change, started only by hand) was being merged on 15 Oct at Samuel's request and rides whichever publish comes next; PR 2 goes in the Fri 23 publish and PR 3 (colour chips in "Find the cat") on Mon 26, with no database change. Its colours only go public once SYC-2 PR 3.1 (the team's "Mark wrong" for colour) is live, and nobody is building 3.1 yet. Its six new "Find the cat" strings go in Johnny's pack either way.
 
 **After launch by approved plans:** SYC-209 Slice 4 (guardians, needs roles), 5.1 (forgetting a guardian's name, with SYC-208) and Slice 6 (public feeding sites); SYC-53 roles and invites; SYC-114 gate code removal; the store apps going live.
 
