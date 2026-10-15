@@ -917,5 +917,81 @@ describe("which colony stands follows the spine's rule: superseded statements ne
   });
 });
 
+describe("two people changing one cat at the same moment", () => {
+  /**
+   * Holds the cat's row lock from a connection of its own, starts the
+   * requests, waits until `n` of them are queued behind the lock (polled
+   * from a connection OUTSIDE any transaction: Postgres keeps one snapshot
+   * per transaction), then lets them go. With the cat locks removed nothing
+   * queues, and this fails.
+   */
+  async function whileHeld<T>(catId: number, n: number, fire: () => Promise<T>[]): Promise<T[]> {
+    const holder = await pool.connect();
+    let pending: Promise<T[]> | null = null;
+    try {
+      await holder.query("begin");
+      await holder.query("select id from cats where id = $1 for update", [catId]);
+      pending = Promise.all(fire());
+      let waiting = 0;
+      for (let i = 0; i < 100 && waiting < n; i++) {
+        const r = await pool.query<{ n: string }>(
+          `select count(*)::text as n from pg_stat_activity
+           where datname = current_database() and wait_event_type = 'Lock'
+             and query ilike '%cats%for update%' and pid <> pg_backend_pid()`,
+        );
+        waiting = Number(r.rows[0]!.n);
+        if (waiting < n) await sleep(50);
+      }
+      expect(waiting, "requests queued behind the cat's lock").toBeGreaterThanOrEqual(n);
+    } finally {
+      await holder.query("commit");
+      holder.release();
+    }
+    return pending!;
+  }
+
+  it("two moves to different colonies write two statements, and one of them stands", async () => {
+    const b = await makeColony(unique("Race-B"));
+    const c = await makeColony(unique("Race-C"));
+    const cat = await seedCat("Race-cat");
+    const res = await whileHeld(cat, 2, () => [moveCat(cat, b), moveCat(cat, c)]);
+    expect(res.map((r) => r.status)).toEqual([303, 303]);
+    const rows = await colonyStatements(cat);
+    expect(rows.map((r) => (r.value as { colonyId: number }).colonyId).sort()).toEqual([b, c].sort());
+    // The newest statement stands, whichever went second.
+    const newest = rows[rows.length - 1]!.value as { colonyId: number };
+    expect((await currentColonyOf([cat])).get(cat)).toBe(newest.colonyId);
+  });
+
+  it("two take-outs from the same colony write one statement: the second finds the cat gone", async () => {
+    const a = await makeColony(unique("Race-out"));
+    const cat = await seedCat("Race-out-cat");
+    await moveCat(cat, a);
+    const res = await whileHeld(cat, 2, () => [
+      moveCat(cat, "none", { from: String(a) }),
+      moveCat(cat, "none", { from: String(a) }),
+    ]);
+    expect(res.map((r) => r.headers["location"]).sort()).toEqual([
+      `/api/team/colonies/${a}?done=notThere`,
+      `/api/team/colonies/${a}?done=takenOut`,
+    ]);
+    expect(await colonyStatements(cat)).toHaveLength(2);
+  });
+
+  it("marking two of a cat's statements wrong at once queues them, and the cat ends where the originals say", async () => {
+    const a = await makeColony(unique("Race-wrong-A"));
+    const b = await makeColony(unique("Race-wrong-B"));
+    const c = await makeColony(unique("Race-wrong-C"));
+    const cat = await seedCat("Race-wrong-cat");
+    await moveCat(cat, a);
+    await moveCat(cat, b);
+    await moveCat(cat, c);
+    const [, sb, sc] = await colonyStatements(cat);
+    const res = await whileHeld(cat, 2, () => [markWrong(sb!.id), markWrong(sc!.id)]);
+    expect(res.map((r) => r.status)).toEqual([303, 303]);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(a);
+  });
+});
+
 // Kept to the end of the file so later tests can reuse the helpers above.
 void coloniesTable;
