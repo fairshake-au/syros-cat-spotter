@@ -1,5 +1,5 @@
 import { coloniesTable, db, feedingSitesTable } from "@workspace/db";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql, type AnyColumn } from "drizzle-orm";
 import { recordMappingEvent } from "./mappingEvents";
 import { inIsland } from "./mapTiles/geometry";
 
@@ -9,7 +9,7 @@ import { inIsland } from "./mapTiles/geometry";
 //
 // **Every write is conditional on what the page showed (spec §11.2).** The
 // stamp is the database's own `updated_at::text`, to the microsecond; the
-// comparison is done in SQL (`updated_at = $stamp::timestamptz`), because a
+// comparison is done in SQL (the stamp text built by `stampText`), because a
 // JavaScript Date drops the microseconds and would make every edit look like
 // a clash. The row is read `FOR UPDATE` with that condition in its WHERE:
 // a second writer waits for the first to commit, then re-checks the
@@ -28,8 +28,15 @@ export const SITE_NOTES_MAX = 2000;
 export const SITE_DIRECTIONS_MAX = 300;
 export const SITE_REASON_MAX = 500;
 
-/** `updated_at::text`, as the pages carry it: "2026-10-15 05:12:33.123456+00". */
-export const STAMP_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}(:?\d{2})?$/;
+/**
+ * `updated_at` as the pages carry it: UTC, to the microsecond, in a fixed
+ * layout ("2026-10-15 05:12:33.123456"). Built with to_char and compared the
+ * same way in SQL, so neither the connection's DateStyle nor its TimeZone can
+ * change what a page shows or break the comparison.
+ */
+export const stampText = (column: AnyColumn) =>
+  sql<string>`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US')`;
+export const STAMP_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/;
 
 /** What a locked site row looks like to a writer. */
 interface Locked {
@@ -69,7 +76,7 @@ async function lockFresh(tx: Tx, id: number, seen: string): Promise<Gate> {
     .where(
       and(
         eq(feedingSitesTable.id, id),
-        sql`${feedingSitesTable.updatedAt} = ${seen}::timestamptz`,
+        sql`${stampText(feedingSitesTable.updatedAt)} = ${seen}`,
       ),
     )
     .for("update");
@@ -389,7 +396,7 @@ export async function siteForMove(id: number): Promise<{
       name: feedingSitesTable.name,
       lat: feedingSitesTable.lat,
       lng: feedingSitesTable.lng,
-      stamp: sql<string>`${feedingSitesTable.updatedAt}::text`,
+      stamp: stampText(feedingSitesTable.updatedAt),
       retiredAt: feedingSitesTable.retiredAt,
       isPublic: feedingSitesTable.isPublic,
     })

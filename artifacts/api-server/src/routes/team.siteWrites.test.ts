@@ -150,7 +150,7 @@ const kindsOf = async (id: number) => (await eventsOf(id)).map((e) => e.kind);
 
 /** The exact `updated_at` text, as a page carries it. */
 const stampOf = async (id: number) =>
-  String((await pool.query("select updated_at::text as s from feeding_sites where id = $1", [id])).rows[0].s);
+  String((await pool.query("select to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') as s from feeding_sites where id = $1", [id])).rows[0].s);
 
 const totalSites = async () => Number((await pool.query("select count(*)::int as n from feeding_sites")).rows[0].n);
 const totalSiteEvents = async () =>
@@ -542,10 +542,10 @@ describe("edit details", () => {
   });
 
   it("an unknown site is a 404", async () => {
-    const res = await post(`/api/team/sites/${NO_SUCH}`, { updatedAt: "2026-01-01 00:00:00+00", name: "x" });
+    const res = await post(`/api/team/sites/${NO_SUCH}`, { updatedAt: "2026-01-01 00:00:00.000000", name: "x" });
     expect(res.status).toBe(404);
-    expect((await postJson(`/api/team/sites/${NO_SUCH}`, { updatedAt: "2026-01-01 00:00:00+00", name: "x" })).status).toBe(404);
-    expect((await post("/api/team/sites/abc", { updatedAt: "2026-01-01 00:00:00+00", name: "x" })).status).toBe(404);
+    expect((await postJson(`/api/team/sites/${NO_SUCH}`, { updatedAt: "2026-01-01 00:00:00.000000", name: "x" })).status).toBe(404);
+    expect((await post("/api/team/sites/abc", { updatedAt: "2026-01-01 00:00:00.000000", name: "x" })).status).toBe(404);
   });
 });
 
@@ -1397,6 +1397,33 @@ describe("colonyId as a JSON integer", () => {
     for (const bad of [1.5, -1, 0, true, {}, "1.5"]) {
       const res = await postJson(`/api/team/sites/${add.body.id}/colony`, { updatedAt: await stampOf(add.body.id), colonyId: bad });
       expect(res.status, JSON.stringify(bad)).toBe(400);
+    }
+  });
+});
+
+describe("the stamp does not depend on the session's date style or time zone", () => {
+  it("every write still works when the connections use a non-ISO DateStyle and another time zone", async () => {
+    const s = await makeSite();
+    expect(await stampOf(s.id)).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/);
+    // Set it on every connection the pool is likely to hand out.
+    const clients = await Promise.all(Array.from({ length: 6 }, () => pool.connect()));
+    try {
+      for (const c of clients) await c.query("SET DateStyle = 'SQL, DMY'; SET TimeZone = 'America/New_York'");
+    } finally {
+      clients.forEach((c) => c.release());
+    }
+    try {
+      const page = (await get(`/api/team/sites/${s.id}`)).text;
+      expect(stampIn(page)).toBe(await stampOf(s.id));
+      const edit = await post(`/api/team/sites/${s.id}`, { updatedAt: stampIn(page), name: unique("styled") });
+      expect(edit.headers["location"]).toBe(`/api/team/sites/${s.id}?done=saved`);
+      const move = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4501", lng: "24.9502", reason: "r" });
+      expect(move.headers["location"]).toBe(`/api/team/sites/${s.id}?done=moved`);
+      expect(await kindsOf(s.id)).toEqual(["renamed", "moved"]);
+    } finally {
+      const again = await Promise.all(Array.from({ length: 6 }, () => pool.connect()));
+      for (const c of again) await c.query("RESET DateStyle; RESET TimeZone");
+      again.forEach((c) => c.release());
     }
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { personLabels } from "./teamColonies";
+import { stampText } from "./teamSiteWrites";
 
 // The team's Feeding sites pages, read side (SYC-209 PR 3.2; spec §2.1, §2.2,
 // §8). Reading only: PR 3.3 adds the writes. Nothing here is public; every
@@ -174,8 +175,8 @@ export async function siteView(id: number): Promise<SiteView | null> {
       retiredAt: feedingSitesTable.retiredAt,
       notes: feedingSitesTable.notes,
       directions: feedingSitesTable.directions,
-      // The database's own text for the stamp, to the microsecond (PR 3.3's writes compare it in SQL).
-      stamp: sql<string>`${feedingSitesTable.updatedAt}::text`,
+      // The stamp text (UTC, to the microsecond, fixed layout) (PR 3.3's writes compare it in SQL).
+      stamp: stampText(feedingSitesTable.updatedAt),
       colonyId: coloniesTable.id,
       colonyName: coloniesTable.name,
     })
