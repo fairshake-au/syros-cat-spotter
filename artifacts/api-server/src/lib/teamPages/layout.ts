@@ -11,15 +11,17 @@ export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely";
 interface NavItem {
   key: NavKey;
   label: string;
+  /** A shorter label for a phone, so the whole menu fits one row. */
+  short?: string;
   /** Null until that screen exists: shown as plain text, not a dead link. */
   href: string | null;
 }
 
 const NAV: NavItem[] = [
-  { key: "queue", label: "Welfare queue", href: "/api/team" },
+  { key: "queue", label: "Welfare queue", short: "Queue", href: "/api/team" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
-  { key: "sites", label: "Feeding sites", href: "/api/team/sites" },
+  { key: "sites", label: "Feeding sites", short: "Sites", href: "/api/team/sites" },
   { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
 ];
 
@@ -35,9 +37,12 @@ a{color:#0b5c6b}
 /* The menu starts where the page's text starts. */
 .bar{padding-inline:max(12px,calc((100% - 760px) / 2 + 12px))}
 .bar.wide{padding-inline:max(12px,calc((100% - 1120px) / 2 + 12px))}
-.bar a,.bar span{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;flex:none}
+.bar>a,.bar>span{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;flex:none}
 .bar .here{font-weight:700;color:#1d1d1b;border-bottom:3px solid #0b5c6b;text-decoration:none}
 .bar .off{color:#6b685f}
+.bar .short{display:none}
+@media (max-width:599px){.bar{gap:0 6px;padding-inline:10px}.bar .long{display:none}.bar .short{display:inline}}
+@media (max-width:389px){.bar{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}}
 main{max-width:760px;margin:0 auto;padding:12px 12px 48px}
 main.wide{max-width:1120px}
 h1{font-size:22px;margin:12px 0 4px}
@@ -60,10 +65,10 @@ h2{font-size:18px;margin:28px 0 8px}
 details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
 .tag.state{background:#fff;border:1px solid #8a877e}
 .ago{color:#55524a;font-size:14px}
-.report.closed details>summary{cursor:pointer;min-height:44px;padding:4px 0}
-.report.closed details>summary .head{display:inline-flex;margin:0;vertical-align:middle}
+.report.closed>details>summary{cursor:pointer;min-height:44px;padding:4px 0}
+.report.closed>details>summary .head{display:inline-flex;margin:0;vertical-align:middle}
 .said1{display:block;margin:4px 0 0 18px;color:#3b3930;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.report.closed details[open]>summary{margin-bottom:8px}
+.report.closed>details[open]>summary{margin-bottom:8px}
 details.notebox{margin:10px 0 0}
 details.notebox>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:#0b4553}
 .more{margin:8px 0 0}
@@ -140,6 +145,9 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
    any class rule below wins. */
 :where(dd,li,p,span)>a{padding:12px 0}
 .back a,a.tap{display:inline-flex;align-items:center;min-height:44px;padding:0}
+ul.sightings li>a{padding:0}
+.refs a{padding:8px 0}
+a.catlink.tap,a.sublink.tap{display:flex}
 .syrline{margin:0 0 4px;color:#55524a;font-size:15px;font-variant-numeric:tabular-nums}
 .photo.catmain{width:auto;max-width:100%;max-height:240px}
 .refs{margin:0;padding:0;list-style:none}
@@ -280,7 +288,10 @@ export function renderPage(opts: PageOptions): string {
   // that language is live; `<html lang>` is the language actually used.
   const lang: Language = pageLanguage(opts.lang, opts.liveLanguages);
   const nav = (opts.nav === false ? [] : NAV).map((n) => {
-    const label = escapeHtml(n.label);
+    // On a phone "Welfare queue" shows as "Queue" (CSS picks one).
+    const label = n.short
+      ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
+      : escapeHtml(n.label);
     if (!n.href) return `<span class="off">${label}</span>`;
     return n.key === opts.active
       ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`

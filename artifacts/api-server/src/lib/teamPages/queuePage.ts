@@ -199,6 +199,7 @@ function reportCard(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   near: NearSites,
+  noted?: string,
 ): string {
   const classes = [
     "report",
@@ -208,7 +209,8 @@ function reportCard(
   ]
     .filter(Boolean)
     .join(" ");
-  const landed = r.id === changedId || (tied !== undefined && r.id === tied.id);
+  const landed =
+    r.id === changedId || r.id === noted || (tied !== undefined && r.id === tied.id);
   const tags =
     `<span class="tag ${r.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[r.severity])}</span>` +
     (r.isLitter ? '<span class="tag kittens">Kittens</span>' : "") +
@@ -240,6 +242,7 @@ function reportCard(
     (tied && r.id === tied.id && Object.hasOwn(TIED_TEXT, tied.key)
       ? `<p class="notice" role="status">${esc(TIED_TEXT[tied.key]!)}</p>`
       : "") +
+    (r.id === noted ? '<p class="notice" role="status">Saved. The team note is updated.</p>' : "") +
     (closed ? "" : `<div class="head">${tags}</div>`) +
     "<dl>" +
     row("Where", place(r.lat, r.lng, r.id, near)) +
@@ -293,11 +296,12 @@ function uncheckedSection(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   near: NearSites,
+  noted: string | undefined,
 ): string {
   const { reports, reportsTotal, drafts, draftsTotal } = queue.unchecked;
   const list = reports.length
     ? '<p class="empty">These arrived while the safety check couldn\'t reach Cloudflare. Most will be real reports sent during an outage, but some may not be, so they are kept apart from the queue above.</p>' +
-      reports.map((r) => reportCard(r, now, false, changedId, tied, near)).join("") +
+      reports.map((r) => reportCard(r, now, false, changedId, tied, near, noted)).join("") +
       (reportsTotal > reports.length
         ? `<p class="empty">Showing the newest ${reports.length} of ${reportsTotal}.</p>`
         : "")
@@ -342,9 +346,11 @@ export function renderQueuePage(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   near: NearSites,
+  /** The report whose team note was just saved (?noted=). */
+  noted?: string,
 ): string {
   const open = queue.open.length
-    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, near)).join("")
+    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, near, noted)).join("")
     : '<p class="empty">No reports are waiting for the team.</p>';
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
@@ -356,7 +362,7 @@ export function renderQueuePage(
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +
-      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, near)).join("") +
+      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, near, noted)).join("") +
       (queue.closedTotal > queue.closed.length
         ? `<p class="empty">Showing the newest ${queue.closed.length} of ${queue.closedTotal}.</p>`
         : "")
@@ -367,6 +373,6 @@ export function renderQueuePage(
     mainClass: "wide",
     personName,
     banner: mailBanner(queue.mail),
-    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, near)}`,
+    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, near, noted)}`,
   });
 }

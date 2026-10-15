@@ -185,7 +185,7 @@ describe("the Feeding sites page: what is on it", () => {
     expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.text).not.toMatch(/<script/i);
-    expect(res.text).toContain('aria-current="page">Feeding sites</a>');
+    expect(res.text).toContain('aria-current="page"><span class="long">Feeding sites</span><span class="short">Sites</span></a>');
     expect(res.text).not.toContain(">Map</a>");
     expect(res.text).toContain("Recently changed");
     expect(res.text).toContain("OpenStreetMap contributors");

@@ -158,7 +158,10 @@ describe("the team note route", () => {
       .type("form")
       .send({ note: "Line one\nLine two" });
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toBe(`/api/team#r-${publicId}`);
+    // ?noted= makes the queue say "Saved" and keep this report open.
+    expect(res.headers["location"]).toBe(`/api/team?noted=${publicId}#r-${publicId}`);
+    const page = await request(app).get(`/api/team?noted=${publicId}`).set("Cookie", mariaCookie);
+    expect(page.text).toContain("Saved. The team note is updated.");
     const r = await row(id);
     expect(r.teamNote).toBe("Line one\nLine two");
     expect(r.teamNoteBy).toBe(mariaId);

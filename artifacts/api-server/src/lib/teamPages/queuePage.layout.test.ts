@@ -178,3 +178,30 @@ describe("queue page closed reports", () => {
     expect(a.indexOf("</summary>")).toBeLessThan(a.indexOf("photolink"));
   });
 });
+
+describe("after a team note is saved (?noted=)", () => {
+  const noted = (q: WelfareQueue, id: string) =>
+    renderQueuePage(q, "Maria", NOW, undefined, undefined, new Set(), id);
+
+  it("says it's saved and keeps a closed report and its note box open", () => {
+    const html = noted(queue([report("a")], [report("c", { state: "done", teamNote: "Fed" })]), "c");
+    const card = article(html, "c");
+    expect(card).toContain("<details open>");
+    expect(card).toContain('<details class="notebox" open>');
+    expect(card).toContain("Saved. The team note is updated.");
+    expect(article(html, "a")).not.toContain("Saved. The team note is updated.");
+  });
+
+  it("shows nothing for an id that isn't on the page", () => {
+    const html = noted(queue([report("a")]), "zzz");
+    expect(html).not.toContain("Saved. The team note is updated.");
+  });
+});
+
+describe("the phone menu", () => {
+  it("has a short label for the two long items, hidden on desktop by CSS", () => {
+    const html = render(queue([report("a")]));
+    expect(html).toContain('<span class="long">Welfare queue</span><span class="short">Queue</span>');
+    expect(html).toContain('<span class="long">Feeding sites</span><span class="short">Sites</span>');
+  });
+});
