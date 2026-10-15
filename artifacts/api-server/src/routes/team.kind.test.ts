@@ -169,12 +169,27 @@ describe("T4-1: content rows never show in the welfare queue", () => {
     await seedReport({ publicId: `${PREFIX}c-nothing`, kind: "content", reason: "other", state: "nothing_needed", sentMinutesAgo: 905.5 });
     await seedReport({ publicId: `${PREFIX}c-unchecked`, kind: "content", reason: "wrong_info", tokenChecked: false, sentMinutesAgo: 5.5 });
     await seedReport({ publicId: `${PREFIX}c-draft`, kind: "content", reason: "other", isDraft: true });
+    // The unchecked lists and counts have queries of their own (#170 review, finding 1).
+    await seedReport({ publicId: `${PREFIX}c-draft-unchecked`, kind: "content", reason: "other", isDraft: true, tokenChecked: false });
     await seedReport({ publicId: `${PREFIX}c-note`, kind: "content", reason: "location_revealing", teamNote: "Checked", teamNoteBy: susanId, sentMinutesAgo: 10.5, mail: { state: "sent" } });
     const contentRows = await db
       .select({ id: welfareReportsTable.id })
       .from(welfareReportsTable)
       .where(eq(welfareReportsTable.kind, "content"));
-    expect(contentRows).toHaveLength(7);
+    expect(contentRows).toHaveLength(8);
+    // The fixture really has what the unchecked queries must ignore: an open
+    // unchecked content row (c-unchecked) and an unchecked content draft.
+    const uncheckedContent = await db
+      .select({ publicId: welfareReportsTable.publicId })
+      .from(welfareReportsTable)
+      .where(sql`kind = 'content' and token_checked = false and state in ('new', 'looking')`);
+    expect(uncheckedContent.map((r) => r.publicId).sort()).toEqual([
+      `${PREFIX}c-draft-unchecked`,
+      `${PREFIX}c-unchecked`,
+    ]);
+    // ...and the unchecked section it must not reach has welfare rows in it.
+    expect(beforeJson.body.unchecked.reportsTotal).toBe(1);
+    expect(beforeJson.body.unchecked.draftsTotal).toBe(1);
 
     const afterJson = await getJson();
     const afterHtml = await getHtml();

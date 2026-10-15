@@ -108,4 +108,14 @@ describe("welfare alert email", () => {
     expect(out.text).toContain("https://maps.apple.com/?ll=37.44497,24.94271");
     expect(out.html).toContain("Open in Google Maps");
   });
+
+  // SYC-44 (#170 review, finding 3): a "Report an issue" row has no position
+  // and must never be built into a welfare alert.
+  it("refuses a row with no position", () => {
+    for (const row of [{ lat: null }, { lng: null }, { lat: null, lng: null }]) {
+      expect(() => buildWelfareAlert({ ...base, ...row } as unknown as WelfareReport, null, "alert", true)).toThrow(
+        /not a welfare report/,
+      );
+    }
+  });
 });

@@ -306,4 +306,49 @@ describe("T4-5 (SYC-44 PR 4.1): a welfare_alert for a 'Report an issue' row is n
     expect(sentIds).toEqual([welfare.publicId]);
     expect(sentIds).not.toContain(content!.publicId);
   });
+
+  // #170 review, finding 2: the "N unchecked cat reports waiting" email counts
+  // open unchecked reports that never got an alert. An issue row never gets a
+  // welfare_alert, so unless the count is welfare-only it would be counted for ever.
+  it("the 'unchecked reports waiting' count ignores open unchecked content rows", async () => {
+    const insertUnchecked = (kind: "welfare" | "content") =>
+      db.insert(welfareReportsTable).values({
+        publicId: `pub-${randomBytes(10).toString("hex")}`,
+        kind,
+        ...(kind === "content" ? { reason: "other" } : { lat: 37.44, lng: 24.94 }),
+        severity: "attention",
+        reporterDevice: DEVICE,
+        clientRef: randomBytes(6).toString("hex"),
+        photoState: "none",
+        submittedAt: new Date(),
+        tokenChecked: false,
+      });
+    const waitingRow = async () => {
+      const [row] = await db
+        .insert(mailOutboxTable)
+        .values({
+          purpose: "welfare_alert",
+          reportId: null,
+          recipientHash: "0000000000000000",
+          payload: { kind: "unchecked_waiting" },
+          nextAttemptAt: new Date(Date.now() - 1000),
+        })
+        .returning();
+      await drainDue(10);
+      const [after] = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.id, row!.id));
+      return after!;
+    };
+
+    // Only a content row is waiting: nothing to say, nothing sent.
+    await insertUnchecked("content");
+    const none = await waitingRow();
+    expect((none.payload as { waiting: number }).waiting).toBe(0);
+    expect(sentIds).toEqual([]);
+
+    // A welfare row beside it is counted; the content row still is not.
+    await insertUnchecked("welfare");
+    const one = await waitingRow();
+    expect((one.payload as { waiting: number }).waiting).toBe(1);
+    expect(sentIds).toHaveLength(1);
+  });
 });
