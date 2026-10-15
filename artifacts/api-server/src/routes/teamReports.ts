@@ -27,6 +27,8 @@ import { can } from "../lib/capabilities";
 import { photoTargets } from "../lib/capabilityTargets";
 import { hiddenPhotoIds } from "../lib/photoVisibility";
 import { escapeHtml } from "../lib/teamPages/escape";
+import { cleanTeamSentence, TEAM_SENTENCE_MAX } from "../lib/mail/reportTemplates";
+import { kickRow } from "../lib/mail/outbox";
 
 // The welfare queue's data and photos for the staff dashboard (SYC-43 part 2
 // plan, PR 1 and PR 2). No CORS headers: app.ts skips /api/team/. The queue
@@ -153,6 +155,21 @@ const PUBLIC_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const StateBody = z.object({
   from: z.enum(REPORT_STATES),
   to: z.enum(REPORT_STATES),
+  // SYC-42 Slice 3 (§5.3(h)): one optional line added to the reporter's
+  // fixed "Done" email. Ignored for any other state. Never free composition.
+  reporterSentence: z
+    .string()
+    .max(TEAM_SENTENCE_MAX * 2)
+    .optional()
+    .nullable()
+    .transform((v, ctx) => {
+      try {
+        return cleanTeamSentence(v);
+      } catch {
+        ctx.addIssue({ code: "custom", message: "too long" });
+        return z.NEVER;
+      }
+    }),
 });
 const NoteBody = z.object({ note: z.string().max(NOTE_MAX) });
 
@@ -223,8 +240,10 @@ const fieldsOf = (err: z.ZodError) => [
 /**
  * POST /api/team/reports/:publicId/state: move a sent report to one of the
  * four states. `from` is the state the page showed; if the report is no
- * longer there, someone else moved it first and nothing is written. Sends
- * nothing to anyone (reporter email is Slice 3).
+ * longer there, someone else moved it first and nothing is written. A move
+ * to a closing state sends the reporter their one outcome email, if they
+ * left and confirmed an address (SYC-42 Slice 3); `reporterSentence` adds
+ * one line to it on Done.
  */
 router.post(
   "/team/reports/:publicId/state",
@@ -237,7 +256,7 @@ router.post(
     const parsed = StateBody.safeParse(req.body ?? {});
     if (!parsed.success)
       return badRequest(req, res, fieldsOf(parsed.error), publicId);
-    const { from, to } = parsed.data;
+    const { from, to, reporterSentence } = parsed.data;
     // "Move" to where it already is: nothing to record.
     if (from === to) return badRequest(req, res, ["to"], publicId);
     if (!PUBLIC_ID_RE.test(publicId)) return notFound(res);
@@ -247,6 +266,8 @@ router.post(
       from,
       to,
       person,
+      reporterSentence,
+      onQueued: kickRow,
     });
     if (outcome === "not_found") return notFound(res);
     if (isFormPost(req)) {

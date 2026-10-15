@@ -1,4 +1,5 @@
 import type {
+  EmailToReporter,
   EmailToTeam,
   MailHealth,
   QueueDraft,
@@ -8,6 +9,7 @@ import type {
 } from "../welfareQueue";
 import { CHANGED_MESSAGE, NOTE_MAX, REPORT_STATES } from "../welfareActions";
 import { TIE_CHANGED_MESSAGE, TIE_SAME_MESSAGE } from "../welfareTie";
+import { TEAM_SENTENCE_MAX } from "../mail/reportTemplates";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 
@@ -32,8 +34,20 @@ const STATE: Record<QueueReport["state"], string> = {
 
 const EMAIL: Record<EmailToTeam, string> = {
   sent: "Sent",
+  delivered: "Delivered",
+  bounced: "Bounced. Syros Cats may not have been told by email.",
   waiting: "Waiting to send",
   failed: "Failed. Syros Cats may not have been told by email.",
+};
+
+// SYC-42 Slice 3. Never the address: only what happened.
+const REPORTER_EMAIL: Record<EmailToReporter, string> = {
+  unconfirmed: "Yes. They haven't confirmed the address yet, so nothing else goes to it.",
+  waiting: "Yes. An email to them is waiting to send.",
+  sent: "Yes. Our last email to them was sent.",
+  delivered: "Yes. Our last email to them was delivered.",
+  bounced: "Yes, but our last email to them bounced.",
+  failed: "Yes, but our last email to them could not be sent.",
 };
 
 /** "3 hours ago". Older than a month: the date. */
@@ -112,11 +126,21 @@ function actionForms(r: QueueReport): string {
       : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
   ).join("");
   const noteId = `note-${r.id}`;
+  const sentenceId = `sentence-${r.id}`;
+  // SYC-42 Slice 3 (§5.3(h)): one optional line added to the reporter's
+  // fixed "Done" email. Only when they left an address and it can still go.
+  const sentence =
+    r.contactLeft && r.state !== "done"
+      ? `<label class="label" for="${esc(sentenceId)}">Add a line to the reporter's email (optional, sent with Done only) ` +
+        '<span class="hint">This goes to a member of the public, added to the fixed message. Keep it short.</span></label>' +
+        `<input id="${esc(sentenceId)}" name="reporterSentence" type="text" class="text" maxlength="${TEAM_SENTENCE_MAX}">`
+      : "";
   return (
     '<div class="actions">' +
     `<form method="post" action="${esc(base)}/state">` +
     `<input type="hidden" name="from" value="${esc(r.state)}">` +
     '<p class="label">Move this report to</p>' +
+    sentence +
     `<div class="states">${buttons}</div></form>` +
     `<form method="post" action="${esc(base)}/note">` +
     `<label class="label" for="${esc(noteId)}">Team note ` +
@@ -217,7 +241,12 @@ function reportCard(
         : '<span class="ago">Nothing written</span>',
     ) +
     catRow(r) +
-    row("Contact left", "No") +
+    row(
+      "Contact left",
+      r.emailToReporter
+        ? `<span${r.emailToReporter === "bounced" || r.emailToReporter === "failed" ? ' class="bad"' : ""}>${esc(REPORTER_EMAIL[r.emailToReporter])}</span>`
+        : "No",
+    ) +
     row("Team note", note) +
     moved +
     row("Email to Syros Cats", email) +

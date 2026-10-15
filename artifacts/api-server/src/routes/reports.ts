@@ -25,6 +25,10 @@ import {
   verifyTurnstile,
   type TurnstileAction,
 } from "../lib/turnstile";
+import { addReporterEmail } from "../lib/welfare/reporterEmail";
+import { fingerprintConfigured, looksLikeAddress } from "../lib/mail/fingerprint";
+import { isPurposeEnabled } from "../lib/mail/send";
+import { kickRow } from "../lib/mail/outbox";
 import {
   takeUncheckedAllowance,
   uncheckedResetAt,
@@ -110,7 +114,26 @@ const SubmitBody = z.object({
   language: Language,
   // False when the reporter sent no photo: then the alert goes at once.
   hasPhoto: z.boolean().default(true),
+  // SYC-42 Slice 3: optional. A bad one is ignored, never a reason to refuse
+  // the report.
+  email: z.string().max(320).optional().nullable().catch(null),
 });
+
+/**
+ * Whether the app may offer the "Shall we tell you what happens?" box
+ * (SYC-42 Slice 3). Only once the "is this you?" email can actually go: its
+ * news key and the address fingerprint key are set, and nobody has switched
+ * it off with REPORTER_EMAIL=off. Otherwise the box stays hidden (plan:
+ * "no email box until then"), so nobody is promised a reply that can't come.
+ */
+export function reporterEmailOn(): boolean {
+  return (
+    process.env["REPORTER_EMAIL"] !== "off" &&
+    isPurposeEnabled("public_verify") &&
+    Boolean(process.env["RESEND_NEWS_API_KEY"]) &&
+    fingerprintConfigured()
+  );
+}
 
 const PhotoBody = z.object({
   deviceId: DeviceId,
@@ -215,6 +238,12 @@ function badRequest(res: import("express").Response, err: z.ZodError) {
     fields: [...new Set(err.issues.map((i) => i.path.join(".")))],
   });
 }
+
+// ── Slice 3: may the app offer the email box? ──────────────────────────────
+router.get("/reports/options", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ reporterEmail: reporterEmailOn() });
+});
 
 // ── 1.2 Draft: once severity and location are set ──────────────────────────
 router.post("/reports/draft", draftLimiter, async (req, res) => {
@@ -358,6 +387,28 @@ router.post("/reports", reportLimiter, async (req, res) => {
   }
 
   res.status(201).json({ publicId: created.publicId });
+
+  // SYC-42 Slice 3: the address, AFTER the report has committed and been
+  // answered, so nothing about it can lose or delay the report (§4.3). The
+  // reply is the same whatever happens here.
+  const email = body.email?.trim();
+  if (email && reporterEmailOn()) {
+    if (!looksLikeAddress(email)) {
+      req.log.info({ reason: "not_an_address" }, "reporter email: ignored");
+    } else {
+      try {
+        const ids = await addReporterEmail(
+          { reportId: created.id, deviceId: body.deviceId, email, language: body.language, ip: req.ip ?? "unknown" },
+          req.log,
+        );
+        for (const id of ids) kickRow(id);
+      } catch (err) {
+        req.log.error({ err: safeError(err) }, "reporter email: not stored; the report is safe");
+      }
+    }
+  }
+  // After the address is linked, so a photo-less alert going straight away
+  // says whether contact details were left.
   if (!body.hasPhoto) kick();
 });
 

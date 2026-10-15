@@ -3,13 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { actingRole, type CapabilityHolder } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import { writeObservation } from "./observations";
+import { onReportStateChanged } from "./welfare/reporterEmail";
 
 /**
  * What the team does to a sent report (SYC-43 part 2 plan, PR 2; spec §3.1,
  * §8.5): move it between the four states, and write the team note.
  *
- * Neither writes to `mail_outbox`: the reporter's email is SYC-42 Slice 3,
- * and nothing here may send one before then (spec §5.3h).
+ * A move to a closing state queues the reporter's one outcome email, if they
+ * left an address and confirmed it (SYC-42 Slice 3; spec §5.3h). "Looking at
+ * it" sends nothing. The team note never reaches the reporter.
  */
 
 export const REPORT_STATES = [
@@ -48,10 +50,15 @@ export async function moveReportState(input: {
   /** The signed-in person: their id is recorded, and their scopes decide
    * the role the cat's history row is written with (actingRole). */
   person: CapabilityHolder & { id: string };
+  /** SYC-42 Slice 3: the optional line for the reporter's "Done" email. */
+  reporterSentence?: string | null;
+  /** Called with the outcome email's outbox row, to send after the commit. */
+  onQueued?: (outboxId: number) => void;
 }): Promise<MoveOutcome> {
   const { publicId, from, to, person } = input;
   const personId = person.id;
-  return db.transaction(async (tx) => {
+  let queued: number | null = null;
+  const outcome = await db.transaction(async (tx): Promise<MoveOutcome> => {
     const updated = await tx
       .update(welfareReportsTable)
       .set({ state: to, stateChangedAt: new Date(), stateChangedBy: personId })
@@ -68,12 +75,22 @@ export async function moveReportState(input: {
         kind: welfareReportsTable.kind,
       });
     if (updated.length === 1) {
-      await tx.insert(reportStateEventsTable).values({
+      const [event] = await tx
+        .insert(reportStateEventsTable)
+        .values({
+          reportId: updated[0]!.id,
+          fromState: from,
+          toState: to,
+          personId,
+        })
+        .returning({ id: reportStateEventsTable.id });
+      const outboxId = await onReportStateChanged(tx, {
         reportId: updated[0]!.id,
-        fromState: from,
-        toState: to,
-        personId,
+        eventId: event!.id,
+        to,
+        teamSentence: to === "done" ? (input.reporterSentence ?? null) : null,
       });
+      if (outboxId !== null) queued = outboxId;
       // Closing a report that is tied to a cat leaves a mark on the cat's
       // history (PR 5; spec §8.4): who closed it, and how. In this same
       // transaction, so the move and its outcome stand or fall together.
@@ -113,6 +130,8 @@ export async function moveReportState(input: {
       );
     return exists ? "changed" : "not_found";
   });
+  if (queued !== null) input.onQueued?.(queued);
+  return outcome;
 }
 
 /**
