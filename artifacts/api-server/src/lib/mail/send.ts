@@ -66,6 +66,7 @@ import { resendSend } from "./resend";
 /** email-capture.md §5.1's closed message list, plus the team alert. */
 export const MAIL_PURPOSES = [
   "welfare_alert",
+  "issue_alert",
   "urgent_alert",
   "public_verify",
   "report_ack",
@@ -82,7 +83,7 @@ export const MAIL_PURPOSES = [
 ] as const;
 
 export type MailPurpose = (typeof MAIL_PURPOSES)[number];
-export type TeamPurpose = "welfare_alert" | "urgent_alert";
+export type TeamPurpose = "welfare_alert" | "issue_alert" | "urgent_alert";
 export type PersonPurpose = "person_invite" | "access_change_notice";
 export type PublicPurpose = Exclude<MailPurpose, TeamPurpose | PersonPurpose>;
 export type MailIdentity = "transactional" | "news";
@@ -113,6 +114,9 @@ const SYROS_CATS = "admin@syroscats.com";
 
 export const PURPOSE_RULES: Record<MailPurpose, PurposeRule> = {
   welfare_alert: { identity: "transactional", from: REPORTS_FROM, recipient: "team", body: "team_built" },
+  // SYC-44 PR 5.2: the "Report an issue" emails to the same shared inbox.
+  // Same team rule as welfare_alert, but sheddable (see SHEDDABLE_PURPOSES).
+  issue_alert: { identity: "transactional", from: REPORTS_FROM, recipient: "team", body: "team_built" },
   urgent_alert: { identity: "transactional", from: REPORTS_FROM, recipient: "team", body: "team_built" },
   // email-capture.md §7.3 (the D2 amendment): public verification is news.
   public_verify: { identity: "news", from: NEWS_FROM, recipient: "unverified_public", body: "fixed_template" },
@@ -141,6 +145,7 @@ const IDENTITY_KEY: Record<MailIdentity, string> = {
 // (news), then the acknowledgement and the outcome (mail.), verified only.
 const DEFAULT_ENABLED: readonly MailPurpose[] = [
   "welfare_alert",
+  "issue_alert",
   "keep_safe_verify",
   "restore_link",
   "public_verify",
@@ -157,6 +162,7 @@ export const NEVER_SHED_PURPOSES: readonly MailPurpose[] = ["welfare_alert", "re
 /** Which fingerprint label a purpose's recipient is hashed under (fingerprint.ts). */
 export const PURPOSE_LABEL: Record<MailPurpose, Exclude<FingerprintLabel, "ip">> = {
   welfare_alert: "team",
+  issue_alert: "team",
   urgent_alert: "team",
   public_verify: "news",
   report_ack: "report",
