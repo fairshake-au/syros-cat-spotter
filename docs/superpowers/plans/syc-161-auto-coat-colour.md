@@ -1,6 +1,6 @@
 # SYC-161: each cat's colour read from its photo, and the colour chips in "Find the cat"
 
-**Status: draft for Samuel's approval. Nothing is built.**
+**Status: Samuel answered Decisions A–D on 15 October 2026, taking every recommendation (A1, B1, C1, D1). The plan as a whole awaits his approval. Nothing is built.**
 **Ticket:** SYC-161 (Urgent). Parent SYC-119. It builds on SYC-2 (Decision A1 of `syc-2-coat-markings-and-health.md`).
 **Specs:** `docs/specs/choose-a-different-cat.md` §4.7, §4.5, §6, §8.4, §9 and §10, as amended by `docs/specs/coat-markings-and-health.md` §4.2, §7.2, §8, §10.2, §10.4 and §10.7, and `DECISIONS.md` Part 2n (including SYC2-D10). Samuel's 30 September answers to the SYC-119 plan still stand: Decision 2A (a background job fills in existing cats; nobody has to run it by hand) and Decision 3A (the chips appear only once existing cats have been read).
 **Checked against:** `origin/main` at `ad38e17` (15 Oct 2026). Live build `f03901a` carries SYC-2 PR 2.1. That comes from SYC-2's comment of 15 Oct 06:41 UTC; I did not probe `/api/healthz` again. I also checked: the open PRs #146, #172, #174, #176, #178–#181; Linear SYC-161 (all 6 comments), SYC-2 (all comments), SYC-329, SYC-56 and SYC-119; and the MVP launch plan on PR #172 (`docs/superpowers/plans/mvp-launch-31-oct.md` on branch `claude/xenodochial-zhukovsky-df315f`). Every "exists today" claim names the file I read it in.
@@ -87,6 +87,8 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 ### Decision A: when should machine colours start showing, given the team can't yet fix a wrong one?
 
+**Decided (Samuel, 15 October 2026): A1, checked colours now, automatic colours later, as recommended.**
+
 **The question.** Once a reading is written, it shows on the cat's page and its "Find the cat" card at once (SYC-2 PR 2.1 is live). The model will get some wrong; tabby and tortoiseshell are the usual mix-up. Today nobody can undo a wrong colour, because the team's "Mark wrong" for colour arrives with SYC-2 PR 3.1, and nobody is building that yet.
 
 | Option | What it means | Benefits | Risks | What people notice |
@@ -100,6 +102,8 @@ Four decisions. **A and B matter most**. C and D are smaller.
 
 ### Decision B: does any of this go out before the 31 October launch?
 
+**Decided (Samuel, 15 October 2026): B1, aim for launch, never block it, as recommended.**
+
 **The question.** The launch plan (PR #172) doesn't mention SYC-161. The chips add six new sentences that need Greek and French, and Johnny's check starts with the copy freeze on Thu 22 Oct.
 
 | Option | Benefits | Risks | What people notice at launch |
@@ -110,6 +114,8 @@ Four decisions. **A and B matter most**. C and D are smaller.
 **Recommendation: B1.** It adds no risk to the date, because SYC-161 is never on the must-launch list. The launch-plan session (`local_78021dc8…`) is told, so the calendar can show it.
 
 ### Decision C: how soon does a new cat get its colour?
+
+**Decided (Samuel, 15 October 2026): C1, read it right after the new cat is saved, as recommended.**
 
 **The question.** A new cat is created when a member of the public names it. Reading its colour at that moment means a public action starts a model call. The spec counted that call in its costs, but the brief for this plan says "no public route triggers a reading". SYC-2's spotter question ("Agatha looks Ginger · Tabby, right?") appears on the screen straight after naming, and needs the colour to be there.
 
@@ -122,6 +128,8 @@ Four decisions. **A and B matter most**. C and D are smaller.
 **Recommendation: C1.** The rule the brief quotes exists to stop the public running up the bill (spec §12 C8). C1 keeps that protection, because the public can't trigger a second call for any cat. If Samuel prefers the brief's letter, C2 is the safe alternative.
 
 ### Decision D: how the fill-in run is started, checked and kept going
+
+**Decided (Samuel, 15 October 2026): D1, reuse the mail job's password, as recommended.**
 
 **The question.** The model can only be called from inside the live server, because the AI keys exist only in Replit. So the trial and the fill-in run have to be started by a call to the live server, with a password the server checks.
 
