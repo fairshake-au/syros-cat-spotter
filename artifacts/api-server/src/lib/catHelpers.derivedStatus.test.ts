@@ -23,6 +23,14 @@ const { pr3RecordedMock } = vi.hoisted(() => ({
   pr3RecordedMock: vi.fn<() => Promise<boolean>>(),
 }));
 vi.mock("./pr3Gate", () => ({ pr3Recorded: pr3RecordedMock }));
+// Q2's switch, open by default (SYC-75); one test shuts it to prove the
+// one-line rollback still downgrades Likely to Not known yet.
+const likelyGate = vi.hoisted(() => ({ open: true }));
+vi.mock("./likelyGate", () => ({
+  get LIKELY_STERILISED_PUBLIC_LIVE() {
+    return likelyGate.open;
+  },
+}));
 
 import { deriveCatStatuses } from "./catHelpers";
 
@@ -78,7 +86,10 @@ async function cleanup() {
 }
 
 beforeAll(cleanup);
-afterEach(() => pr3RecordedMock.mockReset());
+afterEach(() => {
+  pr3RecordedMock.mockReset();
+  likelyGate.open = true;
+});
 afterAll(async () => {
   await cleanup();
   await pool.end();
@@ -275,6 +286,52 @@ describe("deriveCatStatuses: life and sterilised states (gate open)", () => {
       confidence: "unknown",
       clippedTipSightings: 0,
     });
+  });
+
+  it("shutting Q2's switch again shows the same clip as 'Not known yet' (the one-line rollback)", async () => {
+    pr3RecordedMock.mockResolvedValue(true);
+    likelyGate.open = false;
+    const cat = await seedCat({});
+    await writeObservation(db, {
+      catId: cat.id,
+      kind: "ear_tip",
+      value: { clipped: true },
+      deviceId: "vitest-spotter-derivedstatus-5",
+      roleAtTime: "public",
+      photoId: 1,
+      observedAt: new Date(),
+    });
+
+    const result = await deriveCatStatuses([cat]);
+
+    expect(result.get(cat.id)?.sterilised).toEqual({
+      value: null,
+      confidence: "unknown",
+      clippedTipSightings: 1,
+    });
+  });
+
+  it.each([
+    ["can't tell, with a photo", { clipped: "cant_tell" }, 1],
+    ["a clip with no photo behind it", { clipped: true }, null],
+    ["looks whole, with no photo", { clipped: false }, null],
+  ])("an ear_tip answer of %s never gives Likely or value: false", async (_label, value, photoId) => {
+    pr3RecordedMock.mockResolvedValue(true);
+    const cat = await seedCat({});
+    await writeObservation(db, {
+      catId: cat.id,
+      kind: "ear_tip",
+      value,
+      deviceId: "vitest-spotter-derivedstatus-6",
+      roleAtTime: "public",
+      photoId,
+      observedAt: new Date(),
+    });
+
+    const result = await deriveCatStatuses([cat]);
+
+    expect(result.get(cat.id)?.sterilised.value).toBeNull();
+    expect(result.get(cat.id)?.sterilised.confidence).toBe("unknown");
   });
 
   it("a cat created today with no sightings is not presumed deceased", async () => {

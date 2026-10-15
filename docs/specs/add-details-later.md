@@ -81,7 +81,7 @@ Changing it records their new answer and marks the old one as replaced. The old 
 3. **Never once Syros Cats have checked it.** "Checked" means either of two things: the team has corrected one of this spotter's ear-tip answers for this cat (for example "that's not a clip, it's a torn ear"), or the team, a vet or Syros Cats' records have said whether this cat is sterilised. Either way the answer shows *"Syros Cats have checked this one"* and can't be changed. Otherwise a spotter could quietly undo the team's correction and put the cat back to "Probably sterilised". (When the team or a vet has spoken about sterilisation, their word decides the cat's public line anyway; blocking the change just keeps the card honest.)
 4. **The reward screen still asks only once.** Changing is something a spotter chooses to do on the cat's page. The app never asks about the same cat's ear again after a sighting (Samuel's 2 October rule stands).
 
-Every change is kept, so if someone flips a cat back and forth, the team sees it all in the history. "Probably sterilised" stays hidden from the public until the team can correct it (Q2), so a flip can't mislead anyone outside the team in the meantime.
+Every change is kept, so if someone flips a cat back and forth, the team sees it all in the history. "Probably sterilised" shows publicly only because the team can correct it (Q2, opened by SYC-75), so a wrong flip is put right from the team's Probably sterilised list.
 
 **No points.** Adding details earns nothing, just as answering on the reward screen earns nothing. The points are for the sighting. Paying for details would invite people to tap answers for points.
 
@@ -163,7 +163,7 @@ A smaller choice, with a clear default: the card sits **on the cat's page, under
 | **One set of answers per sighting** | **Each question once per sighting** | Nothing is ever overwritten; observations stay append-only. A spotter can only fill gaps they left |
 | The ear tip is asked **once per spotter per cat** (Q3 → B), and a second answer is dropped | The **reward screen** still never asks again. On the **cat's page**, a spotter may deliberately **change** their own answer (§3.1) | The old answer is kept and marked replaced, never deleted. Only the spotter's own answer, only with a photo from the last month, and never once Syros Cats have checked it |
 
-Nothing else in PR 7 changes. The questions, wording, example photo, privacy of the note, and the "Probably sterilised stays hidden until Syros Cats can correct it" rule (Q2 → A) all carry over as they are.
+Nothing else in PR 7 changes. The questions, wording, example photo, privacy of the note, and the "Probably sterilised shows publicly only once Syros Cats can correct it" rule (Q2 → A, opened by SYC-75) all carry over as they are.
 
 ---
 
@@ -197,7 +197,7 @@ No migration. Everything below rides on PR 7.
 10. **A change racing a team correction:** a change and a team "that's not a clip" on the same answer, sent at the same moment, never both land. Whichever is second is refused, and if the team's lands, the cat stays *Not known yet*. (Run both orders, and a backdated team correction.)
 11. **Only with a recent photo:** a spotter whose sightings of this cat are all more than a month old can't change their answer (there's no open sighting to change it from).
 12. `open-sightings` returns only the caller's own sightings, refuses a wrong secret, never includes coordinates, another person's sighting or any note text, reports the ear tip as open, answered or checked correctly, and is empty when nothing is open.
-13. A clipped answer added later reaches *Likely* in the record only because its sighting has a photo. The public line still says *Not known yet* while Q2's gate is closed.
+13. A clipped answer added later reaches *Likely* in the record only because its sighting has a photo. The public line says *Probably sterilised* (Q2's gate opened by SYC-75); a clip answer with no photo stays *Not known yet*.
 14. A note added later never appears in any public payload (the §10.8.8 list, as in PR 7).
 15. The card shows only the open questions, shows "You said…" with "Change my answer" (or "Syros Cats have checked this one"), hides itself when there's nothing left, and doesn't show offline (app tests), at ~390 px and desktop, in all three languages.
 
