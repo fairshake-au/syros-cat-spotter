@@ -248,6 +248,25 @@ describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §
   const stepOf = (n: number, total: number) =>
     TRANSLATIONS[lang.current].reportStepOf.replace('{n}', String(n)).replace('{total}', String(total));
 
+  it('the answer arriving after the flow opens still adds the screen (before How bad is left)', () => {
+    const w = setup();
+    expect(w.text()).toContain(stepOf(1, 3));
+    w.rerender(
+      <ReportWizard
+        guidance={g}
+        initial={INITIAL_FLOW}
+        gps={{ coords: here, locating: false, denied: false }}
+        onChoosePhoto={async () => null}
+        onDraft={w.onDraft}
+        onSend={w.onSend}
+        onClose={w.onClose}
+        sending={false}
+        offerEmail
+      />,
+    );
+    expect(w.text()).toContain(stepOf(1, 4));
+  });
+
   it('not offered: the flow is the three screens, and no screen asks', () => {
     const w = setup();
     expect(w.text()).toContain(stepOf(1, 3));
