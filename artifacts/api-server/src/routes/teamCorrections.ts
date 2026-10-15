@@ -6,6 +6,7 @@ import {
   catIdOfStatement,
   NAME_MAX,
   recordTeamStatement,
+  catOwnerState,
   removeOwnerAndSay,
   renameCat,
   SUPERSEDE_CAPABILITIES,
@@ -28,6 +29,8 @@ import {
 import { renderPage, type NavKey } from "../lib/teamPages/layout";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { renderLikelyPage } from "../lib/teamPages/likelyPage";
+import { renderConfirmPage } from "../lib/teamPages/confirm";
+import { LIFE } from "../lib/teamPages/catPages";
 import { can, type Capability } from "../lib/capabilities";
 
 // The corrections (SYC-43 part 2 plan, PR 4): forms on the team cat page and
@@ -148,7 +151,7 @@ function refusalFor(req: Request, res: Response, err: unknown, back: string, act
   }
   if (err.code === "NOT_FOUND") {
     return formProblem(req, res, 404, {
-      message: "That cat or statement doesn't exist.",
+      message: "That cat or change doesn't exist.",
       back: "/api/team/cats",
       backLabel: "Find a cat",
       active,
@@ -165,7 +168,7 @@ function refusalFor(req: Request, res: Response, err: unknown, back: string, act
   }
   return formProblem(req, res, 400, {
     fields: [err.code],
-    message: "That answer doesn't fit this kind of statement.",
+    message: "That answer doesn't fit this kind of change.",
     back,
     backLabel: "Back",
     active,
@@ -179,7 +182,7 @@ function catIdOf(req: Request): number | null {
 
 function notFound(req: Request, res: Response) {
   formProblem(req, res, 404, {
-    message: "That cat or statement doesn't exist.",
+    message: "That cat or change doesn't exist.",
     back: "/api/team/cats",
     backLabel: "Find a cat",
   });
@@ -195,21 +198,35 @@ export const formRoute = (capability?: Capability, options?: RequireTeamOptions)
   },
 ];
 
-// ── Say the life status ────────────────────────────────────────────────────
+// ── Update where the cat lives ────────────────────────────────────────────────────
 
 const LifeStatusForm = z.object({
   status: z.enum(["street", "homed", "in_care", "deceased"]),
   reason: reasonField,
   date: dateField,
-  /** "Also remove the owner" (claiming-a-cat.md §7): a ticked checkbox sends "1". */
+  /**
+   * JSON only: also remove the owner (claiming-a-cat.md §7). The form has no
+   * box any more (SYC-362 D2); a form post asks on a confirm page instead.
+   */
   removeOwner: z.union([z.literal("1"), z.literal(true)]).optional(),
+  /** "Yes" on the "Are you sure?" page (SYC-362 D1). */
+  confirm: z.literal("1").optional(),
 });
 
 /**
  * POST /api/team/cats/:id/life-status. "Deceased" needs the date the team
- * knows of; a date after today is refused. On an owned cat the form offers
- * "Also remove the owner": ticked, and unless the new status is "has a home",
- * it runs the same transaction as Remove owner (needs `remove_owner` too).
+ * knows of; a date after today is refused.
+ *
+ * An owned cat set to anything but "has a home" (SYC-362 D2):
+ * - a form post from someone who may remove owners gets an "Are you sure?"
+ *   page first (decided under the lock, in removeOwnerAndSay); Yes removes
+ *   the owner and records the status in one transaction;
+ * - a form post from someone who may not records the status, keeps the owner,
+ *   and says so. That is for cat guardians once the team cat page opens to
+ *   them; today the door (set_life_status with no target) refuses them first
+ *   (team.guardianLifeStatus.test.ts);
+ * - JSON is unchanged: removeOwner=1 removes the owner (needs `remove_owner`),
+ *   without it the owner stays.
  */
 router.post(
   "/team/cats/:id/life-status",
@@ -223,11 +240,11 @@ router.post(
       const fields = fieldsOf(parsed.error);
       return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
     }
-    const { status, reason, date, removeOwner } = parsed.data;
+    const { status, reason, date, removeOwner, confirm } = parsed.data;
     if (status === "deceased" && !date) {
       return formProblem(req, res, 400, {
         fields: ["date"],
-        message: "For “No longer with us”, give the date the team knows of.",
+        message: "For “No longer with us”, give the date it happened.",
         back,
         backLabel: "Back to the cat",
       });
@@ -240,28 +257,56 @@ router.post(
         backLabel: "Back to the cat",
       });
     }
+    const person = teamPerson(res);
+    const form = isFormPost(req);
+    const mayRemove = can(person, "remove_owner");
+    const observedAt = observedAtFor(date);
     try {
       let ownerRemoved = false;
-      const row =
-        removeOwner && status !== "homed"
-          ? await removeOwnerAndSay(
-              teamPerson(res),
-              { catId, status, reason, observedAt: observedAtFor(date) },
-              "if_owner",
-            ).then((out) => {
-              ownerRemoved = out.owner === "removed";
-              return out.row!;
-            })
-          : await recordTeamStatement(teamPerson(res), {
-              catId,
-              kind: "life_status",
-              value: { status },
-              reason,
-              observedAt: observedAtFor(date),
-            });
-      // Say so when the tick really took an owner off the cat.
-      if (isFormPost(req))
-        return void res.redirect(303, ownerRemoved ? catPage(catId, "ownerRemoved") : catPage(catId, "life"));
+      let row;
+      if (status !== "homed" && form && mayRemove) {
+        const out = await removeOwnerAndSay(
+          person,
+          { catId, status, reason, observedAt },
+          confirm ? "if_owner" : "confirm_if_owner",
+        );
+        if (out.owner === "needs_confirm") {
+          const name = out.catName!;
+          return void res.status(200).type("html").send(
+            renderConfirmPage({
+              title: `Remove ${name}'s owner too?`,
+              lines: [
+                `${name} has an owner. Saving “${LIFE[status]}” also removes the owner.`,
+                "The owner stops seeing the exact spot and getting alerts. The owner is not told.",
+                "To keep the owner, go back and choose “Has a home”.",
+              ],
+              action: `/api/team/cats/${catId}/life-status`,
+              fields: { status, reason, date },
+              yes: "Yes, save and remove the owner",
+              cancelHref: catPage(catId),
+              cancelLabel: "Back to the cat (nothing changed)",
+              personName: person.name,
+              active: "cats",
+            }),
+          );
+        }
+        ownerRemoved = out.owner === "removed";
+        row = out.row!;
+      } else if (status !== "homed" && !form && removeOwner) {
+        row = (await removeOwnerAndSay(person, { catId, status, reason, observedAt }, "if_owner")).row!;
+      } else {
+        row = await recordTeamStatement(person, { catId, kind: "life_status", value: { status }, reason, observedAt });
+      }
+      if (form) {
+        // Someone who can't remove owners saved over an owned cat: say the
+        // owner is still there (SYC-362 D2).
+        const kept =
+          !ownerRemoved && !mayRemove && status !== "homed" && (await catOwnerState(catId))?.hasOwner;
+        return void res.redirect(
+          303,
+          catPage(catId, ownerRemoved ? "ownerRemoved" : kept ? "lifeOwnerKept" : "life"),
+        );
+      }
       res.status(201).json({ id: row.id });
     } catch (err) {
       refusalFor(req, res, err, back);
@@ -272,6 +317,8 @@ router.post(
 // ── Remove the owner ───────────────────────────────────────────────────────
 
 const RemoveOwnerForm = z.object({
+  /** "Yes" on the "Are you sure?" page (SYC-362 D1). */
+  confirm: z.literal("1").optional(),
   status: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z.enum(["street", "in_care", "deceased"]).default("street"),
@@ -303,11 +350,11 @@ router.post(
       const fields = fieldsOf(parsed.error);
       return formProblem(req, res, 400, { fields, message: problemFor(fields), back, backLabel: "Back to the cat" });
     }
-    const { status, reason, date } = parsed.data;
+    const { status, reason, date, confirm } = parsed.data;
     if (status === "deceased" && !date) {
       return formProblem(req, res, 400, {
         fields: ["date"],
-        message: "For “No longer with us”, give the date the team knows of.",
+        message: "For “No longer with us”, give the date it happened.",
         back,
         backLabel: "Back to the cat",
       });
@@ -319,6 +366,31 @@ router.post(
         back,
         backLabel: "Back to the cat",
       });
+    }
+    // A form post asks first (SYC-362 D1). The owner is checked again under
+    // the lock when Yes comes back, so a second Yes or a refresh finds the
+    // owner gone and writes nothing.
+    if (isFormPost(req) && !confirm) {
+      const state = await catOwnerState(catId);
+      if (!state) return notFound(req, res);
+      if (!state.hasOwner) return void res.redirect(303, catPage(catId, "ownerGone"));
+      return void res.status(200).type("html").send(
+        renderConfirmPage({
+          title: `Remove ${state.name}'s owner?`,
+          lines: [
+            "The owner stops seeing the exact spot and getting alerts.",
+            "The owner is not told.",
+            `${state.name} will be saved as “${LIFE[status]}”.`,
+          ],
+          action: `/api/team/cats/${catId}/remove-owner`,
+          fields: { status, reason, date },
+          yes: "Yes, remove the owner",
+          cancelHref: back,
+          cancelLabel: "Back to the cat (nothing changed)",
+          personName: person.name,
+          active: "cats",
+        }),
+      );
     }
     try {
       const out = await removeOwnerAndSay(
@@ -339,7 +411,7 @@ router.post(
   },
 );
 
-// ── Say whether sterilised ─────────────────────────────────────────────────
+// ── Update whether sterilised ─────────────────────────────────────────────────
 
 const SterilisationForm = z.object({
   sterilised: z.enum(["yes", "no"]),
@@ -458,7 +530,7 @@ router.post(
     if (choice === "deceased" && !date) {
       return formProblem(req, res, 400, {
         fields: ["date"],
-        message: "For “No longer with us”, give the date the team knows of.",
+        message: "For “No longer with us”, give the date it happened.",
         back,
         backLabel: "Back",
         active,

@@ -101,7 +101,7 @@ describe("cat page history cap", () => {
     expect(ids[0]).toBe(25);
     expect(ids[19]).toBe(6);
     expect(ids).toEqual([...ids].sort((a, b) => b - a));
-    expect(html).toContain("What has been said (25)");
+    expect(html).toContain("History (25)");
     expect(html).toContain('<p class="more"><a class="tap" href="?history=all#history">Show all 25</a></p>');
   });
 
@@ -172,15 +172,15 @@ describe("cat page layout", () => {
     expect(html).toContain('id="corrections"');
     // The record is in the first column, the forms in the second.
     const two = html.indexOf('<div class="twocol">');
-    expect(html.indexOf("What the records say")).toBeGreaterThan(two);
-    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf("What the records say"));
+    expect(html.indexOf("What we know about this cat")).toBeGreaterThan(two);
+    expect(html.indexOf('id="corrections"')).toBeGreaterThan(html.indexOf("What we know about this cat"));
   });
 
   it("has no twocol when the person may not correct anything", () => {
     const html = renderCatPage(view(1), "Sam", { may: mayNot });
     expect(html).not.toContain('<div class="twocol">');
     expect(html).not.toContain('id="corrections"');
-    expect(html).toContain("What the records say");
+    expect(html).toContain("What we know about this cat");
   });
 
   it("has no twocol with the default (no may) either", () => {

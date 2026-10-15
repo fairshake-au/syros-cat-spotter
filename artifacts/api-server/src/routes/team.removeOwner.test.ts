@@ -213,8 +213,10 @@ async function ownedCat(label: string) {
 
 const form = (path: string, c = cookie) =>
   request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", c).type("form");
+// Yes on the "Are you sure?" page (SYC-362 D1): the confirmed post. The
+// unconfirmed form post has its own tests below.
 const removeOwner = (catId: number, body: Record<string, unknown> = { reason: "Not their cat" }, c = cookie) =>
-  form(`/api/team/cats/${catId}/remove-owner`, c).send(body);
+  form(`/api/team/cats/${catId}/remove-owner`, c).send({ confirm: "1", ...body });
 const page = (catId: number) => request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
 
 describe("the team page shows an owner (spec §7)", () => {
@@ -453,61 +455,176 @@ describe("who may remove an owner", () => {
   });
 });
 
-describe("the life-status form on an owned cat", () => {
-  const lifeStatus = (catId: number, body: Record<string, unknown>) =>
-    form(`/api/team/cats/${catId}/life-status`).send(body);
+describe("the life-status form on an owned cat (SYC-362 D2: no box; asks first)", () => {
+  const lifeStatus = (catId: number, body: Record<string, unknown>, c = cookie) =>
+    form(`/api/team/cats/${catId}/life-status`, c).send(body);
 
-  it("offers 'Also remove the owner', ticked by default, only on an owned cat", async () => {
-    const { c } = await ownedCat("tick");
+  it("has no 'Also remove the owner' box at all; an owned cat says it will ask first", async () => {
+    const { c } = await ownedCat("nobox");
     const html = (await page(c.id)).text;
-    expect(html).toMatch(/<input type="checkbox"[^>]*name="removeOwner" value="1" checked>\s*Also remove the owner/);
+    expect(html).not.toContain('name="removeOwner"');
+    expect(html).not.toMatch(/<input type="checkbox"[^>]* checked/);
+    expect(html).toContain("This cat has an owner. Saving anything but “Has a home” asks you first");
     const free = await streetCat();
-    expect((await page(free.id)).text).not.toContain("Also remove the owner");
-    denied.cap = "remove_owner";
-    expect((await page(c.id)).text).not.toContain("Also remove the owner");
+    expect((await page(free.id)).text).not.toContain("This cat has an owner.");
   });
 
-  it("saving 'Lives on the street' with it ticked removes the owner and records the status, in one go", async () => {
-    const { c } = await ownedCat("tickedsave");
-    const res = await lifeStatus(c.id, { status: "street", reason: "Not their cat", removeOwner: "1" });
+  it("a team member saving 'Lives on the street' gets the 'Are you sure?' page, and nothing is written", async () => {
+    const { c, d } = await ownedCat("asks");
+    const before = await lifeRows(c.id);
+    const res = await lifeStatus(c.id, { status: "street", reason: "Not their cat", date: "" });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("owner too?</h1>");
+    expect(res.text).toContain("also removes the owner");
+    expect(res.text).toContain("The owner is not told.");
+    expect(res.text).toContain(`action="/api/team/cats/${c.id}/life-status"`);
+    expect(res.text).toContain('<input type="hidden" name="status" value="street">');
+    expect(res.text).toContain('<input type="hidden" name="reason" value="Not their cat">');
+    expect(res.text).toContain('<input type="hidden" name="confirm" value="1">');
+    expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
+    expect(await lifeRows(c.id)).toEqual(before);
+  });
+
+  it("an old form's removeOwner=1 still asks first: only Yes removes an owner", async () => {
+    const { c, d } = await ownedCat("oldbox");
+    const res = await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" });
+    expect(res.status).toBe(200);
+    expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
+    expect(await withdrawals(c.id)).toHaveLength(0);
+  });
+
+  it("Yes removes the owner and records the status, in one go", async () => {
+    const { c } = await ownedCat("yes");
+    const res = await lifeStatus(c.id, { status: "street", reason: "Not their cat", confirm: "1" });
     expect(res.status).toBe(303);
+    expect(res.headers["location"]).toContain("done=ownerRemoved");
     expect(await reload(c.id)).toMatchObject({ ownerDeviceId: null, homeDescription: null, homeLat: null });
     expect(await withdrawals(c.id)).toHaveLength(1);
     expect(await teamStatements(c.id)).toHaveLength(1);
     expect((await detail(c.id)).body.cat.hasHome).toBe(false);
   });
 
-  it("unticked, the status is recorded and the owner stays, as before", async () => {
-    const { c, d } = await ownedCat("untickedsave");
-    const res = await lifeStatus(c.id, { status: "street", reason: "Team says street" });
+  it("Yes twice (a refresh) finds no owner the second time and only records the status again", async () => {
+    const { c } = await ownedCat("yestwice");
+    await lifeStatus(c.id, { status: "street", reason: "x", confirm: "1" });
+    const again = await lifeStatus(c.id, { status: "street", reason: "x", confirm: "1" });
+    expect(again.status).toBe(303);
+    expect(again.headers["location"]).toContain("done=life");
+    expect(await withdrawals(c.id)).toHaveLength(1);
+  });
+
+  it("'Has a home' never asks, and the owner stays", async () => {
+    const { c, d } = await ownedCat("homed");
+    const res = await lifeStatus(c.id, { status: "homed", reason: "Still has a home" });
     expect(res.status).toBe(303);
     expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
     expect(await withdrawals(c.id)).toHaveLength(0);
+  });
+
+  it("a cat with no owner never asks", async () => {
+    const c = await streetCat();
+    const res = await lifeStatus(c.id, { status: "deceased", reason: "x", date: "2026-10-01" });
+    expect(res.status).toBe(303);
     expect(await teamStatements(c.id)).toHaveLength(1);
   });
 
-  it("ticked with a status of 'Has a home', the owner stays", async () => {
-    const { c, d } = await ownedCat("homedtick");
-    expect((await lifeStatus(c.id, { status: "homed", reason: "Still has a home", removeOwner: "1" })).status).toBe(303);
+  it("someone who can't remove owners (a cat guardian) saves, keeps the owner, and is told so", async () => {
+    const { c, d } = await ownedCat("guardian");
+    denied.cap = "remove_owner";
+    const res = await lifeStatus(c.id, { status: "street", reason: "Seen on the street" });
+    denied.cap = null;
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toContain("done=lifeOwnerKept");
+    expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
+    expect(await teamStatements(c.id)).toHaveLength(1);
+    const text = (await request(app).get(res.headers["location"]!).set("Cookie", cookie)).text;
+    expect(text).toContain("Saved. This cat still has an owner. Ask the team if the owner should be removed.");
+  });
+
+  it("someone who can't remove owners can't force it with confirm=1 either", async () => {
+    const { c, d } = await ownedCat("guardianyes");
+    denied.cap = "remove_owner";
+    const res = await lifeStatus(c.id, { status: "street", reason: "x", confirm: "1" });
+    denied.cap = null;
+    expect(res.status).toBe(303);
     expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
     expect(await withdrawals(c.id)).toHaveLength(0);
   });
 
-  it("ticked by someone without remove_owner is refused, and nothing changes", async () => {
-    const { c, d } = await ownedCat("tickdenied");
+  it("JSON is unchanged: removeOwner removes, without it the owner stays, and nothing asks", async () => {
+    const { c: a } = await ownedCat("jsonrm");
+    const json = (catId: number, body: Record<string, unknown>) =>
+      request(app).post(`/api/team/cats/${catId}/life-status`).set("Origin", TEAM_ORIGIN).set("Cookie", cookie).send(body);
+    expect((await json(a.id, { status: "street", reason: "x", removeOwner: "1" })).status).toBe(201);
+    expect((await reload(a.id)).ownerDeviceId).toBeNull();
+    const { c: b, d } = await ownedCat("jsonkeep");
+    expect((await json(b.id, { status: "street", reason: "x" })).status).toBe(201);
+    expect((await reload(b.id)).ownerDeviceId).toBe(d.id);
+  });
+});
+
+describe("Remove owner asks first (SYC-362 D1)", () => {
+  const unconfirmed = (catId: number, body: Record<string, unknown> = { reason: "Not their cat", status: "in_care" }) =>
+    form(`/api/team/cats/${catId}/remove-owner`).send(body);
+
+  it("the form post shows the 'Are you sure?' page carrying every field, and writes nothing", async () => {
+    const { c, d } = await ownedCat("sure");
     const before = await lifeRows(c.id);
-    denied.cap = "remove_owner";
-    const res = await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" });
-    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
-    denied.cap = null;
+    const res = await unconfirmed(c.id, { reason: 'Not "theirs" <b>', status: "deceased", date: "2026-10-01" });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("owner?</h1>");
+    expect(res.text).toContain("The owner is not told.");
+    expect(res.text).toContain("will be saved as “No longer with us”.");
+    expect(res.text).toContain('<input type="hidden" name="status" value="deceased">');
+    expect(res.text).toContain('<input type="hidden" name="date" value="2026-10-01">');
+    expect(res.text).toContain('<input type="hidden" name="reason" value="Not &quot;theirs&quot; &lt;b&gt;">');
+    expect(res.text).toContain('<button type="submit" class="risky">Yes, remove the owner</button>');
     expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
     expect(await lifeRows(c.id)).toEqual(before);
   });
 
-  it("ticked on a cat whose owner is already gone just records the status", async () => {
+  it("a bad form is refused before any 'Are you sure?' page", async () => {
+    const { c } = await ownedCat("surebad");
+    const res = await unconfirmed(c.id, { reason: "", status: "street" });
+    expect(res.status).toBe(400);
+    expect(res.text).not.toContain('name="confirm"');
+  });
+
+  it("no owner any more: straight to 'nothing to remove', no question", async () => {
     const c = await streetCat();
-    expect((await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" })).status).toBe(303);
-    expect(await teamStatements(c.id)).toHaveLength(1);
+    const res = await unconfirmed(c.id);
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toContain("done=ownerGone");
+  });
+
+  it("Yes from the dashboard's own origin acts once; a second Yes writes nothing", async () => {
+    const { c } = await ownedCat("sureyes");
+    const first = await removeOwner(c.id);
+    expect(first.headers["location"]).toContain("done=ownerRemoved");
+    const second = await removeOwner(c.id);
+    expect(second.headers["location"]).toContain("done=ownerGone");
+    expect(await withdrawals(c.id)).toHaveLength(1);
+  });
+
+  it("Yes from another origin is refused, and nothing changes", async () => {
+    const { c, d } = await ownedCat("sureorigin");
+    const res = await request(app)
+      .post(`/api/team/cats/${c.id}/remove-owner`)
+      .set("Origin", "https://evil.catspotters.com")
+      .set("Cookie", cookie)
+      .type("form")
+      .send({ reason: "x", confirm: "1" });
+    expect(res.status).toBe(401);
+    expect((await reload(c.id)).ownerDeviceId).toBe(d.id);
+  });
+
+  it("without the capability, the question isn't even asked", async () => {
+    const { c } = await ownedCat("surecap");
+    denied.cap = "remove_owner";
+    const res = await unconfirmed(c.id);
+    denied.cap = null;
+    expect(res.status).toBe(403);
+    expect(res.text).not.toContain("Are you sure");
   });
 });
 
@@ -630,38 +747,6 @@ describe("a withdrawal in the history (display fixes)", () => {
   });
 });
 
-describe("the flash after the life-status form", () => {
-  const lifeStatus = (catId: number, body: Record<string, unknown>) =>
-    form(`/api/team/cats/${catId}/life-status`).send(body);
-  const flash = async (res: request.Response) => (await request(app).get(res.headers["location"]!).set("Cookie", cookie)).text;
-
-  it("ticked, on a cat that had an owner, says the owner was removed", async () => {
-    const { c } = await ownedCat("flashtick");
-    const text = await flash(await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" }));
-    expect(text).toContain("Saved. The owner is removed and the cat&#39;s new status is in the history below. Nobody was told.");
-    expect(text).not.toContain("The life status is added to the history below.");
-  });
-
-  it("unticked keeps the ordinary flash", async () => {
-    const { c } = await ownedCat("flashuntick");
-    const text = await flash(await lifeStatus(c.id, { status: "street", reason: "x" }));
-    expect(text).toContain("Saved. The life status is added to the history below.");
-    expect(text).not.toContain("Saved. The owner is removed");
-  });
-
-  it("ticked with no owner left keeps the ordinary flash", async () => {
-    const c = await streetCat();
-    const text = await flash(await lifeStatus(c.id, { status: "street", reason: "x", removeOwner: "1" }));
-    expect(text).toContain("Saved. The life status is added to the history below.");
-  });
-
-  it("ticked with 'Has a home' (owner stays) keeps the ordinary flash", async () => {
-    const { c } = await ownedCat("flashhomed");
-    const text = await flash(await lifeStatus(c.id, { status: "homed", reason: "x", removeOwner: "1" }));
-    expect(text).toContain("Saved. The life status is added to the history below.");
-  });
-});
-
 // ── Final review fixes ─────────────────────────────────────────────────────
 
 const jsonSupersede = (id: number, value: unknown, reason = "r") =>
@@ -757,7 +842,7 @@ describe("final review 3: a home whose owner deleted their data can be removed",
     const html = (await page(c.id)).text;
     expect(html).toContain("Has a home, but the owner deleted their data");
     expect(html).toContain(`/api/team/cats/${c.id}/remove-owner"`);
-    expect(html).toMatch(/name="removeOwner" value="1" checked>\s*Also remove the owner/);
+    expect(html).toContain("This cat has an owner. Saving anything but “Has a home” asks you first");
 
     const res = await removeOwner(c.id, { reason: "Owner deleted their data" });
     expect(res.headers["location"]).toMatch(/done=ownerRemoved/);
@@ -771,10 +856,13 @@ describe("final review 3: a home whose owner deleted their data can be removed",
     expect((await page(c.id)).text).not.toContain("owner deleted their data");
   });
 
-  it("the life-status tick also works on such a cat", async () => {
+  it("the life-status form asks first on such a cat too, and Yes removes the home", async () => {
     const { c, d } = await ownedCat("fr3tick");
     expect((await deleteMe(d)).status).toBe(204);
-    const res = await form(`/api/team/cats/${c.id}/life-status`).send({ status: "street", reason: "x", removeOwner: "1" });
+    const ask = await form(`/api/team/cats/${c.id}/life-status`).send({ status: "street", reason: "x" });
+    expect(ask.status).toBe(200);
+    expect(ask.text).toContain("also removes the owner");
+    const res = await form(`/api/team/cats/${c.id}/life-status`).send({ status: "street", reason: "x", confirm: "1" });
     expect(res.headers["location"]).toMatch(/done=ownerRemoved/);
     expect(await withdrawals(c.id)).toHaveLength(1);
     expect((await detail(c.id)).body.cat.hasHome).toBe(false);

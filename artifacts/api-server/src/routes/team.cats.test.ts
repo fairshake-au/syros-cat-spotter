@@ -511,7 +511,7 @@ describe("design review fixes (PR 3)", () => {
       })
       .returning({ id: observationsTable.id });
     const html = await catHtml(other);
-    const basedOn = html.slice(html.indexOf("<dt>Based on</dt>", html.indexOf("<h3>Sterilised</h3>")));
+    const basedOn = html.slice(html.indexOf("<dt>Why we think so</dt>", html.indexOf("<h3>Sterilised</h3>")));
     const refs = basedOn.slice(0, basedOn.indexOf("</dd>"));
     expect(refs).toContain(`href="#s-${row!.id}"`);
     expect(refs).toContain("&lt;img src=x onerror=&quot;alert(2)&quot;&gt;");

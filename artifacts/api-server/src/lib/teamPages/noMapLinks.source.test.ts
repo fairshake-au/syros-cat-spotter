@@ -24,7 +24,8 @@ const MAP_COMPANIES = [
 // every feeding site (directions for a cat in trouble), and drops it within
 // 50 m of one. It is the ONLY file exempt, by exact name. The queue page
 // tests cover the near-site case.
-const EXEMPT = new Set(["queuePage.ts"]);
+// position.ts (SYC-362) is the one shared builder of the Open map link.
+const EXEMPT = new Set(["queuePage.ts", "position.ts"]);
 
 const sources = readdirSync(DIR).filter(
   (f) => f.endsWith(".ts") && !f.endsWith(".test.ts"),

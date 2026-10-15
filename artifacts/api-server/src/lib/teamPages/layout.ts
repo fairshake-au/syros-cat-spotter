@@ -235,6 +235,11 @@ form.typedpos{margin:0 0 8px}
 /* Hard-to-undo actions look different from Save (design review, 15 Oct 2026). */
 button.risky,.actions button.risky,.fixes button.risky,.statement button.risky,.gallery button.risky,form.takeout button.risky{background:#fff;color:#8c1d18;border:2px solid #8c1d18}
 button.risky:hover{background:#fbeaea}
+/* "Are you sure?" (SYC-362): what will happen, then Yes or Cancel. */
+ul.sure{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #8c1d18;border-radius:8px;margin:12px 0 16px;padding:12px 12px 12px 32px}
+ul.sure li{margin:4px 0}
+form.sureform{margin:0 0 4px}
+form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:10px 18px;border-radius:8px;cursor:pointer}
 /* A link that opens another page of actions looks like the action cards. */
 a.cardlink{display:flex;align-items:center;min-height:46px;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:0 12px;font-weight:700;color:#0b4553;text-decoration:none}
 a.cardlink:hover{border-color:#0b5c6b}

@@ -265,7 +265,7 @@ describe("P4-1: each form appends exactly one signed observation, and changes no
     expect(await rowsFor(catId)).toHaveLength(0);
   });
 
-  it("deceased needs the date the team knows of, and a date in the future is refused", async () => {
+  it("deceased needs the date it happened, and a date in the future is refused", async () => {
     const catId = await newCat();
     const noDate = await form(`/api/team/cats/${catId}/life-status`).send({ status: "deceased", reason: "Found by the road", date: "" });
     expect(noDate.status).toBe(400);
