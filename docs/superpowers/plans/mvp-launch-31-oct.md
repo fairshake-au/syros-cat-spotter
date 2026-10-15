@@ -175,14 +175,14 @@ Samuel merges in two windows a day (morning and evening), each a batch of PRs th
 | **Fri 16 Oct** | SYC-209 3.2; SYC-279 cache rule; Turnstile website part (SYC-170 1.2); SYC-44 4.1 | `0023_issue_reports` |
 | **Mon 19 Oct** | SYC-44 4.2; SYC-42 Slice 3 (reporter's email); SYC-209 3.3; the rename (SYC-34) | 4.2's one-line change, then Slice 3's if it has one |
 | **Wed 21 Oct** | SYC-44 5.2 then 5.1; SYC-209 3.4; "Likely sterilised" switched on (SYC-75) | none |
-| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen, first PR (settings, the tap count and the card); email capture, first slice | the tap-count table (next free number), then email capture's if any |
-| **Mon 26 Oct** | SYC-44 7.1; match-wait screen, second PR (result screen and the visitors' daily reminder); email capture, second slice; more than one server allowed (SYC-105) | none |
+| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen PR 1 (server pieces and the facts); email capture, first slice | one migration holding `app_settings` and `donation_link_taps` (next free number, `0027` or higher), seeded with the donation address; then email capture's if any |
+| **Mon 26 Oct** | SYC-44 7.1; match-wait screen PR 2 (the feeding nudge everywhere); email capture, second slice; more than one server allowed (SYC-105) | none |
 | **Wed 28 Oct** | Johnny's corrections; SYC-44 7.2 and 8.1 unless cut | 7.2's `photo_removal` |
 | **Thu 29 Oct** | Fixes only | none |
 
 A PR that misses its slot goes in the next one; if that pushes past Wednesday 28, it's cut in the agreed order. Each publish: database changes first through `db-ops` on Neon (with a Neon snapshot first; Samuel switches the session to "ask" mode for that step), then Samuel's pull, then Claude publishes and checks `/api/healthz` shows the new version before anything else.
 
-**Database changes are never numbered by hand**: each takes the next free number after rebasing on the latest `main` (`lib/db/migrations/README.md`). The highest today is `0022`. Two are never generated at the same time in different worktrees.
+**Database changes are never numbered by hand**: each takes the next free number after rebasing on the latest `main` (`lib/db/migrations/README.md`). The highest on `main` was `0022` on 15 Oct morning and is `0026` by that evening (`0023` issue reports, `0024` refusing deletion of sites and colonies, `0025` mail deliveries, `0026` dropping the old resend key, #188). Two are never generated at the same time in different worktrees.
 
 ---
 
@@ -216,7 +216,7 @@ Each build PR follows the usual pipeline: its own worktree off fresh `origin/mai
 | Report an issue, server | SYC-44 4.2, 5.2, then 5.1 | 4.1 live (Fri 16 publish) |
 | Reporter's email | SYC-42 Slice 3 (other session) | `news.` verified |
 | Email capture | Slices from the plan | Plan approved Mon 19 |
-| Match-wait screen | Bigger than one card (PR #174): a few settings (donation link on or off, hidden facts, the donation address), a bare count of donation-link taps (no device, name or place) with its own small database table, the two "is this a resident's phone?" signals served from the server (has it claimed a cat, and the date of its first spot; existing tables, no new table; `feeding-nudge.md` §3.2, §9), the card replacing the location map while sending, the nudge carried onto the first result screen, and a one-line daily reminder for visitors (`feeding-nudge.md` §3.2, §5.1a). Nothing shows after a spot saved with no signal (Samuel, decision 5, SYC-36). Two PRs, Sonnet, one publish slot each (Fri 23, Mon 26) | Spec approved Mon 19; the send-time measurement |
+| Match-wait screen | Plan approved 15 Oct (PR #187). **PR 1, Fri 23:** the server pieces (a settings table, the resident-signals route, the donation-tap count, the `/api/go/feed` link, which works even before launch) plus the facts during the wait. **PR 2, Mon 26:** the feeding nudge everywhere (during the wait, on the result screen, the visitors' daily one-liner, the button). The nudge waits for PR 2 so it never shows without its count. The €1/€30 figures and the button are on at launch (Samuel, D6); Syros Cats confirm them. Until a dashboard page lands (SYC-383, first week of November), Claude changes settings with a `db-ops set-setting` command, with Samuel's OK | Before PR 1: the send-time measurement, run on a temporary Neon branch (ask mode) |
 | Rename | SYC-34: app name and per-language names | D2 |
 | "Likely sterilised" | SYC-75: confirm the three conditions on the live site, then the one-line switch | Nothing |
 | Store builds | First iPhone and Android builds | Accounts |
@@ -256,6 +256,7 @@ Each line has a check that can fail. Run on Friday 30 with the pass on, then the
 | Shared limits live (SYC-105) | A limit still holds after a republish; the number of servers is what `docs/DEPLOYMENT.md` says |
 | SYC-130's change to the public home description live (DECISIONS Part 2q) | The public cat payload carries no home description where the plan says it shouldn't |
 | Location blurring live (SYC-41; SYC-114 step 0) | A public cat's position is on the 250 m grid |
+| Donation link (`/api/go/feed`, match-wait plan D3) | One live tap after switch-off goes to the donation page and is counted |
 | Launch address (SYC-306, SYC-191, SYC-229) | Opens without the password after switch-off; staff sign-in works through it; same proxy hops as `apptest` |
 | Privacy policy and support page | Both pages answer at their addresses |
 | Report inbox (SYC-173) | A marked test report reaches admin@syroscats.com, not spam |
