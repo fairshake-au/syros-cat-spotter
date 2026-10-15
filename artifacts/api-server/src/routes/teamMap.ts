@@ -25,7 +25,7 @@ import { mosaicPicture } from "../lib/mapTiles/tileCache";
 // **Permissions (plan Decision 1A).** Every route asks for
 // `view_exact_location` with NO colony target, so once the roles plan makes
 // can() strict, a guardian is refused here until PR 4.1 switches targets on.
-// Not canSomewhere ("for any colony?"), which the plan once named for the
+// Not the door's "for any colony?" check, which the plan once named for the
 // picture route: on a route it would show a guardian the whole island. In
 // SYC-53 PR 0.5 only the sign-in door may call it (agreed with that session).
 //
