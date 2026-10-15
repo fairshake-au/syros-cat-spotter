@@ -148,6 +148,13 @@
       "when": 1792021940320,
       "tag": "0020_report_token_checked",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792023899498,
+      "tag": "0021_rate_limit_counters",
+      "breakpoints": true
     }
   ]
 }

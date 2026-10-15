@@ -293,6 +293,43 @@ describe("T1-3: the unchecked limit, per address", () => {
     expect((await submit({ clientRef: ok, turnstileToken: TOKEN }, freshIp())).status).toBe(201);
   });
 
+  it("SYC-105: a refusal counts nothing, so a full address does not eat the island-wide fence", async () => {
+    siteverify = timeout;
+    const ip = freshIp();
+    for (let i = 0; i < 3; i++) {
+      expect((await submit({ clientRef: clientRef(), turnstileToken: TOKEN }, ip)).status).toBe(201);
+    }
+    for (let i = 0; i < 5; i++) {
+      expect((await submit({ clientRef: clientRef(), turnstileToken: TOKEN }, ip)).status).toBe(429);
+    }
+    const island = await db.execute(
+      sql`select coalesce(sum(hits), 0)::int as n from rate_limit_counters where bucket = 'unchecked_island'`,
+    );
+    expect((island.rows[0] as { n: number }).n).toBe(3);
+  });
+
+  it("SYC-105: the outage fence FAILS CLOSED: if the counter breaks, 503 try_again and nothing is written", async () => {
+    siteverify = timeout;
+    await db.execute(sql`alter table rate_limit_counters rename to rate_limit_counters_gone`);
+    try {
+      const ref = clientRef();
+      const res = await submit({ clientRef: ref, turnstileToken: TOKEN }, freshIp());
+      expect(res.status).toBe(503);
+      expect(res.body).toEqual({ error: "try_again" });
+      expect(await rowsFor(ref)).toHaveLength(0);
+      const d = clientRef();
+      const dr = await draft({ clientRef: d, turnstileToken: TOKEN }, freshIp());
+      expect(dr.status).toBe(503);
+      expect(await rowsFor(d)).toHaveLength(0);
+      // A checked report still goes through (the ordinary limiter fails open).
+      const ok = clientRef();
+      siteverify = pass(ok);
+      expect((await submit({ clientRef: ok, turnstileToken: TOKEN }, freshIp())).status).toBe(201);
+    } finally {
+      await db.execute(sql`alter table rate_limit_counters_gone rename to rate_limit_counters`);
+    }
+  });
+
   it("an IPv6 address counts by its /56, like every other limit", async () => {
     siteverify = timeout;
     for (const ip of ["2001:db8:7:100::1", "2001:db8:7:1ab::2", "2001:db8:7:1ff::3"]) {

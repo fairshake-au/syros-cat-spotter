@@ -31,6 +31,7 @@ import { notifyCatSpotters } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
 import { aiLimiter, checkClaimLimit } from "../middlewares/rateLimit";
+import { safeError } from "../lib/logger";
 import { containsOffensiveLanguage } from "../lib/moderation";
 import { deviceSecretMatches, verifyDeviceSecret } from "../lib/deviceAuth";
 import { WITHDRAWN, writeObservation } from "../lib/observations";
@@ -414,7 +415,17 @@ router.post("/cats/:catId/claim", async (req, res) => {
     res.json(await catPayload(cat, await sightingsCountFor(catId), new Date(), { tier: "owner", deviceId }));
     return;
   }
-  if (!checkClaimLimit(deviceId)) {
+  let withinClaimLimit: boolean;
+  try {
+    withinClaimLimit = await checkClaimLimit(deviceId);
+  } catch (err) {
+    // A limit that cannot count fails closed (SYC-105).
+    req.log.error({ err: safeError(err) }, "claim limit counter failed");
+    res.setHeader("Retry-After", "5");
+    res.status(503).json({ error: "Please try again in a moment." });
+    return;
+  }
+  if (!withinClaimLimit) {
     res.status(429).json({ error: TOO_MANY, code: "CLAIM_LIMIT" });
     return;
   }
