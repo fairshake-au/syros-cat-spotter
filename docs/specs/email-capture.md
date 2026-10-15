@@ -310,7 +310,7 @@ The suppression list checked at (1) is the **same** list used for unsubscribes a
 | Message | Trigger | Sending identity (§7) | Cap |
 |---|---|---|---|
 | **Is this you?** | Any address typed anywhere in the app | **News** *(D2 amendment — see §7)* | §4.4 |
-| **Your cat's news** | The nightly job finds a genuine, good-news status change on a cat you follow (§5.3). **Never a death, a presumed death, or any life-status change other than *homed*** (F4, §5.3) | News | Max one per fortnight; max eight per year |
+| **Your cat's news** | The nightly job finds a genuine, good-news status change on a cat you follow (§5.3). **Never a death, a presumed death, or any life-status change other than *homed*** (F4, §5.3) | News | Max one per week; no yearly cap (§5.2; changed by Samuel, 15 October 2026, SYC-344 Decision 5) |
 | **Your visit summary** | You asked for it, and the address is confirmed | News | Once per visit |
 | **Your report: we've got it** | You filed a welfare report, left an address, and confirmed it | Transactional | Once per report |
 | **Your report: what happened** | The report reaches a closing state | Transactional | Once per report (§5.4) |
@@ -323,8 +323,8 @@ That is the whole list. Anything not on it needs a new consent and a new row her
 
 ### 5.2 Frequency caps, so we never feel spammy
 
-- **A hard ceiling of one cat-news email per fortnight per person.** Three cats with news in the same week is one email about three cats.
-- **An annual ceiling of eight.** The ask screens no longer state a number (Samuel, 28 September 2026), but the privacy policy (`privacy-policy.md`) still promises "a handful of times a year at most", and the fortnight cap alone would have permitted twenty-six — so the copy and the system disagreed. They now agree, and the annual ceiling is the binding one for almost everybody.
+- **A hard ceiling of one cat-news email per week per person** (changed from one per fortnight by Samuel, 15 October 2026, SYC-344 Decision 5). Three cats with news in the same week is one email about three cats. News that arrives while the limit is closed is held and goes with the next email the limit allows; anything still waiting after 60 days is dropped.
+- ~~**An annual ceiling of eight.**~~ **Removed by Samuel, 15 October 2026 (SYC-344 Decision 5): there is no yearly ceiling.** The weekly limit is the only cap. The privacy policy's "a handful of times a year at most" was changed to match (`privacy-policy.md`).
 - **A soft floor:** no email for a single low-value event. "Spotted again" alone is not news; "spotted again after four months" is.
 - **Quiet period:** nothing in the first 48 hours after confirmation except the thing they actually asked for.
 - **Absolute ceiling:** no person gets more than one email a week across all types, except transactional ones (verification, report acknowledgement, receipt), which are never delayed.
@@ -577,7 +577,7 @@ What we do instead is the narrow version only: a **send-suppression check on `(a
 - **Rate limiting.** Uses the existing `express-rate-limit` setup in `artifacts/api-server/src/middlewares/rateLimit.ts`; a new limiter alongside `aiLimiter`, not a new mechanism. Per-address and global counters live in the database because they must survive a restart.
 - **Escaping.** Cat names and free text are user-supplied and will appear in emails. They are escaped in HTML mail and never placed unescaped in a subject or header. A cat name also passes the moderation filter (`routes/cats.moderation.test.ts`) **at send time as well as at naming time** — the existing threshold was tuned for in-app display, and a name that is merely odd on a map is a different thing on the charity's letterhead. A name that fails at send time drops to "the cat you named" rather than blocking the email.
 - **Blurring.** The email builders take the same public-precision path as any anonymous viewer (§3.3). No email path may call an exact-coordinate builder.
-- **Testing.** Invariants worth asserting: no address in any public response · no send of any kind to an unverified address · the fortnight and annual caps hold when events cluster · unsubscribe stops sends within the same request · deletion removes the address and leaves sightings intact but unlinked · a decline is remembered across app restarts · two news declines stop news asks but **not** the report ask · the notify job sends nothing for an import batch · the notify job never sends on a negative or a death · an emailed summary contains no exact coordinate.
+- **Testing.** Invariants worth asserting: no address in any public response · no send of any kind to an unverified address · the weekly cap holds when events cluster · unsubscribe stops sends within the same request · deletion removes the address and leaves sightings intact but unlinked · a decline is remembered across app restarts · two news declines stop news asks but **not** the report ask · the notify job sends nothing for an import batch · the notify job never sends on a negative or a death · an emailed summary contains no exact coordinate.
 
 ---
 
