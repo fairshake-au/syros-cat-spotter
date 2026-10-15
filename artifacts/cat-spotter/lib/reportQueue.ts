@@ -151,7 +151,7 @@ function statusOf(err: unknown): number | null {
  * A refusal that won't change on retry (the server read the request and said
  * no). Busy, gated or unreachable servers are retried for ever.
  */
-function isPermanentRefusal(err: unknown): boolean {
+export function isPermanentRefusal(err: unknown): boolean {
   const s = statusOf(err);
   // 428 is "run the safety check again", never a refusal: no strike (SYC-170).
   return (

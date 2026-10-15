@@ -15,6 +15,7 @@ import {
   dueReminders,
   requeueFailed,
   isPendingReport,
+  isPermanentRefusal,
   newPendingReport,
   syncReports,
   type PendingReport,
@@ -236,6 +237,12 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
     const refuse = api({ submit: vi.fn(async () => { throw new FakeApiError(400); }) });
     await syncReports(store, { api: refuse, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
     expect(store.items()[0]!.serverFailures).toBe(1);
+  });
+
+  it('review finding 4: isPermanentRefusal itself says a 428 is not a refusal (its own guard, probed directly)', () => {
+    expect(isPermanentRefusal(new FakeApiError(428))).toBe(false);
+    for (const s of [401, 403, 408, 429, 500, 503]) expect(isPermanentRefusal(new FakeApiError(s)), String(s)).toBe(false);
+    for (const s of [400, 404, 413, 422]) expect(isPermanentRefusal(new FakeApiError(s)), String(s)).toBe(true);
   });
 
   it('503 (try again, or our key not set) stays retryable with no strike', async () => {
