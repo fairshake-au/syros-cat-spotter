@@ -77,6 +77,8 @@ export async function severPerson(
 
   // 5. Welfare reports they sent stay, with the photo, as the cat's history
   //    (SYC-42; Samuel, 30 Sep 2026). Only the link to them goes.
+  //    Deliberately NO `kind` filter (SYC-44 PR 4.1): this clears the device
+  //    from "needs help" and "Report an issue" rows alike.
   await tx.execute(sql`
     update welfare_reports
        set reporter_device = null
