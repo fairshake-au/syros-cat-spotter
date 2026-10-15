@@ -770,3 +770,57 @@ describe('SYC-170: /_challenge (Turnstile page)', () => {
     expect((await req('GET', '/_expo/static/js/web/x.js')).status).toBe(401);
   });
 });
+
+describe('SYC-189: team.catspotters.com goes to the dashboard, never the tester app', () => {
+  const TEAM = { host: 'team.catspotters.com' };
+
+  for (const [label, env] of [
+    ['gate on', gatedEnv()],
+    ['gate off', { PRELAUNCH_GATE: 'off' }],
+  ] as const) {
+    it(`${label}: every page and file on the team address redirects to /api/team/`, async () => {
+      const req = await start(env);
+      for (const p of ['/', '/cat/12', '/restore?t=abc', '/_expo/static/js/web/x.js', '/robots.txt', '/_gate/login']) {
+        const res = await req('GET', p, { headers: TEAM });
+        expect(res.status, p).toBe(302);
+        expect(res.headers.location, p).toBe('/api/team/');
+        expect(res.headers['cache-control'], p).toBe('no-store');
+        expect(res.body, p).not.toContain('<html>home');
+      }
+      expect((await req('POST', '/_gate/login', { headers: TEAM })).status).toBe(302);
+    });
+  }
+
+  it('matches the address however it is written, or when the proxy passes it on', async () => {
+    const req = await start(gatedEnv());
+    for (const headers of [
+      { host: 'TEAM.CatSpotters.com' },
+      { host: 'team.catspotters.com:443' },
+      { host: 'team.catspotters.com.' },
+      { host: 'internal:8080', 'x-forwarded-host': 'team.catspotters.com' },
+      { host: 'internal:8080', 'x-forwarded-host': 'team.catspotters.com, proxy.internal' },
+    ]) {
+      const res = await req('GET', '/', { headers });
+      expect(res.status, JSON.stringify(headers)).toBe(302);
+      expect(res.headers.location).toBe('/api/team/');
+    }
+  });
+
+  it('/status still answers ok on the team address (health checks)', async () => {
+    const req = await start(gatedEnv());
+    const res = await req('GET', '/status', { headers: TEAM });
+    expect(res.status).toBe(200);
+    expect(res.body).toBe('ok');
+  });
+
+  it('other addresses are unchanged: the tester app and its password page', async () => {
+    const req = await start(gatedEnv());
+    for (const host of ['catspotters.com', 'www.catspotters.com', 'admin.catspotters.com', 'team.catspotters.com.evil.com', 'evilteam.catspotters.com']) {
+      const res = await req('GET', '/', { headers: { host } });
+      expect(res.status, host).toBe(200);
+      expect(res.body, host).toContain('<form');
+    }
+    const open = await start({ PRELAUNCH_GATE: 'off' });
+    expect((await open('GET', '/', { headers: { host: 'catspotters.com' } })).body).toBe('<html>home</html>');
+  });
+});
