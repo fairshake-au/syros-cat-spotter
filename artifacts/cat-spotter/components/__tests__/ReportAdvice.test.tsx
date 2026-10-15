@@ -7,7 +7,9 @@ import React from 'react';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getGuidance, type GuidanceLanguage } from '@workspace/welfare-guidance';
+import { Platform } from 'react-native';
 import { TRANSLATIONS } from '@/lib/i18n';
+import { savedWording } from '@/lib/savedWording';
 
 const lang = vi.hoisted(() => ({ current: 'en' as 'en' | 'el' | 'fr' }));
 
@@ -195,7 +197,42 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
       cleanup();
     }
     const queued = render(<ReportConfirmation state="queued" guidance={g} onDone={() => {}} />).container.textContent ?? '';
-    expect(queued).toContain(g.copy.confirmation.offline);
+    // These tests run as the website: a waiting report is "saved in this browser".
+    expect(queued).toContain(savedWording(g.copy.confirmation.offline, code, true));
+  });
+
+  it.each(LANGS)('SYC-170 PR 1.2 (%s): on a phone it still says "saved on your phone"; on the web, "in this browser"', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const web = render(<ReportConfirmation state="queued" guidance={g} onDone={() => {}} />).container.textContent ?? '';
+    cleanup();
+    const original = Platform.OS;
+    try {
+      (Platform as { OS: string }).OS = 'ios';
+      const phone = render(<ReportConfirmation state="queued" guidance={g} onDone={() => {}} />).container.textContent ?? '';
+      expect(phone).toContain(g.copy.confirmation.offline);
+    } finally {
+      (Platform as { OS: string }).OS = original;
+    }
+    expect(web).not.toContain(g.copy.confirmation.offline);
+  });
+
+  it.each(LANGS)('SYC-170 PR 1.2 (%s): after a blocked script, the report is saved and the message says what to allow', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const text = render(<ReportConfirmation state="blocked" guidance={g} onDone={() => {}} />).container.textContent ?? '';
+    expect(text).toContain(TRANSLATIONS[code].reportCheckBlocked);
+    expect(TRANSLATIONS[code].reportCheckBlocked).toContain('challenges.cloudflare.com');
+    expect(text).not.toContain(g.copy.confirmation.sentHeading);
+  });
+
+  it.each(LANGS)('SYC-170 PR 1.2 (%s): when the safety check could not run, the report is said to be saved and tried again', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const text = render(<ReportConfirmation state="check" guidance={g} onDone={() => {}} />).container.textContent ?? '';
+    expect(text).toContain(TRANSLATIONS[code].reportCheckUnavailable);
+    expect(text).not.toContain(g.copy.confirmation.sentHeading);
+    expect(text).toContain(plain(g.copy.confirmation.hurt));
   });
 
   it.each(LANGS)('SYC-180 (%s): a report sent without a photo never says the photo is saved', (code) => {
@@ -213,7 +250,7 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
     lang.current = code;
     const g = getGuidance(code);
     const text = render(<ReportConfirmation state="busy" guidance={g} onDone={() => {}} />).container.textContent ?? '';
-    expect(text).toContain(TRANSLATIONS[code].reportBusy);
+    expect(text).toContain(savedWording(TRANSLATIONS[code].reportBusy, code, true));
     expect(text).not.toContain(g.copy.confirmation.offline);
     expect(text).not.toContain(g.copy.confirmation.sentHeading);
   });
@@ -229,7 +266,7 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
     for (const code of LANGS) {
       expect(TRANSLATIONS[code].reportFailed.toLowerCase()).not.toMatch(/automatic|later|αργότερα|plus tard/);
     }
-    expect(container.textContent).toContain(TRANSLATIONS.en.reportFailed);
+    expect(container.textContent).toContain(savedWording(TRANSLATIONS.en.reportFailed, 'en', true));
   });
 
   it('never says somebody is coming, and the i18n strings around it agree', () => {

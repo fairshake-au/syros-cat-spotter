@@ -1,0 +1,254 @@
+/**
+ * SYC-170 PR 1.2: the client twin of the server's Turnstile check, website
+ * half (spec docs/specs/report-an-issue.md §9.3).
+ *
+ * `getTurnstileToken(action, cdata)` loads Cloudflare's script once, renders a
+ * managed widget and resolves its token. If no token can be made (unmapped
+ * host, script blocked, widget error, timeout) it resolves `null` and the
+ * report is sent with no token: the client never stops a report, the server
+ * decides. It throws `ChallengeUnavailable` only when Cloudflare asked this
+ * person to tap and they didn't in time.
+ * A token is single-use, so every call renders a fresh widget: nothing is
+ * cached or reused, including for each resend from the saved list.
+ *
+ * The widget lives in a small sheet that stays invisible unless Cloudflare
+ * asks for a tap (`before-interactive-callback`). The wait is cut off after
+ * about 20 seconds (it restarts once if a tap is asked for, since a person
+ * needs time). A draft (`welfare_draft`) is best effort and never interrupts
+ * anyone: if Cloudflare wants a tap for it, it gives up quietly.
+ *
+ * The sheet is plain DOM, so any caller (the queue, the draft) can use it
+ * without a place in the React tree. Its one line of text follows the
+ * language the person chose (the same local storage key as the app).
+ */
+import {
+  CHALLENGE_TIMEOUT_MS,
+  ChallengeUnavailable,
+  setScriptBlocked,
+  type ChallengeAction,
+} from './challengeUnavailable';
+import { TRANSLATIONS, type Language } from './i18n';
+import { TEST_KEY_STORAGE_KEY, sitekeyForHost } from './turnstileConfig';
+
+export { ChallengeUnavailable, CHALLENGE_TIMEOUT_MS, type ChallengeAction } from './challengeUnavailable';
+
+const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+
+interface TurnstileApi {
+  render(container: HTMLElement, params: Record<string, unknown>): string | undefined;
+  remove(widgetId: string): void;
+}
+
+function api(): TurnstileApi | undefined {
+  return (globalThis as { turnstile?: TurnstileApi }).turnstile;
+}
+
+/** How long a send waits for Cloudflare's script before it goes tokenless. */
+export const SCRIPT_LOAD_TIMEOUT_MS = 8_000;
+
+let scriptEl: HTMLScriptElement | null = null;
+
+/**
+ * Waits for Cloudflare's script, adding it once. Each send waits on it for at
+ * most SCRIPT_LOAD_TIMEOUT_MS: a script that neither loads nor errors (a weak
+ * connection) is a failure for THIS send, which then goes tokenless; the tag
+ * stays, so the next send waits on it again and uses it if it has arrived.
+ * A script that errors is removed, so the next send adds it afresh.
+ */
+function loadScript(): Promise<void> {
+  if (api()) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    let el = scriptEl;
+    if (!el || !el.isConnected) {
+      el = document.createElement('script');
+      el.src = SCRIPT_URL;
+      el.async = true;
+      scriptEl = el;
+      document.head.appendChild(el);
+    }
+    const script = el;
+    const done = () => {
+      clearTimeout(timer);
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+    };
+    const onLoad = () => {
+      done();
+      if (api()) resolve();
+      else reject(new Error('script-no-api'));
+    };
+    const onError = () => {
+      done();
+      script.remove();
+      if (scriptEl === script) scriptEl = null;
+      reject(new Error('script-error'));
+    };
+    const timer = setTimeout(() => {
+      done();
+      reject(new Error('script-hung'));
+    }, SCRIPT_LOAD_TIMEOUT_MS);
+    script.addEventListener('load', onLoad);
+    script.addEventListener('error', onError);
+  });
+}
+
+function storedValue(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function sheetLine(): string {
+  const stored = storedValue('cat-spotter/language');
+  const lang: Language = stored === 'el' || stored === 'fr' ? stored : 'en';
+  return TRANSLATIONS[lang].turnstileTapLine ?? TRANSLATIONS.en.turnstileTapLine;
+}
+
+/** The sheet for one check: hidden until Cloudflare asks for a tap. */
+function createSheet(): { root: HTMLElement; widget: HTMLElement; show(): void; destroy(): void } {
+  const root = document.createElement('div');
+  root.setAttribute('data-turnstile-sheet', '');
+  root.setAttribute('role', 'dialog');
+  root.setAttribute('aria-live', 'polite');
+  root.hidden = true;
+  Object.assign(root.style, {
+    position: 'fixed',
+    left: '50%',
+    bottom: '16px',
+    transform: 'translateX(-50%)',
+    width: 'min(92vw, 360px)',
+    boxSizing: 'border-box',
+    padding: '14px 16px',
+    background: '#ffffff',
+    color: '#1f1f1f',
+    border: '1px solid #d6d6d6',
+    borderRadius: '14px',
+    boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
+    font: '15px/22px system-ui, sans-serif',
+    textAlign: 'center',
+    zIndex: '2147483000',
+  } satisfies Partial<CSSStyleDeclaration>);
+  const line = document.createElement('p');
+  line.textContent = sheetLine();
+  line.style.margin = '0 0 10px';
+  const widget = document.createElement('div');
+  widget.style.display = 'flex';
+  widget.style.justifyContent = 'center';
+  root.append(line, widget);
+  document.body.appendChild(root);
+  return {
+    root,
+    widget,
+    show: () => {
+      root.hidden = false;
+    },
+    destroy: () => root.remove(),
+  };
+}
+
+export async function getTurnstileToken(action: ChallengeAction, cdata: string): Promise<string | null> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    throw new ChallengeUnavailable('no-browser');
+  }
+  const sitekey = sitekeyForHost(window.location.host, storedValue(TEST_KEY_STORAGE_KEY));
+  // A host with no sitekey mapping (the EU project's own address, a future
+  // launch domain): send with no token, like the native stub. The client must
+  // never be the thing that stops a report. The server decides: `observe`
+  // accepts it, `enforce` answers 428 (retried, no strike).
+  if (!sitekey) return null;
+
+  const sheet = createSheet();
+  let widgetId: string | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+
+  const cleanup = () => {
+    settled = true;
+    if (timer) clearTimeout(timer);
+    try {
+      if (widgetId !== undefined) api()?.remove(widgetId);
+    } catch {
+      // the widget is already gone
+    }
+    sheet.destroy();
+  };
+
+  try {
+    return await new Promise<string | null>((resolve, reject) => {
+      // Cloudflare asked this person to tap and they haven't yet.
+      let tapAsked = false;
+      // The client must never be the thing that stops a report. Whatever goes
+      // wrong (script blocked, widget error, nothing finishing in time) the
+      // report is sent with no token and the server decides: `observe`
+      // accepts it, `enforce` answers 428 (retried, no strike, message shown).
+      // Only "asked for a tap and they didn't in time" is ChallengeUnavailable.
+      //
+      // `error` and `unsupported` are tokenless whatever else happened (review
+      // finding 7): they aren't "someone didn't tap", so they must not rest the
+      // report as an unanswered tap. Only a timeout or expiry while the sheet
+      // was up (`tapAsked`) rejects.
+      const fail = (reason: string, alwaysTokenless = false) => {
+        if (settled) return;
+        const unanswered = tapAsked && !alwaysTokenless;
+        cleanup();
+        if (unanswered) reject(new ChallengeUnavailable(reason));
+        else resolve(null);
+      };
+      const arm = () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => fail('timeout'), CHALLENGE_TIMEOUT_MS);
+      };
+      arm();
+      loadScript().then(
+        () => {
+          setScriptBlocked(false);
+          if (settled) return;
+          try {
+            widgetId = api()!.render(sheet.widget, {
+              sitekey,
+              action,
+              cData: cdata,
+              appearance: 'interaction-only',
+              retry: 'never',
+              'refresh-expired': 'never',
+              callback: (token: string) => {
+                if (settled) return;
+                cleanup();
+                resolve(token);
+              },
+              'error-callback': () => {
+                fail('error', true);
+                return true;
+              },
+              'expired-callback': () => fail('expired'),
+              'timeout-callback': () => fail('timeout'),
+              'unsupported-callback': () => fail('unsupported', true),
+              'before-interactive-callback': () => {
+                if (action === 'welfare_draft') return fail('interactive'); // never interrupt for a draft: sent tokenless
+                tapAsked = true;
+                sheet.show();
+                arm();
+              },
+              'after-interactive-callback': () => {
+                tapAsked = false;
+                sheet.root.hidden = true;
+              },
+            });
+          } catch {
+            fail('render', true);
+          }
+        },
+        (err: unknown) => {
+          // An outright load error is what a content blocker causes; a script
+          // that is merely slow (hung) is not "blocked".
+          setScriptBlocked((err as Error | undefined)?.message === 'script-error');
+          fail('script');
+        },
+      );
+    });
+  } finally {
+    if (!settled) cleanup();
+  }
+}

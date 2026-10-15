@@ -20,6 +20,7 @@ import {
 import { createQueueStore, type QueueStore } from '@/lib/queueStore';
 import {
   REMINDER_AFTER_MS,
+  clearWaits,
   dueReminders,
   isPendingReport,
   newPendingReport,
@@ -31,6 +32,8 @@ import {
   type ReportLanguage,
   type ReportSeverity,
 } from '@/lib/reportQueue';
+import { getTurnstileToken } from '@/lib/turnstile';
+import { isScriptBlocked } from '@/lib/challengeUnavailable';
 import { ifLockFree, withLock } from '@/lib/webLocks';
 import { useDevice } from './DeviceContext';
 import { useLanguage } from './LanguageContext';
@@ -191,6 +194,10 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
             return read.status === 'ok' ? read.base64 : null;
           },
           deletePhoto: deletePendingPhoto,
+          // SYC-170: a fresh safety-check token for every send. The server
+          // reads it from the body as `turnstileToken`.
+          getToken: getTurnstileToken,
+          scriptBlocked: isScriptBlocked,
           onTextAccepted: (localId) => {
             setAcceptedIds((prev) => new Set([...prev, localId]));
             const item = store.items().find((r) => r.localId === localId);
@@ -311,10 +318,17 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
   const sendDraft = useCallback<ReportQueueValue['sendDraft']>(
     (input) => {
       if (!deviceId) return;
-      void customFetch('/api/reports/draft', {
-        method: 'POST',
-        body: JSON.stringify({ ...input, deviceId }),
-      }).catch(() => undefined);
+      // Best effort. A fresh token (action welfare_draft, cdata = the report's
+      // clientRef); if the check can't run there is simply no draft row, which
+      // is what already happens when a draft fails to send.
+      void getTurnstileToken('welfare_draft', input.clientRef)
+        .then((token) =>
+          customFetch('/api/reports/draft', {
+            method: 'POST',
+            body: JSON.stringify({ ...input, deviceId, ...(token ? { turnstileToken: token } : {}) }),
+          }),
+        )
+        .catch(() => undefined);
     },
     [deviceId],
   );
@@ -323,6 +337,7 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
     await store.ready;
     // Refused ones get another go: the person asked for them to be sent.
     await store.mutate(requeueFailed, 'user').catch(() => undefined);
+    await store.mutate(clearWaits, 'user').catch(() => undefined);
     // A sync already running may have started before the requeue.
     await syncInFlightRef.current;
     await syncNow();

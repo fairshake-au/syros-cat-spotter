@@ -19,6 +19,10 @@ const ACTIONS = new Set(['welfare_report', 'welfare_draft', 'report_issue']);
 const CDATA_PATTERN = /^[A-Za-z0-9_-]{0,100}$/;
 // Cloudflare's published always-passes test key. Development only.
 const TEST_SITEKEY = '1x00000000000000000000AA';
+// The production sitekey is public (it is sent to every browser), so it is
+// kept in code as the fallback: the same constant as lib/turnstileConfig.ts
+// (serve-web.test.ts keeps the two equal). TURNSTILE_SITEKEY still wins.
+const PRODUCTION_SITEKEY = '0x4AAAAAAFXDA4oOu3qZurFj';
 
 /** Returns {action, cdata} or null if the query is not acceptable. */
 function parseChallengeQuery(searchParams) {
@@ -33,10 +37,13 @@ function parseChallengeQuery(searchParams) {
 // The test key only when NODE_ENV is exactly "development" or "test". The
 // website's production run sets no NODE_ENV at all, so anything else counts
 // as production, the same rule as the API's gateEnabled() (lib/prelaunch.ts;
-// review of #151, finding 4): there, no TURNSTILE_SITEKEY means 503.
+// review of #151, finding 4). There, with no TURNSTILE_SITEKEY set, the
+// built-in production key is used (SYC-170 PR 1.2), so the page works without
+// a setting; the 503 remains only if there is no key at all.
 function sitekeyFor(env) {
   if (env.TURNSTILE_SITEKEY) return env.TURNSTILE_SITEKEY;
-  return env.NODE_ENV === 'development' || env.NODE_ENV === 'test' ? TEST_SITEKEY : null;
+  if (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') return TEST_SITEKEY;
+  return PRODUCTION_SITEKEY || null;
 }
 
 function jsString(value) {
@@ -126,4 +133,5 @@ module.exports = {
   newNonce,
   ACTIONS,
   TEST_SITEKEY,
+  PRODUCTION_SITEKEY,
 };

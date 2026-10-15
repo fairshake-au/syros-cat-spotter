@@ -510,6 +510,13 @@ const en: Dict = {
   reportFailed: 'This report couldn’t be sent. It’s still saved on your phone: tap Try again, or send a new report.',
   reportTryAgain: 'Try again',
   reportBusy: 'Too many reports have come from this connection in the last hour. Yours is saved on your phone and will send itself within the hour.',
+  // SYC-170: the anti-bot check ("safety check"). The first is the confirmation
+  // when the check couldn't run; the second is the one line in the small sheet
+  // that appears only when Cloudflare asks for a tap.
+  reportCheckUnavailable: 'We couldn’t run the safety check. Your report is still saved and we’ll try again.',
+  turnstileTapLine: 'Quick safety check: please tick the box to show you’re a real person.',
+  // Shown only when the server asked for the check and Cloudflare's script never loaded.
+  reportCheckBlocked: 'Your report is saved. A content blocker may be stopping the safety check: allow challenges.cloudflare.com for this page, or use the Cat Spotters app.',
   reportDone: 'Done',
   reportReminder: 'You have a cat report that hasn’t sent yet.',
   // Samuel, 2 Oct 2026: three screens, no scrolling.
@@ -1057,6 +1064,9 @@ const el: Dict = {
   reportFailed: 'Αυτή η αναφορά δεν μπόρεσε να σταλεί. Είναι ακόμα αποθηκευμένη στο κινητό σου: πάτα «Δοκίμασε ξανά» ή στείλε νέα αναφορά.',
   reportTryAgain: 'Δοκίμασε ξανά',
   reportBusy: 'Έχουν σταλεί πολλές αναφορές από αυτή τη σύνδεση την τελευταία ώρα. Η δική σου είναι αποθηκευμένη στο κινητό σου και θα σταλεί μόνη της μέσα στην ώρα.',
+  reportCheckUnavailable: 'Δεν μπορέσαμε να κάνουμε τον έλεγχο ασφαλείας. Η αναφορά σου είναι ακόμα αποθηκευμένη και θα ξαναπροσπαθήσουμε.',
+  turnstileTapLine: 'Γρήγορος έλεγχος ασφαλείας: πάτα το πλαίσιο για να φανεί ότι είσαι άνθρωπος.',
+  reportCheckBlocked: 'Η αναφορά σου είναι αποθηκευμένη. Ένας αποκλεισμός περιεχομένου μπορεί να εμποδίζει τον έλεγχο ασφαλείας: επίτρεψε το challenges.cloudflare.com για αυτή τη σελίδα ή χρησιμοποίησε την εφαρμογή Cat Spotters.',
   reportDone: 'Τέλος',
   reportReminder: 'Έχεις μια αναφορά για γάτα που δεν έχει σταλεί ακόμα.',
   reportStepOf: '{n} από 3',
@@ -1602,6 +1612,9 @@ const fr: Dict = {
   reportFailed: 'Ce signalement n’a pas pu être envoyé. Il est toujours enregistré sur ton téléphone : appuie sur « Réessayer », ou envoie un nouveau signalement.',
   reportTryAgain: 'Réessayer',
   reportBusy: 'Trop de signalements sont partis de cette connexion dans la dernière heure. Le tien est enregistré sur ton téléphone et partira tout seul dans l’heure.',
+  reportCheckUnavailable: 'On n’a pas pu faire la vérification de sécurité. Ton signalement est toujours enregistré et on réessaiera.',
+  turnstileTapLine: 'Petite vérification de sécurité : coche la case pour montrer que tu es bien une vraie personne.',
+  reportCheckBlocked: 'Ton signalement est enregistré. Un bloqueur de contenu empêche peut-être la vérification de sécurité : autorise challenges.cloudflare.com pour cette page, ou utilise l’application Cat Spotters.',
   reportDone: 'Terminé',
   reportReminder: 'Tu as un signalement de chat qui n’a pas encore été envoyé.',
   reportStepOf: '{n} sur 3',

@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PRODUCTION_SITEKEY, TEST_SITEKEY_PASSES } from '../lib/turnstileConfig';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +29,8 @@ const { createHandler, describeGate } = require('./serve-web.js') as {
   ) => http.RequestListener;
   describeGate: (env: Record<string, string | undefined>) => string[];
 };
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const challenge = require('./challenge-page.js') as { PRODUCTION_SITEKEY: string; TEST_SITEKEY: string };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const prelaunch = require('./prelaunch.js') as {
   sessionKeys: (env: Record<string, string | undefined>) => Buffer[];
@@ -696,22 +699,30 @@ describe('SYC-170: /_challenge (Turnstile page)', () => {
     expect(res.body).not.toContain('window.parent');
   });
 
-  it('uses TURNSTILE_SITEKEY; production without one is 503', async () => {
+  it('uses TURNSTILE_SITEKEY when set; production without one falls back to the built-in production key', async () => {
     const req = await start({ PRELAUNCH_GATE: 'off', TURNSTILE_SITEKEY: '0xPRODKEY' });
     expect((await req('GET', OK)).body).toContain('"0xPRODKEY"');
     const prod = await start({ PRELAUNCH_GATE: 'off', NODE_ENV: 'production' });
-    expect((await prod('GET', OK)).status).toBe(503);
+    const res = await prod('GET', OK);
+    expect(res.status).toBe(200);
+    expect(res.body).toContain('"0x4AAAAAAFXDA4oOu3qZurFj"');
   });
 
-  it('review finding 4: with no NODE_ENV at all (how production runs), no sitekey is 503, never the test key', async () => {
+  it('SYC-170 PR 1.2: with no NODE_ENV at all (how production runs) and no setting, the production key is used, never the test key', async () => {
     for (const env of [{ PRELAUNCH_GATE: 'off' }, gatedEnv(), { PRELAUNCH_GATE: 'off', NODE_ENV: 'staging' }]) {
       const req = await start(env);
       const res = await req('GET', OK);
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
+      expect(res.body).toContain('"0x4AAAAAAFXDA4oOu3qZurFj"');
       expect(res.body).not.toContain('1x00000000000000000000AA');
     }
     const test = await start({ PRELAUNCH_GATE: 'off', NODE_ENV: 'test' });
     expect((await test('GET', OK)).body).toContain('1x00000000000000000000AA');
+  });
+
+  it('the server and the app hold the same production sitekey', () => {
+    expect(challenge.PRODUCTION_SITEKEY).toBe(PRODUCTION_SITEKEY);
+    expect(challenge.TEST_SITEKEY).toBe(TEST_SITEKEY_PASSES);
   });
 
   it.each([
