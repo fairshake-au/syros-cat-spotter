@@ -152,6 +152,8 @@ Checked against `origin/main` and the open PRs, not the tickets.
 
 ### Slice C — colours (SYC-161; no migration)
 
+> **Superseded for the build, 15 October 2026:** SYC-161 is built from its own approved plan, `syc-161-auto-coat-colour.md`. Where this slice and that plan differ (a separate one-photo reading rather than riding along with matching, a fill-in run started by hand and checked by Samuel rather than a start-up job, and the reading rules R1–R8), that plan wins.
+
 > **Amended 12 October 2026 (SYC-2 plan, Decision A1).** The colour rules, the `coat` payload field and the chip component come from SYC-2 (`syc-2-coat-markings-and-health.md`), which is built first; this slice adds the machine reading, the backfill and the "Find the cat" chips on top. "A person's reading beats the machine's" below is narrowed by SYC2-D10 (a single spotter fills a gap but never overturns a machine reading; see `DECISIONS.md` Part 2n). The cache key is not bumped.
 
 - **Needs data spine PR 2** (the single observation write path). A `coat` observation is written only through it.
