@@ -29,13 +29,14 @@ The build work fits the window. The things that can sink October are all **lead 
 
 ## B. App build pipeline
 
-- [ ] Set `ios.bundleIdentifier` and `android.package` (e.g. `au.fairshake.catspotters`) — **unset today**
+- [x] Set `ios.bundleIdentifier` and `android.package`: both are `com.syroscatspotters.app` (`app.json`). Keeping it is decision D2 (SYC-347)
 - [ ] Icons and splash under the Cat Spotters brand; store screenshots ×3 languages
 - [ ] Permission strings (camera, photo library, location) in all three languages — Apple rejects vague ones
-- [ ] **Google Maps API key for Android** — `react-native-maps` on Android requires one even with our OSM tiles on top; without it the map renders blank. Restrict the key to the app signature. iOS uses Apple Maps, no key.
-- [ ] Create `eas.json`; EAS Build for both platforms with managed credentials (Samuel runs builds)
+- [ ] **Google Maps API key for Android** — `react-native-maps` on Android requires one even with our OSM tiles on top; without it the map renders blank. Restrict the key to the app signature. iOS uses Apple Maps, no key. The build reads it from EAS (`GOOGLE_MAPS_ANDROID_API_KEY`) and refuses to make an Android test or store build without it (SYC-323). Samuel's steps: [runbooks/store-builds.md](runbooks/store-builds.md) §3
+- [x] Create `eas.json` (SYC-323): `development` / `preview` / `production` profiles, build numbers kept by EAS. Settings and Samuel's console steps: [runbooks/store-builds.md](runbooks/store-builds.md)
+- [ ] EAS Build for both platforms with managed credentials (Samuel runs the first builds: [runbooks/store-builds.md](runbooks/store-builds.md) §4–§6)
 - [ ] Verified 3 Sep: Replit's guided mobile publishing ("Expo Launch" wizard) covers **iOS only** — build → TestFlight → App Store, so it can carry our iOS path if preferred over raw EAS. **Google Play has no guided path on Replit** ("can be accomplished manually"), so Android goes through EAS + Play Console regardless. Replit's "Publish" button on a mobile app produces an **Expo Go preview URL**, not a web app — a browser-usable web deployment needs the web export served as a normal web deployment (section C)
-- [ ] Point `EXPO_PUBLIC_DOMAIN` at the production API domain
+- [ ] Point `EXPO_PUBLIC_DOMAIN` at the production API domain. It's in `eas.json`, set to `apptest.catspotters.com` until SYC-306 decides the launch address
 - [ ] Verify push end to end: Expo push token registration on device, FCM credentials for Android via EAS, one real notification received on each platform
 
 ## C. Backend to production
