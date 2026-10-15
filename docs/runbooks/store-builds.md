@@ -58,19 +58,25 @@ npx eas-cli@24.14.0 login
 npx eas-cli@24.14.0 init
 ```
 
-`init` creates the project on Expo and writes two lines into `app.json` in your checkout: the project id (`extra.eas.projectId`) and the account (`owner`). Neither is secret. Push notifications need the id (`NotificationContext.tsx` reads it).
+`init` creates the project on Expo and writes the project id (`extra.eas.projectId`) into `app.json` in your checkout, and probably the account name (`owner`) too; that part is **unchecked**. Neither is secret. Push notifications need the id (`NotificationContext.tsx` reads it).
 
-Then **tell Claude "eas init done"**. Don't commit it yourself. Claude reads the two lines from your checkout, puts them into a small PR (the only `app.json` change this needs), and once it's merged you run:
+Then **tell Claude "eas init done"**. Don't commit it yourself. Claude reads what changed in your checkout, puts them into a small PR (the only `app.json` change this needs), and once it's merged you run:
 
 ```bash
 git -C /Users/samuelporter/Projects/syros-cat-spotter checkout -- artifacts/cat-spotter/app.json
 ```
 
+This next one should print `main`. If it prints anything else, other sessions are using that checkout: stop and tell Claude rather than pulling.
+
 ```bash
-git -C /Users/samuelporter/Projects/syros-cat-spotter pull
+git -C /Users/samuelporter/Projects/syros-cat-spotter branch --show-current
 ```
 
-Steps 2 and 3 work straight away, before that PR merges. Steps 4–6 (the builds) wait for it, because `eas build` stops on uncommitted changes.
+```bash
+git -C /Users/samuelporter/Projects/syros-cat-spotter pull --ff-only
+```
+
+Steps 2 and 3 work straight away, before that PR merges. Steps 4–6 (the builds) wait for it, so the builds match what's on `main`. (`eas build` would also run with the file uncommitted; it just uploads your copy.)
 
 ### 2. The tester key into EAS
 
@@ -168,4 +174,4 @@ These are on SYC-323 for Samuel, each with a recommendation:
 
 - **"This production build is missing: …"** The named setting isn't in that EAS environment. Run the matching `env:set` above, then build again.
 - **`eas config` or `eas build` says "An Expo user account is required".** Run step 1's `login`.
-- **Blank map on Android.** The map key is missing, or step 3.5's fingerprints don't match the build. A `preview` build is signed with the upload key, a Play download with Google's key, which is why both are listed (§3, item 5).
+- **Blank map on Android.** The map key is missing, or the fingerprints (§3, item 5) don't match the build. A `preview` build is signed with the upload key, a Play download with Google's key, which is why both are listed.
