@@ -17,7 +17,7 @@ const w = (key: WordKey) => esc(t(key));
 const colonyHref = (id: number) => `/api/team/colonies/${id}`;
 
 /** Dates on Syros: the team reads them in Greek time. */
-const day = (iso: string) =>
+export const day = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -241,7 +241,9 @@ export function renderColonyPage(
   const sites =
     v.sites.length === 0
       ? `<p class="empty">${w("colony.noSites")}</p>`
-      : `<ul class="refs">${v.sites.map((s) => `<li>${esc(s.name)}</li>`).join("")}</ul>`;
+      : `<ul class="refs">${v.sites
+          .map((s) => `<li><a href="/api/team/sites/${s.id}">${esc(s.name)}</a></li>`)
+          .join("")}</ul>`;
   const summary =
     `<dl>` +
     `<dt>${w("colonies.guardian")}</dt><dd>${v.guardianName ? esc(v.guardianName) : w("colonies.noGuardian")}</dd>` +
