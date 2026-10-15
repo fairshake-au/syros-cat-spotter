@@ -14,20 +14,22 @@ Branch: claude/syc-42-slice-3-reporter-email (worktree compassionate-meninsky-98
 
 ## Decisions
 - Samuel, 15 Oct 2026: reporter emails in English for everyone until SYC-283 checks el/fr.
+- Samuel, 15 Oct 2026: the email question is its own screen (4 screens) when offered.
 
 ## Plan items (server DONE through 7a3689e; app next)
-- [ ] 3.1 email box + consent wording (email-capture §3.4) in the app flow
+- [x] 3.1 email box + consent wording (email-capture §3.4) in the app flow
 - [x] 3.2 address -> email_contacts(purpose report); report row holds reporter_contact_id
 - [x] 3.3 fixed verification (§4.1) from news; nothing else until confirmed
 - [x] 3.4 ack (§5.3g) after confirm + one outcome (§5.3h) at closing state; optional team sentence on Done
 - [x] 3.5 limits 1/24h, 3 lifetime, suppression; report row always written
 - [x] 3.6 mail_deliveries + Resend webhook (signature-checked) -> suppression
-- [ ] 3.7 confirmation screen "If an email was given" line
+- [x] 3.7 confirmation screen "If an email was given" line
 - [x] SYC-63: severPerson erases reporter contacts
 
+## Status (rebased on origin/main 9d6a4fb; migration renumbered 0024)
+- All items built; browser-checked at 390 px (en/el/fr) and 1280 px, offline then online.
+- Pushed; Sonnet adversarial review running in its own worktree; PR opening as draft.
 ## Next
-- App: email box on screen 2 (after 'What you saw', spec §4.2 order), GET /api/reports/options gate,
-  PendingReport.email, confirmation line (guidance copy.confirmation.emailGiven/emailGivenOffline, el/fr drafts).
-- Browser check at 390 px + desktop; measure screen 2 scroll (Samuel's no-scroll rule, 2 Oct).
-- Full api suite (local esbuild dies under load: rerun with --maxWorkers=2).
-- PR, Sonnet adversarial review in own worktree, Linear.
+- Fold review findings, CI green, Linear (SYC-42 comment, SYC-302 retention note, SYC-283 strings, deferred tickets).
+- Rollout needs Samuel: RESEND_NEWS_API_KEY + RESEND_WEBHOOK_SECRET in Replit; Resend webhook endpoint; news. status in Resend unchecked.
+- Cleanup: drop scratch DB syc42s3_preview; stop local API (8098), fake mail (8097), Expo (8099).
