@@ -1,0 +1,67 @@
+Chromium | 320 | layout | band mapband b144; pictures 144x144@(12,185) 144x144@(156,185) 144x144@(12,329) 144x144@(156,329); page 320/320 | PASS
+Chromium | 320 | tap (17, 23) on picture 2 | server read (18, 24) on 144 px | PASS
+Chromium | 320 | layout after tap | band mapband b144; whole px: true; page 320/320 | PASS
+Chromium | 320 | tap (1, 1) on picture 2 | server read (2, 2) on 144 px | PASS
+Chromium | 320 | tap (143, 143) on picture 1 | server read (138, 138) on 144 px | FAIL
+Chromium | 360 | layout | band mapband b164; pictures 164x164@(12,185) 164x164@(176,185) 164x164@(12,349) 164x164@(176,349); page 360/360 | PASS
+Chromium | 360 | tap (17, 23) on picture 2 | server read (18, 24) on 164 px | PASS
+Chromium | 360 | layout after tap | band mapband b164; whole px: true; page 360/360 | PASS
+Chromium | 360 | tap (1, 1) on picture 2 | server read (2, 2) on 164 px | PASS
+Chromium | 360 | tap (163, 163) on picture 1 | server read (158, 158) on 164 px | FAIL
+Chromium | 375 | layout | band mapband b171; pictures 171x171@(12,185) 171x171@(183,185) 171x171@(12,356) 171x171@(183,356); page 375/375 | PASS
+Chromium | 375 | tap (17, 23) on picture 2 | server read (18, 24) on 171 px | PASS
+Chromium | 375 | layout after tap | band mapband b171; whole px: true; page 375/375 | PASS
+Chromium | 375 | tap (1, 1) on picture 2 | server read (2, 2) on 171 px | PASS
+Chromium | 375 | tap (170, 170) on picture 1 | server read (165, 165) on 171 px | FAIL
+Chromium | 390 | layout | band mapband b179; pictures 179x179@(12,185) 179x179@(191,185) 179x179@(12,364) 179x179@(191,364); page 390/390 | PASS
+Chromium | 390 | tap (17, 23) on picture 2 | server read (18, 24) on 179 px | PASS
+Chromium | 390 | layout after tap | band mapband b179; whole px: true; page 390/390 | PASS
+Chromium | 390 | tap (1, 1) on picture 2 | server read (2, 2) on 179 px | PASS
+Chromium | 390 | tap (178, 178) on picture 1 | server read (173, 173) on 179 px | FAIL
+Chromium | 1280 | layout | band mapband b256; pictures 256x256@(272,149) 256x256@(528,149) 256x256@(272,405) 256x256@(528,405); page 1280/1280 | PASS
+Chromium | 1280 | tap (17, 23) on picture 2 | server read (18, 24) on 256 px | PASS
+Chromium | 1280 | layout after tap | band mapband b256; whole px: true; page 1280/1280 | PASS
+Chromium | 1280 | tap (1, 1) on picture 2 | server read (2, 2) on 256 px | PASS
+Chromium | 1280 | tap (255, 255) on picture 1 | nothing posted | FAIL
+WebKit | 320 | layout | band mapband b144; pictures 144x144@(12,185) 144x144@(156,185) 144x144@(12,329) 144x144@(156,329); page 320/320 | PASS
+WebKit | 320 | tap (17, 23) on picture 2 | server read (17, 23) on 144 px | PASS
+WebKit | 320 | tap (1, 1) on picture 2 | server read (1, 1) on 144 px | PASS
+WebKit | 320 | tap (143, 143) on picture 1 | server read (143, 143) on 144 px | PASS
+WebKit | 360 | layout | band mapband b164; pictures 164x164@(12,185) 164x164@(176,185) 164x164@(12,349) 164x164@(176,349); page 360/360 | PASS
+WebKit | 360 | tap (17, 23) on picture 2 | server read (17, 23) on 164 px | PASS
+WebKit | 360 | tap (1, 1) on picture 2 | server read (1, 1) on 164 px | PASS
+WebKit | 360 | tap (163, 163) on picture 1 | server read (163, 163) on 164 px | PASS
+WebKit | 375 | layout | band mapband b171; pictures 171x171@(12,185) 171x171@(183,185) 171x171@(12,356) 171x171@(183,356); page 375/375 | PASS
+WebKit | 375 | tap (17, 23) on picture 2 | server read (17, 23) on 171 px | PASS
+WebKit | 375 | tap (1, 1) on picture 2 | server read (1, 1) on 171 px | PASS
+WebKit | 375 | tap (170, 170) on picture 1 | server read (170, 170) on 171 px | PASS
+WebKit | 390 | layout | band mapband b179; pictures 179x179@(12,185) 179x179@(191,185) 179x179@(12,364) 179x179@(191,364); page 390/390 | PASS
+WebKit | 390 | tap (17, 23) on picture 2 | server read (17, 23) on 179 px | PASS
+WebKit | 390 | tap (1, 1) on picture 2 | server read (1, 1) on 179 px | PASS
+WebKit | 390 | tap (178, 178) on picture 1 | server read (178, 178) on 179 px | PASS
+WebKit | 1280 | layout | band mapband b256; pictures 256x256@(272,149) 256x256@(528,149) 256x256@(272,405) 256x256@(528,405); page 1280/1280 | PASS
+WebKit | 1280 | tap (17, 23) on picture 2 | server read (17, 23) on 256 px | PASS
+WebKit | 1280 | tap (1, 1) on picture 2 | server read (1, 1) on 256 px | PASS
+WebKit | 1280 | tap (255, 255) on picture 1 | server read (255, 255) on 256 px | PASS
+Firefox | 320 | layout | band mapband b144; pictures 144x144@(12,185) 144x144@(156,185) 144x144@(12,329) 144x144@(156,329); page 320/320 | PASS
+Firefox | 320 | tap (17, 23) on picture 2 | server read (17, 23) on 144 px | PASS
+Firefox | 320 | tap (1, 1) on picture 2 | server read (1, 1) on 144 px | PASS
+Firefox | 320 | tap (143, 143) on picture 1 | server read (143, 143) on 144 px | PASS
+Firefox | 360 | layout | band mapband b164; pictures 164x164@(12,185) 164x164@(176,185) 164x164@(12,349) 164x164@(176,349); page 360/360 | PASS
+Firefox | 360 | tap (17, 23) on picture 2 | server read (17, 23) on 164 px | PASS
+Firefox | 360 | tap (1, 1) on picture 2 | server read (1, 1) on 164 px | PASS
+Firefox | 360 | tap (163, 163) on picture 1 | server read (163, 163) on 164 px | PASS
+Firefox | 375 | layout | band mapband b171; pictures 171x171@(12,185) 171x171@(183,185) 171x171@(12,356) 171x171@(183,356); page 375/375 | PASS
+Firefox | 375 | tap (17, 23) on picture 2 | server read (17, 23) on 171 px | PASS
+Firefox | 375 | tap (1, 1) on picture 2 | server read (1, 1) on 171 px | PASS
+Firefox | 375 | tap (170, 170) on picture 1 | server read (170, 170) on 171 px | PASS
+Firefox | 390 | layout | band mapband b179; pictures 179x179@(12,185) 179x179@(191,185) 179x179@(12,364) 179x179@(191,364); page 390/390 | PASS
+Firefox | 390 | tap (17, 23) on picture 2 | server read (17, 23) on 179 px | PASS
+Firefox | 390 | tap (1, 1) on picture 2 | server read (1, 1) on 179 px | PASS
+Firefox | 390 | tap (178, 178) on picture 1 | server read (178, 178) on 179 px | PASS
+Firefox | 1280 | layout | band mapband b256; pictures 256x256@(272,149) 256x256@(528,149) 256x256@(272,405) 256x256@(528,405); page 1280/1280 | PASS
+Firefox | 1280 | tap (17, 23) on picture 2 | server read (17, 23) on 256 px | PASS
+Firefox | 1280 | tap (1, 1) on picture 2 | server read (1, 1) on 256 px | PASS
+Firefox | 1280 | tap (255, 255) on picture 1 | server read (255, 255) on 256 px | PASS
+Origin the browser sent on the map's form posts: Chromium: null; WebKit: null; Firefox: null
+FAILS 5 of 65
