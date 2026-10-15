@@ -6,7 +6,7 @@ import {
   welfareReportPhotosTable,
   welfareReportsTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { OVERDUE_MINUTES } from "./mail/outbox";
 import { logger, safeError } from "./logger";
@@ -164,8 +164,10 @@ function toReport(r: Row, mail: Map<number, string[]>): QueueReport {
     id: r.publicId,
     severity: r.severity as QueueReport["severity"],
     isLitter: r.isLitter,
-    lat: r.lat,
-    lng: r.lng,
+    // Welfare rows always have a position (welfare_reports_position_ck); the
+    // column is nullable only for "Report an issue" rows, filtered out above.
+    lat: r.lat!,
+    lng: r.lng!,
     at: (r.submittedAt ?? r.createdAt).toISOString(),
     note: r.note,
     state: r.state as QueueReport["state"],
@@ -187,7 +189,15 @@ function toReport(r: Row, mail: Map<number, string[]>): QueueReport {
 
 const reportTime = sql`coalesce(${welfareReportsTable.submittedAt}, ${welfareReportsTable.createdAt})`;
 
-function reportsQuery() {
+/**
+ * SYC-44 PR 4.1: this queue is the "needs help" queue. A "Report an issue"
+ * row (`kind = 'content'`) shares the table but never appears here; it gets
+ * its own query in the Issues section. Every read below carries this.
+ */
+const isWelfare = eq(welfareReportsTable.kind, "welfare");
+
+/** The queue's report rows, welfare kind only, narrowed by `where`. */
+function reportsQuery(where: SQL | undefined) {
   return db
     .select(SELECT)
     .from(welfareReportsTable)
@@ -197,7 +207,8 @@ function reportsQuery() {
     )
     .leftJoin(catsTable, eq(catsTable.id, welfareReportsTable.catId))
     .leftJoin(changedBy, eq(changedBy.id, welfareReportsTable.stateChangedBy))
-    .leftJoin(notedBy, eq(notedBy.id, welfareReportsTable.teamNoteBy));
+    .leftJoin(notedBy, eq(notedBy.id, welfareReportsTable.teamNoteBy))
+    .where(and(isWelfare, where));
 }
 
 export async function mailHealth(): Promise<MailHealth> {
@@ -223,7 +234,7 @@ export async function mailHealth(): Promise<MailHealth> {
           and created_at < now() - make_interval(mins => ${OVERDUE_MINUTES})
       )::int as late
     from mail_outbox
-    where purpose = 'welfare_alert'
+    where purpose in ('welfare_alert', 'issue_alert')
   `);
   const row = result.rows[0] as { failed: number; late: number } | undefined;
   return { failed: Number(row?.failed ?? 0), late: Number(row?.late ?? 0) };
@@ -262,7 +273,7 @@ async function mailStatesFor(ids: number[]): Promise<Map<number, string[]>> {
 export async function getQueueReport(
   publicId: string,
 ): Promise<QueueReport | null> {
-  const [row] = await reportsQuery().where(
+  const [row] = await reportsQuery(
     and(
       eq(welfareReportsTable.publicId, publicId),
       eq(welfareReportsTable.isDraft, false),
@@ -304,29 +315,31 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
     mail,
   ] =
     await Promise.all([
-      reportsQuery()
-        .where(and(sent, isOpen, checked))
+      reportsQuery(and(sent, isOpen, checked))
         .orderBy(
           desc(sql`(${welfareReportsTable.severity} = 'urgent')`),
           desc(reportTime),
           desc(welfareReportsTable.id),
         ),
-      reportsQuery()
-        .where(
-          and(sent, inArray(welfareReportsTable.state, [...CLOSED_STATES])),
-        )
+      reportsQuery(
+        and(sent, inArray(welfareReportsTable.state, [...CLOSED_STATES])),
+      )
         .orderBy(desc(reportTime), desc(welfareReportsTable.id))
         .limit(CLOSED_LIMIT),
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
         .where(
-          and(sent, inArray(welfareReportsTable.state, [...CLOSED_STATES])),
+          and(
+            isWelfare,
+            sent,
+            inArray(welfareReportsTable.state, [...CLOSED_STATES]),
+          ),
         ),
       db
         .select(draftColumns)
         .from(welfareReportsTable)
-        .where(and(draft, checked))
+        .where(and(isWelfare, draft, checked))
         .orderBy(
           desc(welfareReportsTable.createdAt),
           desc(welfareReportsTable.id),
@@ -335,20 +348,19 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
-        .where(and(draft, checked)),
+        .where(and(isWelfare, draft, checked)),
       // Unchecked: newest first, urgent or not (never the urgent-first order).
-      reportsQuery()
-        .where(and(sent, isOpen, unchecked))
+      reportsQuery(and(sent, isOpen, unchecked))
         .orderBy(desc(reportTime), desc(welfareReportsTable.id))
         .limit(UNCHECKED_LIMIT),
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
-        .where(and(sent, isOpen, unchecked)),
+        .where(and(isWelfare, sent, isOpen, unchecked)),
       db
         .select(draftColumns)
         .from(welfareReportsTable)
-        .where(and(draft, unchecked))
+        .where(and(isWelfare, draft, unchecked))
         .orderBy(
           desc(welfareReportsTable.createdAt),
           desc(welfareReportsTable.id),
@@ -357,7 +369,7 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(welfareReportsTable)
-        .where(and(draft, unchecked)),
+        .where(and(isWelfare, draft, unchecked)),
       mailHealth(),
     ]);
 
@@ -367,8 +379,8 @@ export async function listWelfareQueue(): Promise<WelfareQueue> {
   const toDraft = (d: (typeof draftRows)[number]): QueueDraft => ({
     id: d.publicId,
     severity: d.severity as QueueDraft["severity"],
-    lat: d.lat,
-    lng: d.lng,
+    lat: d.lat!,
+    lng: d.lng!,
     startedAt: d.createdAt.toISOString(),
   });
 

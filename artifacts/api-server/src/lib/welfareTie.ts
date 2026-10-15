@@ -60,6 +60,13 @@ export type TieOutcome =
   | { kind: "same" }
   /** No such sent report (a draft is "no such report"). */
   | { kind: "report_not_found" }
+  /**
+   * The report is a "Report an issue" row (`kind = 'content'`). Never tied:
+   * a tie writes a `welfare_report` observation, which counts as evidence the
+   * cat was seen alive, and a `cat_died` report would push that date later
+   * (SYC-44 spec §5.1). Nothing written.
+   */
+  | { kind: "not_welfare" }
   /** No such cat. */
   | { kind: "cat_not_found" };
 
@@ -98,6 +105,8 @@ export async function tieReportToCat(input: {
         .from(welfareReportsTable)
         .where(eq(welfareReportsTable.id, locked.rows[0]!.id));
       if (!report) return { kind: "report_not_found" };
+      // SYC-44 PR 4.1: only a welfare report can be tied (see TieOutcome).
+      if (report.kind !== "welfare") return { kind: "not_welfare" };
 
       // 2. The standing welfare_report observation for this report, if any.
       const standing = await tx.execute<{ id: number }>(sql`

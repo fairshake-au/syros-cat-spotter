@@ -112,8 +112,14 @@ export function buildWelfareAlert(
    */
   withMapLinks: boolean,
 ): { subject: string; text: string; html: string; attachments?: MailAttachment[] } {
+  // A "Report an issue" row (SYC-44) has no position and never gets this
+  // email; the outbox refuses it before getting here (`wrong_kind`).
+  if (report.lat === null || report.lng === null) {
+    throw new Error("buildWelfareAlert: not a welfare report");
+  }
+  const { lat, lng } = report;
   const subject = alertSubject(report, kind);
-  const links = mapLinks(report.lat, report.lng);
+  const links = mapLinks(lat, lng);
   const mapTextLines = withMapLinks
     ? [`Google Maps: ${links.google}`, `Apple Maps: ${links.apple}`]
     : [];
@@ -121,7 +127,7 @@ export function buildWelfareAlert(
   const palette = report.severity === "urgent" ? URGENT : ATTENTION;
   const status = photoStatus(report, photo);
   const typed = report.note?.trim() ?? "";
-  const coords = `${report.lat}, ${report.lng}`;
+  const coords = `${lat}, ${lng}`;
   const language = languageName(report.reporterLanguage);
 
   // ---- Plain text: the same order as the HTML, for clients that show text.

@@ -266,3 +266,89 @@ describe("test 16: the drain fails loudly when an alert is over an hour late", (
     expect((await drain(DRAIN_TOKEN)).status).toBe(200);
   });
 });
+
+describe("T4-5 (SYC-44 PR 4.1): a welfare_alert for a 'Report an issue' row is never sent", () => {
+  it("is marked failed wrong_kind, never built with the welfare copy, and the welfare alert beside it still goes", async () => {
+    const welfare = await seedReport();
+    // Someone queues a welfare_alert for a content row. It is given a
+    // position here (the database allows one) so that the KIND, not a missing
+    // position, is what stops the email.
+    const [content] = await db
+      .insert(welfareReportsTable)
+      .values({
+        publicId: `pub-${randomBytes(10).toString("hex")}`,
+        kind: "content",
+        reason: "other",
+        severity: "attention",
+        lat: 37.44,
+        lng: 24.94,
+        reporterDevice: DEVICE,
+        clientRef: randomBytes(6).toString("hex"),
+        photoState: "none",
+        submittedAt: new Date(),
+      })
+      .returning();
+    await db.insert(mailOutboxTable).values({
+      purpose: "welfare_alert",
+      reportId: content!.id,
+      recipientHash: "0000000000000000",
+      payload: { kind: "alert" },
+      nextAttemptAt: new Date(Date.now() - 1000),
+    });
+
+    await drainDue(10);
+
+    const [row] = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.reportId, content!.id));
+    expect(row!.state).toBe("failed");
+    expect(row!.lastError).toBe("wrong_kind");
+    expect(row!.sentAt).toBeNull();
+    // Only the welfare report's email went out; nothing mentions the content row.
+    expect(sentIds).toEqual([welfare.publicId]);
+    expect(sentIds).not.toContain(content!.publicId);
+  });
+
+  // #170 review, finding 2: the "N unchecked cat reports waiting" email counts
+  // open unchecked reports that never got an alert. An issue row never gets a
+  // welfare_alert, so unless the count is welfare-only it would be counted for ever.
+  it("the 'unchecked reports waiting' count ignores open unchecked content rows", async () => {
+    const insertUnchecked = (kind: "welfare" | "content") =>
+      db.insert(welfareReportsTable).values({
+        publicId: `pub-${randomBytes(10).toString("hex")}`,
+        kind,
+        ...(kind === "content" ? { reason: "other" } : { lat: 37.44, lng: 24.94 }),
+        severity: "attention",
+        reporterDevice: DEVICE,
+        clientRef: randomBytes(6).toString("hex"),
+        photoState: "none",
+        submittedAt: new Date(),
+        tokenChecked: false,
+      });
+    const waitingRow = async () => {
+      const [row] = await db
+        .insert(mailOutboxTable)
+        .values({
+          purpose: "welfare_alert",
+          reportId: null,
+          recipientHash: "0000000000000000",
+          payload: { kind: "unchecked_waiting" },
+          nextAttemptAt: new Date(Date.now() - 1000),
+        })
+        .returning();
+      await drainDue(10);
+      const [after] = await db.select().from(mailOutboxTable).where(eq(mailOutboxTable.id, row!.id));
+      return after!;
+    };
+
+    // Only a content row is waiting: nothing to say, nothing sent.
+    await insertUnchecked("content");
+    const none = await waitingRow();
+    expect((none.payload as { waiting: number }).waiting).toBe(0);
+    expect(sentIds).toEqual([]);
+
+    // A welfare row beside it is counted; the content row still is not.
+    await insertUnchecked("welfare");
+    const one = await waitingRow();
+    expect((one.payload as { waiting: number }).waiting).toBe(1);
+    expect(sentIds).toHaveLength(1);
+  });
+});
