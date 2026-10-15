@@ -42,6 +42,16 @@ describe("makeVariant", () => {
     expect(meta.width).toBe(640);
   });
 
+  it("puts a transparent PNG on white, not black", async () => {
+    const png = await sharp({
+      create: { width: 200, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    })
+      .png()
+      .toBuffer();
+    const stats = await sharp(await makeVariant(png, "small")).stats();
+    for (const c of stats.channels.slice(0, 3)) expect(c.mean).toBeGreaterThan(240);
+  });
+
   it("never enlarges", async () => {
     const meta = await sharp(await makeVariant(await fixtureJpeg(100, 80), "medium")).metadata();
     expect(meta.width).toBe(100);

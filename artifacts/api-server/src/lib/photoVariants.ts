@@ -22,6 +22,7 @@ export async function makeVariant(original: Buffer, size: VariantSize): Promise<
   return sharp(original)
     .rotate()
     .resize({ width: VARIANT_WIDTH[size], withoutEnlargement: true })
+    .flatten({ background: "#ffffff" })
     .jpeg({ quality: 78, mozjpeg: true })
     .toBuffer();
 }
