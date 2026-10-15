@@ -20,8 +20,8 @@ import { t } from "../lib/teamPages/words";
 //
 // **Permissions (plan Decision 1A).** Every route asks for
 // `view_exact_location` with NO colony target, so a guardian gets the 403
-// until PR 4.1 switches targets and filters on together. `canSomewhere` is
-// the sign-in door's alone.
+// until PR 4.1 switches targets and filters on together. The "for any
+// colony?" check is the sign-in door's alone.
 //
 // **No position in any address (K13).** The map's zoom, pan and area buttons
 // are POST forms with hidden fields; the "Show retired" setting is a fixed
