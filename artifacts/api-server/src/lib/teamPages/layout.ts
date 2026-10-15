@@ -5,7 +5,7 @@ import { escapeHtml } from "./escape";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "colonies" | "map" | "likely";
+export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely";
 
 interface NavItem {
   key: NavKey;
@@ -18,7 +18,7 @@ const NAV: NavItem[] = [
   { key: "queue", label: "Welfare queue", href: "/api/team" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
-  { key: "map", label: "Map", href: "/api/team/map" },
+  { key: "sites", label: "Feeding sites", href: "/api/team/sites" },
   { key: "likely", label: "Probably sterilised", href: "/api/team/likely" },
 ];
 
@@ -157,6 +157,9 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 .checkdetails summary{cursor:pointer;color:#55524a}
 .pin{position:absolute;display:block;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid #b3261e;border-radius:50%;background:rgba(255,255,255,.45);box-shadow:0 0 0 2px #fff}
 span.pin{pointer-events:none}
+.pin.site-public{background:#b3261e}
+.pin.site-private{background:rgba(255,255,255,.55)}
+.pin.site-retired{border-color:#8a877e;background:#d9d5ca}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .attrib{margin:4px 0 8px;font-size:12px;color:#55524a}
 .mapmove{margin:8px 0 0}

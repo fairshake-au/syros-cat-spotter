@@ -135,6 +135,10 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/map": { why: "zoom, pan, areas: view_exact_location with no target until SYC-209 PR 4.1" },
   "POST /api/team/map/tap": { why: "a tap on the map: view_exact_location with no target until SYC-209 PR 4.1" },
   "GET /api/team/map-tiles/:tile": { why: "a map picture: view_exact_location with no target until SYC-209 PR 4.1" },
+  // SYC-209 PR 3.2, the Feeding sites pages (read-only). Team-only, no target, until PR 4.1.
+  "GET /api/team/sites": { why: "the Feeding sites page: view_exact_location with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/map": { why: "zoom, pan, areas on the Feeding sites page: view_exact_location with no target until SYC-209 PR 4.1" },
+  "GET /api/team/sites/:id": { why: "one site, its history and positions: view_exact_location with no target until SYC-209 PR 4.1" },
   // The two JSON observation routes (review minor 1): the door, then the
   // capability inside; a guardian refused there gets the JSON 403.
   "POST /api/team/observations": { why: "the door, then set_life_status / set_sterilisation inside, island-only" },
@@ -176,7 +180,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 34;
+const MINIMUM_ROUTES = 37;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };

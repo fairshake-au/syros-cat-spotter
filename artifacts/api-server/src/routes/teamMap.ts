@@ -4,7 +4,7 @@ import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 import { renderPage } from "../lib/teamPages/layout";
-import { renderMap, type MapMarker } from "../lib/teamPages/map";
+import { ISLAND_CENTRE, renderMap, START_ZOOM, type MapMarker } from "../lib/teamPages/map";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import {
   clampView,
@@ -39,9 +39,6 @@ const router: IRouter = Router();
 const isFormPost = (req: Request) =>
   Boolean(req.is("application/x-www-form-urlencoded"));
 
-/** Where the map opens: the middle of the island, zoom 12. */
-const ISLAND_CENTRE: Position = { lat: 37.445, lng: 24.93 };
-const START_ZOOM = 12;
 /** A tap on the Map page zooms in this many steps around the spot. */
 const TAP_ZOOM_STEP = 2;
 
@@ -70,7 +67,7 @@ function mapPage(
     .send(
       renderPage({
         title: "Map",
-        active: "map",
+        active: null,
         personName: teamPerson(res).name,
         mainClass: "mappage",
         body:
