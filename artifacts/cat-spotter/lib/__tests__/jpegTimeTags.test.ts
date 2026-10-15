@@ -171,8 +171,9 @@ describe('readJpegTimeTags: no information', () => {
 describe('readJpegTimeTags: never hangs', () => {
   it('a 30 MB file returns in under 50 ms, because only the start is decoded', () => {
     const head = b64({ ...IPHONE, tailBytes: 3000 });
-    // Pad on whole base64 quanta so the start still decodes as the JPEG.
-    const big = head.slice(0, head.length - (head.length % 4)) + 'A'.repeat(30 * 1024 * 1024);
+    // Drop the last (possibly padded) quantum so the filler continues whole
+    // base64 quanta, and the start still decodes as the JPEG.
+    const big = head.slice(0, head.length - 4) + 'A'.repeat(30 * 1024 * 1024);
     expect(big.length).toBeGreaterThan(30 * 1024 * 1024);
     readJpegTimeTags(big); // warm up the JIT, as a second pick would be
     const t0 = performance.now();
