@@ -100,10 +100,10 @@ const numbers = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is
 const guardianColonies = (labels: string[]) =>
   labels.filter((l) => /^guardian:\d+$/.test(l)).map((l) => Number(l.split(":")[1]));
 
-/** The event that proves each kind of banner (resent and nothing have none). */
+/** The event that proves each kind of banner (resent is proved by the outbox, nothing names no one). */
 const PROOF: Partial<Record<Done["kind"], string>> = {
   invited: "invited",
-  broughtBack: "invited",
+  broughtBack: "rejoined",
   withdrawn: "invite_withdrawn",
   roles: "roles_changed",
   left: "left",
@@ -123,15 +123,28 @@ async function doneFrom(req: Request, viewerId: string): Promise<Done | null> {
   const kind = q["done"];
   const known = ["invited", "resent", "withdrawn", "roles", "left", "signedOut", "broughtBack", "nothing"];
   if (typeof kind !== "string" || !known.includes(kind)) return null;
+  const k = kind as Done["kind"];
+  // "Nothing changed." names no one and claims nothing.
+  if (k === "nothing") return { kind: "nothing" };
   const pid = typeof q["p"] === "string" && isPersonId(q["p"]) ? q["p"].toLowerCase() : null;
   if (!pid) return null;
-  const k = kind as Done["kind"];
   const name = (await peopleNames(db, [pid])).get(pid);
   const done: Done = {
     kind: k,
     // A withdrawn, anonymised invitation has no name to say.
     name: name && name !== ANONYMISED_NAME ? [...name].slice(0, 60).join("") : undefined,
   };
+  if (k === "resent") {
+    // invite_resent is written when the email is delivered, so the proof is
+    // this viewer's own resend request in the outbox, in the last 10 minutes.
+    const r = await db.execute(sql`
+      select 1 from mail_outbox
+       where purpose = 'person_invite' and payload->>'personId' = ${pid}
+         and payload->>'kind' = 'invite_resent' and payload->>'by' = ${viewerId}
+         and created_at > now() - make_interval(mins => ${BANNER_MINUTES})
+       limit 1`);
+    return r.rows.length > 0 ? done : null;
+  }
   const proof = PROOF[k];
   if (!proof) return done;
   const e = await latest(pid, proof);
@@ -139,7 +152,9 @@ async function doneFrom(req: Request, viewerId: string): Promise<Done | null> {
   const d = e.detail;
   let colonyIds: number[] = [];
   if (k === "invited" || k === "broughtBack") {
-    done.inEnglish = typeof d["language"] === "string" && d["language"] !== d["languageUsed"];
+    // Bringing someone back writes `invited` too, in the same transaction.
+    const inv = k === "invited" ? d : (await latest(pid, "invited"))?.detail ?? {};
+    done.inEnglish = typeof inv["language"] === "string" && inv["language"] !== inv["languageUsed"];
   } else if (k === "left") {
     done.workspace = strings(d["roles"]).some((r) => WORKSPACE_ROLES.includes(r));
     colonyIds = numbers(d["colonyIds"]);
@@ -262,7 +277,8 @@ router.get("/team/people/:id/bring-back", requireTeam("manage_people"), async (r
   const ev = await latest(found.view.id, "left");
   const heldRoles = ev ? strings(ev.detail["roles"]) : [];
   const heldColonies = ev ? numbers(ev.detail["colonyIds"]) : [];
-  let held = found.view.roles.charAt(0).toLowerCase() + found.view.roles.slice(1);
+  let held: string | null =
+    found.view.roles === "Nothing" ? null : found.view.roles.charAt(0).toLowerCase() + found.view.roles.slice(1);
   if (heldRoles.length > 0) {
     const names = await colonyNames(db, heldColonies);
     held = roleSentence("en", heldRoles, heldColonies.map((c) => clip(names.get(c) ?? "a colony that no longer exists")), (n) => clip(n));
@@ -354,7 +370,7 @@ router.post("/team/people/:id/withdraw", ...formRoute("manage_people"), async (r
   if (!id) return;
   await answer(req, res, async () => {
     const r = await withdraw(teamPerson(res), id);
-    return location(r.withdrawn ? "withdrawn" : "nothing", { p: id });
+    return r.withdrawn ? location("withdrawn", { p: id }) : location("nothing");
   });
 });
 

@@ -570,6 +570,56 @@ describe("m1: a banner can't be forged from a link; it is rebuilt from the perso
   });
 });
 
+describe("n1/n1b/n2: every banner is proved, and the bring-back page says nothing empty", () => {
+  it("resent: only the viewer's own recent resend request proves it; a link alone shows nothing", async () => {
+    const t = await joined("n1-t", ["staff"]);
+    expect(banner((await get(`/api/team/people?done=resent&p=${t.id}`, susan)).text)).toBe("");
+    const p = await pendingRow("n1-resend", susan.id);
+    const res = await post(`/api/team/people/${p.id}/resend`, susan);
+    expect(res.status).toBe(303);
+    expect(banner((await get(res.headers["location"]!, susan)).text)).toContain("is being sent again");
+    expect(banner((await get(res.headers["location"]!, jacky)).text)).toBe("");
+  });
+
+  it("nothing: the link never names anyone", async () => {
+    const t = await joined("n1-nothing", ["staff"]);
+    const withP = banner((await get(`/api/team/people?done=nothing&p=${t.id}`, susan)).text);
+    expect(withP).toContain("Nothing changed.");
+    expect(withP).not.toContain("n1-nothing");
+    const p = await pendingRow("n1-nothing-w", susan.id);
+    await post(`/api/team/people/${p.id}/withdraw`, susan);
+    const again = await post(`/api/team/people/${p.id}/withdraw`, susan);
+    expect(again.headers["location"] ?? "").not.toContain("p=");
+  });
+
+  it("broughtBack: proved by the viewer's recent rejoined event, not by an invitation", async () => {
+    const inv = await pendingRow("n1b-inv", susan.id);
+    await pool.query(`update people set invite_sent_at = now() where id = $1`, [inv.id]);
+    expect(banner((await get(`/api/team/people?done=broughtBack&p=${inv.id}`, susan)).text)).toBe("");
+    const t = await joined("n1b-back", ["staff"]);
+    await dbMarkLeft(t.email, "cli:vitest");
+    const res = await post(`/api/team/people/${t.id}/bring-back`, susan, { roles: "staff", language: "el" });
+    expect(res.status).toBe(303);
+    const b = banner((await get(res.headers["location"]!, susan)).text);
+    expect(b).toContain("is on the list again");
+    expect(b).toContain("It will be sent in English.");
+    expect(banner((await get(res.headers["location"]!, jacky)).text)).toBe("");
+  });
+
+  it("n2: a leaver with nothing recorded gets no 'When they left they were nothing.'", async () => {
+    const id = crypto.randomUUID();
+    await pool.query(
+      `insert into people (id, email, name, accepted_at, left_at, left_by, added_by) values ($1, $2, 'Vt backfilled', now(), now(), 'cli:vitest', 'cli:vitest')`,
+      [id, emailFor("n2-backfilled")],
+    );
+    remember(id);
+    await pool.query(`insert into person_events (person_id, kind, by, detail) values ($1, 'left', 'system:migration', '{"backfilled":true}')`, [id]);
+    const page = (await get(`/api/team/people/${id}/bring-back`, susan)).text;
+    expect(page).toContain("Nothing is restored automatically");
+    expect(page).not.toContain("When they left they were");
+  });
+});
+
 describe("the People link in the bar", () => {
   it("shows for management on other dashboard pages, and not for a team-only member", async () => {
     const m = await get("/api/team/colonies", susan);

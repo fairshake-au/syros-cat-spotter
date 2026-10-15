@@ -325,7 +325,7 @@ export function renderBringBackPage(o: {
   viewer: string;
   person: PersonView;
   /** What they held when they left, in words, from the `left` event. */
-  held: string;
+  held: string | null;
   colonies: ColonyOption[];
 }): string {
   const lang = (LIVE_LANGUAGES as readonly string[]);
@@ -339,7 +339,7 @@ export function renderBringBackPage(o: {
   return page(
     o.viewer,
     `Bring ${o.person.name} back`,
-    `<p>${esc(o.person.timing)} When they left they were ${esc(o.held)}.</p>` +
+    `<p>${esc(o.person.timing)}${o.held ? ` When they left they were ${esc(o.held)}.` : ""}</p>` +
       `<p class="hint">Nothing is restored automatically. Choose what they should be now. They will get a new invitation and read the promises again.</p>` +
       `<form class="pform" method="post" action="${PEOPLE}/${encodeURIComponent(o.person.id)}/bring-back">` +
       placementFields(o.colonies) +
