@@ -46,6 +46,8 @@ const ROUTES: { method: "get" | "post" | "put" | "patch" | "delete"; path: strin
   { method: "get", path: `/api/keep-safe/${DEVICE}` },
   { method: "post", path: `/api/keep-safe/${DEVICE}` },
   { method: "delete", path: `/api/keep-safe/${DEVICE}` },
+  // SYC-36: the match-wait resident signals.
+  { method: "get", path: `/api/app-settings/${DEVICE}/signals` },
   // Express matches routes case-insensitively, so the redaction must too.
   { method: "get", path: `/api/Notifications/${DEVICE}` },
 ];

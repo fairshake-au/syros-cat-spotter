@@ -49,6 +49,11 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
     removeItem: async (key: string) => {
       h.storage.delete(key);
     },
+    // SYC-48: the waiting card's records are found by key prefix.
+    getAllKeys: async () => [...h.storage.keys()],
+    multiRemove: async (keys: readonly string[]) => {
+      for (const k of keys) h.storage.delete(k);
+    },
   },
 }));
 vi.mock('../OfflineContext', () => ({
@@ -78,6 +83,10 @@ beforeEach(() => {
 
 describe('DeleteMyDataProvider', () => {
   it('deletes with the id in a header, wipes, and shows Done', async () => {
+    // SYC-48 / SYC-36: the waiting card's record and the resident signals go too.
+    h.storage.set('catSpotters.waitingCard.v1:dev-current', '{}');
+    h.storage.set('catSpotters.appSettings.v1', '{}');
+    h.storage.set('catSpotters.unrelated', 'stays');
     const { result } = renderHook(() => useDeleteMyData(), { wrapper });
     let outcome: string | undefined;
     await act(async () => {
@@ -90,6 +99,9 @@ describe('DeleteMyDataProvider', () => {
     expect(h.offline.wipeQueue).toHaveBeenCalled();
     expect(h.clear).toHaveBeenCalled();
     expect(h.resetIdentity).toHaveBeenCalled();
+    expect(h.storage.has('catSpotters.waitingCard.v1:dev-current')).toBe(false);
+    expect(h.storage.has('catSpotters.appSettings.v1')).toBe(false);
+    expect(h.storage.get('catSpotters.unrelated')).toBe('stays');
     expect(result.current.doneVisible).toBe(true);
     act(() => result.current.dismissDone());
     expect(result.current.doneVisible).toBe(false);

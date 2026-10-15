@@ -19,7 +19,8 @@
     "smoke": "tsx ./src/migrate/cli.ts smoke",
     "switchover": "tsx ./src/switchover/cli.ts",
     "test": "vitest run",
-    "people": "tsx ./src/people/cli.ts"
+    "people": "tsx ./src/people/cli.ts",
+    "settings": "tsx ./src/appSettings/cli.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

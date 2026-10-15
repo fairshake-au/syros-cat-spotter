@@ -24,7 +24,24 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`.
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`, `set-setting`, `list-settings`.
+
+## The match-wait switches (`set-setting`, `list-settings`)
+
+The feeding nudge's donation link and the starter facts that are switched off live in the `app_settings` table (SYC-36 / SYC-48, match-wait plan PR 1, Samuel's Decision 1). Until the team dashboard has a page for them (SYC-383), Claude changes them through `db-ops`, **with Samuel's OK for each change**, and records each change on SYC-36. Both commands run against `development` or `production` only.
+
+| `setting_key` | `setting_value` (JSON) | What it does |
+|---|---|---|
+| `feed_nudge_donate_url` | `"https://syroscats.com/donations"` (quotes included), or `""` | The page **Help feed a cat** opens. Empty switches the link **and** the €1/€30 figures off (the nudge's words-only form). https only. The migration seeds Syros Cats' page (Samuel's Decision 6) |
+| `starter_facts_hidden` | `["fact.earTip","fact.cost"]`, or `[]` | Facts the app must not show. With no row, the nine that need Syros Cats' yes are hidden. `[]` shows all twenty. Unknown ids are refused |
+| `feed_tap_count` | `true` or `false` | Whether a tap on **Help feed a cat** is counted (one number per day). No row means counted |
+
+```
+gh workflow run db-ops.yml --ref main -f target=production -f command=list-settings
+gh workflow run db-ops.yml --ref main -f target=production -f command=set-setting -f setting_key=starter_facts_hidden -f 'setting_value=["fact.vacuum"]'
+```
+
+A wrong key or a value of the wrong shape is refused and nothing changes. The command prints every switch afterwards. Then wait a minute (the server's cache) and check what phones will get, with no connection string involved: `curl -s https://<api host>/api/app-settings` (the testers' pass header is needed until launch). Phones pick a change up the next time they open the app with a signal.
 
 ## The staff list (`people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`)
 

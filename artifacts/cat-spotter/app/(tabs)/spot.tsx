@@ -41,6 +41,20 @@ import {
 import { useLocation } from '@/hooks/useLocation';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { LocationPicker } from '@/components/LocationPicker';
+import { WaitingCard } from '@/components/WaitingCard';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { athensDay } from '@/lib/athensDay';
+import { ForegroundStopwatch } from '@/lib/foregroundStopwatch';
+import {
+  NUDGE_ENABLED,
+  chooseForWait,
+  settleWait,
+  shouldShowWaitingCard,
+  type WaitChoice,
+  type WaitingRecord,
+  type WaitOutcome,
+} from '@/lib/waitingCard';
+import { loadExistingWaitingRecord, loadWaitingRecord, saveWaitingRecord } from '@/lib/waitingCardStore';
 import { NeedsHelpLink } from '@/components/report/NeedsHelpLink';
 import { useOfflineTiles } from '@/lib/offlineTiles';
 import { SightingPhoto } from '@/components/SightingPhoto';
@@ -163,6 +177,19 @@ export default function SpotScreen() {
   const [photoProblem, setPhotoProblem] = useState<PhotoProblem | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [optimizingUpload, setOptimizingUpload] = useState(false);
+  // SYC-48 / SYC-36 (match-wait plan PR 1): the waiting card in the map's
+  // place, only while a sighting is being SENT (never on an offline save:
+  // plan C7). Null when there's no card.
+  const [waitChoice, setWaitChoice] = useState<WaitChoice | null>(null);
+  const waitRef = React.useRef<{
+    choice: WaitChoice;
+    /** Null when the phone's record couldn't be read: nothing is saved. */
+    record: WaitingRecord | null;
+    stopwatch: ForegroundStopwatch;
+  } | null>(null);
+  // Bumped when a submit ends, so a card still being chosen never appears late.
+  const waitTokenRef = React.useRef(0);
+  const { settings: matchWaitSettings, noteSent } = useAppSettings();
   // One submit at a time, checked before any re-render could disable the
   // button: a double tap must not queue a sighting twice.
   const submitOnce = React.useRef(createSingleFlight()).current;
@@ -486,6 +513,37 @@ export default function SpotScreen() {
     change().catch(() => notify(t('error')));
   };
 
+  React.useEffect(() => {
+    const sub = AppState.addEventListener?.('change', (s) => {
+      const w = waitRef.current;
+      if (!w) return;
+      if (s === 'active') w.stopwatch.resume(Date.now());
+      else w.stopwatch.pause(Date.now());
+    });
+    return () => sub?.remove?.();
+  }, []);
+
+  /** Choose what this wait shows and put it in the map's place. Runs beside
+   * the upload, never in front of it. */
+  const startWaitingCard = async (device: string) => {
+    const token = waitTokenRef.current;
+    const stored = await loadWaitingRecord(AsyncStorage, device);
+    if (token !== waitTokenRef.current) return;
+    const { choice, record } = chooseForWait(stored, matchWaitSettings, {
+      signedInRole: null,
+      nudgeEnabled: NUDGE_ENABLED,
+      today: athensDay(Date.now()),
+      random: Math.random,
+    });
+    if (record) void saveWaitingRecord(AsyncStorage, device, record);
+    waitRef.current = {
+      choice,
+      record,
+      stopwatch: new ForegroundStopwatch(Date.now(), AppState.currentState !== 'background'),
+    };
+    setWaitChoice(choice);
+  };
+
   const submit = () =>
     submitOnce(async () => {
       // Require the explicitly confirmed location — never raw GPS.
@@ -511,6 +569,7 @@ export default function SpotScreen() {
           isOnline,
           canSaveForLater: !queueReadOnly,
           send: async () => {
+            void startWaitingCard(deviceId).catch(() => undefined);
             let uploadPhoto = photo;
             if (isConstrainedNetwork) {
               setOptimizingUpload(true);
@@ -549,6 +608,32 @@ export default function SpotScreen() {
             }),
           photosKeepable: durablePhotos,
         });
+
+        // SYC-48: how the wait ended, taken now (before the photo is saved for
+        // the result screen). A card still being chosen must not appear late.
+        waitTokenRef.current += 1;
+        const wait = waitRef.current;
+        waitRef.current = null;
+        const waitOutcome: WaitOutcome =
+          outcome.kind === 'sent'
+            ? outcome.result.isCatPhoto
+              ? { kind: 'result', sightingId: outcome.result.sightingId }
+              : { kind: 'notCat' }
+            : { kind: 'failed' };
+        // Only a wait that reached a result changes the record. It is read
+        // again first, so nothing written meanwhile is lost, and a record wiped
+        // meanwhile ("Delete my data") isn't brought back.
+        if (wait?.record && waitOutcome.kind === 'result') {
+          const current = await loadExistingWaitingRecord(AsyncStorage, deviceId);
+          if (current) {
+            await saveWaitingRecord(
+              AsyncStorage,
+              deviceId,
+              settleWait(current, wait.choice, waitOutcome, wait.stopwatch.elapsed(Date.now())),
+            );
+          }
+        }
+        if (outcome.kind === 'sent') noteSent();
 
         // Only a send or a save that succeeded is remembered, and a photo
         // the server said is not a cat keeps its time but not its
@@ -616,6 +701,9 @@ export default function SpotScreen() {
             break;
         }
       } finally {
+        waitTokenRef.current += 1;
+        waitRef.current = null;
+        setWaitChoice(null);
         setOptimizingUpload(false);
         setSubmitting(false);
       }
@@ -1004,9 +1092,12 @@ export default function SpotScreen() {
                   </Text>
                 </View>
               )}
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                {t('confirmLocationHint')}
-              </Text>
+              {/* SYC-48: the map is hidden while the waiting card shows. */}
+              {waitChoice ? null : (
+                <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                  {t('confirmLocationHint')}
+                </Text>
+              )}
               {denied && (
                 <Pressable onPress={refresh}>
                   <Text style={[styles.denied, { color: colors.destructive }]}>
@@ -1014,7 +1105,11 @@ export default function SpotScreen() {
                   </Text>
                 </Pressable>
               )}
-              {pickedCoords && (
+              {/* SYC-48: while a sighting is being sent, the waiting card takes
+                  the map's place (starter-facts.md §3.1). The pin is kept. */}
+              {shouldShowWaitingCard({ waiting: waitChoice !== null }) && waitChoice ? (
+                <WaitingCard choice={waitChoice} t={t} />
+              ) : pickedCoords && (
                 <LocationPicker
                   latitude={pickedCoords.latitude}
                   longitude={pickedCoords.longitude}

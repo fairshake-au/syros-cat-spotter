@@ -54,12 +54,13 @@ const MAP_TILE_IN_PATH = /\/api\/+team(?:\/+\.)*\/+map(?:-|%2d)tiles(?:\/|%2f)[^
  * A device id is a credential (SYC-109), and it must not outlive a "Delete my
  * data" request in the logs, so every route that carries one in its path has
  * it replaced: `/profiles/:deviceId…`, `/notifications/:deviceId…`,
- * `/profile/:deviceId/push-token` and SYC-3's `/keep-safe/:deviceId`. The line
+ * `/profile/:deviceId/push-token`, SYC-3's `/keep-safe/:deviceId` and SYC-36's
+ * `/app-settings/:deviceId/signals`. The line
  * is still logged, with the id swapped for a placeholder. The two static
  * `/profiles/username-*` routes keep their real path.
  */
 const DEVICE_ID_IN_PATH =
-  /\/(profiles|notifications|profile|keep-safe)\/(?!(?:username-availability|username-suggestions)(?:\/|$))[^/]+/i;
+  /\/(profiles|notifications|profile|keep-safe|app-settings)\/(?!(?:username-availability|username-suggestions)(?:\/|$))[^/]+/i;
 
 /**
  * The request URL as it goes into the request log. Query strings (which can
