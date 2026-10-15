@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import request from "supertest";
 import sharp from "sharp";
 import { eq, sql } from "drizzle-orm";
@@ -61,7 +61,7 @@ const ERMOUPOLI: Position = { lat: 37.4447, lng: 24.9417 };
 let cookie: string;
 let volunteerCookie: string;
 let png: Buffer;
-let fetchSpy: ReturnType<typeof vi.spyOn>;
+let fetchSpy: MockInstance<typeof fetch>;
 
 /** A real 256 px PNG, as the provider would send. */
 const makePng = (r: number) =>
