@@ -1378,3 +1378,25 @@ describe("the nudge (spec §3): the small map on the confirmation page is a tap 
     expect(await eventsOf(s.id)).toHaveLength(0);
   });
 });
+
+describe("colonyId as a JSON integer", () => {
+  it("is accepted as a number or a string, on add and on change colony", async () => {
+    const colonyId = await makeColony();
+    const add = await postJson("/api/team/sites", { lat: 37.4447, lng: 24.9417, name: unique("int"), colonyId });
+    expect(add.status).toBe(201);
+    expect((await siteRow(add.body.id)).colonyId).toBe(colonyId);
+    const other = await makeColony();
+    const num = await postJson(`/api/team/sites/${add.body.id}/colony`, { updatedAt: await stampOf(add.body.id), colonyId: other });
+    expect(num.status).toBe(200);
+    expect((await siteRow(add.body.id)).colonyId).toBe(other);
+    const str = await postJson(`/api/team/sites/${add.body.id}/colony`, { updatedAt: await stampOf(add.body.id), colonyId: String(colonyId) });
+    expect(str.status).toBe(200);
+    const none = await postJson(`/api/team/sites/${add.body.id}/colony`, { updatedAt: await stampOf(add.body.id), colonyId: null });
+    expect(none.status).toBe(200);
+    expect((await siteRow(add.body.id)).colonyId).toBeNull();
+    for (const bad of [1.5, -1, 0, true, {}, "1.5"]) {
+      const res = await postJson(`/api/team/sites/${add.body.id}/colony`, { updatedAt: await stampOf(add.body.id), colonyId: bad });
+      expect(res.status, JSON.stringify(bad)).toBe(400);
+    }
+  });
+});

@@ -226,14 +226,17 @@ const reasonField = z.preprocess(lf, z.string().trim().min(1).max(SITE_REASON_MA
 const stampField = z.string().regex(STAMP_RE);
 const latField = coordinate(90).refine((v): v is number => v !== null);
 const lngField = coordinate(180).refine((v): v is number => v !== null);
-const colonyDigits = z.string().regex(ID_RE).transform(Number);
-/** The add form: "no colony" is an empty box, and a missing field is the same. */
+/** A colony number: a browser sends a string, a JSON caller may send an integer. */
+const colonyDigits = z
+  .union([z.string().regex(ID_RE), z.number().int().min(1).max(999_999_999)])
+  .transform(Number);
+/** The add form: "no colony" is an empty box (or null), and a missing field is the same. */
 const optionalColony = z.preprocess(
   (v) => (v === undefined || v === "" ? null : v),
   colonyDigits.nullable(),
 );
-/** Change colony: the field must be there; an empty box means "no colony". */
-const requiredColony = z.union([z.literal("").transform(() => null), colonyDigits]);
+/** Change colony: the field must be there; an empty box (or null) means "no colony". */
+const requiredColony = z.union([z.literal("").transform(() => null), z.null(), colonyDigits]);
 
 // NOTE: no schema here has a visibility field. zod drops every key it does
 // not name, so an `is_public`, `public_*` or `made_public_*` sent with the
