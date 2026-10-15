@@ -6,7 +6,13 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { addPerson, db, pool, welfareReportsTable } from "@workspace/db";
+import {
+  addPerson,
+  coloniesTable,
+  db,
+  pool,
+  welfareReportsTable,
+} from "@workspace/db";
 import app from "../app";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import {
@@ -93,6 +99,7 @@ interface Page {
   url(): string;
   getByRole(role: string, o: { name: string | RegExp }): Loc;
   getByLabel(label: string | RegExp): Loc;
+  getByText(t: string): Loc;
   waitForURL(re: RegExp, o?: { timeout: number }): Promise<void>;
   waitForLoadState(s: string): Promise<void>;
 }
@@ -177,7 +184,9 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
-  await removeTestPerson(EMAIL);
+  // A person who created a colony has history and cannot be removed; the
+  // throwaway database is dropped at the end of the run anyway.
+  await removeTestPerson(EMAIL).catch(() => {});
   await pool.end();
 });
 
@@ -188,7 +197,7 @@ const names = (process.env["BROWSERS"] ?? "chromium,firefox,webkit")
 
 describe.skipIf(!ENABLED)("SYC-330: real browsers press the dashboard buttons", () => {
   it.each(names)(
-    "%s: moving a report, saving a note and signing out are accepted",
+    "%s: moving a report, saving a note, creating a colony and signing out are accepted",
     async (name) => {
       const pw = loadPlaywright();
       await clearWelfareTables();
@@ -237,7 +246,20 @@ describe.skipIf(!ENABLED)("SYC-330: real browsers press the dashboard buttons", 
           .where(eq(welfareReportsTable.publicId, reportPublicId));
         expect(noted?.note).toBe(noteText);
 
-        // (3) Sign out: the redirect is followed and the cookie is gone.
+        // (3) Create a colony (open the form, fill the name, press the button).
+        const colonyName = `rb-${name}-${Date.now().toString(36)}`;
+        await page.goto(`${local.origin}/api/team/colonies`);
+        await page.getByText("Create a colony").click();
+        await page.getByLabel("Colony name").fill(colonyName);
+        await page.getByRole("button", { name: "Create the colony" }).click();
+        await untilPosts(3, "creating the colony");
+        const made = await db
+          .select({ id: coloniesTable.id })
+          .from(coloniesTable)
+          .where(eq(coloniesTable.name, colonyName));
+        expect(made).toHaveLength(1);
+
+        // (4) Sign out: the redirect is followed and the cookie is gone.
         await page.getByRole("button", { name: "Sign out" }).click();
         await waitOrExplain(page, /\/api\/signed-out$/, "signing out");
         const stillHeld = (await ctx.cookies()).some(
@@ -251,7 +273,7 @@ describe.skipIf(!ENABLED)("SYC-330: real browsers press the dashboard buttons", 
           `[${name}] POST Origin headers seen by the server:`,
           JSON.stringify(posts.map((p) => [p.path, p.origin])),
         );
-        expect(posts).toHaveLength(3);
+        expect(posts).toHaveLength(4);
         for (const p of posts) expect(p.origin).toBe(local.origin);
       } finally {
         await browser.close();
