@@ -23,6 +23,10 @@ import { dailyCeilings } from "../keepSafe/service";
  * address is confirmed (email-capture.md §4.3 step 4). `sendMail` checks
  * again at send time, so a confirmed row going away stops them too.
  *
+ * **Welfare reports only.** Every query here carries `kind = 'welfare'`: a
+ * "Report an issue" row (SYC-44) never gets a reporter address, an
+ * acknowledgement or a "the cat you reported" outcome.
+ *
  * **The report is never at stake.** It is written and committed before any of
  * this runs, and every failure here is caught by the caller and logged.
  *
@@ -146,7 +150,7 @@ export async function addReporterEmail(input: AddReporterInput, log: Log): Promi
     const [report] = (
       await tx.execute(sql`
         select id, reporter_contact_id from welfare_reports
-         where id = ${input.reportId} and is_draft = false for update
+         where id = ${input.reportId} and is_draft = false and kind = 'welfare' for update
       `)
     ).rows as { id: number; reporter_contact_id: number | null }[];
     // A resent report already has its address: nothing more to do.
@@ -321,7 +325,7 @@ export async function onReportStateChanged(
     await tx.execute(sql`
       select c.id, c.address_hmac, c.status, c.device_id from welfare_reports r
         join email_contacts c on c.id = r.reporter_contact_id
-       where r.id = ${m.reportId}
+       where r.id = ${m.reportId} and r.kind = 'welfare'
     `)
   ).rows[0] as { id: number; address_hmac: string; status: string; device_id: string | null } | undefined;
   if (!contact || contact.status !== "confirmed" || !contact.device_id) return null;
@@ -366,7 +370,7 @@ export async function confirmReporterAddress(tx: Tx, hmac: string): Promise<numb
     const reports = (
       await tx.execute(sql`
         select id, state from welfare_reports
-         where reporter_contact_id = ${c.id} and is_draft = false order by created_at
+         where reporter_contact_id = ${c.id} and is_draft = false and kind = 'welfare' order by created_at
       `)
     ).rows as { id: number; state: string }[];
     for (const r of reports) {
@@ -528,7 +532,7 @@ export async function processReporterMail(
       return "failed";
     }
     const [report] = (
-      await db.execute(sql`select is_litter, photo_state, coalesce(submitted_at, created_at) as at from welfare_reports where id = ${row.reportId}`)
+      await db.execute(sql`select is_litter, photo_state, coalesce(submitted_at, created_at) as at from welfare_reports where id = ${row.reportId} and kind = 'welfare'`)
     ).rows as { is_litter: boolean; photo_state: string; at: Date | string }[];
     if (!report) {
       await giveUp(row, payload, "report_gone");

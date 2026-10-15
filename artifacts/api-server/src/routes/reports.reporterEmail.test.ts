@@ -39,7 +39,7 @@ import { moveReportState, type ReportState } from "../lib/welfareActions";
 import { severPerson } from "../lib/severPerson";
 import { sweepKeepSafe } from "../lib/keepSafe/sweep";
 import { publicAppOrigin } from "../lib/keepSafe/links";
-import { clearWelfareTables } from "../lib/teamAuth/__fixtures__/queueKit";
+import { clearWelfareTables, seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
 
 type Sent = { to: string; from: string; subject: string; text: string; replyTo: string | null; id: string };
@@ -267,6 +267,25 @@ describe("test 33: one outcome email per report", () => {
     const mine = await mailTo(to);
     expect(mine.filter((m) => m.subject.startsWith("Is this you?"))).toHaveLength(1);
     expect(mine.filter((m) => m.subject === "Your cat report reached Syros Cats")).toHaveLength(2);
+  });
+});
+
+describe("SYC-44 guard: a 'Report an issue' row never gets a reporter email", () => {
+  it("closing a content row that somehow holds a confirmed address sends nothing", async () => {
+    const to = address();
+    await seedReport({ publicId: "content-row", kind: "content" });
+    const [c] = (
+      await db.execute(sql`
+        insert into email_contacts (purpose, address, address_hmac, address_mask, device_id, status, confirmed_at)
+        values ('report', ${to.toLowerCase()}, ${addressFingerprint("report", to)}, 'r•••@example.org', 'vitest-content-dev', 'confirmed', now())
+        returning id
+      `)
+    ).rows as { id: number }[];
+    await db.execute(sql`update welfare_reports set reporter_contact_id = ${c!.id} where public_id = 'content-row'`);
+    await move("content-row", "new", "done");
+    expect(await mailTo(to)).toHaveLength(0);
+    const out = await db.execute(sql`select count(*)::int as n from mail_outbox where purpose = 'report_outcome'`);
+    expect((out.rows[0] as { n: number }).n).toBe(0);
   });
 });
 
