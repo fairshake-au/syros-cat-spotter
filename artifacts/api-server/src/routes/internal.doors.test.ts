@@ -12,6 +12,7 @@ import request from "supertest";
 import { addPerson, markLeft, pool } from "@workspace/db";
 import app from "../app";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { deleteTestRows } from "../test/deleteGuarded";
 
 // POST /api/internal/people/allowed answers two doors (SYC-53 plan PR 0.4;
 // roles spec §4.5, §6.3, §14 cases 11 and 13; SYC-222 points 1 and 2).
@@ -105,7 +106,7 @@ afterEach(() => {
 
 afterAll(async () => {
   for (const e of EVERYONE) await removeTestPerson(e);
-  await pool.query("delete from colonies where id = any($1)", [colonyIds]);
+  await deleteTestRows("colonies", "id = any($1)", [colonyIds]);
   await pool.end();
 });
 

@@ -17,6 +17,9 @@ const GUARDS: [table: string, trigger: string][] = [
   ["mapping_events", "mapping_events_no_truncate"],
   ["feeding_site_old_codes", "feeding_site_old_codes_no_truncate"],
   ["person_events", "person_events_no_truncate"],
+  // SYC-298: sites and colonies refuse TRUNCATE too, and people reach them.
+  ["feeding_sites", "feeding_sites_no_truncate"],
+  ["colonies", "colonies_no_truncate"],
 ];
 
 /** `truncate <tables> cascade` with the guards the cascade reaches off. */

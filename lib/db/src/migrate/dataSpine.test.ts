@@ -49,6 +49,8 @@ beforeEach(async () => {
   await c.query(
     `alter table feeding_site_old_codes disable trigger feeding_site_old_codes_no_truncate`,
   );
+  await c.query(`alter table feeding_sites disable trigger feeding_sites_no_truncate`);
+  await c.query(`alter table colonies disable trigger colonies_no_truncate`);
   try {
     await c.query(
       `truncate observations, cat_identity, colony_name_history, colonies, feeding_sites restart identity cascade`,
@@ -66,6 +68,8 @@ beforeEach(async () => {
     await c.query(
       `alter table feeding_site_old_codes enable trigger feeding_site_old_codes_no_truncate`,
     );
+    await c.query(`alter table feeding_sites enable trigger feeding_sites_no_truncate`);
+    await c.query(`alter table colonies enable trigger colonies_no_truncate`);
   }
 });
 
