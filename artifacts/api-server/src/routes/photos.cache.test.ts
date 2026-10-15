@@ -74,7 +74,7 @@ describe("GET /api/photos/:publicId — Cache-Control headers (SYC-279 Decision 
     await db.insert(photoVisibilityEventsTable).values({
       photoId,
       action: "hide",
-      person_id: null,
+      author: "test-hide",
       reason: "test hide",
     });
 
@@ -87,8 +87,7 @@ describe("GET /api/photos/:publicId — Cache-Control headers (SYC-279 Decision 
     await db.insert(photoVisibilityEventsTable).values({
       photoId,
       action: "restore",
-      person_id: null,
-      reason: null,
+      author: "test-restore",
     });
 
     // Check that it's now 200 with correct cache headers
