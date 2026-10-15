@@ -254,6 +254,8 @@ export async function mailHealth(): Promise<MailHealth> {
     select
       count(*) filter (
         where state = 'failed'
+          -- SYC-44 PR 5.2: a row the daily budget dropped is not a fault.
+          and last_error is distinct from 'shed'
           and (
             exists (
               select 1 from welfare_reports r

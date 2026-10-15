@@ -85,9 +85,10 @@ describe("sendMail", () => {
     expect(isPurposeEnabled("urgent_alert")).toBe(false);
   });
 
-  it("switched on: welfare_alert (SYC-42), SYC-3's two keep-safe emails, the reporter's three (SYC-42 Slice 3) and SYC-53's two people emails; forget stays off (A9)", () => {
+  it("switched on: welfare_alert (SYC-42), issue_alert (SYC-44), SYC-3's two keep-safe emails, the reporter's three (SYC-42 Slice 3) and SYC-53's two people emails; forget stays off (A9)", () => {
     expect(MAIL_PURPOSES.filter((p) => isPurposeEnabled(p))).toEqual([
       "welfare_alert",
+      "issue_alert",
       "public_verify",
       "report_ack",
       "report_outcome",
@@ -107,6 +108,28 @@ describe("sendMail", () => {
       recipient: "person",
     });
     expect(PURPOSE_RULES.access_change_notice).toMatchObject({ identity: "transactional", recipient: "management" });
+  });
+
+  describe("issue_alert (SYC-44 PR 5.2)", () => {
+    const ISSUE = { ...ALERT, purpose: "issue_alert" as const, subject: "Photo hidden: possible private or offensive content" };
+
+    it("has welfare_alert's team rule and goes to WELFARE_ALERT_TO only", async () => {
+      expect(PURPOSE_RULES.issue_alert).toEqual(PURPOSE_RULES.welfare_alert);
+      const { impl, calls } = fakeFetch();
+      expect((await sendMail(ISSUE, { fetchImpl: impl, log: quietLog() })).ok).toBe(true);
+      expect(sentBody(calls[0]!)["to"]).toEqual(["team@example.org"]);
+      const refused = await sendMail(
+        // @ts-expect-error: team purposes take no recipient
+        { ...ISSUE, to: "stranger@example.net" },
+        { fetchImpl: impl, log: quietLog() },
+      );
+      expect(refused).toEqual({ ok: false, reason: "recipient_not_allowed" });
+      expect(calls).toHaveLength(1);
+    });
+
+    it("is not in the never-shed group", () => {
+      expect(NEVER_SHED_PURPOSES).not.toContain("issue_alert");
+    });
   });
 
   describe("recipients are decided by purpose (review fix 1)", () => {

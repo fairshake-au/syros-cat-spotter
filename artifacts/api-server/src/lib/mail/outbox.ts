@@ -1,15 +1,26 @@
 import {
   db,
+  catsTable,
   mailOutboxTable,
+  photosTable,
   welfareReportPhotosTable,
   welfareReportsTable,
   type MailOutboxRow,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { logger, safeError } from "../logger";
+import { consume, declareLimit } from "../limits";
 import { buildUncheckedWaiting, buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
+import { buildIssueAlert, buildIssueDigest, type IssueDigestItem } from "../issues/alertEmail";
 import { isNearFeedingSite, withCheckTimeout } from "../feedingSiteProximity";
-import { hashRecipient, sendMail, type SendResult } from "./send";
+import {
+  hashRecipient,
+  isSheddable,
+  NEVER_SHED_PURPOSES,
+  sendMail,
+  shedThreshold,
+  type SendResult,
+} from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
 import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
 import { REPORTER_PURPOSES, processReporterMail } from "../welfare/reporterEmail";
@@ -51,6 +62,9 @@ import { PERSON_OUTBOX_PURPOSES, processPersonMail } from "./personOutbox";
  * never sends a link that has already expired. The request kicks its own row
  * straight away (`kickRow`); the 10-minute drain is only the retry.
  */
+
+/** `mail_outbox.last_error` for a row the budget dropped. */
+export const SHED = "shed";
 
 export const PHOTO_WAIT_MINUTES = 10;
 export const OVERDUE_MINUTES = 60;
@@ -97,6 +111,97 @@ export const UNCHECKED_WAITING_DELAY_MINUTES = 15;
 // take the tenth place.
 const UNCHECKED_ALERT_LOCK = 170_001;
 
+/**
+ * SYC-44 PR 5.2 (spec §5.2): "Photo hidden" alerts go out one by one, but at
+ * most 10 an hour across the whole island. Past that the report waits for the
+ * daily digest. The count is the shared `consume()` counter, taken inside the
+ * report's transaction, under one bucket and one key, so every server shares
+ * it.
+ */
+export const ISSUE_ALERTS_PER_HOUR = 10;
+export const ISSUE_ALERT_BUCKET = "issue_alert_hidden";
+const HOUR_MS = 60 * 60 * 1000;
+declareLimit(ISSUE_ALERT_BUCKET, ISSUE_ALERTS_PER_HOUR, HOUR_MS);
+
+/**
+ * Queue the "Photo hidden" alert for an issue report, inside the report's
+ * transaction. Returns `"alert"` when a row was queued, or `"digest"` when the
+ * report is left for the daily digest (over the cap, or the counter failed:
+ * the cap fails CLOSED, so a broken counter can never become unlimited
+ * email). Nothing is inserted for `"digest"`; the report row itself is what
+ * the digest counts.
+ *
+ * The counter runs in a savepoint: a database error inside it would otherwise
+ * poison the caller's whole transaction and lose the report.
+ */
+export async function enqueueIssueAlert(tx: Tx, reportId: number): Promise<"alert" | "digest"> {
+  let allowed = false;
+  try {
+    allowed = await tx.transaction(async (sp) => {
+      const counted = await consume(ISSUE_ALERT_BUCKET, "island", ISSUE_ALERTS_PER_HOUR, HOUR_MS, sp);
+      return counted.allowed;
+    });
+  } catch (err) {
+    logger.error({ err: safeError(err) }, "issue alert cap: counter failed; folded into the digest");
+    return "digest";
+  }
+  if (!allowed) return "digest";
+  await tx.insert(mailOutboxTable).values({
+    purpose: "issue_alert",
+    reportId,
+    recipientHash: alertRecipientHash(),
+    payload: { kind: "alert" } satisfies IssuePayload,
+  });
+  return "alert";
+}
+
+/**
+ * The daily "Issue reports: N waiting" digest (spec §5.2). Called from the
+ * mail drain, which has no clock of its own: the once-a-day guard is the
+ * `issue_digest_runs` row for today's ATHENS date, claimed with
+ * `insert … on conflict do nothing` in the SAME transaction that queues the
+ * digest in the outbox. Two things follow:
+ *   - two drains at the same moment queue it once (the loser waits on the
+ *     unique key, then finds the day taken);
+ *   - a failed send is the outbox's to retry, and the day is not lost, since
+ *     claiming the day and queueing the email either both happen or neither.
+ * It is queued only if there are open "Report an issue" rows, and a quiet day
+ * claims nothing, so a report that arrives later that day still gets one.
+ * The items are fixed here, so a retry sends the same body. No notes.
+ */
+export async function sendIssueDigestIfDue(): Promise<"queued" | "nothing_waiting" | "already_sent_today"> {
+  return db.transaction(async (tx) => {
+    const open = await tx.execute(sql`
+      select r.reason, r.cat_id, c.name as cat_name, count(*)::int as n
+        from welfare_reports r
+        left join cats c on c.id = r.cat_id
+       where r.kind = 'content' and r.state in ('new', 'looking')
+       group by r.reason, r.cat_id, c.name
+       order by min(r.created_at)
+    `);
+    const items = (open.rows as { reason: string; cat_id: number | null; cat_name: string | null; n: number }[]).map(
+      (r): IssueDigestItem => ({ reason: r.reason, catId: r.cat_id, catName: r.cat_name, count: Number(r.n) }),
+    );
+    const waiting = items.reduce((sum, i) => sum + i.count, 0);
+    if (waiting === 0) return "nothing_waiting";
+    const claimed = await tx.execute(sql`
+      insert into issue_digest_runs (day)
+      values ((now() at time zone 'Europe/Athens')::date)
+      on conflict (day) do nothing
+      returning day::text as day
+    `);
+    const day = (claimed.rows[0] as { day: string } | undefined)?.day;
+    if (!day) return "already_sent_today";
+    await tx.insert(mailOutboxTable).values({
+      purpose: "issue_alert",
+      reportId: null,
+      recipientHash: alertRecipientHash(),
+      payload: { kind: "digest", day, waiting, digest: items } satisfies IssuePayload,
+    });
+    return "queued";
+  });
+}
+
 /** A keep-safe row's payload. `to` and the tokens are gone once it's settled. */
 export type KeepSafePayload = {
   expiresAt: string;
@@ -109,6 +214,15 @@ export type KeepSafePayload = {
 export const KEEP_SAFE_OUTBOX_PURPOSES: readonly KeepSafeMail[] = ["keep_safe_verify", "restore_link"];
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** An issue_alert row's payload (SYC-44 PR 5.2). */
+type IssuePayload = {
+  kind: "alert" | "digest";
+  /** Digest only: the Athens day it covers, how many reports it counted and what it listed (fixed when queued, so a retry sends the same body). */
+  day?: string;
+  waiting?: number;
+  digest?: IssueDigestItem[];
+};
 
 /** Queue a welfare alert inside the caller's transaction. */
 export async function enqueueWelfareAlert(
@@ -283,6 +397,16 @@ export async function enqueueKeepSafeMail(
   return row!.id;
 }
 
+/**
+ * Never-shed purposes first (SYC-44 PR 5.2): a queue of issue alerts, however
+ * long and however old, can never sit in front of a hurt cat's alert in the
+ * batch the drain takes.
+ */
+const neverShedFirst = sql`(purpose in (${sql.join(
+  NEVER_SHED_PURPOSES.map((p) => sql`${p}`),
+  sql`, `,
+)})) desc`;
+
 async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]> {
   const result = await db.execute(sql`
     update mail_outbox
@@ -294,7 +418,7 @@ async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]
         where state in ('queued', 'sending')
           and next_attempt_at <= now()
           ${onlyId === undefined ? sql`` : sql`and id = ${onlyId}`}
-        order by next_attempt_at
+        order by ${neverShedFirst}, next_attempt_at
         limit ${limit}
         for update skip locked
      )
@@ -433,6 +557,76 @@ async function processKeepSafe(row: MailOutboxRow, mail: KeepSafeMail): Promise<
   return "sent";
 }
 
+/**
+ * SYC-44 PR 5.2: the "Photo hidden" alert. Built from the report row, the
+ * cat's name and the reported photo's bytes, read at send time. It never waits
+ * for a photo (the photo is already in the catalogue, not uploaded later), and
+ * a row that isn't a "Report an issue" row is given up, never sent with this
+ * copy.
+ */
+async function processIssueAlert(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
+  const payload = (row.payload ?? {}) as IssuePayload;
+  if (payload.kind === "digest") return processIssueDigest(row, payload);
+  if (row.reportId === null) {
+    await markFailed(row, "report_gone");
+    return "failed";
+  }
+  const [report] = await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.id, row.reportId));
+  if (!report) {
+    await markFailed(row, "report_gone");
+    return "failed";
+  }
+  if (report.kind !== "content") {
+    await markFailed(row, "wrong_kind");
+    return "failed";
+  }
+  const [cat] =
+    report.catId === null
+      ? []
+      : await db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(eq(catsTable.id, report.catId));
+  const [stored] =
+    report.photoId === null
+      ? []
+      : await db.select({ data: photosTable.data, mime: photosTable.mime }).from(photosTable).where(eq(photosTable.id, report.photoId));
+  const bytes = stored?.data ? Buffer.from(stored.data, "base64") : null;
+  const photo = bytes && bytes.length > 0 ? { bytes, mime: stored!.mime } : null;
+  const result = await sendMail({
+    purpose: "issue_alert",
+    ...buildIssueAlert(report, cat ?? null, photo),
+    // Names the report and whether the photo is attached, as the welfare alert does.
+    idempotencyKey: `issue-${report.publicId}-${row.id}-${photo ? "photo" : "nophoto"}`,
+  });
+  if (!result.ok) {
+    await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
+    return "retry";
+  }
+  await markSent(row, result.providerMessageId, payload);
+  return "sent";
+}
+
+async function processIssueDigest(row: MailOutboxRow, payload: IssuePayload): Promise<"sent" | "retry" | "failed"> {
+  if (typeof payload.waiting !== "number" || !Array.isArray(payload.digest)) {
+    await markFailed(row, "nothing_to_send");
+    return "failed";
+  }
+  const result = await sendMail({
+    purpose: "issue_alert",
+    ...buildIssueDigest(payload.waiting, payload.digest),
+    idempotencyKey: `issue-digest-${payload.day}-${row.id}-${row.createdAt.getTime()}`,
+  });
+  if (!result.ok) {
+    await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
+    return "retry";
+  }
+  await markSent(row, result.providerMessageId, payload);
+  if (payload.day) {
+    await db
+      .execute(sql`update issue_digest_runs set sent_at = now() where day = ${payload.day}::date and sent_at is null`)
+      .catch((err) => logger.error({ err: safeError(err), outboxId: row.id }, "issue digest: sent_at not recorded"));
+  }
+  return "sent";
+}
+
 async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
   try {
     if ((KEEP_SAFE_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
@@ -444,6 +638,9 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
     }
     if ((REPORTER_PURPOSES as readonly string[]).includes(row.purpose)) {
       return await processReporterMail(row, { markSent, markRetry });
+    }
+    if (row.purpose === "issue_alert") {
+      return await processIssueAlert(row);
     }
     if (row.purpose === "welfare_alert" && (row.payload as Payload | null)?.kind === UNCHECKED_WAITING) {
       return await processUncheckedWaiting(row);
@@ -540,14 +737,54 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
   }
 }
 
-export type DrainResult = { claimed: number; sent: number; retry: number; failed: number };
+export type DrainResult = { claimed: number; sent: number; retry: number; failed: number; shed: number };
+
+/**
+ * Emails that actually went out today (UTC day, Resend's), for the shedding
+ * budget. Rows marked sent with nothing sent (no provider id) don't count.
+ */
+async function sentToday(): Promise<number> {
+  const result = await db.execute(sql`
+    select count(*)::int as n from mail_outbox
+     where state = 'sent'
+       and provider_message_id is not null
+       and sent_at >= (date_trunc('day', now() at time zone 'UTC') at time zone 'UTC')
+  `);
+  return Number((result.rows[0] as { n: number } | undefined)?.n ?? 0);
+}
+
+/**
+ * Drop a sheddable email: failed with the reason `shed`, which the queue's
+ * mail-failure banner does not count (it isn't a fault, it's the budget doing
+ * its job; the dashboard still shows the report itself).
+ */
+async function markShed(row: MailOutboxRow) {
+  await db
+    .update(mailOutboxTable)
+    .set({ state: "failed", lastError: SHED })
+    .where(eq(mailOutboxTable.id, row.id));
+  logger.warn({ outboxId: row.id, purpose: row.purpose }, "mail outbox: shed (daily budget reached)");
+}
 
 /** Send up to `limit` due rows. Safe to call from several servers at once. */
 export async function drainDue(limit: number, onlyId?: number): Promise<DrainResult> {
   const rows = await claimDue(limit, onlyId);
-  const out: DrainResult = { claimed: rows.length, sent: 0, retry: 0, failed: 0 };
+  const out: DrainResult = { claimed: rows.length, sent: 0, retry: 0, failed: 0, shed: 0 };
+  // Counted lazily, once per drain, and only when a sheddable row is in the
+  // batch; then kept up to date as this batch sends.
+  let sent: number | null = null;
   for (const row of rows) {
-    out[await processRow(row)] += 1;
+    if (isSheddable(row.purpose)) {
+      sent ??= await sentToday();
+      if (sent >= shedThreshold()) {
+        await markShed(row);
+        out.shed += 1;
+        continue;
+      }
+    }
+    const outcome = await processRow(row);
+    out[outcome] += 1;
+    if (outcome === "sent" && sent !== null) sent += 1;
   }
   return out;
 }

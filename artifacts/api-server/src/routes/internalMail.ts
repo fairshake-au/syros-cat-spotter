@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { checkMailDrainToken } from "../lib/internalAuth";
-import { drainDue, overdueWelfareAlerts, OVERDUE_MINUTES } from "../lib/mail/outbox";
+import { drainDue, overdueWelfareAlerts, sendIssueDigestIfDue, OVERDUE_MINUTES } from "../lib/mail/outbox";
 import { sendDailyRoundUp, type RoundUpResult } from "../lib/sightingRoundUp";
 import { sweepKeepSafeIfDue } from "../lib/keepSafe/sweep";
 import { sweepRateLimitsIfDue } from "../lib/limits";
@@ -26,6 +26,9 @@ import { safeError } from "../lib/logger";
  * that wasn't already due. A round-up failure is logged and never changes
  * the status code: that stays about welfare alerts only.
  *
+ * It also queues the daily "Issue reports: N waiting" digest when it is due
+ * (SYC-44 PR 5.2, `sendIssueDigestIfDue`), once per Athens day.
+ *
  * It also runs the keep-safe sweep (SYC-3, lib/keepSafe/sweep.ts), at most
  * hourly per server, and the rate-limit sweep (lib/limits.ts) on the same terms. A sweep failure is logged and never changes the status.
  */
@@ -41,6 +44,14 @@ router.post("/internal/mail/drain", async (req, res) => {
   if (auth !== "ok") {
     res.status(401).json({ error: "unauthorized" });
     return;
+  }
+  // SYC-44 PR 5.2: queue the daily issues digest if it's due, so the drain
+  // below sends it in this same call. A failure here is logged and never
+  // changes the status.
+  try {
+    await sendIssueDigestIfDue();
+  } catch (err) {
+    req.log.error({ err: safeError(err) }, "issue digest: could not be queued");
   }
   const result = await drainDue(25);
   const overdue = await overdueWelfareAlerts();
