@@ -81,3 +81,59 @@ export function keepSafeSendDeps(mail: KeepSafeMail) {
     isVerified: isKeepSafeConfirmed,
   };
 }
+
+// ── A reporter's address (SYC-42 Slice 3) ──────────────────────────────────
+
+/**
+ * Never mail this reporter address: a report-scope suppression (they pressed
+ * "Forget this address"), or a bounce, complaint or "never email me" on any
+ * purpose (§2.10: the suppression list also blocks verification sends).
+ *
+ * The three-"is this you?" cap (`verify_cap`) blocks only further "is this
+ * you?" emails, never the acknowledgement or outcome to an address its holder
+ * did confirm (the keep-safe rule, SYC-261).
+ */
+export async function isReportSuppressed(address: string, mail: "verify" | "confirmed" = "verify"): Promise<boolean> {
+  const rows = await db
+    .select({ id: emailSuppressionsTable.id })
+    .from(emailSuppressionsTable)
+    .where(
+      or(
+        and(
+          eq(emailSuppressionsTable.addressHmac, addressFingerprint("report", address)),
+          eq(emailSuppressionsTable.scope, "report"),
+          mail === "confirmed" ? ne(emailSuppressionsTable.reason, "verify_cap") : undefined,
+        ),
+        and(
+          eq(emailSuppressionsTable.addressHmac, addressFingerprint("all", address)),
+          eq(emailSuppressionsTable.scope, "all"),
+          inArray(emailSuppressionsTable.reason, ["bounce", "complaint", "unsubscribe"]),
+        ),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** The acknowledgement and the outcome go only to an address its holder confirmed (F7b). */
+export async function isReportConfirmed(address: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: emailContactsTable.id })
+    .from(emailContactsTable)
+    .where(
+      and(
+        eq(emailContactsTable.purpose, "report"),
+        eq(emailContactsTable.addressHmac, addressFingerprint("report", address)),
+        eq(emailContactsTable.status, "confirmed"),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+export function reportSendDeps(mail: "public_verify" | "report_ack" | "report_outcome") {
+  return {
+    isSuppressed: (address: string) => isReportSuppressed(address, mail === "public_verify" ? "verify" : "confirmed"),
+    isVerified: isReportConfirmed,
+  };
+}
