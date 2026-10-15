@@ -131,9 +131,12 @@ router.get(
       typeof req.query["tied"] === "string" && typeof req.query["r"] === "string"
         ? { key: req.query["tied"], id: req.query["r"] }
         : undefined;
+    // ?noted=<publicId>: the note route's 303. Only picks a card.
+    const noted =
+      typeof req.query["noted"] === "string" ? req.query["noted"] : undefined;
     res
       .type("html")
-      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, near));
+      .send(renderQueuePage(queue, person.name, new Date(), changed, tied, near, noted));
   },
 );
 

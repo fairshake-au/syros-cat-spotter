@@ -199,7 +199,7 @@ function catList(
             ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
               `<input type="hidden" name="colonyId" value="none">` +
               `<input type="hidden" name="from" value="${colonyId}">` +
-              `<button type="submit">${w("colony.takeOut")}</button></form>`
+              `<button type="submit" class="risky">${w("colony.takeOut")}</button></form>`
             : "") +
           `</li>`
         );
@@ -276,7 +276,7 @@ export function renderColonyPage(
         ? `<p class="hint">${w("colony.takeOutNote")}</p>`
         : "") +
       (opts.may("assign_cat_to_colony")
-        ? `<p><a class="tap" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
+        ? `<p><a class="tap cardlink" href="${esc(colonyHref(v.id))}/cats">${w("colony.addCats")}</a></p>`
         : "") +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +
@@ -357,7 +357,7 @@ export function renderAddCatsPage(opts: {
   const search =
     `<form class="search" method="get" action="${esc(colonyHref(colony.id))}/cats" role="search">` +
     `<label class="label" for="add-q">${w("add.searchLabel")}</label>` +
-    `<div class="searchrow"><input id="add-q" name="q" type="search" value="${esc(query)}" maxlength="100"${searching ? "" : " autofocus"} autocomplete="off" autocapitalize="none" spellcheck="false">` +
+    `<div class="searchrow"><input id="add-q" name="q" type="search" value="${esc(query)}" maxlength="100" autocomplete="off" autocapitalize="none" spellcheck="false">` +
     `<button type="submit">${w("add.searchButton")}</button></div></form>`;
   let body: string;
   if (!searching) {

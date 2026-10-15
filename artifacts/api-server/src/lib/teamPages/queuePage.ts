@@ -103,7 +103,11 @@ const row = (label: string, value: string) =>
 
 function photoBlock(r: QueueReport): string {
   if (r.photo.url) {
-    return `<img class="photo" src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy">`;
+    // A thumbnail on a phone: tap it for the photo at full size.
+    return (
+      `<a class="photolink" href="${esc(r.photo.url)}">` +
+      `<img class="photo" src="${esc(r.photo.url)}" alt="Photo sent with this report" loading="lazy"></a>`
+    );
   }
   const text =
     r.photo.status === "pending"
@@ -119,11 +123,11 @@ function photoBlock(r: QueueReport): string {
  * forms posting to the routes in routes/teamReports.ts; the browser sends
  * the Origin the routes check. `from` is the state this page showed.
  */
-function actionForms(r: QueueReport): string {
+function actionForms(r: QueueReport, noteOpen: boolean): string {
   const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
   const buttons = REPORT_STATES.map((s) =>
     s === r.state
-      ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (now)</button>`
+      ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (current)</button>`
       : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
   ).join("");
   const noteId = `note-${r.id}`;
@@ -145,13 +149,15 @@ function actionForms(r: QueueReport): string {
     '<p class="label">Move this report to</p>' +
     sentence +
     `<div class="states">${buttons}</div></form>` +
+    // Folded away so a phone isn't mostly empty note boxes.
+    `<details class="notebox"${noteOpen ? " open" : ""}><summary>${r.teamNote ? "Change the team note" : "Add a team note"}</summary>` +
     `<form method="post" action="${esc(base)}/note">` +
     `<label class="label" for="${esc(noteId)}">Team note ` +
     '<span class="hint">Team only. Never shown to the reporter.</span></label>' +
     // The first newline after <textarea> is dropped by browsers, so one is
     // added to keep a note that starts with a blank line as written.
     `<textarea id="${esc(noteId)}" name="note" rows="3" maxlength="${NOTE_MAX}">\n${esc(r.teamNote ?? "")}</textarea>` +
-    '<button type="submit" class="save">Save note</button></form>' +
+    '<button type="submit" class="save">Save note</button></form></details>' +
     "</div>"
   );
 }
@@ -182,7 +188,7 @@ function catRow(r: QueueReport): string {
   }
   return row(
     "Which cat",
-    `<a class="tap" href="${esc(search)}">This is a cat we know</a>`,
+    `<a class="tap" href="${esc(search)}">Match to a known cat</a>`,
   );
 }
 
@@ -193,17 +199,20 @@ function reportCard(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   near: NearSites,
+  noted?: string,
 ): string {
   const classes = [
     "report",
     r.severity === "urgent" ? "urgent" : "",
     closed ? "closed" : "",
-    r.photo.url ? "has-photo" : "",
+    r.photo.url && !closed ? "has-photo" : "",
   ]
     .filter(Boolean)
     .join(" ");
+  const landed =
+    r.id === changedId || r.id === noted || (tied !== undefined && r.id === tied.id);
   const tags =
-    `<span class="tag${r.severity === "urgent" ? " urgent" : ""}">${esc(SEVERITY[r.severity])}</span>` +
+    `<span class="tag ${r.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[r.severity])}</span>` +
     (r.isLitter ? '<span class="tag kittens">Kittens</span>' : "") +
     (r.unchecked ? '<span class="tag unchecked">Unchecked</span>' : "") +
     `<span class="tag state">${esc(STATE[r.state])}</span>` +
@@ -224,8 +233,7 @@ function reportCard(
   const email = r.emailToTeam
     ? `<span${r.emailToTeam === "failed" ? ' class="bad"' : ""}>${esc(EMAIL[r.emailToTeam])}</span>`
     : '<span class="ago">None on record</span>';
-  return (
-    `<article class="${classes}" id="r-${esc(r.id)}">` +
+  const body =
     photoBlock(r) +
     (r.id === changedId
       ? `<p class="notice" role="status">${esc(CHANGED_MESSAGE)}</p>`
@@ -234,7 +242,8 @@ function reportCard(
     (tied && r.id === tied.id && Object.hasOwn(TIED_TEXT, tied.key)
       ? `<p class="notice" role="status">${esc(TIED_TEXT[tied.key]!)}</p>`
       : "") +
-    `<div class="head">${tags}</div>` +
+    (r.id === noted ? '<p class="notice" role="status">Saved. The team note is updated.</p>' : "") +
+    (closed ? "" : `<div class="head">${tags}</div>`) +
     "<dl>" +
     row("Where", place(r.lat, r.lng, r.id, near)) +
     row(
@@ -254,8 +263,14 @@ function reportCard(
     moved +
     row("Email to Syros Cats", email) +
     "</dl>" +
-    actionForms(r) +
-    "</article>"
+    actionForms(r, landed);
+  if (!closed) return `<article class="${classes}" id="r-${esc(r.id)}">${body}</article>`;
+  // A closed report is one line until it's opened: open after an action on it.
+  return (
+    `<article class="${classes}" id="r-${esc(r.id)}">` +
+    `<details${landed ? " open" : ""}><summary><span class="head">${tags}</span>` +
+    `<span class="said1">${r.note ? esc(r.note) : "Nothing written"}</span></summary>` +
+    `<div${r.photo.url ? ' class="has-photo"' : ""}>${body}</div></details></article>`
   );
 }
 
@@ -263,7 +278,7 @@ function draftCard(d: QueueDraft, now: Date, near: NearSites): string {
   return (
     `<article class="report draft${d.severity === "urgent" ? " urgent" : ""}" id="d-${esc(d.id)}">` +
     '<div class="head">' +
-    `<span class="tag${d.severity === "urgent" ? " urgent" : ""}">${esc(SEVERITY[d.severity])}</span>` +
+    `<span class="tag ${d.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[d.severity])}</span>` +
     `<span class="ago">started ${ago(d.startedAt, now)}</span></div>` +
     `<dl>${row("Where", place(d.lat, d.lng, d.id, near))}</dl></article>`
   );
@@ -281,11 +296,12 @@ function uncheckedSection(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   near: NearSites,
+  noted: string | undefined,
 ): string {
   const { reports, reportsTotal, drafts, draftsTotal } = queue.unchecked;
   const list = reports.length
     ? '<p class="empty">These arrived while the safety check couldn\'t reach Cloudflare. Most will be real reports sent during an outage, but some may not be, so they are kept apart from the queue above.</p>' +
-      reports.map((r) => reportCard(r, now, false, changedId, tied, near)).join("") +
+      reports.map((r) => reportCard(r, now, false, changedId, tied, near, noted)).join("") +
       (reportsTotal > reports.length
         ? `<p class="empty">Showing the newest ${reports.length} of ${reportsTotal}.</p>`
         : "")
@@ -330,9 +346,11 @@ export function renderQueuePage(
   changedId: string | undefined,
   tied: TiedNotice | undefined,
   near: NearSites,
+  /** The report whose team note was just saved (?noted=). */
+  noted?: string,
 ): string {
   const open = queue.open.length
-    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, near)).join("")
+    ? queue.open.map((r) => reportCard(r, now, false, changedId, tied, near, noted)).join("")
     : '<p class="empty">No reports are waiting for the team.</p>';
   const drafts = queue.drafts.length
     ? "<h2>Started but not sent</h2>" +
@@ -344,7 +362,7 @@ export function renderQueuePage(
     : "";
   const closed = queue.closed.length
     ? `<h2>Closed (${queue.closedTotal})</h2>` +
-      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, near)).join("") +
+      queue.closed.map((r) => reportCard(r, now, true, changedId, tied, near, noted)).join("") +
       (queue.closedTotal > queue.closed.length
         ? `<p class="empty">Showing the newest ${queue.closed.length} of ${queue.closedTotal}.</p>`
         : "")
@@ -352,8 +370,9 @@ export function renderQueuePage(
   return renderPage({
     title: "Welfare queue",
     active: "queue",
+    mainClass: "wide",
     personName,
     banner: mailBanner(queue.mail),
-    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, near)}`,
+    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, near, noted)}`,
   });
 }

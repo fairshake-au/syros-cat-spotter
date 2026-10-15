@@ -312,7 +312,10 @@ router.post(
       personId: person.id,
     });
     if (!written) return notFound(res);
-    if (isFormPost(req)) return void res.redirect(303, backToReport(publicId));
+    // ?noted=: the queue says it's saved and keeps this report open.
+    if (isFormPost(req)) {
+      return void res.redirect(303, `/api/team?noted=${encodeURIComponent(publicId)}#r-${encodeURIComponent(publicId)}`);
+    }
     const report = await queueReportOr404(res, publicId);
     if (report) res.json(report);
   },
