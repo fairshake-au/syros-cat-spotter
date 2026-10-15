@@ -35,26 +35,21 @@ export function waitForActive(source: ForegroundSource): Promise<void> {
 /**
  * Decides whether a trigger (a NetInfo event, the timer, opening the app) may
  * start a send now. In the background it only marks the queue "due"; the next
- * time the app becomes active, a due queue is sent.
+ * trigger in the foreground (the app becoming active is one) sends it.
  */
 export function createSendGate(deps: { state(): AppStateName; send(): void }) {
   let due = false;
   return {
-    /** A trigger fired (network back, timer, a new report). */
-    trigger(): void {
-      if (deps.state() === 'active') {
+    /** A trigger fired. `state` overrides the app's state when the caller already knows it. */
+    trigger(state?: AppStateName): void {
+      if ((state ?? deps.state()) === 'active') {
         due = false;
         deps.send();
       } else {
         due = true;
       }
     },
-    /** The app became active: send if something came due while it wasn't. */
-    becameActive(): void {
-      if (!due) return;
-      due = false;
-      deps.send();
-    },
+    /** Whether a trigger arrived in the background and is waiting for the foreground. */
     isDue: () => due,
   };
 }
