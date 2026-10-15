@@ -22,3 +22,6 @@ Branch: `claude/bold-bardeen-uveanq` (off origin/main e428b15, 15 Oct 2026). Doc
 6. Placement: Home card + one-line nudge on the reward screen; NOT the match-wait screen. Recommended.
 7. Privacy: photos only; names after the answer; never a place. Recommended.
 8. Offline: FULL offline (deck + local scoring). Not the recommendation; narrowed in spec: local reveal + provisional tally, decided count and badges on sync.
+
+## Milestone 2 (15 Oct): spec draft committed (docs/specs/matching-game.md), branch pushed. Sonnet critic running; output goes to docs/specs/reviews/matching-game-review.md.
+- Dedupe: merge-cats follow-up = existing SYC-59 (no new ticket). No other "game" ticket exists.
