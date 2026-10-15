@@ -25,6 +25,7 @@ import { AppearanceProvider } from '@/context/AppearanceContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { DeviceProvider, useDevice } from '@/context/DeviceContext';
 import { OfflineProvider, useOffline } from '@/context/OfflineContext';
+import { AppSettingsProvider } from '@/context/AppSettingsContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
 import {
@@ -180,6 +181,7 @@ export default function RootLayout() {
             <LanguageProvider>
               <DeviceProvider>
                 <OfflineProvider>
+                  <AppSettingsProvider>
                   <ReportQueueProvider>
                     <NotificationProvider>
                       <DeleteMyDataProvider>
@@ -191,6 +193,7 @@ export default function RootLayout() {
                       </DeleteMyDataProvider>
                     </NotificationProvider>
                   </ReportQueueProvider>
+                  </AppSettingsProvider>
                 </OfflineProvider>
               </DeviceProvider>
             </LanguageProvider>

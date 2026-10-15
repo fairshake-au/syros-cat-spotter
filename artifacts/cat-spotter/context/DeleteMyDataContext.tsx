@@ -8,6 +8,8 @@ import React, {
   useState,
 } from 'react';
 import { Platform } from 'react-native';
+import { clearWaitingRecords } from '@/lib/waitingCardStore';
+import { APP_SETTINGS_STORAGE_KEY } from '@/lib/appSettings';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -90,6 +92,10 @@ export function DeleteMyDataProvider({ children }: { children: React.ReactNode }
       await offline.wipeQueue();
       // SYC-166: recent photo times and fingerprints (same-photo check).
       await clearRecentPhotos(AsyncStorage);
+      // SYC-36 / SYC-48: the waiting card's record and this phone's
+      // resident signals (match-wait plan PR 1).
+      await clearWaitingRecords(AsyncStorage);
+      await AsyncStorage.removeItem(APP_SETTINGS_STORAGE_KEY);
       if ((await AsyncStorage.getItem(DELETE_REPORTS_KEY)) === 'delete') {
         await reportQueueRef.current.wipeReports();
       }
