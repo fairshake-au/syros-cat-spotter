@@ -1,0 +1,17 @@
+CREATE TABLE "map_tile_cache" (
+	"z" smallint NOT NULL,
+	"x" integer NOT NULL,
+	"y" integer NOT NULL,
+	"bytes" "bytea" NOT NULL,
+	"size" integer NOT NULL,
+	"fetched_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "map_tile_cache_z_x_y_pk" PRIMARY KEY("z","x","y"),
+	CONSTRAINT "map_tile_cache_zoom_ck" CHECK ("map_tile_cache"."z" between 12 and 19),
+	CONSTRAINT "map_tile_cache_tile_ck" CHECK ("map_tile_cache"."x" >= 0 and "map_tile_cache"."y" >= 0),
+	CONSTRAINT "map_tile_cache_size_ck" CHECK ("map_tile_cache"."size" = octet_length("map_tile_cache"."bytes"))
+);
+--> statement-breakpoint
+CREATE INDEX "map_tile_cache_fetched_at_idx" ON "map_tile_cache" USING btree ("fetched_at");
+-- rollback-begin
+-- DROP TABLE "map_tile_cache";
+-- rollback-end

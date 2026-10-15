@@ -116,6 +116,10 @@ export function jsonErrorHandler(
     res.end();
     return;
   }
+  // An error answer is never cached. The dashboard's routes set this
+  // themselves, but an error before them (a path Express can't decode, such
+  // as a map picture address /api/team/map-tiles/17%zz) would go without.
+  res.setHeader("Cache-Control", "no-store");
   res.status(500).json({ error: "Something went wrong. Please try again." });
 }
 

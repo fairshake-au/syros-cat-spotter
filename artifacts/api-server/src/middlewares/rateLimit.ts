@@ -194,3 +194,22 @@ export async function checkClaimLimit(
 export async function _resetClaimLimitForTests(): Promise<void> {
   await _resetBucketForTests(CLAIM_BUCKET);
 }
+
+// The team map's pictures, GET /api/team/map-tiles/:tile (SYC-209 PR 3.1).
+// Behind a session, so this is a courtesy cap on the server's work, not a
+// security control (what we ask OpenStreetMap for is held down by the cache
+// and the backoff in lib/mapTiles/tileCache.ts). A map page draws its one
+// picture at five sizes (one per screen-width band; a browser may fetch
+// them all), so 5 a page; 5000 leaves room for a team in one office
+// panning quickly. Pictures seen again in the same hour come from the
+// browser's own cache and don't count.
+//
+// STAYS IN MEMORY, per server, like photoLimiter and for the same reason
+// (SYC-105 PR 2.1): a page loads five pictures, so a database write per
+// picture would cost more than this courtesy cap protects. It sits behind a
+// signed-in session; nothing security depends on rests on it.
+export const mapTileLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * 60 * 1000,
+  limit: 5000,
+});
