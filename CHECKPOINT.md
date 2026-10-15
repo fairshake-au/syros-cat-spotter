@@ -21,3 +21,12 @@ Worktree: lucid-goodall-050c55, branch claude/syc-53-pr-2-1 (off origin/main e42
 2. Opus adversarial review in its own worktree; fold findings; re-review
 3. After #194 merges: cat links on its colony page -> /my/cats for non-island viewers (+ test); sites line via sitesForPerson
 4. Remove CHECKPOINT.md before asking for review-and-merge; then PR 2.2
+
+## State at 17:00 UTC 15 Oct
+- PR 2.1 = #199 (draft), CI running; Opus review agent running in its own worktree (background).
+- Coordinator: merge order #194 first, then #199 rebased (recount MINIMUM_ROUTES), #191 either side.
+
+## PR 2.2 prep notes (not started)
+- resolveSterilised already ranks guardian level 2 (authorityLevel). Life status stays newest-wins until SYC-130 (Samuel 14 Oct) => plan's T12g-7 not built; note as plan-vs-decision.
+- writeObservation: `guardian` not in REACHABLE_ROLES yet (2.2 adds it); colony scope checks exist.
+- routes/notifications.ts (owner-key, SYC-185) writes sterilised directly: commitStatement source test needs a named exemption.
