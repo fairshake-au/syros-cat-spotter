@@ -13,6 +13,7 @@ import {
   HIDING_REASONS,
   applyHideRules,
   issueClock,
+  prepareHide,
   storedHidden,
 } from "../lib/issues/hide";
 
@@ -36,7 +37,8 @@ import {
  *   5. the token (action report_issue, cdata = clientRef). In enforce:
  *      rejected → 428, nothing written; our key broken → 503; Cloudflare
  *      unreachable → saved as unchecked, behind the unchecked fence (3 an
- *      hour per address, shared with the cat-in-trouble form). In off and
+ *      hour per address, shared with the cat-in-trouble form), which is
+ *      taken last, after step 7, so a send that saves nothing never uses it. In off and
  *      observe nothing is refused, and NOTHING HIDES: a hide needs an `ok`
  *      verdict in enforce (plan PR 1.1; plan review finding 2);
  *   6. 20 issue reports an hour per address (429);
@@ -77,14 +79,18 @@ const PHOTO_REQUIRED: ReadonlySet<string> = new Set(["photo_private", "photo_ina
 /** Offered from both the cat page and a photo. */
 const PHOTO_OPTIONAL: ReadonlySet<string> = new Set(["wrong_cat"]);
 
+// Postgres refuses a NUL character in text, so one would be a 500 (review
+// finding 4). Refused here, as a 400, before anything is counted.
+const noNul = (v: string) => !v.includes("\u0000");
+
 const IssueBody = z.object({
-  deviceId: z.string().min(1).max(128),
-  clientRef: z.string().min(8).max(100),
+  deviceId: z.string().min(1).max(128).refine(noNul),
+  clientRef: z.string().min(8).max(100).refine(noNul),
   reason: z.enum(ISSUE_REASONS),
   // A database integer: anything larger would be a 500, not a 400.
   catId: z.number().int().positive().max(2_147_483_647),
-  photoPublicId: z.string().min(1).max(100).optional().nullable(),
-  note: z.string().max(1000).optional().nullable(),
+  photoPublicId: z.string().min(1).max(100).refine(noNul).optional().nullable(),
+  note: z.string().max(1000).refine(noNul).optional().nullable(),
   language: z.enum(["en", "el", "fr"]).catch("en"),
 });
 
@@ -192,55 +198,69 @@ function refuseLimit(req: Request, res: Response, outcome: "full" | "error", buc
  * - `tokenOk` is true ONLY for an `ok` verdict in enforce mode: the one case
  *   in which a report may hide.
  */
-async function tokenStep(
-  req: Request,
-  res: Response,
-  clientRef: string,
-): Promise<{ tokenChecked: boolean | null; tokenOk: boolean } | undefined> {
+type TokenResult = {
+  tokenChecked: boolean | null;
+  tokenOk: boolean;
+  /** Enforce mode, Cloudflare unreachable: the unchecked fence must be passed before saving. */
+  fenced: boolean;
+};
+
+async function tokenStep(req: Request, res: Response, clientRef: string): Promise<TokenResult | undefined> {
   const mode = turnstileMode();
-  if (mode === "off") return { tokenChecked: null, tokenOk: false };
+  if (mode === "off") return { tokenChecked: null, tokenOk: false, fenced: false };
   const token: unknown = (req.body as { turnstileToken?: unknown } | undefined)?.turnstileToken;
   const verdict = await verifyTurnstile(token, "report_issue", clientRef);
   if (mode === "observe") {
     logVerdict(mode, "report_issue", verdict);
     const tokenChecked = verdict.outcome === "ok" ? true : verdict.outcome === "unreachable" ? false : null;
-    return { tokenChecked, tokenOk: false };
+    return { tokenChecked, tokenOk: false, fenced: false };
   }
   if (verdict.outcome !== "ok") logVerdict(mode, "report_issue", verdict);
   switch (verdict.outcome) {
     case "ok":
-      return { tokenChecked: true, tokenOk: true };
+      return { tokenChecked: true, tokenOk: true, fenced: false };
     case "rejected":
       res.status(428).json({ error: "challenge_required" });
       return undefined;
     case "not_configured":
       res.status(503).json({ error: "turnstile_not_configured" });
       return undefined;
-    case "unreachable": {
-      const address = req.ip ?? "unknown";
-      let allowance: Awaited<ReturnType<typeof takeUncheckedAllowance>>;
-      try {
-        // The same fence as the cat-in-trouble form: 3 an hour per address,
-        // both forms together, and the island-wide 30. Fails closed.
-        allowance = await takeUncheckedAllowance("report", address);
-      } catch (err) {
-        req.log.error({ err: safeError(err) }, "unchecked limit counter failed");
-        res.status(503).json({ error: "try_again" });
-        return undefined;
-      }
-      if (allowance === "island") {
-        res.status(503).json({ error: "try_again" });
-        return undefined;
-      }
-      if (allowance === "address") {
-        const resetAt = await uncheckedResetAt("report", address).catch(() => undefined);
-        if (resetAt) res.set("Retry-After", String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
-        res.status(429).json(TOO_MANY);
-        return undefined;
-      }
-      return { tokenChecked: false, tokenOk: false };
-    }
+    case "unreachable":
+      // Saved unchecked, but only once the cat and photo are known to be
+      // good: the fence is taken last, just before the insert (`passFence`).
+      return { tokenChecked: false, tokenOk: false, fenced: true };
   }
+}
+
+/**
+ * The unchecked fence (3 an hour per address, shared with the
+ * cat-in-trouble form, and the island-wide 30). Taken LAST, just before the
+ * insert, so a send that saves nothing (an unknown cat, a photo that isn't
+ * the cat's) can't use up an address's allowance and block a real hurt-cat
+ * report during an outage (review finding 6). Fails closed. False once it
+ * has answered the request itself.
+ */
+async function passFence(req: Request, res: Response): Promise<boolean> {
+  const address = req.ip ?? "unknown";
+  let allowance: Awaited<ReturnType<typeof takeUncheckedAllowance>>;
+  try {
+    allowance = await takeUncheckedAllowance("report", address);
+  } catch (err) {
+    req.log.error({ err: safeError(err) }, "unchecked limit counter failed");
+    res.status(503).json({ error: "try_again" });
+    return false;
+  }
+  if (allowance === "island") {
+    res.status(503).json({ error: "try_again" });
+    return false;
+  }
+  if (allowance === "address") {
+    const resetAt = await uncheckedResetAt("report", address).catch(() => undefined);
+    if (resetAt) res.set("Retry-After", String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
+    res.status(429).json(TOO_MANY);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -358,9 +378,11 @@ router.post("/issues", async (req, res) => {
     }
     photoId = photo.id;
   }
+  if (token.fenced && !(await passFence(req, res))) return;
 
   // ── 8. One transaction: the row, the hide, the alert ──
   const note = body.note?.trim() ? body.note.trim() : null;
+  const limitsAt = await prepareHide();
   const saved = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(welfareReportsTable)
@@ -393,6 +415,7 @@ router.post("/issues", async (req, res) => {
       photoId,
       tokenOk: token.tokenOk,
       address,
+      limitsAt,
     });
     const [stored] = await tx.select(ROW_FIELDS).from(welfareReportsTable).where(eq(welfareReportsTable.id, row.id));
     return stored!;
@@ -426,13 +449,29 @@ async function upgrade(
   if (attempt !== "ok") return refuseLimit(req, res, attempt, ATTEMPTS_BUCKET);
   const token: unknown = (req.body as { turnstileToken?: unknown }).turnstileToken;
   const verdict = await verifyTurnstile(token, "report_issue", clientRef);
-  if (verdict.outcome !== "ok") {
-    logVerdict("enforce", "report_issue", verdict);
-    return answer(res, 200, existing);
+  if (verdict.outcome !== "ok") logVerdict("enforce", "report_issue", verdict);
+  switch (verdict.outcome) {
+    case "ok":
+      break;
+    case "rejected":
+      // The report is saved; this send's token just wasn't good. Its first
+      // answer stands (the app keeps nothing more to send).
+      return answer(res, 200, existing);
+    case "not_configured":
+      // Our key, never the sender's fault: 503, which the app retries, so
+      // the upgrade chance isn't lost (review finding 5).
+      res.status(503).json({ error: "turnstile_not_configured" });
+      return;
+    case "unreachable":
+      // Nothing to gain from a second unchecked mark; ask the app to try
+      // again later, when Cloudflare may answer.
+      res.status(503).json({ error: "try_again" });
+      return;
   }
   const counted = await take(REPORTS_BUCKET, ISSUE_REPORTS_PER_HOUR, address);
   if (counted !== "ok") return refuseLimit(req, res, counted, REPORTS_BUCKET);
 
+  const limitsAt = await prepareHide();
   const updated = await db.transaction(async (tx) => {
     // Lock the report, then check the conditions again under the lock: the
     // team may have decided it, or restored its photo, since the first read.
@@ -452,6 +491,7 @@ async function upgrade(
         photoId: row.photoId,
         tokenOk: true,
         address,
+        limitsAt,
       });
     }
     const [stored] = await tx.select(ROW_FIELDS).from(welfareReportsTable).where(eq(welfareReportsTable.id, row.id));

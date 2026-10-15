@@ -474,6 +474,21 @@ describe("T5-2 [spec 2]: a token that isn't good is 428 and writes nothing", () 
     expect(await rowFor(ref)).toBeUndefined();
   });
 
+  it("sends that save nothing don't use up the shared unchecked fence (review finding 6)", async () => {
+    const cat = await seedCat(0);
+    siteverify = timeout;
+    const ip = freshIp();
+    const deviceId = freshDevice();
+    for (let i = 0; i < 3; i++) {
+      expect((await send({ ip, deviceId, catId: 2_000_000_000, reason: "cat_died" })).status).toBe(404);
+      expect((await send({ ip, deviceId, catId: cat.id, reason: "photo_private", photoPublicId: `${PREFIX}nope` })).status).toBe(404);
+    }
+    const ref = clientRef();
+    const res = await send({ ip, deviceId, clientRef: ref, catId: cat.id, reason: "wrong_name" });
+    expect(res.status).toBe(201);
+    expect(await rowFor(ref)).toMatchObject({ tokenChecked: false });
+  });
+
   it("our own key wrong is 503 turnstile_not_configured, never unchecked", async () => {
     const cat = await seedCat(0);
     siteverify = cf({ success: false, "error-codes": ["invalid-input-secret"] });
@@ -540,7 +555,9 @@ describe("T5-4 [spec 4]: the address hide limits (5 an hour, 15 a day), with the
     _setBrakeForTests(50);
     const day = freshDay() - 11 * HOUR; // 01:00 UTC
     const ip = freshIp();
-    for (let h = 0; h < 3; h++) {
+    // Two hours apart: the hourly limit is sliding, so the hour just before
+    // still weighs on the next one.
+    for (let h = 0; h < 6; h += 2) {
       _setIssueClockForTests(day + h * HOUR);
       for (let i = 0; i < 5; i++) {
         const cat = await seedCat(0);
@@ -548,7 +565,7 @@ describe("T5-4 [spec 4]: the address hide limits (5 an hour, 15 a day), with the
         expect(res.body.hidden, `hour ${h} hide ${i + 1}`).toBe(true);
       }
     }
-    _setIssueClockForTests(day + 3 * HOUR);
+    _setIssueClockForTests(day + 6 * HOUR);
     const cat = await seedCat(0);
     const ref = clientRef();
     const res = await send({ ip, clientRef: ref, catId: cat.id, reason: "photo_private", photoPublicId: cat.main.publicId });
@@ -570,6 +587,23 @@ describe("T5-4 [spec 4]: the address hide limits (5 an hour, 15 a day), with the
       const res = await send({ ip, catId: cat.id, reason: "photo_private", photoPublicId: cat.main.publicId });
       expect(res.body.hidden, `hide ${i + 1} after the rolled-back five`).toBe(true);
     }
+  });
+
+  it("the hourly limit slides: 5 just before the hour and a 6th just after it doesn't hide (review finding 9)", async () => {
+    _setBrakeForTests(50);
+    const hourStart = freshDay(); // noon UTC, on the hour
+    const ip = freshIp();
+    _setIssueClockForTests(hourStart - 60_000);
+    for (let i = 0; i < 5; i++) {
+      const cat = await seedCat(0);
+      expect((await send({ ip, catId: cat.id, reason: "photo_private", photoPublicId: cat.main.publicId })).body.hidden).toBe(true);
+    }
+    _setIssueClockForTests(hourStart + 60_000);
+    const cat = await seedCat(0);
+    const ref = clientRef();
+    const res = await send({ ip, clientRef: ref, catId: cat.id, reason: "photo_private", photoPublicId: cat.main.publicId });
+    expect(res.body.hidden).toBe(false);
+    expect(await rowFor(ref)).toMatchObject({ hideSkipped: "address_limit" });
   });
 
   it("a hide counter that fails is a closed door: the report is saved, the photo isn't hidden", async () => {
@@ -625,6 +659,22 @@ describe("T5-5 [spec 5]: the brake: 5 report-hides a day, Athens time, no resume
 
     // 00:05 Athens on the 26th (22:05 UTC on the 25th): hides again, on its own.
     expect((await hideAt("2026-10-25T22:05:00Z")).res.body.hidden).toBe(true);
+  });
+
+  it("on the database's own clock (production's path): the 6th report-hide today is braked, and a hide is stamped now (review finding 7)", async () => {
+    _setIssueClockForTests(null);
+    const first = await seedCat(0);
+    const res = await send({ catId: first.id, reason: "photo_private", photoPublicId: first.main.publicId });
+    expect(res.body.hidden).toBe(true);
+    const [event] = await eventsFor(first.main.id);
+    expect(Math.abs(event!.at.getTime() - Date.now())).toBeLessThan(60_000);
+    // Four more report-hides today, Athens time (stamped now, which is today).
+    await seedReportHides(REPORT_HIDES_PER_ATHENS_DAY - 1, new Date());
+    const sixth = await seedCat(0);
+    const ref = clientRef();
+    const res6 = await send({ clientRef: ref, catId: sixth.id, reason: "photo_private", photoPublicId: sixth.main.publicId });
+    expect(res6.body.hidden).toBe(false);
+    expect(await rowFor(ref)).toMatchObject({ hideSkipped: "brake" });
   });
 
   it("the team can still hide by hand while the brake is on", async () => {
@@ -735,6 +785,10 @@ describe("T5-8 [spec 14, server]: resends, and the upgrade case", () => {
     expect(await isHidden(cat.main.id)).toBe(false);
   });
 
+  // With real Cloudflare the two sends would carry one single-use token, so the
+  // slower usually gets 428 (timeout-or-duplicate) and the app resends and
+  // gets the stored answer. This fake passes both, to prove the database
+  // side: one row, and the loser answers with the winner's (review finding 8).
   it("two sends of one clientRef at the same moment make one report, and both get its answer", async () => {
     const cat = await seedCat(0);
     const ref = clientRef();
@@ -785,6 +839,18 @@ describe("T5-8 [spec 14, server]: resends, and the upgrade case", () => {
     expect(badToken.body.hidden).toBe(false);
     expect(await rowFor(ref)).toMatchObject({ tokenChecked: false, hideSkipped: "unchecked" });
     expect(await isHidden(cat.main.id)).toBe(false);
+  });
+
+  it.each([
+    ["our key is wrong", cf({ success: false, "error-codes": ["invalid-input-secret"] }), "turnstile_not_configured"],
+    ["Cloudflare is unreachable again", timeout, "try_again"],
+  ] as const)("an upgrade resend when %s is 503, so the app tries again (review finding 5)", async (_name, reply, error) => {
+    const { cat, ref, deviceId } = await uncheckedFirst();
+    siteverify = reply;
+    const again = await send({ deviceId, clientRef: ref, catId: cat.id, reason: "photo_private", photoPublicId: cat.main.publicId });
+    expect(again.status).toBe(503);
+    expect(again.body).toEqual({ error });
+    expect(await rowFor(ref)).toMatchObject({ tokenChecked: false, hideSkipped: "unchecked" });
   });
 
   it.each(["done", "nothing_needed"])("a report the team has decided (%s) is not upgraded", async (state) => {
@@ -937,6 +1003,24 @@ describe("T5-11: only this cat's photo, and only a real one", () => {
     const cat = await seedCat(0);
     expect((await send({ catId: cat.id, reason: "photo_private", photoPublicId: `${PREFIX}no-such-photo` })).status).toBe(404);
     expect((await send({ catId: 2_000_000_000, reason: "cat_died" })).status).toBe(404);
+  });
+
+  it("a NUL character anywhere is 400, never 500, and is refused before anything is counted (review finding 4)", async () => {
+    const cat = await seedCat(0);
+    const calls = siteverifyCalls;
+    for (const bad of [
+      { clientRef: "ref-nul-\u0000-xx" },
+      { photoPublicId: `${PREFIX}x\u0000` },
+      { note: "a\u0000b" },
+    ]) {
+      const res = await request(app)
+        .post("/api/issues")
+        .set("X-Device-Secret", SECRET)
+        .set("X-Forwarded-For", freshIp())
+        .send({ deviceId: freshDevice(), clientRef: clientRef(), reason: "photo_private", catId: cat.id, photoPublicId: cat.main.publicId, language: "en", turnstileToken: TOKEN, ...bad });
+      expect(res.status, JSON.stringify(Object.keys(bad))).toBe(400);
+    }
+    expect(siteverifyCalls).toBe(calls);
   });
 
   it("a photo reason needs a photo, and a cat reason refuses one (400)", async () => {

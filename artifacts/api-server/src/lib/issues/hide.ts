@@ -1,6 +1,6 @@
 import { db, photoVisibilityEventsTable, welfareReportsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { addressKey, consume, declareLimit } from "../limits";
+import { addressKey, consume, declareLimit, warmSalts } from "../limits";
 import { logger, safeError } from "../logger";
 import { enqueueIssueAlert } from "../mail/outbox";
 
@@ -59,6 +59,11 @@ export function _setBrakeForTests(limit: number = REPORT_HIDES_PER_ATHENS_DAY): 
 // reports racing for the last place can't both take it (T5-10). Distinct from
 // the outbox's 170_001.
 const BRAKE_LOCK = 44_051;
+// How long a report waits for that lock before giving up. Every hide holds it
+// for a few quick statements, so a wait this long means something is stuck;
+// the report is then saved without a hide (fails closed, as `brake`) instead
+// of holding its pool connection for ever (review finding 1).
+const BRAKE_LOCK_TIMEOUT = "5s";
 
 // ── The address hide limits (spec §8.1) ────────────────────────────────────
 
@@ -68,7 +73,9 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const HIDE_HOUR_BUCKET = "issue_hide_hour";
 const HIDE_DAY_BUCKET = "issue_hide_day";
-declareLimit(HIDE_HOUR_BUCKET, ADDRESS_HIDES_PER_HOUR, HOUR_MS);
+// Both sliding, so an hour boundary hands out no fresh allowance (review
+// finding 9: a fixed hour allowed 10 hides in 2 minutes across one).
+declareLimit(HIDE_HOUR_BUCKET, ADDRESS_HIDES_PER_HOUR, HOUR_MS, { sliding: true });
 declareLimit(HIDE_DAY_BUCKET, ADDRESS_HIDES_PER_DAY, DAY_MS, { sliding: true });
 
 // ── The clock ──────────────────────────────────────────────────────────────
@@ -105,7 +112,25 @@ export type HideInput = {
   tokenOk: boolean;
   /** The sender's address (`req.ip`), grouped before it is hashed. Never stored. */
   address: string;
+  /** From {@link prepareHide}, called before the transaction opened. */
+  limitsAt: number;
 };
+
+/**
+ * Call BEFORE opening the report's transaction; pass the result as
+ * `limitsAt`. It fixes the moment the address limits are counted at, and
+ * caches the rate-limit salts for it, so nothing inside the transaction
+ * (which may hold the brake lock) ever needs a second pool connection.
+ * Without this, a dozen hide reports at once after a restart locked up the
+ * whole pool for good (review finding 1).
+ */
+export async function prepareHide(): Promise<number> {
+  const at = clockOverride ?? Date.now();
+  await warmSalts(at);
+  // The "Photo hidden" alert's own cap counts on the real clock.
+  if (clockOverride !== null) await warmSalts(Date.now());
+  return at;
+}
 
 export type HideResult = {
   /** Whether a hide event was written by this report. */
@@ -158,7 +183,19 @@ async function decide(tx: Tx, input: HideInput & { photoId: number }): Promise<H
 
   // 4. Rule (iv): the brake. The lock is held to the end of the transaction,
   //    so the count and the hide below are one step for every report.
-  await tx.execute(sql`select pg_advisory_xact_lock(${BRAKE_LOCK})`);
+  //    Taken in a savepoint with a lock timeout: a lock that can't be had in
+  //    time fails closed (no hide) rather than waiting for ever. A lock taken
+  //    in a savepoint that is released is held to the end of the transaction.
+  try {
+    await tx.transaction(async (sp) => {
+      await sp.execute(sql`select set_config('lock_timeout', ${BRAKE_LOCK_TIMEOUT}, true)`);
+      await sp.execute(sql`select pg_advisory_xact_lock(${BRAKE_LOCK})`);
+      await sp.execute(sql`select set_config('lock_timeout', '0', true)`);
+    });
+  } catch (err) {
+    logger.error({ err: safeError(err) }, "issue brake lock: not had in time; the report is saved, not hidden");
+    return skip("brake");
+  }
   const now = nowSql();
   const counted = await tx.execute<{ n: number }>(sql`
     select count(*)::int as n from photo_visibility_events
@@ -175,8 +212,10 @@ async function decide(tx: Tx, input: HideInput & { photoId: number }): Promise<H
   try {
     const allowed = await tx.transaction(async (sp) => {
       const key = addressKey(input.address);
-      const at = clockOverride ?? Date.now();
-      const hour = await consume(HIDE_HOUR_BUCKET, key, ADDRESS_HIDES_PER_HOUR, HOUR_MS, sp, at);
+      const at = input.limitsAt;
+      const hour = await consume(HIDE_HOUR_BUCKET, key, ADDRESS_HIDES_PER_HOUR, HOUR_MS, sp, at, {
+        sliding: true,
+      });
       if (!hour.allowed) return false;
       const day = await consume(HIDE_DAY_BUCKET, key, ADDRESS_HIDES_PER_DAY, DAY_MS, sp, at, {
         sliding: true,
