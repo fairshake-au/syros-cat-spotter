@@ -105,6 +105,11 @@ describe("coat-readings workflow step", () => {
     expect(r.output).not.toContain("test-token");
   });
 
+  it("exclude: spaces separate ids too, never joining them (ship review finding 2)", () => {
+    expect(run({ MODE: "write", EXCLUDE: "12 14, 7" }).bodies).toEqual([{ mode: "write", limit: 50, exclude: [12, 14, 7] }]);
+    expect(run({ MODE: "write", EXCLUDE: " 3,,  9 " }).bodies).toEqual([{ mode: "write", limit: 50, exclude: [3, 9] }]);
+  });
+
   it("defaults: a dry run with nothing excluded", () => {
     expect(run({}).bodies).toEqual([{ mode: "dry_run", limit: 50, exclude: [] }]);
   });
@@ -114,6 +119,9 @@ describe("coat-readings workflow step", () => {
       "https://evil.example.com",
       "https://apptest.catspotters.com.evil.example.com",
       "https://apptest.catspotters.com@evil.example.com",
+      "https://apptest.catspotters.com:pw@evil.example.com",
+      "https://apptest.catspotters.com:@evil.example.com",
+      "http://localhost:x@evil.example.com",
       "http://apptest.catspotters.com",
     ]) {
       const r = run({ BASE_URL: url });

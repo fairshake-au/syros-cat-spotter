@@ -7,6 +7,13 @@ name: coat-readings
 #                 raw numbers, for Samuel's contact sheet (Decision A1)
 #   mode=write    writes the readings, except the cats listed in `exclude`
 #
+# Every model call, trial or write, counts against the same budgets: 60 calls
+# an hour across the server, and 3 attempts a day per (cat, photo). A trial
+# and a write of the same cats in one hour can hit the hourly limit; the run
+# then stops and reports how many are still due, so run the write again after
+# an hour. A write calls the model again, so compare its colours with the
+# trial's before the chips go out (plan, Rollout step 4).
+#
 # Started by hand only; there is no schedule. Nothing in PR 1 reads colours
 # automatically (that is PR 2, behind AUTO_COAT_READING).
 #
@@ -35,7 +42,7 @@ on:
       exclude:
         type: string
         default: ""
-        description: "Cat ids NOT to write, comma-separated (the readings Samuel rejected)"
+        description: "Cat ids NOT to write, separated by commas or spaces (the readings Samuel rejected)"
 permissions: { contents: read }
 concurrency: { group: "coat-readings", cancel-in-progress: false }
 jobs:
@@ -57,7 +64,12 @@ jobs:
             echo "::error::MAIL_DRAIN_TOKEN is not set in the production environment"
             exit 1
           fi
-          # The token only ever goes to the app (the same check as mail-drain.yml).
+          # The token only ever goes to the app (the same check as mail-drain.yml,
+          # plus: no "user@" part at all, which "host:pw@evil.example" would
+          # otherwise slip past the host check; ship review finding 3).
+          case "${BASE_URL}" in
+            *@*) echo "::error::base_url must be https://apptest.catspotters.com or localhost"; exit 1 ;;
+          esac
           rest="${BASE_URL#*://}"
           scheme="${BASE_URL%%://*}"
           host="${rest%%/*}"
@@ -84,7 +96,7 @@ jobs:
             *[!0-9,\ ]*) echo "::error::exclude must be cat ids separated by commas"; exit 1 ;;
           esac
           body="$(jq -cn --arg mode "${MODE}" --argjson limit "${LIMIT}" --arg exclude "${EXCLUDE}" \
-            '{mode: $mode, limit: $limit, exclude: ($exclude | split(",") | map(gsub(" "; "")) | map(select(length > 0)) | map(tonumber))}')"
+            '{mode: $mode, limit: $limit, exclude: ($exclude | [splits("[, ]+")] | map(select(length > 0)) | map(tonumber))}')"
           echo "Request: ${body}"
           out="$(mktemp)"
           # The first call can wake a sleeping deployment: retry once when

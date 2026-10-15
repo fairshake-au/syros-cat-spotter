@@ -47,6 +47,12 @@ describe("T-shape: a good answer is a reading", () => {
     expect(MODEL_VERSION).toBe(`${VISION_MODEL}/coat-v1`);
   });
 
+  it("asks the client never to retry on its own: one counted attempt is one paid call", async () => {
+    replies(answer());
+    await readCoatFromPhoto(PHOTO);
+    expect(create.mock.calls[0]![1]).toMatchObject({ maxRetries: 0 });
+  });
+
   it("accepts an answer wrapped in a markdown fence", async () => {
     replies("```json\n" + answer({ colours: ["grey"] }) + "\n```");
     expect(await readCoatFromPhoto(PHOTO)).toMatchObject({ kind: "reading", colours: ["grey"] });

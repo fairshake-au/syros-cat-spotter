@@ -164,7 +164,10 @@ export async function readCoatFromPhoto(
     const call = openai.chat.completions.create(
       {
         model: VISION_MODEL,
-        max_completion_tokens: 2048,
+        // The matcher's allowance for the same model: a reasoning model can
+        // spend hidden tokens before it answers, and a cut-off answer would
+        // fail every call.
+        max_completion_tokens: 8192,
         messages: [
           {
             role: "user",
@@ -175,7 +178,10 @@ export async function readCoatFromPhoto(
           },
         ],
       },
-      { timeout: timeoutMs },
+      // No silent retries: the client would otherwise retry up to twice, so
+      // one counted attempt could be three paid calls. The budgets (R6, R7)
+      // are the retry policy.
+      { timeout: timeoutMs, maxRetries: 0 },
     );
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new ReadTimeout()), timeoutMs);
