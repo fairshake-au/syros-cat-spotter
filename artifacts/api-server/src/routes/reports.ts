@@ -386,27 +386,31 @@ router.post("/reports", reportLimiter, async (req, res) => {
     return;
   }
 
-  res.status(201).json({ publicId: created.publicId });
-
-  // SYC-42 Slice 3: the address, AFTER the report has committed and been
-  // answered, so nothing about it can lose or delay the report (§4.3). The
-  // reply is the same whatever happens here.
+  // SYC-42 Slice 3: the address, AFTER the report has committed, so nothing
+  // about it can lose the report (§4.3): a failure here is logged and the
+  // report is answered exactly as without one. It runs before the reply only
+  // so the reply is the same whatever happened (one small transaction).
+  const toKick: number[] = [];
   const email = body.email?.trim();
   if (email && reporterEmailOn()) {
     if (!looksLikeAddress(email)) {
       req.log.info({ reason: "not_an_address" }, "reporter email: ignored");
     } else {
       try {
-        const ids = await addReporterEmail(
-          { reportId: created.id, deviceId: body.deviceId, email, language: body.language, ip: req.ip ?? "unknown" },
-          req.log,
+        toKick.push(
+          ...(await addReporterEmail(
+            { reportId: created.id, deviceId: body.deviceId, email, language: body.language, ip: req.ip ?? "unknown" },
+            req.log,
+          )),
         );
-        for (const id of ids) kickRow(id);
       } catch (err) {
         req.log.error({ err: safeError(err) }, "reporter email: not stored; the report is safe");
       }
     }
   }
+
+  res.status(201).json({ publicId: created.publicId });
+  for (const id of toKick) kickRow(id);
   // After the address is linked, so a photo-less alert going straight away
   // says whether contact details were left.
   if (!body.hasPhoto) kick();
