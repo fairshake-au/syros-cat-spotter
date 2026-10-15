@@ -35,7 +35,9 @@ import { gateEnabled } from "./prelaunch";
  *
  * Development and Replit previews use Cloudflare's published test keys, whose
  * tokens report the hostname `example.com`: set TURNSTILE_HOSTNAMES to that
- * there, never in production.
+ * there, never in production. Those test tokens don't echo the action or
+ * cdata, so local runs with test keys work only in TURNSTILE_MODE=observe:
+ * in enforce every token is rejected (action-mismatch) and the route answers 428.
  */
 
 export const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
