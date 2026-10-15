@@ -13,6 +13,7 @@ import type { QueueReport } from "../welfareQueue";
 import { timeAgo } from "./queuePage";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
+import { t } from "./words";
 
 // The team's "Cats" screens (SYC-43 part 2 plan, PR 3): finding a cat, and
 // the team's page for one cat. Read-only. Server-drawn, no scripts. Every
@@ -62,6 +63,18 @@ const time = (iso: string, text = when(iso)) =>
 const place = (lat: number, lng: number) =>
   // Exact: the stored numbers as they are, never rounded.
   esc(`${lat}, ${lng}`);
+
+// Two buttons on each sighting (SYC-209 PR 3.4). Each is a POST form that
+// carries only the sighting's number: the server looks the position up, so no
+// position is ever in an address (K13). They replace the removed link to a map
+// company, and the page must never have both.
+const sightingButtons = (sightingId: number, may: (c: Capability) => boolean) =>
+  (may("add_feeding_site")
+    ? `<form method="post" action="/api/team/sites/from-sighting" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.makeSite"))}</button></form>`
+    : "") +
+  (may("view_exact_location")
+    ? `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.showOnMap"))}</button></form>`
+    : "");
 
 const row = (label: string, value: string) =>
   `<dt>${esc(label)}</dt><dd>${value}</dd>`;
@@ -661,7 +674,7 @@ export function renderCatPage(
               (s.photoUrl
                 ? `<a href="${esc(s.photoUrl)}"><img class="thumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${when(s.at)}`)}" loading="lazy"></a>`
                 : '<span class="thumb nothumb">No photo</span>') +
-              `<span>${time(s.at)}<br>${place(s.lat, s.lng)}</span></li>`,
+              `<span>${time(s.at)}<br>${place(s.lat, s.lng)}${sightingButtons(s.id, may)}</span></li>`,
           )
           .join("") +
         "</ul>");

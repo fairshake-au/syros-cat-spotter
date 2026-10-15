@@ -1,5 +1,5 @@
 import type { SiteChange, SiteCounts, SiteHistoryEntry, SiteRow, SiteView } from "../teamSites";
-import type { TileSize, View } from "../mapTiles/geometry";
+import type { Position, TileSize, View } from "../mapTiles/geometry";
 import { mintTileToken } from "../mapTiles/tileToken";
 import { escapeHtml as esc } from "./escape";
 import { day } from "./colonyPages";
@@ -109,10 +109,17 @@ export function renderSitesPage(opts: {
   view: View;
   showRetired: boolean;
   note?: string;
+  /** "Show on our map" from a sighting (PR 3.4): an outlined marker where the cat was seen. */
+  sighting?: Position;
 }): string {
   const map = renderMap({
     view: opts.view,
-    markers: opts.sites.map(markerFor),
+    markers: [
+      ...opts.sites.map(markerFor),
+      ...(opts.sighting
+        ? [{ ...opts.sighting, label: t("sites.sightingMarker"), look: "sighting" as const }]
+        : []),
+    ],
     mode: "view",
     moveAction: SITES_MOVE_PATH,
     // The page's own setting travels with every map button, as a fixed key.
@@ -146,6 +153,7 @@ export function renderSitesPage(opts: {
       (opts.note ? `<p class="warn">${esc(opts.note)}</p>` : "") +
       map +
       `<p class="hint">${w("sites.legend")}</p>` +
+      (opts.sighting ? `<p class="hint">${w("sites.sightingLegend")}</p>` : "") +
       `<form method="get" action="${SITES_PATH}/new" class="addsite"><button type="submit">${w("sites.add")}</button></form>` +
       `<h2>${w("sites.listTitle")}</h2>` +
       list +

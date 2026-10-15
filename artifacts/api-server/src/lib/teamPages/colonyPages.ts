@@ -265,6 +265,11 @@ export function renderColonyPage(
       (opts.may("edit_colony") ? editForm(v, opts.may) : "") +
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
+      // Opens the add page with this colony chosen. Only the colony's number
+      // is in the address, never a position (PR 3.4).
+      (opts.may("add_feeding_site")
+        ? `<p><a class="tap" href="/api/team/sites/new?colony=${v.id}">${w("colony.addSite")}</a></p>`
+        : "") +
       `<h2>${w("colony.catsTitle")}</h2>` +
       catList(v.cats, v.id, opts.may("assign_cat_to_colony")) +
       (v.cats.length > 0 && opts.may("assign_cat_to_colony")

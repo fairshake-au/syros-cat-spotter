@@ -42,13 +42,15 @@ export interface MapMarker extends Position {
   /** View mode: where the marker goes. Never holds a position. */
   href?: string;
   /** How a feeding site's marker looks (SYC-209 PR 3.2); a fixed set, never free text. */
-  look?: "public" | "private" | "retired";
+  look?: "public" | "private" | "retired" | "sighting";
 }
 
 const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
   public: " site-public",
   private: " site-private",
   retired: " site-retired",
+  // Where a cat was seen (PR 3.4): outlined and dashed, so it never reads as a site.
+  sighting: " sighting",
 };
 
 export interface MapOptions {
@@ -165,7 +167,9 @@ function controls(view: View, opts: MapOptions): string {
 export function renderMap(opts: MapOptions): string {
   const view = resolveView(opts);
   return (
-    `<div class="map" role="group" aria-label="Map of Syros, zoom ${view.z} of ${MAX_ZOOM}">` +
+    // id="map": "Show on our map" lands here (#map), as the map sits below the
+    // fold on a phone. One map per page.
+    `<div class="map" id="map" role="group" aria-label="Map of Syros, zoom ${view.z} of ${MAX_ZOOM}">` +
     BANDS.map((b) => band(view, b.size, opts)).join("") +
     "</div>" +
     '<p class="attrib">Map pictures © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a></p>' +

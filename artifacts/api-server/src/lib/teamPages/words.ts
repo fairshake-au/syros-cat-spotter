@@ -119,6 +119,16 @@ const WORDS = {
     "This map is only for the team. Our server fetches the map pictures, so your browser never tells a map company where you are looking.",
   "sites.moveNote": "That didn't work, so the map is back at the whole island.",
 
+  // Entry points (SYC-209 PR 3.4): from a cat's sighting, and from a colony.
+  "sighting.makeSite": "Make a feeding site here",
+  "sighting.showOnMap": "Show on our map",
+  "sites.sightingMarker": "Where the cat was seen",
+  "sites.sightingLegend": "Dashed blue square: where the cat was seen.",
+  "sproblem.sighting": "That sighting can't be found, or it isn't somewhere on Syros.",
+  "sproblem.backToCats": "Back to finding a cat",
+  "colony.addSite": "Add a feeding site to this colony",
+  "new.introColony": "This site will be put in the colony",
+
   // Adding, moving, retiring and changing the colony of a feeding site (SYC-209 PR 3.3).
   "sites.add": "Add a site",
 
