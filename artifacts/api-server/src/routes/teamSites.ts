@@ -241,8 +241,8 @@ const requiredColony = z.union([z.literal("").transform(() => null), colonyDigit
 const AddForm = z.object({
   name: nameField,
   colonyId: optionalColony,
-  directions: optionalText(SITE_DIRECTIONS_MAX),
-  notes: optionalText(SITE_NOTES_MAX),
+  directions: optionalText(SITE_DIRECTIONS_MAX).optional(),
+  notes: optionalText(SITE_NOTES_MAX).optional(),
   lat: latField,
   lng: lngField,
 });
@@ -392,7 +392,11 @@ router.post(
     const back = { href: NEW_PATH, label: t("sproblem.backToAdd") };
     const parsed = AddForm.safeParse(req.body ?? {});
     if (!parsed.success) return badForm(req, res, fieldsOf(parsed.error), back);
-    const out = await addSite(teamPerson(res).id, parsed.data);
+    const out = await addSite(teamPerson(res).id, {
+      ...parsed.data,
+      directions: parsed.data.directions ?? null,
+      notes: parsed.data.notes ?? null,
+    });
     switch (out.kind) {
       case "no_colony":
         return badForm(req, res, ["colonyId"], back);
