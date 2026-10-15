@@ -203,17 +203,21 @@ const MODES: readonly TurnstileMode[] = ["off", "observe", "enforce"];
  * log every outcome, refuse nothing. enforce: refuse a rejected token.
  *
  * Production (any NODE_ENV but exactly "development" or "test", the same rule
- * as the pre-launch gate) defaults to enforce, and honours off and observe
- * ONLY while the pre-launch gate is on, so the gate can never come off with
- * the check asleep. An unrecognised value is enforce in production.
+ * as the pre-launch gate):
+ * - with the pre-launch gate OFF, always enforce, whatever TURNSTILE_MODE
+ *   says, so the gate can never come off with the check asleep;
+ * - with the gate ON, observe unless TURNSTILE_MODE is exactly "enforce" or
+ *   "off". Published phone builds don't send a token yet, so a default of
+ *   enforce would refuse every cat-in-trouble report the moment this code is
+ *   published (SYC-170). An unrecognised value is observe too, never enforce.
  */
 export function turnstileMode(): TurnstileMode {
   const raw = process.env["TURNSTILE_MODE"];
   const mode = MODES.find((m) => m === raw);
   const nodeEnv = process.env["NODE_ENV"];
   if (nodeEnv === "development" || nodeEnv === "test") return mode ?? "off";
-  if (mode === "off" || mode === "observe") return gateEnabled() ? mode : "enforce";
-  return "enforce";
+  if (!gateEnabled()) return "enforce";
+  return mode === "enforce" || mode === "off" ? mode : "observe";
 }
 
 /** What /api/healthz says (the mode, and whether the secret is set). */

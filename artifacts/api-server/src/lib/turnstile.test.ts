@@ -150,26 +150,41 @@ describe("turnstileMode", () => {
     expect(turnstileMode()).toBe("off");
   });
 
-  it("production: enforce by default; off and observe only while the pre-launch gate is on", () => {
+  it("production with the pre-launch gate on: observe by default, so published apps without a token aren't refused", () => {
     process.env["NODE_ENV"] = "production";
     delete process.env["TURNSTILE_MODE"];
-    delete process.env["PRELAUNCH_GATE"];
-    expect(turnstileMode()).toBe("enforce");
-    for (const m of ["off", "observe"]) {
-      process.env["TURNSTILE_MODE"] = m;
-      process.env["PRELAUNCH_GATE"] = "on";
-      expect(turnstileMode()).toBe(m);
-      process.env["PRELAUNCH_GATE"] = "off";
-      expect(turnstileMode()).toBe("enforce");
-    }
-    process.env["TURNSTILE_MODE"] = "Observe";
+    delete process.env["PRELAUNCH_GATE"]; // unset means the gate is on
+    expect(turnstileMode()).toBe("observe");
     process.env["PRELAUNCH_GATE"] = "on";
-    expect(turnstileMode()).toBe("enforce");
+    expect(turnstileMode()).toBe("observe");
+    for (const m of ["off", "observe", "enforce"]) {
+      process.env["TURNSTILE_MODE"] = m;
+      expect(turnstileMode()).toBe(m);
+    }
+    // A typo never turns enforcement on by accident.
+    process.env["TURNSTILE_MODE"] = "Enforce";
+    expect(turnstileMode()).toBe("observe");
+    process.env["TURNSTILE_MODE"] = "nonsense";
+    expect(turnstileMode()).toBe("observe");
   });
 
-  it("an unset NODE_ENV counts as production", () => {
+  it("production with the pre-launch gate off: always enforce, whatever TURNSTILE_MODE says", () => {
+    process.env["NODE_ENV"] = "production";
+    process.env["PRELAUNCH_GATE"] = "off";
+    delete process.env["TURNSTILE_MODE"];
+    expect(turnstileMode()).toBe("enforce");
+    for (const m of ["off", "observe", "enforce", "nonsense"]) {
+      process.env["TURNSTILE_MODE"] = m;
+      expect(turnstileMode()).toBe("enforce");
+    }
+  });
+
+  it("an unset NODE_ENV counts as production (gate on by default, so observe)", () => {
     delete process.env["NODE_ENV"];
     delete process.env["TURNSTILE_MODE"];
+    delete process.env["PRELAUNCH_GATE"];
+    expect(turnstileMode()).toBe("observe");
+    process.env["PRELAUNCH_GATE"] = "off";
     expect(turnstileMode()).toBe("enforce");
   });
 
