@@ -15,8 +15,15 @@
  *   it the app still works; Android phones just get no push notifications
  *   (NotificationContext treats push as optional).
  *
- * Off EAS (the website build, `expo start`, tests) nothing is added, so the
- * website is unchanged.
+ * It also sets one iPhone-only fact Apple asks about on every build:
+ * - ios.config.usesNonExemptEncryption = false. The app's only encryption is
+ *   HTTPS through the phone's own system, which Apple treats as exempt.
+ *   Without it every TestFlight build waits on a "Missing Compliance"
+ *   question in App Store Connect. Kept here, not in app.json, so the rename
+ *   (SYC-34) and this don't edit the same file.
+ *
+ * Off EAS (the website build, `expo start`, tests) only that iPhone flag is
+ * added, which the website never reads.
  *
  * On an EAS preview or production build, a missing value stops the build
  * instead of shipping an app that can't work:
@@ -53,6 +60,10 @@ function withStoreBuildSettings(config, env) {
     }
   }
 
+  const ios = {
+    ...config.ios,
+    config: { ...config.ios?.config, usesNonExemptEncryption: false },
+  };
   const android = { ...config.android };
   let changed = false;
   if (present(env.GOOGLE_MAPS_ANDROID_API_KEY)) {
@@ -66,7 +77,7 @@ function withStoreBuildSettings(config, env) {
     android.googleServicesFile = env.GOOGLE_SERVICES_JSON.trim();
     changed = true;
   }
-  return changed ? { ...config, android } : config;
+  return changed ? { ...config, ios, android } : { ...config, ios };
 }
 
 module.exports = ({ config }) => withStoreBuildSettings(config, process.env);

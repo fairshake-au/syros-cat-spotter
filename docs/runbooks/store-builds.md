@@ -9,7 +9,7 @@ This is how the phone apps get built and sent to Apple and Google. The settings 
 | File | What it does |
 |---|---|
 | `artifacts/cat-spotter/eas.json` | The three kinds of build (below), which Node and pnpm versions EAS uses, and the server address the app talks to |
-| `artifacts/cat-spotter/app.config.js` | Adds the settings that stay out of git (the Android map key and, later, the Firebase file for Android push) at build time. Stops a test or store build that would ship broken. `app.json` stays the one place for the app's names, ids and permissions |
+| `artifacts/cat-spotter/app.config.js` | Adds the settings that stay out of git (the Android map key and, later, the Firebase file for Android push) at build time. Tells Apple the app only uses standard encryption (HTTPS), so TestFlight builds aren't held at "Missing Compliance". Stops a test or store build that would ship broken. `app.json` stays the one place for the app's names, ids and permissions |
 | `artifacts/cat-spotter/lib/__tests__/appConfig.test.ts` | Tests for both files |
 
 ### The three kinds of build
@@ -58,7 +58,19 @@ npx eas-cli@24.14.0 login
 npx eas-cli@24.14.0 init
 ```
 
-`init` creates the project on Expo. Because the app has an `app.config.js`, it can't save the project id itself. It prints a message with `"projectId": "…"`. **Send Claude that id** (it isn't secret). Claude commits it, along with the account owner. Push notifications need it too (`NotificationContext.tsx` reads it).
+`init` creates the project on Expo and writes two lines into `app.json` in your checkout: the project id (`extra.eas.projectId`) and the account (`owner`). Neither is secret. Push notifications need the id (`NotificationContext.tsx` reads it).
+
+Then **tell Claude "eas init done"**. Don't commit it yourself. Claude reads the two lines from your checkout, puts them into a small PR (the only `app.json` change this needs), and once it's merged you run:
+
+```bash
+git -C /Users/samuelporter/Projects/syros-cat-spotter checkout -- artifacts/cat-spotter/app.json
+```
+
+```bash
+git -C /Users/samuelporter/Projects/syros-cat-spotter pull
+```
+
+Steps 2 and 3 work straight away, before that PR merges. Steps 4–6 (the builds) wait for it, because `eas build` stops on uncommitted changes.
 
 ### 2. The tester key into EAS
 
@@ -76,16 +88,16 @@ npx eas-cli@24.14.0 env:set --name EXPO_PUBLIC_PRELAUNCH_KEY --environment devel
 2. Go to **APIs & Services → Library**, search for **Maps SDK for Android** and press **Enable**. Google may ask for a billing account. Whether in-app Android maps are free is **unchecked**; look at Google's Maps price list before adding a card.
 3. Go to **APIs & Services → Credentials → Create credentials → API key**.
 4. In the new key's settings, under **API restrictions**, choose **Restrict key** and tick only **Maps SDK for Android**. Save.
-5. Under **Application restrictions**, choose **Android apps** and add package `com.syroscatspotters.app` with two SHA-1 fingerprints. Both exist only after step 5 below, so come back to this:
-   - the upload key: https://expo.dev, then the project, then **Credentials → Android → com.syroscatspotters.app → SHA-1 Certificate Fingerprint**;
-   - Google's signing key: Play Console, then the app, then **Release → Setup → App integrity → App signing**.
+5. Leave **Application restrictions** off for now. After the first Android build (§5 below), come back, choose **Android apps**, and add package `com.syroscatspotters.app` with two SHA-1 fingerprints:
+   - the upload key: run `npx eas-cli@24.14.0 credentials --platform android` and read "SHA1 Fingerprint" (or on expo.dev: the project, then **Credentials → Android**);
+   - Google's signing key: Play Console, then the app, then **App integrity → App signing** (the menu path is **unchecked**; Google moves it from time to time).
 6. Put the key into EAS. It asks for the value; paste the key.
 
 ```bash
 npx eas-cli@24.14.0 env:set --name GOOGLE_MAPS_ANDROID_API_KEY --environment development --environment preview --environment production --visibility sensitive
 ```
 
-Until step 5's restriction is saved, the key only works for Maps on Android, so a leak can't run up other Google services.
+Until the fingerprints are added, the key only works for Maps on Android, so a leak can't run up other Google services.
 
 ### 4. Apple: first iPhone build to TestFlight
 
@@ -101,7 +113,7 @@ When it finishes:
 npx eas-cli@24.14.0 submit --platform ios --latest
 ```
 
-That creates the app in App Store Connect (if it isn't there yet) and puts the build in TestFlight. People on your own App Store Connect team can install it once Apple has processed it. Testers outside the team need Apple's beta review first; how long that takes now is **unchecked**.
+The build also offers to make the Apple push key (for iPhone notifications): say yes. The submit command creates the app in App Store Connect (if it isn't there yet) and puts the build in TestFlight. People on your own App Store Connect team can install it once Apple has processed it. Testers outside the team need Apple's beta review first; how long that takes now is **unchecked**.
 
 ### 5. Google: first Android build to a test track
 
@@ -111,7 +123,7 @@ Needs the Play Console account (D1b) and the app created there (**Create app**, 
 npx eas-cli@24.14.0 build --platform android --profile production
 ```
 
-For the upload, Expo's docs say `eas submit` works for the first submission. It needs a Google service account key, which takes about 15 minutes to set up (Expo's guide: https://docs.expo.dev/submit/android/). Quicker for this first time: open the finished build on expo.dev, download the `.aab` file, and upload it in Play Console under **Testing → Closed testing → Create new release**. Closed testing is the track that starts Google's 14-day clock, if it applies (personal account, D1b). Then go back to step 3.5 and add the two fingerprints.
+For the upload, Expo's docs say `eas submit` works for the first submission. It needs a Google service account key, which takes about 15 minutes to set up (Expo's guide: https://docs.expo.dev/submit/android/). Quicker for this first time: open the finished build on expo.dev, download the `.aab` file, and upload it in Play Console under **Testing → Closed testing → Create new release**. Closed testing is the track that starts Google's 14-day clock, if it applies (personal account, D1b). Then go back to §3, item 5, and add the two fingerprints.
 
 ### 6. A quick check on an Android phone before testers get it
 
@@ -141,7 +153,7 @@ In the menu choose **production → Google Service Account → Manage your Googl
 |---|---|---|
 | **D1** (web app on 31 Oct, store apps follow) | This checklist runs alongside launch. Steps 1–5 by Mon 19 Oct start the Android clock; submission by Fri 23 Oct | Everything here moves to "this week", and the 14-day Android test (if it applies) can't finish before 31 Oct |
 | **D1b** (whose name the accounts are in) | Your own name: steps 1, 4 and 5 use your logins; Android brings the 14-day closed test | Fair Shake organisation: make a matching Expo organisation in step 1 so the project sits with the business. Apple needs a D-U-N-S number first (can take weeks). Google's 14-day test doesn't apply |
-| **D2** (keep the app id `com.syroscatspotters.app`) | Nothing changes | Change `ios.bundleIdentifier` and `android.package` in `app.json` **before step 4**. After the first store upload the id can never change. The map key's restriction (step 3.5) uses the same id. The Expo project name (`slug: syroscatspotters`) should stay as it is either way, even if the app is renamed (SYC-34): it's internal and tied to the project id |
+| **D2** (keep the app id `com.syroscatspotters.app`) | Nothing changes | Change `ios.bundleIdentifier` and `android.package` in `app.json` **before step 4**. After the first store upload the id can never change. The map key's restriction (§3, item 5) uses the same id. The Expo project name (`slug: syroscatspotters`) should stay as it is either way, even if the app is renamed (SYC-34): it's internal and tied to the project id |
 | **SYC-306** (the launch address) | Claude changes `EXPO_PUBLIC_DOMAIN` in `eas.json` and the next builds use it | Builds already in testers' hands keep talking to `apptest.catspotters.com`, so that address must keep working until everyone has updated (SYC-191 already guards the sign-in Worker for the same reason) |
 
 ## Choices still open
@@ -156,4 +168,4 @@ These are on SYC-323 for Samuel, each with a recommendation:
 
 - **"This production build is missing: …"** The named setting isn't in that EAS environment. Run the matching `env:set` above, then build again.
 - **`eas config` or `eas build` says "An Expo user account is required".** Run step 1's `login`.
-- **Blank map on Android.** The map key is missing, or step 3.5's fingerprints don't match the build. A `preview` build is signed with the upload key, a Play download with Google's key, which is why both are listed.
+- **Blank map on Android.** The map key is missing, or step 3.5's fingerprints don't match the build. A `preview` build is signed with the upload key, a Play download with Google's key, which is why both are listed (§3, item 5).

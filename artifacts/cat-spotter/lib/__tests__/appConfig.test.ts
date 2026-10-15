@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,9 +8,11 @@ import path from 'node:path';
 // `expo start`) must get app.json unchanged.
 const require = createRequire(import.meta.url);
 const appDir = path.resolve(__dirname, '../..');
-const { withStoreBuildSettings } = require(path.join(appDir, 'app.config.js')) as {
-  withStoreBuildSettings: (config: Record<string, any>, env: Record<string, string | undefined>) => Record<string, any>;
+type AppConfig = Record<string, any>;
+const appConfigModule = require(path.join(appDir, 'app.config.js')) as ((ctx: { config: AppConfig }) => AppConfig) & {
+  withStoreBuildSettings: (config: AppConfig, env: Record<string, string | undefined>) => AppConfig;
 };
+const { withStoreBuildSettings } = appConfigModule;
 const appJson = JSON.parse(fs.readFileSync(path.join(appDir, 'app.json'), 'utf8')).expo;
 
 const easBuild = (profile: string, platform: 'ios' | 'android', extra: Record<string, string> = {}) => ({
@@ -21,8 +23,18 @@ const easBuild = (profile: string, platform: 'ios' | 'android', extra: Record<st
 });
 
 describe('app.config.js', () => {
-  it('returns app.json untouched off EAS (the website build)', () => {
-    expect(withStoreBuildSettings(appJson, {})).toEqual(appJson);
+  it('off EAS (the website build), adds only the iPhone encryption flag', () => {
+    const out = withStoreBuildSettings(appJson, {});
+    const { ios, ...rest } = out;
+    const { ios: appIos, ...appRest } = appJson;
+    expect(rest).toEqual(appRest);
+    expect(ios).toEqual({ ...appIos, config: { usesNonExemptEncryption: false } });
+  });
+
+  it('declares standard encryption only, so TestFlight builds are not held for export compliance', () => {
+    const out = withStoreBuildSettings(appJson, easBuild('production', 'ios', { EXPO_PUBLIC_PRELAUNCH_KEY: 't' }));
+    expect(out.ios.config.usesNonExemptEncryption).toBe(false);
+    expect(out.ios.bundleIdentifier).toBe('com.syroscatspotters.app');
   });
 
   it('keeps the app id and names from app.json', () => {
@@ -92,6 +104,28 @@ describe('app.config.js', () => {
       easBuild('production', 'android', { GOOGLE_MAPS_ANDROID_API_KEY: 'k', EXPO_PUBLIC_PRELAUNCH_KEY: 'secret-tester-key' }),
     );
     expect(JSON.stringify(out)).not.toContain('secret-tester-key');
+  });
+});
+
+describe('app.config.js as Expo calls it (reads process.env)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('stops an EAS Android store build with no keys', () => {
+    vi.stubEnv('EAS_BUILD', 'true');
+    vi.stubEnv('EAS_BUILD_PROFILE', 'production');
+    vi.stubEnv('EAS_BUILD_PLATFORM', 'android');
+    vi.stubEnv('GOOGLE_MAPS_ANDROID_API_KEY', '');
+    vi.stubEnv('EXPO_PUBLIC_PRELAUNCH_KEY', '');
+    expect(() => appConfigModule({ config: appJson })).toThrow(/GOOGLE_MAPS_ANDROID_API_KEY.*EXPO_PUBLIC_PRELAUNCH_KEY/);
+  });
+
+  it('adds the map key from the environment', () => {
+    vi.stubEnv('EAS_BUILD', 'true');
+    vi.stubEnv('EAS_BUILD_PROFILE', 'preview');
+    vi.stubEnv('EAS_BUILD_PLATFORM', 'android');
+    vi.stubEnv('GOOGLE_MAPS_ANDROID_API_KEY', 'env-key');
+    vi.stubEnv('EXPO_PUBLIC_PRELAUNCH_KEY', 't');
+    expect(appConfigModule({ config: appJson }).android.config.googleMaps.apiKey).toBe('env-key');
   });
 });
 
