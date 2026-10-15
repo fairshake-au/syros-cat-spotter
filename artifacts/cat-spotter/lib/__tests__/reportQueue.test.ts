@@ -334,7 +334,30 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
     const [item] = store.items();
     expect(item!.status).toBe('queued');
     expect(item!.serverFailures).toBe(0);
-    expect(item!.checkUnavailable).toBeFalsy();
+    // ...and the screen says the safety check couldn't be done.
+    expect(item!.checkUnavailable).toBe(true);
+    expect(confirmationState(item!.localId, [item!], new Set(), false)).toBe('check');
+  });
+
+  it('script load failure (tokenless send): leaves the queue on a 201', async () => {
+    // lib/turnstile.web.ts resolves null when Cloudflare's script never loads
+    // (turnstile.scriptFailure.test.ts); the queue sends with no token.
+    const { store } = makeStore([report({ hasPhoto: false, photoRef: undefined })]);
+    await store.load();
+    const a = api();
+    await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: async () => null });
+    expect(store.items()).toEqual([]);
+  });
+
+  it('script load failure under 428: kept with no strike, and the message is shown', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const a = api({ submit: vi.fn(async () => { throw new FakeApiError(428); }) });
+    await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: async () => null });
+    const [item] = store.items();
+    expect(item!.status).toBe('queued');
+    expect(item!.serverFailures).toBe(0);
+    expect(confirmationState(item!.localId, [item!], new Set(), false)).toBe('check');
   });
 
   it('a build with no check yet (the phone apps until PR 1.3) sends no token field at all', async () => {

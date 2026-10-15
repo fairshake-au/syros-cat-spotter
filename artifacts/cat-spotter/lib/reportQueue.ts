@@ -249,16 +249,20 @@ export async function syncReports(
           'system',
         );
       } catch (err) {
-        if (isChallengeUnavailable(err)) {
-          // The safety check couldn't run: keep the report, no strike, and
-          // say so on the confirmation. Stop here: the rest would meet the
-          // same wait (up to 20 s each); the next timer tries again.
+        if (isChallengeUnavailable(err) || statusOf(err) === 428) {
+          // The safety check didn't pass (a tap not made in time, or the
+          // server still answers 428 after a resend, e.g. when no token could
+          // be made): keep the report, no strike, and say so on the
+          // confirmation. A timed-out tap stops the pass (the rest would meet
+          // the same wait, up to 20 s each); a 428 moves on. The next timer
+          // tries again.
           if (!current.checkUnavailable) {
             await store
               .mutate(update(current.localId, (r) => ({ ...r, checkUnavailable: true })), 'system')
               .catch(() => undefined);
           }
-          return;
+          if (isChallengeUnavailable(err)) return;
+          continue;
         }
         if (!isPermanentRefusal(err)) {
           // Remember a 429, so the screen says "too many just now", not "no signal".

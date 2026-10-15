@@ -3,7 +3,11 @@
  * half (spec docs/specs/report-an-issue.md §9.3).
  *
  * `getTurnstileToken(action, cdata)` loads Cloudflare's script once, renders a
- * managed widget and resolves its token, or throws `ChallengeUnavailable`.
+ * managed widget and resolves its token. If no token can be made (unmapped
+ * host, script blocked, widget error, timeout) it resolves `null` and the
+ * report is sent with no token: the client never stops a report, the server
+ * decides. It throws `ChallengeUnavailable` only when Cloudflare asked this
+ * person to tap and they didn't in time.
  * A token is single-use, so every call renders a fresh widget: nothing is
  * cached or reused, including for each resend from the saved list.
  *
@@ -139,11 +143,20 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
   };
 
   try {
-    return await new Promise<string>((resolve, reject) => {
+    return await new Promise<string | null>((resolve, reject) => {
+      // Cloudflare asked this person to tap and they haven't yet.
+      let tapAsked = false;
+      // The client must never be the thing that stops a report. Whatever goes
+      // wrong (script blocked, widget error, nothing finishing in time) the
+      // report is sent with no token and the server decides: `observe`
+      // accepts it, `enforce` answers 428 (retried, no strike, message shown).
+      // Only "asked for a tap and they didn't in time" is ChallengeUnavailable.
       const fail = (reason: string) => {
         if (settled) return;
+        const unanswered = tapAsked;
         cleanup();
-        reject(new ChallengeUnavailable(reason));
+        if (unanswered) reject(new ChallengeUnavailable(reason));
+        else resolve(null);
       };
       const arm = () => {
         if (timer) clearTimeout(timer);
@@ -174,11 +187,13 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
               'timeout-callback': () => fail('timeout'),
               'unsupported-callback': () => fail('unsupported'),
               'before-interactive-callback': () => {
-                if (action === 'welfare_draft') return fail('interactive');
+                if (action === 'welfare_draft') return fail('interactive'); // never interrupt for a draft: sent tokenless
+                tapAsked = true;
                 sheet.show();
                 arm();
               },
               'after-interactive-callback': () => {
+                tapAsked = false;
                 sheet.root.hidden = true;
               },
             });
