@@ -175,32 +175,37 @@ describe("the issue_reports migration", () => {
     });
   });
 
-  describe("the resend key", () => {
-    it("the new (device, kind, clientRef) key sits BESIDE the old (device, clientRef) one", async () => {
+  describe("the resend key (0023 adds the kind-aware key; the drop migration removes the old one)", () => {
+    const drop = allMigrations.find((m) => m.tag.endsWith("_drop_old_resend_key"))!;
+    // Stop at the drop migration, so "rollback the last one" means that one.
+    const throughDrop = allMigrations.filter((m) => m.idx <= drop.idx);
+    const resendIndexes = async () =>
+      (
+        await c.query(
+          `select indexname from pg_indexes where tablename = 'welfare_reports' and indexname like 'welfare_reports_device%' order by 1`,
+        )
+      ).rows.map((r) => r.indexname);
+
+    it("the drop migration is found, comes after the issue_reports one, and has a rollback", () => {
+      expect(drop).toBeDefined();
+      expect(drop.idx).toBeGreaterThan(mine.idx);
+      expect(drop.rollback).not.toBeNull();
+    });
+
+    it("after 0023 the new key sits beside the old one; after the drop only the new one is left", async () => {
       await freshDb();
       await migrateUp(c, migrations);
-      const idx = await c.query(
-        `select indexname from pg_indexes where tablename = 'welfare_reports' and indexname like 'welfare_reports_device%' order by 1`,
-      );
-      expect(idx.rows.map((r) => r.indexname)).toEqual([
+      expect(await resendIndexes()).toEqual([
         "welfare_reports_device_client_ref_key",
         "welfare_reports_device_kind_client_ref_key",
       ]);
+      await migrateUp(c, throughDrop);
+      expect(await resendIndexes()).toEqual(["welfare_reports_device_kind_client_ref_key"]);
     });
 
-    it("until PR 4.2 drops the old key, the same device and reference can't be used by both kinds", async () => {
+    it("the two kinds are two reports, and the key still refuses a repeat of one kind", async () => {
       await freshDb();
-      await migrateUp(c, migrations);
-      await insert(welfare({ reporter_device: `'d1'`, client_ref: `'same'` }));
-      await expect(insert(content({ reporter_device: `'d1'`, client_ref: `'same'` }))).rejects.toThrow(
-        /welfare_reports_device_client_ref_key/,
-      );
-    });
-
-    it("with the old key gone (what 4.2 does), the two kinds are two reports, and the new key still refuses a repeat of one kind", async () => {
-      await freshDb();
-      await migrateUp(c, migrations);
-      await c.query(`drop index welfare_reports_device_client_ref_key`);
+      await migrateUp(c, throughDrop);
       await insert(welfare({ reporter_device: `'d1'`, client_ref: `'same'` }));
       await expect(insert(content({ reporter_device: `'d1'`, client_ref: `'same'` }))).resolves.toBeDefined();
       await expect(insert(welfare({ reporter_device: `'d1'`, client_ref: `'same'` }))).rejects.toThrow(
@@ -209,6 +214,33 @@ describe("the issue_reports migration", () => {
       await expect(insert(content({ reporter_device: `'d1'`, client_ref: `'same'` }))).rejects.toThrow(
         /welfare_reports_device_kind_client_ref_key/,
       );
+    });
+
+    it("the rollback starts with the capitals warning", () => {
+      expect(drop.rollback!.split("\n")[0]).toMatch(/^-- DELETES EVERY "REPORT AN ISSUE" ROW FIRST/);
+    });
+
+    it("rollback deletes the content rows, keeps the welfare ones, and puts the old key back; up/down/up works", async () => {
+      await freshDb();
+      await migrateUp(c, throughDrop, { throughIdx: drop.idx - 1 });
+      const before = await schemaSignature(c, "public");
+      await migrateUp(c, throughDrop, { throughIdx: drop.idx });
+      const after = await schemaSignature(c, "public");
+      const w = await insert(welfare({ reporter_device: `'d1'`, client_ref: `'same'` }));
+      await insert(content({ reporter_device: `'d1'`, client_ref: `'same'` }));
+      expect(await rollbackLast(c, throughDrop)).toBe(drop.tag);
+      expect((await c.query(`select id from welfare_reports`)).rows.map((r) => r.id)).toEqual([w.rows[0].id]);
+      expect(
+        signatureDiff(await schemaSignature(c, "public"), before, { actual: "after rollback", expected: "before" }),
+      ).toEqual([]);
+      // The old key is back and refuses a content row sharing the welfare row's device and reference.
+      await expect(insert(content({ reporter_device: `'d1'`, client_ref: `'same'` }))).rejects.toThrow(
+        /welfare_reports_device_client_ref_key/,
+      );
+      await migrateUp(c, throughDrop, { throughIdx: drop.idx });
+      expect(
+        signatureDiff(await schemaSignature(c, "public"), after, { actual: "second up", expected: "first up" }),
+      ).toEqual([]);
     });
   });
 
