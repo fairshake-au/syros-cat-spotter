@@ -804,6 +804,10 @@ router.post(
 );
 
 // ── Colour and markings (SYC-2 PR 3.1; spec §4.4, §5.3) ─────────────────────
+//
+// The dashboard's forms always send what the page showed (`expected` for
+// Confirm, `shownAbove` for Correct), so a stale page writes nothing. A JSON
+// caller that leaves them out skips that check, by design: it has no page.
 
 /** Back to the Appearance section, or to the Colour check list, after a form. */
 const appearancePage = (catId: number, done?: string) =>

@@ -384,7 +384,12 @@ export async function supersedeStatement(
       .select({ catId: observationsTable.catId, kind: observationsTable.kind })
       .from(observationsTable)
       .where(eq(observationsTable.id, input.id));
-    if (peek && isAppearanceKind(peek.kind)) await lockCat(tx, peek.catId);
+    if (peek && isAppearanceKind(peek.kind)) {
+      // Who may, before taking any lock: someone without set_appearance never
+      // holds the cat up, even briefly.
+      if (!can(person, "set_appearance")) throw notAuthorised();
+      await lockCat(tx, peek.catId);
+    }
     const original = await lockActiveObservation(tx, input.id);
     // A withdrawn owner claim can't be marked wrong (see correctionOf in
     // teamCatView): refused like any answer that doesn't fit, nothing written.

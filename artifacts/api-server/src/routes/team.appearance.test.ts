@@ -511,6 +511,32 @@ describe("Mark wrong (the existing route, a retraction)", () => {
     expect(await rowsFor(catId)).toHaveLength(2);
   });
 
+  it("waits for the cat: Mark wrong doesn't land while another change to the cat holds it", async () => {
+    const catId = await newCat();
+    const s = await spotter(catId, "coat", "a", { value: { colours: ["ginger"] } });
+    const holder = await pool.connect();
+    try {
+      // Another team member's Correct or Confirm, part-way through.
+      await holder.query("begin");
+      await holder.query("select id from cats where id = $1 for update", [catId]);
+      let landed = false;
+      const pending = wrong(s.id).then((res) => {
+        landed = true;
+        return res;
+      });
+      await new Promise((r) => setTimeout(r, 400));
+      expect(landed).toBe(false);
+      expect(await rowsFor(catId)).toHaveLength(1);
+      await holder.query("commit");
+      const res = await pending;
+      expect(res.status).toBe(303);
+      expect(await rowsFor(catId)).toHaveLength(2);
+    } finally {
+      await holder.query("rollback").catch(() => undefined);
+      holder.release();
+    }
+  });
+
   it("marking the machine's newest reading wrong leaves it with no reading", async () => {
     const catId = await newCat();
     await machine(catId, ["grey"], 9);
@@ -576,6 +602,25 @@ describe("a team member without set_appearance is refused at each route, and not
     ];
     expect(results.map((r) => r.status)).toEqual([403, 403, 403, 403]);
     expect(await rowsFor(catId)).toHaveLength(1);
+  });
+
+  it("is refused before taking any lock: a held cat doesn't keep a non-holder waiting", async () => {
+    const catId = await newCat();
+    const s = await spotter(catId, "coat", "a", { value: { colours: ["ginger"] } });
+    const holder = await pool.connect();
+    try {
+      await holder.query("begin");
+      await holder.query("select id from cats where id = $1 for update", [catId]);
+      denied.cap = "set_appearance";
+      const res = await Promise.race([
+        form(`/api/team/statements/${s.id}/wrong`).send({ choice: "retract", reason: "x" }),
+        new Promise<"waited">((r) => setTimeout(() => r("waited"), 1500)),
+      ]);
+      expect(res === "waited" ? "waited" : res.status).toBe(403);
+    } finally {
+      await holder.query("rollback").catch(() => undefined);
+      holder.release();
+    }
   });
 });
 
