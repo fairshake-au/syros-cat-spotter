@@ -799,7 +799,7 @@ describe('SYC-189: team.catspotters.com goes to the dashboard, never the tester 
       { host: 'team.catspotters.com.' },
       { host: 'internal:8080', 'x-forwarded-host': 'team.catspotters.com' },
       { host: 'internal:8080', 'x-forwarded-host': 'team.catspotters.com, proxy.internal' },
-    ]) {
+    ] as Record<string, string>[]) {
       const res = await req('GET', '/', { headers });
       expect(res.status, JSON.stringify(headers)).toBe(302);
       expect(res.headers.location).toBe('/api/team/');
