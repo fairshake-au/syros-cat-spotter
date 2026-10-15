@@ -36,6 +36,8 @@ router.get("/photos/:id", photoLimiter, async (req, res) => {
   // 2147483647) and short enough that nothing in range survives past it
   // undetected either.
   if (/^\d{1,10}$/.test(id)) {
+    // A "not found" is never cached either, so a restore shows again at once.
+    res.setHeader("Cache-Control", "no-store");
     res.status(404).json({ error: "Not found" });
     return;
   }
@@ -48,20 +50,20 @@ router.get("/photos/:id", photoLimiter, async (req, res) => {
   // 2, PR 6): the same 404, so the answer never says a photo exists. Staff
   // see hidden photos through the team photo route instead.
   if (!photo || (await hiddenPhotoIds([photo.id])).has(photo.id)) {
+    // A "not found" is never cached either, so a restore shows again at once.
+    res.setHeader("Cache-Control", "no-store");
     res.status(404).json({ error: "Not found" });
     return;
   }
   const buffer = Buffer.from(photo.data, "base64");
   res.setHeader("Content-Type", photo.mime);
-  // SYC-113 item 4: while the pre-launch gate is on, a shared cache between
-  // us and the phone must not keep a photo fetched with a pass and hand it to
-  // someone without one. `private` (still a year, still immutable) plus a
-  // Vary on both pass headers; back to `public` automatically at launch.
+  // Decision 1 (SYC-279): shared caches must never store photos. Public photos
+  // are marked "this browser only" (private, immutable) whether the pre-launch
+  // gate is on or off. SYC-114's clean-up keeps `private` when it removes the
+  // pass's switch. The new address on hide (D14) is not built.
+  res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
   if (gateEnabled()) {
-    res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
     res.setHeader("Vary", "Cookie, X-Prelaunch-Key");
-  } else {
-    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   }
   res.send(buffer);
 });

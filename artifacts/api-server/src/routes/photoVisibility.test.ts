@@ -269,13 +269,15 @@ describe("P6-1: GET /api/photos/:publicId", () => {
     expect((await hide(cat.main, cat.id)).status).toBe(303);
     const gone = await request(app).get(url(cat.main));
     const unknown = await request(app).get(`/api/photos/${PREFIX}no-such-photo`);
-    expect([gone.status, gone.text, gone.headers["content-type"]]).toEqual([
+    expect([gone.status, gone.text, gone.headers["content-type"], gone.headers["cache-control"]]).toEqual([
       unknown.status,
       unknown.text,
       unknown.headers["content-type"],
+      unknown.headers["cache-control"],
     ]);
     expect(gone.status).toBe(404);
-    expect(gone.headers["cache-control"]).toBeUndefined();
+    // SYC-279 Decision 1: a "not found" is never cached, so a restore shows at once.
+    expect(gone.headers["cache-control"]).toBe("no-store");
 
     expect((await restore(cat.main, cat.id)).status).toBe(303);
     const back = await request(app).get(url(cat.main));

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import app from "../app";
 
 // hosting-and-photo-storage.md §6.2 item 4 / SYC-65 review: "keep
-// Cache-Control: public, max-age=31536000, immutable, and add ETag plus
+// Cache-Control: private, max-age=31536000, immutable (SYC-279 Decision 1), and add ETag plus
 // If-None-Match support so repeat views cost nothing." Express already does
 // this for free for any res.send(Buffer) when `etag` is enabled (the
 // default — app.ts never disables it): a weak ETag is generated from the
@@ -38,7 +38,7 @@ describe("GET /api/photos/:publicId ETag / conditional requests", () => {
     expect(res.status).toBe(200);
     expect(res.headers["etag"]).toBeDefined();
     expect(res.headers["cache-control"]).toBe(
-      "public, max-age=31536000, immutable",
+      "private, max-age=31536000, immutable",
     );
   });
 

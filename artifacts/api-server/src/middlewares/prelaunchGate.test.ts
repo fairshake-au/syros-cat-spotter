@@ -691,11 +691,11 @@ describe("16. photos aren't stored by shared caches while the gate is on", () =>
     expect(vary).toContain("x-prelaunch-key");
   });
 
-  it("gate off: public, as today", async () => {
+  it("gate off: still private, never public (SYC-279 Decision 1: shared caches never store photos)", async () => {
     process.env["PRELAUNCH_GATE"] = "off";
     const res = await request(app).get(`/api/photos/${publicId}`);
     expect(res.status).toBe(200);
-    expect(res.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+    expect(res.headers["cache-control"]).toBe("private, max-age=31536000, immutable");
   });
 });
 
