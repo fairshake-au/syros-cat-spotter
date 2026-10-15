@@ -1,5 +1,6 @@
 import type { SiteChange, SiteCounts, SiteHistoryEntry, SiteRow, SiteView } from "../teamSites";
-import type { View } from "../mapTiles/geometry";
+import type { TileSize, View } from "../mapTiles/geometry";
+import { mintTileToken } from "../mapTiles/tileToken";
 import { escapeHtml as esc } from "./escape";
 import { day } from "./colonyPages";
 import { renderPage } from "./layout";
@@ -20,6 +21,9 @@ export const SITES_MOVE_PATH = "/api/team/sites/map";
 
 const siteHref = (id: number) => `${SITES_PATH}/${id}`;
 const colonyHref = (id: number) => `/api/team/colonies/${id}`;
+
+/** A position as the cat page prints it: five decimal places. */
+export const fmtPos = (lat: number, lng: number) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
 // ── The list page ──────────────────────────────────────────────────────────
 
@@ -110,6 +114,8 @@ export function renderSitesPage(opts: {
   });
   const retiredForm =
     `<form method="get" action="${SITES_PATH}" class="search">` +
+    // The view travels as an opaque token, never as numbers (K13).
+    `<input type="hidden" name="view" value="${esc(mintTileToken({ ...opts.view, size: 179 as TileSize }))}">` +
     `<label class="choice" for="show-retired"><input type="checkbox" id="show-retired" name="retired" value="1"${opts.showRetired ? " checked" : ""}>` +
     `${w("sites.showRetired")}</label>` +
     `<button type="submit">${w("sites.update")}</button></form>`;
@@ -123,13 +129,17 @@ export function renderSitesPage(opts: {
     personName: opts.personName,
     mainClass: "mappage",
     body:
-      map +
-      (opts.note ? `<p class="warn">${esc(opts.note)}</p>` : "") +
-      `<p class="hint">${w("sites.legend")}</p>` +
+      // Spec §2.1 order: the count, Recently changed, then the map and its
+      // buttons, then the list. Everything above the map has fixed line
+      // heights (see .mappage in layout.ts), so the map still starts on a
+      // whole pixel.
       `<p><strong>${esc(countLine(opts.counts))}</strong></p>` +
       retiredForm +
       `<h2>${w("sites.recentTitle")}</h2>` +
       recentStrip(opts.changes) +
+      (opts.note ? `<p class="warn">${esc(opts.note)}</p>` : "") +
+      map +
+      `<p class="hint">${w("sites.legend")}</p>` +
       `<h2>${w("sites.listTitle")}</h2>` +
       list +
       `<p class="hint">${w("sites.mapHint")}</p>`,
@@ -146,7 +156,7 @@ function where(o: Record<string, unknown> | null): string | null {
   const p = o && typeof o["position"] === "object" && o["position"] ? (o["position"] as Record<string, unknown>) : o;
   const lat = num(p?.["lat"]);
   const lng = num(p?.["lng"]);
-  return lat !== null && lng !== null ? `${lat}, ${lng}` : null;
+  return lat !== null && lng !== null ? fmtPos(lat, lng) : null;
 }
 
 const quoted = (v: string | null) => (v === null || v === "" ? w("site.none") : `“${esc(v)}”`);
@@ -251,7 +261,7 @@ export function renderSitePage(opts: {
       `<h2>${w("site.directions")}</h2>` +
       textOrNone(s.directions) +
       `<h2>${w("site.position")}</h2>` +
-      `<p class="syrline">${esc(`${s.lat}, ${s.lng}`)}</p>` +
+      `<p class="syrline">${esc(fmtPos(s.lat, s.lng))}</p>` +
       `<h2>${w("site.historyTitle")}</h2>` +
       historyList(s.history) +
       // PR 3.3 puts Edit details, Move on the map, Retire and Change colony here.

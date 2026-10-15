@@ -16,7 +16,15 @@ import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { recordMappingEvent } from "../lib/mappingEvents";
 import { countLine } from "../lib/teamPages/sitePages";
-import { viewAround } from "../lib/mapTiles/geometry";
+import { BANDS, viewAround } from "../lib/mapTiles/geometry";
+import { mintTileToken } from "../lib/mapTiles/tileToken";
+import * as teamSites from "../lib/teamSites";
+
+// The read insert is wrapped so one test can make it fail; every other call is real.
+vi.mock("../lib/teamSites", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../lib/teamSites")>();
+  return { ...real, recordSitePageRead: vi.fn(real.recordSitePageRead) };
+});
 
 // SYC-209 PR 3.2: the Feeding sites pages, read-only. Spec tests 16
 // (escaping), 5 (part: the pages and the history need view_exact_location),
@@ -183,6 +191,19 @@ describe("the Feeding sites page: what is on it", () => {
     expect(res.text).toContain("OpenStreetMap contributors");
   });
 
+  it("follows spec 2.1: count, then Recently changed, then the map, then the list", async () => {
+    await makeSite();
+    const html = (await get("/api/team/sites")).text;
+    const at = (needle: string) => {
+      const i = html.indexOf(needle);
+      expect(i, needle).toBeGreaterThan(-1);
+      return i;
+    };
+    const order = ["<strong>", "Recently changed", '<div class="map"', "<h2>All sites</h2>"].map(at);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html.indexOf('class="mapband')).toBeGreaterThan(html.indexOf("Recently changed"));
+  });
+
   it("writes the count line the way the spec does, and the retired part only when there are any", () => {
     expect(countLine({ total: 31, public: 2, private: 28, retired: 1 })).toBe("31 sites: 2 public, 28 private, 1 retired");
     expect(countLine({ total: 30, public: 2, private: 28, retired: 0 })).toBe("30 sites: 2 public, 28 private");
@@ -264,6 +285,19 @@ describe("the map on the Feeding sites page", () => {
     // A look-alike value does not tick it.
     expect((await get("/api/team/sites?retired=yes")).text).not.toContain(retired.name);
     expect((await get("/api/team/sites?retired=1&retired=0")).text).not.toContain(retired.name);
+  });
+
+  it("ticking Show retired keeps the map where it was, through an opaque token", async () => {
+    const zoomed = await post("/api/team/sites/map", { vz: "12", vx: "0", vy: "0", area: "vaporia" });
+    const v = viewOf(zoomed.text);
+    const field = /<form method="get"[^>]*>\s*<input type="hidden" name="view" value="([^"]+)"/.exec(zoomed.text);
+    expect(field).not.toBeNull();
+    expect(field![1]).toMatch(/^[A-Za-z0-9_-]{59}$/);
+    const res = await get(`/api/team/sites?retired=1&view=${encodeURIComponent(field![1]!)}`);
+    expect(viewOf(res.text)).toEqual(v);
+    // A forged or garbled token falls back to the whole island.
+    expect(viewOf((await get("/api/team/sites?view=nonsense")).text).z).toBe(12);
+    expect(mintTileToken({ ...v, size: 179 })).toBe(field![1]);
   });
 
   it("zooms, pans and jumps to an area by POST, keeping Show retired, and writes nothing", async () => {
@@ -378,10 +412,39 @@ describe("one site", () => {
     ].map(at);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     // The history shows the position as plain text, for the team.
-    expect(html).toContain(`Site created: “${s.name}” · ${s.lat}, ${s.lng}`);
+    expect(html).toContain(`Site created: “${s.name}” · ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`);
     expect(html).toContain("by Susan");
     // A small map, not the full set of buttons.
     expect(res.text).not.toContain(`class="mapmove"`);
+  });
+
+  it("prints every position to five decimal places, never a raw float", async () => {
+    const s = await makeSite();
+    await event(s.id, "moved", susan, {
+      before: { lat: 37.450100000000006, lng: 24.930000000000003 },
+      after: { lat: 37.4502, lng: 24.9301 },
+    });
+    await event(s.id, "created", susan, { after: { name: s.name, lat: 37.450100000000006, lng: 24.930000000000003 } });
+    const html = (await get(`/api/team/sites/${s.id}`)).text;
+    expect(html).toContain("37.45010, 24.93000");
+    expect(html).not.toMatch(/\d+\.\d{6,}/);
+  });
+
+  it("centres the small map on the site: the marker is within the central half at every width band", async () => {
+    // Several spots, so a lucky alignment can't pass it.
+    for (const [lat, lng] of [[37.4447, 24.9417], [37.4731, 24.9892], [37.4012, 24.8801], [37.4999, 24.9399]] as const) {
+      const [row] = await db.insert(feedingSitesTable).values({ name: unique("centre"), lat, lng }).returning({ id: feedingSitesTable.id });
+      const html = (await get(`/api/team/sites/${row!.id}`)).text;
+      for (const b of BANDS) {
+        const band = new RegExp(`<div class="mapband b${b.size}"[^>]*>(.*?)</div>`).exec(html)![0];
+        const m = /class="pin site-private" style="left:(\d+)px;top:(\d+)px"/.exec(band);
+        expect(m, `${lat},${lng} at ${b.size}`).not.toBeNull();
+        const span = 2 * b.size;
+        for (const off of [Number(m![1]), Number(m![2])]) {
+          expect(Math.abs(off - span / 2), `${lat},${lng} at ${b.size}`).toBeLessThanOrEqual(span / 4 + 1);
+        }
+      }
+    }
   });
 
   it("says 'no colony yet' and 'None' for a site with neither, and 'Public since' for a public one", async () => {
@@ -412,7 +475,7 @@ describe("one site", () => {
     });
     const html = decoded((await get(`/api/team/sites/${s.id}`)).text);
     expect(html.indexOf("Moved:")).toBeLessThan(html.indexOf("Site created"));
-    expect(html).toContain("Moved: 37.1, 24.1 → 37.2, 24.2");
+    expect(html).toContain("Moved: 37.10000, 24.10000 → 37.20000, 24.20000");
     expect(html).toContain("Reason: pin was on the wrong side of the road");
   });
 
@@ -445,6 +508,31 @@ describe("who looked (spec §8)", () => {
     // Each opening is one more.
     await get(`/api/team/sites/${s.id}`);
     expect(await readsFor(s.id)).toBe(2);
+  });
+
+  it("a JSON open writes one record too; a JSON not-found writes none", async () => {
+    const s = await makeSite();
+    const before = await allReads();
+    expect((await get(`/api/team/sites/${s.id}`).set("Accept", "application/json")).status).toBe(200);
+    expect(await allReads()).toBe(before + 1);
+    expect((await get("/api/team/sites/999999999").set("Accept", "application/json")).status).toBe(404);
+    expect(await allReads()).toBe(before + 1);
+  });
+
+  it("a HEAD request writes no record", async () => {
+    const s = await makeSite();
+    const res = await request(app).head(`/api/team/sites/${s.id}`).set("Cookie", cookie);
+    expect(res.status).toBe(200);
+    expect(await readsFor(s.id)).toBe(0);
+  });
+
+  it("fails closed: if the record can't be written there is no page", async () => {
+    const s = await makeSite({ name: unique("failclosed") });
+    vi.mocked(teamSites.recordSitePageRead).mockRejectedValueOnce(new Error("disk full"));
+    const res = await get(`/api/team/sites/${s.id}`);
+    expect(res.status).toBe(500);
+    expect(res.text).not.toContain(s.name);
+    expect(await readsFor(s.id)).toBe(0);
   });
 
   it("the list, the map, a move and the colony page write none", async () => {
@@ -500,9 +588,9 @@ describe("test 5 (part): who may see the pages and the history", () => {
     const s = await makeSite();
     await event(s.id, "moved", susan, { before: { lat: 37.1111, lng: 24.1111 }, after: { lat: 37.2222, lng: 24.2222 } });
     const refused = await get(`/api/team/sites/${s.id}`, vetCookie).set("Sec-Fetch-Mode", "navigate");
-    expect(refused.text).not.toContain("37.1111");
-    expect(refused.text).not.toContain("37.2222");
-    expect((await get(`/api/team/sites/${s.id}`)).text).toContain("37.1111");
+    expect(refused.text).not.toContain("37.11110");
+    expect(refused.text).not.toContain("37.22220");
+    expect((await get(`/api/team/sites/${s.id}`)).text).toContain("37.11110");
   });
 });
 
@@ -540,6 +628,17 @@ describe("test 16: what people typed shows as text", () => {
     const html = (await get(`/api/team/sites/${s.id}`)).text;
     expect(html).not.toContain("<img src=x");
     expect(decoded(html)).toContain(`${P}col ${MARKUP}`);
+  });
+});
+
+describe("K13 on the site and colony pages", () => {
+  it("no href, action or src holds a position: a public site with history, and its colony", async () => {
+    const colonyId = await makeColony(unique("colony"));
+    const s = await makeSite({ colonyId, isPublic: true, notes: "n" });
+    await event(s.id, "created", susan, { after: { name: s.name, lat: s.lat, lng: s.lng } });
+    await event(s.id, "moved", susan, { before: { lat: 37.1, lng: 24.1 }, after: { lat: 37.2, lng: 24.2 }, note: "r" });
+    expectNoPositionInAddresses((await get(`/api/team/sites/${s.id}`)).text);
+    expectNoPositionInAddresses((await get(`/api/team/colonies/${colonyId}`)).text);
   });
 });
 

@@ -3,7 +3,8 @@ import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
-import { viewAround, type View } from "../lib/mapTiles/geometry";
+import { clampView, isViewAllowed, viewAround, type View } from "../lib/mapTiles/geometry";
+import { readTileToken } from "../lib/mapTiles/tileToken";
 import { applyMove } from "../lib/mapTiles/mapForms";
 import {
   listSites,
@@ -77,7 +78,13 @@ router.get(
       const [counts, sites] = await Promise.all([siteCounts(), listSites({ includeRetired: showRetired })]);
       return void res.json({ counts, sites });
     }
-    await sitesPage(res, 200, viewAround(ISLAND_CENTRE, START_ZOOM), showRetired);
+    // The tick box keeps the map where it was: the view comes back as an opaque token.
+    const token = typeof req.query["view"] === "string" ? readTileToken(req.query["view"]) : null;
+    const view =
+      token && isViewAllowed(token)
+        ? clampView({ z: token.z, x: token.x, y: token.y })
+        : viewAround(ISLAND_CENTRE, START_ZOOM);
+    await sitesPage(res, 200, view, showRetired);
   },
 );
 
@@ -119,8 +126,12 @@ router.get(
       if (wantsJson(req)) return void res.status(404).json({ error: "Not found" });
       return void res.status(404).type("html").send(renderNoSuchSite(person.name));
     }
-    // One row: person, site, time. No position.
-    await recordSitePageRead(person.id, site.id);
+    // One row: person, site, time. No position. Written before anything is
+    // sent, outside any transaction, and FAIL-CLOSED on purpose: if the audit
+    // record can't be written the error handler answers 500 and the person
+    // gets no page. A HEAD request is not an opening (no body is shown), so
+    // it writes nothing.
+    if (req.method !== "HEAD") await recordSitePageRead(person.id, site.id);
     if (wantsJson(req)) return void res.json(site);
     res.type("html").send(
       renderSitePage({
