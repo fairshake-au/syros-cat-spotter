@@ -515,6 +515,8 @@ const en: Dict = {
   // that appears only when Cloudflare asks for a tap.
   reportCheckUnavailable: 'We couldn’t run the safety check. Your report is still saved and we’ll try again.',
   turnstileTapLine: 'Quick safety check: please tick the box to show you’re a real person.',
+  // Shown only when the server asked for the check and Cloudflare's script never loaded.
+  reportCheckBlocked: 'Your report is saved. A content blocker may be stopping the safety check: allow challenges.cloudflare.com for this page, or use the Cat Spotters app.',
   reportDone: 'Done',
   reportReminder: 'You have a cat report that hasn’t sent yet.',
   // Samuel, 2 Oct 2026: three screens, no scrolling.
@@ -1064,6 +1066,7 @@ const el: Dict = {
   reportBusy: 'Έχουν σταλεί πολλές αναφορές από αυτή τη σύνδεση την τελευταία ώρα. Η δική σου είναι αποθηκευμένη στο κινητό σου και θα σταλεί μόνη της μέσα στην ώρα.',
   reportCheckUnavailable: 'Δεν μπορέσαμε να κάνουμε τον έλεγχο ασφαλείας. Η αναφορά σου είναι ακόμα αποθηκευμένη και θα ξαναπροσπαθήσουμε.',
   turnstileTapLine: 'Γρήγορος έλεγχος ασφαλείας: πάτα το πλαίσιο για να φανεί ότι είσαι άνθρωπος.',
+  reportCheckBlocked: 'Η αναφορά σου είναι αποθηκευμένη. Ένας αποκλεισμός περιεχομένου μπορεί να εμποδίζει τον έλεγχο ασφαλείας: επίτρεψε το challenges.cloudflare.com για αυτή τη σελίδα ή χρησιμοποίησε την εφαρμογή Cat Spotters.',
   reportDone: 'Τέλος',
   reportReminder: 'Έχεις μια αναφορά για γάτα που δεν έχει σταλεί ακόμα.',
   reportStepOf: '{n} από 3',
@@ -1611,6 +1614,7 @@ const fr: Dict = {
   reportBusy: 'Trop de signalements sont partis de cette connexion dans la dernière heure. Le tien est enregistré sur ton téléphone et partira tout seul dans l’heure.',
   reportCheckUnavailable: 'On n’a pas pu faire la vérification de sécurité. Ton signalement est toujours enregistré et on réessaiera.',
   turnstileTapLine: 'Petite vérification de sécurité : coche la case pour montrer que tu es bien une vraie personne.',
+  reportCheckBlocked: 'Ton signalement est enregistré. Un bloqueur de contenu empêche peut-être la vérification de sécurité : autorise challenges.cloudflare.com pour cette page, ou utilise l’application Cat Spotters.',
   reportDone: 'Terminé',
   reportReminder: 'Tu as un signalement de chat qui n’a pas encore été envoyé.',
   reportStepOf: '{n} sur 3',

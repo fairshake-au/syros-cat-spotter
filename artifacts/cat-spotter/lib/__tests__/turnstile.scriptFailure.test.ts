@@ -7,6 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SCRIPT_LOAD_TIMEOUT_MS, getTurnstileToken } from '../turnstile.web';
+import { isScriptBlocked } from '../challengeUnavailable';
 import { CHALLENGE_TIMEOUT_MS, ChallengeUnavailable } from '../challengeUnavailable';
 
 afterEach(() => {
@@ -26,6 +27,7 @@ describe('getTurnstileToken on a mapped host (localhost)', () => {
       return real(node);
     }) as typeof document.head.appendChild);
     await expect(getTurnstileToken('welfare_report', 'r-abc')).resolves.toBeNull();
+    expect(isScriptBlocked()).toBe(true); // an outright load error: likely a content blocker
     // and a later send tries the script again
     await expect(getTurnstileToken('welfare_report', 'r-abc')).resolves.toBeNull();
     expect(document.querySelector('[data-turnstile-sheet]')).toBeNull();
@@ -43,6 +45,7 @@ describe('getTurnstileToken on a mapped host (localhost)', () => {
     await vi.advanceTimersByTimeAsync(200);
     expect(settled).toBe(true);
     await expect(first).resolves.toBeNull();
+    expect(isScriptBlocked()).toBe(false); // merely slow is not "blocked"
     // The tag is still there (not added twice); when it arrives later the next send uses it.
     expect(document.querySelectorAll('script[src*="challenges.cloudflare.com"]')).toHaveLength(1);
     (globalThis as { turnstile?: unknown }).turnstile = {

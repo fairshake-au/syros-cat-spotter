@@ -217,6 +217,15 @@ describe('ReportConfirmation (§5.3(e), item 1.12)', () => {
     expect(web).not.toContain(g.copy.confirmation.offline);
   });
 
+  it.each(LANGS)('SYC-170 PR 1.2 (%s): after a blocked script, the report is saved and the message says what to allow', (code) => {
+    lang.current = code;
+    const g = getGuidance(code);
+    const text = render(<ReportConfirmation state="blocked" guidance={g} onDone={() => {}} />).container.textContent ?? '';
+    expect(text).toContain(TRANSLATIONS[code].reportCheckBlocked);
+    expect(TRANSLATIONS[code].reportCheckBlocked).toContain('challenges.cloudflare.com');
+    expect(text).not.toContain(g.copy.confirmation.sentHeading);
+  });
+
   it.each(LANGS)('SYC-170 PR 1.2 (%s): when the safety check could not run, the report is said to be saved and tried again', (code) => {
     lang.current = code;
     const g = getGuidance(code);

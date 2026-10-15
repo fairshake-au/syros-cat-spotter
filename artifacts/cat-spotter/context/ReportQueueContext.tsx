@@ -33,6 +33,7 @@ import {
   type ReportSeverity,
 } from '@/lib/reportQueue';
 import { getTurnstileToken } from '@/lib/turnstile';
+import { isScriptBlocked } from '@/lib/challengeUnavailable';
 import { ifLockFree, withLock } from '@/lib/webLocks';
 import { useDevice } from './DeviceContext';
 import { useLanguage } from './LanguageContext';
@@ -196,6 +197,7 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
           // SYC-170: a fresh safety-check token for every send. The server
           // reads it from the body as `turnstileToken`.
           getToken: getTurnstileToken,
+          scriptBlocked: isScriptBlocked,
           onTextAccepted: (localId) => {
             setAcceptedIds((prev) => new Set([...prev, localId]));
             const item = store.items().find((r) => r.localId === localId);

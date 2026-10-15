@@ -63,6 +63,10 @@ export function ReportConfirmation({
         <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
           {saved(t('reportBusy'))}
         </Text>
+      ) : state === 'blocked' ? (
+        <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
+          {t('reportCheckBlocked')}
+        </Text>
       ) : state === 'check' ? (
         <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
           {t('reportCheckUnavailable')}

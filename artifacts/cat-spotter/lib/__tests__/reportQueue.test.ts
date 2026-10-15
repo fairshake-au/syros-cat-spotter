@@ -321,6 +321,33 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
     expect(withToken.submit).toHaveBeenCalledTimes(3);
   });
 
+  it('review finding 3: a 428 after a tokenless send that followed a failed script load says what to allow; no other path does', async () => {
+    const mk = async () => {
+      const { store } = makeStore([report()]);
+      await store.load();
+      return store;
+    };
+    const always428 = () => api({ submit: vi.fn(async () => { throw new FakeApiError(428); }) });
+    // script failed (likely a blocker) + tokenless + 428 -> blocked message
+    const s1 = await mk();
+    await syncReports(s1, { api: always428(), deviceId: 'dev-1', ...photos, getToken: async () => null, scriptBlocked: () => true, now: () => 1 });
+    const [i1] = s1.items();
+    expect(confirmationState(i1!.localId, [i1!], new Set(), false)).toBe('blocked');
+    expect(i1!.serverFailures).toBe(0);
+    // tokenless 428 with no script failure (an unmapped host) -> the plain message
+    const s2 = await mk();
+    await syncReports(s2, { api: always428(), deviceId: 'dev-1', ...photos, getToken: async () => null, scriptBlocked: () => false, now: () => 1 });
+    expect(confirmationState(s2.items()[0]!.localId, s2.items(), new Set(), false)).toBe('check');
+    // a send that carried a token is never "blocked", even if the flag is stale
+    const s3 = await mk();
+    await syncReports(s3, { api: always428(), deviceId: 'dev-1', ...photos, getToken: async () => 'tok', scriptBlocked: () => true, now: () => 1 });
+    expect(confirmationState(s3.items()[0]!.localId, s3.items(), new Set(), false)).toBe('check');
+    // accepted by the server (observe): nothing is left to say
+    const s4 = await mk();
+    await syncReports(s4, { api: api(), deviceId: 'dev-1', ...photos, getToken: async () => null, scriptBlocked: () => true, now: () => 1 });
+    expect(s4.items()).toEqual([]);
+  });
+
   it('a report that resolves clears its waits; "send everything now" forgets them', () => {
     const r = report({ nextTryAt: '2026-10-01T10:00:00Z', checkDeclinedAt: '2026-10-01T10:00:00Z' });
     const [cleared] = clearWaits([r]);

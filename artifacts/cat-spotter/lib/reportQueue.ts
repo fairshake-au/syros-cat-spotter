@@ -70,6 +70,11 @@ export interface PendingReport {
    */
   checks428?: number;
   nextTryAt?: string;
+  /**
+   * The last 428 followed a tokenless send because Cloudflare's script failed
+   * to load (likely a content blocker): the screen says what to allow.
+   */
+  checkBlocked?: boolean;
 }
 
 export interface SubmitBody {
@@ -208,6 +213,8 @@ export interface SyncDeps {
   getToken(action: ChallengeAction, cdata: string): Promise<string | null>;
   /** Called the moment the server accepts a report's text. */
   onTextAccepted?: (localId: string) => void;
+  /** Whether Cloudflare's script failed to load on the last try (a content blocker, likely). */
+  scriptBlocked?: () => boolean;
   /** The clock, for the waits below (tests). */
   now?: () => number;
 }
@@ -242,8 +249,8 @@ export async function syncReports(
     }
 
     if (current.status === 'queued') {
+      let sentToken = false;
       try {
-        let sentToken = false;
         const sendText = async () => {
           // A fresh token for every send, never reused and never stored.
           const token = await deps.getToken('welfare_report', current.clientRef);
@@ -290,6 +297,7 @@ export async function syncReports(
             checkDeclinedAt: undefined,
             checks428: undefined,
             nextTryAt: undefined,
+            checkBlocked: undefined,
           })),
           'system',
         );
@@ -304,13 +312,17 @@ export async function syncReports(
           await store
             .mutate(
               update(current.localId, (r) => {
-                if (declinedAt) return { ...r, checkUnavailable: true, checkDeclinedAt: declinedAt };
+                if (declinedAt) {
+                  return { ...r, checkUnavailable: true, checkBlocked: undefined, checkDeclinedAt: declinedAt };
+                }
                 // A 428: back off (1, 5, 15, 30 minutes, then 30 again), no strike.
                 const checks428 = (r.checks428 ?? 0) + 1;
                 const wait = BACKOFF_428_MS[Math.min(checks428, BACKOFF_428_MS.length) - 1]!;
                 return {
                   ...r,
                   checkUnavailable: true,
+                  // Only after a tokenless send that followed a failed script load.
+                  checkBlocked: !sentToken && Boolean(deps.scriptBlocked?.()),
                   checks428,
                   nextTryAt: new Date(now() + wait).toISOString(),
                 };
@@ -330,7 +342,7 @@ export async function syncReports(
           }
           if (current.checkUnavailable) {
             await store
-              .mutate(update(current.localId, (r) => ({ ...r, checkUnavailable: false })), 'system')
+              .mutate(update(current.localId, (r) => ({ ...r, checkUnavailable: false, checkBlocked: undefined })), 'system')
               .catch(() => undefined);
           }
           if (statusOf(err) === null) return; // no signal
@@ -382,7 +394,7 @@ export async function syncReports(
   }
 }
 
-export type ConfirmationState = 'sent' | 'sending' | 'queued' | 'busy' | 'failed' | 'check';
+export type ConfirmationState = 'sent' | 'sending' | 'queued' | 'busy' | 'failed' | 'check' | 'blocked';
 
 /** What the confirmation screen may say about one report (spec §5.3(e)). */
 export function confirmationState(
@@ -395,7 +407,7 @@ export function confirmationState(
   if (acceptedIds.has(localId) || item?.status === 'photo') return 'sent';
   if (item?.status === 'failed') return 'failed';
   if (syncing && item) return 'sending';
-  if (item?.checkUnavailable) return 'check';
+  if (item?.checkUnavailable) return item.checkBlocked ? 'blocked' : 'check';
   return item?.busy ? 'busy' : 'queued';
 }
 

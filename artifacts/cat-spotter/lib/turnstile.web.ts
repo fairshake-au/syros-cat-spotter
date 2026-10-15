@@ -21,7 +21,12 @@
  * without a place in the React tree. Its one line of text follows the
  * language the person chose (the same local storage key as the app).
  */
-import { CHALLENGE_TIMEOUT_MS, ChallengeUnavailable, type ChallengeAction } from './challengeUnavailable';
+import {
+  CHALLENGE_TIMEOUT_MS,
+  ChallengeUnavailable,
+  setScriptBlocked,
+  type ChallengeAction,
+} from './challengeUnavailable';
 import { TRANSLATIONS, type Language } from './i18n';
 import { TEST_KEY_STORAGE_KEY, sitekeyForHost } from './turnstileConfig';
 
@@ -198,6 +203,7 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
       arm();
       loadScript().then(
         () => {
+          setScriptBlocked(false);
           if (settled) return;
           try {
             widgetId = api()!.render(sheet.widget, {
@@ -234,7 +240,12 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
             fail('render', true);
           }
         },
-        () => fail('script'),
+        (err: unknown) => {
+          // An outright load error is what a content blocker causes; a script
+          // that is merely slow (hung) is not "blocked".
+          setScriptBlocked((err as Error | undefined)?.message === 'script-error');
+          fail('script');
+        },
       );
     });
   } finally {

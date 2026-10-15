@@ -8,7 +8,7 @@ import { TRANSLATIONS, type Language } from '../i18n';
 import { SAVED_ON_PHONE, savedWording } from '../savedWording';
 import { displayUpperCase } from '../displayUpperCase';
 
-const NEW_KEYS = ['reportCheckUnavailable', 'turnstileTapLine'];
+const NEW_KEYS = ['reportCheckUnavailable', 'turnstileTapLine', 'reportCheckBlocked'];
 const LANGS: Language[] = ['en', 'el', 'fr'];
 
 describe('T1-12: the safety-check strings', () => {

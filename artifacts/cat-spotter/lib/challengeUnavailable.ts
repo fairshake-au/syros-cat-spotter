@@ -22,6 +22,19 @@ export class ChallengeUnavailable extends Error {
   }
 }
 
+let scriptBlocked = false;
+/**
+ * Whether the last attempt to load Cloudflare's script failed outright (an
+ * ad-blocker or content blocker is the usual cause). Set by lib/turnstile.web.ts;
+ * the queue reads it after a 428 to pick the message (SYC-170 PR 1.2).
+ */
+export function setScriptBlocked(value: boolean): void {
+  scriptBlocked = value;
+}
+export function isScriptBlocked(): boolean {
+  return scriptBlocked;
+}
+
 export function isChallengeUnavailable(err: unknown): err is ChallengeUnavailable {
   return err instanceof ChallengeUnavailable || (err as { name?: unknown } | null)?.name === 'ChallengeUnavailable';
 }
