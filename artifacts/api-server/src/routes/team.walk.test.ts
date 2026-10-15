@@ -166,6 +166,7 @@ const OWN_CHECKS: Record<string, string> = {
   "POST /api/team/signout": "needs no session, only the dashboard's own Origin",
   "POST /api/internal/people/allowed": "the sign-in Worker's bearer token (internal.people.test.ts)",
   "POST /api/internal/mail/drain": "the drain timer's bearer token (internalMail.test.ts)",
+  "POST /api/internal/resend/webhook": "Resend's signature, no token (reports.reporterEmail.test.ts, prelaunchGate.test.ts)",
 };
 
 /**

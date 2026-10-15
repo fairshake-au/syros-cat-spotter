@@ -170,6 +170,8 @@ describe("9. gate on, no pass: every route refuses", () => {
       if (url === "/api/team" || url.startsWith("/api/team/")) continue;
       // /api/mail/* skips the pass too (SYC-3 Decision 5); test 12b walks those.
       if (url.startsWith("/api/mail/")) continue;
+      // Resend's webhook: its signature is the door (SYC-42 Slice 3); test 9b.
+      if (url === "/api/internal/resend/webhook") continue;
       if (!isHealth) {
         const res = await send(route.method, url);
         expect({ route: `${route.method} ${url}`, status: res.status }).toEqual({
@@ -185,6 +187,23 @@ describe("9. gate on, no pass: every route refuses", () => {
         route: `${route.method} ${url.toUpperCase()}`,
         status: 401,
       });
+    }
+  });
+
+  it("9b. Resend's webhook skips the pass, and the route refuses it unsigned; no token opens it (SYC-42 Slice 3)", async () => {
+    const saved = process.env["RESEND_WEBHOOK_SECRET"];
+    process.env["RESEND_WEBHOOK_SECRET"] = `whsec_${Buffer.from("vitest-webhook-key").toString("base64")}`;
+    try {
+      for (const url of ["/api/internal/resend/webhook", "/API/INTERNAL/RESEND/WEBHOOK"]) {
+        const res = await send("post", url);
+        expect({ url, status: res.status, body: res.body }).toEqual({ url, status: 401, body: { error: "unauthorized" } });
+      }
+      // Only POST, only exactly that path.
+      expect((await send("get", "/api/internal/resend/webhook")).body).toEqual(REFUSAL);
+      expect((await send("post", "/api/internal/resend/webhook/x")).body).toEqual(REFUSAL);
+    } finally {
+      if (saved === undefined) delete process.env["RESEND_WEBHOOK_SECRET"];
+      else process.env["RESEND_WEBHOOK_SECRET"] = saved;
     }
   });
 
