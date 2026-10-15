@@ -20,6 +20,7 @@ const report = (id: string, over: Partial<QueueReport> = {}): QueueReport => ({
   photo: { status: "none", url: null },
   cat: null,
   contactLeft: false,
+  emailToReporter: null,
   teamNote: null,
   teamNoteAt: null,
   teamNoteBy: null,
