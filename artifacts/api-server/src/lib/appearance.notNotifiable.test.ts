@@ -209,3 +209,103 @@ describe("source: catHelpers, which every notifier's deceased check goes through
     expect([...new Set(reads)]).toEqual(["lifeStatus"]);
   });
 });
+
+// ── SYC-161 PR 1: the colour reader (lib/coatReading/) ─────────────────────
+// Plan "Source guards": the reader feeds no notifier and no matcher, and it
+// is the only machine writer of colour.
+
+const COAT_READING = join(LIB, "coatReading");
+
+/** Non-test source files under `dir`, recursively. */
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const path = join(dir, e.name);
+    if (e.isDirectory()) return e.name === "__fixtures__" || e.name === "__snapshots__" ? [] : sourceFiles(path);
+    return e.name.endsWith(".ts") && !e.name.endsWith(".test.ts") ? [path] : [];
+  });
+}
+
+/** Code only: block and line comments removed. */
+function code(path: string): string {
+  return readFileSync(path, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+}
+
+const IMPORTS_COAT_READING = /from\s+["'](\.{1,2}\/)+(lib\/)?coatReading(\/[^"']*)?["']/;
+const IMPORTS_NOTIFIER =
+  /from\s+["'](\.{1,2}\/)+(lib\/)?(push|notifications|notificationFanout|sightingRoundUp|mail(\/[^"']*)?|routes\/notifications)["']/;
+
+describe("source: the colour reader never feeds the matcher (spec test 15, server half)", () => {
+  for (const file of ["matching.ts", "candidateSelection.ts"]) {
+    it(`lib/${file} imports nothing from coatReading/ and reads no colour`, () => {
+      const path = join(LIB, file);
+      expect(readFileSync(path, "utf8")).not.toMatch(IMPORTS_COAT_READING);
+      expect(offending(path)).toEqual([]);
+    });
+  }
+});
+
+describe("source: the colour reader and the notifiers never meet", () => {
+  const notifiers = [
+    join(LIB, "notificationFanout.ts"),
+    join(LIB, "notifications.ts"),
+    join(LIB, "sightingRoundUp.ts"),
+    join(LIB, "push.ts"),
+    ...sourceFiles(join(LIB, "mail")),
+  ];
+  for (const path of notifiers) {
+    it(`${path.slice(LIB.length + 1)} imports nothing from coatReading/`, () => {
+      expect(readFileSync(path, "utf8")).not.toMatch(IMPORTS_COAT_READING);
+    });
+  }
+
+  it("coatReading/ imports no notifier, push or mail module", () => {
+    const files = sourceFiles(COAT_READING);
+    expect(files.length).toBeGreaterThanOrEqual(4);
+    for (const path of files) {
+      expect(readFileSync(path, "utf8"), path).not.toMatch(IMPORTS_NOTIFIER);
+    }
+  });
+
+  it("the import patterns catch what they should", () => {
+    expect('import { sweepCoatReadings } from "./coatReading/sweep";').toMatch(IMPORTS_COAT_READING);
+    expect('import { x } from "../lib/coatReading";').toMatch(IMPORTS_COAT_READING);
+    expect('import { sendPushNotification } from "../push";').toMatch(IMPORTS_NOTIFIER);
+    expect('import { enqueue } from "../mail/outbox";').toMatch(IMPORTS_NOTIFIER);
+  });
+});
+
+describe("source: only coatReading/record.ts writes colour as the machine", () => {
+  const SRC = join(LIB, "..");
+  const WRITES_MACHINE = /\bprovenance\s*:\s*["'`]machine["'`]/;
+  const NAMES_VISION = /["'`]system:vision["'`]|\bVISION_AUTHOR\b/;
+  const RECORD = join(COAT_READING, "record.ts");
+  const isTestSupport = (path: string) => path.slice(SRC.length + 1).split("/")[0] === "test";
+
+  it('no other source file in src/ writes provenance: "machine" (so none names system:vision with it)', () => {
+    const offenders: string[] = [];
+    let scanned = 0;
+    for (const path of sourceFiles(SRC)) {
+      if (isTestSupport(path)) continue;
+      scanned += 1;
+      if (path !== RECORD && WRITES_MACHINE.test(code(path))) offenders.push(path.slice(SRC.length + 1));
+    }
+    expect(scanned).toBeGreaterThan(50);
+    expect(offenders).toEqual([]);
+    const record = code(RECORD);
+    expect(record).toMatch(WRITES_MACHINE);
+    expect(record).toMatch(NAMES_VISION);
+  });
+
+  it("the reader's author constant is used nowhere else", () => {
+    for (const path of sourceFiles(SRC)) {
+      if (path === RECORD || isTestSupport(path)) continue;
+      expect(code(path), path).not.toMatch(/\bVISION_AUTHOR\b/);
+    }
+  });
+
+  it("the pattern catches a machine write, and ignores one in a comment", () => {
+    expect(code(join(LIB, "observations.ts"))).not.toMatch(WRITES_MACHINE);
+    expect(readFileSync(join(LIB, "observations.ts"), "utf8")).toMatch(WRITES_MACHINE);
+    expect('writeObservation(tx, { accountId: "system:vision", provenance: "machine" })').toMatch(WRITES_MACHINE);
+  });
+});
