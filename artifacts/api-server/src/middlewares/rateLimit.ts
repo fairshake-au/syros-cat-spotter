@@ -203,6 +203,11 @@ export async function _resetClaimLimitForTests(): Promise<void> {
 // opens a page every few seconds, and 2000 was reached in testing; 5000 is
 // about 250 pages in a quarter of an hour. Pictures seen again in the same
 // hour come from the browser's own cache and don't count.
+//
+// STAYS IN MEMORY, per server, like photoLimiter and for the same reason
+// (SYC-105 PR 2.1): a page loads five pictures, so a database write per
+// picture would cost more than this courtesy cap protects. It sits behind a
+// signed-in session; nothing security depends on rests on it.
 export const mapTileLimiter = rateLimit({
   ...common,
   windowMs: 15 * 60 * 1000,
