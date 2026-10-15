@@ -466,7 +466,15 @@ describe("spec test 29a, seeded half: setRoles is additive", () => {
     await expect(
       store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" }),
     ).rejects.toThrow(/last person with management/);
-    // Control: with her row in force, Samuel can step down.
+    // PR 1.1 review M-1: due to end tomorrow is not lasting management either.
+    await c.query(
+      "update person_scopes set expires_at = now() + interval '1 day' where person_id = $1 and role = 'management'",
+      [jacky.id],
+    );
+    await expect(
+      store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" }),
+    ).rejects.toThrow(/last person with management/);
+    // Control: with her row in force and no end, Samuel can step down.
     await c.query("update person_scopes set expires_at = null where person_id = $1", [jacky.id]);
     const r = await store.setRoles({ email: SAMUEL, remove: "management", by: "cli:t" });
     expect(r.after).toEqual(["staff"]);

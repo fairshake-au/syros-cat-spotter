@@ -5,7 +5,7 @@ import {
   type Request,
   type Response,
 } from "express";
-import { findAllowedPerson, normaliseEmail } from "@workspace/db";
+import { findAllowedPerson, findInviteeByEmail, normaliseEmail } from "@workspace/db";
 import { checkInternalToken } from "../lib/internalAuth";
 import { mayEnter, mayUseWorkspace } from "../lib/capabilities";
 
@@ -119,6 +119,30 @@ router.post(
       return;
     }
 
+    if (!person) {
+      // SYC-53 PR 1.1 (roles spec §4.5; plan review minor 6): someone invited
+      // and not yet joined, Invited and unexpired by the database's clock,
+      // gets the dashboard door only, so she can receive her sign-in link and
+      // be handed to the accept page. Only in this shape: the old one says no
+      // to her (above). Expired, withdrawn, not sent yet and anonymised all
+      // get the one fixed "no" below.
+      const invitee = await findInviteeByEmail(normaliseEmail(raw));
+      if (invitee) {
+        req.log.info(
+          { outcome: "allowed", version: DOORS_VERSION, invitee: true },
+          "people allowed check",
+        );
+        res.json({
+          allowed: true,
+          doors: { workspace: false, dashboard: true },
+          language: invitee.language,
+          personId: invitee.id,
+          name: invitee.name,
+          sessionVersion: invitee.sessionVersion,
+        });
+        return;
+      }
+    }
     if (!person || (!doors.workspace && !doors.dashboard)) {
       req.log.info(
         { outcome: "not_allowed", version: DOORS_VERSION },

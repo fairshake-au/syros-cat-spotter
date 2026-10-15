@@ -137,3 +137,23 @@ export function reportSendDeps(mail: "public_verify" | "report_ack" | "report_ou
     isVerified: isReportConfirmed,
   };
 }
+
+/**
+ * SYC-53 PR 1.1: the people emails (an invitation, an access-change notice)
+ * are refused to an address that bounced, complained or asked never to be
+ * emailed: the suppressions that block every purpose.
+ */
+export async function isSuppressedEverywhere(address: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: emailSuppressionsTable.id })
+    .from(emailSuppressionsTable)
+    .where(
+      and(
+        eq(emailSuppressionsTable.addressHmac, addressFingerprint("all", address)),
+        eq(emailSuppressionsTable.scope, "all"),
+        inArray(emailSuppressionsTable.reason, ["bounce", "complaint", "unsubscribe"]),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}

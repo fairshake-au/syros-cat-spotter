@@ -83,7 +83,7 @@ async function addAndLeave() {
     addedBy: "cli:vitest",
   });
   const left = await markLeft(EMAIL, "cli:vitest");
-  expect(left).toEqual({ id: p.id, sessionVersion: p.sessionVersion + 1 });
+  expect(left).toEqual({ id: p.id, sessionVersion: p.sessionVersion + 1, withdrawnInvitations: 0 });
   return { id: p.id, before: p.sessionVersion, now: left!.sessionVersion };
 }
 

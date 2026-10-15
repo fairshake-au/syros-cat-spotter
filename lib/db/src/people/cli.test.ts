@@ -508,6 +508,17 @@ describe("SYC-53 PR 0.3: add's rules, and set-roles", () => {
     expect(await roles()).toEqual([]);
   });
 
+  it("SYC-53 PR 1.1 (SYC-333): mark-left refuses the last manager unless --force", async () => {
+    await add();
+    await setRoles(["--add", "management"]);
+    const refused = await run(["mark-left", "--target", "development", "--email", SAMUEL], devEnv(), SAMUEL);
+    expect(refused.code).toBe(1);
+    expect(refused.out.join("\n")).toMatch(/last person with management/);
+    const forced = await run(["mark-left", "--target", "development", "--email", SAMUEL, "--force"], devEnv(), SAMUEL);
+    expect(forced.code).toBe(0);
+    expect(forced.out.join("\n")).toMatch(/Marked person .* as left/);
+  });
+
   it("--replace warns when it takes away a cat guardian placement", async () => {
     const colony = (
       await c.query(

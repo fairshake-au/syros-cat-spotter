@@ -106,6 +106,8 @@ ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:
 .hiddenby .why{font-weight:400;color:#3b3930}
 .statement{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #0b5c6b;border-radius:8px;padding:10px 12px;margin:8px 0;overflow-wrap:anywhere}
 .statement p{margin:2px 0}
+.join input{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid #8a877e;border-radius:8px;background:#fff}
+.join button{width:100%}
 .statement.replaced{border-left-color:#8a877e;background:#faf9f6}
 .statement del{color:#6b685f}
 .said{font-weight:700}

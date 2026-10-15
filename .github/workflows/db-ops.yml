@@ -60,7 +60,7 @@ on:
       confirm:
         type: string
         required: false
-        description: "Type APPLY for carry-back-apply; FORCE for people-set-roles removing staff"
+        description: "Type APPLY for carry-back-apply; FORCE for the people break-glass (set-roles past a guard, or mark-left of the last manager)"
       fail_after:
         # The plan sketches this as `type: choice` with `""` as one of the
         # options, but actionlint refuses an empty choice option

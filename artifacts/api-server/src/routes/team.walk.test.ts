@@ -6,6 +6,8 @@ import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { invitePerson } from "@workspace/db";
+import { inviteCookieFor } from "../test/inviteKit";
 import {
   endPlacements,
   guardianOn,
@@ -49,7 +51,8 @@ type Kind =
   | "pending"
   | "left"
   | "nothing"
-  | "ended";
+  | "ended"
+  | "invitee";
 
 const KINDS: Kind[] = [
   "team",
@@ -61,6 +64,7 @@ const KINDS: Kind[] = [
   "left",
   "nothing",
   "ended",
+  "invitee",
 ];
 
 /** What a kind of person gets from a route. */
@@ -83,6 +87,30 @@ const TEAM_ONLY: Partial<Record<Kind, Outcome>> = {
   left: "signin",
   nothing: "ended",
   ended: "ended",
+  // SYC-53 PR 1.1: someone invited (a guardian on colony A, the message
+  // sent), with the invitee session the hand-off gives her. It is never a
+  // team session: every team route answers it with the sign-in 401, the
+  // photo route for her own colony's cat included (T9).
+  invitee: "signin",
+};
+
+/**
+ * The accept page's routes (PR 1.1): only the invitee acts there. A joined
+ * person (any team session that is current, even one who holds nothing any
+ * more) is sent home with a 303 and nothing changes; no session, a forged
+ * pending one, or a left one gets the sign-in 401.
+ */
+const ACCEPT_PAGE: Partial<Record<Kind, Outcome>> = {
+  team: "pass",
+  management: "pass",
+  guardianOne: "pass",
+  guardianTwo: "pass",
+  guardianEvery: "pass",
+  pending: "signin",
+  left: "signin",
+  nothing: "pass",
+  ended: "pass",
+  invitee: "pass",
 };
 
 interface Row {
@@ -160,6 +188,10 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/observations": { why: "the door, then set_life_status / set_sterilisation inside, island-only" },
   "POST /api/team/observations/:id/supersede": { why: "the door, then the statement kind's capability inside" },
   "GET /api/team/observations/review/likely": { why: "set_sterilisation with no target" },
+  // SYC-53 PR 1.1, the accept page: requireInvitee, never a capability.
+  "GET /api/team/my/welcome": { why: "the accept page: an invitee's own session only (requireInvitee)", except: ACCEPT_PAGE },
+  "POST /api/team/my/accept": { why: "Yes, join: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
+  "POST /api/team/my/decline": { why: "No, this isn't for me: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
 };
 
 /** Routes with their own checks instead of a person's session. */
@@ -197,7 +229,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 51;
+const MINIMUM_ROUTES = 54;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -246,6 +278,17 @@ beforeAll(async () => {
   people.nothing = await signedPerson("walk-vet", ["vet"]);
   people.ended = await guardianOn("walk-ended", [colonyA]);
   await endPlacements(people.ended.id);
+  // An invitee: a guardian on colony A, invited and the message delivered
+  // (written directly, as the outbox would), with her invitee session.
+  const inv = await invitePerson(people.management.id, {
+    email: `vitest-walk-invitee-${Date.now()}@example.com`,
+    name: "Vt walk invitee",
+    placements: [{ role: "guardian", colonyId: colonyA }],
+    language: "en",
+    languageUsed: "en",
+  });
+  await pool.query(`update people set invite_sent_at = now() where id = $1`, [inv.id]);
+  people.invitee = { id: inv.id, email: inv.email, cookie: inviteCookieFor(inv.id, 1) };
 });
 
 beforeEach(() => {

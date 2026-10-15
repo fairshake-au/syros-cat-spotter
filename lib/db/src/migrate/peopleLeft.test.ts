@@ -94,7 +94,8 @@ describe("markLeft", () => {
   it("marks the person as left, and both readers refuse them", async () => {
     const p = await addSusan();
     const result = await store.markLeft(SUSAN, "cli:samuel");
-    expect(result).toEqual({ id: p.id, sessionVersion: 2 });
+    // SYC-53 PR 1.1: and how many pending invitations they had sent were withdrawn.
+    expect(result).toEqual({ id: p.id, sessionVersion: 2, withdrawnInvitations: 0 });
     const r = await row(p.id);
     expect(r.left_at).toBeInstanceOf(Date);
     expect(r.left_by).toBe("cli:samuel");
@@ -145,6 +146,7 @@ describe("markLeft", () => {
     expect(await store.markLeft(" SUSAN@Example.com ", "cli:x")).toEqual({
       id: p.id,
       sessionVersion: 2,
+      withdrawnInvitations: 0,
     });
   });
 });

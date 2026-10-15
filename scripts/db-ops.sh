@@ -393,7 +393,13 @@ run_people() {
       colony_args
       if [ "${CONFIRM:-}" = "FORCE" ]; then args+=(--force); fi
       ;;
-    mark-left|sign-out-everywhere)
+    mark-left)
+      # SYC-53 PR 1.1: marking the last management person as left is refused
+      # by the people command unless CONFIRM=FORCE (the break-glass; SYC-333).
+      args+=(--by "db-ops:${GITHUB_ACTOR:-unknown}")
+      if [ "${CONFIRM:-}" = "FORCE" ]; then args+=(--force); fi
+      ;;
+    sign-out-everywhere)
       args+=(--by "db-ops:${GITHUB_ACTOR:-unknown}")
       ;;
   esac

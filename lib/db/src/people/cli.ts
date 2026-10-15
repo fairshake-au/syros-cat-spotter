@@ -12,7 +12,7 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 //   pnpm --filter @workspace/db run people -- add --target <t> --accepted [--email <e>] [--name <n>] [--role staff] [--colony <id>] [--language en] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- set-roles --target <t> (--add <role> | --remove <role> | --replace <role>...) [--colony <id>] [--force] [--email <e>] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- list --target <t>
-//   pnpm --filter @workspace/db run people -- mark-left --target <t> [--email <e>] [--by <operator>]
+//   pnpm --filter @workspace/db run people -- mark-left --target <t> [--force] [--email <e>] [--by <operator>]
 //   pnpm --filter @workspace/db run people -- sign-out-everywhere --target <t> [--email <e>] [--by <operator>]
 //
 // The address is typed a second time for set-roles, mark-left and
@@ -62,7 +62,7 @@ const USAGE = [
   "  people add --target <target> --accepted [--email <address>] [--name <name>] [--role <role>]... [--colony <id>] [--language en|el|fr] [--by <operator>]",
   "  people set-roles --target <target> (--add <role> | --remove <role> | --replace <role>...) [--colony <id>] [--force] [--email <address>] [--by <operator>]",
   "  people list --target <target>",
-  "  people mark-left --target <target> [--email <address>] [--by <operator>]",
+  "  people mark-left --target <target> [--force] [--email <address>] [--by <operator>]",
   "  people sign-out-everywhere --target <target> [--email <address>] [--by <operator>]",
   "<target> is development, rehearsal or production, and DATABASE_TARGET must equal it.",
   "The address comes from NEON_DEV_URL, NEON_REHEARSAL_URL or NEON_PROD_URL respectively.",
@@ -349,11 +349,20 @@ export async function runPeopleCommand(
       return 0;
     }
     if (command === "mark-left") {
-      const marked = await store.markLeft(email, operator);
+      // SYC-53 PR 1.1: the last management person is refused unless
+      // --force (the break-glass, as for set-roles; SYC-333).
+      const marked = await store.markLeft(email, operator, {
+        force: flags.has("force"),
+      });
       io.out(
         marked === null
           ? "That address isn't on the list. Nothing was changed."
-          : `Marked person ${marked.id} as left. They're signed out everywhere and can't sign in. Their history stays theirs.`,
+          : marked.invitationWithdrawn
+            ? `Person ${marked.id} hadn't joined, so their invitation was withdrawn (and their address removed if they never joined).`
+            : `Marked person ${marked.id} as left. They're signed out everywhere and can't sign in. Their history stays theirs.` +
+              (marked.withdrawnInvitations
+                ? ` ${marked.withdrawnInvitations} pending invitation${marked.withdrawnInvitations === 1 ? "" : "s"} they sent ${marked.withdrawnInvitations === 1 ? "was" : "were"} withdrawn.`
+                : ""),
       );
       return marked === null ? 1 : 0;
     }
