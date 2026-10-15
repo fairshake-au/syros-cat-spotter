@@ -108,7 +108,10 @@ const ATTR = /\s(href|action|src)="([^"]*)"/g;
 
 /** K13: no href, action or src holds a coordinate or a z/x/y. */
 function expectNoPositionInAddresses(html: string) {
-  const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
+  // A photo's address ends in a random id (a UUID), whose digit runs can look
+  // like z-x-y by chance; it holds no position, so it is set aside first.
+  const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+  const values = [...html.matchAll(ATTR)].map((m) => m[2]!.replace(UUID, "photo"));
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
     expect(v, v).not.toMatch(/\d+\.\d+/);
