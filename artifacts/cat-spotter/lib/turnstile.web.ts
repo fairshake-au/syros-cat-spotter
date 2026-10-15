@@ -38,25 +38,53 @@ function api(): TurnstileApi | undefined {
   return (globalThis as { turnstile?: TurnstileApi }).turnstile;
 }
 
-let scriptLoad: Promise<void> | null = null;
+/** How long a send waits for Cloudflare's script before it goes tokenless. */
+export const SCRIPT_LOAD_TIMEOUT_MS = 8_000;
 
-/** Loads Cloudflare's script once. A failed load is forgotten, so a later send can try again. */
+let scriptEl: HTMLScriptElement | null = null;
+
+/**
+ * Waits for Cloudflare's script, adding it once. Each send waits on it for at
+ * most SCRIPT_LOAD_TIMEOUT_MS: a script that neither loads nor errors (a weak
+ * connection) is a failure for THIS send, which then goes tokenless; the tag
+ * stays, so the next send waits on it again and uses it if it has arrived.
+ * A script that errors is removed, so the next send adds it afresh.
+ */
 function loadScript(): Promise<void> {
   if (api()) return Promise.resolve();
-  if (scriptLoad) return scriptLoad;
-  scriptLoad = new Promise<void>((resolve, reject) => {
-    const el = document.createElement('script');
-    el.src = SCRIPT_URL;
-    el.async = true;
-    el.onload = () => (api() ? resolve() : reject(new ChallengeUnavailable('script')));
-    el.onerror = () => reject(new ChallengeUnavailable('script'));
-    document.head.appendChild(el);
-  }).catch((err) => {
-    scriptLoad = null;
-    document.querySelectorAll(`script[src="${SCRIPT_URL}"]`).forEach((n) => n.remove());
-    throw err;
+  return new Promise<void>((resolve, reject) => {
+    let el = scriptEl;
+    if (!el || !el.isConnected) {
+      el = document.createElement('script');
+      el.src = SCRIPT_URL;
+      el.async = true;
+      scriptEl = el;
+      document.head.appendChild(el);
+    }
+    const script = el;
+    const done = () => {
+      clearTimeout(timer);
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+    };
+    const onLoad = () => {
+      done();
+      if (api()) resolve();
+      else reject(new Error('script-no-api'));
+    };
+    const onError = () => {
+      done();
+      script.remove();
+      if (scriptEl === script) scriptEl = null;
+      reject(new Error('script-error'));
+    };
+    const timer = setTimeout(() => {
+      done();
+      reject(new Error('script-hung'));
+    }, SCRIPT_LOAD_TIMEOUT_MS);
+    script.addEventListener('load', onLoad);
+    script.addEventListener('error', onError);
   });
-  return scriptLoad;
 }
 
 function storedValue(key: string): string | null {

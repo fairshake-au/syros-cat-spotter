@@ -6,7 +6,7 @@
  * in time" throws ChallengeUnavailable.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getTurnstileToken } from '../turnstile.web';
+import { SCRIPT_LOAD_TIMEOUT_MS, getTurnstileToken } from '../turnstile.web';
 import { CHALLENGE_TIMEOUT_MS, ChallengeUnavailable } from '../challengeUnavailable';
 
 afterEach(() => {
@@ -22,13 +22,38 @@ describe('getTurnstileToken on a mapped host (localhost)', () => {
     const real = document.head.appendChild.bind(document.head);
     vi.spyOn(document.head, 'appendChild').mockImplementation(((node: Node) => {
       const el = node as HTMLScriptElement;
-      if (el.tagName === 'SCRIPT') queueMicrotask(() => el.onerror?.(new Event('error')));
+      if (el.tagName === 'SCRIPT') queueMicrotask(() => el.dispatchEvent(new Event('error')));
       return real(node);
     }) as typeof document.head.appendChild);
     await expect(getTurnstileToken('welfare_report', 'r-abc')).resolves.toBeNull();
     // and a later send tries the script again
     await expect(getTurnstileToken('welfare_report', 'r-abc')).resolves.toBeNull();
     expect(document.querySelector('[data-turnstile-sheet]')).toBeNull();
+  });
+
+  it('review finding 5: a script that never arrives costs one send ~8 s, not 20 s, and the next send waits on it again', async () => {
+    vi.useFakeTimers();
+    let settled = false;
+    const first = getTurnstileToken('welfare_report', 'r-abc').then((v) => {
+      settled = true;
+      return v;
+    });
+    await vi.advanceTimersByTimeAsync(SCRIPT_LOAD_TIMEOUT_MS - 100);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(settled).toBe(true);
+    await expect(first).resolves.toBeNull();
+    // The tag is still there (not added twice); when it arrives later the next send uses it.
+    expect(document.querySelectorAll('script[src*="challenges.cloudflare.com"]')).toHaveLength(1);
+    (globalThis as { turnstile?: unknown }).turnstile = {
+      render: (_c: unknown, p: { callback: (t: string) => void }) => {
+        queueMicrotask(() => p.callback('tok-late'));
+        return 'w1';
+      },
+      remove: () => undefined,
+    };
+    await expect(getTurnstileToken('welfare_report', 'r-abc')).resolves.toBe('tok-late');
+    expect(document.querySelectorAll('script[src*="challenges.cloudflare.com"]')).toHaveLength(1);
   });
 
   it('a widget error with no tap asked also resolves null', async () => {
