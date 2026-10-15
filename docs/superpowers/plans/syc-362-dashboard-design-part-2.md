@@ -26,7 +26,7 @@ There are no scripts, so it can't be a pop-up. It has to be a second page.
 
 | Option | What staff see | Benefits | Risks |
 |---|---|---|---|
-| **A. A confirm page after the form (recommended)** | They fill in the form as now and press "Retire this site". A page says what will happen ("Vaporia bins leaves the map. You can bring it back later from its page.") with **Yes, retire it** and **Cancel**. | One extra tap, only on risky actions. What they typed is carried on the confirm page, so nothing is retyped. | None found. Pressing Yes twice, going back, or refreshing is already safe: the second try finds the site already retired, or the owner already gone, and writes nothing. |
+| **A. A confirm page after the form (recommended)** | They fill in the form as now and press "Retire this site". A page says what will happen ("Vaporia bins leaves the map. You can bring it back later from its page.") with **Yes, retire it** and **Cancel**. | One extra tap, only on risky actions. What they typed is carried on the confirm page, so nothing is retyped. | None found. Pressing Yes twice, going back, or refreshing never removes anything twice: the second try finds the site already retired, or the owner already gone. (On the life-status page a second Yes records the same status again, like pressing Save twice; harmless.) |
 | B. An "I understand" tick box on the form | The button only works once the box is ticked. | No extra page. | Easy to tick without reading. That's exactly how the owner box went wrong. |
 
 **Recommendation: A.**
@@ -127,7 +127,7 @@ Not the owner's home pin (D5).
 
 **Rounding:** positions are printed to 5 decimal places (about 1 m) instead of raw computer numbers like "37.446999999999996". The cat page's `place()` deliberately printed exact numbers ("never rounded"); this reverses that. Five places is finer than any phone's GPS, so nothing a person could use is lost.
 
-**One builder.** A new `lib/teamPages/position.ts` is the only place that prints a position or builds a map link. The welfare alert email's `mapLinks` (`lib/welfare/alertEmail.ts`) is moved onto it too, so there's one Google address builder, not two.
+**One builder for the dashboard.** A new `lib/teamPages/position.ts` is the only place a team page prints a position or builds a map link. The welfare alert email keeps its own `mapLinks` (`lib/welfare/alertEmail.ts`) for now, since changing it would change the email's links; SYC-385 decides the email's rule.
 
 **The queue's near-site rule goes:** the queue's "Near a feeding site: see the dashboard map" line, `queueNearFeedingSites` (`lib/welfareQueue.ts`) and the `NearSites` plumbing in `queuePage.ts` and `routes/team.ts` are removed, with their tests (`team.queuePage.test.ts` near-site cases). **Kept:** `lib/feedingSiteProximity.ts`, because the alert email still uses it. The email still leaves out links near a site. That difference is deliberate: Samuel's decision was about the team's pages, and the email goes to an inbox, not the dashboard. Filed as a follow-up question, not changed here.
 
@@ -153,7 +153,7 @@ One commit per step, tests first where behaviour changes. Steps 1–3 touch only
   - which words to use: plain English for the cat page, or catalogue keys for the shared site pages, under a new `sure.*` prefix, since `confirm.*` is taken.
 
   It adds `confirm=1`.
-- (b) `lib/teamPages/position.ts`: `position(lat, lng, { link })`. It rounds, escapes, and adds " · Open map" only when `link` is true. The alert email's link builder moves here.
+- (b) `lib/teamPages/position.ts`: `position(lat, lng, { link })`. It rounds, escapes, and adds " · Open map" only when `link` is true. **As built:** the alert email keeps its own link builder, because moving it would change the email's links (rounding and encoding) and the email is out of scope. Until step 5, a source test (`position.guard.source.test.ts`) stops any file importing `position.ts`.
 - Tests:
   - every carried field round-trips escaped, including a reason containing `"><script>`;
   - the Yes form posts to the same action with `confirm=1`, and Cancel goes back;
@@ -172,7 +172,7 @@ One commit per step, tests first where behaviour changes. Steps 1–3 touch only
 
 **Step 3. The owner box goes (D2), and the cat page's words (D3).**
 - (a) Remove the checkbox. Give `removeOwnerAndSay` a mode, `confirm_if_owner`: under the row lock, if the cat has an owner (or an orphaned home), the new status isn't "Has a home", and there's no `confirm=1`, it writes nothing and returns `needs_confirm`. The route then shows D2's confirm page. With `confirm=1`, it removes whichever owner exists at that moment.
-- People **without** `remove_owner` (cat guardians) save as today, keeping the owner, and see D2's note.
+- People **without** `remove_owner` (cat guardians) save as today, keeping the owner, and see D2's note. **As built:** today a real guardian is refused at the door before this runs (the route needs `set_life_status` island-wide); the branch is ready for when the cat page opens to guardians, and `team.guardianLifeStatus.test.ts` will fail on that day as a reminder to check it.
 - The JSON path keeps accepting `removeOwner=1` as today.
 - (b) D3's wording: `catPages.ts`, its `DONE` notices, the "Mark wrong" and Remove-owner forms, and the date messages in `routes/teamCorrections.ts` (`FIELD_WORDS`, "give the date the team knows of").
 - Tests:
