@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
+  ANONYMISED_NAME,
   colonyNames,
   db,
   isPersonId,
@@ -8,7 +9,7 @@ import {
   personEventsTable,
   type ScreenPerson,
 } from "@workspace/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   ActionRefused,
   bringBack,
@@ -79,30 +80,84 @@ const colonyOptions = async (): Promise<ColonyOption[]> =>
 const WORKSPACE_ROLES: readonly string[] = CATALOGUE.use_workspace.roles;
 const DAY = 24 * 60 * 60 * 1000;
 
-const ids = (raw: unknown): number[] =>
-  typeof raw === "string"
-    ? [...new Set(raw.split(",").filter((s) => /^[1-9]\d{0,8}$/.test(s)).map(Number))].slice(0, 20)
-    : [];
+/** How long after a change its banner can still be drawn. */
+const BANNER_MINUTES = 10;
 
-/** What the banner after a change says, from the fixed keys and ids in the query, names from the records. */
-async function doneFrom(req: Request): Promise<Done | null> {
+/** A person's newest event of one kind. */
+async function latest(pid: string, kind: string) {
+  const [e] = await db
+    .select({ by: personEventsTable.by, at: personEventsTable.at, detail: personEventsTable.detail })
+    .from(personEventsTable)
+    .where(and(eq(personEventsTable.personId, pid), eq(personEventsTable.kind, kind)))
+    .orderBy(desc(personEventsTable.id))
+    .limit(1);
+  return e ? { ...e, detail: (e.detail && typeof e.detail === "object" ? e.detail : {}) as Record<string, unknown> } : null;
+}
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+const numbers = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => typeof x === "number") : []);
+const guardianColonies = (labels: string[]) =>
+  labels.filter((l) => /^guardian:\d+$/.test(l)).map((l) => Number(l.split(":")[1]));
+
+/** The event that proves each kind of banner (resent and nothing have none). */
+const PROOF: Partial<Record<Done["kind"], string>> = {
+  invited: "invited",
+  broughtBack: "invited",
+  withdrawn: "invite_withdrawn",
+  roles: "roles_changed",
+  left: "left",
+  signedOut: "signed_out_everywhere",
+};
+
+/**
+ * What the banner after a change says. The query carries only `done` and
+ * `p` (a person): nothing in a link can claim anything. Everything the
+ * banner says (the workspace reminder, how many invitations were withdrawn,
+ * the colonies to rename, "will be sent in English") is rebuilt here from
+ * that person's newest matching event in person_events, and shown only if
+ * the event is recent and was made by the person looking at the page.
+ */
+async function doneFrom(req: Request, viewerId: string): Promise<Done | null> {
   const q = req.query;
   const kind = q["done"];
   const known = ["invited", "resent", "withdrawn", "roles", "left", "signedOut", "broughtBack", "nothing"];
   if (typeof kind !== "string" || !known.includes(kind)) return null;
-  const pid = typeof q["p"] === "string" && isPersonId(q["p"]) ? q["p"] : null;
-  const name = pid ? (await peopleNames(db, [pid])).get(pid) : undefined;
-  const colonyIds = ids(q["c"]);
-  const names = await colonyNames(db, colonyIds);
-  const n = typeof q["n"] === "string" && /^\d{1,3}$/.test(q["n"]) ? Number(q["n"]) : 0;
-  return {
-    kind: kind as Done["kind"],
-    name: name ? [...name].slice(0, 60).join("") : undefined,
-    inEnglish: q["en"] === "1",
-    workspace: q["w"] === "1",
-    withdrawn: n,
-    rename: colonyIds.filter((c) => names.has(c)).map((c) => ({ id: c, name: names.get(c)! })),
+  const pid = typeof q["p"] === "string" && isPersonId(q["p"]) ? q["p"].toLowerCase() : null;
+  if (!pid) return null;
+  const k = kind as Done["kind"];
+  const name = (await peopleNames(db, [pid])).get(pid);
+  const done: Done = {
+    kind: k,
+    // A withdrawn, anonymised invitation has no name to say.
+    name: name && name !== ANONYMISED_NAME ? [...name].slice(0, 60).join("") : undefined,
   };
+  const proof = PROOF[k];
+  if (!proof) return done;
+  const e = await latest(pid, proof);
+  if (!e || e.by !== viewerId || Date.now() - e.at.getTime() > BANNER_MINUTES * 60_000) return null;
+  const d = e.detail;
+  let colonyIds: number[] = [];
+  if (k === "invited" || k === "broughtBack") {
+    done.inEnglish = typeof d["language"] === "string" && d["language"] !== d["languageUsed"];
+  } else if (k === "left") {
+    done.workspace = strings(d["roles"]).some((r) => WORKSPACE_ROLES.includes(r));
+    colonyIds = numbers(d["colonyIds"]);
+    // Invitations withdrawn in the same transaction carry the same moment.
+    const r = await db.execute<{ n: number }>(sql`
+      select count(*)::int as n from person_events
+       where kind = 'invite_withdrawn'
+         and at = (select at from person_events where person_id = ${pid} and kind = 'left' order by id desc limit 1)
+         and detail->>'reason' = 'sender_left' and detail->>'sender' = ${pid}`);
+    done.withdrawn = r.rows[0]?.n ?? 0;
+  } else if (k === "roles") {
+    const kept = new Set(guardianColonies(strings(d["after"])));
+    colonyIds = guardianColonies(strings(d["before"])).filter((c) => !kept.has(c));
+  }
+  if (colonyIds.length > 0) {
+    const names = await colonyNames(db, colonyIds);
+    done.rename = colonyIds.filter((c) => names.has(c)).map((c) => ({ id: c, name: names.get(c)! }));
+  }
+  return done;
 }
 
 /** GET /api/team/people: the list, or (?tab=left) the people who have left. */
@@ -132,7 +187,7 @@ router.get("/team/people", requireTeam("manage_people"), async (req: Request, re
       viewer: me.name,
       ...body,
       colonies: await colonyOptions(),
-      done: await doneFrom(req),
+      done: await doneFrom(req, me.id),
     }),
   );
 });
@@ -269,7 +324,7 @@ router.post("/team/people/invite", ...formRoute("manage_people"), async (req: Re
       },
       { ip: req.ip },
     );
-    return location("invited", { p: r.personId, en: r.languageUsed !== language ? 1 : undefined });
+    return location("invited", { p: r.personId });
   });
 });
 
@@ -311,7 +366,7 @@ router.post("/team/people/:id/roles", ...formRoute("manage_people"), async (req:
         labels.filter((l) => l.startsWith("guardian:")).map((l) => Number(l.split(":")[1]));
       const kept = new Set(guardian(r.after));
       const lost = guardian(r.before).filter((c) => !kept.has(c));
-      return location("roles", { p: id, c: lost.join(",") });
+      return location("roles", { p: id });
     },
     { href: `${PEOPLE}/${id}/roles`, label: "Back to the form" },
   );
@@ -324,24 +379,8 @@ router.post("/team/people/:id/left", ...formRoute("manage_people"), async (req: 
   const me = teamPerson(res);
   await answer(req, res, async () => {
     if (id === me.id) throw new ActionRefused("refused", "You can't mark yourself as left here. Use Stop helping on your own page.");
-    const r = await markLeft(me, id);
-    // What they held when they left is in the `left` event the change just
-    // wrote: the workspace reminder and the colonies to offer renaming.
-    const [ev] = await db
-      .select({ detail: personEventsTable.detail })
-      .from(personEventsTable)
-      .where(and(eq(personEventsTable.personId, id), eq(personEventsTable.kind, "left")))
-      .orderBy(desc(personEventsTable.id))
-      .limit(1);
-    const d = (ev?.detail ?? {}) as { roles?: unknown; colonyIds?: unknown };
-    const roles = Array.isArray(d.roles) ? d.roles.filter((x): x is string => typeof x === "string") : [];
-    const held = Array.isArray(d.colonyIds) ? d.colonyIds.filter((x): x is number => typeof x === "number") : [];
-    return location("left", {
-      p: id,
-      w: roles.some((x) => WORKSPACE_ROLES.includes(x)) ? 1 : undefined,
-      n: r.withdrawnInvitations || undefined,
-      c: held.join(","),
-    });
+    await markLeft(me, id);
+    return location("left", { p: id });
   });
 });
 
@@ -371,7 +410,7 @@ router.post("/team/people/:id/bring-back", ...formRoute("manage_people"), async 
       if (!form.ok) throw new Bad(form.message);
       const language = typeof b["language"] === "string" ? b["language"] : "en";
       const r = await bringBack(teamPerson(res), id, form.placements, language, { ip: req.ip });
-      return location("broughtBack", { p: id, en: r.languageUsed !== language ? 1 : undefined });
+      return location("broughtBack", { p: id });
     },
     { href: `${PEOPLE}/${id}/bring-back`, label: "Back to the form" },
   );

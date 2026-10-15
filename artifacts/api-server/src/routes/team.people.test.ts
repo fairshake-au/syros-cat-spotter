@@ -422,7 +422,7 @@ describe("the changes themselves, through the actions layer", () => {
     const t = await joined("left-team", ["staff"]);
     const res = await post(`/api/team/people/${t.id}/left`, susan);
     expect(res.status).toBe(303);
-    expect(res.headers["location"]).toContain("w=1");
+    expect(res.headers["location"]).toBe(`/api/team/people?done=left&p=${t.id}`);
     const html = (await get(res.headers["location"]!, susan)).text;
     expect(html).toContain("Change the shared document password today.");
 
@@ -440,7 +440,7 @@ describe("the changes themselves, through the actions layer", () => {
     await invited(sender, "left-sender-a");
     await invited(sender, "left-sender-b");
     const res = await post(`/api/team/people/${sender.id}/left`, susan);
-    expect(res.headers["location"]).toContain("n=2");
+    expect(res.headers["location"]).toBe(`/api/team/people?done=left&p=${sender.id}`);
     const html = (await get(res.headers["location"]!, susan)).text;
     expect(html).toContain("2 invitations from Vt left-sender were withdrawn when they left. Re-send any you still want.");
   });
@@ -472,6 +472,41 @@ describe("the changes themselves, through the actions layer", () => {
   it("a made-up person id is a 404, not a 500", async () => {
     const res = await post(`/api/team/people/not-an-id/left`, susan);
     expect(res.status).toBe(404);
+  });
+});
+
+const banner = (html: string) => {
+  const i = html.indexOf('class="okbox"');
+  return i < 0 ? "" : html.slice(i, html.indexOf("</div>", i));
+};
+
+describe("m1: a banner can't be forged from a link; it is rebuilt from the person's own recent event", () => {
+  it("claims in the query (w, n, c, en) are ignored, and nobody gets a banner for a change they didn't just make", async () => {
+    const t = await joined("forge-t", ["staff"]);
+    const crafted = `/api/team/people?done=left&p=${t.id}&w=1&n=999&c=${colony}&en=1`;
+    expect(banner((await get(crafted, susan)).text)).toBe("");
+    const inv = `/api/team/people?done=invited&p=${t.id}&en=1`;
+    expect(banner((await get(inv, susan)).text)).toBe("");
+    // A real change made by another manager is not Susan's banner either.
+    const v = await joined("forge-v", ["staff"]);
+    const res = await post(`/api/team/people/${v.id}/left`, jacky);
+    expect(res.status).toBe(303);
+    expect(banner((await get(res.headers["location"]!, susan)).text)).toBe("");
+    expect(banner((await get(res.headers["location"]!, jacky)).text)).toContain("is marked as left");
+  });
+
+  it("the real banner's extras come from the event, and the banner expires after 10 minutes", async () => {
+    const t = await joined("forge-real", ["staff"]);
+    const res = await post(`/api/team/people/${t.id}/left`, susan);
+    const loc = res.headers["location"]!;
+    expect(banner((await get(loc, susan)).text)).toContain("Change the shared document password today.");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.now() + 11 * 60_000));
+    try {
+      expect(banner((await get(loc, susan)).text)).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
