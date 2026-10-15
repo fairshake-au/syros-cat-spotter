@@ -9,9 +9,10 @@ import { isTileSize, type Tile, type TileSize } from "./geometry";
 
 // Map picture addresses (SYC-209 PR 3.1, plan K13). A tile's z/x/y pins a
 // spot on Syros to about 75 m at the closest zoom, and a team page asks for
-// the pictures around a private feeding site whenever it opens. So the
+// the picture around a private feeding site whenever it opens. So the
 // address a browser asks for never holds z/x/y: it holds this token, an
-// encrypted, authenticated reference to (tile, picture size) that stops
+// encrypted, authenticated reference to one map picture (the 2×2 tiles of a
+// view: zoom, top-left tile, and the size each tile is drawn at) that stops
 // working after about a day. The address then says nothing about a position
 // to anyone who sees it: the hosting provider's edge logs, the browser's
 // history, or our own logs (which redact it as well, SYC-255).
@@ -35,7 +36,8 @@ export const TOKEN_RE = /^[A-Za-z0-9_-]{59}$/;
 const HOUR = 3600;
 const LIFETIME_HOURS = 25;
 
-export interface TileRef extends Tile {
+/** One map picture: the view's zoom and top-left tile, and its tile size. */
+export interface PictureRef extends Tile {
   size: TileSize;
 }
 
@@ -57,7 +59,7 @@ function keys(env: NodeJS.ProcessEnv): Keys[] | null {
   return secrets ? secrets.map(derive) : null;
 }
 
-function pack(ref: TileRef, exp: number): Buffer {
+function pack(ref: PictureRef, exp: number): Buffer {
   const b = Buffer.alloc(BLOCK);
   b.writeUInt8(VERSION, 0);
   b.writeUInt8(ref.z, 1);
@@ -69,11 +71,11 @@ function pack(ref: TileRef, exp: number): Buffer {
 }
 
 /**
- * The address token for one picture. Throws when the dashboard has no
+ * The address token for one map picture. Throws when the dashboard has no
  * session key (nobody can be signed in then, so no page is drawn).
  */
 export function mintTileToken(
-  ref: TileRef,
+  ref: PictureRef,
   nowSeconds = Math.floor(Date.now() / 1000),
   env: NodeJS.ProcessEnv = process.env,
 ): string {
@@ -96,10 +98,13 @@ export function readTileToken(
   token: unknown,
   nowSeconds = Math.floor(Date.now() / 1000),
   env: NodeJS.ProcessEnv = process.env,
-): TileRef | null {
+): PictureRef | null {
   if (typeof token !== "string" || !TOKEN_RE.test(token)) return null;
   const raw = Buffer.from(token, "base64url");
   if (raw.length !== NONCE + BLOCK + TAG) return null;
+  // One spelling per token: base64url's last character has two spare bits
+  // a decoder ignores, so without this a token would have four addresses.
+  if (raw.toString("base64url") !== token) return null;
   const nonce = raw.subarray(0, NONCE);
   const body = raw.subarray(NONCE, NONCE + BLOCK);
   const tag = raw.subarray(NONCE + BLOCK);

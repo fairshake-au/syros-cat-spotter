@@ -150,11 +150,11 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 .map{margin:0;line-height:0}
 .mapband{display:none;position:relative;overflow:hidden;background:#e8e4d8}
 .mapband.b144{display:block}
-.maptiles{display:grid}
-.maptiles form{margin:0;padding:0}
-.maptiles img,.maptiles input[type=image]{display:block;margin:0;padding:0;border:0;max-width:none;cursor:crosshair}
-.maptiles img{cursor:default}
-.maptiles .blank{display:block;background:#dcd8cc}
+.mapband form{margin:0;padding:0}
+.mapband img,.mapband input[type=image]{display:block;margin:0;padding:0;border:0;max-width:none;cursor:crosshair}
+.mapband img{cursor:default}
+.checkdetails{margin:0 0 8px;font-size:14px}
+.checkdetails summary{cursor:pointer;color:#55524a}
 .pin{position:absolute;display:block;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid #b3261e;border-radius:50%;background:rgba(255,255,255,.45);box-shadow:0 0 0 2px #fff}
 span.pin{pointer-events:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

@@ -3,13 +3,11 @@ import {
   BANDS,
   clampView,
   GRID,
-  isTileAllowed,
   MAX_ZOOM,
   MIN_ZOOM,
   pan,
   pointOnView,
   viewAround,
-  viewTiles,
   type Position,
   type TileSize,
   type View,
@@ -21,20 +19,20 @@ import { mintTileToken } from "../mapTiles/tileToken";
 // function draws it, so a better map can replace it later without touching
 // any page that uses it.
 //
-// No scripts: the map is 2×2 pictures served by our own server. In `view`
-// mode they are plain pictures and the markers are links. In `place` mode
-// each picture is an image button in its own form, and the browser posts the
+// No scripts: the map is one picture, 2×2 map tiles joined by our own
+// server. In `view` mode it is a plain picture and the markers are links. In
+// `place` mode it is an image button in a form, and the browser posts the
 // point that was tapped; the server turns it into a position.
 //
 // Rules this keeps, each with a test:
-// - **No position in any address** (K13). Pictures are fetched by an opaque
-//   token; zoom, pan, the area buttons and every tap are POST forms whose
+// - **No position in any address** (K13). The picture is fetched by an
+//   opaque token; zoom, pan, the area buttons and every tap are POST forms whose
 //   hidden fields carry the view. No `href`, `action` or `src` holds a
 //   coordinate or a z/x/y.
 // - **Never shrunk** (K4). The map is drawn once per screen-width band, at
 //   exactly its size, and the CSS shows exactly one. Each tap form carries
 //   the size it was drawn at, so the server converts at the scale tapped.
-// - **Whole pixels.** Every picture starts on a whole pixel (the tap test:
+// - **Whole pixels.** The picture starts on a whole pixel (the tap test:
 //   WebKit misreads taps by up to 1.5 px otherwise). The page puts the map
 //   under fixed-height lines only; see `.mappage` in layout.ts.
 
@@ -73,8 +71,6 @@ const hiddenFields = (fields: Record<string, string> | undefined) =>
     .map(([k, v]) => hiddenField(k, v))
     .join("");
 
-const CORNER = ["top left", "top right", "bottom left", "bottom right"];
-
 /** The view a map option set describes, kept over the island. */
 export function resolveView(opts: Pick<MapOptions, "view" | "centre" | "zoom">): View {
   if (opts.view) return clampView(opts.view);
@@ -82,40 +78,22 @@ export function resolveView(opts: Pick<MapOptions, "view" | "centre" | "zoom">):
   throw new Error("renderMap: a view or a centre is needed");
 }
 
-function band(
-  view: View,
-  size: number,
-  opts: MapOptions,
-  tokens: Map<string, string>,
-): string {
+function band(view: View, size: number, opts: MapOptions): string {
   const span = GRID * size;
-  const tileHtml = viewTiles(view)
-    .map((tile, i) => {
-      if (!isTileAllowed(tile)) {
-        // Off the island's tiles: a blank square, never fetched.
-        return `<span class="blank" style="width:${size}px;height:${size}px"></span>`;
-      }
-      const key = `${tile.x}/${tile.y}/${size}`;
-      let token = tokens.get(key);
-      if (!token) {
-        token = mintTileToken({ ...tile, size: size as TileSize }, opts.now);
-        tokens.set(key, token);
-      }
-      const src = `/api/team/map-tiles/${token}`;
-      if (opts.mode === "view") {
-        return `<img src="${src}" width="${size}" height="${size}" alt="" loading="lazy">`;
-      }
-      return (
-        `<form method="post" action="${esc(opts.tapAction ?? DEFAULT_TAP_ACTION)}">` +
-        hiddenField("tile", token) +
+  // One picture per band: the view's 2×2 tiles joined by the server at
+  // exactly this size (plan K4's mosaic). No seams to tap on.
+  const token = mintTileToken({ ...view, size: size as TileSize }, opts.now);
+  const src = `/api/team/map-tiles/${token}`;
+  const picture =
+    opts.mode === "view"
+      ? `<img src="${src}" width="${span}" height="${span}" alt="Map of Syros" loading="lazy">`
+      : `<form method="post" action="${esc(opts.tapAction ?? DEFAULT_TAP_ACTION)}">` +
+        hiddenField("view", token) +
         hiddenField("size", String(size)) +
         hiddenFields(opts.hidden) +
-        `<input type="image" src="${src}" width="${size}" height="${size}" ` +
-        `alt="Map picture, ${CORNER[i]}. Tap to pick a spot.">` +
-        "</form>"
-      );
-    })
-    .join("");
+        `<input type="image" src="${src}" width="${span}" height="${span}" ` +
+        'alt="Map of Syros. Tap a spot to pick it.">' +
+        "</form>";
   const pins = (opts.markers ?? [])
     .map((m) => {
       const at = pointOnView(view, size, m);
@@ -129,7 +107,7 @@ function band(
     .join("");
   return (
     `<div class="mapband b${size}" style="width:${span}px;height:${span}px">` +
-    `<div class="maptiles" style="grid-template-columns:${size}px ${size}px">${tileHtml}</div>` +
+    picture +
     pins +
     "</div>"
   );
@@ -171,10 +149,9 @@ function controls(view: View, opts: MapOptions): string {
  */
 export function renderMap(opts: MapOptions): string {
   const view = resolveView(opts);
-  const tokens = new Map<string, string>();
   return (
     `<div class="map" role="group" aria-label="Map of Syros, zoom ${view.z} of ${MAX_ZOOM}">` +
-    BANDS.map((b) => band(view, b.size, opts, tokens)).join("") +
+    BANDS.map((b) => band(view, b.size, opts)).join("") +
     "</div>" +
     '<p class="attrib">Map pictures © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a></p>' +
     controls(view, opts)

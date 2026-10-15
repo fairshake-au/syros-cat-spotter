@@ -113,24 +113,28 @@ describe("tap to position (test 17)", () => {
     expect(metres(right, wrong)).toBeGreaterThan(10 * pixelMetres(z, 171, ERMOUPOLI.lat));
   });
 
-  it("taps on the shared edge of two pictures meet: the last pixel of one and the first of the next are one pixel apart", () => {
+  it("across the seam between the picture's tiles, neighbouring pixels are one pixel apart", () => {
     const z = 19;
     const size = 179;
-    const tile = { z, x: Math.floor(lngToTileX(ERMOUPOLI.lng, z)), y: Math.floor(latToTileY(ERMOUPOLI.lat, z)) };
-    const lastOfLeft = tapToPosition(tile, size, size - 1, 50)!;
-    const firstOfRight = tapToPosition({ ...tile, x: tile.x + 1 }, size, 0, 50)!;
+    const view = { z, x: Math.floor(lngToTileX(ERMOUPOLI.lng, z)), y: Math.floor(latToTileY(ERMOUPOLI.lat, z)) };
+    const lastOfLeft = tapToPosition(view, size, size - 1, 50)!;
+    const firstOfRight = tapToPosition(view, size, size, 50)!;
     expect(metres(lastOfLeft, firstOfRight)).toBeCloseTo(pixelMetres(z, size, ERMOUPOLI.lat), 1);
+    // And it's the same place a picture starting one tile further east gives.
+    const same = tapToPosition({ ...view, x: view.x + 1 }, size, 0, 50)!;
+    expect(metres(firstOfRight, same)).toBeLessThan(0.001);
   });
 
   it("a point on the far edge itself is the last pixel; points outside the picture are refused", () => {
-    const tile = { z: 16, x: 37115, y: 25200 };
-    const edge = tapToPosition(tile, 179, 179, 179)!;
-    const last = tapToPosition(tile, 179, 178, 178)!;
+    const view = { z: 16, x: 37115, y: 25200 };
+    const span = 2 * 179;
+    const edge = tapToPosition(view, 179, span, span)!;
+    const last = tapToPosition(view, 179, span - 1, span - 1)!;
     expect(metres(edge, last)).toBeLessThan(pixelMetres(16, 179, edge.lat));
-    expect(tapToPosition(tile, 179, 180, 0)).toBeNull();
-    expect(tapToPosition(tile, 179, -1, 0)).toBeNull();
-    expect(tapToPosition(tile, 179, 1.5, 0)).toBeNull();
-    expect(tapToPosition(tile, 200, 10, 10)).toBeNull(); // not a size the map draws
+    expect(tapToPosition(view, 179, span + 1, 0)).toBeNull();
+    expect(tapToPosition(view, 179, -1, 0)).toBeNull();
+    expect(tapToPosition(view, 179, 1.5, 0)).toBeNull();
+    expect(tapToPosition(view, 200, 10, 10)).toBeNull(); // not a size the map draws
   });
 });
 
@@ -196,11 +200,8 @@ describe("views", () => {
       for (const { size } of BANDS) {
         const at = pointOnView(v, size, ERMOUPOLI)!;
         expect(at).not.toBeNull();
-        // Tap that pixel on the picture it's on: back to the spot, to a pixel.
-        const col = Math.floor(at.left / size);
-        const row = Math.floor(at.top / size);
-        const tile = { z, x: v.x + col, y: v.y + row };
-        const got = tapToPosition(tile, size, at.left - col * size, at.top - row * size)!;
+        // Tap that pixel on the map picture: back to the spot, to a pixel.
+        const got = tapToPosition(v, size, at.left, at.top)!;
         expect(metres(got, ERMOUPOLI)).toBeLessThanOrEqual(pixelMetres(z, size, ERMOUPOLI.lat) * Math.SQRT2);
       }
     }

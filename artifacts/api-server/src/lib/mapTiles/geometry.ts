@@ -121,31 +121,38 @@ export function inIsland(p: Position): boolean {
 }
 
 /**
- * From a tap to a position (spec §3). `tile` is the picture that was tapped,
- * `size` the size it was drawn at (from the form, so always the size of the
- * picture that was tapped), and (px, py) the point the browser sent, in that
- * picture's displayed CSS pixels from its top-left corner.
+ * From a tap to a position (spec §3). The map is one picture of 2×2 tiles
+ * (the band's mosaic): `view` is its zoom and top-left tile, `size` the size
+ * each tile is drawn at (from the form, checked against the picture's own
+ * token, so always the scale that was tapped), and (px, py) the point the
+ * browser sent, in the picture's displayed CSS pixels from its top-left
+ * corner, 0 to 2 × size.
  *
  * A browser sends whole pixels, so the tap is taken as the centre of that
  * pixel. A point outside the picture is refused (null): no browser sends one.
  */
 export function tapToPosition(
-  tile: Tile,
+  view: View,
   size: number,
   px: number,
   py: number,
 ): Position | null {
   if (!isTileSize(size)) return null;
   if (!isWhole(px) || !isWhole(py)) return null;
-  if (px < 0 || py < 0 || px > size || py > size) return null;
-  // A tap reported on the far edge itself (px === size) is the last pixel.
-  const fx = Math.min(px + 0.5, size) / size;
-  const fy = Math.min(py + 0.5, size) / size;
+  const span = GRID * size;
+  if (px < 0 || py < 0 || px > span || py > span) return null;
+  // A tap reported on the far edge itself (px === span) is the last pixel.
+  const fx = Math.min(px + 0.5, span) / size;
+  const fy = Math.min(py + 0.5, span) / size;
   return {
-    lat: tileYToLat(tile.y + fy, tile.z),
-    lng: tileXToLng(tile.x + fx, tile.z),
+    lat: tileYToLat(view.y + fy, view.z),
+    lng: tileXToLng(view.x + fx, view.z),
   };
 }
+
+/** May this view be drawn: every one of its four tiles may be fetched. */
+export const isViewAllowed = (v: View): boolean =>
+  viewTiles(v).every(isTileAllowed);
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi);
 

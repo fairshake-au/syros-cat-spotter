@@ -1,5 +1,4 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { z } from "zod";
 import { mapTileLimiter } from "../middlewares/rateLimit";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
@@ -9,20 +8,15 @@ import { renderMap, type MapMarker } from "../lib/teamPages/map";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import {
   clampView,
-  inIsland,
-  isTileAllowed,
+  isViewAllowed,
   MAX_ZOOM,
-  pan,
-  tapToPosition,
   viewAround,
-  zoomIn,
-  zoomOut,
   type Position,
   type View,
 } from "../lib/mapTiles/geometry";
-import { areaByKey, AREAS } from "../lib/mapTiles/areas";
+import { applyMove, readTap } from "../lib/mapTiles/mapForms";
 import { readTileToken } from "../lib/mapTiles/tileToken";
-import { getTilePng, pictureAtSize } from "../lib/mapTiles/tileCache";
+import { mosaicPicture } from "../lib/mapTiles/tileCache";
 
 // The team's map (SYC-209 PR 3.1; feeding-sites spec §3, §11.4; plan K4,
 // K13). PR 3.2 puts the feeding sites on it, PR 3.3 uses its tap to place
@@ -43,9 +37,6 @@ const router: IRouter = Router();
 const isFormPost = (req: Request) =>
   Boolean(req.is("application/x-www-form-urlencoded"));
 
-/** A whole number written plainly (no "1e3", no "0x10", no spaces). */
-const wholeNumber = z.string().regex(/^-?\d{1,10}$/).transform(Number);
-
 /** Where the map opens: the middle of the island, zoom 12. */
 const ISLAND_CENTRE: Position = { lat: 37.445, lng: 24.93 };
 const START_ZOOM = 12;
@@ -65,9 +56,10 @@ function mapPage(
     : [];
   const tapped = extra.tapped
     ? `<p class="tapped">You tapped <strong>${fmt(extra.tapped.lat)}, ${fmt(extra.tapped.lng)}</strong>. ` +
-      "The red ring marks the spot." +
-      (extra.pictureNote ? ` <span class="meta">${esc(extra.pictureNote)}</span>` : "") +
-      "</p>"
+      "The red ring marks the spot.</p>" +
+      (extra.pictureNote
+        ? `<details class="checkdetails"><summary>Details for checking the tap</summary><p class="meta">${esc(extra.pictureNote)}</p></details>`
+        : "")
     : "";
   const note = extra.note ? `<p class="warn">${esc(extra.note)}</p>` : "";
   res
@@ -100,14 +92,6 @@ router.get(
   },
 );
 
-const MoveForm = z.object({
-  vz: wholeNumber,
-  vx: wholeNumber,
-  vy: wholeNumber,
-  go: z.enum(["in", "out", "north", "south", "east", "west"]).optional(),
-  area: z.enum(AREAS.map((a) => a.key) as [string, ...string[]]).optional(),
-});
-
 /**
  * POST /api/team/map: zoom, pan, or jump to an area. The current view comes
  * in hidden fields; one that isn't over Syros is pulled back over it.
@@ -116,79 +100,54 @@ router.post(
   "/team/map",
   ...formRoute("view_exact_location"),
   (req: Request, res: Response) => {
-    const parsed = MoveForm.safeParse(req.body);
-    if (!parsed.success) {
+    const view = applyMove(req.body);
+    if (!view) {
       return void mapPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), {
         note: "That didn't work, so the map is back at the whole island.",
       });
     }
-    const f = parsed.data;
-    let view = clampView({ z: f.vz, x: f.vx, y: f.vy });
-    const area = areaByKey(f.area);
-    if (area) view = viewAround(area, area.zoom);
-    else if (f.go === "in") view = zoomIn(view);
-    else if (f.go === "out") view = zoomOut(view);
-    else if (f.go === "north") view = pan(view, 0, -1);
-    else if (f.go === "south") view = pan(view, 0, 1);
-    else if (f.go === "east") view = pan(view, 1, 0);
-    else if (f.go === "west") view = pan(view, -1, 0);
     mapPage(res, 200, view);
   },
 );
 
-const TapForm = z.object({
-  tile: z.string().max(100),
-  size: wholeNumber,
-  // An image button posts the point tapped as x and y (no name on the button).
-  x: wholeNumber,
-  y: wholeNumber,
-});
-
 /**
- * POST /api/team/map/tap: a tap on a picture. The form carries the picture's
- * token and the size it was drawn at; the browser adds the point. The size
- * must be the one the token was made for, so a picture is always converted
- * at the scale it was tapped at. A spot outside Syros is refused.
+ * POST /api/team/map/tap: a tap on the map picture (lib/mapTiles/mapForms.ts
+ * reads it). The Map page zooms in around the spot and marks it. A spot
+ * outside Syros, a (0, 0) "tap" and an unreadable form are refused.
  */
 router.post(
   "/team/map/tap",
   ...formRoute("view_exact_location"),
   (req: Request, res: Response) => {
-    const parsed = TapForm.safeParse(req.body);
-    const ref = parsed.success ? readTileToken(parsed.data.tile) : null;
-    if (!parsed.success || !ref || ref.size !== parsed.data.size || !isTileAllowed(ref)) {
+    const tap = readTap(req.body);
+    if (!tap.ok && tap.reason === "unreadable") {
       return void mapPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), {
         note: "That tap couldn't be read (the page may have been open for more than a day), so the map is back at the whole island. Nothing was picked.",
       });
     }
-    const here: View = clampView({ z: ref.z, x: ref.x, y: ref.y });
-    // (0, 0) is what a browser sends when the picture never loaded, or when
-    // the button is pressed from the keyboard: not a place anyone tapped.
-    // Taking it would put the spot on the picture's corner without a word.
-    if (parsed.data.x === 0 && parsed.data.y === 0) {
+    if (!tap.ok) {
+      const here: View = clampView(tap.picture);
       return void mapPage(res, 400, here, {
-        note: "That tap didn't say where on the map it was. This happens when a map picture hasn't loaded, or when it's chosen with the keyboard. Nothing was picked: tap the map itself.",
+        note:
+          tap.reason === "outside"
+            ? "That spot is outside Syros, so it can't be picked."
+            : "That tap didn't say where on the map it was. This happens when the map picture hasn't loaded, or when it's chosen with the keyboard. Nothing was picked: tap the map itself.",
       });
     }
-    const spot = tapToPosition(ref, ref.size, parsed.data.x, parsed.data.y);
-    if (!spot || !inIsland(spot)) {
-      return void mapPage(res, 400, here, {
-        note: "That spot is outside Syros, so it can't be picked.",
-      });
-    }
-    if (!isFormPost(req)) return void res.json(spot);
-    mapPage(res, 200, viewAround(spot, Math.min(ref.z + TAP_ZOOM_STEP, MAX_ZOOM)), {
-      tapped: spot,
-      pictureNote: `(Point ${parsed.data.x}, ${parsed.data.y} on a ${ref.size} px picture.)`,
+    if (!isFormPost(req)) return void res.json(tap.spot);
+    mapPage(res, 200, viewAround(tap.spot, Math.min(tap.picture.z + TAP_ZOOM_STEP, MAX_ZOOM)), {
+      tapped: tap.spot,
+      pictureNote: `Point ${tap.point.x}, ${tap.point.y} on a ${tap.picture.size * 2} px map picture.`,
     });
   },
 );
 
 /**
- * GET /api/team/map-tiles/:tile: one map picture. `:tile` is a token (see
+ * GET /api/team/map-tiles/:tile: one map picture, the 2×2 tiles of a view
+ * joined at one band's size. `:tile` is a token (see
  * lib/mapTiles/tileToken.ts), never z/x/y. Refused, without fetching
- * anything, unless it names a picture on Syros at zoom 12–19 at a size the
- * map draws.
+ * anything, unless it names a view on Syros at zoom 12–19 at a size the map
+ * draws.
  *
  * Pictures are the one stated exception to the dashboard's `no-store`:
  * `private, max-age=86400`, never `public`, so a shared cache can never hand
@@ -205,15 +164,14 @@ router.get(
   mapTileLimiter,
   async (req: Request, res: Response) => {
     const ref = readTileToken(req.params["tile"]);
-    if (!ref || !isTileAllowed(ref)) {
+    if (!ref || !isViewAllowed(ref)) {
       return void res.status(404).json({ error: "Not found" });
     }
-    const png = await getTilePng(ref);
-    if (!png) {
+    const body = await mosaicPicture(ref, ref.size);
+    if (!body) {
       req.log.warn({ reason: "tile_unavailable" }, "map picture unavailable");
       return void res.status(503).json({ error: "Map picture unavailable" });
     }
-    const body = await pictureAtSize(png, ref.size);
     res.setHeader("Cache-Control", "private, max-age=86400");
     res.type("png").send(body);
   },

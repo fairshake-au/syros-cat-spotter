@@ -41,6 +41,24 @@ describe("the map picture token", () => {
     expect(readTileToken(t, NOW + 25 * 3600, env(KEY_A))).toBeNull();
   });
 
+  it("has one spelling: the last character's spare bits can't make a second address", () => {
+    // Mint until a token ends in a character with spare bits set to zero, then
+    // set them: the same bytes, a different string, refused.
+    for (let i = 0; i < 200; i++) {
+      const t = mintTileToken({ ...tile, x: tile.x + i }, NOW, env(KEY_A));
+      const last = t.at(-1)!;
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+      const v = alphabet.indexOf(last);
+      if ((v & 3) !== 0) continue;
+      const twin = t.slice(0, -1) + alphabet[v | 1];
+      expect(Buffer.from(twin, "base64url").equals(Buffer.from(t, "base64url"))).toBe(true);
+      expect(readTileToken(twin, NOW, env(KEY_A))).toBeNull();
+      expect(readTileToken(t, NOW, env(KEY_A))).not.toBeNull();
+      return;
+    }
+    throw new Error("no token ended in a character with free spare bits");
+  });
+
   it("refuses an altered token, one made with another key, and anything that isn't a token", () => {
     const t = mintTileToken(tile, NOW, env(KEY_A));
     for (let i = 0; i < t.length; i += 7) {
