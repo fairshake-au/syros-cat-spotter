@@ -786,6 +786,11 @@ describe("test 10: retired is never public, and bringing back never makes a site
     expect(row.publicLabel).toBe(before.publicLabel);
     expect(row.madePublicBy).toBe(before.madePublicBy);
     expect(await kindsOf(s.id)).toEqual(["retired"]);
+    // The one row records that it went private (spec §8).
+    expect((await eventsOf(s.id))[0]!.before).toEqual({ isPublic: true, publicId: before.publicId });
+    const plain = await makeSite();
+    await post(`/api/team/sites/${plain.id}/retire`, { updatedAt: await stampOf(plain.id), reason: "closed" });
+    expect((await eventsOf(plain.id))[0]!.before).toBeNull();
   });
 
   it("retire then bring back: private, with retired_at and retired_by cleared; the events carry the reasons", async () => {

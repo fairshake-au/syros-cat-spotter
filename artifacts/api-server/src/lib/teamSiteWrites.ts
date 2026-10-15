@@ -38,6 +38,7 @@ interface Locked {
   lat: number;
   lng: number;
   isPublic: boolean;
+  publicId: string | null;
   colonyId: number | null;
   notes: string | null;
   directions: string | null;
@@ -58,6 +59,7 @@ async function lockFresh(tx: Tx, id: number, seen: string): Promise<Gate> {
       lat: feedingSitesTable.lat,
       lng: feedingSitesTable.lng,
       isPublic: feedingSitesTable.isPublic,
+      publicId: feedingSitesTable.publicId,
       colonyId: feedingSitesTable.colonyId,
       notes: feedingSitesTable.notes,
       directions: feedingSitesTable.directions,
@@ -320,6 +322,10 @@ export async function retireSite(
       subjectId: id,
       kind: "retired",
       personId,
+      // A public site goes private as part of the retire, with no row of its
+      // own (spec §8), so this one records it. Retiring the public code itself
+      // is PR 6.2's job.
+      before: gate.site.isPublic ? { isPublic: true, publicId: gate.site.publicId } : null,
       note: reason,
     });
     return { kind: "saved" as const };
