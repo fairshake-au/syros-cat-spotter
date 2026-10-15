@@ -116,7 +116,11 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
     throw new ChallengeUnavailable('no-browser');
   }
   const sitekey = sitekeyForHost(window.location.host, storedValue(TEST_KEY_STORAGE_KEY));
-  if (!sitekey) throw new ChallengeUnavailable('no-sitekey');
+  // A host with no sitekey mapping (the EU project's own address, a future
+  // launch domain): send with no token, like the native stub. The client must
+  // never be the thing that stops a report. The server decides: `observe`
+  // accepts it, `enforce` answers 428 (retried, no strike).
+  if (!sitekey) return null;
 
   const sheet = createSheet();
   let widgetId: string | undefined;

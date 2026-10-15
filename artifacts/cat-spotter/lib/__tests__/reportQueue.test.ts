@@ -313,6 +313,30 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
     expect(isPendingReport(report())).toBe(true);
   });
 
+  it('unknown host: sends with no token, and the item leaves the queue on a 201', async () => {
+    const { store } = makeStore([report({ hasPhoto: false, photoRef: undefined })]);
+    await store.load();
+    const a = api(); // resolves { publicId } like a 201
+    await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: async () => null });
+    expect(a.submit).toHaveBeenCalledTimes(1);
+    const body = (a.submit as ReturnType<typeof vi.fn>).mock.calls[0]![0] as Record<string, unknown>;
+    expect('turnstileToken' in body).toBe(false);
+    expect(store.items()).toEqual([]);
+  });
+
+  it('unknown host in enforce (428): stays queued with no strike, however often it is tried', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const a = api({ submit: vi.fn(async () => { throw new FakeApiError(428); }) });
+    for (let i = 0; i < 6; i++) {
+      await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: async () => null });
+    }
+    const [item] = store.items();
+    expect(item!.status).toBe('queued');
+    expect(item!.serverFailures).toBe(0);
+    expect(item!.checkUnavailable).toBeFalsy();
+  });
+
   it('a build with no check yet (the phone apps until PR 1.3) sends no token field at all', async () => {
     const { store } = makeStore([report({ hasPhoto: false, photoRef: undefined })]);
     await store.load();
