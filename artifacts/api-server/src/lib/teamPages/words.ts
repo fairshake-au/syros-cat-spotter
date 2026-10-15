@@ -216,6 +216,7 @@ const WORDS = {
   "act.restoreHint": "It comes back private, never public.",
   "act.restoreButton": "Bring this site back",
   "act.reason": "Reason",
+  "act.qr": "Take down any QR sticker at this place.",
   "act.colony": "Change colony",
   "act.colonyButton": "Change the colony",
   "act.colonyPublic": "If this site is public, changing its colony makes it private again.",

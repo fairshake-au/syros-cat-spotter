@@ -221,6 +221,8 @@ export function renderSiteActions(s: SiteView, colonies: Array<{ id: number; nam
       `<form method="post" action="${base}/retire">` +
       stamp +
       `<p class="hint">${w("act.retireHint")}</p>` +
+      // A public site's printed sticker would lead nowhere useful (spec §4.5).
+      (s.isPublic ? `<p class="notice">${w("act.qr")}</p>` : "") +
       reasonBox("retire-reason") +
       `<button type="submit">${w("act.retireButton")}</button></form></details></div>`;
   const options =

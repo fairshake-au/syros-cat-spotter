@@ -832,6 +832,13 @@ describe("test 10: retired is never public, and bringing back never makes a site
     expect(await eventsOf(gone.id)).toHaveLength(0);
   });
 
+  it("the retire form of a public site says to take down any QR sticker; a private site's does not", async () => {
+    const pub = await makeSite({ isPublic: true });
+    const priv = await makeSite();
+    expect((await get(`/api/team/sites/${pub.id}`)).text).toContain("Take down any QR sticker at this place.");
+    expect((await get(`/api/team/sites/${priv.id}`)).text).not.toContain("QR sticker");
+  });
+
   it("the site page offers Retire on a live site and Bring back on a retired one", async () => {
     const live = await makeSite();
     const gone = await makeSite({ retired: true });
