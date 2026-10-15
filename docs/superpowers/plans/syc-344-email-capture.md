@@ -1,7 +1,7 @@
-# SYC-344 / SYC-45: email capture v1 (implementation plan, for Samuel's approval)
+# SYC-344 / SYC-45: email capture v1 (implementation plan; decisions settled 15 Oct, for Samuel's approval)
 
 **Linear:** SYC-344 (this plan) · SYC-45 (the build) · SYC-55 (the "your cat was sterilised" email, which Slices 1 and 3 deliver) · SYC-42 (Slice 3, the reporter's email, PR #181, **merged 15 Oct** as `851c24a`) · SYC-3 (keep my spots safe; the shared "is this you?" tables) · SYC-63 (Delete my data) · SYC-358 (mail priority budget) · SYC-346 (Johnny's copy pack) · SYC-283 (the native-language check of email copy) · SYC-370, SYC-371, SYC-372 (filed from this plan).
-**Status:** **draft for approval.** Revised after an independent adversarial review (`syc-344-email-capture-review.md`: 3 critical, 12 major, 11 minor, 4 nits; what happened to each is recorded there). Nothing here is built, published or configured.
+**Status:** **for approval. All seven decisions settled by Samuel on 15 Oct 2026** (1, 2, 3, 4 and 6 as recommended; 5 changed to **one a week, no yearly cap, held news kept up to 60 days**; 7 changed to **the reader's language from day one**). Revised after an independent adversarial review (`syc-344-email-capture-review.md`: 3 critical, 12 major, 11 minor, 4 nits; what happened to each is recorded there). Nothing here is built, published or configured.
 **Design (approved, not reopened here):** `docs/specs/email-capture.md`, approved by Samuel on 28 September 2026 · `team-access-and-welfare-queue.md` §2.10 (the mail priority budget) · `cat-record-data-spine.md` (the resolver the nightly check calls, and its notification rules) · `DECISIONS.md` (D2 amendment, F4, F7b).
 **Checked against:** `origin/main` at `88967f4` (15 Oct 2026), which includes **PR #181** (merged 14:57 UTC; read in full from its diff, head `dd9ceeb`); open PR #178 (SYC-53 PR 1.1, which edits the same mail files); PR #172's launch plan (`docs/superpowers/plans/mvp-launch-31-oct.md` on `claude/xenodochial-zhukovsky-df315f`, not yet approved); Linear SYC-344, SYC-45, SYC-55, SYC-358. The SYC-42 Slice 3 session confirmed on 15 Oct that #181's shapes this plan relies on are final. Every "exists today" claim below names the file it was read in.
 
@@ -12,7 +12,7 @@
 **What this adds.** The app can already take an email in two places: "keep my spots safe" (SYC-3) and, since #181 merged today, a cat report ("Shall we tell you what happens?"). Neither sends any **cat news**. This plan adds the rest of the approved spec:
 
 - **A nightly check** that notices when a cat someone follows has genuinely good news: it was **confirmed sterilised**, it **found a home**, or it was **spotted again after four months or more**. It never sends anything about a cat that has died or is presumed dead, and never a "not sterilised" or a "likely sterilised". It never tells someone about their own spot.
-- **The cat-news email** that check sends: at most one a fortnight and eight a year per person, with "stop" in every email.
+- **The cat-news email** that check sends: at most one a week per person (Samuel, 15 Oct), with "stop" in every email.
 - **The asking screens:** a card on the screen after a spot ("You named Agatha. Want to know how they get on?"), a "News about your cats" row in Settings, the unticked news box on the "Don't lose your spots" onboarding screen, and the unticked news box on the cat report's email screen.
 
 Every address still gets exactly **one** "is this you?" email first, and nothing else until the person says yes. That part is #181's, and this plan reuses it.
@@ -50,9 +50,11 @@ The spec's decisions stand. These are places where carrying them out needs the p
 
 ## Decisions for Samuel
 
-Seven, one at a time. Each has a recommendation.
+Seven. **All decided by Samuel on 15 October 2026** (recorded on SYC-344). The options are kept as the record of what was weighed.
 
 ### Decision 1: When do the news asks go live, given the two-week rule? (C1)
+
+**Decided (Samuel, 15 Oct): A.**
 
 **The question.** The spec won't let any news ask be switched on until the nightly check has run for two weeks on real data and found at least one real change that someone has looked at. So **no news ask can be live on 31 October** unless the rule is waived.
 
@@ -71,6 +73,8 @@ Seven, one at a time. Each has a recommendation.
 
 ### Decision 2: Build the visit summary now, or after launch?
 
+**Decided (Samuel, 15 Oct): A.** SYC-370.
+
 **The question.** The spec's third moment is the visit summary ("You've met 14 cats on Syros. Want the list sent to you?"). **There is no visit summary in the app at all today** (no screen, no wording in `lib/i18n.ts`). It needs a new screen, its trigger, and an email listing cats with blurred locations. It's the biggest piece of the spec.
 
 | Option | What it means | Benefits | Risks |
@@ -81,6 +85,8 @@ Seven, one at a time. Each has a recommendation.
 **Recommendation: A.**
 
 ### Decision 3: One typed address, two choices: one "is this you?" email or two? (C5, C7)
+
+**Decided (Samuel, 15 Oct): A.**
 
 **The question.** On the report's email screen, someone types their address and ticks "Also email me news about the cats I've met". Those are two separate consents (spec §3.4). Do they get one "is this you?" email or two?
 
@@ -95,6 +101,8 @@ The onboarding screen stays as the spec says: "keep my spots safe" has its own "
 
 ### Decision 4: The unsubscribe link: a page with one button, or truly one click? (C8)
 
+**Decided (Samuel, 15 Oct): A.**
+
 **The question.** The spec says unsubscribing is one click, with no "are you sure" page. But email security scanners open every link in every email. If opening the link stopped the emails, a scanner would unsubscribe people who never asked.
 
 | Option | What it means | Benefits | Risks |
@@ -104,7 +112,9 @@ The onboarding screen stays as the spec says: "keep my spots safe" has its own "
 
 **Recommendation: A.**
 
-### Decision 5: When the fortnightly limit blocks good news, hold it or drop it?
+### Decision 5: When the limit blocks good news, hold it or drop it?
+
+**Decided (Samuel, 15 Oct), changing the spec:** "change the limit to once per week - fortnightly is too infrequent"; then, asked about the yearly cap, **"No yearly cap"**; and for news that arrives while the weekly limit is closed, **A: hold it, drop after 60 days**. So: at most one cat-news email a week per person, no yearly ceiling, nothing in the 48 hours after confirming, and held news goes with the next email the limit allows. This amends `email-capture.md` §5.2 and §9, `DECISIONS.md` (the 28 Sep edits), and `privacy-policy.md`'s "a handful of times a year at most" (all in this PR; the policy wording is also noted on SYC-66 for Samuel's approval). The table below is the question as first put, with the fortnightly limit.
 
 **The question.** The spec caps cat news at one email a fortnight and eight a year, with nothing in the first 48 hours after someone confirms. Suppose a follower got "Loukoumi found a home" last Tuesday, and tonight Agatha is confirmed sterilised. The spec says "three cats with news in the same week is one email about three cats", but doesn't say what happens to news that arrives while the cap is closed.
 
@@ -117,6 +127,8 @@ The onboarding screen stays as the spec says: "keep my spots safe" has its own "
 **Recommendation: A.**
 
 ### Decision 6: After "Stop emailing me", can the same person start again?
+
+**Decided (Samuel, 15 Oct): A.**
 
 **The question.** The spec says "Stop emailing me" removes the address and keeps a do-not-email mark "so it is never mailed again". But if someone taps Stop in Settings and later changes their mind, or taps Change and goes back to their old address, the mark means nothing ever arrives, and the screen can't tell them why without telling any stranger who types that address that it unsubscribed.
 
@@ -131,6 +143,8 @@ The email's own "Stop emailing me" (where we can't know which phone it is) alway
 **Recommendation: A.**
 
 ### Decision 7: Cat-news emails in English only at first?
+
+**Decided (Samuel, 15 Oct): B, the reader's language from day one.** Cat-news emails and the news web pages go in the reader's app language. So the Greek and French email lines below must be checked by Johnny in the 22 Oct pack (noted on SYC-346) before cat news switches on. The "is this you?" email and the reporter's emails stay English-first under the 15 Oct rule for #181.
 
 **The question.** The spec wants Greek and French written by native speakers. On 15 Oct Samuel decided the **reporter's** emails go in English for everyone until Johnny checks the Greek and French (SYC-283). Should cat news follow the same rule?
 
@@ -270,7 +284,7 @@ The email's own "Stop emailing me" (where we can't know which phone it is) alway
 - **Send mode of the nightly check** (`CAT_NEWS_SEND=on`), after Slice 1's steps:
   1. Tonight's new changes, plus held ones (Decision 5 A), are matched to **confirmed** news contacts whose phone follows the cat.
   2. **Not to the person who caused it** (C13): a change whose new observations all came from that contact's phone isn't sent to that contact.
-  3. **Limits per contact** (spec §5.2), from `news_send_log`: none in the last 14 days; fewer than 8 in the last 365; none within 48 hours of confirmation. Only `cat_news` counts (verification and report mail never do; review finding 21).
+  3. **Limits per contact** (spec §5.2), from `news_send_log`: none in the last 7 days; none within 48 hours of confirmation; no yearly limit (Decision 5). Only `cat_news` counts (verification and report mail never do; review finding 21).
   4. **One email per address per night** listing every cat with news for it (spec §5.2 and §8.5's narrow dedupe, grouped in memory). Two phones with the same address get one email, logged against both contacts.
   5. A change a limit blocks stays `held` and is tried each night; after 60 days it becomes `expired` (Decision 5 A).
   6. At most 50 emails a night (S7); the rest stay `held`.
@@ -278,7 +292,7 @@ The email's own "Stop emailing me" (where we can't know which phone it is) alway
 - **The outbox's `cat_news` branch** (`processNewsMail`): re-reads every contact (must still be confirmed, not marked) and every change, renders at send time (cat names re-checked: S4), creates the unsubscribe token and a delete token, sends with `newsSendDeps("confirmed")`, then **clears the payload** to `{ cleared: true }` and writes `news_send_log` rows. Contact gone or marked → give up and clear. Retries back off as #181's, for three days, then give up and leave the changes `held`.
 - **`/mail/unsubscribe`** in `routes/mailPages.ts`: GET shows the page; POST (token, our own origin) acts. `POST /mail/unsubscribe/one-click` answers the mail app's header. Either way: **every** news contact with that address (whoever's phone) is deleted, an `all`-phones `news`/`unsubscribe` mark is added, a `withdrawn` event. The page's third button (when the address is also on a cat report) does what #181's "Delete my details" does. A link pressed twice says "Done" again, not "invalid".
 - **Tests** (`lib/news/send.test.ts`):
-  - **T3-1:** five changes for one address in one week → one email; a sixth the next week → held, then sent the night the fortnight ends; after 60 days held → expired; the ninth in a year → held.
+  - **T3-1:** five changes for one address in one week → one email; a sixth three days later → held, then sent the night the week ends; after 60 days held → expired; a tenth email in a year goes (no yearly cap).
   - **T3-2:** nothing within 48 hours of confirmation; then the held news goes.
   - **T3-3:** unsubscribe, then a run → nothing to that address, from any phone.
   - **T3-4:** a deceased, presumed-dead, likely or not-sterilised cat never appears in an email body (render check over every template branch).
@@ -361,7 +375,7 @@ Every guard above that could fail silently has one. The builder runs each and re
 | Drop news from the sweep | T2-7 |
 | Skip the delivery rows in Delete my data | T2-8 |
 | Drop each part of the start-up gate in turn | T2-9 |
-| Drop the fortnight limit; drop holding | T3-1 |
+| Drop the weekly limit; drop holding | T3-1 |
 | Drop the 48-hour quiet | T3-2 |
 | Skip the mark check in `newsSendDeps` | T3-3 |
 | Let a deceased cat through the renderer | T3-4 |
@@ -391,7 +405,7 @@ The rule (F7b): a news address gets the one fixed "is this you?" and nothing els
 |---|---|
 | No address in any public response | T2-6 |
 | No send of any kind to an unverified address | T2-2, T2-4b, and #181's test 31 |
-| The fortnight and annual caps hold when events cluster | T3-1 |
+| The weekly cap holds when events cluster (fortnight and annual caps changed by Decision 5) | T3-1 |
 | Unsubscribe stops sends within the same request | T3-3 |
 | Deletion removes the address, sightings stay unlinked | T2-8 (SYC-63's tests cover sightings) |
 | A decline is remembered across restarts | Slice 4 |
@@ -452,7 +466,7 @@ Every new sentence a visitor sees. English is the spec's, word for word where th
 | `keepSafeNewsBox` | Also send me news about cats I spot: when one is sterilised or finds a home. | Στείλτε μου και νέα για τις γάτες που βλέπω: όταν κάποια στειρώνεται ή βρίσκει σπίτι. | Envoyez-moi aussi des nouvelles des chats que je repère : quand l'un d'eux est stérilisé ou trouve un foyer. |
 | `reportNewsBox` | Also email me news about the cats I've met | Στείλτε μου και νέα με email για τις γάτες που έχω γνωρίσει | M'envoyer aussi par e-mail des nouvelles des chats que j'ai rencontrés |
 
-### In the email and on the web pages (English ships first, Decision 7; drafts for the pack)
+### In the email and on the web pages (all three languages ship, Decision 7; Johnny checks them in the pack)
 
 | Where | English | Greek (draft) | French (draft) |
 |---|---|---|---|
@@ -538,6 +552,6 @@ This session (Opus) wrote the plan. For the build:
 
 ## Still needs Samuel
 
-- Decisions 1–7 (and the small calls, unless he objects).
+- ~~Decisions 1–7~~ settled 15 Oct. The small calls stand unless he objects.
 - Approve the plan, so Slice 1 can be built the week of 19 Oct.
 - Later: review the first real change the nightly check finds.
