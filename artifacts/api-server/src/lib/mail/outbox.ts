@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { logger, safeError } from "../logger";
+import { consume, declareLimit } from "../limits";
 import { buildUncheckedWaiting, buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
 import { isNearFeedingSite, withCheckTimeout } from "../feedingSiteProximity";
 import { hashRecipient, sendMail, type SendResult } from "./send";
@@ -97,6 +98,50 @@ export const UNCHECKED_WAITING_DELAY_MINUTES = 15;
 // take the tenth place.
 const UNCHECKED_ALERT_LOCK = 170_001;
 
+/**
+ * SYC-44 PR 5.2 (spec §5.2): "Photo hidden" alerts go out one by one, but at
+ * most 10 an hour across the whole island. Past that the report waits for the
+ * daily digest. The count is the shared `consume()` counter, taken inside the
+ * report's transaction, under one bucket and one key, so every server shares
+ * it.
+ */
+export const ISSUE_ALERTS_PER_HOUR = 10;
+export const ISSUE_ALERT_BUCKET = "issue_alert_hidden";
+const HOUR_MS = 60 * 60 * 1000;
+declareLimit(ISSUE_ALERT_BUCKET, ISSUE_ALERTS_PER_HOUR, HOUR_MS);
+
+/**
+ * Queue the "Photo hidden" alert for an issue report, inside the report's
+ * transaction. Returns `"alert"` when a row was queued, or `"digest"` when the
+ * report is left for the daily digest (over the cap, or the counter failed:
+ * the cap fails CLOSED, so a broken counter can never become unlimited
+ * email). Nothing is inserted for `"digest"`; the report row itself is what
+ * the digest counts.
+ *
+ * The counter runs in a savepoint: a database error inside it would otherwise
+ * poison the caller's whole transaction and lose the report.
+ */
+export async function enqueueIssueAlert(tx: Tx, reportId: number): Promise<"alert" | "digest"> {
+  let allowed = false;
+  try {
+    allowed = await tx.transaction(async (sp) => {
+      const counted = await consume(ISSUE_ALERT_BUCKET, "island", ISSUE_ALERTS_PER_HOUR, HOUR_MS, sp);
+      return counted.allowed;
+    });
+  } catch (err) {
+    logger.error({ err: safeError(err) }, "issue alert cap: counter failed; folded into the digest");
+    return "digest";
+  }
+  if (!allowed) return "digest";
+  await tx.insert(mailOutboxTable).values({
+    purpose: "issue_alert",
+    reportId,
+    recipientHash: alertRecipientHash(),
+    payload: { kind: "alert" } satisfies IssuePayload,
+  });
+  return "alert";
+}
+
 /** A keep-safe row's payload. `to` and the tokens are gone once it's settled. */
 export type KeepSafePayload = {
   expiresAt: string;
@@ -109,6 +154,11 @@ export type KeepSafePayload = {
 export const KEEP_SAFE_OUTBOX_PURPOSES: readonly KeepSafeMail[] = ["keep_safe_verify", "restore_link"];
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** An issue_alert row's payload (SYC-44 PR 5.2). */
+type IssuePayload = {
+  kind: "alert" | "digest";
+};
 
 /** Queue a welfare alert inside the caller's transaction. */
 export async function enqueueWelfareAlert(
