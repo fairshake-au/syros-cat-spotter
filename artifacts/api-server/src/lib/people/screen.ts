@@ -109,7 +109,7 @@ function wordsForLabels(labels: readonly unknown[], lk: Lookups): string {
     if (role) roles.push(role);
     if (colony && /^\d+$/.test(colony)) colonies.push(colonyName(lk, Number(colony)));
   }
-  return roleSentence("en", roles, colonies, clip);
+  return roleSentence("en", roles, colonies, (n) => clip(n));
 }
 
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -150,7 +150,7 @@ export function describeEvent(e: ScreenPerson["history"][number], lk: Lookups): 
       const colonies = asArray(d["colonyIds"])
         .filter((c): c is number => typeof c === "number")
         .map((c) => colonyName(lk, c));
-      return `${actor} invited them as ${roleSentence("en", roles, colonies, clip)}.`;
+      return `${actor} invited them as ${roleSentence("en", roles, colonies, (n) => clip(n))}.`;
     }
     case "invite_sent":
       return "The invitation email was sent.";
@@ -276,7 +276,7 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
     anonymised,
     state,
     chip: CHIP_LABELS[state],
-    roles: capitalise(roleSentence("en", roles, guardianColonies, clip)),
+    roles: capitalise(roleSentence("en", roles, guardianColonies, (n) => clip(n))),
     placements,
     timing,
     holdsWorkspace: roles.some((r) => WORKSPACE_ROLES.includes(r)),

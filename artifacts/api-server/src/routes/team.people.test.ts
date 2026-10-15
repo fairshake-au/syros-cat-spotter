@@ -300,6 +300,15 @@ describe("no free text on this screen ends up in an email", () => {
   });
 });
 
+describe("colony names are drawn whole", () => {
+  it("a guardian's roles line and history carry the full colony name", async () => {
+    const name = (await pool.query(`select name from colonies where id = $1`, [colony])).rows[0].name as string;
+    const g = await joined("whole-name", ["guardian"], colony);
+    const html = card((await get("/api/team/people", susan)).text, g.id);
+    expect(html).toContain(`A cat guardian for ${name}`);
+  });
+});
+
 describe("the language wording", () => {
   it('says "will be sent in English" for Greek and French while only English is live', async () => {
     const html = (await get("/api/team/people", susan)).text;
