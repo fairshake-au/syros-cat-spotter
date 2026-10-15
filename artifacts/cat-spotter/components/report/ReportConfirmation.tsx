@@ -1,11 +1,13 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import type { WelfareGuidance } from '@workspace/welfare-guidance';
 import type { ConfirmationState } from '@/lib/reportQueue';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { Button } from '@/components/purropolis';
 import { fonts, spacing } from '@/constants/theme';
+import { savedWording } from '@/lib/savedWording';
+import type { Language } from '@/lib/i18n';
 import { RichText } from './RichText';
 import { VetList } from './VetList';
 
@@ -35,8 +37,10 @@ export function ReportConfirmation({
   onRetry?: () => void;
 }) {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const c = guidance.copy.confirmation;
+  // On the website a waiting report is saved in the browser, not on a phone.
+  const saved = (text: string) => savedWording(text, language as Language, Platform.OS === 'web');
   const para = [styles.para, { color: colors.foreground }];
 
   return (
@@ -57,7 +61,7 @@ export function ReportConfirmation({
         </View>
       ) : state === 'busy' ? (
         <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
-          {t('reportBusy')}
+          {saved(t('reportBusy'))}
         </Text>
       ) : state === 'check' ? (
         <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
@@ -65,11 +69,11 @@ export function ReportConfirmation({
         </Text>
       ) : state === 'failed' ? (
         <Text role="heading" style={[styles.headingSmall, { color: colors.destructive }]}>
-          {t('reportFailed')}
+          {saved(t('reportFailed'))}
         </Text>
       ) : (
         <Text role="heading" style={[styles.headingSmall, { color: colors.foreground }]}>
-          {c.offline}
+          {saved(c.offline)}
         </Text>
       )}
 
