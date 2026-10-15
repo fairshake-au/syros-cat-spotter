@@ -15,3 +15,4 @@ export * from "./mappingEvents";
 export * from "./personEvents";
 export * from "./rateLimits";
 export * from "./mapTiles";
+export * from "./matchWait";
