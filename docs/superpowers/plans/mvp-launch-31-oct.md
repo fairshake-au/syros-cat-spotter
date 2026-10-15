@@ -184,7 +184,7 @@ Runs in parallel, each in its own worktree:
 
 - **Wednesday 28: feature freeze.** Johnny's corrections applied (one PR). Anything unmerged is cut, in the agreed order.
 - **Thursday 29:** Turnstile's secret key in Replit (Samuel pastes it; Claude never handles the value) and a check that the forms accept a real token in observe mode. It switches itself to "refuse" when the pre-launch gate goes off on the 31st; the launch address live, in the Turnstile widget and the hostname list, and behind the same proxy hops (SYC-229); the sign-in Worker's address checked (SYC-191). Final publish.
-- **Friday 30:** launch-readiness check on the live build: spot a cat, report a cat in trouble, report an issue, the dashboard at phone and desktop widths, each in three languages; a test report reaches admin@syroscats.com, not spam (SYC-173); the blurred map on a real iPhone and Android phone (SYC-228, SYC-287). Samuel and Syros Cats agree the announcement.
+- **Friday 30:** launch-readiness check on the live build: spot a cat, report a cat in trouble, report an issue, the dashboard at phone and desktop widths, each in three languages; a test report reaches admin@syroscats.com, not spam (SYC-173); the team's tap-to-place map on a real iPhone and Android phone browser (SYC-287). The same check inside the store apps (SYC-228) blocks the store release. Samuel and Syros Cats agree the announcement.
 
 ### Saturday 31 October: launch
 
@@ -299,11 +299,12 @@ Workflow scripts set `model` on every `agent()` call. Chips started with `spawn_
 
 Filed or updated with this plan (team SYC, project P-SYC-54):
 
-- New: a spec ticket for the match-wait content (feeding nudge and starter facts), blocking SYC-36 and SYC-48.
-- New: the email-capture implementation plan, blocking SYC-45.
-- New: the launch-day switch-off of the pre-launch pass and its checks.
-- New: Johnny's review pack, assembled at the copy freeze on 22 October.
-- SYC-323, SYC-306, SYC-305 and SYC-228 added to the project, since they block launch and weren't in it.
+- **SYC-343** (new): spec for the match-wait screen (feeding nudge and starter facts), blocking SYC-36 and SYC-48.
+- **SYC-344** (new): the email-capture implementation plan, blocking SYC-45.
+- **SYC-345** (new): launch day, switching off the pre-launch pass, with the checks before and after.
+- **SYC-346** (new): Johnny's review pack, assembled at the copy freeze on 22 October.
+- **SYC-347** (new, Samuel): decisions D1, D2 and D4. D3 is SYC-306.
+- SYC-323, SYC-306, SYC-305 and SYC-228 moved into the project, since they block launch (or the store release) and weren't in it.
 
 ## What the adversarial review changed
 
