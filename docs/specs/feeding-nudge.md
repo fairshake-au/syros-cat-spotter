@@ -5,7 +5,7 @@
 **Covers:** SYC-36 (and the shared half of SYC-343). `docs/PRODUCT-SPEC.md` §2.2: *"The feeding nudge (short form) in the spot flow, with the winter-dependence explanation and the €1-a-day redirect."*
 **Builds on:** the proposal §13 "The feeding nudge" (the long form this is the short form of) · the onboarding "Please don't feed them" step and the "Look, don't touch" safety screen (SYC-35), which already exist · the questions on the reward screen (SYC-37, SYC-74) · the Help tab's campaign screen (SYC-1's seam).
 **Shares a slot with:** [`starter-facts.md`](./starter-facts.md) (SYC-48). Both appear in **the waiting card**, defined once in `starter-facts.md` §3. This spec owns only the nudge's words, its turn in the card and its link.
-**Dates:** launch 31 October 2026 (SYC-73). Greek and French reach Johnny for native review (SYC-283) by about 24 October.
+**Dates:** launch 31 October 2026 (SYC-73). Greek and French drafts reach Johnny for native review (SYC-283) by Thursday 22 October, per the launch plan (PR #172); his corrections land 23–27 October.
 
 ---
 
@@ -104,7 +104,7 @@ It is read aloud by screen readers in order: heading, paragraphs, €1 line, but
 
 French uses **tu**, and Greek the informal singular, to match the rest of the app (`howStepDontFeed`, `moreToAddOne`). Greek capitals drop their accents (SYC-159), so headings are written in sentence case. The euro sign follows each language's convention: **€1** in English, **1 €** in Greek and French.
 
-These are drafts. Greek and French go to Johnny for native review (SYC-283) by about 24 October (§10).
+These are drafts. Greek and French go to Johnny for native review (SYC-283) on Thursday 22 October (§10).
 
 ### 5.1 The nudge
 
@@ -227,8 +227,7 @@ In-app donations are MLP (SYC-1), so at launch the button has to go somewhere th
 |---|---|
 | Fri 16 Oct | Spec and review done (SYC-343) |
 | Mon 19 Oct | Samuel approves. Questions in §7 go to Syros Cats |
-| Thu 22 Oct | Copy freeze: English final, Greek and French drafts final. Syros Cats' answers in; the configuration switch set accordingly |
-| By Sat 24 Oct | Greek and French to Johnny (SYC-283) |
+| Thu 22 Oct | Copy freeze: English final, Greek and French drafts final and sent to Johnny (SYC-283). Syros Cats' answers in; the configuration switch set accordingly |
 | 23–27 Oct | Johnny's corrections folded in |
 | Sat 31 Oct | Launch |
 

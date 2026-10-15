@@ -6,7 +6,7 @@
 **Builds on:** the proposal §13 "What the app teaches" (the six strands and the first example facts) · the engagement design §5 (`docs/superpowers/specs/2026-07-28-engagement-and-donations-design.md`: use the waiting time, author the content, never generate it live) · the ear-tip example photo (SYC-79, already in the app as `assets/images/ear-tip-example.jpg`, used by SYC-37).
 **Seeds:** Teaching in full (SYC-61, MLP). Every fact here is tagged with its strand so SYC-61 can build on this set rather than replace it.
 **Shares a slot with:** [`feeding-nudge.md`](./feeding-nudge.md) (SYC-36). This spec defines **the waiting card** (§3) that both use.
-**Dates:** launch 31 October 2026 (SYC-73). Greek and French reach Johnny for native review (SYC-283) by about 24 October.
+**Dates:** launch 31 October 2026 (SYC-73). Greek and French drafts reach Johnny for native review (SYC-283) by Thursday 22 October, per the launch plan (PR #172); his corrections land 23–27 October.
 
 ---
 
@@ -96,7 +96,7 @@ French uses **tu** and Greek the informal singular, to match the rest of the app
 
 Each fact has a **strand**, from the six in the proposal (and SYC-61): **1** Reading a cat · **2** Life in a colony · **3** Why sterilisation works · **4** Being around a street cat · **5** When a cat needs help · **6** You're doing science. **Core** marks the ten that ship first if the set has to be cut (Decision 3, §8). **Sign-off** marks the facts Syros Cats must specifically confirm (§7); every fact goes to them, but these are the ones that need a yes.
 
-These are drafts. Greek and French go to Johnny (SYC-283) by about 24 October.
+These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October.
 
 ### Sterilisation (strand 3)
 
@@ -331,8 +331,7 @@ The launch plan lists cutting to ten facts as a fallback (SYC-343). Each fact is
 |---|---|
 | Fri 16 Oct | Spec and review done (SYC-343) |
 | Mon 19 Oct | Samuel approves. The §7 questions go to Syros Cats with all twenty facts |
-| Thu 22 Oct | Copy freeze: English final with Syros Cats' corrections; Greek and French drafts updated to match |
-| By Sat 24 Oct | Greek and French to Johnny (SYC-283) |
+| Thu 22 Oct | Copy freeze: English final with Syros Cats' corrections; Greek and French drafts updated to match and sent to Johnny (SYC-283) |
 | 23–27 Oct | Johnny's corrections folded in. If he can't do all twenty, the core ten ship (Decision 3) |
 | Sat 31 Oct | Launch |
 
