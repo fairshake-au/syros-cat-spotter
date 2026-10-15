@@ -28,6 +28,7 @@ import { OfflineProvider, useOffline } from '@/context/OfflineContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { ReportQueueProvider } from '@/context/ReportQueueContext';
+import { TurnstileHost } from '@/components/TurnstileHost';
 import {
   DeleteMyDataProvider,
   useDeleteMyData,
@@ -188,6 +189,7 @@ export default function RootLayout() {
                           <GestureHandlerRootView>
                             <KeyboardProvider>
                               <OnboardingGate />
+                                <TurnstileHost />
                             </KeyboardProvider>
                           </GestureHandlerRootView>
                         </DeleteMyDataProvider>
