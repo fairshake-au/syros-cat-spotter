@@ -10,6 +10,7 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { sharedLimiter } from "../lib/limits";
+import { safeError } from "../lib/logger";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 import {
   PHOTO_WAIT_MINUTES,
@@ -155,7 +156,17 @@ async function tokenGate(
       return undefined;
     case "unreachable": {
       const address = req.ip ?? "unknown";
-      const allowance = await takeUncheckedAllowance(bucket, address);
+      let allowance: Awaited<ReturnType<typeof takeUncheckedAllowance>>;
+      try {
+        allowance = await takeUncheckedAllowance(bucket, address);
+      } catch (err) {
+        // The outage fence FAILS CLOSED (review of #151, finding 10): a
+        // counter that cannot count must not become an unbounded unchecked
+        // list. The app retries a 503 with no strike, so nothing is lost.
+        req.log.error({ err: safeError(err) }, "unchecked limit counter failed");
+        res.status(503).json({ error: "try_again" });
+        return undefined;
+      }
       if (allowance === "island") {
         // The island-wide outage fence (review of #151, finding 5): the app
         // retries a 503 with no strike, so the report stays on the phone.
@@ -163,7 +174,7 @@ async function tokenGate(
         return undefined;
       }
       if (allowance === "address") {
-        const resetAt = uncheckedResetAt(bucket, address);
+        const resetAt = await uncheckedResetAt(bucket, address).catch(() => undefined);
         if (resetAt) res.set("Retry-After", String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
         res.status(429).json({ error: "Too many requests. Please try again later." });
         return undefined;
