@@ -62,7 +62,11 @@ export async function moveReportState(input: {
           eq(welfareReportsTable.isDraft, false),
         ),
       )
-      .returning({ id: welfareReportsTable.id, catId: welfareReportsTable.catId });
+      .returning({
+        id: welfareReportsTable.id,
+        catId: welfareReportsTable.catId,
+        kind: welfareReportsTable.kind,
+      });
     if (updated.length === 1) {
       await tx.insert(reportStateEventsTable).values({
         reportId: updated[0]!.id,
@@ -76,8 +80,17 @@ export async function moveReportState(input: {
       // Reopening and closing again writes a second one: that is history.
       // Nothing is emailed. `catId` comes from the UPDATE's own RETURNING,
       // read through `tx`, so it is the cat the row had when it moved.
+      //
+      // SYC-44 PR 4.1 (spec §5.1): only a *welfare* report leaves that mark.
+      // A "Report an issue" row can carry a cat from the start, and a close
+      // on it is not an outcome for the cat (a `cat_died` report closed as
+      // done is not evidence the cat was seen).
       const catId = updated[0]!.catId;
-      if (catId !== null && (to === "done" || to === "nothing_needed")) {
+      if (
+        updated[0]!.kind === "welfare" &&
+        catId !== null &&
+        (to === "done" || to === "nothing_needed")
+      ) {
         await writeObservation(tx, {
           catId,
           kind: "welfare_outcome",
