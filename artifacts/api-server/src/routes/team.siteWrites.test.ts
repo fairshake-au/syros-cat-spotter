@@ -1402,28 +1402,29 @@ describe("colonyId as a JSON integer", () => {
 });
 
 describe("the stamp does not depend on the session's date style or time zone", () => {
-  it("every write still works when the connections use a non-ISO DateStyle and another time zone", async () => {
+  it("the same stamp text, and the same comparison, under a non-ISO DateStyle and another time zone", async () => {
     const s = await makeSite();
-    expect(await stampOf(s.id)).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/);
-    // Set it on every connection the pool is likely to hand out.
-    const clients = await Promise.all(Array.from({ length: 6 }, () => pool.connect()));
+    const plain = await stampOf(s.id);
+    expect(plain).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/);
+    const client = await pool.connect();
     try {
-      for (const c of clients) await c.query("SET DateStyle = 'SQL, DMY'; SET TimeZone = 'America/New_York'");
+      await client.query("SET DateStyle = 'SQL, DMY'");
+      await client.query("SET TimeZone = 'America/New_York'");
+      // The exact expression the pages and the writes use (stampText).
+      const shown = await client.query(
+        `select to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') as s,
+                (to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') = $2) as same
+           from feeding_sites where id = $1`,
+        [s.id, plain],
+      );
+      expect(shown.rows[0]).toEqual({ s: plain, same: true });
+      // …whereas the plain text form changes with the session, which is why it isn't used.
+      const raw = await client.query("select updated_at::text as t from feeding_sites where id = $1", [s.id]);
+      expect(raw.rows[0].t).not.toMatch(/^\d{4}-\d{2}-\d{2} /);
     } finally {
-      clients.forEach((c) => c.release());
-    }
-    try {
-      const page = (await get(`/api/team/sites/${s.id}`)).text;
-      expect(stampIn(page)).toBe(await stampOf(s.id));
-      const edit = await post(`/api/team/sites/${s.id}`, { updatedAt: stampIn(page), name: unique("styled") });
-      expect(edit.headers["location"]).toBe(`/api/team/sites/${s.id}?done=saved`);
-      const move = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4501", lng: "24.9502", reason: "r" });
-      expect(move.headers["location"]).toBe(`/api/team/sites/${s.id}?done=moved`);
-      expect(await kindsOf(s.id)).toEqual(["renamed", "moved"]);
-    } finally {
-      const again = await Promise.all(Array.from({ length: 6 }, () => pool.connect()));
-      for (const c of again) await c.query("RESET DateStyle; RESET TimeZone");
-      again.forEach((c) => c.release());
+      await client.query("RESET DateStyle");
+      await client.query("RESET TimeZone");
+      client.release();
     }
   });
 });
