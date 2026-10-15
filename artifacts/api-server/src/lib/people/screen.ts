@@ -334,6 +334,9 @@ export function parsePlacements(body: Record<string, unknown>, existing: Readonl
       if (seen.has(id)) continue;
       seen.add(id);
       const rawEnd = body[`end_${id}`];
+      if (rawEnd !== undefined && typeof rawEnd !== "string") {
+        return { ok: false, message: "Each colony takes one end date. Choose one and try again." };
+      }
       const end = typeof rawEnd === "string" ? rawEnd.trim() : "";
       let endsAt: Date | null = null;
       if (end !== "") {
@@ -345,6 +348,9 @@ export function parsePlacements(body: Record<string, unknown>, existing: Readonl
         }
       }
       const rawLabel = body[`label_${id}`];
+      if (rawLabel !== undefined && typeof rawLabel !== "string") {
+        return { ok: false, message: "Each colony takes one label. Choose one and try again." };
+      }
       const label = typeof rawLabel === "string" && rawLabel !== "" ? rawLabel : null;
       if (label !== null && !(SCOPE_RELATIONSHIPS as readonly string[]).includes(label)) {
         return { ok: false, message: "That isn't one of the labels." };

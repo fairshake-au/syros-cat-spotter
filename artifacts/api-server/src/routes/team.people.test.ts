@@ -418,6 +418,26 @@ describe("the changes themselves, through the actions layer", () => {
     }
   });
 
+  it("m2: a repeated end date or label field is refused, never dropped into a permanent placement", async () => {
+    const t = await joined("roles-dup", ["staff"]);
+    for (const body of [
+      `roles=guardian&colony=${colony}&end_${colony}=2099-01-01&end_${colony}=2099-02-02`,
+      `roles=guardian&colony=${colony}&label_${colony}=feeds&label_${colony}=covering`,
+    ]) {
+      const res = await request(app)
+        .post(`/api/team/people/${t.id}/roles`)
+        .set("Cookie", susan.cookie)
+        .set("Origin", TEAM_ORIGIN)
+        .set("X-Forwarded-For", ip())
+        .type("form")
+        .send(body);
+      expect(res.status, body).toBe(400);
+      expect(res.text).toContain("Each colony takes one");
+    }
+    const rows = (await pool.query(`select role from person_scopes where person_id = $1`, [t.id])).rows;
+    expect(rows.map((r: { role: string }) => r.role)).toEqual(["staff"]);
+  });
+
   it("mark as left: the workspace reminder for a team member, the rename nudge for a guardian", async () => {
     const t = await joined("left-team", ["staff"]);
     const res = await post(`/api/team/people/${t.id}/left`, susan);
