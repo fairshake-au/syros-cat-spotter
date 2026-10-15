@@ -145,6 +145,53 @@ export async function enqueueIssueAlert(tx: Tx, reportId: number): Promise<"aler
   return "alert";
 }
 
+/**
+ * The daily "Issue reports: N waiting" digest (spec §5.2). Called from the
+ * mail drain, which has no clock of its own: the once-a-day guard is the
+ * `issue_digest_runs` row for today's ATHENS date, claimed with
+ * `insert … on conflict do nothing` in the SAME transaction that queues the
+ * digest in the outbox. Two things follow:
+ *   - two drains at the same moment queue it once (the loser waits on the
+ *     unique key, then finds the day taken);
+ *   - a failed send is the outbox's to retry, and the day is not lost, since
+ *     claiming the day and queueing the email either both happen or neither.
+ * It is queued only if there are open "Report an issue" rows, and a quiet day
+ * claims nothing, so a report that arrives later that day still gets one.
+ * The items are fixed here, so a retry sends the same body. No notes.
+ */
+export async function sendIssueDigestIfDue(): Promise<"queued" | "nothing_waiting" | "already_sent_today"> {
+  return db.transaction(async (tx) => {
+    const open = await tx.execute(sql`
+      select r.reason, r.cat_id, c.name as cat_name, count(*)::int as n
+        from welfare_reports r
+        left join cats c on c.id = r.cat_id
+       where r.kind = 'content' and r.state in ('new', 'looking')
+       group by r.reason, r.cat_id, c.name
+       order by min(r.created_at)
+    `);
+    const items = (open.rows as { reason: string; cat_id: number | null; cat_name: string | null; n: number }[]).map(
+      (r): IssueDigestItem => ({ reason: r.reason, catId: r.cat_id, catName: r.cat_name, count: Number(r.n) }),
+    );
+    const waiting = items.reduce((sum, i) => sum + i.count, 0);
+    if (waiting === 0) return "nothing_waiting";
+    const claimed = await tx.execute(sql`
+      insert into issue_digest_runs (day)
+      values ((now() at time zone 'Europe/Athens')::date)
+      on conflict (day) do nothing
+      returning day::text as day
+    `);
+    const day = (claimed.rows[0] as { day: string } | undefined)?.day;
+    if (!day) return "already_sent_today";
+    await tx.insert(mailOutboxTable).values({
+      purpose: "issue_alert",
+      reportId: null,
+      recipientHash: alertRecipientHash(),
+      payload: { kind: "digest", day, waiting, digest: items } satisfies IssuePayload,
+    });
+    return "queued";
+  });
+}
+
 /** A keep-safe row's payload. `to` and the tokens are gone once it's settled. */
 export type KeepSafePayload = {
   expiresAt: string;
