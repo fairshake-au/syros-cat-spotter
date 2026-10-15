@@ -57,9 +57,9 @@ export type TargetResolver = (
 export interface RequireTeamOptions {
   /**
    * Where the capability is checked. Every target returned must pass (a
-   * photo tied to two cats needs both cats' colonies). Without one, can()
-   * answers for island rows only, which is how every route that shows the
-   * whole island stays closed to a cat guardian.
+   * photo tied to two cats needs both cats' colonies). Without one, a
+   * placed capability answers for island rows only, which is how every route
+   * that shows the whole island stays closed to a cat guardian.
    */
   target?: TargetResolver;
   /**
@@ -111,8 +111,11 @@ export function requireTeam(
       if (capability) {
         const islandOnly = options.island === true && !holdsIslandRow(person);
         let allowed = !islandOnly;
-        // An island row passes every target of every capability it holds,
-        // so the team's requests skip the lookup (review finding 7).
+        // can() with no target implies can() for every target, for every
+        // kind (see can()'s switch; capabilities.test.ts pins it), so when
+        // it already holds the lookup can be skipped: the team's requests
+        // never pay for it. A future kind that reads its target with no
+        // island row must break that test first.
         if (allowed && !(options.target && can(person, capability))) {
           const resolved = options.target ? await options.target(req) : [];
           const targets = Array.isArray(resolved) ? resolved : [resolved];

@@ -154,6 +154,19 @@ describe("strict can() (Decision 4)", () => {
   });
 });
 
+describe("no target is never more generous than a target (requireTeam's shortcut relies on it)", () => {
+  it("for every capability and every kind of person, can(p, c) implies can(p, c, t) for any colony or none", () => {
+    const people = [staff, management, guardian, guardianOnTwo, vet, nobody];
+    const targets = [{}, { colonyId: null }, { colonyId: 3 }, { colonyId: 4 }, { colonyId: 7 }];
+    for (const p of people) {
+      for (const c of CAPABILITIES) {
+        if (!can(p, c)) continue;
+        for (const t of targets) expect(can(p, c, t), `${c} ${JSON.stringify(p.scopes)} ${JSON.stringify(t)}`).toBe(true);
+      }
+    }
+  });
+});
+
 describe("canSomewhere(): for the door and menus only", () => {
   it("answers 'any colony?' for a placed capability, and stays island-only for an island one", () => {
     expect(canSomewhere(guardian, "view_exact_location")).toBe(true);

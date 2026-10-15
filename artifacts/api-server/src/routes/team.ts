@@ -20,7 +20,7 @@ import {
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
-import { capabilitiesOf, holdsIslandRow, mayEnter } from "../lib/capabilities";
+import { can, capabilitiesOf, mayEnter } from "../lib/capabilities";
 import { renderQueuePage } from "../lib/teamPages/queuePage";
 import { listWelfareQueue, queueNearFeedingSites } from "../lib/welfareQueue";
 
@@ -99,7 +99,7 @@ router.post(
     // "My colonies".
     res.redirect(
       303,
-      holdsIslandRow(person) ? TEAM_HOME : `${TEAM_ORIGIN}${GUARDIAN_HOME_PATH}`,
+      can(person, "view_welfare_queue") ? TEAM_HOME : `${TEAM_ORIGIN}${GUARDIAN_HOME_PATH}`,
     );
   },
 );
