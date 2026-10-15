@@ -75,6 +75,18 @@ export const handoffLimiter = sharedLimiter({
 // after a dropped connection is safe, so a handful is plenty. Per IP rather
 // than per device, because the device id here is unverified until the
 // secret check, and keying on it would let a caller pick a fresh bucket.
+// SYC-36 (match-wait plan PR 1): GET /api/app-settings/:deviceId/signals,
+// which a phone asks on start, on returning to the app and on reconnect. Cheap,
+// but it reads the database for any id it's given. Generous, so a ferry or a
+// café sharing one address doesn't trip it; a refusal only costs a phone its
+// daily one-liner.
+export const signalsLimiter = sharedLimiter({
+  bucket: "app_settings_signals",
+  message: { error: "Too many requests. Please try again later." },
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+});
+
 export const deleteMeLimiter = sharedLimiter({
   bucket: "delete_me",
   message: common.message,

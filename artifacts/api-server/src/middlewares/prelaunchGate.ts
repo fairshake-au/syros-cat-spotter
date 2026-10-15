@@ -21,6 +21,11 @@ import {
  * In order:
  * 1. Gate off → next().
  * 2. GET or HEAD on exactly /api/healthz → next() (Replit's start-up check).
+ *    GET or HEAD on exactly /api/go/feed → next() (SYC-36, match-wait plan
+ *    Decision 3, Samuel, 15 Oct 2026): "Help feed a cat" opens the phone's
+ *    own browser, which carries no pass. The route only ever forwards to the
+ *    one https donation page in the switches, so opening it reveals nothing.
+ *    Matched on the raw path exactly, so no other spelling gets through.
  * 3. Exactly POST /api/internal/mail/drain, or exactly POST
  *    /api/internal/coat/sweep (SYC-161, Decision D1) → only `Authorization:
  *    Bearer <MAIL_DRAIN_TOKEN>` (SYC-42: the scheduled drain's own narrow
@@ -87,7 +92,10 @@ export function prelaunchGate(
   const rawPath = (req.originalUrl || req.url || "/").split("?")[0] ?? "/";
 
   // Exactly this path and these methods. Nothing else is open.
-  if ((req.method === "GET" || req.method === "HEAD") && rawPath === "/api/healthz") {
+  if (
+    (req.method === "GET" || req.method === "HEAD") &&
+    (rawPath === "/api/healthz" || rawPath === "/api/go/feed")
+  ) {
     next();
     return;
   }

@@ -165,7 +165,8 @@ describe("9. gate on, no pass: every route refuses", () => {
 
     for (const route of routes) {
       const url = concrete(route.path);
-      const isHealth = url === "/api/healthz";
+      // SYC-36: "Help feed a cat" opens the phone's own browser (plan Decision 3); test 10b.
+      const isHealth = url === "/api/healthz" || url === "/api/go/feed";
       // /api/team/* skips the pass (Decision 1); test 12a walks those routes.
       if (url === "/api/team" || url.startsWith("/api/team/")) continue;
       // /api/mail/* skips the pass too (SYC-3 Decision 5); test 12b walks those.
@@ -281,6 +282,33 @@ describe("10. /api/healthz is the only open path", () => {
       ["get", "/api/healthz/extra"],
       ["get", "/api/healthz/"],
       ["get", "/API/HEALTHZ"],
+    ] as [Method, string][]) {
+      const res = await send(method, url);
+      expect({ method, url, status: res.status }).toEqual({ method, url, status: 401 });
+    }
+  });
+});
+
+describe("10b. /api/go/feed (SYC-36, match-wait plan Decision 3) is open by exact path", () => {
+  it("GET and HEAD /api/go/feed pass with no pass", async () => {
+    for (const method of ["get", "head"] as Method[]) {
+      const res = await send(method, "/api/go/feed");
+      expect({ method, refused: res.status === 401 }).toEqual({ method, refused: false });
+    }
+  });
+
+  it("anything next to it is still refused", async () => {
+    for (const [method, url] of [
+      ["post", "/api/go/feed"],
+      ["put", "/api/go/feed"],
+      ["get", "/api/go/feed/"],
+      ["get", "/api/go/feed/x"],
+      ["get", "/api/go/feedx"],
+      ["get", "/api/go"],
+      ["get", "/API/GO/FEED"],
+      ["get", "/api//go/feed"],
+      ["get", "/api/go/%66eed"],
+      ["get", "/api/app-settings"],
     ] as [Method, string][]) {
       const res = await send(method, url);
       expect({ method, url, status: res.status }).toEqual({ method, url, status: 401 });
