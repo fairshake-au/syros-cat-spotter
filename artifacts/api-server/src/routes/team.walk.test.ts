@@ -139,6 +139,20 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/sites": { why: "the Feeding sites page: view_exact_location with no target until SYC-209 PR 4.1" },
   "POST /api/team/sites/map": { why: "zoom, pan, areas on the Feeding sites page: view_exact_location with no target until SYC-209 PR 4.1" },
   "GET /api/team/sites/:id": { why: "one site, its history and positions: view_exact_location with no target until SYC-209 PR 4.1" },
+  // SYC-209 PR 3.3, adding, moving, retiring and changing the colony of a feeding site.
+  // Team-only, no target, until PR 4.1 (Decision 1A). Never canSomewhere.
+  "GET /api/team/sites/new": { why: "the add-a-site map: add_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/new/map": { why: "zoom, pan, areas on the add page: add_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/pick": { why: "a tap or typed position, answers with the confirmation: add_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites": { why: "save a new site: add_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/:id": { why: "edit name, notes, how to find it: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/:id/colony": { why: "change a site's colony: reassign_feeding_site (island-only by kind)" },
+  "POST /api/team/sites/:id/retire": { why: "retire a site: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/:id/restore": { why: "bring a site back: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "GET /api/team/sites/:id/move": { why: "the move picker: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/:id/move/map": { why: "zoom, pan, areas on the move page: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/:id/move/pick": { why: "a tap or typed position, answers with the confirmation: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/:id/move": { why: "save a move, with its reason: edit_feeding_site with no target until SYC-209 PR 4.1" },
   // The two JSON observation routes (review minor 1): the door, then the
   // capability inside; a guardian refused there gets the JSON 403.
   "POST /api/team/observations": { why: "the door, then set_life_status / set_sterilisation inside, island-only" },
@@ -180,7 +194,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 37;
+const MINIMUM_ROUTES = 49;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };

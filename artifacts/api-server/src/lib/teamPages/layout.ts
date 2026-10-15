@@ -169,6 +169,12 @@ span.pin{pointer-events:none}
 .mapmove .zoomrow button{background:#0b5c6b;color:#fff}
 .mapmove .zoomrow button:disabled{background:#eee9da;color:#8a877e}
 .mapmove .label{margin:8px 0 6px}
+form.addsite{margin:12px 0 0}
+form.addsite button,form.typedpos button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+/* "Move on the map" looks like the other actions' cards (.fixes summary). */
+form.movesite{margin:8px 0}
+.actions form.movesite button{display:flex;align-items:center;width:100%;text-align:left;font:inherit;font-weight:700;color:#0b4553;background:#fff;border:1px solid #d9d5ca;border-radius:8px;min-height:46px;padding:0 12px;cursor:pointer}
+form.typedpos{margin:0 0 8px}
 .tapped{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #b3261e;border-radius:8px;padding:10px 12px;margin:8px 0;font-variant-numeric:tabular-nums}
 main.mappage{line-height:22px}
 main.mappage h1{line-height:28px}

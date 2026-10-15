@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { personLabels } from "./teamColonies";
+import { stampText } from "./teamSiteWrites";
 
 // The team's Feeding sites pages, read side (SYC-209 PR 3.2; spec §2.1, §2.2,
 // §8). Reading only: PR 3.3 adds the writes. Nothing here is public; every
@@ -155,7 +156,7 @@ export interface SiteView {
   colony: { id: number; name: string } | null;
   notes: string | null;
   directions: string | null;
-  /** The exact database value of `updated_at` (PR 3.3's writes compare against it). */
+  /** The exact database value of `updated_at`, as text to the microsecond (every write compares against it). */
   updatedAt: string;
   /** Newest first. */
   history: SiteHistoryEntry[];
@@ -174,7 +175,8 @@ export async function siteView(id: number): Promise<SiteView | null> {
       retiredAt: feedingSitesTable.retiredAt,
       notes: feedingSitesTable.notes,
       directions: feedingSitesTable.directions,
-      updatedAt: feedingSitesTable.updatedAt,
+      // The stamp text (UTC, to the microsecond, fixed layout) (PR 3.3's writes compare it in SQL).
+      stamp: stampText(feedingSitesTable.updatedAt),
       colonyId: coloniesTable.id,
       colonyName: coloniesTable.name,
     })
@@ -206,7 +208,7 @@ export async function siteView(id: number): Promise<SiteView | null> {
     colony: site.colonyId !== null ? { id: site.colonyId, name: site.colonyName! } : null,
     notes: site.notes,
     directions: site.directions,
-    updatedAt: site.updatedAt.toISOString(),
+    updatedAt: site.stamp,
     history: events.map((e) => ({
       id: e.id,
       kind: e.kind,

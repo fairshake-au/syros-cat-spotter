@@ -427,7 +427,8 @@ describe("one site", () => {
     await event(s.id, "created", susan, { after: { name: s.name, lat: 37.450100000000006, lng: 24.930000000000003 } });
     const html = (await get(`/api/team/sites/${s.id}`)).text;
     expect(html).toContain("37.45010, 24.93000");
-    expect(html).not.toMatch(/\d+\.\d{6,}/);
+    // (The hidden `updatedAt` stamp is a time to the microsecond, not a position.)
+    expect(html.replace(/name="updatedAt" value="[^"]*"/g, "")).not.toMatch(/\d+\.\d{6,}/);
   });
 
   it("centres the small map on the site: the marker is within the central half at every width band", async () => {
