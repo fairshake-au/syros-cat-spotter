@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { haversineKm } from "../catHelpers";
+import { AREAS as MAP_AREAS } from "../mapTiles/areas";
 import { areaFor, areaByKey, NAMED_AREAS, OFF_SYROS } from "./namedAreas";
 
 describe("named areas (spec §3.3)", () => {
@@ -20,9 +22,38 @@ describe("named areas (spec §3.3)", () => {
     expect(areaByKey("37.4,24.9")).toBeUndefined();
     expect(areaByKey(undefined)).toBeUndefined();
   });
-  it("keeps Ermoupoli and Vaporia (about 500 m apart) as separate areas", () => {
-    expect(areaFor(37.4447, 24.9417).key).toBe("ermoupoli");
-    expect(areaFor(37.4447, 24.9475).key).toBe("vaporia");
+  it("shares its first 7 centres with lib/mapTiles/areas.ts, so the lists can't drift", () => {
+    for (const m of MAP_AREAS) {
+      const n = areaByKey(m.key);
+      expect(n, m.key).toBeDefined();
+      expect([n!.lat, n!.lng]).toEqual([m.lat, m.lng]);
+    }
+    expect(MAP_AREAS).toHaveLength(7);
+  });
+  it("treats NaN and Infinity as Off Syros", () => {
+    expect(areaFor(NaN, 24.9)).toBe(OFF_SYROS);
+    expect(areaFor(37.4, NaN)).toBe(OFF_SYROS);
+    expect(areaFor(Infinity, 24.9)).toBe(OFF_SYROS);
+    expect(areaFor(37.4, -Infinity)).toBe(OFF_SYROS);
+  });
+  describe("the 2 km rule", () => {
+    // Grammata is the northernmost centre; due north of it is open sea, so
+    // no other centre is anywhere near.
+    const grammata = areaByKey("grammata")!;
+    const north = (km: number) => ({
+      lat: grammata.lat + ((km / 6371) * 180) / Math.PI,
+      lng: grammata.lng,
+    });
+    it("1.99 km due north is still Grammata", () => {
+      const p = north(1.99);
+      expect(haversineKm(p.lat, p.lng, grammata.lat, grammata.lng)).toBeCloseTo(1.99, 6);
+      expect(areaFor(p.lat, p.lng)).toBe(grammata);
+    });
+    it("2.01 km due north is Off Syros", () => {
+      const p = north(2.01);
+      expect(haversineKm(p.lat, p.lng, grammata.lat, grammata.lng)).toBeCloseTo(2.01, 6);
+      expect(areaFor(p.lat, p.lng)).toBe(OFF_SYROS);
+    });
   });
   it("maps every area's own centre to itself", () => {
     for (const a of NAMED_AREAS) expect(areaFor(a.lat, a.lng).key).toBe(a.key);
