@@ -97,21 +97,21 @@ describe('ReportWizard', () => {
   it('runs Where (1 of 3) → How bad (2 of 3) → Before you send (3 of 3)', () => {
     const w = setup();
     expect(w.text()).toContain(T.reportWhereTitle);
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1').replace('{total}', '3'));
     expect(w.getByTestId('location-picker')).toBeTruthy();
     w.next();
     expect(w.text()).toContain(T.reportHowBadTitle);
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '3'));
     fireEvent.click(w.getByTestId('severity-urgent'));
     w.next();
     expect(w.text()).toContain(T.reportBeforeSendTitle);
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '3'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '3').replace('{total}', '3'));
   });
 
   it('screen 1: Next waits for a location', () => {
     const w = setup({ gps: { coords: null, locating: true, denied: false } });
     w.next();
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1').replace('{total}', '3'));
   });
 
   it('S4: with no GPS, the pin starts in Ermoupoli and Next waits until the person moves it', () => {
@@ -119,24 +119,24 @@ describe('ReportWizard', () => {
     expect(w.getByTestId('location-picker')).toBeTruthy();
     expect(w.text()).toContain(T.reportMovePin);
     w.next();
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1').replace('{total}', '3'));
     fireEvent.click(w.getByTestId('location-picker'));
     expect(w.text()).not.toContain(T.reportMovePin);
     w.next();
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '3'));
   });
 
   it('S4: with a GPS fix, Next is available straight away (the pin is where the phone is)', () => {
     const w = setup();
     expect(w.text()).not.toContain(T.reportMovePin);
     w.next();
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '3'));
   });
 
   it('screen 2: Next waits for a severity; kittens advice shows when ticked with Needs attention', () => {
     const w = setup({ initial: { ...INITIAL_FLOW, step: 2, coords: here } });
     w.next();
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '3'));
     fireEvent.click(w.getByTestId('severity-attention'));
     fireEvent.click(w.getByTestId('litter-checkbox'));
     expect(w.text()).toContain(g.copy.litter.heading);
@@ -193,12 +193,12 @@ describe('ReportWizard', () => {
     fireEvent.change(w.getByTestId('report-note'), { target: { value: 'by the bakery' } });
     w.next();
     fireEvent.click(w.getByLabelText(T.back));
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '2').replace('{total}', '3'));
     expect(w.getByTestId('severity-urgent').getAttribute('aria-checked')).toBe('true');
     expect(w.getByTestId('litter-checkbox').getAttribute('aria-checked')).toBe('true');
     expect((w.getByTestId('report-note') as HTMLTextAreaElement).value).toBe('by the bakery');
     fireEvent.click(w.getByLabelText(T.back));
-    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1'));
+    expect(w.text()).toContain(T.reportStepOf.replace('{n}', '1').replace('{total}', '3'));
     fireEvent.click(w.getByLabelText(T.back));
     expect(w.onClose).toHaveBeenCalledTimes(1);
   });
@@ -237,25 +237,51 @@ describe('ReportWizard', () => {
   });
 });
 
-describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §3.4)', () => {
-  const toScreen2 = (w: ReturnType<typeof setup>) => {
+describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §3.4; its own screen, Samuel 15 Oct 2026)', () => {
+  const nextIn = (w: ReturnType<typeof setup>) =>
     fireEvent.click(within(w.getByTestId('report-footer')).getByText(TRANSLATIONS[lang.current].reportNext));
+  const toEmailScreen = (w: ReturnType<typeof setup>) => {
+    nextIn(w);
     fireEvent.click(w.getByTestId('severity-urgent'));
+    nextIn(w);
   };
+  const stepOf = (n: number, total: number) =>
+    TRANSLATIONS[lang.current].reportStepOf.replace('{n}', String(n)).replace('{total}', String(total));
 
-  it('is hidden unless the server says the check email can go', () => {
+  it('not offered: the flow is the three screens, and no screen asks', () => {
     const w = setup();
-    toScreen2(w);
+    expect(w.text()).toContain(stepOf(1, 3));
+    toEmailScreen(w);
+    expect(w.text()).toContain(T.reportBeforeSendTitle);
+    expect(w.text()).toContain(stepOf(3, 3));
     expect(w.queryByTestId('report-email-ask')).toBeNull();
+  });
+
+  it('offered: Where → How bad → Shall we tell you what happens? (3 of 4) → Before you send (4 of 4); nothing on How bad', () => {
+    const w = setup({ offerEmail: true });
+    expect(w.text()).toContain(stepOf(1, 4));
+    nextIn(w);
+    fireEvent.click(w.getByTestId('severity-attention'));
+    fireEvent.click(w.getByTestId('litter-checkbox'));
+    expect(w.queryByTestId('report-email-ask')).toBeNull();
+    nextIn(w);
+    expect(w.text()).toContain(T.reportEmailTitle);
+    expect(w.text()).toContain(stepOf(3, 4));
+    expect(w.getByTestId('report-email-ask')).toBeTruthy();
+    nextIn(w);
+    expect(w.text()).toContain(T.reportBeforeSendTitle);
+    expect(w.text()).toContain(stepOf(4, 4));
+    fireEvent.click(w.getByLabelText(T.back));
+    expect(w.text()).toContain(stepOf(3, 4));
   });
 
   it.each(['en', 'el', 'fr'] as const)('(%s) shows the consent wording, anonymous by default; the box appears only on "Yes"', (code) => {
     lang.current = code;
     const t = TRANSLATIONS[code];
     const w = setup({ offerEmail: true });
-    toScreen2(w);
+    toEmailScreen(w);
+    expect(w.text()).toContain(t.reportEmailTitle);
     const ask = w.getByTestId('report-email-ask');
-    expect(ask.textContent).toContain(t.reportEmailTitle);
     expect(ask.textContent).toContain(t.reportEmailBody);
     expect(ask.textContent).toContain(t.reportEmailYes);
     expect(ask.textContent).toContain(t.reportEmailNo);
@@ -277,20 +303,20 @@ describe('SYC-42 Slice 3: "Shall we tell you what happens?" (email-capture.md §
 
   it('a mistyped address is pointed out but never blocks the report', () => {
     const w = setup({ offerEmail: true });
-    toScreen2(w);
+    toEmailScreen(w);
     fireEvent.click(w.getByTestId('report-email-yes'));
     fireEvent.change(w.getByTestId('report-email'), { target: { value: 'not-an-address' } });
     expect(w.getByTestId('report-email-invalid')).toBeTruthy();
-    w.next();
+    nextIn(w);
     expect(w.text()).toContain(T.reportBeforeSendTitle);
   });
 
   it('what they chose reaches Send', async () => {
     const w = setup({ offerEmail: true });
-    toScreen2(w);
+    toEmailScreen(w);
     fireEvent.click(w.getByTestId('report-email-yes'));
     fireEvent.change(w.getByTestId('report-email'), { target: { value: 'me@example.org' } });
-    w.next();
+    nextIn(w);
     fireEvent.click(within(w.getByTestId('report-footer')).getByText(T.reportSendReport));
     expect(w.onSend).toHaveBeenCalledWith(expect.objectContaining({ wantsUpdates: true, email: 'me@example.org' }));
   });

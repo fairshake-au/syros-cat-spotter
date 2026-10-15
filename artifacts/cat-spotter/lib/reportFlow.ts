@@ -1,10 +1,15 @@
 /**
- * The three screens of "This cat needs help" (SYC-42 Slice 1; Samuel,
- * 2 Oct 2026: no scrolling, so one page became three):
+ * The screens of "This cat needs help" (SYC-42 Slice 1; Samuel, 2 Oct 2026:
+ * no scrolling, so one page became three):
  *
  *   1. Where's the cat?  photo (optional) + the map pin   → Next
  *   2. How bad is it?    severity, kittens?, what you saw → Next
  *   3. Before you send   the advice for that severity     → Send report
+ *
+ * SYC-42 Slice 3 (Samuel, 15 Oct 2026): when the email question is offered,
+ * it gets its own screen before "Before you send", so no screen scrolls:
+ * Where → How bad → Shall we tell you what happens? → Before you send
+ * ("1 of 4"). When it isn't offered, the flow is the three screens above.
  *
  * Next is blocked until there is a location (screen 1) and a severity
  * (screen 2): the server needs both, and the advice on screen 3 depends on
@@ -15,7 +20,20 @@
  */
 import type { ReportSeverity } from './reportQueue';
 
-export type ReportStep = 1 | 2 | 3;
+export type ReportStep = 1 | 2 | 3 | 4;
+
+export type ReportScreen = 'where' | 'howBad' | 'email' | 'beforeSend';
+
+/** The screens in order: with the email question (Slice 3) or without. */
+export function reportScreens(withEmail: boolean): ReportScreen[] {
+  return withEmail ? ['where', 'howBad', 'email', 'beforeSend'] : ['where', 'howBad', 'beforeSend'];
+}
+
+/** Which screen a step is. A step past the end is the last screen. */
+export function screenAt(step: ReportStep, withEmail = false): ReportScreen {
+  const screens = reportScreens(withEmail);
+  return screens[Math.min(step, screens.length) - 1]!;
+}
 
 export interface ReportFlow {
   step: ReportStep;
@@ -69,14 +87,17 @@ export function reporterEmail(flow: ReportFlow): string | null {
   return looksLikeEmail(v) ? v : null;
 }
 
-export function canAdvance(flow: ReportFlow): boolean {
-  if (flow.step === 1) return flow.coords !== null && !flow.pinIsDefault;
-  if (flow.step === 2) return flow.severity !== null;
+export function canAdvance(flow: ReportFlow, withEmail = false): boolean {
+  const screen = screenAt(flow.step, withEmail);
+  if (screen === 'where') return flow.coords !== null && !flow.pinIsDefault;
+  if (screen === 'howBad') return flow.severity !== null;
+  // The email question never holds anyone up: "No" is the default.
+  if (screen === 'email') return true;
   return false;
 }
 
-export function flowNext(flow: ReportFlow): ReportFlow {
-  if (!canAdvance(flow)) return flow;
+export function flowNext(flow: ReportFlow, withEmail = false): ReportFlow {
+  if (!canAdvance(flow, withEmail)) return flow;
   return { ...flow, step: (flow.step + 1) as ReportStep };
 }
 
