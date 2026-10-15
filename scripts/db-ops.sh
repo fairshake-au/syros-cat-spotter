@@ -423,6 +423,29 @@ run_people() {
   return "$status"
 }
 
+# --- settings (SYC-36 / SYC-48, match-wait plan PR 1) ------------------------
+# The match-wait switches in app_settings, until the team dashboard has a page
+# for them (SYC-383). SETTING_KEY is a fixed choice in the workflow; the
+# settings CLI checks the key and the value's shape again before connecting,
+# and refuses anything else with nothing changed. Run only with Samuel's OK.
+run_settings() {
+  local sub="$1" # set | list
+  local out="$WORKDIR/settings.log"
+  local status=0
+  local args=(--target "$TARGET")
+  if [ "$sub" = "set" ]; then
+    require SETTING_KEY
+    # The value is JSON, so even "switch the link off" is two characters ("").
+    require SETTING_VALUE
+    args+=(--key "$SETTING_KEY" --value "$SETTING_VALUE")
+  fi
+  (cd "$ROOT" && pnpm --silent --filter @workspace/db run settings -- "$sub" "${args[@]}") \
+    >"$out" 2>&1 || status=$?
+  grep_no_urls "$out"
+  cat "$out"
+  return "$status"
+}
+
 # --- main -------------------------------------------------------------------
 case "$COMMAND" in
   fingerprint-source)
@@ -472,6 +495,15 @@ case "$COMMAND" in
     fi
     require_neon_url
     run_people "${COMMAND#people-}"
+    ;;
+
+  set-setting|list-settings)
+    if [ "$TARGET" = "rehearsal" ]; then
+      echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
+      exit 1
+    fi
+    require_neon_url
+    if [ "$COMMAND" = "set-setting" ]; then run_settings set; else run_settings list; fi
     ;;
 
   carry-back-dry-run|carry-back-apply)

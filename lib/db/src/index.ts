@@ -17,6 +17,16 @@ export const db = drizzle(pool, { schema });
 export * from "./schema";
 export { describeHost, resolveDatabaseUrl } from "./url";
 export { foldName } from "./fold";
+export {
+  STARTER_FACT_IDS,
+  SIGN_OFF_FACT_IDS,
+  SETTING_KEYS,
+  type SettingKey,
+  isSettingKey,
+  isHttpsAddress,
+  settingShapeProblem,
+  settingWriteProblem,
+} from "./appSettings/shape";
 export { foldedNameEquals } from "./catNames";
 
 export {

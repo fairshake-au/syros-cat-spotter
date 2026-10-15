@@ -155,7 +155,7 @@ function flagOrEnv(
  * The connection string for a named target, or why there isn't one. The
  * DATABASE_TARGET check comes first, as in db-ops.sh.
  */
-function resolveTarget(
+export function resolveTarget(
   target: string,
   env: CliIo["env"],
 ): { url: string } | { problem: string } {
@@ -177,7 +177,7 @@ function resolveTarget(
 }
 
 /** Removes the connection string, and every part of it, from a message. */
-function redact(message: string, connectionString: string | undefined): string {
+export function redact(message: string, connectionString: string | undefined): string {
   if (!connectionString) return message;
   const secrets = [connectionString];
   try {
