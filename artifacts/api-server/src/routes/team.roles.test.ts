@@ -111,7 +111,7 @@ describe("SYC-188: only a role that grants something is let in", () => {
     expect(String(h.headers["set-cookie"])).toContain("__Host-cs_team=");
     const m = await me(p.id, p.sessionVersion);
     expect(m.status).toBe(200);
-    expect(m.body.capabilities).toHaveLength(16);
+    expect(m.body.capabilities).toHaveLength(17);
   });
 
   it("staff who is also a guardian is still let in", async () => {

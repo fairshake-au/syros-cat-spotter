@@ -29,6 +29,13 @@ export const CAPABILITIES = [
   "add_team_note",
   "manage_people",
   "action_deletion_request",
+  // The workspace on admin.catspotters.com: the shared documents, the
+  // document password and the lock switches (roles spec §6.3; SYC-222). Not
+  // a dashboard capability: holding it never opens the dashboard door, and
+  // the dashboard door never opens the workspace. Held by the team and
+  // management only once can() is strict (PR 0.5); today, like everything
+  // else, by staff.
+  "use_workspace",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -95,13 +102,25 @@ export function capabilitiesOf(person: CapabilityHolder): Capability[] {
 }
 
 /**
- * May this person in at all: the workspace sign-in, the hand-off, and the
- * signed-in pages that need no particular capability (SYC-188). Being in the
- * people table is not enough; they must hold at least one capability, so it
- * is decided by can() like everything else. Today that means staff (§7.1).
- * When guardians, volunteers and vets are given capabilities (§7.2), they
- * are let in by the same rule without this changing.
+ * The dashboard door (roles spec §6.3): the hand-off, and the signed-in
+ * pages that need no particular capability (SYC-188). Being in the people
+ * table is not enough; they must hold at least one dashboard capability, so
+ * it is decided by can() like everything else. `use_workspace` doesn't
+ * count: it is the other door. Today that means staff (§7.1). When guardians
+ * and vets are given capabilities, they are let in by the same rule.
  */
 export function mayEnter(person: CapabilityHolder): boolean {
-  return CAPABILITIES.some((c) => can(person, c));
+  return CAPABILITIES.some((c) => c !== "use_workspace" && can(person, c));
+}
+
+/**
+ * The workspace door (roles spec §6.3, §4.5; SYC-222): may the sign-in
+ * Worker give this person a workspace session? Asked of can() by name, never
+ * "holds any capability" and never mayEnter(): a cat guardian can hold the
+ * dashboard door and must still be refused the workspace. Today can() is
+ * staff-only, so this is true for exactly the people who get the workspace
+ * now.
+ */
+export function mayUseWorkspace(person: CapabilityHolder): boolean {
+  return can(person, "use_workspace");
 }
