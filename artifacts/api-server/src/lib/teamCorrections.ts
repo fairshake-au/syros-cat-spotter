@@ -87,6 +87,15 @@ async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{
         eq(observationsTable.catId, original.catId),
         eq(observationsTable.kind, "colony"),
         isNull(observationsTable.redactedAt),
+        // Only ORIGINAL statements say where the cat goes back to. A row that
+        // itself supersedes something is the system's own restatement (what
+        // an earlier Mark wrong wrote: a copy of the colony that then stood),
+        // and choosing it would put the cat back in a colony whose statement
+        // was just marked wrong (A -> B -> C, mark C wrong writes a copy of B;
+        // marking B wrong must then land on A, not on that copy). This relies
+        // on colony statements being superseded only by Mark wrong, which is
+        // the only path that writes one.
+        isNull(observationsTable.supersedesId),
         sql`${observationsTable.id} <> ${original.id}`,
         notExists(
           tx

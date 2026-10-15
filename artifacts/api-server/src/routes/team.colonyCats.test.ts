@@ -611,6 +611,35 @@ describe("test 15 (team half): Mark wrong on a colony statement", () => {
     expect((await currentColonyOf([cat2])).get(cat2)).toBe(a);
   });
 
+  it("A, B, C: mark C wrong, then mark B wrong, and the cat is back in A", async () => {
+    const a = await makeColony(unique("Twice-A"));
+    const b = await makeColony(unique("Twice-B"));
+    const c = await makeColony(unique("Twice-C"));
+    const cat = await seedCat("Twice-cat");
+    await moveCat(cat, a);
+    await moveCat(cat, b);
+    await moveCat(cat, c);
+    const [, sb, sc] = await colonyStatements(cat);
+    expect((await markWrong(sc!.id)).status).toBe(303);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(b);
+    expect((await markWrong(sb!.id)).status).toBe(303);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(a);
+  });
+
+  it("A, B, C: marking B and C wrong at the same moment ends in A, whichever goes first", async () => {
+    const a = await makeColony(unique("Both-A"));
+    const b = await makeColony(unique("Both-B"));
+    const c = await makeColony(unique("Both-C"));
+    const cat = await seedCat("Both-cat");
+    await moveCat(cat, a);
+    await moveCat(cat, b);
+    await moveCat(cat, c);
+    const [, sb, sc] = await colonyStatements(cat);
+    const results = await Promise.all([markWrong(sb!.id), markWrong(sc!.id)]);
+    expect(results.map((r) => r.status)).toEqual([303, 303]);
+    expect((await currentColonyOf([cat])).get(cat)).toBe(a);
+  });
+
   it("holding only assign_cat_to_colony is enough, and the colony capability is the one it needs", async () => {
     const a = await makeColony(unique("Gate-A"));
     const b = await makeColony(unique("Gate-B"));
