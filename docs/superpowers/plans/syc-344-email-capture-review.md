@@ -61,3 +61,20 @@ Also folded in before the review landed: the SYC-42 Slice 3 session's note (15 O
 ## Confirmed correct by the reviewer
 
 #181's routing and confirm/forget branching (C4); `email_contacts` allowing news rows with no per-phone index (C3); purpose-separated fingerprints and the shared daily ceiling (C7); `cat_news`, `visit_summary` and `promise_withdrawn` listed and off (C10); `sever.ts` and the sweep as described; the reused strings exist in all three languages; the English matches the spec word for word, with €50–60, "spotter" and "cat guardian" right; slices drop cleanly from the end and cutting them all removes nothing a reporter needs.
+
+## Second pass, before merge (15 Oct 2026, after Samuel's decisions)
+
+An independent Sonnet critic reviewed PR #186's full diff, after the seven decisions and the spec amendments. It found 1 blocker, 5 should-fixes and 4 nits.
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | Blocker: `email-capture.md` §5.1's message table still said "Max one per fortnight; max eight per year" | **Fixed:** "Max one per week; no yearly cap", dated and sourced |
+| 2 | `DECISIONS.md` kept the stale sentence with the amendment after it | **Fixed:** stale text struck through, marked "Superseded" |
+| 3 | Decision 5's table still showed the fortnightly risks as if current | **Fixed:** labelled as the question as first put, with the risks under the decided rule stated |
+| 4 | Decision 7 still read "Recommendation: A" after "Decided: B" | **Fixed:** "Recommended A; Samuel chose B" |
+| 5 | The news confirm page was "English only", against Decision 7 | **Fixed:** news pages use the language recorded with the consent; the "is this you?" email stays #181's |
+| 6 | Check the quoted words are Samuel's exact words, and that the SYC-66 and SYC-346 notes exist | **Checked:** the quotes match his answers word for word; both Linear comments exist (posted 15 Oct) |
+| 7 | The 48-hour quiet period read as part of the decision | **Fixed:** said to be unchanged |
+| 8 | The privacy-policy line changed with no note in the file | **Fixed:** a dated drafting note, pending Samuel's approval of the policy (SYC-66) |
+| 9 | "Still needs Samuel" missed the policy wording and Johnny's check | **Fixed:** both added |
+| 10 | The spec's all-types weekly ceiling now equals the news limit | **No change:** not wrong, and the overlap predates this PR |
