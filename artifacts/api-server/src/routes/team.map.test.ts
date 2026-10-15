@@ -86,7 +86,7 @@ beforeAll(async () => {
   await removeTestPerson(SUSAN);
   await removeTestPerson(VERA);
   const susan = await addPerson({ email: SUSAN, name: "Susan", addedBy: "cli:vitest" });
-  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["volunteer"] });
+  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["vet"] });
   cookie = sessionCookieFor(susan.id);
   volunteerCookie = sessionCookieFor(vera.id);
   png = await makePng(200);
@@ -121,7 +121,7 @@ describe("map pictures: who may have one", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("needs the team role: a volunteer gets the same 401", async () => {
+  it("needs the team role: a vet (no team role) gets the same 401", async () => {
     const token = mintTileToken({ ...tileOf(ERMOUPOLI, 16), size: 179 });
     const res = await picture(token, volunteerCookie);
     expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
