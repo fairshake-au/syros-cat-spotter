@@ -27,3 +27,10 @@ All run with `-t` on team.people.test.ts; each restored afterwards.
 - Browser check done at 390px and 1280px (scratch DBs dropped, servers stopped): no horizontal scroll, every button/input/summary >= 44px, inputs 16px. Screenshots in docs/screenshots/syc-53-pr-1-2/. Found and fixed: clip passed straight to map clipped colony names to 1 letter.
 - NEXT: full suites + typecheck, final report.
 - DONE. Final: api-server 135 files passed | 1 skipped; 2073 tests passed | 4 skipped. lib/db 31 files, 492 tests passed. Typecheck: libs, api-server, scripts Done; mockup-sandbox fails (known).
+
+## Opus review round (M1, m1-m6, nit) - all done
+- M1 capitals id: route lower-cases :id once; lib/db self checks compare lower-cased. Probe (undo both) -> `expected 303 to be 409` on POST .../<UPPER-ID>/roles.
+- m1 banners: link carries only done+p; banner rebuilt from viewer's own event < 10 min. Probes: drop viewer check / drop recency -> red `expected 'class="okbox"...' to be ''`.
+- m2 repeated end_/label_ refused. Probes -> `expected 303 to be 400` (both fields).
+- m3 real end time of removed placement; m4 no raw timestamp (data-ends attribute only); m5 bring-back shows what they held; m6 no placeholder name; nit date refusal fixed sentence. Each probed red.
+- Screenshots retaken (list and history, 390 and desktop).
