@@ -126,6 +126,32 @@ export const en = {
   "mycol.rel.covering": "You’re covering for a while",
   "mycol.team": "You’re on the Syros Cats team, so you can see every colony on the island, not just a few.",
   "mycol.teamLink": "See all colonies",
+  // SYC-53 PR 2.1: a cat guardian's colony and cat pages. Colour and
+  // markings use the shared coat.*/mark.* words below (SYC-2 PR 3.1).
+  "mycol.seeCats": "See the cats",
+  "gcol.intro": "Every cat in this colony. The position is where each cat was first recorded.",
+  "gcol.none": "No cats are in this colony yet.",
+  "gcol.notFound.title": "Not one of your colonies",
+  "gcol.notFound.body": "That colony isn’t one of yours, or it doesn’t exist.",
+  "gcat.notFound.title": "No such cat",
+  "gcat.notFound.body": "There’s no cat with that number.",
+  "gcat.back": "Back to my colonies",
+  "gcat.colony": "Colony: {name}",
+  "gcat.position": "First recorded at {position}",
+  "gcat.lastSeen": "Last seen {date}",
+  "gcat.neverSeen": "No sightings yet",
+  "gcat.ster.yesConfirmed": "Sterilised (confirmed)",
+  "gcat.ster.yesLikely": "Probably sterilised",
+  "gcat.ster.yesReported": "Said to be sterilised, not yet confirmed",
+  "gcat.ster.noConfirmed": "Not sterilised (confirmed)",
+  "gcat.ster.noOther": "Probably not sterilised",
+  "gcat.ster.unknown": "Not known yet whether this cat is sterilised",
+  "gcat.life.street": "Lives on the street",
+  "gcat.life.homed": "Has a home",
+  "gcat.life.in_care": "In Syros Cats’ care",
+  "gcat.life.deceased": "No longer with us",
+  "gcat.photos": "Photos",
+  "gcat.public.note": "This cat isn’t in one of your colonies, so you see what everyone sees in the app.",
 
   // The Appearance section and the Colour check list (SYC-2 PR 3.1;
   // coat-markings-and-health.md §5.3). Cat guardians read the same section
