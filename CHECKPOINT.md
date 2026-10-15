@@ -14,6 +14,7 @@ Branch `claude/syc-53-pr-1-2`, stacked on `claude/syc-53-pr-1-1` at 6ac26d3. Not
 8. Full suites + typecheck, final report
 
 ## Done
+- 2-5. screen.ts, peoplePages.ts, teamPeople.ts, nav link (AsyncLocalStorage in requireTeam), walk rows, team.people.test.ts (39) + noColonies (2) green.
 - 1. peopleScreen reader + export.
 
 ## Probe results
