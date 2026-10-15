@@ -20,6 +20,7 @@ import {
 import { createQueueStore, type QueueStore } from '@/lib/queueStore';
 import {
   REMINDER_AFTER_MS,
+  clearWaits,
   dueReminders,
   isPendingReport,
   newPendingReport,
@@ -334,6 +335,7 @@ export function ReportQueueProvider({ children }: { children: React.ReactNode })
     await store.ready;
     // Refused ones get another go: the person asked for them to be sent.
     await store.mutate(requeueFailed, 'user').catch(() => undefined);
+    await store.mutate(clearWaits, 'user').catch(() => undefined);
     // A sync already running may have started before the requeue.
     await syncInFlightRef.current;
     await syncNow();

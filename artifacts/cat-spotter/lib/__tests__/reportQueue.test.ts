@@ -11,6 +11,7 @@ import { createQueueStore } from '../queueStore';
 import { ChallengeUnavailable } from '../challengeUnavailable';
 import {
   CHECK_DECLINED_SKIP_MS,
+  clearWaits,
   REMINDER_AFTER_MS,
   confirmationState,
   dueReminders,
@@ -236,7 +237,13 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
     expect(item!.serverFailures).toBe(0);
     // A real refusal is still counted, so the rule is only for 428.
     const refuse = api({ submit: vi.fn(async () => { throw new FakeApiError(400); }) });
-    await syncReports(store, { api: refuse, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
+    await syncReports(store, {
+      api: refuse,
+      deviceId: 'dev-1',
+      ...photos,
+      getToken: freshTokens(),
+      now: () => Date.now() + 60 * 60 * 1000, // past the 428 back-off
+    });
     expect(store.items()[0]!.serverFailures).toBe(1);
   });
 
@@ -272,6 +279,53 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
     const asksForA = getToken.mock.calls.filter((c) => c[1] === 'r-A').length;
     expect(asksForA).toBe(2); // pass 1, and again once the 3 minutes were up (pass 4)
     expect(store.items()[0]!.checkDeclinedAt).toBeTruthy();
+  });
+
+  it('review finding 2: a tokenless item under 428 makes at most 5 POSTs in the first hour and 2 an hour after, with no strike', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const a = api({ submit: vi.fn(async () => { throw new FakeApiError(428); }) });
+    let t = 5_000_000;
+    const posts: number[] = [];
+    // A pass every minute for three hours.
+    for (let minute = 0; minute < 180; minute++) {
+      const before = (a.submit as ReturnType<typeof vi.fn>).mock.calls.length;
+      await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: async () => null, now: () => t });
+      const after = (a.submit as ReturnType<typeof vi.fn>).mock.calls.length;
+      for (let k = before; k < after; k++) posts.push(minute);
+      t += 60_000;
+    }
+    const inHour = (h: number) => posts.filter((m) => m >= h * 60 && m < (h + 1) * 60).length;
+    expect(inHour(0)).toBeLessThanOrEqual(5);
+    expect(inHour(1)).toBeLessThanOrEqual(2);
+    expect(inHour(2)).toBeLessThanOrEqual(2);
+    // The waits are 1, 5, 15, 30 minutes, then 30 again: tries at minute 0, 1, 6, 21, 51, 81...
+    expect(posts.slice(0, 6)).toEqual([0, 1, 6, 21, 51, 81]);
+    expect(store.items()[0]!.status).toBe('queued');
+    expect(store.items()[0]!.serverFailures).toBe(0);
+  });
+
+  it('review finding 2: no instant resend after a tokenless 428; one after a token\'s 428, the first time only', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const tokenless = api({ submit: vi.fn(async () => { throw new FakeApiError(428); }) });
+    await syncReports(store, { api: tokenless, deviceId: 'dev-1', ...photos, getToken: async () => null, now: () => 1 });
+    expect(tokenless.submit).toHaveBeenCalledTimes(1);
+    const { store: s2 } = makeStore([report()]);
+    await s2.load();
+    const withToken = api({ submit: vi.fn(async () => { throw new FakeApiError(428); }) });
+    await syncReports(s2, { api: withToken, deviceId: 'dev-1', ...photos, getToken: async () => 'tok', now: () => 1 });
+    expect(withToken.submit).toHaveBeenCalledTimes(2);
+    // Next pass, once the wait is over: one POST only.
+    await syncReports(s2, { api: withToken, deviceId: 'dev-1', ...photos, getToken: async () => 'tok', now: () => 2 * 60 * 1000 });
+    expect(withToken.submit).toHaveBeenCalledTimes(3);
+  });
+
+  it('a report that resolves clears its waits; "send everything now" forgets them', () => {
+    const r = report({ nextTryAt: '2026-10-01T10:00:00Z', checkDeclinedAt: '2026-10-01T10:00:00Z' });
+    const [cleared] = clearWaits([r]);
+    expect(cleared!.nextTryAt).toBeUndefined();
+    expect(cleared!.checkDeclinedAt).toBeUndefined();
   });
 
   it('review finding 4: isPermanentRefusal itself says a 428 is not a refusal (its own guard, probed directly)', () => {

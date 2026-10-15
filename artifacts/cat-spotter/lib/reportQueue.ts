@@ -63,6 +63,13 @@ export interface PendingReport {
    * every minute. Never a strike.
    */
   checkDeclinedAt?: string;
+  /**
+   * Consecutive passes that ended in a 428 (SYC-170), and when to try again.
+   * Each 428 costs one of the connection's ten reports an hour, so a report
+   * the server keeps asking to re-check backs off (BACKOFF_428_MS). Never a strike.
+   */
+  checks428?: number;
+  nextTryAt?: string;
 }
 
 export interface SubmitBody {
@@ -87,6 +94,8 @@ export interface ReportApi {
 export const MAX_SERVER_FAILURES = 3;
 /** After an unanswered tap, leave that report alone for a few minutes. */
 export const CHECK_DECLINED_SKIP_MS = 3 * 60 * 1000;
+/** Wait after the 1st, 2nd, 3rd... consecutive 428 on one report; the last repeats. */
+export const BACKOFF_428_MS = [1, 5, 15, 30].map((m) => m * 60 * 1000);
 export const REMINDER_AFTER_MS = 24 * 60 * 60 * 1000;
 
 function randomId(): string {
@@ -227,12 +236,18 @@ export async function syncReports(
     ) {
       continue;
     }
+    // Backing off after a 428.
+    if (current.status === 'queued' && current.nextTryAt && now() < new Date(current.nextTryAt).getTime()) {
+      continue;
+    }
 
     if (current.status === 'queued') {
       try {
+        let sentToken = false;
         const sendText = async () => {
           // A fresh token for every send, never reused and never stored.
           const token = await deps.getToken('welfare_report', current.clientRef);
+          sentToken = Boolean(token);
           return deps.api.submit({
             deviceId: deps.deviceId,
             clientRef: current.clientRef,
@@ -250,8 +265,12 @@ export async function syncReports(
         try {
           accepted = await sendText();
         } catch (first) {
-          // 428: the check wasn't good. Run it once more and resend straight away.
-          if (statusOf(first) !== 428) throw first;
+          // 428: the check wasn't good. If the first send carried a token (so a
+          // fresh one may well pass), run it once more and resend straight
+          // away, but only the first time round. With no token a resend can
+          // only meet the same 428 and spend one of the connection's ten
+          // reports an hour, so it waits for the back-off instead.
+          if (statusOf(first) !== 428 || !sentToken || (current.checks428 ?? 0) > 0) throw first;
           accepted = await sendText();
         }
         const { publicId } = accepted;
@@ -269,6 +288,8 @@ export async function syncReports(
             serverFailures: 0,
             checkUnavailable: undefined,
             checkDeclinedAt: undefined,
+            checks428: undefined,
+            nextTryAt: undefined,
           })),
           'system',
         );
@@ -282,11 +303,18 @@ export async function syncReports(
           const declinedAt = isChallengeUnavailable(err) ? new Date(now()).toISOString() : undefined;
           await store
             .mutate(
-              update(current.localId, (r) => ({
-                ...r,
-                checkUnavailable: true,
-                ...(declinedAt ? { checkDeclinedAt: declinedAt } : {}),
-              })),
+              update(current.localId, (r) => {
+                if (declinedAt) return { ...r, checkUnavailable: true, checkDeclinedAt: declinedAt };
+                // A 428: back off (1, 5, 15, 30 minutes, then 30 again), no strike.
+                const checks428 = (r.checks428 ?? 0) + 1;
+                const wait = BACKOFF_428_MS[Math.min(checks428, BACKOFF_428_MS.length) - 1]!;
+                return {
+                  ...r,
+                  checkUnavailable: true,
+                  checks428,
+                  nextTryAt: new Date(now() + wait).toISOString(),
+                };
+              }),
               'system',
             )
             .catch(() => undefined);
@@ -383,6 +411,15 @@ export function dueReminders(items: PendingReport[], now: Date): PendingReport[]
       !r.remindedAt &&
       now.getTime() - new Date(r.createdAt).getTime() >= REMINDER_AFTER_MS,
   );
+}
+
+/**
+ * "Send everything now" (delete-my-data): forget every wait, so a report
+ * resting after an unanswered tap or a 428 goes out this time too.
+ */
+export function clearWaits(list: PendingReport[]): PendingReport[] {
+  if (!list.some((r) => r.checkDeclinedAt || r.nextTryAt)) return list;
+  return list.map((r) => ({ ...r, checkDeclinedAt: undefined, nextTryAt: undefined }));
 }
 
 /** Try again: refused reports go back in the queue with a fresh count. */
