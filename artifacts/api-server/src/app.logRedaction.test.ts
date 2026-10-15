@@ -19,7 +19,10 @@ vi.mock("./lib/logger", async (importOriginal) => {
   return { ...actual, logger };
 });
 
-import { pool } from "@workspace/db";
+import { addPerson, db, mapTileCacheTable, pool } from "@workspace/db";
+import sharp from "sharp";
+import { sessionCookieFor } from "./lib/teamAuth/__fixtures__/queueKit";
+import { removeTestPerson } from "./test/removeTestPerson";
 import app from "./app";
 import { redactRequestUrl, safeError } from "./lib/logger";
 import { mintTileToken } from "./lib/mapTiles/tileToken";
@@ -106,6 +109,35 @@ describe("request log redaction (SYC-109)", () => {
         expect(line).not.toMatch(/74230|50478/);
       }
     } finally {
+      delete process.env["TEAM_SESSION_KEYS"];
+    }
+  });
+
+  it("a signed-in map picture request logs no z/x/y, served or failing (SYC-209 PR 3.1)", async () => {
+    process.env["TEAM_SESSION_KEYS"] = "vitest-logredact-key-0123456789abcdef-0123456789";
+    const email = `vitest-logredact-tiles-${Date.now()}@example.com`;
+    const person = await addPerson({ email, name: "Tilly", addedBy: "cli:vitest" });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      const cookie = sessionCookieFor(person.id);
+      // Ermoupoli at zoom 19: numbers long enough to spot anywhere in a line.
+      const tile = { z: 19, x: 298467, y: 203255, size: 179 as const };
+      for (const failing of [true, false]) {
+        spies.logLines.length = 0;
+        fetchSpy.mockImplementation(async () =>
+          failing
+            ? new Response("no", { status: 500 })
+            : new Response(await sharp({ create: { width: 256, height: 256, channels: 3, background: "#ccc" } }).png().toBuffer(), { status: 200 }),
+        );
+        const res = await request(app).get(`/api/team/map-tiles/${mintTileToken(tile)}`).set("Cookie", cookie);
+        expect(res.status).toBe(failing ? 503 : 200);
+        expect(spies.logLines.length).toBeGreaterThan(0);
+        for (const line of spies.logLines) expect(line).not.toMatch(/298467|203255/);
+      }
+    } finally {
+      fetchSpy.mockRestore();
+      await db.delete(mapTileCacheTable);
+      await removeTestPerson(email);
       delete process.env["TEAM_SESSION_KEYS"];
     }
   });
