@@ -27,7 +27,8 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  process.env["TEAM_SESSION_KEYS"] = previousKeys;
+  if (previousKeys === undefined) delete process.env["TEAM_SESSION_KEYS"];
+  else process.env["TEAM_SESSION_KEYS"] = previousKeys;
 });
 
 describe("a real cat guardian and the team cat page, today", () => {

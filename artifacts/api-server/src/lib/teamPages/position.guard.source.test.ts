@@ -29,7 +29,11 @@ const files = sources(SRC)
 describe("nothing prints a map link through position.ts yet", () => {
   it("no source file imports position.ts unless it is allowed", () => {
     const importers = files
-      .filter((f) => /from\s+["'][^"']*\/position["']/.test(f.text))
+      // `from "…/position"` (import or export), `import "…/position"`,
+      // `import("…/position")` and `require("…/position")`.
+      .filter((f) =>
+        /(?:\bfrom\s+|\bimport\s+|\bimport\s*\(\s*|\brequire\s*\(\s*)["'][^"']*\/position(?:\.js)?["']/.test(f.text),
+      )
       .map((f) => f.rel)
       .filter((rel) => !ALLOWED.has(rel));
     expect(importers).toEqual([]);
