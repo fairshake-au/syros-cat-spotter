@@ -45,10 +45,13 @@ const admin = new pg.Client({ connectionString: url("postgres") });
 let c: pg.Client;
 let store: ReturnType<typeof peopleStore>;
 
-const migrations = readMigrations(defaultMigrationsFolder());
+const allMigrations = readMigrations(defaultMigrationsFolder());
 const sigDiff = (actual: string[], expected: string[]) =>
   signatureDiff(actual, expected, { actual: "now", expected: "expected" });
-const mine = migrations.find((m) => m.tag.endsWith("_roles_and_invites"))!;
+const mine = allMigrations.find((m) => m.tag.endsWith("_roles_and_invites"))!;
+// Stop at this migration, so "rollback the last one" always means this one,
+// however many migrations land after it.
+const migrations = allMigrations.filter((m) => m.idx <= mine.idx);
 
 beforeAll(async () => {
   expect(mine).toBeDefined();

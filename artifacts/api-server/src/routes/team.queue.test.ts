@@ -82,6 +82,8 @@ const EXPECTED_REPORT_KEYS = [
   "teamNote",
   "teamNoteAt",
   "teamNoteBy",
+  // SYC-170: accepted while Cloudflare was unreachable (a flag, nothing private).
+  "unchecked",
 ];
 
 describe("P1-2: order and sections", () => {
@@ -197,6 +199,7 @@ describe("P1-4: nothing private leaves the queue", () => {
       "draftsTotal",
       "mail",
       "open",
+      "unchecked",
     ]);
     expect(Object.keys(q.open[0]!).sort()).toEqual(EXPECTED_REPORT_KEYS);
   });

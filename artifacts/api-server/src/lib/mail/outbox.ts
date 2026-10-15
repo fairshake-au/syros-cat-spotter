@@ -7,7 +7,7 @@ import {
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { logger, safeError } from "../logger";
-import { buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
+import { buildUncheckedWaiting, buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
 import { isNearFeedingSite, withCheckTimeout } from "../feedingSiteProximity";
 import { hashRecipient, sendMail, type SendResult } from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
@@ -68,7 +68,32 @@ export function alertRecipientHash(): string {
   return to ? hashRecipient(to) : "unset";
 }
 
-type Payload = { kind?: AlertKind; photoIncluded?: boolean; withMapLinks?: boolean };
+type Payload = {
+  kind?: AlertKind | typeof UNCHECKED_WAITING;
+  photoIncluded?: boolean;
+  withMapLinks?: boolean;
+  /** SYC-170: the alert is for a report accepted while Cloudflare was unreachable. */
+  unchecked?: true;
+  /** SYC-170: how many unchecked reports the "waiting" email counted (fixed at first try). */
+  waiting?: number;
+};
+
+/**
+ * SYC-170 (spec §9.5; plan PR 1.1, small call): reports accepted unchecked
+ * (Cloudflare unreachable) still get their own alert, because a hurt cat must
+ * not wait, but only 10 an hour in total. Beyond that, at most one
+ * "N unchecked reports waiting" email an hour, under the same never-shed
+ * welfare_alert purpose, so an outage (or a script during one) can neither
+ * flood the inbox nor silence a real report entirely.
+ */
+export const UNCHECKED_ALERTS_PER_HOUR = 10;
+export const UNCHECKED_WAITING = "unchecked_waiting" as const;
+// The "waiting" email goes a little after the first report it covers, so it
+// can count the ones that follow in the same burst.
+export const UNCHECKED_WAITING_DELAY_MINUTES = 15;
+// One lock for the cap's count-then-insert, so two reports at once can't both
+// take the tenth place.
+const UNCHECKED_ALERT_LOCK = 170_001;
 
 /** A keep-safe row's payload. `to` and the tokens are gone once it's settled. */
 export type KeepSafePayload = {
@@ -97,6 +122,141 @@ export async function enqueueWelfareAlert(
     payload: { kind } satisfies Payload,
     ...(dueAt ? { nextAttemptAt: dueAt } : {}),
   });
+}
+
+/**
+ * Queue the alert for a report accepted UNCHECKED, inside the caller's
+ * transaction: its own alert while fewer than 10 such alerts were queued in
+ * the last hour; otherwise one "waiting" email, unless one was already queued
+ * in the last hour. Returns which it did.
+ */
+export async function enqueueUncheckedWelfareAlert(
+  tx: Tx,
+  reportId: number,
+  dueAt: Date | null,
+): Promise<"alert" | "waiting" | "none"> {
+  await tx.execute(sql`select pg_advisory_xact_lock(${UNCHECKED_ALERT_LOCK})`);
+  if ((await uncheckedEmailsThisHour(tx)) < UNCHECKED_ALERTS_PER_HOUR) {
+    await tx.insert(mailOutboxTable).values({
+      purpose: "welfare_alert",
+      reportId,
+      recipientHash: alertRecipientHash(),
+      payload: { kind: "alert", unchecked: true } satisfies Payload,
+      ...(dueAt ? { nextAttemptAt: dueAt } : {}),
+    });
+    return "alert";
+  }
+  // Past the cap: this report must be covered by a "waiting" email. The
+  // latest one covers it only if it hasn't counted yet (its count is fixed
+  // at its first try). Otherwise queue the next one, an hour after the last
+  // one went, so no unchecked report is ever left without an email (review
+  // of #151, finding 3) and the team still gets at most one an hour.
+  const latest = await tx.execute(sql`
+    select (state in ('queued', 'sending') and not (payload ? 'waiting')) as covers,
+           greatest(
+             now() + make_interval(mins => ${UNCHECKED_WAITING_DELAY_MINUTES}),
+             coalesce(sent_at, created_at + make_interval(mins => ${UNCHECKED_WAITING_DELAY_MINUTES})) + interval '1 hour'
+           ) as next_due
+      from mail_outbox
+     where purpose = 'welfare_alert' and payload->>'kind' = ${UNCHECKED_WAITING}
+     order by created_at desc, id desc
+     limit 1
+  `);
+  const last = latest.rows[0] as { covers: boolean; next_due: Date | string } | undefined;
+  if (last?.covers) return "none";
+  await tx.insert(mailOutboxTable).values({
+    purpose: "welfare_alert",
+    reportId: null,
+    recipientHash: alertRecipientHash(),
+    payload: { kind: UNCHECKED_WAITING } satisfies Payload,
+    nextAttemptAt: last
+      ? new Date(last.next_due)
+      : new Date(Date.now() + UNCHECKED_WAITING_DELAY_MINUTES * 60_000),
+  });
+  return "waiting";
+}
+
+/**
+ * The photo follow-up for an unchecked report that had its own alert. It
+ * counts toward the same 10 an hour as the alerts (review of #151, finding
+ * 9), so the cap really is 10 unchecked emails an hour, not 20. Past the cap
+ * it isn't sent: that report already had its own alert, and its photo is on
+ * the queue page.
+ */
+export async function enqueueUncheckedPhotoFollowUp(tx: Tx, reportId: number): Promise<boolean> {
+  await tx.execute(sql`select pg_advisory_xact_lock(${UNCHECKED_ALERT_LOCK})`);
+  if ((await uncheckedEmailsThisHour(tx)) >= UNCHECKED_ALERTS_PER_HOUR) return false;
+  await tx.insert(mailOutboxTable).values({
+    purpose: "welfare_alert",
+    reportId,
+    recipientHash: alertRecipientHash(),
+    payload: { kind: "photo", unchecked: true } satisfies Payload,
+  });
+  return true;
+}
+
+/**
+ * Individual emails about unchecked reports (alerts and photo follow-ups)
+ * queued in the last hour: the cap's count.
+ */
+async function uncheckedEmailsThisHour(tx: Tx): Promise<number> {
+  const counted = await tx.execute(sql`
+    select count(*)::int as n
+      from mail_outbox
+     where purpose = 'welfare_alert'
+       and payload->>'kind' in ('alert', 'photo')
+       and payload->>'unchecked' = 'true'
+       and created_at > now() - interval '1 hour'
+  `);
+  return Number((counted.rows[0] as { n: number } | undefined)?.n ?? 0);
+}
+
+/**
+ * Sent, still-open unchecked reports that never got an alert of their own:
+ * what the "waiting" email counts.
+ */
+async function countUncheckedWithoutAlert(): Promise<number> {
+  const result = await db.execute(sql`
+    select count(*)::int as n from welfare_reports r
+     where r.is_draft = false
+       and r.token_checked = false
+       and r.state in ('new', 'looking')
+       and not exists (
+         select 1 from mail_outbox m
+          where m.report_id = r.id and m.purpose = 'welfare_alert'
+       )
+  `);
+  return Number((result.rows[0] as { n: number } | undefined)?.n ?? 0);
+}
+
+async function processUncheckedWaiting(row: MailOutboxRow): Promise<"sent" | "retry" | "failed"> {
+  const payload = (row.payload ?? {}) as Payload;
+  // Fixed at the first try and stored, so a retry sends the same body under
+  // the same idempotency key.
+  let waiting = payload.waiting;
+  if (typeof waiting !== "number") {
+    waiting = await countUncheckedWithoutAlert();
+    await db
+      .update(mailOutboxTable)
+      .set({ payload: { ...payload, waiting } })
+      .where(eq(mailOutboxTable.id, row.id));
+  }
+  if (waiting === 0) {
+    // The team already dealt with them: nothing to say.
+    await markSent(row, null, { ...payload, waiting });
+    return "sent";
+  }
+  const result = await sendMail({
+    purpose: "welfare_alert",
+    ...buildUncheckedWaiting(waiting),
+    idempotencyKey: `welfare-unchecked-waiting-${row.id}-${row.createdAt.getTime()}`,
+  });
+  if (!result.ok) {
+    await markRetry(row, `${result.reason}${result.detail ? `: ${result.detail}` : ""}`);
+    return "retry";
+  }
+  await markSent(row, result.providerMessageId, { ...payload, waiting });
+  return "sent";
 }
 
 /**
@@ -253,6 +413,9 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
   try {
     if ((KEEP_SAFE_OUTBOX_PURPOSES as readonly string[]).includes(row.purpose)) {
       return await processKeepSafe(row, row.purpose as KeepSafeMail);
+    }
+    if (row.purpose === "welfare_alert" && (row.payload as Payload | null)?.kind === UNCHECKED_WAITING) {
+      return await processUncheckedWaiting(row);
     }
     if (row.purpose !== "welfare_alert" || row.reportId === null) {
       await markFailed(row, row.reportId === null ? "report_gone" : "unknown_purpose");

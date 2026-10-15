@@ -80,6 +80,10 @@ export const welfareReportsTable = pgTable(
     // §4.3); failed means the server refused the photo (review of #55).
     photoState: text("photo_state").notNull().default("pending"),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    // SYC-170 (spec §9.5): null = sent before Turnstile (or with the check
+    // off); true = the token was checked; false = accepted while Cloudflare
+    // was unreachable, so the queue shows it in its own "Unchecked" list.
+    tokenChecked: boolean("token_checked"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

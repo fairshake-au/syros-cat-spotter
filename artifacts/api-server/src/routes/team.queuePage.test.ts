@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { addPerson, markLeft, pool } from "@workspace/db";
+import { addPerson, db, mailOutboxTable, markLeft, pool } from "@workspace/db";
 import app from "../app";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
@@ -111,6 +111,65 @@ describe("P1-2: the page's order", () => {
     expect(draftHeading).toBeGreaterThan(-1);
     expect(html.indexOf('id="d-a-draft"')).toBeGreaterThan(draftHeading);
     expect(html).not.toContain('id="r-a-draft"');
+  });
+
+  it("T1-8 (SYC-170): unchecked reports sit in their own list below every checked report, newest first and never urgent-first; unchecked drafts folded", async () => {
+    await seedReport({ publicId: "chk-urgent", severity: "urgent", sentMinutesAgo: 600, tokenChecked: true });
+    await seedReport({ publicId: "chk-old", sentMinutesAgo: 900, tokenChecked: null });
+    await seedReport({ publicId: "chk-closed", state: "done", sentMinutesAgo: 1000, tokenChecked: true });
+    await seedReport({ publicId: "unc-attn-new", sentMinutesAgo: 1, tokenChecked: false });
+    await seedReport({ publicId: "unc-urgent-old", severity: "urgent", sentMinutesAgo: 30, tokenChecked: false });
+    await seedReport({ publicId: "unc-closed", state: "done", sentMinutesAgo: 2, tokenChecked: false });
+    await seedReport({ publicId: "chk-draft", isDraft: true, tokenChecked: true });
+    await seedReport({ publicId: "unc-draft", isDraft: true, tokenChecked: false });
+
+    const html = await getPage();
+    const at = (id: string) => html.indexOf(`id="r-${id}"`);
+    const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (2)</h2>");
+    expect(heading).toBeGreaterThan(-1);
+    // Below every checked report, open and closed, and below the checked drafts.
+    for (const id of ["chk-urgent", "chk-old", "chk-closed"]) {
+      expect(at(id), id).toBeGreaterThan(-1);
+      expect(at(id), id).toBeLessThan(heading);
+    }
+    expect(html.indexOf('id="d-chk-draft"')).toBeLessThan(heading);
+    // The queue's own count leaves them out.
+    expect(html).toContain("<h2>Waiting for the team (2)</h2>");
+    // Newest first: the urgent one is NOT lifted above the newer attention one.
+    expect(at("unc-attn-new")).toBeGreaterThan(heading);
+    expect(at("unc-urgent-old")).toBeGreaterThan(at("unc-attn-new"));
+    // A closed unchecked report is with the closed ones, marked.
+    expect(at("unc-closed")).toBeLessThan(heading);
+    const closedCard = html.slice(at("unc-closed"), html.indexOf("</article>", at("unc-closed")));
+    expect(closedCard).toContain('<span class="tag unchecked">Unchecked</span>');
+    // Unchecked drafts are folded away, inside the unchecked section.
+    const details = html.indexOf('<details class="unchecked-drafts"><summary>Unchecked drafts (1)</summary>');
+    expect(details).toBeGreaterThan(at("unc-urgent-old"));
+    expect(html.indexOf('id="d-unc-draft"')).toBeGreaterThan(details);
+    expect(html.indexOf('id="d-unc-draft"')).toBeLessThan(html.indexOf("</details>", details));
+  });
+
+  it("T1-8: the unchecked count shows even when it is zero, below the checked reports", async () => {
+    await seedReport({ publicId: "only-checked", tokenChecked: true });
+    const html = await getPage();
+    const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (0)</h2>");
+    expect(heading).toBeGreaterThan(html.indexOf('id="r-only-checked"'));
+    expect(html).not.toContain("<details");
+    // Review finding 7: true for rows sent before the check existed, too.
+    expect(html).toContain("Reports above were either checked or sent before the safety check existed.");
+    expect(html).not.toContain("Every report above passed the safety check");
+  });
+
+  it("review finding 6: the unchecked list shows the newest 50, with the total", async () => {
+    for (let i = 0; i < 52; i++) {
+      await seedReport({ publicId: `unc-many-${i}`, sentMinutesAgo: i + 1, tokenChecked: false });
+    }
+    const html = await getPage();
+    expect(html).toContain("<h2>Unchecked (Cloudflare was unreachable) (52)</h2>");
+    expect(html).toContain("Showing the newest 50 of 52.");
+    expect(html).toContain('id="r-unc-many-0"');
+    expect(html).toContain('id="r-unc-many-49"');
+    expect(html).not.toContain('id="r-unc-many-50"');
   });
 
   it("says so when nothing is waiting", async () => {
@@ -239,6 +298,19 @@ describe("P1-7: the mail banner", () => {
     expect(html).toContain('class="banner"');
     expect(html).toContain("could not be sent");
     expect(html).toContain("Every report is still safe in the queue");
+  });
+
+  it("review finding 8 (SYC-170): is shown for a \"N unchecked reports waiting\" email that failed for good", async () => {
+    await db.insert(mailOutboxTable).values({
+      purpose: "welfare_alert",
+      reportId: null,
+      recipientHash: "vitest",
+      payload: { kind: "unchecked_waiting", waiting: 3 },
+      state: "failed",
+    });
+    const html = await getPage();
+    expect(html).toContain('class="banner"');
+    expect(html).toContain("could not be sent");
   });
 
   it("is shown for an alert still unsent an hour on", async () => {

@@ -1,12 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
+import { pool } from "@workspace/db";
 import {
   DEVICE_MATCH_LIMIT,
   DEVICE_MATCH_WINDOW_MS,
   checkDeviceMatchLimit,
   deviceMatchResetAt,
   _resetDeviceMatchLimitForTests,
-  _deviceMatchWindowCountForTests,
 } from "./rateLimit";
+
+afterAll(async () => {
+  await pool.end();
+});
 
 // Data spine PR 5 (DECISIONS.md Part 2h): the pure window logic behind the
 // per-device candidate-matching limit. The integration test in
@@ -14,68 +18,52 @@ import {
 // POST /sightings; this covers the counting itself in isolation, including
 // the window boundary that would be slow to exercise over HTTP.
 describe("checkDeviceMatchLimit", () => {
-  it("allows exactly 20 requests from one device and refuses the 21st", () => {
-    _resetDeviceMatchLimitForTests();
+  it("allows exactly 20 requests from one device and refuses the 21st", async () => {
+    await _resetDeviceMatchLimitForTests();
     const device = "device-a";
     for (let i = 0; i < DEVICE_MATCH_LIMIT; i++) {
-      expect(checkDeviceMatchLimit(device)).toBe(true);
+      expect(await checkDeviceMatchLimit(device)).toBe(true);
     }
-    expect(checkDeviceMatchLimit(device)).toBe(false);
+    expect(await checkDeviceMatchLimit(device)).toBe(false);
   });
 
-  it("keeps a separate budget per device", () => {
-    _resetDeviceMatchLimitForTests();
+  it("keeps a separate budget per device", async () => {
+    await _resetDeviceMatchLimitForTests();
     const a = "device-b";
     const b = "device-c";
     for (let i = 0; i < DEVICE_MATCH_LIMIT; i++) {
-      expect(checkDeviceMatchLimit(a)).toBe(true);
+      expect(await checkDeviceMatchLimit(a)).toBe(true);
     }
-    expect(checkDeviceMatchLimit(a)).toBe(false);
+    expect(await checkDeviceMatchLimit(a)).toBe(false);
     // b has never been seen, so it has its own fresh budget.
-    expect(checkDeviceMatchLimit(b)).toBe(true);
+    expect(await checkDeviceMatchLimit(b)).toBe(true);
   });
 
-  it("resets a device's budget once its window has elapsed", () => {
-    _resetDeviceMatchLimitForTests();
+  it("resets a device's budget once its window has elapsed", async () => {
+    await _resetDeviceMatchLimitForTests();
     const device = "device-d";
-    const t0 = 1_000_000;
+    // Windows are aligned to the clock, so start exactly on one.
+    const t0 = 4 * DEVICE_MATCH_WINDOW_MS;
     for (let i = 0; i < DEVICE_MATCH_LIMIT; i++) {
-      expect(checkDeviceMatchLimit(device, t0)).toBe(true);
+      expect(await checkDeviceMatchLimit(device, t0)).toBe(true);
     }
-    expect(checkDeviceMatchLimit(device, t0)).toBe(false);
+    expect(await checkDeviceMatchLimit(device, t0)).toBe(false);
     // One millisecond before the window ends: still refused.
-    expect(checkDeviceMatchLimit(device, t0 + DEVICE_MATCH_WINDOW_MS - 1)).toBe(false);
+    expect(await checkDeviceMatchLimit(device, t0 + DEVICE_MATCH_WINDOW_MS - 1)).toBe(false);
     // The window has elapsed: a fresh budget starts.
-    expect(checkDeviceMatchLimit(device, t0 + DEVICE_MATCH_WINDOW_MS)).toBe(true);
+    expect(await checkDeviceMatchLimit(device, t0 + DEVICE_MATCH_WINDOW_MS)).toBe(true);
   });
 
-  // Review of PR #64 (S3): the Map backing this limiter never dropped an
-  // entry, so a device id used once and never again (the common case, since
-  // device ids are freely mintable) sat there forever — an unbounded,
-  // unkeyed-to-anything-real memory leak. It is swept once the Map has grown
-  // past a threshold, piggybacking on the next call rather than a timer.
-  it("sweeps expired windows once the map has grown past the threshold", () => {
-    _resetDeviceMatchLimitForTests();
-    const now = 10_000_000;
-    // Every one of these windows is already expired by `now`.
-    const STALE_DEVICE_COUNT = 10_001;
-    for (let i = 0; i < STALE_DEVICE_COUNT; i++) {
-      checkDeviceMatchLimit(`stale-${i}`, now - DEVICE_MATCH_WINDOW_MS - 1);
-    }
-    expect(_deviceMatchWindowCountForTests()).toBe(STALE_DEVICE_COUNT);
+  // Review of PR #64 (S3) wanted old windows dropped so nothing grows without
+  // bound. The counts now live in Postgres and the mail drain sweeps them
+  // (lib/limits.test.ts, T2-4).
 
-    // The next call, for any device, triggers the sweep before it records
-    // itself — so the one fresh entry it adds is the only one left.
-    expect(checkDeviceMatchLimit("fresh-device", now)).toBe(true);
-    expect(_deviceMatchWindowCountForTests()).toBe(1);
-  });
-
-  it("deviceMatchResetAt reports a device's current window end, for Retry-After", () => {
-    _resetDeviceMatchLimitForTests();
+  it("deviceMatchResetAt reports a device's current window end, for Retry-After", async () => {
+    await _resetDeviceMatchLimitForTests();
     const device = "device-e";
-    const t0 = 2_000_000;
-    expect(deviceMatchResetAt(device)).toBeUndefined();
-    checkDeviceMatchLimit(device, t0);
-    expect(deviceMatchResetAt(device)).toBe(t0 + DEVICE_MATCH_WINDOW_MS);
+    const t0 = 6 * DEVICE_MATCH_WINDOW_MS + 12_345;
+    expect(await deviceMatchResetAt(device, t0)).toBeUndefined();
+    await checkDeviceMatchLimit(device, t0);
+    expect(await deviceMatchResetAt(device, t0)).toBe(7 * DEVICE_MATCH_WINDOW_MS);
   });
 });
