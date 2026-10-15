@@ -49,8 +49,11 @@ import { resendSend } from "./resend";
  * stripped of CR/LF and a recipient must be exactly one address, so nothing
  * typed can become a header.
  *
- * The priority budget (§2.10) exists here as the never-shed group only;
- * shedding arrives with the first purpose that can be shed.
+ * The priority budget (§2.10): the never-shed group below always goes out;
+ * a SHEDDABLE purpose (so far only `issue_alert`, SYC-44 PR 5.2) is dropped
+ * once the day's sends reach the budget less the reserve held back for the
+ * never-shed group. The outbox does the dropping (`drainDue`); the numbers
+ * and the lists live here.
  *
  * **People mail (SYC-53 PR 1.1; roles-and-invites.md §8.3, §8.5).** Two
  * purposes whose recipient is a PERSON ID, never an address: the caller
@@ -158,6 +161,49 @@ let enabledOverride: readonly MailPurpose[] | null = null;
 
 /** Never shed under the priority budget (spec §2.10). A restore link is a sign-in (review A7). */
 export const NEVER_SHED_PURPOSES: readonly MailPurpose[] = ["welfare_alert", "restore_link"];
+
+/**
+ * Purposes the outbox may drop (mark failed with `shed`) when the day's
+ * sends near the account's allowance. Deliberately only `issue_alert` for now:
+ * the reporter and keep-safe emails are retried, never dropped, until their
+ * own shedding is designed (a dropped keep-safe email would leave its address
+ * and link in the row; a dropped acknowledgement is a promise broken).
+ */
+export const SHEDDABLE_PURPOSES: readonly MailPurpose[] = ["issue_alert"];
+
+/** Sheddable, and not also never-shed: the never-shed group always wins. */
+export function isSheddable(purpose: string): boolean {
+  return (
+    (SHEDDABLE_PURPOSES as readonly string[]).includes(purpose) &&
+    !(NEVER_SHED_PURPOSES as readonly string[]).includes(purpose)
+  );
+}
+
+export const DEFAULT_MAIL_DAILY_BUDGET = 100;
+export const DEFAULT_MAIL_NEVER_SHED_RESERVE = 20;
+
+function positiveInt(raw: string | undefined, fallback: number): number {
+  const n = Number(raw);
+  return raw !== undefined && raw.trim() !== "" && Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
+/**
+ * Resend's daily allowance is account-wide. The defaults (100, with 20 held
+ * back for the never-shed group) are Resend's free-plan limit; set
+ * MAIL_DAILY_BUDGET to the real plan's figure when the account moves up.
+ */
+export function mailDailyBudget(): number {
+  return positiveInt(process.env["MAIL_DAILY_BUDGET"], DEFAULT_MAIL_DAILY_BUDGET);
+}
+
+export function mailNeverShedReserve(): number {
+  return positiveInt(process.env["MAIL_NEVER_SHED_RESERVE"], DEFAULT_MAIL_NEVER_SHED_RESERVE);
+}
+
+/** A sheddable purpose is dropped once today's sends reach this many. */
+export function shedThreshold(): number {
+  return Math.max(0, mailDailyBudget() - mailNeverShedReserve());
+}
 
 /** Which fingerprint label a purpose's recipient is hashed under (fingerprint.ts). */
 export const PURPOSE_LABEL: Record<MailPurpose, Exclude<FingerprintLabel, "ip">> = {

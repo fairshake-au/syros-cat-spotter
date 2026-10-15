@@ -13,7 +13,14 @@ import { consume, declareLimit } from "../limits";
 import { buildUncheckedWaiting, buildWelfareAlert, type AlertKind } from "../welfare/alertEmail";
 import { buildIssueAlert, buildIssueDigest, type IssueDigestItem } from "../issues/alertEmail";
 import { isNearFeedingSite, withCheckTimeout } from "../feedingSiteProximity";
-import { hashRecipient, sendMail, type SendResult } from "./send";
+import {
+  hashRecipient,
+  isSheddable,
+  NEVER_SHED_PURPOSES,
+  sendMail,
+  shedThreshold,
+  type SendResult,
+} from "./send";
 import { keepSafeSendDeps, type KeepSafeMail } from "./suppression";
 import { confirmUrl, forgetUrl, restoreUrl } from "../keepSafe/links";
 import { REPORTER_PURPOSES, processReporterMail } from "../welfare/reporterEmail";
@@ -55,6 +62,9 @@ import { PERSON_OUTBOX_PURPOSES, processPersonMail } from "./personOutbox";
  * never sends a link that has already expired. The request kicks its own row
  * straight away (`kickRow`); the 10-minute drain is only the retry.
  */
+
+/** `mail_outbox.last_error` for a row the budget dropped. */
+export const SHED = "shed";
 
 export const PHOTO_WAIT_MINUTES = 10;
 export const OVERDUE_MINUTES = 60;
@@ -387,6 +397,16 @@ export async function enqueueKeepSafeMail(
   return row!.id;
 }
 
+/**
+ * Never-shed purposes first (SYC-44 PR 5.2): a queue of issue alerts, however
+ * long and however old, can never sit in front of a hurt cat's alert in the
+ * batch the drain takes.
+ */
+const neverShedFirst = sql`(purpose in (${sql.join(
+  NEVER_SHED_PURPOSES.map((p) => sql`${p}`),
+  sql`, `,
+)})) desc`;
+
 async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]> {
   const result = await db.execute(sql`
     update mail_outbox
@@ -398,7 +418,7 @@ async function claimDue(limit: number, onlyId?: number): Promise<MailOutboxRow[]
         where state in ('queued', 'sending')
           and next_attempt_at <= now()
           ${onlyId === undefined ? sql`` : sql`and id = ${onlyId}`}
-        order by next_attempt_at
+        order by ${neverShedFirst}, next_attempt_at
         limit ${limit}
         for update skip locked
      )
@@ -717,14 +737,54 @@ async function processRow(row: MailOutboxRow): Promise<"sent" | "retry" | "faile
   }
 }
 
-export type DrainResult = { claimed: number; sent: number; retry: number; failed: number };
+export type DrainResult = { claimed: number; sent: number; retry: number; failed: number; shed: number };
+
+/**
+ * Emails that actually went out today (UTC day, Resend's), for the shedding
+ * budget. Rows marked sent with nothing sent (no provider id) don't count.
+ */
+async function sentToday(): Promise<number> {
+  const result = await db.execute(sql`
+    select count(*)::int as n from mail_outbox
+     where state = 'sent'
+       and provider_message_id is not null
+       and sent_at >= (date_trunc('day', now() at time zone 'UTC') at time zone 'UTC')
+  `);
+  return Number((result.rows[0] as { n: number } | undefined)?.n ?? 0);
+}
+
+/**
+ * Drop a sheddable email: failed with the reason `shed`, which the queue's
+ * mail-failure banner does not count (it isn't a fault, it's the budget doing
+ * its job; the dashboard still shows the report itself).
+ */
+async function markShed(row: MailOutboxRow) {
+  await db
+    .update(mailOutboxTable)
+    .set({ state: "failed", lastError: SHED })
+    .where(eq(mailOutboxTable.id, row.id));
+  logger.warn({ outboxId: row.id, purpose: row.purpose }, "mail outbox: shed (daily budget reached)");
+}
 
 /** Send up to `limit` due rows. Safe to call from several servers at once. */
 export async function drainDue(limit: number, onlyId?: number): Promise<DrainResult> {
   const rows = await claimDue(limit, onlyId);
-  const out: DrainResult = { claimed: rows.length, sent: 0, retry: 0, failed: 0 };
+  const out: DrainResult = { claimed: rows.length, sent: 0, retry: 0, failed: 0, shed: 0 };
+  // Counted lazily, once per drain, and only when a sheddable row is in the
+  // batch; then kept up to date as this batch sends.
+  let sent: number | null = null;
   for (const row of rows) {
-    out[await processRow(row)] += 1;
+    if (isSheddable(row.purpose)) {
+      sent ??= await sentToday();
+      if (sent >= shedThreshold()) {
+        await markShed(row);
+        out.shed += 1;
+        continue;
+      }
+    }
+    const outcome = await processRow(row);
+    out[outcome] += 1;
+    if (outcome === "sent" && sent !== null) sent += 1;
   }
   return out;
 }
