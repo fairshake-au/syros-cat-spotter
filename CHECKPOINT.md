@@ -35,3 +35,7 @@ Probes (red, restored):
 - notify for a guardian's stop: 1 failed, `expected [ { …(6) }, { …(6) } ] to deeply equal []`
 - guardian self sign-out notifies: 1 failed, same line
 - minor 3 reverted to isBrowserNavigation: 1 failed, `expected [ 204, undefined ] to deeply equal [ 303, …(1) ]`
+
+## Self sign-out wording: done
+`signed_out_self` kind (en/el/fr): "{subject} signed out of the dashboard on every device." Used when actor == subject.
+Probe (reverted to signed_out_everywhere): team.my.test.ts 1 failed (self sign-out notice wording).
