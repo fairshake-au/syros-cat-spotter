@@ -16,14 +16,21 @@ import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
 import { can, type CapabilityHolder } from "./capabilities";
-import { isWithdrawal, loadCatRecords, type ObservationKind } from "./observations";
+import { isWithdrawal, loadCatRecords, MARKS, type ObservationKind } from "./observations";
 import {
+  appearanceAuthorityLevel,
   clippedTipCount,
+  resolveCoat,
   resolveLifeStatus,
+  resolveMarkings,
   resolveSterilised,
+  standingAppearanceRows,
+  type AppearanceCheckReason,
+  type AppearanceResolved,
   type Confidence,
   type LifeStatusValue,
 } from "./resolve";
+import { handPickDisagrees, handPickedAmong } from "./handPick";
 
 // The staff dashboard's view of a cat (SYC-43 part 2 plan, PR 3): finding a
 // cat, and the team's cat page. Read-only.
@@ -121,6 +128,21 @@ const COAT: Record<string, string> = {
   not_sure: "not sure",
 };
 
+/** The eleven marks in the team's history (spec §3.2's chip words, lower case). */
+const MARK: Record<string, string> = {
+  white_paws: "white paws",
+  white_chest: "white chest or bib",
+  white_face: "white patch on the face",
+  colourpoint: "dark face, ears and tail",
+  long_fur: "long fur",
+  kinked_tail: "kinked tail",
+  torn_ear: "torn or notched ear",
+  short_tail: "short or missing tail",
+  missing_eye: "missing an eye",
+  three_legs: "three legs",
+  odd_eyes: "eyes of different colours",
+};
+
 const str = (v: unknown): string | null =>
   typeof v === "string" && v.trim() !== "" ? v : null;
 
@@ -189,8 +211,21 @@ export function describeStatement(
         ? "Welfare report closed: done"
         : "Welfare report closed: nothing needed";
     case "coat": {
+      // "Mark wrong" (SYC-2 PR 3.1): says nothing in its place.
+      if (v["retracted"] === true) return "Marked wrong";
       const colours = Array.isArray(v["colours"]) ? (v["colours"] as unknown[]) : [];
-      return `Coat: ${colours.map((c) => COAT[c as string] ?? "unknown").join(" and ") || "unknown"}`;
+      const text = `Coat: ${colours.map((c) => COAT[c as string] ?? "unknown").join(" and ") || "unknown"}`;
+      return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
+    }
+    case "markings": {
+      if (v["retracted"] === true) return "Marked wrong";
+      if (v["cantTell"] === true) return "Couldn't tell the markings";
+      const marks = Array.isArray(v["marks"]) ? (v["marks"] as unknown[]) : [];
+      const text =
+        marks.length === 0
+          ? "Markings: nothing special"
+          : `Markings: ${marks.map((m) => MARK[m as string] ?? "unknown").join(", ")}`;
+      return typeof v["agreesWith"] === "number" ? `${text} (agrees with #${v["agreesWith"]})` : text;
     }
     default:
       return `A “${kind}” statement`;
@@ -255,7 +290,9 @@ export type StatementCorrection =
   | { kind: "sterilised"; now: boolean | null }
   | { kind: "ear_tip_clipped" }
   /** A colony statement. The replacement is worked out on the server. */
-  | { kind: "colony" };
+  | { kind: "colony" }
+  /** A colour or markings statement: marked wrong by a retraction, from the Appearance section (SYC-2 PR 3.1). */
+  | { kind: "appearance" };
 
 /** An owner's "has a home" (claiming-a-cat.md §3): the claim itself. */
 export function isOwnerHomed(o: Observation, onlyCatId?: number): boolean {
@@ -293,6 +330,10 @@ function correctionOf(o: Observation, replaced: boolean): StatementCorrection | 
   }
   if (o.kind === "ear_tip" && v["clipped"] === true) return { kind: "ear_tip_clipped" };
   if (o.kind === "colony") return { kind: "colony" };
+  // A retraction asserts nothing, so there is nothing to mark wrong.
+  if ((o.kind === "coat" || o.kind === "markings") && v["retracted"] !== true) {
+    return { kind: "appearance" };
+  }
   return null;
 }
 
@@ -318,6 +359,46 @@ export interface TeamResolved<T> {
   asOf: string;
   supportingStatementIds: number[];
   conflictingStatementIds: number[];
+}
+
+// ── Appearance (SYC-2 PR 3.1; spec §5.3) ────────────────────────────────────
+
+/** One colour or markings statement that still stands, for the Appearance section. */
+export interface TeamAppearanceStatement {
+  id: number;
+  /** The colours or marks it says, as codes. Null: "Not sure" / "Can't tell". */
+  codes: string[] | null;
+  author: TeamAuthor;
+  /** Who it is, in the terms the rules use. */
+  source: "spotter" | "machine" | "team" | "guardian";
+  /** A spotter's tap on a pre-filled suggestion (prompted), not an answer of their own. */
+  prompted: boolean;
+  /** A team or guardian Confirm: the statement it agrees with. */
+  agreesWith: number | null;
+  createdAt: string;
+  /**
+   * The photo it is about: a spotter's sighting photo, or the photo the
+   * machine read (also for a reading copied forward to a restored photo).
+   */
+  photoUrl: string | null;
+  /** The machine reading's model version (SYC-161). */
+  modelVersion: string | null;
+  /** Part of what the answer rests on now. */
+  counts: boolean;
+  /** May be marked wrong (it stands and nothing points at it). */
+  markable: boolean;
+}
+
+export interface TeamAppearance {
+  value: string[] | null;
+  confidence: Confidence;
+  checkReasons: AppearanceCheckReason[];
+  /** Newest first. Replaced, marked-wrong and retraction rows are in the history only. */
+  statements: TeamAppearanceStatement[];
+  /** A cat guardian's statement decides (Decision G). */
+  guardianDecides: boolean;
+  /** …and a standing team statement says something different (shown as a disagreement). */
+  guardianDisagrees: boolean;
 }
 
 export interface TeamCatView {
@@ -363,6 +444,16 @@ export interface TeamCatView {
       notSeenSince: string | null;
     };
     sterilised: TeamResolved<boolean> & { clippedTipSightings: number };
+  };
+  /**
+   * Colour and markings, team-only (SYC-2 PR 3.1): what the resolver says,
+   * every statement that stands, and the Colour check reasons, the hand-pick
+   * one included.
+   */
+  appearance: {
+    coat: TeamAppearance;
+    markings: TeamAppearance;
+    handPick: boolean;
   };
   /** Every resolved sighting, newest first, at its exact position. */
   sightings: { id: number; lat: number; lng: number; at: string; photoUrl: string | null }[];
@@ -614,6 +705,9 @@ export async function teamCatView(
     observations.some((o) => isOwnerHomed(o, cat.id) && !replacedIds.has(o.id));
   const life = resolveLifeStatus(observations, evidence, now);
   const sterilised = resolveSterilised(observations, []);
+  const coat = resolveCoat(observations, appearanceAuthorityLevel);
+  const markings = resolveMarkings(observations, now, appearanceAuthorityLevel);
+  const handPick = handPickDisagrees(observations, coat, await handPickedAmong(observations));
 
   // The colony: which one stands is lib/colonyMembership.ts's rule alone;
   // here it is only given a name. The statement that put the cat there says
@@ -740,6 +834,11 @@ export async function teamCatView(
         clippedTipSightings: clippedTipCount(observations),
       },
     },
+    appearance: {
+      coat: appearanceOf(observations, "coat", coat, replacedIds, people, urlFor),
+      markings: appearanceOf(observations, "markings", markings, replacedIds, people, urlFor),
+      handPick,
+    },
     sightings: sightings.map((s) => ({
       id: s.id,
       lat: s.lat,
@@ -749,6 +848,84 @@ export async function teamCatView(
     })),
     photos,
     history,
+  };
+}
+
+/** The codes a colour or markings row says, or null for "Not sure" / "Can't tell". */
+function codesOf(kind: "coat" | "markings", value: unknown): string[] | null {
+  const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const list = kind === "coat" ? v["colours"] : v["marks"];
+  if (!Array.isArray(list)) return null;
+  const codes = (list as unknown[]).filter((c): c is string => typeof c === "string");
+  if (kind === "coat") {
+    const real = codes.filter((c) => c !== "not_sure");
+    return real.length === 0 ? null : real;
+  }
+  return MARKS.filter((m) => codes.includes(m));
+}
+
+const sameCodes = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((c) => b.includes(c));
+
+/**
+ * One kind's Appearance block. "Stands" is the resolver's own rule
+ * (`standingAppearanceRows`), so the section never disagrees with the answer.
+ */
+function appearanceOf(
+  observations: readonly Observation[],
+  kind: "coat" | "markings",
+  resolved: AppearanceResolved<string[]>,
+  replacedIds: ReadonlySet<number>,
+  people: Map<string, PersonName>,
+  urlFor: (photoId: number | null) => string | null,
+): TeamAppearance {
+  const counts = new Set(resolved.supportingObservationIds);
+  const standing = standingAppearanceRows(observations, kind, kind === "markings", appearanceAuthorityLevel);
+  const statements = [...standing]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id)
+    .map((o): TeamAppearanceStatement => {
+      const level = appearanceAuthorityLevel(o);
+      const v = (o.value && typeof o.value === "object" ? o.value : {}) as Record<string, unknown>;
+      const modelVersion = v["modelVersion"];
+      return {
+        id: o.id,
+        codes: codesOf(kind, o.value),
+        author: authorOf(o, people),
+        source:
+          o.provenance === "machine"
+            ? "machine"
+            : level > 1
+              ? "guardian"
+              : level === 1
+                ? "team"
+                : "spotter",
+        prompted: o.provenance === "prompted",
+        agreesWith: typeof v["agreesWith"] === "number" ? (v["agreesWith"] as number) : null,
+        createdAt: o.createdAt.toISOString(),
+        photoUrl: urlFor(o.photoId),
+        modelVersion: o.provenance === "machine" && typeof modelVersion === "string" ? modelVersion : null,
+        counts: counts.has(o.id),
+        markable: !replacedIds.has(o.id),
+      };
+    });
+
+  const decider =
+    resolved.confidence === "confirmed"
+      ? observations.find((o) => o.id === resolved.supportingObservationIds[0])
+      : undefined;
+  const guardianDecides = decider !== undefined && appearanceAuthorityLevel(decider) > 1;
+  const value = resolved.value ?? [];
+  const guardianDisagrees =
+    guardianDecides &&
+    statements.some((s) => s.source === "team" && !sameCodes(s.codes ?? [], value));
+
+  return {
+    value: resolved.value,
+    confidence: resolved.confidence,
+    checkReasons: resolved.checkReasons,
+    statements,
+    guardianDecides,
+    guardianDisagrees,
   };
 }
 
