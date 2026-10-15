@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { MAIL_DRAIN_PATH, checkMailDrainToken } from "../lib/internalAuth";
+import { RESEND_WEBHOOK_PATH } from "../lib/mail/resendWebhook";
 import {
   gateEnabled,
   matchInternalToken,
@@ -24,6 +25,9 @@ import {
  *    <MAIL_DRAIN_TOKEN>` (SYC-42: the scheduled drain's own narrow token).
  *    Any other /api/internal/* → only `Authorization: Bearer
  *    <INTERNAL_PEOPLE_TOKEN>`. Neither token opens the other's paths.
+ *    Exactly POST /api/internal/resend/webhook → next(): Resend can't send
+ *    a token, and the route refuses anything without Resend's signature
+ *    (SYC-42 Slice 3). No token opens it, and it opens nothing else.
  * 4. /api/team/* → next() (Decision 1, Samuel, 29 Sep 2026: its own staff
  *    sign-in is the stronger door). /api/mail/* → next() (SYC-3 Decision 5:
  *    the keep-safe confirm and forget pages, each protected by its own
@@ -101,6 +105,11 @@ export function prelaunchGate(
       return;
     }
     refuse(res);
+    return;
+  }
+
+  if (path === RESEND_WEBHOOK_PATH && req.method === "POST") {
+    next();
     return;
   }
 

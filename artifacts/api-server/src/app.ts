@@ -9,6 +9,7 @@ import router from "./routes";
 import { logger, redactRequestUrl, safeError } from "./lib/logger";
 import { apiCors } from "./middlewares/apiCors";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
+import { RESEND_WEBHOOK_PATH } from "./lib/mail/resendWebhook";
 import { opportunisticDrain } from "./lib/mail/outbox";
 import { opportunisticRoundUp } from "./lib/sightingRoundUp";
 
@@ -72,6 +73,9 @@ app.use((req, res, next) => {
 // - BEFORE express.json, so a request without a pass is refused before a
 //   25 MB body is parsed.
 app.use(prelaunchGate);
+// SYC-42 Slice 3: Resend's webhook is signed over the exact bytes it sent,
+// so that one path gets the raw body (lib/mail/resendWebhook.ts).
+app.use(RESEND_WEBHOOK_PATH, express.raw({ type: "*/*", limit: "256kb" }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 

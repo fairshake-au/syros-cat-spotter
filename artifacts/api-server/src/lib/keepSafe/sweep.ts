@@ -9,7 +9,8 @@ import { MOVED_DAYS } from "../deviceAuth";
  * time. It rides on the scheduled mail drain (routes/internalMail.ts), at most
  * once an hour per server, so it needs no schedule of its own.
  *
- * - An address nobody confirmed goes after 7 days, with its tokens. Its
+ * - An address nobody confirmed goes after 7 days, with its tokens: a
+ *   keep-safe address, or one left on a cat report (SYC-42 Slice 3). Its
  *   consent record keeps only that an unconfirmed attempt expired: the
  *   spotter and the contact row are redacted away. The keyed fingerprint stays
  *   on the record, as it does on the suppression list, because the "three
@@ -35,14 +36,29 @@ export type SweepResult = {
 
 export async function sweepKeepSafe(): Promise<SweepResult> {
   const pendingExpired = await db.transaction(async (tx) => {
+    // SYC-42 Slice 3: a reporter's unconfirmed address too. The "is this
+    // you?" email promises "we'll forget it in seven days". The report stays;
+    // only the link to the address goes (reporter_contact_id is set null).
     const expired = await tx.execute(sql`
       delete from email_contacts
-       where purpose = 'keep_safe'
+       where purpose in ('keep_safe', 'report')
          and status = 'pending'
          and created_at < now() - make_interval(days => ${PENDING_DAYS})
-      returning id, address_hmac
+      returning id, address_hmac, purpose
     `);
-    const rows = expired.rows as { id: number; address_hmac: string }[];
+    const rows = expired.rows as { id: number; address_hmac: string; purpose: string }[];
+    if (rows.some((r) => r.purpose === "report")) {
+      // Anything still queued for them holds a raw link.
+      await tx.execute(sql`
+        delete from mail_outbox
+         where purpose in ('public_verify', 'report_ack', 'report_outcome')
+           and state in ('queued', 'sending')
+           and payload->>'contactId' in (${sql.join(
+             rows.filter((r) => r.purpose === "report").map((r) => sql`${String(r.id)}`),
+             sql`, `,
+           )})
+      `);
+    }
     for (const row of rows) {
       await tx.execute(sql`
         update email_consent_events
@@ -52,7 +68,7 @@ export async function sweepKeepSafe(): Promise<SweepResult> {
       `);
       await tx.execute(sql`
         insert into email_consent_events (address_hmac, purpose, event)
-        values (${row.address_hmac}, 'keep_safe', 'expired')
+        values (${row.address_hmac}, ${row.purpose}, 'expired')
       `);
     }
     return rows.length;
