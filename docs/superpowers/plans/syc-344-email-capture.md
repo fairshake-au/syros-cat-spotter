@@ -39,7 +39,7 @@ The spec's decisions stand. These are places where carrying them out needs the p
 | C6 | §3.0: the onboarding news box | `KeepSafeScreen.tsx` (lines 22–23) hides it "until SYC-45 builds news" | Slice 5 shows it |
 | C7 | §4.4 control 1: "one verification per **address** per 24 hours; three in its lifetime" | Fingerprints are keyed **per purpose** (`lib/mail/fingerprint.ts`), so a report fingerprint never equals a news fingerprint (SYC-3 review A3). #181 counts its caps on report fingerprints only | News counts its own caps the same way. So one address can get one report "is this you?" **and** one news "is this you?" in a day (two, not one). The shared daily ceiling and per-IP limit still cover both. Decision 3, option A, removes the commonest case (both typed on one screen) |
 | C8 | §5.8: "One-click unsubscribe … no 'are you sure' page" | Email security scanners open every link in an email. SYC-3 and #181 therefore never act on a link being opened: their pages show one button (`routes/mailPages.ts`) | The mail app's own unsubscribe button is genuinely one click (the standard `List-Unsubscribe-Post` header). The link in the email opens a page with one **Stop emailing me** button. **Decision 4** |
-| C9 | §5.5: a report-only address is deleted 90 days after the report closes | PR #181 forgets an **unconfirmed** report address after 7 days (`keepSafe/sweep.ts`), but nothing deletes a confirmed report-only address at close + 90 days | Not email capture's to build: it's a promise to reporters, and it must survive email capture being cut. Filed as a SYC-42 follow-up (see "Linear") |
+| C9 | §5.5: a report-only address is deleted 90 days after the report closes | PR #181 forgets an **unconfirmed** report address after 7 days (`keepSafe/sweep.ts`). The close + 90 days deletion is **planned but not built**: SYC-42 plan item 4.3 (`syc-42-cat-in-trouble.md:248`) | Not email capture's to build: it's a promise to reporters, and it must survive email capture being cut. Tracked as SYC-371 so it isn't lost |
 | C10 | §5.1: cat news "from the news identity" | `send.ts` on `main` already lists `cat_news`, `visit_summary` and `promise_withdrawn` on `news.catspotters.com`, all **off** | Slice 3 switches on `cat_news` only |
 | C11 | §5.3: seed the baseline as a records import lands | No records import exists (optional, after MVP: `records-import.md`) | Slice 1 exports `seedNewsBaseline(catIds)` with a test, and the import plan must call it. Nothing else to do now |
 | C12 | §2.4: "Saving spots without ticking news leaves both news asks in place, **with the address filled in**" | A keep-safe row never holds the address (Decision 4 of SYC-3, enforced by a database check), and the phone keeps only the masked form (`lib/keepSafe.ts`) | The address can't be filled in without storing it somewhere the SYC-3 design refused to, and a masked hint ("Use s•••@gmail.com?") can't work either, because we can't send to a mask. Small call S6: the box starts empty |
@@ -371,10 +371,10 @@ Every new sentence a visitor sees. English is the spec's, word for word where th
 
 ## What this plan does not do
 
-- The visit summary (Decision 2, A: its own ticket).
-- "We can't keep our promise" (`promise_withdrawn`): only needed if a moment is ever withdrawn; ticketed.
-- The 24-month "still want these?" email and deletion: the first address can't reach 24 months until late 2028; ticketed.
-- Deleting a confirmed report-only address 90 days after the report closes (C9): SYC-42's; ticketed.
+- The visit summary (Decision 2, A: SYC-370).
+- "We can't keep our promise" (`promise_withdrawn`): only needed if a moment is ever withdrawn; SYC-372.
+- The 24-month "still want these?" email and deletion: the first address can't reach 24 months until late 2028; SYC-372.
+- Deleting a confirmed report-only address 90 days after the report closes (C9): SYC-42 plan item 4.3; tracked as SYC-371.
 - The priority budget itself (SYC-358).
 - Anything about donation receipts (spec §1.2 E).
 
@@ -402,7 +402,7 @@ This session (Opus) wrote the plan. For the build:
 - **SYC-344:** this plan, In Review until Samuel approves.
 - **SYC-45:** blocked by SYC-344; one comment linking this plan and its slices.
 - **SYC-55:** related; Slices 1 and 3 deliver its core ("the cat you named was sterilised").
-- **Filed from this plan (new):** the visit summary (Decision 2); `promise_withdrawn` and the 24-month inactivity email; deleting a confirmed report-only address 90 days after close (C9, SYC-42).
+- **Filed from this plan (new):** SYC-370 (the visit summary, Decision 2); SYC-372 (`promise_withdrawn` and the 24-month inactivity email); SYC-371 (tracks SYC-42 plan item 4.3, deleting a reporter's address 90 days after close; C9).
 
 ## Still needs Samuel
 
