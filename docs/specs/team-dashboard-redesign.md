@@ -25,7 +25,7 @@ It turns the dashboard parts of PRODUCT-SPEC §2.6 and §3 (items 9, 12 and 13) 
 
 **Evidence:** `docs/reviews/team-dashboard-ux-review-2026-10-15.md`.
 **Review:** an adversarial review found 4 blockers, 13 major and 5 minor issues. Every finding is handled in this version, and the table at the end (§17) says where.
-**Status:** draft. It waits on one decision (§16) and then Samuel's approval.
+**Status:** ready for Samuel's approval. The last open decision was settled on 15 Oct (D8).
 
 ### What this document owns, and what it borrows
 
@@ -70,6 +70,7 @@ The dashboard stays fast on a phone in a street with weak signal. A few screens 
 | D5 | Donations? | **Designed now (§9.7), built last,** once the donation route with James is settled. |
 | D6 | Welfare statistics? | **Patterns, not performance.** Never response times, targets or per-person figures. |
 | D7 | Find a cat from a photo? | **Yes.** |
+| D8 | A vet visit versus a cat guardian's earlier "not sterilised" | **The visit overrules, visibly.** Logging a visit with Sterilised also marks any standing guardian "not sterilised" on that cat wrong, with the reason "vet visit on [date]". The change appears on the recent guardian changes list. This works the same way as the team's **Correct** on colour. |
 
 ## 3. How the dashboard is laid out
 
@@ -321,7 +322,7 @@ Each statement it creates points back to the visit.
 
 **Undoing a visit.** Marking the visit wrong marks every statement it created wrong too, in one step and with one reason. The cat page and the reports therefore always agree.
 
-**When a guardian disagrees.** A guardian's standing "not sterilised" on the same cat outranks a team statement under Decision G. How a vet visit settles this is **the one open decision (§16)**. Until it's settled, the cat page shows the clash plainly: "Vet visit on 13 Aug says sterilised; Eleni (cat guardian) said not sterilised on 2 Jul." The cat also appears in Home's "Cats to check".
+**When a guardian disagrees (D8).** Under Decision G, a cat guardian's standing "not sterilised" on the same cat would outrank a team statement. So the same save also marks that guardian statement wrong, with the reason "vet visit on 13 Aug 2026". It appears on the recent guardian changes list, so nobody is overruled silently. This mirrors the team's **Correct** on colour (DECISIONS, 13 Oct 2026). Undoing the visit restores the guardian's statement.
 
 **Sterilisations recorded without a visit.** "Correct something → Sterilised" still works. The vet report counts those as "sterilised, no cost recorded".
 
@@ -698,11 +699,11 @@ This is a guide for the implementation plan, not a design in itself.
 
 Each phase is its own set of pull requests, reviewed and shipped before the next starts.
 
-## 16. Open decision and questions
+## 16. Questions still open
 
-**Decision for Samuel: when a vet visit and a cat guardian disagree.** Today a guardian's word on a cat in their own colony outranks the team's, whatever the dates (Decision G). So if a guardian once said "not sterilised", a vet visit logged later by the team doesn't change the cat's status. The options are set out in the session, with a recommendation. The answer will be recorded here.
+**Decided:** D8, when a vet visit and a cat guardian disagree (§8.3).
 
-**Questions for Syros Cats:**
+**Questions for Syros Cats** (they don't block approval; the spec's assumptions stand until answered):
 1. **Standard sterilisation price.** Is there one price at the clinic Syros Cats use, or one per clinic? The spec assumes one standard price, which the team sets and can override per visit.
 2. **The named-area list.** We draft it. Syros Cats correct it.
 3. **The "Not seen lately" threshold.** The spec uses 6 weeks. Syros Cats may know better for street cats on Syros.
@@ -716,7 +717,7 @@ Each phase is its own set of pull requests, reviewed and shipped before the next
 | 2 | Place labels from site names leak private sites and guardians' names | §3.2: labels from named areas and public labels only; §10.4 downloads |
 | 3 | Impact report names colonies | §9.4: milestones as counts, never a colony name |
 | 4 | Find from a photo can't simply reuse matching | §5.2: required narrowing, groups of 10 plus a final round, thresholds, "less sure" wording, cost cap |
-| 5 | A vet visit doesn't beat a guardian's answer | §8.3 and §16: open decision, with the clash shown meanwhile |
+| 5 | A vet visit doesn't beat a guardian's answer | D8 (Samuel, 15 Oct): the visit overrules, visibly (§8.3) |
 | 6 | Guardian vet visits break vaccination and date rules | §8.1: team only; §8.2: vaccine picker |
 | 7 | Overlapping records; undoing leaves orphans | §8.3: one save, reuses the `sterilised` value, undo together |
 | 8 | Who is counted is undefined | §9.5 table |
