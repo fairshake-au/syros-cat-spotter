@@ -209,6 +209,21 @@ describe("map pictures: what is sent", () => {
     for (const row of rows) expect(row.size).toBe(png.length);
   });
 
+  it("passes nothing of the browser's request on to OpenStreetMap: only our own two headers", async () => {
+    const v = viewAround(ERMOUPOLI, 16);
+    await picture(mintTileToken({ ...v, size: 179 }))
+      .set("Referer", "https://team.catspotters.com/api/team/colonies?q=Eleni")
+      .set("User-Agent", "Mozilla/5.0 (a team member's phone)")
+      .set("X-Forwarded-For", "203.0.113.7");
+    expect(fetchSpy).toHaveBeenCalled();
+    for (const [, init] of fetchSpy.mock.calls) {
+      const headers = (init as RequestInit).headers as Record<string, string>;
+      expect(Object.keys(headers).sort()).toEqual(["Accept", "User-Agent"]);
+      expect(headers["User-Agent"]).toBe(USER_AGENT);
+      expect(JSON.stringify(init)).not.toMatch(/Eleni|Mozilla|203\.0\.113|cs_team/);
+    }
+  });
+
   it("five bands asking at once still fetch each tile once", async () => {
     fetchSpy.mockImplementation(async () => {
       await new Promise((r) => setTimeout(r, 50));
