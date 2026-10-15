@@ -300,7 +300,7 @@ Answers are due Mon 19 Oct. Nothing waits on them; this is what each answer chan
 | Stream | Overlap | What happens |
 |---|---|---|
 | PR #181 (SYC-42 Slice 3, mail queue) | Holds migration 0025 and edits `lib/i18n.ts` | This plan takes the next free number after rebasing, agreed with that session before claiming. i18n edits are appends in each language block; rebase, don't renumber |
-| Email capture (SYC-344 plan, in progress) | Its "follow this cat" card is on the **reward** screen of the first spot (`email-capture.md`, decision of 28 Sep). The nudge is on the **match list or naming** screen, before it | They never share a screen. Order on a first spot: wait → match list or naming (nudge) → reward (email card). Message sent to that session on 15 Oct to confirm; answer recorded on SYC-36 |
+| Email capture (SYC-344 plan, in progress) | Its "follow this cat" card is on the **reward** screen of the first spot (`email-capture.md`, decision of 28 Sep). The nudge is on the **match list or naming** screen, before it | They never share a screen. Order on a first spot: wait → match list or naming (nudge) → reward (email card). **Agreed with that session on 15 Oct:** its card goes only on the success block of `review.tsx` (below the points and badges), and its PR rebases after this plan's PR 2. Its migrations don't touch this plan's table |
 | PR #182 (SYC-161 plan, colour chips) | Changes "Find the cat" (`components/CatPicker.tsx`), not the match list or naming | None |
 | PR #180 (SYC-209 PR 3.4) | Team pages only | None |
 | PRs #178, #179 (SYC-53) and the dashboard layout work | Team dashboard; later, signed-in roles in the app | Decision 1 A keeps this plan off the dashboard. SYC-53's app sign-in fills `signedInRole` |
