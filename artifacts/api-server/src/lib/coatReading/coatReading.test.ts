@@ -744,6 +744,29 @@ describe("spot review: the gaps it found, closed", () => {
     expect(await machineRows(c.id)).toHaveLength(rows.length);
   });
 
+  it("finding 3: the re-check refuses a stale source, an older reading of the same photo", async () => {
+    const c = await cat("stale-source");
+    await sighting(c.id, "stale-source:s");
+    const tick = clock();
+    await write([c.id], tick); // r1: main
+    await setHidden(c.main, true);
+    await write([c.id], tick); // r2: stand-in
+    await setHidden(c.main, false);
+    await write([c.id], tick); // r3: a copy of r1
+    await setHidden(c.main, true);
+    await write([c.id], tick); // r4: a copy of r2
+    await setHidden(c.main, false);
+    const [r1] = await machineRows(c.id);
+    const [due] = await catsDueForReading(Infinity, db, { catIds: [c.id] });
+    expect(due).toMatchObject({ action: "copy", photoId: c.main });
+    expect(due!.copyOf).not.toBe(r1!.id); // the newest reading of the main photo, r3
+    const before = (await machineRows(c.id)).length;
+    expect(await copyReadingForward({ catId: c.id, photoId: c.main, copyOf: r1!.id, now: tick() })).toEqual({
+      kind: "not_due",
+    });
+    expect(await machineRows(c.id)).toHaveLength(before);
+  });
+
   it("finding 4: ANY rejected reading of a photo stops the copy, not only the newest", async () => {
     const c = await cat("anywrong");
     await sighting(c.id, "anywrong:s");
