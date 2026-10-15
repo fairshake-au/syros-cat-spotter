@@ -169,7 +169,7 @@ describe("map pictures: what is sent", () => {
       expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
       expect(res.headers["content-security-policy"]).not.toMatch(/script-src/);
       expect(res.headers["x-content-type-options"]).toBe("nosniff");
-      expect(res.headers["referrer-policy"]).toBe("no-referrer");
+      expect(res.headers["referrer-policy"]).toBe("same-origin");
       const meta = await sharp(res.body as Buffer).metadata();
       expect([meta.width, meta.height, meta.format]).toEqual([2 * size, 2 * size, "png"]);
     },

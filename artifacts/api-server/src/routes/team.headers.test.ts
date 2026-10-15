@@ -134,7 +134,67 @@ describe("P1-5: every dashboard response has the team headers", () => {
     expect(res.headers["content-security-policy"]).toContain("img-src 'self'");
     expect(res.headers["content-security-policy"]).not.toMatch(/script-src/);
     expect(res.headers["cache-control"]).toBe("no-store");
-    expect(res.headers["referrer-policy"]).toBe("no-referrer");
+    // SYC-330: "same-origin", on purpose. "no-referrer" makes a browser send
+    // `Origin: null` on form posts, and every dashboard button was refused.
+    expect(res.headers["referrer-policy"]).toBe("same-origin");
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
+  });
+});
+
+// SYC-330: moving to "same-origin" must not loosen the Origin check. A blank
+// (`null`) Origin is still refused; nobody should "fix" a refused button by
+// accepting it.
+describe("SYC-330: a POST with Origin: null is still refused", () => {
+  it("refuses a sign-out sent with Origin: null, and does not clear the cookie", async () => {
+    const res = await request(app)
+      .post("/api/team/signout")
+      .set("Origin", "null")
+      .set("Cookie", cookie);
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "not_signed_in" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("refuses a note post sent with Origin: null", async () => {
+    const res = await request(app)
+      .post("/api/team/reports/vt-nobody/note")
+      .set("Origin", "null")
+      .set("Cookie", cookie)
+      .type("form")
+      .send({ note: "x" });
+    expect(res.status).toBe(401);
+  });
+});
+
+// SYC-330: cross-site and missing origins stay refused (requireOrigin).
+describe("SYC-330: other origins are refused", () => {
+  const cases: [string, (t: request.Test) => request.Test][] = [
+    ["a foreign Origin", (t) => t.set("Origin", "https://evil.example")],
+    // Same site, different origin: SameSite=Lax would let the cookie through,
+    // so the Origin check is what refuses it.
+    ["a sister site's Origin", (t) => t.set("Origin", "https://apptest.catspotters.com")],
+    [
+      "Origin: null from a cross-site page",
+      (t) => t.set("Origin", "null").set("Sec-Fetch-Site", "cross-site"),
+    ],
+    ["no Origin at all", (t) => t],
+  ];
+  it.each(cases)("a sign-out with %s is refused", async (_n, shape) => {
+    const res = await shape(
+      request(app).post("/api/team/signout").set("Cookie", cookie),
+    );
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "not_signed_in" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+  it.each(cases)("a note post with %s is refused", async (_n, shape) => {
+    const res = await shape(
+      request(app)
+        .post("/api/team/reports/vt-nobody/note")
+        .set("Cookie", cookie)
+        .type("form")
+        .send({ note: "x" }),
+    );
+    expect(res.status).toBe(401);
   });
 });
