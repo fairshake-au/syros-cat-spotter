@@ -221,8 +221,10 @@ const LifeStatusForm = z.object({
  * - a form post from someone who may remove owners gets an "Are you sure?"
  *   page first (decided under the lock, in removeOwnerAndSay); Yes removes
  *   the owner and records the status in one transaction;
- * - a form post from someone who may not (a cat guardian) records the status,
- *   keeps the owner, and says so;
+ * - a form post from someone who may not records the status, keeps the owner,
+ *   and says so. That is for cat guardians once the team cat page opens to
+ *   them; today the door (set_life_status with no target) refuses them first
+ *   (team.guardianLifeStatus.test.ts);
  * - JSON is unchanged: removeOwner=1 removes the owner (needs `remove_owner`),
  *   without it the owner stays.
  */
@@ -269,13 +271,12 @@ router.post(
           confirm ? "if_owner" : "confirm_if_owner",
         );
         if (out.owner === "needs_confirm") {
-          const state = await catOwnerState(catId);
-          if (!state) return notFound(req, res);
+          const name = out.catName!;
           return void res.status(200).type("html").send(
             renderConfirmPage({
-              title: `Remove ${state.name}'s owner too?`,
+              title: `Remove ${name}'s owner too?`,
               lines: [
-                `${state.name} has an owner. Saving “${LIFE[status]}” also removes the owner.`,
+                `${name} has an owner. Saving “${LIFE[status]}” also removes the owner.`,
                 "The owner stops seeing the exact spot and getting alerts. The owner is not told.",
                 "To keep the owner, go back and choose “Has a home”.",
               ],

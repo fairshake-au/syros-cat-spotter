@@ -239,7 +239,7 @@ export async function removeOwnerAndSay(
   person: Person,
   input: RemoveOwnerInput,
   mode: "require_owner" | "if_owner" | "confirm_if_owner",
-): Promise<{ owner: "removed" | "none" | "needs_confirm"; row: Observation | null }> {
+): Promise<{ owner: "removed" | "none" | "needs_confirm"; row: Observation | null; catName?: string }> {
   if (!can(person, "remove_owner") || !can(person, "set_life_status")) throw notAuthorised();
 
   return db.transaction(async (tx) => {
@@ -248,7 +248,7 @@ export async function removeOwnerAndSay(
     );
     if (locked.rows.length === 0) throw notFound();
     const [cat] = await tx
-      .select({ ownerDeviceId: catsTable.ownerDeviceId })
+      .select({ ownerDeviceId: catsTable.ownerDeviceId, name: catsTable.name })
       .from(catsTable)
       .where(eq(catsTable.id, input.catId));
     // An owner who deleted their data leaves no link but their "has a home"
@@ -259,7 +259,10 @@ export async function removeOwnerAndSay(
     if (!hasOwner && mode === "require_owner") return { owner: "none" as const, row: null };
     // Checked under the lock, so an owner who claims in the same moment
     // can't be removed without the person having been asked.
-    if (hasOwner && mode === "confirm_if_owner") return { owner: "needs_confirm" as const, row: null };
+    // The name comes back with it, read under the same lock, for the page's words.
+    if (hasOwner && mode === "confirm_if_owner") {
+      return { owner: "needs_confirm" as const, row: null, catName: cat!.name };
+    }
 
     const observedAt = input.observedAt ?? new Date();
     if (hasOwner) {

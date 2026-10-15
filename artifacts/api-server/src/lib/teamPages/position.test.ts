@@ -37,9 +37,10 @@ describe("position", () => {
       '37.44700, 24.90000 &middot; <a href="https://www.google.com/maps/search/?api=1&amp;query=37.44700%2C24.90000" rel="noopener noreferrer">Open map</a>',
     );
   });
-  it("escapes what it prints", () => {
-    // A non-number would never normally arrive; NaN proves the escaper is applied to the text path.
-    expect(position(-1.5, -2.25, { link: true })).toContain("-1.50000, -2.25000");
-    expect(position(-1.5, -2.25, { link: true })).toContain("&amp;query=");
+  it("escapes the link: the & in the address is written &amp;", () => {
+    const html = position(-1.5, -2.25, { link: true });
+    expect(html).toContain("-1.50000, -2.25000");
+    expect(html).toContain("?api=1&amp;query=");
+    expect(html).not.toMatch(/\?api=1&query=/);
   });
 });

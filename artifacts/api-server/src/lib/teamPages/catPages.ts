@@ -414,7 +414,7 @@ function statementItem(
 
 /** What the page says after a correction, by the `done` the form sent back. */
 const DONE: Record<string, string> = {
-  life: "Saved. The life status is added to the history below.",
+  life: "Saved. Where the cat lives is added to the history below.",
   sterilised: "Saved. The sterilisation is added to the history below.",
   wrong: "Saved. The correction is in the history below, with the change it replaces.",
   renamed: "Saved. The new name is in the history below.",
@@ -745,7 +745,7 @@ export function renderCatPage(
     `<h2 id="history">History (${v.history.length})</h2>` +
     '<p class="hint">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p>' +
     (v.history.length === 0
-      ? '<p class="empty">Nothing has been said about this cat yet.</p>'
+      ? '<p class="empty">No changes yet.</p>'
       : `<ol class="history">${(shown === null ? v.history : newest).map((s) => statementItem(s, byId, shown, may, atStatement && s.id === opts.at ? notice : "")).join("")}</ol>` +
         (shown === null
           ? ""
