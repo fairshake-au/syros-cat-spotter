@@ -27,3 +27,11 @@ All four were red, then restored (git status clean after each).
    `expected 'https://team.catspotters.com/api/team/' to be 'https://team.catspotters.com/api/team…'`
 4. myColonies without scopeInForce() (an ended placement shown): team.my.test.ts 3 failed, 22 passed.
    `expected ' My colonies ...' not to contain 'Ended Place'`
+
+## Review round (15 Oct 2026): done
+- stopHelping action + `left_self` notice (en/el/fr); self sign-out quiet for a guardian; minor 3 (wantsPage); Greek sentence; French "gardien(ne)".
+Probes (red, restored):
+- drop notice for team stop-helping: 2 failed, `expected [] to deeply equal [ …(2) ]`
+- notify for a guardian's stop: 1 failed, `expected [ { …(6) }, { …(6) } ] to deeply equal []`
+- guardian self sign-out notifies: 1 failed, same line
+- minor 3 reverted to isBrowserNavigation: 1 failed, `expected [ 204, undefined ] to deeply equal [ 303, …(1) ]`
