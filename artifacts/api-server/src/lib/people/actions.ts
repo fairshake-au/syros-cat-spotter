@@ -298,7 +298,9 @@ export async function signOutEverywhere(actor: PersonWithScopes, personId: strin
     signOutEverywhereById(actor.id, personId, {
       inTransaction: async (tx) => {
         if (quiet) return;
-        outboxIds.push(...(await notify(tx, actor, personId, { kind: "signed_out_everywhere" })));
+        outboxIds.push(
+          ...(await notify(tx, actor, personId, { kind: actor.id === personId ? "signed_out_self" : "signed_out_everywhere" })),
+        );
       },
     }),
   );

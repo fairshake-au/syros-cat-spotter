@@ -75,6 +75,7 @@ export const en = {
   "mail.notice.leftSelf": "{subject} stopped helping Syros Cats.",
   "mail.notice.withdrawn": "Invitations {subject} had sent that were still open were withdrawn: {count}.",
   "mail.notice.signedOut": "{actor} signed {subject} out everywhere.",
+  "mail.notice.signedOutSelf": "{subject} signed out of the dashboard on every device.",
   "mail.notice.why": "Every change to who can use the dashboard is emailed to the other managers. If this looks wrong, you can sign someone out everywhere on the People page.",
 
   // SYC-53 PR 1.3: My page and My colonies (roles-and-invites.md §2.6, §9.1, §9.5, §13.1).

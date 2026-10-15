@@ -59,6 +59,7 @@ export const fr: Record<StringKey, string> = {
   "mail.notice.leftSelf": "{subject} a arrêté d’aider Syros Cats.",
   "mail.notice.withdrawn": "Invitations encore ouvertes envoyées par {subject} et retirées : {count}.",
   "mail.notice.signedOut": "{actor} a déconnecté {subject} partout.",
+  "mail.notice.signedOutSelf": "{subject} s’est déconnecté(e) du tableau de bord sur tous ses appareils.",
   "mail.notice.why": "Chaque changement dans qui peut utiliser le tableau de bord est envoyé par e-mail aux autres membres de la direction. Si quelque chose te semble anormal, tu peux déconnecter quelqu’un partout sur la page « Personnes ».",
 
   // SYC-53 PR 1.3: My page and My colonies (roles-and-invites.md §2.6, §9.1, §9.5, §13.1).

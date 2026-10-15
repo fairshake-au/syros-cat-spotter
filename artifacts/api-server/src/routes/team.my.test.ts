@@ -451,6 +451,10 @@ describe("stopping helping, and signing yourself out: who is told", () => {
     expect((await post("/api/team/my/sign-out-everywhere", t.cookie)).status).toBe(303);
     const mails = await notices();
     expect(mails.map((m) => m.to).sort()).toEqual(expected);
+    for (const m of mails) {
+      expect(m.text).toContain("Vt my-n-team2 signed out of the dashboard on every device.");
+      expect(m.text.split("Vt my-n-team2")).toHaveLength(2); // the name once, never twice
+    }
   });
 
   it("the notice names the person and says they stopped; nothing typed reaches it (three languages, same kind)", () => {

@@ -59,6 +59,7 @@ export const el: Record<StringKey, string> = {
   "mail.notice.leftSelf": "Ο/Η {subject} σταμάτησε να βοηθάει τους Syros Cats.",
   "mail.notice.withdrawn": "Ανακλήθηκαν προσκλήσεις που είχε στείλει ο/η {subject} και ήταν ακόμη ανοιχτές: {count}.",
   "mail.notice.signedOut": "Ο/Η {actor} αποσύνδεσε τον/την {subject} από παντού.",
+  "mail.notice.signedOutSelf": "Ο/Η {subject} αποσυνδέθηκε από τον πίνακα ελέγχου σε κάθε συσκευή.",
   "mail.notice.why": "Κάθε αλλαγή στο ποιος μπορεί να χρησιμοποιεί τον πίνακα ελέγχου στέλνεται με email στα άλλα μέλη της διοίκησης. Αν κάτι φαίνεται λάθος, μπορείτε να αποσυνδέσετε κάποιον από παντού στη σελίδα «Άτομα».",
 
   // SYC-53 PR 1.3: My page and My colonies (roles-and-invites.md §2.6, §9.1, §9.5, §13.1).
