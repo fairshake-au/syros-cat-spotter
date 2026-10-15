@@ -1,5 +1,11 @@
 import { pool } from "@workspace/db";
 
+// Tests only: this switches a never-deleted guard off. Refuse to load
+// anywhere else.
+if (!process.env["VITEST"]) {
+  throw new Error("deleteGuarded is for tests only (VITEST is not set).");
+}
+
 /**
  * Tests only (SYC-298). The database refuses to delete a feeding site or a
  * colony (migration "refuse_deleting_sites_and_colonies"). A test cleaning up
