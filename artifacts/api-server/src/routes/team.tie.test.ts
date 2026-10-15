@@ -522,16 +522,16 @@ describe("refusals and edges", () => {
 // ── The screens ────────────────────────────────────────────────────────────
 
 describe("the queue row and the tie-mode search", () => {
-  it("offers 'This is a cat we know' on an untied row, and the cat's name with 'Wrong cat?' on a tied one", async () => {
+  it("offers 'Match to a known cat' on an untied row, and the cat's name with 'Wrong cat?' on a tied one", async () => {
     const catId = await newCat(`${PREFIX}Tigger <i>`);
     const r = await newReport();
     const page = await request(app).get("/api/team").set("Cookie", cookie);
-    expect(page.text).toContain(`<a class="tap" href="/api/team/cats?tie=${r.publicId}">This is a cat we know</a>`);
+    expect(page.text).toContain(`<a class="tap" href="/api/team/cats?tie=${r.publicId}">Match to a known cat</a>`);
     await tie(r.publicId, catId, null);
     const tied = await request(app).get("/api/team").set("Cookie", cookie);
     expect(tied.text).toContain(`<a class="tap catlink" href="/api/team/cats/${catId}">${PREFIX}Tigger &lt;i&gt;</a>`);
     expect(tied.text).toContain(`href="/api/team/cats?tie=${r.publicId}">Wrong cat? Choose another</a>`);
-    expect(tied.text).not.toContain(`/api/team/cats?tie=${r.publicId}">This is a cat we know`);
+    expect(tied.text).not.toContain(`/api/team/cats?tie=${r.publicId}">Match to a known cat`);
     expect(tied.text).not.toContain("Tigger <i>");
     // The row's confirmation sits at the row.
     const landed = await request(app).get(`/api/team?tied=ok&r=${r.publicId}`).set("Cookie", cookie);

@@ -32,6 +32,9 @@ a{color:#0b5c6b}
    rather than wrapping, so it is always 53px tall. */
 .bar{background:#fff;border-bottom:1px solid #d9d5ca;padding:4px 12px;display:flex;flex-wrap:nowrap;gap:0 14px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
 .bar::-webkit-scrollbar{display:none}
+/* The menu starts where the page's text starts. */
+.bar{padding-inline:max(12px,calc((100% - 760px) / 2 + 12px))}
+.bar.wide{padding-inline:max(12px,calc((100% - 1120px) / 2 + 12px))}
 .bar a,.bar span{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;flex:none}
 .bar .here{font-weight:700;color:#1d1d1b;border-bottom:3px solid #0b5c6b;text-decoration:none}
 .bar .off{color:#6b685f}
@@ -44,13 +47,14 @@ h2{font-size:18px;margin:28px 0 8px}
 .who button{font:inherit;font-size:15px;min-height:44px;padding:8px 2px;background:none;border:0;color:#0b5c6b;text-decoration:underline;cursor:pointer}
 .banner{background:#fff3cd;border:1px solid #c9a227;border-radius:8px;padding:10px 12px;margin:12px 0}
 .empty{color:#55524a;margin:8px 0}
-.report{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #c98a00;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
+.report{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #a36b00;border-radius:8px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
 .report.urgent{border-left-color:#b3261e}
 .report.closed{border-left-color:#8a877e;background:#faf9f6}
 .report.draft{border-left-style:dashed}
 .head{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:0 0 8px}
 .tag{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:#eee9da;color:#3b3930}
 .tag.urgent{background:#b3261e;color:#fff}
+.tag.attention{background:#fbe7b5;color:#4d3800}
 .tag.kittens{background:#d9ecf0;color:#0b4553}
 .tag.unchecked{background:#fff;border:1px dashed #8a6d00;color:#5c4800}
 details.unchecked-drafts summary{cursor:pointer;font-weight:700;margin:8px 0}
@@ -189,9 +193,8 @@ span.pin{pointer-events:none}
 .mapmove{margin:8px 0 0}
 .mapmove .zoomrow,.mapmove .panrow,.mapmove .arearow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
 .mapmove button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
-.mapmove button:disabled{border-color:#c9c4b6;color:#8a877e;cursor:default}
 .mapmove .zoomrow button{background:#0b5c6b;color:#fff}
-.mapmove .zoomrow button:disabled{background:#eee9da;color:#8a877e}
+.mapmove button:disabled,.mapmove .zoomrow button:disabled{background:transparent;border-style:dashed;color:#6b685f;cursor:not-allowed}
 .mapmove .label{margin:8px 0 6px}
 form.addsite{margin:12px 0 0}
 form.addsite button,form.typedpos button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
@@ -200,6 +203,12 @@ form.movesite{margin:8px 0}
 .actions form.movesite button{display:flex;align-items:center;width:100%;text-align:left;font:inherit;font-weight:700;color:#0b4553;background:#fff;border:1px solid #d9d5ca;border-radius:8px;min-height:46px;padding:0 12px;cursor:pointer}
 form.typedpos{margin:0 0 8px}
 .tapped{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #b3261e;border-radius:8px;padding:10px 12px;margin:8px 0;font-variant-numeric:tabular-nums}
+/* Hard-to-undo actions look different from Save (design review, 15 Oct 2026). */
+button.risky,.actions button.risky,.fixes button.risky,.statement button.risky,.gallery button.risky,form.takeout button.risky{background:#fff;color:#8c1d18;border:2px solid #8c1d18}
+button.risky:hover{background:#fbeaea}
+/* A link that opens another page of actions looks like the action cards. */
+a.cardlink{display:flex;align-items:center;min-height:46px;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:0 12px;font-weight:700;color:#0b4553;text-decoration:none}
+a.cardlink:hover{border-color:#0b5c6b}
 main.mappage{line-height:22px}
 main.mappage h1{line-height:28px}
 main.mappage .who{line-height:20px}
@@ -284,7 +293,7 @@ export function renderPage(opts: PageOptions): string {
     '<meta name="robots" content="noindex">' +
     `<title>${escapeHtml(opts.title)}</title>` +
     `<style>${STYLES}</style></head><body>` +
-    (nav ? `<nav class="bar">${nav}</nav>` : "") +
+    (nav ? `<nav class="bar${opts.mainClass === "wide" ? " wide" : ""}">${nav}</nav>` : "") +
     `<main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +

@@ -54,7 +54,7 @@ const article = (html: string, id: string) => {
 describe("queue page chrome", () => {
   it("puts Sign out in div.who beside the name, not in the nav", () => {
     const html = render(queue([report("a")]));
-    const nav = /<nav class="bar">([\s\S]*?)<\/nav>/.exec(html)![1]!;
+    const nav = /<nav class="bar[^"]*">([\s\S]*?)<\/nav>/.exec(html)![1]!;
     expect(nav).not.toContain("Sign out");
     const who = /<div class="who">([\s\S]*?)<\/div>/.exec(html)![1]!;
     expect(who).toContain("Signed in as Maria");

@@ -317,11 +317,11 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
   if (c.kind === "ear_tip_clipped") {
     if (!may("set_sterilisation")) return "";
     return (
-      `<details><summary>That's not a clip</summary><form method="post" action="${action}">` +
+      `<details><summary>Mark wrong</summary><form method="post" action="${action}">` +
       '<input type="hidden" name="choice" value="not_clipped">' +
       '<p class="hint">The cat goes back to Not known yet, unless something else says otherwise.</p>' +
       reasonInput(`${id}-why`, "Why it isn't a clip") +
-      "<button type=\"submit\">That's not a clip</button></form></details>"
+      "<button type=\"submit\">Mark wrong: it's not a clip</button></form></details>"
     );
   }
   if (c.kind === "colony") {
@@ -332,7 +332,7 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
       '<input type="hidden" name="choice" value="colony_previous">' +
       '<p class="hint">The cat goes back to the colony it was in before this, or to no colony if there was none.</p>' +
       reasonInput(`${id}-why`) +
-      '<button type="submit">Save the correction</button></form></details>'
+      '<button type="submit">Mark wrong</button></form></details>'
     );
   }
   if (c.kind === "sterilised") {
@@ -344,7 +344,7 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
       `<input type="hidden" name="choice" value="${to}">` +
       `<p>It should say: <strong>${esc(toText)}</strong></p>` +
       reasonInput(`${id}-why`) +
-      '<button type="submit">Save the correction</button></form></details>'
+      '<button type="submit">Mark wrong</button></form></details>'
     );
   }
   if (!may("set_life_status")) return "";
@@ -355,7 +355,7 @@ function wrongForm(s: TeamStatement, may: (c: Capability) => boolean): string {
     "</fieldset>" +
     dateInput(`${id}-date`, "Date the team knows of", "(needed for “No longer with us”)") +
     reasonInput(`${id}-why`) +
-    '<button type="submit">Save the correction</button></form></details>'
+    '<button type="submit">Mark wrong</button></form></details>'
   );
 }
 
@@ -467,7 +467,9 @@ function galleryItem(
   const form = allowed
     ? `<form method="post" action="/api/team/photos/${encodeURIComponent(p.publicId)}/${action}">` +
       `<input type="hidden" name="cat" value="${catId}">` +
-      `<button type="submit" class="${action}">${p.hidden ? "Restore" : "Hide from the public"}</button></form>`
+      `<button type="submit" class="${p.hidden ? "restore" : "hide risky"}">${p.hidden ? "Restore" : "Hide from the public"}` +
+      // Which photo, for a screen reader: every button says the same words.
+      `<span class="sr"> (photo ${i + 1} of ${total})</span></button></form>`
     : "";
   const label = p.hidden
     ? `<p class="hiddenby">Hidden from the public by ${esc(p.hidden.by)}, ${time(p.hidden.at, day(p.hidden.at))}` +
@@ -507,7 +509,7 @@ function colonyForm(v: TeamCatView, colonies: { id: number; name: string }[]): s
     '<button type="submit">Save</button></form>' +
     (v.colony
       ? `<form method="post" action="${base}"><input type="hidden" name="colonyId" value="none">` +
-        '<button type="submit">Take out of this colony</button></form>'
+        '<button type="submit" class="risky">Take out of this colony</button></form>'
       : "") +
     "</details>"
   );
@@ -573,7 +575,7 @@ function correctionForms(
         "</fieldset>" +
         dateInput("ro-date", "Date the team knows of", "(needed for “No longer with us”)") +
         reasonInput("ro-why") +
-        '<button type="submit">Remove owner</button></form></details>',
+        '<button type="submit" class="risky">Remove owner</button></form></details>',
     );
   }
   if (forms.length === 0) return notice;

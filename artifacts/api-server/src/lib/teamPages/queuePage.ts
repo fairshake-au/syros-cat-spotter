@@ -127,7 +127,7 @@ function actionForms(r: QueueReport, noteOpen: boolean): string {
   const base = `/api/team/reports/${encodeURIComponent(r.id)}`;
   const buttons = REPORT_STATES.map((s) =>
     s === r.state
-      ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (now)</button>`
+      ? `<button type="button" class="here" disabled aria-current="true">${esc(STATE[s])} (current)</button>`
       : `<button type="submit" name="to" value="${esc(s)}">${esc(STATE[s])}</button>`,
   ).join("");
   const noteId = `note-${r.id}`;
@@ -188,7 +188,7 @@ function catRow(r: QueueReport): string {
   }
   return row(
     "Which cat",
-    `<a class="tap" href="${esc(search)}">This is a cat we know</a>`,
+    `<a class="tap" href="${esc(search)}">Match to a known cat</a>`,
   );
 }
 
@@ -210,7 +210,7 @@ function reportCard(
     .join(" ");
   const landed = r.id === changedId || (tied !== undefined && r.id === tied.id);
   const tags =
-    `<span class="tag${r.severity === "urgent" ? " urgent" : ""}">${esc(SEVERITY[r.severity])}</span>` +
+    `<span class="tag ${r.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[r.severity])}</span>` +
     (r.isLitter ? '<span class="tag kittens">Kittens</span>' : "") +
     (r.unchecked ? '<span class="tag unchecked">Unchecked</span>' : "") +
     `<span class="tag state">${esc(STATE[r.state])}</span>` +
@@ -275,7 +275,7 @@ function draftCard(d: QueueDraft, now: Date, near: NearSites): string {
   return (
     `<article class="report draft${d.severity === "urgent" ? " urgent" : ""}" id="d-${esc(d.id)}">` +
     '<div class="head">' +
-    `<span class="tag${d.severity === "urgent" ? " urgent" : ""}">${esc(SEVERITY[d.severity])}</span>` +
+    `<span class="tag ${d.severity === "urgent" ? "urgent" : "attention"}">${esc(SEVERITY[d.severity])}</span>` +
     `<span class="ago">started ${ago(d.startedAt, now)}</span></div>` +
     `<dl>${row("Where", place(d.lat, d.lng, d.id, near))}</dl></article>`
   );

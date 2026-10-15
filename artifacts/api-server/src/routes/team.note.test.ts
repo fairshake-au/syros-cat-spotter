@@ -277,7 +277,7 @@ describe("the forms on the queue page", () => {
       expect(c).toContain('<label class="label" for="note-' + id + '"');
       expect(c).toContain('maxlength="2000"');
     }
-    expect(card(html, "open-1")).toContain(">Looking at it (now)");
+    expect(card(html, "open-1")).toContain(">Looking at it (current)");
     const from = html.indexOf('id="d-draft-1"');
     const draft = html.slice(from, html.indexOf("</article>", from));
     expect(draft).not.toContain("<form");
@@ -332,7 +332,7 @@ describe("the forms on the queue page", () => {
       .get(res.headers["location"]!.split("#")[0]!)
       .set("Cookie", susanCookie);
     expect(card(next.text, publicId)).toContain("Someone else changed");
-    expect(card(next.text, publicId)).toContain(">Done (now)");
+    expect(card(next.text, publicId)).toContain(">Done (current)");
   });
 });
 

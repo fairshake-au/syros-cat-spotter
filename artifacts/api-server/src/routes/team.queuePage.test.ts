@@ -156,7 +156,7 @@ describe("P1-2: the page's order", () => {
     const heading = html.indexOf("<h2>Unchecked (Cloudflare was unreachable) (0)</h2>");
     expect(heading).toBeGreaterThan(html.indexOf('id="r-only-checked"'));
     // No unchecked drafts, so no fold for them (each report's team note has its own).
-    expect(html).not.toContain("unchecked-drafts");
+    expect(html).not.toContain('<details class="unchecked-drafts"');
     // Review finding 7: true for rows sent before the check existed, too.
     expect(html).toContain("Reports above were either checked or sent before the safety check existed.");
     expect(html).not.toContain("Every report above passed the safety check");
