@@ -26,6 +26,7 @@ import { t, type WordKey } from "../lib/teamPages/words";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
+import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 
 // The team's Colonies screens (SYC-209 PR 2.1; spec §2.6, §2.7, §11.2).
 // A browser gets a server-drawn page, or a 303 back with a message after a
@@ -53,22 +54,8 @@ const QUERY_MAX = 200;
 const colonyPage = (id: number, done?: string) =>
   `/api/team/colonies/${id}${done ? `?done=${encodeURIComponent(done)}` : ""}`;
 
-/** Postgres refuses a NUL character in text, so a form carrying one is a bad form. */
+/** The NUL character, which Postgres cannot hold in text. */
 const NUL = String.fromCharCode(0);
-const noNul = (s: string) => !s.includes(NUL);
-
-/** A browser sends a text box's line breaks as CRLF; store them as LF. */
-const lf = (v: unknown) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n") : v);
-
-/** An optional text box: "" means none. */
-const optionalText = (max: number) =>
-  z.preprocess(
-    (v) => {
-      const s = lf(v);
-      return typeof s === "string" && s.trim() === "" ? null : s;
-    },
-    z.string().trim().max(max).refine(noNul).nullable(),
-  );
 
 const nameField = z.preprocess(
   lf,
@@ -82,22 +69,6 @@ const nameField = z.preprocess(
     // and "taken" by every other such name.
     .refine((s) => foldName(s) !== ""),
 );
-
-/** A coordinate box: "" means none; anything else must be a real number. */
-const coordinate = (limit: number) =>
-  z.preprocess(
-    (v) => {
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (s === "") return null;
-        // Plain decimal numbers only: Number() would also take "0x10",
-        // "0b11" and "1e1".
-        return /^[+-]?\d+(\.\d+)?$/.test(s) ? Number(s) : Number.NaN;
-      }
-      return v;
-    },
-    z.number().finite().min(-limit).max(limit).nullable(),
-  );
 
 const CreateForm = z.object({
   name: nameField,
@@ -118,8 +89,6 @@ const UpdateForm = z
     path: ["lat"],
   })
   .refine((v) => (v.lat === null) === (v.lng === null), { path: ["lat"] });
-
-const fieldsOf = (err: z.ZodError) => [...new Set(err.issues.map((i) => i.path.join(".")))];
 
 const FIELD_WORDS: Record<string, WordKey> = {
   name: "problem.nameEmpty",

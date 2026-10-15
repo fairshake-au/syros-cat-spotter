@@ -6,6 +6,12 @@ import { day } from "./colonyPages";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
 import { t, type WordKey } from "./words";
+import {
+  SITE_DIRECTIONS_MAX,
+  SITE_NAME_MAX,
+  SITE_NOTES_MAX,
+  SITE_REASON_MAX,
+} from "../teamSiteWrites";
 
 // The team's Feeding sites pages (SYC-209 PR 3.2; spec §2.1, §2.2, §8).
 // Server-drawn, no scripts, read-only. Every value a person typed (a site's
@@ -140,10 +146,100 @@ export function renderSitesPage(opts: {
       (opts.note ? `<p class="warn">${esc(opts.note)}</p>` : "") +
       map +
       `<p class="hint">${w("sites.legend")}</p>` +
+      `<form method="get" action="${SITES_PATH}/new" class="addsite"><button type="submit">${w("sites.add")}</button></form>` +
       `<h2>${w("sites.listTitle")}</h2>` +
       list +
       `<p class="hint">${w("sites.mapHint")}</p>`,
   });
+}
+
+
+// ── Banners, and the actions ───────────────────────────────────────────────
+
+const SDONE: Record<string, WordKey> = {
+  created: "sdone.created",
+  saved: "sdone.saved",
+  unchanged: "sdone.unchanged",
+  moved: "sdone.moved",
+  movedPrivate: "sdone.movedPrivate",
+  retired: "sdone.retired",
+  restored: "sdone.restored",
+  colony: "sdone.colony",
+  colonyPrivate: "sdone.colonyPrivate",
+  stale: "sdone.stale",
+};
+
+/** A fixed sentence for `?done=<key>`; any other key shows nothing. */
+function banner(done: string | undefined): string {
+  const key = done !== undefined && Object.hasOwn(SDONE, done) ? SDONE[done] : undefined;
+  return key ? `<p class="notice" role="status">${w(key)}</p>` : "";
+}
+
+/** The page's `updated_at`, which every write is conditional on (spec §11.2). */
+export const stampField = (stamp: string) =>
+  `<input type="hidden" name="updatedAt" value="${esc(stamp)}">`;
+
+const textBox = (id: string, name: string, label: WordKey, value: string, max: number, hint?: WordKey) =>
+  `<label class="label" for="${id}">${w(label)}</label>` +
+  (hint ? `<p class="hint">${w(hint)}</p>` : "") +
+  `<input class="text" id="${id}" name="${name}" type="text" maxlength="${max}" value="${esc(value)}" autocomplete="off">`;
+
+const reasonBox = (id: string) =>
+  `<label class="label" for="${id}">${w("act.reason")}</label>` +
+  `<input class="text" id="${id}" name="reason" type="text" required maxlength="${SITE_REASON_MAX}" autocomplete="off">`;
+
+/**
+ * Edit details, Move on the map, Retire or Bring back, Change colony. Each is
+ * a form carrying the page's `updated_at` (Move is a plain button: the move
+ * pages read the stamp themselves when they open).
+ */
+export function renderSiteActions(s: SiteView, colonies: Array<{ id: number; name: string }>): string {
+  const base = esc(siteHref(s.id));
+  const stamp = stampField(s.updatedAt);
+  const retired = s.retiredAt !== null;
+  const edit =
+    `<div class="fixes"><details><summary>${w("act.edit")}</summary>` +
+    `<form method="post" action="${base}">` +
+    stamp +
+    textBox("edit-name", "name", "confirm.name", s.name, SITE_NAME_MAX).replace(" maxlength=", " required maxlength=") +
+    textBox("edit-directions", "directions", "site.directions", s.directions ?? "", SITE_DIRECTIONS_MAX, "confirm.directionsHint") +
+    `<label class="label" for="edit-notes">${w("site.notes")}</label>` +
+    `<textarea id="edit-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(s.notes ?? "")}</textarea>` +
+    `<p class="hint">${w("notes.hint")}</p>` +
+    `<button type="submit">${w("act.save")}</button></form></details></div>`;
+  const move =
+    `<form method="get" action="${base}/move" class="movesite">` +
+    `<button type="submit">${w("act.move")}</button></form>`;
+  const retire = retired
+    ? `<div class="fixes"><details><summary>${w("act.restore")}</summary>` +
+      `<form method="post" action="${base}/restore">` +
+      stamp +
+      `<p class="hint">${w("act.restoreHint")}</p>` +
+      reasonBox("restore-reason") +
+      `<button type="submit">${w("act.restoreButton")}</button></form></details></div>`
+    : `<div class="fixes"><details><summary>${w("act.retire")}</summary>` +
+      `<form method="post" action="${base}/retire">` +
+      stamp +
+      `<p class="hint">${w("act.retireHint")}</p>` +
+      reasonBox("retire-reason") +
+      `<button type="submit">${w("act.retireButton")}</button></form></details></div>`;
+  const options =
+    `<option value=""${s.colony === null ? " selected" : ""}>${w("confirm.noColony")}</option>` +
+    colonies
+      .map(
+        (c) =>
+          `<option value="${c.id}"${s.colony?.id === c.id ? " selected" : ""}>${esc(c.name)}</option>`,
+      )
+      .join("");
+  const colony =
+    `<div class="fixes"><details><summary>${w("act.colony")}</summary>` +
+    `<form method="post" action="${base}/colony">` +
+    stamp +
+    `<label class="label" for="colony-pick">${w("confirm.colony")}</label>` +
+    `<select class="text" id="colony-pick" name="colonyId">${options}</select>` +
+    `<p class="hint">${w("act.colonyPublic")}</p>` +
+    `<button type="submit">${w("act.colonyButton")}</button></form></details></div>`;
+  return edit + move + retire + colony;
 }
 
 // ── One site ───────────────────────────────────────────────────────────────
@@ -217,6 +313,8 @@ export function renderSitePage(opts: {
   site: SiteView;
   personName: string;
   view: View;
+  colonies: Array<{ id: number; name: string }>;
+  done?: string;
 }): string {
   const s = opts.site;
   const map = renderMap({
@@ -251,6 +349,8 @@ export function renderSitePage(opts: {
     beforeTitle: `<p class="back"><a href="${SITES_PATH}">${w("site.back")}</a></p>`,
     body:
       map +
+      // Below the map, so nothing of variable height sits above it (see .mappage).
+      banner(opts.done) +
       retired +
       visibility +
       `<h2>${w("site.colony")}</h2>` +
@@ -264,8 +364,8 @@ export function renderSitePage(opts: {
       `<p class="syrline">${esc(fmtPos(s.lat, s.lng))}</p>` +
       `<h2>${w("site.historyTitle")}</h2>` +
       historyList(s.history) +
-      // PR 3.3 puts Edit details, Move on the map, Retire and Change colony here.
-      `<div class="actions" data-actions="site"></div>`,
+      `<h2>${w("act.title")}</h2>` +
+      `<div class="actions" data-actions="site">${renderSiteActions(s, opts.colonies)}</div>`,
   });
 }
 

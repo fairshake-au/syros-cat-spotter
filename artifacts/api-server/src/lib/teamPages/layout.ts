@@ -169,6 +169,10 @@ span.pin{pointer-events:none}
 .mapmove .zoomrow button{background:#0b5c6b;color:#fff}
 .mapmove .zoomrow button:disabled{background:#eee9da;color:#8a877e}
 .mapmove .label{margin:8px 0 6px}
+form.addsite,form.movesite{margin:12px 0 0}
+form.addsite button,form.typedpos button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#0b5c6b;color:#fff;cursor:pointer}
+form.movesite button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
+form.typedpos{margin:0 0 8px}
 .tapped{background:#fff;border:1px solid #d9d5ca;border-left:6px solid #b3261e;border-radius:8px;padding:10px 12px;margin:8px 0;font-variant-numeric:tabular-nums}
 main.mappage{line-height:22px}
 main.mappage h1{line-height:28px}
