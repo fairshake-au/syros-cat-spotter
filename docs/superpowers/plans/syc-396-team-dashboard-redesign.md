@@ -1,5 +1,7 @@
 # Team dashboard redesign: implementation plan (phases 0 and 1 in detail)
 
+**Status:** Approved by Samuel, 15 October 2026.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to carry out this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking. **Commit after every task, and write a checkpoint line to `PROGRESS.md` in your worktree after every task (what's done, what's next). Never hold work only in memory.**
 
 **Goal:** Build the approved team dashboard redesign. The team finds cats by look and place, sees every cat on one island map, plans trapping rounds, and gets honest reports. This plan covers phase 0 (SYC-395) and phase 1 step by step, and phases 2–5 as an outline.
