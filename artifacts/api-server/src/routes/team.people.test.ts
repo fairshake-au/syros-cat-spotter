@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { invitePerson, markLeft as dbMarkLeft, pool, type PersonWithScopes } from "@workspace/db";
+import { invitePerson, markLeft as dbMarkLeft, markLeftById, pool, setPlacements, type PersonWithScopes } from "@workspace/db";
 import app from "../app";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { installFakeResend, type SentMail } from "../test/fakeResend";
@@ -237,6 +237,29 @@ describe("a manager can never change themselves through this screen (the server 
     const res = await post(`/api/team/people/${susan.id}/sign-out`, susan);
     expect(res.status).toBe(409);
     expect((await personRow(susan.id)).session_version).toBe(before);
+  });
+  it("M1: your own id in CAPITALS is still yourself, on the screen and in lib/db", async () => {
+    const me = await joined("caps-me", ["staff", "management"]);
+    const upper = me.id.toUpperCase();
+    const before = (await personRow(me.id)).session_version;
+    for (const [path, body] of [
+      [`/api/team/people/${upper}/roles`, { roles: "staff" }],
+      [`/api/team/people/${upper}/left`, {}],
+      [`/api/team/people/${upper}/sign-out`, {}],
+    ] as const) {
+      const res = await post(path, me, body as Record<string, unknown>);
+      expect(res.status, path).toBe(409);
+    }
+    const row = await personRow(me.id);
+    expect(row.left_at).toBeNull();
+    expect(row.session_version).toBe(before);
+    const roles = (await pool.query(`select role from person_scopes where person_id = $1 order by role`, [me.id])).rows;
+    expect(roles.map((r: { role: string }) => r.role)).toEqual(["management", "staff"]);
+    // The same through lib/db directly, with an upper-cased self id.
+    await expect(setPlacements(me.id, upper, [{ role: "staff" }])).rejects.toThrow(/own roles/);
+    await expect(markLeftById(me.id, upper)).rejects.toThrow(/yourself/);
+    await expect(markLeftById(upper, me.id)).rejects.toThrow(/yourself/);
+    expect((await personRow(me.id)).left_at).toBeNull();
   });
   it("your own row has no buttons", async () => {
     const html = card((await get("/api/team/people", susan)).text, susan.id);

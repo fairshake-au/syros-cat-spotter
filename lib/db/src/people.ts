@@ -1785,7 +1785,7 @@ export function peopleStore(db: PeopleDb) {
       input: readonly PlacementInput[],
       hooks?: InTransaction<SetPlacementsResult>,
     ): Promise<SetPlacementsResult> {
-      if (by === personId) {
+      if (by.toLowerCase() === personId.toLowerCase()) {
         throw new PeopleError("You can't change your own roles. Nothing was changed.");
       }
       if (!isPersonId(personId)) throw new PeopleError("That person isn't on the list.");
@@ -1834,7 +1834,7 @@ export function peopleStore(db: PeopleDb) {
       personId: string,
       hooks?: InTransaction<MarkLeftResult>,
     ): Promise<MarkLeftResult> {
-      if (by === personId) {
+      if (by.toLowerCase() === personId.toLowerCase()) {
         throw new PeopleError("You can't mark yourself as left here. Use Stop helping on your own page.");
       }
       if (!isPersonId(personId)) throw new PeopleError("That person isn't on the list.");

@@ -146,6 +146,7 @@ const jsonOf = (v: PersonView) => ({
 });
 
 async function viewOf(res: Response, id: string): Promise<{ view: PersonView; row: ScreenPerson } | null> {
+  id = id.toLowerCase();
   if (!isPersonId(id)) return null;
   const { rows, views } = await loadAll(teamPerson(res).id);
   const i = rows.findIndex((r) => r.id === id);
@@ -239,7 +240,9 @@ async function answer(req: Request, res: Response, change: () => Promise<string>
 const MYSELF = "You can't do that to yourself here. Use the buttons on your own page.";
 
 function personIdOf(req: Request, res: Response): string | null {
-  const id = String(req.params["id"]);
+  // Canonical (lower case) once, so every comparison with the signed-in
+  // person's id below is exact: Postgres compares uuids without regard to case.
+  const id = String(req.params["id"]).toLowerCase();
   if (isPersonId(id)) return id;
   res.status(404);
   if (isFormPost(req)) res.type("html").send(renderNoSuchPerson(teamPerson(res).name));
