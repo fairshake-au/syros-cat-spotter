@@ -7,7 +7,7 @@ import { tr, pageLanguage, type Language } from "./strings";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely" | "people";
+export type NavKey = "queue" | "cats" | "colonies" | "sites" | "likely" | "people" | "myPage" | "myColonies";
 
 interface NavItem {
   key: NavKey;
@@ -33,7 +33,16 @@ const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/p
  * Set by requireTeam for the rest of a request, so every page drawn for a
  * management member carries the People link without each page passing it.
  */
-export const navContext = new AsyncLocalStorage<{ people: boolean }>();
+export const navContext = new AsyncLocalStorage<{
+  people: boolean;
+  /** Holds an island row (the team): they get the team's menu. A cat guardian doesn't. */
+  island?: boolean;
+  /** Signed in: every page carries "My page" (SYC-53 PR 1.3). */
+  mine?: boolean;
+}>();
+
+export const MY_PAGE_PATH = "/api/team/my";
+export const MY_COLONIES_PATH = "/api/team/my/colonies";
 
 const STYLES = `
 *{box-sizing:border-box}
@@ -294,6 +303,10 @@ export interface PageOptions {
   mainClass?: "mappage" | "wide";
   /** Show the People link (default: whatever requireTeam set for this request). */
   showPeople?: boolean;
+  /** The team (holds an island row) gets the team's menu (default: whatever requireTeam set; true without it). */
+  island?: boolean;
+  /** Carry the signed-in person's own links, "My page" (default: whatever requireTeam set; false without it). */
+  mine?: boolean;
 }
 
 export function renderPage(opts: PageOptions): string {
@@ -301,8 +314,20 @@ export function renderPage(opts: PageOptions): string {
   // passes the person's language, which still falls back to English until
   // that language is live; `<html lang>` is the language actually used.
   const lang: Language = pageLanguage(opts.lang, opts.liveLanguages);
-  const showPeople = opts.showPeople ?? navContext.getStore()?.people ?? false;
-  const nav = (opts.nav === false ? [] : showPeople ? [...NAV, PEOPLE_NAV] : NAV).map((n) => {
+  const ctx = navContext.getStore();
+  const showPeople = opts.showPeople ?? ctx?.people ?? false;
+  const island = opts.island ?? ctx?.island ?? true;
+  const mine = opts.mine ?? ctx?.mine ?? false;
+  // The team's menu for the team (not for a refusal page); a cat guardian's
+  // own two links; "My page" for everyone signed in. SYC-53 PR 1.3.
+  const own: NavItem[] = mine
+    ? [
+        ...(island ? [] : [{ key: "myColonies" as const, label: tr(lang, "nav.myColonies", undefined, opts.liveLanguages), href: MY_COLONIES_PATH }]),
+        { key: "myPage" as const, label: tr(lang, "nav.myPage", undefined, opts.liveLanguages), href: MY_PAGE_PATH },
+      ]
+    : [];
+  const team: NavItem[] = opts.nav === false || !island ? [] : showPeople ? [...NAV, PEOPLE_NAV] : NAV;
+  const nav = [...team, ...own].map((n) => {
     // On a phone "Welfare queue" shows as "Queue" (CSS picks one).
     const label = n.short
       ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`

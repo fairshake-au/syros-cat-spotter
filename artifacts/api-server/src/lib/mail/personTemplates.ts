@@ -18,14 +18,22 @@ export type AccessChange =
   | { kind: "rejoined"; roles: string[]; colonyIds: number[] }
   | { kind: "roles_changed"; before: string[]; after: string[] }
   | { kind: "left"; withdrawn: number }
-  | { kind: "signed_out_everywhere" };
+  // The person's own "Stop helping" (SYC-53 PR 1.3): they are the subject and
+  // nobody else acted, so it has its own words, never "marked ... as left".
+  | { kind: "left_self"; withdrawn: number }
+  | { kind: "signed_out_everywhere" }
+  // Someone signing THEMSELVES out everywhere (SYC-53 PR 1.3): neutral
+  // wording that names the person once ("Susan signed out ... on every device").
+  | { kind: "signed_out_self" };
 
 export const ACCESS_CHANGE_KINDS = [
   "invited",
   "rejoined",
   "roles_changed",
   "left",
+  "left_self",
   "signed_out_everywhere",
+  "signed_out_self",
 ] as const;
 
 const escape = (value: string): string =>
@@ -132,6 +140,15 @@ export function renderAccessNotice(
         lines.push(tr(lang, "mail.notice.withdrawn", { subject, count: String(c.withdrawn) }, live));
       }
       break;
+    case "left_self":
+      lines.push(tr(lang, "mail.notice.leftSelf", { subject }, live));
+      if (c.withdrawn > 0) {
+        lines.push(tr(lang, "mail.notice.withdrawn", { subject, count: String(c.withdrawn) }, live));
+      }
+      break;
+    case "signed_out_self":
+      lines.push(tr(lang, "mail.notice.signedOutSelf", { subject }, live));
+      break;
     case "signed_out_everywhere":
       lines.push(tr(lang, "mail.notice.signedOut", { actor, subject }, live));
       break;
@@ -157,8 +174,10 @@ export function isAccessChange(value: unknown): value is AccessChange {
     case "roles_changed":
       return strings(v["before"]) && strings(v["after"]);
     case "left":
+    case "left_self":
       return Number.isInteger(v["withdrawn"]);
     case "signed_out_everywhere":
+    case "signed_out_self":
       return true;
     default:
       return false;

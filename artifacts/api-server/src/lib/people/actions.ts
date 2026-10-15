@@ -7,17 +7,21 @@ import {
   resendInvitation,
   setPlacements,
   signOutEverywhereById,
+  stopHelping as stopHelpingById,
+  personScopesTable,
+  scopeInForce,
   withdrawInvitation,
   type PersonWithScopes,
   type PlacementInput,
   type PeopleTx,
 } from "@workspace/db";
 import { can } from "../capabilities";
+import { isTeamRole, TEAM_ROLE_NAMES } from "../teamRoles";
 import { addressKey, consume, declareLimit } from "../limits";
 import { enqueueAccessNotices, enqueuePersonInvite } from "../mail/personOutbox";
 import { kickRow } from "../mail/outbox";
 import { hashRecipient } from "../mail/send";
-import { sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { AccessChange } from "../mail/personTemplates";
 import { pageLanguage } from "../teamPages/strings";
 
@@ -286,16 +290,60 @@ export async function markLeft(
  */
 export async function signOutEverywhere(actor: PersonWithScopes, personId: string): Promise<ActionResult> {
   if (actor.id !== personId) requireManager(actor);
+  // Yourself: only the team and management tell the other managers (SYC-53
+  // PR 1.3, Samuel 15 Oct 2026). A cat guardian signing herself out emails nobody.
+  const quiet = actor.id === personId && !holdsTeamRole(actor);
   const outboxIds: number[] = [];
   await run(() =>
     signOutEverywhereById(actor.id, personId, {
       inTransaction: async (tx) => {
-        outboxIds.push(...(await notify(tx, actor, personId, { kind: "signed_out_everywhere" })));
+        if (quiet) return;
+        outboxIds.push(
+          ...(await notify(tx, actor, personId, { kind: actor.id === personId ? "signed_out_self" : "signed_out_everywhere" })),
+        );
       },
     }),
   );
   kickAll(outboxIds);
   return { personId, outboxIds };
+}
+
+/** Does this person hold the team or management right now (not only a colony placement)? */
+function holdsTeamRole(p: Pick<PersonWithScopes, "scopes">): boolean {
+  return p.scopes.some((s) => isTeamRole(s.role));
+}
+
+/**
+ * The person's own "Stop helping" (§9.1, §9.5; SYC-53 PR 1.3). Recorded as
+ * `left` by `self`. If she held the team or management at that moment (read
+ * inside the same transaction, her rows are kept when she leaves), every other
+ * manager gets a notice in its own words ("Susan stopped helping Syros Cats"),
+ * queued with the change. A cat guardian's own stop emails nobody. The last
+ * manager is refused by the lib/db function and nothing is queued.
+ */
+export async function stopHelping(person: PersonWithScopes): Promise<{ personId: string; outboxIds: number[] }> {
+  const outboxIds: number[] = [];
+  await run(() =>
+    stopHelpingById(person.id, {
+      inTransaction: async (tx, res) => {
+        const held = await tx
+          .select({ role: personScopesTable.role })
+          .from(personScopesTable)
+          .where(
+            and(
+              eq(personScopesTable.personId, person.id),
+              inArray(personScopesTable.role, [...TEAM_ROLE_NAMES]),
+              scopeInForce(),
+            ),
+          )
+          .limit(1);
+        if (held.length === 0) return;
+        outboxIds.push(...(await notify(tx, person, person.id, { kind: "left_self", withdrawn: res.withdrawnInvitations })));
+      },
+    }),
+  );
+  kickAll(outboxIds);
+  return { personId: person.id, outboxIds };
 }
 
 /** Bring someone back (§9.4): roles afresh, pending again, a new invitation. */

@@ -84,11 +84,10 @@ export const FORBIDDEN_JSON = { error: "forbidden" } as const;
 
 /**
  * Where "Your colonies are here" points. A team member's home is the
- * dashboard. A cat guardian's "My colonies" page is PR 1.3's; until then her
- * only page is GET /api/team/me, which lists her colonies.
+ * dashboard. A cat guardian's home is "My colonies" (SYC-53 PR 1.3).
  */
 export const TEAM_HOME_PATH = "/api/team/";
-export const GUARDIAN_HOME_PATH = "/api/team/me";
+export const GUARDIAN_HOME_PATH = "/api/team/my/colonies";
 
 /** Who is being refused, as far as the page needs to know. */
 export interface RefusedPerson {
@@ -124,6 +123,8 @@ export function forbiddenPage(
     title: tr(lang, person.island ? "refused.titleManagement" : "refused.title", undefined, live),
     active: null,
     nav: person.island,
+    island: person.island,
+    mine: true,
     personName: person.name,
     lang,
     liveLanguages: live,
@@ -141,6 +142,8 @@ export function accessEndedPage(
     title: tr(lang, "ended.title", undefined, live),
     active: null,
     nav: false,
+    island: false,
+    mine: true,
     personName: person.name,
     lang,
     liveLanguages: live,
