@@ -1,4 +1,5 @@
 import { escapeHtml } from "./escape";
+import { tr, pageLanguage, type Language } from "./strings";
 
 // The one page shell for the staff dashboard (SYC-43 part 2 plan, PR 1).
 // Plain server-drawn HTML: no scripts, mobile first, styles in one <style>
@@ -211,6 +212,13 @@ export interface PageOptions {
   nav?: boolean;
   /** The signed-in person's name (escaped here). */
   personName: string;
+  /**
+   * The person's language, for guardian-facing pages only. Anything not live
+   * yet is drawn in English (see strings/index.ts). Default English.
+   */
+  lang?: string | null;
+  /** Test seam: which languages count as live. Production never passes it. */
+  liveLanguages?: readonly Language[];
   /** Trusted HTML: built only from fixed text and escapeHtml. */
   banner?: string;
   /** Trusted HTML above the heading (a back link). Fixed text and escapeHtml only. */
@@ -228,6 +236,10 @@ export interface PageOptions {
 }
 
 export function renderPage(opts: PageOptions): string {
+  // Team pages pass no language and stay English. A guardian-facing page
+  // passes the person's language, which still falls back to English until
+  // that language is live; `<html lang>` is the language actually used.
+  const lang: Language = pageLanguage(opts.lang, opts.liveLanguages);
   const nav = (opts.nav === false ? [] : NAV).map((n) => {
     const label = escapeHtml(n.label);
     if (!n.href) return `<span class="off">${label}</span>`;
@@ -237,19 +249,21 @@ export function renderPage(opts: PageOptions): string {
   }).join("");
   return (
     "<!doctype html>" +
-    '<html lang="en"><head><meta charset="utf-8">' +
+    `<html lang="${lang}"><head><meta charset="utf-8">` +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<meta name="robots" content="noindex">' +
     `<title>${escapeHtml(opts.title)}</title>` +
     `<style>${STYLES}</style></head><body>` +
     `<nav class="bar">${nav}` +
-    '<form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form>' +
+    '<form method="post" action="/api/team/signout"><button type="submit">' +
+    escapeHtml(tr(lang, "shell.signOut", undefined, opts.liveLanguages)) +
+    "</button></form>" +
     `</nav><main${opts.mainClass ? ` class="${opts.mainClass}"` : ""}>` +
     (opts.banner ?? "") +
     (opts.beforeTitle ?? "") +
     `<h1>${escapeHtml(opts.title)}</h1>` +
     (opts.afterTitle ?? "") +
-    `<p class="who">Signed in as ${escapeHtml(opts.personName)}</p>` +
+    `<p class="who">${escapeHtml(tr(lang, "shell.signedInAs", { name: opts.personName }, opts.liveLanguages))}</p>` +
     opts.body +
     "</main></body></html>"
   );

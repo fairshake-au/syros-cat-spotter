@@ -46,7 +46,11 @@ export function teamPerson(res: Response): PersonWithScopes {
  */
 export function refuseSignedIn(req: Request, res: Response): void {
   const person = teamPerson(res);
-  refuseForbidden(req, res, { name: person.name, island: holdsIslandRow(person) });
+  refuseForbidden(req, res, {
+    name: person.name,
+    island: holdsIslandRow(person),
+    language: person.language,
+  });
 }
 
 /** Where a placed check applies, read from the record for this request. */
@@ -132,6 +136,7 @@ export function requireTeam(
           refuseForbidden(req, res, {
             name: person.name,
             island: holdsIslandRow(person),
+            language: person.language,
           });
           return;
         }
