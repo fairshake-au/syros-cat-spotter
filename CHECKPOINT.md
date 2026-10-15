@@ -12,12 +12,22 @@ Branch: claude/syc-42-slice-3-reporter-email (worktree compassionate-meninsky-98
 - News (SYC-45) not built -> news tick box stays hidden.
 - Emails today are English only (keepSafeTemplates). Open question to Samuel: reporter email language.
 
-## Plan items
+## Decisions
+- Samuel, 15 Oct 2026: reporter emails in English for everyone until SYC-283 checks el/fr.
+
+## Plan items (server DONE through 7a3689e; app next)
 - [ ] 3.1 email box + consent wording (email-capture §3.4) in the app flow
-- [ ] 3.2 address -> email_contacts(purpose report); report row holds reporter_contact_id
-- [ ] 3.3 fixed verification (§4.1) from news; nothing else until confirmed
-- [ ] 3.4 ack (§5.3g) after confirm + one outcome (§5.3h) at closing state; optional team sentence on Done
-- [ ] 3.5 limits 1/24h, 3 lifetime, suppression; report row always written
-- [ ] 3.6 mail_deliveries + Resend webhook (signature-checked) -> suppression
+- [x] 3.2 address -> email_contacts(purpose report); report row holds reporter_contact_id
+- [x] 3.3 fixed verification (§4.1) from news; nothing else until confirmed
+- [x] 3.4 ack (§5.3g) after confirm + one outcome (§5.3h) at closing state; optional team sentence on Done
+- [x] 3.5 limits 1/24h, 3 lifetime, suppression; report row always written
+- [x] 3.6 mail_deliveries + Resend webhook (signature-checked) -> suppression
 - [ ] 3.7 confirmation screen "If an email was given" line
-- [ ] SYC-63: severPerson erases reporter contacts
+- [x] SYC-63: severPerson erases reporter contacts
+
+## Next
+- App: email box on screen 2 (after 'What you saw', spec §4.2 order), GET /api/reports/options gate,
+  PendingReport.email, confirmation line (guidance copy.confirmation.emailGiven/emailGivenOffline, el/fr drafts).
+- Browser check at 390 px + desktop; measure screen 2 scroll (Samuel's no-scroll rule, 2 Oct).
+- Full api suite (local esbuild dies under load: rerun with --maxWorkers=2).
+- PR, Sonnet adversarial review in own worktree, Linear.
