@@ -114,7 +114,7 @@ export function buildWelfareAlert(
 ): { subject: string; text: string; html: string; attachments?: MailAttachment[] } {
   // A "Report an issue" row (SYC-44) has no position and never gets this
   // email; the outbox refuses it before getting here (`wrong_kind`).
-  if (report.kind !== "welfare" || report.lat === null || report.lng === null) {
+  if (report.lat === null || report.lng === null) {
     throw new Error("buildWelfareAlert: not a welfare report");
   }
   const { lat, lng } = report;

@@ -38,7 +38,7 @@ const ALLOWLIST: Record<string, string> = {
   "artifacts/api-server/src/lib/mail/outbox.ts":
     "a welfare_alert for a non-welfare report is failed wrong_kind; the unchecked-waiting count is kind = 'welfare'",
   "artifacts/api-server/src/lib/welfare/alertEmail.ts":
-    "builds the welfare alert only: throws for a row that is not a welfare report (it has no position)",
+    "builds the welfare alert only: throws for a row with no position (the outbox checks the kind before calling it)",
   "artifacts/api-server/src/routes/reports.ts":
     "welfare only: both upserts target (reporter_device, kind, client_ref) and write kind = 'welfare'; sentReport and the photo PUT filter kind = 'welfare'",
   "artifacts/api-server/src/lib/severPerson.ts":
