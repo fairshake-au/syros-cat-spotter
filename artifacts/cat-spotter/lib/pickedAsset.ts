@@ -11,7 +11,12 @@
  * That object also holds the photo's GPS position. It goes straight into
  * `extractTimeTags`, which keeps five time strings, and is not stored,
  * returned or logged.
+ *
+ * The website (slice 2W): its picker reads no tags, so the time comes from the
+ * file itself, through `readJpegTimeTags`, which reads time tags only. The
+ * same `resolvePhotoTime` then applies, so the website follows the apps' rules.
  */
+import { readJpegTimeTags } from './jpegTimeTags';
 import { extractTimeTags, resolvePhotoTime, type PhotoTime } from './photoClock';
 import { photoFingerprint } from './recentPhotos';
 
@@ -21,10 +26,17 @@ export interface PickedPhoto {
 }
 
 /**
- * 'unread': we did not get the photo's tags (the website, or a phone picker
- * that returned none), so there is nothing honest to say about its time.
+ * 'unread': we did not get the photo's tags (the camera, a phone picker that
+ * returned none, or a website pick with no file bytes), so there is nothing
+ * honest to say about its time.
  */
 export type PhotoTimeInfo = PhotoTime | { kind: 'unread' };
+
+/**
+ * Where a picked photo's time comes from: nowhere (the camera: a photo taken
+ * now is dated now), the phone picker's tags, or the file itself (the website).
+ */
+export type TimeFrom = 'nowhere' | 'pickerTags' | 'file';
 
 export interface PickerAssetLike {
   uri: string;
@@ -32,8 +44,15 @@ export interface PickerAssetLike {
   exif?: unknown;
 }
 
-function timeInfoFor(exif: unknown, readTime: boolean, now: number): PhotoTimeInfo {
-  if (!readTime) return { kind: 'unread' };
+function timeInfoFor(asset: PickerAssetLike, timeFrom: TimeFrom, now: number): PhotoTimeInfo {
+  if (timeFrom === 'nowhere') return { kind: 'unread' };
+  if (timeFrom === 'file') {
+    if (!asset.base64) return { kind: 'unread' };
+    // We did read the file: finding no time in it is "the photo doesn't say".
+    const tags = readJpegTimeTags(asset.base64);
+    return tags ? resolvePhotoTime(tags, now) : { kind: 'none', reason: 'missing' };
+  }
+  const exif = asset.exif;
   // Android's picker can return nothing for a JPEG that does carry a time, so
   // an empty answer is "we don't know", never "the photo doesn't say".
   if (!exif || typeof exif !== 'object' || Object.keys(exif).length === 0) {
@@ -45,14 +64,13 @@ function timeInfoFor(exif: unknown, readTime: boolean, now: number): PhotoTimeIn
 export async function readPickedAsset(
   asset: PickerAssetLike,
   options: {
-    /** False on the website, and for the camera: a photo taken now is dated now. */
-    readTime: boolean;
+    timeFrom: TimeFrom;
     now: number;
     shrink: (uri: string) => Promise<PickedPhoto>;
     maxUploadBytes: number;
   },
 ): Promise<{ photo: PickedPhoto; timeInfo: PhotoTimeInfo; fingerprint: string }> {
-  const timeInfo = timeInfoFor(asset.exif, options.readTime, options.now);
+  const timeInfo = timeInfoFor(asset, options.timeFrom, options.now);
   // base64 length * 3/4 ≈ decoded byte size.
   const photo =
     asset.base64 && asset.base64.length * 0.75 <= options.maxUploadBytes

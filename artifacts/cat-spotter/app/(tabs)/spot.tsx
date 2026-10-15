@@ -84,12 +84,6 @@ import {
 } from '@/lib/recentPhotos';
 import { queuedSighting, sightingRequest } from '@/lib/sightingPayload';
 
-/**
- * The recent-photos list (SYC-166 Decision 2 B) runs in the phone apps only;
- * the website stores nothing new until its own time reader (slice 2W).
- */
-const recentPhotosOn = Platform.OS !== 'web';
-
 /** A library photo that can't be used, said in a card with the library offered again. */
 type PhotoProblem =
   | { kind: 'tooOld'; instantMs: number }
@@ -161,8 +155,8 @@ export default function SpotScreen() {
   // the wrong day for streak purposes.
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   // SYC-166: what the library photo said about its own time ('unread' when we
-  // did not read it: the camera, the website, an empty answer). Null with no
-  // photo.
+  // did not read it: the camera, or an empty answer from a phone's picker).
+  // Null with no photo.
   const [photoTime, setPhotoTime] = useState<PhotoTimeInfo | null>(null);
   // The picked photo's fingerprint, for "You've already logged this photo".
   const photoFingerprintRef = React.useRef<string | undefined>(undefined);
@@ -305,14 +299,16 @@ export default function SpotScreen() {
             preferredAssetRepresentationMode:
               ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
             // SYC-166: the photo's own date and time. iPhone and Android only;
-            // the website's picker reads no tags (slice 2W is its own reader).
+            // the website's picker reads no tags, so the website reads the
+            // time from the file itself (slice 2W, lib/jpegTimeTags.ts).
             // The answer also holds the photo's position: only
             // lib/pickedAsset.ts looks at it, and keeps the time alone.
             exif: Platform.OS !== 'web',
           });
       if (!result.canceled && result.assets[0]) {
         return await readPickedAsset(result.assets[0], {
-          readTime: !fromCamera && Platform.OS !== 'web',
+          // A camera photo is taken now, so it is dated now.
+          timeFrom: fromCamera ? 'nowhere' : Platform.OS === 'web' ? 'file' : 'pickerTags',
           now: Date.now(),
           shrink,
           maxUploadBytes: MAX_UPLOAD_BYTES,
@@ -329,10 +325,10 @@ export default function SpotScreen() {
     const picked = await choosePhoto(fromCamera);
     if (!picked) return;
     const { photo: next, timeInfo, fingerprint } = picked;
-    // The iPhone and Android apps only: the website keeps today's behaviour
-    // until its own time reader (slice 2W) arrives.
-    const libraryOnPhone = !fromCamera && Platform.OS !== 'web';
-    if (libraryOnPhone) {
+    // Every library photo, on the apps and the website (slice 2W). The camera
+    // is untouched: a photo taken now is dated now and can't be a repeat.
+    const fromLibrary = !fromCamera;
+    if (fromLibrary) {
       // More than 21 days old: not accepted, and the library offered again.
       if (timeInfo.kind === 'tooOld') {
         releasePhotoUri(next.uri);
@@ -355,7 +351,7 @@ export default function SpotScreen() {
     }
     setPhoto(next);
     setPhotoTime(timeInfo);
-    photoFingerprintRef.current = libraryOnPhone ? fingerprint : undefined;
+    photoFingerprintRef.current = fromLibrary ? fingerprint : undefined;
     setCapturedAt(
       timeInfo.kind === 'ok'
         ? new Date(timeInfo.instantMs).toISOString()
@@ -501,12 +497,13 @@ export default function SpotScreen() {
         // Two different photos from the same second would otherwise be one
         // sighting to the server (SYC-166 Decision 2 B): move this one on by
         // a millisecond. Same list, same answer, so a retry sends the same
-        // time. Phone apps only: the website keeps today's behaviour, and
-        // stores nothing new, until its own time reader (slice 2W).
+        // time. On the website too (slice 2W), where the list lives in this
+        // browser's own storage.
         const pickedMs = Date.parse(capturedAt ?? new Date().toISOString());
-        const sightingMs = recentPhotosOn
-          ? uniqueCaptureTime(pickedMs, await loadRecentPhotos(AsyncStorage, Date.now()))
-          : pickedMs;
+        const sightingMs = uniqueCaptureTime(
+          pickedMs,
+          await loadRecentPhotos(AsyncStorage, Date.now()),
+        );
         const sightingTime = new Date(sightingMs).toISOString();
         const fingerprint = photoFingerprintRef.current;
         const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -567,7 +564,7 @@ export default function SpotScreen() {
               }
             : { localId },
         );
-        if (recentPhotosOn && remembered) {
+        if (remembered) {
           await recordRecentPhoto(AsyncStorage, remembered, Date.now());
         }
 
@@ -971,7 +968,7 @@ export default function SpotScreen() {
               disabled={submitting}
             />
             {/* SYC-166: only what the photo itself said. Nothing when we did not
-                read it (the camera, the website, an empty answer). */}
+                read it (the camera, an empty answer from a phone's picker). */}
             {photoTime?.kind === 'ok' ? (
               <Text
                 style={[styles.subtitle, { color: colors.mutedForeground }]}
