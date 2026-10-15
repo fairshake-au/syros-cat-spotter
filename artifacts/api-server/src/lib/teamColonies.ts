@@ -161,7 +161,7 @@ export interface ColonyView {
  * someone who has left (the welfare history's rule, SYC-43 part 2 Decision 7).
  * Read from the list directly: findPersonById refuses a person who has left.
  */
-async function personLabels(ids: readonly string[]): Promise<Map<string, string>> {
+export async function personLabels(ids: readonly string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const unique = [...new Set(ids)];
   if (unique.length === 0) return out;

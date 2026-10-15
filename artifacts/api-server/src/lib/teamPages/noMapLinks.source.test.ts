@@ -33,6 +33,9 @@ describe("no link to a map company from the team's pages", () => {
   it("finds the page sources", () => {
     expect(sources).toContain("catPages.ts");
     expect(sources).toContain("queuePage.ts");
+    // SYC-209 PR 3.2: the Feeding sites pages are covered too.
+    expect(sources).toContain("sitePages.ts");
+    expect(sources).toContain("map.ts");
   });
 
   it("the cat page contains neither a Google nor an Apple maps address", () => {

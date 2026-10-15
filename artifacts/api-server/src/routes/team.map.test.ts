@@ -505,7 +505,9 @@ describe("the Map page", () => {
     expect(res.headers["content-security-policy"]).toBe(EXPECTED_CSP);
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(res.text).not.toMatch(/<script/i);
-    expect(res.text).toContain('aria-current="page">Map</a>');
+    // PR 3.2 folded the temporary "Map" menu item into "Feeding sites".
+    expect(res.text).not.toContain('aria-current="page">Map</a>');
+    expect(res.text).toContain('href="/api/team/sites">Feeding sites</a>');
     expect(res.text).toContain("© <a href=\"https://www.openstreetmap.org/copyright\"");
     expect(res.text).toContain("OpenStreetMap contributors");
     expect(res.text).toContain('<main class="mappage">');

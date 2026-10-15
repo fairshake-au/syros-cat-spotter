@@ -41,7 +41,15 @@ export interface MapMarker extends Position {
   label: string;
   /** View mode: where the marker goes. Never holds a position. */
   href?: string;
+  /** How a feeding site's marker looks (SYC-209 PR 3.2); a fixed set, never free text. */
+  look?: "public" | "private" | "retired";
 }
+
+const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
+  public: " site-public",
+  private: " site-private",
+  retired: " site-retired",
+};
 
 export interface MapOptions {
   /** What to show: a view, or a centre and zoom to build one around. */
@@ -56,9 +64,15 @@ export interface MapOptions {
   moveAction?: string;
   /** Extra hidden fields every map form carries (a page's own context). */
   hidden?: Record<string, string>;
+  /** Leave out the zoom, pan and area buttons (a small map on a page of its own). Default true. */
+  controls?: boolean;
   /** Seconds, for the picture tokens; tests pin it. */
   now?: number;
 }
+
+/** Where a map opens: the middle of the island, zoom 12. */
+export const ISLAND_CENTRE: Position = { lat: 37.445, lng: 24.93 };
+export const START_ZOOM = 12;
 
 export const DEFAULT_TAP_ACTION = "/api/team/map/tap";
 export const DEFAULT_MOVE_ACTION = "/api/team/map";
@@ -100,9 +114,10 @@ function band(view: View, size: number, opts: MapOptions): string {
       if (!at) return "";
       const style = `left:${at.left}px;top:${at.top}px`;
       const label = esc(m.label);
+      const cls = "pin" + (m.look && Object.hasOwn(LOOKS, m.look) ? LOOKS[m.look] : "");
       return opts.mode === "view" && m.href
-        ? `<a class="pin" style="${style}" href="${esc(m.href)}" title="${label}"><span class="sr">${label}</span></a>`
-        : `<span class="pin" style="${style}" title="${label}"><span class="sr">${label}</span></span>`;
+        ? `<a class="${cls}" style="${style}" href="${esc(m.href)}" title="${label}"><span class="sr">${label}</span></a>`
+        : `<span class="${cls}" style="${style}" title="${label}"><span class="sr">${label}</span></span>`;
     })
     .join("");
   return (
@@ -154,6 +169,6 @@ export function renderMap(opts: MapOptions): string {
     BANDS.map((b) => band(view, b.size, opts)).join("") +
     "</div>" +
     '<p class="attrib">Map pictures © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a></p>' +
-    controls(view, opts)
+    (opts.controls === false ? "" : controls(view, opts))
   );
 }
