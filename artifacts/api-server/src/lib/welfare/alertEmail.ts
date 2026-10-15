@@ -245,3 +245,29 @@ export function buildWelfareAlert(
     : undefined;
   return { subject, text, html, attachments };
 }
+
+/**
+ * SYC-170: the one "N unchecked reports waiting" email an hour, sent when
+ * more than 10 reports in an hour arrived while Cloudflare's check was
+ * unreachable. It carries no report's contents (they may be a script's), only
+ * the count and where to look.
+ */
+export function buildUncheckedWaiting(count: number): { subject: string; text: string; html: string } {
+  const reports = count === 1 ? "1 unchecked cat report" : `${count} unchecked cat reports`;
+  const subject = `${reports} waiting in the welfare queue`;
+  const lines = [
+    `${reports} arrived while the safety check (Cloudflare) couldn't be reached, after the 10 an hour that are emailed one by one.`,
+    "",
+    'They are in the welfare queue, in the list "Unchecked (Cloudflare was unreachable)" below the other reports. Nothing has been lost.',
+    "",
+    "Most are probably real reports sent during an outage, but some may not be. Please look at them in the dashboard.",
+    "",
+    "Sent by Cat Spotters for Syros Cats.",
+  ];
+  const text = lines.join("\n");
+  const html =
+    '<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#101828">' +
+    lines.filter(Boolean).map((l) => `<p>${escapeHtml(l)}</p>`).join("") +
+    "</div>";
+  return { subject, text, html };
+}

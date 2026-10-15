@@ -63,12 +63,47 @@ export interface AppNotification {
   createdAt: string;
 }
 
+/**
+ * The mode in force. Production is "enforce" unless the pre-launch gate is on.
+ */
+export type HealthStatusTurnstileMode = typeof HealthStatusTurnstileMode[keyof typeof HealthStatusTurnstileMode];
+
+
+export const HealthStatusTurnstileMode = {
+  off: 'off',
+  observe: 'observe',
+  enforce: 'enforce',
+} as const;
+
+/**
+ * Whether TURNSTILE_SECRET_KEY is set.
+ */
+export type HealthStatusTurnstileSecret = typeof HealthStatusTurnstileSecret[keyof typeof HealthStatusTurnstileSecret];
+
+
+export const HealthStatusTurnstileSecret = {
+  configured: 'configured',
+  not_configured: 'not_configured',
+} as const;
+
+/**
+ * The Turnstile check on the public report forms (SYC-170). Never the key itself.
+ */
+export type HealthStatusTurnstile = {
+  /** The mode in force. Production is "enforce" unless the pre-launch gate is on. */
+  mode: HealthStatusTurnstileMode;
+  /** Whether TURNSTILE_SECRET_KEY is set. */
+  secret: HealthStatusTurnstileSecret;
+};
+
 export interface HealthStatus {
   status: string;
   /** Short git commit the running server was built from, or "unknown" when the build couldn't read it (and in development). */
   commit: string;
   /** When the running server was built (ISO 8601), or "unknown". */
   builtAt: string;
+  /** The Turnstile check on the public report forms (SYC-170). Never the key itself. */
+  turnstile: HealthStatusTurnstile;
 }
 
 /**

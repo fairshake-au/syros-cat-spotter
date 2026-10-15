@@ -658,3 +658,104 @@ describe('SYC-3 Decision 12: a restore link carries its token in the fragment', 
     expect(res.headers.location).toBe('/restore');
   });
 });
+
+describe('SYC-170: /_challenge (Turnstile page)', () => {
+  const OK = '/_challenge?action=welfare_report&cdata=r-test123';
+  // The test sitekey is served only when NODE_ENV says development or test.
+  const DEV = { NODE_ENV: 'development' };
+
+  it('is served with the gate off', async () => {
+    const req = await start({ PRELAUNCH_GATE: 'off', NODE_ENV: 'development' });
+    const res = await req('GET', OK);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.body).toContain('challenges.cloudflare.com/turnstile/v0/api.js');
+    expect(res.body).toContain('"welfare_report"');
+    expect(res.body).toContain('"r-test123"');
+    expect(res.body).toContain('before-interactive-callback');
+    expect(res.body).toContain('1x00000000000000000000AA'); // dev fallback
+  });
+
+  it('is served with the gate on and no cookie, and nothing may frame it, gate on or off', async () => {
+    for (const env of [gatedEnv(DEV), { PRELAUNCH_GATE: 'off', NODE_ENV: 'development' }]) {
+      const req = await start(env);
+      const res = await req('GET', OK);
+      expect(res.status).toBe(200);
+      expect(res.body).toContain('turnstile.render');
+      expect(res.headers['x-frame-options']).toBe('DENY');
+      expect(res.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+      expect(res.headers['content-security-policy']).not.toContain("frame-ancestors 'self'");
+      expect(res.headers['cache-control']).toBe('no-store');
+    }
+  });
+
+  it('hands the token only to the phone WebView, never to a parent page', async () => {
+    const req = await start(gatedEnv(DEV));
+    const res = await req('GET', OK);
+    expect(res.body).toContain('ReactNativeWebView.postMessage');
+    expect(res.body).not.toContain('window.parent');
+  });
+
+  it('uses TURNSTILE_SITEKEY; production without one is 503', async () => {
+    const req = await start({ PRELAUNCH_GATE: 'off', TURNSTILE_SITEKEY: '0xPRODKEY' });
+    expect((await req('GET', OK)).body).toContain('"0xPRODKEY"');
+    const prod = await start({ PRELAUNCH_GATE: 'off', NODE_ENV: 'production' });
+    expect((await prod('GET', OK)).status).toBe(503);
+  });
+
+  it('review finding 4: with no NODE_ENV at all (how production runs), no sitekey is 503, never the test key', async () => {
+    for (const env of [{ PRELAUNCH_GATE: 'off' }, gatedEnv(), { PRELAUNCH_GATE: 'off', NODE_ENV: 'staging' }]) {
+      const req = await start(env);
+      const res = await req('GET', OK);
+      expect(res.status).toBe(503);
+      expect(res.body).not.toContain('1x00000000000000000000AA');
+    }
+    const test = await start({ PRELAUNCH_GATE: 'off', NODE_ENV: 'test' });
+    expect((await test('GET', OK)).body).toContain('1x00000000000000000000AA');
+  });
+
+  it.each([
+    '/_challenge',
+    '/_challenge?action=nope&cdata=x',
+    '/_challenge?action=welfare_report&cdata=has%20space',
+    '/_challenge?action=welfare_report&cdata=' + 'a'.repeat(101),
+    '/_challenge?action=welfare_report&cdata=%3Cscript%3E',
+  ])('rejects a bad query: %s', async (url) => {
+    for (const env of [{ PRELAUNCH_GATE: 'off', NODE_ENV: 'development' }, gatedEnv(DEV)]) {
+      const req = await start(env);
+      expect((await req('GET', url)).status).toBe(400);
+    }
+  });
+
+  it('accepts each allowed action and a 100-character cdata', async () => {
+    const req = await start(gatedEnv(DEV));
+    for (const action of ['welfare_report', 'welfare_draft', 'report_issue']) {
+      expect((await req('GET', `/_challenge?action=${action}&cdata=${'a'.repeat(100)}`)).status).toBe(200);
+    }
+    expect((await req('GET', '/_challenge?action=report_issue')).status).toBe(200);
+  });
+
+  it('does not accept POST', async () => {
+    const req = await start(gatedEnv(DEV));
+    expect((await req('POST', OK)).status).toBe(405);
+  });
+
+  it('exempts nothing else from the gate', async () => {
+    const req = await start(gatedEnv(DEV));
+    for (const p of [
+      '/_challenge/',
+      '/_challenge/x',
+      '/_challenge.html',
+      '/_challenges',
+      '/x/_challenge',
+      '/_Challenge',
+      '/cat/1',
+      '/',
+    ]) {
+      const res = await req('GET', `${p}?action=welfare_report`);
+      expect(res.body, p).not.toContain('turnstile.render');
+      expect(res.body, p).not.toContain('<html>home');
+    }
+    expect((await req('GET', '/_expo/static/js/web/x.js')).status).toBe(401);
+  });
+});

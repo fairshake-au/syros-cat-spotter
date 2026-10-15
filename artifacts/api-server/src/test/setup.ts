@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { beforeEach } from "vitest";
 import { _resetNewDeviceLimitForTests } from "../middlewares/newDeviceLimit";
+import { _resetUncheckedLimitForTests } from "../lib/uncheckedLimit";
 
 // SYC-195: every test request comes from the same address (127.0.0.1), and
 // many suites register far more than one hour's allowance of new devices.
@@ -12,4 +13,6 @@ process.env["EMAIL_FINGERPRINT_KEY"] ??= crypto.randomBytes(32).toString("base64
 
 beforeEach(() => {
   _resetNewDeviceLimitForTests();
+  // SYC-170: the unchecked-report allowance, likewise per test.
+  _resetUncheckedLimitForTests();
 });

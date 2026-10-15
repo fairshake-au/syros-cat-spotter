@@ -112,7 +112,9 @@ beforeAll(async () => {
       lat: ORIGIN.lat,
       lng: ORIGIN.lng,
       status: "resolved",
-      createdAt: new Date(Date.now() - 3_600_000),
+      // An hour ago, but never before today's UTC midnight: lastSeenAt is a UTC
+      // day, and the snapshot swaps today's date for <today> (failed 00:00–01:00 UTC).
+      createdAt: new Date(Math.max(Date.now() - 3_600_000, new Date().setUTCHours(0, 0, 1, 0))),
     },
   ]);
   const [update] = await db

@@ -780,7 +780,20 @@ components:
         builtAt:
           type: string
           description: When the running server was built (ISO 8601), or "unknown".
-      required: [status, commit, builtAt]
+        turnstile:
+          type: object
+          description: The Turnstile check on the public report forms (SYC-170). Never the key itself.
+          properties:
+            mode:
+              type: string
+              enum: ["off", "observe", "enforce"]
+              description: The mode in force. Production is "enforce" unless the pre-launch gate is on.
+            secret:
+              type: string
+              enum: ["configured", "not_configured"]
+              description: Whether TURNSTILE_SECRET_KEY is set.
+          required: [mode, secret]
+      required: [status, commit, builtAt, turnstile]
     Cat:
       type: object
       properties:
