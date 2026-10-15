@@ -14,6 +14,7 @@ import {
 } from "../mapTiles/geometry";
 import { AREAS } from "../mapTiles/areas";
 import { mintTileToken } from "../mapTiles/tileToken";
+import { wordsIn } from "./words";
 
 // The team's map (SYC-209 PR 3.1; spec §3, Decision 1A; plan K4, K13). One
 // function draws it, so a better map can replace it later without touching
@@ -70,6 +71,8 @@ export interface MapOptions {
   controls?: boolean;
   /** Seconds, for the picture tokens; tests pin it. */
   now?: number;
+  /** The page's language (a cat guardian's own; English for the team). */
+  lang?: string;
 }
 
 /** Where a map opens: the middle of the island, zoom 12. */
@@ -95,6 +98,7 @@ export function resolveView(opts: Pick<MapOptions, "view" | "centre" | "zoom">):
 }
 
 function band(view: View, size: number, opts: MapOptions): string {
+  const { w } = wordsIn(opts.lang);
   const span = GRID * size;
   // One picture per band: the view's 2×2 tiles joined by the server at
   // exactly this size (plan K4's mosaic). No seams to tap on.
@@ -102,13 +106,13 @@ function band(view: View, size: number, opts: MapOptions): string {
   const src = `/api/team/map-tiles/${token}`;
   const picture =
     opts.mode === "view"
-      ? `<img src="${src}" width="${span}" height="${span}" alt="Map of Syros" loading="lazy">`
+      ? `<img src="${src}" width="${span}" height="${span}" alt="${w("map.alt")}" loading="lazy">`
       : `<form method="post" action="${esc(opts.tapAction ?? DEFAULT_TAP_ACTION)}">` +
         hiddenField("view", token) +
         hiddenField("size", String(size)) +
         hiddenFields(opts.hidden) +
         `<input type="image" src="${src}" width="${span}" height="${span}" ` +
-        'alt="Map of Syros. Tap a spot to pick it.">' +
+        `alt="${w("map.altPlace")}">` +
         "</form>";
   const pins = (opts.markers ?? [])
     .map((m) => {
@@ -131,6 +135,7 @@ function band(view: View, size: number, opts: MapOptions): string {
 }
 
 function controls(view: View, opts: MapOptions): string {
+  const { t } = wordsIn(opts.lang);
   const button = (name: string, value: string, label: string, disabled = false) =>
     `<button type="submit" name="${name}" value="${esc(value)}"${disabled ? " disabled" : ""}>${esc(label)}</button>`;
   const stuck = (dx: number, dy: number) => {
@@ -144,16 +149,16 @@ function controls(view: View, opts: MapOptions): string {
     hiddenField("vy", String(view.y)) +
     hiddenFields(opts.hidden) +
     '<div class="zoomrow">' +
-    button("go", "in", "Zoom in", view.z >= MAX_ZOOM) +
-    button("go", "out", "Zoom out", view.z <= MIN_ZOOM) +
+    button("go", "in", t("map.zoomIn"), view.z >= MAX_ZOOM) +
+    button("go", "out", t("map.zoomOut"), view.z <= MIN_ZOOM) +
     "</div>" +
     '<div class="panrow">' +
-    button("go", "north", "↑ North", stuck(0, -1)) +
-    button("go", "west", "← West", stuck(-1, 0)) +
-    button("go", "east", "East →", stuck(1, 0)) +
-    button("go", "south", "↓ South", stuck(0, 1)) +
+    button("go", "north", t("map.north"), stuck(0, -1)) +
+    button("go", "west", t("map.west"), stuck(-1, 0)) +
+    button("go", "east", t("map.east"), stuck(1, 0)) +
+    button("go", "south", t("map.south"), stuck(0, 1)) +
     "</div>" +
-    '<p class="label">Go to</p><div class="arearow">' +
+    `<p class="label">${esc(t("map.goTo"))}</p><div class="arearow">` +
     AREAS.map((a) => button("area", a.key, a.label)).join("") +
     "</div></form>"
   );
@@ -166,13 +171,14 @@ function controls(view: View, opts: MapOptions): string {
  */
 export function renderMap(opts: MapOptions): string {
   const view = resolveView(opts);
+  const { w } = wordsIn(opts.lang);
   return (
     // id="map": "Show on our map" lands here (#map), as the map sits below the
     // fold on a phone. One map per page.
-    `<div class="map" id="map" role="group" aria-label="Map of Syros, zoom ${view.z} of ${MAX_ZOOM}">` +
+    `<div class="map" id="map" role="group" aria-label="${w("map.aria", { zoom: String(view.z), max: String(MAX_ZOOM) })}">` +
     BANDS.map((b) => band(view, b.size, opts)).join("") +
     "</div>" +
-    '<p class="attrib">Map pictures © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a></p>' +
+    `<p class="attrib">${w("map.attrib")} <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">${w("map.attribLink")}</a></p>` +
     (opts.controls === false ? "" : controls(view, opts))
   );
 }

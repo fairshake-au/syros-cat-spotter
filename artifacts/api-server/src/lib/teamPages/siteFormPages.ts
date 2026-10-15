@@ -2,7 +2,7 @@ import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
 import { renderMap, type MapMarker } from "./map";
 import { fmtPos, SITES_PATH, stampField } from "./sitePages";
-import { t, type WordKey } from "./words";
+import { t, wordsIn, type WordKey } from "./words";
 import { viewAround, type Position, type View } from "../mapTiles/geometry";
 import {
   SITE_DIRECTIONS_MAX,
@@ -16,8 +16,19 @@ import {
 // fields of POST forms and nowhere else: no href, action or src on any of
 // these pages holds a position (plan K13). Every value a person typed goes
 // through escapeHtml.
+//
+// The picker and the move pages are the team's (English) until PR 4.2. The
+// confirmation page and the problem page can be reached by a cat guardian
+// through "Make a feeding site here" on a sighting of her own colony's cat
+// (PR 4.1), so they take her language and menu; saving is still the team's.
 
 const w = (key: WordKey) => esc(t(key));
+
+/** A cat guardian's language and menu; omitted for the team. */
+export interface FormViewer {
+  lang?: string;
+  island?: boolean;
+}
 
 export const NEW_PATH = `${SITES_PATH}/new`;
 export const PICK_PATH = `${SITES_PATH}/pick`;
@@ -107,8 +118,10 @@ const smallMap = (
   markers: MapMarker[],
   tapAction: string,
   carry: Record<string, string>,
+  lang?: string,
 ) =>
   renderMap({
+    lang,
     view: viewAround(spot, zoom),
     markers,
     mode: "place",
@@ -133,7 +146,8 @@ export function renderAddConfirm(o: {
   colonies: Array<{ id: number; name: string }>;
   checkNote?: string;
   carry?: AddCarry;
-}): string {
+} & FormViewer): string {
+  const { t, w } = wordsIn(o.lang);
   const c0: AddCarry = o.carry ?? { name: "", colonyId: "", directions: "", notes: "" };
   const options =
     `<option value="">${w("confirm.noColony")}</option>` +
@@ -143,11 +157,13 @@ export function renderAddConfirm(o: {
   return renderPage({
     title: t("confirm.title"),
     active: "sites",
+    nav: o.island === false ? "guardian" : undefined,
+    lang: o.lang,
     personName: o.personName,
     mainClass: "mappage",
     beforeTitle: `<p class="back"><a href="${esc(NEW_PATH)}">${w("confirm.again")}</a></p>`,
     body:
-      smallMap(o.spot, o.zoom, [{ ...o.spot, label: t("confirm.spot"), look: "private" }], PICK_PATH, { ...c0 }) +
+      smallMap(o.spot, o.zoom, [{ ...o.spot, label: t("confirm.spot"), look: "private" }], PICK_PATH, { ...c0 }, o.lang) +
       `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="tapped">${w("confirm.spot")}: <strong>${esc(fmtPos(o.spot.lat, o.spot.lng))}</strong>. ${w("confirm.legend")}</p>` +
       checkTapBlock(o.checkNote) +
@@ -217,10 +233,14 @@ export function renderSiteProblem(
   personName: string,
   message: string,
   back: { href: string; label: string },
+  viewer: FormViewer = {},
 ): string {
+  const { t, w } = wordsIn(viewer.lang);
   return renderPage({
     title: t("sproblem.title"),
     active: "sites",
+    nav: viewer.island === false ? "guardian" : undefined,
+    lang: viewer.lang,
     personName,
     body:
       `<p>${esc(message)} ${w("sproblem.nothingSaved")}</p>` +

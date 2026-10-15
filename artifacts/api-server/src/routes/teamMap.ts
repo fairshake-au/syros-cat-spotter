@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { mapTileLimiter } from "../middlewares/rateLimit";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { requireSeeing } from "../middlewares/requireSeeing";
 import { formRoute } from "./teamCorrections";
 import { renderPage } from "../lib/teamPages/layout";
 import { ISLAND_CENTRE, renderMap, START_ZOOM, type MapMarker } from "../lib/teamPages/map";
@@ -22,9 +23,14 @@ import { mosaicPicture } from "../lib/mapTiles/tileCache";
 // K13). PR 3.2 puts the feeding sites on it, PR 3.3 uses its tap to place
 // one; this PR is the map itself and where its pictures come from.
 //
-// **Permissions (plan Decision 1A).** Every route asks for
-// `view_exact_location` with NO colony target, so once the roles plan makes
-// can() strict, a guardian is refused here until PR 4.1 switches targets on.
+// **Permissions (plan Decision 1A; PR 4.1).** The Map page, its moves and its
+// tap ask for `view_exact_location` with NO colony target: it is the team's
+// own map (and the real-phone tap check, SYC-287), so a cat guardian gets the
+// 403 there. The picture route lets in anyone who sees some colony
+// (`requireSeeing`): a cat guardian's Feeding sites and site pages draw their
+// maps from it. A picture is the map of the island only, never a site, a
+// marker or a position of ours (spec §7.3: "a tile reveals nothing; it still
+// needs a session and the capability"), and its address is an opaque token.
 // Not the door's "for any colony?" check, which the plan once named for the
 // picture route: on a route it would show a guardian the whole island. In
 // SYC-53 PR 0.5 only the sign-in door may call it (agreed with that session).
@@ -155,7 +161,7 @@ router.post(
  */
 router.get(
   "/team/map-tiles/:tile",
-  requireTeam("view_exact_location"),
+  ...requireSeeing(),
   (_req: Request, res: Response, next: () => void) => {
     setTeamHeaders(res); // no-store until there is a picture to send, a 429 included
     next();

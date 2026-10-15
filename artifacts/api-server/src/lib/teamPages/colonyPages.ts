@@ -5,14 +5,32 @@ import type { CatToAdd } from "../colonyCats";
 import { ADD_SEARCH_LIMIT } from "../colonyCats";
 import { escapeHtml as esc } from "./escape";
 import { renderPage } from "./layout";
-import { t, type WordKey } from "./words";
+import { formatDate, pageLanguage } from "./strings";
+import { wordsIn, type WordKey, type Words } from "./words";
 
 // The team's Colonies screens (SYC-209 PR 2.1; spec §2.6, §2.7, §8).
 // Server-drawn, no scripts. Every value a person typed (a colony's name, a
 // guardian's name, notes) goes through escapeHtml; the fixed words come from
 // words.ts and go through it too.
+//
+// **A cat guardian (PR 4.1; spec §7.3).** The same pages, drawn from data
+// already filtered to her colonies (lib/teamColonies.ts, lib/colonyCats.ts),
+// in her language, with her own menu. Another colony is never named: a cat
+// that moved away "moved to another colony", and an "Add cats" result in a
+// colony that isn't hers is "In another colony", with no link. Her cats are
+// not linked to the team's cat page (it is island-only; her own cat page is
+// the roles plan's PR 2.1). The actions (create, edit, add a site, add or
+// take out cats) are the team's until PR 4.2.
 
-const w = (key: WordKey) => esc(t(key));
+/** Who a page is drawn for: the team (English) or a cat guardian. */
+export interface ColonyViewer {
+  /** A cat guardian's own language; omitted (English) for the team. */
+  lang?: string;
+  /** False for a cat guardian. Default true. */
+  island?: boolean;
+}
+
+const navFor = (v: ColonyViewer) => (v.island === false ? "guardian" : undefined);
 
 const colonyHref = (id: number) => `/api/team/colonies/${id}`;
 
@@ -25,6 +43,10 @@ export const day = (iso: string) =>
     timeZone: "Europe/Athens",
   });
 
+/** A date in the page's language: the team's short English date, or a guardian's own (once live). */
+export const dayIn = (lang: string | undefined, iso: string) =>
+  pageLanguage(lang) === "en" ? day(iso) : formatDate(lang, new Date(iso));
+
 const DONE: Record<string, WordKey> = {
   created: "done.created",
   saved: "done.saved",
@@ -36,17 +58,17 @@ const DONE: Record<string, WordKey> = {
 };
 
 /** A fixed sentence for `?done=<key>`; any other key shows nothing. */
-function banner(done: string | undefined): string {
+function banner({ w }: Words, done: string | undefined): string {
   const key = done !== undefined && Object.hasOwn(DONE, done) ? DONE[done] : undefined;
   return key ? `<p class="notice" role="status">${w(key)}</p>` : "";
 }
 
 /** The note under every notes box (spec §7.4). */
-const notesHint = () => `<p class="hint">${w("notes.hint")}</p>`;
+const notesHint = ({ w }: Words) => `<p class="hint">${w("notes.hint")}</p>`;
 
 // ── The list ───────────────────────────────────────────────────────────────
 
-function colonyCard(c: ColonyRow): string {
+function colonyCard({ w }: Words, c: ColonyRow): string {
   const guardian = c.guardianName
     ? `${w("colonies.guardian")}: ${esc(c.guardianName)}`
     : w("colonies.noGuardian");
@@ -64,7 +86,8 @@ function colonyCard(c: ColonyRow): string {
   );
 }
 
-function createForm(): string {
+function createForm(W: Words): string {
+  const { w } = W;
   return (
     `<div class="fixes"><details><summary>${w("create.open")}</summary>` +
     `<form method="post" action="/api/team/colonies">` +
@@ -75,13 +98,13 @@ function createForm(): string {
     `<input class="text" id="new-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" autocomplete="off">` +
     `<label class="label" for="new-notes">${w("create.notes")}</label>` +
     `<textarea id="new-notes" name="notes" maxlength="${COLONY_NOTES_MAX}"></textarea>` +
-    notesHint() +
+    notesHint(W) +
     `<button type="submit">${w("create.button")}</button>` +
     `</form></details></div>`
   );
 }
 
-export function renderColoniesPage(opts: {
+export function renderColoniesPage(opts: ColonyViewer & {
   query: string;
   /** A search that cannot match anything, shown as a search with no results. */
   searched?: boolean;
@@ -90,24 +113,28 @@ export function renderColoniesPage(opts: {
   done?: string;
   canCreate: boolean;
 }): string {
+  const W = wordsIn(opts.lang);
+  const { t, w } = W;
   const searching = opts.query.trim() !== "" || opts.searched === true;
   const list =
     opts.colonies.length > 0
-      ? `<ul class="cats">${opts.colonies.map(colonyCard).join("")}</ul>`
+      ? `<ul class="cats">${opts.colonies.map((c) => colonyCard(W, c)).join("")}</ul>`
       : `<p class="empty">${w(searching ? "colonies.noMatch" : "colonies.empty")}</p>`;
   return renderPage({
     title: t("colonies.title"),
     active: "colonies",
+    nav: navFor(opts),
+    lang: opts.lang,
     personName: opts.personName,
     body:
-      banner(opts.done) +
+      banner(W, opts.done) +
       `<form class="search" method="get" action="/api/team/colonies" role="search">` +
       `<label class="label" for="colony-q">${w("colonies.searchLabel")}</label>` +
       `<div class="searchrow"><input id="colony-q" name="q" type="search" value="${esc(opts.query)}" maxlength="200" autocomplete="off">` +
       `<button type="submit">${w("colonies.searchButton")}</button></div></form>` +
       (searching ? `<p><a class="tap" href="/api/team/colonies">${w("colonies.showAll")}</a></p>` : "") +
       list +
-      (opts.canCreate ? createForm() : ""),
+      (opts.canCreate ? createForm(W) : ""),
   });
 }
 
@@ -115,9 +142,10 @@ export function renderColoniesPage(opts: {
 
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 
-const quoted = (v: string | null) => (v === null || v === "" ? esc(t("history.nobody")) : `“${esc(v)}”`);
+const quoted = ({ t }: Words, v: string | null) =>
+  v === null || v === "" ? esc(t("history.nobody")) : `“${esc(v)}”`;
 
-function centreText(v: unknown): string {
+function centreText({ t }: Words, v: unknown): string {
   const c = v as { lat?: unknown; lng?: unknown } | null | undefined;
   return c && typeof c.lat === "number" && typeof c.lng === "number"
     ? esc(`${c.lat}, ${c.lng}`)
@@ -125,21 +153,24 @@ function centreText(v: unknown): string {
 }
 
 /** What a history row says, as trusted HTML built from fixed words and esc. */
-function describe(e: ColonyHistoryEntry): string {
+function describe(W: Words, e: ColonyHistoryEntry, island: boolean): string {
+  const { w } = W;
+  const quoted_ = (v: string | null) => quoted(W, v);
+  const centre = (v: unknown) => centreText(W, v);
   if (e.redacted) return w("history.removed");
   const b = e.before ?? {};
   const a = e.after ?? {};
   switch (e.kind) {
     case "colony_created":
-      return `${w("history.created")}: ${quoted(str(a["name"]))}`;
+      return `${w("history.created")}: ${quoted_(str(a["name"]))}`;
     case "colony_renamed":
-      return `${w("history.renamed")}: ${quoted(str(b["name"]))} → ${quoted(str(a["name"]))}`;
+      return `${w("history.renamed")}: ${quoted_(str(b["name"]))} → ${quoted_(str(a["name"]))}`;
     case "guardian_changed":
-      return `${w("history.guardian")}: ${quoted(str(b["guardianName"]))} → ${quoted(str(a["guardianName"]))}`;
+      return `${w("history.guardian")}: ${quoted_(str(b["guardianName"]))} → ${quoted_(str(a["guardianName"]))}`;
     case "colony_notes_changed":
       return w("history.notes");
     case "colony_centre_changed":
-      return `${w("history.centre")}: ${centreText(b["centre"])} → ${centreText(a["centre"])}`;
+      return `${w("history.centre")}: ${centre(b["centre"])} → ${centre(a["centre"])}`;
     case "cat_added":
     case "cat_taken_out":
     case "cat_moved_out": {
@@ -154,9 +185,14 @@ function describe(e: ColonyHistoryEntry): string {
       const to = str(a["movedTo"]);
       return (
         `${w(word)}: ` +
-        (catId !== null ? `<a href="/api/team/cats/${catId}">${esc(name)}</a>` : esc(name)) +
+        // The team's cat page is island-only: a guardian gets the name as text.
+        (catId !== null && island ? `<a href="/api/team/cats/${catId}">${esc(name)}</a>` : esc(name)) +
         ` <span class="syr">${esc(str(a["catSyr"]) ?? "")}</span>` +
-        (e.kind === "cat_moved_out" && to ? ` → ${quoted(to)}` : "")
+        (e.kind === "cat_moved_out" && to
+          ? ` → ${quoted_(to)}`
+          : e.kind === "cat_moved_out" && !island
+            ? ` → ${w("colony.another")}`
+            : "")
       );
     }
     default:
@@ -164,15 +200,16 @@ function describe(e: ColonyHistoryEntry): string {
   }
 }
 
-function historyList(history: ColonyHistoryEntry[]): string {
+function historyList(W: Words, history: ColonyHistoryEntry[], island: boolean): string {
+  const { w } = W;
   if (history.length === 0) return `<p class="empty">${w("colony.noHistory")}</p>`;
   return (
     `<ol class="history">` +
     history
       .map(
         (e) =>
-          `<li class="statement"><p>${describe(e)}</p>` +
-          `<p class="meta">${w("history.by")} ${esc(e.by)} · <time datetime="${esc(e.at)}">${esc(day(e.at))}</time></p></li>`,
+          `<li class="statement"><p>${describe(W, e, island)}</p>` +
+          `<p class="meta">${w("history.by")} ${esc(e.by)} · <time datetime="${esc(e.at)}">${esc(dayIn(W.lang, e.at))}</time></p></li>`,
       )
       .join("") +
     `</ol>`
@@ -180,9 +217,11 @@ function historyList(history: ColonyHistoryEntry[]): string {
 }
 
 function catList(
+  { w }: Words,
   cats: ColonyView["cats"],
   colonyId: number,
   mayTakeOut: boolean,
+  island: boolean,
 ): string {
   if (cats.length === 0) return `<p class="empty">${w("colony.noCats")}</p>`;
   return (
@@ -193,8 +232,11 @@ function catList(
           ? `<img class="thumb" src="${esc(c.photoUrl)}" alt="" loading="lazy">`
           : `<span class="thumb nothumb">${w("colony.noPhoto")}</span>`;
         return (
-          `<li><a class="catrow" href="/api/team/cats/${c.id}">${thumb}` +
-          `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>` +
+          (island
+            ? `<li><a class="catrow" href="/api/team/cats/${c.id}">${thumb}` +
+              `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></a>`
+            : `<li><span class="catrow">${thumb}` +
+              `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span></span></span>`) +
           (mayTakeOut
             ? `<form class="takeout" method="post" action="/api/team/cats/${c.id}/colony">` +
               `<input type="hidden" name="colonyId" value="none">` +
@@ -209,7 +251,8 @@ function catList(
   );
 }
 
-function editForm(v: ColonyView, may: (c: Capability) => boolean): string {
+function editForm(W: Words, v: ColonyView, may: (c: Capability) => boolean): string {
+  const { w } = W;
   const rename = may("rename_colony")
     ? `<label class="label" for="edit-name">${w("colony.rename")}</label>` +
       `<input class="text" id="edit-name" name="name" type="text" required maxlength="${COLONY_NAME_MAX}" value="${esc(v.name)}" autocomplete="off">`
@@ -222,7 +265,7 @@ function editForm(v: ColonyView, may: (c: Capability) => boolean): string {
     `<input class="text" id="edit-guardian" name="guardianName" type="text" maxlength="${GUARDIAN_NAME_MAX}" value="${esc(v.guardianName ?? "")}" autocomplete="off">` +
     `<label class="label" for="edit-notes">${w("create.notes")}</label>` +
     `<textarea id="edit-notes" name="notes" maxlength="${COLONY_NOTES_MAX}">${esc(v.notes ?? "")}</textarea>` +
-    notesHint() +
+    notesHint(W) +
     `<label class="label" for="edit-lat">${w("colony.centreLat")}</label>` +
     `<input class="text" id="edit-lat" name="lat" type="text" inputmode="decimal" value="${v.lat !== null ? esc(String(v.lat)) : ""}" autocomplete="off">` +
     `<label class="label" for="edit-lng">${w("colony.centreLng")}</label>` +
@@ -236,8 +279,11 @@ function editForm(v: ColonyView, may: (c: Capability) => boolean): string {
 export function renderColonyPage(
   v: ColonyView,
   personName: string,
-  opts: { may: (c: Capability) => boolean; done?: string },
+  opts: ColonyViewer & { may: (c: Capability) => boolean; done?: string },
 ): string {
+  const W = wordsIn(opts.lang);
+  const { w } = W;
+  const island = opts.island !== false;
   const sites =
     v.sites.length === 0
       ? `<p class="empty">${w("colony.noSites")}</p>`
@@ -257,12 +303,14 @@ export function renderColonyPage(
   return renderPage({
     title: v.name,
     active: "colonies",
+    nav: navFor(opts),
+    lang: opts.lang,
     personName,
     beforeTitle: `<p class="back"><a href="/api/team/colonies">${w("colony.back")}</a></p>`,
     body:
-      banner(opts.done) +
+      banner(W, opts.done) +
       summary +
-      (opts.may("edit_colony") ? editForm(v, opts.may) : "") +
+      (opts.may("edit_colony") ? editForm(W, v, opts.may) : "") +
       `<h2>${w("colony.sitesTitle")}</h2>` +
       sites +
       // Opens the add page with this colony chosen. Only the colony's number
@@ -271,7 +319,7 @@ export function renderColonyPage(
         ? `<p><a class="tap" href="/api/team/sites/new?colony=${v.id}">${w("colony.addSite")}</a></p>`
         : "") +
       `<h2>${w("colony.catsTitle")}</h2>` +
-      catList(v.cats, v.id, opts.may("assign_cat_to_colony")) +
+      catList(W, v.cats, v.id, opts.may("assign_cat_to_colony"), island) +
       (v.cats.length > 0 && opts.may("assign_cat_to_colony")
         ? `<p class="hint">${w("colony.takeOutNote")}</p>`
         : "") +
@@ -280,33 +328,52 @@ export function renderColonyPage(
         : "") +
       notes +
       `<h2>${w("colony.historyTitle")}</h2>` +
-      historyList(v.history),
+      historyList(W, v.history, island),
   });
 }
 
-export function renderNoSuchColony(personName: string): string {
+/**
+ * "No such colony". A cat guardian gets exactly this, byte for byte, for
+ * another colony as for a number that was never a colony (spec §7.3).
+ */
+export function renderNoSuchColony(personName: string, viewer: ColonyViewer = {}): string {
+  const { t, w } = wordsIn(viewer.lang);
   return renderPage({
     title: t("none.title"),
     active: "colonies",
+    nav: navFor(viewer),
+    lang: viewer.lang,
     personName,
     body: `<p>${w("none.body")}</p><p><a href="/api/team/colonies">${w("problem.backToColonies")}</a></p>`,
   });
 }
 
-/** "Already used by [colony]", with a link to it, for the team. */
+/**
+ * "Already used by [colony]", with a link to it, for someone whose rights
+ * cover that colony (the team). Anyone else (a cat guardian; spec §7.3) only
+ * reads "That name can't be used.": no link, and no colony named. The route
+ * passes `holder` only when the viewer sees it.
+ */
 export function renderNameTaken(
   personName: string,
   holder: { id: number; name: string } | null,
   back: { href: string; label: string },
+  viewer: ColonyViewer = {},
 ): string {
+  const { t, w } = wordsIn(viewer.lang);
+  const island = viewer.island !== false;
   return renderPage({
     title: t("taken.title"),
     active: "colonies",
+    nav: navFor(viewer),
+    lang: viewer.lang,
     personName,
     body:
       (holder
         ? `<p>${w("taken.before")} <a href="${esc(colonyHref(holder.id))}"><strong>${esc(holder.name)}</strong></a>. ${w("taken.after")}</p>`
-        : `<p>${w("taken.generic")} ${w("taken.after")}</p>`) +
+        : island
+          ? `<p>${w("taken.generic")} ${w("taken.after")}</p>`
+          : `<p>${w("taken.cantUse")}</p>`) +
       `<p>${w("problem.nothingChanged")}</p>` +
       `<p><a class="tap" href="${esc(back.href)}">${esc(back.label)}</a></p>`,
   });
@@ -317,10 +384,14 @@ export function renderColonyProblem(
   personName: string,
   message: string,
   back: { href: string; label: string },
+  viewer: ColonyViewer = {},
 ): string {
+  const { t, w } = wordsIn(viewer.lang);
   return renderPage({
     title: t("problem.title"),
     active: "colonies",
+    nav: navFor(viewer),
+    lang: viewer.lang,
     personName,
     body:
       `<p>${esc(message)} ${w("problem.nothingChanged")}</p>` +
@@ -330,28 +401,46 @@ export function renderColonyProblem(
 
 // ── Adding cats to a colony ────────────────────────────────────────────────
 
-function addCard(c: CatToAdd, colonyId: number): string {
+function addCard({ w }: Words, c: CatToAdd, colonyId: number, mayAdd: boolean): string {
   const thumb = c.thumbnailUrl
     ? `<img class="thumb" src="${esc(c.thumbnailUrl)}" alt="" loading="lazy">`
     : `<span class="thumb nothumb">${w("colony.noPhoto")}</span>`;
   const here = c.colony?.id === colonyId;
-  const where = c.colony ? `${w("add.in")} ${esc(c.colony.name)}` : w("add.noColony");
+  // A colony this viewer doesn't see is "another colony": no name, no link (spec §7.3).
+  const where = c.elsewhere
+    ? w("add.another")
+    : c.colony
+      ? `${w("add.in")} ${esc(c.colony.name)}`
+      : w("add.noColony");
+  const text =
+    thumb +
+    `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
+    `<span class="status">${here ? w("add.already") : where}</span></span>`;
+  if (!mayAdd) return `<li><span class="catrow">${text}</span></li>`;
   return (
     `<li><label class="catrow" for="add-${c.id}">` +
     `<input type="checkbox" id="add-${c.id}" name="catIds" value="${c.id}"${here ? " disabled" : ""}>` +
-    thumb +
-    `<span><strong>${esc(c.name)}</strong> <span class="syr">${esc(c.syr)}</span>` +
-    `<span class="status">${here ? w("add.already") : where}</span></span></label></li>`
+    text +
+    `</label></li>`
   );
 }
 
 /** "Add cats": a search, then the results as tick boxes in one form. */
-export function renderAddCatsPage(opts: {
+export function renderAddCatsPage(opts: ColonyViewer & {
   colony: { id: number; name: string };
   query: string;
   results: CatToAdd[];
   personName: string;
+  /**
+   * Draw the tick boxes and "Add the ticked cats". Adding is the team's
+   * until PR 4.2, so a cat guardian sees the search and its results only.
+   * Default: as `island`.
+   */
+  mayAdd?: boolean;
 }): string {
+  const W = wordsIn(opts.lang);
+  const { t, w } = W;
+  const mayAdd = opts.mayAdd ?? opts.island !== false;
   const { colony, query, results } = opts;
   const searching = query.trim() !== "";
   const search =
@@ -364,17 +453,23 @@ export function renderAddCatsPage(opts: {
     body = `<p class="empty">${w("add.prompt")}</p>`;
   } else if (results.length === 0) {
     body = `<p class="empty">${w("add.noMatch")}</p>`;
+  } else if (!mayAdd) {
+    body =
+      `<ul class="cats">${results.map((c) => addCard(W, c, colony.id, false)).join("")}</ul>` +
+      (results.length >= ADD_SEARCH_LIMIT ? `<p class="empty">${w("add.more")}</p>` : "");
   } else {
     body =
       `<form method="post" action="${esc(colonyHref(colony.id))}/cats">` +
       `<p class="hint">${w("add.hint")}</p>` +
-      `<ul class="cats">${results.map((c) => addCard(c, colony.id)).join("")}</ul>` +
+      `<ul class="cats">${results.map((c) => addCard(W, c, colony.id, true)).join("")}</ul>` +
       (results.length >= ADD_SEARCH_LIMIT ? `<p class="empty">${w("add.more")}</p>` : "") +
       `<button type="submit" class="primary">${w("add.button")}</button></form>`;
   }
   return renderPage({
     title: `${t("add.title")} ${colony.name}`,
     active: "colonies",
+    nav: navFor(opts),
+    lang: opts.lang,
     personName: opts.personName,
     beforeTitle: `<p class="back"><a href="${esc(colonyHref(colony.id))}">${w("add.back")}</a></p>`,
     body: search + body,

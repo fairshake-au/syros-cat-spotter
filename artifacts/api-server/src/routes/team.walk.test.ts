@@ -135,6 +135,13 @@ const ACCEPT_PAGE: Partial<Record<Kind, Outcome>> = {
 /** manage_people is management's alone: the team is refused like a guardian. */
 const MANAGEMENT_ONLY: Partial<Record<Kind, Outcome>> = { team: "management" };
 
+/** A page that only shows colonies or sites (SYC-209 PR 4.1): every cat guardian enters. */
+const SEEING: Partial<Record<Kind, Outcome>> = {
+  guardianOne: "pass",
+  guardianTwo: "pass",
+  guardianEvery: "pass",
+};
+
 interface Row {
   /** Who may: the capability and where, in words, for the reader. */
   why: string;
@@ -183,39 +190,46 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/likely/:id/looks-right": { why: "set_sterilisation with no target" },
   "POST /api/team/photos/:publicId/hide": { why: "hide_photo, island-only" },
   "POST /api/team/photos/:publicId/restore": { why: "restore_photo, island-only" },
-  "GET /api/team/colonies": { why: "every colony: view_exact_location with no target until SYC-209 PR 4.1" },
-  "GET /api/team/colonies/:id": { why: "one colony, team notes: view_exact_location with no target until SYC-209 PR 4.1" },
-  "POST /api/team/colonies": { why: "create_colony, insisting on an island row until PR 1.1 places a guardian on hers" },
-  "POST /api/team/colonies/:id": { why: "edit_colony / rename_colony with no target until SYC-209 PR 4.1" },
-  "GET /api/team/colonies/:id/cats": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.1 (Decision 1A)" },
-  "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.1 (Decision 1A)" },
-  "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.1 (Decision 1A)" },
-  // SYC-209 PR 3.1, the team map. Never the door's "any colony" check: a guardian's map is
-  // PR 4.1's, filtered by site with each site's colony as the target.
-  "GET /api/team/map": { why: "the map page: view_exact_location with no target until SYC-209 PR 4.1" },
-  "POST /api/team/map": { why: "zoom, pan, areas: view_exact_location with no target until SYC-209 PR 4.1" },
-  "POST /api/team/map/tap": { why: "a tap on the map: view_exact_location with no target until SYC-209 PR 4.1" },
-  "GET /api/team/map-tiles/:tile": { why: "a map picture: view_exact_location with no target until SYC-209 PR 4.1" },
-  // SYC-209 PR 3.2, the Feeding sites pages (read-only). Team-only, no target, until PR 4.1.
-  "GET /api/team/sites": { why: "the Feeding sites page: view_exact_location with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/map": { why: "zoom, pan, areas on the Feeding sites page: view_exact_location with no target until SYC-209 PR 4.1" },
-  "GET /api/team/sites/:id": { why: "one site, its history and positions: view_exact_location with no target until SYC-209 PR 4.1" },
+  // SYC-209 PR 4.1 (spec §7.3): the pages that only SHOW colonies and sites let in
+  // anyone who sees some colony (visibleColonyIds), filtered by it in SQL; the walk's
+  // made-up ids are then simply not found (404), as another colony's would be.
+  // Every write keeps its capability with no target, so stays the team's until PR 4.2.
+  "GET /api/team/colonies": { why: "her own colonies (filtered): sees some colony (visibleColonyIds)", except: SEEING },
+  "GET /api/team/colonies/:id": { why: "one colony, filtered in the query: sees some colony; another colony is 404", except: SEEING },
+  "POST /api/team/colonies": { why: "create_colony, insisting on an island row until PR 4.2 places a guardian on hers" },
+  "POST /api/team/colonies/:id": { why: "edit_colony / rename_colony with no target until SYC-209 PR 4.2" },
+  "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
+  "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.2" },
+  "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony with no target until SYC-209 PR 4.2" },
+  // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
+  // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a
+  // picture is the island only, never a site).
+  "GET /api/team/map": { why: "the team's map page: view_exact_location with no target" },
+  "POST /api/team/map": { why: "zoom, pan, areas on the team's map page: view_exact_location with no target" },
+  "POST /api/team/map/tap": { why: "a tap on the team's map page: view_exact_location with no target" },
+  "GET /api/team/map-tiles/:tile": { why: "a map picture: sees some colony (PR 4.1); the walk's token is unreadable, so 404", except: SEEING },
+  // SYC-209 PR 3.2 and PR 4.1, the Feeding sites pages.
+  "GET /api/team/sites": { why: "the Feeding sites page, filtered: sees some colony", except: SEEING },
+  "POST /api/team/sites/map": { why: "zoom, pan, areas on the Feeding sites page, filtered: sees some colony", except: SEEING },
+  "GET /api/team/sites/:id": { why: "one site, filtered in the query: sees some colony; another colony's site is 404", except: SEEING },
   // SYC-209 PR 3.3, adding, moving, retiring and changing the colony of a feeding site.
-  // Team-only, no target, until PR 4.1 (Decision 1A). Never canSomewhere.
-  "GET /api/team/sites/new": { why: "the add-a-site map: add_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/new/map": { why: "zoom, pan, areas on the add page: add_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/pick": { why: "a tap or typed position, answers with the confirmation: add_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites": { why: "save a new site: add_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/:id": { why: "edit name, notes, how to find it: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  // Team-only, no target, until PR 4.2. Never canSomewhere.
+  "GET /api/team/sites/new": { why: "the add-a-site map: add_feeding_site with no target until SYC-209 PR 4.2" },
+  "POST /api/team/sites/new/map": { why: "zoom, pan, areas on the add page: add_feeding_site with no target until SYC-209 PR 4.2" },
+  "POST /api/team/sites/pick": { why: "a tap or typed position, answers with the confirmation: add_feeding_site with no target until SYC-209 PR 4.2" },
+  "POST /api/team/sites": { why: "save a new site: add_feeding_site with no target until SYC-209 PR 4.2" },
+  "POST /api/team/sites/:id": { why: "edit name, notes, how to find it: edit_feeding_site with no target until SYC-209 PR 4.2" },
   "POST /api/team/sites/:id/colony": { why: "change a site's colony: reassign_feeding_site (island-only by kind)" },
-  "POST /api/team/sites/:id/retire": { why: "retire a site: edit_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/:id/restore": { why: "bring a site back: edit_feeding_site with no target until SYC-209 PR 4.1" },
-  "GET /api/team/sites/:id/move": { why: "the move picker: edit_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/:id/move/map": { why: "zoom, pan, areas on the move page: edit_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/:id/move/pick": { why: "a tap or typed position, answers with the confirmation: edit_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/from-sighting": { why: "'Make a feeding site here' on a sighting, answers with the confirmation: add_feeding_site with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/map-at-sighting": { why: "'Show on our map' on a sighting: view_exact_location with no target until SYC-209 PR 4.1" },
-  "POST /api/team/sites/:id/move": { why: "save a move, with its reason: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/:id/retire": { why: "retire a site: edit_feeding_site with no target until SYC-209 PR 4.2" },
+  "POST /api/team/sites/:id/restore": { why: "bring a site back: edit_feeding_site with no target until SYC-209 PR 4.2" },
+  "GET /api/team/sites/:id/move": { why: "the move picker: edit_feeding_site with no target until SYC-209 PR 4.2" },
+  "POST /api/team/sites/:id/move/map": { why: "zoom, pan, areas on the move page: edit_feeding_site with no target until SYC-209 PR 4.2" },
+  "POST /api/team/sites/:id/move/pick": { why: "a tap or typed position, answers with the confirmation: edit_feeding_site with no target until SYC-209 PR 4.2" },
+  // PR 4.1: both sighting buttons check against the sighting's CAT's colony, from the record.
+  // The walk names no sighting, so there is no colony: only the team passes.
+  "POST /api/team/sites/from-sighting": { why: "'Make a feeding site here': add_feeding_site and view_exact_location on the sighting's cat's colony" },
+  "POST /api/team/sites/map-at-sighting": { why: "'Show on our map': view_exact_location on the sighting's cat's colony" },
+  "POST /api/team/sites/:id/move": { why: "save a move, with its reason: edit_feeding_site with no target until SYC-209 PR 4.2" },
   // The two JSON observation routes (review minor 1): the door, then the
   // capability inside; a guardian refused there gets the JSON 403.
   "POST /api/team/observations": { why: "the door, then set_life_status / set_sterilisation inside, island-only" },

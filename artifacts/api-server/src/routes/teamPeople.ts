@@ -1,3 +1,4 @@
+import { visibleColonyIds } from "../lib/guardianView";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   ANONYMISED_NAME,
@@ -75,8 +76,10 @@ async function loadAll(selfId: string) {
   return { rows, views: rows.map((r) => buildView(r, now, lk, selfId)), now };
 }
 
-const colonyOptions = async (): Promise<ColonyOption[]> =>
-  (await listColonies()).map((c) => ({ id: c.id, name: c.name }));
+// The colonies this manager sees (all of them: manage_people is island-only),
+// through the one filter every colonies read takes (SYC-209 PR 4.1).
+const colonyOptions = async (res: Response): Promise<ColonyOption[]> =>
+  (await listColonies(visibleColonyIds(teamPerson(res)))).map((c) => ({ id: c.id, name: c.name }));
 
 const WORKSPACE_ROLES: readonly string[] = CATALOGUE.use_workspace.roles;
 const DAY = 24 * 60 * 60 * 1000;
@@ -202,7 +205,7 @@ router.get("/team/people", requireTeam("manage_people"), async (req: Request, re
     renderPeoplePage({
       viewer: me.name,
       ...body,
-      colonies: await colonyOptions(),
+      colonies: await colonyOptions(res),
       done: await doneFrom(req, me.id),
     }),
   );
@@ -253,7 +256,7 @@ router.get("/team/people/:id/roles", requireTeam("manage_people"), async (req: R
         .map((p) => [p.colonyId!, { endDate: p.expiresAt ? endDateOf(p.expiresAt) : null, relationship: p.relationship }]),
     ),
   };
-  res.type("html").send(renderRolesPage({ viewer: me.name, person: view, colonies: await colonyOptions(), pre }));
+  res.type("html").send(renderRolesPage({ viewer: me.name, person: view, colonies: await colonyOptions(res), pre }));
 });
 
 /** GET /api/team/people/:id/bring-back: choose roles afresh for someone who left. */
@@ -283,7 +286,7 @@ router.get("/team/people/:id/bring-back", requireTeam("manage_people"), async (r
     const names = await colonyNames(db, heldColonies);
     held = roleSentence("en", heldRoles, heldColonies.map((c) => clip(names.get(c) ?? "a colony that no longer exists")), (n) => clip(n));
   }
-  res.type("html").send(renderBringBackPage({ viewer: me.name, person: found.view, held, colonies: await colonyOptions() }));
+  res.type("html").send(renderBringBackPage({ viewer: me.name, person: found.view, held, colonies: await colonyOptions(res) }));
 });
 
 // ── Writing ────────────────────────────────────────────────────────────────
@@ -336,7 +339,7 @@ router.post("/team/people/invite", ...formRoute("manage_people"), async (req: Re
   const me = teamPerson(res);
   const b = bodyOf(req);
   await answer(req, res, async () => {
-    const colonies = await colonyOptions();
+    const colonies = await colonyOptions(res);
     const form = parsePlacements(b, new Set(colonies.map((c) => c.id)));
     if (!form.ok) throw new Bad(form.message);
     const language = typeof b["language"] === "string" ? b["language"] : "en";
@@ -384,7 +387,7 @@ router.post("/team/people/:id/roles", ...formRoute("manage_people"), async (req:
     res,
     async () => {
       if (id === me.id) throw new ActionRefused("refused", "You can't change your own roles. Nothing was changed.");
-      const colonies = await colonyOptions();
+      const colonies = await colonyOptions(res);
       const form = parsePlacements(bodyOf(req), new Set(colonies.map((c) => c.id)));
       if (!form.ok) throw new Bad(form.message);
       const r = await changeRoles(me, id, form.placements);
@@ -431,7 +434,7 @@ router.post("/team/people/:id/bring-back", ...formRoute("manage_people"), async 
     req,
     res,
     async () => {
-      const colonies = await colonyOptions();
+      const colonies = await colonyOptions(res);
       const form = parsePlacements(b, new Set(colonies.map((c) => c.id)));
       if (!form.ok) throw new Bad(form.message);
       const language = typeof b["language"] === "string" ? b["language"] : "en";

@@ -8,13 +8,13 @@ import {
   isPersonId,
   mappingEventsTable,
   observationsTable,
-  peopleTable,
   photosTable,
   type Colony,
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { catsByColony } from "./colonyMembership";
+import { colonyFilter, covers, nameLabeller, type Visible } from "./guardianView";
 import { recordMappingEvent } from "./mappingEvents";
 import { syrNumber, teamPhotoUrl } from "./teamCatView";
 
@@ -25,6 +25,12 @@ import { syrNumber, teamPhotoUrl } from "./teamCatView";
 //
 // Everything here is behind requireTeam; the routes (routes/teamColonies.ts)
 // do the capability checks. Nothing here is public.
+//
+// **What a cat guardian sees (PR 4.1; spec §7.3).** Every reader takes a
+// `Visible` (lib/guardianView.ts) and filters by it in the query: her own
+// colonies only, found by any name they have had; another colony's name,
+// guardian and counts never appear, and a cat that moved from hers to
+// another colony goes to "another colony", unnamed.
 
 export const COLONY_NAME_MAX = 100;
 export const GUARDIAN_NAME_MAX = 100;
@@ -46,14 +52,14 @@ export interface ColonyRow {
  * The sites each colony has now. A retired site is a closed one, so it is not
  * counted.
  */
-async function siteCounts(): Promise<Map<number, number>> {
+async function siteCounts(visible: Visible): Promise<Map<number, number>> {
   const rows = await db
     .select({
       colonyId: feedingSitesTable.colonyId,
       n: sql<number>`count(*)::int`,
     })
     .from(feedingSitesTable)
-    .where(isNull(feedingSitesTable.retiredAt))
+    .where(and(isNull(feedingSitesTable.retiredAt), colonyFilter(feedingSitesTable.colonyId, visible)))
     .groupBy(feedingSitesTable.colonyId);
   const out = new Map<number, number>();
   for (const r of rows) if (r.colonyId !== null) out.set(r.colonyId, r.n);
@@ -67,7 +73,7 @@ async function siteCounts(): Promise<Map<number, number>> {
  * current folded name and its earlier names, skipping any a guardian asked to
  * be forgotten (redacted).
  */
-export async function listColonies(rawQuery = ""): Promise<ColonyRow[]> {
+export async function listColonies(visible: Visible, rawQuery = ""): Promise<ColonyRow[]> {
   const q = foldName(rawQuery.slice(0, 200));
 
   let matchedOld = new Map<number, string>();
@@ -83,6 +89,7 @@ export async function listColonies(rawQuery = ""): Promise<ColonyRow[]> {
       .where(
         and(
           isNull(colonyNameHistoryTable.redactedAt),
+          colonyFilter(colonyNameHistoryTable.colonyId, visible),
           sql`strpos(${colonyNameHistoryTable.normalisedName}, ${q}) > 0`,
         ),
       )
@@ -105,10 +112,10 @@ export async function listColonies(rawQuery = ""): Promise<ColonyRow[]> {
       guardianName: coloniesTable.guardianName,
     })
     .from(coloniesTable)
-    .where(where)
+    .where(and(colonyFilter(coloniesTable.id, visible), where))
     .orderBy(asc(coloniesTable.normalisedName), asc(coloniesTable.id));
 
-  const [sites, cats] = await Promise.all([siteCounts(), catsByColony()]);
+  const [sites, cats] = await Promise.all([siteCounts(visible), catsByColony()]);
   return colonies.map((c) => {
     const current = q !== "" && c.normalisedName.includes(q);
     const old = matchedOld.get(c.id);
@@ -157,23 +164,6 @@ export interface ColonyView {
 }
 
 /**
- * A person's name as the history shows it: "Maria", or "Maria (left)" for
- * someone who has left (the welfare history's rule, SYC-43 part 2 Decision 7).
- * Read from the list directly: findPersonById refuses a person who has left.
- */
-export async function personLabels(ids: readonly string[]): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  const unique = [...new Set(ids)];
-  if (unique.length === 0) return out;
-  const rows = await db
-    .select({ id: peopleTable.id, name: peopleTable.name, leftAt: peopleTable.leftAt })
-    .from(peopleTable)
-    .where(inArray(peopleTable.id, unique));
-  for (const r of rows) out.set(r.id, r.leftAt !== null ? `${r.name} (left)` : r.name);
-  return out;
-}
-
-/**
  * "Cat added" and "Cat taken out" lines for a colony's history (spec §2.6),
  * read from the `colony` statements, not from a table of their own. Per cat,
  * the statements that stand (not marked wrong, not redacted) are walked in
@@ -181,7 +171,7 @@ export async function personLabels(ids: readonly string[]): Promise<Map<string, 
  * colony when it was not already is "added", and one that moves it out of
  * this colony is "taken out" (to no colony) or "moved out" (to another).
  */
-async function catHistoryEntries(colonyId: number): Promise<ColonyHistoryEntry[]> {
+async function catHistoryEntries(visible: Visible, colonyId: number): Promise<ColonyHistoryEntry[]> {
   const replacer = alias(observationsTable, "replacer");
   const standing = and(
     eq(observationsTable.kind, "colony"),
@@ -216,19 +206,24 @@ async function catHistoryEntries(colonyId: number): Promise<ColonyHistoryEntry[]
       asc(observationsTable.id),
     );
 
-  const [cats, people] = await Promise.all([
+  const [cats, label] = await Promise.all([
     db
       .select({ id: catsTable.id, name: catsTable.name })
       .from(catsTable)
       .where(inArray(catsTable.id, catIds)),
-    personLabels(rows.map((r) => r.accountId).filter((a): a is string => isPersonId(a))),
+    nameLabeller(
+      visible,
+      rows.map((r) => (r.accountId && isPersonId(r.accountId) ? r.accountId : null)),
+    ),
   ]);
   const catName = new Map(cats.map((c) => [c.id, c.name]));
+  // Only colonies this viewer sees are named: a cat that went to a colony
+  // that isn't hers went to "another colony" (spec §7.3).
   const otherIds = [
     ...new Set(
       rows
         .map((r) => (r.value as { colonyId?: unknown } | null)?.colonyId)
-        .filter((c): c is number => typeof c === "number" && c !== colonyId),
+        .filter((c): c is number => typeof c === "number" && c !== colonyId && covers(visible, c)),
     ),
   ];
   const otherNames = new Map<number, string>();
@@ -236,7 +231,7 @@ async function catHistoryEntries(colonyId: number): Promise<ColonyHistoryEntry[]
     for (const c of await db
       .select({ id: coloniesTable.id, name: coloniesTable.name })
       .from(coloniesTable)
-      .where(inArray(coloniesTable.id, otherIds))) {
+      .where(and(inArray(coloniesTable.id, otherIds), colonyFilter(coloniesTable.id, visible)))) {
       otherNames.set(c.id, c.name);
     }
   }
@@ -252,10 +247,7 @@ async function catHistoryEntries(colonyId: number): Promise<ColonyHistoryEntry[]
     if (now !== colonyId && before !== colonyId) continue;
     const entry = {
       id: r.id,
-      by:
-        r.accountId && isPersonId(r.accountId)
-          ? (people.get(r.accountId) ?? "someone no longer on the team list")
-          : "the system",
+      by: label(r.accountId && isPersonId(r.accountId) ? r.accountId : null),
       at: r.createdAt.toISOString(),
       before: null,
       redacted: false,
@@ -276,8 +268,12 @@ async function catHistoryEntries(colonyId: number): Promise<ColonyHistoryEntry[]
   return out;
 }
 
-export async function colonyView(id: number): Promise<ColonyView | null> {
-  const [colony] = await db.select().from(coloniesTable).where(eq(coloniesTable.id, id));
+export async function colonyView(visible: Visible, id: number): Promise<ColonyView | null> {
+  // Another colony is not found, exactly like a colony that doesn't exist.
+  const [colony] = await db
+    .select()
+    .from(coloniesTable)
+    .where(and(eq(coloniesTable.id, id), colonyFilter(coloniesTable.id, visible)));
   if (!colony) return null;
 
   const [sites, catIds, events, catEvents] = await Promise.all([
@@ -294,7 +290,7 @@ export async function colonyView(id: number): Promise<ColonyView | null> {
         and(eq(mappingEventsTable.subjectKind, "colony"), eq(mappingEventsTable.subjectId, id)),
       )
       .orderBy(desc(mappingEventsTable.at), desc(mappingEventsTable.id)),
-    catHistoryEntries(id),
+    catHistoryEntries(visible, id),
   ]);
 
   const cats: ColonyCat[] =
@@ -318,9 +314,7 @@ export async function colonyView(id: number): Promise<ColonyView | null> {
           photoUrl: c.photoPublicId ? teamPhotoUrl(c.photoPublicId) : null,
         }));
 
-  const people = await personLabels(
-    events.map((e) => e.personId).filter((p): p is string => p !== null),
-  );
+  const label = await nameLabeller(visible, events.map((e) => e.personId));
 
   return {
     id: colony.id,
@@ -337,9 +331,7 @@ export async function colonyView(id: number): Promise<ColonyView | null> {
       ...events.map((e) => ({
         id: e.id,
         kind: e.kind,
-        by: e.personId
-          ? (people.get(e.personId) ?? "someone no longer on the team list")
-          : "the system",
+        by: label(e.personId),
         at: e.at.toISOString(),
         before: (e.before as Record<string, unknown> | null) ?? null,
         after: (e.after as Record<string, unknown> | null) ?? null,

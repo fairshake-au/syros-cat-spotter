@@ -47,6 +47,10 @@ vi.mock("../lib/capabilities", async (importOriginal) => {
     ...real,
     can: (...args: Parameters<typeof real.can>) =>
       args[1] === denied.cap ? false : real.can(...args),
+    // The picture route's door (SYC-209 PR 4.1) asks where view_exact_location
+    // applies (visibleColonyIds, built from capabilitiesOf), not can().
+    capabilitiesOf: (...args: Parameters<typeof real.capabilitiesOf>) =>
+      real.capabilitiesOf(...args).filter((c) => c.capability !== denied.cap),
   };
 });
 

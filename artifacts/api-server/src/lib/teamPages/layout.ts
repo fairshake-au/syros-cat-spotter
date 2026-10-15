@@ -47,6 +47,15 @@ export const navContext = new AsyncLocalStorage<{
 export const MY_PAGE_PATH = "/api/team/my";
 export const MY_COLONIES_PATH = "/api/team/my/colonies";
 
+/**
+ * A cat guardian's menu (SYC-209 PR 4.1): only the two screens she may open,
+ * in her language. Every other item would answer her with the 403.
+ */
+const GUARDIAN_NAV: { key: NavKey; word: "nav.colonies" | "nav.sites"; href: string }[] = [
+  { key: "colonies", word: "nav.colonies", href: "/api/team/colonies" },
+  { key: "sites", word: "nav.sites", href: "/api/team/sites" },
+];
+
 const STYLES = `
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -290,9 +299,10 @@ export interface PageOptions {
   /**
    * The team's menu (default true). A refusal page leaves it out: a cat
    * guardian shouldn't be offered links to pages that refuse her. Sign out
-   * (beside the name) is always there.
+   * (beside the name) is always there. `"guardian"`: her own menu,
+   * Colonies and Feeding sites only, in her language.
    */
-  nav?: boolean;
+  nav?: boolean | "guardian";
   /** The signed-in person's name (escaped here). */
   personName: string;
   /**
@@ -342,7 +352,23 @@ export function renderPage(opts: PageOptions): string {
         { key: "myPage" as const, label: tr(lang, "nav.myPage", undefined, opts.liveLanguages), href: MY_PAGE_PATH },
       ]
     : [];
-  const team: NavItem[] = opts.nav === false || !island ? [] : showPeople ? [...NAV, PEOPLE_NAV] : NAV;
+  // A cat guardian on a Colonies or Feeding sites page (SYC-209 PR 4.1) gets
+  // her own two links to those screens, in her language.
+  const guardianNav: NavItem[] = GUARDIAN_NAV.map((g) => ({
+    key: g.key,
+    label: tr(lang, g.word, undefined, opts.liveLanguages),
+    href: g.href,
+  }));
+  const team: NavItem[] =
+    opts.nav === false
+      ? []
+      : opts.nav === "guardian"
+        ? guardianNav
+        : !island
+          ? []
+          : showPeople
+            ? [...NAV, PEOPLE_NAV]
+            : NAV;
   const nav = [...team, ...own].map((n) => {
     // On a phone "Welfare queue" shows as "Queue" (CSS picks one).
     const label = n.short
