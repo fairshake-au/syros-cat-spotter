@@ -314,8 +314,29 @@ normalise_email() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
 }
 
+# SYC-53 PR 0.3: people-set-roles is how management is given (Decision A1),
+# and it is additive: PEOPLE_CHANGE says add or remove, PEOPLE_ROLE says which
+# one role; neither has a default, so both must be named. A whole new list
+# (the CLI's --replace) is deliberately not offered here. Removing staff is
+# refused here unless CONFIRM=FORCE (review M1): until SYC-53 PR 0.5 only staff
+# lets anyone sign in, so it would lock even a manager out. CONFIRM=FORCE
+# passes --force. PEOPLE_COLONY is a colony's number, for a cat guardian.
+
+# A colony's number, checked here and again by the CLI and the database.
+colony_args() {
+  if [ -n "${PEOPLE_COLONY:-}" ]; then
+    case "$PEOPLE_COLONY" in
+      *[!0-9]*|0*)
+        echo "db-ops: people_colony must be a colony's number, like 12." >&2
+        exit 1
+        ;;
+    esac
+    args+=(--colony "$PEOPLE_COLONY")
+  fi
+}
+
 run_people() {
-  local sub="$1" # add | list | mark-left | sign-out-everywhere
+  local sub="$1" # add | list | set-roles | mark-left | sign-out-everywhere
   local out="$WORKDIR/people.log"
   local status=0
   local args=(--target "$TARGET")
@@ -333,21 +354,53 @@ run_people() {
     add)
       require PEOPLE_NAME
       # A fixed list, validated here and again by the CLI and the database.
+      # Management is given with people-set-roles, beside staff, never here.
       case "${PEOPLE_ROLE:-}" in
-        staff|guardian|volunteer|vet) ;;
+        staff|guardian|vet) ;;
+        management)
+          echo "db-ops: management isn't given by people-add. Add them as staff, then run people-set-roles with people_change=add and people_role=management." >&2
+          exit 1
+          ;;
         *)
-          echo "db-ops: people_role must be staff, guardian, volunteer or vet." >&2
+          echo "db-ops: people_role must be staff, guardian or vet for people-add." >&2
           exit 1
           ;;
       esac
-      args+=(--role "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
+      # db-ops adds someone directly, joined at once: the break-glass for a
+      # team member (invitations come with the people screen).
+      args+=(--accepted --role "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
+      colony_args
+      ;;
+    set-roles)
+      case "${PEOPLE_ROLE:-}" in
+        staff|management|guardian|vet) ;;
+        *)
+          echo "db-ops: people_role must be staff, management, guardian or vet." >&2
+          exit 1
+          ;;
+      esac
+      case "${PEOPLE_CHANGE:-}" in
+        add|remove) ;;
+        *)
+          echo "db-ops: people_change must be add or remove." >&2
+          exit 1
+          ;;
+      esac
+      if [ "$PEOPLE_CHANGE" = "remove" ] && [ "$PEOPLE_ROLE" = "staff" ] && [ "${CONFIRM:-}" != "FORCE" ]; then
+        echo "db-ops: removing staff locks the person out (only staff can sign in until the new permissions ship). Refusing unless confirm=FORCE. Nothing was changed." >&2
+        exit 1
+      fi
+      args+=("--$PEOPLE_CHANGE" "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
+      colony_args
+      if [ "${CONFIRM:-}" = "FORCE" ]; then args+=(--force); fi
       ;;
     mark-left|sign-out-everywhere)
       args+=(--by "db-ops:${GITHUB_ACTOR:-unknown}")
       ;;
   esac
   # The CLI reads the address from PEOPLE_EMAIL itself; the confirmation goes
-  # to its retype prompt on stdin (add and list don't ask).
+  # to its retype prompt on stdin (add and list don't ask; set-roles,
+  # mark-left and sign-out-everywhere do).
   (cd "$ROOT" && printf '%s\n' "$confirm" \
     | pnpm --silent --filter @workspace/db run people -- "$sub" "${args[@]}") \
     >"$out" 2>&1 || status=$?
@@ -407,7 +460,7 @@ case "$COMMAND" in
     (cd "$ROOT" && pnpm --filter @workspace/db run smoke "$BASE_URL")
     ;;
 
-  people-add|people-list|people-mark-left|people-sign-out-everywhere)
+  people-add|people-list|people-set-roles|people-mark-left|people-sign-out-everywhere)
     if [ "$TARGET" = "rehearsal" ]; then
       echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
       exit 1

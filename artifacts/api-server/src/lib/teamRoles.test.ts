@@ -21,11 +21,14 @@ const ROLE_WORDS = new Set(["staff", "management", "vet", "admin"]);
  * `PERSON_ROLES` in lib/db/src/schema/people.ts. It is a different list on
  * purpose: which roles a person_scopes row may hold (who may be on the list
  * at all, guardians included), not which roles count as the team's. PR 0.3's
- * roles migration changes it. Any other list in lib/db fails, as in the
+ * roles migration changed it, and added ISLAND_ROLES beside it. Any other list in lib/db fails, as in the
  * api-server.
  */
 const ALLOWED = new Set([
-  `schema/people.ts: export const PERSON_ROLES = ["staff", "guardian", "volunteer", "vet"]`,
+  `schema/people.ts: export const PERSON_ROLES = ["staff", "management", "guardian", "vet"]`,
+  // PR 0.3: the roles that are always island-wide, for person_scopes'
+  // database check. Not the team's roles either (it has no vet).
+  `schema/people.ts: export const ISLAND_ROLES = ["staff", "management"]`,
 ]);
 
 function sourceFiles(dir: string): string[] {

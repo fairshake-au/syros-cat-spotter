@@ -352,11 +352,11 @@ function catOnly(page: Awaited<ReturnType<typeof catPage>>) {
   return { cat, sightings: page.sightings.length };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   pushMock.mockClear();
   // Every seeded world registers new phones from one test address; the
   // per-address cap (SYC-195) is not what these tests are about.
-  _resetNewDeviceLimitForTests();
+  await _resetNewDeviceLimitForTests();
 });
 
 describe("DELETE /api/me: the cat's data survives and the person is gone", () => {
@@ -814,7 +814,7 @@ describe("DELETE /api/me: a claimed cat keeps its home note and pin for the team
       .send({ deviceId: p.deviceId, livesOnSyros: true, livesInMyHome: true, homePin: PIN, homeNote: "x", ...over });
 
   it("clears the owner link and name, keeps the note and pin, and shows them only to the team", async () => {
-    _resetClaimLimitForTests();
+    await _resetClaimLimitForTests();
     const P = person("CO");
     const R = person("CR");
     await signUp(P, 3);

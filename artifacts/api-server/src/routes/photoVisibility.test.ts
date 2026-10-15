@@ -234,18 +234,18 @@ beforeAll(async () => {
   cookie = await signInThroughHandoff(app, handoffKey, susanId);
   const maria = await addPerson({ email: MARIA, name: "Maria", addedBy: "cli:vitest", roles: ["staff"] });
   mariaCookie = await signInThroughHandoff(app, handoffKey, maria.id);
-  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["volunteer"] });
-  // A session held anyway: the hand-off gives a volunteer none (SYC-188).
+  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["vet"] });
+  // A session held anyway: the hand-off gives a vet none yet (SYC-188).
   volunteerCookie = sessionCookieFor(vera.id);
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
   visibilityCalls.n = 0;
   pushes.length = 0;
-  _resetDeviceMatchLimitForTests();
+  await _resetDeviceMatchLimitForTests();
 });
 
 afterAll(async () => {

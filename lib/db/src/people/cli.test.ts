@@ -142,7 +142,7 @@ describe("choosing the database", () => {
 describe("people command", () => {
   it("adds from PEOPLE_EMAIL and PEOPLE_NAME, printing only the id and role", async () => {
     const r = await run(
-      ["add", "--target", "development", "--role", "staff", "--by", "db-ops"],
+      ["add", "--accepted", "--target", "development", "--role", "staff", "--by", "db-ops"],
       {
         ...devEnv(),
         PEOPLE_EMAIL: "Susan@Example.com",
@@ -166,7 +166,7 @@ describe("people command", () => {
   });
 
   it("refuses add with no address or name given anywhere", async () => {
-    const r = await run(["add", "--target", "development"]);
+    const r = await run(["add", "--accepted", "--target", "development"]);
     expect(r.code).toBe(2);
     expect(r.out.join("\n")).toMatch(/Give --email, or set PEOPLE_EMAIL/);
     expect(await countPeople()).toBe(0);
@@ -175,6 +175,7 @@ describe("people command", () => {
   it("lists ids, roles and versions, never an address or a name", async () => {
     await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -186,7 +187,7 @@ describe("people command", () => {
     expect(list.code).toBe(0);
     expect(list.out[1]).toBe("1 person on the list.");
     expect(list.out[2]).toMatch(
-      /^[0-9a-f-]{36}\tstaff\tsession 1\tadded \S+ by cli:\S+\thistory added$/,
+      /^[0-9a-f-]{36}\tstaff\tsession 1\tadded \S+ by cli:\S+\tlanguage en\thistory added$/,
     );
     expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
   });
@@ -194,6 +195,7 @@ describe("people command", () => {
   it("signs out everywhere after the address is typed again, and records who", async () => {
     await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -225,7 +227,7 @@ describe("people command", () => {
     ]);
     expect(events.rows[1].by).toMatch(/^cli:\S+$/);
     const list = await run(["list", "--target", "development"]);
-    expect(list.out[2]).toMatch(/\thistory added,signed_out_everywhere$/);
+    expect(list.out[2]).toMatch(/\tlanguage en\thistory added,signed_out_everywhere$/);
   });
 
   it("has no remove command: marking as left is the only way off the list", async () => {
@@ -241,6 +243,7 @@ describe("people command", () => {
   it("changes nothing when the confirmation doesn't match", async () => {
     await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -267,6 +270,7 @@ describe("people command", () => {
   it("refuses a shared mailbox with the plain-English reason", async () => {
     const add = await run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -285,6 +289,7 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
   const add = () =>
     run([
       "add",
+      "--accepted",
       "--target",
       "development",
       "--email",
@@ -324,7 +329,7 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
     const list = await run(["list", "--target", "development"]);
     expect(list.out[1]).toBe("0 people on the list, and 1 marked as left.");
     expect(list.out[2]).toMatch(
-      /^[0-9a-f-]{36}\tstaff\tsession 2\tadded \S+ by cli:\S+\tLEFT \S+ by cli:samuel\thistory added,left$/,
+      /^[0-9a-f-]{36}\tstaff\tsession 2\tadded \S+ by cli:\S+\tLEFT \S+ by cli:samuel\tlanguage en\thistory added,left$/,
     );
     expect(list.out.join("\n").toLowerCase()).not.toMatch(/susan|example\.com/);
   });
@@ -361,5 +366,166 @@ describe("people who leave (SYC-43 part 2, Decision 7)", () => {
       `Rejoined person ${id} as staff. They had left; their history is still theirs.`,
     );
     expect(await countPeople()).toBe(1);
+  });
+});
+
+describe("SYC-53 PR 0.3: add's rules, and set-roles", () => {
+  const SAMUEL = "samuel@example.com";
+  const add = (extra: string[] = []) =>
+    run([
+      "add",
+      "--accepted",
+      "--target",
+      "development",
+      "--email",
+      SAMUEL,
+      "--name",
+      "Samuel",
+      ...extra,
+    ]);
+  const setRoles = (args: string[], answer = SAMUEL) =>
+    run(
+      ["set-roles", "--target", "development", "--email", SAMUEL, "--by", "claude", ...args],
+      devEnv(),
+      answer,
+    );
+  const roles = async () =>
+    (
+      await c.query(
+        `select role, colony_id from person_scopes order by role, colony_id`,
+      )
+    ).rows.map((r) => (r.colony_id === null ? r.role : `${r.role}:${r.colony_id}`));
+
+  it("add without --accepted is refused: invitations come with the people screen", async () => {
+    const r = await run([
+      "add",
+      "--target",
+      "development",
+      "--email",
+      SAMUEL,
+      "--name",
+      "Samuel",
+    ]);
+    expect(r.code).toBe(2);
+    expect(r.out.join("\n")).toMatch(/needs --accepted/);
+    expect(await countPeople()).toBe(0);
+  });
+
+  it("add refuses volunteer and management, and a guardian with no colony", async () => {
+    for (const [extra, reason] of [
+      [["--role", "volunteer"], /"volunteer" isn't a role/],
+      [["--role", "management"], /Management can't be given when adding someone/],
+      [["--role", "guardian"], /A cat guardian needs a colony/],
+    ] as const) {
+      const r = await add([...extra]);
+      expect(r.code).toBe(1);
+      expect(r.out.join("\n")).toMatch(reason);
+    }
+    expect(await countPeople()).toBe(0);
+  });
+
+  it("add places a guardian with --colony and takes --language", async () => {
+    const colony = (
+      await c.query(
+        `insert into colonies (name, normalised_name) values ('Kini cli', 'kini cli') returning id`,
+      )
+    ).rows[0].id;
+    const r = await add(["--role", "guardian", "--colony", String(colony), "--language", "el"]);
+    expect(r.code).toBe(0);
+    expect(r.out[1]).toMatch(new RegExp(`as guardian on colony ${colony}\\.$`));
+    expect(await roles()).toEqual([`guardian:${colony}`]);
+    const p = await c.query(`select language, accepted_at from people`);
+    expect(p.rows[0].language).toBe("el");
+    expect(p.rows[0].accepted_at).toBeInstanceOf(Date);
+    const bad = await run(["add", "--accepted", "--target", "development", "--email", "x@example.com", "--name", "X", "--role", "guardian", "--colony", "twelve"]);
+    expect(bad.code).toBe(2);
+    expect(bad.out.join("\n")).toMatch(/--colony is a colony's number/);
+  });
+
+  it("set-roles --add management keeps staff and prints before and after, ids only", async () => {
+    await add();
+    const id = (await c.query(`select id from people`)).rows[0].id;
+    const r = await setRoles(["--add", "management"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toEqual([
+      "Target: development",
+      `Person ${id}`,
+      "  before: staff",
+      "  after:  management, staff",
+    ]);
+    expect(await roles()).toEqual(["management", "staff"]);
+    const ev = await c.query(`select kind, by from person_events order by id`);
+    expect(ev.rows.at(-1)).toEqual({ kind: "roles_changed", by: "cli:claude" });
+    expect(r.out.join("\n").toLowerCase()).not.toMatch(/samuel|example\.com/);
+  });
+
+  it("a typo can't remove a manager: a bare --role, a misspelt role or a mistyped confirmation changes nothing", async () => {
+    await add();
+    await setRoles(["--add", "management"]);
+    const before = await roles();
+    const bare = await setRoles(["--role", "staff"]);
+    expect(bare.code).toBe(2);
+    expect(bare.out.join("\n")).toMatch(/one at a time; a whole new list needs --replace/);
+    const misspelt = await setRoles(["--remove", "managment"]);
+    expect(misspelt.code).toBe(1);
+    expect(misspelt.out.join("\n")).toMatch(/"managment" isn't a role/);
+    const retyped = await setRoles(["--remove", "management"], "samuel@exmaple.com");
+    expect(retyped.code).toBe(1);
+    expect(retyped.out).toContain("The addresses don't match. Nothing was changed.");
+    const none = await setRoles([]);
+    expect(none.code).toBe(1);
+    expect(none.out.join("\n")).toMatch(/Give exactly one change/);
+    expect(await roles()).toEqual(before);
+  });
+
+  it("set-roles refuses a result without staff unless --force", async () => {
+    await add();
+    const refused = await setRoles(["--replace", "vet"]);
+    expect(refused.code).toBe(1);
+    expect(refused.out.join("\n")).toMatch(/without staff/);
+    expect(await roles()).toEqual(["staff"]);
+    const forced = await setRoles(["--replace", "vet", "--force"]);
+    expect(forced.code).toBe(0);
+    expect(forced.out.slice(2)).toEqual(["  before: staff", "  after:  vet"]);
+    expect(await roles()).toEqual(["vet"]);
+  });
+
+  it("review M1: a manager can't be locked out by --remove staff or --replace management", async () => {
+    await add();
+    await setRoles(["--add", "management"]);
+    for (const args of [["--remove", "staff"], ["--replace", "management"]]) {
+      const r = await setRoles(args);
+      expect(r.code).toBe(1);
+      expect(r.out.join("\n")).toMatch(/without staff/);
+    }
+    expect(await roles()).toEqual(["management", "staff"]);
+  });
+
+  it("--replace warns when it takes away a cat guardian placement", async () => {
+    const colony = (
+      await c.query(
+        `insert into colonies (name, normalised_name) values ('Kini replace', 'kini replace') returning id`,
+      )
+    ).rows[0].id;
+    await add();
+    await setRoles(["--add", "guardian", "--colony", String(colony)]);
+    const r = await setRoles(["--replace", "staff"]);
+    expect(r.code).toBe(0);
+    expect(r.out.at(-1)).toBe(
+      `  WARNING: --replace took away their cat guardian placement: guardian:${colony}.`,
+    );
+  });
+
+  it("list marks a pending person and shows each person's language", async () => {
+    await add();
+    await c.query(
+      `insert into people (email, name, added_by) values ('new@example.com', 'New', 'cli:t')`,
+    );
+    const list = await run(["list", "--target", "development"]);
+    expect(list.out[1]).toBe("1 person on the list, and 1 invited and not yet joined.");
+    const lines = list.out.slice(2);
+    expect(lines.filter((l) => l.includes("\tPENDING"))).toHaveLength(1);
+    expect(lines.every((l) => l.includes("\tlanguage en"))).toBe(true);
+    expect(list.out.join("\n").toLowerCase()).not.toMatch(/samuel@|new@|example\.com/);
   });
 });

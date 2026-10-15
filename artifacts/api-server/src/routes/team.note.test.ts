@@ -54,13 +54,13 @@ beforeAll(async () => {
     email: VERA,
     name: "Vera",
     addedBy: "cli:vitest",
-    roles: ["volunteer"],
+    roles: ["vet"],
   });
   susanId = susan.id;
   mariaId = maria.id;
   susanCookie = await signInThroughHandoff(app, handoffKey, susan.id);
   mariaCookie = await signInThroughHandoff(app, handoffKey, maria.id);
-  // A volunteer gets no session from the hand-off (SYC-188).
+  // A vet (who holds nothing yet) gets no session from the hand-off (SYC-188).
   veraCookie = sessionCookieFor(vera.id);
 });
 

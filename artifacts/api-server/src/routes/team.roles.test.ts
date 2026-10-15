@@ -66,8 +66,17 @@ const seen = (res: request.Response) => ({
   location: res.headers["location"],
 });
 
-const add = (roles: string[]) =>
-  addPerson({ email: EMAIL, name: "Pat", addedBy: "cli:vitest", roles });
+const add = (roles: string[], colonyId?: number) =>
+  addPerson({ email: EMAIL, name: "Pat", addedBy: "cli:vitest", roles, colonyId });
+
+/** SYC-53 PR 0.3: a cat guardian is always placed on a colony. */
+const aColony = async () =>
+  (
+    await pool.query<{ id: number }>(
+      "insert into colonies (name, normalised_name) values ($1, lower($1)) returning id",
+      [`Vitest roles colony ${Date.now()} ${Math.random()}`],
+    )
+  ).rows[0]!.id;
 
 /** All three doors refuse this person exactly as they refuse a stranger. */
 async function expectKeptOut(id: string, sv: number) {
@@ -106,23 +115,41 @@ describe("SYC-188: only a role that grants something is let in", () => {
   });
 
   it("staff who is also a guardian is still let in", async () => {
-    const p = await add(["guardian", "staff"]);
+    const p = await add(["guardian", "staff"], await aColony());
     expect((await ask(EMAIL)).body.allowed).toBe(true);
     expect((await handoff(p.id, p.sessionVersion)).status).toBe(303);
     expect((await me(p.id, p.sessionVersion)).status).toBe(200);
   });
 
-  for (const roles of [
-    ["guardian"],
-    ["volunteer"],
-    ["vet"],
-    ["volunteer", "vet"],
-  ]) {
+  for (const roles of [["guardian"], ["vet"], ["guardian", "vet"]]) {
     it(`${roles.join(" + ")} only: kept out at every door, like a stranger`, async () => {
-      const p = await add(roles);
+      const p = await add(roles, roles.includes("guardian") ? await aColony() : undefined);
       await expectKeptOut(p.id, p.sessionVersion);
     });
   }
+
+  it("management only (no staff): kept out, since can() still asks for staff (SYC-53 PR 0.3)", async () => {
+    // The people command refuses to make this unless forced (set-roles
+    // keeps staff; --force is the break-glass), and add never gives
+    // management. Written directly here to prove the door doesn't open for
+    // it, which is why set-roles refuses it.
+    const p = await add(["staff"]);
+    await pool.query(
+      "update person_scopes set role = 'management' where person_id = $1",
+      [p.id],
+    );
+    await expectKeptOut(p.id, p.sessionVersion);
+  });
+
+  it("a pending person (invited, not yet accepted) can't sign in: kept out at every door (SYC-53 PR 0.3, T9)", async () => {
+    const p = await add(["staff"]);
+    await pool.query("update people set accepted_at = null where id = $1", [p.id]);
+    await expectKeptOut(p.id, p.sessionVersion);
+    // Control: the same person, once accepted, is let in.
+    await pool.query("update people set accepted_at = now() where id = $1", [p.id]);
+    expect((await ask(EMAIL)).body.allowed).toBe(true);
+    expect((await me(p.id, p.sessionVersion)).status).toBe(200);
+  });
 
   it("someone in the table with no roles at all is kept out", async () => {
     const p = await add(["staff"]);

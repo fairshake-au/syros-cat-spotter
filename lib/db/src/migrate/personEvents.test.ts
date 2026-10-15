@@ -196,17 +196,19 @@ describe("T21: every operation writes exactly one event, in its own transaction"
   });
 
   it("markLeft writes `left` with the roles and colony ids held at the time", async () => {
+    const colony = await c.query(
+      `insert into colonies (name, normalised_name) values ('Vaporia', 'vaporia') returning id`,
+    );
+    // SYC-53 PR 0.3: a cat guardian is always placed on a colony.
     const p = await store.addPerson({
       email: SUSAN,
       name: "Susan",
       addedBy: "cli:samuel",
       roles: ["staff", "guardian"],
+      colonyId: colony.rows[0].id,
     });
-    const colony = await c.query(
-      `insert into colonies (name, normalised_name) values ('Vaporia', 'vaporia') returning id`,
-    );
     await c.query(
-      `insert into person_scopes (person_id, role, colony_id) values ($1, 'vet', $2)`,
+      `insert into person_scopes (person_id, role, colony_id, reach) values ($1, 'vet', $2, 'colony')`,
       [p.id, colony.rows[0].id],
     );
     const before = await eventCount();

@@ -107,17 +107,17 @@ beforeAll(async () => {
   await cleanup();
   susanId = (await addPerson({ email: SUSAN, name: "Susan", addedBy: "cli:vitest", roles: ["staff"] })).id;
   cookie = await signInThroughHandoff(app, handoffKey, susanId);
-  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["volunteer"] });
+  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["vet"] });
   veraId = vera.id;
   volunteerCookie = sessionCookieFor(vera.id);
 });
-beforeEach(() => {
+beforeEach(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
   pushMock.mockClear();
   notifyMock.mockClear();
-  _resetClaimLimitForTests();
+  await _resetClaimLimitForTests();
 });
 afterAll(async () => {
   await cleanup();

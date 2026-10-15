@@ -184,11 +184,11 @@ beforeAll(async () => {
     email: VERA,
     name: "Vera Volunteer",
     addedBy: "cli:vitest",
-    roles: ["volunteer"],
+    roles: ["vet"],
   });
   cookie = await signInThroughHandoff(app, handoffKey, susan);
   mariaCookie = await signInThroughHandoff(app, handoffKey, maria);
-  // A volunteer gets no session from the hand-off (SYC-188); this stands for
+  // A vet (who holds nothing yet) gets no session from the hand-off (SYC-188); this stands for
   // a session held anyway.
   volunteerCookie = sessionCookieFor(vera.id);
 });

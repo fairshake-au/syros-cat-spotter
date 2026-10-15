@@ -561,6 +561,12 @@ const en: Dict = {
   catLooksNothingSpecial: 'Nothing special',
   catLooksCantTell: 'Can’t tell',
   catLooksHurt: 'Does it look hurt? Tell Syros Cats.',
+  // SYC-166 slice 2: the photo's own date and time (spec photo-location-from-library.md §8).
+  photoTakenAt: 'Photo taken {when} (Greek time)',
+  photoNoTime: 'This photo doesn\'t say when it was taken, so the sighting will be recorded as now.',
+  photoTooOld: 'This photo was taken on {date}, more than {days} days ago. We can only record sightings from the last {days} days. Please choose a newer photo.',
+  photoAlreadyLogged: 'You\'ve already logged this photo.',
+  photoAlreadyLoggedOpen: 'Open that sighting',
 };
 
 const el: Dict = {
@@ -1099,6 +1105,12 @@ const el: Dict = {
   catLooksNothingSpecial: 'Τίποτα ιδιαίτερο',
   catLooksCantTell: 'Δεν φαίνεται',
   catLooksHurt: 'Μήπως έχει τραυματιστεί; Πες το στους Syros Cats.',
+  // SYC-166 slice 2: needs native review (SYC-4).
+  photoTakenAt: 'Η φωτογραφία τραβήχτηκε {when} (ώρα Ελλάδας)',
+  photoNoTime: 'Η φωτογραφία δεν δείχνει πότε τραβήχτηκε, οπότε η θέαση θα καταγραφεί ως τώρα.',
+  photoTooOld: 'Η φωτογραφία τραβήχτηκε στις {date}, πριν από περισσότερες από {days} ημέρες. Μπορούμε να καταγράψουμε μόνο θεάσεις των τελευταίων {days} ημερών. Διάλεξε μια πιο πρόσφατη φωτογραφία.',
+  photoAlreadyLogged: 'Έχεις ήδη καταγράψει αυτή τη φωτογραφία.',
+  photoAlreadyLoggedOpen: 'Άνοιγμα της θέασης',
 };
 
 const fr: Dict = {
@@ -1638,6 +1650,12 @@ const fr: Dict = {
   catLooksNothingSpecial: 'Rien de particulier',
   catLooksCantTell: 'Impossible à dire',
   catLooksHurt: 'Une blessure ? Préviens Syros Cats.',
+  // SYC-166 slice 2: needs native review (SYC-4).
+  photoTakenAt: 'Photo prise {when} (heure grecque)',
+  photoNoTime: "Cette photo n’indique pas quand elle a été prise, alors l’observation sera enregistrée à l’instant présent.",
+  photoTooOld: "Cette photo a été prise le {date}, il y a plus de {days} jours. On ne peut enregistrer que les observations des {days} derniers jours. Choisis une photo plus récente.",
+  photoAlreadyLogged: 'Tu as déjà enregistré cette photo.',
+  photoAlreadyLoggedOpen: 'Ouvrir cette observation',
 };
 
 export const TRANSLATIONS: Record<Language, Dict> = { en, el, fr };

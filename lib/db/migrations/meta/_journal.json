@@ -134,6 +134,27 @@
       "when": 1792017937875,
       "tag": "0018_cat_home_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792018398241,
+      "tag": "0019_roles_and_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792021940320,
+      "tag": "0020_report_token_checked",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792023899498,
+      "tag": "0021_rate_limit_counters",
+      "breakpoints": true
     }
   ]
 }

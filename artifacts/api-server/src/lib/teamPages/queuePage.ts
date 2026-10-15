@@ -178,6 +178,7 @@ function reportCard(
   const tags =
     `<span class="tag${r.severity === "urgent" ? " urgent" : ""}">${esc(SEVERITY[r.severity])}</span>` +
     (r.isLitter ? '<span class="tag kittens">Kittens</span>' : "") +
+    (r.unchecked ? '<span class="tag unchecked">Unchecked</span>' : "") +
     `<span class="tag state">${esc(STATE[r.state])}</span>` +
     `<span class="ago">${ago(r.at, now)}</span>`;
   const moved =
@@ -236,6 +237,45 @@ function draftCard(d: QueueDraft, now: Date, near: NearSites): string {
   );
 }
 
+/**
+ * SYC-170 (spec §9.5, §5.3): reports accepted while Cloudflare's check was
+ * unreachable, in their own list below every checked report, newest first.
+ * The count shows even at zero, as an early sign the check is broken. The
+ * unchecked drafts are folded away (a plain <details>, no script).
+ */
+function uncheckedSection(
+  queue: WelfareQueue,
+  now: Date,
+  changedId: string | undefined,
+  tied: TiedNotice | undefined,
+  near: NearSites,
+): string {
+  const { reports, reportsTotal, drafts, draftsTotal } = queue.unchecked;
+  const list = reports.length
+    ? '<p class="empty">These arrived while the safety check couldn\'t reach Cloudflare. Most will be real reports sent during an outage, but some may not be, so they are kept apart from the queue above.</p>' +
+      reports.map((r) => reportCard(r, now, false, changedId, tied, near)).join("") +
+      (reportsTotal > reports.length
+        ? `<p class="empty">Showing the newest ${reports.length} of ${reportsTotal}.</p>`
+        : "")
+    : // True for null rows too: sent before the check existed, or with it off
+      // or only observing (review of #151, finding 7).
+      '<p class="empty">None. No report arrived while the safety check was unreachable. Reports above were either checked or sent before the safety check existed.</p>';
+  const folded = drafts.length
+    ? `<details class="unchecked-drafts"><summary>Unchecked drafts (${draftsTotal})</summary>` +
+      drafts.map((d) => draftCard(d, now, near)).join("") +
+      (draftsTotal > drafts.length
+        ? `<p class="empty">Showing the newest ${drafts.length} of ${draftsTotal}.</p>`
+        : "") +
+      "</details>"
+    : "";
+  return (
+    `<section id="unchecked"><h2>Unchecked (Cloudflare was unreachable) (${reportsTotal})</h2>` +
+    list +
+    folded +
+    "</section>"
+  );
+}
+
 function mailBanner(mail: MailHealth): string {
   if (mail.failed === 0 && mail.late === 0) return "";
   const problems = [
@@ -282,6 +322,6 @@ export function renderQueuePage(
     active: "queue",
     personName,
     banner: mailBanner(queue.mail),
-    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}`,
+    body: `<h2>Waiting for the team (${queue.open.length})</h2>${open}${drafts}${closed}${uncheckedSection(queue, now, changedId, tied, near)}`,
   });
 }

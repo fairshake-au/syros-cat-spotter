@@ -69,11 +69,11 @@ const addSusan = (roles?: string[]) =>
  */
 const rawSusan = async () => {
   const r = await c.query(
-    `insert into people (email, name, added_by) values ($1, 'Susan', 'cli:test') returning id`,
+    `insert into people (email, name, added_by, accepted_at) values ($1, 'Susan', 'cli:test', now()) returning id`,
     [SUSAN],
   );
   const id = r.rows[0].id as string;
-  await c.query(`insert into person_scopes (person_id, role) values ($1, 'staff')`, [id]);
+  await c.query(`insert into person_scopes (person_id, role, reach) values ($1, 'staff', 'island')`, [id]);
   return { id };
 };
 
@@ -151,7 +151,7 @@ describe("markLeft", () => {
 
 describe("P0-3: adding a left person's address again rejoins the same row", () => {
   it("same id, left_at cleared, a new session_version, history still theirs", async () => {
-    const p = await addSusan(["staff", "volunteer"]);
+    const p = await addSusan(["staff", "vet"]);
     await c.query(
       `insert into welfare_reports
          (public_id, severity, lat, lng, client_ref, state, state_changed_by)
@@ -188,7 +188,7 @@ describe("P0-3: adding a left person's address again rejoins the same row", () =
     expect(await store.findAllowedPerson(SUSAN)).toMatchObject({ id: p.id });
     expect(await store.findPersonById(p.id)).toMatchObject({
       sessionVersion: 3,
-      scopes: [{ role: "staff", colonyId: null }],
+      scopes: [{ role: "staff", colonyId: null, reach: "island", expiresAt: null }],
     });
   });
 
@@ -265,7 +265,7 @@ describe("P0-4: nobody on the list can be hard-deleted (SYC-53 PR 0.1)", () => {
 
       // Nothing changed: the person and their roles are both still there.
       expect(await store.findPersonById(p.id)).toMatchObject({
-        scopes: [{ role: "staff", colonyId: null }],
+        scopes: [{ role: "staff", colonyId: null, reach: "island", expiresAt: null }],
       });
     },
   );

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import { sharedLimiter } from "../lib/limits";
 import { hashSecret, requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { fingerprintConfigured, ipFingerprint, looksLikeAddress } from "../lib/mail/fingerprint";
 import { kickRow } from "../lib/mail/outbox";
@@ -53,16 +53,16 @@ async function padTo(started: number, ms: number): Promise<void> {
 
 // Plan step 6: 30 per IP per hour, each. A courtesy cap: the token itself is
 // the security (one use, 15 minutes, 256 random bits, never in a server log).
-const linkLimiter = () =>
-  rateLimit({
+// Counted in Postgres (SYC-105 PR 2.1), one bucket each; fails closed (503).
+const linkLimiter = (bucket: string) =>
+  sharedLimiter({
+    bucket,
     windowMs: 60 * 60 * 1000,
     limit: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
     message: LINK_NOT_VALID,
   });
-const peekLimiter = linkLimiter();
-const redeemLimiter = linkLimiter();
+const peekLimiter = linkLimiter("keep_safe_peek");
+const redeemLimiter = linkLimiter("keep_safe_redeem");
 
 function notConfigured(res: Response): void {
   res.status(503).json({ error: "not_configured" });

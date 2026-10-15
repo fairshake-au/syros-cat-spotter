@@ -147,7 +147,7 @@ beforeAll(async () => {
   await cleanup();
   susanId = (await addPerson({ email: SUSAN, name: "Susan", addedBy: "cli:vitest", roles: ["staff"] })).id;
   cookie = await signInThroughHandoff(app, handoffKey, susanId);
-  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["volunteer"] });
+  const vera = await addPerson({ email: VERA, name: "Vera", addedBy: "cli:vitest", roles: ["vet"] });
   volunteerCookie = sessionCookieFor(vera.id);
 });
 

@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { db, deviceCredentialsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { allowNewDevice, newDeviceResetAt } from "../middlewares/newDeviceLimit";
+import { logger, safeError } from "./logger";
 
 const MIN_SECRET_LENGTH = 16;
 const MAX_SECRET_LENGTH = 256;
@@ -89,7 +90,14 @@ export async function verifyDeviceSecret(
   // `bind: false`: an id with no credential gets 403 instead of binding this
   // secret. For irreversible routes (DELETE /me), whose request must never be
   // the one that first ties a secret to an id (#97 review, finding 10).
-  { bind = true }: { bind?: boolean } = {},
+  //
+  // `limiterFailsOpen`: if the new-phone counter itself breaks (SYC-105), let
+  // the phone through instead of answering 503. Only the cat-in-trouble routes
+  // set it, because a hurt-cat report must never be lost to a limiter.
+  {
+    bind = true,
+    limiterFailsOpen = false,
+  }: { bind?: boolean; limiterFailsOpen?: boolean } = {},
 ): Promise<string | null> {
   if (!deviceId || deviceId.length > 128 || deviceId.startsWith(DELETED_PREFIX)) {
     res.status(400).json({ error: "Invalid device id" });
@@ -131,8 +139,17 @@ export async function verifyDeviceSecret(
     // new-device allowance (SYC-195). Refused, it stays unbound, so the
     // same phone works once the window resets.
     const address = req.ip ?? "unknown";
-    if (!allowNewDevice(address)) {
-      const resetAt = newDeviceResetAt(address);
+    let allowed: boolean;
+    try {
+      allowed = await allowNewDevice(address, Date.now(), { failOpen: limiterFailsOpen });
+    } catch (err) {
+      logger.error({ err: safeError(err) }, "new-phone limit counter failed");
+      res.setHeader("Retry-After", "5");
+      res.status(503).json({ error: "Please try again in a moment." });
+      return null;
+    }
+    if (!allowed) {
+      const resetAt = await newDeviceResetAt(address).catch(() => undefined);
       if (resetAt) {
         res.setHeader("Retry-After", String(Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))));
       }

@@ -99,11 +99,11 @@ afterAll(async () => {
   await cleanup();
   await pool.end();
 });
-beforeEach(() => {
+beforeEach(async () => {
   pushMock.mockClear();
   notifyMock.mockClear();
   eligibilityMock.mockClear();
-  _resetClaimLimitForTests();
+  await _resetClaimLimitForTests();
 });
 
 type Phone = { id: string; secret: string };
@@ -558,6 +558,21 @@ describe("POST /api/cats/:catId/claim (SYC-130)", () => {
       expect(res.status).toBe(429);
       expect(res.body).toEqual({ error: expect.any(String), code: "CLAIM_LIMIT" });
       expect((await reload(c.id)).ownerDeviceId).toBeNull();
+    });
+
+    it("when the counter itself is broken the claim limit fails closed: 503 + Retry-After (SYC-105)", async () => {
+      const c = await streetCat();
+      const d = phone("limitbroken");
+      await met(c.id, d);
+      await db.execute(sql`alter table rate_limit_counters rename to rate_limit_counters_gone`);
+      try {
+        const res = await claim(c.id, d);
+        expect(res.status).toBe(503);
+        expect(res.headers["retry-after"]).toBe("5");
+        expect((await reload(c.id)).ownerDeviceId).toBeNull();
+      } finally {
+        await db.execute(sql`alter table rate_limit_counters_gone rename to rate_limit_counters`);
+      }
     });
 
     it("NOT_MET and PIN_TOO_FAR refusals count too", async () => {

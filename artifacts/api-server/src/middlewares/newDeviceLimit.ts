@@ -22,59 +22,58 @@
 // The number is a judgement call, not a spec value: see the decision note on
 // SYC-195. Change it here; nothing else needs to move.
 //
-// Same caveats as the other in-memory limits in rateLimit.ts: per process
-// (SYC-105 moves counts into Postgres), and it relies on `trust proxy` in
-// app.ts so req.ip is the real visitor (SYC-100).
-import { ipKeyGenerator } from "express-rate-limit";
+// Counted in Postgres since SYC-105 PR 2.1 (lib/limits.ts), so the cap holds
+// across servers and restarts. It relies on `trust proxy` in app.ts so req.ip
+// is the real visitor (SYC-100). If the counter fails, `allowNewDevice` throws
+// and the route fails closed, except on the cat-in-trouble routes, which pass
+// `failOpen` so a hurt-cat report is never lost to a limiter.
+import { logger, safeError } from "../lib/logger";
+import { _resetBucketForTests, addressKey, consume, declareLimit, peek } from "../lib/limits";
 
 export const NEW_DEVICES_PER_ADDRESS_PER_HOUR = 20;
 const WINDOW_MS = 60 * 60 * 1000;
+const BUCKET = "new_device";
+// Declared once at load, so a clash with another limiter throws on import.
+declareLimit(BUCKET, NEW_DEVICES_PER_ADDRESS_PER_HOUR, WINDOW_MS);
 
-// Group addresses the way express-rate-limit does for the other limits: an
-// IPv6 address is counted by its /56 network, since anyone with an IPv6
-// connection can pick a fresh address from their block on every request
-// (review of PR #93); an IPv4-mapped address counts as the IPv4 one.
-function keyFor(address: string): string {
-  return address === "unknown" ? address : ipKeyGenerator(address);
-}
-
-type AddressWindow = { count: number; resetAt: number };
-const windows = new Map<string, AddressWindow>();
-
-// Same lazy sweep as rateLimit.ts's device windows: no timer, just drop
-// expired entries once the Map has grown large.
-const SWEEP_THRESHOLD = 10_000;
-
-function sweep(now: number): void {
-  for (const [address, window] of windows) {
-    if (window.resetAt <= now) windows.delete(address);
-  }
-}
+// The address is grouped the way express-rate-limit groups it for the other
+// limits (an IPv6 address by its /56 network, an IPv4-mapped one as the IPv4
+// one; review of PR #93) by addressKey(), then hashed with the day's salt
+// inside consume(). Nothing here stores an address.
 
 /**
  * Returns true, and counts it, if `address` may register one more new
- * device now. Returns false, counting nothing, once the address has used
- * its allowance for the current hour.
+ * device now. Returns false once the address has used its allowance for the
+ * current hour. A counter failure throws, unless `failOpen`: then it is
+ * logged by the caller's catch and the phone is let through.
  */
-export function allowNewDevice(address: string, now: number = Date.now()): boolean {
-  if (windows.size > SWEEP_THRESHOLD) sweep(now);
-  address = keyFor(address);
-  const existing = windows.get(address);
-  if (!existing || existing.resetAt <= now) {
-    windows.set(address, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
+export async function allowNewDevice(
+  address: string,
+  now: number = Date.now(),
+  opts: { failOpen?: boolean } = {},
+): Promise<boolean> {
+  try {
+    const r = await consume(BUCKET, addressKey(address), NEW_DEVICES_PER_ADDRESS_PER_HOUR, WINDOW_MS, undefined, now);
+    return r.allowed;
+  } catch (err) {
+    if (opts.failOpen) {
+      logger.error({ err: safeError(err), bucket: BUCKET }, "rate limit counter failed, letting the request through");
+      return true;
+    }
+    throw err;
   }
-  if (existing.count >= NEW_DEVICES_PER_ADDRESS_PER_HOUR) return false;
-  existing.count += 1;
-  return true;
 }
 
 /** When `address`'s current window resets (ms since epoch), for Retry-After. */
-export function newDeviceResetAt(address: string): number | undefined {
-  return windows.get(keyFor(address))?.resetAt;
+export async function newDeviceResetAt(
+  address: string,
+  now: number = Date.now(),
+): Promise<number | undefined> {
+  const r = await peek(BUCKET, addressKey(address), WINDOW_MS, undefined, now);
+  return r.hits > 0 ? r.resetAt : undefined;
 }
 
 /** Test-only: forget every address's count. */
-export function _resetNewDeviceLimitForTests(): void {
-  windows.clear();
+export async function _resetNewDeviceLimitForTests(): Promise<void> {
+  await _resetBucketForTests(BUCKET);
 }

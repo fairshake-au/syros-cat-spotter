@@ -14,7 +14,11 @@ import * as zod from 'zod';
 export const HealthCheckResponse = zod.object({
   "status": zod.string(),
   "commit": zod.string().describe('Short git commit the running server was built from, or \"unknown\" when the build couldn\'t read it (and in development).'),
-  "builtAt": zod.string().describe('When the running server was built (ISO 8601), or \"unknown\".')
+  "builtAt": zod.string().describe('When the running server was built (ISO 8601), or \"unknown\".'),
+  "turnstile": zod.object({
+  "mode": zod.enum(['off', 'observe', 'enforce']).describe('The mode in force. Production is \"enforce\" unless the pre-launch gate is on.'),
+  "secret": zod.enum(['configured', 'not_configured']).describe('Whether TURNSTILE_SECRET_KEY is set.')
+}).describe('The Turnstile check on the public report forms (SYC-170). Never the key itself.')
 })
 
 

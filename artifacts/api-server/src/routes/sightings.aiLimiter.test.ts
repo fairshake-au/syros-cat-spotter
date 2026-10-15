@@ -56,7 +56,7 @@ async function cleanup() {
 beforeAll(cleanup);
 beforeEach(async () => {
   await cleanup();
-  _resetDeviceMatchLimitForTests();
+  await _resetDeviceMatchLimitForTests();
 });
 afterAll(async () => {
   await cleanup();
