@@ -154,7 +154,7 @@ export const CatSterilisedConfidence = {
 } as const;
 
 /**
- * Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one.
+ * Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly. Since SYC-75 "likely" (a clipped ear tip has been seen) is shown publicly too, now that Syros Cats can correct a wrong one (Q2). A missing clip is never shown as "not sterilised".
  */
 export type CatSterilised = {
   value: boolean | null;
@@ -263,7 +263,7 @@ export interface Cat {
      * keeps both generated packages agreeing on the wire type.
      */
   notSeenSince: string | null;
-  /** Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one. */
+  /** Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly. Since SYC-75 "likely" (a clipped ear tip has been seen) is shown publicly too, now that Syros Cats can correct a wrong one (Q2). A missing clip is never shown as "not sterilised". */
   sterilised: CatSterilised;
   /**
      * The cat's resolved coat colours (coat-markings-and-health.md

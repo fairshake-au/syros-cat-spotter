@@ -367,7 +367,7 @@ The ticket noted that colour data makes the design's "Needs vet" and "Desexed" f
 
 - **Colour** is added to the cat-alog's filters (the same chips, the same "Colour not known" rule).
 - **"Needs vet"** is not built, now or later. It would be a public list of cats marked as unwell, which is exactly the health information §6 keeps private, and it would invite people to treat the filter as a substitute for the urgent route. (SYC2-D7)
-- **A sterilised / not-sterilised filter** is deferred. The public "Probably sterilised" line sits behind its own gate (decision Q2 in the data spine plan, the `LIKELY_STERILISED_PUBLIC_LIVE` switch, SYC-198), and a filter over a status that is not yet public would leak it. Revisit when that gate opens.
+- **A sterilised / not-sterilised filter** is deferred. The public "Probably sterilised" line sat behind its own gate (decision Q2 in the data spine plan, the `LIKELY_STERILISED_PUBLIC_LIVE` switch, SYC-198) until SYC-75 opened it in October 2026, so the filter can now be reconsidered on its own merits.
 
 ---
 
@@ -582,7 +582,7 @@ Each has every realistic option, what it buys and what it costs, how it feels to
 | Option | Benefits | Risks |
 |---|---|---|
 | **A. Colour only, now (recommended)** | The one filter backed by data and harmless to publish | Fewer filters than the original design |
-| **B. Colour and a sterilised filter** | Helps people find cats that still need help | Leaks the "Probably sterilised" line before its gate opens, and filters over a status the public does not fully see |
+| **B. Colour and a sterilised filter** | Helps people find cats that still need help | When decided, would have leaked the "Probably sterilised" line before its gate opened (it opened with SYC-75) |
 | **C. Colour plus "Needs vet" as in the design** | Matches the design | A public list of cats marked unwell. It is the health information §6 keeps private, and it invites the filter to stand in for the urgent route |
 
 **Recommendation: A.** "Needs vet" is not built, and this is the one recommendation here that is a firm no rather than a preference.

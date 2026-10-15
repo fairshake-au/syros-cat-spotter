@@ -354,11 +354,11 @@ export async function deriveCatStatuses(
 }
 
 /**
- * Decision Q2's gate (`likelyGate.ts`): the public line never shows *Likely*
- * until Syros Cats can correct it. Downgraded to `unknown` rather than
- * hidden, so the API never claims a stronger negative or positive than it
- * means — "Not known yet" is the honest thing to say about a cat sitting on
- * one uncorrectable photo. Also strips the resolver's internal `asOf` (not
+ * Decision Q2's gate (`likelyGate.ts`, open since SYC-75). If the gate is
+ * ever shut again, *Likely* is downgraded to `unknown` rather than hidden,
+ * so the API never claims a stronger negative or positive than it means —
+ * "Not known yet" is the honest thing to say about a cat sitting on one
+ * uncorrectable photo. Also strips the resolver's internal `asOf` (not
  * part of the API's `sterilised` shape, §10.7).
  */
 function publicSterilised(sterilised: {

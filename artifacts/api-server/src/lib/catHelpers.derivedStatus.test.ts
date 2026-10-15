@@ -23,6 +23,14 @@ const { pr3RecordedMock } = vi.hoisted(() => ({
   pr3RecordedMock: vi.fn<() => Promise<boolean>>(),
 }));
 vi.mock("./pr3Gate", () => ({ pr3Recorded: pr3RecordedMock }));
+// Q2's switch, open by default (SYC-75); one test shuts it to prove the
+// one-line rollback still downgrades Likely to Not known yet.
+const likelyGate = vi.hoisted(() => ({ open: true }));
+vi.mock("./likelyGate", () => ({
+  get LIKELY_STERILISED_PUBLIC_LIVE() {
+    return likelyGate.open;
+  },
+}));
 
 import { deriveCatStatuses } from "./catHelpers";
 
@@ -78,7 +86,10 @@ async function cleanup() {
 }
 
 beforeAll(cleanup);
-afterEach(() => pr3RecordedMock.mockReset());
+afterEach(() => {
+  pr3RecordedMock.mockReset();
+  likelyGate.open = true;
+});
 afterAll(async () => {
   await cleanup();
   await pool.end();
@@ -228,7 +239,7 @@ describe("deriveCatStatuses: life and sterilised states (gate open)", () => {
     });
   });
 
-  it("a photo-backed clipped ear_tip reaches Likely internally, but Q2's gate shows 'Not known yet' publicly", async () => {
+  it("a photo-backed clipped ear_tip shows publicly as Likely (SYC-75: Q2's gate is open)", async () => {
     pr3RecordedMock.mockResolvedValue(true);
     const cat = await seedCat({});
     await writeObservation(db, {
@@ -243,14 +254,84 @@ describe("deriveCatStatuses: life and sterilised states (gate open)", () => {
 
     const result = await deriveCatStatuses([cat]);
 
-    // LIKELY_STERILISED_PUBLIC_LIVE is false (likelyGate.ts) until PR 8 is
-    // live, SYC-103 works and a SYC-43 screen exists (decision Q2 -> A) --
-    // the public confidence must never be "likely" before then.
-    expect(result.get(cat.id)?.sterilised.confidence).toBe("unknown");
+    // LIKELY_STERILISED_PUBLIC_LIVE is true (likelyGate.ts): the team can
+    // now correct a wrong clip from the Probably sterilised list, so the
+    // public line says "Probably" -- value true, but never "confirmed".
+    expect(result.get(cat.id)?.sterilised).toEqual({
+      value: true,
+      confidence: "likely",
+      clippedTipSightings: 1,
+    });
+  });
+
+  it("an ear_tip with no clip seen is never negative evidence, gate open or not", async () => {
+    pr3RecordedMock.mockResolvedValue(true);
+    const cat = await seedCat({});
+    await writeObservation(db, {
+      catId: cat.id,
+      kind: "ear_tip",
+      value: { clipped: false },
+      deviceId: "vitest-spotter-derivedstatus-2",
+      roleAtTime: "public",
+      photoId: 1,
+      observedAt: new Date(),
+    });
+
+    const result = await deriveCatStatuses([cat]);
+
+    // SYC-75's critical rule: a missing clip says nothing about whether the
+    // cat was done. Not known yet -- never value: false.
+    expect(result.get(cat.id)?.sterilised).toEqual({
+      value: null,
+      confidence: "unknown",
+      clippedTipSightings: 0,
+    });
+  });
+
+  it("shutting Q2's switch again shows the same clip as 'Not known yet' (the one-line rollback)", async () => {
+    pr3RecordedMock.mockResolvedValue(true);
+    likelyGate.open = false;
+    const cat = await seedCat({});
+    await writeObservation(db, {
+      catId: cat.id,
+      kind: "ear_tip",
+      value: { clipped: true },
+      deviceId: "vitest-spotter-derivedstatus-5",
+      roleAtTime: "public",
+      photoId: 1,
+      observedAt: new Date(),
+    });
+
+    const result = await deriveCatStatuses([cat]);
+
+    expect(result.get(cat.id)?.sterilised).toEqual({
+      value: null,
+      confidence: "unknown",
+      clippedTipSightings: 1,
+    });
+  });
+
+  it.each([
+    ["can't tell, with a photo", { clipped: "cant_tell" }, 1],
+    ["a clip with no photo behind it", { clipped: true }, null],
+    ["looks whole, with no photo", { clipped: false }, null],
+  ])("an ear_tip answer of %s never gives Likely or value: false", async (_label, value, photoId) => {
+    pr3RecordedMock.mockResolvedValue(true);
+    const cat = await seedCat({});
+    await writeObservation(db, {
+      catId: cat.id,
+      kind: "ear_tip",
+      value,
+      deviceId: "vitest-spotter-derivedstatus-6",
+      roleAtTime: "public",
+      photoId,
+      observedAt: new Date(),
+    });
+
+    const result = await deriveCatStatuses([cat]);
+
     expect(result.get(cat.id)?.sterilised.value).toBeNull();
-    // The count of people who said it is still surfaced -- §4.3's "how many
-    // people have said it" -- even while the level itself is suppressed.
-    expect(result.get(cat.id)?.sterilised.clippedTipSightings).toBe(1);
+    expect(result.get(cat.id)?.sterilised.confidence).toBe("unknown");
   });
 
   it("a cat created today with no sightings is not presumed deceased", async () => {

@@ -14,20 +14,15 @@
  * answers are stored, and those cats update the day the correction screen
  * arrives."
  *
- * **No ear-tip observations exist yet** — PR 7 (the question that writes
- * them) isn't built in this PR either, so `resolveSterilised` can't return
- * `confidence: "likely"` from real traffic today regardless of this flag.
- * This gate is written now, defensively, so PR 7/PR 8 don't have to
- * remember it later, and so a test seeding an `ear_tip` observation directly
- * (as this PR's own tests do, ahead of PR 7) proves the public line never
- * shows *Likely* early.
+ * Deliberately a manual constant, not a live check (unlike `pr3Gate.ts`):
+ * no database row means "SYC-103 works and a SYC-43 screen exists".
  *
- * **Deliberately a manual constant, not a live check** (unlike `pr3Gate.ts`):
- * there is no single row in any database that means "SYC-103 works and a
- * SYC-43 screen exists" — those are an infrastructure hand-off and a UI
- * screen, not a migration. Flipping this to `true` is a one-line PR once all
- * three conditions are actually true in production; filed as a reminder on
- * SYC-43 (the screen) so it isn't forgotten. See the PR body for the Linear
- * ticket.
+ * **Flipped to `true` by SYC-75 (15 Oct 2026).** All three conditions were
+ * checked against production build f03901a: PR 8's correction routes and
+ * PR 4's "Probably sterilised" list (`/api/team/likely`) answer 401, not
+ * 404; SYC-103 is Done; SYC-43 part 2 PR 4 (#99) is the screen. Merged only
+ * after Samuel confirmed the Syros Cats team has seen the list. The constant
+ * stays so the switch can be thrown back in one line if the team can't keep
+ * up with corrections.
  */
-export const LIKELY_STERILISED_PUBLIC_LIVE = false;
+export const LIKELY_STERILISED_PUBLIC_LIVE = true;

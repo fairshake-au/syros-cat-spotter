@@ -333,6 +333,8 @@ describe("P4-2: the Probably sterilised list", () => {
     const second = await spotterClip(catId, 10);
     const listed = await likelyIds();
     expect(listed).toContain(catId);
+    const before = await request(app).get(`/api/cats/${catId}`);
+    expect(before.body.cat.sterilised.confidence).toBe("likely");
 
     // That's not a clip, from the list.
     const notClip = await form(`/api/team/statements/${second.observation.id}/wrong`).send({
@@ -348,6 +350,10 @@ describe("P4-2: the Probably sterilised list", () => {
     expect(await likelyIds()).not.toContain(catId);
     const page = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
     expect(page.text).toContain("Not known yet");
+    // SYC-75: the public cat page drops back too, the moment the team says so.
+    const pub = await request(app).get(`/api/cats/${catId}`);
+    expect(pub.body.cat.sterilised.confidence).toBe("unknown");
+    expect(pub.body.cat.sterilised.value).toBeNull();
   });
 
   it("an agreement with an answer that has since been replaced no longer keeps the cat off the list (Opus review, S1)", async () => {

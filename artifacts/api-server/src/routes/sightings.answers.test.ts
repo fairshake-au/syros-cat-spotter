@@ -459,7 +459,7 @@ describe("POST /api/sightings/:id/answers", () => {
     expect(page.body.cat.sterilised.value).toBeNull();
   });
 
-  it("a clipped answer reaches Likely in the record, but the public line stays Not known yet (Q2 → A)", async () => {
+  it("a clipped answer reaches Likely in the record and on the public cat page (SYC-75: Q2's gate is open)", async () => {
     const catId = await seedCat();
     const { device, sighting } = await resolvedSighting(catId);
     await answer(sighting.id, device, { earTip: "clipped_left" });
@@ -469,7 +469,11 @@ describe("POST /api/sightings/:id/answers", () => {
     expect(snapshot.sterilised.confidence).toBe("likely");
 
     const page = await request(app).get(`/api/cats/${catId}`);
-    expect(page.body.cat.sterilised.confidence).toBe("unknown");
+    expect(page.body.cat.sterilised).toEqual({
+      value: true,
+      confidence: "likely",
+      clippedTipSightings: 1,
+    });
   });
 
   it("a note never appears in any public payload (§10.8.8)", async () => {
