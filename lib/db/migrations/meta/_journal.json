@@ -183,6 +183,13 @@
       "when": 1792075022697,
       "tag": "0025_mail_deliveries",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792077702583,
+      "tag": "0026_drop_old_resend_key",
+      "breakpoints": true
     }
   ]
 }

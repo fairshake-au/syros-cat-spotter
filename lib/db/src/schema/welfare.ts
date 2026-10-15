@@ -107,12 +107,6 @@ export const welfareReportsTable = pgTable(
   },
   (t) => [
     uniqueIndex("welfare_reports_public_id_key").on(t.publicId),
-    // The old key. SYC-44 PR 4.2 drops it once PR 4.1 is published, because
-    // the live upserts name it until then.
-    uniqueIndex("welfare_reports_device_client_ref_key").on(
-      t.reporterDevice,
-      t.clientRef,
-    ),
     // The resend key with the kind in it (SYC-44 review finding 1).
     uniqueIndex("welfare_reports_device_kind_client_ref_key").on(
       t.reporterDevice,
