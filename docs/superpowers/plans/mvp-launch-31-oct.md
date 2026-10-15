@@ -175,8 +175,8 @@ Samuel merges in two windows a day (morning and evening), each a batch of PRs th
 | **Fri 16 Oct** | SYC-209 3.2; SYC-279 cache rule; Turnstile website part (SYC-170 1.2); SYC-44 4.1 | `0023_issue_reports` |
 | **Mon 19 Oct** | SYC-44 4.2; SYC-42 Slice 3 (reporter's email); SYC-209 3.3; the rename (SYC-34) | 4.2's one-line change, then Slice 3's if it has one |
 | **Wed 21 Oct** | SYC-44 5.2 then 5.1; SYC-209 3.4; "Likely sterilised" switched on (SYC-75) | none |
-| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen, first PR (settings service and the card); email capture, first slice | email capture's, if any; the settings service's, if it stores settings in the database |
-| **Mon 26 Oct** | SYC-44 7.1; match-wait screen, second PR (result screen and the offline nudge); email capture, second slice; more than one server allowed (SYC-105) | none |
+| **Fri 23 Oct** | SYC-44 6.1, 6.2; match-wait screen, first PR (settings, the tap count and the card); email capture, first slice | the tap-count table (next free number), then email capture's if any |
+| **Mon 26 Oct** | SYC-44 7.1; match-wait screen, second PR (result screen and the visitors' daily reminder); email capture, second slice; more than one server allowed (SYC-105) | none |
 | **Wed 28 Oct** | Johnny's corrections; SYC-44 7.2 and 8.1 unless cut | 7.2's `photo_removal` |
 | **Thu 29 Oct** | Fixes only | none |
 
@@ -216,12 +216,12 @@ Each build PR follows the usual pipeline: its own worktree off fresh `origin/mai
 | Report an issue, server | SYC-44 4.2, 5.2, then 5.1 | 4.1 live (Fri 16 publish) |
 | Reporter's email | SYC-42 Slice 3 (other session) | `news.` verified |
 | Email capture | Slices from the plan | Plan approved Mon 19 |
-| Match-wait screen | Bigger than one card (PR #174): a small settings service (donation link on or off, hidden facts, a counted link-out), the card replacing the location map while sending, the nudge carried onto the first result screen, and a link-free nudge after a spot saved offline. Likely two PRs, Sonnet, one publish slot each (Fri 23, Mon 26) | Spec approved Mon 19; the send-time measurement |
+| Match-wait screen | Bigger than one card (PR #174): a few settings (donation link on or off, hidden facts, the donation address), a bare count of donation-link taps (no device, name or place) with its own small database table, the card replacing the location map while sending, the nudge carried onto the first result screen, and a one-line daily reminder for visitors (`feeding-nudge.md` §3.2, §5.1a). Nothing shows after a spot saved with no signal (Samuel, decision 5, SYC-36). Two PRs, Sonnet, one publish slot each (Fri 23, Mon 26) | Spec approved Mon 19; the send-time measurement |
 | Rename | SYC-34: app name and per-language names | D2 |
 | "Likely sterilised" | SYC-75: confirm the three conditions on the live site, then the one-line switch | Nothing |
 | Store builds | First iPhone and Android builds | Accounts |
 | Words for Johnny | All "Report an issue" words from its spec (§2, §4); the cat-in-trouble drafts checked against `docs/specs/source/safety-copy-translations.md`; "vous"/"tu" and formal/informal Greek settled | Nothing |
-| Privacy policy and support page | Final text (SYC-66, with SYC-124, SYC-248, SYC-265, SYC-110); the support page | SYC-82 approved |
+| Privacy policy and support page | Final text (SYC-66, with SYC-124, SYC-248, SYC-265, SYC-110, and one line on the donation-link tap count from the match-wait spec); the support page | SYC-82 approved |
 
 ### Wave 2: Thursday 22 – Tuesday 27 October · the visible parts, while Johnny reviews
 
