@@ -22,6 +22,7 @@ import type {
 import type {
   ApiErrorBody,
   AppNotification,
+  AppSettings,
   Campaign,
   Cat,
   CatClaim,
@@ -50,6 +51,7 @@ import type {
   ResolveSightingRequest,
   SightingAnswersRequest,
   SightingAnswersResult,
+  SpotterSignals,
   SuggestCatNamesRequest,
   SuggestCatNamesResult,
   UpdateProfileRequest,
@@ -1970,6 +1972,237 @@ export function useGetCampaign<TData = Awaited<ReturnType<typeof getCampaign>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetCampaignQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAppSettingsUrl = () => {
+
+
+
+
+  return `/api/app-settings`
+}
+
+/**
+ * @summary The match-wait switches (SYC-36 / SYC-48), the feeding nudge's donation link and hidden starter facts
+ */
+export const getAppSettings = async ( options?: RequestInit): Promise<AppSettings> => {
+
+  return customFetch<AppSettings>(getGetAppSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAppSettingsQueryKey = () => {
+    return [
+    `/api/app-settings`
+    ] as const;
+    }
+
+
+export const getGetAppSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAppSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAppSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAppSettings>>> = ({ signal }) => getAppSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAppSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAppSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAppSettings>>>
+export type GetAppSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The match-wait switches (SYC-36 / SYC-48), the feeding nudge's donation link and hidden starter facts
+ */
+
+export function useGetAppSettings<TData = Awaited<ReturnType<typeof getAppSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAppSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSpotterSignalsUrl = (deviceId: string,) => {
+
+
+
+
+  return `/api/app-settings/${deviceId}/signals`
+}
+
+/**
+ * @summary Does this phone look like a resident's? (feeding-nudge.md §3.2)
+ */
+export const getSpotterSignals = async (deviceId: string, options?: RequestInit): Promise<SpotterSignals> => {
+
+  return customFetch<SpotterSignals>(getGetSpotterSignalsUrl(deviceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSpotterSignalsQueryKey = (deviceId: string,) => {
+    return [
+    `/api/app-settings/${deviceId}/signals`
+    ] as const;
+    }
+
+
+export const getGetSpotterSignalsQueryOptions = <TData = Awaited<ReturnType<typeof getSpotterSignals>>, TError = ErrorType<unknown>>(deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSpotterSignals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSpotterSignalsQueryKey(deviceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSpotterSignals>>> = ({ signal }) => getSpotterSignals(deviceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: deviceId !== null && deviceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSpotterSignals>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSpotterSignalsQueryResult = NonNullable<Awaited<ReturnType<typeof getSpotterSignals>>>
+export type GetSpotterSignalsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Does this phone look like a resident's? (feeding-nudge.md §3.2)
+ */
+
+export function useGetSpotterSignals<TData = Awaited<ReturnType<typeof getSpotterSignals>>, TError = ErrorType<unknown>>(
+ deviceId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSpotterSignals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSpotterSignalsQueryOptions(deviceId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGoFeedUrl = () => {
+
+
+
+
+  return `/api/go/feed`
+}
+
+/**
+ * @summary "Help feed a cat": counts the tap and forwards to the donation page. A browser link, not called by the client
+ */
+export const goFeed = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getGoFeedUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGoFeedQueryKey = () => {
+    return [
+    `/api/go/feed`
+    ] as const;
+    }
+
+
+export const getGoFeedQueryOptions = <TData = Awaited<ReturnType<typeof goFeed>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof goFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGoFeedQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof goFeed>>> = ({ signal }) => goFeed({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof goFeed>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GoFeedQueryResult = NonNullable<Awaited<ReturnType<typeof goFeed>>>
+export type GoFeedQueryError = ErrorType<void>
+
+
+/**
+ * @summary "Help feed a cat": counts the tap and forwards to the donation page. A browser link, not called by the client
+ */
+
+export function useGoFeed<TData = Awaited<ReturnType<typeof goFeed>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof goFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGoFeedQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

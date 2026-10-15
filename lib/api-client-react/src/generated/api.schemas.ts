@@ -5,6 +5,25 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Null when the donation link and figures are off
+ */
+export type AppSettingsFeedNudge = {
+  donateHost: string;
+} | null;
+
+export interface AppSettings {
+  /** Null when the donation link and figures are off */
+  feedNudge: AppSettingsFeedNudge;
+  hiddenFacts: string[];
+}
+
+export interface SpotterSignals {
+  hasClaimedCat: boolean;
+  /** Athens calendar day (YYYY-MM-DD) this phone's first sighting arrived, or null */
+  firstSpotDate: string | null;
+}
+
 export interface RegisterPushTokenRequest {
   token: string;
 }

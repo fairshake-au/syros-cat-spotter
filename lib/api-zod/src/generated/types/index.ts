@@ -9,6 +9,8 @@
 export * from './apiErrorBody';
 export * from './appNotification';
 export * from './appNotificationUpdateType';
+export * from './appSettings';
+export * from './appSettingsFeedNudge';
 export * from './campaign';
 export * from './campaignCurrency';
 export * from './careEvent';
@@ -67,6 +69,7 @@ export * from './sightingAnswersRequestEarTip';
 export * from './sightingAnswersRequestFoodAndWater';
 export * from './sightingAnswersResult';
 export * from './sightingAnswersResultRecordedItem';
+export * from './spotterSignals';
 export * from './suggestCatNamesRequest';
 export * from './suggestCatNamesRequestLanguage';
 export * from './suggestCatNamesResult';

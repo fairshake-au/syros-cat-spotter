@@ -778,3 +778,37 @@ export const GetCampaignResponse = zod.object({
 }).describe('Colony fundraising campaign shown on the Help tab. Server-side config, so\nfigures can be corrected without an app release. There is no payments\nbackend: the app opens `donateUrl` externally and no money moves through\nthis API.\n')
 
 
+/**
+ * @summary The match-wait switches (SYC-36 / SYC-48), the feeding nudge's donation link and hidden starter facts
+ */
+export const GetAppSettingsResponse = zod.object({
+  "feedNudge": zod.object({
+  "donateHost": zod.string()
+}).nullable().describe('Null when the donation link and figures are off'),
+  "hiddenFacts": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Does this phone look like a resident's? (feeding-nudge.md §3.2)
+ */
+export const GetSpotterSignalsParams = zod.object({
+  "deviceId": zod.coerce.string()
+})
+
+export const GetSpotterSignalsHeader = zod.object({
+  "X-Device-Secret": zod.string().describe('Device-generated private secret proving ownership of the device id. Bound to the device id on first use; must match on later requests.')
+})
+
+export const GetSpotterSignalsResponse = zod.object({
+  "hasClaimedCat": zod.boolean(),
+  "firstSpotDate": zod.string().nullable().describe('Athens calendar day (YYYY-MM-DD) this phone\'s first sighting arrived, or null')
+})
+
+
+/**
+ * @summary "Help feed a cat": counts the tap and forwards to the donation page. A browser link, not called by the client
+ */
+export const GoFeedResponse = zod.unknown()
+
+
