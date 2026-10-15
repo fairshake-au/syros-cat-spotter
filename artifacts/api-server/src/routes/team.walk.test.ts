@@ -244,7 +244,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 54;
+const MINIMUM_ROUTES = 64;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
