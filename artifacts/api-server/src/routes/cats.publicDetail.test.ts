@@ -26,6 +26,8 @@ import app from "../app";
 // Regenerated again, on purpose, by SYC-130 (claiming a cat): two keys added,
 // `"homePin":null` on the cat (owner-only, so always null here) and
 // `"canClaim":false` on the page (no proven phone asked). Nothing else changed.
+// Regenerated again, on purpose, by SYC-2 PR 2.1: `"coat":[],"markings":[]`
+// on the cat (nobody has described it). Nothing else changed.
 //
 // Only the database's own serial ids are swapped for placeholders; every other
 // byte, including key order, is compared as sent.

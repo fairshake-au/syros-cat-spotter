@@ -36,6 +36,8 @@ import app from "../app";
 // Regenerated once, on purpose, by SYC-130 (claiming a cat): `"homePin":null`
 // on every public cat (the pin is owner-only) and `"canClaim":false` on the
 // cat's page (no proven phone asked). No other byte changed.
+// Regenerated again, on purpose, by SYC-2 PR 2.1: `"coat":[],"markings":[]`
+// on every public cat (an undescribed cat). No other byte changed.
 //
 // Only values the database or the clock hand out (serial ids, the upload's
 // random public id, today's date) are swapped for placeholders; every other

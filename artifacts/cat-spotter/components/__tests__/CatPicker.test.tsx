@@ -103,6 +103,27 @@ describe('CatPicker', () => {
     expect(listedNames(container)).toEqual(['3', '7', '42', '12']);
   });
 
+  // SYC-2 PR 2.1 (coat-markings-and-health.md §7.2): each card carries the
+  // cat page's colour and markings line under the name; a cat nobody has
+  // described, or one from an older server or cache, carries none.
+  it('shows the colour and markings line under the name, and nothing for an undescribed cat', () => {
+    const described = { ...cat(42, 'Agatha', north(0.6)), coat: ['tabby', 'ginger'], markings: ['white_paws'] } as Cat;
+    const empty = { ...cat(7, 'Krispy', north(0.05)), coat: [], markings: [] } as Cat;
+    const old = cat(3, 'Savma', north(0.05));
+    const { getByTestId } = renderPicker({ cats: [described, empty, old] });
+    expect(getByTestId('picker-cat-42').textContent).toContain(
+      'Agatha' + 'coat_ginger · coat_tabby · mark_white_paws' + 'SYR-0042',
+    );
+    for (const id of [7, 3]) {
+      expect(getByTestId(`picker-cat-${id}`).textContent).not.toMatch(/coat_|mark_|·/);
+    }
+    // A screen reader hears it too (review of #159).
+    expect(getByTestId('picker-cat-42').getAttribute('aria-label')).toBe(
+      'Agatha, SYR-0042, coat_ginger · coat_tabby · mark_white_paws',
+    );
+    expect(getByTestId('picker-cat-7').getAttribute('aria-label')).toBe('Krispy, SYR-0007');
+  });
+
   it('shows the name and SYR number, and never a distance', () => {
     const { container, getByText } = renderPicker();
     expect(getByText('Agatha')).toBeTruthy();

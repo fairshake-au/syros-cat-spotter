@@ -18,6 +18,8 @@ import {
   readCachedCatalogue,
   writeCachedCatalogue,
 } from '../catalogue';
+import { appearanceLine } from '../appearance';
+import { TRANSLATIONS } from '../i18n';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -237,5 +239,49 @@ describe('the cache key (§6.5)', () => {
     };
     for (const d of ['app', 'components', 'context', 'hooks', 'lib']) walk(path.join(root, d));
     expect(offenders).toEqual([]);
+  });
+});
+
+// SYC-2 PR 2.1 (coat-markings-and-health.md §8, §10.4; plan test T-cache).
+// The new coat and markings fields are additive, so the key stays v2: a
+// phone that updates the app with no signal (on the ferry) keeps its
+// catalogue. Retired keys are deleted unread, so a bump would empty it.
+describe('T-cache: a catalogue saved by the build before SYC-2 still works', () => {
+  /** The key every build since data spine PR 6 has written. */
+  const V2 = 'cat-spotter/cats-cache/public/v2';
+
+  it('a v2 cache in the shape today\'s build writes (no coat, no markings) is read, and every cat shows no appearance line', async () => {
+    const saved = [cat(1), cat(2), cat(3)];
+    for (const c of saved) {
+      expect('coat' in c).toBe(false);
+      expect('markings' in c).toBe(false);
+    }
+    // Written under the literal key, exactly as the earlier build did.
+    const storage = memoryStorage({ [V2]: JSON.stringify(saved) });
+    const read = await readCachedCatalogue(storage);
+    expect(read?.map((c) => c.id)).toEqual([1, 2, 3]);
+    for (const language of ['en', 'el', 'fr'] as const) {
+      const t = (k: string) => TRANSLATIONS[language][k] ?? k;
+      for (const c of read!) expect(appearanceLine(c, t), `${language} cat ${c.id}`).toBeNull();
+    }
+    // Starting up forgets only the retired keys, never this one.
+    await forgetRetiredCatalogues(storage);
+    expect(storage.data.has(V2)).toBe(true);
+  });
+
+  it('a cached cat that does carry the fields shows its line offline', async () => {
+    const described = { ...cat(4), coat: ['ginger', 'tabby'], markings: ['white_paws'] } as Cat;
+    const storage = memoryStorage({ [V2]: JSON.stringify([described]) });
+    const [c] = (await readCachedCatalogue(storage))!;
+    expect(appearanceLine(c!, (k) => TRANSLATIONS.en[k] ?? k)).toBe('Ginger · Tabby · White paws');
+  });
+
+  it('guard for any later bump: if the key changes, catalogue.ts still reads v2 as a fallback', () => {
+    if (CATS_CACHE_KEY === V2) return;
+    // Spec §10.4: "the new code reads the old key as a fallback until the
+    // first successful fetch and only then deletes it."
+    const src = readFileSync(path.join(root, 'lib/catalogue.ts'), 'utf8');
+    expect(src, 'catalogue.ts names the previous key').toContain(V2);
+    expect(RETIRED_CATS_CACHE_KEYS as readonly string[], 'v2 is not deleted unread').not.toContain(V2);
   });
 });

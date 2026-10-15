@@ -40,6 +40,10 @@ export const ListCatsQueryParams = zod.object({
   "pageSize": zod.coerce.number().min(1).max(listCatsQueryPageSizeMax).optional().describe('Cats per page. Defaults to 100; at most 200.')
 })
 
+export const listCatsResponseCatsItemCoatMax = 2;
+
+
+
 export const ListCatsResponse = zod.object({
   "cats": zod.array(zod.object({
   "id": zod.number(),
@@ -69,7 +73,9 @@ export const ListCatsResponse = zod.object({
   "value": zod.boolean().nullable(),
   "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
-}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.'),
+  "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(listCatsResponseCatsItemCoatMax).optional().describe('The cat\'s resolved coat colours (coat-markings-and-health.md\n§3.1, §10.4): one or two codes, or `[]` when not known. \"Not\nsure\" is never sent; it is `[]` (data spine §10.7). Only the\nvalue: never how sure, who said it, how many people, the model\nversion or the date. Optional so an older server or a cached\ncatalogue without it reads as \"not known\".\n'),
+  "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 })),
   "page": zod.number(),
   "pageSize": zod.number(),
@@ -92,6 +98,10 @@ export const GetCatParams = zod.object({
 export const GetCatHeader = zod.object({
   "X-Device-Id": zod.string().optional()
 })
+
+export const getCatResponseCatCoatMax = 2;
+
+
 
 export const GetCatResponse = zod.object({
   "cat": zod.object({
@@ -122,7 +132,9 @@ export const GetCatResponse = zod.object({
   "value": zod.boolean().nullable(),
   "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
-}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.'),
+  "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(getCatResponseCatCoatMax).optional().describe('The cat\'s resolved coat colours (coat-markings-and-health.md\n§3.1, §10.4): one or two codes, or `[]` when not known. \"Not\nsure\" is never sent; it is `[]` (data spine §10.7). Only the\nvalue: never how sure, who said it, how many people, the model\nversion or the date. Optional so an older server or a cached\ncatalogue without it reads as \"not known\".\n'),
+  "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 }),
   "sightings": zod.array(zod.object({
   "catId": zod.number().nullish(),
@@ -163,6 +175,10 @@ export const UpdateCatBody = zod.object({
   "homeDescription": zod.string().max(updateCatBodyHomeDescriptionMax).optional()
 })
 
+export const updateCatResponseCoatMax = 2;
+
+
+
 export const UpdateCatResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -191,7 +207,9 @@ export const UpdateCatResponse = zod.object({
   "value": zod.boolean().nullable(),
   "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
-}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.'),
+  "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(updateCatResponseCoatMax).optional().describe('The cat\'s resolved coat colours (coat-markings-and-health.md\n§3.1, §10.4): one or two codes, or `[]` when not known. \"Not\nsure\" is never sent; it is `[]` (data spine §10.7). Only the\nvalue: never how sure, who said it, how many people, the model\nversion or the date. Optional so an older server or a cached\ncatalogue without it reads as \"not known\".\n'),
+  "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 })
 
 
@@ -234,6 +252,10 @@ export const ClaimCatBody = zod.object({
   "homeNote": zod.string().max(claimCatBodyHomeNoteMax).optional()
 }).describe('claiming-a-cat.md §5. livesOnSyros and livesInMyHome must both be\ntrue (the app always sends true). Either one missing or false is\n422 NOT_CONFIRMED, given only after the checks about the cat (§3\norder of checks). A value of the wrong type (the string \"true\",\nsay), or a homePin that is missing, null or not a position, is a\nplain 400 before anything else.\n')
 
+export const claimCatResponseCoatMax = 2;
+
+
+
 export const ClaimCatResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -262,7 +284,9 @@ export const ClaimCatResponse = zod.object({
   "value": zod.boolean().nullable(),
   "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
-}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.'),
+  "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(claimCatResponseCoatMax).optional().describe('The cat\'s resolved coat colours (coat-markings-and-health.md\n§3.1, §10.4): one or two codes, or `[]` when not known. \"Not\nsure\" is never sent; it is `[]` (data spine §10.7). Only the\nvalue: never how sure, who said it, how many people, the model\nversion or the date. Optional so an older server or a cached\ncatalogue without it reads as \"not known\".\n'),
+  "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 })
 
 
@@ -286,6 +310,10 @@ export const LetGoCatParams = zod.object({
 export const LetGoCatBody = zod.object({
   "deviceId": zod.string().min(1)
 }).describe('claiming-a-cat.md §6. Only the device id; the secret travels in X-Device-Secret.')
+
+export const letGoCatResponseCoatMax = 2;
+
+
 
 export const LetGoCatResponse = zod.object({
   "id": zod.number(),
@@ -315,7 +343,9 @@ export const LetGoCatResponse = zod.object({
   "value": zod.boolean().nullable(),
   "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
-}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.'),
+  "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(letGoCatResponseCoatMax).optional().describe('The cat\'s resolved coat colours (coat-markings-and-health.md\n§3.1, §10.4): one or two codes, or `[]` when not known. \"Not\nsure\" is never sent; it is `[]` (data spine §10.7). Only the\nvalue: never how sure, who said it, how many people, the model\nversion or the date. Optional so an older server or a cached\ncatalogue without it reads as \"not known\".\n'),
+  "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 })
 
 
@@ -379,6 +409,10 @@ export const ResolveSightingBody = zod.object({
   "openedPicker": zod.boolean().optional().describe('With newCatName: the spotter opened \"Find the cat yourself\" before choosing a new cat. Weak evidence the cat really is new; recorded for the team only (choose-a-different-cat.md §4.6).')
 })
 
+export const resolveSightingResponseCatCoatMax = 2;
+
+
+
 export const ResolveSightingResponse = zod.object({
   "cat": zod.object({
   "id": zod.number(),
@@ -408,7 +442,9 @@ export const ResolveSightingResponse = zod.object({
   "value": zod.boolean().nullable(),
   "confidence": zod.enum(['confirmed', 'likely', 'reported', 'unknown']),
   "clippedTipSightings": zod.number().describe('How many photo-backed clipped-tip sightings have been recorded (§4.3), whatever a later correction did to the level.')
-}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.')
+}).describe('Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why \"likely\" is held back as \"Not known yet\" until Syros Cats can correct a wrong one.'),
+  "coat": zod.array(zod.enum(['black', 'white', 'ginger', 'grey', 'tabby', 'tortoiseshell_or_calico', 'black_and_white'])).max(resolveSightingResponseCatCoatMax).optional().describe('The cat\'s resolved coat colours (coat-markings-and-health.md\n§3.1, §10.4): one or two codes, or `[]` when not known. \"Not\nsure\" is never sent; it is `[]` (data spine §10.7). Only the\nvalue: never how sure, who said it, how many people, the model\nversion or the date. Optional so an older server or a cached\ncatalogue without it reads as \"not known\".\n'),
+  "markings": zod.array(zod.enum(['white_paws', 'white_chest', 'white_face', 'colourpoint', 'long_fur', 'kinked_tail', 'torn_ear', 'short_tail', 'missing_eye', 'three_legs', 'odd_eyes'])).optional().describe('The cat\'s resolved markings (coat-markings-and-health.md §3.2,\n§10.4), `[]` when none are known. Only the list: never how sure,\nwho said it or how many people. Optional, as `coat`.\n')
 }),
   "pointsAwarded": zod.number(),
   "isNewCat": zod.boolean(),

@@ -143,6 +143,8 @@ describe("source: appearance never feeds the matcher (SYC2-D8)", () => {
 /** Reads of the new snapshot fields only, for files that legitimately call
  * the resolver for other reasons. */
 const READS_NEW_FIELDS: RegExp[] = [
+  // Destructuring: `const { coat } = snapshot` (review of #159).
+  /\{[^{}=;]*\b(coat|markings|vaccinations|checkReasons)\b[^{}=;]*\}\s*(:[^=;]*)?=/,
   /\.(coat|markings|vaccinations)\b/,
   /\[\s*["'`](coat|markings|vaccinations)["'`]\s*\]/,
   /\bcheckReasons\b/,
@@ -151,8 +153,51 @@ const READS_NEW_FIELDS: RegExp[] = [
 describe("source: catHelpers, which every notifier's deceased check goes through", () => {
   const src = readFileSync(join(LIB, "catHelpers.ts"), "utf8");
 
-  it("R7a catHelpers.ts reads no coat, markings, vaccinations or checkReasons", () => {
-    expect(READS_NEW_FIELDS.filter((re) => re.test(src)).map(String)).toEqual([]);
+  /**
+   * SYC-2 PR 2.1 gives the public payload the resolved colour and markings,
+   * so catHelpers.ts now reads them in exactly these places: the resolved
+   * VALUE in `deriveCatStatuses`, and the copy of that value in
+   * `serialiseCat`. Each must sit inside its function; anything else that
+   * names the fields (a confidence, check reasons, vaccinations, a second
+   * reader such as `isResolvedDeceased` or a notifier helper) still fails.
+   */
+  const ALLOWED_READS: { fn: string; read: string }[] = [
+    { fn: "export async function deriveCatStatuses", read: "snapshot.coat.value" },
+    { fn: "export async function deriveCatStatuses", read: "snapshot.markings.value" },
+    { fn: "export function serialiseCat", read: "cat.derived.coat" },
+    { fn: "export function serialiseCat", read: "cat.derived.markings" },
+  ];
+
+  function body(fn: string): string {
+    const start = src.indexOf(fn);
+    expect(start, fn).toBeGreaterThan(-1);
+    return src.slice(start, src.indexOf("\n}\n", start));
+  }
+
+  it("R7a catHelpers.ts reads coat and markings only as the resolved value, and never vaccinations or checkReasons", () => {
+    let rest = src;
+    for (const { fn, read } of ALLOWED_READS) {
+      // Exactly once in the file, and inside its own function.
+      expect(src.split(read).length - 1, read).toBe(1);
+      expect(body(fn).includes(read), `${read} in ${fn}`).toBe(true);
+      rest = rest.split(read).join("");
+    }
+    expect(READS_NEW_FIELDS.filter((re) => re.test(rest)).map(String)).toEqual([]);
+  });
+
+  it("R7a's allow-list still catches a read beside it", () => {
+    for (const extra of [
+      "snapshot.coat.confidence",
+      "snapshot.vaccinations",
+      "snapshot.markings.checkReasons",
+      "snapshot.coat",
+      "const { coat, markings } = snapshot;",
+      "const { lifeStatus, vaccinations }: CatSnapshot = resolveCat(o, e, now);",
+    ]) {
+      let rest = `${src}\n${extra}`;
+      for (const { read } of ALLOWED_READS) rest = rest.split(read).join("");
+      expect(READS_NEW_FIELDS.some((re) => re.test(rest)), extra).toBe(true);
+    }
   });
 
   it("R7b isResolvedDeceased reads only the snapshot's life status", () => {

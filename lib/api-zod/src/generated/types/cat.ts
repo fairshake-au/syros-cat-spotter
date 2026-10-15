@@ -5,9 +5,11 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { CatCoatItem } from './catCoatItem';
 import type { CatHomePin } from './catHomePin';
 import type { CatLifeStatus } from './catLifeStatus';
 import type { CatLocationPrecision } from './catLocationPrecision';
+import type { CatMarkingsItem } from './catMarkingsItem';
 import type { CatSterilised } from './catSterilised';
 
 export interface Cat {
@@ -82,4 +84,20 @@ export interface Cat {
   notSeenSince: string | null;
   /** Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one. */
   sterilised: CatSterilised;
+  /**
+     * The cat's resolved coat colours (coat-markings-and-health.md
+     * §3.1, §10.4): one or two codes, or `[]` when not known. "Not
+     * sure" is never sent; it is `[]` (data spine §10.7). Only the
+     * value: never how sure, who said it, how many people, the model
+     * version or the date. Optional so an older server or a cached
+     * catalogue without it reads as "not known".
+     * @maxItems 2
+     */
+  coat?: CatCoatItem[];
+  /**
+     * The cat's resolved markings (coat-markings-and-health.md §3.2,
+     * §10.4), `[]` when none are known. Only the list: never how sure,
+     * who said it or how many people. Optional, as `coat`.
+     */
+  markings?: CatMarkingsItem[];
 }

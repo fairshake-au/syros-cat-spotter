@@ -163,6 +163,36 @@ export type CatSterilised = {
   clippedTipSightings: number;
 };
 
+export type CatCoatItem = typeof CatCoatItem[keyof typeof CatCoatItem];
+
+
+export const CatCoatItem = {
+  black: 'black',
+  white: 'white',
+  ginger: 'ginger',
+  grey: 'grey',
+  tabby: 'tabby',
+  tortoiseshell_or_calico: 'tortoiseshell_or_calico',
+  black_and_white: 'black_and_white',
+} as const;
+
+export type CatMarkingsItem = typeof CatMarkingsItem[keyof typeof CatMarkingsItem];
+
+
+export const CatMarkingsItem = {
+  white_paws: 'white_paws',
+  white_chest: 'white_chest',
+  white_face: 'white_face',
+  colourpoint: 'colourpoint',
+  long_fur: 'long_fur',
+  kinked_tail: 'kinked_tail',
+  torn_ear: 'torn_ear',
+  short_tail: 'short_tail',
+  missing_eye: 'missing_eye',
+  three_legs: 'three_legs',
+  odd_eyes: 'odd_eyes',
+} as const;
+
 export interface Cat {
   id: number;
   name: string;
@@ -235,6 +265,22 @@ export interface Cat {
   notSeenSince: string | null;
   /** Sterilised status (§4). See D4 in DECISIONS.md for why a confirmed negative is shown publicly, and Q2 for why "likely" is held back as "Not known yet" until Syros Cats can correct a wrong one. */
   sterilised: CatSterilised;
+  /**
+     * The cat's resolved coat colours (coat-markings-and-health.md
+     * §3.1, §10.4): one or two codes, or `[]` when not known. "Not
+     * sure" is never sent; it is `[]` (data spine §10.7). Only the
+     * value: never how sure, who said it, how many people, the model
+     * version or the date. Optional so an older server or a cached
+     * catalogue without it reads as "not known".
+     * @maxItems 2
+     */
+  coat?: CatCoatItem[];
+  /**
+     * The cat's resolved markings (coat-markings-and-health.md §3.2,
+     * §10.4), `[]` when none are known. Only the list: never how sure,
+     * who said it or how many people. Optional, as `coat`.
+     */
+  markings?: CatMarkingsItem[];
 }
 
 export interface CatPage {
