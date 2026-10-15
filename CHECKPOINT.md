@@ -10,6 +10,9 @@ Branch claude/syc-53-pr-1-3, stacked on claude/syc-53-pr-1-2 (ca7a73b).
 - team.my.test.ts (25 tests) and 4 mutation probes (below)
 - route walk rows (MINIMUM_ROUTES 68), fresh-person support for the two changing routes
 
+## Browser check (done)
+Scratch DB syc53_my on PORT 8095 (dropped, server stopped). en at 390 and 1280, el at 390 (LIVE_LANGUAGES switched locally and restored; never committed). No horizontal scroll, no control under 44 px. Screenshots in docs/screenshots/syc-53-pr-1-3/.
+
 ## Next
 - browser check + screenshots (docs/screenshots/syc-53-pr-1-3/)
 - full suite + typecheck, final report
