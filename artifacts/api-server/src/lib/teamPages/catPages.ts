@@ -73,7 +73,7 @@ const sightingButtons = (sightingId: number, may: (c: Capability) => boolean) =>
     ? `<form method="post" action="/api/team/sites/from-sighting" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.makeSite"))}</button></form>`
     : "") +
   (may("view_exact_location")
-    ? `<form method="post" action="/api/team/sites/map-at-sighting" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.showOnMap"))}</button></form>`
+    ? `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${sightingId}"><button type="submit">${esc(t("sighting.showOnMap"))}</button></form>`
     : "");
 
 const row = (label: string, value: string) =>

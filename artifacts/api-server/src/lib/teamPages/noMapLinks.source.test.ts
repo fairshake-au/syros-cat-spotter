@@ -55,7 +55,7 @@ describe("no link to a map company from the team's pages", () => {
     expect(t("sighting.showOnMap")).toBe("Show on our map");
     // Both are POST forms to our own routes, carrying only the sighting's number.
     expect(text).toContain('method=\"post\" action=\"/api/team/sites/from-sighting\"');
-    expect(text).toContain('method=\"post\" action=\"/api/team/sites/map-at-sighting\"');
+    expect(text).toContain('method=\"post\" action=\"/api/team/sites/map-at-sighting#map\"');
     for (const company of MAP_COMPANIES) expect(text).not.toContain(company);
   });
 

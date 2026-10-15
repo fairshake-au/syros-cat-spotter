@@ -167,7 +167,9 @@ function controls(view: View, opts: MapOptions): string {
 export function renderMap(opts: MapOptions): string {
   const view = resolveView(opts);
   return (
-    `<div class="map" role="group" aria-label="Map of Syros, zoom ${view.z} of ${MAX_ZOOM}">` +
+    // id="map": "Show on our map" lands here (#map), as the map sits below the
+    // fold on a phone. One map per page.
+    `<div class="map" id="map" role="group" aria-label="Map of Syros, zoom ${view.z} of ${MAX_ZOOM}">` +
     BANDS.map((b) => band(view, b.size, opts)).join("") +
     "</div>" +
     '<p class="attrib">Map pictures © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a></p>' +

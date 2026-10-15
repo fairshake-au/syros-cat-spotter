@@ -222,7 +222,7 @@ describe("the cat page: two buttons on each sighting", () => {
         `<form method="post" action="/api/team/sites/from-sighting" class="sightact"><input type="hidden" name="sightingId" value="${id}"><button type="submit">Make a feeding site here</button></form>`,
       );
       expect(res.text).toContain(
-        `<form method="post" action="/api/team/sites/map-at-sighting" class="sightact"><input type="hidden" name="sightingId" value="${id}"><button type="submit">Show on our map</button></form>`,
+        `<form method="post" action="/api/team/sites/map-at-sighting#map" class="sightact"><input type="hidden" name="sightingId" value="${id}"><button type="submit">Show on our map</button></form>`,
       );
     }
     // The positions still show as plain text for the team, and nowhere else.
