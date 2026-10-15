@@ -8,6 +8,7 @@ import {
   recordTeamStatement,
   removeOwnerAndSay,
   renameCat,
+  SUPERSEDE_CAPABILITIES,
   supersedeStatement,
 } from "../lib/teamCorrections";
 import { listLikelyForReview } from "../lib/likelyReview";
@@ -422,6 +423,14 @@ router.post(
   "/team/statements/:id/wrong",
   ...formRoute(),
   async (req: Request, res: Response) => {
+    // Who may, before what was sent (SYC-53 PR 0.5, T2): someone holding
+    // none of the correction capabilities gets the 403 whatever the form
+    // says, never a 400 about the form. supersedeStatement checks the exact
+    // capability again once it knows the statement's kind.
+    if (!SUPERSEDE_CAPABILITIES.some((c) => can(teamPerson(res), c))) {
+      req.log.info({ reason: "missing_capability" }, "correction refused");
+      return refuseSignedIn(req, res);
+    }
     const id = catIdOf(req);
     if (id === null) return notFound(req, res);
     const parsed = WrongForm.safeParse(req.body ?? {});
