@@ -116,9 +116,9 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 ### Sterilisation (strand 3)
 
 **Fact 1 · The clipped ear tip** · *core* · *sign-off* · **shows the ear-tip example photo**
-- **EN** The flat top on the ear in this photo is a clipped tip: the sign a cat has been sterilised. The vet trims it while she's asleep for the operation. On Syros it's usually the left ear.
-- **EL** Η ίσια κοπή στην κορυφή του αυτιού σε αυτή τη φωτογραφία είναι το σημάδι ότι η γάτα έχει στειρωθεί. Ο κτηνίατρος την κάνει ενώ κοιμάται για την επέμβαση. Στη Σύρο είναι συνήθως το αριστερό αυτί.
-- **FR** Le haut tout plat de l’oreille sur cette photo, c’est un bout coupé : le signe qu’une chatte a été stérilisée. Le vétérinaire le coupe pendant qu’elle dort pour l’opération. À Syros, c’est généralement l’oreille gauche.
+- **EN** The flat top on the ear in this photo is a clipped tip: the sign a cat is sterilised. The vet trims it while she's asleep. On Syros it's usually the left ear.
+- **EL** Η ίσια κοπή στην κορυφή του αυτιού σε αυτή τη φωτογραφία δείχνει ότι η γάτα έχει στειρωθεί. Ο κτηνίατρος την κάνει ενώ κοιμάται. Στη Σύρο είναι συνήθως το αριστερό αυτί.
+- **FR** Le haut tout plat de l’oreille sur cette photo, c’est un bout coupé : le signe qu’une chatte est stérilisée. Le vétérinaire le coupe pendant qu’elle dort. À Syros, c’est généralement l’oreille gauche.
 
 **Fact 2 · How fast it adds up** · *core*
 - **EN** One unsterilised female can have two or three litters a year, and her daughters can be pregnant themselves from as young as four months.
@@ -175,11 +175,11 @@ These are drafts. Greek and French go to Johnny (SYC-283) on Thursday 22 October
 ### When a cat needs help (strand 5)
 
 **Fact 12 · Kittens on their own** · *core* · *sign-off*
-- **EN** Kittens on their own? Their mother has usually just gone for food. Don't pick them up; watch from a distance. If they look cold, hurt or ill, use "This cat needs help" on the Spot screen.
-- **EL** Γατάκια μόνα τους; Η μητέρα τους συνήθως έχει πάει για φαγητό. Μην τα σηκώσεις· παρακολούθησε από απόσταση. Αν κρυώνουν, είναι τραυματισμένα ή άρρωστα, πάτα «Αυτή η γάτα χρειάζεται βοήθεια» στην οθόνη «Εντόπισε».
-- **FR** Des chatons tout seuls ? Leur mère est souvent juste partie chercher à manger. Ne les prends pas : observe de loin. S’ils ont froid, sont blessés ou malades, touche « Ce chat a besoin d’aide » sur l’écran « Repérer ».
+- **EN** Kittens on their own? Their mother has usually just gone for food. Don't pick them up; watch from a distance. If they look cold, hurt or ill, use "This cat needs help".
+- **EL** Γατάκια μόνα τους; Η μητέρα τους συνήθως έχει πάει για φαγητό. Μην τα σηκώσεις· παρακολούθησε από απόσταση. Αν κρυώνουν, είναι τραυματισμένα ή άρρωστα, πάτα «Αυτή η γάτα χρειάζεται βοήθεια».
+- **FR** Des chatons tout seuls ? Leur mère est souvent juste partie manger. Ne les prends pas : observe de loin. S’ils ont froid, sont blessés ou malades, touche « Ce chat a besoin d’aide ».
 
-The quoted labels match the live ones (`reportNeedsHelp`; `tabSpot`: Spot, Εντόπισε, Repérer; checked on origin/main `f757c0d`). "This cat needs help" is on the Spot screen whenever a sighting isn't being sent, so it's there as soon as the result has come back. The report flow itself explains what Syros Cats can and can't do (the capacity messaging from Susan's standard reply); the fact promises nothing.
+The quoted label matches the live one (`reportNeedsHelp`, checked on origin/main `f757c0d`). "This cat needs help" is on the Spot screen whenever a sighting isn't being sent, so it's there as soon as the result has come back. The report flow itself explains what Syros Cats can and can't do (the capacity messaging from Susan's standard reply); the fact promises nothing.
 
 ### Reading a cat (strand 1)
 
@@ -359,7 +359,7 @@ The ear-tip question after each spot already shows the same example photo and a 
 9. **Delete my data** removes the record.
 10. All twenty facts and the card's words exist in English, Greek and French.
 11. Every fact is 35 words or fewer in each language.
-12. The quoted labels in facts 12 and 20 match the live `reportNeedsHelp`, `tabSpot` and `earTipCantTell` strings in each language, compared after normalising quote marks and apostrophes.
+12. The quoted labels in facts 12 and 20 match the live `reportNeedsHelp` and `earTipCantTell` strings in each language, compared after normalising quote marks and apostrophes.
 13. The card's top is in view on a 375 × 667 screen when it appears, at the default and the largest text size, in all three languages, including the ear-tip fact with its photo.
 
 A browser-pane check at about 390 px and at desktop width goes with the PR, in all three languages.
