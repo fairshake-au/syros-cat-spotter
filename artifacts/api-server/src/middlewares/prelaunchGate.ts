@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { MAIL_DRAIN_PATH, checkMailDrainToken } from "../lib/internalAuth";
+import { COAT_SWEEP_PATH, MAIL_DRAIN_PATH, checkMailDrainToken } from "../lib/internalAuth";
 import { RESEND_WEBHOOK_PATH } from "../lib/mail/resendWebhook";
 import {
   gateEnabled,
@@ -21,8 +21,10 @@ import {
  * In order:
  * 1. Gate off → next().
  * 2. GET or HEAD on exactly /api/healthz → next() (Replit's start-up check).
- * 3. Exactly POST /api/internal/mail/drain → only `Authorization: Bearer
- *    <MAIL_DRAIN_TOKEN>` (SYC-42: the scheduled drain's own narrow token).
+ * 3. Exactly POST /api/internal/mail/drain, or exactly POST
+ *    /api/internal/coat/sweep (SYC-161, Decision D1) → only `Authorization:
+ *    Bearer <MAIL_DRAIN_TOKEN>` (SYC-42: the scheduled drain's own narrow
+ *    token).
  *    Any other /api/internal/* → only `Authorization: Bearer
  *    <INTERNAL_PEOPLE_TOKEN>`. Neither token opens the other's paths.
  *    Exactly POST /api/internal/resend/webhook → next(): Resend can't send
@@ -97,7 +99,7 @@ export function prelaunchGate(
     return;
   }
 
-  if (path === MAIL_DRAIN_PATH && req.method === "POST") {
+  if ((path === MAIL_DRAIN_PATH || path === COAT_SWEEP_PATH) && req.method === "POST") {
     // Not configured → the same refusal as a wrong token (fails closed; the
     // route itself says not_configured when the gate is off).
     if (checkMailDrainToken(req.headers.authorization) === "ok") {

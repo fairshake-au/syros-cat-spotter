@@ -86,6 +86,41 @@ export async function catDisplayPhotos(
   q: Queryable = db,
 ): Promise<Map<number, PublicPhotoUrl | null>> {
   const out = new Map<number, PublicPhotoUrl | null>();
+  for (const [catId, photo] of await displayPhotoRows(cats, q)) {
+    // The chosen photo is public by construction, so nothing is hidden here.
+    out.set(catId, publicPhotoUrl(photo, NOTHING_HIDDEN));
+  }
+  return out;
+}
+
+/**
+ * The same choice as {@link catDisplayPhotos}, as photo ids rather than
+ * addresses (SYC-161, rule R1): which photo the public sees for each cat, or
+ * null when none. The colour reader reads exactly this photo, so a photo the
+ * team hid is never sent to the model. Both functions share one stand-in
+ * rule ({@link displayPhotoRows}); nothing parses an address back into an id.
+ */
+export async function catDisplayPhotoIds(
+  cats: readonly { id: number; primaryPhotoId: number }[],
+  q: Queryable = db,
+): Promise<Map<number, number | null>> {
+  const out = new Map<number, number | null>();
+  for (const [catId, photo] of await displayPhotoRows(cats, q)) out.set(catId, photo?.id ?? null);
+  return out;
+}
+
+const NOTHING_HIDDEN: ReadonlySet<number> = new Set();
+
+/**
+ * **The one stand-in rule** behind {@link catDisplayPhotos} and
+ * {@link catDisplayPhotoIds}: for each cat, the photo row the public sees,
+ * or null.
+ */
+async function displayPhotoRows(
+  cats: readonly { id: number; primaryPhotoId: number }[],
+  q: Queryable,
+): Promise<Map<number, { id: number; publicId: string } | null>> {
+  const out = new Map<number, { id: number; publicId: string } | null>();
   const mainIds = [...new Set(cats.map((c) => c.primaryPhotoId).filter((id) => id > 0))];
   const mains = mainIds.length
     ? await q
@@ -99,7 +134,7 @@ export async function catDisplayPhotos(
   const needStandIn: number[] = [];
   for (const c of cats) {
     const main = mainById.get(c.primaryPhotoId);
-    out.set(c.id, publicPhotoUrl(main, hidden));
+    out.set(c.id, main && !hidden.has(main.id) ? main : null);
     if (main && hidden.has(main.id)) needStandIn.push(c.id);
   }
   if (needStandIn.length === 0) return out;
@@ -119,8 +154,7 @@ export async function catDisplayPhotos(
   const hiddenCandidates = await hiddenPhotoIds(candidates.map((p) => p.id), q);
   for (const p of candidates) {
     if (p.catId == null || out.get(p.catId) != null) continue;
-    const url = publicPhotoUrl(p, hiddenCandidates);
-    if (url) out.set(p.catId, url);
+    if (!hiddenCandidates.has(p.id)) out.set(p.catId, { id: p.id, publicId: p.publicId });
   }
   return out;
 }
