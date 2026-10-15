@@ -3,7 +3,7 @@
 **Status:** Draft for Samuel's approval, 15 October 2026. **All eight brainstorm decisions answered by Samuel on 15 October 2026** (§13): 1, 3, 4, 5, 6 and 7 as recommended; **2 changed** to two formats from the start (pairs and line-up); **8 changed** to full offline play, narrowed in §9 for a reason given there. An independent adversarial review (Sonnet) ran on this draft; the review and how each finding was handled are in [`reviews/matching-game-review.md`](./reviews/matching-game-review.md). **Design only.** Nothing here is built, and the implementation plan comes only after approval.
 **Owner:** Samuel
 **Covers:** SYC-402 (design a game in the app that helps improve cat matching).
-**Related:** SYC-56 (measure matching accuracy) · SYC-57 (visual memory: embeddings, then on-device matching) · SYC-151 (the team-only match record, Done) · SYC-161 (coat colour read from the photo) · SYC-303 and SYC-246 (hidden photos, privacy removal) · SYC-36 and SYC-48 (the match-wait screen, PR #195) · SYC-2 (coat and markings, PR #191) · SYC-53 (roles and invites) · SYC-43 (team dashboard) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 · [`cat-record-data-spine.md`](./cat-record-data-spine.md) §6.5, §10 · [`coat-markings-and-health.md`](./coat-markings-and-health.md) §3 · [`roles-and-invites.md`](./roles-and-invites.md) §2.2, §6.2 · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · `docs/superpowers/specs/2026-07-28-engagement-and-donations-design.md` §4.3 ("standing, separate from points"), §6.7.
+**Related:** SYC-56 (measure matching accuracy) · SYC-57 (visual memory: embeddings, then on-device matching) · SYC-151 (the team-only match record, Done) · SYC-161 (coat colour read from the photo) · SYC-303 and SYC-246 (hidden photos, privacy removal) · SYC-36 and SYC-48 (the match-wait screen, PR #195) · SYC-2 (coat and markings, PR #191) · SYC-53 (roles and invites) · SYC-43 (team dashboard) · SYC-59 (duplicate cats and human-confirmed merge) · [`choose-a-different-cat.md`](./choose-a-different-cat.md) §4.6 · [`cat-record-data-spine.md`](./cat-record-data-spine.md) §6.5, §10 · [`coat-markings-and-health.md`](./coat-markings-and-health.md) §3 · [`roles-and-invites.md`](./roles-and-invites.md) §2.2, §6.2 · [`offline-queue-on-web.md`](./offline-queue-on-web.md) · `docs/superpowers/specs/2026-07-28-engagement-and-donations-design.md` §4.3 ("standing, separate from points"), §6.7.
 **Timing:** **after the MVP.** The launch plan (PR #172) freezes MVP scope for 31 October, and nothing in this spec is on it. The earliest sensible home is the "Phase 4 · Intelligence and income" milestone, next to SYC-57, because the game's first job is to feed SYC-56's baseline, which that milestone depends on. §12 says what has to exist first.
 
 **What this document owns:** what the game looks like and feels like; where the pairs come from; when an answer counts; what the answers are used for and who may act on them; what is shown and what is never shown; the rewards; what works without signal.
@@ -48,7 +48,7 @@ The app has an audience with time and attention and no cat in front of them: tou
 
 ### 2.4 What the game is not
 
-- Not a way to change a cat. Only the team merges, splits or re-files, and only on the dashboard (§7.2).
+- Not a way to change a cat. Only the team merges, splits or re-files, and only on the dashboard (§7.2); the merge itself is SYC-59's.
 - Not a points source. Nothing in it moves the leaderboard (§8).
 - Not a matching service. The game never runs the vision model; it only shows what the model already thought.
 - Not an MVP feature (§ Timing above).
@@ -197,7 +197,7 @@ Three things a decided or contested pair can say about the records, each becomin
 | Contested (see §6.1) | Anything | *"Players disagree about Mikis and Ermis (3–2)."* | Decide it, which makes it a known pair |
 | Can't tell × 3 | Anything | *"Nobody can tell these apart from these photos."* | Note the cat needs a clearer main photo |
 
-A guardian sees rows about her own colony's cats on her own page (`roles-and-invites.md` §2.2) and can decide those with her `confirm`-class capability for her colony, recorded with who said it, exactly as her other statements are. **Merging and splitting cats stays with the team**, because a merge reaches every sighting, every spotter's collection and every subscription on both cats, and there is no merge today (SYC-63 is the deletion family; merge needs its own spec and is **out of scope here**, §14). Until merge exists, "Merge" in the queue is a note for Samuel, not a button.
+A guardian sees rows about her own colony's cats on her own page (`roles-and-invites.md` §2.2) and can decide those with her `confirm`-class capability for her colony, recorded with who said it, exactly as her other statements are. **Merging and splitting cats stays with the team**, because a merge reaches every sighting, every spotter's collection and every subscription on both cats, and there is no merge today (the merge is **SYC-59**, "Duplicate cats: detection triggers and human-confirmed merge", Phase 4, not yet specced; it is **out of scope here**, §14). Until SYC-59 ships, "Merge" in the queue is a note for the team, not a button. The game's "players think these are one cat" row is one of SYC-59's three triggers (the "third-spotter side-by-side question"), delivered from a different place.
 
 ### 7.3 Stage 3: training input (SYC-57)
 
@@ -272,7 +272,7 @@ Profile payload gains one integer, `pairsDecided`. Nothing else public changes. 
 3. **The dashboard queue pattern** (SYC-43 part 2) for §7.2: exists for welfare; this adds a queue.
 4. **`app_settings`** (match-wait plan, PR 1, 23 October) for the weights and caps.
 5. **SYC-53 app sign-in** for guardian weighting (§6.3): not needed to ship; the rule degrades to weight 1.
-6. **A merge-cats action** for the queue's "Merge": **does not exist**, and is out of scope (§14). Ship with "Merge" as a note.
+6. **A merge-cats action** for the queue's "Merge": **SYC-59**, not started, out of scope here (§14). Ship with "Merge" as a note.
 
 Realistic earliest: **four to six weeks after launch** (early December 2026), once pool 1 has content and the launch work is settled. Suggested milestone: Phase 4.
 
@@ -372,7 +372,7 @@ All eight answered by Samuel on 15 October 2026 through question prompts in this
 
 ## 14. Out of scope, and follow-ups
 
-- **Merging two cats into one**, and splitting one into two: needs its own spec (it touches sightings, collections, subscriptions, the match record and the deletion family in SYC-63). The queue shows the need; it doesn't act on it. *Follow-up ticket.*
+- **Merging two cats into one**, and splitting one into two: **SYC-59** (already filed, Phase 4). It touches sightings, collections, subscriptions, the match record and the deletion family in SYC-63. The queue shows the need; it doesn't act on it. No new ticket.
 - **Tuning the 0.4 threshold** using the test set: SYC-56's job once it has labels.
 - **Retiring the 500 m radius** or widening it: SYC-80 and SYC-151's distance-miss evidence; the game's pool 2 doesn't depend on it.
 - **A daily puzzle** or a timed mode: not at launch (D5).
