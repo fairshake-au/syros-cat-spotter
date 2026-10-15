@@ -304,7 +304,7 @@ The email's own "Stop emailing me" (where we can't know which phone it is) alway
 - "No thanks" → replaced, once, by the declined line. "Keep me posted" → `POST /api/news/address` (`spot_card`) → the thanks line (never "sent"). The reward screen needs a connection already, so there's no offline case.
 - **Tests:** shown once; not on a second reward screen; "No thanks" remembered across a restart; two used asks stop it; never when not live; named vs. not named wording; nothing pre-ticked.
 - **Checked in a real browser** at 390 px and 1280 px, in all three languages, before the PR opens: the card never pushes the "See {name}" button off a small screen.
-- **Before and after** (spec Risk 2): the share of spots that reach the reward screen and then a second spot, for the two weeks before and after the card goes on. How to measure it is ticketed (see "Linear").
+- **Before and after** (spec Risk 2): the share of spots that reach the reward screen and then a second spot, for the two weeks before and after the card goes on. How to measure it: SYC-376.
 
 ---
 
@@ -506,8 +506,8 @@ The "is this you?" email itself is #181's and unchanged.
 - The visit summary (Decision 2: SYC-370).
 - "We can't keep our promise" and the 24-month "still want these?" email (SYC-372).
 - Deleting a reporter's address 90 days after close (C9: SYC-42 plan item 4.3, tracked as SYC-371).
-- Staff deleting a news address by hand from the dashboard (spec §6.2 door 3), and "what do you hold about me?" (§6.4): ticketed (see "Linear"). Until then, "Delete my data" and the link in every email cover it.
-- Measuring the card's effect on spotting (spec Risk 2): ticketed.
+- Staff deleting a news address by hand from the dashboard (spec §6.2 door 3), and "what do you hold about me?" (§6.4): SYC-375. Until then, "Delete my data" and the link in every email cover it.
+- Measuring the card's effect on spotting (spec Risk 2): SYC-376.
 - The priority budget itself (SYC-358). Donation receipts (spec §1.2 E).
 
 ---
@@ -534,7 +534,7 @@ This session (Opus) wrote the plan. For the build:
 - **SYC-344:** this plan, In Review until Samuel approves.
 - **SYC-45:** blocked by SYC-344; a comment links this plan and its slices, and notes that any records-import plan must call `seedNewsBaseline` (C11).
 - **SYC-55:** Slices 1 and 3 deliver its core.
-- **Filed from this plan:** SYC-370 (visit summary), SYC-371 (tracks SYC-42 item 4.3), SYC-372 (`promise_withdrawn` and the 24-month email), plus one ticket for staff deletion by address and the §6.4 export, and one for measuring the card's effect on spotting (Risk 2).
+- **Filed from this plan:** SYC-370 (visit summary), SYC-371 (tracks SYC-42 item 4.3), SYC-372 (`promise_withdrawn` and the 24-month email), SYC-375 (staff deletion by address and the §6.4 export), SYC-376 (measuring the card's effect on spotting, Risk 2).
 
 ## Still needs Samuel
 
