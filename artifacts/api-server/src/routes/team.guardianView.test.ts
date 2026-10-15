@@ -1,15 +1,15 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import request from "supertest";
-import { addPerson, db, pool, sightingsTable } from "@workspace/db";
+import { addPerson, db, markLeft, observationsTable, pool, sightingsTable } from "@workspace/db";
 import app from "../app";
 import router from "./index";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { createColony, updateColony } from "../lib/teamColonies";
-import { addSite, changeSiteColony, colonyOptions, retireSite } from "../lib/teamSiteWrites";
+import { addSite, changeSiteColony, colonyOptions, editSite, retireSite } from "../lib/teamSiteWrites";
 import { siteView, sitesForPerson } from "../lib/teamSites";
 import { visibleColonyIds, isIslandWide } from "../lib/guardianView";
-import { guardianOn, putInColony, seedCat, type SeededCat, type Signed } from "../test/roleKit";
+import { endPlacements, guardianOn, seedCat, type SeededCat, type Signed } from "../test/roleKit";
 import { viewAround } from "../lib/mapTiles/geometry";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import { renderColonyLine, renderNameTaken } from "../lib/teamPages/colonyPages";
@@ -53,6 +53,13 @@ const S0_NAME = `Site0 nocolony ${XQ}`;
 const S0_POS = { lat: 37.43771, lng: 24.90611 };
 const JOINED_OLD_NAME = `Joinedold ${XQ}`;
 const JOINED_OLD_POS = { lat: 37.44123, lng: 24.92468 };
+/** The team member who seeds everything: never named to Eleni (review F4). */
+const STAFF_NAME = `Susan-${XQ}`;
+/** People who WERE placed on colony 1 but aren't now: never named (review F3). */
+const EXPIRED_NAME = `Expired-${XQ}`;
+const LEFT_NAME = `Leftperson-${XQ}`;
+/** A second cat guardian of colony 1 now: named to Eleni. */
+const MARIA_NAME = `Maria-${RUN}`;
 
 const C1_NAME = `Vaporia ${RUN} Eleni's`;
 const S1_NAME = `Site1 ${RUN}`;
@@ -65,6 +72,9 @@ const FORBIDDEN = [
   C2_NAME,
   C2_OLD,
   C2_GUARDIAN,
+  STAFF_NAME,
+  EXPIRED_NAME,
+  LEFT_NAME,
   C2_NOTES,
   ZOE_PERSON,
   S2_NAME,
@@ -100,6 +110,9 @@ let sJ: number;
 let catA: SeededCat;
 let catB: SeededCat;
 let catMoved: SeededCat;
+let maria: Signed;
+let expired: Signed;
+let leftG: Signed;
 let sightA: number;
 let sightB: number;
 let fetchSpy: MockInstance<typeof fetch>;
@@ -122,6 +135,18 @@ async function sighting(catId: number, photoId: number, at: { lat: number; lng: 
   return row!.id;
 }
 
+/** A signed colony statement by a person, as the dashboard writes one. */
+async function colonyStatement(catId: number, colonyId: number, accountId: string, roleAtTime: string) {
+  await db.insert(observationsTable).values({
+    catId,
+    kind: "colony",
+    value: { colonyId },
+    accountId,
+    roleAtTime,
+    observedAt: new Date(),
+  });
+}
+
 async function stampOf(id: number): Promise<string> {
   return (await siteView(visibleColonyIds(staffPerson()), id))!.updatedAt;
 }
@@ -129,7 +154,7 @@ async function stampOf(id: number): Promise<string> {
 beforeAll(async () => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
   staffId = (
-    await addPerson({ email: `vitest-gview-staff-${RUN}@example.com`, name: "Susan", addedBy: "cli:vitest" })
+    await addPerson({ email: `vitest-gview-staff-${RUN}@example.com`, name: STAFF_NAME, addedBy: "cli:vitest" })
   ).id;
   staffCookie = sessionCookieFor(staffId);
 
@@ -167,11 +192,28 @@ beforeAll(async () => {
   ]);
   await changeSiteColony(staffId, sJ, await stampOf(sJ), c1);
 
+  // Changes to her sites by people around colony 1 (reviews F3, F4).
+  maria = await guardianOn(`gview-maria-${RUN}`, [c1]);
+  expired = await guardianOn(`gview-expired-${RUN}`, [c1]);
+  leftG = await guardianOn(`gview-left-${RUN}`, [c1]);
+  for (const [who, name] of [[maria, MARIA_NAME], [expired, EXPIRED_NAME], [leftG, LEFT_NAME]] as const) {
+    await pool.query("update people set name = $1 where id = $2", [name, who.id]);
+    await editSite(who.id, s1, await stampOf(s1), { notes: `a note from ${name.slice(0, 6)}` });
+  }
+  await endPlacements(expired.id);
+  await markLeft(leftG.email, "cli:vitest");
+  // After the site joined colony 1, Zoe (not placed on colony 1) still changed it.
+  await editSite(zoe.id, sJ, await stampOf(sJ), { notes: "changed after it joined" });
+
   catA = await seedCat(c1);
   catB = await seedCat(c2);
   await pool.query("update cats set name = $1 where id = $2", [`CatB ${RUN}`, catB.id]);
   catMoved = await seedCat(c1);
-  await putInColony(catMoved.id, c2); // moved from Eleni's colony to Zoe's
+  // Moved from Eleni's colony to Zoe's, by Zoe.
+  await colonyStatement(catMoved.id, c2, zoe.id, "guardian");
+  // Cats put in colony 1 by the team, and by Maria.
+  await colonyStatement((await seedCat(null)).id, c1, staffId, "staff");
+  await colonyStatement((await seedCat(null)).id, c1, maria.id, "guardian");
   sightA = await sighting(catA.id, catA.photoId, { lat: 37.44701, lng: 24.94321 });
   sightB = await sighting(catB.id, catB.photoId, S2_POS);
 });
@@ -185,7 +227,7 @@ beforeEach(() => {
 afterAll(async () => {
   fetchSpy?.mockRestore();
   delete process.env["TEAM_SESSION_KEYS"];
-  for (const p of [eleni, zoe]) if (p) await removeTestPerson(p.email).catch(() => undefined);
+  for (const p of [eleni, zoe, maria, expired, leftG]) if (p) await removeTestPerson(p.email).catch(() => undefined);
   await pool.end();
 });
 
@@ -292,8 +334,46 @@ describe("test 21 (seeing): colony 2 appears on no page a guardian of colony 1 c
       (await get(`/api/team/colonies/${c1}`, staffCookie)).text,
       (await get(`/api/team/colonies/${c1}/cats?q=${encodeURIComponent(`CatB ${RUN}`)}`, staffCookie)).text,
     ].map(decoded).join("\n");
-    for (const s of [C2_NAME, C2_OLD, C2_GUARDIAN, C2_NOTES, ZOE_PERSON, S2_NAME, S2_DIRECTIONS, S2_NOTES, S0_NAME, JOINED_OLD_NAME]) {
+    for (const s of [C2_NAME, C2_OLD, C2_GUARDIAN, C2_NOTES, ZOE_PERSON, S2_NAME, S2_DIRECTIONS, S2_NOTES, S0_NAME, JOINED_OLD_NAME, STAFF_NAME, EXPIRED_NAME, MARIA_NAME]) {
       expect(team, s).toContain(s);
+    }
+  });
+});
+
+describe("names in her histories: only people placed on her colonies now (reviews F3, F4)", () => {
+  const pages = () =>
+    [
+      ["her site page", `/api/team/sites/${s1}`],
+      ["the site that joined her colony", `/api/team/sites/${sJ}`],
+      ["her colony page (with its cat history)", `/api/team/colonies/${c1}`],
+      ["Feeding sites (Recently changed)", "/api/team/sites"],
+    ] as const;
+
+  for (const mode of ["browser", "json"] as const) {
+    it(`the team, Zoe after the join, an expired and a left guardian read "Syros Cats" (${mode})`, async () => {
+      for (const [label, path] of pages()) {
+        const text = decoded((await get(path, eleni.cookie, mode)).text);
+        for (const name of [STAFF_NAME, ZOE_PERSON, EXPIRED_NAME, LEFT_NAME, "Susan"]) {
+          expect(text.includes(name), `${label} (${mode}) names ${name}`).toBe(false);
+        }
+      }
+      // So the masking isn't simply hiding everyone: Maria, on colony 1 now, is named.
+      const site = decoded((await get(`/api/team/sites/${s1}`, eleni.cookie, mode)).text);
+      expect(site, "her site page names Maria").toContain(MARIA_NAME);
+      expect(site).toContain("Syros Cats");
+      const colony = decoded((await get(`/api/team/colonies/${c1}`, eleni.cookie, mode)).text);
+      expect(colony, "her colony's cat history names Maria").toContain(MARIA_NAME);
+    });
+  }
+
+  it("the team reads every one of those names", async () => {
+    const text = [
+      (await get(`/api/team/sites/${s1}`, staffCookie)).text,
+      (await get(`/api/team/sites/${sJ}`, staffCookie)).text,
+      (await get(`/api/team/colonies/${c1}`, staffCookie)).text,
+    ].map(decoded).join("\n");
+    for (const name of [STAFF_NAME, ZOE_PERSON, EXPIRED_NAME, `${LEFT_NAME} (left)`, MARIA_NAME]) {
+      expect(text, name).toContain(name);
     }
   });
 });
@@ -346,10 +426,10 @@ describe("what a guardian does see: her own colonies, in full", () => {
 
   it("a site that joined her colony shows its history only from the day it joined", async () => {
     const view = (await get(`/api/team/sites/${sJ}`, eleni.cookie, "json")).body;
-    expect(view.history.map((e: { kind: string }) => e.kind)).toEqual(["colony_changed"]);
-    expect(view.history[0].before).toBeNull();
+    expect(view.history.map((e: { kind: string }) => e.kind)).toEqual(["notes_edited", "colony_changed"]);
+    expect(view.history[1].before).toBeNull();
     const team = (await get(`/api/team/sites/${sJ}`, staffCookie, "json")).body;
-    expect(team.history.map((e: { kind: string }) => e.kind)).toEqual(["colony_changed", "created"]);
+    expect(team.history.map((e: { kind: string }) => e.kind)).toEqual(["notes_edited", "colony_changed", "created"]);
   });
 
   it("her colony: name, its sites, its cats (not linked to the team's cat page), history", async () => {
