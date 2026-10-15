@@ -101,7 +101,7 @@ The Cats screen opens on **every cat**, most recently seen first. It's a grid of
 - "Last seen 3 days ago · Kini";
 - a small "Has a home" or "Presumed gone" tag where it applies.
 
-**Filters**, in one row above the grid that wraps on a phone:
+**Filters.** On a desktop they sit in one row above the grid. On a phone a single **"Filters (2)"** button opens a panel holding every filter, and the active filters show under it as chips you can remove with ×. The name search box stays visible beside the button. The filters are:
 - **Look:** the colour chips from SYC-161 (Black, White, Ginger, Grey, Tabby, Tortoiseshell or calico, Black and white, Not sure). You can pick more than one.
 - **Where:** a named area or a colony.
 - **Sterilised:** Sterilised, Probably, or Not known.
@@ -225,7 +225,7 @@ Sort by name, by fewest sterilised, or by latest activity. A **Map** switch show
 
 The colony page leads with what a trapping round needs:
 
-1. **To do: N cats not known to be sterilised.** Each shows a photo, name, colour chips, where it's usually seen (the feeding site or place it's seen at most), last seen, and a "Probably" note where an ear clip has been spotted. They're sorted by most recently seen, because those are the cats most likely to turn up.
+1. **To do: N cats not known to be sterilised.** All of them are listed, never cut short with "and N more". Each shows a photo, name, colour chips, where it's usually seen (the feeding site or place it's seen at most), last seen, and a "Probably" note where an ear clip has been spotted. They're sorted by most recently seen, because those are the cats most likely to turn up.
 2. **The estimate:** "N cats × €55 = €X". It uses the standard price from §8, and the price is shown.
 3. **Feeding sites** for this colony, on a small map.
 4. **Print or save this plan.** A clean one-page version for taking on the round: photos, names, usual spots. The offline version for phones is SYC-54's.
@@ -315,6 +315,8 @@ These rules apply to every screen in this spec. The adversarial review and the d
 - **One main action per screen,** in the solid teal button. Everything else is a plain or outlined button.
 - **Cards for things, rows for lists.** A cat, a colony or a report is a card. A list of sightings or history is rows.
 - **Phone first.** Every screen is designed at 390px first, then laid out wider at 1000px and above. Tap targets are at least 44px. Nothing scrolls sideways except the menu.
+- **No text below 12px,** including on cards and chart labels.
+- **The same thing is always worded the same way.** For example, it's always "Last seen 3 days ago", never "Seen" on one screen and "Last seen" on another.
 - **Words are plain English for a volunteer,** never database words. "What we know", not "Records say". "Probably sterilised", not a confidence tag. Team pages stay English only (Decision 12).
 
 ### 11.2 Numbers and charts
@@ -330,6 +332,8 @@ These follow the data-visualisation method:
 - **One scale per chart.** Never two different y-axes on one chart. Two measures get two charts.
 - **Colour has one job per chart.**
   - Sterilised, probably and not known are an ordered scale, so they use **one hue from deep to light**: deep teal `#0b5c6b`, mid teal `#3d8794`, and light teal `#88afb6`. This set passed the palette checker on 15 Oct 2026 (steps read light to dark, visible gaps between steps, light end at 2.16:1 against the page background and 2.37:1 against white cards). On the map the dots also carry a 2px light ring, so they stand clear of the base map.
+  - Those three teal steps mean sterilisation status and nothing else. A total that isn't a status (for example "all cats known" on the progress chart) is drawn in neutral grey ink, never in a teal step.
+  - Every percentage says what it counts. Colony progress shows "% confirmed sterilised", and the bar beside it shows the probably and not-known parts.
   - Welfare kinds are separate categories with a fixed colour each, in a fixed order. A kind keeps its colour on every chart, and filtering never repaints it.
   - Red and amber are kept for warnings ("Urgent", "No guardian") and always come with a word and an icon.
 - **Never colour alone.** Every coloured part has a label, a legend, or a shape (filled, half-filled, empty) that says the same thing. Charts must read for someone who is colour-blind and when printed in black and white.
@@ -342,7 +346,7 @@ These follow the data-visualisation method:
 
 - **The map is quiet.** It uses a light, low-colour base map so the dots stand out.
 - **Dots are at least 10px,** with a 2px light ring so overlapping dots stay distinct. Tap targets are at least 44px even where the dot is smaller.
-- **There's a legend in the corner,** always visible, using the same shapes as the badges.
+- **There's a small legend in the top-right corner,** using the same shapes as the badges. It can be folded away, and it never covers the bottom sheet that opens when you tap a cat.
 - **The map has a list twin.** The same filtered cats are one switch away as the grid, for anyone who can't use a map.
 
 ### 11.4 Accessibility
