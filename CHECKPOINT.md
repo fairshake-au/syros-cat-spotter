@@ -18,4 +18,8 @@ Branch `claude/syc-53-pr-1-2`, stacked on `claude/syc-53-pr-1-1` at 6ac26d3. Not
 - 1. peopleScreen reader + export.
 
 ## Probe results
-(none yet)
+All run with `-t` on team.people.test.ts; each restored afterwards.
+- Drop `manage_people` from each of the 10 routes in turn -> exactly 1 red each: `T15 (screen half)... > <METHOD> <route>` (Tests 1 failed | 9 passed | 29 skipped), e.g. `FAIL ... T15 ... > POST /api/team/people/:id/left`.
+- Drop requireOrigin (formRoute replaced by requireTeam + headers) -> 7 failed (one per POST route): `AssertionError: null: expected 303 to be 401`, `expected 409 to be 401`.
+- Bypass the self checks (route + lib/db setPlacements + markLeftById) -> 4 failed: roles `expected 303 to be 409`, mark as left / sign out `expected 403 to be 409`, own row buttons.
+- Let free text reach an email (personTemplates: no mailSafe on names) -> red: `expected 'Vt pp-susan invited <a href="https://…' not to match /https?:\/\/evil/`.
