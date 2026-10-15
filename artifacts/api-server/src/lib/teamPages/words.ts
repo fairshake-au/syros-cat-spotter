@@ -5,24 +5,14 @@
 // same pages. So the words live in one map behind `t(key)`, and a later PR can
 // move the keys into the roles plan's three-language catalogue without
 // rewriting a single page. Only this PR's page words are here; the older
-// pages keep their own words.
+// pages keep their own words. The guardian-facing refusal pages' words moved
+// to the three-language catalogue in ./strings (SYC-53 PR 1.0).
 //
 // Everything here is fixed text written by us, never a person's input, so a
 // page may draw it as it is. Names and notes that people typed are not words:
 // they go through escapeHtml where they are drawn.
 
 const WORDS = {
-  // The dashboard's refusals for a signed-in person (roles-and-invites.md
-  // §6.4; SYC-53 PR 0.5). English for now; PR 1.0 adds Greek and French.
-  "refused.title": "That part is for the team",
-  "refused.titleManagement": "That part is for management",
-  "refused.forTeam": "That part of the dashboard is for the Syros Cats team.",
-  "refused.yourColonies": "Your colonies are here",
-  "refused.forManagement": "That part of the dashboard is for Syros Cats management.",
-  "refused.backHome": "Back to the dashboard",
-  "ended.title": "Your access has ended",
-  "ended.body": "Your access has ended. Ask Syros Cats if you think that's a mistake.",
-
   "colonies.title": "Colonies",
   "colonies.empty": "There are no colonies yet.",
   "colonies.noMatch": "No colony has ever had a name like that.",

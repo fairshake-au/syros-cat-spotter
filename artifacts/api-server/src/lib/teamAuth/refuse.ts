@@ -2,7 +2,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { SIGN_IN_PAGE } from "./config";
 import { renderPage } from "../teamPages/layout";
 import { escapeHtml } from "../teamPages/escape";
-import { t } from "../teamPages/words";
+import { LIVE_LANGUAGES, pageLanguage, tr, type Language } from "../teamPages/strings";
 
 // The refusals for the dashboard. **Not signed in** (team-access spec §2.4):
 // 401, a fixed body, nothing about which check failed. A browser page load gets the
@@ -95,6 +95,8 @@ export interface RefusedPerson {
   name: string;
   /** True for someone whose roles cover the whole island (the team). */
   island: boolean;
+  /** Their saved language (people.language). Falls back to English until live. */
+  language?: string | null;
 }
 
 function sendForbidden(req: Request, res: Response, page: () => string): void {
@@ -108,29 +110,41 @@ function sendForbidden(req: Request, res: Response, page: () => string): void {
 }
 
 /** The 403 page: "That part of the dashboard is for the Syros Cats team." */
-export function forbiddenPage(person: RefusedPerson): string {
+export function forbiddenPage(
+  person: RefusedPerson,
+  live: readonly Language[] = LIVE_LANGUAGES,
+): string {
+  const lang = pageLanguage(person.language, live);
   const body = person.island
-    ? `<p>${escapeHtml(t("refused.forManagement"))}</p>` +
-      `<p><a class="tap" href="${TEAM_HOME_PATH}">${escapeHtml(t("refused.backHome"))}</a></p>`
-    : `<p>${escapeHtml(t("refused.forTeam"))} ` +
-      `<a href="${GUARDIAN_HOME_PATH}">${escapeHtml(t("refused.yourColonies"))}</a>.</p>`;
+    ? `<p>${escapeHtml(tr(lang, "refused.forManagement", undefined, live))}</p>` +
+      `<p><a class="tap" href="${TEAM_HOME_PATH}">${escapeHtml(tr(lang, "refused.backHome", undefined, live))}</a></p>`
+    : `<p>${escapeHtml(tr(lang, "refused.forTeam", undefined, live))} ` +
+      `<a href="${GUARDIAN_HOME_PATH}">${escapeHtml(tr(lang, "refused.yourColonies", undefined, live))}</a>.</p>`;
   return renderPage({
-    title: t(person.island ? "refused.titleManagement" : "refused.title"),
+    title: tr(lang, person.island ? "refused.titleManagement" : "refused.title", undefined, live),
     active: null,
     nav: person.island,
     personName: person.name,
+    lang,
+    liveLanguages: live,
     body,
   });
 }
 
 /** The page for a signed-in person who no longer holds anything (review minor 2). */
-export function accessEndedPage(person: Pick<RefusedPerson, "name">): string {
+export function accessEndedPage(
+  person: Pick<RefusedPerson, "name" | "language">,
+  live: readonly Language[] = LIVE_LANGUAGES,
+): string {
+  const lang = pageLanguage(person.language, live);
   return renderPage({
-    title: t("ended.title"),
+    title: tr(lang, "ended.title", undefined, live),
     active: null,
     nav: false,
     personName: person.name,
-    body: `<p>${escapeHtml(t("ended.body"))}</p>`,
+    lang,
+    liveLanguages: live,
+    body: `<p>${escapeHtml(tr(lang, "ended.body", undefined, live))}</p>`,
   });
 }
 
@@ -150,7 +164,7 @@ export function refuseForbidden(
 export function refuseAccessEnded(
   req: Request,
   res: Response,
-  person: Pick<RefusedPerson, "name">,
+  person: Pick<RefusedPerson, "name" | "language">,
 ): void {
   sendForbidden(req, res, () => accessEndedPage(person));
 }
