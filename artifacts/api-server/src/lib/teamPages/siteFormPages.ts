@@ -94,8 +94,36 @@ export function renderPicker(o: {
 
 // ── The confirmation page ──────────────────────────────────────────────────
 
-const smallMap = (spot: Position, zoom: number, markers: MapMarker[]) =>
-  renderMap({ view: viewAround(spot, zoom), markers, mode: "view", controls: false });
+/**
+ * The confirmation page's small map, centred on the picked spot, in tap mode:
+ * a tap nudges the pin (spec §3). The tap posts to the same pick route as the
+ * first one, carrying what the previous step had in hidden fields, plus
+ * `nudge` (a re-tap keeps the zoom instead of zooming in again). Nothing in
+ * any address.
+ */
+const smallMap = (
+  spot: Position,
+  zoom: number,
+  markers: MapMarker[],
+  tapAction: string,
+  carry: Record<string, string>,
+) =>
+  renderMap({
+    view: viewAround(spot, zoom),
+    markers,
+    mode: "place",
+    tapAction,
+    controls: false,
+    hidden: { ...carry, nudge: "1" },
+  });
+
+/** What the add form held at the previous step (all strings; empty if nothing). */
+export interface AddCarry {
+  name: string;
+  colonyId: string;
+  directions: string;
+  notes: string;
+}
 
 /** After a tap on /sites/new: the spot, a small map around it, and the form. */
 export function renderAddConfirm(o: {
@@ -104,10 +132,14 @@ export function renderAddConfirm(o: {
   zoom: number;
   colonies: Array<{ id: number; name: string }>;
   checkNote?: string;
+  carry?: AddCarry;
 }): string {
+  const c0: AddCarry = o.carry ?? { name: "", colonyId: "", directions: "", notes: "" };
   const options =
     `<option value="">${w("confirm.noColony")}</option>` +
-    o.colonies.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+    o.colonies
+      .map((c) => `<option value="${c.id}"${String(c.id) === c0.colonyId ? " selected" : ""}>${esc(c.name)}</option>`)
+      .join("");
   return renderPage({
     title: t("confirm.title"),
     active: "sites",
@@ -115,7 +147,8 @@ export function renderAddConfirm(o: {
     mainClass: "mappage",
     beforeTitle: `<p class="back"><a href="${esc(NEW_PATH)}">${w("confirm.again")}</a></p>`,
     body:
-      smallMap(o.spot, o.zoom, [{ ...o.spot, label: t("confirm.spot"), look: "private" }]) +
+      smallMap(o.spot, o.zoom, [{ ...o.spot, label: t("confirm.spot"), look: "private" }], PICK_PATH, { ...c0 }) +
+      `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="tapped">${w("confirm.spot")}: <strong>${esc(fmtPos(o.spot.lat, o.spot.lng))}</strong>. ${w("confirm.legend")}</p>` +
       checkTapBlock(o.checkNote) +
       `<p class="hint">${w("new.private")}</p>` +
@@ -124,14 +157,14 @@ export function renderAddConfirm(o: {
       hidden("lng", String(o.spot.lng)) +
       `<label class="label" for="new-name">${w("confirm.name")}</label>` +
       `<p class="hint">${w("confirm.nameHint")}</p>` +
-      `<input class="text" id="new-name" name="name" type="text" required maxlength="${SITE_NAME_MAX}" autocomplete="off">` +
+      `<input class="text" id="new-name" name="name" type="text" required maxlength="${SITE_NAME_MAX}" value="${esc(c0.name)}" autocomplete="off">` +
       `<label class="label" for="new-colony">${w("confirm.colony")}</label>` +
       `<select class="text" id="new-colony" name="colonyId">${options}</select>` +
       `<label class="label" for="new-directions">${w("confirm.directions")}</label>` +
       `<p class="hint">${w("confirm.directionsHint")}</p>` +
-      `<input class="text" id="new-directions" name="directions" type="text" maxlength="${SITE_DIRECTIONS_MAX}" autocomplete="off">` +
+      `<input class="text" id="new-directions" name="directions" type="text" maxlength="${SITE_DIRECTIONS_MAX}" value="${esc(c0.directions)}" autocomplete="off">` +
       `<label class="label" for="new-notes">${w("confirm.notes")}</label>` +
-      `<textarea id="new-notes" name="notes" maxlength="${SITE_NOTES_MAX}"></textarea>` +
+      `<textarea id="new-notes" name="notes" maxlength="${SITE_NOTES_MAX}">${esc(c0.notes)}</textarea>` +
       `<p class="hint">${w("notes.hint")}</p>` +
       `<div class="actions"><button type="submit" class="save">${w("confirm.save")}</button></div>` +
       `</form>`,
@@ -145,6 +178,7 @@ export function renderMoveConfirm(o: {
   spot: Position;
   zoom: number;
   checkNote?: string;
+  reason?: string;
 }): string {
   const base = `${SITES_PATH}/${o.site.id}`;
   return renderPage({
@@ -157,7 +191,8 @@ export function renderMoveConfirm(o: {
       smallMap(o.spot, o.zoom, [
         { lat: o.site.lat, lng: o.site.lng, label: t("move.now"), look: "retired" },
         { ...o.spot, label: t("move.new"), look: "private" },
-      ]) +
+      ], `${base}/move/pick`, { updatedAt: o.site.stamp, reason: o.reason ?? "" }) +
+      `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="hint">${w("move.legend")}</p>` +
       `<p class="tapped">${w("move.now")}: ${esc(fmtPos(o.site.lat, o.site.lng))}<br>` +
       `${w("move.new")}: <strong>${esc(fmtPos(o.spot.lat, o.spot.lng))}</strong></p>` +
@@ -169,7 +204,7 @@ export function renderMoveConfirm(o: {
       hidden("lng", String(o.spot.lng)) +
       `<label class="label" for="move-reason">${w("move.reason")}</label>` +
       `<p class="hint">${w("move.reasonHint")}</p>` +
-      `<input class="text" id="move-reason" name="reason" type="text" required maxlength="${SITE_REASON_MAX}" autocomplete="off">` +
+      `<input class="text" id="move-reason" name="reason" type="text" required maxlength="${SITE_REASON_MAX}" value="${esc(o.reason ?? "")}" autocomplete="off">` +
       `<div class="actions"><button type="submit" class="save">${w("move.save")}</button></div>` +
       `</form>`,
   });

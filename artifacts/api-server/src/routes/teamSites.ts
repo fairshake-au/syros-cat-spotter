@@ -258,6 +258,19 @@ const ColonyForm = z.object({ updatedAt: stampField, colonyId: requiredColony })
 const StampOnly = z.object({ updatedAt: stampField });
 const TypedForm = z.object({ lat: latField, lng: lngField });
 
+/**
+ * What the previous step held, carried through a nudge tap in hidden fields.
+ * Lenient: anything unreadable becomes empty, never an error.
+ */
+const carried = (max: number) => z.preprocess(lf, z.string().max(max).refine(noNul)).catch("");
+const AddCarryForm = z.object({
+  name: carried(SITE_NAME_MAX),
+  colonyId: z.string().regex(ID_RE).catch(""),
+  directions: carried(SITE_DIRECTIONS_MAX),
+  notes: carried(SITE_NOTES_MAX),
+});
+const MoveCarryForm = z.object({ reason: carried(SITE_REASON_MAX) });
+
 /** Typed coordinates: a plain-decimal pair, or the fields that were wrong. */
 const typedSpot = (body: Record<string, unknown>) => TypedForm.safeParse(body);
 
@@ -346,7 +359,9 @@ function readPick(body: Record<string, unknown>): Picked {
   return {
     ok: true,
     spot: tap.spot,
-    zoom: Math.min(tap.picture.z + 2, MAX_ZOOM),
+    // A re-tap on the confirmation's small map (`nudge`) keeps its zoom; the
+    // first tap on the full map zooms in two steps around the spot.
+    zoom: body["nudge"] === "1" ? tap.picture.z : Math.min(tap.picture.z + 2, MAX_ZOOM),
     // The same "Details for checking the tap" as the Map page (SYC-287's real-phone check).
     checkNote: `Point ${tap.point.x}, ${tap.point.y} on a ${tap.picture.size * 2} px map picture.`,
   };
@@ -375,6 +390,7 @@ router.post(
         zoom: picked.zoom,
         colonies: await colonyOptions(),
         checkNote: picked.checkNote,
+        carry: AddCarryForm.parse(req.body ?? {}),
       }),
     );
   },
@@ -616,6 +632,7 @@ router.post(
         spot: picked.spot,
         zoom: picked.zoom,
         checkNote: picked.checkNote,
+        reason: MoveCarryForm.parse(body).reason,
       }),
     );
   },

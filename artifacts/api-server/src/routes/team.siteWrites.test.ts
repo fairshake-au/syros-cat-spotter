@@ -13,8 +13,8 @@ import {
 import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { recordMappingEvent } from "../lib/mappingEvents";
-import { viewAround, tapToPosition, type Position } from "../lib/mapTiles/geometry";
-import { mintTileToken } from "../lib/mapTiles/tileToken";
+import { BANDS, viewAround, tapToPosition, type Position } from "../lib/mapTiles/geometry";
+import { mintTileToken, readTileToken } from "../lib/mapTiles/tileToken";
 import { guardianOn, newColony } from "../test/roleKit";
 import { makePrivateIfPublic } from "../lib/teamSiteWrites";
 
@@ -1279,5 +1279,90 @@ describe("/sites/new and the site pages", () => {
     expect((await get(`/api/team/sites/${s.id}`)).text).toContain(s.name);
     expect((await get("/api/team/sites/new")).text).toContain("Add a feeding site");
     expect((await get("/api/team/sites/neww")).status).toBe(404);
+  });
+});
+
+// ── The nudge: the confirmation page's small map takes taps ────────────────
+
+/** The tap form inside one width band: where it posts, and its hidden fields. */
+function bandForm(html: string, size: number) {
+  const band = new RegExp(`<div class="mapband b${size}"[^>]*>(.*?)</div>`).exec(html)![0];
+  const action = decoded(/<form method="post" action="([^"]*)"/.exec(band)![1]!);
+  const fields: Record<string, string> = {};
+  for (const m of band.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)) fields[m[1]!] = decoded(m[2]!);
+  return { action, fields, band };
+}
+
+describe("the nudge (spec §3): the small map on the confirmation page is a tap map, centred on the spot", () => {
+  const SPOTS: Position[] = [ERMOUPOLI, { lat: 37.4731, lng: 24.9892 }, { lat: 37.4012, lng: 24.8801 }, { lat: 37.4999, lng: 24.9399 }];
+
+  it("add: the pin is within the central half at every width band, and the map posts to /sites/pick", async () => {
+    for (const p of SPOTS) {
+      const html = (await post("/api/team/sites/pick", { lat: String(p.lat), lng: String(p.lng) })).text;
+      for (const b of BANDS) {
+        const { action, band } = bandForm(html, b.size);
+        expect(action).toBe("/api/team/sites/pick");
+        const m = /class="pin site-private" style="left:(\d+)px;top:(\d+)px"/.exec(band);
+        expect(m, `${p.lat},${p.lng} at ${b.size}`).not.toBeNull();
+        const span = 2 * b.size;
+        for (const off of [Number(m![1]), Number(m![2])]) {
+          expect(Math.abs(off - span / 2), `${p.lat},${p.lng} at ${b.size}`).toBeLessThanOrEqual(span / 4 + 1);
+        }
+      }
+      expect(html).toContain("Start again on the full map");
+      expectNoPositionInAddresses(html);
+    }
+  });
+
+  it("add: a second tap redraws the confirmation at the new spot and keeps what the previous step held", async () => {
+    const first = (await post("/api/team/sites/pick", tapBody(ERMOUPOLI).body)).text;
+    const form = bandForm(first, 179);
+    expect(form.fields["nudge"]).toBe("1");
+    const colonyId = await makeColony();
+    const second = await post(form.action, {
+      ...form.fields,
+      name: `Kept ${MARKUP}`,
+      colonyId: String(colonyId),
+      directions: "kept directions",
+      notes: "kept notes",
+      x: "120",
+      y: "100",
+    });
+    expect(second.status).toBe(200);
+    expect(hiddenIn(second.text, "lat")).not.toBe(hiddenIn(first, "lat"));
+    expect(decoded(second.text)).toContain(`value="Kept ${MARKUP}"`);
+    expect(second.text).not.toContain("<img src=x");
+    expect(second.text).toContain(`<option value="${colonyId}" selected>`);
+    expect(second.text).toContain('value="kept directions"');
+    expect(second.text).toContain(">kept notes</textarea>");
+    // A nudge keeps the zoom instead of zooming in again.
+    expect(readTileToken(bandForm(second.text, 179).fields["view"]!)!.z).toBe(readTileToken(form.fields["view"]!)!.z);
+    expect(bandForm(second.text, 179).fields["nudge"]).toBe("1");
+    expectNoPositionInAddresses(second.text);
+    // Nothing was saved, and junk in the carried fields is dropped, not an error.
+    const junk = await post(form.action, { ...form.fields, name: "x".repeat(500), colonyId: "abc", notes: `a${NUL}`, x: "120", y: "100" });
+    expect(junk.status).toBe(200);
+    expect(junk.text).toContain('id="new-name"');
+  });
+
+  it("move: the small map posts to the site's move/pick with the stamp and reason, and a re-tap keeps them", async () => {
+    const s = await makeSite();
+    const stamp = await stampOf(s.id);
+    const { body } = tapBody({ lat: s.lat, lng: s.lng }, 17);
+    const first = (await post(`/api/team/sites/${s.id}/move/pick`, { ...body, updatedAt: stamp })).text;
+    for (const b of BANDS) {
+      const f = bandForm(first, b.size);
+      expect(f.action).toBe(`/api/team/sites/${s.id}/move/pick`);
+      expect(f.fields["updatedAt"]).toBe(stamp);
+    }
+    const f = bandForm(first, 171);
+    const second = await post(f.action, { ...f.fields, reason: "kept reason", x: "50", y: "60" });
+    expect(second.status).toBe(200);
+    expect(second.text).toContain('value="kept reason"');
+    expect(stampIn(second.text)).toBe(stamp);
+    expect(hiddenIn(second.text, "lat")).not.toBe(hiddenIn(first, "lat"));
+    expect(second.text).toContain("Start again on the full map");
+    expectNoPositionInAddresses(second.text);
+    expect(await eventsOf(s.id)).toHaveLength(0);
   });
 });
