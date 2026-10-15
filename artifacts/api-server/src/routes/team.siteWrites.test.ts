@@ -198,7 +198,8 @@ beforeAll(async () => {
 beforeEach(() => {
   process.env["TEAM_SESSION_KEYS"] = KEY;
   denied.cap = null;
-  vi.mocked(recordMappingEvent).mockClear();
+  // A reset (not a clear): a failure queued by one test must never reach the next.
+  vi.mocked(recordMappingEvent).mockReset();
   // The map's pictures are fetched by our server; no test reaches the internet.
   fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("no", { status: 503 }));
 });
