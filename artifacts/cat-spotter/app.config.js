@@ -10,6 +10,10 @@
  * - GOOGLE_MAPS_ANDROID_API_KEY: react-native-maps on Android needs a Google
  *   Maps key even though we draw OpenStreetMap tiles on top; without it the
  *   map is blank. iOS uses Apple Maps and needs no key.
+ * - GOOGLE_SERVICES_JSON (optional, an EAS "file" variable): the Firebase
+ *   settings file Android needs before it will hand out a push token. Without
+ *   it the app still works; Android phones just get no push notifications
+ *   (NotificationContext treats push as optional).
  *
  * Off EAS (the website build, `expo start`, tests) nothing is added, so the
  * website is unchanged.
@@ -49,18 +53,20 @@ function withStoreBuildSettings(config, env) {
     }
   }
 
-  if (!present(env.GOOGLE_MAPS_ANDROID_API_KEY)) return config;
-
-  return {
-    ...config,
-    android: {
-      ...config.android,
-      config: {
-        ...config.android?.config,
-        googleMaps: { apiKey: env.GOOGLE_MAPS_ANDROID_API_KEY.trim() },
-      },
-    },
-  };
+  const android = { ...config.android };
+  let changed = false;
+  if (present(env.GOOGLE_MAPS_ANDROID_API_KEY)) {
+    android.config = {
+      ...android.config,
+      googleMaps: { apiKey: env.GOOGLE_MAPS_ANDROID_API_KEY.trim() },
+    };
+    changed = true;
+  }
+  if (present(env.GOOGLE_SERVICES_JSON)) {
+    android.googleServicesFile = env.GOOGLE_SERVICES_JSON.trim();
+    changed = true;
+  }
+  return changed ? { ...config, android } : config;
 }
 
 module.exports = ({ config }) => withStoreBuildSettings(config, process.env);

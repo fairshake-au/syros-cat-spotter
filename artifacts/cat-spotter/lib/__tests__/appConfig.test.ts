@@ -45,6 +45,14 @@ describe('app.config.js', () => {
     expect(out.android.package).toBe(appJson.android.package);
   });
 
+  it('adds the Firebase file for Android push only when it is set', () => {
+    const env = easBuild('production', 'android', { GOOGLE_MAPS_ANDROID_API_KEY: 'k', EXPO_PUBLIC_PRELAUNCH_KEY: 't' });
+    expect(withStoreBuildSettings(appJson, env).android.googleServicesFile).toBeUndefined();
+    const out = withStoreBuildSettings(appJson, { ...env, GOOGLE_SERVICES_JSON: '/eas/files/google-services.json' });
+    expect(out.android.googleServicesFile).toBe('/eas/files/google-services.json');
+    expect(out.android.config.googleMaps.apiKey).toBe('k');
+  });
+
   it.each(['preview', 'production'])('stops a %s Android build with no map key', (profile) => {
     expect(() =>
       withStoreBuildSettings(appJson, easBuild(profile, 'android', { EXPO_PUBLIC_PRELAUNCH_KEY: 't' })),
