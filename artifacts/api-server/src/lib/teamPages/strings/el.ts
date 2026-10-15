@@ -63,7 +63,6 @@ export const el: Record<StringKey, string> = {
   // SYC-53 PR 1.3: My page and My colonies (roles-and-invites.md §2.6, §9.1, §9.5, §13.1).
   "nav.myPage": "Η σελίδα μου",
   "nav.myColonies": "Οι αποικίες μου",
-  "ended.myPage": "Η σελίδα σας",
   "my.title": "Η σελίδα μου",
   "my.is.guardian": "Είστε κηδεμόνας γατών για {colonies}.",
   "my.is.team": "Είστε στην ομάδα των Syros Cats.",

@@ -79,7 +79,6 @@ export const en = {
   // SYC-53 PR 1.3: My page and My colonies (roles-and-invites.md §2.6, §9.1, §9.5, §13.1).
   "nav.myPage": "My page",
   "nav.myColonies": "My colonies",
-  "ended.myPage": "Your page",
   "my.title": "My page",
   "my.is.guardian": "You’re a cat guardian for {colonies}.",
   "my.is.team": "You’re on the Syros Cats team.",

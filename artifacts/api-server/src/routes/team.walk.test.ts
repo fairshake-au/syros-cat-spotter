@@ -96,6 +96,24 @@ const TEAM_ONLY: Partial<Record<Kind, Outcome>> = {
 };
 
 /**
+ * SYC-53 PR 1.3, "My page" and its buttons: about yourself, so any accepted
+ * person gets through, even one who holds nothing any more. Not yet joined
+ * (pending, or the invitee's own cookie) or left: the sign-in 401.
+ */
+const OWN_PAGES: Partial<Record<Kind, Outcome>> = {
+  team: "pass",
+  management: "pass",
+  guardianOne: "pass",
+  guardianTwo: "pass",
+  guardianEvery: "pass",
+  pending: "signin",
+  left: "signin",
+  nothing: "pass",
+  ended: "pass",
+  invitee: "signin",
+};
+
+/**
  * The accept page's routes (PR 1.1): only the invitee acts there. A joined
  * person (any team session that is current, even one who holds nothing any
  * more) is sent home with a 303 and nothing changes; no session, a forged
@@ -120,6 +138,12 @@ const MANAGEMENT_ONLY: Partial<Record<Kind, Outcome>> = { team: "management" };
 interface Row {
   /** Who may: the capability and where, in words, for the reader. */
   why: string;
+  /**
+   * The route CHANGES the signed-in person (stop helping, sign out
+   * everywhere), so the walk calls it as a brand-new person of the same kind
+   * each time, never as the shared one.
+   */
+  fresh?: true;
   /** Overrides on TEAM_ONLY. */
   except?: Partial<Record<Kind, Outcome>>;
 }
@@ -203,6 +227,13 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/people/:id/left": { why: "mark as left: manage_people", except: MANAGEMENT_ONLY },
   "POST /api/team/people/:id/sign-out": { why: "sign out everywhere: manage_people", except: MANAGEMENT_ONLY },
   "POST /api/team/people/:id/bring-back": { why: "bring someone back: manage_people", except: MANAGEMENT_ONLY },
+  // SYC-53 PR 1.3, "My page" and "My colonies": any accepted person, no capability.
+  "GET /api/team/my": { why: "My page: any accepted person (requireTeam with no capability)", except: OWN_PAGES },
+  "GET /api/team/my/colonies": { why: "My colonies: any accepted person", except: OWN_PAGES },
+  "GET /api/team/my/stop-helping": { why: "the 'are you sure?' page: any accepted person; changes nothing", except: OWN_PAGES },
+  "POST /api/team/my/language": { why: "change my language: any accepted person, Origin checked", except: OWN_PAGES },
+  "POST /api/team/my/sign-out-everywhere": { why: "sign myself out everywhere: any accepted person, Origin checked", except: OWN_PAGES, fresh: true },
+  "POST /api/team/my/stop-helping": { why: "stop helping: any accepted person, Origin checked", except: OWN_PAGES, fresh: true },
   // SYC-53 PR 1.1, the accept page: requireInvitee, never a capability.
   "GET /api/team/my/welcome": { why: "the accept page: an invitee's own session only (requireInvitee)", except: ACCEPT_PAGE },
   "POST /api/team/my/accept": { why: "Yes, join: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
@@ -244,7 +275,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 64;
+const MINIMUM_ROUTES = 70;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -270,14 +301,14 @@ function walkedRoutes(): string[] {
 }
 
 const people = {} as Record<Kind, Signed>;
-let catInA: SeededCat;
+let catInA: SeededCat & { colonyId: number; otherColony: number };
 
 beforeAll(async () => {
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   const colonyA = await newColony("walk-A");
   const colonyB = await newColony("walk-B");
-  catInA = await seedCat(colonyA);
+  catInA = { ...(await seedCat(colonyA)), colonyId: colonyA, otherColony: colonyB };
   people.team = await signedPerson("walk-team", ["staff"]);
   people.management = await signedPerson("walk-mgmt", ["staff"]);
   await pool.query("update person_scopes set role = 'management' where person_id = $1", [
@@ -315,6 +346,7 @@ afterAll(async () => {
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   for (const p of Object.values(people)) await removeTestPerson(p.email);
+  for (const email of freshMade) await removeTestPerson(email);
   await pool.end();
 });
 
@@ -325,6 +357,51 @@ function pathFor(route: string): string {
     return `/api/team/photos/${catInA.photoPublicId}`;
   }
   return raw.replace(/:\w+/g, NO_SUCH);
+}
+
+let freshCount = 0;
+const freshMade: string[] = [];
+
+/**
+ * A brand-new person of this kind, for a route that changes the person it is
+ * called as. The kinds that can't be changed this way (not signed in, pending,
+ * left, an invitee) keep their shared cookie.
+ */
+async function freshCookie(kind: Kind): Promise<string> {
+  const n = ++freshCount;
+  const colonyA = catInA.colonyId;
+  let who: Signed;
+  switch (kind) {
+    case "team":
+      who = await signedPerson(`walk-f${n}-team`, ["staff"]);
+      break;
+    case "management":
+      who = await signedPerson(`walk-f${n}-mgmt`, ["staff"]);
+      await pool.query("update person_scopes set role = 'management' where person_id = $1", [who.id]);
+      break;
+    case "guardianOne":
+      who = await guardianOn(`walk-f${n}-g1`, [colonyA]);
+      break;
+    case "guardianTwo":
+      who = await guardianOn(`walk-f${n}-g2`, [colonyA, catInA.otherColony]);
+      break;
+    case "guardianEvery": {
+      const every = (await pool.query<{ id: number }>("select id from colonies order by id")).rows.map((r) => r.id);
+      who = await guardianOn(`walk-f${n}-gall`, every);
+      break;
+    }
+    case "nothing":
+      who = await signedPerson(`walk-f${n}-vet`, ["vet"]);
+      break;
+    case "ended":
+      who = await guardianOn(`walk-f${n}-ended`, [colonyA]);
+      await endPlacements(who.id);
+      break;
+    default:
+      return people[kind].cookie;
+  }
+  freshMade.push(who.email);
+  return who.cookie;
 }
 
 function send(route: string, cookie?: string, browser = false): request.Test {
@@ -373,9 +450,9 @@ describe("T1: the route walk", () => {
       for (const route of walkedRoutes()) {
         if (!(route in TABLE)) continue;
         const want = expected(route, kind);
-        const cookie = people[kind].cookie;
-        const json = await send(route, cookie);
-        const page = await send(route, cookie, true);
+        const fresh = TABLE[route]!.fresh === true;
+        const json = await send(route, fresh ? await freshCookie(kind) : people[kind].cookie);
+        const page = await send(route, fresh ? await freshCookie(kind) : people[kind].cookie, true);
         const where = `${route} as ${kind} (expected ${want})`;
         switch (want) {
           case "pass":
@@ -461,7 +538,7 @@ describe("T2: a person who may enter but lacks the capability gets the 403, neve
     expect(page.headers["content-type"]).toMatch(/^text\/html/);
     expect(page.headers["cache-control"]).toBe("no-store");
     expect(page.headers["content-security-policy"]).toContain("default-src 'none'");
-    expect(page.text).toContain('href="/api/team/me">Your colonies are here</a>');
+    expect(page.text).toContain('href="/api/team/my/colonies">Your colonies are here</a>');
     expect(page.text).not.toContain("Welfare queue");
     expect(page.text).toContain("Sign out");
   });

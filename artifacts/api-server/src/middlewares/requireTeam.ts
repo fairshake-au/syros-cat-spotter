@@ -74,6 +74,13 @@ export interface RequireTeamOptions {
    * team's route would make a colony she isn't placed on.
    */
   island?: true;
+  /**
+   * The person's own pages ("My page", PR 1.3): any accepted person, even one
+   * who holds nothing any more (a placement that ended), who can still sign
+   * out and stop helping (roles-and-invites.md §6.2 note 1). Skips the
+   * "may enter" check and nothing else; no capability can be named with it.
+   */
+  own?: true;
 }
 
 /**
@@ -108,7 +115,7 @@ export function requireTeam(
         refuseNotSignedIn(req, res);
         return;
       }
-      if (!mayEnter(person)) {
+      if (options.own !== true && !mayEnter(person)) {
         req.log.info({ reason: "no_capability" }, "team request refused");
         refuseAccessEnded(req, res, person);
         return;
@@ -143,7 +150,7 @@ export function requireTeam(
         }
       }
       res.locals["teamPerson"] = person;
-      navContext.run({ people: can(person, "manage_people") }, next);
+      navContext.run({ people: can(person, "manage_people"), island: holdsIslandRow(person), mine: true }, next);
     } catch (err) {
       next(err);
     }
