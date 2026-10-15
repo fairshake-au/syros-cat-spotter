@@ -99,7 +99,7 @@ export function renderDone(d: Done | null): string {
       lines.push(`The invitation to ${who} is being sent again, with a fresh 14 days.`);
       break;
     case "withdrawn":
-      lines.push(`The invitation to ${who} was withdrawn.`);
+      lines.push(d.name ? `The invitation to ${who} was withdrawn.` : "The invitation was withdrawn.");
       break;
     case "roles":
       lines.push(`${who}'s roles and colonies were changed. The other managers have been told.`);
@@ -144,7 +144,7 @@ function placementList(p: PersonView): string {
     p.placements
       .map(
         (pl) =>
-          `<li>${esc(pl.colony ?? "")}${pl.label ? ` · ${esc(pl.label)}` : ""}` +
+          `<li${pl.endIso ? ` data-ends="${esc(pl.endIso)}"` : ""}>${esc(pl.colony ?? "")}${pl.label ? ` · ${esc(pl.label)}` : ""}` +
           `${pl.endText ? ` · ${esc(pl.endText)}` : ""}${pl.ended ? " · ended" : ""}</li>`,
       )
       .join("") +
@@ -324,6 +324,8 @@ export function renderRolesPage(o: {
 export function renderBringBackPage(o: {
   viewer: string;
   person: PersonView;
+  /** What they held when they left, in words, from the `left` event. */
+  held: string;
   colonies: ColonyOption[];
 }): string {
   const lang = (LIVE_LANGUAGES as readonly string[]);
@@ -337,7 +339,7 @@ export function renderBringBackPage(o: {
   return page(
     o.viewer,
     `Bring ${o.person.name} back`,
-    `<p>${esc(o.person.timing)}</p>` +
+    `<p>${esc(o.person.timing)} When they left they were ${esc(o.held)}.</p>` +
       `<p class="hint">Nothing is restored automatically. Choose what they should be now. They will get a new invitation and read the promises again.</p>` +
       `<form class="pform" method="post" action="${PEOPLE}/${encodeURIComponent(o.person.id)}/bring-back">` +
       placementFields(o.colonies) +

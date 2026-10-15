@@ -75,9 +75,9 @@ export const isoInstant = (at: Date) => at.toISOString().replace(/\.\d{3}Z$/, "Z
  */
 export const endDateOf = (endsAt: Date) => isoDay.format(new Date(endsAt.getTime() - 60_000));
 
-/** "Ends at the end of 25 October 2026, Athens time (2026-10-25T22:00:00Z)". */
+/** "Ends at midnight at the end of 25 October 2026 (Athens time)". The instant itself stays out of the words. */
 export function endsText(endsAt: Date): string {
-  return `Ends at the end of ${longDate.format(new Date(endsAt.getTime() - 60_000))}, Athens time (${isoInstant(endsAt)})`;
+  return `Ends at midnight at the end of ${longDate.format(new Date(endsAt.getTime() - 60_000))} (Athens time)`;
 }
 
 // ── Who did it: ids turned into words ─────────────────────────────────────
@@ -198,6 +198,8 @@ export interface PlacementView {
   endText: string | null;
   /** The date as the form takes it (2026-10-25), for pre-filling. */
   endDate: string | null;
+  /** The end instant of an in-force placement, for data attributes and tests only. */
+  endIso: string | null;
   relationship: string | null;
   ended: boolean;
 }
@@ -245,9 +247,10 @@ export function buildView(p: ScreenPerson, now: Date, lk: Lookups, selfId: strin
       endText: s.expiresAt
         ? s.inForce
           ? endsText(s.expiresAt)
-          : `Ended at the end of ${longDate.format(new Date(s.expiresAt.getTime() - 60_000))}`
+          : `Ended ${athensDateTime(s.expiresAt)} (Athens time)`
         : null,
       endDate: s.expiresAt && s.inForce ? endDateOf(s.expiresAt) : null,
+      endIso: s.expiresAt && s.inForce ? isoInstant(s.expiresAt) : null,
       relationship: s.relationship,
       ended: !s.inForce,
     }));
@@ -343,7 +346,8 @@ export function parsePlacements(body: Record<string, unknown>, existing: Readonl
         try {
           endsAt = placementEndsAt(end);
         } catch (err) {
-          if (err instanceof PeopleError) return { ok: false, message: err.message };
+          // A fixed sentence: lib/db's own message would echo what was typed.
+          if (err instanceof PeopleError) return { ok: false, message: "That end date isn't a real date. Pick one from the date box." };
           throw err;
         }
       }

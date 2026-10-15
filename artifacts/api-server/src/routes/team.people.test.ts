@@ -58,6 +58,11 @@ function post(path: string, who: { cookie: string }, body: Record<string, unknow
   return t.type("form").send(body);
 }
 
+const banner = (html: string) => {
+  const i = html.indexOf('class="okbox"');
+  return i < 0 ? "" : html.slice(i, html.indexOf("</div>", i));
+};
+
 const card = (html: string, id: string): string => {
   const i = html.indexOf(`id="p-${id}"`);
   if (i < 0) throw new Error(`no card for ${id}`);
@@ -208,12 +213,13 @@ describe("T6 on the screen: an end date of 25 October 2026 is Athens midnight ac
     expect(new Date(r.rows[0].expires_at).toISOString()).toBe("2026-10-25T22:00:00.000Z");
     expect(r.rows[0].relationship).toBe("covering");
     const { endsText } = await import("../lib/people/screen");
-    expect(endsText(new Date("2026-10-25T22:00:00Z"))).toBe(
-      "Ends at the end of 25 October 2026, Athens time (2026-10-25T22:00:00Z)",
-    );
+    expect(endsText(new Date("2026-10-25T22:00:00Z"))).toBe("Ends at midnight at the end of 25 October 2026 (Athens time)");
     if (Date.now() < Date.parse("2026-10-25T22:00:00Z")) {
       const html = card((await get("/api/team/people", susan)).text, id);
-      expect(html).toContain("Ends at the end of 25 October 2026, Athens time (2026-10-25T22:00:00Z)");
+      expect(html).toContain("Ends at midnight at the end of 25 October 2026 (Athens time)");
+      expect(html).toContain('data-ends="2026-10-25T22:00:00Z"');
+      // m4: no raw timestamp in the words on screen.
+      expect(html.replace(/data-ends="[^"]*"/g, "")).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:/);
       expect(html).toContain("Covering for a while");
     }
   });
@@ -438,6 +444,45 @@ describe("the changes themselves, through the actions layer", () => {
     expect(rows.map((r: { role: string }) => r.role)).toEqual(["staff"]);
   });
 
+  it("m3: a placement management removed shows when it really ended; m4: no raw timestamp anywhere", async () => {
+    const g = await joined("m3-g", ["guardian"], colony);
+    const res = await post(`/api/team/people/${g.id}/roles`, susan, { roles: "staff" });
+    expect(res.status).toBe(303);
+    const html = card((await get("/api/team/people", susan)).text, g.id);
+    expect(html).toMatch(/Ended \d{1,2} \w{3} \d{4}, \d{2}:\d{2} \(Athens time\)/);
+    expect(html).not.toContain("Ended at the end of");
+    expect(html).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:/);
+  });
+
+  it("m5: the bring-back page shows what they held and when they left", async () => {
+    const g = await joined("m5-g", ["guardian"], colony);
+    const name = (await pool.query(`select name from colonies where id = $1`, [colony])).rows[0].name as string;
+    expect((await post(`/api/team/people/${g.id}/left`, susan)).status).toBe(303);
+    const page = (await get(`/api/team/people/${g.id}/bring-back`, susan)).text;
+    expect(page).toContain(`When they left they were a cat guardian for ${name}.`);
+    expect(page).toMatch(/Left \d{1,2} \w+ \d{4}\./);
+  });
+
+  it("m6: withdrawing an invitation says so without the placeholder name", async () => {
+    const p = await pendingRow("m6-w", susan.id);
+    const res = await post(`/api/team/people/${p.id}/withdraw`, susan);
+    const b = banner((await get(res.headers["location"]!, susan)).text);
+    expect(b).toContain("The invitation was withdrawn.");
+    expect(b).not.toContain("Withdrawn invitation");
+  });
+
+  it("a date refusal never echoes what was typed", async () => {
+    const t = await joined("m-date", ["staff"]);
+    const res = await post(`/api/team/people/${t.id}/roles`, susan, {
+      roles: "guardian",
+      colony: String(colony),
+      [`end_${colony}`]: "2026-02-31<b>x</b>",
+    });
+    expect(res.status).toBe(400);
+    expect(res.text).not.toContain("2026-02-31");
+    expect(res.text).not.toContain("<b>x");
+  });
+
   it("mark as left: the workspace reminder for a team member, the rename nudge for a guardian", async () => {
     const t = await joined("left-team", ["staff"]);
     const res = await post(`/api/team/people/${t.id}/left`, susan);
@@ -494,11 +539,6 @@ describe("the changes themselves, through the actions layer", () => {
     expect(res.status).toBe(404);
   });
 });
-
-const banner = (html: string) => {
-  const i = html.indexOf('class="okbox"');
-  return i < 0 ? "" : html.slice(i, html.indexOf("</div>", i));
-};
 
 describe("m1: a banner can't be forged from a link; it is rebuilt from the person's own recent event", () => {
   it("claims in the query (w, n, c, en) are ignored, and nobody gets a banner for a change they didn't just make", async () => {

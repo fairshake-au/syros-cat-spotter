@@ -40,6 +40,7 @@ import {
   type Prefill,
 } from "../lib/teamPages/peoplePages";
 import { CATALOGUE } from "../lib/capabilities";
+import { clip, roleSentence } from "../lib/people/words";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
@@ -257,7 +258,16 @@ router.get("/team/people/:id/bring-back", requireTeam("manage_people"), async (r
         ),
       );
   }
-  res.type("html").send(renderBringBackPage({ viewer: me.name, person: found.view, colonies: await colonyOptions() }));
+  // What they held, from the `left` event (ids only), else from the kept rows.
+  const ev = await latest(found.view.id, "left");
+  const heldRoles = ev ? strings(ev.detail["roles"]) : [];
+  const heldColonies = ev ? numbers(ev.detail["colonyIds"]) : [];
+  let held = found.view.roles.charAt(0).toLowerCase() + found.view.roles.slice(1);
+  if (heldRoles.length > 0) {
+    const names = await colonyNames(db, heldColonies);
+    held = roleSentence("en", heldRoles, heldColonies.map((c) => clip(names.get(c) ?? "a colony that no longer exists")), (n) => clip(n));
+  }
+  res.type("html").send(renderBringBackPage({ viewer: me.name, person: found.view, held, colonies: await colonyOptions() }));
 });
 
 // ── Writing ────────────────────────────────────────────────────────────────
