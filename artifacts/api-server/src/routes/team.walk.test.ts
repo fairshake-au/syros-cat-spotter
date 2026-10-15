@@ -71,6 +71,7 @@ const KINDS: Kind[] = [
 type Outcome =
   | "pass" // through every check about who they are (any status but 401 and 403)
   | "forbidden" // the 403: "That part of the dashboard is for the Syros Cats team"
+  | "management" // the 403 a team member gets on management's pages: "…is for Syros Cats management"
   | "ended" // the 403: "Your access has ended"
   | "signin"; // the sign-in 401
 
@@ -112,6 +113,9 @@ const ACCEPT_PAGE: Partial<Record<Kind, Outcome>> = {
   ended: "pass",
   invitee: "pass",
 };
+
+/** manage_people is management's alone: the team is refused like a guardian. */
+const MANAGEMENT_ONLY: Partial<Record<Kind, Outcome>> = { team: "management" };
 
 interface Row {
   /** Who may: the capability and where, in words, for the reader. */
@@ -188,6 +192,17 @@ const TABLE: Record<string, Row> = {
   "POST /api/team/observations": { why: "the door, then set_life_status / set_sterilisation inside, island-only" },
   "POST /api/team/observations/:id/supersede": { why: "the door, then the statement kind's capability inside" },
   "GET /api/team/observations/review/likely": { why: "set_sterilisation with no target" },
+  // SYC-53 PR 1.2, the People screen: manage_people, island-only (management alone).
+  "GET /api/team/people": { why: "the People list: manage_people, management only", except: MANAGEMENT_ONLY },
+  "GET /api/team/people/:id/roles": { why: "the change-roles form: manage_people", except: MANAGEMENT_ONLY },
+  "GET /api/team/people/:id/bring-back": { why: "the bring-back form: manage_people", except: MANAGEMENT_ONLY },
+  "POST /api/team/people/invite": { why: "invite someone: manage_people", except: MANAGEMENT_ONLY },
+  "POST /api/team/people/:id/resend": { why: "resend an invitation: manage_people", except: MANAGEMENT_ONLY },
+  "POST /api/team/people/:id/withdraw": { why: "withdraw an invitation: manage_people", except: MANAGEMENT_ONLY },
+  "POST /api/team/people/:id/roles": { why: "change roles and colonies: manage_people", except: MANAGEMENT_ONLY },
+  "POST /api/team/people/:id/left": { why: "mark as left: manage_people", except: MANAGEMENT_ONLY },
+  "POST /api/team/people/:id/sign-out": { why: "sign out everywhere: manage_people", except: MANAGEMENT_ONLY },
+  "POST /api/team/people/:id/bring-back": { why: "bring someone back: manage_people", except: MANAGEMENT_ONLY },
   // SYC-53 PR 1.1, the accept page: requireInvitee, never a capability.
   "GET /api/team/my/welcome": { why: "the accept page: an invitee's own session only (requireInvitee)", except: ACCEPT_PAGE },
   "POST /api/team/my/accept": { why: "Yes, join: requireInvitee and the dashboard's Origin", except: ACCEPT_PAGE },
@@ -229,7 +244,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 54;
+const MINIMUM_ROUTES = 64;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };
@@ -380,6 +395,12 @@ describe("T1: the route walk", () => {
             expect(page.status, where).toBe(403);
             expect(page.text, where).toContain("That part of the dashboard is for the Syros Cats team.");
             expect(page.text, where).toContain("Your colonies are here");
+            expect(page.text, where).not.toContain("Please sign in again.");
+            break;
+          case "management":
+            expect([json.status, json.text], where).toEqual([403, '{"error":"forbidden"}']);
+            expect(page.status, where).toBe(403);
+            expect(page.text, where).toContain("That part of the dashboard is for Syros Cats management.");
             expect(page.text, where).not.toContain("Please sign in again.");
             break;
           case "ended":

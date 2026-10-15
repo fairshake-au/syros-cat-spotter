@@ -117,6 +117,35 @@ function checkColonyId(colonyId: unknown): asserts colonyId is number {
   }
 }
 
+/**
+ * One person as the People screen draws them (SYC-53 PR 1.2): everything
+ * `personState` needs, every placement with its end and label, and the
+ * history with its detail. Ids only; the screen turns them into names.
+ */
+export interface ScreenPerson {
+  id: string;
+  name: string;
+  email: string;
+  language: string;
+  addedAt: Date;
+  addedBy: string | null;
+  leftAt: Date | null;
+  leftBy: string | null;
+  acceptedAt: Date | null;
+  inviteSentAt: Date | null;
+  inviteExpiresAt: Date | null;
+  /** Every placement row, ended ones included (marked by `inForce`, by the database's clock). */
+  placements: {
+    role: string;
+    colonyId: number | null;
+    expiresAt: Date | null;
+    relationship: string | null;
+    inForce: boolean;
+  }[];
+  /** Oldest first. */
+  history: { kind: string; at: Date; by: string; detail: Record<string, unknown> | null }[];
+}
+
 /** One placement as a label: the role, with `:<colony id>` when placed. */
 const scopeLabel = (s: { role: string; colonyId: number | null }) =>
   s.colonyId === null ? s.role : `${s.role}:${s.colonyId}`;
@@ -1756,7 +1785,7 @@ export function peopleStore(db: PeopleDb) {
       input: readonly PlacementInput[],
       hooks?: InTransaction<SetPlacementsResult>,
     ): Promise<SetPlacementsResult> {
-      if (by === personId) {
+      if (by.toLowerCase() === personId.toLowerCase()) {
         throw new PeopleError("You can't change your own roles. Nothing was changed.");
       }
       if (!isPersonId(personId)) throw new PeopleError("That person isn't on the list.");
@@ -1805,7 +1834,7 @@ export function peopleStore(db: PeopleDb) {
       personId: string,
       hooks?: InTransaction<MarkLeftResult>,
     ): Promise<MarkLeftResult> {
-      if (by === personId) {
+      if (by.toLowerCase() === personId.toLowerCase()) {
         throw new PeopleError("You can't mark yourself as left here. Use Stop helping on your own page.");
       }
       if (!isPersonId(personId)) throw new PeopleError("That person isn't on the list.");
@@ -2057,6 +2086,60 @@ export function peopleStore(db: PeopleDb) {
         language: asLanguage(person.language),
         scopes: await scopesOf(id),
       };
+    },
+
+    /**
+     * Everybody, for the People screen (PR 1.2): the invitation columns
+     * `personState` reads, every placement with its end date and label, and
+     * the full history with its detail. Oldest first. Reads only.
+     */
+    async peopleScreen(): Promise<ScreenPerson[]> {
+      const people = await db
+        .select()
+        .from(peopleTable)
+        .orderBy(asc(peopleTable.addedAt), asc(peopleTable.email));
+      const scopes = await db
+        .select({
+          personId: personScopesTable.personId,
+          role: personScopesTable.role,
+          colonyId: personScopesTable.colonyId,
+          expiresAt: personScopesTable.expiresAt,
+          relationship: personScopesTable.relationship,
+          inForce: sql<boolean>`(${personScopesTable.expiresAt} is null or ${personScopesTable.expiresAt} > now())`,
+        })
+        .from(personScopesTable)
+        .orderBy(asc(personScopesTable.id));
+      const events = await db
+        .select()
+        .from(personEventsTable)
+        .orderBy(asc(personEventsTable.id));
+      return people.map((p) => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        language: p.language,
+        addedAt: p.addedAt,
+        addedBy: p.addedBy,
+        leftAt: p.leftAt,
+        leftBy: p.leftBy,
+        acceptedAt: p.acceptedAt,
+        inviteSentAt: p.inviteSentAt,
+        inviteExpiresAt: p.inviteExpiresAt,
+        placements: scopes
+          .filter((s) => s.personId === p.id)
+          .map(({ personId: _p, ...rest }) => rest),
+        history: events
+          .filter((e) => e.personId === p.id)
+          .map((e) => ({
+            kind: e.kind,
+            at: e.at,
+            by: e.by,
+            detail:
+              e.detail && typeof e.detail === "object" && !Array.isArray(e.detail)
+                ? (e.detail as Record<string, unknown>)
+                : null,
+          })),
+      }));
     },
 
     /**

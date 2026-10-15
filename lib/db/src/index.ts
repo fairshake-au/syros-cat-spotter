@@ -53,6 +53,7 @@ export {
   type AllowedPerson,
   type PersonWithScopes,
   type PeopleStore,
+  type ScreenPerson,
 } from "./people";
 import { peopleStore } from "./people";
 
@@ -65,6 +66,7 @@ export const signOutEverywhere = people.signOutEverywhere;
 export const findAllowedPerson = people.findAllowedPerson;
 export const findPersonById = people.findPersonById;
 export const listPeople = people.listPeople;
+export const peopleScreen = people.peopleScreen;
 // SYC-53 PR 1.1: invitations, accepting, withdrawing, leaving.
 export const invitePerson = people.invitePerson;
 export const findInvitee = people.findInvitee;
