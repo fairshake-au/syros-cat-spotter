@@ -596,7 +596,7 @@ describe("access (roles PR 0.5: no target until PR 4.1)", () => {
     for (const [cap, path] of wants) {
       denied.cap = cap;
       // A body that would be a 400 gets the 403 first.
-      for (const body of [{ sightingId: String(sightingA) }, {}]) {
+      for (const body of [{ sightingId: String(sightingA) }, {} as Record<string, string>]) {
         const res = await post(path, body);
         expect([res.status, res.text], `${cap} ${path}`).toEqual([403, '{"error":"forbidden"}']);
       }
