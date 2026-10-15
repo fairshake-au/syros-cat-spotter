@@ -8,17 +8,22 @@ import {
   recordTeamStatement,
   removeOwnerAndSay,
   renameCat,
+  SUPERSEDE_CAPABILITIES,
   supersedeStatement,
 } from "../lib/teamCorrections";
 import { listLikelyForReview } from "../lib/likelyReview";
 import { syrNumber } from "../lib/teamCatView";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import {
-  refuseNotSignedIn,
   requireOrigin,
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
-import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import {
+  refuseSignedIn,
+  requireTeam,
+  teamPerson,
+  type RequireTeamOptions,
+} from "../middlewares/requireTeam";
 import { renderPage, type NavKey } from "../lib/teamPages/layout";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { renderLikelyPage } from "../lib/teamPages/likelyPage";
@@ -135,7 +140,7 @@ function refusalFor(req: Request, res: Response, err: unknown, back: string, act
   if (!(err instanceof ObservationRefused)) throw err;
   if (err.code === "NOT_AUTHORISED") {
     req.log.info({ reason: "missing_capability" }, "correction refused");
-    return refuseNotSignedIn(req, res);
+    return refuseSignedIn(req, res);
   }
   if (err.code === "NOT_FOUND") {
     return formProblem(req, res, 404, {
@@ -177,9 +182,9 @@ function notFound(req: Request, res: Response) {
 }
 
 /** POSTs that run the same Origin and session checks, with their capability. */
-export const formRoute = (capability?: Capability) => [
+export const formRoute = (capability?: Capability, options?: RequireTeamOptions) => [
   requireOrigin(TEAM_ORIGIN),
-  requireTeam(capability),
+  requireTeam(capability, options),
   (_req: Request, res: Response, next: () => void) => {
     setTeamHeaders(res);
     next();
@@ -284,7 +289,7 @@ router.post(
     const person = teamPerson(res);
     if (!can(person, "set_life_status")) {
       req.log.info({ reason: "missing_capability" }, "correction refused");
-      return refuseNotSignedIn(req, res);
+      return refuseSignedIn(req, res);
     }
     const catId = catIdOf(req);
     if (catId === null) return notFound(req, res);
@@ -418,6 +423,14 @@ router.post(
   "/team/statements/:id/wrong",
   ...formRoute(),
   async (req: Request, res: Response) => {
+    // Who may, before what was sent (SYC-53 PR 0.5, T2): someone holding
+    // none of the correction capabilities gets the 403 whatever the form
+    // says, never a 400 about the form. supersedeStatement checks the exact
+    // capability again once it knows the statement's kind.
+    if (!SUPERSEDE_CAPABILITIES.some((c) => can(teamPerson(res), c))) {
+      req.log.info({ reason: "missing_capability" }, "correction refused");
+      return refuseSignedIn(req, res);
+    }
     const id = catIdOf(req);
     if (id === null) return notFound(req, res);
     const parsed = WrongForm.safeParse(req.body ?? {});

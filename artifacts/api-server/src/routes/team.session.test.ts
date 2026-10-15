@@ -78,7 +78,8 @@ describe("the session", () => {
     const res = await me(cookie).set("Origin", "https://evil.example");
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ name: "Susan <b>", email: EMAIL });
-    expect(res.body.capabilities).toHaveLength(17);
+    // A team-only member: every island capability but management's two and the guardian-only request_site_public.
+    expect(res.body.capabilities).toHaveLength(32);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
     expect(res.headers["cache-control"]).toBe("no-store");
   });

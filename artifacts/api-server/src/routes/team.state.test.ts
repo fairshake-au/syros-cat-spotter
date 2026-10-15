@@ -290,10 +290,10 @@ describe("P2-5: drafts, and states outside the four", () => {
     expect((await move("%00", { from: "new", to: "done" })).status).toBe(404);
   });
 
-  it("a person without the capability gets the identical 401 and nothing is written", async () => {
+  it("a person without the capability gets the 403 (signed in, so not the sign-in 401; SYC-53 PR 0.5) and nothing is written", async () => {
     const { id, publicId } = await seedReport({ state: "new" });
     const res = await move(publicId, { from: "new", to: "done" }, veraCookie);
-    expect([res.status, res.text]).toEqual([401, '{"error":"not_signed_in"}']);
+    expect([res.status, res.text]).toEqual([403, '{"error":"forbidden"}']);
     expect(await events(id)).toHaveLength(0);
   });
 });

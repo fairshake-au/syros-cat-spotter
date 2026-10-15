@@ -13,13 +13,14 @@ import {
 import { checkHandoffToken } from "../lib/teamAuth/handoff";
 import { clearSession, issueSession } from "../lib/teamAuth/session";
 import {
+  GUARDIAN_HOME_PATH,
   isBrowserNavigation,
   refuseNotSignedIn,
   requireOrigin,
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
-import { capabilitiesOf, mayEnter } from "../lib/capabilities";
+import { can, capabilitiesOf, mayEnter } from "../lib/capabilities";
 import { renderQueuePage } from "../lib/teamPages/queuePage";
 import { listWelfareQueue, queueNearFeedingSites } from "../lib/welfareQueue";
 
@@ -92,17 +93,27 @@ router.post(
     }
     req.log.info({ jti: claims.jti }, "team hand-off accepted");
     setTeamHeaders(res);
-    res.redirect(303, TEAM_HOME);
+    // The team lands on the welfare queue. Someone with no island row (a
+    // cat guardian) lands on her own page instead, never on the queue's 403
+    // (roles spec §6.3: "straight to the dashboard"). PR 1.3 makes that page
+    // "My colonies".
+    res.redirect(
+      303,
+      can(person, "view_welfare_queue") ? TEAM_HOME : `${TEAM_ORIGIN}${GUARDIAN_HOME_PATH}`,
+    );
   },
 );
 
 /**
  * GET /api/team/: the welfare queue (SYC-43 part 2, PR 1). Plain
- * server-rendered HTML with no scripts.
+ * server-rendered HTML with no scripts. `view_welfare_queue`, island-only
+ * (roles spec §6.2 note 4): it holds every report on the island, "Report an
+ * issue" reports, reporters' photos and the team's notes, none of which
+ * reaches a cat guardian.
  */
 router.get(
   "/team",
-  requireTeam("view_exact_location"),
+  requireTeam("view_welfare_queue"),
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res); // before any await, so an error answer carries them too
@@ -126,7 +137,11 @@ router.get(
   },
 );
 
-/** GET /api/team/me: who is signed in, for the future screens. */
+/**
+ * GET /api/team/me: who is signed in, and what they hold and WHERE (finding
+ * S13): `"island"`, the colony ids of a cat guardian's placements, or
+ * `"anywhere"` for a power with no colony to name (creating a colony).
+ */
 router.get("/team/me", requireTeam(), (_req: Request, res: Response) => {
   const person = teamPerson(res);
   setTeamHeaders(res);

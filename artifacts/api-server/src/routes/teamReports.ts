@@ -18,25 +18,31 @@ import {
 } from "../lib/welfareTie";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
 import {
-  refuseNotSignedIn,
   requireOrigin,
   setTeamHeaders,
 } from "../lib/teamAuth/refuse";
-import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { renderPage } from "../lib/teamPages/layout";
+import { can } from "../lib/capabilities";
+import { photoTargets } from "../lib/capabilityTargets";
+import { hiddenPhotoIds } from "../lib/photoVisibility";
 import { escapeHtml } from "../lib/teamPages/escape";
 
 // The welfare queue's data and photos for the staff dashboard (SYC-43 part 2
-// plan, PR 1 and PR 2). No CORS headers: app.ts skips /api/team/. The reading
-// routes use requireTeam("view_exact_location"): they show exact positions.
-// The two POST routes at the end check Origin first, then their capability.
+// plan, PR 1 and PR 2). No CORS headers: app.ts skips /api/team/. The queue
+// and the reporters' photos need `view_welfare_queue`, which only the team
+// holds (roles spec §6.2 note 4); a cat guardian's own read-only reports get
+// their own routes in PR 3.3. The catalogue photo route needs
+// `view_exact_location` for the photo's cats' colonies, read from the record.
+// The POST routes at the end check Origin first, then their capability, with
+// no target: island-only.
 
 const router: IRouter = Router();
 
 /** GET /api/team/reports: the queue as JSON (SYC-42 2.2); the page's data. */
 router.get(
   "/team/reports",
-  requireTeam("view_exact_location"),
+  requireTeam("view_welfare_queue"),
   async (_req: Request, res: Response) => {
     setTeamHeaders(res); // before any await, so an error answer carries them too
     const queue = await listWelfareQueue();
@@ -66,7 +72,7 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png"]);
  */
 router.get(
   "/team/report-photos/:publicId",
-  requireTeam("view_exact_location"),
+  requireTeam("view_welfare_queue"),
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const publicId = String(req.params["publicId"]);
@@ -85,23 +91,38 @@ router.get(
 );
 
 /**
- * GET /api/team/photos/:publicId: catalogue photos for the dashboard. It
- * serves photos hidden from the public too (spec §6: staff see hidden items),
- * and stays under /api/team/ so the pre-launch gate and CORS rules need no
- * new exception.
+ * GET /api/team/photos/:publicId: catalogue photos for the dashboard. Stays
+ * under /api/team/ so the pre-launch gate and CORS rules need no new
+ * exception.
+ *
+ * `view_exact_location` for EVERY cat the photo is tied to, each cat's colony
+ * read from the record (lib/capabilityTargets.ts; test T5), never from the
+ * request: the team passes everywhere, a cat guardian only for her own
+ * colonies' cats, and nobody but the team for a photo of a cat in no colony.
+ * A photo hidden from the public is served only to a holder of `hide_photo`
+ * (roles spec §6.2 note 4): the team sees hidden items, a guardian doesn't.
  */
 router.get(
   "/team/photos/:publicId",
-  requireTeam("view_exact_location"),
+  requireTeam("view_exact_location", {
+    target: (req) => photoTargets(String(req.params["publicId"])),
+  }),
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const publicId = String(req.params["publicId"]);
     if (!PHOTO_ID_RE.test(publicId)) return notFound(res);
     const [photo] = await db
-      .select({ data: photosTable.data, mime: photosTable.mime })
+      .select({ id: photosTable.id, data: photosTable.data, mime: photosTable.mime })
       .from(photosTable)
       .where(eq(photosTable.publicId, publicId));
     if (!photo || !IMAGE_TYPES.has(photo.mime)) return notFound(res);
+    if (
+      !can(teamPerson(res), "hide_photo") &&
+      (await hiddenPhotoIds([photo.id])).has(photo.id)
+    ) {
+      req.log.info({ reason: "hidden_photo" }, "team request refused");
+      return refuseSignedIn(req, res);
+    }
     res.setHeader("Content-Type", photo.mime);
     res.send(Buffer.from(photo.data, "base64"));
   },
@@ -306,7 +327,7 @@ router.post(
     } catch (err) {
       if (err instanceof ObservationRefused && err.code === "NOT_AUTHORISED") {
         req.log.info({ reason: "missing_capability" }, "tie refused");
-        return refuseNotSignedIn(req, res);
+        return refuseSignedIn(req, res);
       }
       throw err;
     }

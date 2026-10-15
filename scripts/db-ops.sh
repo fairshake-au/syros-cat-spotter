@@ -354,7 +354,7 @@ run_people() {
     add)
       require PEOPLE_NAME
       # A fixed list, validated here and again by the CLI and the database.
-      # Management is given with people-set-roles, beside staff, never here.
+      # Management is given with people-set-roles, never here.
       case "${PEOPLE_ROLE:-}" in
         staff|guardian|vet) ;;
         management)
@@ -386,10 +386,9 @@ run_people() {
           exit 1
           ;;
       esac
-      if [ "$PEOPLE_CHANGE" = "remove" ] && [ "$PEOPLE_ROLE" = "staff" ] && [ "${CONFIRM:-}" != "FORCE" ]; then
-        echo "db-ops: removing staff locks the person out (only staff can sign in until the new permissions ship). Refusing unless confirm=FORCE. Nothing was changed." >&2
-        exit 1
-      fi
+      # The people command itself refuses a result with neither staff nor
+      # management, and taking management from the last manager (SYC-53 PR
+      # 0.5, SYC-316); confirm=FORCE passes --force, the break-glass.
       args+=("--$PEOPLE_CHANGE" "$PEOPLE_ROLE" --by "db-ops:${GITHUB_ACTOR:-unknown}")
       colony_args
       if [ "${CONFIRM:-}" = "FORCE" ]; then args+=(--force); fi

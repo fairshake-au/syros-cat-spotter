@@ -30,9 +30,11 @@ export const ROLE_MAILBOX_LOCAL_PARTS = [
 ] as const;
 
 /**
- * The roles a scope row may hold (roles-and-invites.md §10.1). Only `staff`
- * grants anything yet. `volunteer` is retired: the people who help in the
- * field are on the team (`staff`), island-wide (Decision 8).
+ * The roles a scope row may hold (roles-and-invites.md §10.1). What each
+ * grants is the capability catalogue's (api-server lib/capabilities.ts):
+ * `staff` and `management` island-wide, `guardian` on her colonies, `vet`
+ * nothing yet. `volunteer` is retired: the people who help in the field are
+ * on the team (`staff`), island-wide (Decision 8).
  */
 export const PERSON_ROLES = ["staff", "management", "guardian", "vet"] as const;
 

@@ -23,12 +23,11 @@ import { normaliseEmail, PeopleError, peopleStore } from "../people";
 // --accepted: it is the break-glass for a team member, and invitations
 // (people who must accept first) come with the people screen. A cat guardian
 // needs --colony; `volunteer` is retired; `management` is never given by
-// `add` (between this PR and PR 0.5 can() still asks "holds staff?", so a
-// management-only person would have no way in). `set-roles` is how
-// management is given, beside staff, and it is additive: one role is added
-// or removed at a time, a whole new list needs --replace, the roles are
-// printed before and after, and a result without staff is refused unless
-// --force is given (until PR 0.5 only staff lets anyone sign in).
+// `add`. `set-roles` is how management is given, and it is additive: one
+// role is added or removed at a time, a whole new list needs --replace, the
+// roles are printed before and after, and a result with neither staff nor
+// management, or one that takes management from the last manager, is
+// refused unless --force is given (SYC-53 PR 0.5; SYC-316).
 //
 // Someone who leaves is marked as left, never removed (SYC-43 part 2, Decision
 // 7; SYC-53 PR 0.1): their history stays theirs. There is no `remove`: every

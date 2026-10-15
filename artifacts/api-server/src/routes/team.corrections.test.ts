@@ -498,23 +498,23 @@ describe("P4-4: each form is refused without its capability", () => {
     };
   }
 
-  it("a person whose scopes grant nothing gets the identical 401, and nothing is written", async () => {
+  it("a person whose scopes grant nothing gets the 403 (signed in, so not the sign-in 401; SYC-53 PR 0.5), and nothing is written", async () => {
     const { catId, forms } = await routes();
     const before = await rowsFor(catId);
     for (const f of forms) {
       const res = await form(f.path, volunteerCookie).send(f.body);
-      expect([res.status, res.text], f.path).toEqual([401, '{"error":"not_signed_in"}']);
+      expect([res.status, res.text], f.path).toEqual([403, '{"error":"forbidden"}']);
     }
     expect(await rowsFor(catId)).toEqual(before);
   });
 
-  it("staff lacking exactly that form's capability get the identical 401, and nothing is written", async () => {
+  it("staff lacking exactly that form's capability get the 403 (signed in, so not the sign-in 401; SYC-53 PR 0.5), and nothing is written", async () => {
     const { catId, forms } = await routes();
     const before = await rowsFor(catId);
     for (const f of forms) {
       denied.cap = f.cap;
       const res = await form(f.path).send(f.body);
-      expect([res.status, res.text], `${f.path} without ${f.cap}`).toEqual([401, '{"error":"not_signed_in"}']);
+      expect([res.status, res.text], `${f.path} without ${f.cap}`).toEqual([403, '{"error":"forbidden"}']);
     }
     denied.cap = null;
     expect(await rowsFor(catId)).toEqual(before);

@@ -1,16 +1,35 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { findPersonById, type PersonWithScopes } from "@workspace/db";
 import { readSession } from "../lib/teamAuth/session";
-import { refuseNotSignedIn } from "../lib/teamAuth/refuse";
-import { can, mayEnter, type Capability } from "../lib/capabilities";
+import {
+  refuseAccessEnded,
+  refuseForbidden,
+  refuseNotSignedIn,
+} from "../lib/teamAuth/refuse";
+import {
+  can,
+  holdsIslandRow,
+  mayEnter,
+  type Capability,
+  type CapabilityTarget,
+} from "../lib/capabilities";
 
 // Runs on every dashboard request (team-access spec §8.2). It checks the
 // session cookie, looks the person up in `people` again, and compares
 // session_version, so removal and "sign out everywhere" take effect at the
-// next request. Any failure gets the same 401 as the hand-off.
+// next request.
 //
-// Every /api/team/* route except the hand-off must use this. A dashboard
-// route that doesn't is a review failure.
+// Two kinds of refusal (roles-and-invites.md §6.4; SYC-53 PR 0.5):
+// - **Not signed in** (no valid session, not on the list, not yet joined,
+//   left, or a stale session version): the same 401 as the hand-off, which
+//   sends a browser to the sign-in page.
+// - **Signed in, but not allowed**: a quiet 403 (a page for a browser,
+//   `{"error":"forbidden"}` otherwise). A person who holds nothing at all any
+//   more (every placement ended) gets the 403 that says her access has ended.
+//
+// Every /api/team/* route except the hand-off and sign-out must use this. A
+// dashboard route that doesn't is a review failure, and the route walk
+// (team.walk.test.ts) fails on any route it has no row for.
 
 /** The signed-in person, set by requireTeam. */
 export function teamPerson(res: Response): PersonWithScopes {
@@ -21,12 +40,47 @@ export function teamPerson(res: Response): PersonWithScopes {
 }
 
 /**
- * With a capability, the person must also hold it, decided only by can().
- * Without one (/me, and routes that check can() themselves), they must still
- * be someone who may enter at all (mayEnter, SYC-188): being in the people
- * table with only a role that grants nothing is not enough.
+ * A refusal from inside a route, after requireTeam let the person in (a
+ * capability checked against the record, or a second check in a lib
+ * function): the 403, never the sign-in 401.
  */
-export function requireTeam(capability?: Capability): RequestHandler {
+export function refuseSignedIn(req: Request, res: Response): void {
+  const person = teamPerson(res);
+  refuseForbidden(req, res, { name: person.name, island: holdsIslandRow(person) });
+}
+
+/** Where a placed check applies, read from the record for this request. */
+export type TargetResolver = (
+  req: Request,
+) => Promise<CapabilityTarget | CapabilityTarget[]>;
+
+export interface RequireTeamOptions {
+  /**
+   * Where the capability is checked. Every target returned must pass (a
+   * photo tied to two cats needs both cats' colonies). Without one, a
+   * placed capability answers for island rows only, which is how every route
+   * that shows the whole island stays closed to a cat guardian.
+   */
+  target?: TargetResolver;
+  /**
+   * Insist on an island row even for a role-wide or own-scope capability.
+   * POST /team/colonies uses it: a guardian holds `create_colony`, but until
+   * PR 1.1's createColonyWithPlacement places her on what she creates, the
+   * team's route would make a colony she isn't placed on.
+   */
+  island?: true;
+}
+
+/**
+ * With a capability, the person must also hold it, decided only by can()
+ * (with the record's target, if the route names one). Without one (/me, and
+ * routes that check can() themselves), they must still be someone who may
+ * enter at all (mayEnter).
+ */
+export function requireTeam(
+  capability?: Capability,
+  options: RequireTeamOptions = {},
+): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const session = readSession(req, Math.floor(Date.now() / 1000));
@@ -51,16 +105,36 @@ export function requireTeam(capability?: Capability): RequestHandler {
       }
       if (!mayEnter(person)) {
         req.log.info({ reason: "no_capability" }, "team request refused");
-        refuseNotSignedIn(req, res);
+        refuseAccessEnded(req, res, person);
         return;
       }
-      if (capability && !can(person, capability)) {
-        req.log.info(
-          { reason: "missing_capability", capability },
-          "team request refused",
-        );
-        refuseNotSignedIn(req, res);
-        return;
+      if (capability) {
+        const islandOnly = options.island === true && !holdsIslandRow(person);
+        let allowed = !islandOnly;
+        // can() with no target implies can() for every target, for every
+        // kind (see can()'s switch; capabilities.test.ts pins it), so when
+        // it already holds the lookup can be skipped: the team's requests
+        // never pay for it. A future kind that reads its target with no
+        // island row must break that test first.
+        if (allowed && !(options.target && can(person, capability))) {
+          const resolved = options.target ? await options.target(req) : [];
+          const targets = Array.isArray(resolved) ? resolved : [resolved];
+          allowed =
+            targets.length === 0
+              ? can(person, capability)
+              : targets.every((t) => can(person, capability, t));
+        }
+        if (!allowed) {
+          req.log.info(
+            { reason: "missing_capability", capability },
+            "team request refused",
+          );
+          refuseForbidden(req, res, {
+            name: person.name,
+            island: holdsIslandRow(person),
+          });
+          return;
+        }
       }
       res.locals["teamPerson"] = person;
       next();

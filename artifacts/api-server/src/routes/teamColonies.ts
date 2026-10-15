@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { can } from "../lib/capabilities";
+import { can, holdsIslandRow } from "../lib/capabilities";
 import { foldName } from "@workspace/db";
 import {
   COLONY_NAME_MAX,
@@ -20,8 +20,8 @@ import {
   renderNoSuchColony,
 } from "../lib/teamPages/colonyPages";
 import { t, type WordKey } from "../lib/teamPages/words";
-import { refuseNotSignedIn, setTeamHeaders } from "../lib/teamAuth/refuse";
-import { requireTeam, teamPerson } from "../middlewares/requireTeam";
+import { setTeamHeaders } from "../lib/teamAuth/refuse";
+import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 
 // The team's Colonies screens (SYC-209 PR 2.1; spec §2.6, §2.7, §11.2).
@@ -31,11 +31,12 @@ import { formRoute } from "./teamCorrections";
 // the session and capability (formRoute), then the body.
 //
 // **Permissions (plan Decision 1A).** Every route here asks requireTeam()/can()
-// with NO colony target. That is deliberate: today it means "the team". Once
-// the roles plan makes can() strict, "no target" means island-wide holders
-// only, so a guardian is refused on every one of these pages until PR 4.1
+// with NO colony target. That is deliberate: since the roles plan made can()
+// strict (SYC-53 PR 0.5), "no target" means island-wide holders only, so a
+// guardian gets the 403 on every one of these pages until SYC-209 PR 4.1
 // switches targets and filters on together. These pages show team notes and
-// every colony, so they must fail closed.
+// every colony, so they must fail closed. Creating a colony also insists on
+// an island row (below), since a guardian holds `create_colony`.
 
 const router: IRouter = Router();
 
@@ -181,7 +182,8 @@ router.get(
         colonies,
         personName: person.name,
         done,
-        canCreate: can(person, "create_colony"),
+        // The same rule as POST /team/colonies: an island row, until PR 1.1.
+        canCreate: holdsIslandRow(person) && can(person, "create_colony"),
       }),
     );
   },
@@ -229,10 +231,16 @@ const takenResponse = (
     .send(renderNameTaken(teamPerson(res).name, holder, back));
 };
 
-/** POST /api/team/colonies: create one (`create_colony`). */
+/**
+ * POST /api/team/colonies: create one (`create_colony`). A cat guardian holds
+ * `create_colony` (it creates its own scope, roles spec §6.9), but this
+ * route makes a colony with no placement, which is the team's way. So it
+ * insists on an island row until PR 1.1's createColonyWithPlacement places a
+ * guardian on what she creates.
+ */
 router.post(
   "/team/colonies",
-  ...formRoute("create_colony"),
+  ...formRoute("create_colony", { island: true }),
   async (req: Request, res: Response) => {
     const back = { href: "/api/team/colonies", label: t("problem.backToColonies") };
     const parsed = CreateForm.safeParse(req.body ?? {});
@@ -288,7 +296,7 @@ router.post(
         return notFound(req, res);
       case "forbidden":
         req.log.info({ reason: "missing_capability" }, "colony change refused");
-        return refuseNotSignedIn(req, res);
+        return refuseSignedIn(req, res);
       case "taken":
         return takenResponse(req, res, outcome.holder, back);
       case "unchanged":

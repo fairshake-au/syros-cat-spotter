@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
-import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "./schema";
 import {
   PERSON_LANGUAGES,
+  ISLAND_ROLES,
   PERSON_ROLES,
   ROLE_MAILBOX_LOCAL_PARTS,
   peopleTable,
@@ -214,6 +215,72 @@ async function recordPersonEvent(
 }
 
 /**
+ * A `person_scopes` row is in force while it has no end, or its end is still
+ * ahead of `clock`. The clock is the database's `now()` everywhere in the app;
+ * it is a parameter only so the T6 test can ask the same condition about a
+ * moment the database can't be wound to (the 25 October clock change).
+ */
+export function scopeInForce(clock: SQL = sql`now()`): SQL {
+  return or(
+    isNull(personScopesTable.expiresAt),
+    sql`${personScopesTable.expiresAt} > ${clock}`,
+  )!;
+}
+
+/**
+ * When a placement given an end date stops (§6.6): midnight Athens time at
+ * the END of that date, as an instant. Athens is UTC+3 in summer and UTC+2 in
+ * winter, so this asks the time-zone database for the offset at that
+ * midnight rather than adding 24 hours (which is an hour wrong on the night
+ * the clocks change). "2026-10-25" ends at 2026-10-25T22:00:00Z.
+ */
+export function placementEndsAt(date: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) throw new PeopleError(`"${date}" isn't a date like 2026-10-25.`);
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const probe = new Date(Date.UTC(y, mo - 1, d));
+  if (
+    probe.getUTCFullYear() !== y ||
+    probe.getUTCMonth() !== mo - 1 ||
+    probe.getUTCDate() !== d
+  ) {
+    throw new PeopleError(`"${date}" isn't a real date.`);
+  }
+  // The next day's 00:00 as wall-clock digits, read as if UTC, minus Athens's
+  // offset at that instant. One correction step is exact: midnight is never
+  // inside a skipped or repeated hour in Athens (the changes are at 03:00
+  // and 04:00).
+  const wall = Date.UTC(y, mo - 1, d + 1);
+  const offset = athensOffsetMs(new Date(wall));
+  const guess = wall - offset;
+  return new Date(wall - athensOffsetMs(new Date(guess)));
+}
+
+/** Athens's offset from UTC at an instant, in milliseconds. */
+function athensOffsetMs(at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Athens",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(at);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
+  return asUtc - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/**
  * The people operations, bound to one database. `@workspace/db` exports
  * these bound to the app's database; the `people` command and the tests bind
  * them to the database they name.
@@ -223,7 +290,13 @@ export function peopleStore(db: PeopleDb) {
   // left_at set is not on the list, and nor is one who has not accepted.
   // findAllowedPerson and findPersonById are every reader of "who is allowed
   // in", and both apply them.
-  /** This person's roles, dropping any the code doesn't know. */
+  /**
+   * This person's roles that are in force now, dropping any the code doesn't
+   * know. A placement whose end date has passed is dropped here, by the
+   * DATABASE's clock (`now()`), never this process's (roles-and-invites.md
+   * §6.6; SYC-53 PR 0.5, T6): it stops working at the next request after its
+   * end, with no job run. can() reads no clock; it trusts this.
+   */
   async function scopesOf(id: string): Promise<PersonWithScopes["scopes"]> {
     const scopes = await db
       .select({
@@ -233,7 +306,7 @@ export function peopleStore(db: PeopleDb) {
         expiresAt: personScopesTable.expiresAt,
       })
       .from(personScopesTable)
-      .where(eq(personScopesTable.personId, id));
+      .where(and(eq(personScopesTable.personId, id), scopeInForce()));
     return scopes.filter((s): s is PersonWithScopes["scopes"][number] =>
       isRole(s.role),
     );
@@ -286,9 +359,9 @@ export function peopleStore(db: PeopleDb) {
       const roles = [...new Set(input.roles ?? ["staff"])];
       if (roles.length === 0) throw new PeopleError("Give at least one role.");
       for (const role of roles) checkRole(role);
-      // Until the capability catalogue ships (plan PR 0.5), can() answers
-      // "holds staff?", so a management-only person would have no powers
-      // and no way in. Management is added beside staff, with set-roles.
+      // Management is never given by `add` (PR 0.3, review minor 5): it is
+      // given with set-roles, as a recorded roles change, to someone already
+      // on the list. (Since PR 0.5 management lets someone in on its own.)
       if (roles.includes("management")) {
         throw new PeopleError(
           "Management can't be given when adding someone. Add them as staff, then use set-roles --add management.",
@@ -453,9 +526,10 @@ export function peopleStore(db: PeopleDb) {
      * Changes one person's roles (`people set-roles`; plan PR 0.3, Decision
      * A1). It is also the break-glass, so it is hard to misuse: `add` and
      * `remove` change one role and leave the rest alone, a whole new list
-     * needs `replace`, and a result without `staff` is refused unless
-     * `force` is given: until plan PR 0.5 `staff` is the only role that lets
-     * anyone in, so removing it (even from a manager) locks them out. Writes one
+     * needs `replace`, a result with neither `staff` nor `management` is
+     * refused unless `force` is given (since plan PR 0.5 either one lets
+     * someone in; SYC-316), and so is taking management from the last
+     * person who holds it (§9.5). Writes one
      * `roles_changed` event, with the roles before and after, in the same
      * transaction. A person who has left is refused: add them again.
      */
@@ -513,6 +587,16 @@ export function peopleStore(db: PeopleDb) {
             "That person has left. Add them again first. Nothing was changed.",
           );
         }
+        // Every management row is locked first, always in the same order,
+        // before this person's own rows: two managers demoting each other at
+        // once then queue here instead of deadlocking, and the second sees
+        // the first's change when it counts (the last-manager guard below).
+        await tx
+          .select({ id: personScopesTable.id })
+          .from(personScopesTable)
+          .where(eq(personScopesTable.role, "management"))
+          .orderBy(asc(personScopesTable.id))
+          .for("update");
         const held = await tx
           .select({
             id: personScopesTable.id,
@@ -536,13 +620,8 @@ export function peopleStore(db: PeopleDb) {
               `They already hold ${scopeLabel({ role, colonyId: colony })}. Nothing was changed.`,
             );
           }
-          // Until plan PR 0.5, can() answers "holds staff?": management is
-          // granted beside staff, never instead of it.
-          if (role === "management" && !holds("staff", null)) {
-            throw new PeopleError(
-              "Management is added to someone who already holds staff. Nothing was changed.",
-            );
-          }
+          // Since plan PR 0.5, can() honours management on its own, so
+          // management no longer has to sit beside staff (SYC-316).
           toInsert.push({ role, colonyId: colony });
         } else if (input.remove !== undefined) {
           const role = input.remove;
@@ -571,19 +650,52 @@ export function peopleStore(db: PeopleDb) {
           ...held.filter((h) => !toDelete.includes(h.id)).map(scopeLabel),
           ...toInsert.map(scopeLabel),
         ].sort();
-        // Until plan PR 0.5, can() and mayEnter() ask only "holds staff?":
-        // without staff, nobody (a manager included) can sign in. So staff
-        // must stay, unless forced (review M1). When 0.5 makes management
-        // grant on its own, this becomes "staff or management".
-        if (!after.includes("staff") && !input.force) {
+        // Since plan PR 0.5, staff and management each let someone in on
+        // their own (SYC-316 relaxed review M1's "staff must stay"). Without
+        // either, they would be locked out of the team's pages, unless forced.
+        const afterRoles = after.map((label) => label.split(":")[0]!);
+        if (
+          !afterRoles.some((r) => (ISLAND_ROLES as readonly string[]).includes(r)) &&
+          !input.force
+        ) {
           throw new PeopleError(
-            `That would leave them without staff (${after.join(", ") || "no roles at all"}), and until the new permissions ship only staff can sign in, so they would be locked out. Nothing was changed. Give --force if that is really meant.`,
+            `That would leave them with no staff or management role (${after.join(", ") || "no roles at all"}), so they would be locked out. Nothing was changed. Give --force if that is really meant.`,
           );
         }
         const droppedPlacements = held
           .filter((h) => h.colonyId !== null && toDelete.includes(h.id))
           .map(scopeLabel)
           .sort();
+        // The last manager (roles spec §9.5; SYC-316): taking management
+        // from the only person who holds it would leave nobody who can
+        // invite anyone. Refused unless forced; this command is the
+        // break-glass. The management rows were locked above, so two
+        // managers removing each other at once can't both pass the count.
+        const losesManagement =
+          held.some((h) => h.role === "management") &&
+          !afterRoles.includes("management");
+        if (losesManagement) {
+          const managers = await tx
+            .select({ personId: personScopesTable.personId })
+            .from(personScopesTable)
+            .innerJoin(peopleTable, eq(peopleTable.id, personScopesTable.personId))
+            .where(
+              and(
+                eq(personScopesTable.role, "management"),
+                isNull(peopleTable.leftAt),
+                isNotNull(peopleTable.acceptedAt),
+                // A management row with an end date that has passed lets
+                // nobody in, so it doesn't count (review finding 3b).
+                scopeInForce(),
+              ),
+            );
+          const others = managers.filter((m) => m.personId !== person.id);
+          if (others.length === 0 && !input.force) {
+            throw new PeopleError(
+              "They are the last person with management. Nobody else could invite or remove anyone. Nothing was changed. Give --force if that is really meant.",
+            );
+          }
+        }
         if (toDelete.length) {
           await tx
             .delete(personScopesTable)
