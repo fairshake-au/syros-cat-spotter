@@ -179,9 +179,14 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
       // report is sent with no token and the server decides: `observe`
       // accepts it, `enforce` answers 428 (retried, no strike, message shown).
       // Only "asked for a tap and they didn't in time" is ChallengeUnavailable.
-      const fail = (reason: string) => {
+      //
+      // `error` and `unsupported` are tokenless whatever else happened (review
+      // finding 7): they aren't "someone didn't tap", so they must not rest the
+      // report as an unanswered tap. Only a timeout or expiry while the sheet
+      // was up (`tapAsked`) rejects.
+      const fail = (reason: string, alwaysTokenless = false) => {
         if (settled) return;
-        const unanswered = tapAsked;
+        const unanswered = tapAsked && !alwaysTokenless;
         cleanup();
         if (unanswered) reject(new ChallengeUnavailable(reason));
         else resolve(null);
@@ -208,12 +213,12 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
                 resolve(token);
               },
               'error-callback': () => {
-                fail('error');
+                fail('error', true);
                 return true;
               },
               'expired-callback': () => fail('expired'),
               'timeout-callback': () => fail('timeout'),
-              'unsupported-callback': () => fail('unsupported'),
+              'unsupported-callback': () => fail('unsupported', true),
               'before-interactive-callback': () => {
                 if (action === 'welfare_draft') return fail('interactive'); // never interrupt for a draft: sent tokenless
                 tapAsked = true;
@@ -226,7 +231,7 @@ export async function getTurnstileToken(action: ChallengeAction, cdata: string):
               },
             });
           } catch {
-            fail('render');
+            fail('render', true);
           }
         },
         () => fail('script'),

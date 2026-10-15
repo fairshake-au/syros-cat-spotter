@@ -81,4 +81,21 @@ describe('getTurnstileToken on a mapped host (localhost)', () => {
     await vi.advanceTimersByTimeAsync(CHALLENGE_TIMEOUT_MS + 1000);
     await assertion;
   });
+
+  it.each(['error-callback', 'unsupported-callback'])(
+    'review finding 7: %s after a tap was asked is tokenless, not an unanswered tap',
+    async (event) => {
+      (globalThis as { turnstile?: unknown }).turnstile = {
+        render: (_c: unknown, p: Record<string, () => void>) => {
+          queueMicrotask(() => {
+            p['before-interactive-callback']!();
+            p[event]!();
+          });
+          return 'w1';
+        },
+        remove: () => undefined,
+      };
+      await expect(getTurnstileToken('welfare_report', 'r-abc')).resolves.toBeNull();
+    },
+  );
 });
