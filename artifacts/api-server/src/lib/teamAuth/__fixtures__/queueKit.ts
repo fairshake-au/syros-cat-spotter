@@ -61,6 +61,21 @@ export const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000);
 
 export interface SeedReport {
   publicId?: string;
+  /**
+   * SYC-44: "welfare" (default) is a "needs help" report; "content" is a
+   * "Report an issue" row. A content row has no position, severity
+   * "attention", photo state "none" (the database checks all three) and a
+   * `reason` (default "other"); the welfare queue must never show it.
+   */
+  kind?: "welfare" | "content";
+  /** Content rows only: one of the nine reason keys. Default "other". */
+  reason?: string;
+  /** Content rows only: the reported `photos.id`. */
+  photoId?: number | null;
+  /** The cat the row is tied to (`welfare_reports.cat_id`). */
+  catId?: number | null;
+  /** The app's own reference; default random. */
+  clientRef?: string;
   severity?: "attention" | "urgent";
   state?: "new" | "looking" | "done" | "nothing_needed";
   isDraft?: boolean;
@@ -89,9 +104,12 @@ export async function seedReport(
   o: SeedReport = {},
 ): Promise<{ id: number; publicId: string; photoPublicId: string | null }> {
   const publicId = o.publicId ?? `vt-${randomBytes(6).toString("hex")}`;
+  const kind = o.kind ?? "welfare";
+  const content = kind === "content";
   const sentAt = o.isDraft ? null : minutesAgo(o.sentMinutesAgo ?? 5);
-  const photoState =
-    typeof o.photo === "object"
+  const photoState = content
+    ? "none"
+    : typeof o.photo === "object"
       ? "attached"
       : o.photo === "pending"
         ? "pending"
@@ -102,18 +120,22 @@ export async function seedReport(
     .insert(welfareReportsTable)
     .values({
       publicId,
-      severity: o.severity ?? "attention",
+      kind,
+      reason: content ? (o.reason ?? "other") : null,
+      photoId: content ? (o.photoId ?? null) : null,
+      catId: o.catId ?? null,
+      severity: content ? "attention" : (o.severity ?? "attention"),
       state: o.state ?? "new",
       isDraft: o.isDraft ?? false,
-      isLitter: o.isLitter ?? false,
+      isLitter: content ? false : (o.isLitter ?? false),
       note: o.note === undefined ? "Thin grey cat by the bins" : o.note,
-      lat: o.lat ?? 37.4441234,
-      lng: o.lng ?? 24.9412345,
+      lat: content ? null : (o.lat ?? 37.4441234),
+      lng: content ? null : (o.lng ?? 24.9412345),
       reporterDevice:
         o.reporterDevice === undefined
           ? `device-${randomBytes(4).toString("hex")}`
           : o.reporterDevice,
-      clientRef: `ref-${randomBytes(6).toString("hex")}`,
+      clientRef: o.clientRef ?? `ref-${randomBytes(6).toString("hex")}`,
       photoState,
       submittedAt: sentAt,
       createdAt: sentAt ?? minutesAgo(o.sentMinutesAgo ?? 5),
@@ -137,7 +159,7 @@ export async function seedReport(
   }
   if (o.mail) {
     await db.insert(mailOutboxTable).values({
-      purpose: "welfare_alert",
+      purpose: content ? "issue_alert" : "welfare_alert",
       reportId: row!.id,
       recipientHash: "vitest",
       payload: { kind: "alert" },
