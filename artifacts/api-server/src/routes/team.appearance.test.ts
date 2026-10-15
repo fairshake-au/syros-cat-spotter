@@ -772,8 +772,8 @@ describe("the Appearance section on the team cat page", () => {
     await team(catId, "coat", { value: { colours: ["black"] }, daysAgo: 1 });
     const g = await guardian(catId, "coat", "eleni", { value: { colours: ["grey"] }, daysAgo: 5 });
     const res = await request(app).get(`/api/team/cats/${catId}`).set("Cookie", cookie);
-    expect(res.text).toContain("A cat guardian&#39;s statement decides this, and the team said something different");
-    expect(res.text).toContain("Saving marks every standing cat guardian statement on it wrong");
+    expect(res.text).toContain("A cat guardian&#39;s change decides this, and the team said something different");
+    expect(res.text).toContain("Saving marks every standing cat guardian change on it wrong");
     expect(res.text).toContain(`name="shownAbove" value="${g.id}"`);
   });
 
@@ -787,7 +787,7 @@ describe("the Appearance section on the team cat page", () => {
     const row = page.text.slice(page.text.indexOf(`id="c-${catId}"`));
     const next = row.indexOf('<li class="report colourcheck"', 1);
     const end = next === -1 ? row.length : next;
-    expect(row.slice(0, end)).toContain("Saving marks every standing cat guardian statement on it wrong");
+    expect(row.slice(0, end)).toContain("Saving marks every standing cat guardian change on it wrong");
     expect(row.slice(0, end)).toContain(`name="shownAbove" value="${g.id}"`);
   });
 
