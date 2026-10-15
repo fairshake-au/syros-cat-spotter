@@ -36,7 +36,9 @@ const ALLOWLIST: Record<string, string> = {
   "artifacts/api-server/src/lib/welfareTie.ts":
     "welfare only: a content row is refused with not_welfare (a tie writes evidence of life)",
   "artifacts/api-server/src/lib/mail/outbox.ts":
-    "a welfare_alert for a non-welfare report is failed wrong_kind; the unchecked-waiting count is kind = 'welfare'",
+    "a welfare_alert for a non-welfare report is failed wrong_kind, and an issue_alert for a non-content report likewise; the unchecked-waiting count is kind = 'welfare'; the daily issues digest counts kind = 'content' only",
+  "artifacts/api-server/src/lib/issues/alertEmail.ts":
+    "builds the issue_alert emails for kind = 'content' rows only, from a few picked fields (no device, no contact); the outbox refuses any other kind before calling it",
   "artifacts/api-server/src/lib/welfare/alertEmail.ts":
     "builds the welfare alert only: throws for a row with no position (the outbox checks the kind before calling it)",
   "artifacts/api-server/src/routes/reports.ts":
