@@ -27,8 +27,8 @@ export interface PickedPhoto {
 
 /**
  * 'unread': we did not get the photo's tags (the camera, a phone picker that
- * returned none, or a website pick with no file bytes), so there is nothing
- * honest to say about its time.
+ * returned none, or a website file we couldn't read with confidence), so
+ * there is nothing honest to say about its time.
  */
 export type PhotoTimeInfo = PhotoTime | { kind: 'unread' };
 
@@ -48,9 +48,14 @@ function timeInfoFor(asset: PickerAssetLike, timeFrom: TimeFrom, now: number): P
   if (timeFrom === 'nowhere') return { kind: 'unread' };
   if (timeFrom === 'file') {
     if (!asset.base64) return { kind: 'unread' };
-    // We did read the file: finding no time in it is "the photo doesn't say".
-    const tags = readJpegTimeTags(asset.base64);
-    return tags ? resolvePhotoTime(tags, now) : { kind: 'none', reason: 'missing' };
+    const read = readJpegTimeTags(asset.base64);
+    // A JPEG read cleanly, with or without a time, goes through the same
+    // rules as the apps. A file that isn't a JPEG has nothing we can read
+    // (plan, slice 2W). A file we couldn't read with confidence gets no line:
+    // "the photo doesn't say" would not be known to be true.
+    if (read.kind === 'read') return resolvePhotoTime(read.tags, now);
+    if (read.kind === 'notJpeg') return { kind: 'none', reason: 'missing' };
+    return { kind: 'unread' };
   }
   const exif = asset.exif;
   // Android's picker can return nothing for a JPEG that does carry a time, so

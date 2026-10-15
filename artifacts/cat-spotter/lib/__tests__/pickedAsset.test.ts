@@ -133,9 +133,17 @@ describe('readPickedAsset', () => {
         toBase64(Uint8Array.from([0, 0, 0, 24, 102, 116, 121, 112, 104, 101, 105, 99, 0, 0, 0, 0])),
       ],
       ['a PNG', toBase64(Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]))],
-    ])('%s -> none: we read the file and it does not say, so the line is shown', async (_l, b64) => {
+    ])('%s -> none: we read it (or it is not a JPEG) and it says no time, so the line is shown', async (_l, b64) => {
       const r = await readPickedAsset({ uri: 'u', base64: b64 }, opts('file'));
       expect(r.timeInfo).toEqual({ kind: 'none', reason: 'missing' });
+    });
+
+    it.each([
+      ['a JPEG cut off before its time', () => jpeg.slice(0, 80)],
+      ['base64 the reader cannot decode', () => jpeg.replace(/\+/g, '-') + '-'],
+    ])('%s -> unread: the reader was unsure, so no line', async (_l, b64) => {
+      const r = await readPickedAsset({ uri: 'u', base64: b64() }, opts('file'));
+      expect(r.timeInfo).toEqual({ kind: 'unread' });
     });
 
     it('a photo more than 21 days old -> tooOld', async () => {

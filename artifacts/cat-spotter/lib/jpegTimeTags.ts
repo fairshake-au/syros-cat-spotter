@@ -17,8 +17,16 @@
  * Never throws, never hangs: it decodes at most the first 64 KB however big
  * the file, every read is bounds-checked, an IFD may hold at most 512
  * entries, a pointer to an IFD already read stops it, and every marker and
- * entry costs a step from a fixed budget. Anything it is unsure of returns
- * null, which means "no information". Pure, so it tests without React Native.
+ * entry costs a step from a fixed budget. Pure, so it tests without React
+ * Native.
+ *
+ * Three answers, because the screen says different things for them:
+ *  - `read`: a JPEG read cleanly. Its tags may be empty (a stripped photo):
+ *    then the photo really doesn't say when it was taken.
+ *  - `notJpeg`: not a JPEG at all (a PNG, a desktop HEIC): nothing to read.
+ *  - `unsure`: anything we could not read with confidence, including a time
+ *    tag that is there but unreadable. A wrong time is worse than none, and
+ *    "the photo doesn't say" would be untrue, so this says nothing.
  */
 import type { TimeTags } from './photoClock';
 
@@ -50,6 +58,11 @@ const TAG = {
 /** "Exif" then two zero bytes: the start of an Exif APP1 segment. */
 const EXIF_HEADER = [0x45, 0x78, 0x69, 0x66, 0, 0];
 
+export type JpegTimeRead =
+  | { kind: 'read'; tags: TimeTags }
+  | { kind: 'notJpeg' }
+  | { kind: 'unsure' };
+
 /** Thrown inside the reader only, and always caught: "not sure, say nothing". */
 const UNSURE = Symbol('unsure');
 
@@ -60,7 +73,7 @@ for (let i = 0; i < ALPHABET.length; i++) DECODE[ALPHABET.charCodeAt(i)] = i;
 /** The first HEAD_CHARS of the base64 (or of a data URL's payload) as bytes. */
 function decodeHead(input: string): Uint8Array | null {
   let start = 0;
-  if (input.startsWith('data:')) {
+  if (/^data:/i.test(input)) {
     const comma = input.indexOf(',');
     if (comma < 0) return null;
     start = comma + 1;
@@ -145,21 +158,24 @@ function readTiff(b: Uint8Array, base: number, limit: number, meter: Meter): Tim
   /** Where an entry's value lives: in the field if it fits, else at an offset. */
   const valueAt = (e: Entry, size: number) => (size <= 4 ? e.field : base + u32(e.field));
 
-  const ascii = (e: Entry): string | undefined => {
-    if (e.type !== TYPE_ASCII || e.count === 0 || e.count > MAX_TAG_CHARS) return undefined;
+  // A time tag that is there but can't be read is "unsure", never skipped:
+  // dropping an unreadable offset would read the photo as Greek time, hours
+  // out, with nothing to say so.
+  const ascii = (e: Entry): string => {
+    if (e.type !== TYPE_ASCII || e.count === 0 || e.count > MAX_TAG_CHARS) throw UNSURE;
     const at = valueAt(e, e.count);
     need(at, e.count);
     let s = '';
     for (let k = 0; k < e.count; k++) {
       const c = b[at + k];
       if (c === 0) break;
-      if (c < 32 || c > 126) return undefined;
+      if (c < 32 || c > 126) throw UNSURE;
       s += String.fromCharCode(c);
     }
     return s;
   };
-  const clock = (e: Entry): string | undefined => {
-    if (e.type !== TYPE_RATIONAL || e.count !== 3) return undefined;
+  const clock = (e: Entry): string => {
+    if (e.type !== TYPE_RATIONAL || e.count !== 3) throw UNSURE;
     const at = valueAt(e, 24);
     need(at, 24);
     const parts: string[] = [];
@@ -179,8 +195,8 @@ function readTiff(b: Uint8Array, base: number, limit: number, meter: Meter): Tim
   }
 
   const tags: TimeTags = {};
-  const keep = (key: keyof TimeTags, value: string | undefined) => {
-    if (value !== undefined) tags[key] = value;
+  const keep = (key: keyof TimeTags, value: string) => {
+    tags[key] = value;
   };
   if (exifIfd !== undefined) {
     for (const e of entriesAt(exifIfd)) {
@@ -199,51 +215,55 @@ function readTiff(b: Uint8Array, base: number, limit: number, meter: Meter): Tim
   return tags;
 }
 
-function readJpeg(b: Uint8Array, meter: Meter): TimeTags | null {
-  if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
+function readJpeg(b: Uint8Array, meter: Meter): JpegTimeRead {
+  if (b.length < 2) return { kind: 'unsure' };
+  if (b[0] !== 0xff || b[1] !== 0xd8) return { kind: 'notJpeg' };
   let i = 2;
   for (;;) {
     step(meter);
-    if (i + 1 >= b.length || b[i] !== 0xff) return null;
+    // Ran out of what we hold (a cut file, or a block past 64 KB), or the
+    // markers stopped making sense.
+    if (i + 1 >= b.length || b[i] !== 0xff) throw UNSURE;
     const marker = b[i + 1];
     if (marker === 0xff) {
       i++; // fill byte
       continue;
     }
-    // End of image, or the scan: no Exif block came first.
-    if (marker === 0xd9 || marker === 0xda) return null;
+    // End of image, or the scan, with no Exif block before it: the photo
+    // was read and carries no time.
+    if (marker === 0xd9 || marker === 0xda) return { kind: 'read', tags: {} };
     if ((marker >= 0xd0 && marker <= 0xd7) || marker === 1) {
       i += 2; // markers with no length
       continue;
     }
-    if (i + 3 >= b.length) return null;
+    if (i + 3 >= b.length) throw UNSURE;
     const length = (b[i + 2] << 8) | b[i + 3];
-    if (length < 2) return null;
+    if (length < 2) throw UNSURE;
     const start = i + 4;
     const end = i + 2 + length;
     if (marker === 0xe1 && EXIF_HEADER.every((byte, k) => b[start + k] === byte)) {
       // A big Exif block can run past the 64 KB read; what is past it is
       // usually the thumbnail. Any read beyond what we hold is "unsure".
-      return readTiff(b, start + EXIF_HEADER.length, Math.min(end, b.length), meter);
+      const tags = readTiff(b, start + EXIF_HEADER.length, Math.min(end, b.length), meter);
+      return { kind: 'read', tags };
     }
     i = end;
   }
 }
 
 /**
- * The photo's five time tags from a JPEG's base64 (or a data URL), or null
- * when there is no Exif block or anything about it is unsure. An empty object
- * means the block was read and holds no time. `meter` is for the tests.
+ * The photo's five time tags from a JPEG's base64 (or a data URL): see
+ * `JpegTimeRead` for the three answers. `meter` is for the tests.
  */
 export function readJpegTimeTags(
   base64: string,
   meter: Meter = { steps: 0 },
-): TimeTags | null {
+): JpegTimeRead {
   try {
-    if (typeof base64 !== 'string') return null;
+    if (typeof base64 !== 'string') return { kind: 'unsure' };
     const bytes = decodeHead(base64);
-    return bytes ? readJpeg(bytes, meter) : null;
+    return bytes ? readJpeg(bytes, meter) : { kind: 'unsure' };
   } catch {
-    return null;
+    return { kind: 'unsure' };
   }
 }
