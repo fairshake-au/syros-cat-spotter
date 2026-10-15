@@ -14,6 +14,8 @@ import {
   type View,
 } from "../lib/mapTiles/geometry";
 import { readTileToken } from "../lib/mapTiles/tileToken";
+import { sightingSpot } from "../lib/sightingSpot";
+import { currentColonyOf } from "../lib/colonyMembership";
 import { applyMove, readTap } from "../lib/mapTiles/mapForms";
 import {
   listSites,
@@ -78,6 +80,7 @@ async function sitesPage(
   view: View,
   showRetired: boolean,
   note?: string,
+  sighting?: Position,
 ): Promise<void> {
   const [counts, changes, sites] = await Promise.all([
     siteCounts(),
@@ -96,6 +99,7 @@ async function sitesPage(
         view,
         showRetired,
         note,
+        sighting,
       }),
     );
 }
@@ -279,7 +283,26 @@ const typedSpot = (body: Record<string, unknown>) => TypedForm.safeParse(body);
 
 // ── Add ────────────────────────────────────────────────────────────────────
 
-function newPickerPage(res: Response, status: number, view: View, note?: string): void {
+/**
+ * The colony the add page was opened for ("Add a feeding site to this
+ * colony", PR 3.4), if it exists. It travels as the colony's number, in the
+ * address once (`?colony=12`) and then in a hidden field through the map's
+ * moves, the tap and the nudge. Never a position. A number that is not a
+ * colony is ignored: the add page opens as usual, with no colony chosen.
+ */
+async function knownColony(raw: unknown): Promise<{ id: number; name: string } | null> {
+  if (typeof raw !== "string" || !ID_RE.test(raw)) return null;
+  const id = Number(raw);
+  return (await colonyOptions()).find((c) => c.id === id) ?? null;
+}
+
+function newPickerPage(
+  res: Response,
+  status: number,
+  view: View,
+  note?: string,
+  colony?: { id: number; name: string } | null,
+): void {
   res
     .status(status)
     .type("html")
@@ -287,7 +310,8 @@ function newPickerPage(res: Response, status: number, view: View, note?: string)
       renderPicker({
         personName: teamPerson(res).name,
         title: t("new.title"),
-        intro: t("new.intro"),
+        intro: colony ? `${t("new.intro")} ${t("new.introColony")} “${colony.name}”.` : t("new.intro"),
+        carry: colony ? { colonyId: String(colony.id) } : undefined,
         back: { href: SITES_PATH, label: t("site.backToSites") },
         view,
         tapAction: PICK_PATH,
@@ -302,9 +326,10 @@ function newPickerPage(res: Response, status: number, view: View, note?: string)
 router.get(
   "/team/sites/new",
   requireTeam("add_feeding_site"),
-  (_req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     setTeamHeaders(res);
-    newPickerPage(res, 200, viewAround(ISLAND_CENTRE, START_ZOOM));
+    const colony = await knownColony(req.query["colony"]);
+    newPickerPage(res, 200, viewAround(ISLAND_CENTRE, START_ZOOM), undefined, colony);
   },
 );
 
@@ -312,12 +337,13 @@ router.get(
 router.post(
   "/team/sites/new/map",
   ...formRoute("add_feeding_site"),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
+    const colony = await knownColony((req.body as Record<string, unknown> | undefined)?.["colonyId"]);
     const view = applyMove(req.body);
     if (!view) {
-      return void newPickerPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), t("sites.moveNote"));
+      return void newPickerPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), t("sites.moveNote"), colony);
     }
-    newPickerPage(res, 200, view);
+    newPickerPage(res, 200, view, undefined, colony);
   },
 );
 
@@ -383,7 +409,8 @@ router.post(
     const picked = readPick((req.body ?? {}) as Record<string, unknown>);
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-      return void newPickerPage(res, picked.status, picked.view, picked.note);
+      const colony = await knownColony((req.body as Record<string, unknown> | undefined)?.["colonyId"]);
+      return void newPickerPage(res, picked.status, picked.view, picked.note, colony);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
     res.type("html").send(
@@ -396,6 +423,72 @@ router.post(
         carry: AddCarryForm.parse(req.body ?? {}),
       }),
     );
+  },
+);
+
+// ── From a cat's sighting (SYC-209 PR 3.4) ─────────────────────────────────
+//
+// The cat page's two buttons post only the sighting's number. The position is
+// read here, checked to be on Syros, and drawn into the page's hidden fields
+// and map pictures: never into an address (K13). Both must be registered
+// before `/team/sites/:id`, which would otherwise read them as a site number.
+
+const SightingForm = z.object({ sightingId: colonyDigits });
+
+/** Reads the sighting named by the form: its spot, or a 400 that names no position. */
+async function sightingFor(req: Request, res: Response) {
+  const parsed = SightingForm.safeParse(req.body ?? {});
+  const back = { href: "/api/team/cats", label: t("sproblem.backToCats") };
+  if (!parsed.success) {
+    badForm(req, res, fieldsOf(parsed.error), back, t("sproblem.sighting"));
+    return null;
+  }
+  const found = await sightingSpot(parsed.data.sightingId);
+  if (found.kind !== "found") {
+    badForm(req, res, ["sightingId"], back, t("sproblem.sighting"));
+    return null;
+  }
+  return found;
+}
+
+/**
+ * POST /api/team/sites/from-sighting: "Make a feeding site here" on a
+ * sighting. Answers with the same confirmation page a tap gets, placed at the
+ * sighting, with the cat's colony chosen if it has one. Saves nothing.
+ */
+router.post(
+  "/team/sites/from-sighting",
+  ...formRoute("add_feeding_site"),
+  async (req: Request, res: Response) => {
+    const found = await sightingFor(req, res);
+    if (!found) return;
+    const colonyId = (await currentColonyOf([found.catId])).get(found.catId);
+    if (!isFormPost(req)) return void res.json({ ...found.spot, colonyId: colonyId ?? null });
+    res.type("html").send(
+      renderAddConfirm({
+        personName: teamPerson(res).name,
+        spot: found.spot,
+        zoom: CONFIRM_ZOOM,
+        colonies: await colonyOptions(),
+        carry: { name: "", colonyId: colonyId === undefined ? "" : String(colonyId), directions: "", notes: "" },
+      }),
+    );
+  },
+);
+
+/**
+ * POST /api/team/sites/map-at-sighting: "Show on our map" on a sighting. The
+ * Feeding sites page, centred on the spot, with an outlined marker there that
+ * no site marker looks like. Writes nothing.
+ */
+router.post(
+  "/team/sites/map-at-sighting",
+  ...formRoute("view_exact_location"),
+  async (req: Request, res: Response) => {
+    const found = await sightingFor(req, res);
+    if (!found) return;
+    if (!isFormPost(req)) return void res.json(found.spot);
+    await sitesPage(res, 200, viewAround(found.spot, SITE_ZOOM), false, undefined, found.spot);
   },
 );
 

@@ -152,6 +152,8 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/sites/:id/move": { why: "the move picker: edit_feeding_site with no target until SYC-209 PR 4.1" },
   "POST /api/team/sites/:id/move/map": { why: "zoom, pan, areas on the move page: edit_feeding_site with no target until SYC-209 PR 4.1" },
   "POST /api/team/sites/:id/move/pick": { why: "a tap or typed position, answers with the confirmation: edit_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/from-sighting": { why: "'Make a feeding site here' on a sighting, answers with the confirmation: add_feeding_site with no target until SYC-209 PR 4.1" },
+  "POST /api/team/sites/map-at-sighting": { why: "'Show on our map' on a sighting: view_exact_location with no target until SYC-209 PR 4.1" },
   "POST /api/team/sites/:id/move": { why: "save a move, with its reason: edit_feeding_site with no target until SYC-209 PR 4.1" },
   // The two JSON observation routes (review minor 1): the door, then the
   // capability inside; a guardian refused there gets the JSON 403.
@@ -195,7 +197,7 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
  * their own checks. If an Express upgrade changes `router.stack` and the walk
  * finds fewer, the test fails rather than passing on an empty list.
  */
-const MINIMUM_ROUTES = 49;
+const MINIMUM_ROUTES = 51;
 
 interface Layer {
   route?: { path: string; methods: Record<string, boolean> };

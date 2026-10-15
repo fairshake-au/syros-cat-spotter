@@ -42,13 +42,15 @@ export interface MapMarker extends Position {
   /** View mode: where the marker goes. Never holds a position. */
   href?: string;
   /** How a feeding site's marker looks (SYC-209 PR 3.2); a fixed set, never free text. */
-  look?: "public" | "private" | "retired";
+  look?: "public" | "private" | "retired" | "sighting";
 }
 
 const LOOKS: Record<NonNullable<MapMarker["look"]>, string> = {
   public: " site-public",
   private: " site-private",
   retired: " site-retired",
+  // Where a cat was seen (PR 3.4): outlined and dashed, so it never reads as a site.
+  sighting: " sighting",
 };
 
 export interface MapOptions {

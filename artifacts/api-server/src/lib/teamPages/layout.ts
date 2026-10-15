@@ -91,6 +91,8 @@ form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px
 .thumb{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:#ece8dc}
 .nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#55524a;text-align:center}
 .public{background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:10px 12px;margin:0;font-weight:700}
+form.sightact{margin:6px 0 0}
+form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:8px;border:1px solid #0b5c6b;background:#fff;color:#0b4553;cursor:pointer}
 ul.sightings li{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #d9d5ca;border-radius:8px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
 .gallery figure{margin:0;display:flex;flex-direction:column;gap:6px;scroll-margin-top:12px}
@@ -161,6 +163,7 @@ span.pin{pointer-events:none}
 .pin.site-public{background:#b3261e}
 .pin.site-private{background:rgba(255,255,255,.55)}
 .pin.site-retired{border-color:#8a877e;background:#d9d5ca}
+.pin.sighting{border:3px dashed #1a56a6;border-radius:4px;background:transparent}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .attrib{margin:4px 0 8px;font-size:12px;color:#55524a}
 .mapmove{margin:8px 0 0}
