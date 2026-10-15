@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createQueueStore } from '../queueStore';
 import { ChallengeUnavailable } from '../challengeUnavailable';
 import {
+  CHECK_DECLINED_SKIP_MS,
   REMINDER_AFTER_MS,
   confirmationState,
   dueReminders,
@@ -239,6 +240,40 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
     expect(store.items()[0]!.serverFailures).toBe(1);
   });
 
+  it('review finding 1: one report\'s unanswered tap never starves the rest (A declines; B sends; C\'s photo goes)', async () => {
+    const A = report({ localId: 'A', clientRef: 'r-A', hasPhoto: false, photoRef: undefined, createdAt: '2026-10-01T09:00:00Z' });
+    const B = report({ localId: 'B', clientRef: 'r-B', hasPhoto: false, photoRef: undefined, createdAt: '2026-10-01T09:01:00Z' });
+    const C = report({ localId: 'C', clientRef: 'r-C', status: 'photo', publicId: 'pub-C' });
+    const { store } = makeStore([A, B, C]);
+    await store.load();
+    const a = api();
+    const getToken = vi.fn(async (_action: string, cdata: string): Promise<string | null> => {
+      if (cdata === 'r-A') throw new ChallengeUnavailable('timeout');
+      return `tok-${cdata}`;
+    });
+    let t = 1_000_000;
+    for (let i = 0; i < 5; i++) {
+      await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken, now: () => t });
+      if (i === 0) {
+        // Already in the very first pass: A's unanswered tap held nothing back.
+        expect(a.calls).toContain('text:r-B');
+        expect(a.calls).toContain('photo:pub-C');
+      }
+      t += 60_000; // one pass a minute
+    }
+    // B was sent, C's photo went, and only A is left, with no strike.
+    expect(a.calls).toContain('text:r-B');
+    expect(a.calls).toContain('photo:pub-C');
+    expect(store.items().map((r) => r.localId)).toEqual(['A']);
+    expect(store.items()[0]!.serverFailures).toBe(0);
+    // Photos go before texts in a pass.
+    expect(a.calls.indexOf('photo:pub-C')).toBeLessThan(a.calls.indexOf('text:r-B'));
+    // A was asked once in the first 3 minutes, not every pass.
+    const asksForA = getToken.mock.calls.filter((c) => c[1] === 'r-A').length;
+    expect(asksForA).toBe(2); // pass 1, and again once the 3 minutes were up (pass 4)
+    expect(store.items()[0]!.checkDeclinedAt).toBeTruthy();
+  });
+
   it('review finding 4: isPermanentRefusal itself says a 428 is not a refusal (its own guard, probed directly)', () => {
     expect(isPermanentRefusal(new FakeApiError(428))).toBe(false);
     for (const s of [401, 403, 408, 429, 500, 503]) expect(isPermanentRefusal(new FakeApiError(s)), String(s)).toBe(false);
@@ -279,7 +314,13 @@ describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () 
         throw new TypeError('Network request failed');
       }),
     });
-    await syncReports(store, { api: photoDown, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
+    await syncReports(store, {
+      api: photoDown,
+      deviceId: 'dev-1',
+      ...photos,
+      getToken: freshTokens(),
+      now: () => Date.now() + CHECK_DECLINED_SKIP_MS + 1000,
+    });
     expect(store.items()[0]!.status).toBe('photo');
     expect(store.items()[0]!.checkUnavailable).toBeFalsy();
   });

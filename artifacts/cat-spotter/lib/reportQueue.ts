@@ -57,6 +57,12 @@ export interface PendingReport {
    * never stored: it is single-use and fetched fresh for every send.
    */
   checkUnavailable?: boolean;
+  /**
+   * When someone was asked to tap for this report's check and didn't (SYC-170).
+   * The report is skipped for CHECK_DECLINED_SKIP_MS, so the sheet doesn't pop
+   * every minute. Never a strike.
+   */
+  checkDeclinedAt?: string;
 }
 
 export interface SubmitBody {
@@ -79,6 +85,8 @@ export interface ReportApi {
 }
 
 export const MAX_SERVER_FAILURES = 3;
+/** After an unanswered tap, leave that report alone for a few minutes. */
+export const CHECK_DECLINED_SKIP_MS = 3 * 60 * 1000;
 export const REMINDER_AFTER_MS = 24 * 60 * 60 * 1000;
 
 function randomId(): string {
@@ -191,19 +199,34 @@ export interface SyncDeps {
   getToken(action: ChallengeAction, cdata: string): Promise<string | null>;
   /** Called the moment the server accepts a report's text. */
   onTextAccepted?: (localId: string) => void;
+  /** The clock, for the waits below (tests). */
+  now?: () => number;
 }
 
 /**
- * Send what's waiting: each report's text, then its photo. Stops at the first
- * network failure (no signal: nothing else will get through either).
+ * Send what's waiting. Photos of reports the server already has go first
+ * (nothing about someone else's safety check may hold them back), then each
+ * waiting report's text and photo, oldest first. A report whose check
+ * couldn't be done is passed over, never allowed to stop the rest. Stops at
+ * the first network failure (no signal: nothing else will get through either).
  */
 export async function syncReports(
   store: QueueStore<PendingReport>,
   deps: SyncDeps,
 ): Promise<void> {
-  for (const item of [...store.items()]) {
-    if (item.status === 'failed') continue;
+  const now = deps.now ?? Date.now;
+  const all = [...store.items()];
+  const ordered = [...all.filter((r) => r.status === 'photo'), ...all.filter((r) => r.status === 'queued')];
+  for (const item of ordered) {
     let current = item;
+    // Someone just declined to tap for this one: leave it for a few minutes.
+    if (
+      current.status === 'queued' &&
+      current.checkDeclinedAt &&
+      now() - new Date(current.checkDeclinedAt).getTime() < CHECK_DECLINED_SKIP_MS
+    ) {
+      continue;
+    }
 
     if (current.status === 'queued') {
       try {
@@ -245,6 +268,7 @@ export async function syncReports(
             publicId,
             serverFailures: 0,
             checkUnavailable: undefined,
+            checkDeclinedAt: undefined,
           })),
           'system',
         );
@@ -253,15 +277,19 @@ export async function syncReports(
           // The safety check didn't pass (a tap not made in time, or the
           // server still answers 428 after a resend, e.g. when no token could
           // be made): keep the report, no strike, and say so on the
-          // confirmation. A timed-out tap stops the pass (the rest would meet
-          // the same wait, up to 20 s each); a 428 moves on. The next timer
-          // tries again.
-          if (!current.checkUnavailable) {
-            await store
-              .mutate(update(current.localId, (r) => ({ ...r, checkUnavailable: true })), 'system')
-              .catch(() => undefined);
-          }
-          if (isChallengeUnavailable(err)) return;
+          // confirmation, and move on to the rest. An unanswered tap is
+          // remembered, so it isn't asked again for a few minutes.
+          const declinedAt = isChallengeUnavailable(err) ? new Date(now()).toISOString() : undefined;
+          await store
+            .mutate(
+              update(current.localId, (r) => ({
+                ...r,
+                checkUnavailable: true,
+                ...(declinedAt ? { checkDeclinedAt: declinedAt } : {}),
+              })),
+              'system',
+            )
+            .catch(() => undefined);
           continue;
         }
         if (!isPermanentRefusal(err)) {
