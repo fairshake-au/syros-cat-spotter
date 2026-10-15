@@ -165,3 +165,33 @@ describe("SYC-330: a POST with Origin: null is still refused", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// SYC-330: cross-site and missing origins stay refused (requireOrigin).
+describe("SYC-330: other origins are refused", () => {
+  const cases: [string, (t: request.Test) => request.Test][] = [
+    ["a foreign Origin", (t) => t.set("Origin", "https://evil.example")],
+    [
+      "Origin: null from a cross-site page",
+      (t) => t.set("Origin", "null").set("Sec-Fetch-Site", "cross-site"),
+    ],
+    ["no Origin at all", (t) => t],
+  ];
+  it.each(cases)("a sign-out with %s is refused", async (_n, shape) => {
+    const res = await shape(
+      request(app).post("/api/team/signout").set("Cookie", cookie),
+    );
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "not_signed_in" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+  it.each(cases)("a note post with %s is refused", async (_n, shape) => {
+    const res = await shape(
+      request(app)
+        .post("/api/team/reports/vt-nobody/note")
+        .set("Cookie", cookie)
+        .type("form")
+        .send({ note: "x" }),
+    );
+    expect(res.status).toBe(401);
+  });
+});
