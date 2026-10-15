@@ -3,21 +3,12 @@ import request from "supertest";
 import sharp from "sharp";
 import { randomBytes } from "node:crypto";
 import { and, eq, like, sql } from "drizzle-orm";
-import { createThrowawayDatabase, dropThrowawayDatabase } from "@workspace/db/testDatabase";
 
 // SYC-44 PR 4.1 (plan Slice 4): the public report routes and "Report an
 // issue" rows. T4-6 (spec test 10), T4-8 and the lost-race lookup.
 //
-// THIS FILE RUNS ON ITS OWN THROWAWAY DATABASE. PR 4.1 adds the key
-// (reporter_device, kind, client_ref) BESIDE the old (reporter_device,
-// client_ref), because the live code names the old one until 4.1 is
-// published; PR 4.2 drops it. While both exist, a welfare row and a content
-// row with the same device and reference cannot coexist (the old key refuses
-// the pair), which is also why no content row can exist before 4.2. T4-6 is
-// about the key that survives, so this file drops the old one (simulating
-// 4.2) in a database nobody else uses: the run's shared database never sees
-// the index missing (review of #170, finding 6). PR 4.2 deletes that step,
-// and with it the second database.
+// A welfare row and a content row with the same device and reference are
+// two reports: the only resend key is (reporter_device, kind, client_ref).
 
 // The lost-race test makes the token check also insert the report that "won"
 // (see the last describe). Off for every other test.
@@ -41,14 +32,11 @@ vi.mock("../lib/turnstile", async (importOriginal) => {
 
 let dbm: typeof import("@workspace/db");
 let app: (typeof import("../app"))["default"];
-let baseUrl: string;
-let own: { url: string; name: string };
 
 const DEVICE = `vitest-kind-${randomBytes(4).toString("hex")}`;
 const SECRET = "vitest-kind-secret-aaaaaaaa";
 const LAT = 37.4441234;
 const LNG = 24.9412345;
-const OLD_KEY = "welfare_reports_device_client_ref_key";
 
 let ipCounter = 0;
 const freshIp = () => `198.18.${Math.floor(++ipCounter / 250)}.${(ipCounter % 250) + 1}`;
@@ -119,15 +107,8 @@ async function tinyJpeg(): Promise<string> {
 }
 
 beforeAll(async () => {
-  baseUrl = process.env["DATABASE_URL"]!;
-  own = await createThrowawayDatabase(baseUrl, { prefix: "api_server_test" });
-  process.env["DATABASE_URL"] = own.url;
-  // The db pool is made from DATABASE_URL when the module loads: load the
-  // app afresh, against this file's own database.
-  vi.resetModules();
   dbm = await import("@workspace/db");
   app = (await import("../app")).default;
-  await dbm.db.execute(sql.raw(`drop index if exists ${OLD_KEY}`));
 });
 beforeEach(async () => {
   hooks.enforce = false;
@@ -136,9 +117,8 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   hooks.enforce = false;
+  await cleanup();
   await dbm.pool.end();
-  process.env["DATABASE_URL"] = baseUrl;
-  await dropThrowawayDatabase(baseUrl, own.name);
 });
 
 describe("T4-6 (spec test 10): the same device and reference, two kinds, two reports", () => {
