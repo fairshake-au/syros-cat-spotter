@@ -8,6 +8,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createQueueStore } from '../queueStore';
+import { ChallengeUnavailable } from '../challengeUnavailable';
 import {
   REMINDER_AFTER_MS,
   confirmationState,
@@ -74,6 +75,7 @@ function api(overrides: Partial<ReportApi> = {}): ReportApi & { calls: string[] 
 const photos = {
   readPhoto: vi.fn(async () => 'BASE64PHOTO'),
   deletePhoto: vi.fn(async () => undefined),
+  getToken: vi.fn(async () => null as string | null),
 };
 
 describe('syncReports', () => {
@@ -179,9 +181,145 @@ describe('syncReports', () => {
       deviceId: 'dev-1',
       readPhoto: vi.fn(async () => null),
       deletePhoto: vi.fn(async () => undefined),
+      getToken: vi.fn(async () => null),
     });
     expect(a.calls).toEqual([]);
     expect(store.items()).toEqual([]);
+  });
+});
+
+describe('SYC-170 PR 1.2: the anti-bot check (spec §9.5, tests 16 and 17)', () => {
+  /** A token source that hands out a new token each time. */
+  function freshTokens() {
+    let n = 0;
+    return vi.fn(async (_action: string, _cdata: string) => `tok-${++n}`);
+  }
+
+  it('T1-9: a 428 is not a strike; the item is kept and resent at once with a new token', async () => {
+    const { store } = makeStore([report({ hasPhoto: false, photoRef: undefined })]);
+    await store.load();
+    const getToken = freshTokens();
+    const seen: Array<string | undefined> = [];
+    let first = true;
+    const a = api({
+      submit: vi.fn(async (body) => {
+        seen.push(body.turnstileToken);
+        if (first) {
+          first = false;
+          throw new FakeApiError(428);
+        }
+        return { publicId: 'pub-1' };
+      }),
+    });
+    await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken });
+    // One 428, then one resend with a different token, in the same pass.
+    expect(seen).toEqual(['tok-1', 'tok-2']);
+    expect(getToken).toHaveBeenCalledTimes(2);
+    expect(store.items()).toEqual([]);
+  });
+
+  it('T1-9: a 428 that keeps coming never reaches three strikes; the report stays queued', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const a = api({
+      submit: vi.fn(async () => {
+        throw new FakeApiError(428);
+      }),
+    });
+    for (let i = 0; i < 6; i++) {
+      await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
+    }
+    const [item] = store.items();
+    expect(item!.status).toBe('queued');
+    expect(item!.serverFailures).toBe(0);
+    // A real refusal is still counted, so the rule is only for 428.
+    const refuse = api({ submit: vi.fn(async () => { throw new FakeApiError(400); }) });
+    await syncReports(store, { api: refuse, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
+    expect(store.items()[0]!.serverFailures).toBe(1);
+  });
+
+  it('503 (try again, or our key not set) stays retryable with no strike', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const a = api({ submit: vi.fn(async () => { throw new FakeApiError(503); }) });
+    for (let i = 0; i < 5; i++) {
+      await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
+    }
+    expect(store.items()[0]!.status).toBe('queued');
+    expect(store.items()[0]!.serverFailures).toBe(0);
+  });
+
+  it('T1-10: ChallengeUnavailable keeps the item queued with no strike, and the screen says so', async () => {
+    const { store } = makeStore([report()]);
+    await store.load();
+    const a = api();
+    const getToken = vi.fn(async (): Promise<string | null> => {
+      throw new ChallengeUnavailable('timeout');
+    });
+    for (let i = 0; i < 5; i++) {
+      await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken });
+    }
+    const [item] = store.items();
+    expect(item!.status).toBe('queued');
+    expect(item!.serverFailures).toBe(0);
+    expect(a.submit).not.toHaveBeenCalled(); // nothing was sent without a check
+    expect(confirmationState(item!.localId, [item!], new Set(), false)).toBe('check');
+    // While it is actually trying, it says "sending", not the check message.
+    expect(confirmationState(item!.localId, [item!], new Set(), true)).toBe('sending');
+    // Next time the check works: it goes through and the message is gone.
+    const photoDown = api({
+      uploadPhoto: vi.fn(async () => {
+        throw new TypeError('Network request failed');
+      }),
+    });
+    await syncReports(store, { api: photoDown, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
+    expect(store.items()[0]!.status).toBe('photo');
+    expect(store.items()[0]!.checkUnavailable).toBeFalsy();
+  });
+
+  it('T1-11: a fresh token for every send, asked for with the report action and its clientRef', async () => {
+    const r = report({ hasPhoto: false, photoRef: undefined });
+    const { store } = makeStore([r]);
+    await store.load();
+    const getToken = freshTokens();
+    const tokens: Array<string | undefined> = [];
+    const a = api({
+      submit: vi.fn(async (body) => {
+        tokens.push(body.turnstileToken);
+        throw new FakeApiError(503); // keep it queued, so it is sent again
+      }),
+    });
+    for (let i = 0; i < 3; i++) {
+      await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken });
+    }
+    expect(tokens).toEqual(['tok-1', 'tok-2', 'tok-3']);
+    expect(getToken).toHaveBeenCalledWith('welfare_report', r.clientRef);
+  });
+
+  it('T1-11: the token is never stored in the saved list', async () => {
+    const { store, state } = makeStore([report()]);
+    await store.load();
+    const a = api({
+      submit: vi.fn(async () => {
+        throw new FakeApiError(428);
+      }),
+    });
+    await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: freshTokens() });
+    expect(state.value).not.toContain('tok-');
+    expect(state.value).not.toMatch(/token/i);
+    expect(JSON.stringify(store.items())).not.toMatch(/token/i);
+    // And the saved shape has no field to hold one.
+    expect(Object.keys(report()).filter((k) => /token/i.test(k))).toEqual([]);
+    expect(isPendingReport(report())).toBe(true);
+  });
+
+  it('a build with no check yet (the phone apps until PR 1.3) sends no token field at all', async () => {
+    const { store } = makeStore([report({ hasPhoto: false, photoRef: undefined })]);
+    await store.load();
+    const a = api();
+    await syncReports(store, { api: a, deviceId: 'dev-1', ...photos, getToken: async () => null });
+    const body = (a.submit as ReturnType<typeof vi.fn>).mock.calls[0]![0] as Record<string, unknown>;
+    expect('turnstileToken' in body).toBe(false);
   });
 });
 
