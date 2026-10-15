@@ -250,6 +250,21 @@ async function seedWorld() {
       clientRef: `ref-${tag}`,
     })
     .returning();
+  // SYC-44 PR 4.1 (T4-7): a "Report an issue" row from the same device, with
+  // no position.
+  const [contentReport] = await db
+    .insert(welfareReportsTable)
+    .values({
+      publicId: `sever-c-${tag}`,
+      kind: "content",
+      reason: "other",
+      severity: "attention",
+      reporterDevice: P.deviceId,
+      catId: discovered!.id,
+      clientRef: `ref-c-${tag}`,
+      photoState: "none",
+    })
+    .returning();
 
   // "Keep my spots safe" (SYC-3): a confirmed keep-safe contact, its verify
   // and forget link tokens, a used restore token that moved P, consent
@@ -301,6 +316,7 @@ async function seedWorld() {
     discovered: discovered!,
     claimed: claimed!,
     report: report!,
+    contentReport: contentReport!,
   };
 }
 
@@ -505,6 +521,24 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       catId: w.discovered.id,
       severity: "attention",
     });
+  });
+
+  it("T4-7 (SYC-44). clears the device from a 'Report an issue' row too: severPerson has no kind filter", async () => {
+    const [r] = await db
+      .select()
+      .from(welfareReportsTable)
+      .where(eq(welfareReportsTable.id, w.contentReport.id));
+    expect(r).toMatchObject({
+      kind: "content",
+      reporterDevice: null,
+      catId: w.discovered.id,
+    });
+    // Both kinds are gone from the reporter column.
+    const left = await db
+      .select({ id: welfareReportsTable.id })
+      .from(welfareReportsTable)
+      .where(eq(welfareReportsTable.reporterDevice, w.P.deviceId));
+    expect(left).toEqual([]);
   });
 
   it("5c. keeps P's consent records, with who they were about removed (SYC-3)", async () => {
