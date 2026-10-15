@@ -23,3 +23,6 @@ All run with `-t` on team.people.test.ts; each restored afterwards.
 - Drop requireOrigin (formRoute replaced by requireTeam + headers) -> 7 failed (one per POST route): `AssertionError: null: expected 303 to be 401`, `expected 409 to be 401`.
 - Bypass the self checks (route + lib/db setPlacements + markLeftById) -> 4 failed: roles `expected 303 to be 409`, mark as left / sign out `expected 403 to be 409`, own row buttons.
 - Let free text reach an email (personTemplates: no mailSafe on names) -> red: `expected 'Vt pp-susan invited <a href="https://…' not to match /https?:\/\/evil/`.
+
+- Browser check done at 390px and 1280px (scratch DBs dropped, servers stopped): no horizontal scroll, every button/input/summary >= 44px, inputs 16px. Screenshots in docs/screenshots/syc-53-pr-1-2/. Found and fixed: clip passed straight to map clipped colony names to 1 letter.
+- NEXT: full suites + typecheck, final report.
