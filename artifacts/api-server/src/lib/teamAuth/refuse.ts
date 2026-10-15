@@ -27,7 +27,12 @@ export function setTeamHeaders(res: Response): void {
     "Content-Security-Policy",
     "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
   );
-  res.setHeader("Referrer-Policy", "no-referrer");
+  // SYC-330: not "no-referrer". Under that policy a browser sends
+  // `Origin: null` on a form post, even to the same site, and requireOrigin
+  // refuses it, so every dashboard button failed. "same-origin" sends the
+  // real Origin (and a referrer) only to the dashboard itself, and nothing
+  // to any other site.
+  res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader("X-Content-Type-Options", "nosniff");
 }
 
