@@ -34,3 +34,7 @@ All run with `-t` on team.people.test.ts; each restored afterwards.
 - m2 repeated end_/label_ refused. Probes -> `expected 303 to be 400` (both fields).
 - m3 real end time of removed placement; m4 no raw timestamp (data-ends attribute only); m5 bring-back shows what they held; m6 no placeholder name; nit date refusal fixed sentence. Each probed red.
 - Screenshots retaken (list and history, 390 and desktop).
+
+## Re-review leftovers (n1, n1b, n2) - done
+- n1 resent proved by viewer's own `invite_resent` outbox row < 10 min; `nothing` carries no p. n1b broughtBack proved by viewer's recent `rejoined` event. n2 no empty "they held" clause.
+- Probes red: resent unproved `expected 'class="okbox"...' to be ''`; nothing names person `not to contain 'p='`; broughtBack via invited `to be ''`; empty clause `not to contain 'When they left they were'`.
