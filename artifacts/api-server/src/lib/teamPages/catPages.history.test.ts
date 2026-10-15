@@ -27,6 +27,17 @@ const statement = (id: number, over: Partial<TeamStatement> = {}): TeamStatement
 const history = (n: number) =>
   Array.from({ length: n }, (_, i) => statement(n - i));
 
+/** No colour or markings known (SYC-2 PR 3.1's Appearance section). */
+const appearanceNone = {
+  value: null,
+  confidence: "unknown" as const,
+  checkReasons: [],
+  statements: [],
+  guardianDecides: false,
+  aboveTeamIds: [],
+  guardianDisagrees: false,
+};
+
 function view(
   n: number,
   opts: { life?: number[]; sterilised?: number[]; history?: TeamStatement[] } = {},
@@ -66,6 +77,11 @@ function view(
         notSeenSince: null,
       },
       sterilised: { ...resolved(opts.sterilised ?? []), clippedTipSightings: 0 },
+    },
+    appearance: {
+      coat: appearanceNone,
+      markings: appearanceNone,
+      handPick: false,
     },
     sightings: [],
     photos: [],
