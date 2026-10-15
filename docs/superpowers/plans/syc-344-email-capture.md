@@ -429,6 +429,8 @@ Nothing email capture sends is "never shed". In the order SYC-358 sheds as Resen
 2. **Shed second: news "is this you?"** (`public_verify`, `kind: "news"`), in the same group as the reporter's "is this you?".
 3. Never ahead of the reporter's acknowledgement and outcome, the welfare alert, sign-in or restore links.
 
+**If PR #189 (SYC-44 PR 5.2) has merged by Slice 3:** it adds the first shedding, an explicit `SHEDDABLE_PURPOSES` list (only `issue_alert`) cut off at `MAIL_DAILY_BUDGET − MAIL_NEVER_SHED_RESERVE` (defaults 100 and 20, Resend's free plan; the real plan is unchecked). Slice 3 adds `cat_news` to that list, and a shed `cat_news` row leaves its changes `held` (Decision 5) rather than failing them.
+
 Until SYC-358 is built, the backstops are the 50-a-night limit (S7), the shared daily ceiling on "is this you?" emails, and the per-address and per-IP limits. **`CAT_NEWS_SEND` stays off until SYC-358 merges, or Samuel confirms the Resend plan's daily limit leaves room.** Which Resend plan the account is on is **unchecked** (no Resend key on this machine).
 
 ---
