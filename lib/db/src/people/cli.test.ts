@@ -478,11 +478,11 @@ describe("SYC-53 PR 0.3: add's rules, and set-roles", () => {
     expect(await roles()).toEqual(before);
   });
 
-  it("set-roles refuses a result without staff unless --force", async () => {
+  it("set-roles refuses a result with neither staff nor management unless --force", async () => {
     await add();
     const refused = await setRoles(["--replace", "vet"]);
     expect(refused.code).toBe(1);
-    expect(refused.out.join("\n")).toMatch(/without staff/);
+    expect(refused.out.join("\n")).toMatch(/no staff or management role/);
     expect(await roles()).toEqual(["staff"]);
     const forced = await setRoles(["--replace", "vet", "--force"]);
     expect(forced.code).toBe(0);
@@ -490,15 +490,22 @@ describe("SYC-53 PR 0.3: add's rules, and set-roles", () => {
     expect(await roles()).toEqual(["vet"]);
   });
 
-  it("review M1: a manager can't be locked out by --remove staff or --replace management", async () => {
+  it("review M1 relaxed by SYC-316: a manager may drop staff and keep management, but the last manager can't be demoted without --force", async () => {
     await add();
     await setRoles(["--add", "management"]);
-    for (const args of [["--remove", "staff"], ["--replace", "management"]]) {
+    const dropped = await setRoles(["--remove", "staff"]);
+    expect(dropped.code).toBe(0);
+    expect(await roles()).toEqual(["management"]);
+    for (const args of [["--remove", "management"], ["--replace", "vet"]]) {
       const r = await setRoles(args);
       expect(r.code).toBe(1);
-      expect(r.out.join("\n")).toMatch(/without staff/);
+      expect(r.out.join("\n")).toMatch(/last person with management|no staff or management role/);
     }
-    expect(await roles()).toEqual(["management", "staff"]);
+    expect(await roles()).toEqual(["management"]);
+    // --force is the break-glass for both guards.
+    const forced = await setRoles(["--remove", "management", "--force"]);
+    expect(forced.code).toBe(0);
+    expect(await roles()).toEqual([]);
   });
 
   it("--replace warns when it takes away a cat guardian placement", async () => {
