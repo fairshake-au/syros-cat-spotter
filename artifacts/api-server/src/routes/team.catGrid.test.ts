@@ -178,7 +178,9 @@ describe("the Cats grid", () => {
 
   it("never draws a position, and keeps addresses to short codes", async () => {
     const res = await get(`/api/team/cats?${mineQ}&colours=ginger&area=kini&colony=${colony}`);
-    expect(res.text).not.toMatch(/\d+\.\d{3,}/);
+    // Other tests' colony names share the database, so leave the pickers out.
+    const body = res.text.replace(/<style>[\s\S]*?<\/style>/, "").replace(/<select[\s\S]*?<\/select>/g, "");
+    expect(body).not.toMatch(/\d+\.\d{3,}/);
     for (const href of res.text.matchAll(/href="([^"]*\/api\/team\/cats\?[^"]*)"/g)) {
       expect(href[1], href[1]).not.toMatch(/\d+\.\d{3,}/);
     }

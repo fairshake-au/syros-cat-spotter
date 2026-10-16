@@ -30,7 +30,7 @@ for (const width of [390, 1280]) {
         const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
         if (!el.checkVisibility()) continue;
         if (own && parseFloat(getComputedStyle(el).fontSize) < 12) tiny.push(el.className || el.tagName);
-        if (el.matches("a.cardlink, a.fchip, .choicechip, summary, button, .searchrow input")) {
+        if (el.matches("a.catcardlink, a.fchip, .choicechip, summary, button, .searchrow input")) {
           const r = el.getBoundingClientRect();
           if (r.height < 43.5) small.push(`${el.className || el.tagName}:${Math.round(r.height)}`);
         }
