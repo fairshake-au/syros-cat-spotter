@@ -10,6 +10,7 @@ import {
   type StringKey,
 } from "./strings";
 import type { GuardianCat } from "../guardianCatView";
+import type { PersonSite } from "../teamSites";
 import type { CatWithStats } from "../catHelpers";
 import type { Confidence } from "../resolve";
 
@@ -109,6 +110,30 @@ export interface GuardianColonyPageInput {
   who: GuardianViewer;
   colony: { id: number; name: string };
   cats: readonly GuardianCat[];
+  /** Her colony's feeding sites, from sitesForPerson (SYC-209's one filter). */
+  sites?: readonly PersonSite[];
+}
+
+/**
+ * The colony's feeding sites (spec §2.2: "colony and feeding sites"; SYC-416):
+ * name, exact position as text, and the "how to find it" line. Always from
+ * sitesForPerson, which filters to her colonies in SQL. Nothing when none.
+ */
+function sitesBlock(sites: readonly PersonSite[], t: Say): string {
+  if (sites.length === 0) return "";
+  return (
+    `<h2>${esc(t("sites.title"))}</h2><ul class="gcats">` +
+    sites
+      .map(
+        (s) =>
+          `<li class="gcat"><div><strong>${esc(s.name)}</strong>` +
+          `<p class="muted">${esc(exact(s.lat, s.lng))}</p>` +
+          (s.directions ? `<p>${esc(s.directions)}</p>` : "") +
+          "</div></li>",
+      )
+      .join("") +
+    "</ul>"
+  );
 }
 
 /** Her colony: every cat in it, with where each was first recorded. */
@@ -142,6 +167,7 @@ export function renderGuardianColonyPage(
   const body =
     `<p>${esc(t("gcol.intro"))}</p>` +
     list +
+    sitesBlock(input.sites ?? [], t) +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;
   return shell(input.who, input.colony.name, body, live);
 }
@@ -150,6 +176,7 @@ export function renderGuardianColonyPage(
 export function renderGuardianCatPage(
   who: GuardianViewer,
   cat: GuardianCat,
+  sites: readonly PersonSite[] = [],
   live: readonly Language[] = LIVE_LANGUAGES,
 ): string {
   const lang = pageLanguage(who.language, live);
@@ -180,6 +207,7 @@ export function renderGuardianCatPage(
     appearanceLine(lang, cat) +
     (cat.description ? `<p class="muted">${esc(cat.description)}</p>` : "") +
     "</div>" +
+    sitesBlock(sites, t) +
     gallery +
     `<p><a class="tap" href="${MY_COLONIES_PATH}">${esc(t("gcat.back"))}</a></p>`;
   return shell(who, cat.name, body, live);
