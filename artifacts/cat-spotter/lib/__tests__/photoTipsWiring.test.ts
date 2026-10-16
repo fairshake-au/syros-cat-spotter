@@ -32,9 +32,41 @@ describe('photo tips wiring', () => {
     expect(handler).not.toContain('pickPhoto');
   });
 
-  it('spot.tsx has a Photo tips link on the capture screen that reopens the card', () => {
-    expect(spot).toContain('testID="photo-tips-link"');
-    expect(spot).toMatch(/setTipsOpen\(true\)/);
+  it('spot.tsx renders the card, shown only while there is no photo', () => {
+    expect(spot).toContain('<PhotoTipsCard visible={tipsOpen && !photo} onClose={closeTips} />');
+  });
+
+  it('the first-visit check uses the pure helper and the synchronous session flag', () => {
+    expect(spot).toMatch(/shouldOpenPhotoTips\(\{\s*seen,\s*hasPhoto: false,\s*seenThisSession: seenThisSessionRef\.current/);
+    const start = spot.indexOf('const closeTips = ');
+    const handler = spot.slice(start, spot.indexOf('};', start));
+    expect(handler).toContain('seenThisSessionRef.current = true');
+    expect(handler.indexOf('seenThisSessionRef.current = true')).toBeLessThan(
+      handler.indexOf('markPhotoTipsSeen('),
+    );
+  });
+
+  it('a photo arriving closes the open card without marking it seen', () => {
+    const m = spot.match(/React\.useEffect\(\(\) => \{\s*if \(photo\) \{[^}]*setTipsOpen\(false\);/);
+    expect(m, 'effect that closes the card when a photo is set').not.toBeNull();
+  });
+
+  it('the Photo tips link reopens the card, and sits below the viewfinder, not in its top row', () => {
+    const linkAt = spot.indexOf('testID="photo-tips-link"');
+    expect(linkAt).toBeGreaterThan(-1);
+    const pressableStart = spot.lastIndexOf('<Pressable', linkAt);
+    const pressableEnd = spot.indexOf('</Pressable>', linkAt);
+    const link = spot.slice(pressableStart, pressableEnd);
+    expect(link).toContain('onPress={() => setTipsOpen(true)}');
+    expect(link).toContain('accessibilityRole="button"');
+    // Not inside the viewfinder's top row (it collided with the location chip at 390px).
+    const topRow = spot.slice(
+      spot.indexOf('<View style={styles.viewfinderTopRow}>'),
+      spot.indexOf('{cameraPanel ? ('),
+    );
+    expect(topRow).not.toContain('photo-tips-link');
+    // And it comes after the viewfinder's shutter controls.
+    expect(linkAt).toBeGreaterThan(spot.indexOf('<CaptureControls'));
   });
 
   it('the "no cat" screen shows the tips', () => {

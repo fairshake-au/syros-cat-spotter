@@ -29,7 +29,7 @@ import { useDevice } from '@/context/DeviceContext';
 import { useOffline } from '@/context/OfflineContext';
 import { NewSpotIntro } from '@/components/NewSpotIntro';
 import { PhotoTipsCard } from '@/components/photoTips/PhotoTipsCard';
-import { hasSeenPhotoTips, markPhotoTipsSeen } from '@/lib/photoTipsSeen';
+import { hasSeenPhotoTips, markPhotoTipsSeen, shouldOpenPhotoTips } from '@/lib/photoTipsSeen';
 import { notify, confirmChoice } from '@/lib/notify';
 import {
   createSingleFlight,
@@ -235,11 +235,29 @@ export default function SpotScreen() {
   // reaches the camera. `cameraActive` is the tab-focus flag, so this runs when
   // the spotter arrives on the camera, not while the tab is in the background.
   const [tipsOpen, setTipsOpen] = useState(false);
+  // Set synchronously when the card is dismissed, so a tab-switch re-check can't
+  // beat the asynchronous storage write and re-open it.
+  const seenThisSessionRef = React.useRef(false);
   React.useEffect(() => {
-    if (photo || !cameraActive) return;
+    if (photo) {
+      // A photo arriving closes an open card without marking it seen, so it
+      // doesn't pop back when the photo is cleared.
+      setTipsOpen(false);
+      return;
+    }
+    if (!cameraActive) return;
     let cancelled = false;
     void hasSeenPhotoTips(AsyncStorage).then((seen) => {
-      if (!cancelled && !seen) setTipsOpen(true);
+      if (
+        !cancelled &&
+        shouldOpenPhotoTips({
+          seen,
+          hasPhoto: false,
+          seenThisSession: seenThisSessionRef.current,
+        })
+      ) {
+        setTipsOpen(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -248,6 +266,7 @@ export default function SpotScreen() {
   // "Got it" only closes the card and marks it seen. It must never open the
   // camera or picker itself: browsers allow that only from a direct tap.
   const closeTips = () => {
+    seenThisSessionRef.current = true;
     setTipsOpen(false);
     void markPhotoTipsSeen(AsyncStorage);
   };
@@ -1181,6 +1200,7 @@ export default function SpotScreen() {
           </>
         ) : (
           // ── Capture state: dark viewfinder treatment ──
+          <>
           <View style={[styles.viewfinder, shadows.md]}>
             {liveCameraReady ? (
               <CameraView
@@ -1199,7 +1219,7 @@ export default function SpotScreen() {
               />
             )}
             <View style={styles.viewfinderTopRow}>
-              <View style={styles.viewfinderSide} />
+              <View style={styles.viewfinderSpacer} />
               {locationChipText ? (
                 <View style={styles.locationChip}>
                   <Text style={styles.locationChipText}>{locationChipText}</Text>
@@ -1207,22 +1227,7 @@ export default function SpotScreen() {
               ) : (
                 <View style={styles.viewfinderSpacer} />
               )}
-              <View style={[styles.viewfinderSide, styles.viewfinderSideEnd]}>
-                {/* SYC-415 spec §3.2: reopens the tips any time. Top corner, away from the shutter. */}
-                <Pressable
-                  testID="photo-tips-link"
-                  onPress={() => setTipsOpen(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('photoTipsLink')}
-                  hitSlop={6}
-                  style={styles.photoTipsLink}
-                >
-                  <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color="#fff" />
-                  <Text style={styles.photoTipsLinkText} numberOfLines={1}>
-                    {t('photoTipsLink')}
-                  </Text>
-                </Pressable>
-              </View>
+              <View style={styles.viewfinderSpacer} />
             </View>
             {cameraPanel ? (
               // The panel takes the framing rectangle's slot in the column so it
@@ -1267,6 +1272,25 @@ export default function SpotScreen() {
               shutterLabel={t('takePhoto')}
             />
           </View>
+          {/* SYC-415 spec §3.2: reopens the tips any time. Below the viewfinder,
+              left-aligned, well away from the shutter (and clear of the location chip). */}
+          <Pressable
+            testID="photo-tips-link"
+            onPress={() => setTipsOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('photoTipsLink')}
+            style={styles.photoTipsLink}
+          >
+            <MaterialCommunityIcons
+              name="lightbulb-on-outline"
+              size={18}
+              color={colors.primary}
+            />
+            <Text style={[styles.photoTipsLinkText, { color: colors.primary }]}>
+              {t('photoTipsLink')}
+            </Text>
+          </Pressable>
+          </>
         )}
 
         {denied && !photo && (
@@ -1365,20 +1389,14 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   viewfinderSpacer: { width: 38, height: 38 },
-  // The two sides share the row equally so the location chip stays centred.
-  viewfinderSide: { flex: 1, minWidth: 0 },
-  viewfinderSideEnd: { alignItems: 'flex-end' },
   photoTipsLink: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: spacing[1] + 2,
     minHeight: 44,
-    paddingHorizontal: spacing[3],
-    borderRadius: radii.pill,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    flexShrink: 0,
   },
-  photoTipsLinkText: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.xs, color: '#fff' },
+  photoTipsLinkText: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.sm },
   locationChip: {
     paddingVertical: spacing[1] + 2,
     paddingHorizontal: spacing[3],

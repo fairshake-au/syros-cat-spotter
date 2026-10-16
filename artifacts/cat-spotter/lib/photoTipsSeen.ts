@@ -27,6 +27,19 @@ export async function markPhotoTipsSeen(storage: Storage): Promise<void> {
   }
 }
 
+/**
+ * Whether the first-visit tips card should open now (spec §3.2). `seenThisSession`
+ * is set synchronously when the card is dismissed, so a tab-switch re-check can't
+ * beat the asynchronous storage write and re-open it.
+ */
+export function shouldOpenPhotoTips(args: {
+  seen: boolean;
+  hasPhoto: boolean;
+  seenThisSession: boolean;
+}): boolean {
+  return !args.seen && !args.hasPhoto && !args.seenThisSession;
+}
+
 export async function clearPhotoTipsSeen(storage: Storage): Promise<void> {
   await storage.removeItem(PHOTO_TIPS_SEEN_KEY);
 }
