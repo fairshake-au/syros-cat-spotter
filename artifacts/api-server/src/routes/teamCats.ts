@@ -68,7 +68,7 @@ router.get(
           personName: person.name,
           tie,
           now,
-          colonies: await allColonyChoices(),
+          colonies: await allColonyChoices(visibleColonyIds(person)),
         }),
       );
   },
