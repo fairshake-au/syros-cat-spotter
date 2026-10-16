@@ -288,7 +288,7 @@ describe("P3-1: finding a cat", () => {
     expect(results).toHaveLength(30);
     expect(results[0]).toMatchObject({
       name: `${PREFIX}many-00`,
-      thumbnailUrl: `/api/team/photos/${PREFIX}many`,
+      thumbnailUrl: `/api/team/photos/${PREFIX}many/small`,
       status: { lifeStatus: "street" },
     });
     expect(results[0]!.syr).toMatch(/^SYR-\d{4,}$/);

@@ -16,3 +16,4 @@ export * from "./personEvents";
 export * from "./rateLimits";
 export * from "./mapTiles";
 export * from "./matchWait";
+export * from "./photoVariants";
