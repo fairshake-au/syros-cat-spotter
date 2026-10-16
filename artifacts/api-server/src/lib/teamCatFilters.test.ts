@@ -20,7 +20,7 @@ function parse(qs: string): CatListFilters {
 describe("parseCatFilters and filtersToQuery", () => {
   it("round-trips every kind of filter", () => {
     const f: CatListFilters = {
-      colours: ["ginger", "black_and_white"],
+      colours: ["brown", "ginger"],
       area: "kini",
       colony: 7,
       sterilised: ["probably", "not_known"],

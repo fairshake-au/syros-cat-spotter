@@ -1,7 +1,7 @@
 import { NAMED_AREAS } from "../areas/namedAreas";
-import { COAT_COLOURS } from "../appearance";
 import { filtersToQuery } from "../teamCatFilters";
 import {
+  COLOUR_FILTERS,
   DEFAULT_LIVES,
   LAST_SEEN,
   LIVES,
@@ -32,7 +32,7 @@ const PATH = "/api/team/cats";
 const COLOUR_WORD = (c: string) =>
   c === "not_sure" ? "Not sure" : tr(undefined, `coat.${c}` as StringKey);
 // "Not sure" is a look filter only: the team never states it (see appearancePage).
-const COLOURS = [...COAT_COLOURS];
+const COLOURS = [...COLOUR_FILTERS];
 
 const LIVES_WORD: Record<Lives, string> = {
   street: "On the street",

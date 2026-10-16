@@ -3,7 +3,7 @@ import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
-import type { CoatColour } from "./appearance";
+import { COAT_COLOURS, type CoatColour } from "./appearance";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
 import { QUERY_MAX, SYR_RE, syrNumber } from "./teamCatView";
@@ -27,8 +27,15 @@ export const LAST_SEEN = ["week", "month", "1to3", "over3", "never"] as const;
 export const LIVES: readonly Lives[] = ["street", "homed", "in_care", "gone"];
 export const MARKS: readonly SterilisedMark[] = ["sterilised", "probably", "not_sterilised", "not_known"];
 
+/**
+ * The grid's colour filter: the five colours (SYC-398 §2), plus "not_sure",
+ * which is the grid's own "colour not known" choice, never a coat code.
+ */
+export type ColourFilter = CoatColour | "not_sure";
+export const COLOUR_FILTERS: readonly ColourFilter[] = [...COAT_COLOURS, "not_sure"];
+
 export interface CatListFilters {
-  colours?: CoatColour[];
+  colours?: ColourFilter[];
   /** A named area's short key, never a position. */
   area?: string;
   /** A colony's number, never its name. */
@@ -143,7 +150,8 @@ export async function listTeamCats(
       name: c.name,
       syr: syrNumber(c.id),
       photoPublicId: c.photoPublicId,
-      coat: (snap.coat.value ?? []).filter((x): x is CoatColour => x !== "not_sure"),
+      // The resolved colours (SYC-398: the coat's colours part).
+      coat: snap.coatColours.value ?? [],
       colonyId: colonies.get(c.id) ?? null,
       mark: markOf(snap.sterilised),
       lives: livesOf(snap),

@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { areaByKey } from "./areas/namedAreas";
-import { COAT_COLOURS } from "./appearance";
-import type { CoatColour } from "./appearance";
 import { QUERY_MAX } from "./teamCatView";
-import { LAST_SEEN, LIVES, MARKS, SORTS, type CatListFilters } from "./teamCatList";
+import { COLOUR_FILTERS, LAST_SEEN, LIVES, MARKS, SORTS, type CatListFilters, type ColourFilter } from "./teamCatList";
 
 // The Cats page's filters, read from and written to the web address (SYC-396
 // PR 1.3; spec §5.1). **An address only ever carries colour codes, an area's
@@ -38,7 +36,7 @@ export function parseCatFilters(query: unknown): CatListFilters {
   const src = (typeof query === "object" && query !== null ? query : {}) as Record<string, unknown>;
   const f: CatListFilters = {};
 
-  const colours = subset<CoatColour>(src["colours"], COAT_COLOURS);
+  const colours = subset<ColourFilter>(src["colours"], COLOUR_FILTERS);
   if (colours) f.colours = colours;
 
   const area = single(src["area"]);
@@ -85,7 +83,7 @@ export function parseCatFilters(query: unknown): CatListFilters {
  */
 export function filtersToQuery(f: CatListFilters): string {
   const p = new URLSearchParams();
-  for (const c of f.colours ?? []) if ((COAT_COLOURS as readonly string[]).includes(c)) p.append("colours", c);
+  for (const c of f.colours ?? []) if ((COLOUR_FILTERS as readonly string[]).includes(c)) p.append("colours", c);
   if (f.area !== undefined && areaByKey(f.area)) p.set("area", f.area);
   if (f.colony !== undefined && Number.isInteger(f.colony) && f.colony > 0) p.set("colony", String(f.colony));
   for (const s of f.sterilised ?? []) if ((MARKS as readonly string[]).includes(s)) p.append("sterilised", s);
