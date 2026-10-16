@@ -302,7 +302,7 @@ When SYC-57 starts, the same labelled pairs are its training and validation mate
 
 Profile payload gains one integer, `pairsDecided`, which means one more query in `getProfileStats` (`catHelpers.ts`), run on every resolve and profile read; it must be a single indexed count. The two badges are two lines in `badges.ts`.
 
-### 10.2 Two fields asked of the match record (SYC-151 amendment, for approval with this spec)
+### 10.2 Two fields asked of the match record (SYC-151 amendment, filed as SYC-408, for approval with this spec)
 
 | Field on `sighting_matches` | Why |
 |---|---|
@@ -311,7 +311,7 @@ Profile payload gains one integer, `pairsDecided`, which means one more query in
 
 Both are additive and team-only, in the same table, filtered in the same query.
 
-### 10.3 Two capability rows asked of the roles catalogue (`roles-and-invites.md` §6.2, for approval with this spec)
+### 10.3 Two capability rows asked of the roles catalogue (`roles-and-invites.md` §6.2, filed as SYC-409, for approval with this spec)
 
 | Capability | What it allows | Kind | Team | Management | Guardian |
 |---|---|---|---|---|---|
