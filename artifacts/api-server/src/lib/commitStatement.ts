@@ -72,14 +72,19 @@ async function sterilisedAnswer(tx: Tx, catId: number): Promise<Resolved<boolean
  *
  * The caller sends what `news` holds only after its transaction commits;
  * a rolled-back write leaves no update and sends nothing.
+ *
+ * `write` is writeObservation in every caller. It is a parameter only so the
+ * tests can stand in for a vet's and an owner's statements (T12a-1), which
+ * writeObservation refuses until SYC-24 and SYC-130 give them a writer.
  */
 export async function commitStatement(
   tx: Tx,
   input: WriteObservationInput,
   news: PendingNews[],
   now: Date = new Date(),
+  write: (tx: Tx, input: WriteObservationInput, now: Date) => Promise<Observation> = writeObservation,
 ): Promise<Observation> {
-  if (input.kind !== "sterilised") return writeObservation(tx, input, now);
+  if (input.kind !== "sterilised") return write(tx, input, now);
 
   const [cat] = await tx
     .select()
@@ -87,10 +92,10 @@ export async function commitStatement(
     .where(eq(catsTable.id, input.catId))
     .for("update");
   // No such cat: writeObservation refuses it (the foreign key), nothing to announce.
-  if (!cat) return writeObservation(tx, input, now);
+  if (!cat) return write(tx, input, now);
 
   const before = await sterilisedAnswer(tx, cat.id);
-  const row = await writeObservation(tx, input, now);
+  const row = await write(tx, input, now);
   const after = await sterilisedAnswer(tx, cat.id);
   if (confirmedSterilised(before) || !confirmedSterilised(after)) return row;
 
