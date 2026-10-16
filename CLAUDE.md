@@ -17,3 +17,4 @@ Added 2026-08-29 from retro: each of these was corrected by Samuel at least once
 
 - Verify any generated PDF/document renders correctly (margins, backgrounds) BEFORE handing over — Samuel caught a white-border bug that should have been caught in preview.
 - Standard pipeline applies (spec → adversarial review → approval → plan → implement).
+- **Open every PR as a draft** (`gh pr create --draft`); CI skips drafts (16 Oct 2026, to save Actions minutes). Run the affected tests locally before pushing, fold in review fixes while it's a draft, then `gh pr ready` once — that runs CI. A stacked PR stays a draft until the PR below it merges, so rebasing a stack doesn't re-run every PR in it.
