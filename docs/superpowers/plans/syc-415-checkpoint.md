@@ -3,7 +3,7 @@
 Branch `claude/syc-415-pr1-photo-tips`.
 
 - [x] Task 1.1 — seen mark (`lib/photoTipsSeen.ts` + test). Note: test and implementation were written in the same step, so the red run was not observed for this task (green only).
-- [ ] Task 1.2 — cartoons, tips, i18n
+- [x] Task 1.2 — cartoons, tips, i18n (en/el/fr). Added optional `testID` prop to purropolis Button (plan needs testID on "Got it"; Button had none). Poor-photo blur drawn as 0.55 opacity per plan.
 - [ ] Task 1.3 — card, link, no-cat screen, wipePhone
 - [ ] Full suite, typecheck, draft PR
 

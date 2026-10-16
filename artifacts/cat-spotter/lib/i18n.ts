@@ -108,6 +108,24 @@ const en: Dict = {
   nameYourCat: 'Name this cat…',
   notACat: 'No cat found',
   notACatMsg: 'We could not find a cat in this photo. Try another shot.',
+  // SYC-415 PR 1: photo tips. Copy of record: docs/specs/photo-tips-and-extra-photos.md §3.
+  photoTipsTitle: 'How to take a great cat photo',
+  photoTipsGotIt: 'Got it',
+  photoTipsLink: 'Photo tips',
+  photoTipGetClose: 'Get close',
+  photoTipGetCloseLine: 'Fill the frame with the cat.',
+  photoTipFace: 'Show the face',
+  photoTipFaceLine: 'Wait for it to look your way.',
+  photoTipBody: 'Show the whole body',
+  photoTipBodyLine: 'Nose to tail, so the coat pattern shows.',
+  photoTipLight: 'Daylight, and hold still',
+  photoTipLightLine: "Step into the light, and don't zoom if you can help it.",
+  cartoonGoodLabel:
+    'A good cat photo: the cat fills the frame, its face and whole body showing, in daylight. Marked with a tick.',
+  cartoonPoorLabel:
+    'A poor cat photo: the cat is tiny, far away, turned away, blurry and in shadow. Marked with a cross.',
+  cartoonFaceLabel: "A close-up of a cat's face.",
+  cartoonBodyLabel: 'A whole cat from the side, nose to tail.',
   tryAgain: 'Try again',
   // SYC-133: the loading screen the website shows while its code downloads.
   // Copied into server/loading-screen.js; a test keeps the two in step.
@@ -723,6 +741,24 @@ const el: Dict = {
   nameYourCat: 'Όνομα γάτας…',
   notACat: 'Δεν βρέθηκε γάτα',
   notACatMsg: 'Δεν εντοπίσαμε γάτα στη φωτογραφία. Δοκιμάστε άλλη λήψη.',
+  // SYC-415 PR 1: photo tips (native-speaker check under SYC-4 / SYC-346).
+  photoTipsTitle: 'Πώς να τραβήξετε μια υπέροχη φωτογραφία γάτας',
+  photoTipsGotIt: 'Κατάλαβα',
+  photoTipsLink: 'Συμβουλές φωτογραφίας',
+  photoTipGetClose: 'Πλησιάστε',
+  photoTipGetCloseLine: 'Γεμίστε το κάδρο με τη γάτα.',
+  photoTipFace: 'Δείξτε το πρόσωπο',
+  photoTipFaceLine: 'Περιμένετε να κοιτάξει προς το μέρος σας.',
+  photoTipBody: 'Δείξτε ολόκληρο το σώμα',
+  photoTipBodyLine: 'Από τη μύτη ως την ουρά, ώστε να φαίνεται το σχέδιο του τριχώματος.',
+  photoTipLight: 'Φως ημέρας, και μείνετε ακίνητοι',
+  photoTipLightLine: 'Μπείτε στο φως και, αν γίνεται, μη χρησιμοποιήσετε ζουμ.',
+  cartoonGoodLabel:
+    'Μια καλή φωτογραφία γάτας: η γάτα γεμίζει το κάδρο, με το πρόσωπο και ολόκληρο το σώμα να φαίνονται, με φως ημέρας. Σημειωμένη με ένα σημάδι επιλογής.',
+  cartoonPoorLabel:
+    'Μια κακή φωτογραφία γάτας: η γάτα είναι μικροσκοπική, μακριά, γυρισμένη αλλού, θολή και στη σκιά. Σημειωμένη με ένα σταυρό.',
+  cartoonFaceLabel: 'Κοντινό πλάνο από το πρόσωπο μιας γάτας.',
+  cartoonBodyLabel: 'Μια ολόκληρη γάτα από το πλάι, από τη μύτη ως την ουρά.',
   tryAgain: 'Δοκιμάστε ξανά',
   // SYC-133: needs native review (SYC-4).
   webLoading: 'Φόρτωση…',
@@ -1315,6 +1351,24 @@ const fr: Dict = {
   nameYourCat: 'Nom du chat…',
   notACat: 'Aucun chat trouvé',
   notACatMsg: 'Nous n\u2019avons pas trouvé de chat sur cette photo. Essaie une autre prise.',
+  // SYC-415 PR 1: photo tips (native-speaker check under SYC-4 / SYC-346).
+  photoTipsTitle: 'Comment prendre une super photo de chat',
+  photoTipsGotIt: 'Compris',
+  photoTipsLink: 'Conseils photo',
+  photoTipGetClose: 'Rapproche-toi',
+  photoTipGetCloseLine: 'Remplis le cadre avec le chat.',
+  photoTipFace: 'Montre le visage',
+  photoTipFaceLine: 'Attends qu’il regarde vers toi.',
+  photoTipBody: 'Montre tout le corps',
+  photoTipBodyLine: 'Du nez à la queue, pour que le motif du pelage se voie.',
+  photoTipLight: 'En plein jour, et ne bouge pas',
+  photoTipLightLine: 'Mets-toi dans la lumière, et évite de zoomer si tu peux.',
+  cartoonGoodLabel:
+    'Une bonne photo de chat : le chat remplit le cadre, son visage et tout son corps sont visibles, en pleine lumière. Marquée d’une coche.',
+  cartoonPoorLabel:
+    'Une mauvaise photo de chat : le chat est minuscule, loin, de dos, flou et dans l’ombre. Marquée d’une croix.',
+  cartoonFaceLabel: 'Un gros plan du visage d’un chat.',
+  cartoonBodyLabel: 'Un chat entier de profil, du nez à la queue.',
   tryAgain: 'Réessayer',
   // SYC-133: needs native review (SYC-4).
   webLoading: 'Chargement…',
