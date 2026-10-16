@@ -1,8 +1,15 @@
 import { randomBytes } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { catsTable, db, photosTable, sightingsTable, welfareReportsTable } from "@workspace/db";
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import {
+  catsTable,
+  db,
+  photosTable,
+  sightingPhotosTable,
+  sightingsTable,
+  welfareReportsTable,
+} from "@workspace/db";
+import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { verifyDeviceSecret } from "../lib/deviceAuth";
 import { addressKey, consume, declareLimit } from "../lib/limits";
 import { safeError } from "../lib/logger";
@@ -264,8 +271,9 @@ async function passFence(req: Request, res: Response): Promise<boolean> {
 }
 
 /**
- * The photo this report is about, if it is one of this cat's: its main photo
- * or the photo of one of its resolved sightings. "not_found" when no photo
+ * The photo this report is about, if it is one of this cat's: its main photo,
+ * or any photo of one of its resolved sightings: the cover, or an extra face
+ * or body photo (SYC-415). "not_found" when no photo
  * has that public id; "not_this_cat" otherwise (422), so nobody can hide
  * another cat's photo through a report about a different one.
  */
@@ -282,11 +290,12 @@ async function photoOfCat(
   const [sighting] = await db
     .select({ id: sightingsTable.id })
     .from(sightingsTable)
+    .leftJoin(sightingPhotosTable, eq(sightingPhotosTable.sightingId, sightingsTable.id))
     .where(
       and(
         eq(sightingsTable.catId, cat.id),
-        eq(sightingsTable.photoId, photo.id),
         eq(sightingsTable.status, "resolved"),
+        or(eq(sightingsTable.photoId, photo.id), eq(sightingPhotosTable.photoId, photo.id)),
       ),
     )
     .limit(1);
