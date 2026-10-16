@@ -1047,7 +1047,8 @@ describe("resolveCat", () => {
     ];
     const plain = resolveCat(base, evidence, now);
     const snapshot = resolveCat(withAppearance, evidence, now);
-    expect(snapshot.coat).toMatchObject({ value: ["ginger"], confidence: "confirmed" });
+    expect(snapshot.coatColours).toMatchObject({ value: ["ginger"], confidence: "confirmed" });
+    expect(snapshot.coatPattern).toMatchObject({ value: null, confidence: "unknown" });
     expect(snapshot.markings).toMatchObject({ value: ["white_paws"], confidence: "confirmed" });
     expect(snapshot.vaccinations.map((v) => v.vaccines)).toEqual([["rabies"]]);
     expect(snapshot.sterilised).toEqual(plain.sterilised);

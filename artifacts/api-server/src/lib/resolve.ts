@@ -13,8 +13,8 @@
  */
 import type { Observation } from "@workspace/db/schema";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
-import type { CoatColour, Mark } from "./appearance";
-import { COAT_COLOURS, MARKS, normaliseColours } from "./appearance";
+import type { CoatColour, CoatPattern, Mark } from "./appearance";
+import { COAT_COLOURS, COAT_PATTERNS, MARKS, readCoatValue } from "./appearance";
 import { todayInStreakTimezone } from "./streak";
 
 export type Confidence = "confirmed" | "likely" | "reported" | "unknown";
@@ -115,11 +115,14 @@ export interface CatSnapshot {
     clippedTipSightings: number;
   };
   /**
-   * SYC-2 (spec §10.2). Team-side: the public payload copies out only the
-   * value (PR 2.1), never confidence, authors, counts or check reasons.
-   * Never notifiable (data spine §9.3) and never read by the matcher.
+   * SYC-2 (spec §10.2), as two parts since SYC-398
+   * (coat-colours-and-pattern.md §4, §6): the colours and the pattern, each
+   * resolved on its own. Team-side: the public payload copies out only the
+   * values, never confidence, authors, counts or check reasons. Never
+   * notifiable (data spine §9.3) and never read by the matcher.
    */
-  coat: AppearanceResolved<CoatColour[]>;
+  coatColours: AppearanceResolved<CoatColour[]>;
+  coatPattern: AppearanceResolved<CoatPattern | null>;
   markings: AppearanceResolved<Mark[]>;
   /** Team-only, at launch and in every public payload (spec §6.3). */
   vaccinations: VaccinationRecord[];
@@ -1016,6 +1019,10 @@ export type AppearanceCheckReason =
   | "no_authority"
   | "spotters_over_machine"
   | "tied_camps"
+  /** Two groups of spotters each agree on a different pattern (SYC-398 §4). */
+  | "pattern_tied_camps"
+  /** The colours and the pattern come from different rules (SYC-398 §4, Decision 2A). */
+  | "mixed_sources"
   | "markings_reopened"
   | "markings_changed_recently";
 
@@ -1023,17 +1030,19 @@ export interface AppearanceResolved<T> extends Resolved<T> {
   checkReasons: AppearanceCheckReason[];
 }
 
-const COAT_COLOUR_SET: ReadonlySet<string> = new Set(COAT_COLOURS);
+/** Which of the five rules (spec §4.2, coat-colours-and-pattern.md §4)
+ * decided a part: 1 authority, 2 two spotters, 3 the machine, 4 one
+ * spotter, 5 not known. */
+export type CoatRule = 1 | 2 | 3 | 4 | 5;
 
-/** A coat row's colours, normalised (black + white is black and white), or
- * null for a malformed value. `["not_sure"]` comes back as `[]`: it says
+/** A projected row's codes for one part, or null for a malformed value.
+ * `["not_sure"]` and a machine row's `[]` come back as `[]`: they say
  * nothing. */
-function coatColours(value: unknown): CoatColour[] | null {
+function projectedCodes(value: unknown, codes: ReadonlySet<string>): string[] | null {
   if (typeof value !== "object" || value === null) return null;
   const raw = (value as { colours?: unknown }).colours;
-  if (!Array.isArray(raw) || !raw.every((c) => COAT_COLOUR_SET.has(c as string))) return null;
-  const colours = normaliseColours(raw as string[]) as CoatColour[];
-  return colours.filter((c) => c !== "not_sure");
+  if (!Array.isArray(raw) || !raw.every((c) => c === "not_sure" || codes.has(c as string))) return null;
+  return (raw as string[]).filter((c) => c !== "not_sure");
 }
 
 function sameColourSet(a: readonly string[], b: readonly string[]): boolean {
@@ -1041,29 +1050,43 @@ function sameColourSet(a: readonly string[], b: readonly string[]): boolean {
 }
 
 /**
- * A cat's coat colour (spec §4.2 "Colour", data spine §10.2). Pure.
+ * One part of a cat's coat (spec §4.2 "Colour", data spine §10.2;
+ * coat-colours-and-pattern.md §4), over rows already projected onto that
+ * part by `projectCoatRows`: each row's `value.colours` holds the part's
+ * codes. Pure. This is the engine `resolveCoat` was before SYC-398, with the
+ * code list and the number shown as parameters and no normaliser.
  *
  * Machine readings are the `provenance: "machine"` rows in the same list.
  *
  * 1. Authority: the highest `ranking` level present, then the newest by
  *    `observedAt`. A team Confirm is a statement with the same value.
  *    *Confirmed*. A later machine reading or spotter never beats it.
- * 2. Two independent voices per colour. Separate camps (nobody named both)
- *    show only the camp with the newer support, flagged `tied_camps`.
+ * 2. Two independent voices per code. Separate camps (nobody named both)
+ *    show only the camp with the newer support, flagged `tied_camps`; at
+ *    most `maxShown` codes, in the order of `codes`.
  *    *Likely*. If the machine has a different real reading, flagged
  *    `spotters_over_machine`.
  * 3. The machine's newest reading, if it is not Not sure. *Reported*.
  * 4. The newest single spotter fills a gap the machine left. *Reported*.
  * 5. Not sure: `value: null`, *unknown*.
  *
- * `no_authority` is set when the colour is the machine's alone or not sure.
+ * `no_authority` is set when the part is the machine's alone or not known.
+ *
+ * `voiceKeys` are the author chains of the cat's whole, untransformed coat
+ * history (`appearanceVoiceKeys`), so projecting rows away never splits one
+ * author into two voices.
  */
-export function resolveCoat(
+function resolveCodeSet(
   observations: readonly Observation[],
-  ranking: AppearanceRanking = appearanceAuthorityLevel,
-): AppearanceResolved<CoatColour[]> {
+  codes: readonly string[],
+  maxShown: number,
+  ranking: AppearanceRanking,
+  voiceKeys: ReadonlyMap<number, string>,
+): AppearanceResolved<string[]> & { rule: CoatRule } {
+  const codeSet: ReadonlySet<string> = new Set(codes);
+  const inCodeOrder = (xs: readonly string[]) => codes.filter((c) => xs.includes(c));
   const statements = standingAppearanceRows(observations, "coat", false, ranking).flatMap((row) => {
-    const colours = coatColours(row.value);
+    const colours = projectedCodes(row.value, codeSet);
     return colours ? [{ row, colours }] : [];
   });
 
@@ -1080,6 +1103,7 @@ export function resolveCoat(
       conflicts: [],
       asOf: toIso(authority.row.observedAt),
       checkReasons: [],
+      rule: 1,
     };
   }
 
@@ -1106,7 +1130,7 @@ export function resolveCoat(
   // independence and everything else (ship review finding 6).
   const voices = onePerVoice(
     statements.map((s) => s.row),
-    appearanceVoiceKeys(observations, "coat"),
+    voiceKeys,
   )
     .map((v) => {
       const lastNotSure = v.rows
@@ -1117,8 +1141,8 @@ export function resolveCoat(
     .filter((v) => coloursOfRow(v.row).length > 0);
   const coloursOf = (v: Voice) => coloursOfRow(v.row);
 
-  const agreed: { colour: CoatColour; voices: Voice[] }[] = [];
-  for (const colour of COAT_COLOURS) {
+  const agreed: { colour: string; voices: Voice[] }[] = [];
+  for (const colour of codes) {
     // The device's current colours come from its newest row; its evidence
     // for this colour is every one of its rows that named it.
     const holding = voices
@@ -1147,17 +1171,16 @@ export function resolveCoat(
     const campNewest = (camp: typeof agreed) => Math.max(...camp.map((a) => newestVoiceAt(a.voices)));
     const camp = campList.reduce((best, c) => (campNewest(c) > campNewest(best) ? c : best));
 
-    // Within the camp: most voices, then the newer support; at most two.
+    // Within the camp: most voices, then the newer support; at most
+    // `maxShown` (every agreed colour; one pattern).
     const shown = [...camp]
       .sort(
         (x, y) =>
           countingVoices(y.voices).length - countingVoices(x.voices).length ||
           newestVoiceAt(y.voices) - newestVoiceAt(x.voices),
       )
-      .slice(0, 2);
-    // Two agreed colours may be black and white from separate voices; the
-    // shown pair has one stored form, as every statement does.
-    const value = normaliseColours(shown.map((a) => a.colour)) as CoatColour[];
+      .slice(0, maxShown);
+    const value = inCodeOrder(shown.map((a) => a.colour));
     const supporting = [...new Set(shown.flatMap((a) => countingVoices(a.voices).map((v) => v.row.id)))];
 
     const checkReasons: AppearanceCheckReason[] = [];
@@ -1181,6 +1204,7 @@ export function resolveCoat(
       conflicts: [...new Set(conflicts)],
       asOf: new Date(asOfAt).toISOString(),
       checkReasons,
+      rule: 2,
     };
   }
 
@@ -1193,6 +1217,7 @@ export function resolveCoat(
       conflicts: [],
       asOf: toIso(machine.row.observedAt),
       checkReasons: ["no_authority"],
+      rule: 3,
     };
   }
 
@@ -1209,6 +1234,7 @@ export function resolveCoat(
       conflicts: [],
       asOf: toIso(newestVoice.row.observedAt),
       checkReasons: [],
+      rule: 4,
     };
   }
 
@@ -1220,7 +1246,87 @@ export function resolveCoat(
     conflicts: [],
     asOf: EPOCH,
     checkReasons: ["no_authority"],
+    rule: 5,
   };
+}
+
+
+/**
+ * The coat rows each part is resolved from (coat-colours-and-pattern.md §4).
+ *
+ * 1. Only the standing statements, worked out on the full, untransformed
+ *    history: a newer statement by the same author (or one authority
+ *    statement replacing another) replaces the WHOLE earlier one, so a part
+ *    the newer one doesn't state is "not stated", never the old one. Every
+ *    retraction and every machine row is kept as well, so the engine still
+ *    sees which machine row is the newest.
+ * 2. Each kept row is projected onto the part, as `{ colours: codes }`:
+ *    - a retraction stays as it is;
+ *    - a whole Not sure becomes `["not_sure"]`, the only withdrawal;
+ *    - a machine row is always kept, a part it doesn't state as `[]`, so the
+ *      newest machine row's missing part is not known and an older machine
+ *      row never fills it;
+ *    - a person's row that doesn't state the part is dropped from it (an old
+ *      "Tabby" says nothing of the colours, so withdraws nothing).
+ */
+function projectCoatRows(
+  observations: readonly Observation[],
+  ranking: AppearanceRanking,
+): { colours: Observation[]; pattern: Observation[] } {
+  const coatRows = observations.filter((o) => o.kind === "coat");
+  const standing = new Set(standingAppearanceRows(coatRows, "coat", false, ranking).map((o) => o.id));
+  const kept = coatRows.filter(
+    (o) => standing.has(o.id) || isRetractionValue(o.value) || o.provenance === "machine",
+  );
+  const project = (part: "colours" | "pattern"): Observation[] =>
+    kept.flatMap((o): Observation[] => {
+      if (isRetractionValue(o.value)) return [o];
+      const parts = readCoatValue(o.value);
+      if (parts?.notSure) return [{ ...o, value: { colours: ["not_sure"] } }];
+      const said: string[] | null = !parts
+        ? null
+        : part === "colours"
+          ? parts.colours
+          : parts.pattern
+            ? [parts.pattern]
+            : null;
+      if (o.provenance === "machine") return [{ ...o, value: { colours: said ?? [] } }];
+      return said ? [{ ...o, value: { colours: said } }] : [];
+    });
+  return { colours: project("colours"), pattern: project("pattern") };
+}
+
+export type CoatPartResolved<T> = AppearanceResolved<T> & { rule: CoatRule };
+
+/**
+ * A cat's coat as two parts, each resolved on its own with its own
+ * confidence, supporting statements, date and Colour check reasons
+ * (coat-colours-and-pattern.md §4). Pure.
+ *
+ * - Colours: every agreed colour is shown (no limit).
+ * - Pattern: one; two agreed patterns are `pattern_tied_camps`.
+ * - When both parts are known from different rules (say the team's colours
+ *   and the machine's pattern), both carry `mixed_sources` (Decision 2A).
+ */
+export function resolveCoatParts(
+  observations: readonly Observation[],
+  ranking: AppearanceRanking = appearanceAuthorityLevel,
+): { colours: CoatPartResolved<CoatColour[]>; pattern: CoatPartResolved<CoatPattern | null> } {
+  const voiceKeys = appearanceVoiceKeys(observations, "coat");
+  const projected = projectCoatRows(observations, ranking);
+  const c = resolveCodeSet(projected.colours, COAT_COLOURS, Infinity, ranking, voiceKeys);
+  const p = resolveCodeSet(projected.pattern, COAT_PATTERNS, 1, ranking, voiceKeys);
+  const colours: CoatPartResolved<CoatColour[]> = { ...c, value: c.value as CoatColour[] | null };
+  const pattern: CoatPartResolved<CoatPattern | null> = {
+    ...p,
+    value: (p.value?.[0] as CoatPattern | undefined) ?? null,
+    checkReasons: p.checkReasons.map((r) => (r === "tied_camps" ? "pattern_tied_camps" : r)),
+  };
+  if (colours.value !== null && pattern.value !== null && colours.rule !== pattern.rule) {
+    colours.checkReasons = [...colours.checkReasons, "mixed_sources"];
+    pattern.checkReasons = [...pattern.checkReasons, "mixed_sources"];
+  }
+  return { colours, pattern };
 }
 
 const MARK_SET: ReadonlySet<string> = new Set(MARKS);
@@ -1427,6 +1533,7 @@ export function resolveCat(
   const statusRows = observations.filter((o) => !APPEARANCE_AND_HEALTH_KINDS.has(o.kind));
   const life = resolveLifeStatus(statusRows, evidenceOfLife, now);
   const sterilised = resolveSterilised(statusRows, []);
+  const coat = resolveCoatParts(observations, appearanceAuthorityLevel);
   return {
     // resolveLifeStatus always resolves to a concrete status (street is the
     // untouched default) — never null, unlike the generic Resolved<T> shape
@@ -1442,7 +1549,8 @@ export function resolveCat(
       asOf: sterilised.asOf,
       clippedTipSightings: clippedTipCount(statusRows),
     },
-    coat: resolveCoat(observations, appearanceAuthorityLevel),
+    coatColours: coat.colours,
+    coatPattern: coat.pattern,
     markings: resolveMarkings(observations, now, appearanceAuthorityLevel),
     vaccinations: resolveVaccinated(observations),
   };

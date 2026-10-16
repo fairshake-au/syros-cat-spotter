@@ -7,7 +7,7 @@ import {
   hasTwoVoices,
   independentPair,
   onePerVoice,
-  resolveCoat,
+  resolveCoatParts,
   resolveMarkings,
   resolveVaccinated,
   standingAppearanceRows,
@@ -16,6 +16,15 @@ import {
   authorityLevel,
   type AppearanceRanking,
 } from "./resolve";
+import { coloursWithParity } from "./__fixtures__/coatParity";
+
+/**
+ * SYC-398 A1.3: the colour cases below now read the colours part of
+ * `resolveCoatParts`, over the same stored (old-shape) rows, and each also
+ * checks parity with the pre-SYC-398 engine (test 15). A case whose answer
+ * the new spec changes on purpose says why.
+ */
+const resolveCoat = coloursWithParity;
 
 // SYC-2 PR 1.2: colour, markings and vaccinations in the resolver
 // (coat-markings-and-health.md §4.2, §6.3, §10.2, §10.6; data spine §10.2
@@ -326,13 +335,13 @@ describe("resolveCoat: probed cases (plan PR 1.2 table)", () => {
         authorityScope: "owner_of_this_cat",
       }),
       // An owner-scope spotter answer is not a voice either: with device a
-      // it would make two.
-      spotterCoat("owner-device", ["tabby"], "2026-01-01T10:00:00Z", { authorityScope: "owner_of_this_cat" }),
-      spotterCoat("a", ["tabby"], "2026-01-05T10:00:00Z"),
+      // it would make two. (SYC-398: ginger, as Tabby is no longer a colour.)
+      spotterCoat("owner-device", ["ginger"], "2026-01-01T10:00:00Z", { authorityScope: "owner_of_this_cat" }),
+      spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
     ];
     const result = resolveCoat(rows, AUTHORITY_LEVEL_UNCARVED);
     expect(result.confidence).toBe("reported");
-    expect(result.value).toEqual(["tabby"]);
+    expect(result.value).toEqual(["ginger"]);
   });
 
   it("P8 a guardian's older statement beats the team's newer one; the newest wins within a level", () => {
@@ -402,13 +411,15 @@ describe("resolveCoat: plain cases", () => {
       spotterCoat("a", ["tortoiseshell_or_calico"], "2026-01-01T10:00:00Z"),
       spotterCoat("b", ["tortoiseshell_or_calico"], "2026-01-02T10:00:00Z"),
     ]);
-    expect(r).toMatchObject({ value: ["tortoiseshell_or_calico"], confidence: "likely", checkReasons: [] });
+    // SYC-398 §6: an old tortoiseshell is Black · Ginger (and Patches).
+    expect(r).toMatchObject({ value: ["black", "ginger"], confidence: "likely", checkReasons: [] });
   });
 
   it("rule 3 alone: the machine's reading is reported and on the check list", () => {
     const m = machineCoat(["grey", "tabby"], "2026-01-01");
+    // SYC-398 §6: an old Grey · Tabby is Grey (and Stripes).
     expect(resolveCoat([m])).toMatchObject({
-      value: ["grey", "tabby"],
+      value: ["grey"],
       confidence: "reported",
       supportingObservationIds: [m.id],
       checkReasons: ["no_authority"],
@@ -434,18 +445,31 @@ describe("resolveCoat: plain cases", () => {
     const r = resolveCoat([
       spotterCoat("a", ["ginger"], "2026-01-01T10:00:00Z"),
       spotterCoat("b", ["ginger"], "2026-01-02T10:00:00Z"),
-      team("coat", { colours: ["tabby"] }, "2026-01-03T10:00:00Z"),
+      team("coat", { colours: ["grey"] }, "2026-01-03T10:00:00Z"),
     ]);
-    expect(r).toMatchObject({ value: ["tabby"], confidence: "confirmed" });
+    expect(r).toMatchObject({ value: ["grey"], confidence: "confirmed" });
   });
 
   it("rule 1 over later spotters: two spotters after a team statement change nothing", () => {
     const r = resolveCoat([
-      team("coat", { colours: ["tabby"] }, "2026-01-01T10:00:00Z"),
+      team("coat", { colours: ["grey"] }, "2026-01-01T10:00:00Z"),
       spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
       spotterCoat("b", ["ginger"], "2026-01-06T10:00:00Z"),
     ]);
-    expect(r.value).toEqual(["tabby"]);
+    expect(r.value).toEqual(["grey"]);
+  });
+
+  it("SYC-398: an old team Tabby decides the pattern only; the colours fall to the spotters", () => {
+    // Before SYC-398 the team's Tabby was a colour and won. It never said
+    // the coat's colours, so now they fall through (spec §4, §6).
+    const rows = [
+      team("coat", { colours: ["tabby"] }, "2026-01-01T10:00:00Z"),
+      spotterCoat("a", ["ginger"], "2026-01-05T10:00:00Z"),
+      spotterCoat("b", ["ginger"], "2026-01-06T10:00:00Z"),
+    ];
+    const colours = resolveCoat(rows, undefined, { exempt: "a team Tabby states no colour (spec §4)" });
+    expect(colours).toMatchObject({ value: ["ginger"], confidence: "likely" });
+    expect(resolveCoatParts(rows).pattern).toMatchObject({ value: "stripes", confidence: "confirmed" });
   });
 
   it("rule 2 over rule 3: two spotters overturn the machine and flag spotters_over_machine", () => {
@@ -488,12 +512,13 @@ describe("resolveCoat: plain cases", () => {
   });
 
   it("black + white equals black and white", () => {
-    // A row written before normalising existed still agrees with the stored form.
+    // A row written before normalising existed still agrees with the stored
+    // form; both read as Black · White (SYC-398 §6).
     const r = resolveCoat([
       spotterCoat("a", ["black", "white"], "2026-01-01T10:00:00Z"),
       spotterCoat("b", ["black_and_white"], "2026-01-02T10:00:00Z"),
     ]);
-    expect(r).toMatchObject({ value: ["black_and_white"], confidence: "likely" });
+    expect(r).toMatchObject({ value: ["black", "white"], confidence: "likely" });
   });
 
   it("two gap-filling spotters with different colours show the newest", () => {
@@ -504,14 +529,15 @@ describe("resolveCoat: plain cases", () => {
     expect(r.value).toEqual(["white"]);
   });
 
-  it("more than two agreed colours in one camp show the two with the most voices", () => {
+  it("more than two agreed colours in one camp: every colour is shown (SYC-398 lifts the cap of two)", () => {
     const r = resolveCoat([
       spotterCoat("a", ["ginger", "tabby"], "2026-01-01T10:00:00Z"),
       spotterCoat("b", ["ginger", "white"], "2026-01-02T10:00:00Z"),
       spotterCoat("c", ["ginger", "tabby"], "2026-01-03T10:00:00Z"),
       spotterCoat("d", ["white"], "2026-01-04T10:00:00Z"),
     ]);
-    // ginger 3 voices, tabby 2, white 2 (newer): ginger then white.
+    // ginger 3 voices, white 2; Tabby is no longer a colour (it is the
+    // pattern). Shown in display order.
     expect(r.value).toEqual(["ginger", "white"]);
     expect(r.checkReasons).toEqual([]);
   });
@@ -847,7 +873,7 @@ describe("review finding 3: a retraction removes exactly the row it points at", 
 });
 
 describe("review finding 4: the shown colour is never raw black + white", () => {
-  it("R4 black and white agreed by separate voices show as black and white", () => {
+  it("R4 black, grey and white agreed in one camp are all shown (SYC-398: no cap, no stored pair form)", () => {
     const rows = [
       spotterCoat("v1", ["black"], "2026-01-01T10:00:00Z"),
       spotterCoat("v2", ["black"], "2026-01-02T10:00:00Z"),
@@ -856,7 +882,7 @@ describe("review finding 4: the shown colour is never raw black + white", () => 
       spotterCoat("v5", ["black", "grey"], "2026-01-05T10:00:00Z"),
       spotterCoat("v6", ["grey", "white"], "2026-01-06T10:00:00Z"),
     ];
-    expect(resolveCoat(rows).value).toEqual(["black_and_white"]);
+    expect(resolveCoat(rows).value).toEqual(["black", "grey", "white"]);
   });
 });
 
@@ -890,8 +916,9 @@ describe("review finding 6: spec §4.2 colour rule 2's tie-break", () => {
       spotterCoat("v3", ["ginger", "tabby"], "2026-01-04T10:00:00Z"),
       spotterCoat("v4", ["ginger", "tabby"], "2026-01-06T10:00:00Z"),
     ]);
-    // ginger 3 voices; white and tabby 2 each, tabby's newest is later.
-    expect(r.value).toEqual(["ginger", "tabby"]);
+    // ginger 3 voices; white 2. SYC-398: Tabby is the pattern, and with no
+    // cap every agreed colour is shown, so the tie-break no longer hides one.
+    expect(r.value).toEqual(["ginger", "white"]);
   });
 });
 
@@ -1129,13 +1156,15 @@ describe("review (ship) finding 7: three mutations that used to stay green", () 
       spotterCoat("h", ["white"], "2026-01-07T10:00:00Z", { provenance: "prompted" }),
       spotterCoat("d", ["tabby"], "2026-01-10T10:00:00Z"),
     ]);
-    // ginger 3; tabby 2 (newest 10 Jan); white 2 counting (newest 5 Jan).
-    expect(r.value).toEqual(["ginger", "tabby"]);
+    // ginger 3; white 2 counting. SYC-398: Tabby is the pattern, and every
+    // agreed colour is shown, so the ranking no longer decides what is shown.
+    expect(r.value).toEqual(["ginger", "white"]);
   });
 
   it("M3 spotters_over_machine is raised on a partial overlap with the machine", () => {
+    // SYC-398: Ginger · White, as an old Ginger · Tabby now reads as Ginger.
     const r = resolveCoat([
-      machineCoat(["ginger", "tabby"], "2026-01-01T09:00:00Z"),
+      machineCoat(["ginger", "white"], "2026-01-01T09:00:00Z"),
       spotterCoat("a", ["ginger"], "2026-01-02T10:00:00Z"),
       spotterCoat("b", ["ginger"], "2026-01-03T10:00:00Z"),
     ]);
