@@ -356,6 +356,40 @@ describe("a guardian can't supersede the team's statement or another guardian's"
     expect(own.supersedesId).toBe(hers);
   });
 
+  it("SYC-316: nobody marks someone else's lower-ranked statement with standing wrong (an owner over the team's)", async () => {
+    // Probe: drop the rank rule in writeObservation → red.
+    const cat = await seedCat(colonyA);
+    const teamRow = (await post(team, "/api/team/observations", {
+      catId: cat.id,
+      kind: "life_status",
+      value: { status: "in_care" },
+      reason: "At the clinic",
+    })).body.id as number;
+    await expect(
+      db.transaction((tx) =>
+        writeObservation(tx, {
+          catId: cat.id,
+          kind: "life_status",
+          value: { status: "homed" },
+          deviceId: `vt-gstat-owner-${RUN}`,
+          roleAtTime: "public",
+          authorityScope: "owner_of_this_cat",
+          observedAt: new Date(),
+          supersedesId: teamRow,
+          supersedeReason: "She lives with me",
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "NOT_YOUR_ROW" });
+    // The other way round is the point of superseding: the team marks a
+    // higher-ranked statement (hers) wrong.
+    const hers = (await sayLife(eleni, cat.id, { status: "homed", reason: "Adopted" })).body.statementId;
+    const res = await post(team, `/api/team/observations/${hers}/supersede`, {
+      value: { status: "street" },
+      reason: "Seen out again",
+    });
+    expect(res.status).toBe(201);
+  });
+
   it("the team's supersede route refuses her: it is the team's (island-only)", async () => {
     const cat = await seedCat(colonyA);
     const teamRow = (await post(team, "/api/team/observations", {
@@ -394,9 +428,16 @@ describe("her page's `mine` block: her own statements only", () => {
       value: { sterilised: true },
       reason: "Team looked again vt-secret",
     });
+    // The team also looks again at Dimitra's: that is hers to hear, not Eleni's.
+    await post(team, `/api/team/observations/${dims}/supersede`, {
+      value: { status: "street" },
+      reason: "Back on the street vt-secret",
+    });
     const hers = (await sayLife(eleni, cat.id, { status: "homed", reason: "Adopted" })).body
       .statementId as number;
     const body = (await get(eleni, `/api/team/my/cats/${cat.id}`)).body;
+    // Probe: drop the author filter on her statements → red.
+    expect(body.mine.lookedAgain).toEqual([{ kind: "sterilised", now: true, at: expect.any(String) }]);
     expect(Object.keys(body.mine).sort()).toEqual(MINE_FIELDS);
     expect(Object.keys(body.mine.putBack).sort()).toEqual(PUT_BACK_FIELDS);
     expect(body.mine.putBack.statementId).toBe(hers);
